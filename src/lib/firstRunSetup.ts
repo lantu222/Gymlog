@@ -1,0 +1,806 @@
+import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { buildTailoringRecommendationNote, rankProgramIdsByTailoring, TailoringPreferencesInput } from './tailoringFit';
+import {
+  SetupDaysPerWeek,
+  SetupEquipment,
+  SetupGuidanceMode,
+  SetupScheduleMode,
+  SetupWeekday,
+  SetupGoal,
+  SetupLevel,
+  SetupFocusArea,
+  SetupSecondaryOutcome,
+  UnitPreference,
+} from '../types/models';
+import { ValluTrainingContext } from '../types/vallu';
+
+export interface FirstRunSetupSelection {
+  goal: SetupGoal;
+  level: SetupLevel;
+  daysPerWeek: SetupDaysPerWeek;
+  equipment: SetupEquipment;
+  secondaryOutcomes: SetupSecondaryOutcome[];
+  focusAreas: SetupFocusArea[];
+  guidanceMode: SetupGuidanceMode;
+  scheduleMode: SetupScheduleMode;
+  weeklyMinutes?: number | null;
+  availableDays: SetupWeekday[];
+  currentWeightKg?: number | null;
+  targetWeightKg?: number | null;
+  unitPreference: UnitPreference;
+}
+
+export interface FirstRunRecommendation {
+  featuredProgramId: string;
+  secondaryProgramId: string | null;
+  mismatchNote: string | null;
+}
+
+export type FirstRunStep = 'location' | 'goal' | 'outcomes' | 'planning' | 'about' | 'recommendation';
+
+const PROGRAM_IDS = {
+  minimal: 'tpl_2_day_minimal_full_body_v1',
+  beginnerStrength: 'tpl_2_day_beginner_strength_v1',
+  strengthBase: 'tpl_3_day_strength_base_v1',
+  strengthSize: 'tpl_4_day_strength_size_v1',
+  upperLowerLite: 'tpl_3_day_upper_lower_lite_v1',
+  pushPullLegs: 'tpl_3_day_push_pull_legs_v1',
+  muscleBuilder: 'tpl_4_day_muscle_builder_v1',
+  powerbuilding: 'tpl_4_day_powerbuilding_v1',
+  mobilityReset: 'tpl_2_day_mobility_reset_v1',
+  yogaRecovery: 'tpl_2_day_yoga_recovery_v1',
+  runMobility: 'tpl_3_day_run_mobility_v1',
+} as const;
+
+export const DEFAULT_RHYTHM_BY_DAYS: Record<SetupDaysPerWeek, SetupWeekday[]> = {
+  2: ['mon', 'thu'],
+  3: ['mon', 'wed', 'fri'],
+  4: ['mon', 'tue', 'thu', 'sat'],
+};
+
+const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
+  goal: 'strength',
+  level: 'beginner',
+  daysPerWeek: 3,
+  equipment: 'gym',
+  secondaryOutcomes: ['consistency'],
+  focusAreas: [],
+  guidanceMode: 'guided_editable',
+  scheduleMode: 'app_managed',
+  weeklyMinutes: null,
+  availableDays: [],
+  currentWeightKg: null,
+  targetWeightKg: null,
+  unitPreference: 'kg',
+};
+
+function getGoalLabel(goal: SetupGoal) {
+  switch (goal) {
+    case 'strength':
+      return 'strength';
+    case 'muscle':
+      return 'muscle-building';
+    case 'general':
+      return 'general fitness';
+    case 'run_mobility':
+      return 'run + mobility';
+    default:
+      return 'training';
+  }
+}
+
+export function getSetupGoalTitle(goal: SetupGoal) {
+  switch (goal) {
+    case 'strength':
+      return 'Get stronger';
+    case 'muscle':
+      return 'Build muscle';
+    case 'general':
+      return 'General fitness';
+    case 'run_mobility':
+      return 'Run + mobility';
+    default:
+      return 'Training';
+  }
+}
+
+function getEquipmentLabel(equipment: SetupEquipment) {
+  switch (equipment) {
+    case 'gym':
+      return 'a full gym';
+    case 'minimal':
+      return 'minimal equipment';
+    case 'home':
+      return 'a home setup';
+    default:
+      return 'your equipment';
+  }
+}
+
+export function getSetupEquipmentTitle(equipment: SetupEquipment) {
+  switch (equipment) {
+    case 'gym':
+      return 'Full gym';
+    case 'home':
+      return 'Home setup';
+    case 'minimal':
+      return 'Minimal setup';
+    default:
+      return 'Equipment';
+  }
+}
+
+export function getSecondaryOutcomeLabel(outcome: SetupSecondaryOutcome) {
+  switch (outcome) {
+    case 'consistency':
+      return 'consistency';
+    case 'mobility':
+      return 'mobility';
+    case 'conditioning':
+      return 'conditioning';
+    case 'muscle':
+      return 'muscle';
+    case 'strength':
+      return 'strength';
+    default:
+      return 'progress';
+  }
+}
+
+export function getSecondaryOutcomeTitle(outcome: SetupSecondaryOutcome) {
+  switch (outcome) {
+    case 'consistency':
+      return 'Stay consistent';
+    case 'mobility':
+      return 'Move better';
+    case 'conditioning':
+      return 'Keep conditioning up';
+    case 'muscle':
+      return 'Add muscle';
+    case 'strength':
+      return 'Keep strength moving';
+    default:
+      return 'Keep progressing';
+  }
+}
+
+export function getGuidanceModeLabel(mode: SetupGuidanceMode) {
+  switch (mode) {
+    case 'done_for_me':
+      return 'Keep it simple for me';
+    case 'guided_editable':
+      return 'Recommend it, I will edit';
+    case 'self_directed':
+      return 'I want to build it myself';
+    default:
+      return 'Guided';
+  }
+}
+
+export function getGuidanceModeDescription(mode: SetupGuidanceMode) {
+  switch (mode) {
+    case 'done_for_me':
+      return 'One ready plan.';
+    case 'guided_editable':
+      return 'Recommend, then edit.';
+    case 'self_directed':
+      return 'Start from a base.';
+    default:
+      return 'Start with a base.';
+  }
+}
+
+export function getScheduleModeLabel(mode: SetupScheduleMode) {
+  switch (mode) {
+    case 'app_managed':
+      return 'Plan it for me';
+    case 'self_managed':
+      return "I'll manage the days";
+    default:
+      return 'Manage the schedule';
+  }
+}
+
+export function getScheduleModeDescription(mode: SetupScheduleMode) {
+  switch (mode) {
+    case 'app_managed':
+      return 'Gymlog places the week.';
+    case 'self_managed':
+      return 'You pick the days.';
+    default:
+      return 'Pick the week style.';
+  }
+}
+
+export function getWeekdayShortLabel(day: SetupWeekday) {
+  switch (day) {
+    case 'mon':
+      return 'Mon';
+    case 'tue':
+      return 'Tue';
+    case 'wed':
+      return 'Wed';
+    case 'thu':
+      return 'Thu';
+    case 'fri':
+      return 'Fri';
+    case 'sat':
+      return 'Sat';
+    case 'sun':
+      return 'Sun';
+    default:
+      return 'Day';
+  }
+}
+
+export function formatWeekdayList(days: SetupWeekday[]) {
+  return formatList(days.map((day) => getWeekdayShortLabel(day)));
+}
+
+export function getFocusAreaTitle(area: SetupFocusArea) {
+  switch (area) {
+    case 'arms':
+      return 'Arms';
+    case 'glutes':
+      return 'Glutes';
+    case 'core':
+      return 'Core';
+    case 'conditioning':
+      return 'Conditioning';
+    default:
+      return 'Focus';
+  }
+}
+
+export function getFocusAreaDescription(area: SetupFocusArea) {
+  switch (area) {
+    case 'arms':
+      return 'More arm work.';
+    case 'glutes':
+      return 'More glute work.';
+    case 'core':
+      return 'More core work.';
+    case 'conditioning':
+      return 'More engine work.';
+    default:
+      return 'One extra focus.';
+  }
+}
+
+function formatList(items: string[]) {
+  if (items.length === 0) {
+    return '';
+  }
+
+  if (items.length === 1) {
+    return items[0];
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+export function formatSecondaryOutcomeList(outcomes: SetupSecondaryOutcome[]) {
+  return formatList(outcomes.map((outcome) => getSecondaryOutcomeLabel(outcome)));
+}
+
+export function formatFocusAreaList(focusAreas: SetupFocusArea[]) {
+  return formatList(focusAreas.map((area) => getFocusAreaTitle(area)));
+}
+
+function normalizeWeekdays(days: SetupWeekday[]) {
+  return [...new Set(days)].sort((left, right) => WEEKDAY_ORDER.indexOf(left) - WEEKDAY_ORDER.indexOf(right));
+}
+
+function roundToNearestTen(value: number) {
+  return Math.round(value / 10) * 10;
+}
+
+function buildCombinationList(days: SetupWeekday[], targetSize: number): SetupWeekday[][] {
+  if (targetSize <= 0) {
+    return [[]];
+  }
+
+  if (days.length < targetSize) {
+    return [];
+  }
+
+  if (targetSize === 1) {
+    return days.map((day) => [day]);
+  }
+
+  const combinations: SetupWeekday[][] = [];
+  days.forEach((day, index) => {
+    const tail = buildCombinationList(days.slice(index + 1), targetSize - 1);
+    tail.forEach((combination) => {
+      combinations.push([day, ...combination]);
+    });
+  });
+  return combinations;
+}
+
+function scoreWeekdayCombination(days: SetupWeekday[]) {
+  const indexes = normalizeWeekdays(days).map((day) => WEEKDAY_ORDER.indexOf(day));
+  const gaps = indexes.map((current, index) => {
+    const next = indexes[(index + 1) % indexes.length];
+    return index === indexes.length - 1 ? next + 7 - current : next - current;
+  });
+  const minGap = Math.min(...gaps);
+  const maxGap = Math.max(...gaps);
+  const gapSpread = maxGap - minGap;
+  const weekdayBias = indexes.reduce((sum, value) => sum + value, 0);
+  return minGap * 100 - gapSpread * 10 - weekdayBias;
+}
+
+function resolveDefaultRhythm(daysPerWeek: number) {
+  if (daysPerWeek === 2 || daysPerWeek === 3 || daysPerWeek === 4) {
+    return DEFAULT_RHYTHM_BY_DAYS[daysPerWeek];
+  }
+
+  return DEFAULT_RHYTHM_BY_DAYS[DEFAULT_FIRST_RUN_SELECTION.daysPerWeek];
+}
+
+export function getRecommendedWeeklyMinutes(daysPerWeek: number, estimatedSessionDuration?: number | null) {
+  const fallbackSessionDuration = daysPerWeek >= 4 ? 55 : daysPerWeek === 2 ? 45 : 50;
+  return roundToNearestTen(Math.max(60, daysPerWeek * (estimatedSessionDuration ?? fallbackSessionDuration)));
+}
+
+export function getWeeklyMinuteOptions(daysPerWeek: number, estimatedSessionDuration?: number | null) {
+  const baseline = getRecommendedWeeklyMinutes(daysPerWeek, estimatedSessionDuration);
+  const step = daysPerWeek >= 4 ? 40 : 30;
+  return [...new Set([Math.max(60, baseline - step), baseline, Math.min(360, baseline + step)])];
+}
+
+export function getEffectiveWeeklyMinutes(
+  selection: Pick<FirstRunSetupSelection, 'weeklyMinutes'>,
+  daysPerWeek: number,
+  estimatedSessionDuration?: number | null,
+) {
+  return typeof selection.weeklyMinutes === 'number' && selection.weeklyMinutes > 0
+    ? selection.weeklyMinutes
+    : getRecommendedWeeklyMinutes(daysPerWeek, estimatedSessionDuration);
+}
+
+export function resolveProjectedTrainingDays(
+  selection: Pick<FirstRunSetupSelection, 'scheduleMode' | 'availableDays'>,
+  daysPerWeek: number,
+) {
+  const defaultRhythm = resolveDefaultRhythm(daysPerWeek);
+  if (selection.scheduleMode !== 'self_managed') {
+    return defaultRhythm;
+  }
+
+  const normalizedDays = normalizeWeekdays(selection.availableDays);
+  if (normalizedDays.length < defaultRhythm.length) {
+    return defaultRhythm;
+  }
+
+  if (normalizedDays.length === defaultRhythm.length) {
+    return normalizedDays;
+  }
+
+  const combinations = buildCombinationList(normalizedDays, defaultRhythm.length);
+  if (combinations.length === 0) {
+    return defaultRhythm;
+  }
+
+  return combinations.reduce((best, current) =>
+    scoreWeekdayCombination(current) > scoreWeekdayCombination(best) ? current : best,
+  );
+}
+
+export function buildScheduleFitNote(
+  selection: Pick<FirstRunSetupSelection, 'scheduleMode' | 'weeklyMinutes' | 'availableDays'>,
+  daysPerWeek: number,
+  estimatedSessionDuration?: number | null,
+) {
+  const effectiveWeeklyMinutes = getEffectiveWeeklyMinutes(selection, daysPerWeek, estimatedSessionDuration);
+  const recommendedWeeklyMinutes = getRecommendedWeeklyMinutes(daysPerWeek, estimatedSessionDuration);
+  const requiredDays = resolveDefaultRhythm(daysPerWeek).length;
+
+  if (selection.scheduleMode === 'self_managed' && selection.availableDays.length < requiredDays) {
+    return `Pick ${requiredDays} days.`;
+  }
+
+  if (effectiveWeeklyMinutes < recommendedWeeklyMinutes - 20) {
+    return 'Tight week. Shorter sessions.';
+  }
+
+  if (effectiveWeeklyMinutes > recommendedWeeklyMinutes + 40) {
+    return 'Extra room this week.';
+  }
+
+  return 'This week fits well.';
+}
+
+export function buildFirstRunRecommendationReasons(
+  selection: FirstRunSetupSelection,
+  options: {
+    projectedDaysPerWeek: number;
+    estimatedSessionDuration?: number | null;
+    mismatchNote?: string | null;
+  },
+  tailoringPreferences?: TailoringPreferencesInput | null,
+) {
+  const reasons: string[] = [];
+  const projectedDays = options.projectedDaysPerWeek;
+  const weeklyMinutes = getEffectiveWeeklyMinutes(selection, projectedDays, options.estimatedSessionDuration ?? null);
+  const scheduleDays =
+    selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
+      ? formatWeekdayList(resolveProjectedTrainingDays(selection, projectedDays))
+      : null;
+  const outcomeSummary = formatSecondaryOutcomeList(
+    selection.secondaryOutcomes.filter((outcome) => outcome !== 'consistency'),
+  );
+  const focusSummary = formatFocusAreaList(selection.focusAreas);
+
+  reasons.push(
+    `${projectedDays} days for ${getGoalLabel(selection.goal)}.`,
+  );
+
+  if (selection.equipment !== 'gym') {
+    reasons.push(`Built for ${getEquipmentLabel(selection.equipment)}.`);
+  } else if (selection.scheduleMode === 'self_managed' && scheduleDays) {
+    reasons.push(`${weeklyMinutes} min across ${scheduleDays}.`);
+  } else {
+    reasons.push(`About ${weeklyMinutes} min this week.`);
+  }
+
+  if (focusSummary) {
+    reasons.push(`Extra focus: ${focusSummary}.`);
+  } else if (outcomeSummary) {
+    reasons.push(`Also keeps ${outcomeSummary}.`);
+  } else if (selection.guidanceMode === 'self_directed') {
+    reasons.push('Easy to turn into custom.');
+  } else if (selection.guidanceMode === 'done_for_me') {
+    reasons.push('Simple start.');
+  } else {
+    reasons.push('Easy to edit later.');
+  }
+
+  if (options.mismatchNote) {
+    reasons.push(options.mismatchNote.replace('This is the closest match right now.', 'Closest match.'));
+  }
+
+  const tailoringNote = buildTailoringRecommendationNote(tailoringPreferences);
+  if (tailoringNote) {
+    reasons.push(tailoringNote);
+  }
+
+  return reasons.slice(0, 4);
+}
+
+function buildFocusAreasPromptFragment(selection: FirstRunSetupSelection) {
+  const focusAreas = formatFocusAreaList(selection.focusAreas);
+  return focusAreas ? ` I also want extra focus on ${focusAreas}.` : '';
+}
+
+function buildSchedulePromptFragment(selection: FirstRunSetupSelection) {
+  const scheduleMode = selection.scheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode;
+  const availableDays = Array.isArray(selection.availableDays) ? selection.availableDays : [];
+  const fragments: string[] = [];
+
+  fragments.push(
+    scheduleMode === 'self_managed'
+      ? 'I want to manage the training days myself'
+      : 'I am happy to let Gymlog place the weekly rhythm for me',
+  );
+
+  if (typeof selection.weeklyMinutes === 'number' && selection.weeklyMinutes > 0) {
+    fragments.push(`I can train about ${selection.weeklyMinutes} minutes per week`);
+  }
+
+  if (scheduleMode === 'self_managed' && availableDays.length > 0) {
+    fragments.push(`the days that usually work are ${formatWeekdayList(availableDays)}`);
+  }
+
+  return fragments.length ? ` ${fragments.join(', ')}.` : '';
+}
+
+function buildGuidancePromptFragment(mode: SetupGuidanceMode) {
+  switch (mode) {
+    case 'done_for_me':
+      return 'Gymlog to keep the path simple and mostly done for me';
+    case 'guided_editable':
+      return 'Gymlog to recommend the path but still leave room to edit';
+    case 'self_directed':
+      return 'a strong starting point before I build my own split';
+    default:
+      return 'a clear starting path';
+  }
+}
+
+function buildWeightPromptFragment(selection: FirstRunSetupSelection) {
+  const currentWeight = selection.currentWeightKg;
+  const targetWeight = selection.targetWeightKg;
+
+  if (typeof currentWeight === 'number' && typeof targetWeight === 'number') {
+    return ` I am currently ${Math.round(currentWeight)} kg and aiming for ${Math.round(targetWeight)} kg.`;
+  }
+
+  if (typeof currentWeight === 'number') {
+    return ` I currently weigh about ${Math.round(currentWeight)} kg.`;
+  }
+
+  if (typeof targetWeight === 'number') {
+    return ` I am aiming for about ${Math.round(targetWeight)} kg.`;
+  }
+
+  return '';
+}
+
+function buildLowEquipmentMismatchNote(selection: FirstRunSetupSelection) {
+  const base =
+    selection.daysPerWeek === 2
+      ? 'You picked a lighter equipment setup, so this is the cleanest low-equipment starting point.'
+      : 'You picked a lighter equipment setup, so Gymlog recommends the closest low-equipment starting point even though the weekly rhythm is lighter than your target.';
+
+  return selection.guidanceMode === 'self_directed'
+    ? `${base} You can still use it as the base for your own custom split.`
+    : base;
+}
+
+export function resolveFirstRunRecommendation(selection: FirstRunSetupSelection): FirstRunRecommendation {
+  return resolveFirstRunRecommendationWithTailoring(selection, null);
+}
+
+function finalizeRecommendation(
+  candidateProgramIds: Array<string | null | undefined>,
+  mismatchNote: string | null,
+  tailoringPreferences?: TailoringPreferencesInput | null,
+): FirstRunRecommendation {
+  const uniqueCandidates = [...new Set(candidateProgramIds.filter((value): value is string => Boolean(value)))];
+  const rankedCandidates = rankProgramIdsByTailoring(uniqueCandidates, tailoringPreferences);
+
+  return {
+    featuredProgramId: rankedCandidates[0] ?? uniqueCandidates[0] ?? PROGRAM_IDS.minimal,
+    secondaryProgramId: rankedCandidates[1] ?? null,
+    mismatchNote,
+  };
+}
+
+export function resolveFirstRunRecommendationWithTailoring(
+  selection: FirstRunSetupSelection,
+  tailoringPreferences?: TailoringPreferencesInput | null,
+): FirstRunRecommendation {
+  const lowEquipment = selection.equipment === 'minimal' || selection.equipment === 'home';
+  const wantsStrengthBlend = selection.secondaryOutcomes.includes('strength');
+  const wantsMuscleBlend = selection.secondaryOutcomes.includes('muscle');
+  const wantsMobility = selection.secondaryOutcomes.includes('mobility');
+  const wantsConditioning = selection.secondaryOutcomes.includes('conditioning');
+
+  if (selection.goal === 'run_mobility') {
+    if (selection.daysPerWeek === 2) {
+      return finalizeRecommendation(
+        [PROGRAM_IDS.mobilityReset, PROGRAM_IDS.yogaRecovery],
+        null,
+        tailoringPreferences,
+      );
+    }
+
+    return finalizeRecommendation(
+      [
+        PROGRAM_IDS.runMobility,
+        selection.daysPerWeek === 4 ? PROGRAM_IDS.yogaRecovery : PROGRAM_IDS.mobilityReset,
+      ],
+      selection.daysPerWeek === 4
+        ? 'Gymlog closest match is a 3-day run + mobility split. Add Yoga Recovery as an optional 4th session if you want extra movement.'
+        : null,
+      tailoringPreferences,
+    );
+  }
+
+  if (lowEquipment) {
+    return finalizeRecommendation(
+      [
+        PROGRAM_IDS.minimal,
+        selection.goal === 'general' || wantsMobility || wantsConditioning ? PROGRAM_IDS.mobilityReset : null,
+        PROGRAM_IDS.yogaRecovery,
+      ],
+      buildLowEquipmentMismatchNote(selection),
+      tailoringPreferences,
+    );
+  }
+
+  if (selection.goal === 'strength') {
+    if (selection.daysPerWeek === 2) {
+      return finalizeRecommendation(
+        [
+          PROGRAM_IDS.beginnerStrength,
+          wantsMobility ? PROGRAM_IDS.mobilityReset : PROGRAM_IDS.minimal,
+          PROGRAM_IDS.upperLowerLite,
+        ],
+        null,
+        tailoringPreferences,
+      );
+    }
+
+    if (selection.daysPerWeek === 4 && selection.level === 'intermediate' && wantsMuscleBlend) {
+      return finalizeRecommendation(
+        [PROGRAM_IDS.powerbuilding, PROGRAM_IDS.strengthSize],
+        null,
+        tailoringPreferences,
+      );
+    }
+
+    return finalizeRecommendation(
+      [
+        selection.daysPerWeek === 3 ? PROGRAM_IDS.strengthBase : PROGRAM_IDS.strengthSize,
+        selection.daysPerWeek === 3
+          ? wantsMobility
+            ? PROGRAM_IDS.upperLowerLite
+            : PROGRAM_IDS.beginnerStrength
+          : wantsMuscleBlend
+            ? PROGRAM_IDS.powerbuilding
+            : PROGRAM_IDS.strengthBase,
+        PROGRAM_IDS.upperLowerLite,
+      ],
+      null,
+      tailoringPreferences,
+    );
+  }
+
+  if (selection.goal === 'muscle') {
+    if (selection.daysPerWeek === 2) {
+      return finalizeRecommendation(
+        [
+          PROGRAM_IDS.minimal,
+          wantsStrengthBlend ? PROGRAM_IDS.beginnerStrength : PROGRAM_IDS.pushPullLegs,
+          PROGRAM_IDS.mobilityReset,
+        ],
+        null,
+        tailoringPreferences,
+      );
+    }
+
+    if (selection.daysPerWeek === 4 && wantsStrengthBlend) {
+      return finalizeRecommendation(
+        [PROGRAM_IDS.powerbuilding, PROGRAM_IDS.muscleBuilder, PROGRAM_IDS.strengthSize],
+        null,
+        tailoringPreferences,
+      );
+    }
+
+    return finalizeRecommendation(
+      [
+        selection.daysPerWeek === 3 ? PROGRAM_IDS.pushPullLegs : PROGRAM_IDS.muscleBuilder,
+        selection.daysPerWeek === 3
+          ? wantsStrengthBlend
+            ? PROGRAM_IDS.strengthBase
+            : PROGRAM_IDS.minimal
+          : wantsStrengthBlend
+            ? PROGRAM_IDS.powerbuilding
+            : PROGRAM_IDS.pushPullLegs,
+        PROGRAM_IDS.upperLowerLite,
+      ],
+      null,
+      tailoringPreferences,
+    );
+  }
+
+  if (selection.daysPerWeek === 2) {
+    return finalizeRecommendation(
+      [
+        wantsMobility || wantsConditioning ? PROGRAM_IDS.mobilityReset : PROGRAM_IDS.minimal,
+        wantsMobility || wantsConditioning ? PROGRAM_IDS.minimal : PROGRAM_IDS.beginnerStrength,
+        PROGRAM_IDS.yogaRecovery,
+      ],
+      null,
+      tailoringPreferences,
+    );
+  }
+
+  return finalizeRecommendation(
+    [
+      selection.daysPerWeek === 3 ? PROGRAM_IDS.upperLowerLite : PROGRAM_IDS.powerbuilding,
+      selection.daysPerWeek === 3
+        ? wantsMobility || wantsConditioning
+          ? PROGRAM_IDS.mobilityReset
+          : PROGRAM_IDS.minimal
+        : wantsMuscleBlend
+          ? PROGRAM_IDS.muscleBuilder
+          : PROGRAM_IDS.upperLowerLite,
+      PROGRAM_IDS.strengthSize,
+    ],
+    null,
+    tailoringPreferences,
+  );
+}
+
+export function buildFirstRunPromptSuggestions(
+  selection: FirstRunSetupSelection,
+  recommendationProgramName?: string | null,
+) {
+  const goalLabel = getGoalLabel(selection.goal);
+  const recommendationLabel = recommendationProgramName ?? 'this plan';
+  return [
+    `Best ${selection.daysPerWeek}-day ${goalLabel} start?`,
+    `${recommendationLabel} or another plan?`,
+    selection.guidanceMode === 'self_directed'
+      ? 'Turn this into custom?'
+      : `How should I start with ${selection.daysPerWeek} days?`,
+  ];
+}
+
+export function buildFirstRunHelperPrompt(
+  step: FirstRunStep,
+  selection: FirstRunSetupSelection,
+  recommendationProgramName?: string | null,
+) {
+  if (step === 'location') {
+    return `Best start for ${getEquipmentLabel(selection.equipment)}?`;
+  }
+
+  if (step === 'goal') {
+    return `Right goal for ${selection.level} ${getGoalLabel(selection.goal)}?`;
+  }
+
+  if (step === 'outcomes') {
+    return selection.secondaryOutcomes.length
+      ? `What should stay in the plan too?`
+      : 'Which side goal matters most?';
+  }
+
+  if (step === 'planning') {
+    return `Best ${selection.daysPerWeek}-day setup?`;
+  }
+
+  if (step === 'about') {
+    return 'Should bodyweight change the start?';
+  }
+
+  return `${recommendationProgramName ?? 'This plan'} or another plan?`;
+}
+
+export function buildFirstRunValluContext(
+  selection: FirstRunSetupSelection,
+  readyProgramCount: number,
+): ValluTrainingContext {
+  return {
+    unitPreference: selection.unitPreference,
+    activeSession: null,
+    recentCompletedSessions: [],
+    trackedLifts: [],
+    latestTopSets: [],
+    sessionsThisWeek: 0,
+    sessionsLast30Days: 0,
+    rhythm: [],
+    readyProgramCount,
+    recommendedProgramId: null,
+    recommendedProgramTitle: null,
+    customProgramTitle: null,
+  };
+}
+
+export function buildFirstRunCustomProgramName(selection: FirstRunSetupSelection) {
+  const goalLabel =
+    selection.goal === 'run_mobility'
+      ? 'Run + Mobility'
+      : selection.goal === 'general'
+        ? 'General'
+        : selection.goal === 'muscle'
+          ? 'Muscle'
+          : 'Strength';
+  const focusLabel =
+    selection.focusAreas.length > 0
+      ? ` + ${selection.focusAreas
+          .slice(0, 2)
+          .map((area) => getFocusAreaTitle(area))
+          .join(' & ')}`
+      : '';
+
+  return `My ${selection.daysPerWeek}-Day ${goalLabel}${focusLabel} Split`;
+}
+
+export function getRecommendedProgramName(programId: string | null) {
+  if (!programId) {
+    return null;
+  }
+
+  return getWorkoutTemplateById(programId)?.name ?? null;
+}
