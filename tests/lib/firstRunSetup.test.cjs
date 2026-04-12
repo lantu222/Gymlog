@@ -31,7 +31,7 @@ module.exports = [
     },
   },
   {
-    name: 'first-run setup recommends strength base for a 3-day strength setup',
+    name: 'first-run setup recommends strength base with a same-cadence secondary option for a 3-day strength setup',
     run() {
       const recommendation = resolveFirstRunRecommendation({
         goal: 'strength',
@@ -45,7 +45,35 @@ module.exports = [
       });
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_strength_base_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_2_day_beginner_strength_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_3_day_upper_lower_lite_v1');
+    },
+  },
+  {
+    name: 'tailoring keeps a 3-day strength recommendation on a 3-day plan when gym preferences are neutral',
+    run() {
+      const recommendation = resolveFirstRunRecommendationWithTailoring(
+        {
+          goal: 'strength',
+          level: 'beginner',
+          daysPerWeek: 3,
+          equipment: 'gym',
+          secondaryOutcomes: ['consistency'],
+          focusAreas: [],
+          guidanceMode: 'guided_editable',
+          unitPreference: 'kg',
+        },
+        {
+          setupEquipment: 'gym',
+          setupFreeWeightsPreference: 'neutral',
+          setupBodyweightPreference: 'neutral',
+          setupMachinesPreference: 'neutral',
+          setupShoulderFriendlySwaps: 'neutral',
+          setupElbowFriendlySwaps: 'neutral',
+          setupKneeFriendlySwaps: 'neutral',
+        },
+      );
+
+      assert.equal(recommendation.featuredProgramId, 'tpl_3_day_strength_base_v1');
     },
   },
   {

@@ -13,7 +13,7 @@ interface SimpleLineChartProps {
 
 export function SimpleLineChart({
   points,
-  accent = colors.accent,
+  accent = '#F4FAFF',
   unitLabel = 'kg',
 }: SimpleLineChartProps) {
   const [width, setWidth] = React.useState(0);
@@ -70,7 +70,7 @@ export function SimpleLineChart({
                   x2={width - chartPadding}
                   y1={tick.y}
                   y2={tick.y}
-                  stroke={colors.chartGrid}
+                  stroke="rgba(255,255,255,0.08)"
                   strokeWidth={1}
                 />
               ))}
@@ -106,8 +106,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.18)',
-    backgroundColor: 'rgba(18, 24, 33, 0.84)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(12, 16, 22, 0.88)',
     padding: spacing.xl,
     gap: spacing.sm,
   },
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 120,
-    backgroundColor: 'rgba(85, 138, 189, 0.14)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   chartFrame: {
     minHeight: 220,

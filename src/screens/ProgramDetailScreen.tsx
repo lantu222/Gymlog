@@ -2,15 +2,12 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { InlineTip } from '../components/InlineTip';
-import { BadgePill, SectionHeaderBlock, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
+import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { WorkoutSceneGraphic } from '../components/WorkoutSceneGraphic';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { ProgramDetailViewModel } from '../lib/programDetails';
-import { getWorkoutFlowPhasePreview } from '../lib/workoutFlow';
 import { colors, layout, radii, spacing } from '../theme';
-import { WorkoutPhasePreview } from '../components/WorkoutPhasePreview';
 
 interface ProgramDetailScreenProps {
   program: ProgramDetailViewModel;
@@ -32,6 +29,12 @@ interface ProgramDetailScreenProps {
   } | null;
 }
 
+type HeroFlowItem = {
+  label: 'Next' | 'Then' | 'Finish';
+  name: string;
+  prescription: string;
+};
+
 function getSessionVisualVariant(index: number, total: number) {
   if (index === 0) {
     return 'today' as const;
@@ -42,6 +45,23 @@ function getSessionVisualVariant(index: number, total: number) {
   }
 
   return 'plan' as const;
+}
+
+function buildHeroFlowItems(session: ProgramDetailViewModel['sessions'][number] | null): HeroFlowItem[] {
+  if (!session?.exercises.length) {
+    return [];
+  }
+
+  const picks =
+    session.exercises.length <= 3
+      ? session.exercises
+      : [session.exercises[0], session.exercises[1], session.exercises[session.exercises.length - 1]].filter(Boolean);
+
+  return picks.map((exercise, index) => ({
+    label: index === 0 ? 'Next' : index === picks.length - 1 ? 'Finish' : 'Then',
+    name: exercise.name,
+    prescription: exercise.prescription,
+  }));
 }
 
 export function ProgramDetailScreen({
@@ -61,19 +81,16 @@ export function ProgramDetailScreen({
   const [confirmVisible, setConfirmVisible] = useState(false);
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout');
   const kickoffSession = program.sessions[0] ?? null;
-  const kickoffPhasePreview = kickoffSession
-    ? getWorkoutFlowPhasePreview(
-        kickoffSession.exercises.map((exercise) => ({
-          exerciseName: exercise.name,
-          role: exercise.role,
-        })),
-      )
-    : [];
-  const heroFitSection = program.infoSections.find((section) => section.kicker.toLowerCase() === 'why it fits') ?? null;
-  const remainingInfoSections = heroFitSection
-    ? program.infoSections.filter((section) => section.kicker !== heroFitSection.kicker)
-    : program.infoSections;
-
+  const heroFlowItems = buildHeroFlowItems(kickoffSession);
+  const durationBadge = program.badges.find((badge) => badge.toLowerCase().includes('min')) ?? null;
+  const heroBadges =
+    program.badges.filter((badge) => !badge.toLowerCase().includes('min')).slice(0, 2).length > 0
+      ? program.badges.filter((badge) => !badge.toLowerCase().includes('min')).slice(0, 2)
+      : program.badges.slice(0, 2);
+  const heroTitle = kickoffSession ? formatWorkoutDisplayLabel(kickoffSession.name, 'Session') : displayTitle;
+  const heroMeta =
+    [durationBadge, kickoffSession ? `${kickoffSession.exerciseCount} exercises` : null].filter(Boolean).join(' · ') ||
+    program.subtitle;
   const hasDestructiveAction = Boolean(
     destructiveActionLabel && destructiveActionTitle && destructiveActionMessage && onDestructiveAction,
   );
@@ -87,71 +104,26 @@ export function ProgramDetailScreen({
     <>
       <ScreenHeader
         title={displayTitle}
-        subtitle={program.subtitle}
         onBack={onBack}
         rightActionLabel={program.source === 'custom' && onEdit ? 'Edit' : undefined}
         onRightActionPress={program.source === 'custom' ? onEdit : undefined}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {inlineTip ? (
-          <InlineTip
-            title={inlineTip.title}
-            body={inlineTip.body}
-            accent={inlineTip.accent}
-            onDismiss={inlineTip.onDismiss}
-          />
-        ) : null}
         <SurfaceCard accent="blue" emphasis="hero" style={styles.heroCard}>
           <View style={styles.heroIntroRow}>
             <View style={styles.heroIntroCopy}>
               <Text style={styles.heroKicker}>Start here</Text>
-              <Text style={styles.heroDescription}>{program.description}</Text>
+              <View style={styles.badgeRow}>
+                {heroBadges.map((badge) => (
+                  <View key={badge} style={styles.badge}>
+                    <Text style={styles.badgeText}>{badge}</Text>
+                  </View>
+                ))}
+              </View>
+              <Text style={styles.heroTitle}>{heroTitle}</Text>
+              <Text style={styles.heroMeta}>{heroMeta}</Text>
             </View>
             <WorkoutSceneGraphic variant="plan" accent="blue" style={styles.heroVisual} />
-          </View>
-
-          <WorkoutPhasePreview phases={kickoffPhasePreview} compact />
-
-          <View style={styles.heroSignalRow}>
-            {kickoffSession ? (
-              <View style={styles.heroSignalCard}>
-                <Text style={styles.heroSignalLabel}>Starts with</Text>
-                <Text style={styles.heroSignalValue}>{formatWorkoutDisplayLabel(kickoffSession.name, 'Session')}</Text>
-                <Text style={styles.heroSignalMeta}>
-                  {kickoffSession.exerciseCount} {kickoffSession.exerciseCount === 1 ? 'exercise' : 'exercises'}
-                  {kickoffSession.statusLine ? ` | ${kickoffSession.statusLine}` : ''}
-                </Text>
-                {kickoffSession.focus ? <Text style={styles.heroSignalBody}>{kickoffSession.focus}</Text> : null}
-              </View>
-            ) : null}
-
-            {heroFitSection ? (
-              <View style={styles.heroSignalCard}>
-                <Text style={styles.heroSignalLabel}>{heroFitSection.kicker}</Text>
-                <Text style={styles.heroSignalValue}>Why now</Text>
-                <Text style={styles.heroSignalBody}>{heroFitSection.body}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {kickoffSession ? (
-            <View style={styles.heroKickoffRow}>
-              {kickoffSession.exercises.slice(0, 3).map((exercise, index) => (
-                <View key={exercise.id} style={styles.kickoffExercisePill}>
-                  <Text style={styles.kickoffExercisePillText}>
-                    {index + 1}. {exercise.name}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
-
-          <View style={styles.badgeRow}>
-            {program.badges.map((badge) => (
-              <View key={badge} style={styles.badge}>
-                <Text style={styles.badgeText}>{badge}</Text>
-              </View>
-            ))}
           </View>
 
           {program.tailoringBadges.length ? (
@@ -162,12 +134,32 @@ export function ProgramDetailScreen({
             </View>
           ) : null}
 
+          {heroFlowItems.length ? (
+            <View style={styles.heroFlowBlock}>
+              <Text style={styles.sectionKicker}>Session flow</Text>
+              <View style={styles.heroFlowList}>
+                {heroFlowItems.map((item, index) => (
+                  <React.Fragment key={`${item.label}:${item.name}`}>
+                    <View style={[styles.heroFlowCard, index === 0 && styles.heroFlowCardActive]}>
+                      <Text style={styles.heroFlowLabel}>{item.label}</Text>
+                      <Text style={styles.heroFlowTitle}>{item.name}</Text>
+                      <Text style={styles.heroFlowMeta}>{item.prescription}</Text>
+                    </View>
+                    {index < heroFlowItems.length - 1 ? <Text style={styles.heroFlowConnector}>↓</Text> : null}
+                  </React.Fragment>
+                ))}
+              </View>
+            </View>
+          ) : null}
+
           {program.highlights.length ? (
             <View style={styles.highlightGrid}>
-              {program.highlights.map((highlight) => (
+              {program.highlights.slice(0, 3).map((highlight) => (
                 <View key={`${highlight.label}:${highlight.value}`} style={styles.highlightCard}>
                   <Text style={styles.highlightLabel}>{highlight.label}</Text>
-                  <Text style={styles.highlightValue} numberOfLines={1}>{highlight.value}</Text>
+                  <Text style={styles.highlightValue} numberOfLines={1}>
+                    {highlight.value}
+                  </Text>
                   {highlight.detail ? <Text style={styles.highlightDetail}>{highlight.detail}</Text> : null}
                 </View>
               ))}
@@ -191,26 +183,9 @@ export function ProgramDetailScreen({
           </View>
         </SurfaceCard>
 
-        {program.progressionSummary ? (
-          <SurfaceCard accent="blue" emphasis="standard" style={styles.infoCard}>
-            <Text style={styles.sectionKicker}>Progression</Text>
-            <Text style={styles.infoText}>{program.progressionSummary}</Text>
-          </SurfaceCard>
-        ) : null}
-
-        {remainingInfoSections.map((section) => (
-          <SurfaceCard key={section.kicker} accent="blue" emphasis="standard" style={styles.infoCard}>
-            <Text style={styles.sectionKicker}>{section.kicker}</Text>
-            <Text style={styles.infoText}>{section.body}</Text>
-          </SurfaceCard>
-        ))}
-
-        <SectionHeaderBlock
-          accent="blue"
-          kicker="Sessions"
-          title="Program sessions"
-          subtitle="Start with the first session or jump straight to the exact session you want."
-        />
+        <View style={styles.sessionsHeader}>
+          <Text style={styles.sectionKicker}>Sessions</Text>
+        </View>
 
         <View style={styles.sessionList}>
           {program.sessions.map((session, index) => (
@@ -225,7 +200,9 @@ export function ProgramDetailScreen({
                 <View style={styles.sessionHeader}>
                   <View style={styles.sessionCopy}>
                     <Text style={styles.sessionName}>{formatWorkoutDisplayLabel(session.name, 'Session')}</Text>
-                    <Text style={styles.sessionMeta}>{session.exerciseCount} {session.exerciseCount === 1 ? 'exercise' : 'exercises'}</Text>
+                    <Text style={styles.sessionMeta}>
+                      {session.exerciseCount} {session.exerciseCount === 1 ? 'exercise' : 'exercises'}
+                    </Text>
                     {session.statusLine ? <Text style={styles.sessionStatus}>{session.statusLine}</Text> : null}
                   </View>
                   <Pressable onPress={() => onStartSession(session.id)} style={styles.sessionButton}>
@@ -248,6 +225,20 @@ export function ProgramDetailScreen({
             </SurfaceCard>
           ))}
         </View>
+
+        {program.progressionSummary ? (
+          <SurfaceCard accent="blue" emphasis="standard" style={styles.infoCard}>
+            <Text style={styles.sectionKicker}>Progression</Text>
+            <Text style={styles.infoText}>{program.progressionSummary}</Text>
+          </SurfaceCard>
+        ) : null}
+
+        {program.infoSections.map((section) => (
+          <SurfaceCard key={section.kicker} accent="blue" emphasis="standard" style={styles.infoCard}>
+            <Text style={styles.sectionKicker}>{section.kicker}</Text>
+            <Text style={styles.infoText}>{section.body}</Text>
+          </SurfaceCard>
+        ))}
       </ScrollView>
       {hasDestructiveAction ? (
         <ConfirmDialog
@@ -294,67 +285,23 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
-  heroDescription: {
+  heroTitle: {
     color: colors.textPrimary,
-    fontSize: 16,
-    lineHeight: 23,
-    fontWeight: '700',
-  },
-  heroSignalRow: {
-    gap: spacing.sm,
-  },
-  heroSignalCard: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.20)',
-    backgroundColor: 'rgba(11, 15, 20, 0.38)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: 3,
-  },
-  heroSignalLabel: {
-    color: '#9ACCFF',
-    fontSize: 10,
+    fontSize: 28,
+    lineHeight: 34,
     fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: -0.8,
   },
-  heroSignalValue: {
+  heroMeta: {
     color: colors.textPrimary,
-    fontSize: 19,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  heroSignalMeta: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  heroSignalBody: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
-  },
-  heroKickoffRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  kickoffExercisePill: {
-    minHeight: 28,
-    maxWidth: '100%',
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(15, 21, 29, 0.72)',
-    justifyContent: 'center',
-  },
-  kickoffExercisePillText: {
-    color: colors.textSecondary,
-    fontSize: 11,
+    fontSize: 14,
     fontWeight: '800',
+  },
+  heroDescription: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   badgeRow: {
     flexDirection: 'row',
@@ -380,10 +327,56 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
   },
+  heroFlowBlock: {
+    gap: spacing.sm,
+  },
+  heroFlowList: {
+    gap: spacing.xs,
+  },
+  heroFlowCard: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(11, 15, 20, 0.34)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 2,
+  },
+  heroFlowCardActive: {
+    borderColor: 'rgba(85, 138, 189, 0.22)',
+    backgroundColor: 'rgba(18, 24, 33, 0.52)',
+  },
+  heroFlowLabel: {
+    color: '#9ACCFF',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  heroFlowTitle: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  heroFlowMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  heroFlowConnector: {
+    color: colors.textMuted,
+    fontSize: 16,
+    textAlign: 'center',
+    fontWeight: '900',
+  },
   highlightGrid: {
     flexDirection: 'row',
     gap: spacing.sm,
     flexWrap: 'wrap',
+  },
+  sessionsHeader: {
+    gap: spacing.xs,
   },
   highlightCard: {
     flexGrow: 1,

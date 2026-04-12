@@ -1,13 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { EmptyState } from '../components/EmptyState';
-import { SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
+import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ProgressCard } from '../components/ProgressCard';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { SegmentedControl } from '../components/SegmentedControl';
 import { SimpleLineChart } from '../components/SimpleLineChart';
-import { StatChip } from '../components/StatChip';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { getLogSetStatusCounts } from '../lib/exerciseLog';
 import {
@@ -40,57 +38,95 @@ interface ProgressScreenProps {
   onBack: () => void;
 }
 
-const overviewTones = ['blue', 'rose', 'orange'] as const;
-
 type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
 
 const PROGRESS_FILTERS: Array<{ key: ProgressFilter; label: string }> = [
-  { key: 'all', label: 'All lifts' },
-  { key: 'new_best', label: 'New best' },
-  { key: 'moving_up', label: 'Moving up' },
+  { key: 'all', label: 'All' },
+  { key: 'new_best', label: 'New' },
+  { key: 'moving_up', label: 'Up' },
   { key: 'building', label: 'Building' },
-  { key: 'below_last', label: 'Below last' },
+  { key: 'below_last', label: 'Below' },
 ];
 
-function getBarHeights(values: number[]) {
-  if (!values.length) {
-    return [];
-  }
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const spread = Math.max(max - min, 1);
-
-  return values.map((value) => 10 + ((value - min) / spread) * 30);
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
-function DataTable({
-  header,
+function SignalCard({ label, value, meta }: { label: string; value: string; meta?: string | null }) {
+  return (
+    <View style={styles.signalCard}>
+      <Text style={styles.signalLabel}>{label}</Text>
+      <Text style={styles.signalValue}>{value}</Text>
+      {meta ? <Text style={styles.signalMeta}>{meta}</Text> : null}
+    </View>
+  );
+}
+
+function RecentList({
   rows,
 }: {
-  header: string[];
-  rows: Array<Array<string>>;
+  rows: Array<{
+    title: string;
+    meta?: string | null;
+    value: string;
+  }>;
 }) {
   return (
-    <View style={styles.table}>
-      <View style={styles.tableHeader}>
-        {header.map((cell, index) => (
-          <Text key={`${cell}:${index}`} style={[styles.tableHeaderText, index === 0 && styles.dateColumn]}>
-            {cell}
-          </Text>
-        ))}
-      </View>
+    <View style={styles.recentList}>
       {rows.map((row, rowIndex) => (
-        <View key={`row:${rowIndex}`} style={styles.tableRow}>
-          {row.map((cell, cellIndex) => (
-            <Text key={`${rowIndex}:${cellIndex}`} style={[styles.tableCell, cellIndex === 0 && styles.dateColumn]}>
-              {cell}
-            </Text>
-          ))}
+        <View key={`${row.title}:${rowIndex}`} style={[styles.recentRow, rowIndex > 0 && styles.recentRowBorder]}>
+          <View style={styles.recentCopy}>
+            <Text style={styles.recentTitle}>{row.title}</Text>
+            {row.meta ? <Text style={styles.recentMeta}>{row.meta}</Text> : null}
+          </View>
+          <Text style={styles.recentValue}>{row.value}</Text>
         </View>
       ))}
     </View>
   );
+}
+
+function getSignalPriority(kind: ReturnType<typeof getExerciseProgressSignal>['kind']) {
+  switch (kind) {
+    case 'new_best':
+      return 0;
+    case 'moving_up':
+      return 1;
+    case 'below_last':
+      return 2;
+    case 'building':
+      return 3;
+    case 'starting':
+    default:
+      return 4;
+  }
+}
+
+function compareProgressSummaries(left: ExerciseProgressSummary, right: ExerciseProgressSummary) {
+  const priorityDelta =
+    getSignalPriority(getExerciseProgressSignal(left).kind) - getSignalPriority(getExerciseProgressSignal(right).kind);
+  if (priorityDelta !== 0) {
+    return priorityDelta;
+  }
+
+  const leftDate = left.latestLog ? new Date(left.latestLog.performedAt).getTime() : 0;
+  const rightDate = right.latestLog ? new Date(right.latestLog.performedAt).getTime() : 0;
+  return rightDate - leftDate;
+}
+
+function getPrimaryProgressMeta(summary: ExerciseProgressSummary | null, unitPreference: UnitPreference) {
+  if (!summary) {
+    return 'Track one lift while logging and it shows up here.';
+  }
+
+  const signal = getExerciseProgressSignal(summary);
+  const parts = [
+    signal.label,
+    summary.latestWeight !== null ? formatWeight(summary.latestWeight, unitPreference) : null,
+    summary.latestLog ? formatShortDate(summary.latestLog.performedAt) : null,
+  ].filter(Boolean);
+
+  return parts.join(' · ');
 }
 
 export function ProgressScreen({
@@ -105,18 +141,13 @@ export function ProgressScreen({
   onBack,
 }: ProgressScreenProps) {
   const { width } = useWindowDimensions();
-  const [viewMode, setViewMode] = useState<'overview' | 'table' | 'chart'>('overview');
   const [bodyweightInput, setBodyweightInput] = useState('');
   const [progressQuery, setProgressQuery] = useState('');
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
+  const [browseExpanded, setBrowseExpanded] = useState(false);
   const selectedSummary = summaries.find((summary) => summary.key === selectedExerciseKey);
   const selectedSummaryDisplayName = selectedSummary ? formatLiftDisplayLabel(selectedSummary.name) : '';
-  const stackSummaryTiles = width < 390;
-  const stackSummaryHeader = width < 480;
-
-  useEffect(() => {
-    setViewMode('overview');
-  }, [selectedExerciseKey, showBodyweightDetail]);
+  const stackSignalRow = width < 420;
 
   const chartPoints = useMemo(
     () =>
@@ -139,17 +170,6 @@ export function ProgressScreen({
           label: formatShortDate(entry.recordedAt),
           value: convertWeightFromKg(entry.weight, unitPreference),
         })),
-    [bodyweightProgress.entries, unitPreference],
-  );
-
-  const bodyweightBars = useMemo(
-    () =>
-      getBarHeights(
-        [...bodyweightProgress.entries]
-          .slice(0, 6)
-          .reverse()
-          .map((entry) => convertWeightFromKg(entry.weight, unitPreference)),
-      ),
     [bodyweightProgress.entries, unitPreference],
   );
 
@@ -188,6 +208,20 @@ export function ProgressScreen({
       return formatLiftDisplayLabel(summary.name).toLowerCase().includes(normalizedQuery);
     });
   }, [progressFilter, progressQuery, summaries]);
+
+  const prioritizedSummaries = useMemo(() => [...summaries].sort(compareProgressSummaries), [summaries]);
+  const primarySummary = prioritizedSummaries[0] ?? null;
+  const primarySignal = primarySummary ? getExerciseProgressSignal(primarySummary) : null;
+  const primarySummaryName = primarySummary ? formatLiftDisplayLabel(primarySummary.name) : 'Start tracking one lift';
+  const primarySummaryMeta = useMemo(
+    () => getPrimaryProgressMeta(primarySummary, unitPreference),
+    [primarySummary, unitPreference],
+  );
+  const nextSummaries = useMemo(
+    () => prioritizedSummaries.filter((summary) => summary.key !== primarySummary?.key).slice(0, 2),
+    [primarySummary?.key, prioritizedSummaries],
+  );
+  const showBrowseList = browseExpanded || progressQuery.trim().length > 0 || progressFilter !== 'all';
   const selectedSummaryLatestContext = useMemo(() => {
     if (!selectedSummary?.latestLog) {
       return null;
@@ -200,14 +234,14 @@ export function ProgressScreen({
       statusCounts.pending > 0 ? `${statusCounts.pending} pending` : null,
     ]
       .filter(Boolean)
-      .join(' \u00b7 ');
+      .join(' · ');
 
     if (!selectedSummary.latestLog.swappedFrom && !selectedSummary.latestLog.notes && !statusSummary) {
       return null;
     }
 
     return {
-      sessionLabel: `${selectedSummary.latestLog.workoutNameSnapshot} \u00b7 ${formatShortDate(selectedSummary.latestLog.performedAt)}`,
+      sessionLabel: `${selectedSummary.latestLog.workoutNameSnapshot} · ${formatShortDate(selectedSummary.latestLog.performedAt)}`,
       swapLine: selectedSummary.latestLog.swappedFrom
         ? `Swapped from ${formatLiftDisplayLabel(selectedSummary.latestLog.swappedFrom)}`
         : null,
@@ -222,25 +256,37 @@ export function ProgressScreen({
 
     return (
       <>
-        <ScreenHeader title="Bodyweight" subtitle="Lightweight progress tracking without clutter." onBack={onBack} />
+        <ScreenHeader title="Bodyweight" subtitle="Latest trend and next entry." onBack={onBack} />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <SegmentedControl
-            options={[
-              { key: 'overview', label: 'Overview' },
-              { key: 'table', label: 'Table' },
-              { key: 'chart', label: 'Chart' },
-            ]}
-            selectedKey={viewMode}
-            onSelect={(key) => setViewMode(key as 'overview' | 'table' | 'chart')}
-          />
+          <SurfaceCard accent="neutral" emphasis="hero" style={styles.heroSurface}>
+            <View style={styles.heroContent}>
+              <Text style={styles.heroKicker}>Bodyweight</Text>
 
-          <SurfaceCard accent="blue" emphasis="standard" style={styles.detailCard}>
-            <SectionHeaderBlock
-              accent="blue"
-              kicker="Bodyweight"
-              title="Log a new entry"
-              subtitle="Add one number and it flows into overview, table, and chart."
-            />
+              <View style={styles.heroBadgeRow}>
+                <BadgePill accent="neutral" label={formatWeight(latest?.weight, unitPreference)} />
+                <BadgePill
+                  accent="neutral"
+                  label={formatWeightTrend(latest?.weight ?? null, previous?.weight ?? null, unitPreference)}
+                />
+                <BadgePill accent="neutral" label={`${bodyweightProgress.entries.length} entries`} />
+              </View>
+
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle}>Keep the trend clean</Text>
+                <Text style={styles.heroMeta}>
+                  {latest ? `Latest ${formatShortDate(latest.recordedAt)}` : 'Add one number to start the line.'}
+                </Text>
+              </View>
+            </View>
+          </SurfaceCard>
+
+          <SurfaceCard accent="neutral" emphasis="standard" style={styles.detailEntryCard}>
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailKicker}>Bodyweight</Text>
+              <Text style={styles.detailTitle}>Log a new entry</Text>
+              <Text style={styles.detailBody}>Add one number and keep the trend clean.</Text>
+            </View>
+
             <View style={styles.bodyweightEntryRow}>
               <TextInput
                 value={bodyweightInput}
@@ -249,7 +295,7 @@ export function ProgressScreen({
                 placeholder={`0 ${unitPreference}`}
                 placeholderTextColor={colors.textMuted}
                 style={styles.bodyweightInput}
-                selectionColor={colors.accent}
+                selectionColor="#F4FAFF"
               />
               <Pressable
                 onPress={() => {
@@ -268,100 +314,114 @@ export function ProgressScreen({
             </View>
           </SurfaceCard>
 
-          {viewMode === 'overview' ? (
-            <View style={styles.metricsRow}>
-              <StatChip label="Latest" value={formatWeight(latest?.weight, unitPreference)} tone="accent" />
-              <StatChip label="Previous" value={formatWeight(previous?.weight, unitPreference)} />
-              <StatChip
-                label="Change"
-                value={formatWeightTrend(latest?.weight ?? null, previous?.weight ?? null, unitPreference)}
-              />
-            </View>
-          ) : null}
+          <View style={[styles.signalRow, stackSignalRow && styles.signalRowStacked]}>
+            <SignalCard
+              label="Latest"
+              value={formatWeight(latest?.weight, unitPreference)}
+              meta={latest ? formatShortDate(latest.recordedAt) : null}
+            />
+            <SignalCard
+              label="Change"
+              value={formatWeightTrend(latest?.weight ?? null, previous?.weight ?? null, unitPreference)}
+              meta={previous ? `Previous ${formatWeight(previous.weight, unitPreference)}` : 'Need one more entry'}
+            />
+          </View>
 
-          {viewMode === 'table' ? (
-            <SurfaceCard accent="blue" emphasis="utility" style={styles.tableCard}>
-              <DataTable
-                header={['Date', 'Weight']}
-                rows={bodyweightProgress.entries.map((entry) => [
-                  formatDate(entry.recordedAt),
-                  formatWeight(entry.weight, unitPreference),
-                ])}
-              />
-            </SurfaceCard>
-          ) : null}
+          <SurfaceCard accent="neutral" emphasis="utility" style={styles.chartCard}>
+            <Text style={styles.detailSectionLabel}>Trend</Text>
+            <SimpleLineChart points={bodyweightChartPoints} unitLabel={unitPreference} accent="#F4FAFF" />
+          </SurfaceCard>
 
-          {viewMode === 'chart' ? (
-            <SurfaceCard accent="blue" emphasis="utility" style={styles.chartCard}>
-              <SimpleLineChart points={bodyweightChartPoints} unitLabel={unitPreference} accent={colors.accentAlt} />
-            </SurfaceCard>
-          ) : null}
+          <SurfaceCard accent="neutral" emphasis="utility" style={styles.recentCard}>
+            <Text style={styles.detailSectionLabel}>Recent entries</Text>
+            <RecentList
+              rows={bodyweightProgress.entries.slice(0, 5).map((entry) => ({
+                title: formatDate(entry.recordedAt),
+                value: formatWeight(entry.weight, unitPreference),
+              }))}
+            />
+          </SurfaceCard>
         </ScrollView>
       </>
     );
   }
 
   if (selectedSummary) {
+    const selectedSignal = getExerciseProgressSignal(selectedSummary);
     return (
       <>
-        <ScreenHeader title={selectedSummaryDisplayName} subtitle="Tracked lift history" onBack={onBack} />
+        <ScreenHeader title={selectedSummaryDisplayName} subtitle="What changed last." onBack={onBack} />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <SegmentedControl
-            options={[
-              { key: 'overview', label: 'Overview' },
-              { key: 'table', label: 'Table' },
-              { key: 'chart', label: 'Chart' },
-            ]}
-            selectedKey={viewMode}
-            onSelect={(key) => setViewMode(key as 'overview' | 'table' | 'chart')}
-          />
+          <SurfaceCard accent="neutral" emphasis="hero" style={styles.heroSurface}>
+            <View style={styles.heroContent}>
+              <Text style={styles.heroKicker}>Lift detail</Text>
 
-          {viewMode === 'overview' ? (
-            <>
-              {selectedSummaryLatestContext ? (
-                <SurfaceCard accent="rose" emphasis="flat" style={styles.contextCard}>
-                  <Text style={styles.contextKicker}>Latest session context</Text>
-                  <Text style={styles.contextTitle}>{selectedSummaryLatestContext.sessionLabel}</Text>
-                  {selectedSummaryLatestContext.swapLine ? (
-                    <Text style={styles.contextBody}>{selectedSummaryLatestContext.swapLine}</Text>
-                  ) : null}
-                  {selectedSummaryLatestContext.statusLine ? (
-                    <Text style={styles.contextBody}>{selectedSummaryLatestContext.statusLine}</Text>
-                  ) : null}
-                  {selectedSummaryLatestContext.notesLine ? (
-                    <Text style={styles.contextNote}>{selectedSummaryLatestContext.notesLine}</Text>
-                  ) : null}
-                </SurfaceCard>
-              ) : null}
-
-              <View style={styles.metricsRow}>
-                <StatChip label="Latest" value={formatWeight(selectedSummary.latestWeight, unitPreference)} tone="accent" />
-                <StatChip label="Previous" value={formatWeight(selectedSummary.previousWeight, unitPreference)} />
-                <StatChip label="Latest sets" value={formatLogSetSummary(selectedSummary.latestLog, unitPreference)} />
-                <StatChip label="Best weight" value={formatWeight(selectedSummary.bestWeight, unitPreference)} tone="success" />
-                <StatChip label="Best reps" value={`${selectedSummary.bestReps}`} />
+              <View style={styles.heroBadgeRow}>
+                <BadgePill accent="neutral" label={selectedSignal.label} />
+                <BadgePill accent="neutral" label={formatWeight(selectedSummary.latestWeight, unitPreference)} />
+                <BadgePill accent="neutral" label={formatWeight(selectedSummary.bestWeight, unitPreference)} />
               </View>
-            </>
-          ) : null}
 
-          {viewMode === 'table' ? (
-            <SurfaceCard accent="blue" emphasis="utility" style={styles.tableCard}>
-              <DataTable
-                header={['Date', 'Top weight', 'Sets']}
-                rows={selectedSummary.logs.map((log) => [
-                  formatDate(log.performedAt),
-                  formatWeight(log.weight, unitPreference),
-                  formatLogSetSummary(log, unitPreference),
-                ])}
-              />
+              <View style={styles.heroCopy}>
+                <Text style={styles.heroTitle}>{selectedSummaryDisplayName}</Text>
+                <Text style={styles.heroMeta}>
+                  {selectedSummary.latestLog
+                    ? `${formatLogSetSummary(selectedSummary.latestLog, unitPreference)} · ${formatShortDate(selectedSummary.latestLog.performedAt)}`
+                    : 'No tracked sets yet.'}
+                </Text>
+              </View>
+            </View>
+          </SurfaceCard>
+
+          {selectedSummaryLatestContext ? (
+            <SurfaceCard accent="neutral" emphasis="flat" style={styles.contextCard}>
+              <Text style={styles.contextKicker}>Last session</Text>
+              <Text style={styles.contextTitle}>{selectedSummaryLatestContext.sessionLabel}</Text>
+              {selectedSummaryLatestContext.swapLine ? (
+                <Text style={styles.contextBody}>{selectedSummaryLatestContext.swapLine}</Text>
+              ) : null}
+              {selectedSummaryLatestContext.statusLine ? (
+                <Text style={styles.contextBody}>{selectedSummaryLatestContext.statusLine}</Text>
+              ) : null}
+              {selectedSummaryLatestContext.notesLine ? (
+                <Text style={styles.contextBody}>{selectedSummaryLatestContext.notesLine}</Text>
+              ) : null}
             </SurfaceCard>
           ) : null}
 
-          {viewMode === 'chart' ? (
-            <SurfaceCard accent="blue" emphasis="utility" style={styles.chartCard}>
-              <SimpleLineChart points={chartPoints} unitLabel={unitPreference} />
-            </SurfaceCard>
-          ) : null}
+          <View style={[styles.signalRow, stackSignalRow && styles.signalRowStacked]}>
+            <SignalCard
+              label="Latest"
+              value={formatWeight(selectedSummary.latestWeight, unitPreference)}
+              meta={selectedSummary.latestLog ? formatShortDate(selectedSummary.latestLog.performedAt) : null}
+            />
+            <SignalCard
+              label="Best"
+              value={formatWeight(selectedSummary.bestWeight, unitPreference)}
+              meta={selectedSummary.bestReps ? `${selectedSummary.bestReps} total reps` : null}
+            />
+            <SignalCard
+              label="Change"
+              value={formatWeightTrend(selectedSummary.latestWeight, selectedSummary.previousWeight, unitPreference)}
+              meta={selectedSummary.previousWeight !== null ? 'vs previous log' : 'Need one more log'}
+            />
+          </View>
+
+          <SurfaceCard accent="neutral" emphasis="utility" style={styles.chartCard}>
+            <Text style={styles.detailSectionLabel}>Trend</Text>
+            <SimpleLineChart points={chartPoints} unitLabel={unitPreference} accent="#F4FAFF" />
+          </SurfaceCard>
+
+          <SurfaceCard accent="neutral" emphasis="utility" style={styles.recentCard}>
+            <Text style={styles.detailSectionLabel}>Recent logs</Text>
+            <RecentList
+              rows={selectedSummary.logs.slice(0, 5).map((log) => ({
+                title: formatDate(log.performedAt),
+                meta: formatLogSetSummary(log, unitPreference),
+                value: formatWeight(log.weight, unitPreference),
+              }))}
+            />
+          </SurfaceCard>
         </ScrollView>
       </>
     );
@@ -369,116 +429,140 @@ export function ProgressScreen({
 
   return (
     <>
-      <ScreenHeader title="Progress" subtitle="Data first. Signals, trends, and details on tap." />
+      <ScreenHeader title="Progress" subtitle="See what moved last." />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.summaryRow, stackSummaryTiles && styles.summaryRowStacked]}>
-          <SurfaceCard accent="blue" emphasis="utility" onPress={onSelectBodyweight} style={styles.summaryTile}>
-            <View style={[styles.summaryHeaderRow, stackSummaryHeader && styles.summaryHeaderRowStacked]}>
-              <Text style={styles.tileTitle}>Bodyweight</Text>
-              <View style={[styles.tileBadgeBlue, stackSummaryHeader && styles.tileBadgeBlueStacked]}>
-                <Text style={styles.tileBadgeBlueText}>
-                  {formatWeightTrend(
-                    bodyweightProgress.latest?.weight ?? null,
-                    bodyweightProgress.previous?.weight ?? null,
-                    unitPreference,
-                  )}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.summaryMetricRow}>
-              <View style={styles.summaryMetricBox}>
-                <Text style={styles.tileMetricLabel}>Latest</Text>
-                <Text style={styles.tileMetricValue}>{formatWeight(bodyweightProgress.latest?.weight, unitPreference)}</Text>
-              </View>
-              <View style={styles.summaryMetricBox}>
-                <Text style={styles.tileMetricLabel}>Entries</Text>
-                <Text style={styles.tileMetricValue}>{bodyweightProgress.entries.length}</Text>
-              </View>
-            </View>
-            <View style={styles.barRow}>
-              {bodyweightBars.length ? (
-                bodyweightBars.map((height, index) => <View key={`bw:${index}`} style={[styles.bar, { height }]} />)
-              ) : (
-                <Text style={styles.noBarText}>Add your first entry.</Text>
-              )}
-            </View>
-          </SurfaceCard>
+        <SurfaceCard accent="neutral" emphasis="hero" style={styles.heroSurface}>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroKicker}>Worth a look</Text>
 
-          <SurfaceCard accent="rose" emphasis="utility" style={[styles.summaryTile, styles.trackedTile]}>
-            <Text style={styles.tileLabel}>Tracked lifts</Text>
-            <Text style={styles.trackedValue}>{summaries.length}</Text>
-            <Text style={styles.tileBody}>
-              {summaries[0]
-                ? `${signalCounts.new_best} new best \u00b7 ${signalCounts.moving_up} moving up`
-                : 'Mark exercises as tracked while logging.'}
-            </Text>
-            {summaries[0] ? (
-              <Text style={styles.tileSubtle}>Most recent: {formatLiftDisplayLabel(summaries[0].name)}</Text>
-            ) : null}
-          </SurfaceCard>
+            <View style={styles.heroBadgeRow}>
+              <BadgePill accent="neutral" label={formatWeight(bodyweightProgress.latest?.weight, unitPreference)} />
+              <BadgePill accent="neutral" label={`${summaries.length} lifts`} />
+              <BadgePill accent="neutral" label={signalCounts.new_best > 0 ? `${signalCounts.new_best} new best` : 'Tracked'} />
+            </View>
+
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroTitle}>{primarySummaryName}</Text>
+              <Text style={styles.heroMeta}>{primarySummaryMeta}</Text>
+            </View>
+
+            <View style={styles.heroActionRow}>
+              {primarySummary ? (
+                <Pressable onPress={() => onSelectExercise(primarySummary.key)} style={styles.heroPrimaryButton}>
+                  <Text style={styles.heroPrimaryButtonText}>Open lift</Text>
+                </Pressable>
+              ) : null}
+              <Pressable onPress={onSelectBodyweight} style={styles.heroSecondaryButton}>
+                <Text style={styles.heroSecondaryButtonText}>Bodyweight</Text>
+              </Pressable>
+            </View>
+          </View>
+        </SurfaceCard>
+
+        <View style={[styles.signalRow, stackSignalRow && styles.signalRowStacked]}>
+          <Pressable onPress={onSelectBodyweight} style={styles.signalCardPressable}>
+            <SignalCard
+              label="Bodyweight"
+              value={formatWeight(bodyweightProgress.latest?.weight, unitPreference)}
+              meta={formatWeightTrend(
+                bodyweightProgress.latest?.weight ?? null,
+                bodyweightProgress.previous?.weight ?? null,
+                unitPreference,
+              )}
+            />
+          </Pressable>
+          <SignalCard
+            label="Signals"
+            value={signalCounts.new_best > 0 ? `${signalCounts.new_best} new best` : `${signalCounts.moving_up} moving`}
+            meta={`${summaries.length} tracked lifts`}
+          />
         </View>
 
         {summaries.length === 0 ? (
           <EmptyState
             title="No tracked lifts yet"
-            description="Mark an exercise as tracked while logging and it will show up here with a clean progression view."
+            description="Mark an exercise as tracked while logging and it will show up here."
           />
         ) : (
           <>
-            <SurfaceCard accent="blue" emphasis="flat" style={styles.discoveryCard}>
-              <Text style={styles.discoveryLabel}>Signals</Text>
-              <Text style={styles.discoveryTitle}>Find the next useful change</Text>
-              <TextInput
-                value={progressQuery}
-                onChangeText={setProgressQuery}
-                placeholder="Search tracked lifts"
-                placeholderTextColor={colors.textMuted}
-                selectionColor={colors.accentAlt}
-                style={styles.searchInput}
-              />
-              <Text style={styles.discoveryMeta}>
-                {filteredSummaries.length} lifts {'\u00b7'} {signalCounts.new_best} new best {'\u00b7'} {signalCounts.moving_up} moving up
-              </Text>
-              <View style={styles.filterRow}>
-                {PROGRESS_FILTERS.map((filter) => {
-                  const active = filter.key === progressFilter;
-                  return (
-                    <Pressable
-                      key={filter.key}
-                      onPress={() => setProgressFilter(filter.key)}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                    >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </SurfaceCard>
-
-            {filteredSummaries.length ? (
+            {nextSummaries.length ? (
               <View style={styles.progressList}>
-                <SectionHeaderBlock
-                  accent="rose"
-                  kicker="Tracked progress"
-                  title="Interesting numbers first"
-                  subtitle="Tap a lift to inspect the details behind the latest trend."
-                />
-                {filteredSummaries.map((summary, index) => (
+                <SectionLabel label="Next up" />
+                {nextSummaries.map((summary) => (
                   <ProgressCard
                     key={summary.key}
                     summary={summary}
                     unitPreference={unitPreference}
                     onPress={() => onSelectExercise(summary.key)}
-                    tone={overviewTones[index % overviewTones.length]}
                   />
                 ))}
               </View>
-            ) : (
-              <EmptyState
-                title="No tracked lifts match this view"
-                description="Try a broader search or switch the signal filter."
-              />
-            )}
+            ) : null}
+
+            <SurfaceCard accent="neutral" emphasis="standard" style={styles.discoveryCard}>
+              <View style={styles.discoveryHeaderRow}>
+                <View style={styles.discoveryCopy}>
+                  <Text style={styles.discoveryTitle}>Browse all lifts</Text>
+                  <Text style={styles.discoveryMeta}>Search or filter.</Text>
+                </View>
+                {!showBrowseList ? (
+                  <Pressable onPress={() => setBrowseExpanded(true)} style={styles.discoveryExpandButton}>
+                    <Text style={styles.discoveryExpandText}>Show all</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {showBrowseList ? (
+                <>
+                  <TextInput
+                    value={progressQuery}
+                    onChangeText={setProgressQuery}
+                    placeholder="Search tracked lifts"
+                    placeholderTextColor={colors.textMuted}
+                    selectionColor="#F4FAFF"
+                    style={styles.searchInput}
+                  />
+                  <Text style={styles.discoveryMeta}>
+                    {filteredSummaries.length} lifts · {signalCounts.new_best} new best · {signalCounts.moving_up} moving up
+                  </Text>
+                  <View style={styles.filterRow}>
+                    {PROGRESS_FILTERS.map((filter) => {
+                      const active = filter.key === progressFilter;
+                      return (
+                        <Pressable
+                          key={filter.key}
+                          onPress={() => setProgressFilter(filter.key)}
+                          style={[styles.filterChip, active && styles.filterChipActive]}
+                        >
+                          <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              ) : null}
+            </SurfaceCard>
+
+            {showBrowseList ? (
+              filteredSummaries.length ? (
+                <View style={styles.progressList}>
+                  <SectionLabel label="Lift list" />
+                  {filteredSummaries.map((summary) => (
+                    <ProgressCard
+                      key={summary.key}
+                      summary={summary}
+                      unitPreference={unitPreference}
+                      onPress={() => onSelectExercise(summary.key)}
+                    />
+                  ))}
+                </View>
+              ) : (
+                <EmptyState
+                  title="No tracked lifts match this view"
+                  description="Try a broader search or switch the signal filter."
+                />
+              )
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -492,158 +576,174 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
     gap: spacing.lg,
   },
-  detailCard: {
-    gap: spacing.md,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    gap: spacing.md,
-  },
-  summaryRowStacked: {
-    flexDirection: 'column',
-  },
-  summaryTile: {
-    flex: 1,
-    minHeight: 168,
-    gap: spacing.sm,
-  },
-  trackedTile: {
-    justifyContent: 'space-between',
-  },
-  summaryHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  summaryHeaderRowStacked: {
-    flexDirection: 'column',
-  },
-  tileTitle: {
-    color: colors.textPrimary,
-    fontSize: 19,
-    lineHeight: 21,
-    fontWeight: '900',
-    letterSpacing: -0.3,
-    flex: 1,
-  },
-  tileBadgeBlue: {
-    minHeight: 28,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(85, 138, 189, 0.18)',
+  heroSurface: {
+    minHeight: 276,
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.28)',
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  tileBadgeBlueStacked: {
-    alignSelf: 'flex-start',
+  heroContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: spacing.lg,
+    gap: spacing.md,
   },
-  tileBadgeBlueText: {
-    color: '#9ACCFF',
+  heroKicker: {
+    color: 'rgba(255,255,255,0.58)',
     fontSize: 11,
     fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
   },
-  summaryMetricRow: {
+  heroBadgeRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  summaryMetricBox: {
-    flex: 1,
-    minHeight: 54,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(11, 15, 20, 0.34)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    justifyContent: 'center',
-    gap: 2,
+  heroCopy: {
+    gap: spacing.xs,
   },
-  tileMetricLabel: {
-    color: colors.textMuted,
-    fontSize: 9,
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 34,
     fontWeight: '900',
+    letterSpacing: -1,
+    maxWidth: '84%',
+  },
+  heroMeta: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    maxWidth: '88%',
+  },
+  heroActionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  heroPrimaryButton: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F4FAFF',
+    borderWidth: 1,
+    borderColor: '#F4FAFF',
+  },
+  heroPrimaryButtonText: {
+    color: '#0B0F14',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  heroSecondaryButton: {
+    minWidth: 126,
+    minHeight: 52,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(7, 10, 14, 0.52)',
+    paddingHorizontal: spacing.md,
+  },
+  heroSecondaryButtonText: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  sectionLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  signalRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  signalRowStacked: {
+    flexDirection: 'column',
+  },
+  signalCardPressable: {
+    flex: 1,
+  },
+  signalCard: {
+    flex: 1,
+    minHeight: 82,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(18, 24, 33, 0.74)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    justifyContent: 'center',
+    gap: 3,
+  },
+  signalLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
-  tileMetricValue: {
+  signalValue: {
     color: colors.textPrimary,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '900',
-    fontVariant: ['tabular-nums'],
   },
-  barRow: {
-    marginTop: 'auto',
-    minHeight: 40,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 6,
-  },
-  bar: {
-    width: 12,
-    borderRadius: radii.pill,
-    backgroundColor: colors.accentAlt,
-  },
-  noBarText: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  tileLabel: {
-    color: '#F39AB2',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  trackedValue: {
-    color: colors.textPrimary,
-    fontSize: 44,
-    lineHeight: 44,
-    fontWeight: '900',
-    letterSpacing: -1,
-    fontVariant: ['tabular-nums'],
-  },
-  tileBody: {
+  signalMeta: {
     color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  tileSubtle: {
-    color: colors.textMuted,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 11,
+    lineHeight: 16,
     fontWeight: '700',
   },
   discoveryCard: {
     gap: spacing.sm,
   },
-  discoveryLabel: {
-    color: '#9ACCFF',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  discoveryHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  discoveryCopy: {
+    flex: 1,
+    gap: 2,
   },
   discoveryTitle: {
     color: colors.textPrimary,
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '900',
+    letterSpacing: -0.5,
   },
   discoveryMeta: {
     color: colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
+  discoveryExpandButton: {
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  discoveryExpandText: {
+    color: colors.textPrimary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
   searchInput: {
     minHeight: 48,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(10, 14, 19, 0.84)',
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '700',
@@ -660,13 +760,13 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   filterChipActive: {
-    backgroundColor: colors.accentSoft,
-    borderColor: 'rgba(85, 138, 189, 0.30)',
+    backgroundColor: '#F4FAFF',
+    borderColor: '#F4FAFF',
   },
   filterChipText: {
     color: colors.textSecondary,
@@ -674,20 +774,86 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   filterChipTextActive: {
-    color: colors.textPrimary,
+    color: '#0B0F14',
   },
   progressList: {
     gap: spacing.md,
+  },
+  detailEntryCard: {
+    gap: spacing.md,
+  },
+  detailHeader: {
+    gap: 2,
+  },
+  detailKicker: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  detailTitle: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  detailBody: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  detailSectionLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+  },
+  bodyweightEntryRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  bodyweightInput: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(10, 14, 19, 0.84)',
+    paddingHorizontal: spacing.md,
+    color: colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  bodyweightButton: {
+    minWidth: 88,
+    minHeight: 52,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F4FAFF',
+    borderWidth: 1,
+    borderColor: '#F4FAFF',
+  },
+  bodyweightButtonText: {
+    color: '#0B0F14',
+    fontSize: 14,
+    fontWeight: '900',
   },
   contextCard: {
     gap: spacing.xs,
   },
   contextKicker: {
-    color: '#F39AB2',
+    color: colors.textMuted,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 0.8,
   },
   contextTitle: {
     color: colors.textPrimary,
@@ -700,87 +866,50 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
   },
-  contextNote: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  metricsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  tableCard: {
+  recentCard: {
     padding: 0,
   },
-  table: {
+  recentList: {
     overflow: 'hidden',
     borderRadius: radii.lg,
   },
-  tableHeader: {
+  recentRow: {
+    minHeight: 72,
     flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    backgroundColor: colors.surface,
   },
-  tableHeaderText: {
-    flex: 1,
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  tableRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+  recentRowBorder: {
     borderTopWidth: 1,
-    borderTopColor: colors.divider,
+    borderTopColor: 'rgba(255,255,255,0.08)',
   },
-  tableCell: {
+  recentCopy: {
     flex: 1,
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '600',
+    gap: 2,
   },
-  dateColumn: {
-    flex: 1.4,
+  recentTitle: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  recentMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  recentValue: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '900',
+    textAlign: 'right',
+    fontVariant: ['tabular-nums'],
   },
   chartCard: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
   },
-  bodyweightEntryRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  bodyweightInput: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
-    paddingHorizontal: spacing.md,
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  bodyweightButton: {
-    minWidth: 88,
-    minHeight: 52,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.accentAlt,
-    borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.30)',
-  },
-  bodyweightButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '800',
-  },
 });
+

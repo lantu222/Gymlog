@@ -1,9 +1,9 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SurfaceCard } from './MainScreenPrimitives';
 import { HomeStreakSummary } from '../lib/dashboard';
-import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
+import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { colors, radii, spacing } from '../theme';
 
 export interface HomeActiveWorkoutSummary {
@@ -12,79 +12,126 @@ export interface HomeActiveWorkoutSummary {
   meta: string;
 }
 
-interface HomeStreakCardProps {
-  streak: HomeStreakSummary;
-  activeWorkoutSummary: HomeActiveWorkoutSummary | null;
-  onOpenStreak?: () => void;
-  onResumeWorkout?: () => void;
+export interface HomeUpcomingSessionSummary {
+  label: string;
+  title: string;
+  meta?: string;
 }
 
-export function HomeStreakCard({ streak, activeWorkoutSummary, onOpenStreak, onResumeWorkout }: HomeStreakCardProps) {
-  const body = (
-    <>
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.activityTitle}>Training rhythm</Text>
-          <Text style={styles.activityMeta}>{streak.sessionsLast30Days} in 30 days</Text>
-        </View>
+interface HomeStreakCardProps {
+  streak: HomeStreakSummary;
+  upcomingSessions: HomeUpcomingSessionSummary[];
+  onOpenStreak?: () => void;
+  title?: string;
+  subtitle?: string;
+  pillLabel?: string;
+  showActivity?: boolean;
+  tone?: 'dark' | 'light';
+}
 
-        {activeWorkoutSummary && onResumeWorkout ? (
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
-              onResumeWorkout();
-            }}
-            style={styles.playButton}
-          >
-            <Text style={styles.playIcon}>Open</Text>
-          </Pressable>
-        ) : null}
-      </View>
-
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.activityStrip}>
-        {streak.activity.days.map((day) => (
-          <View key={day.dayStart} style={styles.activityItem}>
-            <Text style={[styles.activityWeekday, day.isToday && styles.activityWeekdayToday]}>{day.weekdayLabel}</Text>
-            <View
-              style={[
-                styles.activityBar,
-                day.active && styles.activityBarActive,
-                day.isToday && styles.activityBarToday,
-              ]}
-            />
-            <Text style={[styles.activityDayNumber, day.active && styles.activityDayNumberActive]}>{day.dayNumber}</Text>
-          </View>
-        ))}
-      </ScrollView>
-
-      {activeWorkoutSummary ? (
-        <View style={styles.liveRow}>
-          <View style={styles.liveCopy}>
-            <Text style={styles.liveTitle}>{formatWorkoutDisplayLabel(activeWorkoutSummary.title, 'Workout')}</Text>
-            {activeWorkoutSummary.nextExercise ? (
-              <Text style={styles.liveSubtitle}>Next: {formatLiftDisplayLabel(activeWorkoutSummary.nextExercise)}</Text>
-            ) : null}
-          </View>
-          <Text style={styles.liveMeta}>{activeWorkoutSummary.meta}</Text>
-        </View>
-      ) : null}
-    </>
-  );
+export function HomeStreakCard({
+  streak,
+  upcomingSessions,
+  onOpenStreak,
+  title = 'This week',
+  subtitle,
+  pillLabel,
+  showActivity = true,
+  tone = 'dark',
+}: HomeStreakCardProps) {
+  const activityDays = streak.activity.days.slice(-7);
+  const resolvedSubtitle = subtitle ?? `${streak.sessionsThisWeek} sessions so far`;
+  const resolvedPillLabel = pillLabel ?? `${streak.sessionsLast30Days} in 30d`;
+  const isLight = tone === 'light';
 
   return (
-    <SurfaceCard accent="rose" emphasis="utility" onPress={onOpenStreak} style={styles.card}>
-      {body}
+    <SurfaceCard
+      accent="neutral"
+      emphasis="flat"
+      onPress={onOpenStreak}
+      style={[styles.card, isLight && styles.cardLight]}
+    >
+      <View style={styles.header}>
+        <View style={styles.headerCopy}>
+          <Text style={[styles.title, isLight && styles.titleLight]}>{title}</Text>
+          <Text style={[styles.meta, isLight && styles.metaLight]}>{resolvedSubtitle}</Text>
+        </View>
+        <View style={[styles.weeklyPill, isLight && styles.weeklyPillLight]}>
+          <Text style={[styles.weeklyPillText, isLight && styles.weeklyPillTextLight]}>{resolvedPillLabel}</Text>
+        </View>
+      </View>
+
+      <View style={styles.sessionList}>
+        {upcomingSessions.length ? (
+          upcomingSessions.map((session) => (
+            <View key={`${session.label}:${session.title}`} style={[styles.sessionRow, isLight && styles.sessionRowLight]}>
+              <View style={[styles.dayChip, isLight && styles.dayChipLight]}>
+                <Text style={[styles.dayChipText, isLight && styles.dayChipTextLight]}>{session.label}</Text>
+              </View>
+              <View style={styles.sessionCopy}>
+                <Text style={[styles.sessionTitle, isLight && styles.sessionTitleLight]}>
+                  {formatWorkoutDisplayLabel(session.title, 'Workout')}
+                </Text>
+                {session.meta ? <Text style={[styles.sessionMeta, isLight && styles.sessionMetaLight]}>{session.meta}</Text> : null}
+              </View>
+            </View>
+          ))
+        ) : (
+          <View style={[styles.emptyState, isLight && styles.emptyStateLight]}>
+            <Text style={[styles.emptyTitle, isLight && styles.emptyTitleLight]}>No plan on deck</Text>
+            <Text style={[styles.emptyMeta, isLight && styles.emptyMetaLight]}>Open a ready plan and your week will show up here.</Text>
+          </View>
+        )}
+      </View>
+
+      {showActivity ? (
+        <View style={styles.activityRow}>
+          {activityDays.map((day) => (
+            <View key={day.dayStart} style={styles.activityItem}>
+              <Text
+                style={[
+                  styles.activityLabel,
+                  isLight && styles.activityLabelLight,
+                  day.isToday && styles.activityLabelToday,
+                  isLight && day.isToday && styles.activityLabelTodayLight,
+                ]}
+              >
+                {day.weekdayLabel}
+              </Text>
+              <View
+                style={[
+                  styles.activityDot,
+                  isLight && styles.activityDotLight,
+                  day.active && styles.activityDotActive,
+                  isLight && day.active && styles.activityDotActiveLight,
+                  day.isToday && styles.activityDotToday,
+                  isLight && day.isToday && styles.activityDotTodayLight,
+                ]}
+              />
+            </View>
+          ))}
+        </View>
+      ) : null}
     </SurfaceCard>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: spacing.sm,
+    gap: spacing.md,
+    borderRadius: radii.lg,
+    backgroundColor: '#050505',
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  cardLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(5,5,5,0.10)',
+    shadowOpacity: 0.08,
+    elevation: 2,
   },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
@@ -92,103 +139,180 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: 2,
   },
-  activityTitle: {
-    color: '#FFF4F8',
-    fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.95,
+  title: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
-  activityMeta: {
+  titleLight: {
+    color: '#050505',
+  },
+  meta: {
+    color: colors.textMuted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  metaLight: {
+    color: 'rgba(5,5,5,0.56)',
+  },
+  weeklyPill: {
+    minHeight: 32,
+    borderRadius: radii.pill,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  weeklyPillLight: {
+    backgroundColor: '#F3F3F3',
+    borderColor: 'rgba(5,5,5,0.08)',
+  },
+  weeklyPillText: {
     color: colors.textSecondary,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
   },
-  playButton: {
-    minWidth: 54,
-    minHeight: 36,
+  weeklyPillTextLight: {
+    color: '#050505',
+  },
+  sessionList: {
+    gap: spacing.sm,
+  },
+  sessionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  sessionRowLight: {
+    backgroundColor: '#F7F7F7',
+    borderColor: 'rgba(5,5,5,0.08)',
+  },
+  dayChip: {
+    width: 58,
+    minHeight: 54,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.pill,
-    backgroundColor: 'rgba(150, 216, 255, 0.20)',
+    backgroundColor: '#1A1A1A',
     borderWidth: 1,
-    borderColor: 'rgba(150, 216, 255, 0.42)',
-    paddingHorizontal: spacing.sm,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  playIcon: {
-    color: '#FFFFFF',
+  dayChipLight: {
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(5,5,5,0.10)',
+  },
+  dayChipText: {
+    color: colors.textPrimary,
     fontSize: 12,
     fontWeight: '900',
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
   },
-  activityStrip: {
-    gap: spacing.sm,
-    paddingRight: spacing.md,
+  dayChipTextLight: {
+    color: '#050505',
   },
-  activityItem: {
-    alignItems: 'center',
-    gap: 6,
-    width: 26,
-  },
-  activityWeekday: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'lowercase',
-  },
-  activityWeekdayToday: {
-    color: '#A9DBFF',
-  },
-  activityBar: {
-    width: 12,
-    height: 26,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 106, 134, 0.12)',
-    backgroundColor: 'rgba(11, 15, 20, 0.22)',
-  },
-  activityBarActive: {
-    borderColor: 'rgba(216, 106, 134, 0.42)',
-    backgroundColor: 'rgba(216, 106, 134, 0.40)',
-  },
-  activityBarToday: {
-    borderColor: 'rgba(150, 216, 255, 0.62)',
-  },
-  activityDayNumber: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-  },
-  activityDayNumberActive: {
-    color: '#FFF9FB',
-  },
-  liveRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.06)',
-    paddingTop: spacing.sm,
-  },
-  liveCopy: {
+  sessionCopy: {
     flex: 1,
-    gap: 2,
+    gap: 3,
   },
-  liveTitle: {
+  sessionTitle: {
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  liveSubtitle: {
-    color: colors.textSecondary,
+  sessionTitleLight: {
+    color: '#050505',
+  },
+  sessionMeta: {
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
-  liveMeta: {
-    color: '#FFF9FB',
-    fontSize: 11,
+  sessionMetaLight: {
+    color: 'rgba(5,5,5,0.54)',
+  },
+  emptyState: {
+    gap: 4,
+    padding: spacing.sm,
+    borderRadius: radii.md,
+    backgroundColor: '#111111',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  emptyStateLight: {
+    backgroundColor: '#F7F7F7',
+    borderColor: 'rgba(5,5,5,0.08)',
+  },
+  emptyTitle: {
+    color: colors.textPrimary,
+    fontSize: 15,
     fontWeight: '800',
-    textAlign: 'right',
+  },
+  emptyTitleLight: {
+    color: '#050505',
+  },
+  emptyMeta: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  emptyMetaLight: {
+    color: 'rgba(5,5,5,0.56)',
+  },
+  activityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.xs,
+  },
+  activityItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+  },
+  activityLabel: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  activityLabelToday: {
+    color: colors.textPrimary,
+  },
+  activityLabelLight: {
+    color: 'rgba(5,5,5,0.42)',
+  },
+  activityLabelTodayLight: {
+    color: '#050505',
+  },
+  activityDot: {
+    width: '100%',
+    height: 6,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  activityDotLight: {
+    backgroundColor: 'rgba(5,5,5,0.10)',
+  },
+  activityDotActive: {
+    backgroundColor: 'rgba(255,255,255,0.46)',
+  },
+  activityDotActiveLight: {
+    backgroundColor: 'rgba(5,5,5,0.38)',
+  },
+  activityDotToday: {
+    backgroundColor: '#FFFFFF',
+  },
+  activityDotTodayLight: {
+    backgroundColor: '#050505',
   },
 });

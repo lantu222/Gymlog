@@ -1,9 +1,9 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BadgePill, SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
+import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { WorkoutSceneGraphic } from '../components/WorkoutSceneGraphic';
 import {
   EXERCISE_MODALITY_OPTIONS,
   getExerciseModalityPreferenceTitle,
@@ -22,6 +22,22 @@ interface ExercisePreferencesScreenProps {
   preferences: AppPreferences;
   onBack: () => void;
   onChange: (patch: Partial<AppPreferences>) => void | Promise<void>;
+}
+
+function getHeroPhotoKey(preferences: AppPreferences) {
+  if (preferences.setupTrainingFeel === 'intense' || preferences.setupWorkoutVariety === 'fresh') {
+    return 'hiit' as const;
+  }
+
+  if (preferences.setupBodyweightPreference === 'love' || preferences.setupBodyweightPreference === 'prefer') {
+    return 'running' as const;
+  }
+
+  return 'strength' as const;
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function QuestionOption({
@@ -82,89 +98,81 @@ export function ExercisePreferencesScreen({
 }: ExercisePreferencesScreenProps) {
   const trainingFeel = preferences.setupTrainingFeel;
   const workoutVariety = preferences.setupWorkoutVariety;
+  const heroPhoto = getHeroPhotoKey(preferences);
 
   return (
     <>
-      <ScreenHeader
-        title="Exercise preferences"
-        subtitle="Short answers first. Shape how the week should feel before the logger adapts around it."
-        onBack={onBack}
-      />
+      <ScreenHeader title="Exercise preferences" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SurfaceCard accent="blue" emphasis="hero" style={styles.heroCard}>
-          <View style={styles.heroRow}>
+        <FitnessPhotoSurface variant={heroPhoto} style={styles.heroSurface}>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroKicker}>Tailoring</Text>
+
+            <View style={styles.heroBadgeRow}>
+              <BadgePill accent="neutral" label={getTrainingFeelTitle(trainingFeel)} />
+              <BadgePill accent="neutral" label={getWorkoutVarietyTitle(workoutVariety)} />
+            </View>
+
             <View style={styles.heroCopy}>
-              <Text style={styles.heroKicker}>Tailoring</Text>
               <Text style={styles.heroTitle}>Set the training tone</Text>
-              <Text style={styles.heroBody}>
-                Pick the feel, the variety, and the training styles you want more or less of.
+              <Text style={styles.heroMeta}>
+                {summarizeExercisePreferences({
+                  trainingFeel,
+                  workoutVariety,
+                  freeWeights: preferences.setupFreeWeightsPreference,
+                  bodyweight: preferences.setupBodyweightPreference,
+                  machines: preferences.setupMachinesPreference,
+                })}
               </Text>
             </View>
-            <WorkoutSceneGraphic variant="build" accent="blue" compact style={styles.heroGraphic} />
+          </View>
+        </FitnessPhotoSurface>
+
+        <SectionLabel label="Question 1" />
+
+        <SurfaceCard accent="neutral" emphasis="standard" style={styles.questionCard}>
+          <View style={styles.questionHeader}>
+            <Text style={styles.questionTitle}>How hard should training feel?</Text>
+            <Text style={styles.questionBody}>Pick the default feel for the week.</Text>
           </View>
 
-          <View style={styles.badgeRow}>
-            <BadgePill accent="blue" label={getTrainingFeelTitle(trainingFeel)} />
-            <BadgePill accent="blue" label={getWorkoutVarietyTitle(workoutVariety)} />
+          <View style={styles.questionGrid}>
+            {TRAINING_FEEL_OPTIONS.map((option) => (
+              <QuestionOption
+                key={option}
+                label={getTrainingFeelTitle(option)}
+                hint={getTrainingFeelHint(option)}
+                active={trainingFeel === option}
+                onPress={() => void onChange({ setupTrainingFeel: option as TrainingFeelPreference })}
+              />
+            ))}
           </View>
-
-          <Text style={styles.heroSummary}>
-            {summarizeExercisePreferences({
-              trainingFeel,
-              workoutVariety,
-              freeWeights: preferences.setupFreeWeightsPreference,
-              bodyweight: preferences.setupBodyweightPreference,
-              machines: preferences.setupMachinesPreference,
-            })}
-          </Text>
         </SurfaceCard>
 
-        <SectionHeaderBlock
-          accent="blue"
-          kicker="Question 1"
-          title="How hard should training feel?"
-          subtitle="Choose the default tone. Adaptive Coach can still adjust set by set later."
-        />
+        <SectionLabel label="Question 2" />
 
-        <View style={styles.questionGrid}>
-          {TRAINING_FEEL_OPTIONS.map((option) => (
-            <QuestionOption
-              key={option}
-              label={getTrainingFeelTitle(option)}
-              hint={getTrainingFeelHint(option)}
-              active={trainingFeel === option}
-              onPress={() => void onChange({ setupTrainingFeel: option as TrainingFeelPreference })}
-            />
-          ))}
-        </View>
+        <SurfaceCard accent="neutral" emphasis="standard" style={styles.questionCard}>
+          <View style={styles.questionHeader}>
+            <Text style={styles.questionTitle}>How much variety do you want?</Text>
+            <Text style={styles.questionBody}>Keep the week tighter or let it rotate more.</Text>
+          </View>
 
-        <SectionHeaderBlock
-          accent="blue"
-          kicker="Question 2"
-          title="How much variety do you want?"
-          subtitle="Keep the week tighter or let it rotate more from block to block."
-        />
+          <View style={styles.questionGrid}>
+            {WORKOUT_VARIETY_OPTIONS.map((option) => (
+              <QuestionOption
+                key={option}
+                label={getWorkoutVarietyTitle(option)}
+                hint={getWorkoutVarietyHint(option)}
+                active={workoutVariety === option}
+                onPress={() => void onChange({ setupWorkoutVariety: option as WorkoutVarietyPreference })}
+              />
+            ))}
+          </View>
+        </SurfaceCard>
 
-        <View style={styles.questionGrid}>
-          {WORKOUT_VARIETY_OPTIONS.map((option) => (
-            <QuestionOption
-              key={option}
-              label={getWorkoutVarietyTitle(option)}
-              hint={getWorkoutVarietyHint(option)}
-              active={workoutVariety === option}
-              onPress={() => void onChange({ setupWorkoutVariety: option as WorkoutVarietyPreference })}
-            />
-          ))}
-        </View>
+        <SectionLabel label="Training modes" />
 
-        <SectionHeaderBlock
-          accent="orange"
-          kicker="Training modes"
-          title="How do you like to train?"
-          subtitle="Use simple preferences instead of a big form."
-        />
-
-        <SurfaceCard accent="orange" emphasis="standard" style={styles.preferenceCard}>
+        <SurfaceCard accent="neutral" emphasis="standard" style={styles.preferenceCard}>
           <PreferenceRow
             label="Free weights"
             value={preferences.setupFreeWeightsPreference}
@@ -183,11 +191,9 @@ export function ExercisePreferencesScreen({
         </SurfaceCard>
 
         <SurfaceCard accent="neutral" emphasis="flat" style={styles.nextCard}>
-          <Text style={styles.nextKicker}>Also in Tailoring</Text>
+          <Text style={styles.nextKicker}>Also in tailoring</Text>
           <Text style={styles.nextTitle}>Equipment and joint-friendly swaps</Text>
-          <Text style={styles.nextBody}>
-            Open Plan settings to tune equipment rules and shoulder, elbow, or knee-friendly quick swaps.
-          </Text>
+          <Text style={styles.nextBody}>Tune equipment rules and quick swaps next from Plan settings.</Text>
         </SurfaceCard>
       </ScrollView>
     </>
@@ -198,48 +204,72 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  heroCard: {
-    gap: spacing.md,
+  heroSurface: {
+    minHeight: 282,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  heroRow: {
+  heroContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: spacing.lg,
     gap: spacing.md,
-  },
-  heroCopy: {
-    gap: spacing.xs,
   },
   heroKicker: {
-    color: '#9ACCFF',
+    color: 'rgba(255,255,255,0.58)',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
-  heroTitle: {
-    color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.7,
-  },
-  heroBody: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  heroGraphic: {
-    width: '100%',
-  },
-  badgeRow: {
+  heroBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  heroSummary: {
+  heroCopy: {
+    gap: spacing.xs,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -1,
+    maxWidth: '80%',
+  },
+  heroMeta: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    maxWidth: '86%',
+  },
+  sectionLabel: {
     color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  questionCard: {
+    gap: spacing.md,
+  },
+  questionHeader: {
+    gap: 2,
+  },
+  questionTitle: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  questionBody: {
+    color: colors.textSecondary,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
     fontWeight: '700',
   },
   questionGrid: {
@@ -250,17 +280,19 @@ const styles = StyleSheet.create({
   questionOption: {
     flexBasis: '48%',
     flexGrow: 1,
+    minHeight: 96,
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(17, 25, 34, 0.82)',
+    backgroundColor: 'rgba(10, 14, 19, 0.82)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    justifyContent: 'center',
     gap: 4,
   },
   questionOptionActive: {
-    borderColor: 'rgba(150, 216, 255, 0.36)',
-    backgroundColor: 'rgba(34, 56, 74, 0.92)',
+    borderColor: '#F4FAFF',
+    backgroundColor: '#F4FAFF',
   },
   questionOptionLabel: {
     color: colors.textPrimary,
@@ -269,7 +301,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   questionOptionLabelActive: {
-    color: '#D8F0FF',
+    color: '#0B0F14',
   },
   questionOptionHint: {
     color: colors.textSecondary,
@@ -278,7 +310,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   questionOptionHintActive: {
-    color: '#BFE1FF',
+    color: '#44515C',
   },
   preferenceCard: {
     gap: spacing.md,
@@ -303,14 +335,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(11, 16, 22, 0.46)',
+    backgroundColor: 'rgba(10, 14, 19, 0.78)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },
   preferenceSegmentActive: {
-    borderColor: 'rgba(255, 167, 112, 0.28)',
-    backgroundColor: 'rgba(240, 106, 57, 0.18)',
+    borderColor: '#F4FAFF',
+    backgroundColor: '#F4FAFF',
   },
   preferenceSegmentText: {
     color: colors.textSecondary,
@@ -318,7 +350,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   preferenceSegmentTextActive: {
-    color: '#FFD2BE',
+    color: '#0B0F14',
   },
   nextCard: {
     gap: 4,

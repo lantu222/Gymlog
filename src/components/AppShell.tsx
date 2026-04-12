@@ -1,6 +1,6 @@
 import React from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { Edge, SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
 import { colors, radii, spacing } from '../theme';
@@ -12,6 +12,8 @@ interface AppShellProps {
   tabBar?: React.ReactNode;
   toastMessage?: string | null;
   screenTone?: AppShellTone;
+  showBackgroundFrame?: boolean;
+  safeAreaEdges?: Edge[];
 }
 
 const toneStyles: Record<AppShellTone, { topWash: string; sideWash: string; bottomWash: string; edgeLine: string }> = {
@@ -47,26 +49,37 @@ const toneStyles: Record<AppShellTone, { topWash: string; sideWash: string; bott
   },
 };
 
-export function AppShell({ children, tabBar, toastMessage, screenTone = 'default' }: AppShellProps) {
+export function AppShell({
+  children,
+  tabBar,
+  toastMessage,
+  screenTone = 'default',
+  showBackgroundFrame = true,
+  safeAreaEdges = ['top', 'left', 'right', 'bottom'],
+}: AppShellProps) {
   const tone = toneStyles[screenTone];
+  const shellBackground = screenTone === 'home' ? '#FFFFFF' : colors.background;
+  const statusBarStyle = screenTone === 'home' ? 'dark' : 'light';
 
   return (
-    <SafeAreaProvider style={styles.root}>
-      <StatusBar style="light" />
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right', 'bottom']}>
-        <View pointerEvents="none" style={styles.backgroundFrame}>
-          <View style={[styles.topVeil, { backgroundColor: tone.topWash }]} />
-          <View style={[styles.sideWash, { backgroundColor: tone.sideWash }]} />
-          <View style={[styles.bottomWash, { backgroundColor: tone.bottomWash }]} />
-          <View style={[styles.edgeLine, { backgroundColor: tone.edgeLine }]} />
-          <View style={styles.gridV1} />
-          <View style={styles.gridV2} />
-          <View style={styles.gridH1} />
-          <View style={styles.gridH2} />
-          <View style={styles.topFadeStrong} />
-          <View style={styles.topFadeSoft} />
-          <View style={styles.bottomMask} />
-        </View>
+    <SafeAreaProvider style={[styles.root, { backgroundColor: shellBackground }]}>
+      <StatusBar style={statusBarStyle} />
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: shellBackground }]} edges={safeAreaEdges}>
+        {showBackgroundFrame ? (
+          <View pointerEvents="none" style={styles.backgroundFrame}>
+            <View style={[styles.topVeil, { backgroundColor: tone.topWash }]} />
+            <View style={[styles.sideWash, { backgroundColor: tone.sideWash }]} />
+            <View style={[styles.bottomWash, { backgroundColor: tone.bottomWash }]} />
+            <View style={[styles.edgeLine, { backgroundColor: tone.edgeLine }]} />
+            <View style={styles.gridV1} />
+            <View style={styles.gridV2} />
+            <View style={styles.gridH1} />
+            <View style={styles.gridH2} />
+            <View style={styles.topFadeStrong} />
+            <View style={styles.topFadeSoft} />
+            <View style={styles.bottomMask} />
+          </View>
+        ) : null}
         <KeyboardAvoidingView
           behavior={Platform.select({ ios: 'padding', android: undefined })}
           style={styles.keyboardArea}

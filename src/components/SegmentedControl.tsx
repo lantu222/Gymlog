@@ -12,12 +12,14 @@ interface SegmentedControlProps {
   options: Option[];
   selectedKey: string;
   onSelect: (key: string) => void;
+  tone?: 'brand' | 'neutral';
 }
 
 export function SegmentedControl({
   options,
   selectedKey,
   onSelect,
+  tone = 'brand',
 }: SegmentedControlProps) {
   return (
     <View style={styles.wrapper}>
@@ -27,9 +29,11 @@ export function SegmentedControl({
           <Pressable
             key={option.key}
             onPress={() => onSelect(option.key)}
-            style={[styles.option, active && styles.optionActive]}
+            style={[styles.option, active && (tone === 'neutral' ? styles.optionActiveNeutral : styles.optionActive)]}
           >
-            <Text style={[styles.label, active && styles.labelActive]}>{option.label}</Text>
+            <Text style={[styles.label, active && (tone === 'neutral' ? styles.labelActiveNeutral : styles.labelActive)]}>
+              {option.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -57,6 +61,9 @@ const styles = StyleSheet.create({
   optionActive: {
     backgroundColor: colors.accent,
   },
+  optionActiveNeutral: {
+    backgroundColor: '#F4FAFF',
+  },
   label: {
     color: colors.textSecondary,
     fontSize: 13,
@@ -64,5 +71,8 @@ const styles = StyleSheet.create({
   },
   labelActive: {
     color: colors.background,
+  },
+  labelActiveNeutral: {
+    color: '#0B0F14',
   },
 });

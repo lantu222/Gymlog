@@ -187,6 +187,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
       : [],
     bodyweightEntries: Array.isArray(input?.bodyweightEntries) ? input.bodyweightEntries : [],
     preferences: {
+      appLanguage:
+        input?.preferences?.appLanguage === 'fi' || input?.preferences?.appLanguage === 'en'
+          ? input.preferences.appLanguage
+          : fallback.preferences.appLanguage,
       unitPreference: input?.preferences?.unitPreference === 'lb' ? 'lb' : 'kg',
       theme: 'dark',
       defaultRestSeconds:
@@ -205,6 +209,22 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked
           : fallback.preferences.adaptiveCoachPremiumUnlocked,
+      entryFlowCompleted:
+        typeof input?.preferences?.entryFlowCompleted === 'boolean'
+          ? input.preferences.entryFlowCompleted
+          : fallback.preferences.entryFlowCompleted,
+      selectedSignInMethod:
+        input?.preferences?.selectedSignInMethod === 'apple' ||
+        input?.preferences?.selectedSignInMethod === 'email' ||
+        input?.preferences?.selectedSignInMethod === null
+          ? input.preferences.selectedSignInMethod
+          : fallback.preferences.selectedSignInMethod,
+      selectedAccessTier:
+        input?.preferences?.selectedAccessTier === 'free' ||
+        input?.preferences?.selectedAccessTier === 'premium' ||
+        input?.preferences?.selectedAccessTier === null
+          ? input.preferences.selectedAccessTier
+          : fallback.preferences.selectedAccessTier,
       bodyweightGoalKg:
         typeof input?.preferences?.bodyweightGoalKg === 'number' || input?.preferences?.bodyweightGoalKg === null
           ? input.preferences.bodyweightGoalKg
@@ -217,6 +237,27 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.setupCompleted === 'boolean'
           ? input.preferences.setupCompleted
           : fallback.preferences.setupCompleted,
+      setupGender:
+        input?.preferences?.setupGender === 'male' ||
+        input?.preferences?.setupGender === 'female' ||
+        input?.preferences?.setupGender === 'unspecified' ||
+        input?.preferences?.setupGender === null
+          ? input.preferences.setupGender
+          : fallback.preferences.setupGender,
+      setupAge:
+        typeof input?.preferences?.setupAge === 'number' && Number.isFinite(input.preferences.setupAge)
+          ? Math.max(0, Math.min(100, Math.round(input.preferences.setupAge)))
+          : fallback.preferences.setupAge,
+      setupAgeRange:
+        input?.preferences?.setupAgeRange === 'unspecified' ||
+        input?.preferences?.setupAgeRange === '18' ||
+        input?.preferences?.setupAgeRange === '19_25' ||
+        input?.preferences?.setupAgeRange === '26_30' ||
+        input?.preferences?.setupAgeRange === '31_40' ||
+        input?.preferences?.setupAgeRange === '41_plus' ||
+        input?.preferences?.setupAgeRange === null
+          ? input.preferences.setupAgeRange
+          : fallback.preferences.setupAgeRange,
       setupGoal:
         input?.preferences?.setupGoal === 'strength' ||
         input?.preferences?.setupGoal === 'muscle' ||
@@ -231,7 +272,8 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
       setupDaysPerWeek:
         input?.preferences?.setupDaysPerWeek === 2 ||
         input?.preferences?.setupDaysPerWeek === 3 ||
-        input?.preferences?.setupDaysPerWeek === 4
+        input?.preferences?.setupDaysPerWeek === 4 ||
+        input?.preferences?.setupDaysPerWeek === 5
           ? input.preferences.setupDaysPerWeek
           : fallback.preferences.setupDaysPerWeek,
       setupEquipment:
@@ -254,8 +296,27 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
       setupFocusAreas:
         Array.isArray(input?.preferences?.setupFocusAreas)
           ? input.preferences.setupFocusAreas.filter(
-              (value: unknown): value is 'arms' | 'glutes' | 'core' | 'conditioning' =>
-                value === 'arms' || value === 'glutes' || value === 'core' || value === 'conditioning',
+              (
+                value: unknown,
+              ): value is
+                | 'bodyweight'
+                | 'glutes'
+                | 'legs'
+                | 'chest'
+                | 'shoulders'
+                | 'back'
+                | 'arms'
+                | 'core'
+                | 'conditioning' =>
+                value === 'bodyweight' ||
+                value === 'glutes' ||
+                value === 'legs' ||
+                value === 'chest' ||
+                value === 'shoulders' ||
+                value === 'back' ||
+                value === 'arms' ||
+                value === 'core' ||
+                value === 'conditioning',
             )
           : fallback.preferences.setupFocusAreas,
       setupGuidanceMode:

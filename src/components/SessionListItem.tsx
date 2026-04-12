@@ -26,6 +26,7 @@ export function SessionListItem({
   return (
     <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.left}>
+        <Text style={styles.kicker}>Saved session</Text>
         <Text style={styles.name}>{workoutName}</Text>
         <Text style={styles.meta}>
           {formatShortDate(performedAt)} {'\u00b7'} {pluralize(exerciseCount, 'exercise')}
@@ -52,33 +53,40 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.md,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(18, 26, 35, 0.82)',
     padding: spacing.lg,
   },
   left: {
     gap: spacing.xs,
     flex: 1,
   },
+  kicker: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
   right: {
-    maxWidth: 138,
+    maxWidth: 150,
     alignItems: 'flex-end',
     gap: spacing.xs,
   },
   name: {
     color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 20,
+    fontWeight: '900',
     letterSpacing: -0.3,
   },
   meta: {
     color: colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 12,
+    fontWeight: '700',
   },
   summary: {
     color: colors.textMuted,
@@ -92,12 +100,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(85, 138, 189, 0.18)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.28)',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
   badgeText: {
-    color: '#9ACCFF',
+    color: colors.textPrimary,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',

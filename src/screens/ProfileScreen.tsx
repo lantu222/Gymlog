@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import { BadgePill, SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
+import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { SegmentedControl } from '../components/SegmentedControl';
 import { convertWeightToKg, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
@@ -19,6 +19,7 @@ interface ProfileScreenProps {
   preferences: AppPreferences;
   latestBodyweightKg: number | null;
   recommendedProgramName?: string | null;
+  recommendedProgramDaysPerWeek?: number | null;
   onUnitPreferenceChange: (nextUnit: UnitPreference) => void;
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
   onOpenPlanSettings: () => void;
@@ -32,6 +33,19 @@ interface ToggleRowProps {
   description: string;
   value: boolean;
   onPress: () => void;
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
+}
+
+function SignalCard({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.signalCard}>
+      <Text style={styles.signalLabel}>{label}</Text>
+      <Text style={styles.signalValue}>{value}</Text>
+    </View>
+  );
 }
 
 function ToggleRow({ title, description, value, onPress }: ToggleRowProps) {
@@ -52,6 +66,7 @@ export function ProfileScreen({
   preferences,
   latestBodyweightKg,
   recommendedProgramName,
+  recommendedProgramDaysPerWeek = null,
   onUnitPreferenceChange,
   onPreferencesChange,
   onOpenPlanSettings,
@@ -61,7 +76,9 @@ export function ProfileScreen({
 }: ProfileScreenProps) {
   const [confirmVisible, setConfirmVisible] = useState(false);
   const [restDraft, setRestDraft] = useState(`${preferences.defaultRestSeconds}`);
-  const [goalWeightDraft, setGoalWeightDraft] = useState(formatWeightInputValue(preferences.bodyweightGoalKg, preferences.unitPreference));
+  const [goalWeightDraft, setGoalWeightDraft] = useState(
+    formatWeightInputValue(preferences.bodyweightGoalKg, preferences.unitPreference),
+  );
 
   useEffect(() => {
     setRestDraft(`${preferences.defaultRestSeconds}`);
@@ -109,64 +126,80 @@ export function ProfileScreen({
       ]
     : [];
 
+  const fallbackSetupTitle = setupComplete
+    ? (() => {
+        switch (preferences.setupGoal) {
+          case 'strength':
+            return `${preferences.setupDaysPerWeek}-day strength fit`;
+          case 'muscle':
+            return `${preferences.setupDaysPerWeek}-day muscle fit`;
+          case 'general':
+            return `${preferences.setupDaysPerWeek}-day general fit`;
+          case 'run_mobility':
+            return `${preferences.setupDaysPerWeek}-day run + mobility fit`;
+          default:
+            return 'Current fit';
+        }
+      })()
+    : 'No setup locked in yet';
+
+  const setupTitle =
+    setupComplete &&
+    recommendedProgramName &&
+    recommendedProgramDaysPerWeek === preferences.setupDaysPerWeek
+      ? recommendedProgramName
+      : fallbackSetupTitle;
+
+  const heroMeta = setupComplete
+    ? `${getGuidanceModeLabel(preferences.setupGuidanceMode!)} · ${getScheduleModeLabel(preferences.setupScheduleMode!)}`
+    : 'Lock in your plan and keep your defaults tight.';
+
+  const quickSignals = [
+    { label: 'Units', value: preferences.unitPreference.toUpperCase() },
+    { label: 'Rest', value: `${preferences.defaultRestSeconds}s` },
+    { label: 'Focus', value: preferences.autoFocusNextInput ? 'On' : 'Off' },
+  ];
+
   return (
     <>
-      <ScreenHeader title="Profile" subtitle="Preferences, privacy, and quiet utility surfaces." />
+      <ScreenHeader title="Profile" subtitle="Quiet controls, defaults, and data." />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SurfaceCard accent="blue" emphasis="utility" style={styles.metaCard}>
-          <Text style={styles.metaKicker}>App</Text>
-          <Text style={styles.appName}>{appInfo.name}</Text>
-          <Text style={styles.muted}>Version {appInfo.version}</Text>
-        </SurfaceCard>
+        <SurfaceCard accent="neutral" emphasis="hero" style={styles.heroSurface}>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroKicker}>{setupComplete ? 'Profile control' : 'Finish setup'}</Text>
 
-        <SectionHeaderBlock
-          accent="blue"
-          kicker="Preferences"
-          title="Your setup"
-          subtitle="Keep this screen clean and utility-first while matching the main shell."
-        />
-
-        <SurfaceCard accent="orange" emphasis="utility" style={styles.card}>
-          <SectionHeaderBlock
-            accent="orange"
-            kicker="Plan settings"
-            title={setupComplete ? 'Open plan settings' : 'Finish your setup'}
-            subtitle={
-              setupComplete
-                ? 'Tailoring, week fit, and the next plan action now live in one place.'
-                : 'Gymlog works better once it knows what kind of plan should fit your real week.'
-            }
-          />
-
-          {setupComplete ? (
             <View style={styles.setupBadgeRow}>
-              {setupBadges.map((badge) => (
-                <BadgePill key={badge} label={badge} accent="orange" />
+              {(setupBadges.length > 0 ? setupBadges : ['Setup', 'Not finished']).map((badge) => (
+                <BadgePill key={badge} label={badge} accent="neutral" />
               ))}
             </View>
-          ) : null}
 
-          <View style={styles.preferenceBlock}>
-            <Text style={styles.preferenceTitle}>
-              {setupComplete ? (recommendedProgramName ?? 'No saved recommendation yet') : 'No setup locked in yet'}
-            </Text>
-            <Text style={styles.preferenceDescription}>
-              {setupComplete
-                ? `${getGuidanceModeLabel(preferences.setupGuidanceMode!)}. ${getScheduleModeLabel(preferences.setupScheduleMode!)}.`
-                : 'Goal, days per week, equipment, guidance mode, and focus live in one tailoring path.'}
-            </Text>
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroTitle}>{setupTitle}</Text>
+              <Text style={styles.heroMeta}>{heroMeta}</Text>
+            </View>
+
+            <Pressable onPress={onOpenPlanSettings} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>{setupComplete ? 'Open plan settings' : 'Finish setup'}</Text>
+            </Pressable>
           </View>
-
-          <Pressable onPress={onOpenPlanSettings} style={styles.setupButton}>
-            <Text style={styles.setupButtonText}>{setupComplete ? 'Open plan settings' : 'Finish setup'}</Text>
-          </Pressable>
         </SurfaceCard>
 
-        <SurfaceCard accent="blue" emphasis="utility" style={styles.card}>
-          <View style={styles.preferenceBlock}>
-            <Text style={styles.preferenceTitle}>Units</Text>
-            <Text style={styles.preferenceDescription}>Choose how workout and bodyweight values are displayed.</Text>
+        <View style={styles.signalRow}>
+          {quickSignals.map((signal) => (
+            <SignalCard key={signal.label} label={signal.label} value={signal.value} />
+          ))}
+        </View>
+
+        <SectionLabel label="Defaults" />
+
+        <SurfaceCard accent="neutral" emphasis="standard" style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardKicker}>Units + logging</Text>
+            <Text style={styles.cardTitle}>Workout defaults</Text>
+            <Text style={styles.cardBody}>Keep logging tight and consistent.</Text>
           </View>
+
           <SegmentedControl
             options={[
               { key: 'kg', label: 'kg' },
@@ -174,12 +207,13 @@ export function ProfileScreen({
             ]}
             selectedKey={preferences.unitPreference}
             onSelect={(key) => onUnitPreferenceChange(key as UnitPreference)}
+            tone="neutral"
           />
 
-          <View style={styles.preferenceRowStatic}>
+          <View style={styles.utilityRow}>
             <View style={styles.preferenceCopy}>
               <Text style={styles.preferenceTitle}>Default rest timer</Text>
-              <Text style={styles.preferenceDescription}>Used as the starting rest value when adding new exercises.</Text>
+              <Text style={styles.preferenceDescription}>Starting rest for new exercises.</Text>
             </View>
             <TextInput
               value={restDraft}
@@ -194,32 +228,45 @@ export function ProfileScreen({
             />
           </View>
 
+          <View style={styles.divider} />
+
           <ToggleRow
             title="Auto-focus next input"
-            description="Move through weight and reps fields faster during logging."
+            description="Move through weight and reps faster."
             value={preferences.autoFocusNextInput}
             onPress={() => onPreferencesChange({ autoFocusNextInput: !preferences.autoFocusNextInput })}
           />
         </SurfaceCard>
 
-        <SurfaceCard accent="blue" emphasis="utility" style={styles.card}>
-          <View style={styles.preferenceBlock}>
-            <Text style={styles.preferenceTitle}>Bodyweight target</Text>
-            <Text style={styles.preferenceDescription}>Keep a lightweight bodyweight direction available without turning Gymlog into a full nutrition app.</Text>
+        <SectionLabel label="Bodyweight" />
+
+        <SurfaceCard accent="neutral" emphasis="standard" style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardKicker}>Progress</Text>
+            <Text style={styles.cardTitle}>Latest and target</Text>
+            <Text style={styles.cardBody}>Keep one lightweight bodyweight direction in reach.</Text>
           </View>
 
-          <View style={styles.preferenceRowStatic}>
-            <View style={styles.preferenceCopy}>
-              <Text style={styles.preferenceTitle}>Latest bodyweight</Text>
-              <Text style={styles.preferenceDescription}>Pulled from your saved progress entries.</Text>
+          <View style={styles.metricRow}>
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Latest</Text>
+              <Text style={styles.metricValue}>{formatWeight(latestBodyweightKg, preferences.unitPreference)}</Text>
             </View>
-            <Text style={styles.staticValue}>{formatWeight(latestBodyweightKg, preferences.unitPreference)}</Text>
+
+            <View style={styles.metricCard}>
+              <Text style={styles.metricLabel}>Target</Text>
+              <Text style={styles.metricValue}>
+                {preferences.bodyweightGoalKg === null
+                  ? 'None'
+                  : formatWeight(preferences.bodyweightGoalKg, preferences.unitPreference)}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.preferenceRowStatic}>
+          <View style={styles.utilityRow}>
             <View style={styles.preferenceCopy}>
               <Text style={styles.preferenceTitle}>Target bodyweight</Text>
-              <Text style={styles.preferenceDescription}>Optional. Leave empty if you do not want a target in the setup context.</Text>
+              <Text style={styles.preferenceDescription}>Optional. Leave blank if you do not want one.</Text>
             </View>
             <TextInput
               value={goalWeightDraft}
@@ -236,34 +283,46 @@ export function ProfileScreen({
         </SurfaceCard>
 
         {onSupportPress && onContactPress ? (
-          <SurfaceCard accent="orange" emphasis="utility" style={styles.card}>
-            <SectionHeaderBlock
-              accent="orange"
-              kicker="Support"
-              title="Free core app"
-              subtitle="Optional support later without gating logging, workouts, or progress."
-            />
-            <View style={styles.supportActions}>
-              <Pressable onPress={onSupportPress} style={styles.supportButton}>
-                <Text style={styles.supportButtonText}>Support Gymlog</Text>
-              </Pressable>
-              <Pressable onPress={onContactPress} style={styles.supportButtonSecondary}>
-                <Text style={styles.supportButtonSecondaryText}>Contact</Text>
-              </Pressable>
-            </View>
-          </SurfaceCard>
+          <>
+            <SectionLabel label="Support" />
+
+            <SurfaceCard accent="neutral" emphasis="standard" style={styles.card}>
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardKicker}>Keep it free</Text>
+                <Text style={styles.cardTitle}>Free core app</Text>
+                <Text style={styles.cardBody}>Optional support, no locked core logging.</Text>
+              </View>
+
+              <View style={styles.supportActions}>
+                <Pressable onPress={onSupportPress} style={styles.primaryButtonCompact}>
+                  <Text style={styles.primaryButtonCompactText}>Support Gymlog</Text>
+                </Pressable>
+                <Pressable onPress={onContactPress} style={styles.secondaryButtonCompact}>
+                  <Text style={styles.secondaryButtonCompactText}>Contact</Text>
+                </Pressable>
+              </View>
+            </SurfaceCard>
+          </>
         ) : null}
 
-        <SurfaceCard accent="rose" emphasis="utility" style={styles.card}>
-          <SectionHeaderBlock
-            accent="rose"
-            kicker="Data"
-            title="Reset local data"
-            subtitle="Clear workouts, progress, history, and preferences on this device."
-          />
-          <Pressable onPress={() => setConfirmVisible(true)}>
-            <Text style={styles.resetText}>Reset all data</Text>
+        <SectionLabel label="Data" />
+
+        <SurfaceCard accent="neutral" emphasis="standard" style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardKicker}>This device</Text>
+            <Text style={styles.cardTitle}>Reset local data</Text>
+            <Text style={styles.cardBody}>Clear workouts, progress, history, and preferences on this device.</Text>
+          </View>
+
+          <Pressable onPress={() => setConfirmVisible(true)} style={styles.destructiveButton}>
+            <Text style={styles.destructiveButtonText}>Reset all data</Text>
           </Pressable>
+        </SurfaceCard>
+
+        <SurfaceCard accent="neutral" emphasis="flat" style={styles.metaCard}>
+          <Text style={styles.metaKicker}>App</Text>
+          <Text style={styles.metaLine}>{appInfo.name}</Text>
+          <Text style={styles.metaLineMuted}>Version {appInfo.version}</Text>
         </SurfaceCard>
       </ScrollView>
       <ConfirmDialog
@@ -288,53 +347,132 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
     gap: spacing.md,
   },
-  metaCard: {
-    gap: spacing.xs,
+  heroSurface: {
+    minHeight: 310,
   },
-  card: {
+  heroContent: {
     gap: spacing.md,
+    padding: spacing.lg,
+  },
+  heroKicker: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   setupBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  metaKicker: {
-    color: '#9ACCFF',
-    fontSize: 12,
+  heroCopy: {
+    gap: spacing.xs,
+  },
+  heroTitle: {
+    color: colors.textPrimary,
+    fontSize: 30,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+  },
+  heroMeta: {
+    color: 'rgba(244,250,255,0.74)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  primaryButton: {
+    minHeight: 56,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F4FAFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  primaryButtonText: {
+    color: '#0B0F14',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  signalRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  signalCard: {
+    flex: 1,
+    minHeight: 76,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(18, 26, 35, 0.82)',
+    paddingHorizontal: spacing.md,
+    justifyContent: 'center',
+    gap: 2,
+  },
+  signalLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.9,
   },
-  appName: {
+  signalValue: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  sectionLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginTop: spacing.sm,
+  },
+  card: {
+    gap: spacing.md,
+  },
+  cardHeader: {
+    gap: 2,
+  },
+  cardKicker: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  cardTitle: {
     color: colors.textPrimary,
     fontSize: 24,
     fontWeight: '900',
+    letterSpacing: -0.6,
   },
-  muted: {
+  cardBody: {
     color: colors.textSecondary,
-    fontSize: 14,
+    fontSize: 13,
+    lineHeight: 19,
     fontWeight: '600',
   },
-  preferenceBlock: {
-    gap: 3,
+  utilityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: spacing.md,
   },
   preferenceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.xs,
-  },
-  preferenceRowStatic: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
   },
   preferenceCopy: {
-    gap: 3,
     flex: 1,
+    gap: 3,
   },
   preferenceTitle: {
     color: colors.textPrimary,
@@ -344,55 +482,38 @@ const styles = StyleSheet.create({
   preferenceDescription: {
     color: colors.textSecondary,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
     fontWeight: '600',
   },
   restInput: {
-    width: 82,
-    minHeight: 48,
+    width: 96,
+    minHeight: 52,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(10, 14, 19, 0.84)',
     textAlign: 'center',
     color: colors.textPrimary,
     fontSize: 16,
     fontWeight: '800',
   },
-  staticValue: {
-    minWidth: 82,
-    textAlign: 'center',
-    color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  setupButton: {
-    minHeight: 46,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.34)',
-    backgroundColor: 'rgba(240, 106, 57, 0.18)',
-  },
-  setupButtonText: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '900',
+  divider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   toggle: {
-    minWidth: 60,
-    minHeight: 36,
+    minWidth: 68,
+    minHeight: 38,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: 'rgba(255,255,255,0.12)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(10, 14, 19, 0.82)',
   },
   toggleActive: {
-    backgroundColor: colors.accentSoft,
-    borderColor: 'rgba(110, 168, 254, 0.24)',
+    backgroundColor: '#F4FAFF',
+    borderColor: '#F4FAFF',
   },
   toggleText: {
     color: colors.textSecondary,
@@ -400,45 +521,100 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   toggleTextActive: {
-    color: colors.accent,
+    color: '#0B0F14',
+  },
+  metricRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  metricCard: {
+    flex: 1,
+    minHeight: 108,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(10, 14, 19, 0.64)',
+    padding: spacing.md,
+    justifyContent: 'space-between',
+  },
+  metricLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  metricValue: {
+    color: colors.textPrimary,
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.5,
   },
   supportActions: {
     flexDirection: 'row',
     gap: spacing.sm,
   },
-  supportButton: {
+  primaryButtonCompact: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 50,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accentAlt,
-    borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.34)',
+    backgroundColor: '#F4FAFF',
   },
-  supportButtonText: {
-    color: '#FFFFFF',
+  primaryButtonCompactText: {
+    color: '#0B0F14',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '900',
   },
-  supportButtonSecondary: {
-    minHeight: 48,
-    paddingHorizontal: spacing.md,
+  secondaryButtonCompact: {
+    minHeight: 50,
+    paddingHorizontal: spacing.lg,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(191, 74, 105, 0.16)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(191, 74, 105, 0.30)',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
-  supportButtonSecondaryText: {
-    color: '#E58AA2',
+  secondaryButtonCompactText: {
+    color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
-  },
-  resetText: {
-    color: '#F0997A',
-    fontSize: 15,
     fontWeight: '800',
+  },
+  destructiveButton: {
+    minHeight: 52,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
+  destructiveButtonText: {
+    color: '#F4B39C',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  metaCard: {
+    gap: 2,
+    marginTop: spacing.xs,
+  },
+  metaKicker: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  metaLine: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  metaLineMuted: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    fontWeight: '600',
   },
 });

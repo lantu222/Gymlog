@@ -20,6 +20,7 @@ import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
+import { buildHomeHeroVisual, buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
@@ -33,6 +34,7 @@ import { AICoachScreen } from './src/screens/AICoachScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { EquipmentPreferencesScreen } from './src/screens/EquipmentPreferencesScreen';
 import { ExercisePreferencesScreen } from './src/screens/ExercisePreferencesScreen';
 import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen';
@@ -52,7 +54,14 @@ import { adaptCompletedWorkoutSessionForAppDatabase } from './src/features/worko
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { colors } from './src/theme';
-import { AppPreferences, SetupScheduleMode, UnitPreference, WorkoutTemplateDraft } from './src/types/models';
+import {
+  AppLanguage,
+  AppPreferences,
+  SetupScheduleMode,
+  SetupGender,
+  UnitPreference,
+  WorkoutTemplateDraft,
+} from './src/types/models';
 import { ValluAction } from './src/types/vallu';
 
 interface CompletionSummaryState {
@@ -133,7 +142,6 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
   if (
     !preferences.setupCompleted ||
     !preferences.setupGoal ||
-    !preferences.setupLevel ||
     !preferences.setupDaysPerWeek ||
     !preferences.setupEquipment
   ) {
@@ -141,8 +149,11 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
   }
 
   return {
+    gender: preferences.setupGender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
+    age: preferences.setupAge ?? DEFAULT_FIRST_RUN_SELECTION.age,
+    ageRange: preferences.setupAgeRange ?? DEFAULT_FIRST_RUN_SELECTION.ageRange,
     goal: preferences.setupGoal,
-    level: preferences.setupLevel,
+    level: preferences.setupLevel ?? DEFAULT_FIRST_RUN_SELECTION.level,
     daysPerWeek: preferences.setupDaysPerWeek,
     equipment: preferences.setupEquipment,
     secondaryOutcomes:
@@ -170,6 +181,9 @@ function buildSetupPreferencePatch(
   return {
     onboardingCompleted: true,
     setupCompleted: true,
+    setupGender: selection.gender,
+    setupAge: selection.age ?? null,
+    setupAgeRange: selection.ageRange ?? null,
     setupGoal: selection.goal,
     setupLevel: selection.level,
     setupDaysPerWeek: selection.daysPerWeek,
@@ -182,6 +196,7 @@ function buildSetupPreferencePatch(
     setupAvailableDays: selection.scheduleMode === 'self_managed' ? selection.availableDays : [],
     bodyweightGoalKg: selection.targetWeightKg ?? null,
     recommendedProgramId,
+    activePlanId: null,
     unitPreference: selection.unitPreference,
   };
 }
@@ -369,6 +384,7 @@ function GymlogApp() {
   }, [completionSummary, route, trackedProgress, workoutSessions, workout.templates, workoutTemplates]);
 
   const onboardingActive = !preferences.onboardingCompleted;
+  const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
 
   useEffect(() => {
     if (onboardingActive) {
@@ -783,6 +799,29 @@ function GymlogApp() {
     navigate(ROOT_ROUTES.home);
   }
 
+  async function handleChangeAppLanguage(nextLanguage: AppLanguage) {
+    if (preferences.appLanguage === nextLanguage) {
+      return;
+    }
+
+    await updatePreferences({ appLanguage: nextLanguage });
+  }
+
+  async function handleContinueEntry() {
+    await updatePreferences({
+      selectedSignInMethod: 'local',
+      entryFlowCompleted: true,
+      selectedAccessTier: 'free',
+      adaptiveCoachPremiumUnlocked: false,
+    });
+  }
+
+  async function handleBackToEntry() {
+    await updatePreferences({
+      entryFlowCompleted: false,
+    });
+  }
+
   function openStartingWeek(recommendedProgramId: string, source: 'first_run' | 'edit') {
     replaceRoute({
       tab: 'home',
@@ -1044,6 +1083,10 @@ function GymlogApp() {
     () => (setupSelection ? resolveFirstRunRecommendationWithTailoring(setupSelection, tailoringPreferences) : null),
     [setupSelection, tailoringPreferences],
   );
+  const currentFitReadyTemplate = useMemo(
+    () => (setupRecommendation?.featuredProgramId ? getWorkoutTemplateById(setupRecommendation.featuredProgramId) : null),
+    [setupRecommendation?.featuredProgramId],
+  );
   const recommendedReadyTemplate = useMemo(
     () => (preferences.recommendedProgramId ? getWorkoutTemplateById(preferences.recommendedProgramId) : null),
     [preferences.recommendedProgramId],
@@ -1125,6 +1168,37 @@ function GymlogApp() {
         recommendedWorkout: recommendedHomeWorkout,
       }),
     [homeActiveWorkoutSummary, lastReusableWorkout, nextPlannedWorkout, recommendedHomeWorkout],
+  );
+  const homeQuickStats = useMemo(
+    () =>
+      buildHomeQuickStats({
+        sessionsThisWeek: homeSummary.sessionsThisWeek,
+        streakValue: homeSummary.streak.value,
+        streakLabel: homeSummary.streak.label,
+        deltaValue: homeSummary.lastSessionDelta?.value ?? null,
+      }),
+    [homeSummary.lastSessionDelta?.value, homeSummary.sessionsThisWeek, homeSummary.streak.label, homeSummary.streak.value],
+  );
+  const homeUpcomingSessions = useMemo(
+    () =>
+      buildHomeUpcomingSessions({
+        database,
+        readyTemplates: workout.templates,
+        customTemplates: workoutTemplates,
+        setupSelection,
+        recommendedReadyTemplate,
+      }),
+    [database, recommendedReadyTemplate, setupSelection, workout.templates, workoutTemplates],
+  );
+  const homeHeroVisual = useMemo(
+    () =>
+      buildHomeHeroVisual({
+        primaryCard: primaryActionSelection.card,
+        primaryTarget: primaryActionSelection.target,
+        readyTemplates: workout.templates,
+        customTemplates: workoutTemplates,
+      }),
+    [primaryActionSelection.card, primaryActionSelection.target, workout.templates, workoutTemplates],
   );
   const dismissedTipIds = preferences.dismissedTipIds ?? [];
   const readyProgramBadgeLabel = 'Browse';
@@ -1224,26 +1298,37 @@ function GymlogApp() {
   let content: React.ReactNode;
 
   if (onboardingActive) {
-    content = (
-      <OnboardingScreen
-        initialUnitPreference={unitPreference}
-        tailoringPreferences={tailoringPreferences}
-        readyProgramCount={workout.templates.length}
-        dismissedTipIds={dismissedTipIds}
-        onDismissTip={handleDismissTip}
-        onSkip={handleOnboardingSkip}
-        onCompleteToStartingWeek={handleOnboardingCompleteToStartingWeek}
-        onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
-        onCompleteToCustom={handleOnboardingCompleteToCustom}
-      />
-    );
+    if (entryFlowActive) {
+      content = (
+        <WelcomeScreen
+          language={preferences.appLanguage}
+          onChangeLanguage={(language) => void handleChangeAppLanguage(language)}
+          onContinue={() => void handleContinueEntry()}
+        />
+      );
+    } else {
+      content = (
+        <OnboardingScreen
+          initialUnitPreference={unitPreference}
+          tailoringPreferences={tailoringPreferences}
+          readyProgramCount={workout.templates.length}
+          dismissedTipIds={dismissedTipIds}
+          onDismissTip={handleDismissTip}
+          onBackToEntry={handleBackToEntry}
+          onSkip={handleOnboardingSkip}
+          onCompleteToStartingWeek={handleOnboardingCompleteToStartingWeek}
+          onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
+          onCompleteToCustom={handleOnboardingCompleteToCustom}
+        />
+      );
+    }
   } else if (route.tab === 'profile' && route.screen === 'setup') {
     content = (
       <OnboardingScreen
         key={`setup:${preferences.recommendedProgramId ?? 'none'}:${preferences.setupCompleted ? 'complete' : 'pending'}`}
         mode="edit"
         initialSelection={setupSelection ?? DEFAULT_FIRST_RUN_SELECTION}
-        initialStage={setupSelection ? 'recommendation' : 'location'}
+        initialStage={setupSelection ? 'review' : 'location'}
         initialUnitPreference={unitPreference}
         tailoringPreferences={tailoringPreferences}
         readyProgramCount={workout.templates.length}
@@ -1453,7 +1538,7 @@ function GymlogApp() {
     content = (
       <PlanSettingsScreen
         preferences={preferences}
-        recommendedProgramName={recommendedReadyTemplate?.name ?? null}
+        recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onRefineSetup={handleOpenSetupEditor}
         onOpenExercisePreferences={handleOpenExercisePreferences}
@@ -1462,21 +1547,21 @@ function GymlogApp() {
         onOpenPremium={handleOpenPremium}
         onScheduleModeChange={(mode) => void handleUpdateScheduleMode(mode)}
         onOpenWeek={
-          preferences.recommendedProgramId
-            ? () => openStartingWeek(preferences.recommendedProgramId!, 'edit')
+          (setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)
+            ? () => openStartingWeek((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!, 'edit')
             : undefined
         }
         onOpenProgram={
-          preferences.recommendedProgramId
-            ? () => openRecommendedProgramDetail(preferences.recommendedProgramId!)
+          (setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)
+            ? () => openRecommendedProgramDetail((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!)
             : undefined
         }
         onAskVallu={() =>
           navigate({
             tab: 'home',
             screen: 'ai',
-            prompt: recommendedReadyTemplate?.name
-              ? `Why does ${formatWorkoutDisplayLabel(recommendedReadyTemplate.name)} fit me?`
+            prompt: (currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name)
+              ? `Why does ${formatWorkoutDisplayLabel(currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? '')} fit me?`
               : 'Why does this plan fit me?',
           })
         }
@@ -1536,7 +1621,8 @@ function GymlogApp() {
       <ProfileScreen
         preferences={preferences}
         latestBodyweightKg={bodyweightProgress.latest?.weight ?? null}
-        recommendedProgramName={recommendedReadyTemplate?.name ?? null}
+        recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
+        recommendedProgramDaysPerWeek={currentFitReadyTemplate?.daysPerWeek ?? recommendedReadyTemplate?.daysPerWeek ?? null}
         onUnitPreferenceChange={async (nextUnit) => {
           await setUnitPreference(nextUnit);
           showToast(`Units set to ${nextUnit}`);
@@ -1576,28 +1662,18 @@ function GymlogApp() {
   } else {
     content = (
       <HomeScreen
-        activeWorkoutSummary={homeActiveWorkoutSummary}
+        heroVisual={homeHeroVisual}
         primaryActionCard={primaryActionSelection.card}
-        readyProgramCount={workout.templates.length}
-        readyProgramBadgeLabel={readyProgramBadgeLabel}
-        readyProgramTitle={readyProgramTitle}
-        readyProgramSubtitle={readyProgramSubtitle}
-        readyProgramMeta={readyProgramMeta}
-        readyProgramCtaLabel={readyProgramCtaLabel}
-        customProgramCount={customProgramCount}
-        customProgramBadgeLabel={customProgramBadgeLabel}
-        customProgramTitle={customProgramTitle}
-        customProgramSubtitle={customProgramSubtitle}
-        customProgramMeta={customProgramMeta}
-        customProgramCtaLabel={customProgramCtaLabel}
+        hasNoProgramState={primaryActionSelection.target.type === 'open_ready_library'}
         streak={homeSummary.streak}
+        quickStats={homeQuickStats}
+        upcomingSessions={homeUpcomingSessions}
         aiPromptSuggestions={homeAiPromptSuggestions}
         onPrimaryAction={handleOpenPrimaryAction}
-        onOpenReadyPrograms={handleOpenReadyPrograms}
-        onOpenCustomPrograms={handleOpenCustomPrograms}
-        onOpenAICoach={handleOpenAICoach}
+        onOpenPlanOptions={() => navigate(ROOT_ROUTES.workout)}
+        onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'editor' })}
         onOpenStreak={() => navigate(ROOT_ROUTES.progress)}
-        onResumeWorkout={handleResumeWorkout}
+        onOpenAICoach={handleOpenAICoach}
       />
     );
   }
@@ -1606,11 +1682,16 @@ function GymlogApp() {
     !onboardingActive &&
     !(route.tab === 'workout' && (route.screen === 'log' || route.screen === 'summary'));
   const shellTone = onboardingActive ? 'home' : route.tab;
+  const welcomeActive = onboardingActive && entryFlowActive;
 
   return (
     <AppShell
       toastMessage={toastMessage}
       screenTone={shellTone}
+      showBackgroundFrame={!welcomeActive && route.tab !== 'home'}
+      safeAreaEdges={
+        welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
+      }
       tabBar={showTabBar ? <BottomTabBar activeTab={route.tab} onTabPress={navigateToTab} /> : undefined}
     >
       {content}

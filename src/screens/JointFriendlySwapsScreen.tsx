@@ -1,9 +1,9 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BadgePill, SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
+import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { WorkoutSceneGraphic } from '../components/WorkoutSceneGraphic';
 import {
   getJointSwapBiasHint,
   getJointSwapBiasTitle,
@@ -44,6 +44,22 @@ function buildPatch(bias: JointSwapBias, value: JointSwapPreference): Partial<Ap
   }
 
   return { setupKneeFriendlySwaps: value };
+}
+
+function getHeroPhotoKey(preferences: AppPreferences) {
+  if (preferences.setupKneeFriendlySwaps === 'prioritize') {
+    return 'running' as const;
+  }
+
+  if (preferences.setupShoulderFriendlySwaps === 'prioritize' || preferences.setupElbowFriendlySwaps === 'prioritize') {
+    return 'recovery' as const;
+  }
+
+  return 'strength' as const;
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function JointPreferenceRow({
@@ -102,36 +118,34 @@ export function JointFriendlySwapsScreen({
   return (
     <>
       <ScreenHeader
-        title="Joint-friendly swaps"
-        subtitle="Set how strongly quick swaps should protect each joint."
+      title="Joint-friendly swaps"
+        subtitle="Bias quick swaps toward joints that need more protection."
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SurfaceCard accent="orange" emphasis="hero" style={styles.heroCard}>
-          <View style={styles.heroRow}>
-            <View style={styles.heroCopy}>
-              <Text style={styles.heroKicker}>Tailoring</Text>
-              <Text style={styles.heroTitle}>Protect the joints that matter</Text>
-              <Text style={styles.heroBody}>
-                Keep this light by default, or push swaps harder toward shoulder, elbow, or knee-friendlier paths.
-              </Text>
+        <FitnessPhotoSurface variant={getHeroPhotoKey(preferences)} style={styles.heroSurface}>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroKicker}>Tailoring</Text>
+
+            <View style={styles.heroBadgeRow}>
+              <BadgePill accent="neutral" label={summary} />
             </View>
-            <WorkoutSceneGraphic variant="build" accent="orange" compact style={styles.heroGraphic} />
+
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroTitle}>Protect the joints that matter</Text>
+              <Text style={styles.heroMeta}>Shift quick swaps toward shoulder, elbow, or knee-friendlier paths.</Text>
+            </View>
+          </View>
+        </FitnessPhotoSurface>
+
+        <SectionLabel label="Quick swap bias" />
+
+        <SurfaceCard accent="neutral" emphasis="standard" style={styles.preferenceCard}>
+          <View style={styles.questionHeader}>
+            <Text style={styles.questionTitle}>How strongly should swaps protect each joint?</Text>
+            <Text style={styles.questionBody}>Keep this light by default or push friendlier options higher.</Text>
           </View>
 
-          <View style={styles.badgeRow}>
-            <BadgePill accent="orange" label={summary} />
-          </View>
-        </SurfaceCard>
-
-        <SectionHeaderBlock
-          accent="orange"
-          kicker="Question"
-          title="How strongly should swaps protect each joint?"
-          subtitle="Use quick preference levels instead of a big form."
-        />
-
-        <SurfaceCard accent="orange" emphasis="standard" style={styles.preferenceCard}>
           {JOINT_SWAP_BIAS_OPTIONS.map((bias) => (
             <JointPreferenceRow
               key={bias}
@@ -142,7 +156,7 @@ export function JointFriendlySwapsScreen({
           ))}
         </SurfaceCard>
 
-        <SurfaceCard accent="blue" emphasis="flat" style={styles.explainCard}>
+        <SurfaceCard accent="neutral" emphasis="flat" style={styles.explainCard}>
           <Text style={styles.explainKicker}>What changes</Text>
           <Text style={styles.explainTitle}>Recommendation, discovery, and quick swaps all listen now</Text>
           <Text style={styles.explainBody}>
@@ -158,55 +172,86 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  heroCard: {
-    gap: spacing.md,
+  heroSurface: {
+    minHeight: 272,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  heroRow: {
+  heroContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: spacing.lg,
     gap: spacing.md,
-  },
-  heroCopy: {
-    gap: spacing.xs,
   },
   heroKicker: {
-    color: '#FFCBAA',
+    color: 'rgba(255,255,255,0.58)',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.9,
     textTransform: 'uppercase',
   },
-  heroTitle: {
-    color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.7,
-  },
-  heroBody: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  heroGraphic: {
-    width: '100%',
-  },
-  badgeRow: {
+  heroBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
+  heroCopy: {
+    gap: spacing.xs,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -1,
+    maxWidth: '78%',
+  },
+  heroMeta: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    maxWidth: '84%',
+  },
+  sectionLabel: {
+    color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
   preferenceCard: {
     gap: spacing.md,
+  },
+  questionHeader: {
+    gap: 2,
+  },
+  questionTitle: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  questionBody: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   preferenceRow: {
     gap: spacing.sm,
   },
   preferenceRowHeader: {
-    gap: spacing.xs,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
   },
   preferenceRowCopy: {
     gap: 4,
+    flex: 1,
   },
   preferenceRowTitle: {
     color: colors.textPrimary,
@@ -232,15 +277,15 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(11, 16, 22, 0.46)',
+    backgroundColor: 'rgba(10, 14, 19, 0.82)',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     gap: 4,
   },
   preferenceSegmentActive: {
-    borderColor: 'rgba(255, 167, 112, 0.28)',
-    backgroundColor: 'rgba(240, 106, 57, 0.16)',
+    borderColor: '#F4FAFF',
+    backgroundColor: '#F4FAFF',
   },
   preferenceSegmentText: {
     color: colors.textPrimary,
@@ -248,7 +293,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   preferenceSegmentTextActive: {
-    color: '#FFF2E9',
+    color: '#0B0F14',
   },
   preferenceSegmentHint: {
     color: colors.textSecondary,
@@ -257,17 +302,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   preferenceSegmentHintActive: {
-    color: '#FFD9C0',
+    color: '#44515C',
   },
   explainCard: {
     gap: spacing.xs,
   },
   explainKicker: {
-    color: '#9ACCFF',
-    fontSize: 11,
+    color: colors.textMuted,
+    fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    letterSpacing: 0.8,
   },
   explainTitle: {
     color: colors.textPrimary,

@@ -340,6 +340,6 @@ export function getActivePlan(database: AppDatabase): WorkoutPlan | null {
     }
   }
 
-  return database.workoutPlans.find((plan) => plan.isActive) ?? null;
+  return null;
 }
 

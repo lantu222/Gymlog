@@ -47,6 +47,19 @@ yarn-error.*
 _tmp_bodbot/
 /qa/
 /qa-*
+/output-*
+/output/
+/tmp_ui_*
+/tmp/
+/afterback.xml
+/post-release-current.xml
+/progress-*.xml
+/relaunch.xml
+/skip.xml
+/step*.xml
+/week.xml
+/window_dump*.xml
+/qa-logcat-crash.txt
 /window.xml
 /window_dump.xml
 /Reference images/

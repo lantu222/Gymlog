@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { BadgePill, SurfaceCard } from './MainScreenPrimitives';
-import { PremiumFeatureVisual } from './PremiumFeatureVisual';
+import { WorkoutSceneGraphic } from './WorkoutSceneGraphic';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { colors, radii, spacing } from '../theme';
 
@@ -21,15 +21,9 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
     () => formatWorkoutDisplayLabel(activeWorkoutTitle, 'Workout'),
     [activeWorkoutTitle],
   );
-  const helperText = useMemo(
-    () =>
-      activeWorkoutTitle
-        ? `Need help with ${workoutTitle}?`
-        : 'Goal, lift, or split?',
-    [activeWorkoutTitle, workoutTitle],
-  );
-
+  const helperText = activeWorkoutTitle ? `Live help for ${workoutTitle}` : 'Get help instantly';
   const trimmed = draft.trim();
+  const compactPrompt = safeSuggestions[0] ?? 'Help with my training';
 
   function submitPrompt(prompt: string) {
     const next = prompt.trim();
@@ -40,66 +34,53 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
     onSubmit(next);
   }
 
+  if (compact) {
+    return (
+      <SurfaceCard accent="neutral" emphasis="flat" style={styles.compactShell}>
+        <View style={styles.compactRow}>
+          <View style={styles.compactCopy}>
+            <Text style={styles.compactKicker}>Ask Gymlog AI</Text>
+            <Text style={styles.compactTitle}>{helperText}</Text>
+          </View>
+          <WorkoutSceneGraphic variant="search" accent="neutral" compact style={styles.compactVisual} />
+        </View>
+
+        <Pressable onPress={() => onSubmit(compactPrompt)} style={styles.compactButton}>
+          <Text style={styles.compactButtonText}>Open AI</Text>
+        </Pressable>
+      </SurfaceCard>
+    );
+  }
+
   return (
-    <SurfaceCard
-      accent="orange"
-      emphasis={compact ? 'standard' : 'hero'}
-      style={[styles.card, compact && styles.cardCompact]}
-    >
-      <View style={styles.identityRow}>
-        <View style={[styles.badge, compact && styles.badgeCompact]}>
-          <Text style={[styles.badgeText, compact && styles.badgeTextCompact]}>V</Text>
-        </View>
-
-        <View style={styles.identityCopy}>
-          <View style={styles.identityTopLine}>
-            <Text style={styles.eyebrow}>Vallu</Text>
-            <BadgePill label="Beta" accent="orange" />
+    <SurfaceCard accent="neutral" emphasis="hero" style={styles.card}>
+      <View style={styles.heroRow}>
+        <View style={styles.heroCopy}>
+          <View style={styles.titleRow}>
+            <Text style={styles.eyebrow}>Ask Gymlog AI</Text>
+            {activeWorkoutTitle ? <BadgePill accent="neutral" label="Live help" /> : null}
           </View>
-          <Text style={[styles.identityMeta, compact && styles.identityMetaCompact]}>AI coach</Text>
+
+          <Text style={styles.title}>Get help instantly</Text>
+          <Text style={styles.subtitle}>{helperText}</Text>
         </View>
 
-        {activeWorkoutTitle ? <BadgePill label="Live" accent="orange" /> : null}
-      </View>
-
-      <View style={styles.heroVisualRow}>
-        <View style={styles.header}>
-          <Text style={[styles.title, compact && styles.titleCompact]}>What do you need?</Text>
-          <Text style={[styles.subtitle, compact && styles.subtitleCompact]}>{helperText}</Text>
-        </View>
-        <PremiumFeatureVisual variant="coach" accent="orange" compact={compact} style={styles.visual} />
-      </View>
-
-      <View style={styles.signalRow}>
-        <View style={styles.signalCard}>
-          <Text style={styles.signalLabel}>Lift</Text>
-          <Text style={styles.signalValue}>Bench stuck?</Text>
-        </View>
-        <View style={styles.signalCard}>
-          <Text style={styles.signalLabel}>Plan</Text>
-          <Text style={styles.signalValue}>Make it 2 days</Text>
-        </View>
-        {!compact ? (
-          <View style={styles.signalCard}>
-            <Text style={styles.signalLabel}>Today</Text>
-            <Text style={styles.signalValue}>Swap this session</Text>
-          </View>
-        ) : null}
+        <WorkoutSceneGraphic variant="search" accent="neutral" style={styles.heroVisual} />
       </View>
 
       <TextInput
         value={draft}
         onChangeText={setDraft}
-        placeholder="Bench stuck?"
+        placeholder="Ask one short question"
         placeholderTextColor={colors.textMuted}
-        selectionColor={colors.warning}
+        selectionColor="#FFFFFF"
         multiline
         textAlignVertical="top"
-        style={[styles.input, compact && styles.inputCompact]}
+        style={styles.input}
       />
 
       <View style={styles.suggestionRow}>
-        {safeSuggestions.slice(0, compact ? 2 : 4).map((suggestion) => (
+        {safeSuggestions.slice(0, 4).map((suggestion) => (
           <Pressable key={suggestion} onPress={() => setDraft(suggestion)} style={styles.suggestionChip}>
             <Text numberOfLines={1} style={styles.suggestionChipText}>
               {suggestion}
@@ -109,7 +90,7 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
       </View>
 
       <Pressable onPress={() => submitPrompt(trimmed)} style={[styles.button, !trimmed && styles.buttonDisabled]}>
-        <Text style={styles.buttonText}>Ask Vallu</Text>
+        <Text style={styles.buttonText}>Get answer</Text>
       </Pressable>
     </SurfaceCard>
   );
@@ -117,146 +98,103 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
 
 const styles = StyleSheet.create({
   card: {
-    minHeight: 320,
     gap: spacing.md,
   },
-  cardCompact: {
-    minHeight: 0,
+  compactShell: {
     gap: spacing.sm,
+    paddingVertical: spacing.md,
+    backgroundColor: '#050505',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
-  identityRow: {
+  compactRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
-  badge: {
-    width: 46,
-    height: 46,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(240, 106, 57, 0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.34)',
-  },
-  badgeCompact: {
-    width: 40,
-    height: 40,
-  },
-  badgeText: {
-    color: '#FFF6F0',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  badgeTextCompact: {
-    fontSize: 18,
-  },
-  identityCopy: {
+  compactCopy: {
     flex: 1,
-    gap: 2,
+    gap: 4,
   },
-  identityTopLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  eyebrow: {
-    color: '#FFB389',
+  compactKicker: {
+    color: 'rgba(255,255,255,0.48)',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 1.2,
+    letterSpacing: 1,
   },
-  identityMeta: {
+  compactTitle: {
     color: colors.textPrimary,
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '900',
     letterSpacing: -0.3,
   },
-  identityMetaCompact: {
-    fontSize: 15,
+  compactVisual: {
+    width: 132,
   },
-  header: {
-    flex: 1,
-    gap: spacing.xs,
+  compactButton: {
+    minHeight: 46,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
-  heroVisualRow: {
+  compactButtonText: {
+    color: '#0B0F14',
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  heroRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  visual: {
-    width: 110,
+  heroCopy: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  eyebrow: {
+    color: 'rgba(255,255,255,0.58)',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   title: {
     color: colors.textPrimary,
-    fontSize: 26,
-    lineHeight: 31,
+    fontSize: 24,
+    lineHeight: 28,
     fontWeight: '900',
     letterSpacing: -0.7,
   },
-  titleCompact: {
-    fontSize: 22,
-    lineHeight: 26,
-  },
   subtitle: {
-    color: '#E2CEC4',
+    color: colors.textMuted,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
   },
-  subtitleCompact: {
-    fontSize: 13,
-    lineHeight: 19,
-  },
-  signalRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  signalCard: {
-    flexGrow: 1,
-    minWidth: 96,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.18)',
-    backgroundColor: 'rgba(9, 13, 19, 0.42)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    gap: 2,
-  },
-  signalLabel: {
-    color: '#FFB389',
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  signalValue: {
-    color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-    lineHeight: 16,
+  heroVisual: {
+    width: 150,
   },
   input: {
-    minHeight: 94,
+    minHeight: 92,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.18)',
-    backgroundColor: 'rgba(9, 13, 19, 0.42)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(7, 10, 14, 0.42)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '600',
-  },
-  inputCompact: {
-    minHeight: 72,
-    fontSize: 14,
-    lineHeight: 20,
   },
   suggestionRow: {
     flexDirection: 'row',
@@ -270,28 +208,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.20)',
-    backgroundColor: 'rgba(240, 106, 57, 0.10)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   suggestionChipText: {
-    color: '#FFF0E7',
+    color: 'rgba(255,255,255,0.82)',
     fontSize: 12,
     fontWeight: '800',
   },
   button: {
-    minHeight: 48,
+    minHeight: 50,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F06A39',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 196, 170, 0.28)',
+    borderColor: 'rgba(255,255,255,0.16)',
   },
   buttonDisabled: {
     opacity: 0.45,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: '#0B0F14',
     fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.2,

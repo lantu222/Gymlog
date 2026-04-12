@@ -1,9 +1,9 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { BadgePill, SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
+import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { WorkoutSceneGraphic } from '../components/WorkoutSceneGraphic';
 import {
   getExerciseModalityPreferenceTitle,
   getSetupEquipmentHint,
@@ -20,6 +20,22 @@ interface EquipmentPreferencesScreenProps {
 }
 
 const EQUIPMENT_OPTIONS: SetupEquipment[] = ['gym', 'home', 'minimal'];
+
+function getHeroPhotoKey(equipment: SetupEquipment) {
+  if (equipment === 'minimal') {
+    return 'running' as const;
+  }
+
+  if (equipment === 'home') {
+    return 'recovery' as const;
+  }
+
+  return 'strength' as const;
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
+}
 
 function EquipmentOption({
   value,
@@ -54,66 +70,60 @@ export function EquipmentPreferencesScreen({
 
   return (
     <>
-      <ScreenHeader
-        title="Equipment"
-        subtitle="Tell Gymlog what setup should win most weeks. This now affects recommendation, discovery, and quick swaps."
-        onBack={onBack}
-      />
+      <ScreenHeader title="Equipment" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <SurfaceCard accent="orange" emphasis="hero" style={styles.heroCard}>
-          <View style={styles.heroRow}>
+        <FitnessPhotoSurface variant={getHeroPhotoKey(equipment)} style={styles.heroSurface}>
+          <View style={styles.heroContent}>
+            <Text style={styles.heroKicker}>Equipment</Text>
+
+            <View style={styles.heroBadgeRow}>
+              <BadgePill accent="neutral" label={getSetupEquipmentTitle(equipment)} />
+              <BadgePill accent="neutral" label="Discovery aware" />
+            </View>
+
             <View style={styles.heroCopy}>
-              <Text style={styles.heroKicker}>Tailoring</Text>
-              <Text style={styles.heroTitle}>{getSetupEquipmentTitle(equipment)}</Text>
-              <Text style={styles.heroBody}>
-                Gymlog will bias the plan library and swap options toward this setup first.
+              <Text style={styles.heroTitle}>Pick the weekly setup</Text>
+              <Text style={styles.heroMeta}>
+                {getSetupEquipmentHint(equipment)}
               </Text>
             </View>
-            <WorkoutSceneGraphic variant="plan" accent="orange" compact style={styles.heroGraphic} />
           </View>
+        </FitnessPhotoSurface>
 
-          <View style={styles.badgeRow}>
-            <BadgePill accent="orange" label={getSetupEquipmentTitle(equipment)} />
-            <BadgePill accent="blue" label="Discovery aware" />
-            <BadgePill accent="blue" label="Swap aware" />
-          </View>
-
-          <Text style={styles.heroSummary}>{exerciseSummary}</Text>
-        </SurfaceCard>
-
-        <SectionHeaderBlock
-          accent="orange"
-          kicker="Question"
-          title="What setup should Gymlog assume most weeks?"
-          subtitle="Keep this separate from training style. This is the hardware assumption first."
-        />
-
+        <SectionLabel label="Question" />
         <View style={styles.optionGrid}>
-          {EQUIPMENT_OPTIONS.map((option) => (
-            <EquipmentOption
-              key={option}
-              value={option}
-              active={equipment === option}
-              onPress={() => void onChange({ setupEquipment: option })}
-            />
-          ))}
+          <SurfaceCard accent="neutral" emphasis="standard" style={styles.questionCard}>
+            <View style={styles.questionHeader}>
+              <Text style={styles.questionTitle}>What setup should Gymlog assume most weeks?</Text>
+              <Text style={styles.questionBody}>This steers recommendation, discovery, and quick swaps.</Text>
+            </View>
+
+            <View style={styles.optionGrid}>
+              {EQUIPMENT_OPTIONS.map((option) => (
+                <EquipmentOption
+                  key={option}
+                  value={option}
+                  active={equipment === option}
+                  onPress={() => void onChange({ setupEquipment: option })}
+                />
+              ))}
+            </View>
+          </SurfaceCard>
         </View>
 
-        <SurfaceCard accent="blue" emphasis="flat" style={styles.explainCard}>
-          <Text style={styles.explainKicker}>What changes</Text>
-          <Text style={styles.explainTitle}>This is no longer just stored data</Text>
-          <Text style={styles.explainBody}>
-            Ready plans rank closer to this setup, and quick swaps prefer options that still make sense when your equipment is lighter.
+        <SectionLabel label="Current mode bias" />
+
+        <SurfaceCard accent="neutral" emphasis="flat" style={styles.signalCard}>
+          <Text style={styles.signalLabel}>Training modes</Text>
+          <Text style={styles.signalValue}>
+            {exerciseSummary}
           </Text>
         </SurfaceCard>
 
-        <SurfaceCard accent="neutral" emphasis="flat" style={styles.signalCard}>
-          <Text style={styles.signalLabel}>Current training mode bias</Text>
-          <Text style={styles.signalValue}>
-            Free weights {getExerciseModalityPreferenceTitle(preferences.setupFreeWeightsPreference).toLowerCase()} | Bodyweight{' '}
-            {getExerciseModalityPreferenceTitle(preferences.setupBodyweightPreference).toLowerCase()} | Machines{' '}
-            {getExerciseModalityPreferenceTitle(preferences.setupMachinesPreference).toLowerCase()}
-          </Text>
+        <SurfaceCard accent="neutral" emphasis="flat" style={styles.nextCard}>
+          <Text style={styles.nextKicker}>Also in tailoring</Text>
+          <Text style={styles.nextTitle}>Exercise feel and joint-friendly swaps</Text>
+          <Text style={styles.nextBody}>Tune the tone first, then decide how protective quick swaps should be.</Text>
         </SurfaceCard>
       </ScrollView>
     </>
@@ -124,48 +134,72 @@ const styles = StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.md,
+    gap: spacing.lg,
   },
-  heroCard: {
-    gap: spacing.md,
+  heroSurface: {
+    minHeight: 272,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
-  heroRow: {
+  heroContent: {
+    flex: 1,
+    justifyContent: 'space-between',
+    padding: spacing.lg,
     gap: spacing.md,
-  },
-  heroCopy: {
-    gap: spacing.xs,
   },
   heroKicker: {
-    color: '#FFCBAA',
+    color: 'rgba(255,255,255,0.58)',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.9,
     textTransform: 'uppercase',
   },
-  heroTitle: {
-    color: colors.textPrimary,
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: -0.7,
-  },
-  heroBody: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  heroGraphic: {
-    width: '100%',
-  },
-  badgeRow: {
+  heroBadgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  heroSummary: {
+  heroCopy: {
+    gap: spacing.xs,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -1,
+    maxWidth: '78%',
+  },
+  heroMeta: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    maxWidth: '84%',
+  },
+  sectionLabel: {
     color: colors.textMuted,
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  questionCard: {
+    gap: spacing.md,
+  },
+  questionHeader: {
+    gap: 2,
+  },
+  questionTitle: {
+    color: colors.textPrimary,
+    fontSize: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  questionBody: {
+    color: colors.textSecondary,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
     fontWeight: '700',
   },
   optionGrid: {
@@ -175,14 +209,14 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(17, 25, 34, 0.82)',
+    backgroundColor: 'rgba(10, 14, 19, 0.82)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: spacing.xs,
   },
   optionCardActive: {
-    borderColor: 'rgba(255, 167, 112, 0.28)',
-    backgroundColor: 'rgba(73, 38, 23, 0.92)',
+    borderColor: '#F4FAFF',
+    backgroundColor: '#F4FAFF',
   },
   optionTitle: {
     color: colors.textPrimary,
@@ -191,7 +225,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   optionTitleActive: {
-    color: '#FFF2E9',
+    color: '#0B0F14',
   },
   optionBody: {
     color: colors.textSecondary,
@@ -200,28 +234,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   optionBodyActive: {
-    color: '#FFD9C0',
-  },
-  explainCard: {
-    gap: spacing.xs,
-  },
-  explainKicker: {
-    color: '#9ACCFF',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
-  explainTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  explainBody: {
-    color: colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
+    color: '#44515C',
   },
   signalCard: {
     gap: spacing.xs,
@@ -238,5 +251,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '800',
+  },
+  nextCard: {
+    gap: 4,
+  },
+  nextKicker: {
+    color: colors.textMuted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  nextTitle: {
+    color: colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  nextBody: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
   },
 });

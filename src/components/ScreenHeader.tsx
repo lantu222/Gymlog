@@ -68,9 +68,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backText: {
-    color: colors.accent,
+    color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   title: {
     flex: 1,
@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    color: colors.accent,
+    color: colors.textPrimary,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });

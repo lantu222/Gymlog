@@ -12,6 +12,7 @@ const suites = [
   ...require('./lib/adaptiveCoach.test.cjs'),
   ...require('./lib/routeHistory.test.cjs'),
   ...require('./lib/dashboard.test.cjs'),
+  ...require('./lib/progressionActivePlan.test.cjs'),
   ...require('./lib/progressionSignal.test.cjs'),
   ...require('./lib/homeProgramSelection.test.cjs'),
   ...require('./lib/homePrimaryAction.test.cjs'),

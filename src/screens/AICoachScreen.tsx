@@ -1,10 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
+import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { buildValluActions } from '../lib/valluActions';
+import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { requestValluAdvice } from '../lib/valluClient';
-import { ValluAction, ValluTrainingContext, ValluAdvice } from '../types/vallu';
+import { ValluAction, ValluAdvice, ValluTrainingContext } from '../types/vallu';
 import { colors, layout, radii, spacing } from '../theme';
 
 interface AICoachScreenProps {
@@ -21,6 +25,50 @@ type PreviewState = 'empty' | 'loading' | 'ready' | 'error';
 interface PreviewRequest {
   prompt: string;
   nonce: number;
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
+}
+
+function SignalCard({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.signalCard}>
+      <Text style={styles.signalLabel}>{label}</Text>
+      <Text numberOfLines={2} style={styles.signalValue}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function InfoList({
+  title,
+  items,
+}: {
+  title: string;
+  items: string[];
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={styles.infoBlock}>
+      <Text style={styles.infoTitle}>{title}</Text>
+      <View style={styles.infoList}>
+        {items.map((item) => (
+          <Text key={item} style={styles.infoItem}>
+            {item}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function compactItems(items: string[], maxItems = 2) {
+  return items.filter(Boolean).slice(0, maxItems);
 }
 
 export function AICoachScreen({
@@ -104,7 +152,7 @@ export function AICoachScreen({
 
         setState('error');
         setAnswer(null);
-        setErrorMessage('Try one clear question.');
+        setErrorMessage('Try one short question.');
       });
 
     return () => {
@@ -114,15 +162,7 @@ export function AICoachScreen({
   }, [request, trainingContext]);
 
   const submittedPrompt = request?.prompt ?? '';
-  const helperText = useMemo(
-    () =>
-      state === 'ready'
-        ? answerSource === 'live'
-          ? 'Live answer.'
-          : 'Preview answer.'
-        : 'Goal, lift, or split?',
-    [answerSource, state],
-  );
+  const hasAnswer = state === 'ready' && Boolean(answer);
   const operationalActions = useMemo(() => {
     if (state !== 'ready' || !answer || !submittedPrompt) {
       return [];
@@ -132,6 +172,69 @@ export function AICoachScreen({
       ? answer.actions
       : buildValluActions(submittedPrompt, trainingContext);
   }, [answer, state, submittedPrompt, trainingContext]);
+
+  const heroVariant = useMemo(
+    () =>
+      getFitnessPhotoVariant({
+        title: trainingContext.activeSession?.title ?? trainingContext.recommendedProgramTitle ?? submittedPrompt,
+        goal: trainingContext.activeSession?.nextExercise ?? trainingContext.trackedLifts[0]?.name ?? undefined,
+      }),
+    [submittedPrompt, trainingContext.activeSession?.nextExercise, trainingContext.activeSession?.title, trainingContext.recommendedProgramTitle, trainingContext.trackedLifts],
+  );
+
+  const heroTokens = useMemo(() => {
+    const tokens: string[] = [];
+
+    if (trainingContext.activeSession) {
+      tokens.push('Live workout');
+    }
+
+    if (trainingContext.recommendedProgramTitle) {
+      tokens.push('Plan ready');
+    }
+
+    if (trainingContext.sessionsThisWeek > 0) {
+      tokens.push(`${trainingContext.sessionsThisWeek} this week`);
+    }
+
+    return tokens.slice(0, 3);
+  }, [trainingContext.activeSession, trainingContext.recommendedProgramTitle, trainingContext.sessionsThisWeek]);
+
+  const promptSignals = useMemo(() => {
+    const signals = [];
+
+    if (trainingContext.activeSession) {
+      signals.push({
+        label: 'Workout',
+        value: formatWorkoutDisplayLabel(trainingContext.activeSession.title, 'Workout'),
+      });
+    }
+
+    if (trainingContext.trackedLifts[0]) {
+      signals.push({
+        label: 'Lift',
+        value: formatLiftDisplayLabel(trainingContext.trackedLifts[0].name),
+      });
+    }
+
+    if (trainingContext.recommendedProgramTitle) {
+      signals.push({
+        label: 'Plan',
+        value: formatWorkoutDisplayLabel(trainingContext.recommendedProgramTitle, 'Plan'),
+      });
+    } else if (trainingContext.sessionsThisWeek > 0) {
+      signals.push({
+        label: 'This week',
+        value: `${trainingContext.sessionsThisWeek} sessions`,
+      });
+    }
+
+    return signals.slice(0, 3);
+  }, [trainingContext.activeSession, trainingContext.recommendedProgramTitle, trainingContext.sessionsThisWeek, trainingContext.trackedLifts]);
+
+  const heroMeta = trainingContext.activeSession
+    ? `Live help for ${formatWorkoutDisplayLabel(trainingContext.activeSession.title, 'Workout')}`
+    : 'Lift, plan, or session.';
 
   function submitPrompt(nextPrompt: string) {
     const trimmed = nextPrompt.trim();
@@ -153,141 +256,121 @@ export function AICoachScreen({
 
   return (
     <>
-      <ScreenHeader
-        title="Vallu Beta"
-        subtitle="One question. Short answers."
-        onBack={onBack}
-      />
+      <ScreenHeader title="Ask Gymlog AI" subtitle="One question. Quick answer." onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.askCard}>
-          <View pointerEvents="none" style={styles.cardAccent} />
-          <View pointerEvents="none" style={styles.cardSheen} />
-          <View style={styles.cardLabelRow}>
-            <Text style={styles.cardLabel}>Vallu Beta</Text>
-            <View style={styles.betaBadge}>
-              <Text style={styles.betaBadgeText}>Preview</Text>
+        <FitnessPhotoSurface variant={heroVariant} style={[styles.heroSurface, hasAnswer && styles.heroSurfaceCompact]}>
+          <View style={styles.heroContent}>
+            <View style={styles.heroTopRow}>
+              <Text style={styles.heroKicker}>Gymlog AI</Text>
+              <BadgePill accent="neutral" label={trainingContext.activeSession ? 'Live help' : 'Quick answer'} />
             </View>
+
+            <View style={styles.heroTokenRow}>
+              {heroTokens.map((token) => (
+                <BadgePill key={token} accent="neutral" label={token} />
+              ))}
+            </View>
+
+            <Text style={styles.heroTitle}>Get help instantly</Text>
+            <Text style={styles.heroMeta}>{heroMeta}</Text>
           </View>
-          <Text style={styles.heroTitle}>What do you need?</Text>
-          <Text style={styles.heroSubtitle}>Ask one clear question.</Text>
+        </FitnessPhotoSurface>
+
+        <SurfaceCard accent="neutral" emphasis="standard" style={[styles.askSurface, hasAnswer && styles.askSurfaceCompact]}>
+          <View style={styles.signalRow}>
+            {promptSignals.map((signal) => (
+              <SignalCard key={signal.label} label={signal.label} value={signal.value} />
+            ))}
+          </View>
+
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="Bench stuck?"
+            placeholder="Ask one short question"
             placeholderTextColor={colors.textMuted}
-            selectionColor={colors.warning}
+            selectionColor="#FFFFFF"
             multiline
             textAlignVertical="top"
-            style={styles.input}
+            style={[styles.input, hasAnswer && styles.inputCompact]}
           />
-          <View style={styles.suggestionRow}>
-            {safeSuggestions.map((suggestion) => (
-              <Pressable key={suggestion} onPress={() => setDraft(suggestion)} style={styles.suggestionChip}>
-                <Text style={styles.suggestionChipText}>{suggestion}</Text>
-              </Pressable>
-            ))}
-          </View>
-          <Pressable onPress={() => submitPrompt(draft)} style={[styles.button, !draft.trim() && styles.buttonDisabled]}>
-            <Text style={styles.buttonText}>Ask Vallu</Text>
-          </Pressable>
-        </View>
 
-        {state === 'empty' ? (
-          <View style={styles.emptyCard}>
-            <Text style={styles.sectionLabel}>Try one</Text>
-            <Text style={styles.emptyText}>Short questions work best.</Text>
-            <View style={styles.exampleBlock}>
-              <Text style={styles.exampleText}>- Bench stuck?</Text>
-              <Text style={styles.exampleText}>- Best 3-day plan?</Text>
-              <Text style={styles.exampleText}>- Fix my split?</Text>
+          {!hasAnswer ? (
+            <View style={styles.suggestionRow}>
+              {safeSuggestions.slice(0, 4).map((suggestion) => (
+                <Pressable key={suggestion} onPress={() => setDraft(suggestion)} style={styles.suggestionChip}>
+                  <Text style={styles.suggestionChipText}>{suggestion}</Text>
+                </Pressable>
+              ))}
             </View>
-          </View>
-        ) : null}
+          ) : null}
+
+          <Pressable onPress={() => submitPrompt(draft)} style={[styles.button, !draft.trim() && styles.buttonDisabled]}>
+            <Text style={styles.buttonText}>Get answer</Text>
+          </Pressable>
+        </SurfaceCard>
 
         {state === 'loading' ? (
-          <View style={styles.statusCard}>
-            <View pointerEvents="none" style={styles.loadingAccent} />
-            <ActivityIndicator color={colors.accentAlt} size="small" />
-            <Text style={styles.statusTitle}>Vallu is answering.</Text>
-            <Text style={styles.statusText}>{helperText}</Text>
-          </View>
+          <SurfaceCard accent="neutral" emphasis="flat" style={styles.feedbackCard}>
+            <ActivityIndicator color="#FFFFFF" size="small" />
+            <View style={styles.feedbackCopy}>
+              <Text style={styles.feedbackTitle}>Getting an answer</Text>
+              <Text style={styles.feedbackBody}>
+                {trainingContext.activeSession ? 'Using your live workout.' : 'Using your current plan.'}
+              </Text>
+            </View>
+          </SurfaceCard>
         ) : null}
 
         {state === 'error' ? (
-          <View style={styles.errorCard}>
-            <View pointerEvents="none" style={styles.errorAccent} />
-            <Text style={styles.statusTitle}>Need one clear question.</Text>
-            <Text style={styles.statusText}>{errorMessage}</Text>
+          <SurfaceCard accent="neutral" emphasis="flat" style={styles.feedbackCard}>
+            <View style={styles.feedbackCopy}>
+              <Text style={styles.feedbackTitle}>Try one short question</Text>
+              <Text style={styles.feedbackBody}>{errorMessage}</Text>
+            </View>
             <Pressable onPress={retryPrompt} style={styles.retryButton}>
               <Text style={styles.retryButtonText}>Try again</Text>
             </Pressable>
-          </View>
+          </SurfaceCard>
         ) : null}
 
         {state === 'ready' && answer ? (
-          <View style={styles.answerCard}>
-            <View pointerEvents="none" style={styles.answerAccent} />
-            <View pointerEvents="none" style={styles.cardSheen} />
+          <SurfaceCard accent="neutral" emphasis="standard" style={styles.answerSurface}>
             <View style={styles.answerTopRow}>
-              <Text style={styles.sectionLabel}>Question</Text>
-              <View style={[styles.sourceChip, answerSource === 'live' ? styles.sourceChipLive : styles.sourceChipPreview]}>
-                <Text style={styles.sourceChipText}>{answerSource === 'live' ? 'Live' : 'Preview'}</Text>
-              </View>
+              <SectionLabel label="Answer" />
+              <BadgePill accent="neutral" label={answerSource === 'live' ? 'Live' : 'Preview'} />
             </View>
-            <Text style={styles.questionText}>{submittedPrompt}</Text>
-            {statusNote ? <Text style={styles.noteText}>{statusNote}</Text> : null}
 
-            <View style={styles.answerBlock}>
-              <Text style={styles.answerTitle}>Answer</Text>
-              <Text style={styles.answerBody}>{answer.takeaway}</Text>
-            </View>
+            <Text style={styles.questionText}>{submittedPrompt}</Text>
+            {statusNote ? <Text style={styles.answerNote}>{statusNote}</Text> : null}
+            <Text style={styles.takeawayText}>{answer.takeaway}</Text>
 
             {operationalActions.length ? (
-              <View style={styles.answerBlock}>
-                <Text style={styles.answerTitle}>Do this in Gymlog</Text>
-                <View style={styles.actionList}>
-                  {operationalActions.map((action, index) => (
-                    <Pressable
-                      key={`${action.kind}:${index}`}
-                      onPress={() => onSelectAction(action, submittedPrompt)}
-                      style={[styles.actionCard, index === 0 && styles.actionCardPrimary]}
-                    >
-                      <Text style={styles.actionTitle}>{action.label}</Text>
-                      <Text style={styles.actionDescription}>{action.description}</Text>
-                    </Pressable>
-                  ))}
-                </View>
+              <View style={styles.actionList}>
+                {operationalActions.map((action, index) => (
+                  <Pressable
+                    key={`${action.kind}:${index}`}
+                    onPress={() => onSelectAction(action, submittedPrompt)}
+                    style={[styles.actionCard, index === 0 && styles.actionCardPrimary]}
+                  >
+                    <Text style={[styles.actionTitle, index === 0 && styles.actionTitlePrimary]}>{action.label}</Text>
+                    <Text style={[styles.actionDescription, index === 0 && styles.actionDescriptionPrimary]}>
+                      {action.description}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
             ) : null}
 
-            <View style={styles.answerBlock}>
-              <Text style={styles.answerTitle}>Why</Text>
-              {answer.why.map((item) => (
-                <Text key={item} style={styles.answerBullet}>- {item}</Text>
-              ))}
-            </View>
+            <InfoList title="Why it fits" items={compactItems(answer.why)} />
+            <InfoList title="Do next" items={compactItems(answer.nextSteps)} />
+            <InfoList title="Quick plan" items={compactItems(answer.plan)} />
 
-            <View style={styles.answerBlock}>
-              <Text style={styles.answerTitle}>Do next</Text>
-              {answer.nextSteps.map((item) => (
-                <Text key={item} style={styles.answerBullet}>- {item}</Text>
-              ))}
-            </View>
-
-            <View style={styles.answerBlock}>
-              <Text style={styles.answerTitle}>Quick plan</Text>
-              {answer.plan.map((item) => (
-                <Text key={item} style={styles.answerBullet}>- {item}</Text>
-              ))}
-            </View>
-
-            <View style={styles.answerBlock}>
-              <Text style={styles.answerTitle}>Note</Text>
-              {answer.assumptions.map((item) => (
-                <Text key={item} style={styles.answerBullet}>- {item}</Text>
-              ))}
-            </View>
-          </View>
+            {answer.assumptions.length > 0 ? (
+              <Text style={styles.assumptionText}>
+                Assumes {compactItems(answer.assumptions).join(' | ')}
+              </Text>
+            ) : null}
+          </SurfaceCard>
         ) : null}
       </ScrollView>
     </>
@@ -300,146 +383,98 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
     gap: spacing.md,
   },
-  askCard: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.34)',
-    backgroundColor: 'rgba(28, 36, 46, 0.9)',
-    padding: spacing.lg,
-    gap: spacing.md,
+  heroSurface: {
+    minHeight: 220,
   },
-  answerCard: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(216, 106, 134, 0.32)',
-    backgroundColor: 'rgba(28, 40, 54, 0.9)',
-    padding: spacing.lg,
-    gap: spacing.md,
+  heroSurfaceCompact: {
+    minHeight: 188,
   },
-  emptyCard: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.28)',
-    backgroundColor: 'rgba(26, 36, 48, 0.86)',
+  heroContent: {
+    flex: 1,
+    justifyContent: 'flex-end',
     padding: spacing.lg,
     gap: spacing.sm,
   },
-  statusCard: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(150, 216, 255, 0.24)',
-    backgroundColor: 'rgba(25, 37, 50, 0.88)',
-    padding: spacing.lg,
-    gap: spacing.sm,
-    alignItems: 'flex-start',
-  },
-  errorCard: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.32)',
-    backgroundColor: 'rgba(38, 28, 24, 0.9)',
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  cardAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: '#F06A39',
-  },
-  loadingAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: colors.accentAlt,
-  },
-  errorAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: '#F06A39',
-  },
-  answerAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 4,
-    backgroundColor: colors.feature,
-  },
-  cardSheen: {
-    position: 'absolute',
-    top: 1,
-    left: 18,
-    right: 18,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-  },
-  cardLabelRow: {
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  cardLabel: {
-    color: '#FFB389',
+  heroKicker: {
+    color: 'rgba(255,255,255,0.58)',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 1.1,
+    letterSpacing: 1,
   },
-  betaBadge: {
-    minHeight: 24,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.34)',
-    backgroundColor: 'rgba(240, 106, 57, 0.12)',
-  },
-  betaBadgeText: {
-    color: '#FFF0E7',
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+  heroTokenRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   heroTitle: {
-    color: colors.textPrimary,
-    fontSize: 26,
-    lineHeight: 31,
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 34,
     fontWeight: '900',
-    letterSpacing: -0.7,
+    letterSpacing: -1,
   },
-  heroSubtitle: {
-    color: '#E2CEC4',
+  heroMeta: {
+    color: 'rgba(255,255,255,0.68)',
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
   },
-  input: {
-    minHeight: 112,
+  askSurface: {
+    gap: spacing.md,
+  },
+  askSurfaceCompact: {
+    gap: spacing.sm,
+  },
+  signalRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  signalCard: {
+    flex: 1,
+    minHeight: 72,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.22)',
-    backgroundColor: 'rgba(11, 15, 20, 0.26)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(7, 10, 14, 0.36)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: 4,
+  },
+  signalLabel: {
+    color: 'rgba(255,255,255,0.46)',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.9,
+  },
+  signalValue: {
+    color: colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  input: {
+    minHeight: 108,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(7, 10, 14, 0.42)',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     color: colors.textPrimary,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '600',
+  },
+  inputCompact: {
+    minHeight: 84,
   },
   suggestionRow: {
     flexDirection: 'row',
@@ -452,11 +487,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(216, 106, 134, 0.28)',
-    backgroundColor: 'rgba(216, 106, 134, 0.14)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   suggestionChipText: {
-    color: '#FFF6F9',
+    color: 'rgba(255,255,255,0.82)',
     fontSize: 12,
     fontWeight: '800',
   },
@@ -465,56 +500,53 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F06A39',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255, 196, 170, 0.34)',
-    shadowColor: '#F06A39',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.24,
-    shadowRadius: 14,
-    elevation: 7,
+    borderColor: 'rgba(255,255,255,0.16)',
   },
   buttonDisabled: {
     opacity: 0.45,
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#0B0F14',
+    fontSize: 15,
     fontWeight: '900',
   },
-  sectionLabel: {
-    color: '#F29AB4',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  feedbackCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
   },
-  statusTitle: {
+  feedbackCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  feedbackTitle: {
     color: colors.textPrimary,
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 17,
     fontWeight: '900',
   },
-  statusText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
+  feedbackBody: {
+    color: colors.textMuted,
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '700',
   },
   retryButton: {
     minHeight: 42,
     borderRadius: radii.md,
     paddingHorizontal: spacing.md,
-    justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(240, 106, 57, 0.34)',
-    backgroundColor: 'rgba(240, 106, 57, 0.14)',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
   },
   retryButtonText: {
-    color: '#FFF2EA',
+    color: '#0B0F14',
     fontSize: 13,
     fontWeight: '900',
+  },
+  answerSurface: {
+    gap: spacing.md,
   },
   answerTopRow: {
     flexDirection: 'row',
@@ -522,59 +554,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  sourceChip: {
-    minHeight: 24,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  sourceChipLive: {
-    borderColor: 'rgba(150, 216, 255, 0.34)',
-    backgroundColor: 'rgba(150, 216, 255, 0.12)',
-  },
-  sourceChipPreview: {
-    borderColor: 'rgba(240, 106, 57, 0.34)',
-    backgroundColor: 'rgba(240, 106, 57, 0.12)',
-  },
-  sourceChipText: {
-    color: '#FFF8F4',
-    fontSize: 10,
+  sectionLabel: {
+    color: 'rgba(255,255,255,0.46)',
+    fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 1,
   },
   questionText: {
     color: colors.textPrimary,
     fontSize: 24,
-    lineHeight: 30,
+    lineHeight: 29,
     fontWeight: '900',
-    letterSpacing: -0.6,
+    letterSpacing: -0.7,
   },
-  noteText: {
-    color: '#FFD4C3',
-    fontSize: 13,
-    lineHeight: 19,
+  answerNote: {
+    color: colors.textMuted,
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '700',
   },
-  answerBlock: {
-    gap: spacing.xs,
-  },
-  answerTitle: {
-    color: colors.textPrimary,
+  takeawayText: {
+    color: colors.textSecondary,
     fontSize: 15,
-    fontWeight: '900',
-  },
-  answerBody: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '700',
-  },
-  answerBullet: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 22,
     fontWeight: '700',
   },
   actionList: {
@@ -584,38 +587,53 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(11, 15, 20, 0.28)',
-    padding: spacing.md,
-    gap: spacing.xs,
+    backgroundColor: 'rgba(7, 10, 14, 0.36)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: 4,
   },
   actionCardPrimary: {
-    borderColor: 'rgba(240, 106, 57, 0.28)',
-    backgroundColor: 'rgba(240, 106, 57, 0.12)',
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(255,255,255,0.18)',
   },
   actionTitle: {
     color: colors.textPrimary,
     fontSize: 14,
     fontWeight: '900',
   },
+  actionTitlePrimary: {
+    color: '#0B0F14',
+  },
   actionDescription: {
-    color: colors.textSecondary,
+    color: colors.textMuted,
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 18,
     fontWeight: '700',
   },
-  emptyText: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '700',
+  actionDescriptionPrimary: {
+    color: 'rgba(11,15,20,0.72)',
   },
-  exampleBlock: {
+  infoBlock: {
     gap: spacing.xs,
   },
-  exampleText: {
-    color: '#E6EDF5',
-    fontSize: 13,
-    lineHeight: 19,
+  infoTitle: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '900',
+  },
+  infoList: {
+    gap: spacing.xs,
+  },
+  infoItem: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  assumptionText: {
+    color: 'rgba(255,255,255,0.52)',
+    fontSize: 12,
+    lineHeight: 18,
     fontWeight: '700',
   },
 });

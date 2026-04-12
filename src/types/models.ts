@@ -1,11 +1,25 @@
 export type UnitPreference = 'kg' | 'lb';
 export type ThemePreference = 'dark';
+export type AppLanguage = 'en' | 'fi';
+export type SignInMethod = 'apple' | 'email' | 'local' | 'google';
+export type AccessTier = 'free' | 'premium';
+export type SetupGender = 'male' | 'female' | 'unspecified';
+export type SetupAgeRange = 'unspecified' | '18' | '19_25' | '26_30' | '31_40' | '41_plus';
 export type SetupGoal = 'strength' | 'muscle' | 'general' | 'run_mobility';
 export type SetupLevel = 'beginner' | 'intermediate';
-export type SetupDaysPerWeek = 2 | 3 | 4;
+export type SetupDaysPerWeek = 2 | 3 | 4 | 5;
 export type SetupEquipment = 'gym' | 'minimal' | 'home';
 export type SetupSecondaryOutcome = 'consistency' | 'mobility' | 'conditioning' | 'muscle' | 'strength';
-export type SetupFocusArea = 'arms' | 'glutes' | 'core' | 'conditioning';
+export type SetupFocusArea =
+  | 'bodyweight'
+  | 'glutes'
+  | 'legs'
+  | 'chest'
+  | 'shoulders'
+  | 'back'
+  | 'arms'
+  | 'core'
+  | 'conditioning';
 export type SetupGuidanceMode = 'done_for_me' | 'guided_editable' | 'self_directed';
 export type SetupScheduleMode = 'app_managed' | 'self_managed';
 export type SetupWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -150,15 +164,22 @@ export interface BodyweightEntry {
 }
 
 export interface AppPreferences {
+  appLanguage: AppLanguage;
   unitPreference: UnitPreference;
   theme: ThemePreference;
   defaultRestSeconds: number;
   autoFocusNextInput: boolean;
   keepScreenAwakeDuringWorkout: boolean;
   adaptiveCoachPremiumUnlocked: boolean;
+  entryFlowCompleted: boolean;
+  selectedSignInMethod: SignInMethod | null;
+  selectedAccessTier: AccessTier | null;
   bodyweightGoalKg: number | null;
   onboardingCompleted: boolean;
   setupCompleted: boolean;
+  setupGender: SetupGender | null;
+  setupAge: number | null;
+  setupAgeRange: SetupAgeRange | null;
   setupGoal: SetupGoal | null;
   setupLevel: SetupLevel | null;
   setupDaysPerWeek: SetupDaysPerWeek | null;

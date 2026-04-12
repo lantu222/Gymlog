@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
-import { SurfaceCard, SurfaceAccent } from './MainScreenPrimitives';
+import { SurfaceCard } from './MainScreenPrimitives';
 import { getComparableLogSets } from '../lib/exerciseLog';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatLogSetSummary, formatShortDate, formatWeight, formatWeightTrend } from '../lib/format';
@@ -10,75 +10,35 @@ import { ExerciseProgressSummary, getExerciseProgressSignal } from '../lib/progr
 import { colors, radii, spacing } from '../theme';
 import { UnitPreference } from '../types/models';
 
-type ProgressTone = 'blue' | 'rose' | 'orange';
-
 interface ProgressCardProps {
   summary: ExerciseProgressSummary;
   unitPreference: UnitPreference;
   onPress: () => void;
-  tone?: ProgressTone;
 }
-
-const toneStyles: Record<
-  ProgressTone,
-  {
-    accent: SurfaceAccent;
-    pillBackground: string;
-    pillBorder: string;
-    pillText: string;
-    spark: string;
-    sparkSoft: string;
-  }
-> = {
-  blue: {
-    accent: 'blue',
-    pillBackground: 'rgba(85, 138, 189, 0.18)',
-    pillBorder: 'rgba(85, 138, 189, 0.28)',
-    pillText: '#9ACCFF',
-    spark: '#72B5FF',
-    sparkSoft: 'rgba(114, 181, 255, 0.14)',
-  },
-  rose: {
-    accent: 'rose',
-    pillBackground: 'rgba(191, 74, 105, 0.18)',
-    pillBorder: 'rgba(191, 74, 105, 0.28)',
-    pillText: '#F39AB2',
-    spark: '#E77496',
-    sparkSoft: 'rgba(231, 116, 150, 0.14)',
-  },
-  orange: {
-    accent: 'orange',
-    pillBackground: 'rgba(162, 54, 18, 0.18)',
-    pillBorder: 'rgba(162, 54, 18, 0.28)',
-    pillText: '#FFAF92',
-    spark: '#F06A39',
-    sparkSoft: 'rgba(240, 106, 57, 0.14)',
-  },
-};
 
 const signalStyles: Record<
   ReturnType<typeof getExerciseProgressSignal>['kind'],
   { backgroundColor: string; borderColor: string; textColor: string }
 > = {
   new_best: {
-    backgroundColor: 'rgba(85, 138, 189, 0.18)',
-    borderColor: 'rgba(85, 138, 189, 0.28)',
-    textColor: '#9ACCFF',
+    backgroundColor: 'rgba(244,250,255,0.12)',
+    borderColor: 'rgba(244,250,255,0.18)',
+    textColor: '#F4FAFF',
   },
   moving_up: {
-    backgroundColor: 'rgba(150, 216, 255, 0.16)',
-    borderColor: 'rgba(150, 216, 255, 0.28)',
-    textColor: '#CFEFFF',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.14)',
+    textColor: '#F4FAFF',
   },
   below_last: {
-    backgroundColor: 'rgba(162, 54, 18, 0.18)',
-    borderColor: 'rgba(162, 54, 18, 0.28)',
-    textColor: '#FFAF92',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    textColor: colors.textPrimary,
   },
   building: {
-    backgroundColor: 'rgba(191, 74, 105, 0.18)',
-    borderColor: 'rgba(191, 74, 105, 0.28)',
-    textColor: '#F39AB2',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    textColor: colors.textPrimary,
   },
   starting: {
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -105,8 +65,7 @@ function buildSparkCoordinates(values: number[], width: number, height: number) 
     .join(' ');
 }
 
-export function ProgressCard({ summary, unitPreference, onPress, tone = 'blue' }: ProgressCardProps) {
-  const toneStyle = toneStyles[tone];
+export function ProgressCard({ summary, unitPreference, onPress }: ProgressCardProps) {
   const signal = getExerciseProgressSignal(summary);
   const signalStyle = signalStyles[signal.kind];
   const sparkValues = useMemo(
@@ -123,22 +82,22 @@ export function ProgressCard({ summary, unitPreference, onPress, tone = 'blue' }
   const displayName = formatLiftDisplayLabel(summary.name);
   const latestPerformedAt = summary.latestLog ? formatShortDate(summary.latestLog.performedAt) : null;
   const latestContext = summary.latestLog?.swappedFrom
-    ? `Swapped from ${formatLiftDisplayLabel(summary.latestLog.swappedFrom)}${latestPerformedAt ? ` \u00b7 ${latestPerformedAt}` : ''}`
+    ? `Swapped from ${formatLiftDisplayLabel(summary.latestLog.swappedFrom)}${latestPerformedAt ? ` · ${latestPerformedAt}` : ''}`
     : summary.latestLog?.notes
-      ? `Latest log has notes${latestPerformedAt ? ` \u00b7 ${latestPerformedAt}` : ''}`
+      ? `Latest log has notes${latestPerformedAt ? ` · ${latestPerformedAt}` : ''}`
       : latestPerformedAt
         ? `Last logged ${latestPerformedAt}`
         : null;
 
   return (
-    <SurfaceCard onPress={onPress} accent={toneStyle.accent} emphasis="utility" style={styles.card}>
+    <SurfaceCard onPress={onPress} accent="neutral" emphasis="utility" style={styles.card}>
       <View style={styles.topRow}>
         <View style={styles.copy}>
           <Text style={styles.name} numberOfLines={1}>
             {displayName}
           </Text>
           <Text style={styles.reps} numberOfLines={1}>
-            Latest {formatLogSetSummary(summary.latestLog, unitPreference)}
+            {formatLogSetSummary(summary.latestLog, unitPreference)}
           </Text>
           {latestContext ? (
             <Text style={styles.sessionMeta} numberOfLines={1}>
@@ -158,10 +117,10 @@ export function ProgressCard({ summary, unitPreference, onPress, tone = 'blue' }
           <View
             style={[
               styles.trendPill,
-              { backgroundColor: toneStyle.pillBackground, borderColor: toneStyle.pillBorder },
+              styles.trendPillNeutral,
             ]}
           >
-            <Text style={[styles.trend, { color: toneStyle.pillText }]}>
+            <Text style={styles.trend}>
               {formatWeightTrend(summary.latestWeight, summary.previousWeight, unitPreference)}
             </Text>
           </View>
@@ -184,13 +143,13 @@ export function ProgressCard({ summary, unitPreference, onPress, tone = 'blue' }
           </View>
         </View>
 
-        <View style={[styles.sparkWrap, { backgroundColor: toneStyle.sparkSoft }]}>
+        <View style={styles.sparkWrap}>
           {sparkValues.length > 1 ? (
             <Svg width={88} height={28}>
               <Polyline
                 points={sparkPolyline}
                 fill="none"
-                stroke={toneStyle.spark}
+                stroke="#F4FAFF"
                 strokeWidth={3}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -201,7 +160,7 @@ export function ProgressCard({ summary, unitPreference, onPress, tone = 'blue' }
                 const spread = Math.max(max - min, 1);
                 const x = sparkValues.length === 1 ? 44 : (index / Math.max(sparkValues.length - 1, 1)) * 88;
                 const y = 28 - ((value - min) / spread) * 28;
-                return <Circle key={`${summary.key}:${index}`} cx={x} cy={y} r={3} fill={toneStyle.spark} />;
+                return <Circle key={`${summary.key}:${index}`} cx={x} cy={y} r={3} fill="#F4FAFF" />;
               })}
             </Svg>
           ) : (
@@ -269,7 +228,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
   },
+  trendPillNeutral: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.10)',
+  },
   trend: {
+    color: '#F4FAFF',
     fontSize: 11,
     fontWeight: '900',
   },
@@ -312,7 +276,8 @@ const styles = StyleSheet.create({
     width: 100,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,

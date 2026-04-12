@@ -7,15 +7,22 @@
 } from '../types/models';
 
 const DEFAULT_PREFERENCES = {
+  appLanguage: 'en' as const,
   unitPreference: 'kg' as const,
   theme: 'dark' as const,
   defaultRestSeconds: 120,
   autoFocusNextInput: true,
   keepScreenAwakeDuringWorkout: false,
   adaptiveCoachPremiumUnlocked: false,
+  entryFlowCompleted: false,
+  selectedSignInMethod: null,
+  selectedAccessTier: null,
   bodyweightGoalKg: null,
   onboardingCompleted: false,
   setupCompleted: false,
+  setupGender: null,
+  setupAge: null,
+  setupAgeRange: null,
   setupGoal: null,
   setupLevel: null,
   setupDaysPerWeek: null,
