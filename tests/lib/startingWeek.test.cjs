@@ -33,6 +33,7 @@ module.exports = [
       assert.match(week.sessions[0].meta, /55 min/i);
       assert.equal(week.sessions[0].weekdayLabel, 'Mon');
       assert.equal(week.helperPrompt.includes('another plan'), true);
+      assert.match(week.programmeSummary, /week|easier week|deload|pivot/i);
     },
   },
   {

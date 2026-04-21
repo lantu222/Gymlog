@@ -145,6 +145,7 @@ export function persistCompletedWorkoutSessionToDatabase(
     id: input.sessionId,
     workoutTemplateId: input.workoutTemplateId,
     workoutNameSnapshot: input.workoutNameSnapshot,
+    sessionNotes: null,
     performedAt,
     startedAt: input.startedAt ?? performedAt,
     completedAt: performedAt,

@@ -1,13 +1,12 @@
 import React, { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Polyline } from 'react-native-svg';
 
-import { SurfaceCard } from './MainScreenPrimitives';
 import { getComparableLogSets } from '../lib/exerciseLog';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatLogSetSummary, formatShortDate, formatWeight, formatWeightTrend } from '../lib/format';
 import { ExerciseProgressSummary, getExerciseProgressSignal } from '../lib/progression';
-import { colors, radii, spacing } from '../theme';
+import { colors, radii, shadows, spacing } from '../theme';
 import { UnitPreference } from '../types/models';
 
 interface ProgressCardProps {
@@ -21,29 +20,29 @@ const signalStyles: Record<
   { backgroundColor: string; borderColor: string; textColor: string }
 > = {
   new_best: {
-    backgroundColor: 'rgba(244,250,255,0.12)',
-    borderColor: 'rgba(244,250,255,0.18)',
-    textColor: '#F4FAFF',
+    backgroundColor: '#EAF8EF',
+    borderColor: '#CFEED8',
+    textColor: '#1A7F3C',
   },
   moving_up: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderColor: 'rgba(255,255,255,0.14)',
-    textColor: '#F4FAFF',
+    backgroundColor: '#F2F8F4',
+    borderColor: '#D7E8DC',
+    textColor: '#1E6B39',
   },
   below_last: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.10)',
-    textColor: colors.textPrimary,
+    backgroundColor: '#FFF1F1',
+    borderColor: '#F3D6D6',
+    textColor: '#A53B3B',
   },
   building: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.10)',
-    textColor: colors.textPrimary,
+    backgroundColor: '#F4F4F4',
+    borderColor: '#E4E4E4',
+    textColor: '#111111',
   },
   starting: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderColor: 'rgba(255,255,255,0.10)',
-    textColor: colors.textMuted,
+    backgroundColor: '#F7F7F7',
+    borderColor: '#E5E5E5',
+    textColor: '#6B7280',
   },
 };
 
@@ -90,7 +89,7 @@ export function ProgressCard({ summary, unitPreference, onPress }: ProgressCardP
         : null;
 
   return (
-    <SurfaceCard onPress={onPress} accent="neutral" emphasis="utility" style={styles.card}>
+    <Pressable onPress={onPress} style={styles.card}>
       <View style={styles.topRow}>
         <View style={styles.copy}>
           <Text style={styles.name} numberOfLines={1}>
@@ -149,7 +148,7 @@ export function ProgressCard({ summary, unitPreference, onPress }: ProgressCardP
               <Polyline
                 points={sparkPolyline}
                 fill="none"
-                stroke="#F4FAFF"
+                stroke="#16A34A"
                 strokeWidth={3}
                 strokeLinejoin="round"
                 strokeLinecap="round"
@@ -160,7 +159,7 @@ export function ProgressCard({ summary, unitPreference, onPress }: ProgressCardP
                 const spread = Math.max(max - min, 1);
                 const x = sparkValues.length === 1 ? 44 : (index / Math.max(sparkValues.length - 1, 1)) * 88;
                 const y = 28 - ((value - min) / spread) * 28;
-                return <Circle key={`${summary.key}:${index}`} cx={x} cy={y} r={3} fill="#F4FAFF" />;
+                return <Circle key={`${summary.key}:${index}`} cx={x} cy={y} r={3} fill="#16A34A" />;
               })}
             </Svg>
           ) : (
@@ -168,14 +167,20 @@ export function ProgressCard({ summary, unitPreference, onPress }: ProgressCardP
           )}
         </View>
       </View>
-    </SurfaceCard>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    minHeight: 132,
+    minHeight: 124,
     gap: spacing.sm,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: '#E6E6E6',
+    backgroundColor: '#FFFFFF',
+    padding: spacing.lg,
+    ...shadows.card,
   },
   topRow: {
     flexDirection: 'row',
@@ -188,19 +193,19 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   name: {
-    color: colors.textPrimary,
+    color: '#111111',
     fontSize: 18,
     lineHeight: 20,
     fontWeight: '900',
     letterSpacing: -0.3,
   },
   reps: {
-    color: colors.textSecondary,
+    color: '#4B5563',
     fontSize: 11,
     fontWeight: '700',
   },
   sessionMeta: {
-    color: colors.textMuted,
+    color: '#6B7280',
     fontSize: 11,
     fontWeight: '700',
   },
@@ -229,11 +234,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   trendPillNeutral: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#F4F4F4',
+    borderColor: '#E5E5E5',
   },
   trend: {
-    color: '#F4FAFF',
+    color: '#111111',
     fontSize: 11,
     fontWeight: '900',
   },
@@ -252,22 +257,22 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(11, 15, 20, 0.34)',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FAFAFA',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     justifyContent: 'center',
     gap: 1,
   },
   metricLabel: {
-    color: colors.textMuted,
+    color: '#6B7280',
     fontSize: 8,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   metricValue: {
-    color: colors.textPrimary,
+    color: '#111111',
     fontSize: 15,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
@@ -276,15 +281,15 @@ const styles = StyleSheet.create({
     width: 100,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FAFAFA',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
     paddingVertical: 6,
   },
   sparkHint: {
-    color: colors.textMuted,
+    color: '#6B7280',
     fontSize: 10,
     fontWeight: '800',
   },

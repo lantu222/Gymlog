@@ -1,7 +1,7 @@
-import { buildValluActions } from './valluActions';
-import { ValluAdvice, ValluTrainingContext } from '../types/vallu';
+import { buildAiCoachActions } from './valluActions';
+import { AICoachAdvice, AICoachTrainingContext } from '../types/vallu';
 
-function formatActiveContext(context: ValluTrainingContext) {
+function formatActiveContext(context: AICoachTrainingContext) {
   if (!context.activeSession) {
     return null;
   }
@@ -13,7 +13,7 @@ function formatActiveContext(context: ValluTrainingContext) {
   return `Now: ${context.activeSession.title}`;
 }
 
-function formatLiftLine(context: ValluTrainingContext) {
+function formatLiftLine(context: AICoachTrainingContext) {
   const firstLift = context.trackedLifts[0];
   if (!firstLift) {
     return null;
@@ -23,7 +23,7 @@ function formatLiftLine(context: ValluTrainingContext) {
   return `${firstLift.name}: ${latest} x ${firstLift.latestReps}`;
 }
 
-function formatTopSetLine(context: ValluTrainingContext) {
+function formatTopSetLine(context: AICoachTrainingContext) {
   const latestTopSet = context.latestTopSets[0];
   if (!latestTopSet) {
     return null;
@@ -33,7 +33,7 @@ function formatTopSetLine(context: ValluTrainingContext) {
   return `${latestTopSet.exerciseName}: ${weight} x ${latestTopSet.reps}`;
 }
 
-function formatRecentSessionLine(context: ValluTrainingContext) {
+function formatRecentSessionLine(context: AICoachTrainingContext) {
   const session = context.recentCompletedSessions[0];
   if (!session) {
     return null;
@@ -42,7 +42,7 @@ function formatRecentSessionLine(context: ValluTrainingContext) {
   return `Last: ${session.title}`;
 }
 
-export function buildValluPreviewAnswer(prompt: string, context: ValluTrainingContext): ValluAdvice {
+export function buildAiCoachPreviewAnswer(prompt: string, context: AICoachTrainingContext): AICoachAdvice {
   const lower = prompt.toLowerCase();
   const activeContext = formatActiveContext(context);
   const liftLine = formatLiftLine(context);
@@ -72,7 +72,7 @@ export function buildValluPreviewAnswer(prompt: string, context: ValluTrainingCo
         'Preview answer.',
         'Build slower if your base is low.',
       ],
-      actions: buildValluActions(prompt, context),
+      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -97,7 +97,7 @@ export function buildValluPreviewAnswer(prompt: string, context: ValluTrainingCo
       assumptions: [
         'Preview answer.',
       ],
-      actions: buildValluActions(prompt, context),
+      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -122,7 +122,7 @@ export function buildValluPreviewAnswer(prompt: string, context: ValluTrainingCo
       assumptions: [
         'Preview answer.',
       ],
-      actions: buildValluActions(prompt, context),
+      actions: buildAiCoachActions(prompt, context),
     };
   }
 
@@ -146,6 +146,6 @@ export function buildValluPreviewAnswer(prompt: string, context: ValluTrainingCo
     assumptions: [
       'Preview answer.',
     ],
-    actions: buildValluActions(prompt, context),
+    actions: buildAiCoachActions(prompt, context),
   };
 }

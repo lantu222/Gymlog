@@ -1,11 +1,11 @@
-import { buildValluPreviewAnswer } from './valluPreview';
-import { ValluAdvice, ValluAdviceError, ValluAdviceRequest, ValluAdviceSuccess } from '../types/vallu';
+import { buildAiCoachPreviewAnswer } from './valluPreview';
+import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/vallu';
 
-const VALLU_API_URL = (process.env.EXPO_PUBLIC_VALLU_API_URL ?? '').trim();
+const AI_COACH_API_URL = (process.env.EXPO_PUBLIC_AI_COACH_API_URL ?? process.env.EXPO_PUBLIC_VALLU_API_URL ?? '').trim();
 const REQUEST_TIMEOUT_MS = 12000;
 
-export interface RequestValluAdviceResult {
-  answer: ValluAdvice;
+export interface RequestAiCoachAdviceResult {
+  answer: AICoachAdvice;
   source: 'live' | 'preview';
   note?: string;
 }
@@ -34,18 +34,18 @@ function getAbortSignal(timeoutMs: number, upstreamSignal?: AbortSignal) {
   };
 }
 
-function isSuccessResponse(value: unknown): value is ValluAdviceSuccess {
-  return Boolean(value) && typeof value === 'object' && (value as ValluAdviceSuccess).ok === true;
+function isSuccessResponse(value: unknown): value is AICoachAdviceSuccess {
+  return Boolean(value) && typeof value === 'object' && (value as AICoachAdviceSuccess).ok === true;
 }
 
-function isErrorResponse(value: unknown): value is ValluAdviceError {
-  return Boolean(value) && typeof value === 'object' && (value as ValluAdviceError).ok === false;
+function isErrorResponse(value: unknown): value is AICoachAdviceError {
+  return Boolean(value) && typeof value === 'object' && (value as AICoachAdviceError).ok === false;
 }
 
-export async function requestValluAdvice(input: ValluAdviceRequest, upstreamSignal?: AbortSignal): Promise<RequestValluAdviceResult> {
-  if (!VALLU_API_URL) {
+export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstreamSignal?: AbortSignal): Promise<RequestAiCoachAdviceResult> {
+  if (!AI_COACH_API_URL) {
     return {
-      answer: buildValluPreviewAnswer(input.prompt, input.context),
+      answer: buildAiCoachPreviewAnswer(input.prompt, input.context),
       source: 'preview',
       note: 'Preview mode.',
     };
@@ -54,7 +54,7 @@ export async function requestValluAdvice(input: ValluAdviceRequest, upstreamSign
   const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS, upstreamSignal);
 
   try {
-    const response = await fetch(VALLU_API_URL, {
+    const response = await fetch(AI_COACH_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -82,13 +82,13 @@ export async function requestValluAdvice(input: ValluAdviceRequest, upstreamSign
     }
 
     return {
-      answer: buildValluPreviewAnswer(input.prompt, input.context),
+      answer: buildAiCoachPreviewAnswer(input.prompt, input.context),
       source: 'preview',
       note: 'Live error. Preview answer.',
     };
   } catch {
     return {
-      answer: buildValluPreviewAnswer(input.prompt, input.context),
+      answer: buildAiCoachPreviewAnswer(input.prompt, input.context),
       source: 'preview',
       note: 'Live unavailable. Preview answer.',
     };

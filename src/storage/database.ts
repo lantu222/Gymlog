@@ -3,7 +3,7 @@
 import { createEmptyDatabase, createSeedDatabase } from '../data/seed';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
-import { AppDatabase, ExerciseTemplate, WorkoutTemplate, WorkoutTemplateSessionRecord } from '../types/models';
+import { AppDatabase, ExerciseTemplate, MeasurementEntry, WorkoutTemplate, WorkoutTemplateSessionRecord } from '../types/models';
 
 const STORAGE_KEY = '@gymlog/database/v1';
 
@@ -45,6 +45,32 @@ function normalizeTemplateSessions(
         : [],
     }))
     .sort((left: WorkoutTemplateSessionRecord, right: WorkoutTemplateSessionRecord) => left.orderIndex - right.orderIndex);
+}
+
+function mergeExerciseLibrary(
+  inputLibrary: AppDatabase['exerciseLibrary'] | null | undefined,
+  fallbackLibrary: AppDatabase['exerciseLibrary'],
+) {
+  const merged = new Map<string, AppDatabase['exerciseLibrary'][number]>();
+
+  fallbackLibrary.forEach((item) => {
+    merged.set(item.id, item);
+  });
+
+  if (Array.isArray(inputLibrary)) {
+    inputLibrary.forEach((item) => {
+      if (!item || typeof item.id !== 'string' || !item.id.trim().length) {
+        return;
+      }
+
+      merged.set(item.id, {
+        ...merged.get(item.id),
+        ...item,
+      });
+    });
+  }
+
+  return Array.from(merged.values());
 }
 
 function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppDatabase {
@@ -125,10 +151,7 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
     workoutTemplates: normalizedTemplates,
     exerciseTemplates: normalizedExerciseTemplates,
     workoutPlans: Array.isArray(input?.workoutPlans) ? input.workoutPlans : [],
-    exerciseLibrary:
-      Array.isArray(input?.exerciseLibrary) && input.exerciseLibrary.length
-        ? input.exerciseLibrary
-        : fallback.exerciseLibrary,
+    exerciseLibrary: mergeExerciseLibrary(input?.exerciseLibrary, fallback.exerciseLibrary),
     workoutSessions: Array.isArray(input?.workoutSessions)
       ? input.workoutSessions.map((session: any) => ({
           id: String(session?.id ?? ''),
@@ -137,6 +160,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
             typeof session?.workoutNameSnapshot === 'string' && session.workoutNameSnapshot.trim().length
               ? session.workoutNameSnapshot.trim()
               : 'Workout',
+          sessionNotes:
+            typeof session?.sessionNotes === 'string' && session.sessionNotes.trim().length
+              ? session.sessionNotes.trim()
+              : null,
           performedAt: typeof session?.performedAt === 'string' ? session.performedAt : new Date().toISOString(),
           startedAt: typeof session?.startedAt === 'string' ? session.startedAt : undefined,
           durationMinutes:
@@ -186,6 +213,37 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
           .filter((log): log is NonNullable<typeof log> => Boolean(log))
       : [],
     bodyweightEntries: Array.isArray(input?.bodyweightEntries) ? input.bodyweightEntries : [],
+    measurementEntries: Array.isArray(input?.measurementEntries)
+      ? input.measurementEntries
+          .map((entry: any) => {
+            const kind =
+              entry?.kind === 'bodyfat' ||
+              entry?.kind === 'shoulders' ||
+              entry?.kind === 'chest' ||
+              entry?.kind === 'waist' ||
+              entry?.kind === 'hips' ||
+              entry?.kind === 'thighs'
+                ? entry.kind
+                : null;
+            const unit = entry?.unit === 'cm' || entry?.unit === 'in' || entry?.unit === '%' ? entry.unit : null;
+            const value = typeof entry?.value === 'number' && Number.isFinite(entry.value) ? entry.value : null;
+            const recordedAt = typeof entry?.recordedAt === 'string' ? entry.recordedAt : null;
+            const id = typeof entry?.id === 'string' && entry.id.trim().length ? entry.id : null;
+
+            if (!kind || !unit || value === null || !recordedAt || !id) {
+              return null;
+            }
+
+            return {
+              id,
+              kind,
+              unit,
+              value,
+              recordedAt,
+            } satisfies MeasurementEntry;
+          })
+          .filter((entry): entry is MeasurementEntry => Boolean(entry))
+      : [],
     preferences: {
       appLanguage:
         input?.preferences?.appLanguage === 'fi' || input?.preferences?.appLanguage === 'en'
@@ -209,10 +267,18 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked
           : fallback.preferences.adaptiveCoachPremiumUnlocked,
+      aiSetupCompleted:
+        typeof input?.preferences?.aiSetupCompleted === 'boolean'
+          ? input.preferences.aiSetupCompleted
+          : fallback.preferences.aiSetupCompleted,
       entryFlowCompleted:
         typeof input?.preferences?.entryFlowCompleted === 'boolean'
           ? input.preferences.entryFlowCompleted
           : fallback.preferences.entryFlowCompleted,
+      trainingFirstRunDismissed:
+        typeof input?.preferences?.trainingFirstRunDismissed === 'boolean'
+          ? input.preferences.trainingFirstRunDismissed
+          : fallback.preferences.trainingFirstRunDismissed,
       selectedSignInMethod:
         input?.preferences?.selectedSignInMethod === 'apple' ||
         input?.preferences?.selectedSignInMethod === 'email' ||
@@ -225,6 +291,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         input?.preferences?.selectedAccessTier === null
           ? input.preferences.selectedAccessTier
           : fallback.preferences.selectedAccessTier,
+      setupCurrentWeightKg:
+        typeof input?.preferences?.setupCurrentWeightKg === 'number' || input?.preferences?.setupCurrentWeightKg === null
+          ? input.preferences.setupCurrentWeightKg
+          : fallback.preferences.setupCurrentWeightKg,
       bodyweightGoalKg:
         typeof input?.preferences?.bodyweightGoalKg === 'number' || input?.preferences?.bodyweightGoalKg === null
           ? input.preferences.bodyweightGoalKg
@@ -265,6 +335,19 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         input?.preferences?.setupGoal === 'run_mobility'
           ? input.preferences.setupGoal
           : fallback.preferences.setupGoal,
+      setupGoals:
+        Array.isArray(input?.preferences?.setupGoals) &&
+        input.preferences.setupGoals.length > 0
+          ? input.preferences.setupGoals.filter(
+              (value: unknown): value is 'strength' | 'muscle' | 'general' | 'run_mobility' =>
+                value === 'strength' || value === 'muscle' || value === 'general' || value === 'run_mobility',
+            )
+          : input?.preferences?.setupGoal === 'strength' ||
+              input?.preferences?.setupGoal === 'muscle' ||
+              input?.preferences?.setupGoal === 'general' ||
+              input?.preferences?.setupGoal === 'run_mobility'
+            ? [input.preferences.setupGoal]
+            : fallback.preferences.setupGoals,
       setupLevel:
         input?.preferences?.setupLevel === 'beginner' || input?.preferences?.setupLevel === 'intermediate'
           ? input.preferences.setupLevel
@@ -394,10 +477,81 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         input?.preferences?.setupKneeFriendlySwaps,
         fallback.preferences.setupKneeFriendlySwaps,
       ),
+      aiPlannerGoal:
+        input?.preferences?.aiPlannerGoal === 'strength' ||
+        input?.preferences?.aiPlannerGoal === 'muscle' ||
+        input?.preferences?.aiPlannerGoal === 'fat_loss' ||
+        input?.preferences?.aiPlannerGoal === 'fitness'
+          ? input.preferences.aiPlannerGoal
+          : fallback.preferences.aiPlannerGoal,
+      aiPlannerDaysPerWeek:
+        input?.preferences?.aiPlannerDaysPerWeek === 1 ||
+        input?.preferences?.aiPlannerDaysPerWeek === 2 ||
+        input?.preferences?.aiPlannerDaysPerWeek === 3 ||
+        input?.preferences?.aiPlannerDaysPerWeek === 4
+          ? input.preferences.aiPlannerDaysPerWeek
+          : fallback.preferences.aiPlannerDaysPerWeek,
+      aiPlannerExperience:
+        input?.preferences?.aiPlannerExperience === 'beginner' ||
+        input?.preferences?.aiPlannerExperience === 'intermediate' ||
+        input?.preferences?.aiPlannerExperience === 'advanced'
+          ? input.preferences.aiPlannerExperience
+          : fallback.preferences.aiPlannerExperience,
+      aiPlannerSessionMinutes:
+        input?.preferences?.aiPlannerSessionMinutes === 30 ||
+        input?.preferences?.aiPlannerSessionMinutes === 45 ||
+        input?.preferences?.aiPlannerSessionMinutes === 60 ||
+        input?.preferences?.aiPlannerSessionMinutes === 75 ||
+        input?.preferences?.aiPlannerSessionMinutes === 90
+          ? input.preferences.aiPlannerSessionMinutes
+          : fallback.preferences.aiPlannerSessionMinutes,
+      aiPlannerEquipment:
+        input?.preferences?.aiPlannerEquipment === 'full_gym' ||
+        input?.preferences?.aiPlannerEquipment === 'home_gym' ||
+        input?.preferences?.aiPlannerEquipment === 'minimal' ||
+        input?.preferences?.aiPlannerEquipment === 'bodyweight'
+          ? input.preferences.aiPlannerEquipment
+          : fallback.preferences.aiPlannerEquipment,
+      aiPlannerRecovery:
+        input?.preferences?.aiPlannerRecovery === 'low' ||
+        input?.preferences?.aiPlannerRecovery === 'moderate' ||
+        input?.preferences?.aiPlannerRecovery === 'high'
+          ? input.preferences.aiPlannerRecovery
+          : fallback.preferences.aiPlannerRecovery,
+      aiPlannerMustInclude:
+        typeof input?.preferences?.aiPlannerMustInclude === 'string'
+          ? input.preferences.aiPlannerMustInclude
+          : fallback.preferences.aiPlannerMustInclude,
+      aiPlannerAvoid:
+        typeof input?.preferences?.aiPlannerAvoid === 'string'
+          ? input.preferences.aiPlannerAvoid
+          : fallback.preferences.aiPlannerAvoid,
+      aiPlannerLimitations:
+        typeof input?.preferences?.aiPlannerLimitations === 'string'
+          ? input.preferences.aiPlannerLimitations
+          : fallback.preferences.aiPlannerLimitations,
+      aiCoachTemplateId:
+        typeof input?.preferences?.aiCoachTemplateId === 'string' || input?.preferences?.aiCoachTemplateId === null
+          ? input.preferences.aiCoachTemplateId
+          : fallback.preferences.aiCoachTemplateId,
+      aiCoachSetupHash:
+        typeof input?.preferences?.aiCoachSetupHash === 'string' || input?.preferences?.aiCoachSetupHash === null
+          ? input.preferences.aiCoachSetupHash
+          : fallback.preferences.aiCoachSetupHash,
+      aiCoachPlanGeneratedAt:
+        typeof input?.preferences?.aiCoachPlanGeneratedAt === 'string' || input?.preferences?.aiCoachPlanGeneratedAt === null
+          ? input.preferences.aiCoachPlanGeneratedAt
+          : fallback.preferences.aiCoachPlanGeneratedAt,
       recommendedProgramId:
         typeof input?.preferences?.recommendedProgramId === 'string' || input?.preferences?.recommendedProgramId === null
           ? input.preferences.recommendedProgramId
           : fallback.preferences.recommendedProgramId,
+      trackedExerciseLibraryItemIds:
+        Array.isArray(input?.preferences?.trackedExerciseLibraryItemIds)
+          ? input.preferences.trackedExerciseLibraryItemIds.filter(
+              (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0,
+            )
+          : fallback.preferences.trackedExerciseLibraryItemIds,
       dismissedTipIds:
         Array.isArray(input?.preferences?.dismissedTipIds)
           ? input.preferences.dismissedTipIds.filter((value: unknown): value is string => typeof value === 'string')
@@ -429,7 +583,13 @@ export async function loadDatabase() {
 }
 
 export async function saveDatabase(database: AppDatabase) {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(database));
+  await AsyncStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      ...database,
+      exerciseLibrary: [],
+    }),
+  );
 }
 
 export async function resetDatabase() {

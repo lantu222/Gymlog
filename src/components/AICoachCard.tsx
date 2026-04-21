@@ -39,14 +39,14 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
       <SurfaceCard accent="neutral" emphasis="flat" style={styles.compactShell}>
         <View style={styles.compactRow}>
           <View style={styles.compactCopy}>
-            <Text style={styles.compactKicker}>Ask Gymlog AI</Text>
+            <Text style={styles.compactKicker}>AI Coach</Text>
             <Text style={styles.compactTitle}>{helperText}</Text>
           </View>
           <WorkoutSceneGraphic variant="search" accent="neutral" compact style={styles.compactVisual} />
         </View>
 
         <Pressable onPress={() => onSubmit(compactPrompt)} style={styles.compactButton}>
-          <Text style={styles.compactButtonText}>Open AI</Text>
+          <Text style={styles.compactButtonText}>Open coach</Text>
         </Pressable>
       </SurfaceCard>
     );
@@ -57,7 +57,7 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
       <View style={styles.heroRow}>
         <View style={styles.heroCopy}>
           <View style={styles.titleRow}>
-            <Text style={styles.eyebrow}>Ask Gymlog AI</Text>
+            <Text style={styles.eyebrow}>AI Coach</Text>
             {activeWorkoutTitle ? <BadgePill accent="neutral" label="Live help" /> : null}
           </View>
 

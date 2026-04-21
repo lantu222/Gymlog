@@ -1,6 +1,6 @@
 import { UnitPreference } from './models';
 
-export interface ValluLiftHighlight {
+export interface AICoachLiftHighlight {
   key: string;
   name: string;
   latestWeight: number | null;
@@ -8,13 +8,13 @@ export interface ValluLiftHighlight {
   latestReps: string;
 }
 
-export interface ValluActiveSessionSummary {
+export interface AICoachActiveSessionSummary {
   title: string;
   nextExercise: string | null;
   meta: string;
 }
 
-export interface ValluRecentCompletedSession {
+export interface AICoachRecentCompletedSession {
   sessionId: string;
   title: string;
   performedAt: string;
@@ -24,14 +24,14 @@ export interface ValluRecentCompletedSession {
   noteCount: number;
 }
 
-export interface ValluLatestTopSet {
+export interface AICoachLatestTopSet {
   exerciseName: string;
   weight: number | null;
   reps: string;
   performedAt: string | null;
 }
 
-export interface ValluRhythmDay {
+export interface AICoachRhythmDay {
   dayStart: number;
   dayNumber: number;
   weekdayLabel: string;
@@ -39,22 +39,35 @@ export interface ValluRhythmDay {
   isToday: boolean;
 }
 
-export interface ValluTrainingContext {
+export interface AICoachPlannerSetupSummary {
+  goal: string | null;
+  daysPerWeek: number | null;
+  experience: string | null;
+  sessionMinutes: number | null;
+  equipment: string | null;
+  recovery: string | null;
+  mustInclude: string[];
+  avoid: string[];
+  limitations: string[];
+}
+
+export interface AICoachTrainingContext {
   unitPreference: UnitPreference;
-  activeSession: ValluActiveSessionSummary | null;
-  recentCompletedSessions: ValluRecentCompletedSession[];
-  trackedLifts: ValluLiftHighlight[];
-  latestTopSets: ValluLatestTopSet[];
+  activeSession: AICoachActiveSessionSummary | null;
+  recentCompletedSessions: AICoachRecentCompletedSession[];
+  trackedLifts: AICoachLiftHighlight[];
+  latestTopSets: AICoachLatestTopSet[];
   sessionsThisWeek: number;
   sessionsLast30Days: number;
-  rhythm: ValluRhythmDay[];
+  rhythm: AICoachRhythmDay[];
   readyProgramCount: number;
   recommendedProgramId: string | null;
   recommendedProgramTitle: string | null;
   customProgramTitle: string | null;
+  plannerSetup: AICoachPlannerSetupSummary | null;
 }
 
-export type ValluActionKind =
+export type AICoachActionKind =
   | 'resume_workout'
   | 'open_last_session'
   | 'open_lift_progress'
@@ -64,8 +77,8 @@ export type ValluActionKind =
   | 'review_setup'
   | 'open_custom_editor';
 
-export interface ValluAction {
-  kind: ValluActionKind;
+export interface AICoachAction {
+  kind: AICoachActionKind;
   label: string;
   description: string;
   sessionId?: string;
@@ -74,36 +87,36 @@ export interface ValluAction {
   prefillName?: string | null;
 }
 
-export interface ValluAdvice {
+export interface AICoachAdvice {
   takeaway: string;
   why: string[];
   nextSteps: string[];
   plan: string[];
   assumptions: string[];
-  actions?: ValluAction[];
+  actions?: AICoachAction[];
 }
 
-export interface ValluAdviceRequest {
+export interface AICoachAdviceRequest {
   prompt: string;
-  context: ValluTrainingContext;
+  context: AICoachTrainingContext;
 }
 
-export interface ValluAdviceSuccess {
+export interface AICoachAdviceSuccess {
   ok: true;
   source: 'live' | 'preview';
-  answer: ValluAdvice;
+  answer: AICoachAdvice;
   note?: string;
 }
 
-export interface ValluAdviceError {
+export interface AICoachAdviceError {
   ok: false;
   source: 'live' | 'preview';
   error: {
     code: 'BAD_REQUEST' | 'METHOD_NOT_ALLOWED' | 'RATE_LIMIT' | 'UPSTREAM_TIMEOUT' | 'UPSTREAM_ERROR' | 'INVALID_RESPONSE' | 'MISSING_API_KEY';
     message: string;
   };
-  fallback?: ValluAdvice;
+  fallback?: AICoachAdvice;
   note?: string;
 }
 
-export type ValluAdviceResponse = ValluAdviceSuccess | ValluAdviceError;
+export type AICoachAdviceResponse = AICoachAdviceSuccess | AICoachAdviceError;

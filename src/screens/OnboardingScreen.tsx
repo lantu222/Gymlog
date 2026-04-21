@@ -25,7 +25,7 @@ import {
   buildFirstRunCustomProgramName,
   buildFirstRunHelperPrompt,
   buildFirstRunPromptSuggestions,
-  buildFirstRunValluContext,
+  buildFirstRunAiCoachContext,
   DEFAULT_FIRST_RUN_SELECTION,
   formatFocusAreaList,
   FirstRunSetupSelection,
@@ -42,8 +42,11 @@ import {
   resolveProjectedTrainingDays,
   getEffectiveWeeklyMinutes,
 } from '../lib/firstRunSetup';
+import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
+import { buildRecommendationOptionIds, getRecommendationConfidenceCopy } from '../lib/recommendationPresentation';
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { requestValluAdvice } from '../lib/valluClient';
+import { getReadyTemplatePresentation } from '../lib/templatePresentation';
+import { requestAiCoachAdvice } from '../lib/valluClient';
 import { colors, radii, spacing } from '../theme';
 import {
   SetupDaysPerWeek,
@@ -59,7 +62,7 @@ import {
   SetupWeekday,
   UnitPreference,
 } from '../types/models';
-import { ValluAdvice } from '../types/vallu';
+import { AICoachAdvice } from '../types/vallu';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface OnboardingScreenProps {
@@ -94,9 +97,25 @@ type SetupStage =
   | 'about'
   | 'recommendation';
 type HelperState = 'idle' | 'loading' | 'ready' | 'error';
-type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'vallu' | null;
+type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | null;
 
-const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'focus', 'review'];
+const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'about', 'focus', 'review'];
+
+const DEFAULT_BODYWEIGHT_KG = 70;
+const DEFAULT_BODYWEIGHT_LB = 154;
+const BODYWEIGHT_INTEGER_LIMITS: Record<UnitPreference, { min: number; max: number }> = {
+  kg: { min: 35, max: 220 },
+  lb: { min: 77, max: 485 },
+};
+
+function clampBodyweightInteger(value: number, unit: UnitPreference) {
+  const limits = BODYWEIGHT_INTEGER_LIMITS[unit];
+  return Math.min(Math.max(Math.round(value), limits.min), limits.max);
+}
+
+function getDefaultBodyweightForUnit(unit: UnitPreference) {
+  return unit === 'kg' ? DEFAULT_BODYWEIGHT_KG : DEFAULT_BODYWEIGHT_LB;
+}
 
 function getStageIndex(stage?: SetupStage) {
   const index = stage ? STAGES.indexOf(stage) : -1;
@@ -395,10 +414,11 @@ function PhotoSelectionCard({
     >
       <Animated.View style={[styles.photoSelectionAnimatedWrap, { transform: [{ scale }] }]}>
         {plain && backgroundSource ? (
-          <ImageBackground source={backgroundSource} resizeMode="cover" style={styles.photoSelectionSurfacePlainImage}>
+          <View style={styles.photoSelectionSurfacePlainImage}>
+            <Image source={backgroundSource} resizeMode="cover" style={styles.photoSelectionSurfacePlainAsset} />
             <View style={styles.photoSelectionPlainShade} />
             {content}
-          </ImageBackground>
+          </View>
         ) : plain ? (
           content
         ) : (
@@ -524,7 +544,7 @@ function SetupOptionCard({
           <View style={[styles.setupOptionCardIconThumb, active && styles.setupOptionCardIconThumbActive]}>
             <Animated.Image
               source={backgroundSource}
-              resizeMode="contain"
+              resizeMode="cover"
               style={[
                 styles.setupOptionCardIconImage,
                 thumbAnimatedStyle,
@@ -614,11 +634,12 @@ function SetupOptionCard({
           </View>
         </Animated.View>
       ) : hasBackground ? (
-        <ImageBackground
-          source={backgroundSource}
-          resizeMode="cover"
-          style={[styles.setupOptionCardImageSurface, compact && styles.setupOptionCardImageSurfaceCompact]}
-        >
+        <View style={[styles.setupOptionCardImageSurface, compact && styles.setupOptionCardImageSurfaceCompact]}>
+          <Image
+            source={backgroundSource}
+            resizeMode="cover"
+            style={styles.setupOptionCardImageAsset}
+          />
           <View style={styles.setupOptionCardImageShade} />
           <View style={[styles.setupOptionCardContent, compact && styles.setupOptionCardContentCompact]}>
             <Text
@@ -652,7 +673,7 @@ function SetupOptionCard({
               </View>
             </View>
           ) : null}
-        </ImageBackground>
+        </View>
       ) : (
         <>
           <Text style={[styles.setupOptionCardTitle, active && styles.setupOptionCardTitleActive]}>{title}</Text>
@@ -840,6 +861,107 @@ function PreviewGlyph({ dayCount }: { dayCount: number }) {
   );
 }
 
+function WeightPickerColumn({
+  values,
+  selectedValue,
+  onSelect,
+  compact = false,
+}: {
+  values: number[];
+  selectedValue: number;
+  onSelect: (value: number) => void;
+  compact?: boolean;
+}) {
+  return (
+    <View style={[styles.weightPickerColumn, compact && styles.weightPickerColumnCompact]}>
+      {values.map((value) => {
+        const active = value === selectedValue;
+        return (
+          <Pressable
+            key={value}
+            onPress={() => onSelect(value)}
+            style={[styles.weightPickerValueButton, active && styles.weightPickerValueButtonActive]}
+          >
+            <Text style={[styles.weightPickerValueText, active && styles.weightPickerValueTextActive]}>
+              {compact ? value : `${value}`}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function BodyweightPicker({
+  value,
+  unit,
+  onChange,
+  onUnitChange,
+}: {
+  value: number;
+  unit: UnitPreference;
+  onChange: (value: number) => void;
+  onUnitChange: (unit: UnitPreference) => void;
+}) {
+  const clampedValue = Number.isFinite(value) ? value : getDefaultBodyweightForUnit(unit);
+  const integerPart = clampBodyweightInteger(Math.floor(clampedValue), unit);
+  const decimalPart = Math.round((clampedValue - integerPart) * 10);
+  const limits = BODYWEIGHT_INTEGER_LIMITS[unit];
+  const integerValues = Array.from({ length: 5 }, (_, index) =>
+    Math.min(Math.max(integerPart - 2 + index, limits.min), limits.max),
+  ).filter((candidate, index, array) => array.indexOf(candidate) === index);
+  const decimalValues = Array.from({ length: 5 }, (_, index) => (decimalPart - 2 + index + 10) % 10);
+
+  function updateWeight(nextInteger: number, nextDecimal: number, nextUnit = unit) {
+    onChange(nextInteger + nextDecimal / 10);
+    if (nextUnit !== unit) {
+      onUnitChange(nextUnit);
+    }
+  }
+
+  return (
+    <View style={styles.bodyweightPickerCard}>
+      <View style={styles.bodyweightValueCard}>
+        <Text style={styles.bodyweightValueText}>{`${clampedValue.toFixed(1)} ${unit}`}</Text>
+      </View>
+
+      <View style={styles.bodyweightPickerRow}>
+        <WeightPickerColumn
+          values={integerValues}
+          selectedValue={integerPart}
+          onSelect={(nextInteger) => updateWeight(nextInteger, decimalPart)}
+        />
+
+        <View style={styles.bodyweightDecimalWrap}>
+          <Text style={styles.bodyweightSeparator}>.</Text>
+        </View>
+
+        <WeightPickerColumn
+          values={decimalValues}
+          selectedValue={decimalPart}
+          onSelect={(nextDecimal) => updateWeight(integerPart, nextDecimal)}
+          compact
+        />
+
+        <View style={styles.bodyweightUnitColumn}>
+          {(['kg', 'lb'] as UnitPreference[]).map((option) => {
+            const active = unit === option;
+            return (
+              <Pressable
+                key={option}
+                onPress={() => onUnitChange(option)}
+                style={[styles.bodyweightUnitPill, active && styles.bodyweightUnitPillActive]}
+              >
+                <Text style={[styles.bodyweightUnitText, active && styles.bodyweightUnitTextActive]}>{option}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 function StepDots({ index, light = false }: { index: number; light?: boolean }) {
   return (
     <View style={styles.pagination}>
@@ -884,6 +1006,14 @@ function getGoalLabel(goal: SetupGoal) {
     default:
       return 'Training';
   }
+}
+
+function formatGoalList(goals: SetupGoal[]) {
+  if (goals.length === 0) {
+    return 'Not set';
+  }
+
+  return goals.map((goal) => getGoalLabel(goal)).join(', ');
 }
 
 function getGenderLabel(gender: SetupGender) {
@@ -951,6 +1081,7 @@ export function OnboardingScreen({
   );
   const ageRange = useMemo(() => getAgeRangeFromAge(age), [age]);
   const [goal, setGoal] = useState<SetupGoal>(setupSeed.goal);
+  const [goals, setGoals] = useState<SetupGoal[]>(setupSeed.goals?.length ? setupSeed.goals : [setupSeed.goal]);
   const [level, setLevel] = useState<SetupLevel>(setupSeed.level);
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
   const [equipment, setEquipment] = useState<SetupEquipment>(setupSeed.equipment);
@@ -969,13 +1100,18 @@ export function OnboardingScreen({
   const [targetWeightDraft, setTargetWeightDraft] = useState(
     formatWeightInputValue(setupSeed.targetWeightKg, initialUnitPreference),
   );
+  const [bodyweightPickerValue, setBodyweightPickerValue] = useState(() => {
+    const seedValue = parseNumberInput(formatWeightInputValue(setupSeed.currentWeightKg, initialUnitPreference));
+    return seedValue ?? getDefaultBodyweightForUnit(initialUnitPreference);
+  });
   const [busy, setBusy] = useState(false);
   const [activeRecommendationRefinement, setActiveRecommendationRefinement] =
     useState<RecommendationRefinementPanel>(null);
+  const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [helperVisible, setHelperVisible] = useState(false);
   const [helperDraft, setHelperDraft] = useState('');
   const [helperState, setHelperState] = useState<HelperState>('idle');
-  const [helperAnswer, setHelperAnswer] = useState<ValluAdvice | null>(null);
+  const [helperAnswer, setHelperAnswer] = useState<AICoachAdvice | null>(null);
   const [helperNote, setHelperNote] = useState('');
   const [helperSource, setHelperSource] = useState<'live' | 'preview'>('preview');
   const [helperError, setHelperError] = useState('');
@@ -989,6 +1125,7 @@ export function OnboardingScreen({
       age,
       ageRange,
       goal,
+      goals,
       level,
       daysPerWeek,
       equipment,
@@ -1012,6 +1149,7 @@ export function OnboardingScreen({
       focusAreas,
       gender,
       goal,
+      goals,
       guidanceMode,
       level,
       scheduleMode,
@@ -1037,20 +1175,83 @@ export function OnboardingScreen({
     () => resolveFirstRunRecommendationWithTailoring(selection, recommendationTailoringPreferences),
     [recommendationTailoringPreferences, selection],
   );
+  const recommendationOptionIds = useMemo(
+    () => buildRecommendationOptionIds(recommendation),
+    [recommendation.alternativeProgramIds, recommendation.featuredProgramId, recommendation.secondaryProgramId],
+  );
+  const activeRecommendedProgramId = useMemo(() => {
+    if (selectedRecommendationProgramId && recommendationOptionIds.includes(selectedRecommendationProgramId)) {
+      return selectedRecommendationProgramId;
+    }
+
+    return recommendation.featuredProgramId;
+  }, [recommendation.featuredProgramId, recommendationOptionIds, selectedRecommendationProgramId]);
   const recommendedProgram = useMemo(
-    () => getWorkoutTemplateById(recommendation.featuredProgramId),
-    [recommendation.featuredProgramId],
+    () => getWorkoutTemplateById(activeRecommendedProgramId),
+    [activeRecommendedProgramId],
+  );
+  const recommendedProgramPresentation = useMemo(
+    () => (recommendedProgram ? getReadyTemplatePresentation(recommendedProgram) : null),
+    [recommendedProgram],
+  );
+  const activeRecommendationCandidate = useMemo(
+    () => recommendation.scoredCandidates.find((candidate) => candidate.programId === activeRecommendedProgramId) ?? null,
+    [activeRecommendedProgramId, recommendation.scoredCandidates],
+  );
+  const alternativeRecommendationPrograms = useMemo(
+    () =>
+      recommendationOptionIds
+        .filter((programId) => programId !== activeRecommendedProgramId)
+        .map((programId) => {
+          const template = getWorkoutTemplateById(programId);
+          const candidate = recommendation.scoredCandidates.find((entry) => entry.programId === programId) ?? null;
+          if (!template) {
+            return null;
+          }
+
+          return {
+            id: programId,
+            template,
+            presentation: getReadyTemplatePresentation(template),
+            tradeoffNote:
+              activeRecommendationCandidate && candidate
+                ? buildRecommendationTradeoffLabel(activeRecommendationCandidate, candidate)
+                : null,
+          };
+        })
+        .filter(
+          (
+            option,
+          ): option is {
+            id: string;
+            template: NonNullable<ReturnType<typeof getWorkoutTemplateById>>;
+            presentation: ReturnType<typeof getReadyTemplatePresentation>;
+            tradeoffNote: string | null;
+          } => option !== null,
+        )
+        .slice(0, 2),
+    [activeRecommendationCandidate, activeRecommendedProgramId, recommendation.scoredCandidates, recommendationOptionIds],
+  );
+  const recommendationConfidenceCopy = useMemo(
+    () => getRecommendationConfidenceCopy(recommendation.confidence),
+    [recommendation.confidence],
+  );
+  const activeRecommendationMismatchNote =
+    activeRecommendedProgramId === recommendation.featuredProgramId ? recommendation.mismatchNote : null;
+  const recommendedProgramTags = useMemo(
+    () => recommendedProgramPresentation?.tags.slice(0, 3) ?? [],
+    [recommendedProgramPresentation],
   );
   const helperSuggestions = useMemo(
-    () => buildFirstRunPromptSuggestions(selection, getRecommendedProgramName(recommendation.featuredProgramId)),
-    [recommendation.featuredProgramId, selection],
+    () => buildFirstRunPromptSuggestions(selection, getRecommendedProgramName(activeRecommendedProgramId)),
+    [activeRecommendedProgramId, selection],
   );
   const helperPrompt = useMemo(
     () => buildFirstRunHelperPrompt(stage as FirstRunStep, selection, recommendedProgram?.name ?? null),
     [recommendedProgram?.name, selection, stage],
   );
   const locationLabel = useMemo(() => getLocationLabel(equipment), [equipment]);
-  const goalLabel = useMemo(() => getGoalLabel(goal), [goal]);
+  const goalLabel = useMemo(() => formatGoalList(goals), [goals]);
   const levelLabel = useMemo(() => getLevelLabel(level), [level]);
   const secondaryOutcomeLabels = useMemo(
     () => secondaryOutcomes.map((outcome) => getSecondaryOutcomeTitle(outcome)),
@@ -1076,6 +1277,28 @@ export function OnboardingScreen({
     () => buildScheduleFitNote(selection, projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration ?? null),
     [projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration, selection],
   );
+
+  function toggleGoal(nextGoal: SetupGoal) {
+    setGoals((current) => {
+      if (current.includes(nextGoal)) {
+        if (current.length === 1) {
+          return current;
+        }
+        const nextGoals = current.filter((item) => item !== nextGoal);
+        setGoal((previousPrimary) => {
+          if (nextGoals.length === 0) {
+            return previousPrimary;
+          }
+          return previousPrimary === nextGoal ? nextGoals[0] : previousPrimary;
+        });
+        return nextGoals;
+      }
+
+      const nextGoals = [...current, nextGoal];
+      setGoal(nextGoal);
+      return nextGoals;
+    });
+  }
   const availableDayLabels = useMemo(
     () => availableDays.map((day) => getWeekdayShortLabel(day)),
     [availableDays],
@@ -1140,6 +1363,12 @@ export function OnboardingScreen({
   }, [activeRecommendationRefinement, stage]);
 
   useEffect(() => {
+    if (selectedRecommendationProgramId && !recommendationOptionIds.includes(selectedRecommendationProgramId)) {
+      setSelectedRecommendationProgramId(null);
+    }
+  }, [recommendationOptionIds, selectedRecommendationProgramId]);
+
+  useEffect(() => {
     const previousUnit = previousUnitPreferenceRef.current;
     if (previousUnit === unitPreference) {
       return;
@@ -1163,6 +1392,16 @@ export function OnboardingScreen({
     });
     previousUnitPreferenceRef.current = unitPreference;
   }, [unitPreference]);
+
+  useEffect(() => {
+    const parsed = parseNumberInput(currentWeightDraft);
+    if (parsed === null) {
+      setBodyweightPickerValue(getDefaultBodyweightForUnit(unitPreference));
+      return;
+    }
+
+    setBodyweightPickerValue(parsed);
+  }, [currentWeightDraft, unitPreference]);
 
   function openHelper(prefill?: string) {
     setHelperDraft(prefill ?? helperPrompt);
@@ -1212,7 +1451,13 @@ export function OnboardingScreen({
     setActiveRecommendationRefinement((current) => (current === panel ? null : panel));
   }
 
-  async function askVallu() {
+  function setCurrentBodyweight(value: number) {
+    const nextValue = Math.max(0, Math.round(value * 10) / 10);
+    setBodyweightPickerValue(nextValue);
+    setCurrentWeightDraft(nextValue.toFixed(1));
+  }
+
+  async function askAiCoach() {
     const prompt = helperDraft.trim();
     if (!prompt) {
       return;
@@ -1224,9 +1469,9 @@ export function OnboardingScreen({
     setHelperError('');
 
     try {
-      const result = await requestValluAdvice({
+      const result = await requestAiCoachAdvice({
         prompt,
-        context: buildFirstRunValluContext(selection, readyProgramCount),
+        context: buildFirstRunAiCoachContext(selection, readyProgramCount),
       });
 
       setHelperAnswer(result.answer);
@@ -1350,7 +1595,7 @@ export function OnboardingScreen({
           </View>
         ) : null}
 
-        {recommendation.mismatchNote ? <Text style={styles.previewNote}>{recommendation.mismatchNote}</Text> : null}
+        {activeRecommendationMismatchNote ? <Text style={styles.previewNote}>{activeRecommendationMismatchNote}</Text> : null}
       </SurfaceCard>
     );
   }
@@ -1429,7 +1674,7 @@ export function OnboardingScreen({
         <View style={styles.heroBlock}>
           <Text style={[styles.kicker, styles.kickerLight]}>Step 2</Text>
           <Text style={[styles.title, styles.titleLight]}>What is your main goal?</Text>
-          <Text style={[styles.body, styles.bodyLight]}>Pick one.</Text>
+          <Text style={[styles.body, styles.bodyLight]}>Pick one or more.</Text>
         </View>
 
         <View style={styles.setupOptionGrid}>
@@ -1438,10 +1683,10 @@ export function OnboardingScreen({
               <SetupOptionCard
                 title={option.title}
                 body={option.body}
-                active={goal === option.goal}
+                active={goals.includes(option.goal)}
                 backgroundSource={getGoalBackgroundSource(option.goal)}
                 compact
-                onPress={() => setGoal(option.goal)}
+                onPress={() => toggleGoal(option.goal)}
               />
             </View>
           ))}
@@ -1502,7 +1747,7 @@ export function OnboardingScreen({
     return (
       <View style={styles.stageBody}>
         <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 4</Text>
+          <Text style={[styles.kicker, styles.kickerLight]}>Step 5</Text>
           <Text style={[styles.title, styles.titleLight]}>What do you want to focus the most?</Text>
           <Text style={[styles.body, styles.bodyLight]}>Pick one or more.</Text>
         </View>
@@ -1526,9 +1771,11 @@ export function OnboardingScreen({
   }
 
   function renderReview() {
-    const programTitle = recommendedProgram
-      ? formatWorkoutDisplayLabel(recommendedProgram.name, 'Program')
-      : 'Starter plan';
+    const programTitle = recommendedProgramPresentation?.title
+      ?? (recommendedProgram ? formatWorkoutDisplayLabel(recommendedProgram.name, 'Program') : 'Starter plan');
+    const programSubtitle = recommendedProgramPresentation?.subtitle ?? null;
+    const primaryRecommendationKicker =
+      activeRecommendedProgramId === recommendation.featuredProgramId ? 'Your start' : 'Your selected start';
     const sessionDurationLabel = recommendedProgram?.estimatedSessionDuration
       ? `${recommendedProgram.estimatedSessionDuration} min`
       : '~50 min';
@@ -1540,14 +1787,15 @@ export function OnboardingScreen({
     return (
       <View style={styles.stageBody}>
         <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 5</Text>
+          <Text style={[styles.kicker, styles.kickerLight]}>Step 6</Text>
           <Text style={[styles.title, styles.titleLight]}>Does everything look right?</Text>
           <Text style={[styles.body, styles.bodyLight]}>Check the setup before Gymlog builds the week.</Text>
         </View>
 
         <View style={styles.reviewProgramCard}>
-          <Text style={styles.reviewProgramKicker}>Your start</Text>
+          <Text style={styles.reviewProgramKicker}>{primaryRecommendationKicker}</Text>
           <Text style={styles.reviewProgramTitle}>{programTitle}</Text>
+          {programSubtitle ? <Text style={styles.reviewProgramSubtitle}>{programSubtitle}</Text> : null}
           <View style={styles.reviewProgramMetaRow}>
             <View style={styles.reviewProgramMetaPill}>
               <Text style={styles.reviewProgramMetaText}>{`${projectedDaysPerWeek} days`}</Text>
@@ -1555,6 +1803,11 @@ export function OnboardingScreen({
             <View style={styles.reviewProgramMetaPill}>
               <Text style={styles.reviewProgramMetaText}>{sessionDurationLabel}</Text>
             </View>
+            {recommendedProgramTags.map((tag) => (
+              <View key={tag} style={styles.reviewProgramMetaPill}>
+                <Text style={styles.reviewProgramMetaText}>{tag}</Text>
+              </View>
+            ))}
           </View>
           <View style={styles.reviewProgramDataGrid}>
             <View style={styles.reviewProgramDataItem}>
@@ -1575,6 +1828,52 @@ export function OnboardingScreen({
             </View>
           </View>
         </View>
+
+        <View style={styles.reviewSummaryCard}>
+          <View style={styles.reviewSectionHeader}>
+            <Text style={styles.reviewSummaryLabel}>Recommendation fit</Text>
+            <Text style={styles.reviewInlineMeta}>{recommendationConfidenceCopy.title}</Text>
+          </View>
+          <Text style={styles.reviewInsightBody}>{recommendationConfidenceCopy.body}</Text>
+          {activeRecommendationMismatchNote ? (
+            <Text style={styles.reviewScheduleNote}>{activeRecommendationMismatchNote}</Text>
+          ) : null}
+        </View>
+
+        {alternativeRecommendationPrograms.length ? (
+          <View style={styles.reviewSummaryCard}>
+            <View style={styles.reviewSectionHeader}>
+              <Text style={styles.reviewSummaryLabel}>Other good options</Text>
+              <Text style={styles.reviewInlineMeta}>Pick if it fits better</Text>
+            </View>
+            <View style={styles.reviewAlternativeList}>
+              {alternativeRecommendationPrograms.map((option) => (
+                <View key={option.id} style={styles.reviewAlternativeCard}>
+                  <View style={styles.reviewAlternativeCopy}>
+                    <Text style={styles.reviewAlternativeTitle}>{option.presentation.title}</Text>
+                    <Text style={styles.reviewAlternativeBody}>{option.presentation.subtitle}</Text>
+                    {option.tradeoffNote ? (
+                      <Text style={styles.reviewAlternativeNote}>{option.tradeoffNote}</Text>
+                    ) : null}
+                    <View style={styles.reviewAlternativeTagRow}>
+                      {option.presentation.tags.map((tag) => (
+                        <View key={tag} style={styles.reviewAlternativeTag}>
+                          <Text style={styles.reviewAlternativeTagText}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                  <Pressable
+                    onPress={() => setSelectedRecommendationProgramId(option.id)}
+                    style={styles.reviewAlternativeButton}
+                  >
+                    <Text style={styles.reviewAlternativeButtonText}>Use this instead</Text>
+                  </Pressable>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <View style={styles.reviewSummaryCard}>
           <View style={styles.reviewSectionHeader}>
@@ -1681,52 +1980,19 @@ export function OnboardingScreen({
     return (
       <View style={styles.stageBody}>
         <View style={styles.heroBlock}>
-          <Text style={styles.kicker}>Step 5</Text>
-          <Text style={styles.title}>Add bodyweight?</Text>
-          <Text style={styles.body}>Optional.</Text>
+          <Text style={[styles.kicker, styles.kickerLight]}>Step 4</Text>
+          <Text style={[styles.title, styles.titleLight]}>How much do you weigh?</Text>
+          <Text style={[styles.body, styles.bodyLight]}>Add your current bodyweight.</Text>
         </View>
 
-        <SurfaceCard accent="neutral" emphasis="standard" style={styles.metricCard}>
-          <View style={styles.metricRow}>
-            <View style={styles.metricCopy}>
-              <Text style={styles.metricTitle}>Current bodyweight</Text>
-              <Text style={styles.metricBody}>Start point.</Text>
-            </View>
-            <View style={styles.metricInputWrap}>
-              <TextInput
-                value={currentWeightDraft}
-                onChangeText={setCurrentWeightDraft}
-                keyboardType="decimal-pad"
-                placeholder={unitPreference === 'kg' ? '82' : '181'}
-                placeholderTextColor={colors.textMuted}
-                selectionColor="#F3F7FF"
-                style={styles.metricInput}
-              />
-              <Text style={styles.metricUnit}>{unitPreference}</Text>
-            </View>
-          </View>
+        <BodyweightPicker
+          value={bodyweightPickerValue}
+          unit={unitPreference}
+          onChange={setCurrentBodyweight}
+          onUnitChange={setUnitPreference}
+        />
 
-          <View style={styles.metricDivider} />
-
-          <View style={styles.metricRow}>
-            <View style={styles.metricCopy}>
-              <Text style={styles.metricTitle}>Target bodyweight</Text>
-              <Text style={styles.metricBody}>Goal weight.</Text>
-            </View>
-            <View style={styles.metricInputWrap}>
-              <TextInput
-                value={targetWeightDraft}
-                onChangeText={setTargetWeightDraft}
-                keyboardType="decimal-pad"
-                placeholder={unitPreference === 'kg' ? '78' : '172'}
-                placeholderTextColor={colors.textMuted}
-                selectionColor="#F3F7FF"
-                style={styles.metricInput}
-              />
-              <Text style={styles.metricUnit}>{unitPreference}</Text>
-            </View>
-          </View>
-        </SurfaceCard>
+        <Text style={styles.bodyweightSupportText}>Used for a better starting point. You can change it later.</Text>
       </View>
     );
   }
@@ -1887,7 +2153,7 @@ export function OnboardingScreen({
                 runAction(() =>
                   onCompleteToCustom(
                     selection,
-                    recommendation.featuredProgramId,
+                    activeRecommendedProgramId,
                     buildFirstRunCustomProgramName(selection),
                   ),
                 )
@@ -1900,10 +2166,10 @@ export function OnboardingScreen({
         );
       }
 
-      if (activeRecommendationRefinement === 'vallu') {
+      if (activeRecommendationRefinement === 'ai') {
         return (
           <View style={styles.refinementPanel}>
-            <Text style={styles.personalizationTitle}>Ask Gymlog AI</Text>
+            <Text style={styles.personalizationTitle}>Ask AI Coach</Text>
             <Text style={styles.personalizationBody}>Ask about this exact fit.</Text>
             <Pressable
               onPress={() => openHelper(helperSuggestions[1] ?? helperSuggestions[0] ?? helperPrompt)}
@@ -1945,13 +2211,13 @@ export function OnboardingScreen({
 
             <View style={styles.recommendationActions}>
               <Pressable
-                onPress={() => runAction(() => onCompleteToStartingWeek(selection, recommendation.featuredProgramId))}
+                onPress={() => runAction(() => onCompleteToStartingWeek(selection, activeRecommendedProgramId))}
                 style={styles.primaryButton}
               >
                 <Text style={styles.primaryButtonText}>{recommendationPrimaryLabel}</Text>
               </Pressable>
               <Pressable
-                onPress={() => runAction(() => onCompleteToProgramDetail(selection, recommendation.featuredProgramId))}
+                onPress={() => runAction(() => onCompleteToProgramDetail(selection, activeRecommendedProgramId))}
                 style={styles.recommendationSecondaryButton}
               >
                 <Text style={styles.recommendationSecondaryButtonText}>{recommendationSecondaryLabel}</Text>
@@ -2010,9 +2276,9 @@ export function OnboardingScreen({
               onPress={() => toggleRecommendationRefinement('custom')}
             />
             <ChoiceChip
-              label="Ask AI"
-              active={activeRecommendationRefinement === 'vallu'}
-              onPress={() => toggleRecommendationRefinement('vallu')}
+              label="AI Coach"
+              active={activeRecommendationRefinement === 'ai'}
+              onPress={() => toggleRecommendationRefinement('ai')}
             />
           </View>
           {activeRecommendationRefinement ? renderRecommendationRefinementPanel() : null}
@@ -2025,7 +2291,11 @@ export function OnboardingScreen({
     );
   }
 
-  const footerPrimaryLabel = stage === 'review' ? 'Looks right' : 'Next';
+  const canContinue =
+    stage === 'goal'
+      ? goals.length > 0
+      : true;
+  const footerPrimaryLabel = stage === 'review' ? 'Looks right' : 'Continue';
   const footerVisible = true;
   const scrollContentStyle = useMemo(
     () => [
@@ -2049,6 +2319,7 @@ export function OnboardingScreen({
         {stage === 'location' ? renderLocation() : null}
         {stage === 'goal' ? renderGoal() : null}
         {stage === 'profile' ? renderProfile() : null}
+        {stage === 'about' ? renderAbout() : null}
         {stage === 'focus' ? renderFocus() : null}
         {stage === 'review' ? renderReview() : null}
       </ScrollView>
@@ -2064,14 +2335,19 @@ export function OnboardingScreen({
           <>
             <Pressable
               onPress={() => {
+                if (!canContinue) {
+                  return;
+                }
+
                 if (stage === 'review') {
-                  void runAction(() => onCompleteToStartingWeek(selection, recommendation.featuredProgramId));
+                  void runAction(() => onCompleteToStartingWeek(selection, activeRecommendedProgramId));
                   return;
                 }
 
                 setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
               }}
-              style={[styles.primaryButton, styles.primaryButtonDark]}
+              style={[styles.primaryButton, styles.primaryButtonDark, !canContinue && styles.buttonDisabled]}
+              disabled={!canContinue}
             >
               <Text style={[styles.primaryButtonText, styles.primaryButtonTextLight]}>
                 {footerPrimaryLabel}
@@ -2106,8 +2382,8 @@ export function OnboardingScreen({
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderCopy}>
-                <Text style={styles.sheetKicker}>Vallu</Text>
-        <Text style={styles.sheetTitle}>Ask Gymlog AI</Text>
+                <Text style={styles.sheetKicker}>AI Coach</Text>
+        <Text style={styles.sheetTitle}>Ask AI Coach</Text>
               </View>
               <Pressable onPress={() => setHelperVisible(false)}>
                 <Text style={styles.sheetClose}>Close</Text>
@@ -2135,14 +2411,14 @@ export function OnboardingScreen({
               ))}
             </View>
 
-            <Pressable onPress={askVallu} style={[styles.primaryButton, !helperDraft.trim() && styles.buttonDisabled]}>
+            <Pressable onPress={askAiCoach} style={[styles.primaryButton, !helperDraft.trim() && styles.buttonDisabled]}>
           <Text style={styles.primaryButtonText}>Ask AI</Text>
             </Pressable>
 
             {helperState === 'loading' ? (
               <View style={styles.helperStatusBlock}>
                 <ActivityIndicator color="#F3F7FF" size="small" />
-                <Text style={styles.helperStatusText}>Vallu is answering.</Text>
+                <Text style={styles.helperStatusText}>AI Coach is answering.</Text>
               </View>
             ) : null}
 
@@ -2498,6 +2774,111 @@ const styles = StyleSheet.create({
   ageSliderLabelActive: {
     color: '#06080B',
   },
+  bodyweightPickerCard: {
+    gap: spacing.lg,
+  },
+  bodyweightValueCard: {
+    minHeight: 92,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.08)',
+    backgroundColor: '#F5F7FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  bodyweightValueText: {
+    color: '#06080B',
+    fontSize: 42,
+    lineHeight: 46,
+    fontWeight: '900',
+    letterSpacing: -1.1,
+  },
+  bodyweightPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+  },
+  bodyweightDecimalWrap: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 18,
+  },
+  bodyweightSeparator: {
+    color: '#06080B',
+    fontSize: 34,
+    lineHeight: 36,
+    fontWeight: '900',
+  },
+  weightPickerColumn: {
+    width: 84,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    paddingVertical: spacing.xs,
+  },
+  weightPickerColumnCompact: {
+    width: 52,
+  },
+  weightPickerValueButton: {
+    width: '100%',
+    minHeight: 34,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  weightPickerValueButtonActive: {
+    backgroundColor: '#F5F7FA',
+  },
+  weightPickerValueText: {
+    color: 'rgba(6,8,11,0.32)',
+    fontSize: 26,
+    lineHeight: 30,
+    fontWeight: '800',
+  },
+  weightPickerValueTextActive: {
+    color: '#06080B',
+    fontSize: 36,
+    lineHeight: 40,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+  },
+  bodyweightUnitColumn: {
+    gap: spacing.xs,
+  },
+  bodyweightUnitPill: {
+    minWidth: 54,
+    minHeight: 42,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.10)',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  bodyweightUnitPillActive: {
+    borderColor: '#06080B',
+    backgroundColor: '#06080B',
+  },
+  bodyweightUnitText: {
+    color: 'rgba(6,8,11,0.54)',
+    fontSize: 14,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  bodyweightUnitTextActive: {
+    color: '#FFFFFF',
+  },
+  bodyweightSupportText: {
+    color: 'rgba(6,8,11,0.54)',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
   photoSelectionCard: {
     borderRadius: radii.lg,
     overflow: 'hidden',
@@ -2530,8 +2911,15 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   photoSelectionSurfacePlainImage: {
+    overflow: 'hidden',
+    position: 'relative',
     minHeight: 152,
     justifyContent: 'flex-end',
+  },
+  photoSelectionSurfacePlainAsset: {
+    ...StyleSheet.absoluteFillObject,
+    width: undefined,
+    height: undefined,
   },
   photoSelectionPlainShade: {
     ...StyleSheet.absoluteFillObject,
@@ -2765,7 +3153,7 @@ const styles = StyleSheet.create({
     gap: 0,
   },
   setupOptionCardIcon: {
-    minHeight: 168,
+    minHeight: 188,
     overflow: 'hidden',
     borderColor: 'rgba(6,8,11,0.18)',
     backgroundColor: '#06080B',
@@ -2793,18 +3181,18 @@ const styles = StyleSheet.create({
     position: 'relative',
     marginTop: spacing.xs,
     width: '100%',
-    height: 82,
+    height: 110,
     borderRadius: radii.md,
     overflow: 'hidden',
-    backgroundColor: '#0F141B',
+    backgroundColor: '#050505',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.06)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   setupOptionCardIconThumbActive: {
     borderColor: 'rgba(243,247,255,0.92)',
-    backgroundColor: '#111822',
+    backgroundColor: '#050505',
   },
   setupOptionCardIconImage: {
     width: '100%',
@@ -2813,7 +3201,7 @@ const styles = StyleSheet.create({
   },
   setupOptionCardIconShade: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(6,8,11,0.04)',
+    backgroundColor: 'rgba(0,0,0,0.08)',
   },
   setupOptionCardIconGlow: {
     ...StyleSheet.absoluteFillObject,
@@ -2836,7 +3224,9 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 999,
-    backgroundColor: '#F3F7FF',
+    backgroundColor: '#16A34A',
+    borderWidth: 1,
+    borderColor: '#15803D',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
@@ -2856,7 +3246,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 2,
     borderRadius: 2,
-    backgroundColor: '#06080B',
+    backgroundColor: '#FFFFFF',
   },
   setupOptionCardSelectionCheckMarkShort: {
     width: 5,
@@ -2880,8 +3270,15 @@ const styles = StyleSheet.create({
     borderColor: '#06080B',
   },
   setupOptionCardImageSurface: {
+    overflow: 'hidden',
+    position: 'relative',
     minHeight: 112,
     justifyContent: 'flex-end',
+  },
+  setupOptionCardImageAsset: {
+    ...StyleSheet.absoluteFillObject,
+    width: undefined,
+    height: undefined,
   },
   setupOptionCardImageSurfaceCompact: {
     minHeight: 164,
@@ -3100,6 +3497,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.8,
   },
+  reviewProgramSubtitle: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
   reviewProgramMetaRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -3213,6 +3616,78 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '700',
+  },
+  reviewInsightBody: {
+    color: 'rgba(6,8,11,0.72)',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  reviewAlternativeList: {
+    gap: spacing.sm,
+  },
+  reviewAlternativeCard: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.08)',
+    backgroundColor: '#F7F8FA',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  reviewAlternativeCopy: {
+    gap: spacing.xs,
+  },
+  reviewAlternativeTitle: {
+    color: '#06080B',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  reviewAlternativeBody: {
+    color: 'rgba(6,8,11,0.62)',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  reviewAlternativeNote: {
+    color: 'rgba(6,8,11,0.56)',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  reviewAlternativeTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  reviewAlternativeTag: {
+    minHeight: 28,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.10)',
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+  },
+  reviewAlternativeTagText: {
+    color: '#06080B',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  reviewAlternativeButton: {
+    minHeight: 42,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#06080B',
+    paddingHorizontal: spacing.md,
+  },
+  reviewAlternativeButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
   },
   reviewLiftChipRow: {
     flexDirection: 'row',

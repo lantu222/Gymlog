@@ -6,7 +6,6 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { WorkoutSceneGraphic } from '../components/WorkoutSceneGraphic';
 import { WorkoutPhasePreview } from '../components/WorkoutPhasePreview';
 import { CORE_WORKOUT_TEMPLATE_ID } from '../features/workout/workoutCatalog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
@@ -15,6 +14,7 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { formatShortDate, pluralize } from '../lib/format';
 import { getReadyProgramCollection, READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
+import { getCustomTemplatePresentation, getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { getWorkoutFlowPhasePreview } from '../lib/workoutFlow';
 import {
   filterAndSortReadyDiscoveryItems,
@@ -334,9 +334,16 @@ export function WorkoutsScreen({
       return customWorkouts;
     }
 
-    return customWorkouts.filter((template) =>
-      formatWorkoutDisplayLabel(template.name, 'Workout').toLowerCase().includes(normalizedQuery),
-    );
+    return customWorkouts.filter((template) => {
+      const presentation = getCustomTemplatePresentation(template);
+
+      return (
+        formatWorkoutDisplayLabel(template.name, 'Workout').toLowerCase().includes(normalizedQuery) ||
+        presentation.title.toLowerCase().includes(normalizedQuery) ||
+        presentation.subtitle.toLowerCase().includes(normalizedQuery) ||
+        presentation.tags.some((tag) => tag.toLowerCase().includes(normalizedQuery))
+      );
+    });
   }, [customWorkouts, searchQuery]);
   const compareItems = useMemo(
     () =>
@@ -393,8 +400,6 @@ export function WorkoutsScreen({
               <Text style={styles.nextPlanTitle}>{formatWorkoutDisplayLabel(activeSession.templateName, 'Workout')}</Text>
             </View>
 
-            <WorkoutSceneGraphic variant="plan" accent="neutral" style={styles.nextPlanHeroPhoto} />
-
             <Pressable onPress={() => onOpenWorkout(activeSession.templateId)} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>Resume workout</Text>
             </Pressable>
@@ -413,13 +418,10 @@ export function WorkoutsScreen({
             </View>
 
             <View style={styles.nextPlanHeaderCopy}>
-              <Text style={styles.nextPlanTitle}>
-                {formatWorkoutDisplayLabel(recommendedReadyTemplate.sessions[0]?.name ?? recommendedReadyTemplate.name, 'Workout')}
-              </Text>
+              <Text style={styles.nextPlanTitle}>{getReadyTemplatePresentation(recommendedReadyTemplate).title}</Text>
+              <Text style={styles.nextPlanMetaLine}>{getReadyTemplatePresentation(recommendedReadyTemplate).subtitle}</Text>
               <Text style={styles.nextPlanDuration}>{recommendedReadyTemplate.estimatedSessionDuration} min</Text>
             </View>
-
-            <WorkoutSceneGraphic variant="plan" accent="neutral" style={styles.nextPlanHeroPhoto} />
 
             <View style={styles.nextPlanActionRow}>
               <Pressable
@@ -446,15 +448,12 @@ export function WorkoutsScreen({
             </View>
 
             <View style={styles.nextPlanHeaderCopy}>
-              <Text style={styles.nextPlanTitle}>
-                {formatWorkoutDisplayLabel(primaryCustomWorkout.name, 'Workout')}
-              </Text>
+              <Text style={styles.nextPlanTitle}>{getCustomTemplatePresentation(primaryCustomWorkout).title}</Text>
+              <Text style={styles.nextPlanMetaLine}>{getCustomTemplatePresentation(primaryCustomWorkout).subtitle}</Text>
               <Text style={styles.nextPlanDuration}>
                 {pluralize(primaryCustomWorkout.exerciseCount, 'exercise')}
               </Text>
             </View>
-
-            <WorkoutSceneGraphic variant="build" accent="neutral" style={styles.nextPlanHeroPhoto} />
 
             <View style={styles.nextPlanActionRow}>
               <Pressable
@@ -511,7 +510,7 @@ export function WorkoutsScreen({
                   style={styles.collapsedWorkoutChip}
                 >
                   <Text style={styles.collapsedWorkoutChipText}>
-                    {formatWorkoutDisplayLabel(template.name, 'Workout')}
+                    {getCustomTemplatePresentation(template).title}
                   </Text>
                 </Pressable>
               ))}
@@ -524,14 +523,13 @@ export function WorkoutsScreen({
         <SurfaceCard accent="neutral" emphasis="standard" onPress={onCreateWorkout} style={styles.createCard}>
           <View style={styles.createTopRow}>
             <View style={styles.createCopy}>
-              <Text style={styles.createKicker}>Own split</Text>
-              <Text style={styles.createTitle}>Create your own workout</Text>
-              <Text style={styles.createMeta}>Build one clean split and keep every session editable.</Text>
+              <Text style={styles.createKicker}>Own template</Text>
+              <Text style={styles.createTitle}>Create your own split</Text>
+              <Text style={styles.createMeta}>Build a reusable weekly template and keep every session editable.</Text>
             </View>
-            <WorkoutSceneGraphic variant="build" accent="neutral" style={styles.createVisual} />
           </View>
           <View style={styles.secondaryPill}>
-            <Text style={styles.secondaryPillText}>Create</Text>
+            <Text style={styles.secondaryPillText}>Create template</Text>
           </View>
         </SurfaceCard>
 
@@ -547,18 +545,25 @@ export function WorkoutsScreen({
               {visibleCustomWorkouts.map((template, index) => {
                 const variant = getVariant(customCardVariants, index);
                 const insights = programInsightsByTemplateId[template.id];
+                const presentation = getCustomTemplatePresentation(template);
                 return (
                   <View key={template.id} style={[styles.customCard, { borderColor: variant.borderColor }]}>
                     <Pressable onPress={() => onOpenCustomProgram(template.id)} style={styles.templateMainTap}>
                       <View style={styles.templateRow}>
-                        <WorkoutSceneGraphic variant="build" accent="neutral" compact style={styles.listVisual} />
                         <View style={styles.templateCopy}>
-                          <Text style={styles.templateName}>{formatWorkoutDisplayLabel(template.name, 'Workout')}</Text>
+                          <View style={styles.templateTagRow}>
+                            {presentation.tags.map((tag) => (
+                              <View key={`${template.id}:${tag}`} style={styles.templateTagChip}>
+                                <Text style={styles.templateTagChipText}>{tag}</Text>
+                              </View>
+                            ))}
+                          </View>
+                          <Text style={styles.templateName}>{presentation.title}</Text>
                           <Text style={styles.templateMeta}>
                             {pluralize(template.sessionCount, 'session')} | {pluralize(template.exerciseCount, 'exercise')}
                           </Text>
                           <Text style={styles.templateSupporting}>
-                            {insights?.cardPrimary ?? 'Open the split or start the exact session you want.'}
+                            {insights?.cardPrimary ?? presentation.subtitle}
                           </Text>
                           <Text style={styles.templateSecondaryMeta}>
                             {insights?.cardSecondary ?? `Updated ${formatShortDate(template.updatedAt)}`}
@@ -613,6 +618,7 @@ export function WorkoutsScreen({
                 const firstSession = template.sessions[0] ?? null;
                 const phasePreview = firstSession ? getWorkoutFlowPhasePreview(firstSession.exercises) : [];
                 const insight = programInsightsByTemplateId[template.id];
+                const presentation = getReadyTemplatePresentation(template);
 
                 return (
                   <SurfaceCard
@@ -622,21 +628,17 @@ export function WorkoutsScreen({
                     style={[styles.featuredReadyCard, current && styles.templateCardActive]}
                   >
                     <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.featuredReadyMainTap}>
-                      <WorkoutSceneGraphic variant="plan" accent="neutral" compact style={styles.featuredReadyPhoto} />
                       <View style={styles.featuredReadyCopy}>
-                        <View style={styles.featuredReadyChipRow}>
-                          <View style={styles.featuredReadyChip}>
-                            <Text style={styles.featuredReadyChipText}>{formatLevel(template.level)}</Text>
+                      <View style={styles.featuredReadyChipRow}>
+                        {presentation.tags.map((tag) => (
+                          <View key={`${template.id}:${tag}`} style={styles.featuredReadyChip}>
+                            <Text style={styles.featuredReadyChipText}>{tag}</Text>
                           </View>
-                          <View style={styles.featuredReadyChip}>
-                            <Text style={styles.featuredReadyChipText}>{template.daysPerWeek} days</Text>
-                          </View>
+                        ))}
                         </View>
-                        <Text style={styles.featuredReadyName}>
-                          {formatWorkoutDisplayLabel(template.sessions[0]?.name ?? template.name, 'Workout')}
-                        </Text>
-                        <Text style={styles.featuredReadyMeta}>{formatWorkoutDisplayLabel(template.name, 'Workout')}</Text>
-                        <Text style={styles.featuredReadyBody}>{template.estimatedSessionDuration} min</Text>
+                        <Text style={styles.featuredReadyName}>{presentation.title}</Text>
+                        <Text style={styles.featuredReadyMeta}>{presentation.subtitle}</Text>
+                        <Text style={styles.featuredReadyBody}>{template.estimatedSessionDuration} min · {template.daysPerWeek} days</Text>
                       </View>
 
                       {phasePreview.length ? <WorkoutPhasePreview phases={phasePreview} compact /> : null}
@@ -679,7 +681,6 @@ export function WorkoutsScreen({
                     <Text style={styles.discoveryKicker}>Discovery</Text>
                     <Text style={styles.discoveryTitle}>Narrow the field fast</Text>
                   </View>
-                  <WorkoutSceneGraphic variant="search" accent="neutral" compact style={styles.discoveryVisual} />
                 </View>
                 <TextInput
                   value={searchQuery}
@@ -841,7 +842,6 @@ export function WorkoutsScreen({
                   >
                     <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.templateMainTap}>
                       <View style={styles.templateRow}>
-                        <WorkoutSceneGraphic variant="plan" accent="neutral" compact style={styles.listVisual} />
                         <View style={styles.templateCopy}>
                           <Text style={styles.templateName}>{formatWorkoutDisplayLabel(template.name, 'Workout')}</Text>
                           <Text style={styles.templateMeta}>
@@ -963,8 +963,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(18, 24, 33, 0.88)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#050505',
     padding: spacing.xl,
     gap: spacing.sm,
   },
@@ -972,8 +972,8 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(18, 24, 33, 0.88)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#050505',
     padding: spacing.xl,
     gap: spacing.md,
   },
@@ -1026,15 +1026,21 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
   },
+  nextPlanMetaLine: {
+    color: colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
   nextPlanBadge: {
     minHeight: 28,
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    borderColor: 'rgba(255,255,255,0.14)',
   },
   nextPlanBadgeText: {
     color: colors.textPrimary,
@@ -1047,9 +1053,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(11, 15, 20, 0.48)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
   nextPlanBadgeMutedText: {
     color: colors.textSecondary,
@@ -1064,7 +1070,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F7FF',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.24)',
   },
@@ -1092,8 +1098,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(18, 24, 33, 0.86)',
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#050505',
     padding: spacing.xl,
   },
   createTopRow: {
@@ -1191,9 +1197,9 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
   secondaryPillText: {
     color: colors.textPrimary,
@@ -1216,12 +1222,12 @@ const styles = StyleSheet.create({
   todayFlowCard: {
     gap: 4,
     borderRadius: radii.lg,
-    backgroundColor: 'rgba(15, 18, 23, 0.94)',
-    borderColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: '#050505',
+    borderColor: 'rgba(255,255,255,0.10)',
   },
   todayFlowCardActive: {
-    borderColor: 'rgba(255,255,255,0.16)',
-    backgroundColor: 'rgba(18, 24, 33, 0.94)',
+    borderColor: 'rgba(255,255,255,0.20)',
+    backgroundColor: '#111111',
   },
   todayFlowCardLabel: {
     color: colors.textMuted,
@@ -1458,7 +1464,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radii.lg,
     borderWidth: 1,
-    backgroundColor: 'rgba(18, 24, 33, 0.82)',
+    backgroundColor: '#050505',
     padding: spacing.lg,
   },
   templateCard: {
@@ -1469,11 +1475,11 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: radii.lg,
     borderWidth: 1,
-    backgroundColor: 'rgba(18, 24, 33, 0.84)',
+    backgroundColor: '#050505',
     padding: spacing.lg,
   },
   templateCardActive: {
-    backgroundColor: 'rgba(20, 29, 39, 0.92)',
+    backgroundColor: '#111111',
   },
   templateMainTap: {
     flex: 1,
@@ -1489,6 +1495,27 @@ const styles = StyleSheet.create({
   templateCopy: {
     flex: 1,
     gap: 4,
+  },
+  templateTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  templateTagChip: {
+    minHeight: 24,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  templateTagChipText: {
+    color: colors.textSecondary,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.45,
   },
   templateName: {
     color: colors.textPrimary,

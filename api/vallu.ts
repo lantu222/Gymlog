@@ -1,5 +1,5 @@
-import { buildValluPreviewAnswer } from '../src/lib/valluPreview';
-import { ValluAdvice, ValluAdviceError, ValluAdviceRequest, ValluAdviceSuccess } from '../src/types/vallu';
+import { buildAiCoachPreviewAnswer } from '../src/lib/valluPreview';
+import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../src/types/vallu';
 
 type ApiRequest = {
   method?: string;
@@ -17,13 +17,13 @@ type ApiResponse = {
   end: (body?: string) => void;
 };
 
-const RATE_LIMIT_WINDOW_MS = Number(process.env.VALLU_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
-const RATE_LIMIT_MAX = Number(process.env.VALLU_RATE_LIMIT_MAX ?? 12);
-const OPENAI_TIMEOUT_MS = Number(process.env.VALLU_OPENAI_TIMEOUT_MS ?? 12000);
-const OPENAI_MODEL = process.env.VALLU_OPENAI_MODEL ?? 'gpt-5.2';
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ?? process.env.VALLU_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
+const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? process.env.VALLU_RATE_LIMIT_MAX ?? 12);
+const OPENAI_TIMEOUT_MS = Number(process.env.AI_COACH_OPENAI_TIMEOUT_MS ?? process.env.VALLU_OPENAI_TIMEOUT_MS ?? 12000);
+const OPENAI_MODEL = process.env.AI_COACH_OPENAI_MODEL ?? process.env.VALLU_OPENAI_MODEL ?? 'gpt-5.2';
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
-const VALLU_RESPONSE_SCHEMA = {
+const AI_COACH_RESPONSE_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   required: ['takeaway', 'why', 'nextSteps', 'plan', 'assumptions'],
@@ -45,16 +45,16 @@ function getIpAddress(req: ApiRequest) {
   return req.socket?.remoteAddress ?? 'unknown';
 }
 
-function createSuccess(answer: ValluAdvice, source: 'live' | 'preview', note?: string): ValluAdviceSuccess {
+function createSuccess(answer: AICoachAdvice, source: 'live' | 'preview', note?: string): AICoachAdviceSuccess {
   return { ok: true, source, answer, note };
 }
 
 function createError(
-  error: ValluAdviceError['error'],
-  fallback?: ValluAdvice,
+  error: AICoachAdviceError['error'],
+  fallback?: AICoachAdvice,
   note?: string,
   source: 'live' | 'preview' = 'live',
-): ValluAdviceError {
+): AICoachAdviceError {
   return { ok: false, source, error, fallback, note };
 }
 
@@ -82,20 +82,20 @@ function checkRateLimit(ip: string) {
   return { limited: false };
 }
 
-function parseBody(body: unknown): ValluAdviceRequest | null {
+function parseBody(body: unknown): AICoachAdviceRequest | null {
   const parsed = typeof body === 'string' ? JSON.parse(body) : body;
   if (!parsed || typeof parsed !== 'object') {
     return null;
   }
 
-  const candidate = parsed as Partial<ValluAdviceRequest>;
+  const candidate = parsed as Partial<AICoachAdviceRequest>;
   if (typeof candidate.prompt !== 'string' || !candidate.prompt.trim() || !candidate.context || typeof candidate.context !== 'object') {
     return null;
   }
 
   return {
     prompt: candidate.prompt.trim(),
-    context: candidate.context as ValluAdviceRequest['context'],
+    context: candidate.context as AICoachAdviceRequest['context'],
   };
 }
 
@@ -103,12 +103,12 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((item) => typeof item === 'string');
 }
 
-function validateAnswer(payload: unknown): ValluAdvice | null {
+function validateAnswer(payload: unknown): AICoachAdvice | null {
   if (!payload || typeof payload !== 'object') {
     return null;
   }
 
-  const candidate = payload as Partial<ValluAdvice>;
+  const candidate = payload as Partial<AICoachAdvice>;
   const { takeaway, why, nextSteps, plan, assumptions } = candidate;
   if (
     typeof takeaway !== 'string' ||
@@ -158,13 +158,13 @@ function extractOutputText(payload: unknown) {
   return '';
 }
 
-async function requestOpenAI(input: ValluAdviceRequest) {
+async function requestOpenAI(input: AICoachAdviceRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return createError(
       { code: 'MISSING_API_KEY', message: 'OPENAI_API_KEY is not configured.' },
-      buildValluPreviewAnswer(input.prompt, input.context),
-      'OPENAI_API_KEY puuttuu. Vallun preview-vastaus palautettiin sen sijaan.',
+      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      'OPENAI_API_KEY puuttuu. AI Coach preview-vastaus palautettiin sen sijaan.',
     );
   }
 
@@ -187,7 +187,7 @@ async function requestOpenAI(input: ValluAdviceRequest) {
               {
                 type: 'input_text',
                 text: [
-                  'You are Vallu, a concise Finnish training coach for strength, hypertrophy, and general training goals.',
+                  'You are AI Coach, a concise Finnish training coach for strength, hypertrophy, and general training goals.',
                   'Respond in JSON only and follow the provided schema exactly.',
                   'Give practical coaching, not marketing copy.',
                   'Do not give medical diagnoses. If uncertainty exists, mention it in assumptions.',
@@ -210,9 +210,9 @@ async function requestOpenAI(input: ValluAdviceRequest) {
         text: {
           format: {
             type: 'json_schema',
-            name: 'vallu_advice',
+            name: 'ai_coach_advice',
             strict: true,
-            schema: VALLU_RESPONSE_SCHEMA,
+            schema: AI_COACH_RESPONSE_SCHEMA,
           },
         },
         max_output_tokens: 700,
@@ -222,11 +222,11 @@ async function requestOpenAI(input: ValluAdviceRequest) {
 
     if (!response.ok) {
       const body = await response.text();
-      console.error('Vallu upstream request failed', response.status, body.slice(0, 400));
+      console.error('AI Coach upstream request failed', response.status, body.slice(0, 400));
       return createError(
         { code: 'UPSTREAM_ERROR', message: 'OpenAI request failed.' },
-        buildValluPreviewAnswer(input.prompt, input.context),
-        'Live Vallu ei vastannut oikein. Preview-vastaus palautettiin.',
+        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        'Live AI Coach ei vastannut oikein. Preview-vastaus palautettiin.',
       );
     }
 
@@ -237,8 +237,8 @@ async function requestOpenAI(input: ValluAdviceRequest) {
     if (!parsed) {
       return createError(
         { code: 'INVALID_RESPONSE', message: 'OpenAI returned an invalid schema payload.' },
-        buildValluPreviewAnswer(input.prompt, input.context),
-        'Live Vallu palautti virheellisen vastauksen. Preview-vastaus palautettiin.',
+        buildAiCoachPreviewAnswer(input.prompt, input.context),
+        'Live AI Coach palautti virheellisen vastauksen. Preview-vastaus palautettiin.',
       );
     }
 
@@ -247,8 +247,8 @@ async function requestOpenAI(input: ValluAdviceRequest) {
     const isAbort = error instanceof Error && error.name === 'AbortError';
     return createError(
       { code: isAbort ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR', message: isAbort ? 'OpenAI request timed out.' : 'OpenAI request failed.' },
-      buildValluPreviewAnswer(input.prompt, input.context),
-      isAbort ? 'Live Vallu aikakatkaistiin. Preview-vastaus palautettiin.' : 'Live Vallu ei ollut tavoitettavissa. Preview-vastaus palautettiin.',
+      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      isAbort ? 'Live AI Coach aikakatkaistiin. Preview-vastaus palautettiin.' : 'Live AI Coach ei ollut tavoitettavissa. Preview-vastaus palautettiin.',
     );
   } finally {
     clearTimeout(timeout);
@@ -268,7 +268,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  let input: ValluAdviceRequest | null = null;
+  let input: AICoachAdviceRequest | null = null;
   try {
     input = parseBody(req.body);
   } catch {
@@ -286,7 +286,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     res.status(429).json(
       createError(
         { code: 'RATE_LIMIT', message: 'Too many requests. Try again shortly.' },
-        buildValluPreviewAnswer(input.prompt, input.context),
+        buildAiCoachPreviewAnswer(input.prompt, input.context),
         'Pyyntoraja tayttyi hetkeksi. Preview-vastaus palautettiin.',
       ),
     );

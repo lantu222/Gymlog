@@ -1,7 +1,7 @@
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
 import { UnitPreference, WorkoutSession } from '../types/models';
-import { ValluTrainingContext } from '../types/vallu';
+import { AICoachTrainingContext } from '../types/vallu';
 
 export interface BuildAiTrainingContextInput {
   unitPreference: UnitPreference;
@@ -17,6 +17,17 @@ export interface BuildAiTrainingContextInput {
   recommendedProgramId: string | null;
   recommendedProgramTitle: string | null;
   customProgramTitle: string | null;
+  plannerSetup: {
+    goal: string | null;
+    daysPerWeek: number | null;
+    experience: string | null;
+    sessionMinutes: number | null;
+    equipment: string | null;
+    recovery: string | null;
+    mustInclude: string[];
+    avoid: string[];
+    limitations: string[];
+  } | null;
 }
 
 export function buildAiTrainingContext({
@@ -29,7 +40,8 @@ export function buildAiTrainingContext({
   recommendedProgramId,
   recommendedProgramTitle,
   customProgramTitle,
-}: BuildAiTrainingContextInput): ValluTrainingContext {
+  plannerSetup,
+}: BuildAiTrainingContextInput): AICoachTrainingContext {
   const recentCompletedSessions = [...workoutSessions]
     .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
     .slice(0, 3)
@@ -83,5 +95,6 @@ export function buildAiTrainingContext({
     recommendedProgramId,
     recommendedProgramTitle,
     customProgramTitle,
+    plannerSetup,
   };
 }

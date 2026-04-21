@@ -24,6 +24,9 @@ import {
   BodyweightEntry,
   ExerciseLogDraft,
   ExerciseTemplate,
+  MeasurementEntry,
+  MeasurementKind,
+  MeasurementUnit,
   UnitPreference,
   WorkoutTemplateDraft,
   WorkoutTemplateSessionDraft,
@@ -40,6 +43,7 @@ interface AppContextValue {
   exerciseLibrary: AppDatabase['exerciseLibrary'];
   workoutSessions: AppDatabase['workoutSessions'];
   bodyweightEntries: AppDatabase['bodyweightEntries'];
+  measurementEntries: AppDatabase['measurementEntries'];
   trackedProgress: ReturnType<typeof getTrackedExerciseProgress>;
   bodyweightProgress: ReturnType<typeof getBodyweightProgress>;
   getWorkoutExercises: (workoutTemplateId: string) => ExerciseTemplate[];
@@ -59,7 +63,15 @@ interface AppContextValue {
     startedAt?: string,
   ) => Promise<SessionSaveSummary>;
   saveCompletedWorkoutSession: (input: PersistCompletedWorkoutInput) => Promise<SessionSaveSummary>;
+  updateCompletedWorkoutSession: (
+    sessionId: string,
+    patch: {
+      workoutNameSnapshot?: string;
+      sessionNotes?: string | null;
+    },
+  ) => Promise<void>;
   addBodyweightEntry: (weightKg: number, recordedAt?: string) => Promise<void>;
+  addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit, recordedAt?: string) => Promise<void>;
   resetAllData: () => Promise<void>;
 }
 
@@ -87,6 +99,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     workoutSessions: [],
     exerciseLogs: [],
     bodyweightEntries: [],
+    measurementEntries: [],
     preferences: {
       appLanguage: 'en',
       unitPreference: 'kg',
@@ -95,9 +108,12 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       autoFocusNextInput: true,
       keepScreenAwakeDuringWorkout: false,
       adaptiveCoachPremiumUnlocked: false,
+      aiSetupCompleted: false,
       entryFlowCompleted: false,
+      trainingFirstRunDismissed: false,
       selectedSignInMethod: null,
       selectedAccessTier: null,
+      setupCurrentWeightKg: null,
       bodyweightGoalKg: null,
       onboardingCompleted: false,
       setupCompleted: false,
@@ -105,6 +121,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupAge: null,
       setupAgeRange: null,
       setupGoal: null,
+      setupGoals: [],
       setupLevel: null,
       setupDaysPerWeek: null,
       setupEquipment: null,
@@ -122,7 +139,20 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupShoulderFriendlySwaps: 'neutral',
       setupElbowFriendlySwaps: 'neutral',
       setupKneeFriendlySwaps: 'neutral',
+      aiPlannerGoal: null,
+      aiPlannerDaysPerWeek: null,
+      aiPlannerExperience: null,
+      aiPlannerSessionMinutes: null,
+      aiPlannerEquipment: null,
+      aiPlannerRecovery: null,
+      aiPlannerMustInclude: '',
+      aiPlannerAvoid: '',
+      aiPlannerLimitations: '',
+      aiCoachTemplateId: null,
+      aiCoachSetupHash: null,
+      aiCoachPlanGeneratedAt: null,
       recommendedProgramId: null,
+      trackedExerciseLibraryItemIds: [],
       dismissedTipIds: [],
       activePlanId: null,
     },
@@ -210,7 +240,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     const existingTemplate = draft.id ? workoutTemplateRepository.findById(current, draft.id) : undefined;
     const workoutTemplateId = existingTemplate?.id ?? createId('workout');
     const timestamp = new Date().toISOString();
-    const draftSessions = normalizeDraftSessions(draft).filter((session) => session.exercises.length > 0);
+    const draftSessions = normalizeDraftSessions(draft);
 
     const sessions = draftSessions.map((session, sessionIndex) => {
       const workoutTemplateSessionId = session.id ?? createId('workout_template_session');
@@ -254,6 +284,13 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       workoutTemplateId,
       exercises,
     );
+    nextDatabase = {
+      ...nextDatabase,
+      preferences: {
+        ...nextDatabase.preferences,
+        trainingFirstRunDismissed: true,
+      },
+    };
     await commit(nextDatabase);
     return workoutTemplateId;
   }
@@ -307,6 +344,18 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     return result.summary;
   }
 
+  async function updateCompletedWorkoutSession(
+    sessionId: string,
+    patch: {
+      workoutNameSnapshot?: string;
+      sessionNotes?: string | null;
+    },
+  ) {
+    const current = databaseRef.current;
+    const nextDatabase = workoutSessionRepository.update(current, sessionId, patch);
+    await commit(nextDatabase);
+  }
+
   async function saveWorkoutSession(
     workoutTemplateId: string,
     logs: ExerciseLogDraft[],
@@ -355,6 +404,33 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     await commit(bodyweightRepository.append(current, entry));
   }
 
+  async function addMeasurementEntry(
+    kind: MeasurementKind,
+    value: number,
+    unit: MeasurementUnit,
+    recordedAt = new Date().toISOString(),
+  ) {
+    const current = databaseRef.current;
+    if (value <= 0) {
+      return;
+    }
+
+    const entry: MeasurementEntry = {
+      id: createId('measurement'),
+      kind,
+      recordedAt,
+      value,
+      unit,
+    };
+
+    await commit({
+      ...current,
+      measurementEntries: [...current.measurementEntries, entry].sort(
+        (left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime(),
+      ),
+    });
+  }
+
   async function resetAllData() {
     const cleared = await resetDatabase();
     databaseRef.current = cleared;
@@ -372,6 +448,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       exerciseLibrary: database.exerciseLibrary,
       workoutSessions: workoutSessionRepository.list(database),
       bodyweightEntries: bodyweightRepository.list(database),
+      measurementEntries: database.measurementEntries,
       trackedProgress: getTrackedExerciseProgress(database),
       bodyweightProgress: getBodyweightProgress(database),
       getWorkoutExercises(workoutTemplateId: string) {
@@ -404,7 +481,9 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       deleteWorkoutTemplate,
       saveWorkoutSession,
       saveCompletedWorkoutSession: persistCompletedWorkoutSession,
+      updateCompletedWorkoutSession,
       addBodyweightEntry,
+      addMeasurementEntry,
       resetAllData,
     }),
     [database, hydrated],

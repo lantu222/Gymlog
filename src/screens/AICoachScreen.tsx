@@ -5,19 +5,19 @@ import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { buildValluActions } from '../lib/valluActions';
+import { buildAiCoachActions } from '../lib/valluActions';
 import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { requestValluAdvice } from '../lib/valluClient';
-import { ValluAction, ValluAdvice, ValluTrainingContext } from '../types/vallu';
+import { requestAiCoachAdvice } from '../lib/valluClient';
+import { AICoachAction, AICoachAdvice, AICoachTrainingContext } from '../types/vallu';
 import { colors, layout, radii, spacing } from '../theme';
 
 interface AICoachScreenProps {
   initialPrompt?: string;
   suggestions?: string[];
-  trainingContext: ValluTrainingContext;
+  trainingContext: AICoachTrainingContext;
   onBack: () => void;
   onSubmitPrompt: (prompt: string) => void;
-  onSelectAction: (action: ValluAction, prompt: string) => void;
+  onSelectAction: (action: AICoachAction, prompt: string) => void;
 }
 
 type PreviewState = 'empty' | 'loading' | 'ready' | 'error';
@@ -85,7 +85,7 @@ export function AICoachScreen({
     initialPrompt?.trim() ? { prompt: initialPrompt.trim(), nonce: Date.now() } : null,
   );
   const [state, setState] = useState<PreviewState>(initialPrompt?.trim() ? 'loading' : 'empty');
-  const [answer, setAnswer] = useState<ValluAdvice | null>(null);
+  const [answer, setAnswer] = useState<AICoachAdvice | null>(null);
   const [answerSource, setAnswerSource] = useState<'live' | 'preview'>('preview');
   const [statusNote, setStatusNote] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -128,7 +128,7 @@ export function AICoachScreen({
     setStatusNote('');
     setErrorMessage('');
 
-    requestValluAdvice(
+    requestAiCoachAdvice(
       {
         prompt: request.prompt,
         context: trainingContext,
@@ -170,7 +170,7 @@ export function AICoachScreen({
 
     return Array.isArray(answer.actions) && answer.actions.length > 0
       ? answer.actions
-      : buildValluActions(submittedPrompt, trainingContext);
+      : buildAiCoachActions(submittedPrompt, trainingContext);
   }, [answer, state, submittedPrompt, trainingContext]);
 
   const heroVariant = useMemo(
@@ -256,12 +256,12 @@ export function AICoachScreen({
 
   return (
     <>
-      <ScreenHeader title="Ask Gymlog AI" subtitle="One question. Quick answer." onBack={onBack} />
+      <ScreenHeader title="AI Coach" subtitle="One question. Quick answer." onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroVariant} style={[styles.heroSurface, hasAnswer && styles.heroSurfaceCompact]}>
           <View style={styles.heroContent}>
             <View style={styles.heroTopRow}>
-              <Text style={styles.heroKicker}>Gymlog AI</Text>
+              <Text style={styles.heroKicker}>AI Coach</Text>
               <BadgePill accent="neutral" label={trainingContext.activeSession ? 'Live help' : 'Quick answer'} />
             </View>
 

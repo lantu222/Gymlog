@@ -1,10 +1,12 @@
 import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, StyleSheet, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { getHomeSummary } from './src/lib/dashboard';
-import { formatShortDate, formatTime, pluralize } from './src/lib/format';
+import { formatDurationMinutes, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
+import { createId } from './src/lib/ids';
 import {
   buildFirstRunRecommendationReasons,
   buildFirstRunPromptSuggestions,
@@ -19,58 +21,198 @@ import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
+import {
+  buildAiCoachRuntimeTemplate,
+  buildAiCoachSetupHash,
+  buildAiCoachWorkoutDraft,
+  getAiCoachNextSessionId,
+  getAiCoachTemplateId,
+} from './src/lib/aiCoachPlan';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
-import { buildHomeHeroVisual, buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
+import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
+import {
+  buildExercisePrLookup,
+  estimateOneRepMaxKg,
+  resolvePreviousExercisePr,
+  WorkoutCompletionExerciseCard,
+  WorkoutCompletionPrCard,
+} from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { buildCustomDraftFromReadyProgram } from './src/lib/readyProgramDuplication';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
-import { AppRoute, ROOT_ROUTES, RootTabKey } from './src/navigation/routes';
+import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { AICoachScreen } from './src/screens/AICoachScreen';
+import { AiModeSetupScreen } from './src/screens/AiModeSetupScreen';
+import { CreateTemplateScreen } from './src/screens/CreateTemplateScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
+import { LaunchScreen } from './src/screens/LaunchScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { EquipmentPreferencesScreen } from './src/screens/EquipmentPreferencesScreen';
 import { ExercisePreferencesScreen } from './src/screens/ExercisePreferencesScreen';
+import { ExerciseDetailScreen } from './src/screens/ExerciseDetailScreen';
+import { ExercisesScreen } from './src/screens/ExercisesScreen';
 import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen';
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ProfileSettingsScreen } from './src/screens/ProfileSettingsScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { StartingWeekScreen } from './src/screens/StartingWeekScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
-import { WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
+import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
+import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
 import { WorkoutLoggingScreen } from './src/screens/WorkoutLoggingScreen';
 import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
-import { adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
+import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { colors } from './src/theme';
 import {
-  AppLanguage,
+  AppDatabase,
   AppPreferences,
+  ExerciseLibraryItem,
+  ExerciseTemplate,
   SetupScheduleMode,
   SetupGender,
   UnitPreference,
   WorkoutTemplateDraft,
 } from './src/types/models';
-import { ValluAction } from './src/types/vallu';
+import { AICoachAction } from './src/types/vallu';
+
+void SplashScreen.preventAutoHideAsync().catch(() => {
+  // Native splash may already be controlled by the host app during fast refresh.
+});
 
 interface CompletionSummaryState {
+  sessionId: string;
   workoutName: string;
   performedAt: string;
   durationMinutes: number;
   setsCompleted: number;
   totalVolume: number;
   exercisesLogged: number;
+  exerciseCards: WorkoutCompletionExerciseCard[];
+  prCards: WorkoutCompletionPrCard[];
+}
+
+function isWorkoutCompletionPrCard(
+  card: WorkoutCompletionPrCard | null,
+): card is WorkoutCompletionPrCard {
+  return card !== null;
+}
+
+function buildCompletionCardsFromAdaptedSession({
+  exercises,
+  exerciseTemplates,
+  exerciseLibrary,
+  exercisePrLookup,
+}: {
+  exercises: AdaptedCompletedWorkoutExercise[];
+  exerciseTemplates: ExerciseTemplate[];
+  exerciseLibrary: ExerciseLibraryItem[];
+  exercisePrLookup: ReturnType<typeof buildExercisePrLookup>;
+}) {
+  const templatesById = new Map(exerciseTemplates.map((item) => [item.id, item] as const));
+  const libraryById = new Map(exerciseLibrary.map((item) => [item.id, item] as const));
+
+  const exerciseCards: WorkoutCompletionExerciseCard[] = exercises.map((exercise) => {
+    const template = exercise.persistedExerciseTemplateId
+      ? templatesById.get(exercise.persistedExerciseTemplateId) ?? null
+      : null;
+    const libraryItem = template?.libraryItemId ? libraryById.get(template.libraryItemId) ?? null : null;
+    const completedSets = exercise.sets.filter((set) => set.status === 'completed').length;
+    const totalVolumeKg = exercise.sets.reduce((total, set) => {
+      if (set.status !== 'completed') {
+        return total;
+      }
+      const weightKg = typeof set.weightKg === 'number' ? set.weightKg : 0;
+      const reps = typeof set.reps === 'number' ? set.reps : 0;
+      return total + weightKg * reps;
+    }, 0);
+
+    return {
+      id: exercise.slotId,
+      name: exercise.exerciseName,
+      imageUrl: libraryItem?.imageUrls?.[0] ?? null,
+      completedSets,
+      totalSets: Math.max(1, exercise.sets.length),
+      totalVolumeKg,
+      notes: exercise.notes,
+    };
+  });
+
+  const prCards: WorkoutCompletionPrCard[] = exercises
+    .map((exercise): WorkoutCompletionPrCard | null => {
+      const template = exercise.persistedExerciseTemplateId
+        ? templatesById.get(exercise.persistedExerciseTemplateId) ?? null
+        : null;
+      const libraryItem = template?.libraryItemId ? libraryById.get(template.libraryItemId) ?? null : null;
+      const bestSet = exercise.sets.reduce<{
+        estimatedOneRepMaxKg: number;
+        performedWeightKg: number;
+        performedReps: number;
+      } | null>((best, set) => {
+        if (set.status !== 'completed' || typeof set.weightKg !== 'number' || typeof set.reps !== 'number') {
+          return best;
+        }
+
+        const estimate = estimateOneRepMaxKg(set.weightKg, set.reps);
+        if (estimate === null) {
+          return best;
+        }
+
+        if (!best || estimate > best.estimatedOneRepMaxKg) {
+          return {
+            estimatedOneRepMaxKg: estimate,
+            performedWeightKg: set.weightKg,
+            performedReps: set.reps,
+          };
+        }
+
+        return best;
+      }, null);
+
+      if (!bestSet) {
+        return null;
+      }
+
+      const previousBestOneRepMaxKg = resolvePreviousExercisePr({
+        libraryItemId: template?.libraryItemId ?? null,
+        exerciseName: exercise.exerciseName,
+        lookup: exercisePrLookup,
+      });
+
+      if (previousBestOneRepMaxKg !== null && bestSet.estimatedOneRepMaxKg <= previousBestOneRepMaxKg + 0.05) {
+        return null;
+      }
+
+      return {
+        id: `pr:${exercise.slotId}`,
+        exerciseName: exercise.exerciseName,
+        imageUrl: libraryItem?.imageUrls?.[0] ?? null,
+        estimatedOneRepMaxKg: bestSet.estimatedOneRepMaxKg,
+        previousBestOneRepMaxKg,
+        performedWeightKg: bestSet.performedWeightKg,
+        performedReps: bestSet.performedReps,
+      };
+    })
+    .filter(isWorkoutCompletionPrCard)
+    .slice(0, 3);
+
+  return {
+    exerciseCards,
+    prCards,
+  };
 }
 
 interface NavigationState {
@@ -82,6 +224,73 @@ interface FinishSaveState {
   status: 'idle' | 'saving' | 'error';
   sessionId: string | null;
   message: string | null;
+}
+
+interface WorkoutCelebrationState {
+  workoutName: string;
+  heroImageUrl: string | null;
+  workoutsThisWeek: number;
+  totalLiftedKgThisWeek: number;
+  totalDurationMinutesThisWeek: number;
+  prCount: number;
+}
+
+function getStartOfWeek(date: Date) {
+  const next = new Date(date);
+  const day = next.getDay();
+  const diff = day === 0 ? -6 : 1 - day;
+  next.setHours(0, 0, 0, 0);
+  next.setDate(next.getDate() + diff);
+  return next;
+}
+
+function getEndOfWeek(date: Date) {
+  const start = getStartOfWeek(date);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 7);
+  return end;
+}
+
+function buildWorkoutCelebrationState({
+  completionSummary,
+  workoutSessions,
+}: {
+  completionSummary: CompletionSummaryState;
+  workoutSessions: AppDatabase['workoutSessions'];
+}): WorkoutCelebrationState {
+  const performedAt = new Date(completionSummary.performedAt);
+  const weekStart = getStartOfWeek(performedAt);
+  const weekEnd = getEndOfWeek(performedAt);
+
+  const hasCurrentSession = workoutSessions.some((session) => session.id === completionSummary.sessionId);
+  const sessionsForCalculation = hasCurrentSession
+    ? workoutSessions
+    : [
+        ...workoutSessions,
+        {
+          id: completionSummary.sessionId,
+          workoutTemplateId: '__summary__',
+          workoutNameSnapshot: completionSummary.workoutName,
+          performedAt: completionSummary.performedAt,
+          durationMinutes: completionSummary.durationMinutes,
+          setsCompleted: completionSummary.setsCompleted,
+          totalVolumeKg: completionSummary.totalVolume,
+        },
+      ];
+
+  const sessionsThisWeek = sessionsForCalculation.filter((session) => {
+    const performed = new Date(session.performedAt);
+    return performed >= weekStart && performed < weekEnd;
+  });
+
+  return {
+    workoutName: completionSummary.workoutName,
+    heroImageUrl: completionSummary.prCards[0]?.imageUrl ?? completionSummary.exerciseCards[0]?.imageUrl ?? null,
+    workoutsThisWeek: sessionsThisWeek.length,
+    totalLiftedKgThisWeek: sessionsThisWeek.reduce((total, session) => total + (session.totalVolumeKg ?? 0), 0),
+    totalDurationMinutesThisWeek: sessionsThisWeek.reduce((total, session) => total + (session.durationMinutes ?? 0), 0),
+    prCount: completionSummary.prCards.length,
+  };
 }
 
 const DEFAULT_HOME_AI_PROMPT_SUGGESTIONS = [
@@ -98,13 +307,26 @@ const WORKOUT_EDITOR_TIP_ID = 'workout_editor_start';
 function getBackRoute(route: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
-    (route.screen === 'ai' || route.screen === 'history' || route.screen === 'session' || route.screen === 'starting_week')
+    (route.screen === 'ai' || route.screen === 'ai_setup' || route.screen === 'history' || route.screen === 'session' || route.screen === 'starting_week')
   ) {
     return ROOT_ROUTES.home;
   }
 
-  if (route.tab === 'workout' && (route.screen === 'program' || route.screen === 'editor' || route.screen === 'log' || route.screen === 'summary')) {
+  if (route.tab === 'workout' && route.screen === 'detail') {
     return ROOT_ROUTES.workout;
+  }
+
+  if (
+    route.tab === 'workout' &&
+    (route.screen === 'plans' ||
+      route.screen === 'program' ||
+      route.screen === 'template' ||
+      route.screen === 'editor' ||
+      route.screen === 'log' ||
+      route.screen === 'summary' ||
+      route.screen === 'celebration')
+  ) {
+    return WORKOUT_PLAN_ROUTE;
   }
 
   if (route.tab === 'progress' && (route.screen === 'detail' || route.screen === 'bodyweight')) {
@@ -115,8 +337,12 @@ function getBackRoute(route: AppRoute): AppRoute | null {
     return ROOT_ROUTES.profile;
   }
 
-  if (route.tab === 'profile' && route.screen === 'plan_settings') {
+  if (route.tab === 'profile' && route.screen === 'settings') {
     return ROOT_ROUTES.profile;
+  }
+
+  if (route.tab === 'profile' && route.screen === 'plan_settings') {
+    return { tab: 'profile', screen: 'settings' };
   }
 
   if (route.tab === 'profile' && route.screen === 'exercise_preferences') {
@@ -153,6 +379,10 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
     age: preferences.setupAge ?? DEFAULT_FIRST_RUN_SELECTION.age,
     ageRange: preferences.setupAgeRange ?? DEFAULT_FIRST_RUN_SELECTION.ageRange,
     goal: preferences.setupGoal,
+    goals:
+      preferences.setupGoals.length > 0
+        ? preferences.setupGoals
+        : [preferences.setupGoal],
     level: preferences.setupLevel ?? DEFAULT_FIRST_RUN_SELECTION.level,
     daysPerWeek: preferences.setupDaysPerWeek,
     equipment: preferences.setupEquipment,
@@ -168,7 +398,7 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
       preferences.setupAvailableDays.length > 0
         ? preferences.setupAvailableDays
         : DEFAULT_FIRST_RUN_SELECTION.availableDays,
-    currentWeightKg: null,
+    currentWeightKg: preferences.setupCurrentWeightKg,
     targetWeightKg: preferences.bodyweightGoalKg,
     unitPreference: preferences.unitPreference,
   };
@@ -185,6 +415,7 @@ function buildSetupPreferencePatch(
     setupAge: selection.age ?? null,
     setupAgeRange: selection.ageRange ?? null,
     setupGoal: selection.goal,
+    setupGoals: selection.goals?.length ? selection.goals : [selection.goal],
     setupLevel: selection.level,
     setupDaysPerWeek: selection.daysPerWeek,
     setupEquipment: selection.equipment,
@@ -194,6 +425,7 @@ function buildSetupPreferencePatch(
     setupScheduleMode: selection.scheduleMode,
     setupWeeklyMinutes: selection.weeklyMinutes ?? null,
     setupAvailableDays: selection.scheduleMode === 'self_managed' ? selection.availableDays : [],
+    setupCurrentWeightKg: selection.currentWeightKg ?? null,
     bodyweightGoalKg: selection.targetWeightKg ?? null,
     recommendedProgramId,
     activePlanId: null,
@@ -224,6 +456,7 @@ function GymlogApp() {
     workoutSessions,
     trackedProgress,
     bodyweightProgress,
+    measurementEntries,
     getWorkoutExercises,
     getWorkoutTemplateSessions,
     getSessionLogs,
@@ -234,7 +467,9 @@ function GymlogApp() {
     deleteWorkoutTemplate,
     resetAllData,
     addBodyweightEntry,
+    addMeasurementEntry,
     saveCompletedWorkoutSession,
+    updateCompletedWorkoutSession,
   } = useAppContext();
   const workout = useWorkoutContext();
 
@@ -244,13 +479,52 @@ function GymlogApp() {
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
+  const [workoutCelebration, setWorkoutCelebration] = useState<WorkoutCelebrationState | null>(null);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
     status: 'idle',
     sessionId: null,
     message: null,
   });
+  const [minimumSplashElapsed, setMinimumSplashElapsed] = useState(false);
+  const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
+
+  const exerciseBrowserItems = useMemo(
+    () => exerciseLibrary.filter((item) => !item.id.startsWith('lib_')),
+    [exerciseLibrary],
+  );
   const summaryExitRouteRef = useRef<AppRoute | null>(null);
+  const allowStartingWeekRouteRef = useRef(false);
   const route = navigationState.route;
+  const appHydrated = hydrated && workout.hydrated;
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setMinimumSplashElapsed(true), 5000);
+    return () => clearTimeout(timeout);
+  }, []);
+
+  useEffect(() => {
+    if (nativeSplashHidden) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function hideNativeSplash() {
+      await SplashScreen.hideAsync().catch(() => {
+        // Ignore host-level splash errors on warm reloads.
+      });
+
+      if (!cancelled) {
+        setNativeSplashHidden(true);
+      }
+    }
+
+    void hideNativeSplash();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [nativeSplashHidden]);
 
   function navigate(nextRoute: AppRoute) {
     startTransition(() =>
@@ -281,6 +555,77 @@ function GymlogApp() {
 
   function navigateToTab(tab: RootTabKey) {
     resetToRoute(ROOT_ROUTES[tab]);
+  }
+
+  async function openAiMode(preferencesPatch?: Partial<AppPreferences>) {
+    const nextPreferences = preferencesPatch ? { ...preferences, ...preferencesPatch } : preferences;
+    if (!nextPreferences.aiSetupCompleted) {
+      navigate({ tab: 'home', screen: 'ai_setup' });
+      return;
+    }
+
+    if (
+      navigateToActiveWorkout(
+        workout.activeSession ? 'Resume current workout before starting another.' : undefined,
+      )
+    ) {
+      return;
+    }
+
+    try {
+      const templateId = getAiCoachTemplateId(nextPreferences);
+      const setupHash = buildAiCoachSetupHash(nextPreferences);
+      const currentRuntimeTemplate = customWorkoutRuntimeMap[templateId] ?? null;
+      const shouldRegenerate = !currentRuntimeTemplate || nextPreferences.aiCoachSetupHash !== setupHash;
+
+      let runtimeTemplate = currentRuntimeTemplate;
+      let persistedTemplateId = templateId;
+
+      if (shouldRegenerate) {
+        const draft = buildAiCoachWorkoutDraft(nextPreferences, exerciseLibrary);
+        runtimeTemplate = buildAiCoachRuntimeTemplate(draft, exerciseLibrary, nextPreferences.defaultRestSeconds);
+        persistedTemplateId = await upsertWorkoutTemplate(draft);
+        await updatePreferences({
+          aiCoachTemplateId: persistedTemplateId,
+          aiCoachSetupHash: setupHash,
+          aiCoachPlanGeneratedAt: new Date().toISOString(),
+          trainingFirstRunDismissed: true,
+        });
+      }
+
+      if (!runtimeTemplate) {
+        navigate({
+          tab: 'home',
+          screen: 'ai',
+          prompt: 'Build my next progressive workout.',
+        });
+        return;
+      }
+
+      const completedSessionCount = workoutSessions.filter(
+        (session) => session.workoutTemplateId === persistedTemplateId,
+      ).length;
+      const nextSessionId = getAiCoachNextSessionId(
+        persistedTemplateId,
+        runtimeTemplate,
+        completedSessionCount,
+      );
+
+      workout.startCustomWorkout(
+        buildCustomSessionRuntimeTemplate(runtimeTemplate, nextSessionId),
+        nextPreferences.unitPreference,
+      );
+      navigate({ tab: 'workout', screen: 'log', workoutTemplateId: persistedTemplateId });
+      showToast(shouldRegenerate ? 'AI Coach plan ready' : 'AI Coach next workout loaded');
+    } catch (error) {
+      console.error('Failed to open AI Coach workout flow', error);
+      showToast('Could not build the AI Coach workout');
+      navigate({
+        tab: 'home',
+        screen: 'ai',
+        prompt: 'Build my next progressive workout.',
+      });
+    }
   }
 
   function navigateBack(fallback: AppRoute | null = null) {
@@ -339,8 +684,16 @@ function GymlogApp() {
       !workout.templates.some((template) => template.id === route.workoutTemplateId) &&
       !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
     ) {
-      replaceRoute(ROOT_ROUTES.workout);
+      replaceRoute(WORKOUT_PLAN_ROUTE);
     }
+
+      if (
+        route.tab === 'workout' &&
+        route.screen === 'detail' &&
+        !exerciseBrowserItems.some((item) => item.id === route.exerciseId)
+      ) {
+        replaceRoute(ROOT_ROUTES.workout);
+      }
 
     if (
       route.tab === 'workout' &&
@@ -348,7 +701,7 @@ function GymlogApp() {
       ((route.programType === 'ready' && !workout.templates.some((template) => template.id === route.workoutTemplateId)) ||
         (route.programType === 'custom' && !workoutTemplates.some((template) => template.id === route.workoutTemplateId)))
     ) {
-      replaceRoute(ROOT_ROUTES.workout);
+      replaceRoute(WORKOUT_PLAN_ROUTE);
     }
 
     if (
@@ -357,7 +710,16 @@ function GymlogApp() {
       route.workoutTemplateId &&
       !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
     ) {
-      replaceRoute(ROOT_ROUTES.workout);
+      replaceRoute(WORKOUT_PLAN_ROUTE);
+    }
+
+    if (
+      route.tab === 'workout' &&
+      route.screen === 'template' &&
+      route.workoutTemplateId &&
+      !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
+    ) {
+      replaceRoute(WORKOUT_PLAN_ROUTE);
     }
 
     if (
@@ -377,14 +739,57 @@ function GymlogApp() {
     }
 
     if (route.tab === 'workout' && route.screen === 'summary' && !completionSummary) {
-      const nextRoute = summaryExitRouteRef.current ?? ROOT_ROUTES.workout;
+      const nextRoute = summaryExitRouteRef.current ?? WORKOUT_PLAN_ROUTE;
       summaryExitRouteRef.current = null;
       replaceRoute(nextRoute);
     }
-  }, [completionSummary, route, trackedProgress, workoutSessions, workout.templates, workoutTemplates]);
+  }, [completionSummary, exerciseLibrary, route, trackedProgress, workoutSessions, workout.templates, workoutTemplates]);
 
   const onboardingActive = !preferences.onboardingCompleted;
   const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
+
+  useEffect(() => {
+    if (!hydrated || !preferences.onboardingCompleted) {
+      return;
+    }
+
+    if (
+      typeof preferences.setupCurrentWeightKg !== 'number' ||
+      !Number.isFinite(preferences.setupCurrentWeightKg) ||
+      preferences.setupCurrentWeightKg <= 0
+    ) {
+      return;
+    }
+
+    if (database.bodyweightEntries.length > 0) {
+      return;
+    }
+
+    void addBodyweightEntry(preferences.setupCurrentWeightKg);
+  }, [
+    addBodyweightEntry,
+    database.bodyweightEntries.length,
+    hydrated,
+    preferences.onboardingCompleted,
+    preferences.setupCurrentWeightKg,
+  ]);
+
+  useEffect(() => {
+    if (onboardingActive) {
+      return;
+    }
+
+    if (route.tab !== 'home' || route.screen !== 'starting_week') {
+      return;
+    }
+
+    if (allowStartingWeekRouteRef.current) {
+      allowStartingWeekRouteRef.current = false;
+      return;
+    }
+
+    replaceRoute(ROOT_ROUTES.home);
+  }, [onboardingActive, route]);
 
   useEffect(() => {
     if (onboardingActive) {
@@ -401,7 +806,7 @@ function GymlogApp() {
         setCompletionSummary(null);
         setFinishSaveState({ status: 'idle', sessionId: null, message: null });
         workout.clearCompletedWorkout();
-        navigateBack(summaryExitRouteRef.current ?? ROOT_ROUTES.workout);
+        navigateBack(summaryExitRouteRef.current ?? WORKOUT_PLAN_ROUTE);
         return true;
       }
 
@@ -463,6 +868,7 @@ function GymlogApp() {
     }
 
     const fallbackRoute = getWorkoutLoggerFallbackRoute();
+    await updatePreferences({ trainingFirstRunDismissed: true });
     workout.discardWorkout();
     setFinishSaveState({ status: 'idle', sessionId: null, message: null });
     showToast('Workout discarded');
@@ -497,14 +903,24 @@ function GymlogApp() {
         throw new Error('Workout save did not produce a valid summary');
       }
 
+      await updatePreferences({ trainingFirstRunDismissed: true });
       workout.finishWorkout(summary.performedAt);
+      const completionCards = buildCompletionCardsFromAdaptedSession({
+        exercises: adaptedSession.exercises,
+        exerciseTemplates: database.exerciseTemplates,
+        exerciseLibrary,
+        exercisePrLookup,
+      });
       setCompletionSummary({
+        sessionId: adaptedSession.sessionId,
         workoutName: adaptedSession.workoutNameSnapshot,
         performedAt: summary.performedAt,
         durationMinutes: summary.durationMinutes,
         setsCompleted: summary.setsCompleted,
         totalVolume: summary.totalVolume,
         exercisesLogged: summary.exercisesLogged,
+        exerciseCards: completionCards.exerciseCards,
+        prCards: completionCards.prCards,
       });
       setFinishSaveState({ status: 'idle', sessionId: null, message: null });
       replaceRoute({ tab: 'workout', screen: 'summary' });
@@ -543,7 +959,7 @@ function GymlogApp() {
   }
 
   function handleOpenReadyPrograms() {
-    navigate(ROOT_ROUTES.workout);
+    navigate(WORKOUT_PLAN_ROUTE);
   }
 
   function handleOpenReadyProgramDetail(workoutTemplateId: string) {
@@ -558,7 +974,7 @@ function GymlogApp() {
     navigate({ tab: 'home', screen: 'ai', prompt });
   }
 
-  function handleSelectValluAction(action: ValluAction, prompt: string) {
+  function handleSelectAiCoachAction(action: AICoachAction, prompt: string) {
     switch (action.kind) {
       case 'resume_workout':
         if (!navigateToActiveWorkout()) {
@@ -587,7 +1003,7 @@ function GymlogApp() {
         return;
 
       case 'browse_ready_plans':
-        navigate(ROOT_ROUTES.workout);
+        navigate(WORKOUT_PLAN_ROUTE);
         return;
 
       case 'open_recommended_program': {
@@ -600,7 +1016,7 @@ function GymlogApp() {
             workoutTemplateId: recommendedProgramId,
           });
         } else {
-          navigate(ROOT_ROUTES.workout);
+          navigate(WORKOUT_PLAN_ROUTE);
         }
         return;
       }
@@ -613,7 +1029,7 @@ function GymlogApp() {
         navigate({
           tab: 'workout',
           screen: 'editor',
-          prefillName: action.prefillName ?? (prompt.trim() ? 'Vallu custom workout' : undefined),
+          prefillName: action.prefillName ?? (prompt.trim() ? 'AI Coach custom workout' : undefined),
         });
         return;
 
@@ -623,7 +1039,7 @@ function GymlogApp() {
   }
 
   function handleOpenCustomPrograms() {
-    navigate(ROOT_ROUTES.workout);
+    navigate(WORKOUT_PLAN_ROUTE);
   }
 
   function startReadyProgramSessionWithUnit(
@@ -646,6 +1062,7 @@ function GymlogApp() {
       return;
     }
 
+    void updatePreferences({ trainingFirstRunDismissed: true });
     const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
     workout.startCustomWorkout(runtimeTemplate, nextUnitPreference);
     navigate({ tab: 'workout', screen: 'log', workoutTemplateId });
@@ -671,6 +1088,13 @@ function GymlogApp() {
       return;
     }
 
+    const selectedSession = customTemplate.sessions.find((session) => session.id === sessionId) ?? null;
+    if (!selectedSession?.exercises.length) {
+      showToast('Add exercises before starting this session');
+      navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
+      return;
+    }
+
     if (
       navigateToActiveWorkout(
         workout.activeSession && workout.activeSession.templateId !== workoutTemplateId
@@ -681,6 +1105,7 @@ function GymlogApp() {
       return;
     }
 
+    void updatePreferences({ trainingFirstRunDismissed: true });
     const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
     workout.startCustomWorkout(runtimeTemplate, unitPreference);
     navigate({ tab: 'workout', screen: 'log', workoutTemplateId });
@@ -688,8 +1113,10 @@ function GymlogApp() {
 
   function handleStartCustomProgram(workoutTemplateId: string) {
     const customTemplate = customWorkoutRuntimeMap[workoutTemplateId];
-    const firstSessionId = customTemplate?.sessions[0]?.id;
+    const firstSessionId = customTemplate?.sessions.find((session) => session.exercises.length > 0)?.id;
     if (!firstSessionId) {
+      showToast('Add exercises before starting this template');
+      navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
       return;
     }
 
@@ -716,7 +1143,7 @@ function GymlogApp() {
       return;
     }
 
-    navigate(ROOT_ROUTES.workout);
+    navigate(WORKOUT_PLAN_ROUTE);
   }
 
   function handleDuplicateReadyProgram(workoutTemplateId: string) {
@@ -768,13 +1195,14 @@ function GymlogApp() {
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
     showToast('Workout deleted');
-    navigate(ROOT_ROUTES.workout);
+    navigate(WORKOUT_PLAN_ROUTE);
   }
 
   async function handleOnboardingSkip() {
     await completeOnboarding({
       onboardingCompleted: true,
       setupCompleted: false,
+      trainingFirstRunDismissed: false,
       setupGoal: null,
       setupLevel: null,
       setupDaysPerWeek: null,
@@ -799,14 +1227,6 @@ function GymlogApp() {
     navigate(ROOT_ROUTES.home);
   }
 
-  async function handleChangeAppLanguage(nextLanguage: AppLanguage) {
-    if (preferences.appLanguage === nextLanguage) {
-      return;
-    }
-
-    await updatePreferences({ appLanguage: nextLanguage });
-  }
-
   async function handleContinueEntry() {
     await updatePreferences({
       selectedSignInMethod: 'local',
@@ -823,6 +1243,7 @@ function GymlogApp() {
   }
 
   function openStartingWeek(recommendedProgramId: string, source: 'first_run' | 'edit') {
+    allowStartingWeekRouteRef.current = true;
     replaceRoute({
       tab: 'home',
       screen: 'starting_week',
@@ -845,7 +1266,7 @@ function GymlogApp() {
     recommendedProgramId: string,
   ) {
     await persistSetupSelection(selection, recommendedProgramId);
-    openStartingWeek(recommendedProgramId, 'first_run');
+    resetToRoute(ROOT_ROUTES.home);
   }
 
   async function handleOnboardingCompleteToProgramDetail(
@@ -871,6 +1292,10 @@ function GymlogApp() {
 
   function handleOpenPlanSettings() {
     navigate({ tab: 'profile', screen: 'plan_settings' });
+  }
+
+  function handleOpenProfileSettings() {
+    navigate({ tab: 'profile', screen: 'settings' });
   }
 
   function handleOpenExercisePreferences() {
@@ -940,7 +1365,7 @@ function GymlogApp() {
     showToast('Setup updated');
     const template = getWorkoutTemplateById(recommendedProgramId);
     if (!template) {
-      navigate(ROOT_ROUTES.workout);
+      navigate(WORKOUT_PLAN_ROUTE);
       return;
     }
 
@@ -1038,6 +1463,10 @@ function GymlogApp() {
       }),
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, exerciseLibrary],
   );
+  const recentExerciseBrowserItems = useMemo(
+    () => recentExerciseLibraryItems.filter((item) => !item.id.startsWith('lib_')),
+    [recentExerciseLibraryItems],
+  );
   const editorExerciseHistoryLookup = useMemo(
     () =>
       buildExerciseHistoryLookup({
@@ -1048,7 +1477,16 @@ function GymlogApp() {
       }),
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions, unitPreference],
   );
-  const valluTrainingContext = useMemo(
+  const exercisePrLookup = useMemo(
+    () =>
+      buildExercisePrLookup({
+        exerciseLogs: database.exerciseLogs,
+        workoutSessions: database.workoutSessions,
+        exerciseTemplates: database.exerciseTemplates,
+      }),
+    [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
+  );
+  const aiCoachTrainingContext = useMemo(
     () =>
       buildAiTrainingContext({
         unitPreference,
@@ -1064,6 +1502,28 @@ function GymlogApp() {
         customProgramTitle: selectedCustomProgram.workoutId
           ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
           : null,
+        plannerSetup: preferences.aiSetupCompleted
+          ? {
+              goal: preferences.aiPlannerGoal,
+              daysPerWeek: preferences.aiPlannerDaysPerWeek,
+              experience: preferences.aiPlannerExperience,
+              sessionMinutes: preferences.aiPlannerSessionMinutes,
+              equipment: preferences.aiPlannerEquipment,
+              recovery: preferences.aiPlannerRecovery,
+              mustInclude: preferences.aiPlannerMustInclude
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+              avoid: preferences.aiPlannerAvoid
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+              limitations: preferences.aiPlannerLimitations
+                .split(',')
+                .map((item) => item.trim())
+                .filter(Boolean),
+            }
+          : null,
       }),
     [
       homeActiveWorkoutSummary,
@@ -1072,6 +1532,16 @@ function GymlogApp() {
       selectedCustomProgram.workoutId,
       trackedProgress,
       unitPreference,
+      preferences.aiSetupCompleted,
+      preferences.aiPlannerGoal,
+      preferences.aiPlannerDaysPerWeek,
+      preferences.aiPlannerExperience,
+      preferences.aiPlannerSessionMinutes,
+      preferences.aiPlannerEquipment,
+      preferences.aiPlannerRecovery,
+      preferences.aiPlannerMustInclude,
+      preferences.aiPlannerAvoid,
+      preferences.aiPlannerLimitations,
       preferences.recommendedProgramId,
       workout.templates.length,
       workoutSessions,
@@ -1169,6 +1639,10 @@ function GymlogApp() {
       }),
     [homeActiveWorkoutSummary, lastReusableWorkout, nextPlannedWorkout, recommendedHomeWorkout],
   );
+  const hasSavedTrainingSetup = useMemo(
+    () => preferences.trainingFirstRunDismissed || Boolean(workout.activeSession),
+    [preferences.trainingFirstRunDismissed, workout.activeSession],
+  );
   const homeQuickStats = useMemo(
     () =>
       buildHomeQuickStats({
@@ -1190,16 +1664,73 @@ function GymlogApp() {
       }),
     [database, recommendedReadyTemplate, setupSelection, workout.templates, workoutTemplates],
   );
-  const homeHeroVisual = useMemo(
-    () =>
-      buildHomeHeroVisual({
-        primaryCard: primaryActionSelection.card,
-        primaryTarget: primaryActionSelection.target,
-        readyTemplates: workout.templates,
-        customTemplates: workoutTemplates,
-      }),
-    [primaryActionSelection.card, primaryActionSelection.target, workout.templates, workoutTemplates],
-  );
+  const weeklySnapshot = useMemo(() => {
+    const workoutsDelta = homeSummary.weeklySnapshot.workoutsCurrent - homeSummary.weeklySnapshot.workoutsPrevious;
+    const durationDeltaMinutes =
+      homeSummary.weeklySnapshot.durationCurrentMinutes - homeSummary.weeklySnapshot.durationPreviousMinutes;
+    const volumeDeltaKg = homeSummary.weeklySnapshot.volumeCurrentKg - homeSummary.weeklySnapshot.volumePreviousKg;
+    const latestBodyweight = homeSummary.bodyweight.latest
+      ? formatWeight(homeSummary.bodyweight.latest.weight, unitPreference)
+      : '--';
+    const bodyweightDelta =
+      homeSummary.bodyweight.latest && homeSummary.bodyweight.previous
+        ? homeSummary.bodyweight.latest.weight - homeSummary.bodyweight.previous.weight
+        : null;
+
+    return [
+      {
+        value: `${homeSummary.weeklySnapshot.workoutsCurrent}`,
+        label: 'Workouts',
+        trendLabel: workoutsDelta === 0 ? '-' : `${workoutsDelta > 0 ? '+' : ''}${workoutsDelta}`,
+        trendDirection:
+          workoutsDelta === 0 ? ('flat' as const) : workoutsDelta > 0 ? ('up' as const) : ('down' as const),
+      },
+      {
+        value:
+          homeSummary.weeklySnapshot.durationCurrentMinutes > 0
+            ? formatDurationMinutes(homeSummary.weeklySnapshot.durationCurrentMinutes)
+            : '0 min',
+        label: 'Duration',
+        trendLabel:
+          durationDeltaMinutes === 0
+            ? '-'
+            : `${durationDeltaMinutes > 0 ? '+' : ''}${formatDurationMinutes(Math.abs(durationDeltaMinutes))}`,
+        trendDirection:
+          durationDeltaMinutes === 0
+            ? ('flat' as const)
+            : durationDeltaMinutes > 0
+              ? ('up' as const)
+              : ('down' as const),
+      },
+      {
+        value:
+          homeSummary.weeklySnapshot.volumeCurrentKg > 0
+            ? formatVolume(homeSummary.weeklySnapshot.volumeCurrentKg, unitPreference)
+            : `0 ${unitPreference}`,
+        label: 'Volume',
+        trendLabel:
+          volumeDeltaKg === 0
+            ? '-'
+            : `${volumeDeltaKg > 0 ? '+' : ''}${formatVolume(Math.abs(volumeDeltaKg), unitPreference)}`,
+        trendDirection:
+          volumeDeltaKg === 0 ? ('flat' as const) : volumeDeltaKg > 0 ? ('up' as const) : ('down' as const),
+      },
+      {
+        value: latestBodyweight,
+        label: 'Bodyweight',
+        trendLabel:
+          bodyweightDelta === null
+            ? '-'
+            : `${bodyweightDelta > 0 ? '+' : ''}${formatWeight(Math.abs(bodyweightDelta), unitPreference)}`,
+        trendDirection:
+          bodyweightDelta === null || Math.abs(bodyweightDelta) < 0.001
+            ? ('flat' as const)
+            : bodyweightDelta > 0
+              ? ('up' as const)
+              : ('down' as const),
+      },
+    ];
+  }, [homeSummary.bodyweight.latest, homeSummary.bodyweight.previous, homeSummary.weeklySnapshot, unitPreference]);
   const dismissedTipIds = preferences.dismissedTipIds ?? [];
   const readyProgramBadgeLabel = 'Browse';
   const readyProgramTitle = 'Ready plans';
@@ -1255,6 +1786,64 @@ function GymlogApp() {
       })),
     };
   }, [getWorkoutTemplateSessions, route, workoutTemplates]);
+  const templateBuilderDraft = useMemo<WorkoutTemplateDraft>(() => {
+    if (route.tab !== 'workout' || route.screen !== 'template') {
+      return {
+        name: '',
+        sessions: [
+          { name: 'Day 1', exercises: [] },
+          { name: 'Day 2', exercises: [] },
+          { name: 'Day 3', exercises: [] },
+        ],
+      };
+    }
+
+    if (!route.workoutTemplateId) {
+      return {
+        name: '',
+        sessions: [
+          { name: 'Day 1', exercises: [] },
+          { name: 'Day 2', exercises: [] },
+          { name: 'Day 3', exercises: [] },
+        ],
+      };
+    }
+
+    const template = workoutTemplates.find((item) => item.id === route.workoutTemplateId);
+    if (!template) {
+      return {
+        name: '',
+        sessions: [
+          { name: 'Day 1', exercises: [] },
+          { name: 'Day 2', exercises: [] },
+          { name: 'Day 3', exercises: [] },
+        ],
+      };
+    }
+
+    return {
+      id: template.id,
+      name: template.name,
+      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
+        id: session.id,
+        name: session.name,
+        exercises: session.exercises.map((exercise) => ({
+          id: exercise.id,
+          name: exercise.name,
+          targetSets: exercise.targetSets,
+          repMin: exercise.repMin,
+          repMax: exercise.repMax,
+          restSeconds: exercise.restSeconds,
+          trackedDefault: exercise.trackedDefault,
+          libraryItemId: exercise.libraryItemId ?? null,
+        })),
+      })),
+    };
+  }, [getWorkoutTemplateSessions, route, workoutTemplates]);
+
+  if (!minimumSplashElapsed || !appHydrated) {
+    return <LaunchScreen />;
+  }
 
   if (!hydrated || !workout.hydrated) {
     return (
@@ -1302,7 +1891,6 @@ function GymlogApp() {
       content = (
         <WelcomeScreen
           language={preferences.appLanguage}
-          onChangeLanguage={(language) => void handleChangeAppLanguage(language)}
           onContinue={() => void handleContinueEntry()}
         />
       );
@@ -1368,10 +1956,15 @@ function GymlogApp() {
       <ProgramDetailScreen
         program={program}
         inlineTip={programDetailInlineTip}
-        onBack={() => navigateBack(ROOT_ROUTES.workout)}
+        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
         onPrimaryAction={() => {
           if (route.programType === 'ready') {
             handleStartReadyProgram(route.workoutTemplateId);
+            return;
+          }
+
+          if (!customTemplate?.sessions.some((session) => session.exercises.length > 0)) {
+            navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId });
             return;
           }
 
@@ -1385,7 +1978,7 @@ function GymlogApp() {
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
-        onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'editor', workoutTemplateId: route.workoutTemplateId }) : undefined}
+        onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId }) : undefined}
         secondaryActionLabel={route.programType === 'ready' ? 'Make it mine' : 'Duplicate'}
         onSecondaryAction={route.programType === 'ready' ? () => handleDuplicateReadyProgram(route.workoutTemplateId) : () => handleDuplicateCustomProgram(route.workoutTemplateId)}
         destructiveActionLabel={route.programType === 'custom' ? 'Delete' : undefined}
@@ -1400,23 +1993,58 @@ function GymlogApp() {
     ) : (
       <View />
     );
+  } else if (route.tab === 'workout' && route.screen === 'template') {
+    content = (
+      <CreateTemplateScreen
+        key={route.workoutTemplateId ?? 'new_template'}
+        initialDraft={templateBuilderDraft}
+        exerciseLibrary={exerciseBrowserItems}
+        recentExerciseLibraryItems={recentExerciseBrowserItems}
+        defaultRestSeconds={preferences.defaultRestSeconds}
+        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
+        onSave={async (draft) => {
+          const isEditing = Boolean(draft.id);
+          const workoutTemplateId = await upsertWorkoutTemplate(draft);
+          showToast(isEditing ? 'Template updated' : 'Template saved');
+          replaceRoute({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+        }}
+      />
+    );
   } else if (route.tab === 'workout' && route.screen === 'editor') {
     content = (
       <WorkoutEditorScreen
         key={`${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}`}
         initialDraft={editorDraft}
-        exerciseLibrary={exerciseLibrary}
-        recentExerciseLibraryItems={recentExerciseLibraryItems}
+        exerciseLibrary={exerciseBrowserItems}
+        recentExerciseLibraryItems={recentExerciseBrowserItems}
         defaultRestSeconds={preferences.defaultRestSeconds}
         unitPreference={unitPreference}
         exerciseHistoryLookup={editorExerciseHistoryLookup}
+        exercisePrLookup={exercisePrLookup}
         inlineTip={workoutEditorInlineTip}
-        onBack={() => navigateBack(ROOT_ROUTES.workout)}
-        onSave={async (draft) => {
+        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
+        onUseTemplate={() => navigate(WORKOUT_PLAN_ROUTE)}
+        onSave={async (draft, summary: WorkoutEditorFinishSummary) => {
           const isNew = !draft.id;
-          await upsertWorkoutTemplate(draft);
-          showToast(isNew ? 'Workout created' : 'Workout updated');
-          navigateBack(ROOT_ROUTES.workout);
+          const workoutTemplateId = await upsertWorkoutTemplate(draft);
+          const sessionId = createId('session');
+          await saveCompletedWorkoutSession({
+            sessionId,
+            workoutTemplateId,
+            workoutNameSnapshot: summary.workoutName,
+            logs: summary.logs,
+            startedAt: summary.startedAt,
+            performedAt: summary.performedAt,
+          });
+          if (isNew) {
+            showToast('Workout created');
+          }
+          setCompletionSummary({
+            sessionId,
+            ...summary,
+          });
+          summaryExitRouteRef.current = ROOT_ROUTES.home;
+          replaceRoute({ tab: 'workout', screen: 'summary' });
         }}
       />
     );
@@ -1429,8 +2057,8 @@ function GymlogApp() {
         defaultRestSeconds={preferences.defaultRestSeconds}
         hasAdaptiveCoachPremium={preferences.adaptiveCoachPremiumUnlocked}
         tailoringPreferences={tailoringPreferences}
-        exerciseLibrary={exerciseLibrary}
-        recentExerciseLibraryItems={recentExerciseLibraryItems}
+        exerciseLibrary={exerciseBrowserItems}
+        recentExerciseLibraryItems={recentExerciseBrowserItems}
         customTemplate={customWorkoutRuntimeMap[route.workoutTemplateId] ?? null}
         inlineTip={workoutLoggerInlineTip}
         dismissedTipIds={dismissedTipIds}
@@ -1452,13 +2080,49 @@ function GymlogApp() {
         setsCompleted={completionSummary.setsCompleted}
         totalVolume={completionSummary.totalVolume}
         exercisesLogged={completionSummary.exercisesLogged}
+        exerciseCards={completionSummary.exerciseCards}
+        prCards={completionSummary.prCards}
         unitPreference={unitPreference}
         onDone={() => {
           setCompletionSummary(null);
+          setWorkoutCelebration(null);
           setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           workout.clearCompletedWorkout();
           resetToRoute(ROOT_ROUTES.home);
         }}
+        onSaveSummary={async ({ sessionName, notes }) => {
+          setFinishSaveState({
+            status: 'saving',
+            sessionId: completionSummary.sessionId,
+            message: null,
+          });
+          try {
+            await updateCompletedWorkoutSession(completionSummary.sessionId, {
+              workoutNameSnapshot: sessionName.trim() || completionSummary.workoutName,
+              sessionNotes: notes.trim() ? notes.trim() : null,
+            });
+            const nextCelebration = buildWorkoutCelebrationState({
+              completionSummary: {
+                ...completionSummary,
+                workoutName: sessionName.trim() || completionSummary.workoutName,
+              },
+              workoutSessions,
+            });
+            setCompletionSummary(null);
+            setWorkoutCelebration(nextCelebration);
+            setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+            workout.clearCompletedWorkout();
+            replaceRoute({ tab: 'workout', screen: 'celebration' });
+          } catch (error) {
+            console.error('Failed to save workout summary', error);
+            setFinishSaveState({
+              status: 'error',
+              sessionId: completionSummary.sessionId,
+              message: 'Could not save workout details',
+            });
+          }
+        }}
+        isSaving={finishSaveState.status === 'saving' && finishSaveState.sessionId === completionSummary.sessionId}
         onViewProgress={() => {
           const trackedExercise = workout.activeSession?.exercises.find((exercise) => exercise.progressionPriority !== 'low');
           const trackedExerciseKey = trackedExercise?.exerciseName.trim().toLowerCase() ?? null;
@@ -1467,25 +2131,56 @@ function GymlogApp() {
               ? { tab: 'progress', screen: 'detail', exerciseKey: trackedExerciseKey }
               : ROOT_ROUTES.progress;
           setCompletionSummary(null);
+          setWorkoutCelebration(null);
           setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           workout.clearCompletedWorkout();
           resetToRoute(nextRoute);
         }}
       />
     );
+  } else if (route.tab === 'workout' && route.screen === 'celebration' && workoutCelebration) {
+    content = (
+      <WorkoutCelebrationScreen
+        workoutName={workoutCelebration.workoutName}
+        heroImageUrl={workoutCelebration.heroImageUrl}
+        workoutsThisWeek={workoutCelebration.workoutsThisWeek}
+        totalLiftedKgThisWeek={workoutCelebration.totalLiftedKgThisWeek}
+        totalDurationMinutesThisWeek={workoutCelebration.totalDurationMinutesThisWeek}
+        prCount={workoutCelebration.prCount}
+        unitPreference={unitPreference}
+        onDone={() => {
+          setWorkoutCelebration(null);
+          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+          resetToRoute(ROOT_ROUTES.home);
+        }}
+        onViewProgress={() => {
+          setWorkoutCelebration(null);
+          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+          resetToRoute(ROOT_ROUTES.progress);
+        }}
+      />
+    );
   } else if (route.tab === 'progress') {
     content = (
-      <ProgressScreen
-        summaries={trackedProgress}
-        bodyweightProgress={bodyweightProgress}
-        unitPreference={unitPreference}
-        selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
+        <ProgressScreen
+          summaries={trackedProgress}
+          bodyweightProgress={bodyweightProgress}
+          measurementEntries={measurementEntries}
+          workoutSessions={workoutSessions}
+          activityCalendar={homeSummary.streak.calendar}
+          currentWeekStreak={homeSummary.streak.currentWeekStreak}
+          unitPreference={unitPreference}
+          selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
         showBodyweightDetail={route.screen === 'bodyweight'}
         onSelectExercise={(exerciseKey) => navigate({ tab: 'progress', screen: 'detail', exerciseKey })}
         onSelectBodyweight={() => navigate({ tab: 'progress', screen: 'bodyweight' })}
         onAddBodyweight={async (weightKg) => {
           await addBodyweightEntry(weightKg);
           showToast('Bodyweight saved');
+        }}
+        onAddMeasurement={async (kind, value, unit) => {
+          await addMeasurementEntry(kind, value, unit);
+          showToast('Measurement saved');
         }}
         onBack={() => navigateBack(ROOT_ROUTES.progress)}
       />
@@ -1507,7 +2202,7 @@ function GymlogApp() {
             workoutTemplateId: week.programId,
           })
         }
-        onAskVallu={() => navigate({ tab: 'home', screen: 'ai', prompt: week.helperPrompt })}
+        onAskAiCoach={() => navigate({ tab: 'home', screen: 'ai', prompt: week.helperPrompt })}
       />
     ) : (
       <View />
@@ -1517,10 +2212,27 @@ function GymlogApp() {
       <AICoachScreen
         initialPrompt={route.prompt}
         suggestions={homeAiPromptSuggestions}
-        trainingContext={valluTrainingContext}
+        trainingContext={aiCoachTrainingContext}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
         onSubmitPrompt={handleOpenAICoach}
-        onSelectAction={handleSelectValluAction}
+        onSelectAction={handleSelectAiCoachAction}
+      />
+    );
+  } else if (route.tab === 'home' && route.screen === 'ai_setup') {
+    content = (
+      <AiModeSetupScreen
+        preferences={preferences}
+        onBack={() => navigateBack(ROOT_ROUTES.home)}
+        onSave={async (patch) => {
+          const nextPatch: Partial<AppPreferences> = {
+            ...patch,
+            aiCoachSetupHash: null,
+            aiCoachPlanGeneratedAt: null,
+          };
+          await updatePreferences(nextPatch);
+          showToast('AI mode setup saved');
+          await openAiMode(nextPatch);
+        }}
       />
     );
   } else if (route.tab === 'home' && (route.screen === 'history' || route.screen === 'session')) {
@@ -1534,12 +2246,36 @@ function GymlogApp() {
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'settings') {
+    content = (
+      <ProfileSettingsScreen
+        preferences={preferences}
+        onBack={() => navigateBack(ROOT_ROUTES.profile)}
+        onUnitPreferenceChange={async (nextUnit) => {
+          await setUnitPreference(nextUnit);
+          showToast(`Units set to ${nextUnit}`);
+        }}
+        onPreferencesChange={async (patch) => {
+          await updatePreferences(patch);
+        }}
+        onSupportPress={undefined}
+        onResetAllData={async () => {
+          await resetAllData();
+          setCompletionSummary(null);
+          setWorkoutCelebration(null);
+          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+          workout.clearCompletedWorkout();
+          showToast('All data reset');
+          resetToRoute(ROOT_ROUTES.home);
+        }}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'plan_settings') {
     content = (
       <PlanSettingsScreen
         preferences={preferences}
         recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
-        onBack={() => navigateBack(ROOT_ROUTES.profile)}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onRefineSetup={handleOpenSetupEditor}
         onOpenExercisePreferences={handleOpenExercisePreferences}
         onOpenEquipment={handleOpenEquipment}
@@ -1556,7 +2292,7 @@ function GymlogApp() {
             ? () => openRecommendedProgramDetail((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!)
             : undefined
         }
-        onAskVallu={() =>
+        onAskAiCoach={() =>
           navigate({
             tab: 'home',
             screen: 'ai',
@@ -1631,9 +2367,11 @@ function GymlogApp() {
           await updatePreferences(patch);
         }}
         onOpenPlanSettings={handleOpenPlanSettings}
+        onOpenSettings={handleOpenProfileSettings}
         onResetAllData={async () => {
           await resetAllData();
           setCompletionSummary(null);
+          setWorkoutCelebration(null);
           setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           workout.clearCompletedWorkout();
           showToast('All data reset');
@@ -1641,7 +2379,7 @@ function GymlogApp() {
         }}
       />
     );
-  } else if (route.tab === 'workout') {
+  } else if (route.tab === 'workout' && route.screen === 'plans') {
     content = (
       <WorkoutsScreen
         customWorkouts={customWorkouts}
@@ -1653,25 +2391,49 @@ function GymlogApp() {
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onStartCustomWorkout={handleStartCustomProgram}
-        onEditCustomWorkout={(workoutTemplateId) => navigate({ tab: 'workout', screen: 'editor', workoutTemplateId })}
+        onEditCustomWorkout={(workoutTemplateId) => navigate({ tab: 'workout', screen: 'template', workoutTemplateId })}
         onDuplicateCustomWorkout={handleDuplicateCustomProgram}
         onDeleteCustomWorkout={handleDeleteCustomWorkout}
-        onCreateWorkout={() => navigate({ tab: 'workout', screen: 'editor' })}
+        onCreateWorkout={() => navigate({ tab: 'workout', screen: 'template' })}
       />
     );
+  } else if (route.tab === 'workout' && route.screen === 'detail') {
+      const exercise = exerciseBrowserItems.find((item) => item.id === route.exerciseId) ?? null;
+      content = exercise ? (
+        <ExerciseDetailScreen item={exercise} onBack={() => navigateBack(ROOT_ROUTES.workout)} />
+      ) : (
+        <View />
+      );
+      } else if (route.tab === 'workout') {
+        content = (
+          <ExercisesScreen
+            items={exerciseBrowserItems}
+            trackedIds={preferences.trackedExerciseLibraryItemIds}
+            onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
+            onToggleTracked={(item) => {
+              const trackedIds = preferences.trackedExerciseLibraryItemIds;
+              const nextTrackedIds = trackedIds.includes(item.id)
+                ? trackedIds.filter((id) => id !== item.id)
+                : [...trackedIds, item.id];
+
+              void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
+            }}
+          />
+        );
   } else {
     content = (
       <HomeScreen
-        heroVisual={homeHeroVisual}
-        primaryActionCard={primaryActionSelection.card}
-        hasNoProgramState={primaryActionSelection.target.type === 'open_ready_library'}
+        hasNoProgramState={!hasSavedTrainingSetup}
         streak={homeSummary.streak}
         quickStats={homeQuickStats}
+        weeklySnapshot={weeklySnapshot}
         upcomingSessions={homeUpcomingSessions}
-        aiPromptSuggestions={homeAiPromptSuggestions}
-        onPrimaryAction={handleOpenPrimaryAction}
-        onOpenPlanOptions={() => navigate(ROOT_ROUTES.workout)}
+        customTemplates={customWorkouts}
+        onOpenTemplatesHub={() => navigate(WORKOUT_PLAN_ROUTE)}
+        onOpenCustomTemplate={handleOpenCustomProgramDetail}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'editor' })}
+        onCreateTemplate={() => navigate({ tab: 'workout', screen: 'template' })}
+        onBrowseReadyPlans={() => navigate(WORKOUT_PLAN_ROUTE)}
         onOpenStreak={() => navigate(ROOT_ROUTES.progress)}
         onOpenAICoach={handleOpenAICoach}
       />
@@ -1680,19 +2442,41 @@ function GymlogApp() {
 
   const showTabBar =
     !onboardingActive &&
-    !(route.tab === 'workout' && (route.screen === 'log' || route.screen === 'summary'));
-  const shellTone = onboardingActive ? 'home' : route.tab;
+    !(route.tab === 'workout' && (route.screen === 'log' || route.screen === 'summary' || route.screen === 'celebration'));
+  const shellTone =
+    onboardingActive ||
+    route.tab === 'progress' ||
+    (route.tab === 'workout' &&
+      (route.screen === 'list' || route.screen === 'detail' || route.screen === 'summary' || route.screen === 'celebration'))
+      ? 'home'
+      : route.tab;
   const welcomeActive = onboardingActive && entryFlowActive;
 
   return (
     <AppShell
       toastMessage={toastMessage}
       screenTone={shellTone}
-      showBackgroundFrame={!welcomeActive && route.tab !== 'home'}
+      showBackgroundFrame={
+        !welcomeActive && route.tab !== 'home' && route.tab !== 'workout' && route.tab !== 'progress' && route.tab !== 'profile'
+      }
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      tabBar={showTabBar ? <BottomTabBar activeTab={route.tab} onTabPress={navigateToTab} /> : undefined}
+      statusBarStyleOverride={welcomeActive ? 'light' : undefined}
+      statusBarBackgroundColor={welcomeActive ? 'transparent' : undefined}
+      statusBarTranslucent={welcomeActive}
+      tabBar={
+        showTabBar ? (
+          <BottomTabBar
+            activeTab={route.tab}
+            aiActive={route.tab === 'home' && (route.screen === 'ai' || route.screen === 'ai_setup')}
+            onTabPress={navigateToTab}
+            onAiPress={() => {
+              void openAiMode();
+            }}
+          />
+        ) : undefined
+      }
     >
       {content}
     </AppShell>

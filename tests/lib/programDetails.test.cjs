@@ -31,6 +31,7 @@ module.exports = [
       assert.ok(detail.sessions[0].preview.includes('Back Squat'));
       assert.ok(detail.sessions[0].focus.includes('Squat + bench'));
       assert.equal(detail.sessions[0].statusLine, 'Last done Mar 24');
+      assert.match(detail.progressionSummary, /week|easier week|deload|pivot/i);
     },
   },
   {

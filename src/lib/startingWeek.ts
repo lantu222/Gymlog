@@ -1,5 +1,6 @@
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from './displayLabel';
+import { getRecommendationProgrammeSummary } from './recommendationProgramme';
 import {
   buildFirstRunHelperPrompt,
   buildFirstRunRecommendationReasons,
@@ -32,6 +33,7 @@ export interface StartingWeekViewModel {
   weeklyMinutes: number;
   scheduleModeLabel: string;
   scheduleFitNote: string;
+  programmeSummary: string | null;
   rhythm: string[];
   reasons: string[];
   sessions: StartingWeekSessionPreview[];
@@ -57,6 +59,7 @@ export function buildStartingWeekView(
   const projectedDaysPerWeek = template.daysPerWeek;
   const rhythm = resolveProjectedTrainingDays(selection, projectedDaysPerWeek).map((day) => getWeekdayShortLabel(day));
   const weeklyMinutes = getEffectiveWeeklyMinutes(selection, projectedDaysPerWeek, template.estimatedSessionDuration ?? null);
+  const programmeSummary = getRecommendationProgrammeSummary(template.id);
   const reasons = buildFirstRunRecommendationReasons(selection, {
     projectedDaysPerWeek,
     estimatedSessionDuration: template.estimatedSessionDuration ?? null,
@@ -93,6 +96,7 @@ export function buildStartingWeekView(
     weeklyMinutes,
     scheduleModeLabel: getScheduleModeLabel(selection.scheduleMode),
     scheduleFitNote: buildScheduleFitNote(selection, projectedDaysPerWeek, template.estimatedSessionDuration ?? null),
+    programmeSummary,
     rhythm,
     reasons: reasons.slice(0, 3),
     sessions,

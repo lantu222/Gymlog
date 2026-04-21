@@ -1,5 +1,9 @@
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
-import { buildTailoringRecommendationNote, rankProgramIdsByTailoring, TailoringPreferencesInput } from './tailoringFit';
+import { buildRecommendationReasonLines } from './recommendationExplanation';
+import { buildRecommendationInput } from './recommendationInput';
+import { getRecommendationProgramDefinition } from './recommendationCatalog';
+import { recommendPrograms } from './recommendationScoring';
+import { buildTailoringRecommendationNote, TailoringPreferencesInput } from './tailoringFit';
 import {
   SetupDaysPerWeek,
   SetupEquipment,
@@ -14,13 +18,15 @@ import {
   SetupSecondaryOutcome,
   UnitPreference,
 } from '../types/models';
-import { ValluTrainingContext } from '../types/vallu';
+import type { RecommendationCandidate, RecommendationConfidence, TemplateFamilyId } from '../types/recommendation';
+import { AICoachTrainingContext } from '../types/vallu';
 
 export interface FirstRunSetupSelection {
   gender: SetupGender;
   age?: number | null;
   ageRange?: SetupAgeRange;
   goal: SetupGoal;
+  goals?: SetupGoal[];
   level: SetupLevel;
   daysPerWeek: SetupDaysPerWeek;
   equipment: SetupEquipment;
@@ -38,6 +44,10 @@ export interface FirstRunSetupSelection {
 export interface FirstRunRecommendation {
   featuredProgramId: string;
   secondaryProgramId: string | null;
+  alternativeProgramIds: string[];
+  confidence: RecommendationConfidence;
+  primaryFamilyId: TemplateFamilyId;
+  scoredCandidates: RecommendationCandidate[];
   mismatchNote: string | null;
 }
 
@@ -80,6 +90,7 @@ export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
   age: 25,
   ageRange: '19_25',
   goal: 'strength',
+  goals: ['strength'],
   level: 'beginner',
   daysPerWeek: 3,
   equipment: 'gym',
@@ -465,52 +476,7 @@ export function buildFirstRunRecommendationReasons(
   },
   tailoringPreferences?: TailoringPreferencesInput | null,
 ) {
-  const reasons: string[] = [];
-  const projectedDays = options.projectedDaysPerWeek;
-  const weeklyMinutes = getEffectiveWeeklyMinutes(selection, projectedDays, options.estimatedSessionDuration ?? null);
-  const scheduleDays =
-    selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
-      ? formatWeekdayList(resolveProjectedTrainingDays(selection, projectedDays))
-      : null;
-  const outcomeSummary = formatSecondaryOutcomeList(
-    selection.secondaryOutcomes.filter((outcome) => outcome !== 'consistency'),
-  );
-  const focusSummary = formatFocusAreaList(selection.focusAreas);
-
-  reasons.push(
-    `${projectedDays} days for ${getGoalLabel(selection.goal)}.`,
-  );
-
-  if (selection.equipment !== 'gym') {
-    reasons.push(`Built for ${getEquipmentLabel(selection.equipment)}.`);
-  } else if (selection.scheduleMode === 'self_managed' && scheduleDays) {
-    reasons.push(`${weeklyMinutes} min across ${scheduleDays}.`);
-  } else {
-    reasons.push(`About ${weeklyMinutes} min this week.`);
-  }
-
-  if (focusSummary) {
-    reasons.push(`Extra focus: ${focusSummary}.`);
-  } else if (outcomeSummary) {
-    reasons.push(`Also keeps ${outcomeSummary}.`);
-  } else if (selection.guidanceMode === 'self_directed') {
-    reasons.push('Easy to turn into custom.');
-  } else if (selection.guidanceMode === 'done_for_me') {
-    reasons.push('Simple start.');
-  } else {
-    reasons.push('Easy to edit later.');
-  }
-
-  if (options.mismatchNote) {
-    reasons.push(options.mismatchNote.replace('This is the closest match right now.', 'Closest match.'));
-  }
-
-  const tailoringNote = buildTailoringRecommendationNote(tailoringPreferences);
-  if (tailoringNote) {
-    reasons.push(tailoringNote);
-  }
-
-  return reasons.slice(0, 4);
+  return buildRecommendationReasonLines(selection, options, tailoringPreferences);
 }
 
 function buildFocusAreasPromptFragment(selection: FirstRunSetupSelection) {
@@ -587,182 +553,39 @@ export function resolveFirstRunRecommendation(selection: FirstRunSetupSelection)
   return resolveFirstRunRecommendationWithTailoring(selection, null);
 }
 
-function finalizeRecommendation(
-  candidateProgramIds: Array<string | null | undefined>,
-  mismatchNote: string | null,
+function buildRecommendationMismatchNote(
+  selection: FirstRunSetupSelection,
+  featuredProgramId: string,
   tailoringPreferences?: TailoringPreferencesInput | null,
-  preferredDaysPerWeek?: number,
-): FirstRunRecommendation {
-  const uniqueCandidates = [...new Set(candidateProgramIds.filter((value): value is string => Boolean(value)))];
-  const rankedCandidates = rankProgramIdsByTailoring(uniqueCandidates, tailoringPreferences);
-  const sameDayFeaturedCandidate = preferredDaysPerWeek
-    ? rankedCandidates.find((programId) => getWorkoutTemplateById(programId)?.daysPerWeek === preferredDaysPerWeek) ?? null
-    : null;
-  const featuredProgramId = sameDayFeaturedCandidate ?? rankedCandidates[0] ?? uniqueCandidates[0] ?? PROGRAM_IDS.minimal;
-  const secondaryProgramId = rankedCandidates.find((programId) => programId !== featuredProgramId) ?? null;
+) {
+  const featuredDefinition = getRecommendationProgramDefinition(featuredProgramId);
+  const featuredDays = featuredDefinition?.daysPerWeek ?? getWorkoutTemplateById(featuredProgramId)?.daysPerWeek ?? selection.daysPerWeek;
 
-  return {
-    featuredProgramId,
-    secondaryProgramId,
-    mismatchNote,
-  };
+  if (selection.goal === 'run_mobility' && featuredProgramId === PROGRAM_IDS.runMobility && selection.daysPerWeek > featuredDays) {
+    return 'Gymlog closest match is a 3-day run + mobility split. Add Yoga Recovery as an optional 4th session if you want extra movement.';
+  }
+
+  if (selection.equipment !== 'gym' && featuredDefinition?.equipmentTier === 'low_equipment') {
+    return buildLowEquipmentMismatchNote(selection);
+  }
+
+  if (featuredDays !== selection.daysPerWeek) {
+    return `Gymlog closest match keeps this start at ${featuredDays} days so the week stays coherent.`;
+  }
+
+  return buildTailoringRecommendationNote(tailoringPreferences);
 }
 
 export function resolveFirstRunRecommendationWithTailoring(
   selection: FirstRunSetupSelection,
   tailoringPreferences?: TailoringPreferencesInput | null,
 ): FirstRunRecommendation {
-  const lowEquipment = selection.equipment === 'minimal' || selection.equipment === 'home';
-  const wantsStrengthBlend = selection.secondaryOutcomes.includes('strength');
-  const wantsMuscleBlend = selection.secondaryOutcomes.includes('muscle');
-  const wantsMobility = selection.secondaryOutcomes.includes('mobility');
-  const wantsConditioning = selection.secondaryOutcomes.includes('conditioning');
+  const recommendation = recommendPrograms(buildRecommendationInput(selection), tailoringPreferences);
 
-  if (selection.goal === 'run_mobility') {
-    if (selection.daysPerWeek === 2) {
-      return finalizeRecommendation(
-        [PROGRAM_IDS.mobilityReset, PROGRAM_IDS.yogaRecovery],
-        null,
-        tailoringPreferences,
-        selection.daysPerWeek,
-      );
-    }
-
-    return finalizeRecommendation(
-      [
-        PROGRAM_IDS.runMobility,
-        selection.daysPerWeek === 4 ? PROGRAM_IDS.yogaRecovery : PROGRAM_IDS.mobilityReset,
-      ],
-      selection.daysPerWeek === 4
-        ? 'Gymlog closest match is a 3-day run + mobility split. Add Yoga Recovery as an optional 4th session if you want extra movement.'
-        : null,
-      tailoringPreferences,
-      selection.daysPerWeek,
-    );
-  }
-
-  if (lowEquipment) {
-    return finalizeRecommendation(
-      [
-        PROGRAM_IDS.minimal,
-        selection.goal === 'general' || wantsMobility || wantsConditioning ? PROGRAM_IDS.mobilityReset : null,
-        PROGRAM_IDS.yogaRecovery,
-      ],
-      buildLowEquipmentMismatchNote(selection),
-      tailoringPreferences,
-      selection.daysPerWeek,
-    );
-  }
-
-  if (selection.goal === 'strength') {
-    if (selection.daysPerWeek === 2) {
-      return finalizeRecommendation(
-        [
-          PROGRAM_IDS.beginnerStrength,
-          wantsMobility ? PROGRAM_IDS.mobilityReset : PROGRAM_IDS.minimal,
-          PROGRAM_IDS.upperLowerLite,
-        ],
-        null,
-        tailoringPreferences,
-        selection.daysPerWeek,
-      );
-    }
-
-    if (selection.daysPerWeek === 4 && selection.level === 'intermediate' && wantsMuscleBlend) {
-      return finalizeRecommendation(
-        [PROGRAM_IDS.powerbuilding, PROGRAM_IDS.strengthSize],
-        null,
-        tailoringPreferences,
-        selection.daysPerWeek,
-      );
-    }
-
-    return finalizeRecommendation(
-      [
-        selection.daysPerWeek === 3 ? PROGRAM_IDS.strengthBase : PROGRAM_IDS.strengthSize,
-        selection.daysPerWeek === 3
-          ? PROGRAM_IDS.upperLowerLite
-          : wantsMuscleBlend
-            ? PROGRAM_IDS.powerbuilding
-            : PROGRAM_IDS.strengthBase,
-        PROGRAM_IDS.upperLowerLite,
-      ],
-      null,
-      tailoringPreferences,
-      selection.daysPerWeek,
-    );
-  }
-
-  if (selection.goal === 'muscle') {
-    if (selection.daysPerWeek === 2) {
-      return finalizeRecommendation(
-        [
-          PROGRAM_IDS.minimal,
-          wantsStrengthBlend ? PROGRAM_IDS.beginnerStrength : PROGRAM_IDS.pushPullLegs,
-          PROGRAM_IDS.mobilityReset,
-        ],
-        null,
-        tailoringPreferences,
-        selection.daysPerWeek,
-      );
-    }
-
-    if (selection.daysPerWeek === 4 && wantsStrengthBlend) {
-      return finalizeRecommendation(
-        [PROGRAM_IDS.powerbuilding, PROGRAM_IDS.muscleBuilder, PROGRAM_IDS.strengthSize],
-        null,
-        tailoringPreferences,
-        selection.daysPerWeek,
-      );
-    }
-
-    return finalizeRecommendation(
-      [
-        selection.daysPerWeek === 3 ? PROGRAM_IDS.pushPullLegs : PROGRAM_IDS.muscleBuilder,
-        selection.daysPerWeek === 3
-          ? wantsStrengthBlend
-            ? PROGRAM_IDS.strengthBase
-            : PROGRAM_IDS.minimal
-          : wantsStrengthBlend
-            ? PROGRAM_IDS.powerbuilding
-            : PROGRAM_IDS.pushPullLegs,
-        PROGRAM_IDS.upperLowerLite,
-      ],
-      null,
-      tailoringPreferences,
-      selection.daysPerWeek,
-    );
-  }
-
-  if (selection.daysPerWeek === 2) {
-    return finalizeRecommendation(
-      [
-        wantsMobility || wantsConditioning ? PROGRAM_IDS.mobilityReset : PROGRAM_IDS.minimal,
-        wantsMobility || wantsConditioning ? PROGRAM_IDS.minimal : PROGRAM_IDS.beginnerStrength,
-        PROGRAM_IDS.yogaRecovery,
-      ],
-      null,
-      tailoringPreferences,
-      selection.daysPerWeek,
-    );
-  }
-
-  return finalizeRecommendation(
-    [
-      selection.daysPerWeek === 3 ? PROGRAM_IDS.upperLowerLite : PROGRAM_IDS.powerbuilding,
-      selection.daysPerWeek === 3
-        ? wantsMobility || wantsConditioning
-          ? PROGRAM_IDS.mobilityReset
-          : PROGRAM_IDS.minimal
-        : wantsMuscleBlend
-          ? PROGRAM_IDS.muscleBuilder
-          : PROGRAM_IDS.upperLowerLite,
-      PROGRAM_IDS.strengthSize,
-    ],
-    null,
-    tailoringPreferences,
-    selection.daysPerWeek,
-  );
+  return {
+    ...recommendation,
+    mismatchNote: buildRecommendationMismatchNote(selection, recommendation.featuredProgramId, tailoringPreferences),
+  };
 }
 
 export function buildFirstRunPromptSuggestions(
@@ -820,10 +643,10 @@ export function buildFirstRunHelperPrompt(
   return `${recommendationProgramName ?? 'This plan'} or another plan?`;
 }
 
-export function buildFirstRunValluContext(
+export function buildFirstRunAiCoachContext(
   selection: FirstRunSetupSelection,
   readyProgramCount: number,
-): ValluTrainingContext {
+): AICoachTrainingContext {
   return {
     unitPreference: selection.unitPreference,
     activeSession: null,
@@ -837,6 +660,7 @@ export function buildFirstRunValluContext(
     recommendedProgramId: null,
     recommendedProgramTitle: null,
     customProgramTitle: null,
+    plannerSetup: null,
   };
 }
 

@@ -39,7 +39,7 @@ interface PlanSettingsScreenProps {
   onScheduleModeChange: (mode: SetupScheduleMode) => void;
   onOpenWeek?: () => void;
   onOpenProgram?: () => void;
-  onAskVallu?: () => void;
+  onAskAiCoach?: () => void;
 }
 
 function compactOutcomes(preferences: AppPreferences) {
@@ -101,7 +101,7 @@ export function PlanSettingsScreen({
   onScheduleModeChange,
   onOpenWeek,
   onOpenProgram,
-  onAskVallu,
+  onAskAiCoach,
 }: PlanSettingsScreenProps) {
   const setupComplete =
     preferences.setupCompleted &&
@@ -310,9 +310,9 @@ export function PlanSettingsScreen({
             </SurfaceCard>
           ) : null}
 
-          {onAskVallu ? (
-            <SurfaceCard accent="neutral" emphasis="flat" onPress={onAskVallu} style={styles.actionCard}>
-              <Text style={styles.actionKicker}>Gymlog AI</Text>
+          {onAskAiCoach ? (
+            <SurfaceCard accent="neutral" emphasis="flat" onPress={onAskAiCoach} style={styles.actionCard}>
+              <Text style={styles.actionKicker}>AI Coach</Text>
               <Text style={styles.actionTitle}>Ask why</Text>
               <Text style={styles.actionBody}>Open the plan context directly.</Text>
             </SurfaceCard>

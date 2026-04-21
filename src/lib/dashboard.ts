@@ -1,5 +1,6 @@
 import { AppDatabase, UnitPreference, WorkoutPlan, WorkoutPlanEntry } from '../types/models';
 import {
+  getCalendarWeekStartTimestamp,
   getCanonicalCompletedSessions,
   getCurrentWeekStreak,
   getMonthlyActivityCalendar,
@@ -54,6 +55,14 @@ export interface HomeSummary {
   lastSession: ReturnType<typeof getMostRecentSessionSummary>;
   lastSessionDelta: HomeLastSessionDeltaSummary | null;
   bodyweight: ReturnType<typeof getBodyweightProgress>;
+  weeklySnapshot: {
+    workoutsCurrent: number;
+    workoutsPrevious: number;
+    durationCurrentMinutes: number;
+    durationPreviousMinutes: number;
+    volumeCurrentKg: number;
+    volumePreviousKg: number;
+  };
   sessionsThisWeek: number;
   streak: HomeStreakSummary;
 }
@@ -239,6 +248,51 @@ function getHomeStreak(database: AppDatabase): HomeStreakSummary {
   };
 }
 
+function getSessionDurationMinutes(session: AppDatabase['workoutSessions'][number]) {
+  if (typeof session.durationMinutes === 'number' && Number.isFinite(session.durationMinutes)) {
+    return session.durationMinutes;
+  }
+
+  if (session.startedAt) {
+    const duration = Math.round((new Date(session.performedAt).getTime() - new Date(session.startedAt).getTime()) / 60000);
+    if (Number.isFinite(duration) && duration > 0) {
+      return duration;
+    }
+  }
+
+  return 0;
+}
+
+function getSessionVolumeKg(session: AppDatabase['workoutSessions'][number]) {
+  if (typeof session.totalVolumeKg === 'number' && Number.isFinite(session.totalVolumeKg)) {
+    return session.totalVolumeKg;
+  }
+
+  return 0;
+}
+
+function getHomeWeeklySnapshot(database: AppDatabase, now = new Date()) {
+  const currentWeekStart = getCalendarWeekStartTimestamp(now);
+  const previousWeekStart = currentWeekStart - 7 * 24 * 60 * 60 * 1000;
+  const sessions = getCanonicalCompletedSessions(database);
+
+  const currentWeekSessions = sessions.filter(
+    (session) => getCalendarWeekStartTimestamp(session.performedAt) === currentWeekStart,
+  );
+  const previousWeekSessions = sessions.filter(
+    (session) => getCalendarWeekStartTimestamp(session.performedAt) === previousWeekStart,
+  );
+
+  return {
+    workoutsCurrent: currentWeekSessions.length,
+    workoutsPrevious: previousWeekSessions.length,
+    durationCurrentMinutes: currentWeekSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0),
+    durationPreviousMinutes: previousWeekSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0),
+    volumeCurrentKg: currentWeekSessions.reduce((sum, session) => sum + getSessionVolumeKg(session), 0),
+    volumePreviousKg: previousWeekSessions.reduce((sum, session) => sum + getSessionVolumeKg(session), 0),
+  };
+}
+
 export function getHomeSummary(database: AppDatabase, unitPreference: UnitPreference): HomeSummary {
   const sessionsThisWeek = getSessionsThisWeek(database);
 
@@ -247,6 +301,7 @@ export function getHomeSummary(database: AppDatabase, unitPreference: UnitPrefer
     lastSession: getMostRecentSessionSummary(database),
     lastSessionDelta: getLastSessionDelta(database, unitPreference),
     bodyweight: getBodyweightProgress(database),
+    weeklySnapshot: getHomeWeeklySnapshot(database),
     sessionsThisWeek,
     streak: getHomeStreak(database),
   };

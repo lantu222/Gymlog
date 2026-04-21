@@ -13,7 +13,7 @@ interface StartingWeekScreenProps {
   onStart: () => void;
   onAdjust: () => void;
   onOpenProgram: () => void;
-  onAskVallu: () => void;
+  onAskAiCoach: () => void;
 }
 
 export function StartingWeekScreen({
@@ -23,7 +23,7 @@ export function StartingWeekScreen({
   onStart,
   onAdjust,
   onOpenProgram,
-  onAskVallu,
+  onAskAiCoach,
 }: StartingWeekScreenProps) {
   const kickoffSession = week.sessions[0] ?? null;
   const headerBadges = [
@@ -86,11 +86,36 @@ export function StartingWeekScreen({
           </SurfaceCard>
         </View>
 
+        {week.reasons.length ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionLabel}>Why it fits</Text>
+            <SurfaceCard accent="blue" emphasis="flat" style={styles.infoCard}>
+              <View style={styles.reasonList}>
+                {week.reasons.map((reason) => (
+                  <View key={reason} style={styles.reasonRow}>
+                    <View style={styles.reasonBullet} />
+                    <Text style={styles.reasonText}>{reason}</Text>
+                  </View>
+                ))}
+              </View>
+            </SurfaceCard>
+          </View>
+        ) : null}
+
+        {week.programmeSummary ? (
+          <View style={styles.sectionBlock}>
+            <Text style={styles.sectionLabel}>Progression</Text>
+            <SurfaceCard accent="blue" emphasis="flat" style={styles.infoCard}>
+              <Text style={styles.infoText}>{week.programmeSummary}</Text>
+            </SurfaceCard>
+          </View>
+        ) : null}
+
         <View style={styles.utilityActionRow}>
           <Pressable onPress={onOpenProgram} style={styles.utilityButton}>
             <Text style={styles.utilityButtonText}>Full plan</Text>
           </Pressable>
-          <Pressable onPress={onAskVallu} style={styles.utilityButton}>
+          <Pressable onPress={onAskAiCoach} style={styles.utilityButton}>
             <Text style={styles.utilityButtonText}>Ask why</Text>
           </Pressable>
         </View>
@@ -182,6 +207,10 @@ const styles = StyleSheet.create({
   weekListCard: {
     padding: spacing.md,
   },
+  infoCard: {
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
   weekList: {
     gap: spacing.sm,
   },
@@ -229,6 +258,34 @@ const styles = StyleSheet.create({
   weekRowMeta: {
     color: colors.textMuted,
     fontSize: 13,
+    fontWeight: '700',
+  },
+  reasonList: {
+    gap: spacing.sm,
+  },
+  reasonRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  reasonBullet: {
+    width: 8,
+    height: 8,
+    marginTop: 6,
+    borderRadius: 999,
+    backgroundColor: '#9ACCFF',
+  },
+  reasonText: {
+    flex: 1,
+    color: colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  infoText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '700',
   },
   actionRow: {

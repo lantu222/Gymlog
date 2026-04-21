@@ -1,4 +1,4 @@
-import { ValluAction, ValluTrainingContext } from '../types/vallu';
+import { AICoachAction, AICoachTrainingContext } from '../types/vallu';
 
 function normalizeText(value: string) {
   return value.trim().toLowerCase();
@@ -28,12 +28,12 @@ function buildSetupActionLabel(prompt: string) {
   return 'Review setup';
 }
 
-function buildEditorPrefillName(prompt: string, context: ValluTrainingContext) {
+function buildEditorPrefillName(prompt: string, context: AICoachTrainingContext) {
   const normalizedPrompt = prompt.replace(/[?!.,]+/g, ' ').trim();
   const daysMatch = normalizedPrompt.match(/\b([2-5])\s*-?\s*days?\b/i);
 
   if (daysMatch) {
-    return `${daysMatch[1]}-Day Vallu Plan`;
+    return `${daysMatch[1]}-Day AI Coach Plan`;
   }
 
   const matchedLift = context.trackedLifts.find((lift) =>
@@ -44,13 +44,13 @@ function buildEditorPrefillName(prompt: string, context: ValluTrainingContext) {
   }
 
   if (includesAny(normalizeText(normalizedPrompt), ['split', 'program', 'plan'])) {
-    return 'Vallu custom plan';
+    return 'AI Coach custom plan';
   }
 
-  return 'Vallu custom workout';
+  return 'AI Coach custom workout';
 }
 
-function buildLastSessionDescription(context: ValluTrainingContext) {
+function buildLastSessionDescription(context: AICoachTrainingContext) {
   const lastSession = context.recentCompletedSessions[0];
   if (!lastSession) {
     return 'Latest saved session.';
@@ -67,7 +67,7 @@ function buildLastSessionDescription(context: ValluTrainingContext) {
   return highlights.length > 0 ? `${lastSession.title} · ${highlights.join(' · ')}` : lastSession.title;
 }
 
-function buildLiftActionDescription(context: ValluTrainingContext, exerciseKey: string) {
+function buildLiftActionDescription(context: AICoachTrainingContext, exerciseKey: string) {
   const lift = context.trackedLifts.find((item) => item.key === exerciseKey);
   if (!lift) {
     return 'Tracked lift detail.';
@@ -80,7 +80,7 @@ function buildLiftActionDescription(context: ValluTrainingContext, exerciseKey: 
   return 'Recent trend.';
 }
 
-function resolveMatchedLift(prompt: string, context: ValluTrainingContext) {
+function resolveMatchedLift(prompt: string, context: AICoachTrainingContext) {
   const normalizedPrompt = normalizeText(prompt);
   return (
     context.trackedLifts.find((lift) => normalizedPrompt.includes(normalizeText(lift.name))) ??
@@ -90,7 +90,7 @@ function resolveMatchedLift(prompt: string, context: ValluTrainingContext) {
   );
 }
 
-function dedupeActions(actions: ValluAction[]) {
+function dedupeActions(actions: AICoachAction[]) {
   const seen = new Set<string>();
   return actions.filter((action) => {
     const key = `${action.kind}:${action.sessionId ?? ''}:${action.exerciseKey ?? ''}:${action.programId ?? ''}:${action.prefillName ?? ''}`;
@@ -103,9 +103,9 @@ function dedupeActions(actions: ValluAction[]) {
   });
 }
 
-export function buildValluActions(prompt: string, context: ValluTrainingContext): ValluAction[] {
+export function buildAiCoachActions(prompt: string, context: AICoachTrainingContext): AICoachAction[] {
   const normalizedPrompt = normalizeText(prompt);
-  const actions: ValluAction[] = [];
+  const actions: AICoachAction[] = [];
   const matchedLift = resolveMatchedLift(prompt, context);
   const lastSession = context.recentCompletedSessions[0] ?? null;
   const liftPrompt = includesAny(normalizedPrompt, ['bench', 'penk', 'squat', 'kyyk', 'deadlift', 'maasta', 'stuck', 'plateau', 'lift']);

@@ -1,35 +1,33 @@
 import React from 'react';
-import { ScrollView, StyleSheet } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
-import { ScreenHeader } from '../components/ScreenHeader';
-import { layout, spacing } from '../theme';
 import { ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
   items: ExerciseLibraryItem[];
+  trackedIds?: string[];
   onBack?: () => void;
+  onOpenExercise?: (item: ExerciseLibraryItem) => void;
+  onToggleTracked?: (item: ExerciseLibraryItem) => void;
 }
 
-export function ExercisesScreen({ items, onBack }: ExercisesScreenProps) {
+export function ExercisesScreen({ items, trackedIds, onBack, onOpenExercise, onToggleTracked }: ExercisesScreenProps) {
   return (
-    <>
-      <ScreenHeader
-        title="Exercise library"
-        subtitle="Temporary nested access while the Add Exercise flow is rebuilt under Workout."
-        onBack={onBack}
+    <View style={styles.content}>
+      <ExerciseLibraryBrowser
+        items={items}
+        trackedIds={trackedIds}
+        onOpenItem={onOpenExercise}
+        onToggleTracked={onToggleTracked}
       />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <ExerciseLibraryBrowser items={items} />
-      </ScrollView>
-    </>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.md,
+    flex: 1,
+    backgroundColor: '#FFFFFF',
   },
 });

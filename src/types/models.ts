@@ -46,6 +46,13 @@ export type ExerciseSetOutcome = 'completed' | 'failed' | 'skipped';
 export type ExerciseLogSetStatus = 'pending' | 'completed' | 'skipped';
 export type ExerciseLogSetEffort = 'easy' | 'good' | 'hard';
 export type ExerciseLogStatus = 'active' | 'completed' | 'skipped' | 'swapped';
+export type MeasurementKind = 'bodyfat' | 'shoulders' | 'chest' | 'waist' | 'hips' | 'thighs';
+export type MeasurementUnit = 'cm' | 'in' | '%';
+export type AiPlannerGoal = 'strength' | 'muscle' | 'fat_loss' | 'fitness';
+export type AiPlannerDaysPerWeek = 1 | 2 | 3 | 4;
+export type AiPlannerExperience = 'beginner' | 'intermediate' | 'advanced';
+export type AiPlannerEquipment = 'full_gym' | 'home_gym' | 'minimal' | 'bodyweight';
+export type AiPlannerRecovery = 'low' | 'moderate' | 'high';
 
 export interface WorkoutTemplateSessionRecord {
   id: string;
@@ -105,6 +112,14 @@ export interface ExerciseLibraryItem {
   category: ExerciseCategory;
   bodyPart: ExerciseBodyPart;
   equipment: ExerciseEquipment;
+  primaryMuscles?: string[];
+  secondaryMuscles?: string[];
+  instructions?: string[];
+  imageUrls?: string[];
+  sourceCategory?: string | null;
+  sourceEquipment?: string | null;
+  sourceMechanic?: string | null;
+  sourceLevel?: string | null;
 }
 
 export interface ExerciseLogSet {
@@ -123,6 +138,7 @@ export interface WorkoutSession {
   id: string;
   workoutTemplateId: string;
   workoutNameSnapshot: string;
+  sessionNotes?: string | null;
   performedAt: string;
   startedAt?: string;
   durationMinutes?: number;
@@ -163,6 +179,14 @@ export interface BodyweightEntry {
   weight: number;
 }
 
+export interface MeasurementEntry {
+  id: string;
+  kind: MeasurementKind;
+  recordedAt: string;
+  value: number;
+  unit: MeasurementUnit;
+}
+
 export interface AppPreferences {
   appLanguage: AppLanguage;
   unitPreference: UnitPreference;
@@ -171,9 +195,12 @@ export interface AppPreferences {
   autoFocusNextInput: boolean;
   keepScreenAwakeDuringWorkout: boolean;
   adaptiveCoachPremiumUnlocked: boolean;
+  aiSetupCompleted: boolean;
   entryFlowCompleted: boolean;
+  trainingFirstRunDismissed: boolean;
   selectedSignInMethod: SignInMethod | null;
   selectedAccessTier: AccessTier | null;
+  setupCurrentWeightKg: number | null;
   bodyweightGoalKg: number | null;
   onboardingCompleted: boolean;
   setupCompleted: boolean;
@@ -181,6 +208,7 @@ export interface AppPreferences {
   setupAge: number | null;
   setupAgeRange: SetupAgeRange | null;
   setupGoal: SetupGoal | null;
+  setupGoals: SetupGoal[];
   setupLevel: SetupLevel | null;
   setupDaysPerWeek: SetupDaysPerWeek | null;
   setupEquipment: SetupEquipment | null;
@@ -198,7 +226,20 @@ export interface AppPreferences {
   setupShoulderFriendlySwaps: JointSwapPreference;
   setupElbowFriendlySwaps: JointSwapPreference;
   setupKneeFriendlySwaps: JointSwapPreference;
+  aiPlannerGoal: AiPlannerGoal | null;
+  aiPlannerDaysPerWeek: AiPlannerDaysPerWeek | null;
+  aiPlannerExperience: AiPlannerExperience | null;
+  aiPlannerSessionMinutes: number | null;
+  aiPlannerEquipment: AiPlannerEquipment | null;
+  aiPlannerRecovery: AiPlannerRecovery | null;
+  aiPlannerMustInclude: string;
+  aiPlannerAvoid: string;
+  aiPlannerLimitations: string;
+  aiCoachTemplateId: string | null;
+  aiCoachSetupHash: string | null;
+  aiCoachPlanGeneratedAt: string | null;
   recommendedProgramId: string | null;
+  trackedExerciseLibraryItemIds: string[];
   dismissedTipIds: string[];
   activePlanId: string | null;
 }
@@ -211,6 +252,7 @@ export interface AppDatabase {
   workoutSessions: WorkoutSession[];
   exerciseLogs: ExerciseLog[];
   bodyweightEntries: BodyweightEntry[];
+  measurementEntries: MeasurementEntry[];
   preferences: AppPreferences;
 }
 

@@ -2,9 +2,11 @@
   AppDatabase,
   ExerciseLibraryItem,
   SetupFocusArea,
+  SetupGoal,
   SetupSecondaryOutcome,
   WorkoutPlan,
 } from '../types/models';
+import { GENERATED_EXERCISE_LIBRARY } from './generatedExerciseLibrary';
 
 const DEFAULT_PREFERENCES = {
   appLanguage: 'en' as const,
@@ -14,9 +16,12 @@ const DEFAULT_PREFERENCES = {
   autoFocusNextInput: true,
   keepScreenAwakeDuringWorkout: false,
   adaptiveCoachPremiumUnlocked: false,
+  aiSetupCompleted: false,
   entryFlowCompleted: false,
+  trainingFirstRunDismissed: false,
   selectedSignInMethod: null,
   selectedAccessTier: null,
+  setupCurrentWeightKg: null,
   bodyweightGoalKg: null,
   onboardingCompleted: false,
   setupCompleted: false,
@@ -24,6 +29,7 @@ const DEFAULT_PREFERENCES = {
   setupAge: null,
   setupAgeRange: null,
   setupGoal: null,
+  setupGoals: [] as SetupGoal[],
   setupLevel: null,
   setupDaysPerWeek: null,
   setupEquipment: null,
@@ -41,12 +47,25 @@ const DEFAULT_PREFERENCES = {
   setupShoulderFriendlySwaps: 'neutral' as const,
   setupElbowFriendlySwaps: 'neutral' as const,
   setupKneeFriendlySwaps: 'neutral' as const,
+  aiPlannerGoal: null,
+  aiPlannerDaysPerWeek: null,
+  aiPlannerExperience: null,
+  aiPlannerSessionMinutes: null,
+  aiPlannerEquipment: null,
+  aiPlannerRecovery: null,
+  aiPlannerMustInclude: '',
+  aiPlannerAvoid: '',
+  aiPlannerLimitations: '',
+  aiCoachTemplateId: null,
+  aiCoachSetupHash: null,
+  aiCoachPlanGeneratedAt: null,
   recommendedProgramId: null,
+  trackedExerciseLibraryItemIds: [] as string[],
   dismissedTipIds: [] as string[],
   activePlanId: 'plan_push_pull_legs',
 };
 
-export function createSeedExerciseLibrary(): ExerciseLibraryItem[] {
+function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {
   return [
     { id: 'lib_bench_press', name: 'Penkki', category: 'compound', bodyPart: 'chest', equipment: 'barbell' },
     { id: 'lib_incline_bench', name: 'Vinopenkki', category: 'compound', bodyPart: 'chest', equipment: 'dumbbell' },
@@ -69,6 +88,10 @@ export function createSeedExerciseLibrary(): ExerciseLibraryItem[] {
     { id: 'lib_plank', name: 'Lankku', category: 'core', bodyPart: 'core', equipment: 'bodyweight' },
     { id: 'lib_bike', name: 'Pyöräily', category: 'cardio', bodyPart: 'full body', equipment: 'bodyweight' },
   ];
+}
+
+export function createSeedExerciseLibrary(): ExerciseLibraryItem[] {
+  return [...createLegacySeedExerciseLibrary(), ...GENERATED_EXERCISE_LIBRARY];
 }
 
 function sessionRecord(id: string, name: string, orderIndex: number, exerciseIds: string[]) {
@@ -102,6 +125,7 @@ export function createEmptyDatabase(): AppDatabase {
     workoutSessions: [],
     exerciseLogs: [],
     bodyweightEntries: [],
+    measurementEntries: [],
     preferences: {
       ...DEFAULT_PREFERENCES,
       activePlanId: null,
@@ -376,6 +400,7 @@ export function createSeedDatabase(): AppDatabase {
       { id: 'bodyweight_2', recordedAt: '2026-03-08T08:05:00+02:00', weight: 82.1 },
       { id: 'bodyweight_3', recordedAt: '2026-03-15T08:08:00+02:00', weight: 81.8 },
     ],
+    measurementEntries: [],
     preferences: DEFAULT_PREFERENCES,
   };
 }

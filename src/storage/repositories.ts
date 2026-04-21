@@ -111,6 +111,18 @@ export const workoutSessionRepository = {
       workoutSessions: [session, ...database.workoutSessions],
     };
   },
+  update(
+    database: AppDatabase,
+    sessionId: string,
+    patch: Partial<Pick<WorkoutSession, 'workoutNameSnapshot' | 'sessionNotes'>>,
+  ): AppDatabase {
+    return {
+      ...database,
+      workoutSessions: database.workoutSessions.map((session) =>
+        session.id === sessionId ? { ...session, ...patch } : session,
+      ),
+    };
+  },
 };
 
 export const exerciseLogRepository = {

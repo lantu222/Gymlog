@@ -14,6 +14,9 @@ interface AppShellProps {
   screenTone?: AppShellTone;
   showBackgroundFrame?: boolean;
   safeAreaEdges?: Edge[];
+  statusBarStyleOverride?: 'light' | 'dark';
+  statusBarBackgroundColor?: string;
+  statusBarTranslucent?: boolean;
 }
 
 const toneStyles: Record<AppShellTone, { topWash: string; sideWash: string; bottomWash: string; edgeLine: string }> = {
@@ -56,14 +59,21 @@ export function AppShell({
   screenTone = 'default',
   showBackgroundFrame = true,
   safeAreaEdges = ['top', 'left', 'right', 'bottom'],
+  statusBarStyleOverride,
+  statusBarBackgroundColor,
+  statusBarTranslucent = false,
 }: AppShellProps) {
   const tone = toneStyles[screenTone];
-  const shellBackground = screenTone === 'home' ? '#FFFFFF' : colors.background;
-  const statusBarStyle = screenTone === 'home' ? 'dark' : 'light';
+  const shellBackground = screenTone === 'home' || screenTone === 'profile' ? '#FFFFFF' : colors.background;
+  const statusBarStyle = statusBarStyleOverride ?? (screenTone === 'home' || screenTone === 'profile' ? 'dark' : 'light');
 
   return (
     <SafeAreaProvider style={[styles.root, { backgroundColor: shellBackground }]}>
-      <StatusBar style={statusBarStyle} />
+      <StatusBar
+        style={statusBarStyle}
+        translucent={statusBarTranslucent}
+        backgroundColor={statusBarBackgroundColor ?? shellBackground}
+      />
       <SafeAreaView style={[styles.safeArea, { backgroundColor: shellBackground }]} edges={safeAreaEdges}>
         {showBackgroundFrame ? (
           <View pointerEvents="none" style={styles.backgroundFrame}>

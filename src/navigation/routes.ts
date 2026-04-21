@@ -12,6 +12,10 @@ export type AppRoute =
     }
   | {
       tab: 'home';
+      screen: 'ai_setup';
+    }
+  | {
+      tab: 'home';
       screen: 'history';
     }
   | {
@@ -31,6 +35,15 @@ export type AppRoute =
     }
   | {
       tab: 'workout';
+      screen: 'plans';
+    }
+  | {
+      tab: 'workout';
+      screen: 'detail';
+      exerciseId: string;
+    }
+  | {
+      tab: 'workout';
       screen: 'program';
       programType: 'ready' | 'custom';
       workoutTemplateId: string;
@@ -43,12 +56,21 @@ export type AppRoute =
     }
   | {
       tab: 'workout';
+      screen: 'template';
+      workoutTemplateId?: string;
+    }
+  | {
+      tab: 'workout';
       screen: 'log';
       workoutTemplateId: string;
     }
   | {
       tab: 'workout';
       screen: 'summary';
+    }
+  | {
+      tab: 'workout';
+      screen: 'celebration';
     }
   | {
       tab: 'progress';
@@ -66,6 +88,10 @@ export type AppRoute =
   | {
       tab: 'profile';
       screen: 'list';
+    }
+  | {
+      tab: 'profile';
+      screen: 'settings';
     }
   | {
       tab: 'profile';
@@ -98,3 +124,5 @@ export const ROOT_ROUTES: Record<RootTabKey, AppRoute> = {
   progress: { tab: 'progress', screen: 'list' },
   profile: { tab: 'profile', screen: 'list' },
 };
+
+export const WORKOUT_PLAN_ROUTE: AppRoute = { tab: 'workout', screen: 'plans' };

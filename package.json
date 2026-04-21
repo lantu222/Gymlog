@@ -9,11 +9,13 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:unit": "node tests/run-tests.cjs",
+    "exercise:sync": "node scripts/generate_free_exercise_library.mjs",
     "android:release": "node -e \"const cp=require('child_process');const bin=process.platform==='win32'?'gradlew.bat':'./gradlew';const result=cp.spawnSync(bin,['assembleRelease'],{cwd:'android',stdio:'inherit',shell:true});process.exit(result.status ?? 1)\""
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~55.0.6",
+    "expo-splash-screen": "~55.0.19",
     "expo-status-bar": "~55.0.4",
     "react": "19.2.0",
     "react-native": "0.83.2",

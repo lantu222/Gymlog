@@ -1,5 +1,6 @@
 import { WorkoutRole, WorkoutRuntimeTemplate, WorkoutTemplateSession, WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 import { ProgramInsightSummary } from './programInsights';
+import { getRecommendationProgrammeSummary } from './recommendationProgramme';
 import { getReadyProgramContent, ReadyProgramContentSection } from './readyProgramContent';
 
 export type ProgramDetailSource = 'ready' | 'custom';
@@ -96,6 +97,7 @@ export function buildReadyProgramDetail(
   const goal = titleCase(template.goalType);
   const level = titleCase(template.level);
   const content = getReadyProgramContent(template.id);
+  const programmeSummary = getRecommendationProgrammeSummary(template.id);
 
   return {
     id: template.id,
@@ -123,7 +125,7 @@ export function buildReadyProgramDetail(
       : fitExplanation
         ? [{ kicker: 'Why it fits', body: fitExplanation }]
         : [],
-    progressionSummary: template.progressionRules.primary,
+    progressionSummary: [programmeSummary, template.progressionRules.primary].filter(Boolean).join(' '),
     primaryActionLabel: 'Start first session',
     sessionActionLabel: 'Start session',
     sessions: buildSessionItems(template.sessions, content?.sessionFocusById, insights?.sessionStatusById),
@@ -136,6 +138,7 @@ export function buildCustomProgramDetail(
 ): ProgramDetailViewModel {
   const sessionCount = template.sessions.length;
   const exerciseCount = template.sessions.reduce((sum, session) => sum + session.exercises.length, 0);
+  const hasExercises = exerciseCount > 0;
 
   return {
     id: template.id,
@@ -148,8 +151,8 @@ export function buildCustomProgramDetail(
     highlights: insights?.highlights ?? [],
     infoSections: [],
     progressionSummary: null,
-    primaryActionLabel: 'Start first session',
-    sessionActionLabel: 'Start session',
+    primaryActionLabel: hasExercises ? 'Start first session' : 'Edit template',
+    sessionActionLabel: hasExercises ? 'Start session' : 'Open session',
     sessions: buildSessionItems(template.sessions, {}, insights?.sessionStatusById),
   };
 }

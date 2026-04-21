@@ -186,6 +186,27 @@ export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgr
     grouped.set(key, { name, logs: [attachedLog] });
   });
 
+  const exerciseLibraryById = Object.fromEntries(
+    database.exerciseLibrary.map((item) => [item.id, item] as const),
+  );
+
+  database.preferences.trackedExerciseLibraryItemIds.forEach((libraryItemId) => {
+    const libraryItem = exerciseLibraryById[libraryItemId];
+    if (!libraryItem) {
+      return;
+    }
+
+    const key = normalizeExerciseKey(libraryItem.name);
+    if (grouped.has(key)) {
+      return;
+    }
+
+    grouped.set(key, {
+      name: libraryItem.name,
+      logs: [],
+    });
+  });
+
   return Array.from(grouped.entries())
     .map(([key, value]) => {
       const logs = value.logs.sort(
