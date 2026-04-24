@@ -19,7 +19,7 @@ import {
   UnitPreference,
 } from '../types/models';
 import type { RecommendationCandidate, RecommendationConfidence, TemplateFamilyId } from '../types/recommendation';
-import { AICoachTrainingContext } from '../types/vallu';
+import { AICoachTrainingContext } from '../types/aiCoach';
 
 export interface FirstRunSetupSelection {
   gender: SetupGender;

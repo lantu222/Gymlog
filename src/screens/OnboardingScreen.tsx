@@ -6,6 +6,7 @@ import {
   Easing,
   Image,
   ImageBackground,
+  ImageSourcePropType,
   Modal,
   PanResponder,
   Pressable,
@@ -13,12 +14,14 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  TextStyle,
   View,
   ViewStyle,
 } from 'react-native';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { GymlogIcon, GymlogIconName } from '../components/GymlogIcon';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
@@ -46,11 +49,13 @@ import {
   resolveProjectedTrainingDays,
   getEffectiveWeeklyMinutes,
 } from '../lib/firstRunSetup';
+import { getFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
+import type { FocusAreaAssetKey } from '../lib/focusAreaPresentation';
 import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
 import { buildRecommendationOptionIds, getRecommendationConfidenceCopy } from '../lib/recommendationPresentation';
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
-import { requestAiCoachAdvice } from '../lib/valluClient';
+import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { colors, radii, spacing } from '../theme';
 import {
   SetupDaysPerWeek,
@@ -66,7 +71,7 @@ import {
   SetupWeekday,
   UnitPreference,
 } from '../types/models';
-import { AICoachAdvice } from '../types/vallu';
+import { AICoachAdvice } from '../types/aiCoach';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface OnboardingScreenProps {
@@ -96,12 +101,13 @@ type SetupStage =
   | 'profile'
   | 'focus'
   | 'review'
-  | 'gender'
   | 'planning'
   | 'about'
   | 'recommendation';
 type HelperState = 'idle' | 'loading' | 'ready' | 'error';
 type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | null;
+type PlanReadyHeroKey = 'mass' | 'strength' | 'athletic';
+type PlanReadyImageGender = 'male' | 'female';
 
 const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about', 'focus', 'review'];
 
@@ -202,29 +208,69 @@ function getGoalBackgroundSource(goal: SetupGoal) {
   }
 }
 
-function getFocusAreaBackgroundSource(area: SetupFocusArea) {
-  switch (area) {
-    case 'bodyweight':
-      return require('../../assets/fitness/selected/focus-bodyweight-card.png');
-    case 'glutes':
-      return require('../../assets/fitness/selected/focus-glutes-card.png');
-    case 'legs':
-      return require('../../assets/fitness/selected/focus-legs-card.png');
-    case 'chest':
-      return require('../../assets/fitness/selected/focus-chest-card.png');
-    case 'shoulders':
-      return require('../../assets/fitness/selected/focus-shoulders-card.png');
-    case 'back':
-      return require('../../assets/fitness/selected/focus-back-card.png');
-    case 'arms':
-      return require('../../assets/fitness/selected/focus-arms-card.png');
-    case 'core':
-      return require('../../assets/fitness/selected/focus-core-card.png');
-    case 'conditioning':
-      return require('../../assets/fitness/selected/focus-conditioning-card.png');
-    default:
-      return undefined;
+function getPlanReadyHeroKey({
+  title,
+  goal,
+}: {
+  title?: string | null;
+  goal?: string | null;
+}): PlanReadyHeroKey {
+  const haystack = `${title ?? ''} ${goal ?? ''}`.toLowerCase();
+
+  if (
+    haystack.includes('athletic') ||
+    haystack.includes('cardio') ||
+    haystack.includes('conditioning') ||
+    haystack.includes('run') ||
+    haystack.includes('mobility') ||
+    haystack.includes('hiit')
+  ) {
+    return 'athletic';
   }
+
+  if (
+    haystack.includes('strength') ||
+    haystack.includes('power') ||
+    haystack.includes('barbell') ||
+    haystack.includes('low reps')
+  ) {
+    return 'strength';
+  }
+
+  return 'mass';
+}
+
+function getPlanReadyImageGender(gender: SetupGender, programId: string): PlanReadyImageGender {
+  if (gender === 'male' || gender === 'female') {
+    return gender;
+  }
+
+  const hash = Array.from(programId).reduce((total, character) => total + character.charCodeAt(0), 0);
+  return hash % 2 === 0 ? 'female' : 'male';
+}
+
+function getPlanReadyImageSource({
+  gender,
+  heroKey,
+  programId,
+}: {
+  gender: SetupGender;
+  heroKey: PlanReadyHeroKey;
+  programId: string;
+}) {
+  return PLAN_READY_CHARACTER_ASSETS[getPlanReadyImageGender(gender, programId)][heroKey];
+}
+
+function getPlanReadyPreviewImageSource({
+  gender,
+  heroKey,
+  programId,
+}: {
+  gender: SetupGender;
+  heroKey: PlanReadyHeroKey;
+  programId: string;
+}) {
+  return PLAN_READY_PREVIEW_ASSETS[getPlanReadyImageGender(gender, programId)][heroKey];
 }
 
 const GUIDANCE_MODE_OPTIONS: Array<{
@@ -276,6 +322,41 @@ const FOCUS_AREA_OPTIONS: SetupFocusArea[] = [
   'core',
   'conditioning',
 ];
+const FOCUS_AREA_PRESENTATION_OPTIONS = getFocusAreaPresentationOptions();
+const FOCUS_AREA_CARD_ASSETS: Record<FocusAreaAssetKey, ImageSourcePropType> = {
+  glutes: require('../../assets/fitness/selected/focus-glutes-card.png'),
+  legs: require('../../assets/fitness/selected/focus-legs-card.png'),
+  chest: require('../../assets/fitness/selected/focus-chest-card.png'),
+  shoulders: require('../../assets/fitness/selected/focus-shoulders-card.png'),
+  back: require('../../assets/fitness/selected/focus-back-card.png'),
+  arms: require('../../assets/fitness/selected/focus-arms-card.png'),
+  core: require('../../assets/fitness/selected/focus-core-card.png'),
+  conditioning: require('../../assets/fitness/selected/focus-conditioning-card.png'),
+};
+const PLAN_READY_CHARACTER_ASSETS: Record<PlanReadyImageGender, Record<PlanReadyHeroKey, ImageSourcePropType>> = {
+  male: {
+    mass: require('../../assets/fitness/selected/step7-character-male-01.png'),
+    strength: require('../../assets/fitness/selected/step7-character-male-02.png'),
+    athletic: require('../../assets/fitness/selected/step7-character-male-03.png'),
+  },
+  female: {
+    mass: require('../../assets/fitness/selected/step7-character-female-01.png'),
+    strength: require('../../assets/fitness/selected/step7-character-female-02.png'),
+    athletic: require('../../assets/fitness/selected/step7-character-female-03.png'),
+  },
+};
+const PLAN_READY_PREVIEW_ASSETS: Record<PlanReadyImageGender, Record<PlanReadyHeroKey, ImageSourcePropType>> = {
+  male: {
+    mass: require('../../assets/fitness/selected/step7-preview-male-mass.png'),
+    strength: require('../../assets/fitness/selected/step7-preview-male-strength.png'),
+    athletic: require('../../assets/fitness/selected/step7-preview-male-athletic.png'),
+  },
+  female: {
+    mass: require('../../assets/fitness/selected/step7-preview-female-mass.png'),
+    strength: require('../../assets/fitness/selected/step7-preview-female-strength.png'),
+    athletic: require('../../assets/fitness/selected/step7-preview-female-athletic.png'),
+  },
+};
 const WEEKDAY_OPTIONS: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const LOCATION_SELECTION_OPTIONS: Array<{
   id: string;
@@ -593,49 +674,31 @@ function PhotoSelectionCard({
   );
 }
 
-function SelectionCard({
-  title,
-  body,
-  meta,
-  active,
-  onPress,
-}: {
-  title: string;
-  body: string;
-  meta: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={[styles.selectionCard, active && styles.selectionCardActive]}>
-      <View style={styles.selectionCardCopy}>
-        <Text style={[styles.selectionCardTitle, active && styles.selectionCardTitleActive]}>{title}</Text>
-        <Text style={styles.selectionCardBody}>{body}</Text>
-      </View>
-      <Text style={[styles.selectionCardMeta, active && styles.selectionCardMetaActive]}>{meta}</Text>
-    </Pressable>
-  );
-}
-
 function SetupOptionCard({
   title,
   body,
   active,
   backgroundSource,
+  focusImageSource,
   imageMode = 'background',
   compact = false,
+  accessibilityLabel,
   onPress,
 }: {
   title: string;
   body: string;
   active: boolean;
   backgroundSource?: number;
+  focusImageSource?: ImageSourcePropType;
   imageMode?: 'background' | 'icon';
   compact?: boolean;
+  accessibilityLabel?: string;
   onPress: () => void;
 }) {
   const hasBackground = Boolean(backgroundSource);
+  const hasFocusImage = Boolean(focusImageSource);
   const iconImage = hasBackground && imageMode === 'icon';
+  const visualCard = iconImage || hasFocusImage;
   const activeAnimation = useRef(new Animated.Value(active ? 1 : 0)).current;
 
   useEffect(() => {
@@ -647,7 +710,7 @@ function SetupOptionCard({
     }).start();
   }, [active, activeAnimation]);
 
-  const cardAnimatedStyle = iconImage
+  const cardAnimatedStyle = visualCard
     ? {
         transform: [
           {
@@ -671,7 +734,7 @@ function SetupOptionCard({
         ],
       }
     : undefined;
-  const copyAnimatedStyle = iconImage
+  const copyAnimatedStyle = visualCard
     ? {
         transform: [
           {
@@ -687,17 +750,74 @@ function SetupOptionCard({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel ?? title}
+      accessibilityState={{ selected: active }}
       style={[
         styles.setupOptionCard,
         compact && styles.setupOptionCardCompact,
         hasBackground && !iconImage && styles.setupOptionCardImage,
-        iconImage && styles.setupOptionCardIcon,
+        visualCard && styles.setupOptionCardIcon,
         active && styles.setupOptionCardActive,
         hasBackground && !iconImage && active && styles.setupOptionCardImageActive,
-        iconImage && active && styles.setupOptionCardIconActive,
+        visualCard && active && styles.setupOptionCardIconActive,
       ]}
     >
-      {iconImage ? (
+      {hasFocusImage && focusImageSource ? (
+        <Animated.View style={[styles.setupOptionCardFigureContent, cardAnimatedStyle]}>
+          <View style={[styles.setupOptionCardFigureThumb, active && styles.setupOptionCardIconThumbActive]}>
+            <Animated.Image
+              source={focusImageSource}
+              resizeMode="cover"
+              style={[
+                styles.setupOptionCardFigureImage,
+                {
+                  opacity: activeAnimation.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.9, 1],
+                  }),
+                  transform: [
+                    {
+                      scale: activeAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [1, 1.035],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            />
+            <View style={styles.setupOptionCardFigureVignette} />
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.setupOptionCardSelectionBadge,
+                {
+                  opacity: activeAnimation,
+                  transform: [
+                    {
+                      scale: activeAnimation.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.82, 1],
+                      }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <View style={styles.setupOptionCardSelectionCheck}>
+                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkShort]} />
+                <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkLong]} />
+              </View>
+            </Animated.View>
+          </View>
+          <Animated.View style={[styles.setupOptionCardFigureCopy, copyAnimatedStyle]}>
+            <Text style={styles.setupOptionCardFigureTitle} numberOfLines={1}>
+              {title}
+            </Text>
+          </Animated.View>
+        </Animated.View>
+      ) : iconImage ? (
         <Animated.View style={[styles.setupOptionCardIconContent, cardAnimatedStyle]}>
           <Animated.View style={[styles.setupOptionCardIconCopy, copyAnimatedStyle]}>
             <Text style={[styles.setupOptionCardTitle, styles.setupOptionCardTitleOnImage]}>{title}</Text>
@@ -1023,6 +1143,48 @@ function PreviewGlyph({ dayCount }: { dayCount: number }) {
   );
 }
 
+function getPlanReadyWeekIconName({
+  training,
+  title,
+  body,
+}: {
+  training: boolean;
+  title: string;
+  body: string;
+}): GymlogIconName {
+  const haystack = `${title} ${body}`.toLowerCase();
+
+  if (!training) {
+    return 'restDay';
+  }
+
+  if (haystack.includes('tempo')) {
+    return 'tempo';
+  }
+
+  if (haystack.includes('run') || haystack.includes('stride') || haystack.includes('cardio')) {
+    return 'endurance';
+  }
+
+  if (haystack.includes('mobility') || haystack.includes('reset') || haystack.includes('recovery')) {
+    return 'mobility';
+  }
+
+  if (haystack.includes('bench') || haystack.includes('press')) {
+    return 'benchPress';
+  }
+
+  if (haystack.includes('squat') || haystack.includes('leg')) {
+    return 'squat';
+  }
+
+  if (haystack.includes('deadlift') || haystack.includes('hinge')) {
+    return 'deadlift';
+  }
+
+  return 'strength';
+}
+
 function WeightPickerColumn({
   values,
   selectedValue,
@@ -1176,19 +1338,6 @@ function formatGoalList(goals: SetupGoal[]) {
   }
 
   return goals.map((goal) => getGoalLabel(goal)).join(', ');
-}
-
-function getGenderLabel(gender: SetupGender) {
-  switch (gender) {
-    case 'male':
-      return 'Male';
-    case 'female':
-      return 'Female';
-    case 'unspecified':
-      return 'Prefer not to say';
-    default:
-      return 'Not set';
-  }
 }
 
 function getAgeRangeLabel(ageRange: SetupAgeRange) {
@@ -1495,41 +1644,15 @@ export function OnboardingScreen({
             .map((session) => ({
               id: session.id,
               name: session.name,
-              body: `${session.exercises.length} exercises`,
+              body:
+                session.exercises
+                  .slice(0, 3)
+                  .map((exercise) => exercise.exerciseName)
+                  .join(', ') || `${session.exercises.length} exercises`,
             }))
         : [],
     [recommendedProgram],
   );
-  const reviewScheduleItems = useMemo(
-    () =>
-      projectedSessions.slice(0, Math.max(projectedDaysPerWeek, 1)).map((session, index) => ({
-        id: session.id,
-        day: projectedRhythm[index] ?? `Day ${index + 1}`,
-        title: formatWorkoutDisplayLabel(session.name, 'Workout'),
-        body: session.body,
-      })),
-    [projectedDaysPerWeek, projectedRhythm, projectedSessions],
-  );
-  const reviewMainLifts = useMemo(() => {
-    if (!recommendedProgram) {
-      return [];
-    }
-
-    const seen = new Set<string>();
-    return [...recommendedProgram.sessions]
-      .sort((left, right) => left.orderIndex - right.orderIndex)
-      .flatMap((session) => session.exercises)
-      .filter((exercise) => exercise.role === 'primary' || exercise.role === 'secondary')
-      .map((exercise) => exercise.exerciseName)
-      .filter((exerciseName) => {
-        if (seen.has(exerciseName)) {
-          return false;
-        }
-        seen.add(exerciseName);
-        return true;
-      })
-      .slice(0, 3);
-  }, [recommendedProgram]);
   const tailoringBadgeLabels = useMemo(
     () => buildTailoringBadgeLabels(recommendationTailoringPreferences).slice(0, 3),
     [recommendationTailoringPreferences],
@@ -2029,23 +2152,24 @@ export function OnboardingScreen({
       ? Math.min(300, Math.round(locationStageHeight * 0.31) + 24)
       : Math.min(380, Math.round(locationStageHeight * 0.38) + 40);
 
-    return (
-      <View style={[styles.locationStageShell, { minHeight: locationStageHeight }]}>
-        <View style={[styles.locationTopPane, compactTop && styles.locationTopPaneCompact, { height: locationTopHeight }]}>
-          <View style={styles.locationTopSlope} />
-          <View style={[styles.locationTopCopy, compactTop && styles.locationTopCopyCompact, topCopyStyle]}>
-            <View style={styles.locationPaginationWrap}>
-              <StepDots index={stageIndex} />
-            </View>
-            <Text style={[styles.locationStepLabel, solidStepLabel && styles.locationStepLabelSolid]}>{stepLabel}</Text>
-            {titleLines.map((line) => (
-              <Text key={line} style={[styles.locationHeadline, largeTitle && styles.locationHeadlineLarge]}>{line}</Text>
-            ))}
-            {subtitle ? <Text style={styles.locationSubtitle}>{subtitle}</Text> : null}
-          </View>
-        </View>
-
-        <View style={[styles.locationBottomPane, tightBottom && styles.locationBottomPaneTight]}>
+    return renderOnboardingShell({
+      stepLabel,
+      titleLines,
+      subtitle,
+      shellStyle: { minHeight: locationStageHeight },
+      topPaneStyle: [
+        compactTop && styles.locationTopPaneCompact,
+        { height: locationTopHeight },
+      ],
+      topCopyStyle: [
+        compactTop && styles.locationTopCopyCompact,
+        topCopyStyle,
+      ],
+      titleStyle: largeTitle ? styles.locationHeadlineLarge : undefined,
+      stepLabelStyle: solidStepLabel ? styles.locationStepLabelSolid : undefined,
+      bottomStyle: tightBottom ? styles.locationBottomPaneTight : undefined,
+      children: (
+        <>
           {beforeOptions}
           {grid ? (
             <View style={[styles.locationCardGrid, optionsContainerStyle]}>
@@ -2084,39 +2208,53 @@ export function OnboardingScreen({
             </View>
           )}
           {afterOptions}
-        </View>
-      </View>
-    );
+        </>
+      ),
+    });
   }
 
-  function renderGender() {
+  function renderOnboardingShell({
+    stepLabel,
+    titleLines,
+    subtitle,
+    children,
+    shellStyle,
+    topPaneStyle,
+    topCopyStyle,
+    titleStyle,
+    stepLabelStyle,
+    bottomStyle,
+  }: {
+    stepLabel: string;
+    titleLines: string[];
+    subtitle?: string;
+    children: React.ReactNode;
+    shellStyle?: ViewStyle | ViewStyle[];
+    topPaneStyle?: ViewStyle | Array<ViewStyle | false | undefined>;
+    topCopyStyle?: ViewStyle | Array<ViewStyle | false | undefined>;
+    titleStyle?: TextStyle;
+    stepLabelStyle?: TextStyle;
+    bottomStyle?: ViewStyle | ViewStyle[];
+  }) {
     return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={styles.kicker}>Step 2</Text>
-          <Text style={styles.title}>What is your gender?</Text>
-          <Text style={styles.body}>Only if you want the setup framed that way.</Text>
-        </View>
-
-        <FitnessPhotoSurface variant="strength" compact style={styles.stageSurface}>
-          <View style={styles.stageSurfaceContent}>
-            <BadgePill accent="neutral" label="Your start" />
-            <Text style={styles.stageSurfaceTitle}>Keep the setup simple and honest</Text>
+      <View style={[styles.locationStageShell, shellStyle]}>
+        <View style={[styles.locationTopPane, topPaneStyle]}>
+          <View style={styles.locationTopSlope} />
+          <View style={[styles.locationTopCopy, topCopyStyle]}>
+            <View style={styles.locationPaginationWrap}>
+              <StepDots index={stageIndex} />
+            </View>
+            <Text style={[styles.locationStepLabel, stepLabelStyle]}>{stepLabel}</Text>
+            {titleLines.map((line) => (
+              <Text key={line} style={[styles.locationHeadline, titleStyle]}>
+                {line}
+              </Text>
+            ))}
+            {subtitle ? <Text style={styles.locationSubtitle}>{subtitle}</Text> : null}
           </View>
-        </FitnessPhotoSurface>
-
-        <View style={styles.selectionList}>
-          {GENDER_OPTIONS.map((option) => (
-            <SelectionCard
-              key={option.gender}
-              title={option.title}
-              body={option.body}
-              meta={gender === option.gender ? 'Selected' : 'Tap to continue'}
-              active={gender === option.gender}
-              onPress={() => setGender(option.gender)}
-            />
-          ))}
         </View>
+
+        <View style={[styles.locationBottomPane, bottomStyle]}>{children}</View>
       </View>
     );
   }
@@ -2166,173 +2304,196 @@ export function OnboardingScreen({
   }
 
   function renderFocus() {
-    return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 6</Text>
-          <Text style={[styles.title, styles.titleLight]}>What do you want to focus the most?</Text>
-          <Text style={[styles.body, styles.bodyLight]}>Pick one or more.</Text>
-        </View>
-
+    return renderOnboardingShell({
+      stepLabel: 'STEP 6',
+      titleLines: ['WHERE SHOULD', 'WE FOCUS?'],
+      subtitle: 'Pick one or more.',
+      shellStyle: styles.focusStageShell,
+      topPaneStyle: styles.focusTopPane,
+      bottomStyle: styles.focusBottomPane,
+      children: (
         <View style={styles.setupOptionGrid}>
-          {FOCUS_AREA_OPTIONS.map((area) => (
-            <View key={area} style={styles.setupOptionGridItem}>
+          {FOCUS_AREA_PRESENTATION_OPTIONS.map((option) => (
+            <View key={option.area} style={styles.setupOptionGridItem}>
               <SetupOptionCard
-                title={getFocusAreaTitle(area)}
-                body={getFocusAreaDescription(area)}
-                backgroundSource={getFocusAreaBackgroundSource(area)}
-                imageMode="icon"
-                active={focusAreas.includes(area)}
-                onPress={() => toggleFocusArea(area)}
+                title={option.title}
+                body=""
+                focusImageSource={FOCUS_AREA_CARD_ASSETS[option.assetKey]}
+                active={focusAreas.includes(option.area)}
+                accessibilityLabel={option.accessibilityLabel}
+                onPress={() => toggleFocusArea(option.area)}
               />
             </View>
           ))}
         </View>
-      </View>
-    );
+      ),
+    });
   }
 
   function renderReview() {
     const programTitle = recommendedProgramPresentation?.title
       ?? (recommendedProgram ? formatWorkoutDisplayLabel(recommendedProgram.name, 'Program') : 'Starter plan');
     const programSubtitle = recommendedProgramPresentation?.subtitle ?? null;
-    const primaryRecommendationKicker =
-      activeRecommendedProgramId === recommendation.featuredProgramId ? 'Your start' : 'Your selected start';
-    const sessionDurationLabel = recommendedProgram?.estimatedSessionDuration
-      ? `${recommendedProgram.estimatedSessionDuration} min`
-      : '~50 min';
     const weeklyMinutesLabel =
       effectiveWeeklyMinutes && effectiveWeeklyMinutes > 0 ? `~${effectiveWeeklyMinutes} min / week` : null;
-    const focusLabel = focusAreas.length ? formatFocusAreaList(focusAreas) : 'Balanced';
-    const scheduleSummary = scheduleMode === 'self_managed' && availableDayLabels.length ? availableDayLabels.join(' · ') : null;
+    const reviewHeroKey = getPlanReadyHeroKey({ title: programTitle, goal: goalLabel });
+    const reviewHeroSource = getPlanReadyImageSource({
+      gender,
+      heroKey: reviewHeroKey,
+      programId: activeRecommendedProgramId,
+    });
+    const sessionDurationLabel = recommendedProgram?.estimatedSessionDuration
+      ? `~${recommendedProgram.estimatedSessionDuration} min`
+      : '~50 min';
+    const planReadyTags = [
+      'Progressive overload',
+      'Best fit right now',
+      reviewHeroKey === 'athletic' ? 'Recovery built in' : 'Balanced volume',
+    ];
+    const weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const reviewWeekRows = weekDayLabels.map((day) => {
+      const sessionIndex = projectedRhythm.findIndex((rhythmDay) => rhythmDay === day);
+      const session = sessionIndex >= 0 ? projectedSessions[sessionIndex] : null;
+
+      return {
+        day,
+        title: session ? formatWorkoutDisplayLabel(session.name, 'Workout') : 'REST DAY',
+        body: session?.body ?? 'Recovery and mobility',
+        duration: session ? sessionDurationLabel : null,
+        training: Boolean(session),
+      };
+    });
+    const planReadyOptions = recommendationOptionIds
+      .slice(0, 2)
+      .map((programId) => {
+        const template = getWorkoutTemplateById(programId);
+        if (!template) {
+          return null;
+        }
+
+        const presentation = getReadyTemplatePresentation(template);
+        const optionHeroKey = getPlanReadyHeroKey({
+          title: presentation.title,
+          goal: presentation.subtitle,
+        });
+
+        return {
+          id: programId,
+          title: presentation.title,
+          subtitle: presentation.subtitle,
+          heroSource: getPlanReadyPreviewImageSource({
+            gender,
+            heroKey: optionHeroKey,
+            programId,
+          }),
+          selected: programId === activeRecommendedProgramId,
+        };
+      })
+      .filter(
+        (
+          option,
+        ): option is {
+          id: string;
+          title: string;
+          subtitle: string;
+          heroSource: ImageSourcePropType;
+          selected: boolean;
+        } => option !== null,
+      );
 
     return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 7</Text>
-          <Text style={[styles.title, styles.titleLight]}>Does everything look right?</Text>
-          <Text style={[styles.body, styles.bodyLight]}>Check the setup before Gymlog builds the week.</Text>
+      <View style={styles.planReadyStage}>
+        <View style={styles.planReadyHeader}>
+          <Text style={styles.planReadyTitle}>YOUR PLAN{'\n'}IS READY</Text>
+          <Text style={styles.planReadySubtitle}>Here's your personalized plan.</Text>
         </View>
 
-        <View style={styles.reviewProgramCard}>
-          <Text style={styles.reviewProgramKicker}>{primaryRecommendationKicker}</Text>
-          <Text style={styles.reviewProgramTitle}>{programTitle}</Text>
-          {programSubtitle ? <Text style={styles.reviewProgramSubtitle}>{programSubtitle}</Text> : null}
-          <View style={styles.reviewProgramMetaRow}>
-            <View style={styles.reviewProgramMetaPill}>
-              <Text style={styles.reviewProgramMetaText}>{`${projectedDaysPerWeek} days`}</Text>
-            </View>
-            <View style={styles.reviewProgramMetaPill}>
-              <Text style={styles.reviewProgramMetaText}>{sessionDurationLabel}</Text>
-            </View>
-            {recommendedProgramTags.map((tag) => (
-              <View key={tag} style={styles.reviewProgramMetaPill}>
-                <Text style={styles.reviewProgramMetaText}>{tag}</Text>
+        <View style={styles.planReadyProgramCard}>
+          <ImageBackground source={reviewHeroSource} style={styles.planReadyHeroPhoto} imageStyle={styles.planReadyHeroImage}>
+            <View pointerEvents="none" style={styles.planReadyHeroShade} />
+          </ImageBackground>
+          <View style={styles.planReadyProgramCopy}>
+            <Text style={styles.planReadyProgramKicker}>YOUR PROGRAM</Text>
+            <Text style={styles.planReadyProgramTitle}>{programTitle}</Text>
+            {programSubtitle ? <Text style={styles.planReadyProgramSubtitle}>{programSubtitle}</Text> : null}
+          </View>
+
+          <View style={styles.planReadyTagRow}>
+            {planReadyTags.map((tag, index) => (
+              <View key={tag} style={styles.planReadyTag}>
+                <GymlogIcon name={index === 0 ? 'progress' : index === 1 ? 'check' : 'strength'} size={14} />
+                <Text style={styles.planReadyTagText}>{tag}</Text>
               </View>
             ))}
           </View>
-          <View style={styles.reviewProgramDataGrid}>
-            <View style={styles.reviewProgramDataItem}>
-              <Text style={styles.reviewProgramDataLabel}>Goal</Text>
-              <Text style={styles.reviewProgramDataValue}>{goalLabel}</Text>
-            </View>
-            <View style={styles.reviewProgramDataItem}>
-              <Text style={styles.reviewProgramDataLabel}>Focus</Text>
-              <Text style={styles.reviewProgramDataValue}>{focusLabel}</Text>
-            </View>
-            <View style={styles.reviewProgramDataItem}>
-              <Text style={styles.reviewProgramDataLabel}>Setup</Text>
-              <Text style={styles.reviewProgramDataValue}>{locationLabel}</Text>
-            </View>
-            <View style={styles.reviewProgramDataItem}>
-              <Text style={styles.reviewProgramDataLabel}>Level</Text>
-              <Text style={styles.reviewProgramDataValue}>{levelLabel}</Text>
-            </View>
-          </View>
         </View>
 
-        <View style={styles.reviewSummaryCard}>
-          <View style={styles.reviewSectionHeader}>
-            <Text style={styles.reviewSummaryLabel}>Recommendation fit</Text>
-            <Text style={styles.reviewInlineMeta}>{recommendationConfidenceCopy.title}</Text>
+        <View style={styles.planReadyWeekCard}>
+          <View style={styles.planReadySectionHeader}>
+            <Text style={styles.planReadySectionLabel}>WEEKLY OVERVIEW</Text>
+            {weeklyMinutesLabel ? <Text style={styles.planReadySectionMeta}>{weeklyMinutesLabel}</Text> : null}
           </View>
-          <Text style={styles.reviewInsightBody}>{recommendationConfidenceCopy.body}</Text>
-          {activeRecommendationMismatchNote ? (
-            <Text style={styles.reviewScheduleNote}>{activeRecommendationMismatchNote}</Text>
-          ) : null}
-        </View>
-
-        {alternativeRecommendationPrograms.length ? (
-          <View style={styles.reviewSummaryCard}>
-            <View style={styles.reviewSectionHeader}>
-              <Text style={styles.reviewSummaryLabel}>Other good options</Text>
-              <Text style={styles.reviewInlineMeta}>Pick if it fits better</Text>
-            </View>
-            <View style={styles.reviewAlternativeList}>
-              {alternativeRecommendationPrograms.map((option) => (
-                <View key={option.id} style={styles.reviewAlternativeCard}>
-                  <View style={styles.reviewAlternativeCopy}>
-                    <Text style={styles.reviewAlternativeTitle}>{option.presentation.title}</Text>
-                    <Text style={styles.reviewAlternativeBody}>{option.presentation.subtitle}</Text>
-                    {option.tradeoffNote ? (
-                      <Text style={styles.reviewAlternativeNote}>{option.tradeoffNote}</Text>
-                    ) : null}
-                    <View style={styles.reviewAlternativeTagRow}>
-                      {option.presentation.tags.map((tag) => (
-                        <View key={tag} style={styles.reviewAlternativeTag}>
-                          <Text style={styles.reviewAlternativeTagText}>{tag}</Text>
-                        </View>
-                      ))}
-                    </View>
+          <View style={styles.planReadyWeekList}>
+            {reviewWeekRows.map((item) => (
+              <View key={item.day} style={styles.planReadyWeekRow}>
+                <Text style={styles.planReadyWeekDay}>{item.day}</Text>
+                <View
+                  style={[
+                    styles.planReadyWeekIcon,
+                    !item.training && styles.planReadyWeekIconRest,
+                  ]}
+                >
+                  <GymlogIcon
+                    name={getPlanReadyWeekIconName({
+                      training: item.training,
+                      title: item.title,
+                      body: item.body,
+                    })}
+                    color={item.training ? '#FFFFFF' : 'rgba(6,8,11,0.56)'}
+                    size={18}
+                  />
+                </View>
+                <View style={styles.planReadyWeekCopy}>
+                  <View style={styles.planReadyWeekTitleRow}>
+                    <Text style={styles.planReadyWeekTitle}>{item.title}</Text>
+                    {item.duration ? <Text style={styles.planReadyWeekDuration}>{item.duration}</Text> : null}
                   </View>
-                  <Pressable
-                    onPress={() => setSelectedRecommendationProgramId(option.id)}
-                    style={styles.reviewAlternativeButton}
-                  >
-                    <Text style={styles.reviewAlternativeButtonText}>Use this instead</Text>
-                  </Pressable>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.reviewSummaryCard}>
-          <View style={styles.reviewSectionHeader}>
-            <Text style={styles.reviewSummaryLabel}>Week rhythm</Text>
-            {weeklyMinutesLabel ? <Text style={styles.reviewInlineMeta}>{weeklyMinutesLabel}</Text> : null}
-          </View>
-          <View style={styles.reviewScheduleList}>
-            {reviewScheduleItems.map((item) => (
-              <View key={item.id} style={styles.reviewScheduleRow}>
-                <View style={styles.reviewScheduleDayPill}>
-                  <Text style={styles.reviewScheduleDayText}>{item.day}</Text>
-                </View>
-                <View style={styles.reviewScheduleCopy}>
-                  <Text style={styles.reviewScheduleTitle}>{item.title}</Text>
-                  <Text style={styles.reviewScheduleBody}>{item.body}</Text>
+                  <Text style={styles.planReadyWeekBody} numberOfLines={2}>{item.body}</Text>
                 </View>
               </View>
             ))}
           </View>
-          {scheduleSummary ? <Text style={styles.reviewScheduleNote}>{`Selected days: ${scheduleSummary}`}</Text> : null}
         </View>
 
-        {reviewMainLifts.length ? (
-          <View style={styles.reviewSummaryCard}>
-            <View style={styles.reviewSectionHeader}>
-              <Text style={styles.reviewSummaryLabel}>Main lifts</Text>
-              <Text style={styles.reviewInlineMeta}>First look</Text>
-            </View>
-            <View style={styles.reviewLiftChipRow}>
-              {reviewMainLifts.map((lift) => (
-                <View key={lift} style={styles.reviewLiftChip}>
-                  <Text style={styles.reviewLiftChipText}>{lift}</Text>
+        <View style={styles.planReadyOptionsPanel}>
+          <Text style={styles.planReadyOptionsTitle}>PROGRAM OPTIONS PREVIEW</Text>
+          <Text style={styles.planReadyOptionsSubtitle}>Choose the approach that fits your goal.</Text>
+          <View style={styles.planReadyOptionList}>
+            {planReadyOptions.map((option) => (
+              <Pressable
+                key={option.id}
+                onPress={() => setSelectedRecommendationProgramId(option.id)}
+                style={[styles.planReadyOptionCard, option.selected && styles.planReadyOptionCardActive]}
+              >
+                <ImageBackground
+                  source={option.heroSource}
+                  resizeMode="contain"
+                  style={styles.planReadyOptionPhoto}
+                  imageStyle={styles.planReadyOptionImage}
+                >
+                  <View pointerEvents="none" style={styles.planReadyOptionShade} />
+                </ImageBackground>
+                <View style={styles.planReadyOptionCopy}>
+                  <Text style={styles.planReadyOptionTitle} numberOfLines={2}>{option.title}</Text>
+                  <Text style={styles.planReadyOptionBody} numberOfLines={2}>{option.subtitle}</Text>
                 </View>
-              ))}
-            </View>
+                <View style={[styles.planReadyOptionRadio, option.selected && styles.planReadyOptionRadioActive]}>
+                  {option.selected ? <GymlogIcon name="check" color="#06080B" size={10} /> : null}
+                </View>
+              </Pressable>
+            ))}
           </View>
-        ) : null}
+        </View>
       </View>
     );
   }
@@ -2356,37 +2517,27 @@ export function OnboardingScreen({
   }
 
   function renderAbout() {
-    return (
-      <View style={[styles.locationStageShell, styles.bodyweightStageShell]}>
-        <View style={[styles.locationTopPane, styles.bodyweightTopPane]}>
-          <View style={styles.locationTopSlope} />
-          <View style={styles.locationTopCopy}>
-            <View style={styles.locationPaginationWrap}>
-              <StepDots index={stageIndex} />
-            </View>
-            <Text style={styles.locationStepLabel}>STEP 5</Text>
-            <Text style={styles.locationHeadline}>HOW MUCH</Text>
-            <Text style={styles.locationHeadline}>DO YOU WEIGH?</Text>
-            <Text style={styles.locationSubtitle}>Add your current bodyweight.</Text>
-          </View>
-        </View>
+    return renderOnboardingShell({
+      stepLabel: 'STEP 5',
+      titleLines: ['HOW MUCH', 'DO YOU WEIGH?'],
+      subtitle: 'Add your current bodyweight.',
+      shellStyle: styles.bodyweightStageShell,
+      topPaneStyle: styles.bodyweightTopPane,
+      children: (
+        <View style={styles.bodyweightStageContent}>
+          <BodyweightPicker
+            value={bodyweightPickerValue}
+            unit={unitPreference}
+            onChange={setCurrentBodyweight}
+            onUnitChange={setUnitPreference}
+          />
 
-        <View style={styles.locationBottomPane}>
-          <View style={styles.bodyweightStageContent}>
-            <BodyweightPicker
-              value={bodyweightPickerValue}
-              unit={unitPreference}
-              onChange={setCurrentBodyweight}
-              onUnitChange={setUnitPreference}
-            />
-
-            <Text style={[styles.bodyweightSupportText, styles.bodyweightStageSupportText]}>
-              Used for a better starting point.{'\n'}You can change it later.
-            </Text>
-          </View>
+          <Text style={[styles.bodyweightSupportText, styles.bodyweightStageSupportText]}>
+            Used for a better starting point.{'\n'}You can change it later.
+          </Text>
         </View>
-      </View>
-    );
+      ),
+    });
   }
 
   function renderRecommendation() {
@@ -2763,14 +2914,23 @@ export function OnboardingScreen({
       ? selectedLocationOptionId !== null
       : stage === 'goal'
       ? goals.length > 0
+      : stage === 'focus'
+      ? focusAreas.length > 0
       : true;
   const locationStageActive =
     stage === 'location' ||
     stage === 'goal' ||
     stage === 'profile' ||
     stage === 'planning' ||
-    stage === 'about';
-  const footerPrimaryLabel = stage === 'review' ? 'Looks right' : 'Continue';
+    stage === 'about' ||
+    stage === 'focus';
+  const standaloneProgressHidden = locationStageActive || stage === 'review';
+  const footerPrimaryLabel =
+    stage === 'review'
+      ? 'Looks great'
+      : stage === 'focus'
+      ? 'Build my first program'
+      : 'Continue';
   const footerVisible = true;
   const scrollContentStyle = useMemo(
     () => [
@@ -2795,7 +2955,7 @@ export function OnboardingScreen({
         contentContainerStyle={scrollContentStyle}
         showsVerticalScrollIndicator={false}
       >
-        {locationStageActive ? null : <StepDots index={stageIndex} light />}
+        {standaloneProgressHidden ? null : <StepDots index={stageIndex} light />}
 
         {stage === 'location' ? renderLocation() : null}
         {stage === 'goal' ? renderGoal() : null}
@@ -2812,6 +2972,7 @@ export function OnboardingScreen({
             styles.footer,
             styles.footerLight,
             locationStageActive && styles.locationFooter,
+            stage === 'focus' && styles.focusFooter,
             {
               paddingBottom: locationStageActive
                 ? insets.bottom + spacing.lg + spacing.xl
@@ -2822,7 +2983,7 @@ export function OnboardingScreen({
           <>
             <Pressable
               onPress={() => {
-                if (!canContinue) {
+                if (!canContinue || busy) {
                   return;
                 }
 
@@ -2842,15 +3003,16 @@ export function OnboardingScreen({
                 styles.primaryButton,
                 styles.primaryButtonDark,
                 locationStageActive && styles.locationPrimaryButton,
-                !canContinue && (locationStageActive ? styles.locationPrimaryButtonDisabled : styles.buttonDisabled),
+                (!canContinue || busy) &&
+                  (locationStageActive ? styles.locationPrimaryButtonDisabled : styles.buttonDisabled),
               ]}
-              disabled={!canContinue}
+              disabled={!canContinue || busy}
             >
               <Text
                 style={[
                   styles.primaryButtonText,
                   styles.primaryButtonTextLight,
-                  !canContinue && locationStageActive && styles.locationPrimaryButtonTextDisabled,
+                  (!canContinue || busy) && locationStageActive && styles.locationPrimaryButtonTextDisabled,
                 ]}
               >
                 {footerPrimaryLabel}
@@ -2868,7 +3030,7 @@ export function OnboardingScreen({
                 </Pressable>
               )
             ) : (
-              <Pressable onPress={() => setStageIndex((current) => Math.max(0, current - 1))}>
+              <Pressable onPress={() => setStageIndex((current) => Math.max(0, current - 1))} disabled={busy}>
                 <Text style={[styles.secondaryText, styles.secondaryTextDark]}>Back</Text>
               </Pressable>
             )}
@@ -3616,6 +3778,16 @@ const styles = StyleSheet.create({
   bodyweightTopPane: {
     minHeight: 280,
   },
+  focusStageShell: {
+    backgroundColor: '#F5F5F5',
+  },
+  focusTopPane: {
+    minHeight: 280,
+  },
+  focusBottomPane: {
+    paddingTop: 18,
+    paddingBottom: spacing.xl,
+  },
   bodyweightStageContent: {
     paddingTop: 4,
     paddingBottom: 8,
@@ -4044,60 +4216,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.7,
     maxWidth: '82%',
   },
-  selectionCard: {
-    minHeight: 98,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(18, 26, 35, 0.74)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    gap: spacing.xs,
-  },
-  selectionCardActive: {
-    borderColor: 'rgba(255,255,255,0.22)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.22,
-    shadowRadius: 20,
-    elevation: 6,
-  },
-  selectionCardMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  selectionCardCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  selectionCardTitle: {
-    color: colors.textPrimary,
-    fontSize: 19,
-    lineHeight: 23,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  selectionCardTitleActive: {
-    color: '#FFFFFF',
-  },
-  selectionCardBody: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-  selectionCardMeta: {
-    color: colors.textMuted,
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  selectionCardMetaActive: {
-    color: colors.textPrimary,
-  },
   selectionVisual: {
     width: 116,
     minHeight: 74,
@@ -4209,6 +4327,41 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     gap: spacing.xs,
   },
+  setupOptionCardFigureContent: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+  },
+  setupOptionCardFigureThumb: {
+    position: 'relative',
+    width: '100%',
+    height: 132,
+    borderRadius: radii.md,
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+  },
+  setupOptionCardFigureImage: {
+    width: '100%',
+    height: '100%',
+  },
+  setupOptionCardFigureVignette: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.10)',
+  },
+  setupOptionCardFigureCopy: {
+    minHeight: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.xs,
+  },
+  setupOptionCardFigureTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
   setupOptionCardIconCopy: {
     gap: spacing.xs,
   },
@@ -4259,9 +4412,9 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 999,
-    backgroundColor: '#16A34A',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: '#15803D',
+    borderColor: 'rgba(6,8,11,0.16)',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000000',
@@ -4509,239 +4662,276 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
   },
-  reviewProgramCard: {
-    borderRadius: radii.lg,
-    backgroundColor: '#06080B',
-    borderWidth: 1,
-    borderColor: '#06080B',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
+  planReadyStage: {
     gap: spacing.md,
+    paddingBottom: 0,
   },
-  reviewProgramKicker: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 11,
+  planReadyHeader: {
+    gap: 4,
+    paddingTop: spacing.xs,
+  },
+  planReadyTitle: {
+    color: '#06080B',
+    fontSize: 34,
+    lineHeight: 34,
     fontWeight: '900',
-    textTransform: 'uppercase',
+    letterSpacing: -1.4,
+  },
+  planReadySubtitle: {
+    color: 'rgba(6,8,11,0.68)',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  planReadyProgramCard: {
+    marginHorizontal: -spacing.lg,
+    minHeight: 196,
+    borderRadius: 0,
+    overflow: 'hidden',
+    backgroundColor: '#050505',
+    padding: spacing.sm,
+  },
+  planReadyHeroPhoto: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    minHeight: 0,
+    borderRadius: 0,
+  },
+  planReadyHeroImage: {
+    borderRadius: 0,
+  },
+  planReadyHeroShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.14)',
+  },
+  planReadyProgramCopy: {
+    minHeight: 138,
+    marginLeft: '52%',
+    justifyContent: 'center',
+    gap: 5,
+    paddingHorizontal: spacing.sm,
+  },
+  planReadyProgramKicker: {
+    color: 'rgba(255,255,255,0.55)',
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '900',
     letterSpacing: 1,
   },
-  reviewProgramTitle: {
+  planReadyProgramTitle: {
     color: '#FFFFFF',
-    fontSize: 28,
-    lineHeight: 32,
+    fontSize: 25,
+    lineHeight: 25,
     fontWeight: '900',
     letterSpacing: -0.8,
   },
-  reviewProgramSubtitle: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 14,
-    lineHeight: 20,
+  planReadyProgramSubtitle: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
   },
-  reviewProgramMetaRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  reviewProgramMetaPill: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    justifyContent: 'center',
-  },
-  reviewProgramMetaText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  reviewProgramDataGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  reviewProgramDataItem: {
-    width: '47%',
-    gap: 2,
-  },
-  reviewProgramDataLabel: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
-  reviewProgramDataValue: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  reviewSummaryCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(6,8,11,0.10)',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  reviewSectionHeader: {
+  planReadyTagRow: {
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    paddingTop: spacing.sm,
   },
-  reviewSummaryLabel: {
-    color: 'rgba(6,8,11,0.48)',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  reviewInlineMeta: {
-    color: 'rgba(6,8,11,0.54)',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  reviewScheduleList: {
-    gap: spacing.sm,
-  },
-  reviewScheduleRow: {
+  planReadyTag: {
+    width: '33.333%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-  },
-  reviewScheduleDayPill: {
-    minWidth: 52,
-    minHeight: 32,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(6,8,11,0.10)',
-    backgroundColor: '#F5F7FA',
-    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.sm,
+    gap: 5,
+    paddingHorizontal: 3,
   },
-  reviewScheduleDayText: {
-    color: '#06080B',
-    fontSize: 12,
+  planReadyTagText: {
+    flexShrink: 1,
+    color: '#FFFFFF',
+    fontSize: 10,
+    lineHeight: 12,
     fontWeight: '900',
   },
-  reviewScheduleCopy: {
+  planReadyWeekCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.08)',
+    backgroundColor: '#FFFFFF',
+    padding: spacing.md,
+    gap: spacing.sm,
+  },
+  planReadySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  planReadySectionLabel: {
+    color: 'rgba(6,8,11,0.62)',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  planReadySectionMeta: {
+    color: 'rgba(6,8,11,0.56)',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  planReadyWeekList: {
+    gap: 9,
+  },
+  planReadyWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  planReadyWeekDay: {
+    width: 26,
+    color: '#06080B',
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '900',
+  },
+  planReadyWeekIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#111111',
+  },
+  planReadyWeekIconRest: {
+    backgroundColor: 'rgba(6,8,11,0.08)',
+  },
+  planReadyWeekCopy: {
     flex: 1,
     gap: 2,
   },
-  reviewScheduleTitle: {
-    color: '#06080B',
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  reviewScheduleBody: {
-    color: 'rgba(6,8,11,0.60)',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  reviewScheduleNote: {
-    color: 'rgba(6,8,11,0.54)',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  reviewInsightBody: {
-    color: 'rgba(6,8,11,0.72)',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  reviewAlternativeList: {
-    gap: spacing.sm,
-  },
-  reviewAlternativeCard: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: 'rgba(6,8,11,0.08)',
-    backgroundColor: '#F7F8FA',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-  },
-  reviewAlternativeCopy: {
-    gap: spacing.xs,
-  },
-  reviewAlternativeTitle: {
-    color: '#06080B',
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '900',
-    letterSpacing: -0.2,
-  },
-  reviewAlternativeBody: {
-    color: 'rgba(6,8,11,0.62)',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  reviewAlternativeNote: {
-    color: 'rgba(6,8,11,0.56)',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  reviewAlternativeTagRow: {
+  planReadyWeekTitleRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.xs,
   },
-  reviewAlternativeTag: {
-    minHeight: 28,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(6,8,11,0.10)',
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-  },
-  reviewAlternativeTagText: {
+  planReadyWeekTitle: {
+    flex: 1,
     color: '#06080B',
-    fontSize: 11,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '900',
+  },
+  planReadyWeekDuration: {
+    color: 'rgba(6,8,11,0.50)',
+    fontSize: 10,
+    lineHeight: 12,
     fontWeight: '800',
   },
-  reviewAlternativeButton: {
-    minHeight: 42,
+  planReadyWeekBody: {
+    color: 'rgba(6,8,11,0.58)',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
+  planReadyOptionsPanel: {
+    marginHorizontal: -spacing.lg,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl + spacing.xl,
+    backgroundColor: '#000000',
+    gap: spacing.xs,
+  },
+  planReadyOptionsTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  planReadyOptionsSubtitle: {
+    color: 'rgba(255,255,255,0.66)',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
+  planReadyOptionList: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    justifyContent: 'space-between',
+    paddingTop: spacing.xs,
+  },
+  planReadyOptionCard: {
+    width: '48%',
+    minHeight: 118,
     borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: '#080808',
+    paddingVertical: spacing.xs,
+    paddingRight: spacing.xs,
+    paddingLeft: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  planReadyOptionCardActive: {
+    borderColor: '#FFFFFF',
+  },
+  planReadyOptionPhoto: {
+    width: 88,
+    height: 96,
+    minHeight: 96,
+    marginLeft: 0,
+    borderRadius: radii.sm,
+    overflow: 'hidden',
+  },
+  planReadyOptionImage: {
+    borderRadius: radii.sm,
+    transform: [{ translateX: 15 }, { scale: 2.25 }],
+  },
+  planReadyOptionShade: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.12)',
+  },
+  planReadyOptionCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+    paddingRight: spacing.sm,
+  },
+  planReadyOptionTitle: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '900',
+  },
+  planReadyOptionBody: {
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
+  planReadyOptionRadio: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.34)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#06080B',
-    paddingHorizontal: spacing.md,
+    backgroundColor: '#000000',
   },
-  reviewAlternativeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  reviewLiftChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  reviewLiftChip: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: 'rgba(6,8,11,0.10)',
-    backgroundColor: '#F5F7FA',
-    justifyContent: 'center',
-  },
-  reviewLiftChipText: {
-    color: '#06080B',
-    fontSize: 12,
-    fontWeight: '800',
+  planReadyOptionRadioActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
   },
   snapshotCard: {
     gap: spacing.sm,
@@ -5145,6 +5335,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderTopWidth: 0,
     borderTopColor: 'transparent',
+  },
+  focusFooter: {
+    transform: [{ translateY: 0 }],
+    paddingTop: spacing.lg,
   },
   footerDarkStage: {
     backgroundColor: '#06080B',

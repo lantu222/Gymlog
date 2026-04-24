@@ -126,7 +126,7 @@ Likely files:
 
 - big new feature work
 - plan discovery redesign
-- Vallu interaction redesign
+- AI Coach interaction redesign
 
 ### Exit Criteria
 
@@ -196,7 +196,7 @@ Implementation direction:
 - show one clear primary CTA first:
   - `Start with this plan`
   - `Continue with this plan`
-- demote `Shape the week`, `Make it more yours`, and Vallu to secondary refinement layers
+- demote `Shape the week`, `Make it more yours`, and AI Coach to secondary refinement layers
 - keep the recommendation screen visually product-like, not form-like
 
 Likely files:
@@ -258,7 +258,7 @@ Likely files:
 ### Out Of Scope
 
 - full search and advanced plan comparison
-- major Vallu workflow integration
+- major AI Coach workflow integration
 
 ### Exit Criteria
 
@@ -283,7 +283,7 @@ Make Gymlog more useful after week one. This phase is about giving users better 
 - better workout discovery
 - richer saved-session fidelity
 - more useful history and progress
-- Vallu as an operational tool
+- AI Coach as an operational tool
 - tighter long-term profile surfaces
 
 ### Deliverables
@@ -362,9 +362,9 @@ Acceptance criteria:
 - progress feels motivating, not just archival
 - history becomes easier to scan and more useful for review
 
-#### 4. Operational Vallu
+#### 4. Operational AI Coach
 
-Vallu should help users act, not only read advice.
+AI Coach should help users act, not only read advice.
 
 Implementation direction:
 
@@ -374,19 +374,19 @@ Implementation direction:
   - `Swap for home gym`
   - `Apply to custom editor`
 - improve trust messaging for live vs preview mode
-- keep Vallu close to decision moments
+- keep AI Coach close to decision moments
 
 Likely files:
 
 - [AICoachScreen.tsx](/D:/Gymlog/src/screens/AICoachScreen.tsx)
 - [AICoachCard.tsx](/D:/Gymlog/src/components/AICoachCard.tsx)
-- [valluClient.ts](/D:/Gymlog/src/lib/valluClient.ts)
-- [valluPreview.ts](/D:/Gymlog/src/lib/valluPreview.ts)
+- [aiCoachClient.ts](/D:/Gymlog/src/lib/aiCoachClient.ts)
+- [aiCoachPreview.ts](/D:/Gymlog/src/lib/aiCoachPreview.ts)
 - [App.tsx](/D:/Gymlog/App.tsx)
 
 Acceptance criteria:
 
-- Vallu outputs can move the user into an actual product action
+- AI Coach outputs can move the user into an actual product action
 - trust framing is consistent
 
 #### 5. Mature profile and plan utilities
@@ -415,7 +415,7 @@ Likely files:
 - workout discovery is meaningfully stronger
 - saved sessions retain more truth
 - progress and history feel rewarding
-- Vallu can trigger action, not only text
+- AI Coach can trigger action, not only text
 
 ## Suggested Execution Order
 
@@ -444,7 +444,7 @@ Likely files:
 1. saved-session model upgrade
 2. history/progress upgrade
 3. workout discovery upgrade
-4. operational Vallu
+4. operational AI Coach
 5. mature profile utilities
 
 ## Product Principle To Keep

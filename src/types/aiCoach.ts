@@ -64,7 +64,7 @@ export interface AICoachTrainingContext {
   recommendedProgramId: string | null;
   recommendedProgramTitle: string | null;
   customProgramTitle: string | null;
-  plannerSetup: AICoachPlannerSetupSummary | null;
+  plannerSetup?: AICoachPlannerSetupSummary | null;
 }
 
 export type AICoachActionKind =

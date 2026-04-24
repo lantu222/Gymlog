@@ -55,7 +55,7 @@ The engine should not try to solve everything at once. In particular:
 This design is intentionally aligned with the current codebase:
 
 - onboarding flow and first-run recommendation logic in `src/screens/OnboardingScreen.tsx` and `src/lib/firstRunSetup.ts`
-- AI coach experience in `src/screens/AICoachScreen.tsx`, `src/lib/valluActions.ts`, and `src/lib/aiCoachPlan.ts`
+- AI coach experience in `src/screens/AICoachScreen.tsx`, `src/lib/aiCoachActions.ts`, and `src/lib/aiCoachPlan.ts`
 - ready programme grouping and editorial presentation in `src/lib/readyProgramCollections.ts`, `src/lib/readyProgramContent.ts`, and `src/lib/templatePresentation.ts`
 - premium direction in `docs/premium-adaptive-coach-plan.md`
 

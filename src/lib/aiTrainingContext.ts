@@ -1,7 +1,7 @@
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
 import { UnitPreference, WorkoutSession } from '../types/models';
-import { AICoachTrainingContext } from '../types/vallu';
+import { AICoachTrainingContext } from '../types/aiCoach';
 
 export interface BuildAiTrainingContextInput {
   unitPreference: UnitPreference;
@@ -17,7 +17,7 @@ export interface BuildAiTrainingContextInput {
   recommendedProgramId: string | null;
   recommendedProgramTitle: string | null;
   customProgramTitle: string | null;
-  plannerSetup: {
+  plannerSetup?: {
     goal: string | null;
     daysPerWeek: number | null;
     experience: string | null;
@@ -95,6 +95,6 @@ export function buildAiTrainingContext({
     recommendedProgramId,
     recommendedProgramTitle,
     customProgramTitle,
-    plannerSetup,
+    ...(plannerSetup !== undefined ? { plannerSetup } : {}),
   };
 }

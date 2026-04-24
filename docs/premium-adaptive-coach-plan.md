@@ -17,7 +17,7 @@ That means:
 - smarter rest and next-set recommendations
 - session adjustment when energy, time, or recovery is off
 - weekly plan adaptation based on real performance trends
-- Vallu actions that can change the plan, not only explain it
+- AI Coach actions that can change the plan, not only explain it
 
 This is the strongest premium candidate because the app already has the right foundations:
 
@@ -25,7 +25,7 @@ This is the strongest premium candidate because the app already has the right fo
 - effort capture
 - plan-fit setup
 - progress and history
-- Vallu
+- AI Coach
 
 The premium layer should unify those into one paid coaching system.
 
@@ -40,7 +40,7 @@ Free should continue to include:
 - custom workouts
 - basic progress
 - manual rest timer
-- basic Vallu advice
+- basic AI Coach advice
 - plan setup and editing
 
 Free should feel complete enough to trust the app.
@@ -189,17 +189,17 @@ This is the first premium feature that makes the whole app feel alive, not just 
 - [HomeScreen.tsx](/D:/Gymlog/src/screens/HomeScreen.tsx)
 - [firstRunSetup.ts](/D:/Gymlog/src/lib/firstRunSetup.ts)
 
-## 5. Vallu Pro Actions
+## 5. AI Coach Pro Actions
 
-Premium should also upgrade Vallu from advice to execution.
+Premium should also upgrade AI Coach from advice to execution.
 
-### Free Vallu
+### Free AI Coach
 
 - explanations
 - general Q&A
 - simple suggestions
 
-### Premium Vallu
+### Premium AI Coach
 
 - `Adapt this session`
 - `Make today 35 min`
@@ -215,7 +215,7 @@ This gives the paywall a visible AI value that is concrete and immediately usefu
 ### Where it lives
 
 - [AICoachScreen.tsx](/D:/Gymlog/src/screens/AICoachScreen.tsx)
-- [valluActions.ts](/D:/Gymlog/src/lib/valluActions.ts)
+- [aiCoachActions.ts](/D:/Gymlog/src/lib/aiCoachActions.ts)
 - [aiTrainingContext.ts](/D:/Gymlog/src/lib/aiTrainingContext.ts)
 
 ## Free vs Premium Boundary
@@ -226,7 +226,7 @@ This gives the paywall a visible AI value that is concrete and immediately usefu
 - use ready plans
 - build custom workouts
 - track progress
-- ask Vallu questions
+- ask AI Coach questions
 - use a fixed rest timer
 - edit setup and plan settings
 
@@ -236,7 +236,7 @@ This gives the paywall a visible AI value that is concrete and immediately usefu
 - adaptive rest timing
 - readiness-based session adjustment
 - weekly plan adaptation
-- premium Vallu actions that change plans or sessions
+- premium AI Coach actions that change plans or sessions
 - premium insight summaries that explain why changes were made
 
 ## UX Surfaces
@@ -273,7 +273,7 @@ Why this works:
 
 - the user is already thinking in terms of plan fit
 
-## Surface 3: Vallu action lock
+## Surface 3: AI Coach action lock
 
 Best trigger:
 
@@ -293,7 +293,7 @@ Add a Premium block:
 - `Smart Rest`
 - `Readiness`
 - `Adaptive Week`
-- `Vallu Pro`
+- `AI Coach Pro`
 
 This is the cleanest internal home for premium configuration.
 
@@ -354,7 +354,7 @@ After MVP:
 1. Smart Rest
 2. Readiness Check
 3. Adaptive Week
-4. Vallu Pro Actions
+4. AI Coach Pro Actions
 5. Premium insights summaries
 
 This order is important because each step reuses the previous data.

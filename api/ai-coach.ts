@@ -1,5 +1,5 @@
-import { buildAiCoachPreviewAnswer } from '../src/lib/valluPreview';
-import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../src/types/vallu';
+import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
+import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../src/types/aiCoach';
 
 type ApiRequest = {
   method?: string;
@@ -17,10 +17,10 @@ type ApiResponse = {
   end: (body?: string) => void;
 };
 
-const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ?? process.env.VALLU_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
-const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? process.env.VALLU_RATE_LIMIT_MAX ?? 12);
-const OPENAI_TIMEOUT_MS = Number(process.env.AI_COACH_OPENAI_TIMEOUT_MS ?? process.env.VALLU_OPENAI_TIMEOUT_MS ?? 12000);
-const OPENAI_MODEL = process.env.AI_COACH_OPENAI_MODEL ?? process.env.VALLU_OPENAI_MODEL ?? 'gpt-5.2';
+const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
+const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? 12);
+const OPENAI_TIMEOUT_MS = Number(process.env.AI_COACH_OPENAI_TIMEOUT_MS ?? 12000);
+const OPENAI_MODEL = process.env.AI_COACH_OPENAI_MODEL ?? 'gpt-5.2';
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
 
 const AI_COACH_RESPONSE_SCHEMA = {

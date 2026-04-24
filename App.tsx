@@ -87,7 +87,7 @@ import {
   UnitPreference,
   WorkoutTemplateDraft,
 } from './src/types/models';
-import { AICoachAction } from './src/types/vallu';
+import { AICoachAction } from './src/types/aiCoach';
 
 void SplashScreen.preventAutoHideAsync().catch(() => {
   // Native splash may already be controlled by the host app during fast refresh.

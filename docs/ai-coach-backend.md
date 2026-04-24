@@ -1,4 +1,4 @@
-# Vallu backend setup
+# AI Coach backend setup
 
 Last updated: 26 March 2026
 
@@ -7,25 +7,25 @@ This backend path is designed so that the app can work in two modes:
 - live mode: app calls your own endpoint, which calls OpenAI
 
 ## Files
-- D:\Gymlog\api\vallu.ts
-- D:\Gymlog\src\lib\valluClient.ts
-- D:\Gymlog\src\lib\valluPreview.ts
-- D:\Gymlog\src\types\vallu.ts
+- D:\Gymlog\api\ai-coach.ts
+- D:\Gymlog\src\lib\aiCoachClient.ts
+- D:\Gymlog\src\lib\aiCoachPreview.ts
+- D:\Gymlog\src\types\aiCoach.ts
 
 ## Environment variables
 ### App
-Set this in the Expo environment for builds that should use live Vallu:
-- `EXPO_PUBLIC_VALLU_API_URL=https://your-domain.example/api/vallu`
+Set this in the Expo environment for builds that should use live AI Coach:
+- `EXPO_PUBLIC_AI_COACH_API_URL=https://your-domain.example/api/ai-coach`
 
 If this variable is missing, the app automatically falls back to local preview mode.
 
 ### Serverless endpoint
 Set these on the server / deployment platform:
 - `OPENAI_API_KEY=...`
-- `VALLU_OPENAI_MODEL=gpt-5.2` (optional)
-- `VALLU_RATE_LIMIT_MAX=12` (optional)
-- `VALLU_RATE_LIMIT_WINDOW_MS=600000` (optional)
-- `VALLU_OPENAI_TIMEOUT_MS=12000` (optional)
+- `AI_COACH_OPENAI_MODEL=gpt-5.2` (optional)
+- `AI_COACH_RATE_LIMIT_MAX=12` (optional)
+- `AI_COACH_RATE_LIMIT_WINDOW_MS=600000` (optional)
+- `AI_COACH_OPENAI_TIMEOUT_MS=12000` (optional)
 
 ## Logging decision
 Current decision:

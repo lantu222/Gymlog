@@ -1,7 +1,7 @@
-import { buildAiCoachPreviewAnswer } from './valluPreview';
-import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/vallu';
+import { buildAiCoachPreviewAnswer } from './aiCoachPreview';
+import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
 
-const AI_COACH_API_URL = (process.env.EXPO_PUBLIC_AI_COACH_API_URL ?? process.env.EXPO_PUBLIC_VALLU_API_URL ?? '').trim();
+const AI_COACH_API_URL = (process.env.EXPO_PUBLIC_AI_COACH_API_URL ?? '').trim();
 const REQUEST_TIMEOUT_MS = 12000;
 
 export interface RequestAiCoachAdviceResult {

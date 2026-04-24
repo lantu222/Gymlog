@@ -5,10 +5,10 @@ import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { buildAiCoachActions } from '../lib/valluActions';
+import { buildAiCoachActions } from '../lib/aiCoachActions';
 import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { requestAiCoachAdvice } from '../lib/valluClient';
-import { AICoachAction, AICoachAdvice, AICoachTrainingContext } from '../types/vallu';
+import { requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { AICoachAction, AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
 import { colors, layout, radii, spacing } from '../theme';
 
 interface AICoachScreenProps {

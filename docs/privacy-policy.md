@@ -19,10 +19,10 @@ Gymlog lets users:
 - log completed workouts, sets, reps, load, and notes
 - track bodyweight entries
 - view local progress and training history
-- use Vallu Beta, a coaching feature for training questions
+- use AI Coach Beta, a coaching feature for training questions
 
-Vallu Beta can operate in two modes depending on how the app is configured:
-- Preview mode: prompts stay in the app and Vallu shows a local preview-style response.
+AI Coach Beta can operate in two modes depending on how the app is configured:
+- Preview mode: prompts stay in the app and AI Coach shows a local preview-style response.
 - Live mode: prompts and limited training context are sent to Gymlog's own backend endpoint, which then requests a response from an AI provider.
 
 ## 3. What data Gymlog stores
@@ -51,18 +51,18 @@ As of version 1.1.0:
 - Gymlog does not sell user data.
 - Gymlog does not use advertising SDKs.
 - Gymlog does not include analytics, crash reporting, social sharing, contacts access, camera access, microphone access, or location access.
-- Outside live Vallu Beta requests, Gymlog does not intentionally transmit workout logs, bodyweight data, exercise notes, or profile data to the developer's servers.
+- Outside live AI Coach Beta requests, Gymlog does not intentionally transmit workout logs, bodyweight data, exercise notes, or profile data to the developer's servers.
 - Gymlog currently uses bundled local assets for Home screen artwork instead of loading third-party remote media.
 
-If live Vallu Beta is enabled, Gymlog may transmit:
-- the question the user types for Vallu
+If live AI Coach Beta is enabled, Gymlog may transmit:
+- the question the user types for AI Coach
 - limited training context needed to answer it, such as active workout title, next exercise, recent workout names, tracked lift highlights, and recent training counts
 
-Current Vallu backend policy:
+Current AI Coach backend policy:
 - prompt text is not intentionally logged by the endpoint
 - training context is not intentionally logged by the endpoint
 - generic error logging may still occur without prompt contents
-- Vallu requests are sent over HTTPS
+- AI Coach requests are sent over HTTPS
 
 If Gymlog later adds cloud sync, analytics, accounts, or broader server-side retention, this policy must be updated before release.
 
@@ -88,7 +88,7 @@ Gymlog does not currently provide account-based cloud storage, so there is no se
 ## 9. Security
 Gymlog stores app data locally on the device using app storage.
 Gymlog currently does not operate a general user account backend for workout logs or bodyweight entries.
-If live Vallu Beta is enabled, Gymlog sends prompts and limited training context over HTTPS to its own endpoint and then to the configured AI provider.
+If live AI Coach Beta is enabled, Gymlog sends prompts and limited training context over HTTPS to its own endpoint and then to the configured AI provider.
 
 ## 10. Children
 Gymlog is not designed specifically for children.

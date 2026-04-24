@@ -1,5 +1,5 @@
-import { buildAiCoachActions } from './valluActions';
-import { AICoachAdvice, AICoachTrainingContext } from '../types/vallu';
+import { buildAiCoachActions } from './aiCoachActions';
+import { AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
 
 function formatActiveContext(context: AICoachTrainingContext) {
   if (!context.activeSession) {

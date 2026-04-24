@@ -1,4 +1,4 @@
-import { AICoachAction, AICoachTrainingContext } from '../types/vallu';
+import { AICoachAction, AICoachTrainingContext } from '../types/aiCoach';
 
 function normalizeText(value: string) {
   return value.trim().toLowerCase();

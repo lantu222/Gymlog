@@ -24,8 +24,8 @@ These items require your external accounts, legal decisions, public URLs, or sto
 14. Decide whether to disable Android backup or disclose that device-level backup may apply.
 
 ## Strongly recommended manual decisions
-1. Decide whether Vallu launches as Beta in the store listing.
-2. Decide whether Vallu stays preview-only in v1 or ships with the live backend enabled.
+1. Decide whether AI Coach launches as Beta in the store listing.
+2. Decide whether AI Coach stays preview-only in v1 or ships with the live backend enabled.
    - If live backend is enabled, publish the updated privacy policy and re-check Play Data Safety answers.
 3. Decide what support promise you want to make publicly, if any.
 4. Decide whether to include a public website or landing page.

@@ -45,7 +45,7 @@
   - align premium coach concepts with family/programme distinction where relevant
 - `src/screens/AICoachScreen.tsx`
   - consume recommendation output for premium explanation and adaptation entry points
-- `src/lib/valluActions.ts`
+- `src/lib/aiCoachActions.ts`
   - add allowed AI_COACH recommendation actions and guardrails
 - `src/lib/readyProgramCollections.ts`
   - map collections to families or recommendation-friendly categories
@@ -60,7 +60,7 @@
 
 - `tests/lib/firstRunSetup.test.cjs`
 - `tests/lib/readyProgramCollections.test.cjs`
-- `tests/lib/valluActions.test.cjs`
+- `tests/lib/aiCoachActions.test.cjs`
 
 ## Implementation Sequence
 
@@ -263,9 +263,9 @@
 
 **Files:**
 - Modify: `src/screens/AICoachScreen.tsx`
-- Modify: `src/lib/valluActions.ts`
+- Modify: `src/lib/aiCoachActions.ts`
 - Modify: `src/lib/aiCoachPlan.ts`
-- Test: `tests/lib/valluActions.test.cjs`
+- Test: `tests/lib/aiCoachActions.test.cjs`
 
 - [ ] Add explicit recommendation-aware actions such as:
   - explain this recommendation

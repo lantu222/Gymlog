@@ -4,7 +4,7 @@ const { buildAiTrainingContext } = require('../../.test-dist/lib/aiTrainingConte
 
 module.exports = [
   {
-    name: 'ai training context keeps a compact but actionable vallu summary',
+    name: 'ai training context keeps a compact but actionable aiCoach summary',
     run() {
       const context = buildAiTrainingContext({
         unitPreference: 'kg',

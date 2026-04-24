@@ -1,4 +1,4 @@
-import { AppRoute, ROOT_ROUTES, WORKOUT_PLAN_ROUTE } from '../navigation/routes';
+import { AppRoute, ROOT_ROUTES } from '../navigation/routes';
 
 interface WorkoutLoggerFallbackInput {
   activeWorkoutTemplateId: string | null;
@@ -29,5 +29,5 @@ export function resolveWorkoutLoggerFallbackRoute({
     return ROOT_ROUTES.home;
   }
 
-  return WORKOUT_PLAN_ROUTE;
+  return ROOT_ROUTES.workout;
 }

@@ -1,6 +1,6 @@
 const assert = require('node:assert/strict');
 
-const { buildValluActions } = require('../../.test-dist/lib/valluActions.js');
+const { buildAiCoachActions } = require('../../.test-dist/lib/aiCoachActions.js');
 
 function createContext(overrides = {}) {
   return {
@@ -44,9 +44,9 @@ function createContext(overrides = {}) {
 
 module.exports = [
   {
-    name: 'vallu actions turn a stuck lift question into progress and history actions',
+    name: 'ai coach actions turn a stuck lift question into progress and history actions',
     run() {
-      const actions = buildValluActions('Why is my bench stuck?', createContext());
+      const actions = buildAiCoachActions('Why is my bench stuck?', createContext());
 
       assert.equal(actions[0].kind, 'open_lift_progress');
       assert.equal(actions[0].exerciseKey, 'bench press');
@@ -54,21 +54,21 @@ module.exports = [
     },
   },
   {
-    name: 'vallu actions turn a program question into plan, setup, and custom-editor actions',
+    name: 'ai coach actions turn a program question into plan, setup, and custom-editor actions',
     run() {
-      const actions = buildValluActions('Fix my split for 4 days', createContext());
+      const actions = buildAiCoachActions('Fix my split for 4 days', createContext());
 
       assert.deepEqual(
         actions.map((action) => action.kind),
         ['open_recommended_program', 'review_setup', 'open_custom_editor'],
       );
-      assert.equal(actions[2].prefillName, '4-Day Vallu Plan');
+      assert.equal(actions[2].prefillName, '4-Day AI Coach Plan');
     },
   },
   {
-    name: 'vallu actions can direct home gym questions back to setup review',
+    name: 'ai coach actions can direct home gym questions back to setup review',
     run() {
-      const actions = buildValluActions('Swap this for a home gym setup', createContext());
+      const actions = buildAiCoachActions('Swap this for a home gym setup', createContext());
       const setupAction = actions.find((action) => action.kind === 'review_setup');
 
       assert.ok(setupAction);
@@ -76,9 +76,9 @@ module.exports = [
     },
   },
   {
-    name: 'vallu actions prioritize resuming the live workout for current-session prompts',
+    name: 'ai coach actions prioritize resuming the live workout for current-session prompts',
     run() {
-      const actions = buildValluActions('What should my next move be in this workout?', createContext());
+      const actions = buildAiCoachActions('What should my next move be in this workout?', createContext());
 
       assert.equal(actions[0].kind, 'resume_workout');
     },

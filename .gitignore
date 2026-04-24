@@ -43,6 +43,7 @@ yarn-error.*
 /android
 
 # local device + QA artifacts
+.superpowers/
 .android-home/
 .test-dist/
 _tmp_bodbot/
