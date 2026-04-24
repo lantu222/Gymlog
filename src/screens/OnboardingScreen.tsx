@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
+  Dimensions,
+  Easing,
   Image,
   ImageBackground,
   Modal,
@@ -12,10 +14,12 @@ import {
   Text,
   TextInput,
   View,
+  ViewStyle,
 } from 'react-native';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
@@ -99,7 +103,7 @@ type SetupStage =
 type HelperState = 'idle' | 'loading' | 'ready' | 'error';
 type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | null;
 
-const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'about', 'focus', 'review'];
+const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about', 'focus', 'review'];
 
 const DEFAULT_BODYWEIGHT_KG = 70;
 const DEFAULT_BODYWEIGHT_LB = 154;
@@ -122,35 +126,17 @@ function getStageIndex(stage?: SetupStage) {
   return index >= 0 ? index : 0;
 }
 
-const LOCATION_OPTIONS: Array<{
-  equipment: SetupEquipment;
-  title: string;
-  body: string;
-  meta: string;
-  photo: 'strength' | 'recovery' | 'running';
-}> = [
-  {
-    equipment: 'gym',
-    title: 'Full gym',
-    body: '',
-    meta: 'Best for classic lifting',
-    photo: 'strength',
-  },
-  {
-    equipment: 'home',
-    title: 'Home setup',
-    body: 'Good for minimal setup.',
-    meta: '',
-    photo: 'recovery',
-  },
-  {
-    equipment: 'minimal',
-    title: 'Running / outdoors',
-    body: 'Optional low-setup path.',
-    meta: '',
-    photo: 'running',
-  },
-];
+function getDefaultLocationOptionId(equipment: SetupEquipment) {
+  switch (equipment) {
+    case 'home':
+      return 'home_workout';
+    case 'minimal':
+      return 'outdoor_running';
+    case 'gym':
+    default:
+      return 'full_gym';
+  }
+}
 
 const GENDER_OPTIONS: Array<{
   gender: SetupGender;
@@ -291,6 +277,61 @@ const FOCUS_AREA_OPTIONS: SetupFocusArea[] = [
   'conditioning',
 ];
 const WEEKDAY_OPTIONS: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const LOCATION_SELECTION_OPTIONS: Array<{
+  id: string;
+  equipment: SetupEquipment;
+  label: string;
+  subtitle: string;
+  icon: OnboardingOptionIconName;
+}> = [
+  {
+    id: 'full_gym',
+    equipment: 'gym',
+    label: 'Full Gym',
+    subtitle: 'Train in a fully equipped gym',
+    icon: 'barbell',
+  },
+  {
+    id: 'home_workout',
+    equipment: 'home',
+    label: 'Home Workout',
+    subtitle: 'Train at home with minimal equipment',
+    icon: 'home',
+  },
+  {
+    id: 'outdoor_running',
+    equipment: 'minimal',
+    label: 'Outdoor / Running',
+    subtitle: 'Train outside or go for runs',
+    icon: 'run',
+  },
+  {
+    id: 'bodyweight',
+    equipment: 'minimal',
+    label: 'Bodyweight',
+    subtitle: 'Use your body, no equipment',
+    icon: 'person',
+  },
+];
+
+const GOAL_SELECTION_OPTIONS: Array<{
+  id: SetupGoal;
+  label: string;
+  subtitle: string;
+  icon: OnboardingOptionIconName;
+}> = GOAL_OPTIONS.map((option) => ({
+  id: option.goal,
+  label: option.title,
+  subtitle: option.body,
+  icon:
+    option.goal === 'strength'
+      ? 'barbell'
+      : option.goal === 'muscle'
+        ? 'barbell'
+        : option.goal === 'general'
+          ? 'person'
+          : 'run',
+}));
 
 function ChoiceChip({
   label,
@@ -308,11 +349,97 @@ function ChoiceChip({
   );
 }
 
+function LocationChoiceCard({
+  label,
+  subtitle,
+  icon,
+  active,
+  onPress,
+  compact = false,
+  hideIcon = false,
+  leadingRadio = false,
+  tall = false,
+}: {
+  label: string;
+  subtitle?: string;
+  icon: OnboardingOptionIconName;
+  active: boolean;
+  onPress: () => void;
+  compact?: boolean;
+  hideIcon?: boolean;
+  leadingRadio?: boolean;
+  tall?: boolean;
+}) {
+  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: active ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [active, progress]);
+
+  const animatedStyle = {
+    opacity: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.94, 1],
+    }),
+    transform: [
+      {
+        scale: progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.02],
+        }),
+      },
+    ],
+  };
+  const radio = (
+    <View
+      style={[
+        styles.locationChoiceRadio,
+        leadingRadio && styles.locationChoiceRadioLeading,
+        active && styles.locationChoiceRadioActive,
+      ]}
+    >
+      {active ? <View style={styles.locationChoiceRadioInner} /> : null}
+    </View>
+  );
+
+  return (
+    <Pressable onPress={onPress} style={styles.locationChoicePressable}>
+      <Animated.View
+        style={[
+          styles.locationChoiceCard,
+          compact && styles.locationChoiceCardCompact,
+          tall && styles.locationChoiceCardTall,
+          active && styles.locationChoiceCardActive,
+          animatedStyle,
+        ]}
+      >
+        <View style={styles.locationChoiceRow}>
+          {leadingRadio ? radio : null}
+          {hideIcon ? null : <OnboardingOptionIcon name={icon} />}
+          <View style={[styles.locationChoiceCopy, hideIcon && styles.locationChoiceCopyNoIcon]}>
+            <Text style={[styles.locationChoiceLabel, active && styles.locationChoiceLabelActive]}>{label}</Text>
+            {subtitle ? (
+              <Text style={[styles.locationChoiceSubtitle, active && styles.locationChoiceSubtitleActive]}>{subtitle}</Text>
+            ) : null}
+          </View>
+          {leadingRadio ? null : radio}
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
 function PhotoSelectionCard({
   title,
   body,
   meta,
   active,
+  variantLabel,
   tagLabel,
   plain = false,
   backgroundSource,
@@ -323,6 +450,7 @@ function PhotoSelectionCard({
   body: string;
   meta: string;
   active: boolean;
+  variantLabel?: string;
   tagLabel?: string;
   plain?: boolean;
   backgroundSource?: number;
@@ -402,6 +530,34 @@ function PhotoSelectionCard({
     </View>
   );
 
+  const splitContent = (
+    <View style={[styles.splitSelectionCard, active && styles.splitSelectionCardActive]}>
+      <View style={[styles.splitSelectionFrame, active && styles.splitSelectionFrameActive]} />
+      <View style={styles.splitSelectionDarkPane} />
+      <View style={[styles.splitSelectionBottomLeftPane, active && styles.splitSelectionBottomLeftPaneActive]} />
+      <View style={[styles.splitSelectionLightPane, active && styles.splitSelectionLightPaneActive]} />
+      <View style={[styles.splitSelectionDiagonal, active && styles.splitSelectionDiagonalActive]} />
+      <View style={[styles.splitSelectionDiagonalOffset, active && styles.splitSelectionDiagonalOffsetActive]} />
+      <View style={[styles.splitSelectionCornerAccent, styles.splitSelectionCornerAccentTopRight, active && styles.splitSelectionCornerAccentActive]} />
+      <View style={[styles.splitSelectionCornerAccent, styles.splitSelectionCornerAccentBottomLeft, active && styles.splitSelectionCornerAccentActive]} />
+
+      <View style={styles.splitSelectionContent}>
+        {variantLabel ? (
+          <View style={styles.splitSelectionVariantBadge}>
+            <Text style={styles.splitSelectionVariantBadgeText}>{variantLabel}</Text>
+          </View>
+        ) : null}
+        <View style={styles.splitSelectionPrimary}>
+        </View>
+
+        <View style={styles.splitSelectionSecondary}>
+          {body ? <Text style={styles.splitSelectionBody}>{body}</Text> : null}
+          {meta ? <Text style={styles.splitSelectionMeta}>{meta}</Text> : null}
+        </View>
+      </View>
+    </View>
+  );
+
   return (
     <Pressable
       onPress={handlePress}
@@ -412,15 +568,21 @@ function PhotoSelectionCard({
         plain && active && styles.photoSelectionCardPlainActive,
       ]}
     >
-      <Animated.View style={[styles.photoSelectionAnimatedWrap, { transform: [{ scale }] }]}>
-        {plain && backgroundSource ? (
+      <Animated.View
+        style={[
+          styles.photoSelectionAnimatedWrap,
+          active && styles.photoSelectionAnimatedWrapPlainActive,
+          { transform: [{ scale }] },
+        ]}
+      >
+        {plain ? (
+          splitContent
+        ) : plain && backgroundSource ? (
           <View style={styles.photoSelectionSurfacePlainImage}>
             <Image source={backgroundSource} resizeMode="cover" style={styles.photoSelectionSurfacePlainAsset} />
             <View style={styles.photoSelectionPlainShade} />
             {content}
           </View>
-        ) : plain ? (
-          content
         ) : (
           <FitnessPhotoSurface variant={photo} compact style={styles.photoSelectionSurface}>
             {content}
@@ -1069,10 +1231,24 @@ export function OnboardingScreen({
   const insets = useSafeAreaInsets();
   const setupSeed = initialSelection ?? DEFAULT_FIRST_RUN_SELECTION;
   const editMode = mode === 'edit';
+  const BUILDING_PLAN_TOTAL_MS = 10000;
   const previousUnitPreferenceRef = useRef(initialUnitPreference);
   const [stageIndex, setStageIndex] = useState(() =>
     getStageIndex(initialStage ?? (editMode ? 'review' : 'location')),
   );
+  const [isBuildingPlan, setIsBuildingPlan] = useState(false);
+  const [showBuildingPlanThinking, setShowBuildingPlanThinking] = useState(false);
+  const [buildingPlanPhaseIndex, setBuildingPlanPhaseIndex] = useState(0);
+  const [buildingPlanPercent, setBuildingPlanPercent] = useState(0);
+  const buildingPlanScreenOpacity = useRef(new Animated.Value(1)).current;
+  const buildingPlanEntryOpacity = useRef(new Animated.Value(0)).current;
+  const buildingPlanTopTranslate = useRef(new Animated.Value(-36)).current;
+  const buildingPlanBottomTranslate = useRef(new Animated.Value(36)).current;
+  const buildingPlanLogoOpacity = useRef(new Animated.Value(0)).current;
+  const buildingPlanLogoScale = useRef(new Animated.Value(0.95)).current;
+  const buildingPlanThinkingOpacity = useRef(new Animated.Value(0)).current;
+  const buildingPlanCaptionOpacity = useRef(new Animated.Value(0)).current;
+  const buildingPlanPulse = useRef(new Animated.Value(0)).current;
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
   const [age, setAge] = useState(() =>
     typeof setupSeed.age === 'number' && Number.isFinite(setupSeed.age)
@@ -1085,6 +1261,9 @@ export function OnboardingScreen({
   const [level, setLevel] = useState<SetupLevel>(setupSeed.level);
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
   const [equipment, setEquipment] = useState<SetupEquipment>(setupSeed.equipment);
+  const [selectedLocationOptionId, setSelectedLocationOptionId] = useState<string | null>(() =>
+    initialSelection || editMode ? getDefaultLocationOptionId(setupSeed.equipment) : null,
+  );
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
   );
@@ -1117,6 +1296,10 @@ export function OnboardingScreen({
   const [helperError, setHelperError] = useState('');
 
   const stage = STAGES[stageIndex];
+  const buildingPlanPhases = useMemo(
+    () => ['Building your plan...', 'Thinking through your answers...', 'Almost ready...'],
+    [],
+  );
   const currentWeightValue = useMemo(() => parseNumberInput(currentWeightDraft), [currentWeightDraft]);
   const targetWeightValue = useMemo(() => parseNumberInput(targetWeightDraft), [targetWeightDraft]);
   const selection = useMemo<FirstRunSetupSelection>(
@@ -1403,6 +1586,183 @@ export function OnboardingScreen({
     setBodyweightPickerValue(parsed);
   }, [currentWeightDraft, unitPreference]);
 
+  useEffect(() => {
+    if (!isBuildingPlan) {
+      buildingPlanScreenOpacity.setValue(1);
+      buildingPlanEntryOpacity.setValue(0);
+      buildingPlanTopTranslate.setValue(-36);
+      buildingPlanBottomTranslate.setValue(36);
+      buildingPlanLogoOpacity.setValue(0);
+      buildingPlanLogoScale.setValue(0.95);
+      buildingPlanThinkingOpacity.setValue(0);
+      buildingPlanCaptionOpacity.setValue(0);
+      setShowBuildingPlanThinking(false);
+      setBuildingPlanPercent(0);
+      buildingPlanPulse.stopAnimation();
+      buildingPlanPulse.setValue(0);
+      return;
+    }
+
+    setBuildingPlanPhaseIndex(0);
+    setShowBuildingPlanThinking(false);
+    setBuildingPlanPercent(0);
+    buildingPlanScreenOpacity.setValue(1);
+    buildingPlanEntryOpacity.setValue(0);
+    buildingPlanTopTranslate.setValue(-36);
+    buildingPlanBottomTranslate.setValue(36);
+    buildingPlanLogoOpacity.setValue(0);
+    buildingPlanLogoScale.setValue(0.95);
+    buildingPlanThinkingOpacity.setValue(0);
+    buildingPlanCaptionOpacity.setValue(0);
+    buildingPlanPulse.setValue(0);
+
+    const timeouts: ReturnType<typeof setTimeout>[] = [];
+    const startedAt = Date.now();
+    const percentIntervalId = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const percent = Math.min(100, Math.round((elapsed / BUILDING_PLAN_TOTAL_MS) * 100));
+      setBuildingPlanPercent(percent);
+    }, 80);
+
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(buildingPlanPulse, {
+          toValue: 1,
+          duration: 700,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(buildingPlanPulse, {
+          toValue: 0,
+          duration: 700,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    Animated.parallel([
+      Animated.timing(buildingPlanEntryOpacity, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(buildingPlanTopTranslate, {
+        toValue: 0,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(buildingPlanBottomTranslate, {
+        toValue: 0,
+        duration: 600,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(buildingPlanLogoOpacity, {
+        toValue: 1,
+        duration: 500,
+        delay: 120,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(buildingPlanLogoScale, {
+        toValue: 1,
+        duration: 500,
+        delay: 120,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    timeouts.push(
+      setTimeout(() => {
+        setShowBuildingPlanThinking(true);
+        Animated.timing(buildingPlanThinkingOpacity, {
+          toValue: 1,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start();
+        pulseLoop.start();
+      }, 1300),
+    );
+
+    const fadeCaption = (index: number) => {
+      setBuildingPlanPhaseIndex(index);
+      buildingPlanCaptionOpacity.setValue(0);
+      Animated.timing(buildingPlanCaptionOpacity, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    };
+
+    timeouts.push(setTimeout(() => fadeCaption(0), 1800));
+    timeouts.push(setTimeout(() => fadeCaption(1), 4600));
+    timeouts.push(setTimeout(() => fadeCaption(2), 7400));
+
+    timeouts.push(
+      setTimeout(() => {
+        setBuildingPlanPercent(100);
+        pulseLoop.stop();
+        Animated.timing(buildingPlanScreenOpacity, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (!finished) {
+            return;
+          }
+          setIsBuildingPlan(false);
+          setShowBuildingPlanThinking(false);
+          setStageIndex(getStageIndex('review'));
+        });
+      }, BUILDING_PLAN_TOTAL_MS - 500),
+    );
+
+    return () => {
+      timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
+      clearInterval(percentIntervalId);
+      pulseLoop.stop();
+      buildingPlanScreenOpacity.stopAnimation();
+      buildingPlanEntryOpacity.stopAnimation();
+      buildingPlanTopTranslate.stopAnimation();
+      buildingPlanBottomTranslate.stopAnimation();
+      buildingPlanLogoOpacity.stopAnimation();
+      buildingPlanLogoScale.stopAnimation();
+      buildingPlanThinkingOpacity.stopAnimation();
+      buildingPlanCaptionOpacity.stopAnimation();
+      buildingPlanPulse.stopAnimation();
+      buildingPlanScreenOpacity.setValue(1);
+      buildingPlanEntryOpacity.setValue(0);
+      buildingPlanTopTranslate.setValue(-36);
+      buildingPlanBottomTranslate.setValue(36);
+      buildingPlanLogoOpacity.setValue(0);
+      buildingPlanLogoScale.setValue(0.95);
+      buildingPlanThinkingOpacity.setValue(0);
+      buildingPlanCaptionOpacity.setValue(0);
+      setShowBuildingPlanThinking(false);
+      setBuildingPlanPercent(0);
+      buildingPlanPulse.setValue(0);
+    };
+  }, [
+    BUILDING_PLAN_TOTAL_MS,
+    buildingPlanBottomTranslate,
+    buildingPlanCaptionOpacity,
+    buildingPlanEntryOpacity,
+    buildingPlanLogoOpacity,
+    buildingPlanLogoScale,
+    buildingPlanPulse,
+    buildingPlanScreenOpacity,
+    buildingPlanThinkingOpacity,
+    buildingPlanTopTranslate,
+    isBuildingPlan,
+  ]);
+
   function openHelper(prefill?: string) {
     setHelperDraft(prefill ?? helperPrompt);
     setHelperVisible(true);
@@ -1601,36 +1961,129 @@ export function OnboardingScreen({
   }
 
   function renderLocation() {
+    return renderSplitSelectionStage({
+      stepLabel: 'STEP 1',
+      titleLines: ['WHERE DO YOU', 'TRAIN'],
+      subtitle: 'Pick one or more.',
+      options: LOCATION_SELECTION_OPTIONS.map((option) => ({
+        id: option.id,
+        label: option.label,
+        subtitle: option.subtitle,
+        icon: option.icon,
+        active: selectedLocationOptionId === option.id,
+        onPress: () => {
+          setSelectedLocationOptionId(option.id);
+          setEquipment(option.equipment);
+        },
+      })),
+      optionsContainerStyle: styles.locationStepOneOptionsShift,
+    });
+  }
+
+  function renderSplitSelectionStage({
+    stepLabel,
+    titleLines,
+    subtitle,
+    options,
+    beforeOptions,
+    afterOptions,
+    grid = false,
+    compactCards = false,
+    hideIcons = false,
+    leadingRadio = false,
+    tightBottom = false,
+    largeTitle = false,
+    solidStepLabel = false,
+    compactTop = false,
+    tallCards = false,
+    optionsContainerStyle,
+    topCopyStyle,
+  }: {
+    stepLabel: string;
+    titleLines: string[];
+    subtitle?: string;
+    beforeOptions?: React.ReactNode;
+    afterOptions?: React.ReactNode;
+    grid?: boolean;
+    compactCards?: boolean;
+    hideIcons?: boolean;
+    leadingRadio?: boolean;
+    tightBottom?: boolean;
+    largeTitle?: boolean;
+    solidStepLabel?: boolean;
+    compactTop?: boolean;
+    tallCards?: boolean;
+    optionsContainerStyle?: ViewStyle;
+    topCopyStyle?: ViewStyle;
+    options: Array<{
+      id: string;
+      label: string;
+      subtitle?: string;
+      icon: OnboardingOptionIconName;
+      active: boolean;
+      onPress: () => void;
+    }>;
+  }) {
+    const locationStageHeight = Math.max(640, Dimensions.get('window').height - insets.top - insets.bottom - 150);
+    const locationTopHeight = compactTop
+      ? Math.min(300, Math.round(locationStageHeight * 0.31) + 24)
+      : Math.min(380, Math.round(locationStageHeight * 0.38) + 40);
+
     return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 1</Text>
-          <Text style={[styles.title, styles.titleLight]}>Where do you train?</Text>
-          <Text style={[styles.body, styles.bodyLight]}>Choose the setup you really use.</Text>
+      <View style={[styles.locationStageShell, { minHeight: locationStageHeight }]}>
+        <View style={[styles.locationTopPane, compactTop && styles.locationTopPaneCompact, { height: locationTopHeight }]}>
+          <View style={styles.locationTopSlope} />
+          <View style={[styles.locationTopCopy, compactTop && styles.locationTopCopyCompact, topCopyStyle]}>
+            <View style={styles.locationPaginationWrap}>
+              <StepDots index={stageIndex} />
+            </View>
+            <Text style={[styles.locationStepLabel, solidStepLabel && styles.locationStepLabelSolid]}>{stepLabel}</Text>
+            {titleLines.map((line) => (
+              <Text key={line} style={[styles.locationHeadline, largeTitle && styles.locationHeadlineLarge]}>{line}</Text>
+            ))}
+            {subtitle ? <Text style={styles.locationSubtitle}>{subtitle}</Text> : null}
+          </View>
         </View>
 
-        <View style={styles.selectionList}>
-          {LOCATION_OPTIONS.map((option) => (
-            <PhotoSelectionCard
-              key={option.equipment}
-              title={option.title}
-              body={option.body}
-              meta={option.meta}
-              plain
-              backgroundSource={
-                option.equipment === 'gym'
-                  ? require('../../assets/fitness/selected/full-gym-card.png')
-                  : option.equipment === 'home'
-                    ? require('../../assets/fitness/selected/home-setup-card.png')
-                    : option.equipment === 'minimal'
-                      ? require('../../assets/fitness/selected/running-card.png')
-                      : undefined
-              }
-              photo={option.photo}
-              active={equipment === option.equipment}
-              onPress={() => setEquipment(option.equipment)}
-            />
-          ))}
+        <View style={[styles.locationBottomPane, tightBottom && styles.locationBottomPaneTight]}>
+          {beforeOptions}
+          {grid ? (
+            <View style={[styles.locationCardGrid, optionsContainerStyle]}>
+              {options.map((option) => (
+                <View key={option.id} style={styles.locationCardGridItem}>
+                  <LocationChoiceCard
+                    label={option.label}
+                    subtitle={option.subtitle}
+                    icon={option.icon}
+                    active={option.active}
+                    onPress={option.onPress}
+                    compact={compactCards}
+                    hideIcon={hideIcons}
+                    leadingRadio={leadingRadio}
+                    tall={tallCards}
+                  />
+                </View>
+              ))}
+            </View>
+          ) : (
+            <View style={[styles.locationCardList, compactCards && styles.locationCardListCompact, optionsContainerStyle]}>
+              {options.map((option) => (
+                <LocationChoiceCard
+                  key={option.id}
+                  label={option.label}
+                  subtitle={option.subtitle}
+                  icon={option.icon}
+                  active={option.active}
+                  onPress={option.onPress}
+                  compact={compactCards}
+                  hideIcon={hideIcons}
+                  leadingRadio={leadingRadio}
+                  tall={tallCards}
+                />
+              ))}
+            </View>
+          )}
+          {afterOptions}
         </View>
       </View>
     );
@@ -1669,85 +2122,54 @@ export function OnboardingScreen({
   }
 
   function renderGoal() {
-    return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 2</Text>
-          <Text style={[styles.title, styles.titleLight]}>What is your main goal?</Text>
-          <Text style={[styles.body, styles.bodyLight]}>Pick one or more.</Text>
-        </View>
-
-        <View style={styles.setupOptionGrid}>
-          {GOAL_OPTIONS.map((option) => (
-            <View key={option.goal} style={styles.goalGridItem}>
-              <SetupOptionCard
-                title={option.title}
-                body={option.body}
-                active={goals.includes(option.goal)}
-                backgroundSource={getGoalBackgroundSource(option.goal)}
-                compact
-                onPress={() => toggleGoal(option.goal)}
-              />
-            </View>
-          ))}
-        </View>
-      </View>
-    );
+    return renderSplitSelectionStage({
+      stepLabel: 'STEP 2',
+      titleLines: ['WHAT IS YOUR', 'MAIN GOAL?'],
+      subtitle: 'Pick one or more.',
+      options: GOAL_SELECTION_OPTIONS.map((option) => ({
+        id: option.id,
+        label: option.label,
+        subtitle: option.subtitle,
+        icon: option.icon,
+        active: goals.includes(option.id),
+        onPress: () => toggleGoal(option.id),
+      })),
+      optionsContainerStyle: styles.locationStepOneOptionsShift,
+    });
   }
 
   function renderProfile() {
-    return (
-      <View style={[styles.stageBody, styles.profileStageBody]}>
-        <View style={[styles.heroBlock, styles.profileHeroBlock]}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 3</Text>
-          <Text style={[styles.title, styles.titleLight]}>Your training profile</Text>
-          <Text style={[styles.body, styles.bodyLight]}>Set the basics once.</Text>
-        </View>
-
-        <View style={styles.optionBlock}>
-          <Text style={[styles.optionLabel, styles.optionLabelLight]}>Gender</Text>
-          <View style={styles.profileCheckList}>
-            {GENDER_OPTIONS.map((option) => (
-              <ProfileCheckRow
-                key={option.gender}
-                title={option.title}
-                body={option.body}
-                active={gender === option.gender}
-                onPress={() => setGender(option.gender)}
-              />
-            ))}
-          </View>
-        </View>
-
-        <View style={styles.optionBlock}>
-          <Text style={[styles.optionLabel, styles.optionLabelLight]}>Age</Text>
+    return renderSplitSelectionStage({
+      stepLabel: 'STEP 3',
+      titleLines: ['YOUR', 'PROFILE'],
+      subtitle: 'Set the basics once.',
+      compactCards: true,
+      hideIcons: true,
+      leadingRadio: true,
+      largeTitle: true,
+      topCopyStyle: styles.locationTopCopyProfile,
+      beforeOptions: <Text style={[styles.locationSectionLabel, styles.optionLabelLight]}>Gender</Text>,
+      options: GENDER_OPTIONS.map((option) => ({
+        id: option.gender,
+        label: option.title,
+        icon: 'person',
+        active: gender === option.gender,
+        onPress: () => setGender(option.gender),
+      })),
+      afterOptions: (
+        <View style={[styles.locationAfterBlock, styles.locationAfterBlockProfile]}>
+          <Text style={[styles.locationSectionLabel, styles.optionLabelLight]}>Age</Text>
           <AgeSlider value={age} onChange={setAge} />
         </View>
-
-        <View style={styles.optionBlock}>
-          <Text style={[styles.optionLabel, styles.optionLabelLight]}>How often are you ready to train?</Text>
-          <View style={styles.profileCheckGrid}>
-            {[2, 3, 4, 5].map((value) => (
-              <View key={value} style={styles.profileCheckGridItem}>
-                <ProfileCheckRow
-                  title={`${value} days`}
-                  compactMeta={false}
-                  active={daysPerWeek === value}
-                  onPress={() => setDaysPerWeek(value as SetupDaysPerWeek)}
-                />
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
-    );
+      ),
+    });
   }
 
   function renderFocus() {
     return (
       <View style={styles.stageBody}>
         <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 5</Text>
+          <Text style={[styles.kicker, styles.kickerLight]}>Step 6</Text>
           <Text style={[styles.title, styles.titleLight]}>What do you want to focus the most?</Text>
           <Text style={[styles.body, styles.bodyLight]}>Pick one or more.</Text>
         </View>
@@ -1787,7 +2209,7 @@ export function OnboardingScreen({
     return (
       <View style={styles.stageBody}>
         <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 6</Text>
+          <Text style={[styles.kicker, styles.kickerLight]}>Step 7</Text>
           <Text style={[styles.title, styles.titleLight]}>Does everything look right?</Text>
           <Text style={[styles.body, styles.bodyLight]}>Check the setup before Gymlog builds the week.</Text>
         </View>
@@ -1916,83 +2338,53 @@ export function OnboardingScreen({
   }
 
   function renderPlanning() {
-    return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={styles.kicker}>Step 4</Text>
-          <Text style={styles.title}>How should this week work?</Text>
-          <Text style={styles.body}>Keep this close to your real week.</Text>
-        </View>
-
-        <View style={styles.optionBlock}>
-          <Text style={styles.optionLabel}>Days per week</Text>
-          <View style={styles.choiceRow}>
-            <ChoiceChip label="2 days" active={daysPerWeek === 2} onPress={() => setDaysPerWeek(2)} />
-            <ChoiceChip label="3 days" active={daysPerWeek === 3} onPress={() => setDaysPerWeek(3)} />
-            <ChoiceChip label="4 days" active={daysPerWeek === 4} onPress={() => setDaysPerWeek(4)} />
-            <ChoiceChip label="5 days" active={daysPerWeek === 5} onPress={() => setDaysPerWeek(5)} />
-          </View>
-        </View>
-
-        <View style={styles.selectionList}>
-          {SCHEDULE_MODE_OPTIONS.map((option) => (
-            <SelectionCard
-              key={option.mode}
-              title={option.mode === 'app_managed' ? 'Gymlog manages this' : 'I manage this'}
-              body={option.body}
-              meta={scheduleMode === option.mode ? 'Current schedule style' : 'Tap to continue'}
-              active={scheduleMode === option.mode}
-              onPress={() => {
-                setScheduleMode(option.mode);
-                if (option.mode === 'app_managed') {
-                  setAvailableDays([]);
-                }
-              }}
-            />
-          ))}
-        </View>
-
-        <View style={styles.selectionList}>
-          {GUIDANCE_MODE_OPTIONS.map((option) => (
-            <SelectionCard
-              key={option.mode}
-              title={option.title}
-              body={option.body}
-              meta={guidanceMode === option.mode ? 'Current planning style' : 'Tap to continue'}
-              active={guidanceMode === option.mode}
-              onPress={() => setGuidanceMode(option.mode)}
-            />
-          ))}
-        </View>
-
-        <View style={styles.optionBlock}>
-          <Text style={styles.optionLabel}>Units</Text>
-          <View style={styles.choiceRow}>
-            <ChoiceChip label="kg" active={unitPreference === 'kg'} onPress={() => setUnitPreference('kg')} />
-            <ChoiceChip label="lb" active={unitPreference === 'lb'} onPress={() => setUnitPreference('lb')} />
-          </View>
-        </View>
-      </View>
-    );
+    return renderSplitSelectionStage({
+      stepLabel: 'STEP 4',
+      titleLines: ['TRAINING', 'DAYS'],
+      subtitle: 'Pick your weekly rhythm.',
+      grid: true,
+      hideIcons: true,
+      tallCards: true,
+      options: ([2, 3, 4, 5] as SetupDaysPerWeek[]).map((value) => ({
+        id: `${value}`,
+        label: `${value} days`,
+        icon: 'barbell',
+        active: daysPerWeek === value,
+        onPress: () => setDaysPerWeek(value),
+      })),
+    });
   }
 
   function renderAbout() {
     return (
-      <View style={styles.stageBody}>
-        <View style={styles.heroBlock}>
-          <Text style={[styles.kicker, styles.kickerLight]}>Step 4</Text>
-          <Text style={[styles.title, styles.titleLight]}>How much do you weigh?</Text>
-          <Text style={[styles.body, styles.bodyLight]}>Add your current bodyweight.</Text>
+      <View style={[styles.locationStageShell, styles.bodyweightStageShell]}>
+        <View style={[styles.locationTopPane, styles.bodyweightTopPane]}>
+          <View style={styles.locationTopSlope} />
+          <View style={styles.locationTopCopy}>
+            <View style={styles.locationPaginationWrap}>
+              <StepDots index={stageIndex} />
+            </View>
+            <Text style={styles.locationStepLabel}>STEP 5</Text>
+            <Text style={styles.locationHeadline}>HOW MUCH</Text>
+            <Text style={styles.locationHeadline}>DO YOU WEIGH?</Text>
+            <Text style={styles.locationSubtitle}>Add your current bodyweight.</Text>
+          </View>
         </View>
 
-        <BodyweightPicker
-          value={bodyweightPickerValue}
-          unit={unitPreference}
-          onChange={setCurrentBodyweight}
-          onUnitChange={setUnitPreference}
-        />
+        <View style={styles.locationBottomPane}>
+          <View style={styles.bodyweightStageContent}>
+            <BodyweightPicker
+              value={bodyweightPickerValue}
+              unit={unitPreference}
+              onChange={setCurrentBodyweight}
+              onUnitChange={setUnitPreference}
+            />
 
-        <Text style={styles.bodyweightSupportText}>Used for a better starting point. You can change it later.</Text>
+            <Text style={[styles.bodyweightSupportText, styles.bodyweightStageSupportText]}>
+              Used for a better starting point.{'\n'}You can change it later.
+            </Text>
+          </View>
+        </View>
       </View>
     );
   }
@@ -2291,34 +2683,124 @@ export function OnboardingScreen({
     );
   }
 
+  function renderBuildingPlan() {
+    const phase = buildingPlanPhases[Math.min(buildingPlanPhaseIndex, buildingPlanPhases.length - 1)] ?? '';
+    const pulseScale = buildingPlanPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.1],
+    });
+    const pulseOpacity = buildingPlanPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.14, 0.32],
+    });
+
+    return (
+      <Animated.View style={[styles.buildingPlanScreen, { opacity: buildingPlanScreenOpacity }]}>
+        <View style={styles.buildingPlanLogoScene}>
+          <Animated.View
+            style={[
+              styles.buildingPlanTopHalf,
+              {
+                opacity: buildingPlanEntryOpacity,
+                transform: [{ translateY: buildingPlanTopTranslate }],
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.buildingPlanBottomHalf,
+              {
+                opacity: buildingPlanEntryOpacity,
+                transform: [{ translateY: buildingPlanBottomTranslate }],
+              },
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.buildingPlanLogoStack,
+              {
+                opacity: buildingPlanLogoOpacity,
+                transform: [{ scale: buildingPlanLogoScale }],
+              },
+            ]}
+          >
+            <Text style={styles.buildingPlanGymText}>GYM</Text>
+            <Text style={styles.buildingPlanLogText}>LOG</Text>
+          </Animated.View>
+        </View>
+
+        {showBuildingPlanThinking ? (
+          <Animated.View style={[styles.buildingPlanThinkingScene, { opacity: buildingPlanThinkingOpacity }]}>
+            <View style={styles.buildingPlanThinkingCenter}>
+              <View style={styles.buildingPlanRingStack}>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[
+                    styles.buildingPlanRingPulse,
+                    {
+                      opacity: pulseOpacity,
+                      transform: [{ scale: pulseScale }],
+                    },
+                  ]}
+                />
+                <View style={styles.buildingPlanRing}>
+                  <Text style={styles.buildingPlanRingText}>G</Text>
+                  <Text style={styles.buildingPlanPercentText}>{`${buildingPlanPercent}%`}</Text>
+                </View>
+              </View>
+              <Animated.Text style={[styles.buildingPlanThinkingText, { opacity: buildingPlanCaptionOpacity }]}>
+                {phase}
+              </Animated.Text>
+            </View>
+          </Animated.View>
+        ) : null}
+      </Animated.View>
+    );
+  }
+
   const canContinue =
-    stage === 'goal'
+    stage === 'location'
+      ? selectedLocationOptionId !== null
+      : stage === 'goal'
       ? goals.length > 0
       : true;
+  const locationStageActive =
+    stage === 'location' ||
+    stage === 'goal' ||
+    stage === 'profile' ||
+    stage === 'planning' ||
+    stage === 'about';
   const footerPrimaryLabel = stage === 'review' ? 'Looks right' : 'Continue';
   const footerVisible = true;
   const scrollContentStyle = useMemo(
     () => [
       styles.scrollContent,
       {
+        paddingTop: locationStageActive ? 0 : spacing.xxl,
         paddingBottom: (footerVisible ? spacing.xxl : spacing.xl) + insets.bottom,
       },
     ],
-    [footerVisible, insets.bottom],
+    [footerVisible, insets.bottom, locationStageActive],
   );
+
+  if (isBuildingPlan) {
+    return renderBuildingPlan();
+  }
 
   return (
     <View style={[styles.root, styles.rootLight]}>
+      {locationStageActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
       <ScrollView
         style={[styles.scrollView, styles.scrollViewLight]}
         contentContainerStyle={scrollContentStyle}
         showsVerticalScrollIndicator={false}
       >
-        <StepDots index={stageIndex} light />
+        {locationStageActive ? null : <StepDots index={stageIndex} light />}
 
         {stage === 'location' ? renderLocation() : null}
         {stage === 'goal' ? renderGoal() : null}
         {stage === 'profile' ? renderProfile() : null}
+        {stage === 'planning' ? renderPlanning() : null}
         {stage === 'about' ? renderAbout() : null}
         {stage === 'focus' ? renderFocus() : null}
         {stage === 'review' ? renderReview() : null}
@@ -2329,7 +2811,12 @@ export function OnboardingScreen({
           style={[
             styles.footer,
             styles.footerLight,
-            { paddingBottom: spacing.md + insets.bottom },
+            locationStageActive && styles.locationFooter,
+            {
+              paddingBottom: locationStageActive
+                ? insets.bottom + spacing.lg + spacing.xl
+                : spacing.md + insets.bottom,
+            },
           ]}
         >
           <>
@@ -2344,12 +2831,28 @@ export function OnboardingScreen({
                   return;
                 }
 
+                if (stage === 'focus') {
+                  setIsBuildingPlan(true);
+                  return;
+                }
+
                 setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
               }}
-              style={[styles.primaryButton, styles.primaryButtonDark, !canContinue && styles.buttonDisabled]}
+              style={[
+                styles.primaryButton,
+                styles.primaryButtonDark,
+                locationStageActive && styles.locationPrimaryButton,
+                !canContinue && (locationStageActive ? styles.locationPrimaryButtonDisabled : styles.buttonDisabled),
+              ]}
               disabled={!canContinue}
             >
-              <Text style={[styles.primaryButtonText, styles.primaryButtonTextLight]}>
+              <Text
+                style={[
+                  styles.primaryButtonText,
+                  styles.primaryButtonTextLight,
+                  !canContinue && locationStageActive && styles.locationPrimaryButtonTextDisabled,
+                ]}
+              >
                 {footerPrimaryLabel}
               </Text>
             </Pressable>
@@ -2464,11 +2967,17 @@ const styles = StyleSheet.create({
   rootLight: {
     backgroundColor: '#FFFFFF',
   },
+  rootDark: {
+    backgroundColor: '#06080B',
+  },
   scrollView: {
     flex: 1,
   },
   scrollViewLight: {
     backgroundColor: '#FFFFFF',
+  },
+  scrollViewDark: {
+    backgroundColor: '#06080B',
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
@@ -2479,6 +2988,9 @@ const styles = StyleSheet.create({
   pagination: {
     flexDirection: 'row',
     gap: spacing.xs,
+  },
+  locationPaginationWrap: {
+    marginBottom: spacing.lg,
   },
   dot: {
     flex: 1,
@@ -2498,11 +3010,219 @@ const styles = StyleSheet.create({
   stageBody: {
     gap: spacing.lg,
   },
+  locationStageShell: {
+    backgroundColor: '#F5F5F5',
+    marginHorizontal: -spacing.lg,
+    overflow: 'hidden',
+  },
+  locationTopSafeArea: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#000000',
+    zIndex: 10,
+  },
+  locationTopPane: {
+    backgroundColor: '#000000',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg * 2,
+    paddingTop: spacing.xl + spacing.sm,
+    paddingBottom: 36,
+    overflow: 'visible',
+    position: 'relative',
+  },
+  locationTopPaneCompact: {
+    paddingBottom: 28,
+  },
+  locationTopSlope: {
+    position: 'absolute',
+    left: -12,
+    right: -12,
+    bottom: -36,
+    height: 72,
+    backgroundColor: '#F5F5F5',
+    transform: [{ rotate: '-4deg' }],
+  },
+  locationTopCopy: {
+    gap: 4,
+    zIndex: 1,
+    paddingBottom: 10,
+  },
+  locationTopCopyCompact: {
+    paddingBottom: 12,
+  },
+  locationTopCopyProfile: {
+    paddingTop: 14,
+  },
+  locationStepLabel: {
+    color: 'rgba(255,255,255,0.6)',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: spacing.md,
+  },
+  locationStepLabelSolid: {
+    color: '#FFFFFF',
+  },
+  locationHeadline: {
+    color: '#FFFFFF',
+    fontSize: 42,
+    lineHeight: 42,
+    fontWeight: '900',
+    letterSpacing: -1.5,
+  },
+  locationHeadlineLarge: {
+    fontSize: 42,
+    lineHeight: 46,
+    maxWidth: 180,
+  },
+  locationSubtitle: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
+    marginTop: spacing.sm,
+  },
+  locationBottomPane: {
+    backgroundColor: '#F5F5F5',
+    paddingHorizontal: spacing.lg * 2 - 10,
+    paddingTop: 24,
+  },
+  locationBottomPaneTight: {
+    paddingTop: 6,
+  },
+  locationCardList: {
+    gap: 12,
+  },
+  locationCardListCompact: {
+    gap: 8,
+  },
+  locationStepOneOptionsShift: {
+    transform: [{ translateY: -10 }],
+  },
+  locationCardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+  },
+  locationCardGridItem: {
+    width: '47.6%',
+  },
+  locationSectionLabel: {
+    color: 'rgba(6,8,11,0.56)',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+  },
+  locationAfterBlock: {
+    marginTop: 6,
+    gap: 8,
+  },
+  locationAfterBlockProfile: {
+    paddingBottom: 20,
+  },
+  locationChoicePressable: {
+    width: '100%',
+  },
+  locationChoiceCard: {
+    minHeight: 82,
+    borderRadius: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+    backgroundColor: '#070707',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center',
+  },
+  locationChoiceCardCompact: {
+    minHeight: 54,
+    paddingVertical: 7,
+  },
+  locationChoiceCardTall: {
+    minHeight: 142,
+    paddingVertical: 22,
+  },
+  locationChoiceCardActive: {
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(0,0,0,0.06)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  locationChoiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationChoiceCopy: {
+    flex: 1,
+    gap: 4,
+    marginLeft: 16,
+  },
+  locationChoiceCopyNoIcon: {
+    marginLeft: 12,
+  },
+  locationChoiceLabel: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    lineHeight: 22,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  locationChoiceLabelActive: {
+    color: '#000000',
+  },
+  locationChoiceSubtitle: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  locationChoiceSubtitleActive: {
+    color: 'rgba(0,0,0,0.62)',
+  },
+  locationChoiceRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.58)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  locationChoiceRadioLeading: {
+    marginLeft: 0,
+    marginRight: 0,
+    borderColor: 'rgba(255,255,255,0.58)',
+  },
+  locationChoiceRadioActive: {
+    borderColor: '#111111',
+  },
+  locationChoiceRadioInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#111111',
+  },
+  locationStageBody: {
+    gap: spacing.md,
+  },
   profileStageBody: {
     gap: spacing.sm + 2,
   },
   heroBlock: {
     gap: spacing.xs,
+  },
+  locationHeroBlock: {
+    gap: 2,
   },
   profileHeroBlock: {
     gap: 3,
@@ -2538,6 +3258,17 @@ const styles = StyleSheet.create({
   },
   selectionList: {
     gap: spacing.xs + 2,
+  },
+  locationSelectionList: {
+    gap: spacing.xs,
+  },
+  locationOptionGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  locationOptionCell: {
+    width: '48.5%',
   },
   setupOptionGrid: {
     flexDirection: 'row',
@@ -2680,13 +3411,13 @@ const styles = StyleSheet.create({
     color: 'rgba(6,8,11,0.66)',
   },
   ageSliderCard: {
-    borderRadius: radii.lg,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(6,8,11,0.10)',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    gap: spacing.sm,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    gap: 8,
   },
   ageSliderHeader: {
     gap: 2,
@@ -2700,13 +3431,13 @@ const styles = StyleSheet.create({
   },
   ageSliderValue: {
     color: '#06080B',
-    fontSize: 20,
-    lineHeight: 25,
+    fontSize: 30,
+    lineHeight: 34,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: -1.1,
   },
   ageSliderTrackArea: {
-    height: 30,
+    height: 22,
     justifyContent: 'center',
   },
   ageSliderTrack: {
@@ -2723,12 +3454,12 @@ const styles = StyleSheet.create({
   },
   ageSliderThumb: {
     position: 'absolute',
-    width: 28,
-    height: 28,
-    marginLeft: -14,
-    borderRadius: 14,
+    width: 22,
+    height: 22,
+    marginLeft: -11,
+    borderRadius: 11,
     backgroundColor: '#06080B',
-    borderWidth: 5,
+    borderWidth: 4,
     borderColor: '#FFFFFF',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
@@ -2879,6 +3610,123 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '700',
   },
+  bodyweightStageShell: {
+    backgroundColor: '#F5F5F5',
+  },
+  bodyweightTopPane: {
+    minHeight: 280,
+  },
+  bodyweightStageContent: {
+    paddingTop: 4,
+    paddingBottom: 8,
+  },
+  bodyweightStageSupportText: {
+    marginTop: 8,
+  },
+  buildingPlanScreen: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
+  buildingPlanLogoScene: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  buildingPlanTopHalf: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: '#000000',
+  },
+  buildingPlanBottomHalf: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: '50%',
+    backgroundColor: '#FFFFFF',
+  },
+  buildingPlanLogoStack: {
+    position: 'absolute',
+    top: '50%',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: -78,
+  },
+  buildingPlanGymText: {
+    color: '#FFFFFF',
+    fontSize: 84,
+    lineHeight: 78,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  buildingPlanLogText: {
+    color: '#000000',
+    fontSize: 84,
+    lineHeight: 78,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  buildingPlanThinkingScene: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg * 2,
+  },
+  buildingPlanThinkingCenter: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xl,
+  },
+  buildingPlanRingStack: {
+    width: 128,
+    height: 128,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buildingPlanRingPulse: {
+    position: 'absolute',
+    width: 128,
+    height: 128,
+    borderRadius: 64,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  buildingPlanRing: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+  },
+  buildingPlanRingText: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  buildingPlanPercentText: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  buildingPlanThinkingText: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    lineHeight: 26,
+    fontWeight: '800',
+    textAlign: 'center',
+    minHeight: 26,
+  },
   photoSelectionCard: {
     borderRadius: radii.lg,
     overflow: 'hidden',
@@ -2909,6 +3757,13 @@ const styles = StyleSheet.create({
   },
   photoSelectionAnimatedWrap: {
     width: '100%',
+  },
+  photoSelectionAnimatedWrapPlainActive: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 5,
   },
   photoSelectionSurfacePlainImage: {
     overflow: 'hidden',
@@ -2975,16 +3830,196 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   photoSelectionCardPlain: {
-    backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(6,8,11,0.12)',
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
     shadowOpacity: 0,
     elevation: 0,
   },
   photoSelectionCardPlainActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#06080B',
+    borderRadius: 0,
+    backgroundColor: 'transparent',
+    borderColor: 'transparent',
     shadowOpacity: 0,
     elevation: 0,
+    transform: [{ translateY: -4 }],
+  },
+  splitSelectionCard: {
+    minHeight: 158,
+    borderRadius: 0,
+    borderWidth: 2,
+    borderColor: '#131519',
+    backgroundColor: '#050607',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  splitSelectionCardActive: {
+    borderColor: '#2A2F36',
+    backgroundColor: '#0C0F12',
+  },
+  splitSelectionFrame: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    opacity: 0.85,
+  },
+  splitSelectionFrameActive: {
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  splitSelectionDarkPane: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#050607',
+  },
+  splitSelectionBottomLeftPane: {
+    position: 'absolute',
+    left: -88,
+    bottom: -28,
+    width: '118%',
+    height: 88,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    transform: [{ rotate: '26deg' }],
+  },
+  splitSelectionBottomLeftPaneActive: {
+    backgroundColor: 'rgba(255,255,255,0.1)',
+  },
+  splitSelectionLightPane: {
+    position: 'absolute',
+    top: -18,
+    right: -90,
+    width: '110%',
+    height: 74,
+    backgroundColor: 'rgba(11, 54, 56, 0.42)',
+    transform: [{ rotate: '26deg' }],
+  },
+  splitSelectionLightPaneActive: {
+    backgroundColor: 'rgba(22, 94, 97, 0.52)',
+  },
+  splitSelectionDiagonal: {
+    position: 'absolute',
+    width: '170%',
+    left: '-35%',
+    top: '49%',
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    transform: [{ rotate: '-26deg' }],
+  },
+  splitSelectionDiagonalActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  splitSelectionDiagonalOffset: {
+    position: 'absolute',
+    width: '170%',
+    left: '-33%',
+    top: '49%',
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.58)',
+    transform: [{ rotate: '-26deg' }],
+  },
+  splitSelectionDiagonalOffsetActive: {
+    backgroundColor: 'rgba(255,255,255,0.82)',
+  },
+  splitSelectionCornerAccent: {
+    position: 'absolute',
+    width: 26,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.7)',
+  },
+  splitSelectionCornerAccentTopRight: {
+    top: 4,
+    right: 4,
+    transform: [{ rotate: '-26deg' }],
+  },
+  splitSelectionCornerAccentBottomLeft: {
+    bottom: 4,
+    left: 4,
+    transform: [{ rotate: '-26deg' }],
+  },
+  splitSelectionCornerAccentActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  splitSelectionContent: {
+    minHeight: 158,
+    justifyContent: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md + 2,
+  },
+  splitSelectionVariantBadge: {
+    position: 'absolute',
+    top: spacing.sm,
+    left: spacing.sm,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  splitSelectionVariantBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 16,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+  },
+  splitSelectionPrimary: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    paddingRight: 0,
+  },
+  splitSelectionSecondary: {
+    display: 'none',
+  },
+  splitSelectionTitle: {
+    color: '#FFFFFF',
+    fontSize: 38,
+    lineHeight: 40,
+    fontWeight: '900',
+    letterSpacing: -1.2,
+    maxWidth: '84%',
+  },
+  splitSelectionBody: {
+    color: '#06080B',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  splitSelectionMeta: {
+    color: 'rgba(6,8,11,0.72)',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  splitSelectionActiveBadge: {
+    position: 'absolute',
+    right: spacing.sm,
+    top: spacing.sm,
+    width: 28,
+    height: 28,
+    borderRadius: 0,
+    backgroundColor: '#FFFFFF',
+  },
+  splitSelectionActiveMarkShort: {
+    position: 'absolute',
+    width: 7,
+    height: 2,
+    left: 6,
+    top: 14,
+    borderRadius: 2,
+    backgroundColor: '#06080B',
+    transform: [{ rotate: '45deg' }],
+  },
+  splitSelectionActiveMarkLong: {
+    position: 'absolute',
+    width: 12,
+    height: 2,
+    left: 10,
+    top: 12,
+    borderRadius: 2,
+    backgroundColor: '#FFFFFF',
+    transform: [{ rotate: '-45deg' }],
   },
   stageSurface: {
     minHeight: 148,
@@ -3246,7 +4281,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 2,
     borderRadius: 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#06080B',
   },
   setupOptionCardSelectionCheckMarkShort: {
     width: 5,
@@ -4104,9 +5139,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopColor: 'rgba(6,8,11,0.08)',
   },
+  locationFooter: {
+    paddingTop: 0,
+    transform: [{ translateY: -10 }],
+    alignItems: 'center',
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
+  },
+  footerDarkStage: {
+    backgroundColor: '#06080B',
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
   primaryButton: {
-    minHeight: 54,
-    borderRadius: radii.lg,
+    width: '100%',
+    maxWidth: 360,
+    minHeight: 62,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3F7FF',
@@ -4117,10 +5165,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#06080B',
     borderColor: '#06080B',
   },
+  locationPrimaryButton: {
+    minHeight: 54,
+    backgroundColor: '#000000',
+    borderColor: '#000000',
+  },
+  locationPrimaryButtonDisabled: {
+    opacity: 1,
+  },
+  locationPrimaryButtonTextDisabled: {
+    color: 'rgba(255,255,255,0.42)',
+  },
   primaryButtonText: {
     color: '#06080B',
-    fontSize: 15,
+    fontSize: 19,
     fontWeight: '900',
+    letterSpacing: -0.3,
   },
   primaryButtonTextLight: {
     color: '#FFFFFF',
@@ -4163,6 +5223,9 @@ const styles = StyleSheet.create({
   },
   secondaryTextDark: {
     color: 'rgba(6,8,11,0.68)',
+  },
+  secondaryTextLight: {
+    color: 'rgba(243,247,255,0.78)',
   },
   recommendationBackButton: {
     alignSelf: 'center',

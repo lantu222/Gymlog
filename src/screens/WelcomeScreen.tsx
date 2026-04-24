@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppLanguage } from '../types/models';
@@ -24,6 +24,25 @@ const copy = {
 export function WelcomeScreen({ language, onContinue }: WelcomeScreenProps) {
   const insets = useSafeAreaInsets();
   const content = copy[language];
+  const actionOpacity = useRef(new Animated.Value(0)).current;
+  const actionTranslateX = useRef(new Animated.Value(-12)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(actionOpacity, {
+        toValue: 1,
+        duration: 460,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(actionTranslateX, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.exp),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [actionOpacity, actionTranslateX]);
 
   return (
     <View style={styles.screen}>
@@ -47,12 +66,20 @@ export function WelcomeScreen({ language, onContinue }: WelcomeScreenProps) {
         >
           <View style={styles.copyBlock} />
 
-          <View style={styles.actionStack}>
+          <Animated.View
+            style={[
+              styles.actionStack,
+              {
+                opacity: actionOpacity,
+                transform: [{ translateX: actionTranslateX }],
+              },
+            ]}
+          >
             <Pressable onPress={onContinue} style={styles.primaryButton}>
               <Text style={styles.primaryButtonText}>{content.continueLabel}</Text>
             </Pressable>
             <Text style={styles.setupHint}>{content.setupHint}</Text>
-          </View>
+          </Animated.View>
         </View>
       </View>
     </View>

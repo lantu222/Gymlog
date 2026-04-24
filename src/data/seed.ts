@@ -17,6 +17,7 @@ const DEFAULT_PREFERENCES = {
   keepScreenAwakeDuringWorkout: false,
   adaptiveCoachPremiumUnlocked: false,
   aiSetupCompleted: false,
+  hasOpenedAppBefore: false,
   entryFlowCompleted: false,
   trainingFirstRunDismissed: false,
   selectedSignInMethod: null,

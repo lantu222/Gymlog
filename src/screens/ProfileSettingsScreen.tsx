@@ -184,6 +184,8 @@ export function ProfileSettingsScreen({
           <Divider />
           <SettingsRow title="About" subtitle="App info" right={<SoonBadge />} />
           <Divider />
+          <SettingsRow title="Credits / licenses" subtitle="Material Symbols icons - Apache 2.0" right={<SoonBadge />} />
+          <Divider />
           <SettingsRow title="Rate us" subtitle="Share feedback" right={<SoonBadge />} />
           <Divider />
           <SettingsRow title="Account privacy" subtitle="Privacy controls" right={<SoonBadge />} />

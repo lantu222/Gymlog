@@ -109,6 +109,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       keepScreenAwakeDuringWorkout: false,
       adaptiveCoachPremiumUnlocked: false,
       aiSetupCompleted: false,
+      hasOpenedAppBefore: false,
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,
       selectedSignInMethod: null,

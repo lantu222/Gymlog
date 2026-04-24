@@ -271,6 +271,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.aiSetupCompleted === 'boolean'
           ? input.preferences.aiSetupCompleted
           : fallback.preferences.aiSetupCompleted,
+      hasOpenedAppBefore:
+        typeof input?.preferences?.hasOpenedAppBefore === 'boolean'
+          ? input.preferences.hasOpenedAppBefore
+          : fallback.preferences.hasOpenedAppBefore,
       entryFlowCompleted:
         typeof input?.preferences?.entryFlowCompleted === 'boolean'
           ? input.preferences.entryFlowCompleted

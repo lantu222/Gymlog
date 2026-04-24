@@ -1,5 +1,5 @@
 import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, BackHandler, StyleSheet, View } from 'react-native';
+import { BackHandler, StyleSheet, View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
@@ -496,14 +496,29 @@ function GymlogApp() {
   const allowStartingWeekRouteRef = useRef(false);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
+  const firstAppOpen = !preferences.hasOpenedAppBefore;
 
   useEffect(() => {
-    const timeout = setTimeout(() => setMinimumSplashElapsed(true), 5000);
+    if (!appHydrated || preferences.hasOpenedAppBefore) {
+      return;
+    }
+
+    void updatePreferences({
+      hasOpenedAppBefore: true,
+    });
+  }, [appHydrated, preferences.hasOpenedAppBefore, updatePreferences]);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setMinimumSplashElapsed(true), 1200);
     return () => clearTimeout(timeout);
   }, []);
 
   useEffect(() => {
-    if (nativeSplashHidden) {
+    if (nativeSplashHidden || !appHydrated) {
+      return;
+    }
+
+    if (!firstAppOpen && !minimumSplashElapsed) {
       return;
     }
 
@@ -524,7 +539,7 @@ function GymlogApp() {
     return () => {
       cancelled = true;
     };
-  }, [nativeSplashHidden]);
+  }, [appHydrated, firstAppOpen, minimumSplashElapsed, nativeSplashHidden]);
 
   function navigate(nextRoute: AppRoute) {
     startTransition(() =>
@@ -1841,16 +1856,8 @@ function GymlogApp() {
     };
   }, [getWorkoutTemplateSessions, route, workoutTemplates]);
 
-  if (!minimumSplashElapsed || !appHydrated) {
+  if (!nativeSplashHidden || !hydrated || !workout.hydrated) {
     return <LaunchScreen />;
-  }
-
-  if (!hydrated || !workout.hydrated) {
-    return (
-      <View style={styles.loading}>
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    );
   }
 
   const programDetailInlineTip = dismissedTipIds.includes(PROGRAM_DETAIL_TIP_ID)

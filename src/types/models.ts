@@ -196,6 +196,7 @@ export interface AppPreferences {
   keepScreenAwakeDuringWorkout: boolean;
   adaptiveCoachPremiumUnlocked: boolean;
   aiSetupCompleted: boolean;
+  hasOpenedAppBefore: boolean;
   entryFlowCompleted: boolean;
   trainingFirstRunDismissed: boolean;
   selectedSignInMethod: SignInMethod | null;
