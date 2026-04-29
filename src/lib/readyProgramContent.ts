@@ -49,13 +49,13 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
     },
   },
   tpl_2_day_minimal_full_body_v1: {
-    summary: 'A low-friction two-day plan for weeks when you want full-body coverage without living in the gym.',
-    audience: 'Best for beginners, busy weeks, or anyone coming back into training who still wants structure and progression.',
-    equipmentProfile: 'Standard gym setup recommended, but the overall workload stays low enough to fit into shorter sessions.',
-    whyItWorks: 'The template keeps only the lifts that move the most muscle each session, so you can recover well and still keep a real full-body rhythm.',
+    summary: 'A low-friction two-day bodyweight plan for weeks when you want full-body coverage without needing a gym.',
+    audience: 'Best for beginners, busy weeks, home workouts, or anyone coming back into training who still wants structure and progression.',
+    equipmentProfile: 'Home and bodyweight friendly. Floor space and a sturdy row setup are enough for the core plan.',
+    whyItWorks: 'The template keeps squat, push, pull, hinge, and core patterns in the week while using bodyweight progression instead of gym-only equipment.',
     sessionFocusById: {
-      minimal_full_body_a: 'Squat, bench, and row in one clean base session.',
-      minimal_full_body_b: 'Leg press, overhead press, and pulldown with a lighter accessory finish.',
+      minimal_full_body_a: 'Bodyweight squat, incline push-up, inverted row, and trunk work in one clean base session.',
+      minimal_full_body_b: 'Lunge, push-up, glute bridge, and conditioning-core work with no machine dependency.',
     },
   },
   tpl_3_day_strength_base_v1: {

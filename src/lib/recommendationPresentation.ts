@@ -5,6 +5,11 @@ export interface RecommendationConfidenceCopy {
   body: string;
 }
 
+export interface RecommendationFallbackCopy {
+  title: string;
+  body: string;
+}
+
 export function buildRecommendationOptionIds(
   recommendation: Pick<RecommendationResult, 'featuredProgramId' | 'secondaryProgramId' | 'alternativeProgramIds'>,
 ): string[] {
@@ -36,4 +41,15 @@ export function getRecommendationConfidenceCopy(confidence: RecommendationConfid
         body: 'These options are close. Start with this one, or pick one of the alternatives if it looks more like your week.',
       };
   }
+}
+
+export function getFallbackReasonCopy(fallbackReason: string | null | undefined): RecommendationFallbackCopy | null {
+  if (!fallbackReason) {
+    return null;
+  }
+
+  return {
+    title: 'Closest match',
+    body: fallbackReason,
+  };
 }

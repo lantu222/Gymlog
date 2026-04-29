@@ -1,6 +1,7 @@
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
-import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from './displayLabel';
+import { formatWorkoutDisplayLabel } from './displayLabel';
 import { getRecommendationProgrammeSummary } from './recommendationProgramme';
+import { buildRecommendationWeeklyStructure, RecommendationWeeklyStructureDaySource } from './recommendationWeeklyStructure';
 import {
   buildFirstRunHelperPrompt,
   buildFirstRunRecommendationReasons,
@@ -8,9 +9,7 @@ import {
   FirstRunSetupSelection,
   getEffectiveWeeklyMinutes,
   getScheduleModeLabel,
-  getWeekdayShortLabel,
   resolveFirstRunRecommendation,
-  resolveProjectedTrainingDays,
 } from './firstRunSetup';
 
 export type StartingWeekSource = 'first_run' | 'edit' | 'active';
@@ -21,6 +20,8 @@ export interface StartingWeekSessionPreview {
   name: string;
   meta: string;
   keyLifts: string[];
+  source?: RecommendationWeeklyStructureDaySource;
+  note?: string | null;
 }
 
 export interface StartingWeekViewModel {
@@ -34,14 +35,12 @@ export interface StartingWeekViewModel {
   scheduleModeLabel: string;
   scheduleFitNote: string;
   programmeSummary: string | null;
+  weeklyStructureSummary: string;
+  hasSupplementalDays: boolean;
   rhythm: string[];
   reasons: string[];
   sessions: StartingWeekSessionPreview[];
   helperPrompt: string;
-}
-
-function pluralize(count: number, label: string) {
-  return `${count} ${label}${count === 1 ? '' : 's'}`;
 }
 
 export function buildStartingWeekView(
@@ -56,25 +55,31 @@ export function buildStartingWeekView(
 
   const recommendation = resolveFirstRunRecommendation(selection);
   const mismatchNote = recommendation.featuredProgramId === recommendedProgramId ? recommendation.mismatchNote : null;
+  const weeklyStructure = buildRecommendationWeeklyStructure(selection, recommendedProgramId);
+  if (!weeklyStructure) {
+    return null;
+  }
+
   const projectedDaysPerWeek = template.daysPerWeek;
-  const rhythm = resolveProjectedTrainingDays(selection, projectedDaysPerWeek).map((day) => getWeekdayShortLabel(day));
-  const weeklyMinutes = getEffectiveWeeklyMinutes(selection, projectedDaysPerWeek, template.estimatedSessionDuration ?? null);
+  const rhythm = weeklyStructure.days.map((day) => day.weekdayLabel);
+  const weeklyMinutes = weeklyStructure.hasSupplementalDays
+    ? weeklyStructure.totalEstimatedMinutes
+    : getEffectiveWeeklyMinutes(selection, projectedDaysPerWeek, template.estimatedSessionDuration ?? null);
   const programmeSummary = getRecommendationProgrammeSummary(template.id);
   const reasons = buildFirstRunRecommendationReasons(selection, {
     projectedDaysPerWeek,
     estimatedSessionDuration: template.estimatedSessionDuration ?? null,
     mismatchNote,
   });
-  const sessions = [...template.sessions]
-    .sort((left, right) => left.orderIndex - right.orderIndex)
-    .slice(0, 3)
-    .map((session, index) => ({
-      id: session.id,
-      weekdayLabel: rhythm[index] ?? `Day ${index + 1}`,
-      name: session.name,
-      meta: `${template.estimatedSessionDuration} min · ${pluralize(session.exercises.length, 'exercise')}`,
-      keyLifts: session.exercises.slice(0, 2).map((exercise) => formatLiftDisplayLabel(exercise.exerciseName)),
-    }));
+  const sessions = weeklyStructure.days.map((day) => ({
+    id: day.id,
+    weekdayLabel: day.weekdayLabel,
+    name: day.name,
+    meta: day.meta,
+    keyLifts: day.keyLifts,
+    source: day.source,
+    note: day.note,
+  }));
 
   return {
     source,
@@ -92,11 +97,13 @@ export function buildStartingWeekView(
           : 'This is the first week Gymlog would run with you.',
     programId: template.id,
     programName: formatWorkoutDisplayLabel(template.name, 'Ready program'),
-    daysPerWeek: template.daysPerWeek,
+    daysPerWeek: weeklyStructure.days.length,
     weeklyMinutes,
     scheduleModeLabel: getScheduleModeLabel(selection.scheduleMode),
     scheduleFitNote: buildScheduleFitNote(selection, projectedDaysPerWeek, template.estimatedSessionDuration ?? null),
     programmeSummary,
+    weeklyStructureSummary: weeklyStructure.summary,
+    hasSupplementalDays: weeklyStructure.hasSupplementalDays,
     rhythm,
     reasons: reasons.slice(0, 3),
     sessions,

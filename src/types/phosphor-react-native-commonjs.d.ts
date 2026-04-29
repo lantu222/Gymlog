@@ -26,10 +26,30 @@ declare module 'phosphor-react-native/lib/commonjs/icons/PersonSimpleRun' {
   export { PersonSimpleRun, PersonSimpleRunIcon } from 'phosphor-react-native';
 }
 
+declare module 'phosphor-react-native/lib/commonjs/icons/PersonArmsSpread' {
+  export { PersonArmsSpread, PersonArmsSpreadIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/Scales' {
+  export { Scales, ScalesIcon } from 'phosphor-react-native';
+}
+
 declare module 'phosphor-react-native/lib/commonjs/icons/ShieldCheck' {
   export { ShieldCheck, ShieldCheckIcon } from 'phosphor-react-native';
 }
 
+declare module 'phosphor-react-native/lib/commonjs/icons/SneakerMove' {
+  export { SneakerMove, SneakerMoveIcon } from 'phosphor-react-native';
+}
+
 declare module 'phosphor-react-native/lib/commonjs/icons/Target' {
   export { Target, TargetIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/TrendUp' {
+  export { TrendUp, TrendUpIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/Trophy' {
+  export { Trophy, TrophyIcon } from 'phosphor-react-native';
 }

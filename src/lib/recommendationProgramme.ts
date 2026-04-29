@@ -1,5 +1,8 @@
 import { getRecommendationProgramDefinition } from './recommendationCatalog';
-import type { RecommendationProgrammeProfile, TemplateFamilyId } from '../types/recommendation';
+import type { RecommendationProgrammeProfile, RecommendationTrainingBlock, TemplateFamilyId } from '../types/recommendation';
+
+const STARTER_BLOCK_LENGTH_WEEKS = 4;
+const STARTER_PHASE_LABELS = ['Week 1 Baseline', 'Week 2 Build', 'Week 3 Build', 'Week 4 Review + easier week'];
 
 function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamilyId): RecommendationProgrammeProfile {
   switch (familyId) {
@@ -7,11 +10,11 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       return {
         programId,
         familyId,
-        blockLengthWeeks: 6,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'strength_wave',
-        phaseLabels: ['Weeks 1-2 Base volume', 'Week 3 Push week', 'Week 4 Easier week', 'Weeks 5-6 Heavier rebuild'],
-        volumeProgression: 'Build volume first across the opening weeks, then pull it back in the easier week before the final heavier push.',
-        intensityProgression: 'Add load conservatively only after clean sets land at the top of the range, then tighten reps in the last two weeks.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Use week 1 as the baseline volume, build in weeks 2-3, then pull fatigue back in week 4 before deciding whether to repeat or edit.',
+        intensityProgression: 'Add load conservatively only after clean sets land at the top of the range, then keep week 4 easier for review.',
         exerciseStability: 'Keep anchor lifts stable for the whole block and only rotate support lifts if recovery or equipment demands it.',
         easierWeek: {
           week: 4,
@@ -22,11 +25,11 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       return {
         programId,
         familyId,
-        blockLengthWeeks: 6,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'powerbuilding_wave',
-        phaseLabels: ['Weeks 1-2 Heavy base', 'Week 3 Hard push', 'Week 4 Easier week', 'Weeks 5-6 Heavy + volume finish'],
-        volumeProgression: 'Open with enough bodybuilding volume to support the heavy lifts, reduce it in week 4, then bring it back for the finish.',
-        intensityProgression: 'Keep the first half strength-led, then let the last two weeks peak the heavy work while preserving volume days.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Open with enough bodybuilding volume to support the heavy lifts, build for two weeks, then reduce fatigue in week 4.',
+        intensityProgression: 'Keep the first three weeks strength-led, then use week 4 to review performance before repeating or adjusting the block.',
         exerciseStability: 'Hold strength anchors steady and keep volume-day accessories mostly stable so performance and hypertrophy both stay trackable.',
         easierWeek: {
           week: 4,
@@ -37,25 +40,25 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       return {
         programId,
         familyId,
-        blockLengthWeeks: 8,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'hypertrophy_accumulation',
-        phaseLabels: ['Weeks 1-3 Volume build', 'Week 4 Hardest accumulation', 'Week 5 Easier week', 'Weeks 6-8 Rebuild and finish'],
-        volumeProgression: 'Accumulate more total work early, strip it back briefly in week 5, then rebuild with slightly harder sets in the final phase.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Start with repeatable volume, add reps or quality in weeks 2-3, then use week 4 as an easier review week.',
         intensityProgression: 'Most progression comes from reps and set quality first, with load increases added once the target ranges are stable.',
         exerciseStability: 'Keep the main movement menu steady so muscle groups get repeated exposures instead of constant novelty.',
         easierWeek: {
-          week: 5,
-          reason: 'Trim fatigue after the highest-volume stretch so the final weeks can still be productive.',
+          week: 4,
+          reason: 'Trim fatigue after the first build stretch and decide whether to repeat, edit, or move to a harder block.',
         },
       };
     case 'full_body_minimal':
       return {
         programId,
         familyId,
-        blockLengthWeeks: 6,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'minimal_consistency',
-        phaseLabels: ['Weeks 1-2 Groove the pattern', 'Week 3 Add a little work', 'Week 4 Easier week', 'Weeks 5-6 Repeat heavier'],
-        volumeProgression: 'Keep total work tight and only add a little volume if recovery stays easy.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Keep total work tight, add a little work in weeks 2-3 only if recovery stays easy, then review in week 4.',
         intensityProgression: 'Nudge load upward in small steps after repeatable clean sessions instead of chasing aggressive weekly jumps.',
         exerciseStability: 'Exercises stay very stable so busy weeks do not break the rhythm.',
         easierWeek: {
@@ -67,25 +70,25 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       return {
         programId,
         familyId,
-        blockLengthWeeks: 6,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'recovery_rebuild',
-        phaseLabels: ['Weeks 1-2 Reset', 'Weeks 3-4 Rebuild tolerance', 'Week 5 Easier week', 'Week 6 Exit week'],
-        volumeProgression: 'Increase total work slowly and only after the previous week feels repeatable.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Increase total work slowly in weeks 2-3 and only after the previous week feels repeatable.',
         intensityProgression: 'Keep intensity moderate and progress by smoother execution, range, or reps before adding load.',
         exerciseStability: 'Hold the movement menu steady to make recovery signals obvious and avoid irritation from constant swaps.',
         easierWeek: {
-          week: 5,
-          reason: 'Protect joints and connective tissue before the final week of the block.',
+          week: 4,
+          reason: 'Protect joints and connective tissue before deciding whether to repeat or move on.',
         },
       };
     case 'athletic_recomp':
       return {
         programId,
         familyId,
-        blockLengthWeeks: 6,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'hybrid_wave',
-        phaseLabels: ['Weeks 1-2 Base rhythm', 'Week 3 Extend density', 'Week 4 Easier week', 'Weeks 5-6 Stronger finish'],
-        volumeProgression: 'Progress by adding a little density or total work while keeping the weekly rhythm sustainable.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Progress by adding a little density or total work in weeks 2-3 while keeping the weekly rhythm sustainable.',
         intensityProgression: 'Increase speed, load, or interval quality gradually rather than chasing one hard metric only.',
         exerciseStability: 'Keep the weekly structure stable while allowing small swaps around conditioning or mobility emphasis.',
         easierWeek: {
@@ -97,10 +100,10 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       return {
         programId,
         familyId,
-        blockLengthWeeks: 6,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'resource_limited_progression',
-        phaseLabels: ['Weeks 1-2 Build the habit', 'Week 3 Add rounds or reps', 'Week 4 Easier week', 'Weeks 5-6 Repeat harder'],
-        volumeProgression: 'Use reps, rounds, or shorter rest as the main volume lever when load options are limited.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Use reps, rounds, or shorter rest as the main volume lever in weeks 2-3 when load options are limited.',
         intensityProgression: 'Progress through tighter execution and harder variations before chasing more external load.',
         exerciseStability: 'Keep swaps minimal so low-equipment progression stays measurable.',
         easierWeek: {
@@ -112,25 +115,25 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       return {
         programId,
         familyId,
-        blockLengthWeeks: 8,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'focus_volume_wave',
-        phaseLabels: ['Weeks 1-3 Build glute volume', 'Week 4 Hard push', 'Week 5 Easier week', 'Weeks 6-8 Repeat with heavier top work'],
-        volumeProgression: 'Bias more total work toward the focus area early, then rebuild it after the easier week.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Bias more total work toward the focus area in weeks 2-3, then review recovery in week 4.',
         intensityProgression: 'Let the focus lifts get slightly heavier in the second half while accessories keep the weekly volume high.',
         exerciseStability: 'Keep the focus lifts stable across the block and rotate only non-essential accessories.',
         easierWeek: {
-          week: 5,
-          reason: 'Make room for another focused volume wave without burying recovery.',
+          week: 4,
+          reason: 'Make room for another focused wave without burying recovery.',
         },
       };
     default:
       return {
         programId,
         familyId,
-        blockLengthWeeks: 6,
+        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
         progressionStyle: 'steady_progression',
-        phaseLabels: ['Weeks 1-3 Build', 'Week 4 Easier week', 'Weeks 5-6 Rebuild'],
-        volumeProgression: 'Add work gradually across the first half, reduce it briefly, then rebuild.',
+        phaseLabels: STARTER_PHASE_LABELS,
+        volumeProgression: 'Add work gradually in weeks 2-3, then reduce it briefly and review in week 4.',
         intensityProgression: 'Increase load only when quality stays stable across the prescribed ranges.',
         exerciseStability: 'Keep the core exercise menu steady for the whole block.',
         easierWeek: {
@@ -160,4 +163,17 @@ export function getRecommendationProgrammeSummary(programId: string) {
   const openingPhase = profile.phaseLabels[0]?.replace(/^Weeks?\s+/i, '') ?? 'base phase';
 
   return `${profile.blockLengthWeeks}-week block with ${openingPhase.toLowerCase()}, an easier week in week ${profile.easierWeek.week}, and a ${profile.progressionStyle.replace(/_/g, ' ')} finish. ${profile.volumeProgression}`;
+}
+
+export function buildRecommendationTrainingBlock(programId: string): RecommendationTrainingBlock {
+  const profile = buildRecommendationProgrammeProfile(programId);
+
+  return {
+    blockLengthWeeks: profile.blockLengthWeeks,
+    currentWeek: 1,
+    currentWeekRole: 'baseline',
+    weekRoles: ['baseline', 'build', 'build', 'review'],
+    summary: `Start with week 1 as a baseline, build in weeks 2-3, then use week 4 as an easier review week.`,
+    nextWeekAction: 'After week 1, repeat the same weekly structure in week 2 and add reps or load only when the previous sessions were clean.',
+  };
 }

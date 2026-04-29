@@ -445,6 +445,17 @@ function formatGoalLabel(goalType: string) {
   return goalType[0].toUpperCase() + goalType.slice(1);
 }
 
+function formatSplitLabel(splitType?: string) {
+  if (!splitType) {
+    return 'Workout plan';
+  }
+
+  return splitType
+    .split('_')
+    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
+    .join(' / ');
+}
+
 function GymlogApp() {
   const {
     database,
@@ -496,7 +507,6 @@ function GymlogApp() {
   const allowStartingWeekRouteRef = useRef(false);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
-  const firstAppOpen = !preferences.hasOpenedAppBefore;
 
   useEffect(() => {
     if (!appHydrated || preferences.hasOpenedAppBefore) {
@@ -518,7 +528,7 @@ function GymlogApp() {
       return;
     }
 
-    if (!firstAppOpen && !minimumSplashElapsed) {
+    if (!minimumSplashElapsed) {
       return;
     }
 
@@ -539,7 +549,7 @@ function GymlogApp() {
     return () => {
       cancelled = true;
     };
-  }, [appHydrated, firstAppOpen, minimumSplashElapsed, nativeSplashHidden]);
+  }, [appHydrated, minimumSplashElapsed, nativeSplashHidden]);
 
   function navigate(nextRoute: AppRoute) {
     startTransition(() =>
@@ -1281,7 +1291,7 @@ function GymlogApp() {
     recommendedProgramId: string,
   ) {
     await persistSetupSelection(selection, recommendedProgramId);
-    resetToRoute(ROOT_ROUTES.home);
+    openStartingWeek(recommendedProgramId, 'first_run');
   }
 
   async function handleOnboardingCompleteToProgramDetail(
@@ -1580,6 +1590,33 @@ function GymlogApp() {
     () => (recommendedReadyTemplate ? getReadyProgramContent(recommendedReadyTemplate.id) : null),
     [recommendedReadyTemplate],
   );
+  const homeActivePlanCard = useMemo(() => {
+    const nextSession = recommendedReadyTemplate?.sessions[0] ?? null;
+    if (!recommendedReadyTemplate || !nextSession) {
+      return null;
+    }
+
+    const weeklyMinutes = recommendedReadyTemplate.daysPerWeek * recommendedReadyTemplate.estimatedSessionDuration;
+
+    return {
+      programId: recommendedReadyTemplate.id,
+      eyebrow: `${recommendedReadyTemplate.daysPerWeek} day ${formatSplitLabel(recommendedReadyTemplate.splitType)}`,
+      title: formatWorkoutDisplayLabel(recommendedReadyTemplate.name, 'Workout plan'),
+      subtitle: recommendedReadyContent?.summary ?? 'Your recommended plan is ready to run.',
+      sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
+      weeklyMinutes: `~${weeklyMinutes} min`,
+      nextSession: {
+        label: 'Week 1 · Day 1',
+        title: formatWorkoutDisplayLabel(nextSession.name, 'Workout'),
+        duration: `~${recommendedReadyTemplate.estimatedSessionDuration} min`,
+        exercises: nextSession.exercises.map((exercise) => ({
+          name: exercise.exerciseName,
+          setsLabel: `${exercise.sets} sets`,
+        })),
+        hiddenExerciseCount: Math.max(nextSession.exercises.length - 3, 0),
+      },
+    };
+  }, [recommendedReadyContent, recommendedReadyTemplate]);
   const homeAiPromptSuggestions = useMemo(
     () =>
       setupSelection
@@ -2431,11 +2468,17 @@ function GymlogApp() {
     content = (
       <HomeScreen
         hasNoProgramState={!hasSavedTrainingSetup}
+        activePlan={homeActivePlanCard}
         streak={homeSummary.streak}
         quickStats={homeQuickStats}
         weeklySnapshot={weeklySnapshot}
         upcomingSessions={homeUpcomingSessions}
         customTemplates={customWorkouts}
+        onStartActivePlan={() => {
+          if (homeActivePlanCard) {
+            handleStartReadyProgram(homeActivePlanCard.programId);
+          }
+        }}
         onOpenTemplatesHub={() => navigate(WORKOUT_PLAN_ROUTE)}
         onOpenCustomTemplate={handleOpenCustomProgramDetail}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'editor' })}

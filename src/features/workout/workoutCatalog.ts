@@ -19,11 +19,16 @@ export const WORKOUT_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: 'accessory_arms', allowedExerciseNames: ['Triceps Pushdown', 'Dumbbell Curl', 'Hammer Curl'] },
   { id: 'accessory_delts', allowedExerciseNames: ['Lateral Raise', 'Rear Delt Fly'] },
   { id: 'accessory_core', allowedExerciseNames: ['Cable Crunch', 'Hanging Knee Raise'] },
-  { id: 'calves', allowedExerciseNames: ['Calf Raise'] },
-  { id: 'accessory_hamstrings', allowedExerciseNames: ['Leg Curl'] },
+  { id: 'calves', allowedExerciseNames: ['Calf Raise', 'Standing Calf Raise', 'Seated Calf Raise'] },
+  { id: 'accessory_hamstrings', allowedExerciseNames: ['Leg Curl', 'Seated Leg Curl', 'Lying Leg Curl'] },
   { id: 'mobility_flow', allowedExerciseNames: ['Mobility Flow', 'Hip Mobility Flow', 'Recovery Stretch Flow'] },
   { id: 'yoga_flow', allowedExerciseNames: ['Sun Salutation Flow', 'Yoga Balance Flow', 'Breath Reset'] },
   { id: 'running_blocks', allowedExerciseNames: ['Easy Run Blocks', 'Tempo Run Blocks', 'Stride Finishers'] },
+  { id: 'bodyweight_squat_pattern', allowedExerciseNames: ['Bodyweight Squat', 'Bodyweight Walking Lunge', 'Reverse Lunge'] },
+  { id: 'bodyweight_press', allowedExerciseNames: ['Incline Push-Up', 'Push-Up Wide', 'Decline Push-Up'] },
+  { id: 'bodyweight_pull', allowedExerciseNames: ['Inverted Row', 'Pull-Up'] },
+  { id: 'bodyweight_core', allowedExerciseNames: ['Plank', 'Mountain Climbers', 'Push Up to Side Plank'] },
+  { id: 'bodyweight_hinge', allowedExerciseNames: ['Glute Bridge', 'Single-Leg Glute Bridge', 'Hamstring Walkout'] },
 ];
 
 export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
@@ -191,16 +196,16 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     },
     sessions: [
       session({ id: 'minimal_full_body_a', name: 'Minimal A', orderIndex: 1, exercises: [
-        ex({ id: 'minimal_full_body_a_back_squat', exerciseName: 'Back Squat', slotId: 'primary_squat_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 5, repsMax: 8, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: 'squat_pattern' }),
-        ex({ id: 'minimal_full_body_a_bench_press', exerciseName: 'Bench Press', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 5, repsMax: 8, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: 'horizontal_press' }),
-        ex({ id: 'minimal_full_body_a_chest_supported_row', exerciseName: 'Chest-Supported Row', slotId: 'primary_pull_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 6, repsMax: 8, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: 'horizontal_pull' }),
-        ex({ id: 'minimal_full_body_a_cable_crunch', exerciseName: 'Cable Crunch', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 2, repsMin: 10, repsMax: 15, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'accessory_core' }),
+        ex({ id: 'minimal_full_body_a_bodyweight_squat', exerciseName: 'Bodyweight Squat', slotId: 'primary_squat_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 10, repsMax: 15, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_squat_pattern' }),
+        ex({ id: 'minimal_full_body_a_incline_push_up', exerciseName: 'Incline Push-Up', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_press' }),
+        ex({ id: 'minimal_full_body_a_inverted_row', exerciseName: 'Inverted Row', slotId: 'primary_pull_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 6, repsMax: 10, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_pull' }),
+        ex({ id: 'minimal_full_body_a_plank', exerciseName: 'Plank', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 20, repsMax: 40, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'bodyweight_core' }),
       ] }),
       session({ id: 'minimal_full_body_b', name: 'Minimal B', orderIndex: 2, exercises: [
-        ex({ id: 'minimal_full_body_b_leg_press', exerciseName: 'Leg Press', slotId: 'primary_squat_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 10, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: 'squat_pattern' }),
-        ex({ id: 'minimal_full_body_b_overhead_press', exerciseName: 'Overhead Press', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 5, repsMax: 8, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: 'vertical_press' }),
-        ex({ id: 'minimal_full_body_b_lat_pulldown', exerciseName: 'Lat Pulldown', slotId: 'primary_pull_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 10, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: 'vertical_pull' }),
-        ex({ id: 'minimal_full_body_b_leg_curl', exerciseName: 'Leg Curl', slotId: 'accessory_hamstrings_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 2, repsMin: 10, repsMax: 12, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'accessory_hamstrings' }),
+        ex({ id: 'minimal_full_body_b_bodyweight_walking_lunge', exerciseName: 'Bodyweight Walking Lunge', slotId: 'primary_squat_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_squat_pattern' }),
+        ex({ id: 'minimal_full_body_b_push_up_wide', exerciseName: 'Push-Up Wide', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 6, repsMax: 10, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_press' }),
+        ex({ id: 'minimal_full_body_b_glute_bridge', exerciseName: 'Glute Bridge', slotId: 'primary_hinge_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 10, repsMax: 15, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_hinge' }),
+        ex({ id: 'minimal_full_body_b_mountain_climbers', exerciseName: 'Mountain Climbers', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 20, repsMax: 40, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'bodyweight_core' }),
       ] }),
     ],
   },

@@ -109,4 +109,62 @@ module.exports = [
       assert.equal(result.featuredProgramId, 'tpl_4_day_strength_size_v1');
     },
   },
+  {
+    name: 'recommendation scoring penalizes content that does not fit the requested goal',
+    run() {
+      const result = recommendPrograms(
+        buildRecommendationInput({
+          goal: 'run_mobility',
+          level: 'beginner',
+          daysPerWeek: 3,
+          equipment: 'gym',
+          secondaryOutcomes: ['conditioning', 'mobility'],
+          focusAreas: [],
+          guidanceMode: 'guided_editable',
+          scheduleMode: 'app_managed',
+          weeklyMinutes: null,
+          availableDays: [],
+          gender: 'unspecified',
+          unitPreference: 'kg',
+        }),
+      );
+      const runCandidate = result.scoredCandidates.find((candidate) => candidate.programId === 'tpl_3_day_run_mobility_v1');
+      const strengthCandidate = result.scoredCandidates.find((candidate) => candidate.programId === 'tpl_3_day_strength_base_v1');
+
+      assert.equal(result.featuredProgramId, 'tpl_3_day_run_mobility_v1');
+      assert.ok(runCandidate);
+      assert.ok(strengthCandidate);
+      assert.equal(runCandidate.breakdown.contentFit > 0, true);
+      assert.equal(strengthCandidate.breakdown.contentFit < 0, true);
+    },
+  },
+  {
+    name: 'recommendation scoring marks 5-day strength as an explicit optional-day fallback',
+    run() {
+      const result = recommendPrograms(
+        buildRecommendationInput({
+          goal: 'strength',
+          level: 'intermediate',
+          daysPerWeek: 5,
+          equipment: 'gym',
+          secondaryOutcomes: ['consistency'],
+          focusAreas: [],
+          guidanceMode: 'guided_editable',
+          scheduleMode: 'app_managed',
+          weeklyMinutes: null,
+          availableDays: [],
+          gender: 'unspecified',
+          unitPreference: 'kg',
+        }),
+      );
+
+      assert.equal(result.featuredProgramId, 'tpl_4_day_powerbuilding_v1');
+      assert.match(result.fallbackReason, /optional/i);
+      assert.equal(result.recommendationConfidence < 1, true);
+      assert.equal(result.trainingBlock.blockLengthWeeks, 4);
+      assert.equal(result.trainingBlock.currentWeek, 1);
+      assert.equal(result.trainingBlock.currentWeekRole, 'baseline');
+      assert.match(result.trainingBlock.nextWeekAction, /week 2/i);
+    },
+  },
 ];

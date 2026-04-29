@@ -1,4 +1,5 @@
 import type { SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment } from './models';
+import type { RecommendationProfile } from '../lib/recommendationProfile';
 
 export type TemplateFamilyId =
   | 'mass_hypertrophy'
@@ -11,6 +12,7 @@ export type TemplateFamilyId =
   | 'joint_friendly';
 
 export type RecommendationConfidence = 'high' | 'medium' | 'low';
+export type RecommendationWeekRole = 'baseline' | 'build' | 'review';
 export type RecommendationEquipmentTier = 'full_gym' | 'low_equipment';
 export type RecommendationRecoveryDemand = 'low' | 'moderate' | 'high';
 export type RecommendationStyleTag = 'heavy' | 'pump' | 'balanced' | 'express' | 'recovery' | 'conditioning';
@@ -20,6 +22,7 @@ export interface RecommendationInput {
   level: SetupLevel;
   daysPerWeek: number;
   equipment: SetupEquipment;
+  profile: RecommendationProfile;
   secondaryOutcomes: SetupSecondaryOutcome[];
   focusAreas: SetupFocusArea[];
   weeklyMinutes: number | null;
@@ -51,6 +54,7 @@ export interface RecommendationScoreBreakdown {
   experienceFit: number;
   preferenceFit: number;
   focusFit: number;
+  contentFit: number;
 }
 
 export interface RecommendationCandidate {
@@ -77,11 +81,23 @@ export interface RecommendationProgrammeProfile {
   easierWeek: RecommendationProgrammeEasierWeek;
 }
 
+export interface RecommendationTrainingBlock {
+  blockLengthWeeks: number;
+  currentWeek: number;
+  currentWeekRole: RecommendationWeekRole;
+  weekRoles: RecommendationWeekRole[];
+  summary: string;
+  nextWeekAction: string;
+}
+
 export interface RecommendationResult {
   featuredProgramId: string;
   secondaryProgramId: string | null;
   alternativeProgramIds: string[];
   confidence: RecommendationConfidence;
+  recommendationConfidence: number;
+  fallbackReason: string | null;
+  trainingBlock: RecommendationTrainingBlock;
   primaryFamilyId: TemplateFamilyId;
   scoredCandidates: RecommendationCandidate[];
 }

@@ -12,11 +12,11 @@ interface WelcomeScreenProps {
 
 const copy = {
   en: {
-    setupHint: 'Takes less than a minute to set up.',
+    setupHint: 'Build your plan. Track your progress.',
     continueLabel: 'Get started',
   },
   fi: {
-    setupHint: 'Aloitus vie alle minuutin.',
+    setupHint: 'Rakenna ohjelma. Seuraa kehitystä.',
     continueLabel: 'Aloitetaan',
   },
 } as const;

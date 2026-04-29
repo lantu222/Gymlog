@@ -11,6 +11,7 @@ export type GymlogIconName =
   | 'core'
   | 'deadlift'
   | 'endurance'
+  | 'eye'
   | 'glutes'
   | 'legs'
   | 'mobility'
@@ -148,6 +149,19 @@ function renderIcon(name: GymlogIconName, color: string) {
       );
     case 'check':
       return <Path d="M9.6 16.4 4.9 11.7l-2 2 6.7 6.6L21.4 8.5l-2-2L9.6 16.4Z" fill={color} />;
+    case 'eye':
+      return (
+        <>
+          <Path
+            d="M2.8 12c1.9-3.8 5.1-5.8 9.2-5.8s7.3 2 9.2 5.8c-1.9 3.8-5.1 5.8-9.2 5.8s-7.3-2-9.2-5.8Z"
+            stroke={color}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={2} />
+        </>
+      );
     default:
       return <Circle cx={12} cy={12} r={8} fill={color} />;
   }

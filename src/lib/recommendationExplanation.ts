@@ -25,6 +25,7 @@ const TRADEOFF_GAIN_LABELS: Record<keyof RecommendationScoreBreakdown, string> =
   experienceFit: 'Safer readiness fit',
   preferenceFit: 'Better secondary preference fit',
   focusFit: 'More focus-area emphasis',
+  contentFit: 'Cleaner workout-content match',
 };
 
 const TRADEOFF_LOSS_LABELS: Record<keyof RecommendationScoreBreakdown, string> = {
@@ -34,6 +35,7 @@ const TRADEOFF_LOSS_LABELS: Record<keyof RecommendationScoreBreakdown, string> =
   experienceFit: 'readiness fit',
   preferenceFit: 'secondary preference fit',
   focusFit: 'focus-area alignment',
+  contentFit: 'workout-content fit',
 };
 
 function formatList(items: string[]) {
@@ -52,13 +54,23 @@ function formatList(items: string[]) {
   return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
 }
 
-function getGoalLabel(goal: SetupGoal) {
-  switch (goal) {
+function isNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function getGoalLabel(selection: Pick<FirstRunSetupSelection, 'goal' | 'currentWeightKg' | 'targetWeightKg'>) {
+  switch (selection.goal) {
     case 'strength':
       return 'strength';
     case 'muscle':
+      if (isNumber(selection.currentWeightKg) && isNumber(selection.targetWeightKg) && selection.targetWeightKg > selection.currentWeightKg) {
+        return 'muscle gain';
+      }
       return 'muscle-building';
     case 'general':
+      if (isNumber(selection.currentWeightKg) && isNumber(selection.targetWeightKg) && selection.targetWeightKg < selection.currentWeightKg) {
+        return 'fat-loss support';
+      }
       return 'general fitness';
     case 'run_mobility':
       return 'run + mobility';
@@ -157,6 +169,70 @@ function formatFocusAreaList(focusAreas: SetupFocusArea[]) {
 
 function roundToNearestTen(value: number) {
   return Math.round(value / 10) * 10;
+}
+
+function formatWeightKg(value: number) {
+  return `${Math.round(value)} kg`;
+}
+
+function buildWeightTargetReason(selection: Pick<FirstRunSetupSelection, 'goal' | 'currentWeightKg' | 'targetWeightKg'>) {
+  const currentWeight = selection.currentWeightKg;
+  const targetWeight = selection.targetWeightKg;
+
+  if (!isNumber(currentWeight) || !isNumber(targetWeight) || currentWeight === targetWeight) {
+    return null;
+  }
+
+  const weightRange = `${formatWeightKg(currentWeight)} to ${formatWeightKg(targetWeight)}`;
+
+  if (selection.goal === 'general' && targetWeight < currentWeight) {
+    return `Supports a ${weightRange} fat-loss target.`;
+  }
+
+  if (selection.goal === 'muscle' && targetWeight > currentWeight) {
+    return `Supports a ${weightRange} gain target.`;
+  }
+
+  if (selection.goal === 'strength') {
+    return `Keeps strength primary for your ${weightRange} target.`;
+  }
+
+  return `Uses your ${weightRange} bodyweight target.`;
+}
+
+function buildGoalSpecificReason(selection: Pick<FirstRunSetupSelection, 'goal' | 'secondaryOutcomes'>) {
+  if (selection.goal === 'strength' && selection.secondaryOutcomes.includes('muscle')) {
+    return 'Heavy compounds with enough volume.';
+  }
+
+  if (selection.goal === 'muscle' && selection.secondaryOutcomes.includes('strength')) {
+    return 'Volume with strength work kept in.';
+  }
+
+  if (selection.goal === 'strength') {
+    return 'Heavy compounds first.';
+  }
+
+  if (selection.goal === 'muscle') {
+    return 'Volume for size.';
+  }
+
+  if (selection.goal === 'general') {
+    return 'Sustainable and low friction.';
+  }
+
+  if (selection.goal === 'run_mobility') {
+    return 'Run work with mobility.';
+  }
+
+  return null;
+}
+
+function shouldPreferGoalSpecificReason(selection: Pick<FirstRunSetupSelection, 'goal' | 'secondaryOutcomes'>) {
+  return (
+    (selection.goal === 'strength' && selection.secondaryOutcomes.includes('muscle')) ||
+    (selection.goal === 'muscle' && selection.secondaryOutcomes.includes('strength'))
+  );
 }
 
 function getRecommendedWeeklyMinutes(daysPerWeek: number, estimatedSessionDuration?: number | null) {
@@ -274,8 +350,10 @@ export function buildRecommendationReasonLines(
     selection.secondaryOutcomes.filter((outcome) => outcome !== 'consistency'),
   );
   const focusSummary = formatFocusAreaList(selection.focusAreas);
+  const weightTargetReason = buildWeightTargetReason(selection);
+  const goalSpecificReason = buildGoalSpecificReason(selection);
 
-  reasons.push(`${projectedDays} days for ${getGoalLabel(selection.goal)}.`);
+  reasons.push(`${projectedDays} days for ${getGoalLabel(selection)}.`);
 
   if (selection.equipment !== 'gym') {
     reasons.push(`Built for ${getEquipmentLabel(selection.equipment)}.`);
@@ -287,8 +365,14 @@ export function buildRecommendationReasonLines(
 
   if (focusSummary) {
     reasons.push(`Extra focus: ${focusSummary}.`);
+  } else if (weightTargetReason) {
+    reasons.push(weightTargetReason);
+  } else if (goalSpecificReason && shouldPreferGoalSpecificReason(selection)) {
+    reasons.push(goalSpecificReason);
   } else if (outcomeSummary) {
     reasons.push(`Also keeps ${outcomeSummary}.`);
+  } else if (goalSpecificReason) {
+    reasons.push(goalSpecificReason);
   } else if (selection.guidanceMode === 'self_directed') {
     reasons.push('Easy to turn into custom.');
   } else if (selection.guidanceMode === 'done_for_me') {

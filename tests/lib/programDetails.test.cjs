@@ -30,6 +30,8 @@ module.exports = [
       assert.equal(detail.sessions[0].name, 'Full Body A');
       assert.ok(detail.sessions[0].preview.includes('Back Squat'));
       assert.ok(detail.sessions[0].focus.includes('Squat + bench'));
+      assert.match(detail.sessions[0].guidance.firstAction, /Back Squat.*first work set/i);
+      assert.match(detail.sessions[0].guidance.restGuidance, /sec/i);
       assert.equal(detail.sessions[0].statusLine, 'Last done Mar 24');
       assert.match(detail.progressionSummary, /week|easier week|deload|pivot/i);
     },
@@ -84,6 +86,7 @@ module.exports = [
       assert.equal(detail.primaryActionLabel, 'Start first session');
       assert.equal(detail.sessionActionLabel, 'Start session');
       assert.equal(detail.sessions.length, 1);
+      assert.equal(detail.sessions[0].guidance, null);
       assert.equal(detail.infoSections.length, 0);
       assert.ok(detail.badges.includes('Custom'));
     },

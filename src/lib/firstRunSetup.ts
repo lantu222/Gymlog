@@ -18,7 +18,7 @@ import {
   SetupSecondaryOutcome,
   UnitPreference,
 } from '../types/models';
-import type { RecommendationCandidate, RecommendationConfidence, TemplateFamilyId } from '../types/recommendation';
+import type { RecommendationCandidate, RecommendationConfidence, RecommendationTrainingBlock, TemplateFamilyId } from '../types/recommendation';
 import { AICoachTrainingContext } from '../types/aiCoach';
 
 export interface FirstRunSetupSelection {
@@ -46,6 +46,9 @@ export interface FirstRunRecommendation {
   secondaryProgramId: string | null;
   alternativeProgramIds: string[];
   confidence: RecommendationConfidence;
+  recommendationConfidence: number;
+  fallbackReason: string | null;
+  trainingBlock: RecommendationTrainingBlock;
   primaryFamilyId: TemplateFamilyId;
   scoredCandidates: RecommendationCandidate[];
   mismatchNote: string | null;

@@ -2,6 +2,7 @@ import { WorkoutRole, WorkoutRuntimeTemplate, WorkoutTemplateSession, WorkoutTem
 import { ProgramInsightSummary } from './programInsights';
 import { getRecommendationProgrammeSummary } from './recommendationProgramme';
 import { getReadyProgramContent, ReadyProgramContentSection } from './readyProgramContent';
+import { buildSessionGuidance, SessionGuidance } from './sessionGuidance';
 
 export type ProgramDetailSource = 'ready' | 'custom';
 
@@ -25,6 +26,7 @@ export interface ProgramDetailSessionItem {
   exerciseCount: number;
   preview: string;
   focus: string | null;
+  guidance: SessionGuidance | null;
   statusLine: string | null;
   exercises: ProgramDetailExerciseItem[];
 }
@@ -68,6 +70,7 @@ function buildSessionItems(
   sessions: WorkoutTemplateSession[],
   sessionFocusById: Record<string, string> = {},
   sessionStatusById: Record<string, string> = {},
+  template?: WorkoutTemplateV1,
 ): ProgramDetailSessionItem[] {
   return [...sessions]
     .sort((left, right) => left.orderIndex - right.orderIndex)
@@ -78,6 +81,7 @@ function buildSessionItems(
       exerciseCount: session.exercises.length,
       preview: buildSessionPreview(session.exercises),
       focus: sessionFocusById[session.id] ?? null,
+      guidance: template ? buildSessionGuidance(template, session) : null,
       statusLine: sessionStatusById[session.id] ?? null,
       exercises: session.exercises.map((exercise) => ({
         id: exercise.id,
@@ -128,7 +132,7 @@ export function buildReadyProgramDetail(
     progressionSummary: [programmeSummary, template.progressionRules.primary].filter(Boolean).join(' '),
     primaryActionLabel: 'Start first session',
     sessionActionLabel: 'Start session',
-    sessions: buildSessionItems(template.sessions, content?.sessionFocusById, insights?.sessionStatusById),
+    sessions: buildSessionItems(template.sessions, content?.sessionFocusById, insights?.sessionStatusById, template),
   };
 }
 

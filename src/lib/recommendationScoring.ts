@@ -1,5 +1,7 @@
 import { rankProgramIdsByTailoring, TailoringPreferencesInput } from './tailoringFit';
 import { RECOMMENDATION_PROGRAMS, getRecommendationProgramDefinition } from './recommendationCatalog';
+import { buildRecommendationTrainingBlock } from './recommendationProgramme';
+import { evaluateWorkoutContentFit } from './workoutContentFit';
 import type {
   RecommendationCandidate,
   RecommendationConfidence,
@@ -33,6 +35,10 @@ function scoreGoalAlignment(definition: RecommendationProgramDefinition, input: 
   }
 
   if (input.goal === 'muscle' && definition.styleTags.includes('pump')) {
+    score += 2;
+  }
+
+  if (input.profile.goalType === 'hypertrophy' && input.profile.weightDirection === 'gain' && definition.styleTags.includes('pump')) {
     score += 2;
   }
 
@@ -90,11 +96,23 @@ function scorePreferenceFit(definition: RecommendationProgramDefinition, input: 
     score += 4;
   }
 
+  if (input.profile.setupContext === 'outdoor_running' && definition.styleTags.includes('conditioning')) {
+    score += 2;
+  }
+
   if (input.secondaryOutcomes.includes('consistency') && definition.lowFriction) {
     score += 2;
   }
 
+  if (input.profile.goalType === 'fat_loss' && definition.lowFriction) {
+    score += 2;
+  }
+
   if (input.goal === 'strength' && definition.recoveryDemand === 'high' && input.level === 'beginner') {
+    score -= 2;
+  }
+
+  if (input.profile.goalType === 'fat_loss' && definition.recoveryDemand === 'high' && input.level === 'beginner') {
     score -= 2;
   }
 
@@ -114,6 +132,41 @@ function scoreFocusFit(definition: RecommendationProgramDefinition, input: Recom
   return clampScore(matches * 3, 0, 5);
 }
 
+function scoreContentFit(definition: RecommendationProgramDefinition, input: RecommendationInput) {
+  const fit = evaluateWorkoutContentFit(definition.programId, {
+    goalType: input.profile.goalType,
+    setupContext: input.profile.setupContext,
+  });
+
+  if (fit.issues.length > 0) {
+    return clampScore(-12 * fit.issues.length, -30, 10);
+  }
+
+  let score = 0;
+
+  if (input.profile.goalType === 'strength' && fit.signals.hasLowRepLoadedAnchors) {
+    score += 6;
+  }
+
+  if (input.profile.goalType === 'hypertrophy' && fit.signals.hasHypertrophyVolume) {
+    score += 6;
+  }
+
+  if (input.profile.goalType === 'fat_loss') {
+    score += 5;
+  }
+
+  if (input.profile.goalType === 'endurance' && fit.signals.hasRunWork && fit.signals.hasMobilityWork) {
+    score += 7;
+  }
+
+  if ((input.profile.setupContext === 'home_limited' || input.profile.setupContext === 'bodyweight' || input.profile.setupContext === 'outdoor_running') && !fit.signals.hasFullGymOnlyExercises) {
+    score += 4;
+  }
+
+  return clampScore(score, -30, 10);
+}
+
 function buildBreakdown(definition: RecommendationProgramDefinition, input: RecommendationInput): RecommendationScoreBreakdown {
   return {
     goalAlignment: scoreGoalAlignment(definition, input),
@@ -122,6 +175,7 @@ function buildBreakdown(definition: RecommendationProgramDefinition, input: Reco
     experienceFit: scoreExperienceFit(definition, input),
     preferenceFit: scorePreferenceFit(definition, input),
     focusFit: scoreFocusFit(definition, input),
+    contentFit: scoreContentFit(definition, input),
   };
 }
 
@@ -132,7 +186,8 @@ function sumBreakdown(breakdown: RecommendationScoreBreakdown) {
     breakdown.equipmentFit +
     breakdown.experienceFit +
     breakdown.preferenceFit +
-    breakdown.focusFit
+    breakdown.focusFit +
+    breakdown.contentFit
   );
 }
 
@@ -215,6 +270,36 @@ function resolveConfidence(candidates: RecommendationCandidate[]): Recommendatio
   return 'low';
 }
 
+function resolveRecommendationConfidence(
+  candidates: RecommendationCandidate[],
+  featuredDefinition: RecommendationProgramDefinition,
+  input: RecommendationInput,
+) {
+  if (candidates.length === 0) {
+    return 0.4;
+  }
+
+  const [first, second] = candidates;
+  const gap = second ? first.score - second.score : 12;
+  const dayMismatchPenalty = featuredDefinition.daysPerWeek !== input.daysPerWeek ? 0.12 : 0;
+  const contentPenalty = first.breakdown.contentFit < 0 ? Math.min(0.2, Math.abs(first.breakdown.contentFit) / 100) : 0;
+  const base = 0.62 + Math.min(0.2, first.score / 500) + Math.min(0.18, gap / 50);
+
+  return Math.max(0.35, Math.min(1, Number((base - dayMismatchPenalty - contentPenalty).toFixed(2))));
+}
+
+function resolveFallbackReason(featuredDefinition: RecommendationProgramDefinition, input: RecommendationInput) {
+  if (featuredDefinition.daysPerWeek < input.daysPerWeek) {
+    return 'Closest structured plan with optional extra day.';
+  }
+
+  if (featuredDefinition.daysPerWeek > input.daysPerWeek) {
+    return 'Closest structured plan with a slightly higher weekly rhythm.';
+  }
+
+  return null;
+}
+
 function selectAlternativeCandidates(candidates: RecommendationCandidate[], input: RecommendationInput) {
   const [featuredCandidate, ...remainingCandidates] = candidates;
   if (!featuredCandidate) {
@@ -262,9 +347,17 @@ export function recommendPrograms(
       secondaryProgramId: null,
       alternativeProgramIds: [],
       confidence: 'low',
+      recommendationConfidence: 0.35,
+      fallbackReason: 'Fallback plan used because no scored recommendation was available.',
+      trainingBlock: buildRecommendationTrainingBlock(fallback.programId),
       primaryFamilyId: fallback.familyId,
       scoredCandidates: [],
     };
+  }
+
+  const featuredDefinition = getRecommendationProgramDefinition(featuredCandidate.programId);
+  if (!featuredDefinition) {
+    throw new Error(`Recommendation program definition is missing for ${featuredCandidate.programId}.`);
   }
 
   return {
@@ -272,6 +365,9 @@ export function recommendPrograms(
     secondaryProgramId: alternativeProgramIds[0] ?? null,
     alternativeProgramIds,
     confidence: resolveConfidence(rankedCandidates),
+    recommendationConfidence: resolveRecommendationConfidence(rankedCandidates, featuredDefinition, input),
+    fallbackReason: resolveFallbackReason(featuredDefinition, input),
+    trainingBlock: buildRecommendationTrainingBlock(featuredCandidate.programId),
     primaryFamilyId: featuredCandidate.familyId,
     scoredCandidates: rankedCandidates,
   };

@@ -1,4 +1,5 @@
 import type { FirstRunSetupSelection } from './firstRunSetup';
+import { buildRecommendationProfile } from './recommendationProfile';
 import type { RecommendationInput } from '../types/recommendation';
 
 const DEFAULT_SESSION_MINUTES_BY_DAYS: Record<number, number> = {
@@ -28,6 +29,7 @@ export function buildRecommendationInput(selection: FirstRunSetupSelection): Rec
     level: selection.level,
     daysPerWeek: selection.daysPerWeek,
     equipment: selection.equipment,
+    profile: buildRecommendationProfile(selection),
     secondaryOutcomes: selection.secondaryOutcomes,
     focusAreas: selection.focusAreas,
     weeklyMinutes: typeof selection.weeklyMinutes === 'number' ? selection.weeklyMinutes : null,
