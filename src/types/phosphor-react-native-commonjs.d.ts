@@ -2,6 +2,10 @@ declare module 'phosphor-react-native/lib/commonjs/icons/Barbell' {
   export { Barbell, BarbellIcon } from 'phosphor-react-native';
 }
 
+declare module 'phosphor-react-native/lib/commonjs/icons/CalendarBlank' {
+  export { CalendarBlank, CalendarBlankIcon } from 'phosphor-react-native';
+}
+
 declare module 'phosphor-react-native/lib/commonjs/icons/Bed' {
   export { Bed, BedIcon } from 'phosphor-react-native';
 }
@@ -12,6 +16,10 @@ declare module 'phosphor-react-native/lib/commonjs/icons/ChartLineUp' {
 
 declare module 'phosphor-react-native/lib/commonjs/icons/Check' {
   export { Check, CheckIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/Heart' {
+  export { Heart, HeartIcon } from 'phosphor-react-native';
 }
 
 declare module 'phosphor-react-native/lib/commonjs/icons/HouseSimple' {
@@ -40,6 +48,10 @@ declare module 'phosphor-react-native/lib/commonjs/icons/ShieldCheck' {
 
 declare module 'phosphor-react-native/lib/commonjs/icons/SneakerMove' {
   export { SneakerMove, SneakerMoveIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/Star' {
+  export { Star, StarIcon } from 'phosphor-react-native';
 }
 
 declare module 'phosphor-react-native/lib/commonjs/icons/Target' {

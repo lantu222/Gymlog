@@ -80,6 +80,8 @@ function mapSetupGoalToAiGoal(preferences: AppPreferences) {
     case 'muscle':
       return 'muscle';
     case 'run_mobility':
+    case 'lean_athletic':
+    case 'general_fitness':
       return 'fitness';
     default:
       return 'fitness';
@@ -102,6 +104,10 @@ function mapSetupDays(preferences: AppPreferences) {
 function mapSetupExperience(preferences: AppPreferences) {
   if (preferences.aiPlannerExperience) {
     return preferences.aiPlannerExperience;
+  }
+
+  if (preferences.setupLevel === 'advanced') {
+    return 'advanced';
   }
 
   if (preferences.setupLevel === 'intermediate') {
@@ -510,6 +516,9 @@ function getFocusBodyPart(preferences: AppPreferences): ExerciseBodyPart | null 
     case 'glutes':
       return 'glutes';
     case 'legs':
+    case 'quads':
+    case 'hamstrings':
+    case 'calves':
       return 'legs';
     case 'chest':
       return 'chest';
@@ -521,6 +530,8 @@ function getFocusBodyPart(preferences: AppPreferences): ExerciseBodyPart | null 
       return 'biceps';
     case 'core':
       return 'core';
+    case 'mobility':
+      return 'full body';
     default:
       return null;
   }
@@ -799,6 +810,8 @@ export function buildAiCoachPlanSchema(preferences: AppPreferences, exerciseLibr
                       ? ['lateral raise', 'barbell shoulder press', 'cable shoulder press']
                       : focusBodyPart === 'legs'
                         ? ['leg press', 'walking lunge', 'split squat']
+                        : focusBodyPart === 'full body'
+                          ? ['world greatest stretch', 'walking lunge', 'plank']
                         : focusBodyPart === 'glutes'
                           ? ['hip thrust', 'glute bridge', 'walking lunge']
                           : focusBodyPart === 'biceps'

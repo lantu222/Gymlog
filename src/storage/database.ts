@@ -336,31 +336,43 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         input?.preferences?.setupGoal === 'strength' ||
         input?.preferences?.setupGoal === 'muscle' ||
         input?.preferences?.setupGoal === 'general' ||
-        input?.preferences?.setupGoal === 'run_mobility'
+        input?.preferences?.setupGoal === 'run_mobility' ||
+        input?.preferences?.setupGoal === 'lean_athletic' ||
+        input?.preferences?.setupGoal === 'general_fitness'
           ? input.preferences.setupGoal
           : fallback.preferences.setupGoal,
       setupGoals:
         Array.isArray(input?.preferences?.setupGoals) &&
         input.preferences.setupGoals.length > 0
           ? input.preferences.setupGoals.filter(
-              (value: unknown): value is 'strength' | 'muscle' | 'general' | 'run_mobility' =>
-                value === 'strength' || value === 'muscle' || value === 'general' || value === 'run_mobility',
+              (value: unknown): value is 'strength' | 'muscle' | 'general' | 'run_mobility' | 'lean_athletic' | 'general_fitness' =>
+                value === 'strength' ||
+                value === 'muscle' ||
+                value === 'general' ||
+                value === 'run_mobility' ||
+                value === 'lean_athletic' ||
+                value === 'general_fitness',
             )
           : input?.preferences?.setupGoal === 'strength' ||
               input?.preferences?.setupGoal === 'muscle' ||
               input?.preferences?.setupGoal === 'general' ||
-              input?.preferences?.setupGoal === 'run_mobility'
+              input?.preferences?.setupGoal === 'run_mobility' ||
+              input?.preferences?.setupGoal === 'lean_athletic' ||
+              input?.preferences?.setupGoal === 'general_fitness'
             ? [input.preferences.setupGoal]
             : fallback.preferences.setupGoals,
       setupLevel:
-        input?.preferences?.setupLevel === 'beginner' || input?.preferences?.setupLevel === 'intermediate'
+        input?.preferences?.setupLevel === 'beginner' ||
+        input?.preferences?.setupLevel === 'intermediate' ||
+        input?.preferences?.setupLevel === 'advanced'
           ? input.preferences.setupLevel
           : fallback.preferences.setupLevel,
       setupDaysPerWeek:
         input?.preferences?.setupDaysPerWeek === 2 ||
         input?.preferences?.setupDaysPerWeek === 3 ||
         input?.preferences?.setupDaysPerWeek === 4 ||
-        input?.preferences?.setupDaysPerWeek === 5
+        input?.preferences?.setupDaysPerWeek === 5 ||
+        input?.preferences?.setupDaysPerWeek === 6
           ? input.preferences.setupDaysPerWeek
           : fallback.preferences.setupDaysPerWeek,
       setupEquipment:
@@ -369,6 +381,14 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         input?.preferences?.setupEquipment === 'home'
           ? input.preferences.setupEquipment
           : fallback.preferences.setupEquipment,
+      setupTrainingEnvironment:
+        input?.preferences?.setupTrainingEnvironment === 'full_gym' ||
+        input?.preferences?.setupTrainingEnvironment === 'home_gym' ||
+        input?.preferences?.setupTrainingEnvironment === 'minimal_equipment' ||
+        input?.preferences?.setupTrainingEnvironment === 'bodyweight_only' ||
+        input?.preferences?.setupTrainingEnvironment === 'running_hybrid'
+          ? input.preferences.setupTrainingEnvironment
+          : fallback.preferences.setupTrainingEnvironment,
       setupSecondaryOutcomes:
         Array.isArray(input?.preferences?.setupSecondaryOutcomes)
           ? input.preferences.setupSecondaryOutcomes.filter(
@@ -389,20 +409,28 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
                 | 'bodyweight'
                 | 'glutes'
                 | 'legs'
+                | 'quads'
+                | 'hamstrings'
+                | 'calves'
                 | 'chest'
                 | 'shoulders'
                 | 'back'
                 | 'arms'
                 | 'core'
+                | 'mobility'
                 | 'conditioning' =>
                 value === 'bodyweight' ||
                 value === 'glutes' ||
                 value === 'legs' ||
+                value === 'quads' ||
+                value === 'hamstrings' ||
+                value === 'calves' ||
                 value === 'chest' ||
                 value === 'shoulders' ||
                 value === 'back' ||
                 value === 'arms' ||
                 value === 'core' ||
+                value === 'mobility' ||
                 value === 'conditioning',
             )
           : fallback.preferences.setupFocusAreas,

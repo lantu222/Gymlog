@@ -47,12 +47,30 @@ function resolveGoalType(selection: Pick<FirstRunSetupSelection, 'goal' | 'curre
     return 'endurance';
   }
 
+  if (selection.goal === 'lean_athletic') {
+    return weightDirection === 'loss' ? 'fat_loss' : 'recomposition';
+  }
+
   return weightDirection === 'loss' ? 'fat_loss' : 'recomposition';
 }
 
 function resolveSetupContext(
-  selection: Pick<FirstRunSetupSelection, 'equipment' | 'goal' | 'secondaryOutcomes' | 'focusAreas'>,
+  selection: Pick<FirstRunSetupSelection, 'equipment' | 'trainingEnvironment' | 'goal' | 'secondaryOutcomes' | 'focusAreas'>,
 ): RecommendationSetupContext {
+  switch (selection.trainingEnvironment) {
+    case 'full_gym':
+      return 'full_gym';
+    case 'home_gym':
+    case 'minimal_equipment':
+      return 'home_limited';
+    case 'bodyweight_only':
+      return 'bodyweight';
+    case 'running_hybrid':
+      return 'outdoor_running';
+    default:
+      break;
+  }
+
   if (selection.equipment === 'gym') {
     return 'full_gym';
   }

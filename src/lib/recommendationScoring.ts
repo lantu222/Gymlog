@@ -22,7 +22,7 @@ function scoreGoalAlignment(definition: RecommendationProgramDefinition, input: 
     score += 24;
   } else if (definition.backupGoals.includes(input.goal)) {
     score += 9;
-  } else if (input.goal === 'general') {
+  } else if (input.goal === 'general' || input.goal === 'general_fitness' || input.goal === 'lean_athletic') {
     score += 6;
   } else {
     score += 2;
@@ -46,7 +46,7 @@ function scoreGoalAlignment(definition: RecommendationProgramDefinition, input: 
     score += 2;
   }
 
-  if (input.goal === 'run_mobility' && definition.styleTags.includes('conditioning')) {
+  if ((input.goal === 'run_mobility' || input.goal === 'lean_athletic') && definition.styleTags.includes('conditioning')) {
     score += 2;
   }
 
@@ -82,7 +82,7 @@ function scoreExperienceFit(definition: RecommendationProgramDefinition, input: 
     return 10;
   }
 
-  return input.level === 'beginner' ? 2 : 5;
+  return input.level === 'beginner' ? 2 : input.level === 'advanced' ? 6 : 5;
 }
 
 function scorePreferenceFit(definition: RecommendationProgramDefinition, input: RecommendationInput) {

@@ -6,6 +6,7 @@ import {
   Easing,
   Image,
   ImageBackground,
+  ImageStyle,
   ImageSourcePropType,
   Modal,
   PanResponder,
@@ -52,6 +53,7 @@ import {
 import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
 import { buildRecommendationOptionIds } from '../lib/recommendationPresentation';
 import { buildSessionGuidance } from '../lib/sessionGuidance';
+import { getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
@@ -67,6 +69,7 @@ import {
   SetupLevel,
   SetupScheduleMode,
   SetupSecondaryOutcome,
+  SetupTrainingEnvironment,
   SetupWeekday,
   UnitPreference,
 } from '../types/models';
@@ -109,6 +112,9 @@ type PlanReadyHeroKey = 'mass' | 'strength' | 'athletic';
 type PlanReadyImageGender = 'male' | 'female';
 type BodyweightGoalMode = 'hidden' | 'optional' | 'required';
 type FocusBodyView = 'front' | 'back';
+type LocationSelectionOptionId = SetupTrainingEnvironment;
+type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
+type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
 
 const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about', 'focus', 'review'];
 
@@ -184,12 +190,19 @@ function getStageIndex(stage?: SetupStage) {
   return index >= 0 ? index : 0;
 }
 
-function getDefaultLocationOptionId(equipment: SetupEquipment) {
+function getDefaultLocationOptionId(
+  equipment: SetupEquipment,
+  trainingEnvironment?: SetupTrainingEnvironment | null,
+): LocationSelectionOptionId {
+  if (trainingEnvironment) {
+    return trainingEnvironment;
+  }
+
   switch (equipment) {
     case 'home':
-      return 'home_workout';
+      return 'home_gym';
     case 'minimal':
-      return 'outdoor_running';
+      return 'minimal_equipment';
     case 'gym':
     default:
       return 'full_gym';
@@ -222,27 +235,107 @@ const GOAL_OPTIONS: Array<{
   goal: SetupGoal;
   title: string;
   body: string;
+  tags: Array<{ label: string; tone: FocusBadgeTone }>;
+  icon: OnboardingOptionIconName;
 }> = [
   {
     goal: 'strength',
-    title: 'Strength',
-    body: 'Lift heavier. Main compounds first.',
+    title: 'Get stronger',
+    body: 'Focus on heavy lifts and progressive strength.',
+    tags: [
+      { label: 'Lower reps', tone: 'neutral' },
+      { label: 'Longer rest', tone: 'blue' },
+      { label: 'Strength focus', tone: 'green' },
+    ],
+    icon: 'barbell',
   },
   {
     goal: 'muscle',
     title: 'Build muscle',
-    body: 'More volume. More size.',
+    body: 'Higher volume training to build size and definition.',
+    tags: [
+      { label: 'Hypertrophy', tone: 'green' },
+      { label: 'Moderate reps', tone: 'neutral' },
+      { label: 'More volume', tone: 'purple' },
+    ],
+    icon: 'trend_up',
   },
   {
-    goal: 'general',
-    title: 'Lose weight',
-    body: 'Lean down with steady training.',
+    goal: 'lean_athletic',
+    title: 'Lean & athletic',
+    body: 'Stay lean while building strength and performance.',
+    tags: [
+      { label: 'Hybrid training', tone: 'purple' },
+      { label: 'Conditioning', tone: 'green' },
+      { label: 'Lower fatigue', tone: 'blue' },
+    ],
+    icon: 'run',
   },
   {
-    goal: 'run_mobility',
-    title: 'Endurance / cardio',
-    body: 'More engine and movement.',
+    goal: 'general_fitness',
+    title: 'General fitness',
+    body: 'Balanced training for overall health and consistency.',
+    tags: [
+      { label: 'Beginner friendly', tone: 'blue' },
+      { label: 'Sustainable', tone: 'green' },
+      { label: 'Flexible', tone: 'neutral' },
+    ],
+    icon: 'heart',
   },
+];
+
+const TRAINING_LEVEL_OPTIONS: Array<{
+  level: SetupLevel;
+  title: string;
+  body: string;
+  chips: Array<{ label: string; tone: FocusBadgeTone }>;
+  icon: OnboardingOptionIconName;
+}> = [
+  {
+    level: 'beginner',
+    title: 'Beginner',
+    body: '0-1 years of consistent training',
+    chips: [
+      { label: 'Simpler workouts', tone: 'blue' },
+      { label: 'Lower fatigue', tone: 'blue' },
+      { label: 'More recovery', tone: 'green' },
+    ],
+    icon: 'star',
+  },
+  {
+    level: 'intermediate',
+    title: 'Intermediate',
+    body: '1-3 years of training',
+    chips: [
+      { label: 'Balanced volume', tone: 'neutral' },
+      { label: 'Progressive overload', tone: 'green' },
+      { label: 'More variety', tone: 'purple' },
+    ],
+    icon: 'trend_up',
+  },
+  {
+    level: 'advanced',
+    title: 'Advanced',
+    body: '3+ years of serious training',
+    chips: [
+      { label: 'Higher volume', tone: 'purple' },
+      { label: 'Advanced progression', tone: 'green' },
+      { label: 'Greater workload', tone: 'neutral' },
+    ],
+    icon: 'trophy',
+  },
+];
+
+const TRAINING_FREQUENCY_OPTIONS: Array<{
+  value: SetupDaysPerWeek;
+  title: string;
+  body: string;
+}> = [
+  { value: 2, title: '2', body: 'days' },
+  { value: 3, title: '3', body: 'days' },
+  { value: 4, title: '4', body: 'days' },
+  { value: 5, title: '5', body: 'days' },
+  { value: 6, title: '6+', body: 'days' },
 ];
 
 function getGoalBackgroundSource(goal: SetupGoal) {
@@ -252,6 +345,8 @@ function getGoalBackgroundSource(goal: SetupGoal) {
     case 'muscle':
       return require('../../assets/fitness/selected/build-muscle-goal-card.png');
     case 'general':
+    case 'lean_athletic':
+    case 'general_fitness':
       return require('../../assets/fitness/selected/lose-weight-goal-card.png');
     case 'run_mobility':
       return require('../../assets/fitness/selected/endurance-cardio-goal-card.png');
@@ -352,30 +447,47 @@ const SCHEDULE_MODE_OPTIONS: Array<{
   },
 ];
 
-const FOCUS_AREA_OPTIONS: SetupFocusArea[] = [
-  'glutes',
-  'legs',
-  'chest',
-  'shoulders',
-  'back',
-  'arms',
-  'core',
-  'conditioning',
-];
+const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions();
+const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea[] = FOCUS_AREA_OPTIONS.map((option) => option.area);
 const FOCUS_BODY_MENU_ORDER: SetupFocusArea[] = [
   'chest',
   'shoulders',
   'arms',
   'back',
-  'legs',
+  'quads',
   'glutes',
-  'core',
-  'conditioning',
+  'hamstrings',
+  'calves',
+  'mobility',
 ];
 const FOCUS_BODY_PERSON_ASSETS: Record<FocusBodyView, ImageSourcePropType> = {
   front: require('../../assets/fitness/selected/step7-character-male-02.png'),
   back: require('../../assets/fitness/selected/step7-character-male-01.png'),
 };
+const FOCUS_AREA_CARD_ASSETS: Partial<Record<SetupFocusArea, ImageSourcePropType>> = {
+  chest: require('../../assets/fitness/selected/focus-chest-anatomy-card.png'),
+  back: require('../../assets/fitness/selected/focus-back-anatomy-card.png'),
+  shoulders: require('../../assets/fitness/selected/focus-shoulders-anatomy-card.png'),
+  arms: require('../../assets/fitness/selected/focus-arms-anatomy-card.png'),
+  core: require('../../assets/fitness/selected/focus-abs-anatomy-card.png'),
+  quads: require('../../assets/fitness/selected/focus-quads-anatomy-card.png'),
+  glutes: require('../../assets/fitness/selected/focus-glutes-anatomy-card.png'),
+  hamstrings: require('../../assets/fitness/selected/focus-hamstrings-anatomy-card.png'),
+  calves: require('../../assets/fitness/selected/focus-calves-anatomy-card.png'),
+  mobility: require('../../assets/fitness/selected/focus-mobility-anatomy-card.png'),
+};
+const FOCUS_AREA_IMAGE_FRAMES: Partial<Record<SetupFocusArea, ImageStyle>> = {
+  chest: { width: '112%', height: '92%' },
+  shoulders: { width: '114%', height: '88%' },
+  arms: { width: '114%', height: '88%' },
+  core: { width: '116%', height: '84%' },
+  quads: { width: '118%', height: '80%' },
+  glutes: { width: '116%', height: '82%' },
+  hamstrings: { width: '118%', height: '80%' },
+  calves: { width: '118%', height: '78%' },
+  mobility: { width: '116%', height: '86%' },
+};
+type FocusAreaOnboardingOption = (typeof FOCUS_AREA_OPTIONS)[number];
 const PLAN_READY_GYM_BACKDROP_SOURCE = require('../../assets/fitness/selected/plan-ready-empty-gym-backdrop-bw.jpg');
 const PLAN_READY_PREVIEW_ASSETS: Record<PlanReadyImageGender, Record<PlanReadyHeroKey, ImageSourcePropType>> = {
   male: {
@@ -391,39 +503,62 @@ const PLAN_READY_PREVIEW_ASSETS: Record<PlanReadyImageGender, Record<PlanReadyHe
 };
 const WEEKDAY_OPTIONS: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const LOCATION_SELECTION_OPTIONS: Array<{
-  id: string;
+  id: LocationSelectionOptionId;
   equipment: SetupEquipment;
+  trainingEnvironment: SetupTrainingEnvironment;
   label: string;
   subtitle: string;
   icon: OnboardingOptionIconName;
+  focusLabel?: string;
+  focusTone?: FocusBadgeTone;
 }> = [
   {
     id: 'full_gym',
     equipment: 'gym',
+    trainingEnvironment: 'full_gym',
     label: 'Full Gym',
-    subtitle: 'Train in a fully equipped gym',
+    subtitle: 'Commercial gym access with machines, barbells and dumbbells.',
     icon: 'barbell',
+    focusLabel: 'MOST FLEXIBLE',
+    focusTone: 'neutral',
   },
   {
-    id: 'home_workout',
+    id: 'home_gym',
     equipment: 'home',
-    label: 'Home Workout',
-    subtitle: 'Train at home with minimal equipment',
+    trainingEnvironment: 'home_gym',
+    label: 'Home Gym',
+    subtitle: 'Train at home with your own equipment.',
     icon: 'home',
   },
   {
-    id: 'outdoor_running',
+    id: 'minimal_equipment',
     equipment: 'minimal',
-    label: 'Outdoor / Running',
-    subtitle: 'Train outside or go for runs',
-    icon: 'running_shoe',
+    trainingEnvironment: 'minimal_equipment',
+    label: 'Minimal Equipment',
+    subtitle: 'Limited equipment like bands, dumbbells or a bench.',
+    icon: 'run',
+    focusLabel: 'EFFICIENT',
+    focusTone: 'green',
   },
   {
-    id: 'bodyweight',
+    id: 'bodyweight_only',
     equipment: 'minimal',
-    label: 'Bodyweight',
-    subtitle: 'Use your body, no equipment',
+    trainingEnvironment: 'bodyweight_only',
+    label: 'Bodyweight Only',
+    subtitle: 'No equipment needed. Train anywhere.',
     icon: 'bodyweight',
+    focusLabel: 'BEGINNER FRIENDLY',
+    focusTone: 'blue',
+  },
+  {
+    id: 'running_hybrid',
+    equipment: 'minimal',
+    trainingEnvironment: 'running_hybrid',
+    label: 'Running / Hybrid',
+    subtitle: 'Running-focused or mix of running and strength training.',
+    icon: 'running_shoe',
+    focusLabel: 'CARDIO FOCUSED',
+    focusTone: 'purple',
   },
 ];
 
@@ -432,19 +567,68 @@ const GOAL_SELECTION_OPTIONS: Array<{
   label: string;
   subtitle: string;
   icon: OnboardingOptionIconName;
+  tags: Array<{ label: string; tone: FocusBadgeTone }>;
 }> = GOAL_OPTIONS.map((option) => ({
   id: option.goal,
   label: option.title,
   subtitle: option.body,
-  icon:
-    option.goal === 'strength'
-      ? 'trophy'
-      : option.goal === 'muscle'
-        ? 'trend_up'
-        : option.goal === 'general'
-          ? 'scales'
-          : 'run',
+  icon: option.icon,
+  tags: option.tags,
 }));
+
+function getLocationFocusBadgeStyle(tone: FocusBadgeTone) {
+  switch (tone) {
+    case 'green':
+      return styles.locationFocusBadgeGreen;
+    case 'blue':
+      return styles.locationFocusBadgeBlue;
+    case 'purple':
+      return styles.locationFocusBadgePurple;
+    case 'neutral':
+    default:
+      return styles.locationFocusBadgeNeutral;
+  }
+}
+
+function getLocationFocusBadgeTextStyle(tone: FocusBadgeTone) {
+  switch (tone) {
+    case 'green':
+      return styles.locationFocusBadgeTextGreen;
+    case 'blue':
+      return styles.locationFocusBadgeTextBlue;
+    case 'purple':
+      return styles.locationFocusBadgeTextPurple;
+    case 'neutral':
+    default:
+      return styles.locationFocusBadgeTextNeutral;
+  }
+}
+
+function normalizeFocusBadge(input: unknown, fallbackTone: FocusBadgeTone): { label: string; tone: FocusBadgeTone } | null {
+  if (typeof input === 'string') {
+    const label = input.trim();
+    return label ? { label, tone: fallbackTone } : null;
+  }
+
+  if (input && typeof input === 'object' && 'label' in input) {
+    const candidate = input as { label?: unknown; tone?: unknown };
+    if (typeof candidate.label !== 'string' || !candidate.label.trim()) {
+      return null;
+    }
+
+    const tone =
+      candidate.tone === 'green' ||
+      candidate.tone === 'blue' ||
+      candidate.tone === 'purple' ||
+      candidate.tone === 'neutral'
+        ? candidate.tone
+        : fallbackTone;
+
+    return { label: candidate.label.trim(), tone };
+  }
+
+  return null;
+}
 
 function ChoiceChip({
   label,
@@ -466,9 +650,13 @@ function LocationChoiceCard({
   label,
   subtitle,
   icon,
+  focusLabel,
+  focusTone = 'neutral',
+  tags,
   active,
   onPress,
   compact = false,
+  roomy = false,
   hideIcon = false,
   leadingRadio = false,
   tall = false,
@@ -476,13 +664,21 @@ function LocationChoiceCard({
   label: string;
   subtitle?: string;
   icon: OnboardingOptionIconName;
+  focusLabel?: FocusBadgeInput;
+  focusTone?: FocusBadgeTone;
+  tags?: FocusBadgeInput[];
   active: boolean;
   onPress: () => void;
   compact?: boolean;
+  roomy?: boolean;
   hideIcon?: boolean;
   leadingRadio?: boolean;
   tall?: boolean;
 }) {
+  const focusBadge = normalizeFocusBadge(focusLabel, focusTone);
+  const normalizedTags = (tags ?? [])
+    .map((tag) => normalizeFocusBadge(tag, 'neutral'))
+    .filter((tag): tag is { label: string; tone: FocusBadgeTone } => Boolean(tag));
   const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
 
   useEffect(() => {
@@ -500,6 +696,9 @@ function LocationChoiceCard({
       outputRange: [0.94, 1],
     }),
   };
+  const outlineStyle = {
+    opacity: progress,
+  };
   const radio = (
     <View
       style={[
@@ -508,16 +707,23 @@ function LocationChoiceCard({
         active && styles.locationChoiceRadioActive,
       ]}
     >
-      {active ? <View style={styles.locationChoiceRadioInner} /> : null}
+      {active ? (
+        <View style={styles.locationChoiceRadioCheck}>
+          <View style={styles.locationChoiceRadioCheckShort} />
+          <View style={styles.locationChoiceRadioCheckLong} />
+        </View>
+      ) : null}
     </View>
   );
 
   return (
     <Pressable onPress={onPress} style={styles.locationChoicePressable}>
+      <Animated.View pointerEvents="none" style={[styles.locationChoiceActiveOutline, outlineStyle]} />
       <Animated.View
         style={[
           styles.locationChoiceCard,
           compact && styles.locationChoiceCardCompact,
+          roomy && styles.locationChoiceCardRoomy,
           tall && styles.locationChoiceCardTall,
           active && styles.locationChoiceCardActive,
           animatedStyle,
@@ -527,9 +733,31 @@ function LocationChoiceCard({
           {leadingRadio ? radio : null}
           {hideIcon ? null : <OnboardingOptionIcon name={icon} />}
           <View style={[styles.locationChoiceCopy, hideIcon && styles.locationChoiceCopyNoIcon]}>
-            <Text style={[styles.locationChoiceLabel, active && styles.locationChoiceLabelActive]}>{label}</Text>
+            <View style={styles.locationChoiceTitleRow}>
+              <Text numberOfLines={1} style={[styles.locationChoiceLabel, active && styles.locationChoiceLabelActive]}>
+                {label}
+              </Text>
+              {focusBadge ? (
+                <View style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(focusBadge.tone)]}>
+                  <Text numberOfLines={1} style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(focusBadge.tone)]}>
+                    {focusBadge.label}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
             {subtitle ? (
               <Text style={[styles.locationChoiceSubtitle, active && styles.locationChoiceSubtitleActive]}>{subtitle}</Text>
+            ) : null}
+            {normalizedTags.length > 0 ? (
+              <View style={styles.locationChoiceTagRow}>
+                {normalizedTags.map((tag, index) => (
+                  <View key={`${tag.label}:${tag.tone}:${index}`} style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(tag.tone)]}>
+                    <Text numberOfLines={1} style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(tag.tone)]}>
+                      {tag.label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
             ) : null}
           </View>
           {leadingRadio ? null : radio}
@@ -1330,25 +1558,42 @@ function StepDots({ index, light = false }: { index: number; light?: boolean }) 
   );
 }
 
-function getLocationLabel(equipment: SetupEquipment) {
-  switch (equipment) {
-    case 'gym':
+function getLocationLabel(trainingEnvironment: SetupTrainingEnvironment, equipment: SetupEquipment) {
+  switch (trainingEnvironment) {
+    case 'full_gym':
       return 'Full gym';
-    case 'home':
-      return 'Home setup';
-    case 'minimal':
-      return 'Running / outdoors';
+    case 'home_gym':
+      return 'Home gym';
+    case 'minimal_equipment':
+      return 'Minimal equipment';
+    case 'bodyweight_only':
+      return 'Bodyweight only';
+    case 'running_hybrid':
+      return 'Running / hybrid';
     default:
-      return 'Your setup';
+      switch (equipment) {
+        case 'gym':
+          return 'Full gym';
+        case 'home':
+          return 'Home setup';
+        case 'minimal':
+          return 'Minimal equipment';
+        default:
+          return 'Your setup';
+      }
   }
 }
 
 function getGoalLabel(goal: SetupGoal) {
   switch (goal) {
     case 'strength':
-      return 'Strength';
+      return 'Get stronger';
     case 'muscle':
       return 'Build muscle';
+    case 'lean_athletic':
+      return 'Lean & athletic';
+    case 'general_fitness':
+      return 'General fitness';
     case 'general':
       return 'Lose weight';
     case 'run_mobility':
@@ -1386,7 +1631,58 @@ function getAgeRangeLabel(ageRange: SetupAgeRange) {
 }
 
 function getLevelLabel(level: SetupLevel) {
-  return level === 'beginner' ? 'Beginner' : 'Intermediate';
+  if (level === 'beginner') {
+    return 'Beginner';
+  }
+
+  return level === 'advanced' ? 'Advanced' : 'Intermediate';
+}
+
+function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDaysPerWeek) {
+  const duration =
+    level === 'advanced'
+      ? '60-75 min sessions'
+      : level === 'intermediate'
+        ? '50-70 min sessions'
+        : '45-60 min sessions';
+  const structure =
+    daysPerWeek <= 3
+      ? 'Full body structure'
+      : daysPerWeek === 4
+        ? 'Upper/lower structure'
+        : daysPerWeek === 5
+          ? 'Split structure'
+          : 'High-frequency split';
+  const recovery =
+    level === 'advanced'
+      ? 'Workload managed'
+      : level === 'intermediate'
+        ? 'Progressive balance'
+        : 'Recovery focused';
+
+  return {
+    workouts: `${daysPerWeek === 6 ? '6+' : daysPerWeek} workouts / week`,
+    duration,
+    structure,
+    recovery,
+  };
+}
+
+function TrainingSetupMetric({ icon, label }: { icon: GymlogIconName; label: string }) {
+  return (
+    <View style={styles.trainingSetupMetric}>
+      <GymlogIcon name={icon} size={18} color="#06080B" />
+      <Text style={styles.trainingSetupMetricText}>{label}</Text>
+    </View>
+  );
+}
+
+function TrainingSectionIcon({ icon }: { icon: GymlogIconName }) {
+  return (
+    <View style={styles.trainingProfileSectionIcon}>
+      <GymlogIcon name={icon} size={16} color="#FFFFFF" />
+    </View>
+  );
 }
 
 export function OnboardingScreen({
@@ -1438,8 +1734,13 @@ export function OnboardingScreen({
   const [level, setLevel] = useState<SetupLevel>(setupSeed.level);
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
   const [equipment, setEquipment] = useState<SetupEquipment>(setupSeed.equipment);
-  const [selectedLocationOptionId, setSelectedLocationOptionId] = useState<string | null>(() =>
-    initialSelection || editMode ? getDefaultLocationOptionId(setupSeed.equipment) : null,
+  const [trainingEnvironment, setTrainingEnvironment] = useState<SetupTrainingEnvironment>(
+    setupSeed.trainingEnvironment,
+  );
+  const [selectedLocationOptionId, setSelectedLocationOptionId] = useState<LocationSelectionOptionId | null>(() =>
+    initialSelection || editMode
+      ? getDefaultLocationOptionId(setupSeed.equipment, setupSeed.trainingEnvironment)
+      : null,
   );
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
@@ -1493,6 +1794,7 @@ export function OnboardingScreen({
       level,
       daysPerWeek,
       equipment,
+      trainingEnvironment,
       secondaryOutcomes,
       focusAreas,
       guidanceMode,
@@ -1519,6 +1821,7 @@ export function OnboardingScreen({
       scheduleMode,
       secondaryOutcomes,
       targetWeightValue,
+      trainingEnvironment,
       unitPreference,
       weeklyMinutes,
     ],
@@ -1610,7 +1913,7 @@ export function OnboardingScreen({
     () => buildFirstRunHelperPrompt(stage as FirstRunStep, selection, recommendedProgram?.name ?? null),
     [recommendedProgram?.name, selection, stage],
   );
-  const locationLabel = useMemo(() => getLocationLabel(equipment), [equipment]);
+  const locationLabel = useMemo(() => getLocationLabel(trainingEnvironment, equipment), [equipment, trainingEnvironment]);
   const goalLabel = useMemo(() => formatGoalList(goals), [goals]);
   const levelLabel = useMemo(() => getLevelLabel(level), [level]);
   const secondaryOutcomeLabels = useMemo(
@@ -1639,25 +1942,8 @@ export function OnboardingScreen({
   );
 
   function toggleGoal(nextGoal: SetupGoal) {
-    setGoals((current) => {
-      if (current.includes(nextGoal)) {
-        if (current.length === 1) {
-          return current;
-        }
-        const nextGoals = current.filter((item) => item !== nextGoal);
-        setGoal((previousPrimary) => {
-          if (nextGoals.length === 0) {
-            return previousPrimary;
-          }
-          return previousPrimary === nextGoal ? nextGoals[0] : previousPrimary;
-        });
-        return nextGoals;
-      }
-
-      const nextGoals = [...current, nextGoal];
-      setGoal(nextGoal);
-      return nextGoals;
-    });
+    setGoal(nextGoal);
+    setGoals([nextGoal]);
   }
   const availableDayLabels = useMemo(
     () => availableDays.map((day) => getWeekdayShortLabel(day)),
@@ -1998,6 +2284,10 @@ export function OnboardingScreen({
         return current.filter((item) => item !== area);
       }
 
+      if (current.length >= 2) {
+        return [...current.slice(1), area];
+      }
+
       return [...current, area];
     });
   }
@@ -2169,9 +2459,9 @@ export function OnboardingScreen({
 
   function renderLocation() {
     return renderSplitSelectionStage({
-      stepLabel: 'STEP 1',
-      titleLines: ['WHERE DO YOU', 'TRAIN'],
-      subtitle: 'Pick one or more.',
+      stepLabel: 'STEP 1 OF 6',
+      titleLines: ['What equipment do', 'you have access to?'],
+      subtitle: 'This helps us build the right program for you.',
       options: LOCATION_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
         label: option.label,
@@ -2181,9 +2471,15 @@ export function OnboardingScreen({
         onPress: () => {
           setSelectedLocationOptionId(option.id);
           setEquipment(option.equipment);
+          setTrainingEnvironment(option.trainingEnvironment);
         },
+        focusLabel: option.focusLabel,
+        focusTone: option.focusTone,
       })),
       optionsContainerStyle: styles.locationStepOneOptionsShift,
+      topPaneStyleOverride: styles.locationEquipmentTopPane,
+      topCopyStyle: styles.locationEquipmentTopCopy,
+      titleStyleOverride: styles.locationEquipmentHeadline,
     });
   }
 
@@ -2202,9 +2498,12 @@ export function OnboardingScreen({
     largeTitle = false,
     solidStepLabel = false,
     compactTop = false,
+    roomyCards = false,
     tallCards = false,
     optionsContainerStyle,
+    topPaneStyleOverride,
     topCopyStyle,
+    titleStyleOverride,
   }: {
     stepLabel: string;
     titleLines: string[];
@@ -2219,14 +2518,20 @@ export function OnboardingScreen({
     largeTitle?: boolean;
     solidStepLabel?: boolean;
     compactTop?: boolean;
+    roomyCards?: boolean;
     tallCards?: boolean;
     optionsContainerStyle?: ViewStyle;
+    topPaneStyleOverride?: ViewStyle;
     topCopyStyle?: ViewStyle;
+    titleStyleOverride?: TextStyle;
     options: Array<{
       id: string;
       label: string;
       subtitle?: string;
       icon: OnboardingOptionIconName;
+      focusLabel?: string;
+      focusTone?: FocusBadgeTone;
+      tags?: FocusBadgeInput[];
       active: boolean;
       onPress: () => void;
     }>;
@@ -2235,12 +2540,15 @@ export function OnboardingScreen({
       stepLabel,
       titleLines,
       subtitle,
-      topPaneStyle: compactTop ? styles.locationTopPaneCompact : undefined,
+      topPaneStyle: [
+        compactTop && styles.locationTopPaneCompact,
+        topPaneStyleOverride,
+      ],
       topCopyStyle: [
         compactTop && styles.locationTopCopyCompact,
         topCopyStyle,
       ],
-      titleStyle: largeTitle ? styles.locationHeadlineLarge : undefined,
+      titleStyle: titleStyleOverride ?? (largeTitle ? styles.locationHeadlineLarge : undefined),
       stepLabelStyle: solidStepLabel ? styles.locationStepLabelSolid : undefined,
       bottomStyle: tightBottom ? styles.locationBottomPaneTight : undefined,
       children: (
@@ -2254,9 +2562,13 @@ export function OnboardingScreen({
                     label={option.label}
                     subtitle={option.subtitle}
                     icon={option.icon}
+                    focusLabel={option.focusLabel}
+                    focusTone={option.focusTone}
+                    tags={option.tags}
                     active={option.active}
                     onPress={option.onPress}
                     compact={compactCards}
+                    roomy={roomyCards}
                     hideIcon={hideIcons}
                     leadingRadio={leadingRadio}
                     tall={tallCards}
@@ -2272,9 +2584,13 @@ export function OnboardingScreen({
                   label={option.label}
                   subtitle={option.subtitle}
                   icon={option.icon}
+                  focusLabel={option.focusLabel}
+                  focusTone={option.focusTone}
+                  tags={option.tags}
                   active={option.active}
                   onPress={option.onPress}
                   compact={compactCards}
+                  roomy={roomyCards}
                   hideIcon={hideIcons}
                   leadingRadio={leadingRadio}
                   tall={tallCards}
@@ -2324,7 +2640,7 @@ export function OnboardingScreen({
             </View>
             <Text style={[styles.locationStepLabel, stepLabelStyle]}>{stepLabel}</Text>
             {titleLines.map((line) => (
-              <Text key={line} style={[styles.locationHeadline, titleStyle]}>
+              <Text key={line} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.84} style={[styles.locationHeadline, titleStyle]}>
                 {line}
               </Text>
             ))}
@@ -2339,42 +2655,141 @@ export function OnboardingScreen({
 
   function renderGoal() {
     return renderSplitSelectionStage({
-      stepLabel: 'STEP 2',
-      titleLines: ['WHAT IS YOUR', 'MAIN GOAL?'],
-      subtitle: 'Pick one or more.',
+      stepLabel: 'STEP 2 OF 6',
+      titleLines: ['WHAT DO YOU', 'WANT MOST?'],
+      subtitle: "We'll build your training around this.",
       options: GOAL_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
         label: option.label,
         subtitle: option.subtitle,
         icon: option.icon,
-        active: goals.includes(option.id),
+        tags: option.tags,
+        active: goal === option.id,
         onPress: () => toggleGoal(option.id),
       })),
-      optionsContainerStyle: styles.locationStepOneOptionsShift,
+      roomyCards: true,
+      optionsContainerStyle: styles.locationStepTwoOptionsShift,
+      topPaneStyleOverride: styles.locationEquipmentTopPane,
+      topCopyStyle: styles.locationEquipmentTopCopy,
+      titleStyleOverride: styles.locationEquipmentHeadline,
     });
   }
 
   function renderProfile() {
-    return renderSplitSelectionStage({
-      stepLabel: 'STEP 3',
-      titleLines: ['YOUR', 'PROFILE'],
-      subtitle: 'Set the basics once.',
-      compactCards: true,
-      hideIcons: true,
-      leadingRadio: true,
-      largeTitle: true,
-      beforeOptions: <Text style={[styles.locationSectionLabel, styles.optionLabelLight]}>Gender</Text>,
-      options: GENDER_OPTIONS.map((option) => ({
-        id: option.gender,
-        label: option.title,
-        icon: 'person',
-        active: gender === option.gender,
-        onPress: () => setGender(option.gender),
-      })),
-      afterOptions: (
-        <View style={[styles.locationAfterBlock, styles.locationAfterBlockProfile]}>
-          <Text style={[styles.locationSectionLabel, styles.optionLabelLight]}>Age</Text>
-          <AgeSlider value={age} onChange={setAge} />
+    const setupSummary = getTrainingProfileSetupSummary(level, daysPerWeek);
+
+    return renderOnboardingShell({
+      stepLabel: 'STEP 3 OF 5',
+      titleLines: ['TRAINING', 'PROFILE'],
+      subtitle: "We'll tailor your plan to your experience and availability.",
+      topPaneStyle: styles.trainingProfileTopPane,
+      topCopyStyle: styles.trainingProfileTopCopy,
+      titleStyle: styles.trainingProfileHeadline,
+      bottomStyle: styles.trainingProfileBottomPane,
+      children: (
+        <View style={styles.trainingProfileContent}>
+          <View style={styles.trainingProfileSection}>
+            <View style={styles.trainingProfileSectionHeader}>
+              <TrainingSectionIcon icon="progress" />
+              <Text style={styles.trainingProfileSectionTitle}>Experience level</Text>
+            </View>
+            <Text style={styles.trainingProfileSectionPrompt}>How much training experience do you have?</Text>
+
+            <View style={styles.trainingExperienceList}>
+              {TRAINING_LEVEL_OPTIONS.map((option) => {
+                const active = level === option.level;
+
+                return (
+                  <Pressable
+                    key={option.level}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${option.title} experience level`}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setLevel(option.level)}
+                    style={[styles.trainingExperienceCard, active && styles.trainingExperienceCardActive]}
+                  >
+                    <OnboardingOptionIcon name={option.icon} />
+                    <View style={styles.trainingExperienceCopy}>
+                      <Text style={[styles.trainingExperienceTitle, active && styles.trainingExperienceTitleActive]}>
+                        {option.title}
+                      </Text>
+                      <Text style={[styles.trainingExperienceBody, active && styles.trainingExperienceBodyActive]}>
+                        {option.body}
+                      </Text>
+                      <View style={styles.trainingExperienceChipStack}>
+                        {[option.chips.slice(0, 2), option.chips.slice(2)].map((chipRow, rowIndex) => (
+                          <View key={`${option.level}-chip-row-${rowIndex}`} style={styles.trainingExperienceChipRow}>
+                            {chipRow.map((chip) => (
+                              <View
+                                key={`${chip.label}:${chip.tone}`}
+                                style={[
+                                  styles.locationFocusBadge,
+                                  styles.trainingExperienceChip,
+                                  getLocationFocusBadgeStyle(chip.tone),
+                                ]}
+                              >
+                                <Text
+                                  numberOfLines={1}
+                                  style={[
+                                    styles.locationFocusBadgeText,
+                                    styles.trainingExperienceChipText,
+                                    getLocationFocusBadgeTextStyle(chip.tone),
+                                  ]}
+                                >
+                                  {chip.label}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        ))}
+                      </View>
+                    </View>
+                    <View style={[styles.trainingProfileRadio, active && styles.trainingProfileRadioActive]}>
+                      {active ? <GymlogIcon name="check" size={14} color="#111111" /> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.trainingProfileSection}>
+            <View style={styles.trainingProfileSectionHeader}>
+              <TrainingSectionIcon icon="tempo" />
+              <Text style={styles.trainingProfileSectionTitle}>Training frequency</Text>
+            </View>
+            <Text style={styles.trainingProfileSectionPrompt}>How many days per week can you train?</Text>
+
+            <View style={styles.trainingFrequencyRow}>
+              {TRAINING_FREQUENCY_OPTIONS.map((option) => {
+                const active = daysPerWeek === option.value;
+
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${option.title} ${option.body} per week`}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setDaysPerWeek(option.value)}
+                    style={[styles.trainingFrequencyTile, active && styles.trainingFrequencyTileActive]}
+                  >
+                    <Text style={styles.trainingFrequencyNumber}>{option.title}</Text>
+                    <Text style={styles.trainingFrequencyLabel}>{option.body}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.trainingPlanPreviewStrip}>
+            <View style={styles.trainingPlanPreviewLead}>
+              <GymlogIcon name="lightning" size={12} color="#06080B" />
+              <Text style={styles.trainingPlanPreviewTitle}>Plan preview</Text>
+            </View>
+            <Text numberOfLines={1} style={styles.trainingPlanPreviewText}>
+              {setupSummary.workouts} · {setupSummary.duration} · {setupSummary.structure}
+            </Text>
+          </View>
         </View>
       ),
     });
@@ -2382,10 +2797,18 @@ export function OnboardingScreen({
 
   function renderFocus() {
     const conditioningActive = focusAreas.includes('conditioning');
+    const mobilityActive = focusAreas.includes('mobility');
     const isFrontView = focusBodyView === 'front';
-    const isFocusAreaActive = (area: SetupFocusArea) => focusAreas.includes(area) || conditioningActive;
+    const isFocusAreaActive = (area: SetupFocusArea) =>
+      focusAreas.includes(area) ||
+      conditioningActive ||
+      (area === 'legs' && (
+        focusAreas.includes('quads') ||
+        focusAreas.includes('hamstrings') ||
+        focusAreas.includes('calves')
+      ));
     const torsoActive =
-      conditioningActive || focusAreas.includes('back') || focusAreas.includes('chest') || focusAreas.includes('core');
+      conditioningActive || mobilityActive || focusAreas.includes('back') || focusAreas.includes('chest') || focusAreas.includes('core');
 
     return renderOnboardingShell({
       stepLabel: 'STEP 6',
@@ -2439,14 +2862,14 @@ export function OnboardingScreen({
             </View>
 
             <View style={styles.focusBodyFigure}>
-              <View style={[styles.focusBodyConditioningGlow, conditioningActive && styles.focusBodyConditioningGlowActive]} />
+              <View style={[styles.focusBodyConditioningGlow, (conditioningActive || mobilityActive) && styles.focusBodyConditioningGlowActive]} />
               <Image
                 source={FOCUS_BODY_PERSON_ASSETS[focusBodyView]}
                 resizeMode="contain"
                 style={styles.focusBodyPersonImage}
               />
-              <View style={[styles.focusBodyHead, conditioningActive && styles.focusBodyBaseActive]} />
-              <View style={[styles.focusBodyNeck, conditioningActive && styles.focusBodyBaseActive]} />
+              <View style={[styles.focusBodyHead, (conditioningActive || mobilityActive) && styles.focusBodyBaseActive]} />
+              <View style={[styles.focusBodyNeck, (conditioningActive || mobilityActive) && styles.focusBodyBaseActive]} />
               <View style={[styles.focusBodyTorso, torsoActive && styles.focusBodyTorsoActive]}>
                 <View style={[styles.focusBodyCore, isFocusAreaActive('core') && styles.focusBodyPartActive]} />
                 {isFrontView ? (
@@ -2465,10 +2888,10 @@ export function OnboardingScreen({
               <View style={[styles.focusBodyForearmLeft, isFocusAreaActive('arms') && styles.focusBodyPartActive]} />
               <View style={[styles.focusBodyForearmRight, isFocusAreaActive('arms') && styles.focusBodyPartActive]} />
               <View style={[styles.focusBodyPelvis, isFocusAreaActive('glutes') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyThighLeft, isFocusAreaActive('legs') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyThighRight, isFocusAreaActive('legs') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyCalfLeft, isFocusAreaActive('legs') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyCalfRight, isFocusAreaActive('legs') && styles.focusBodyPartActive]} />
+              <View style={[styles.focusBodyThighLeft, (isFocusAreaActive('legs') || focusAreas.includes('quads') || focusAreas.includes('hamstrings')) && styles.focusBodyPartActive]} />
+              <View style={[styles.focusBodyThighRight, (isFocusAreaActive('legs') || focusAreas.includes('quads') || focusAreas.includes('hamstrings')) && styles.focusBodyPartActive]} />
+              <View style={[styles.focusBodyCalfLeft, (isFocusAreaActive('legs') || focusAreas.includes('calves')) && styles.focusBodyPartActive]} />
+              <View style={[styles.focusBodyCalfRight, (isFocusAreaActive('legs') || focusAreas.includes('calves')) && styles.focusBodyPartActive]} />
             </View>
           </View>
 
@@ -2777,20 +3200,73 @@ export function OnboardingScreen({
   }
 
   function renderPlanning() {
-    return renderSplitSelectionStage({
-      stepLabel: 'STEP 4',
-      titleLines: ['TRAINING', 'DAYS'],
-      subtitle: 'Pick your weekly rhythm.',
-      grid: true,
-      hideIcons: true,
-      tallCards: true,
-      options: ([2, 3, 4, 5] as SetupDaysPerWeek[]).map((value) => ({
-        id: `${value}`,
-        label: `${value} days`,
-        icon: 'barbell',
-        active: daysPerWeek === value,
-        onPress: () => setDaysPerWeek(value),
-      })),
+    const mainFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area !== 'core' && option.area !== 'mobility');
+    const lowerFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area === 'core' || option.area === 'mobility');
+    const focusAreaRows: Array<Array<FocusAreaOnboardingOption | null>> = [
+      mainFocusOptions.slice(0, 4),
+      mainFocusOptions.slice(4, 8),
+      [null, ...lowerFocusOptions, null],
+    ];
+
+    return renderOnboardingShell({
+      stepLabel: 'STEP 4 OF 6',
+      titleLines: ['WHAT DO YOU', 'WANT TO FOCUS ON?'],
+      subtitle: "Select up to 2 areas.\nWhy focus areas? We'll prioritize what matters most in your program.",
+      topPaneStyle: styles.focusAreaTopPane,
+      topCopyStyle: styles.focusAreaTopCopy,
+      titleStyle: styles.focusAreaHeadline,
+      bottomStyle: styles.focusAreaBottomPane,
+      children: (
+        <View style={styles.focusAreaContent}>
+          <View style={styles.focusAreaGrid}>
+            {focusAreaRows.map((row, rowIndex) => (
+              <View key={`focus-area-row-${rowIndex}`} style={styles.focusAreaGridRow}>
+                {row.map((option, optionIndex) => {
+                  if (!option) {
+                    return <View key={`focus-area-filler-${rowIndex}-${optionIndex}`} style={styles.focusAreaCardFiller} />;
+                  }
+
+                  const active = focusAreas.includes(option.area);
+                  const imageSource = FOCUS_AREA_CARD_ASSETS[option.area];
+                  const imageFrameStyle = FOCUS_AREA_IMAGE_FRAMES[option.area];
+
+                  return (
+                    <Pressable
+                      key={option.area}
+                      accessibilityRole="button"
+                      accessibilityLabel={option.accessibilityLabel}
+                      accessibilityState={{ selected: active }}
+                      onPress={() => toggleFocusArea(option.area)}
+                      style={[styles.focusAreaCard, active && styles.focusAreaCardActive]}
+                    >
+                      <View style={styles.focusAreaImageSlot}>
+                        {imageSource ? (
+                          <Image
+                            source={imageSource}
+                            resizeMode={imageFrameStyle ? 'contain' : 'cover'}
+                            style={[styles.focusAreaImage, imageFrameStyle]}
+                          />
+                        ) : option.area === 'mobility' ? (
+                          <View style={styles.focusAreaIconFallback}>
+                            <GymlogIcon name="mobility" color="rgba(255,255,255,0.78)" size={34} />
+                          </View>
+                        ) : null}
+                      </View>
+                      <View pointerEvents="none" style={styles.focusAreaTitleScrim} />
+                      <View style={[styles.focusAreaCheck, active && styles.focusAreaCheckActive]}>
+                        {active ? <GymlogIcon name="check" color="#111111" size={12} /> : null}
+                      </View>
+                      <Text numberOfLines={1} adjustsFontSizeToFit style={styles.focusAreaCardTitle}>
+                        {option.title}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+        </View>
+      ),
     });
   }
 
@@ -2975,7 +3451,7 @@ export function OnboardingScreen({
             <Text style={styles.personalizationTitle}>Extra focus</Text>
             <Text style={styles.personalizationBody}>Pick what matters most.</Text>
             <View style={styles.personalizationGrid}>
-              {FOCUS_AREA_OPTIONS.map((area) => {
+              {REFINEMENT_FOCUS_AREA_OPTIONS.map((area) => {
                 const active = focusAreas.includes(area);
                 return (
                   <Pressable
@@ -3250,7 +3726,12 @@ export function OnboardingScreen({
       ? 'Build my first program'
       : 'Continue';
   const footerVisible = stage !== 'review';
-  const scrollLockedStage = stage === 'about' || stage === 'focus';
+  const scrollLockedStage =
+    stage === 'location' ||
+    stage === 'profile' ||
+    stage === 'planning' ||
+    stage === 'about' ||
+    stage === 'focus';
   const scrollContentStyle = useMemo(
     () => [
       styles.scrollContent,
@@ -3299,7 +3780,7 @@ export function OnboardingScreen({
             stage === 'focus' && styles.focusFooter,
             {
               paddingBottom: locationStageActive
-                ? insets.bottom + spacing.lg + spacing.xl
+                ? insets.bottom + spacing.xs
                 : spacing.md + insets.bottom,
             },
           ]}
@@ -3545,9 +4026,12 @@ const styles = StyleSheet.create({
   pagination: {
     flexDirection: 'row',
     gap: spacing.xs,
+    width: '100%',
   },
   locationPaginationWrap: {
-    marginBottom: spacing.lg,
+    alignSelf: 'stretch',
+    width: '100%',
+    marginBottom: 12,
   },
   dot: {
     flex: 1,
@@ -3585,12 +4069,18 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.lg * 2,
     paddingTop: spacing.xl + spacing.sm,
-    paddingBottom: 36,
+    paddingBottom: 30,
     overflow: 'visible',
     position: 'relative',
   },
   locationTopPaneCompact: {
     paddingBottom: 28,
+  },
+  locationEquipmentTopPane: {
+    justifyContent: 'flex-start',
+    height: 248,
+    paddingTop: 32,
+    paddingBottom: 18,
   },
   locationTopSlope: {
     position: 'absolute',
@@ -3602,12 +4092,17 @@ const styles = StyleSheet.create({
     transform: [{ rotate: '-4deg' }],
   },
   locationTopCopy: {
-    gap: 4,
+    gap: 3,
     zIndex: 1,
-    paddingBottom: 10,
+    paddingBottom: 8,
   },
   locationTopCopyCompact: {
     paddingBottom: 12,
+  },
+  locationEquipmentTopCopy: {
+    paddingTop: 20,
+    paddingBottom: 0,
+    gap: 3,
   },
   locationTopCopyProfile: {
     paddingTop: 14,
@@ -3619,7 +4114,7 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   locationStepLabelSolid: {
     color: '#FFFFFF',
@@ -3636,29 +4131,37 @@ const styles = StyleSheet.create({
     lineHeight: 46,
     maxWidth: 180,
   },
+  locationEquipmentHeadline: {
+    fontSize: 34,
+    lineHeight: 37,
+    letterSpacing: -0.8,
+  },
   locationSubtitle: {
     color: 'rgba(255,255,255,0.72)',
-    fontSize: 13,
-    lineHeight: 16,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '700',
-    marginTop: spacing.sm,
+    marginTop: 2,
   },
   locationBottomPane: {
     backgroundColor: '#F5F5F5',
-    paddingHorizontal: spacing.lg * 2 - 10,
-    paddingTop: 24,
+    paddingHorizontal: spacing.lg * 2 - 14,
+    paddingTop: 4,
   },
   locationBottomPaneTight: {
     paddingTop: 6,
   },
   locationCardList: {
-    gap: 12,
+    gap: 8,
   },
   locationCardListCompact: {
     gap: 8,
   },
   locationStepOneOptionsShift: {
-    transform: [{ translateY: -10 }],
+    transform: [{ translateY: -12 }],
+  },
+  locationStepTwoOptionsShift: {
+    transform: [{ translateY: 8 }],
   },
   locationCardGrid: {
     flexDirection: 'row',
@@ -3683,77 +4186,400 @@ const styles = StyleSheet.create({
   locationAfterBlockProfile: {
     paddingBottom: 20,
   },
+  trainingProfileTopPane: {
+    height: 248,
+    justifyContent: 'flex-start',
+    paddingTop: 32,
+    paddingBottom: 18,
+  },
+  trainingProfileTopCopy: {
+    paddingTop: 20,
+    paddingBottom: 0,
+    gap: 3,
+  },
+  trainingProfileHeadline: {
+    fontSize: 34,
+    lineHeight: 37,
+    letterSpacing: -0.8,
+  },
+  trainingProfileBottomPane: {
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  trainingProfileContent: {
+    gap: 10,
+  },
+  trainingProfileSection: {
+    gap: 4,
+  },
+  trainingProfileSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trainingProfileSectionIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trainingProfileSectionTitle: {
+    flex: 1,
+    color: '#06080B',
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1.7,
+  },
+  trainingProfileSectionPrompt: {
+    color: 'rgba(6,8,11,0.66)',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  trainingExperienceList: {
+    gap: 6,
+  },
+  trainingExperienceCard: {
+    height: 82,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#141414',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.14,
+    shadowRadius: 9,
+    elevation: 3,
+  },
+  trainingExperienceCardActive: {
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#171717',
+    shadowOpacity: 0.08,
+  },
+  trainingExperienceCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  trainingExperienceTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    lineHeight: 19,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  trainingExperienceTitleActive: {
+    color: '#FFFFFF',
+  },
+  trainingExperienceBody: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 9.5,
+    lineHeight: 12,
+    fontWeight: '600',
+    letterSpacing: -0.1,
+  },
+  trainingExperienceBodyActive: {
+    color: 'rgba(255,255,255,0.72)',
+  },
+  trainingExperienceChipStack: {
+    gap: 1,
+    marginTop: 2,
+  },
+  trainingExperienceChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    alignItems: 'center',
+    gap: 4,
+  },
+  trainingExperienceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  trainingExperienceChipCheck: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.60)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trainingExperienceChipCheckActive: {
+    borderColor: 'rgba(255,255,255,0.60)',
+  },
+  trainingExperienceChipText: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '900',
+  },
+  trainingExperienceChipTextActive: {
+    color: 'rgba(255,255,255,0.78)',
+  },
+  trainingProfileRadio: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.56)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 2,
+  },
+  trainingProfileRadioActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
+  },
+  trainingFrequencyRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  trainingFrequencyTile: {
+    flex: 1,
+    minHeight: 54,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.08)',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 1,
+  },
+  trainingFrequencyTileActive: {
+    borderWidth: 2,
+    borderColor: '#06080B',
+  },
+  trainingFrequencyNumber: {
+    color: '#06080B',
+    fontSize: 21,
+    lineHeight: 24,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  trainingFrequencyLabel: {
+    color: '#06080B',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+  },
+  trainingPlanPreviewStrip: {
+    minHeight: 38,
+    borderRadius: 10,
+    backgroundColor: 'rgba(6,8,11,0.05)',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    justifyContent: 'center',
+    gap: 4,
+  },
+  trainingPlanPreviewLead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  trainingPlanPreviewTitle: {
+    color: 'rgba(6,8,11,0.58)',
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1.4,
+  },
+  trainingPlanPreviewText: {
+    color: '#06080B',
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '800',
+  },
+  trainingSetupCard: {
+    borderRadius: 12,
+    backgroundColor: 'rgba(6,8,11,0.05)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 7,
+  },
+  trainingSetupHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trainingSetupTitle: {
+    color: 'rgba(6,8,11,0.60)',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1.7,
+  },
+  trainingSetupGrid: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  trainingSetupColumn: {
+    flex: 1,
+    gap: 5,
+  },
+  trainingSetupDivider: {
+    width: 1,
+    backgroundColor: 'rgba(6,8,11,0.12)',
+  },
+  trainingSetupMetric: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  trainingSetupMetricText: {
+    flex: 1,
+    color: '#06080B',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
   locationChoicePressable: {
     width: '100%',
+    padding: 2,
+    position: 'relative',
   },
   locationChoiceCard: {
-    minHeight: 82,
-    borderRadius: 10,
-    paddingHorizontal: 18,
-    paddingVertical: 16,
-    backgroundColor: '#070707',
+    minHeight: 86,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#141414',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.12)',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
   locationChoiceCardCompact: {
     minHeight: 54,
     paddingVertical: 7,
+  },
+  locationChoiceCardRoomy: {
+    minHeight: 100,
+    paddingVertical: 14,
   },
   locationChoiceCardTall: {
     minHeight: 142,
     paddingVertical: 22,
   },
   locationChoiceCardActive: {
-    backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(0,0,0,0.06)',
+    backgroundColor: '#171717',
+    borderColor: 'rgba(255,255,255,0.22)',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.2,
     shadowRadius: 14,
     elevation: 4,
+  },
+  locationChoiceActiveOutline: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    backgroundColor: 'transparent',
+    zIndex: 2,
   },
   locationChoiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    zIndex: 1,
   },
   locationChoiceCopy: {
     flex: 1,
-    gap: 4,
-    marginLeft: 16,
+    gap: 3,
+    marginLeft: 12,
   },
   locationChoiceCopyNoIcon: {
     marginLeft: 12,
   },
+  locationChoiceTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+    gap: 4,
+  },
   locationChoiceLabel: {
     color: '#FFFFFF',
-    fontSize: 20,
-    lineHeight: 22,
+    fontSize: 17,
+    lineHeight: 19,
     fontWeight: '900',
-    letterSpacing: -0.5,
+    letterSpacing: -0.2,
+    flexShrink: 1,
   },
   locationChoiceLabelActive: {
-    color: '#000000',
+    color: '#FFFFFF',
+  },
+  locationFocusBadge: {
+    borderRadius: 9,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    flexShrink: 0,
+  },
+  locationFocusBadgeNeutral: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  locationFocusBadgeGreen: {
+    backgroundColor: 'rgba(69,190,126,0.2)',
+  },
+  locationFocusBadgeBlue: {
+    backgroundColor: 'rgba(104,184,255,0.2)',
+  },
+  locationFocusBadgePurple: {
+    backgroundColor: 'rgba(198,139,255,0.2)',
+  },
+  locationFocusBadgeText: {
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '900',
+  },
+  locationFocusBadgeTextNeutral: {
+    color: 'rgba(255,255,255,0.88)',
+  },
+  locationFocusBadgeTextGreen: {
+    color: '#8BDEAE',
+  },
+  locationFocusBadgeTextBlue: {
+    color: '#8FCAFF',
+  },
+  locationFocusBadgeTextPurple: {
+    color: '#D9A9FF',
   },
   locationChoiceSubtitle: {
     color: 'rgba(255,255,255,0.72)',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 9.5,
+    lineHeight: 12,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
   locationChoiceSubtitleActive: {
-    color: 'rgba(0,0,0,0.62)',
+    color: 'rgba(255,255,255,0.72)',
+  },
+  locationChoiceTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'nowrap',
+    gap: 4,
   },
   locationChoiceRadio: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.58)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 12,
+    marginLeft: 8,
   },
   locationChoiceRadioLeading: {
     marginLeft: 0,
@@ -3761,13 +4587,33 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.58)',
   },
   locationChoiceRadioActive: {
-    borderColor: '#111111',
+    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
   },
-  locationChoiceRadioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  locationChoiceRadioCheck: {
+    width: 16,
+    height: 16,
+    position: 'relative',
+  },
+  locationChoiceRadioCheckShort: {
+    position: 'absolute',
+    width: 7,
+    height: 2,
+    left: 1,
+    top: 9,
+    borderRadius: 2,
     backgroundColor: '#111111',
+    transform: [{ rotate: '45deg' }],
+  },
+  locationChoiceRadioCheckLong: {
+    position: 'absolute',
+    width: 13,
+    height: 2,
+    left: 5,
+    top: 6,
+    borderRadius: 2,
+    backgroundColor: '#111111',
+    transform: [{ rotate: '-45deg' }],
   },
   locationStageBody: {
     gap: spacing.md,
@@ -4215,6 +5061,162 @@ const styles = StyleSheet.create({
   focusBottomPane: {
     paddingTop: 0,
     paddingBottom: spacing.sm,
+  },
+  focusAreaTopPane: {
+    height: 252,
+    justifyContent: 'flex-start',
+    paddingTop: 32,
+    paddingBottom: 18,
+  },
+  focusAreaTopCopy: {
+    paddingTop: 20,
+    paddingBottom: 0,
+    gap: 3,
+  },
+  focusAreaHeadline: {
+    fontSize: 34,
+    lineHeight: 37,
+    letterSpacing: -0.8,
+  },
+  focusAreaBottomPane: {
+    paddingTop: 8,
+    paddingBottom: spacing.sm,
+  },
+  focusAreaContent: {
+    gap: 0,
+  },
+  focusAreaGrid: {
+    gap: 7,
+  },
+  focusAreaGridRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  focusAreaCard: {
+    flex: 1,
+    minWidth: 0,
+    height: 130,
+    borderRadius: 8,
+    backgroundColor: '#141414',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 4,
+    paddingBottom: 12,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.16,
+    shadowRadius: 9,
+    elevation: 3,
+  },
+  focusAreaCardActive: {
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+  },
+  focusAreaCardFiller: {
+    flex: 1,
+    minWidth: 0,
+    height: 130,
+  },
+  focusAreaImageSlot: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    backgroundColor: '#080808',
+    justifyContent: 'center',
+  },
+  focusAreaImage: {
+    width: '100%',
+    height: '100%',
+  },
+  focusAreaIconFallback: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#080808',
+  },
+  focusAreaTitleScrim: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 40,
+    backgroundColor: 'rgba(0,0,0,0.58)',
+  },
+  focusAreaCheck: {
+    position: 'absolute',
+    top: 8,
+    right: 7,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.58)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+  },
+  focusAreaCheckActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
+  },
+  focusAreaCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 16,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+    textAlign: 'center',
+  },
+  focusAreaInfoBox: {
+    minHeight: 76,
+    borderRadius: 12,
+    backgroundColor: 'rgba(6,8,11,0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  focusAreaInfoIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusAreaInfoCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  focusAreaInfoTitle: {
+    color: '#06080B',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  focusAreaInfoBody: {
+    color: 'rgba(6,8,11,0.58)',
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
+  focusAreaInfoBadge: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(6,8,11,0.07)',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  focusAreaInfoBadgeText: {
+    color: 'rgba(6,8,11,0.56)',
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: '900',
   },
   focusBodySelectionStage: {
     borderRadius: radii.md,
@@ -6959,8 +7961,9 @@ const styles = StyleSheet.create({
   },
   locationFooter: {
     paddingTop: 0,
-    transform: [{ translateY: -10 }],
+    transform: [{ translateY: 0 }],
     alignItems: 'center',
+    gap: 6,
     borderTopWidth: 0,
     borderTopColor: 'transparent',
   },
@@ -6995,7 +7998,7 @@ const styles = StyleSheet.create({
     color: '#06080B',
   },
   locationPrimaryButton: {
-    minHeight: 54,
+    minHeight: 44,
     backgroundColor: '#000000',
     borderColor: '#000000',
   },

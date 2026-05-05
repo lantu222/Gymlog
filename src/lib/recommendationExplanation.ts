@@ -72,6 +72,10 @@ function getGoalLabel(selection: Pick<FirstRunSetupSelection, 'goal' | 'currentW
         return 'fat-loss support';
       }
       return 'general fitness';
+    case 'lean_athletic':
+      return 'lean athletic training';
+    case 'general_fitness':
+      return 'general fitness';
     case 'run_mobility':
       return 'run + mobility';
     default:
@@ -117,6 +121,12 @@ function getFocusAreaTitle(area: SetupFocusArea) {
       return 'Arms';
     case 'glutes':
       return 'Glutes';
+    case 'quads':
+      return 'Quads';
+    case 'hamstrings':
+      return 'Hamstrings';
+    case 'calves':
+      return 'Calves';
     case 'legs':
       return 'Legs';
     case 'chest':
@@ -126,7 +136,9 @@ function getFocusAreaTitle(area: SetupFocusArea) {
     case 'back':
       return 'Back';
     case 'core':
-      return 'Core';
+      return 'Abs';
+    case 'mobility':
+      return 'Mobility';
     case 'conditioning':
       return 'Conditioning';
     default:
@@ -185,7 +197,7 @@ function buildWeightTargetReason(selection: Pick<FirstRunSetupSelection, 'goal' 
 
   const weightRange = `${formatWeightKg(currentWeight)} to ${formatWeightKg(targetWeight)}`;
 
-  if (selection.goal === 'general' && targetWeight < currentWeight) {
+  if ((selection.goal === 'general' || selection.goal === 'lean_athletic') && targetWeight < currentWeight) {
     return `Supports a ${weightRange} fat-loss target.`;
   }
 
@@ -219,6 +231,14 @@ function buildGoalSpecificReason(selection: Pick<FirstRunSetupSelection, 'goal' 
 
   if (selection.goal === 'general') {
     return 'Sustainable and low friction.';
+  }
+
+  if (selection.goal === 'lean_athletic') {
+    return 'Balanced strength and conditioning.';
+  }
+
+  if (selection.goal === 'general_fitness') {
+    return 'Sustainable and flexible.';
   }
 
   if (selection.goal === 'run_mobility') {

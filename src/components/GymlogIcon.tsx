@@ -14,6 +14,7 @@ export type GymlogIconName =
   | 'eye'
   | 'glutes'
   | 'legs'
+  | 'lightning'
   | 'mobility'
   | 'progress'
   | 'recovery'
@@ -138,6 +139,8 @@ function renderIcon(name: GymlogIconName, color: string) {
       );
     case 'recovery':
       return <Path d="M12 4.1c3.7 0 6.8 3 6.8 6.8 0 3.7-3 6.8-6.8 6.8H8.9l1.9 1.9-1.5 1.5-4.6-4.6 4.6-4.6 1.5 1.5-2.1 2.1H12a4.6 4.6 0 1 0-4.6-4.6H5.2c0-3.8 3.1-6.8 6.8-6.8Z" fill={color} />;
+    case 'lightning':
+      return <Path d="M13.2 2.8 5.4 13.2h5.3l-1.1 8 8-11h-5.2l.8-7.4Z" fill={color} />;
     case 'progress':
       return (
         <>

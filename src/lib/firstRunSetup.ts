@@ -16,6 +16,7 @@ import {
   SetupLevel,
   SetupFocusArea,
   SetupSecondaryOutcome,
+  SetupTrainingEnvironment,
   UnitPreference,
 } from '../types/models';
 import type { RecommendationCandidate, RecommendationConfidence, RecommendationTrainingBlock, TemplateFamilyId } from '../types/recommendation';
@@ -30,6 +31,7 @@ export interface FirstRunSetupSelection {
   level: SetupLevel;
   daysPerWeek: SetupDaysPerWeek;
   equipment: SetupEquipment;
+  trainingEnvironment: SetupTrainingEnvironment;
   secondaryOutcomes: SetupSecondaryOutcome[];
   focusAreas: SetupFocusArea[];
   guidanceMode: SetupGuidanceMode;
@@ -84,6 +86,7 @@ export const DEFAULT_RHYTHM_BY_DAYS: Record<SetupDaysPerWeek, SetupWeekday[]> = 
   3: ['mon', 'wed', 'fri'],
   4: ['mon', 'tue', 'thu', 'sat'],
   5: ['mon', 'tue', 'thu', 'fri', 'sat'],
+  6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
 };
 
 const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -97,6 +100,7 @@ export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
   level: 'beginner',
   daysPerWeek: 3,
   equipment: 'gym',
+  trainingEnvironment: 'full_gym',
   secondaryOutcomes: [],
   focusAreas: [],
   guidanceMode: 'guided_editable',
@@ -114,6 +118,10 @@ function getGoalLabel(goal: SetupGoal) {
       return 'strength';
     case 'muscle':
       return 'muscle-building';
+    case 'lean_athletic':
+      return 'lean athletic training';
+    case 'general_fitness':
+      return 'general fitness';
     case 'general':
       return 'general fitness';
     case 'run_mobility':
@@ -126,9 +134,13 @@ function getGoalLabel(goal: SetupGoal) {
 export function getSetupGoalTitle(goal: SetupGoal) {
   switch (goal) {
     case 'strength':
-      return 'Strength';
+      return 'Get stronger';
     case 'muscle':
       return 'Build muscle';
+    case 'lean_athletic':
+      return 'Lean & athletic';
+    case 'general_fitness':
+      return 'General fitness';
     case 'general':
       return 'Lose weight';
     case 'run_mobility':
@@ -279,6 +291,12 @@ export function getFocusAreaTitle(area: SetupFocusArea) {
       return 'Arms';
     case 'glutes':
       return 'Glutes';
+    case 'quads':
+      return 'Quads';
+    case 'hamstrings':
+      return 'Hamstrings';
+    case 'calves':
+      return 'Calves';
     case 'legs':
       return 'Legs';
     case 'chest':
@@ -288,7 +306,9 @@ export function getFocusAreaTitle(area: SetupFocusArea) {
     case 'back':
       return 'Back';
     case 'core':
-      return 'Core';
+      return 'Abs';
+    case 'mobility':
+      return 'Mobility';
     case 'conditioning':
       return 'Conditioning';
     default:
@@ -304,6 +324,12 @@ export function getFocusAreaDescription(area: SetupFocusArea) {
       return 'Arm focus.';
     case 'glutes':
       return 'Glute focus.';
+    case 'quads':
+      return 'Quad focus.';
+    case 'hamstrings':
+      return 'Hamstring focus.';
+    case 'calves':
+      return 'Calf focus.';
     case 'legs':
       return 'Leg focus.';
     case 'chest':
@@ -313,7 +339,9 @@ export function getFocusAreaDescription(area: SetupFocusArea) {
     case 'back':
       return 'Back focus.';
     case 'core':
-      return 'Core focus.';
+      return 'Abs focus.';
+    case 'mobility':
+      return 'Mobility focus.';
     case 'conditioning':
       return 'Conditioning focus.';
     default:
@@ -390,7 +418,7 @@ function scoreWeekdayCombination(days: SetupWeekday[]) {
 }
 
 function resolveDefaultRhythm(daysPerWeek: number) {
-  if (daysPerWeek === 2 || daysPerWeek === 3 || daysPerWeek === 4 || daysPerWeek === 5) {
+  if (daysPerWeek === 2 || daysPerWeek === 3 || daysPerWeek === 4 || daysPerWeek === 5 || daysPerWeek === 6) {
     return DEFAULT_RHYTHM_BY_DAYS[daysPerWeek];
   }
 
@@ -671,7 +699,9 @@ export function buildFirstRunCustomProgramName(selection: FirstRunSetupSelection
   const goalLabel =
     selection.goal === 'run_mobility'
       ? 'Run + Mobility'
-      : selection.goal === 'general'
+      : selection.goal === 'lean_athletic'
+        ? 'Lean Athletic'
+        : selection.goal === 'general' || selection.goal === 'general_fitness'
         ? 'General'
         : selection.goal === 'muscle'
           ? 'Muscle'

@@ -82,8 +82,10 @@ import {
   AppPreferences,
   ExerciseLibraryItem,
   ExerciseTemplate,
+  SetupEquipment,
   SetupScheduleMode,
   SetupGender,
+  SetupTrainingEnvironment,
   UnitPreference,
   WorkoutTemplateDraft,
 } from './src/types/models';
@@ -364,6 +366,18 @@ function getBackRoute(route: AppRoute): AppRoute | null {
   return null;
 }
 
+function getDefaultTrainingEnvironment(equipment: SetupEquipment): SetupTrainingEnvironment {
+  switch (equipment) {
+    case 'gym':
+      return 'full_gym';
+    case 'home':
+      return 'home_gym';
+    case 'minimal':
+    default:
+      return 'minimal_equipment';
+  }
+}
+
 function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstRunSetupSelection | null {
   if (
     !preferences.setupCompleted ||
@@ -386,6 +400,8 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
     level: preferences.setupLevel ?? DEFAULT_FIRST_RUN_SELECTION.level,
     daysPerWeek: preferences.setupDaysPerWeek,
     equipment: preferences.setupEquipment,
+    trainingEnvironment:
+      preferences.setupTrainingEnvironment ?? getDefaultTrainingEnvironment(preferences.setupEquipment),
     secondaryOutcomes:
       preferences.setupSecondaryOutcomes.length > 0
         ? preferences.setupSecondaryOutcomes
@@ -419,6 +435,7 @@ function buildSetupPreferencePatch(
     setupLevel: selection.level,
     setupDaysPerWeek: selection.daysPerWeek,
     setupEquipment: selection.equipment,
+    setupTrainingEnvironment: selection.trainingEnvironment,
     setupSecondaryOutcomes: selection.secondaryOutcomes,
     setupFocusAreas: selection.focusAreas,
     setupGuidanceMode: selection.guidanceMode,
@@ -1232,6 +1249,7 @@ function GymlogApp() {
       setupLevel: null,
       setupDaysPerWeek: null,
       setupEquipment: null,
+      setupTrainingEnvironment: null,
       setupSecondaryOutcomes: [],
       setupFocusAreas: [],
       setupGuidanceMode: null,

@@ -22,9 +22,12 @@ const baseSelection = {
 };
 
 function selection(overrides) {
+  const equipment = overrides.equipment ?? baseSelection.equipment;
+
   return {
     ...baseSelection,
     ...overrides,
+    equipment,
     secondaryOutcomes: overrides.secondaryOutcomes ?? baseSelection.secondaryOutcomes,
     focusAreas: overrides.focusAreas ?? baseSelection.focusAreas,
   };
@@ -65,6 +68,19 @@ module.exports = [
     },
   },
   {
+    name: 'recommendation profile keeps new Step 2 goal intents distinct',
+    run() {
+      assert.equal(
+        buildRecommendationProfile(selection({ goal: 'lean_athletic' })).goalType,
+        'recomposition',
+      );
+      assert.equal(
+        buildRecommendationProfile(selection({ goal: 'general_fitness' })).goalType,
+        'recomposition',
+      );
+    },
+  },
+  {
     name: 'recommendation profile separates home bodyweight and outdoor running contexts',
     run() {
       assert.equal(buildRecommendationProfile(selection({ equipment: 'home' })).setupContext, 'home_limited');
@@ -81,6 +97,35 @@ module.exports = [
           }),
         ).setupContext,
         'outdoor_running',
+      );
+    },
+  },
+  {
+    name: 'recommendation profile keeps precise Step 1 environment separate from broad equipment',
+    run() {
+      assert.equal(
+        buildRecommendationProfile(
+          selection({
+            equipment: 'minimal',
+            trainingEnvironment: 'running_hybrid',
+            goal: 'strength',
+            secondaryOutcomes: [],
+            focusAreas: [],
+          }),
+        ).setupContext,
+        'outdoor_running',
+      );
+      assert.equal(
+        buildRecommendationProfile(
+          selection({
+            equipment: 'minimal',
+            trainingEnvironment: 'bodyweight_only',
+            goal: 'run_mobility',
+            secondaryOutcomes: ['conditioning'],
+            focusAreas: ['conditioning'],
+          }),
+        ).setupContext,
+        'bodyweight',
       );
     },
   },

@@ -34,6 +34,7 @@ const DEFAULT_PREFERENCES = {
   setupLevel: null,
   setupDaysPerWeek: null,
   setupEquipment: null,
+  setupTrainingEnvironment: null,
   setupSecondaryOutcomes: [] as SetupSecondaryOutcome[],
   setupFocusAreas: [] as SetupFocusArea[],
   setupGuidanceMode: null,

@@ -5,20 +5,36 @@ export type SignInMethod = 'apple' | 'email' | 'local' | 'google';
 export type AccessTier = 'free' | 'premium';
 export type SetupGender = 'male' | 'female' | 'unspecified';
 export type SetupAgeRange = 'unspecified' | '18' | '19_25' | '26_30' | '31_40' | '41_plus';
-export type SetupGoal = 'strength' | 'muscle' | 'general' | 'run_mobility';
-export type SetupLevel = 'beginner' | 'intermediate';
-export type SetupDaysPerWeek = 2 | 3 | 4 | 5;
+export type SetupGoal =
+  | 'strength'
+  | 'muscle'
+  | 'general'
+  | 'run_mobility'
+  | 'lean_athletic'
+  | 'general_fitness';
+export type SetupLevel = 'beginner' | 'intermediate' | 'advanced';
+export type SetupDaysPerWeek = 2 | 3 | 4 | 5 | 6;
 export type SetupEquipment = 'gym' | 'minimal' | 'home';
+export type SetupTrainingEnvironment =
+  | 'full_gym'
+  | 'home_gym'
+  | 'minimal_equipment'
+  | 'bodyweight_only'
+  | 'running_hybrid';
 export type SetupSecondaryOutcome = 'consistency' | 'mobility' | 'conditioning' | 'muscle' | 'strength';
 export type SetupFocusArea =
   | 'bodyweight'
   | 'glutes'
   | 'legs'
+  | 'quads'
+  | 'hamstrings'
+  | 'calves'
   | 'chest'
   | 'shoulders'
   | 'back'
   | 'arms'
   | 'core'
+  | 'mobility'
   | 'conditioning';
 export type SetupGuidanceMode = 'done_for_me' | 'guided_editable' | 'self_directed';
 export type SetupScheduleMode = 'app_managed' | 'self_managed';
@@ -213,6 +229,7 @@ export interface AppPreferences {
   setupLevel: SetupLevel | null;
   setupDaysPerWeek: SetupDaysPerWeek | null;
   setupEquipment: SetupEquipment | null;
+  setupTrainingEnvironment: SetupTrainingEnvironment | null;
   setupSecondaryOutcomes: SetupSecondaryOutcome[];
   setupFocusAreas: SetupFocusArea[];
   setupGuidanceMode: SetupGuidanceMode | null;

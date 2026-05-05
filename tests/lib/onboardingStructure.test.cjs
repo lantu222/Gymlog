@@ -196,9 +196,107 @@ module.exports = [
       assert.doesNotMatch(aboutBody, /<BodyweightPicker/);
       assert.match(onboardingSource, /function BodyweightStepper\(/);
       assert.match(onboardingSource, /<TextInput[\s\S]*keyboardType="decimal-pad"/);
-      assert.match(onboardingSource, /const scrollLockedStage = stage === 'about' \|\| stage === 'focus'/);
+      assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{!scrollLockedStage\}/);
+    },
+  },
+  {
+    name: 'onboarding step 2 uses the new Step 1-style primary-goal cards',
+    run() {
+      const goalBody = getFunctionBody('renderGoal');
+
+      assert.match(goalBody, /stepLabel: 'STEP 2 OF 6'/);
+      assert.match(goalBody, /titleLines: \['WHAT DO YOU', 'WANT MOST\?'\]/);
+      assert.match(goalBody, /We'll build your training around this\./);
+      assert.doesNotMatch(goalBody, /compactCards: true/);
+      assert.match(goalBody, /roomyCards: true/);
+      assert.match(goalBody, /optionsContainerStyle: styles\.locationStepTwoOptionsShift/);
+      assert.match(goalBody, /topPaneStyleOverride: styles\.locationEquipmentTopPane/);
+      assert.match(goalBody, /titleStyleOverride: styles\.locationEquipmentHeadline/);
+      assert.match(goalBody, /active: goal === option\.id/);
+      assert.doesNotMatch(goalBody, /goals\.includes\(option\.id\)/);
+      assert.match(onboardingSource, /title: 'Get stronger'/);
+      assert.match(onboardingSource, /goal: 'lean_athletic'/);
+      assert.match(onboardingSource, /goal: 'general_fitness'/);
+      assert.doesNotMatch(goalBody, /Running hybrid/);
+      assert.match(onboardingSource, /\{ label: 'Lower reps', tone: 'neutral' \}/);
+      assert.match(onboardingSource, /\{ label: 'Beginner friendly', tone: 'blue' \}/);
+      assert.match(onboardingSource, /getLocationFocusBadgeStyle\(tag\.tone\)/);
+      assert.match(onboardingSource, /getLocationFocusBadgeTextStyle\(tag\.tone\)/);
+      assert.match(onboardingSource, /locationChoiceTagRow/);
+      assert.match(onboardingSource, /locationChoiceCardRoomy:\s*\{[\s\S]*minHeight: 100/);
+      assert.match(onboardingSource, /locationStepTwoOptionsShift:\s*\{[\s\S]*translateY: 8/);
+      assert.doesNotMatch(goalBody, /WHAT IS YOUR/);
+      assert.doesNotMatch(goalBody, /Pick one or more/);
+    },
+  },
+  {
+    name: 'onboarding step 3 uses training profile controls',
+    run() {
+      const profileBody = getFunctionBody('renderProfile');
+
+      assert.match(profileBody, /stepLabel: 'STEP 3 OF 5'/);
+      assert.match(profileBody, /titleLines: \['TRAINING', 'PROFILE'\]/);
+      assert.match(profileBody, /We'll tailor your plan to your experience and availability\./);
+      assert.match(profileBody, /TRAINING_LEVEL_OPTIONS\.map/);
+      assert.match(profileBody, /TRAINING_FREQUENCY_OPTIONS\.map/);
+      assert.match(profileBody, /setLevel\(option\.level\)/);
+      assert.match(profileBody, /setDaysPerWeek\(option\.value\)/);
+      assert.match(profileBody, /Plan preview/);
+      assert.doesNotMatch(profileBody, /GENDER_OPTIONS/);
+      assert.doesNotMatch(profileBody, /AgeSlider/);
+      assert.match(onboardingSource, /level: 'advanced'/);
+      assert.match(onboardingSource, /\{ value: 6, title: '6\+', body: 'days' \}/);
+      assert.match(onboardingSource, /function getTrainingProfileSetupSummary\(level: SetupLevel, daysPerWeek: SetupDaysPerWeek\)/);
+      assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 248/);
+      assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderWidth: 2/);
+      assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: '#141414'/);
+      assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderColor: '#FFFFFF'[\s\S]*backgroundColor: '#171717'/);
+      assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 17[\s\S]*lineHeight: 19/);
+      assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 9\.5[\s\S]*letterSpacing: -0\.1/);
+      assert.match(onboardingSource, /\{ label: 'More recovery', tone: 'green' \}/);
+      assert.match(onboardingSource, /\{ label: 'More variety', tone: 'purple' \}/);
+      assert.match(onboardingSource, /\{ label: 'Advanced progression', tone: 'green' \}/);
+      assert.match(profileBody, /getLocationFocusBadgeStyle\(chip\.tone\)/);
+      assert.match(profileBody, /getLocationFocusBadgeTextStyle\(chip\.tone\)/);
+    },
+  },
+  {
+    name: 'onboarding step 4 uses focus area placeholder cards',
+    run() {
+      const planningBody = getFunctionBody('renderPlanning');
+
+      assert.match(planningBody, /stepLabel: 'STEP 4 OF 6'/);
+      assert.match(planningBody, /titleLines: \['WHAT DO YOU', 'WANT TO FOCUS ON\?'\]/);
+      assert.match(planningBody, /Select up to 2 areas/);
+      assert.match(planningBody, /Why focus areas\?/);
+      assert.match(planningBody, /mainFocusOptions\.slice\(0, 4\)/);
+      assert.match(planningBody, /\[null, \.\.\.lowerFocusOptions, null\]/);
+      assert.match(planningBody, /focusAreaImageSlot/);
+      assert.match(planningBody, /FOCUS_AREA_CARD_ASSETS\[option\.area\]/);
+      assert.match(planningBody, /FOCUS_AREA_IMAGE_FRAMES\[option\.area\]/);
+      assert.match(planningBody, /resizeMode=\{imageFrameStyle \? 'contain' : 'cover'\}/);
+      assert.match(planningBody, /style=\{\[styles\.focusAreaImage, imageFrameStyle\]\}/);
+      assert.doesNotMatch(planningBody, /This helps us build a program that prioritizes what matters most to you\./);
+      assert.doesNotMatch(planningBody, /Max 2 selections/);
+      assert.doesNotMatch(planningBody, /Upper Body/);
+      assert.doesNotMatch(planningBody, /Lower Body/);
+      assert.doesNotMatch(planningBody, /Performance/);
+      assert.doesNotMatch(planningBody, /TRAINING', 'DAYS/);
+      assert.doesNotMatch(planningBody, /\[2, 3, 4, 5, 6\]/);
+      assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
+      assert.match(onboardingSource, /focus-chest-anatomy-card\.png/);
+      assert.match(onboardingSource, /focus-abs-anatomy-card\.png/);
+      assert.match(onboardingSource, /focus-calves-anatomy-card\.png/);
+      assert.match(onboardingSource, /focus-mobility-anatomy-card\.png/);
+      assert.match(onboardingSource, /const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea\[\] = FOCUS_AREA_OPTIONS\.map/);
+      assert.match(onboardingSource, /current\.length >= 2/);
+      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 252/);
+      assert.match(onboardingSource, /focusAreaCard:\s*\{[\s\S]*height: 130/);
+      assert.match(onboardingSource, /focusAreaGridRow:\s*\{[\s\S]*gap: 6/);
+      assert.match(onboardingSource, /focusAreaCardTitle:\s*\{[\s\S]*fontSize: 14[\s\S]*lineHeight: 16/);
+      assert.match(onboardingSource, /focusAreaCardActive:\s*\{[\s\S]*borderColor: '#FFFFFF'/);
     },
   },
   {
@@ -229,7 +327,7 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /topCopyStyle: styles\.locationTopCopyProfile/);
       assert.match(onboardingSource, /bodyweightTopPane:\s*\{\s*\}/);
       assert.match(onboardingSource, /focusTopPane:\s*\{[\s\S]*height: 246/);
-      assert.match(onboardingSource, /const scrollLockedStage = stage === 'about' \|\| stage === 'focus'/);
+      assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /alwaysBounceVertical=\{!scrollLockedStage\}/);

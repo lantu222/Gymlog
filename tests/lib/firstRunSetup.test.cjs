@@ -312,7 +312,7 @@ module.exports = [
       });
 
       assert.match(name, /4-Day Muscle/i);
-      assert.match(name, /Arms & Core/i);
+      assert.match(name, /Arms & Abs/i);
     },
   },
   {
