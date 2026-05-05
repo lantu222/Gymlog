@@ -3200,18 +3200,16 @@ export function OnboardingScreen({
   }
 
   function renderPlanning() {
-    const mainFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area !== 'core' && option.area !== 'mobility');
-    const lowerFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area === 'core' || option.area === 'mobility');
-    const focusAreaRows: Array<Array<FocusAreaOnboardingOption | null>> = [
-      mainFocusOptions.slice(0, 4),
-      mainFocusOptions.slice(4, 8),
-      [null, ...lowerFocusOptions, null],
+    const visibleFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area !== 'mobility');
+    const focusAreaRows: Array<FocusAreaOnboardingOption[]> = [
+      visibleFocusOptions.slice(0, 3),
+      visibleFocusOptions.slice(3, 6),
+      visibleFocusOptions.slice(6, 9),
     ];
 
     return renderOnboardingShell({
       stepLabel: 'STEP 4 OF 6',
       titleLines: ['WHAT DO YOU', 'WANT TO FOCUS ON?'],
-      subtitle: "Select up to 2 areas.\nWhy focus areas? We'll prioritize what matters most in your program.",
       topPaneStyle: styles.focusAreaTopPane,
       topCopyStyle: styles.focusAreaTopCopy,
       titleStyle: styles.focusAreaHeadline,
@@ -3221,11 +3219,7 @@ export function OnboardingScreen({
           <View style={styles.focusAreaGrid}>
             {focusAreaRows.map((row, rowIndex) => (
               <View key={`focus-area-row-${rowIndex}`} style={styles.focusAreaGridRow}>
-                {row.map((option, optionIndex) => {
-                  if (!option) {
-                    return <View key={`focus-area-filler-${rowIndex}-${optionIndex}`} style={styles.focusAreaCardFiller} />;
-                  }
-
+                {row.map((option) => {
                   const active = focusAreas.includes(option.area);
                   const imageSource = FOCUS_AREA_CARD_ASSETS[option.area];
                   const imageFrameStyle = FOCUS_AREA_IMAGE_FRAMES[option.area];
@@ -3264,6 +3258,21 @@ export function OnboardingScreen({
                 })}
               </View>
             ))}
+          </View>
+
+          <View style={styles.focusAreaInfoBox}>
+            <View style={styles.focusAreaInfoIcon}>
+              <GymlogIcon name="lightning" color="#F2B705" size={20} />
+            </View>
+            <View style={styles.focusAreaInfoCopy}>
+              <Text style={styles.focusAreaInfoTitle}>Why focus areas?</Text>
+              <Text style={styles.focusAreaInfoBody}>
+                This helps us build a program that prioritizes what matters most to you.
+              </Text>
+            </View>
+            <View style={styles.focusAreaInfoBadge}>
+              <Text style={styles.focusAreaInfoBadgeText}>Max 2 selections</Text>
+            </View>
           </View>
         </View>
       ),
@@ -5063,7 +5072,7 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.sm,
   },
   focusAreaTopPane: {
-    height: 252,
+    height: 248,
     justifyContent: 'flex-start',
     paddingTop: 32,
     paddingBottom: 18,
@@ -5079,14 +5088,14 @@ const styles = StyleSheet.create({
     letterSpacing: -0.8,
   },
   focusAreaBottomPane: {
-    paddingTop: 8,
+    paddingTop: 4,
     paddingBottom: spacing.sm,
   },
   focusAreaContent: {
-    gap: 0,
+    gap: 7,
   },
   focusAreaGrid: {
-    gap: 7,
+    gap: 6,
   },
   focusAreaGridRow: {
     flexDirection: 'row',
@@ -5095,7 +5104,7 @@ const styles = StyleSheet.create({
   focusAreaCard: {
     flex: 1,
     minWidth: 0,
-    height: 130,
+    height: 140,
     borderRadius: 8,
     backgroundColor: '#141414',
     borderWidth: 1,
@@ -5119,7 +5128,7 @@ const styles = StyleSheet.create({
   focusAreaCardFiller: {
     flex: 1,
     minWidth: 0,
-    height: 130,
+    height: 140,
   },
   focusAreaImageSlot: {
     ...StyleSheet.absoluteFillObject,
@@ -5171,27 +5180,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   focusAreaInfoBox: {
-    minHeight: 76,
+    minHeight: 62,
     borderRadius: 12,
     backgroundColor: 'rgba(6,8,11,0.05)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    gap: 9,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
   },
   focusAreaInfoIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#FFFFFF',
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(242,183,5,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   focusAreaInfoCopy: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: 2,
   },
   focusAreaInfoTitle: {
     color: '#06080B',
@@ -5203,17 +5212,17 @@ const styles = StyleSheet.create({
   focusAreaInfoBody: {
     color: 'rgba(6,8,11,0.58)',
     fontSize: 10.5,
-    lineHeight: 14,
+    lineHeight: 13,
     fontWeight: '700',
   },
   focusAreaInfoBadge: {
     borderRadius: 999,
-    backgroundColor: 'rgba(6,8,11,0.07)',
+    backgroundColor: 'rgba(198,139,255,0.20)',
     paddingHorizontal: 8,
     paddingVertical: 5,
   },
   focusAreaInfoBadgeText: {
-    color: 'rgba(6,8,11,0.56)',
+    color: '#8C4FBD',
     fontSize: 11,
     lineHeight: 13,
     fontWeight: '900',

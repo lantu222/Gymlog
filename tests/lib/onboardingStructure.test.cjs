@@ -269,17 +269,18 @@ module.exports = [
 
       assert.match(planningBody, /stepLabel: 'STEP 4 OF 6'/);
       assert.match(planningBody, /titleLines: \['WHAT DO YOU', 'WANT TO FOCUS ON\?'\]/);
-      assert.match(planningBody, /Select up to 2 areas/);
       assert.match(planningBody, /Why focus areas\?/);
-      assert.match(planningBody, /mainFocusOptions\.slice\(0, 4\)/);
-      assert.match(planningBody, /\[null, \.\.\.lowerFocusOptions, null\]/);
+      assert.match(planningBody, /FOCUS_AREA_OPTIONS\.filter\(\(option\) => option\.area !== 'mobility'\)/);
+      assert.match(planningBody, /visibleFocusOptions\.slice\(0, 3\)/);
+      assert.match(planningBody, /visibleFocusOptions\.slice\(6, 9\)/);
       assert.match(planningBody, /focusAreaImageSlot/);
       assert.match(planningBody, /FOCUS_AREA_CARD_ASSETS\[option\.area\]/);
       assert.match(planningBody, /FOCUS_AREA_IMAGE_FRAMES\[option\.area\]/);
       assert.match(planningBody, /resizeMode=\{imageFrameStyle \? 'contain' : 'cover'\}/);
       assert.match(planningBody, /style=\{\[styles\.focusAreaImage, imageFrameStyle\]\}/);
-      assert.doesNotMatch(planningBody, /This helps us build a program that prioritizes what matters most to you\./);
-      assert.doesNotMatch(planningBody, /Max 2 selections/);
+      assert.match(planningBody, /This helps us build a program that prioritizes what matters most to you\./);
+      assert.match(planningBody, /Max 2 selections/);
+      assert.doesNotMatch(planningBody, /Select up to 2 areas/);
       assert.doesNotMatch(planningBody, /Upper Body/);
       assert.doesNotMatch(planningBody, /Lower Body/);
       assert.doesNotMatch(planningBody, /Performance/);
@@ -292,10 +293,12 @@ module.exports = [
       assert.match(onboardingSource, /focus-mobility-anatomy-card\.png/);
       assert.match(onboardingSource, /const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea\[\] = FOCUS_AREA_OPTIONS\.map/);
       assert.match(onboardingSource, /current\.length >= 2/);
-      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 252/);
-      assert.match(onboardingSource, /focusAreaCard:\s*\{[\s\S]*height: 130/);
+      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 248/);
+      assert.match(onboardingSource, /focusAreaCard:\s*\{[\s\S]*height: 140/);
       assert.match(onboardingSource, /focusAreaGridRow:\s*\{[\s\S]*gap: 6/);
       assert.match(onboardingSource, /focusAreaCardTitle:\s*\{[\s\S]*fontSize: 14[\s\S]*lineHeight: 16/);
+      assert.match(onboardingSource, /focusAreaInfoBox:\s*\{[\s\S]*minHeight: 62/);
+      assert.match(onboardingSource, /backgroundColor: 'rgba\(198,139,255,0\.20\)'/);
       assert.match(onboardingSource, /focusAreaCardActive:\s*\{[\s\S]*borderColor: '#FFFFFF'/);
     },
   },

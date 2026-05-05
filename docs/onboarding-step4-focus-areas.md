@@ -19,12 +19,7 @@ WHAT DO YOU
 WANT TO FOCUS ON?
 ```
 
-- Subtitle:
-
-```text
-Select up to 2 areas.
-Why focus areas? We'll prioritize what matters most in your program.
-```
+- Subtitle: no supporting copy in the black header for this pass.
 
 Current code note: the old Step 4 implementation was `TRAINING DAYS` with day-count cards. The target removes that from Step 4.
 
@@ -36,15 +31,16 @@ Visible focus areas:
 
 | Row | Options |
 | --- | --- |
-| Row 1 | `Chest`, `Back`, `Shoulders`, `Arms` |
-| Row 2 | `Quads`, `Glutes`, `Hamstrings`, `Calves` |
-| Row 3 | `Abs`, `Mobility` centered in the same 4-column grid rhythm |
+| Row 1 | `Chest`, `Back`, `Shoulders` |
+| Row 2 | `Arms`, `Abs`, `Quads` |
+| Row 3 | `Glutes`, `Hamstrings`, `Calves` |
 
 Removed from the visible Step 4 menu:
 
 - `Strength`
 - `Conditioning`
 - `Running`
+- `Mobility`
 
 Compatibility note: old stored values such as `conditioning` may still exist in data for recommendation and migration safety, but they should not appear in the Step 4 grid.
 
@@ -81,11 +77,11 @@ Current asset names:
 | Element | Accepted value / guidance |
 | --- | --- |
 | System/status area | Keep the existing white status area above the app content. |
-| Black top pane | Same family as Step 1-3, taller than compact Step 1 because the title is longer. |
+| Black top pane | Same family and vertical rhythm as Step 1-3: `248` high, `paddingTop: 32`, `paddingBottom: 18`. |
 | Progress bar | Inside the black pane above the step label. |
 | Step label | `STEP 4 OF 6`, uppercase, muted white. |
 | Headline | Large white 900-weight text, controlled two-line break. |
-| Subtitle | Two-line muted white supporting copy. The old `Why focus areas?` info-box message is folded into this area. |
+| Subtitle | Removed. Do not replace it with new header copy. |
 | Sloped transition | Same white angled transition used in earlier onboarding steps. |
 
 ### Focus Grid
@@ -94,21 +90,21 @@ Current asset names:
 | --- | --- |
 | Lower pane | Near-white `#F5F5F5`. |
 | Group labels | Removed to give the cards more vertical space. |
-| Grid columns | 4 columns. The final row uses two centered cards for `Abs` and `Mobility`. |
+| Grid columns | 3 columns x 3 rows. |
 | Card background | Step 1 card family: `#141414` behind the anatomy image. |
 | Card radius | `8`. |
 | Selected state | White outline around the full card and white check circle in the top-right. |
 | Unselected state | Gray circular outline in the top-right. |
-| Card label | Bottom-centered white bold label. The 4-column layout uses a compact `14 / 16`, `900`, `-0.2` variant of the Step 1 card label. |
-| Info box | Removed; the explanatory copy moved into the black top pane subtitle. |
+| Card label | Bottom-centered white bold label. The 3-column layout uses a compact `14 / 16`, `900`, `-0.2` variant of the Step 1 card label. |
+| Info box | Restored below the grid with the lightning icon, `Why focus areas?`, supporting copy, and `Max 2 selections` pill. Lightning uses yellow accent, max-selection pill uses the established purple accent family. |
 
 ## Implementation Notes
 
 - Step 4 uses focus-area presentation data rather than hard-coded day cards.
-- `quads`, `hamstrings`, `calves`, and `mobility` are first-class focus-area values.
+- `quads`, `hamstrings`, and `calves` are visible first-class focus-area values. `mobility` remains supported in data but is hidden from this onboarding grid.
 - `Abs` is the user-facing label for the existing `core` focus-area value.
-- The current visible onboarding grid is one 4-column grid: two full rows plus a centered `Abs` / `Mobility` row.
+- The current visible onboarding grid is one 3-column x 3-row grid.
 - `conditioning` remains a legacy-compatible value but is excluded from the Step 4 onboarding options.
 - The visible card image slots use `FOCUS_AREA_CARD_ASSETS` in `OnboardingScreen.tsx`.
 - V2 focus assets use `FOCUS_AREA_IMAGE_FRAMES` and `contain` rendering where needed so close-up anatomy images can zoom out inside the same card size.
-- The accepted 4-column pass keeps the black top pane at `252` and uses `130` high focus cards so the screen stays non-scrollable with three card rows.
+- The accepted 3-column pass keeps the black top pane aligned to the other steps at `248`, uses `140` high focus cards, and keeps the info box compact at `62` minimum height.
