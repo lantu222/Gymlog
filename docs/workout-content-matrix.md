@@ -2,6 +2,30 @@
 
 This document defines what the recommended workouts should contain after onboarding. It focuses on the actual session content: exercises, set/rep intent, equipment fit, and progression.
 
+## Step 1-5 to Ready Plan Assembly
+
+The ready plan must be constructible from the current five onboarding steps without AI generation. The engine can use AI_COACH later to explain or discuss the plan, but the template, session content, and starter block come from deterministic product data.
+
+| Input layer | Decides | Required output |
+| --- | --- | --- |
+| Step 1 Equipment access | Which exercise menus and template variants are allowed. | A plan that can be performed with the selected environment and has realistic substitutions. |
+| Step 2 Training goal | The main session intent and progression bias. | Strength, hypertrophy, recomp/general, or endurance content rules applied consistently. |
+| Step 3 Training profile | Experience guardrails and weekly frequency. | A weekly rhythm with the selected day count or an explicitly explained fallback. |
+| Step 4 Focus areas | Muscle-group emphasis inside compatible plans. | Visible first-week emphasis when feasible, without breaking the selected goal or equipment fit. |
+| Step 5 Bodyweight progress | Bodyweight direction and expectation framing. | Plan explanation and progression framing that reflect gain, loss, maintain, or no target. |
+
+The minimum plan-ready payload should include:
+
+- selected template / programme id
+- user-facing plan name and subtitle
+- days per week and first-week session list
+- session guidance for each day: warmup, main focus, support focus, rest, estimated duration, progression hint, first action
+- 4-week starter block metadata from `docs/recommendation-4-week-programme-contract.md`
+- recommendation confidence and fallback reason when applicable
+- `why this plan` reasons tied back to the user's Step 1-5 answers
+
+If any of these fields cannot be generated from catalog data, the issue is a content gap, not something AI_COACH should invent.
+
 ## Content Rules
 
 | Goal type | Session intent | Exercise mix | Set / rep bias | Progression bias |
@@ -56,6 +80,8 @@ Each ready-template session now has generated guidance from the template data. T
 ## Training Block Model
 
 The recommended week is the first week of a continuing 4-week starter block, not a one-off plan.
+
+Detailed programme-generation rules live in `docs/recommendation-4-week-programme-contract.md`. This section summarizes the current content expectations that tests should enforce.
 
 | Week | Role | What happens |
 | --- | --- | --- |

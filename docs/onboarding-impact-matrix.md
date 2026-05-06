@@ -1,48 +1,102 @@
 # Onboarding Impact Matrix
 
-This document defines what each onboarding answer should change in the recommended program, the explanation shown to the user, and the weekly structure. It is the source of truth for the next recommendation tests.
+This document defines how the current Step 1-5 onboarding answers become a ready training plan. It is the source of truth for recommendation tests, plan-ready review copy, and future programme-generation work.
+
+The current onboarding has five input steps plus a final plan-ready review:
+
+| Step | Screen | Primary purpose | Hard / soft role |
+| --- | --- | --- | --- |
+| 1 | Equipment access | Decide what the user can realistically train with. | Hard constraint. |
+| 2 | Training goal | Decide the main objective of the plan. | Primary ranking signal. |
+| 3 | Training profile | Decide experience level and weekly frequency. | Hard schedule input plus readiness guardrail. |
+| 4 | Focus areas | Add up to two muscle-group preferences. | Soft preference. |
+| 5 | Bodyweight progress | Add bodyweight direction and expectation framing. | Context and scoring bias. |
+| Review | Your plan is ready | Explain the chosen plan and let the user start. | Output screen, not a new input step. |
+
+## Plan Assembly Contract
+
+The engine should build a plan in this order:
+
+1. Apply hard constraints from Step 1 and Step 3.
+2. Filter out templates that cannot satisfy equipment, frequency, or beginner-safety rules.
+3. Rank remaining candidates by Step 2 goal fit, Step 4 focus fit, Step 5 bodyweight-direction fit, and catalog quality.
+4. Select one primary recommendation and two useful alternatives.
+5. Attach programme metadata from `docs/recommendation-4-week-programme-contract.md`: first week, 4-week block, progression rules, fallback reason, and confidence.
+6. Generate explanation copy from the selected candidate and the exact Step 1-5 answers.
+
+The plan-ready screen should be able to answer these questions without asking AI:
+
+| Question | Source |
+| --- | --- |
+| What kind of training week is this? | Selected template family, days per week, session labels. |
+| Why this plan? | Top scoring reasons from Steps 1-5. |
+| What will I do first? | Week 1 sessions from the selected template. |
+| How will it progress? | Programme profile / training block metadata. |
+| What tradeoff did the engine make? | Confidence and fallback metadata. |
 
 ## Current Selection Surface
 
-| Step | Answer | Stored value | Expected recommendation impact | Expected explanation impact | Expected weekly structure impact | Current status |
-| --- | --- | --- | --- | --- | --- | --- |
-| 1 Equipment access | Full Gym | `equipment: gym`, `trainingEnvironment: full_gym` | Allow full-gym templates and prefer full-gym exercise menus. | Mention broad equipment access only when useful. | No direct schedule change. | UI should show this as the strongest default option with the focus badge `MOST FLEXIBLE`. |
-| 1 Equipment access | Home Gym | `equipment: home`, `trainingEnvironment: home_gym` | Prefer home-friendly templates; avoid commercial-gym-only plans unless no good match. | Explain that the plan fits home equipment. | No direct schedule change. | Replaces the old `Home Workout` label to make it clear this means owned equipment, not bodyweight-only training. |
-| 1 Equipment access | Minimal Equipment | `equipment: minimal`, `trainingEnvironment: minimal_equipment` | Prefer dumbbell/band/bench-compatible templates and low-equipment exercise menus. | Explain limited-equipment fit. | No direct schedule change. | New distinct Step 1 option; should not collapse visually into Bodyweight or Running. Focus badge: `EFFICIENT`. |
-| 1 Equipment access | Bodyweight Only | `equipment: minimal`, `trainingEnvironment: bodyweight_only` | Prefer bodyweight/minimal plans and bodyweight-friendly exercise choices. | Explain no-equipment/bodyweight fit. | No direct schedule change. | Must be kept distinct from running/hybrid even though both use the broad `minimal` equipment bucket. Focus badge: `BEGINNER FRIENDLY`. |
-| 1 Equipment access | Running / Hybrid | `equipment: minimal`, `trainingEnvironment: running_hybrid` | Prefer run/mobility, conditioning, or hybrid strength templates depending on later goals. | Explain running/cardio or hybrid fit. | May recommend fewer structured strength days if the goal is endurance/cardio. | Must be kept distinct from Bodyweight Only even when the later goal is not pure endurance. Focus badge: `CARDIO FOCUSED`. |
-| 2 Goal | Get stronger | `goal: strength` | Prefer strength or powerbuilding templates, heavy compounds, lower primary rep ranges, longer rests. | Explain strength match and main lifts. | Match requested days when a strength template exists; otherwise use a strength base plus concrete optional add-on days. | UI label updated from `Strength`; works for 3-4 days and 5-day fallback has an optional accessory day. |
-| 2 Goal | Build muscle | `goal: muscle` | Prefer hypertrophy templates, higher volume, pump/balanced style, muscle focus. | Explain muscle-building or gain context when target weight is higher. | Prefer 3-5 day hypertrophy structures depending on selected days. | Works; derived `goalType: hypertrophy` and gain target copy exist. |
-| 2 Goal | Lean & athletic | `goal: lean_athletic` | Prefer athletic/recomp templates, low-friction balanced strength, and conditioning-friendly plans. | Explain balanced strength and conditioning; use fat-loss copy only when a lower bodyweight target exists. | Avoid overly demanding high-recovery templates unless selected level and days justify it. | New precise Step 2 intent; currently maps to `goalType: recomposition` unless target weight makes it fat-loss oriented. |
-| 2 Goal | General fitness | `goal: general_fitness` | Prefer sustainable general/recomp templates, lower friction, optional conditioning/mobility support. | Explain sustainable, flexible fitness. | Match selected days where possible and keep recovery demand moderate. | New precise Step 2 intent; legacy `general` remains supported for old saved setup data. |
-| 3 Profile | Gender | `gender` | Should not change recommendation by default. | No prominent explanation unless future content is gender-specific. | No schedule change. | Stored only. Correct for now. |
-| 3 Profile | Age | `age` / `ageRange` | Should influence readiness only when very young/older ranges require a safer start. | Mention safer start only if it changes the recommendation. | May reduce recovery demand for older beginners later. | Stored only. Needs future policy if used. |
-| 4 Training days | 2 days | `daysPerWeek: 2` | Prefer 2-day templates or closest low-friction alternative. | Explain 2-day weekly fit. | Default rhythm Mon/Thu. | Works. |
-| 4 Training days | 3 days | `daysPerWeek: 3` | Prefer 3-day templates. | Explain 3-day weekly fit. | Default rhythm Mon/Wed/Fri. | Works. |
-| 4 Training days | 4 days | `daysPerWeek: 4` | Prefer 4-day templates. | Explain 4-day weekly fit. | Default rhythm Mon/Tue/Thu/Sat. | Works. |
-| 4 Training days | 5 days | `daysPerWeek: 5` | Prefer 5-day templates if goal-compatible; otherwise explain nearest 4-day plan. | Explain if selected program is fewer than 5 days. | Default rhythm Mon/Tue/Thu/Fri/Sat if 5-day program exists. | Works for muscle; strength is a gap. |
-| 5 Bodyweight | Current weight | `currentWeightKg` | Informs bodyweight target context and derived weight direction. | Show current-to-target context when target exists. | No direct schedule change. | Used by `recommendationProfile` and recommendation explanation. |
-| 5 Bodyweight | Target weight | `targetWeightKg` | Influences explanation and light scoring bias, not blindly changing template. | For gain: mention mass gain support. For loss: mention fat-loss/recomp support. | No direct schedule change unless future large-loss policy reduces recovery demand. | Used by `recommendationProfile`, explanation, and fat-loss/gain scoring bias. |
-| 6 Focus | Glutes | `focusAreas: glutes` | Prefer templates tagged for glutes/legs or surface swaps/accessories later. | Explain extra glute focus. | No direct day count change. | Scored through focus tags. |
-| 6 Focus | Legs | `focusAreas: legs` | Prefer templates with leg focus tags. | Explain extra leg focus. | No direct day count change. | Scored through focus tags. |
-| 6 Focus | Chest | `focusAreas: chest` | Prefer templates with chest focus tags. | Explain extra chest focus. | No direct day count change. | Scored through focus tags. |
-| 6 Focus | Shoulders | `focusAreas: shoulders` | Prefer templates with shoulder focus tags. | Explain extra shoulder focus. | No direct day count change. | Scored through focus tags. |
-| 6 Focus | Back | `focusAreas: back` | Prefer templates with back focus tags. | Explain extra back focus. | No direct day count change. | Scored through focus tags. |
-| 6 Focus | Arms | `focusAreas: arms` | Prefer templates with arm focus tags. | Explain extra arm focus. | No direct day count change. | Scored through focus tags. |
-| 6 Focus | Core | `focusAreas: core` | Prefer templates with core focus tags. | Explain extra core focus. | No direct day count change. | Scored through focus tags. |
-| 6 Focus | Conditioning | `focusAreas: conditioning` | Prefer conditioning/run/mobility tags. | Explain conditioning focus. | May make run/mobility secondary option stronger. | Scored through focus tags. |
+| Step | Answer | Stored value | Recommendation impact | Programme impact | Plan-ready explanation |
+| --- | --- | --- | --- | --- | --- |
+| 1 Equipment access | Full Gym | `equipment: gym`, `trainingEnvironment: full_gym` | Allows full-gym templates and full exercise menus. | Can use heavier loading, machines, cables, and broader substitutions. | Mention only when it materially explains the match. |
+| 1 Equipment access | Home Gym | `equipment: home`, `trainingEnvironment: home_gym` | Prefers home-friendly templates; avoids commercial-gym-only plans unless explained as a compromise. | Progression should work with repeatable home equipment and swaps. | Explain that the plan fits home training constraints. |
+| 1 Equipment access | Minimal Equipment | `equipment: minimal`, `trainingEnvironment: minimal_equipment` | Prefers dumbbell/band/bench/bodyweight-compatible plans. | Progression uses reps, load when available, tempo, density, and range. | Explain low-equipment fit and any required substitutions. |
+| 1 Equipment access | Bodyweight Only | `equipment: minimal`, `trainingEnvironment: bodyweight_only` | Strongly prefers bodyweight-safe templates. | Progression uses reps, tempo, range, harder variations, and density before load. | Must not show required gym-only movements. |
+| 1 Equipment access | Running / Hybrid | `equipment: minimal`, `trainingEnvironment: running_hybrid` | Biases run/mobility, athletic, conditioning-friendly, or hybrid plans. | Can include run blocks, reset days, and lower-fatigue strength work. | Explain the hybrid weekly rhythm clearly. |
+| 2 Training goal | Get stronger | `goal: strength` | Prefers strength base or powerbuilding templates. | Lower-rep anchors, longer rests, conservative load increases. | Explain main-lift strength exposure and recovery. |
+| 2 Training goal | Build muscle | `goal: muscle` | Prefers hypertrophy, mass, or powerbuilding templates. | Volume accumulation and reps-first progression. | Explain volume, muscle focus, and gain support when Step 5 supports it. |
+| 2 Training goal | Lean & athletic | `goal: lean_athletic` | Prefers athletic/recomp, balanced strength, and conditioning-friendly plans. | Moderate fatigue and sustainable density. | Explain athletic/recomp fit; use fat-loss language only with lower target weight. |
+| 2 Training goal | General fitness | `goal: general_fitness` | Prefers sustainable, flexible, beginner-safe plans. | Balanced movement patterns and manageable progression. | Explain repeatability and consistency. |
+| 3 Experience | Beginner | `level: beginner` | Filters away high-recovery or overly complex plans. | Starts conservatively and avoids aggressive week-to-week jumps. | Explain simpler structure and recovery. |
+| 3 Experience | Intermediate | `level: intermediate` | Allows balanced volume and more structure. | Uses normal build weeks and stable anchors. | Explain progression and variety. |
+| 3 Experience | Advanced | `level: advanced` | Allows higher workload only when the catalog supports it. | Should not pretend advanced-specific support exists if fallback is used. | Explain honest closest-fit tradeoff when needed. |
+| 3 Frequency | 2 days | `daysPerWeek: 2` | Prefers 2-day full-body or minimal splits. | Each session must cover enough major patterns. | Show a clear low-frequency rhythm. |
+| 3 Frequency | 3 days | `daysPerWeek: 3` | Prefers 3-day balanced structures. | Good default for strength base, full body, run + mobility. | Show three required sessions. |
+| 3 Frequency | 4 days | `daysPerWeek: 4` | Enables upper/lower, powerbuilding, and higher-volume plans. | Supports split-specific progression. | Explain the four-day rhythm. |
+| 3 Frequency | 5 days | `daysPerWeek: 5` | Enables higher-frequency hypertrophy/hybrid plans when compatible. | Must check recovery demand, especially for beginners. | If using a 4-day fallback, say so explicitly. |
+| 3 Frequency | 6+ days | `daysPerWeek: 6` | Current catalog should use closest coherent plan rather than inventing a 6-day plan. | Prefer 5-day or 4-day base plus optional day. | Explain the fallback honestly. |
+| 4 Focus | Chest | `focusAreas: chest` | Biases pressing and chest-tagged plans. | Adds or preserves chest accessories when feasible. | Mention chest focus only if visible in the first week. |
+| 4 Focus | Back | `focusAreas: back` | Biases pulling volume and back-tagged plans. | Adds or preserves row/pulldown/back density. | Explain back emphasis if it affected the plan. |
+| 4 Focus | Shoulders | `focusAreas: shoulders` | Biases delt/pressing support with beginner caution. | Adds shoulder work without excessive joint stress. | Avoid overpromising if equipment/frequency limits it. |
+| 4 Focus | Arms | `focusAreas: arms` | Biases plans with accessory capacity. | Adds arm work after main anchors. | Position as extra emphasis, not the whole plan. |
+| 4 Focus | Abs | `focusAreas: core` | Biases core support. | Adds core work without changing split type. | Explain core support if surfaced in sessions. |
+| 4 Focus | Quads | `focusAreas: quads` | Biases squat/leg-press/lunge patterns. | Adds quad emphasis on lower/full-body days. | Explain visible lower-body focus. |
+| 4 Focus | Glutes | `focusAreas: glutes` | Biases glute/lower-body and hypertrophy plans. | Adds hip thrust, hinge, lunge, bridge, or glute accessory priority. | Make glute focus explicit if selected. |
+| 4 Focus | Hamstrings | `focusAreas: hamstrings` | Biases posterior-chain work. | Adds hinge/curl/hamstring support. | Mention only when first week includes it clearly. |
+| 4 Focus | Calves | `focusAreas: calves` | Small accessory bias. | Adds calf work where it fits. | Should never outrank goal, equipment, or frequency. |
+| 5 Bodyweight | Current weight | `currentWeightKg` | Provides baseline for target direction. | Enables current-to-target context. | Mention only with target or expectation framing. |
+| 5 Bodyweight | Target above current | `targetWeightKg`, direction `gain` | Biases hypertrophy/gain explanation and scoring. | Frames progression as muscle-building support. | Explain gain support without nutrition promises. |
+| 5 Bodyweight | Target below current | `targetWeightKg`, direction `loss` | Biases lean/recomp/fat-loss support and lower fatigue. | Emphasizes resistance training, consistency, and recovery. | Explain sustainable fat-loss support. |
+| 5 Bodyweight | Target equals current | `targetWeightKg`, direction `maintain` | Biases general fitness/recomp framing. | Frames progress around performance and consistency. | Avoid bodyweight-change promises. |
+| 5 Bodyweight | No target | `targetWeightKg: null` | Keeps Step 2 as the main signal. | Avoids bodyweight-specific framing. | Do not pretend weight target changed the plan. |
+
+## Scoring Dimensions
+
+| Dimension | Weight | Source | Notes |
+| --- | ---: | --- | --- |
+| Constraint fit | Required | Step 1, Step 3 | Hard fail if the plan requires unavailable equipment or unsafe recovery demand. |
+| Goal fit | 35 | Step 2 | Primary ranking driver after constraints. |
+| Frequency fit | 20 | Step 3 | Exact day match is preferred; coherent fallback is allowed with explanation. |
+| Readiness fit | 15 | Step 3 | Beginner plans need lower complexity and recovery demand. |
+| Focus fit | 12 | Step 4 | Max two soft preferences; cannot override hard constraints. |
+| Bodyweight direction fit | 8 | Step 5 | Biases framing and fatigue, not the entire plan alone. |
+| Catalog quality | 10 | Template metadata | Prefer complete, tested, content-safe plans. |
+
+Confidence should be high when the winner matches equipment, goal, frequency, and readiness exactly. Confidence should drop when the engine uses a fallback day count, ignores a focus area, or has only low-catalog-depth options.
 
 ## High-Priority Scenario Tests
 
-| Scenario | Input | Expected recommendation | Expected explanation | Expected weekly structure | Gap / action |
-| --- | --- | --- | --- | --- | --- |
-| Full gym strength 3 days | Full Gym, Strength, 3 days, beginner/intermediate | `tpl_3_day_strength_base_v1` or equivalent strength base. | "3 days for strength", full-gym access implicit or explicit, main lifts/heavy start. | 3 sessions on Mon/Wed/Fri by default. | Test current behavior and lock it. |
-| Full gym strength 4 days | Full Gym, Strength, 4 days, intermediate | `tpl_4_day_strength_size_v1` or `tpl_4_day_powerbuilding_v1` depending level/tailoring. | Explain heavy compounds plus enough volume. | 4 sessions on Mon/Tue/Thu/Sat by default. | Test expected winner and alternative. |
-| Full gym strength 5 days | Full Gym, Strength, 5 days, target 120kg | Prefer a 5-day strength-compatible plan if available. If not, recommend 4-day strength and clearly say closest coherent fit. | Explain strength match, full gym, target-weight context if current weight exists. | 4-day strength base plus optional 5th accessory day. | Fallback is now intentional; true 5-day strength template remains future catalog work. |
-| Full gym muscle gain | Full Gym, Build muscle, current < target | Prefer hypertrophy templates; 5 days should map to `tpl_5_day_hybrid_v1`. | Explain muscle-building volume and gain target support. | Match selected day count where template exists. | Target weight not yet used in explanation/scoring. |
-| Lean target path | Full Gym/Home, Lean & athletic or legacy Lose weight, current > target | Prefer sustainable general/recomp, low-friction or balanced template. | Explain current-to-target bodyweight goal and sustainable training. | Match selected days, but avoid high recovery demand for beginners. | `lean_athletic` and legacy `general` both support lower-target fat-loss context. |
-| Home workout muscle | Home Workout, Build muscle, 3-4 days | Prefer low-equipment/home-friendly templates; avoid full gym templates unless presented as closest compromise. | Explain home setup constraints and muscle goal tradeoff. | If no exact 4-day home muscle plan exists, use 2-day home-friendly base plus concrete optional volume/mobility days. | Weekly structure fallback exists; no home-specific program family yet. |
-| Outdoor/running endurance | Running / Hybrid equipment, 3-5 days | `tpl_3_day_run_mobility_v1` for 3 days when the Step 1 environment and later conditioning signals justify it; for 4-5, show closest 3-day base plus optional recovery/cardio add-ons. | Explain run/cardio/mobility match and why day count may differ. | 3-day run/mobility base plus concrete Easy Run / Long Run add-ons when needed. | Running/hybrid is no longer a Step 2 goal; it remains a Step 1 environment signal. |
+| Scenario | Input | Expected recommendation | Expected explanation | Expected weekly structure |
+| --- | --- | --- | --- | --- |
+| Full gym strength 3 days | Full Gym, Get stronger, beginner/intermediate, 3 days | `tpl_3_day_strength_base_v1` or equivalent strength base. | Strength anchors, manageable recovery, full-gym fit if useful. | 3 required sessions. |
+| Full gym strength 4 days | Full Gym, Get stronger, intermediate, 4 days | `tpl_4_day_powerbuilding_v1` or equivalent strength-size plan. | Heavy compounds plus support volume. | 4 balanced upper/lower sessions. |
+| Full gym strength 5 days | Full Gym, Get stronger, 5 days | 4-day strength fallback unless true 5-day strength exists. | Explain closest coherent fit and optional 5th day. | 4 required sessions plus optional accessory/recovery day. |
+| Full gym muscle gain | Full Gym, Build muscle, current < target | Hypertrophy or 5-day hybrid plan where frequency matches. | Muscle-building volume and gain-support framing. | 3-5 sessions depending on Step 3. |
+| Lean target path | Full Gym/Home, Lean & athletic, current > target | Sustainable recomp/fat-loss support plan. | Lower target means fat-loss support, not punishment. | Moderate recovery demand, especially for beginners. |
+| General beginner path | Any compatible equipment, General fitness, beginner, 2-3 days | Full-body/minimal sustainable plan. | Repeatability, simple structure, consistency. | 2-3 low-friction sessions. |
+| Home/minimal muscle | Home Gym or Minimal Equipment, Build muscle, 3-4 days | Low-equipment hypertrophy-safe plan or explained fallback. | Equipment tradeoff plus muscle intent. | Required sessions must be possible without commercial-gym-only movements. |
+| Bodyweight-only beginner | Bodyweight Only, General fitness or Lean & athletic, beginner | Bodyweight/minimal full-body starter. | No-equipment fit and simple progression. | Bodyweight-safe sessions. |
+| Running / Hybrid | Running / Hybrid, Lean & athletic or General fitness, 3-5 days | Run + mobility or athletic hybrid base. | Explain strength/cardio balance and any day-count fallback. | Run/reset/strength rhythm with optional add-ons when needed. |
 
 ## Current Recommendation Inputs
 
@@ -55,32 +109,35 @@ The scoring input currently uses:
 - `level`
 - `daysPerWeek`
 - `equipment`
+- `trainingEnvironment`
 - `secondaryOutcomes`
 - `focusAreas`
 - `weeklyMinutes`
 - inferred `preferredSessionMinutes`
 - `wantsConsistency`
+- `currentWeightKg`
+- `targetWeightKg`
 
 It does not currently use:
 
 - `gender`
 - `age` / `ageRange`
 
-`currentWeightKg`, `targetWeightKg`, and the Step 1 distinction between `Minimal Equipment`, `Bodyweight Only`, and `Running / Hybrid` should be available to `buildRecommendationProfile`. The broad `equipment` value remains for compatibility, but the more precise `trainingEnvironment` is the recommendation-facing Step 1 signal.
+`equipment` remains the broad compatibility field for old data. `trainingEnvironment` is the precise Step 1 field that prevents `Minimal Equipment`, `Bodyweight Only`, and `Running / Hybrid` from collapsing into the same plan.
 
 ## Current Program Catalog Gaps
 
 | Gap | Why it matters | Candidate fix |
 | --- | --- | --- |
-| No true 5-day strength plan | User can select Full Gym + Strength + 5 days, but best match may be hypertrophy/hybrid or 4-day strength. | Current behavior intentionally falls back to 4-day strength plus optional accessory day; add a true 5-day template later if needed. |
-| Home Gym, Minimal Equipment, and Bodyweight Only still share much of the low-equipment catalog | Home muscle, limited-equipment, and bodyweight training should not always feel the same as outdoor/running. | Keep Step 1 environments distinct now; add deeper home/bodyweight-specific templates or exercise selection rules later. |
-| Target weight is only lightly used | Users who enter target weight expect it to matter. | Expand from explanation/scoring bias into progression and optional nutrition guidance. |
-| Legacy `general` still exists in stored setup | Existing users may have `goal: general` from the previous Lose weight UI. | Keep legacy support, but new Step 2 should store `lean_athletic` or `general_fitness` for the new visible non-strength/non-muscle options. |
-| 4-5 day endurance catalog depth | Endurance users may choose more days than the current run/mobility catalog supports. | Current behavior adds concrete optional run days; add additional 4/5-day endurance templates later if usage supports it. |
+| No true 5-day strength plan | Strength users can choose 5 days, but the best coherent current plan may be 4 days. | Keep the 4-day strength plus optional accessory-day fallback; add true 5-day strength later if demand supports it. |
+| Limited home/minimal hypertrophy depth | Home Gym, Minimal Equipment, and Bodyweight Only need to feel different. | Add distinct home hypertrophy and bodyweight progression templates. |
+| No true 6-day onboarding recommendation | Step 3 supports `6+`, but the catalog is not deep enough for a real 6-day plan. | Treat as high availability and recommend closest coherent 5-day or 4-day plan with explanation. |
+| Focus areas are still mostly scoring tags | Users expect selected muscles to appear in the first week. | Add programme/session-level focus allocation metadata. |
+| Target weight is only a light bias | Users expect target weight to influence expectations. | Keep it as explanation/scoring for MVP; later add adaptive progression and nutrition-adjacent guidance outside the template engine. |
 
 ## Proposed Test Order
 
-1. Lock existing good paths: full gym strength 3 days, full gym muscle 5 days, outdoor endurance 3 days.
-2. Add tests that expose gaps: full gym strength 5 days, lose weight with target, home workout muscle.
-3. Decide whether each gap should be fixed with scoring changes, explanation changes, or new templates.
-4. Only then adjust recommendation logic or templates.
+1. Lock exact current 5-step input mapping: Step 1 environment, Step 2 goal, Step 3 level/frequency, Step 4 max-two focus areas, Step 5 weight direction.
+2. Lock strong recommendation paths: full gym strength 3 days, full gym muscle 5 days, general beginner 3 days, bodyweight-only beginner.
+3. Lock honest fallback paths: strength 5 days, 6+ days, running/hybrid 5 days, home/minimal muscle.
+4. Verify plan-ready output includes selected programme name, weekly rhythm, first-week sessions, why-this-plan reasons, confidence, and fallback copy when needed.

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppLanguage } from '../types/models';
@@ -12,20 +12,23 @@ interface WelcomeScreenProps {
 
 const copy = {
   en: {
-    setupHint: 'Build your plan. Track your progress.',
+    setupHint: 'Build your plan.\nTrack your progress.',
     continueLabel: 'Get started',
   },
   fi: {
-    setupHint: 'Rakenna ohjelma. Seuraa kehitystä.',
+    setupHint: 'Rakenna ohjelma.\nSeuraa kehitysta.',
     continueLabel: 'Aloitetaan',
   },
 } as const;
 
 export function WelcomeScreen({ language, onContinue }: WelcomeScreenProps) {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const content = copy[language];
   const actionOpacity = useRef(new Animated.Value(0)).current;
   const actionTranslateX = useRef(new Animated.Value(-12)).current;
+  const orbSize = Math.max(430, Math.min(width * 1.45, 560));
+  const orbTop = insets.top + 34;
 
   useEffect(() => {
     Animated.parallel([
@@ -46,41 +49,39 @@ export function WelcomeScreen({ language, onContinue }: WelcomeScreenProps) {
 
   return (
     <View style={styles.screen}>
-      <View style={styles.hero}>
-        <View style={styles.heroTop} />
-        <View style={styles.heroBottom} />
+      <View
+        style={[
+          styles.topOrb,
+          {
+            width: orbSize,
+            height: orbSize,
+            borderRadius: orbSize / 2,
+            top: orbTop - orbSize * 0.52,
+            left: (width - orbSize) / 2,
+          },
+        ]}
+      >
+      </View>
 
-        <View pointerEvents="none" style={styles.backgroundLogo}>
-          <Text style={styles.backgroundGym}>GYM</Text>
-          <Text style={styles.backgroundLog}>LOG</Text>
+      <View style={[styles.content, { paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={styles.brandBlock}>
+          <Text style={styles.brandTitle}>GYMLOG</Text>
+          <Text style={styles.setupHint}>{content.setupHint}</Text>
         </View>
 
-        <View
+        <Animated.View
           style={[
-            styles.heroContent,
+            styles.actionStack,
             {
-              paddingTop: insets.top + 18,
-              paddingBottom: insets.bottom + spacing.lg,
+              opacity: actionOpacity,
+              transform: [{ translateX: actionTranslateX }],
             },
           ]}
         >
-          <View style={styles.copyBlock} />
-
-          <Animated.View
-            style={[
-              styles.actionStack,
-              {
-                opacity: actionOpacity,
-                transform: [{ translateX: actionTranslateX }],
-              },
-            ]}
-          >
-            <Pressable onPress={onContinue} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>{content.continueLabel}</Text>
-            </Pressable>
-            <Text style={styles.setupHint}>{content.setupHint}</Text>
-          </Animated.View>
-        </View>
+          <Pressable onPress={onContinue} style={styles.primaryButton}>
+            <Text style={styles.primaryButtonText}>{content.continueLabel}</Text>
+          </Pressable>
+        </Animated.View>
       </View>
     </View>
   );
@@ -91,67 +92,41 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
   },
-  hero: {
-    flex: 1,
-    minHeight: 0,
-    backgroundColor: '#FFFFFF',
-  },
-  heroTop: {
-    ...StyleSheet.absoluteFillObject,
-    bottom: '50%',
-    backgroundColor: '#000000',
-  },
-  heroBottom: {
-    ...StyleSheet.absoluteFillObject,
-    top: '50%',
-    backgroundColor: '#FFFFFF',
-  },
-  backgroundLogo: {
+  topOrb: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    top: '50%',
+    backgroundColor: '#000000',
     alignItems: 'center',
-    transform: [{ translateY: -118 }],
+    justifyContent: 'center',
+    overflow: 'hidden',
   },
-  backgroundGym: {
-    color: '#FFFFFF',
-    fontSize: 122,
-    lineHeight: 122,
-    fontWeight: '900',
-    letterSpacing: -4.4,
-    marginBottom: -10,
-  },
-  backgroundLog: {
-    color: '#000000',
-    fontSize: 130,
-    lineHeight: 130,
-    fontWeight: '900',
-    letterSpacing: -3.8,
-    marginTop: -10,
-  },
-  heroContent: {
+  content: {
     flex: 1,
     paddingHorizontal: spacing.xl,
     justifyContent: 'space-between',
   },
-  copyBlock: {
-    justifyContent: 'flex-start',
-    paddingTop: spacing.xl + spacing.sm,
-  },
-  actionStack: {
+  brandBlock: {
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingBottom: spacing.md,
-    marginTop: spacing.lg,
+    paddingTop: 452,
+  },
+  brandTitle: {
+    color: '#000000',
+    fontSize: 64,
+    lineHeight: 68,
+    fontWeight: '900',
+    letterSpacing: -2.2,
     marginBottom: spacing.xl,
   },
   setupHint: {
     color: 'rgba(0,0,0,0.74)',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 21,
+    lineHeight: 28,
     fontWeight: '700',
-    letterSpacing: -0.1,
+    textAlign: 'center',
+    maxWidth: 320,
+  },
+  actionStack: {
+    alignItems: 'center',
+    paddingBottom: spacing.xl,
   },
   primaryButton: {
     width: '100%',

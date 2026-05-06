@@ -186,9 +186,9 @@ Acceptance criteria:
 - updated setup changes recommendation logic cleanly
 - plan fit feels like a reusable system, not a launch-only funnel
 
-#### 2. Simplify recommendation pacing
+#### 2. Simplify plan-ready pacing
 
-Step 6 currently contains too many decisions at once.
+The final plan-ready review should not contain too many decisions at once.
 
 Implementation direction:
 

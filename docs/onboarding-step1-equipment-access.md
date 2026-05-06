@@ -13,7 +13,7 @@ Step 1 changes from a broad "Where do you train?" location question into a clear
 
 The full screen should not be redesigned. Keep the existing top white system/status area and the current onboarding shell structure. The scoped UI change is the selection area and Step 1 copy:
 
-- Step label: `STEP 1 OF 6`
+- Step label: `STEP 1 OF 5`
 - Title: `What equipment do you have access to?`
 - Subtitle: `This helps us build the right program for you.`
 - Options:
@@ -38,6 +38,20 @@ Recommended environment values:
 | Minimal Equipment | `minimal` | `minimal_equipment` |
 | Bodyweight Only | `minimal` | `bodyweight_only` |
 | Running / Hybrid | `minimal` | `running_hybrid` |
+
+## Plan Generation Contract
+
+Step 1 is a hard constraint for the training plan. It decides which templates and exercises are realistic before preferences are scored.
+
+| Input | Recommendation effect | Programme effect | Plan content requirement |
+| --- | --- | --- | --- |
+| `full_gym` | Allows full-gym, strength, hypertrophy, powerbuilding, and higher-frequency candidates. | Can use heavier progression and full equipment variation. | Barbell, dumbbell, cable, machine, and bodyweight exercises are allowed. |
+| `home_gym` | Prefers home-friendly and lower-friction candidates; full-gym plans are only acceptable as an explained compromise. | Progression should rely on repeatable load/reps and avoid machine-dependent assumptions. | No plan should require commercial-gym-only stations without swaps. |
+| `minimal_equipment` | Prefers low-equipment templates and shorter session density. | Progression uses reps, rounds, tempo, range, and limited-load increases. | Sessions must work with dumbbells/bands/bench/bodyweight style constraints. |
+| `bodyweight_only` | Strongly biases bodyweight and minimal full-body plans. | Progression uses harder variations, tempo, range, reps, and density before load. | No required barbell, cable, or machine exercises. |
+| `running_hybrid` | Biases athletic/recomp, run + mobility, conditioning, and hybrid structures. | Progression can include run blocks, density, mobility, and lower fatigue strength work. | Weekly plan should clearly distinguish training days from recovery/reset days. |
+
+Implementation rule: keep `equipment` as the broad compatibility bucket and `trainingEnvironment` as the precise plan-generation signal. The broad bucket is useful for legacy compatibility; the precise field is what prevents `Bodyweight Only` and `Running / Hybrid` from producing the same plan.
 
 ## Implementation Notes
 
@@ -67,7 +81,7 @@ Captured from the accepted Step 1 state on April 30, 2026. Treat these values as
 | Top pane horizontal padding | `36` each side |
 | Step 1 top pane padding | `paddingTop: 32`, `paddingBottom: 18` |
 | Header copy offset | `paddingTop: 20`, `paddingBottom: 0`, `gap: 3` |
-| Progress bar position | Inside the black pane, above `STEP 1 OF 6`, with `marginBottom: 12` |
+| Progress bar position | Inside the black pane, above `STEP 1 OF 5`, with `marginBottom: 12` |
 | Progress segments | `height: 4`, `borderRadius: 999`, `gap: 6`, inactive `rgba(255,255,255,0.10)`, active `#F3F7FF` |
 | Sloped light pane overlay | `height: 72`, `bottom: -36`, `left/right: -12`, `backgroundColor: #F5F5F5` |
 | Slope angle | `rotate: -4deg` |
@@ -81,7 +95,7 @@ The black pane must fully contain the progress bar, step label, headline, and su
 
 | Text | Font size | Line height | Weight | Letter spacing | Color |
 | --- | ---: | ---: | --- | ---: | --- |
-| `STEP 1 OF 6` | `10` | `12` | `900` | `1.2` | `rgba(255,255,255,0.6)` |
+| `STEP 1 OF 5` | `10` | `12` | `900` | `1.2` | `rgba(255,255,255,0.6)` |
 | `What equipment do` / `you have access to?` | `34` | `37` | `900` | `-0.8` | `#FFFFFF` |
 | `This helps us build the right program for you.` | `12` | `15` | `700` | default | `rgba(255,255,255,0.72)` |
 

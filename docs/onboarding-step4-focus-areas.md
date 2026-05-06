@@ -11,7 +11,7 @@ This document captures the Step 4 visual and product change from the May 2, 2026
 
 Step 4 changes from a weekly training-days picker into a focus-area selection screen. Training frequency now belongs to Step 3, so Step 4 can collect what the user wants the plan to emphasize.
 
-- Step label: `STEP 4 OF 6`
+- Step label: `STEP 4 OF 5`
 - Title:
 
 ```text
@@ -43,6 +43,24 @@ Removed from the visible Step 4 menu:
 - `Mobility`
 
 Compatibility note: old stored values such as `conditioning` may still exist in data for recommendation and migration safety, but they should not appear in the Step 4 grid.
+
+## Plan Generation Contract
+
+Step 4 is a soft preference layer, not a hard constraint. It should rank and shape compatible plans, not force a bad template just because a muscle group was selected.
+
+| Focus area | Recommendation effect | Programme effect | Plan content requirement |
+| --- | --- | --- | --- |
+| Chest | Biases chest-tagged hypertrophy, upper/lower, and pressing-friendly plans. | May prioritize pressing accessories and repeated chest exposure. | At least one visible chest emphasis should appear across the first week when feasible. |
+| Back | Biases pulling volume and back-tagged plans. | May prioritize rows/pulldowns and upper-back density. | Back work should not be hidden as a minor accessory only. |
+| Shoulders | Biases shoulder/delt support, with joint-friendly caution if later limitations exist. | May include vertical press or delt accessories. | Avoid excessive shoulder stress for beginners. |
+| Arms | Biases plans with arm accessory capacity. | Adds or preserves arm volume after anchors. | Arm focus should not replace main compound structure. |
+| Abs | Maps to `core`; biases core-support plans. | Adds core work without changing split type. | Core appears as support work, not the whole plan. |
+| Quads | Biases squat/leg-press/hack-squat patterns. | May emphasize quad accessories and squat patterns. | Lower days should visibly include quad work. |
+| Glutes | Biases glute/lower-body and hypertrophy plans. | May emphasize hip thrust, hinge, lunge, or glute bridge work. | Glute focus should be explicit in session focus or accessory selection. |
+| Hamstrings | Biases hinge/curl/posterior-chain work. | May add hamstring accessory volume. | Hamstring work should appear beyond incidental deadlift stress when feasible. |
+| Calves | Biases lower-body accessory completeness. | May add calf accessories. | Calf focus should not outrank more important hard constraints. |
+
+Selection rule: maximum 2 focus areas. If two focus areas conflict with equipment or days-per-week, the engine should prefer a coherent plan and explain the tradeoff.
 
 ## Asset Plan
 
@@ -79,7 +97,7 @@ Current asset names:
 | System/status area | Keep the existing white status area above the app content. |
 | Black top pane | Same family and vertical rhythm as Step 1-3: `248` high, `paddingTop: 32`, `paddingBottom: 18`. |
 | Progress bar | Inside the black pane above the step label. |
-| Step label | `STEP 4 OF 6`, uppercase, muted white. |
+| Step label | `STEP 4 OF 5`, uppercase, muted white. |
 | Headline | Large white 900-weight text, controlled two-line break. |
 | Subtitle | Removed. Do not replace it with new header copy. |
 | Sloped transition | Same white angled transition used in earlier onboarding steps. |

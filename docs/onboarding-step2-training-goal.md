@@ -11,7 +11,7 @@ This document captures the Step 2 visual and product change from the April 30, 2
 
 Step 2 should become a clearer primary training-goal question:
 
-- Step label: `STEP 2 OF 6`
+- Step label: `STEP 2 OF 5`
 - Title: `WHAT DO YOU WANT MOST?`
 - Subtitle: `We'll build your training around this.`
 - Options:
@@ -20,9 +20,7 @@ Step 2 should become a clearer primary training-goal question:
   - `Lean & athletic`
   - `General fitness`
 
-The reference screenshot shows compact dark goal cards with small supporting tags under each card subtitle. The tags are not separate inputs; they explain what the selected goal implies.
-
-Current code note: the existing implementation still says `STEP 2`, `WHAT IS YOUR MAIN GOAL?`, `Pick one or more.`, and uses the older four-goal model. This document describes the target Step 2 state, not the current code state.
+The current implementation uses compact dark goal cards with small supporting tags under each card subtitle. The tags are not separate inputs; they explain what the selected goal implies.
 
 ## Product Requirement
 
@@ -40,6 +38,26 @@ Recommended goal values:
 Keep separate precise Step 2 intent values so `Lean & athletic` and `General fitness` do not become indistinguishable recommendation inputs. Running/hybrid recommendation bias should come from Step 1 and later conditioning/focus signals.
 
 Interaction note: the phrase `WHAT DO YOU WANT MOST?` reads as a primary single-choice question. If multi-select remains intentional, the copy should make that clear. My recommendation is to treat Step 2 as one primary goal and use later steps for secondary outcomes.
+
+## Plan Generation Contract
+
+Step 2 sets the primary training objective. It is the first ranking dimension after Step 1 constraints.
+
+| Goal | Template-family bias | Programme profile | Content requirement |
+| --- | --- | --- | --- |
+| `strength` | `strength_base`, `powerbuilding` | Lower-rep anchors, longer rests, conservative load increases. | Squat/hinge/press/pull anchors must appear early in the week. |
+| `muscle` | `mass_hypertrophy`, `powerbuilding` | Volume accumulation, reps-first progression, enough weekly hypertrophy work. | Sessions need enough compounds and accessories to support visible muscle gain. |
+| `lean_athletic` | `athletic_recomp`, `full_body_minimal`, compatible hybrid plans | Moderate fatigue, conditioning-friendly density, sustainable resistance training. | Plan must preserve strength/muscle while supporting target-weight or athletic intent. |
+| `general_fitness` | `full_body_minimal`, `athletic_recomp`, `joint_friendly` | Low-friction consistency, balanced movement patterns, manageable recovery. | Plan must be repeatable, beginner-safe, and easy to continue after week 1. |
+
+Weight targets from Step 5 refine the goal type:
+
+| Step 2 goal | Step 5 target direction | Derived recommendation meaning |
+| --- | --- | --- |
+| `muscle` | Gain | Hypertrophy / mass support. |
+| `muscle` | Loss | Recomposition rather than aggressive massing. |
+| `lean_athletic` | Loss | Fat-loss support with resistance training. |
+| `general_fitness` | Maintain/no target | Sustainable general fitness. |
 
 ## Option Content
 
@@ -64,19 +82,19 @@ These values intentionally mirror Step 1 so the onboarding flow feels like one s
 | Top pane horizontal padding | `36` each side |
 | Top pane padding | Start from Step 1: `paddingTop: 32`, `paddingBottom: 18` |
 | Header copy offset | Start from Step 1: `paddingTop: 20`, `paddingBottom: 0`, `gap: 3` |
-| Progress bar position | Same as Step 1: inside the black pane, above `STEP 2 OF 6`, with `marginBottom: 12` |
+| Progress bar position | Same as Step 1: inside the black pane, above `STEP 2 OF 5`, with `marginBottom: 12` |
 | Progress segments | `height: 4`, `borderRadius: 999`, `gap: 6`, inactive `rgba(255,255,255,0.10)`, active `#F3F7FF` |
 | Sloped transition | If Step 2 keeps the Step 1 shell: `height: 72`, `bottom: -36`, `left/right: -12`, `backgroundColor: #F5F5F5`, `rotate: -4deg` |
 | Options shift | Step 2 uses `translateY: 8` to lower the four-card stack and reduce the dead area above Continue |
 | Scroll behavior | Target should be non-scrollable on the same Pixel-style viewport; with four cards, use card height rather than empty whitespace to keep the stack close to the footer. |
 
-The screenshot crop does not show the progress bar or system/status area. In the real app, keep the same Step 1 convention: progress bar and `STEP 2 OF 6` sit above the headline.
+The screenshot crop does not show the progress bar or system/status area. In the real app, keep the same Step 1 convention: progress bar and `STEP 2 OF 5` sit above the headline.
 
 ### Header Text
 
 | Text | Font size | Line height | Weight | Letter spacing | Color |
 | --- | ---: | ---: | --- | ---: | --- |
-| `STEP 2 OF 6` | `10` | `12` | `900` | `1.2` | `rgba(255,255,255,0.6)` |
+| `STEP 2 OF 5` | `10` | `12` | `900` | `1.2` | `rgba(255,255,255,0.6)` |
 | `WHAT DO YOU WANT MOST?` | Start from Step 1 compact headline: `34` | `37` | `900` | `-0.8` | `#FFFFFF` |
 | `We'll build your training around this.` | `12` | `15` | `700` | default | `rgba(255,255,255,0.72)` |
 

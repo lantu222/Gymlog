@@ -1,8 +1,25 @@
 import { getRecommendationProgramDefinition } from './recommendationCatalog';
+import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { formatLiftDisplayLabel } from './displayLabel';
+import type { FirstRunSetupSelection } from './firstRunSetup';
 import type { RecommendationProgrammeProfile, RecommendationTrainingBlock, TemplateFamilyId } from '../types/recommendation';
+import type {
+  RecommendationPlanReadyPayload,
+  RecommendationPlanReadyScheduleDay,
+  RecommendationPlanReadyWeekPhase,
+} from '../types/recommendation';
+import type { SetupFocusArea, SetupWeekday } from '../types/models';
 
 const STARTER_BLOCK_LENGTH_WEEKS = 4;
 const STARTER_PHASE_LABELS = ['Week 1 Baseline', 'Week 2 Build', 'Week 3 Build', 'Week 4 Review + easier week'];
+const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+const DEFAULT_RHYTHM_BY_DAYS: Record<number, SetupWeekday[]> = {
+  2: ['mon', 'thu'],
+  3: ['mon', 'wed', 'fri'],
+  4: ['mon', 'tue', 'thu', 'sat'],
+  5: ['mon', 'tue', 'thu', 'fri', 'sat'],
+  6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
+};
 
 function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamilyId): RecommendationProgrammeProfile {
   switch (familyId) {
@@ -175,5 +192,459 @@ export function buildRecommendationTrainingBlock(programId: string): Recommendat
     weekRoles: ['baseline', 'build', 'build', 'review'],
     summary: `Start with week 1 as a baseline, build in weeks 2-3, then use week 4 as an easier review week.`,
     nextWeekAction: 'After week 1, repeat the same weekly structure in week 2 and add reps or load only when the previous sessions were clean.',
+  };
+}
+
+function pluralize(count: number, label: string) {
+  return `${count} ${label}${count === 1 ? '' : 's'}`;
+}
+
+function getWeekdayShortLabel(day: SetupWeekday) {
+  switch (day) {
+    case 'mon':
+      return 'Mon';
+    case 'tue':
+      return 'Tue';
+    case 'wed':
+      return 'Wed';
+    case 'thu':
+      return 'Thu';
+    case 'fri':
+      return 'Fri';
+    case 'sat':
+      return 'Sat';
+    case 'sun':
+      return 'Sun';
+    default:
+      return 'Day';
+  }
+}
+
+function normalizeWeekdays(days: SetupWeekday[]) {
+  return [...new Set(days)].sort((left, right) => WEEKDAY_ORDER.indexOf(left) - WEEKDAY_ORDER.indexOf(right));
+}
+
+function buildCombinationList(days: SetupWeekday[], targetSize: number): SetupWeekday[][] {
+  if (targetSize <= 0) {
+    return [[]];
+  }
+
+  if (days.length < targetSize) {
+    return [];
+  }
+
+  if (targetSize === 1) {
+    return days.map((day) => [day]);
+  }
+
+  const combinations: SetupWeekday[][] = [];
+  days.forEach((day, index) => {
+    buildCombinationList(days.slice(index + 1), targetSize - 1).forEach((combination) => {
+      combinations.push([day, ...combination]);
+    });
+  });
+
+  return combinations;
+}
+
+function scoreWeekdayCombination(days: SetupWeekday[]) {
+  const indexes = normalizeWeekdays(days).map((day) => WEEKDAY_ORDER.indexOf(day));
+  const gaps = indexes.map((current, index) => {
+    const next = indexes[(index + 1) % indexes.length];
+    return index === indexes.length - 1 ? next + 7 - current : next - current;
+  });
+
+  return Math.min(...gaps) * 100 - (Math.max(...gaps) - Math.min(...gaps)) * 10 - indexes.reduce((sum, value) => sum + value, 0);
+}
+
+function resolveProjectedTrainingDays(selection: FirstRunSetupSelection, daysPerWeek: number) {
+  const defaultRhythm = DEFAULT_RHYTHM_BY_DAYS[daysPerWeek] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+  if (selection.scheduleMode !== 'self_managed') {
+    return defaultRhythm;
+  }
+
+  const normalizedDays = normalizeWeekdays(selection.availableDays);
+  if (normalizedDays.length < defaultRhythm.length) {
+    return defaultRhythm;
+  }
+
+  if (normalizedDays.length === defaultRhythm.length) {
+    return normalizedDays;
+  }
+
+  const combinations = buildCombinationList(normalizedDays, defaultRhythm.length);
+  if (combinations.length === 0) {
+    return defaultRhythm;
+  }
+
+  return combinations.reduce((best, current) =>
+    scoreWeekdayCombination(current) > scoreWeekdayCombination(best) ? current : best,
+  );
+}
+
+function roundToNearestTen(value: number) {
+  return Math.round(value / 10) * 10;
+}
+
+function parseMinutes(meta: string) {
+  return Number(meta.match(/^(\d+)/)?.[1] ?? 0);
+}
+
+function formatList(items: string[]) {
+  if (items.length === 0) {
+    return '';
+  }
+
+  if (items.length === 1) {
+    return items[0];
+  }
+
+  if (items.length === 2) {
+    return `${items[0]} and ${items[1]}`;
+  }
+
+  return `${items.slice(0, -1).join(', ')}, and ${items[items.length - 1]}`;
+}
+
+function getGoalTitle(selection: Pick<FirstRunSetupSelection, 'goal' | 'currentWeightKg' | 'targetWeightKg'>) {
+  const weightDirection = getWeightDirection(selection);
+
+  switch (selection.goal) {
+    case 'strength':
+      return 'Get stronger';
+    case 'muscle':
+      return weightDirection === 'gain' ? 'Build muscle with gain support' : 'Build muscle';
+    case 'lean_athletic':
+      return weightDirection === 'loss' ? 'Lean & athletic fat-loss support' : 'Lean & athletic';
+    case 'general_fitness':
+    case 'general':
+      return weightDirection === 'loss' ? 'Sustainable fat-loss support' : 'General fitness';
+    case 'run_mobility':
+      return 'Endurance / cardio';
+    default:
+      return 'Training';
+  }
+}
+
+function getCompactGoalTitle(goal: FirstRunSetupSelection['goal']) {
+  switch (goal) {
+    case 'strength':
+      return 'Get stronger';
+    case 'muscle':
+      return 'Build muscle';
+    case 'lean_athletic':
+      return 'Lean & athletic';
+    case 'run_mobility':
+      return 'Endurance';
+    case 'general':
+    case 'general_fitness':
+      return 'General fitness';
+    default:
+      return 'Training';
+  }
+}
+
+function getCompactLevelLine(level: FirstRunSetupSelection['level']) {
+  switch (level) {
+    case 'beginner':
+      return 'Beginner base.';
+    case 'intermediate':
+      return 'Intermediate build.';
+    case 'advanced':
+      return 'Advanced base.';
+    default:
+      return 'Training base.';
+  }
+}
+
+function getCompactEquipmentTitle(selection: Pick<FirstRunSetupSelection, 'equipment' | 'trainingEnvironment'>) {
+  switch (selection.trainingEnvironment) {
+    case 'full_gym':
+      return 'Full gym access.';
+    case 'home_gym':
+      return 'Home gym access.';
+    case 'minimal_equipment':
+      return 'Minimal access.';
+    case 'bodyweight_only':
+      return 'Bodyweight access.';
+    case 'running_hybrid':
+      return 'Running access.';
+    default:
+      return selection.equipment === 'gym'
+        ? 'Full gym access.'
+        : selection.equipment === 'home'
+          ? 'Home access.'
+          : 'Minimal access.';
+  }
+}
+
+function getFocusAreaTitle(area: SetupFocusArea) {
+  switch (area) {
+    case 'bodyweight':
+      return 'Bodyweight';
+    case 'arms':
+      return 'Arms';
+    case 'glutes':
+      return 'Glutes';
+    case 'quads':
+      return 'Quads';
+    case 'hamstrings':
+      return 'Hamstrings';
+    case 'calves':
+      return 'Calves';
+    case 'legs':
+      return 'Legs';
+    case 'chest':
+      return 'Pecs';
+    case 'shoulders':
+      return 'Shoulders';
+    case 'back':
+      return 'Back';
+    case 'core':
+      return 'Abs';
+    case 'mobility':
+      return 'Mobility';
+    case 'conditioning':
+      return 'Conditioning';
+    default:
+      return 'Focus';
+  }
+}
+
+function getWeightDirection(selection: Pick<FirstRunSetupSelection, 'currentWeightKg' | 'targetWeightKg'>) {
+  if (typeof selection.currentWeightKg !== 'number' || typeof selection.targetWeightKg !== 'number') {
+    return null;
+  }
+
+  const difference = selection.targetWeightKg - selection.currentWeightKg;
+  if (difference > 0.5) {
+    return 'gain';
+  }
+
+  if (difference < -0.5) {
+    return 'loss';
+  }
+
+  return 'maintain';
+}
+
+function getStructureLabel(familyId: TemplateFamilyId, daysPerWeek: number) {
+  if (familyId === 'athletic_recomp') {
+    return 'Hybrid rhythm';
+  }
+
+  if (familyId === 'strength_base') {
+    return 'Strength base';
+  }
+
+  if (familyId === 'mass_hypertrophy') {
+    return 'Hypertrophy split';
+  }
+
+  if (familyId === 'powerbuilding') {
+    return 'Strength + volume split';
+  }
+
+  return daysPerWeek <= 3 ? 'Full body focus' : 'Split focus';
+}
+
+function buildSupplementalDay(
+  selection: FirstRunSetupSelection,
+  programId: string,
+  index: number,
+): Omit<RecommendationPlanReadyScheduleDay, 'id' | 'weekdayLabel'> {
+  if (selection.goal === 'strength') {
+    return {
+      name: index === 0 ? 'Accessory Strength Day' : 'Recovery Strength Day',
+      meta: `${index === 0 ? 30 : 25} min - optional`,
+      keyLifts: index === 0 ? ['Arms', 'Core', 'Upper back'] : ['Mobility', 'Easy carries'],
+      source: 'suggested',
+      note: index === 0 ? 'Optional accessory work without replacing the strength base.' : 'Keep this easy so the main lifts recover.',
+    };
+  }
+
+  if (selection.goal === 'run_mobility' || programId === 'tpl_3_day_run_mobility_v1') {
+    return {
+      name: index === 0 ? 'Easy Run Add-On' : 'Long Run Add-On',
+      meta: `${index === 0 ? 30 : 45} min - optional`,
+      keyLifts: index === 0 ? ['Easy run', 'Strides'] : ['Long run', 'Mobility'],
+      source: 'suggested',
+      note: index === 0 ? 'Keep the pace conversational.' : 'Build distance gradually and keep it easier than tempo day.',
+    };
+  }
+
+  if (selection.equipment === 'home' && selection.goal === 'muscle') {
+    return {
+      name: index === 0 ? 'Bodyweight Volume Day' : 'Conditioning + Mobility Day',
+      meta: '25 min - optional',
+      keyLifts: index === 0 ? ['Push-ups', 'Split squats', 'Core'] : ['Intervals', 'Mobility'],
+      source: 'suggested',
+      note: index === 0 ? 'Adds muscle-friendly volume without full-gym equipment.' : 'Keeps the week active without heavy fatigue.',
+    };
+  }
+
+  return {
+    name: index === 0 ? 'Recovery + Mobility Day' : 'Easy Conditioning Day',
+    meta: '25 min - optional',
+    keyLifts: index === 0 ? ['Mobility', 'Core'] : ['Easy cardio', 'Stretching'],
+    source: 'suggested',
+    note: 'Optional day to fill the selected weekly rhythm.',
+  };
+}
+
+function buildPlanReadyWeeklySchedule(selection: FirstRunSetupSelection, programId: string) {
+  const template = getWorkoutTemplateById(programId);
+  if (!template) {
+    return [];
+  }
+
+  const plannedDaysPerWeek = selection.daysPerWeek;
+  const rhythm = resolveProjectedTrainingDays(selection, plannedDaysPerWeek).map((day) => getWeekdayShortLabel(day));
+  const templateDays = [...template.sessions]
+    .sort((left, right) => left.orderIndex - right.orderIndex)
+    .map((session, index): RecommendationPlanReadyScheduleDay => ({
+      id: session.id,
+      weekdayLabel: rhythm[index] ?? `Day ${index + 1}`,
+      name: session.name,
+      meta: `${template.estimatedSessionDuration} min - ${pluralize(session.exercises.length, 'exercise')}`,
+      keyLifts: session.exercises.slice(0, 2).map((exercise) => formatLiftDisplayLabel(exercise.exerciseName)),
+      source: 'template',
+      note: null,
+    }));
+  const supplementalCount = Math.max(0, plannedDaysPerWeek - templateDays.length);
+  const supplementalDays = Array.from({ length: supplementalCount }, (_, index): RecommendationPlanReadyScheduleDay => {
+    const supplemental = buildSupplementalDay(selection, programId, index);
+    const dayIndex = templateDays.length + index;
+
+    return {
+      id: `${template.id}-suggested-${index + 1}`,
+      weekdayLabel: rhythm[dayIndex] ?? `Day ${dayIndex + 1}`,
+      ...supplemental,
+    };
+  });
+
+  return [...templateDays, ...supplementalDays].slice(0, plannedDaysPerWeek);
+}
+
+function buildFourWeekProgression(selection: FirstRunSetupSelection, profile: RecommendationProgrammeProfile): RecommendationPlanReadyWeekPhase[] {
+  const weightDirection = getWeightDirection(selection);
+  const goalLabel = selection.goal === 'muscle' && weightDirection === 'gain' ? 'muscle-building' : getGoalTitle(selection).toLowerCase();
+
+  return [
+    {
+      week: 1,
+      role: 'baseline',
+      label: 'Week 1: Find your baseline',
+      body: `Learn the sessions and log repeatable starting data for ${goalLabel}.`,
+    },
+    {
+      week: 2,
+      role: 'build',
+      label: 'Week 2: Build the rhythm',
+      body: 'Repeat the same week and add small progress only where week 1 was clean.',
+    },
+    {
+      week: 3,
+      role: 'build',
+      label: 'Week 3: Push the best work',
+      body: profile.volumeProgression,
+    },
+    {
+      week: 4,
+      role: 'review',
+      label: 'Week 4: Review and recover',
+      body: profile.easierWeek.reason,
+    },
+  ];
+}
+
+function buildHowToProgress(selection: FirstRunSetupSelection, profile: RecommendationProgrammeProfile) {
+  if (selection.goal === 'muscle') {
+    return 'Add reps first, then add load or one quality set when the top of the range is stable.';
+  }
+
+  if (selection.goal === 'strength') {
+    return 'Add load only after all prescribed reps are clean; keep the anchor lifts stable across the block.';
+  }
+
+  if (selection.goal === 'run_mobility') {
+    return 'Add run time or blocks gradually while keeping mobility and easy days recoverable.';
+  }
+
+  if (selection.trainingEnvironment === 'bodyweight_only' || selection.trainingEnvironment === 'minimal_equipment') {
+    return 'Progress through reps, tempo, range, density, and harder variations before chasing more load.';
+  }
+
+  return profile.intensityProgression;
+}
+
+function buildFocusAllocation(selection: FirstRunSetupSelection) {
+  const focusSummary = formatList(selection.focusAreas.slice(0, 2).map((area) => getFocusAreaTitle(area)));
+  if (!focusSummary) {
+    return 'Balanced full-body focus stays ahead of narrow accessories.';
+  }
+
+  return `Focus areas: ${focusSummary}. The plan surfaces them where they fit without replacing the main goal.`;
+}
+
+function buildReadinessGuardrail(selection: FirstRunSetupSelection) {
+  if (selection.level === 'beginner') {
+    return 'Beginner guardrail: start conservative, limit complexity, and progress only after clean logged sessions.';
+  }
+
+  if (selection.level === 'advanced') {
+    return 'Advanced guardrail: use the strongest catalog match, but avoid inventing workload the template does not support.';
+  }
+
+  return 'Intermediate guardrail: build normally in weeks 2-3 while keeping recovery and execution stable.';
+}
+
+export function buildRecommendationPlanReadyPayload(
+  selection: FirstRunSetupSelection,
+  programId: string,
+  options: { fallbackReason?: string | null } = {},
+): RecommendationPlanReadyPayload {
+  const template = getWorkoutTemplateById(programId);
+  const definition = getRecommendationProgramDefinition(programId);
+  const profile = buildRecommendationProgrammeProfile(programId);
+  const weeklySchedule = buildPlanReadyWeeklySchedule(selection, programId);
+  const programDaysPerWeek = template?.daysPerWeek ?? definition?.daysPerWeek ?? selection.daysPerWeek;
+  const requestedDaysPerWeek = selection.daysPerWeek;
+  const totalEstimatedMinutes = weeklySchedule.reduce((total, day) => total + parseMinutes(day.meta), 0);
+  const fallbackReason =
+    options.fallbackReason ??
+    (programDaysPerWeek !== requestedDaysPerWeek
+      ? `Closest ${programDaysPerWeek}-day base with optional add-ons for your ${requestedDaysPerWeek}-day target.`
+      : null);
+  const focusAllocation = buildFocusAllocation(selection);
+  const whyThisPlan = [
+    `Goal: ${getCompactGoalTitle(selection.goal)}.`,
+    getCompactLevelLine(selection.level),
+    `${requestedDaysPerWeek} days / week.`,
+    getCompactEquipmentTitle(selection),
+  ];
+  const firstWorkout = weeklySchedule.find((day) => day.source === 'template') ?? weeklySchedule[0] ?? null;
+
+  return {
+    programId,
+    title: template?.name ?? 'Starter plan',
+    subtitle: `Built around your goals, schedule and recovery.`,
+    blockLengthWeeks: profile.blockLengthWeeks,
+    requestedDaysPerWeek,
+    programDaysPerWeek,
+    whyThisPlan,
+    planOverview: [
+      `${requestedDaysPerWeek} workouts / week`,
+      `~${totalEstimatedMinutes || roundToNearestTen(requestedDaysPerWeek * (template?.estimatedSessionDuration ?? 50))} min / week`,
+      getStructureLabel(profile.familyId, programDaysPerWeek),
+      `${profile.blockLengthWeeks}-week starter block`,
+    ],
+    weeklySchedule,
+    fourWeekProgression: buildFourWeekProgression(selection, profile),
+    howToProgress: buildHowToProgress(selection, profile),
+    focusAllocation,
+    readinessGuardrail: buildReadinessGuardrail(selection),
+    firstAction: firstWorkout ? `Start with ${firstWorkout.name} on ${firstWorkout.weekdayLabel}.` : 'Open the first planned workout.',
+    fallbackReason,
   };
 }

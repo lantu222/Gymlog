@@ -90,6 +90,43 @@ export interface RecommendationTrainingBlock {
   nextWeekAction: string;
 }
 
+export type RecommendationPlanReadyScheduleDaySource = 'template' | 'suggested';
+
+export interface RecommendationPlanReadyScheduleDay {
+  id: string;
+  weekdayLabel: string;
+  name: string;
+  meta: string;
+  keyLifts: string[];
+  source: RecommendationPlanReadyScheduleDaySource;
+  note: string | null;
+}
+
+export interface RecommendationPlanReadyWeekPhase {
+  week: number;
+  role: RecommendationWeekRole;
+  label: string;
+  body: string;
+}
+
+export interface RecommendationPlanReadyPayload {
+  programId: string;
+  title: string;
+  subtitle: string;
+  blockLengthWeeks: number;
+  requestedDaysPerWeek: number;
+  programDaysPerWeek: number;
+  whyThisPlan: string[];
+  planOverview: string[];
+  weeklySchedule: RecommendationPlanReadyScheduleDay[];
+  fourWeekProgression: RecommendationPlanReadyWeekPhase[];
+  howToProgress: string;
+  focusAllocation: string;
+  readinessGuardrail: string;
+  firstAction: string;
+  fallbackReason: string | null;
+}
+
 export interface RecommendationResult {
   featuredProgramId: string;
   secondaryProgramId: string | null;

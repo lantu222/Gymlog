@@ -19,6 +19,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
@@ -52,6 +53,7 @@ import {
 } from '../lib/firstRunSetup';
 import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
 import { buildRecommendationOptionIds } from '../lib/recommendationPresentation';
+import { buildRecommendationPlanReadyPayload } from '../lib/recommendationProgramme';
 import { buildSessionGuidance } from '../lib/sessionGuidance';
 import { getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -101,7 +103,6 @@ type SetupStage =
   | 'location'
   | 'goal'
   | 'profile'
-  | 'focus'
   | 'review'
   | 'planning'
   | 'about'
@@ -109,14 +110,14 @@ type SetupStage =
 type HelperState = 'idle' | 'loading' | 'ready' | 'error';
 type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | null;
 type PlanReadyHeroKey = 'mass' | 'strength' | 'athletic';
-type PlanReadyImageGender = 'male' | 'female';
 type BodyweightGoalMode = 'hidden' | 'optional' | 'required';
-type FocusBodyView = 'front' | 'back';
+type BodyweightGoalIconName = 'up' | 'flat' | 'down';
 type LocationSelectionOptionId = SetupTrainingEnvironment;
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
 type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
 
-const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about', 'focus', 'review'];
+const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about', 'review'];
+const ONBOARDING_PROGRESS_STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about'];
 
 const DEFAULT_BODYWEIGHT_KG = 70;
 const DEFAULT_BODYWEIGHT_LB = 154;
@@ -135,21 +136,69 @@ function getDefaultBodyweightForUnit(unit: UnitPreference) {
 }
 
 function getBodyweightGoalMode(goals: SetupGoal[]): BodyweightGoalMode {
-  if (goals.includes('general')) {
+  if (goals.includes('lean_athletic')) {
     return 'required';
   }
 
-  if (goals.includes('muscle')) {
+  if (
+    goals.includes('muscle') ||
+    goals.includes('general') ||
+    goals.includes('general_fitness') ||
+    goals.includes('strength') ||
+    goals.includes('run_mobility')
+  ) {
     return 'optional';
   }
 
-  return 'hidden';
+  return 'optional';
 }
 
-function getDefaultTargetBodyweight(value: number, unit: UnitPreference, mode: BodyweightGoalMode) {
+function getDefaultBodyweightGoal(goal: SetupGoal): SetupGoal {
+  if (goal === 'muscle' || goal === 'lean_athletic' || goal === 'general_fitness' || goal === 'general') {
+    return goal === 'general' ? 'general_fitness' : goal;
+  }
+
+  return 'general_fitness';
+}
+
+function getDefaultTargetBodyweight(value: number, unit: UnitPreference, goal: SetupGoal | BodyweightGoalMode) {
   const current = Number.isFinite(value) ? value : getDefaultBodyweightForUnit(unit);
-  const offset = mode === 'required' ? (unit === 'kg' ? -5 : -10) : 0;
+  const offset =
+    goal === 'muscle'
+      ? unit === 'kg'
+        ? 8
+        : 18
+      : goal === 'lean_athletic' || goal === 'required'
+      ? unit === 'kg'
+        ? -5
+        : -10
+      : 0;
   return clampBodyweightInteger(current + offset, unit);
+}
+
+function getBodyweightTargetLimits(current: number, unit: UnitPreference, goal: SetupGoal) {
+  const limits = BODYWEIGHT_INTEGER_LIMITS[unit];
+  const safeCurrent = clampBodyweightInteger(Number.isFinite(current) ? current : getDefaultBodyweightForUnit(unit), unit);
+
+  if (goal === 'lean_athletic') {
+    return { min: limits.min, max: safeCurrent };
+  }
+
+  if (goal === 'muscle') {
+    return { min: safeCurrent, max: limits.max };
+  }
+
+  const maintainRange = unit === 'kg' ? 5 : 10;
+  return {
+    min: Math.max(limits.min, safeCurrent - maintainRange),
+    max: Math.min(limits.max, safeCurrent + maintainRange),
+  };
+}
+
+function clampTargetBodyweightForGoal(value: number, current: number, unit: UnitPreference, goal: SetupGoal) {
+  const limits = getBodyweightTargetLimits(current, unit, goal);
+  const safeValue = clampBodyweightInteger(Number.isFinite(value) ? value : getDefaultTargetBodyweight(current, unit, goal), unit);
+  return Math.min(Math.max(safeValue, limits.min), limits.max);
 }
 
 function getBodyweightStep(unit: UnitPreference) {
@@ -183,6 +232,21 @@ function formatPlanReadyExerciseRepTarget(exercise: {
     : `${exercise.repsMin}-${exercise.repsMax}`;
 
   return `${exercise.sets} x ${repsLabel}`;
+}
+
+function formatPlanReadyExerciseSetLabel(exercise: { sets: number }) {
+  return `${exercise.sets} ${exercise.sets === 1 ? 'set' : 'sets'}`;
+}
+
+function formatPlanReadyExerciseRepLabel(exercise: {
+  repsMin: number;
+  repsMax: number;
+}) {
+  const repsLabel = exercise.repsMin === exercise.repsMax
+    ? `${exercise.repsMin}`
+    : `${exercise.repsMin}-${exercise.repsMax}`;
+
+  return `${repsLabel} reps`;
 }
 
 function getStageIndex(stage?: SetupStage) {
@@ -387,27 +451,6 @@ function getPlanReadyHeroKey({
   return 'mass';
 }
 
-function getPlanReadyImageGender(gender: SetupGender, programId: string): PlanReadyImageGender {
-  if (gender === 'male' || gender === 'female') {
-    return gender;
-  }
-
-  const hash = Array.from(programId).reduce((total, character) => total + character.charCodeAt(0), 0);
-  return hash % 2 === 0 ? 'female' : 'male';
-}
-
-function getPlanReadyPreviewImageSource({
-  gender,
-  heroKey,
-  programId,
-}: {
-  gender: SetupGender;
-  heroKey: PlanReadyHeroKey;
-  programId: string;
-}) {
-  return PLAN_READY_PREVIEW_ASSETS[getPlanReadyImageGender(gender, programId)][heroKey];
-}
-
 const GUIDANCE_MODE_OPTIONS: Array<{
   mode: SetupGuidanceMode;
   title: string;
@@ -449,21 +492,6 @@ const SCHEDULE_MODE_OPTIONS: Array<{
 
 const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions();
 const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea[] = FOCUS_AREA_OPTIONS.map((option) => option.area);
-const FOCUS_BODY_MENU_ORDER: SetupFocusArea[] = [
-  'chest',
-  'shoulders',
-  'arms',
-  'back',
-  'quads',
-  'glutes',
-  'hamstrings',
-  'calves',
-  'mobility',
-];
-const FOCUS_BODY_PERSON_ASSETS: Record<FocusBodyView, ImageSourcePropType> = {
-  front: require('../../assets/fitness/selected/step7-character-male-02.png'),
-  back: require('../../assets/fitness/selected/step7-character-male-01.png'),
-};
 const FOCUS_AREA_CARD_ASSETS: Partial<Record<SetupFocusArea, ImageSourcePropType>> = {
   chest: require('../../assets/fitness/selected/focus-chest-anatomy-card.png'),
   back: require('../../assets/fitness/selected/focus-back-anatomy-card.png'),
@@ -489,18 +517,6 @@ const FOCUS_AREA_IMAGE_FRAMES: Partial<Record<SetupFocusArea, ImageStyle>> = {
 };
 type FocusAreaOnboardingOption = (typeof FOCUS_AREA_OPTIONS)[number];
 const PLAN_READY_GYM_BACKDROP_SOURCE = require('../../assets/fitness/selected/plan-ready-empty-gym-backdrop-bw.jpg');
-const PLAN_READY_PREVIEW_ASSETS: Record<PlanReadyImageGender, Record<PlanReadyHeroKey, ImageSourcePropType>> = {
-  male: {
-    mass: require('../../assets/fitness/selected/step7-preview-male-mass.png'),
-    strength: require('../../assets/fitness/selected/step7-preview-male-strength.png'),
-    athletic: require('../../assets/fitness/selected/step7-preview-male-athletic.png'),
-  },
-  female: {
-    mass: require('../../assets/fitness/selected/step7-preview-female-mass.png'),
-    strength: require('../../assets/fitness/selected/step7-preview-female-strength.png'),
-    athletic: require('../../assets/fitness/selected/step7-preview-female-athletic.png'),
-  },
-};
 const WEEKDAY_OPTIONS: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const LOCATION_SELECTION_OPTIONS: Array<{
   id: LocationSelectionOptionId;
@@ -575,6 +591,36 @@ const GOAL_SELECTION_OPTIONS: Array<{
   icon: option.icon,
   tags: option.tags,
 }));
+
+const BODYWEIGHT_GOAL_OPTIONS: Array<{
+  id: SetupGoal;
+  title: string;
+  body: string;
+  icon: BodyweightGoalIconName;
+  accentColor: string;
+}> = [
+  {
+    id: 'muscle',
+    title: 'Gain muscle',
+    body: 'Build size and get stronger',
+    icon: 'up',
+    accentColor: '#8BDEAE',
+  },
+  {
+    id: 'general_fitness',
+    title: 'Maintain',
+    body: 'Stay at your current weight',
+    icon: 'flat',
+    accentColor: '#8FCAFF',
+  },
+  {
+    id: 'lean_athletic',
+    title: 'Lean down',
+    body: 'Lose fat and get leaner',
+    icon: 'down',
+    accentColor: '#D9A9FF',
+  },
+];
 
 function getLocationFocusBadgeStyle(tone: FocusBadgeTone) {
   switch (tone) {
@@ -1540,10 +1586,161 @@ function BodyweightStepper({
   );
 }
 
+function BodyweightGoalTrendIcon({ name, color }: { name: BodyweightGoalIconName; color: string }) {
+  if (name === 'flat') {
+    return (
+      <Svg width={24} height={18} viewBox="0 0 24 18" fill="none" style={styles.bodyweightGoalTrendIcon}>
+        <Path d="M6 9 H18" stroke={color} strokeWidth={2} strokeLinecap="round" />
+      </Svg>
+    );
+  }
+
+  const path = name === 'down' ? 'M12 3 V14' : 'M12 15 V4';
+  const arrow = name === 'down' ? 'M7.5 9.5 L12 14 L16.5 9.5' : 'M7.5 8.5 L12 4 L16.5 8.5';
+
+  return (
+    <Svg width={24} height={18} viewBox="0 0 24 18" fill="none" style={styles.bodyweightGoalTrendIcon}>
+      <Path d={path} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={arrow} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function BodyweightGoalOptionCard({
+  title,
+  body,
+  icon,
+  accentColor,
+  active,
+  onPress,
+}: {
+  title: string;
+  body: string;
+  icon: BodyweightGoalIconName;
+  accentColor: string;
+  active: boolean;
+  onPress: () => void;
+}) {
+  const iconColor = accentColor;
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}. ${body}`}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[
+        styles.bodyweightGoalCard,
+        { borderColor: active ? accentColor : `${accentColor}66` },
+        active && styles.bodyweightGoalCardActive,
+        active && { borderColor: accentColor },
+      ]}
+    >
+      <BodyweightGoalTrendIcon name={icon} color={iconColor} />
+      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.bodyweightGoalCardTitle, active && styles.bodyweightGoalCardTitleActive]}>
+        {title}
+      </Text>
+      <Text style={[styles.bodyweightGoalCardBody, active && styles.bodyweightGoalCardBodyActive]}>{body}</Text>
+    </Pressable>
+  );
+}
+
+function BodyweightTargetSlider({
+  value,
+  unit,
+  min,
+  max,
+  onChange,
+  onClear,
+}: {
+  value: number;
+  unit: UnitPreference;
+  min: number;
+  max: number;
+  onChange: (value: number) => void;
+  onClear: () => void;
+}) {
+  const limits = BODYWEIGHT_INTEGER_LIMITS[unit];
+  const sliderMin = Math.min(Math.max(clampBodyweightInteger(min, unit), limits.min), limits.max);
+  const sliderMax = Math.min(Math.max(clampBodyweightInteger(max, unit), sliderMin), limits.max);
+  const clampedValue = Math.min(
+    Math.max(Number.isFinite(value) ? clampBodyweightInteger(value, unit) : getDefaultBodyweightForUnit(unit), sliderMin),
+    sliderMax,
+  );
+  const percent = sliderMax === sliderMin ? 0 : (clampedValue - sliderMin) / (sliderMax - sliderMin);
+  const [trackWidth, setTrackWidth] = useState(0);
+
+  function updateFromTrackPosition(locationX: number) {
+    if (trackWidth <= 0 || sliderMax === sliderMin) {
+      return;
+    }
+
+    const nextPercent = Math.min(Math.max(locationX / trackWidth, 0), 1);
+    onChange(clampBodyweightInteger(sliderMin + nextPercent * (sliderMax - sliderMin), unit));
+  }
+
+  return (
+    <View style={styles.bodyweightSliderCard}>
+      <View style={styles.bodyweightSliderRow}>
+        <Text style={styles.bodyweightSliderValue}>{clampedValue.toFixed(1)} {unit}</Text>
+        <Pressable
+          accessibilityRole="adjustable"
+          accessibilityLabel={`Target weight ${clampedValue.toFixed(1)} ${unit}`}
+          onPress={(event) => updateFromTrackPosition(event.nativeEvent.locationX)}
+          onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+          style={styles.bodyweightSliderTrackWrap}
+        >
+          <View style={styles.bodyweightSliderTrack} />
+          <View style={[styles.bodyweightSliderTrackActive, { width: `${percent * 100}%` }]} />
+          <View style={[styles.bodyweightSliderThumb, { left: `${percent * 100}%` }]} />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Clear target weight" onPress={onClear}>
+          <Text style={styles.bodyweightSliderClearText}>Clear</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+function BodyweightExpectationCard({
+  goal,
+}: {
+  goal: SetupGoal;
+}) {
+  const content =
+    goal === 'muscle'
+      ? {
+        title: 'Lean muscle gain',
+        body: 'A small surplus supports muscle growth while your plan keeps strength progressing.',
+      }
+      : goal === 'lean_athletic'
+      ? {
+        title: 'Lean down',
+        body: 'Aim for steady weight loss while keeping strength work and recovery in the plan.',
+      }
+      : {
+        title: 'Maintain',
+        body: 'Stay close to your current weight while building consistency and strength.',
+      };
+
+  return (
+    <View style={styles.bodyweightExpectationCard}>
+      <View style={styles.bodyweightExpectationHeader}>
+        <View style={styles.bodyweightExpectationIcon}>
+          <GymlogIcon name="progress" size={10} color="#FFFFFF" />
+        </View>
+        <Text style={styles.bodyweightExpectationKicker}>WHAT TO EXPECT</Text>
+      </View>
+      <Text style={styles.bodyweightExpectationTitle}>{content.title}</Text>
+      <Text style={styles.bodyweightExpectationText}>{content.body}</Text>
+    </View>
+  );
+}
+
 function StepDots({ index, light = false }: { index: number; light?: boolean }) {
   return (
     <View style={styles.pagination}>
-      {STAGES.map((stage, stageIndex) => (
+      {ONBOARDING_PROGRESS_STAGES.map((stage, stageIndex) => (
         <View
           key={stage}
           style={[
@@ -1746,7 +1943,6 @@ export function OnboardingScreen({
     setupSeed.secondaryOutcomes,
   );
   const [focusAreas, setFocusAreas] = useState<SetupFocusArea[]>(setupSeed.focusAreas);
-  const [focusBodyView, setFocusBodyView] = useState<FocusBodyView>('front');
   const [guidanceMode, setGuidanceMode] = useState<SetupGuidanceMode>(setupSeed.guidanceMode);
   const [scheduleMode, setScheduleMode] = useState<SetupScheduleMode>(setupSeed.scheduleMode);
   const [weeklyMinutes, setWeeklyMinutes] = useState<number | null>(setupSeed.weeklyMinutes ?? null);
@@ -1762,12 +1958,13 @@ export function OnboardingScreen({
     const seedValue = parseNumberInput(formatWeightInputValue(setupSeed.currentWeightKg, initialUnitPreference));
     return seedValue ?? getDefaultBodyweightForUnit(initialUnitPreference);
   });
+  const [bodyweightGoal, setBodyweightGoal] = useState<SetupGoal>(() => getDefaultBodyweightGoal(setupSeed.goal));
   const [busy, setBusy] = useState(false);
   const [activeRecommendationRefinement, setActiveRecommendationRefinement] =
     useState<RecommendationRefinementPanel>(null);
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [selectedPlanReadySessionId, setSelectedPlanReadySessionId] = useState<string | null>(null);
-  const [planReadyOptionsMenuOpen, setPlanReadyOptionsMenuOpen] = useState(false);
+  const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
   const [helperVisible, setHelperVisible] = useState(false);
   const [helperDraft, setHelperDraft] = useState('');
   const [helperState, setHelperState] = useState<HelperState>('idle');
@@ -1777,7 +1974,7 @@ export function OnboardingScreen({
   const [helperError, setHelperError] = useState('');
 
   const stage = STAGES[stageIndex];
-  const selectedBodyweightGoalMode = useMemo(() => getBodyweightGoalMode(goals), [goals]);
+  const selectedBodyweightGoalMode = useMemo(() => getBodyweightGoalMode([bodyweightGoal]), [bodyweightGoal]);
   const buildingPlanPhases = useMemo(
     () => ['Building your plan...', 'Thinking through your answers...', 'Almost ready...'],
     [],
@@ -1901,6 +2098,13 @@ export function OnboardingScreen({
   );
   const activeRecommendationMismatchNote =
     activeRecommendedProgramId === recommendation.featuredProgramId ? recommendation.mismatchNote : null;
+  const planReadyPayload = useMemo(
+    () =>
+      buildRecommendationPlanReadyPayload(selection, activeRecommendedProgramId, {
+        fallbackReason: activeRecommendationMismatchNote ?? recommendation.fallbackReason,
+      }),
+    [activeRecommendationMismatchNote, activeRecommendedProgramId, recommendation.fallbackReason, selection],
+  );
   const recommendedProgramTags = useMemo(
     () => recommendedProgramPresentation?.tags.slice(0, 3) ?? [],
     [recommendedProgramPresentation],
@@ -1958,11 +2162,14 @@ export function OnboardingScreen({
               id: session.id,
               name: session.name,
               guidance: buildSessionGuidance(recommendedProgram, session),
-              exercises: session.exercises.slice(0, 4).map((exercise) => ({
+              hiddenExerciseCount: Math.max(0, session.exercises.length - 5),
+              exercises: session.exercises.slice(0, 5).map((exercise) => ({
                 id: exercise.id,
                 name: exercise.exerciseName,
                 prescription: formatPlanReadyExercisePrescription(exercise),
                 compactPrescription: formatPlanReadyExerciseRepTarget(exercise),
+                setsLabel: formatPlanReadyExerciseSetLabel(exercise),
+                repsLabel: formatPlanReadyExerciseRepLabel(exercise),
               })),
               detailExercises: session.exercises.map((exercise) => ({
                 id: exercise.id,
@@ -2005,6 +2212,10 @@ export function OnboardingScreen({
   }, [recommendationOptionIds, selectedRecommendationProgramId]);
 
   useEffect(() => {
+    setPlanReadyWorkoutPage(0);
+  }, [activeRecommendedProgramId]);
+
+  useEffect(() => {
     const previousUnit = previousUnitPreferenceRef.current;
     if (previousUnit === unitPreference) {
       return;
@@ -2040,17 +2251,20 @@ export function OnboardingScreen({
   }, [currentWeightDraft, unitPreference]);
 
   useEffect(() => {
-    if (selectedBodyweightGoalMode === 'hidden') {
-      if (targetWeightDraft !== '') {
-        setTargetWeightDraft('');
-      }
+    const nextTarget =
+      targetWeightValue === null
+        ? getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, bodyweightGoal)
+        : clampTargetBodyweightForGoal(targetWeightValue, bodyweightPickerValue, unitPreference, bodyweightGoal);
+
+    if (selectedBodyweightGoalMode === 'required' && targetWeightValue === null) {
+      setTargetBodyweight(nextTarget);
       return;
     }
 
-    if (selectedBodyweightGoalMode === 'required' && targetWeightValue === null) {
-      setTargetBodyweight(getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, selectedBodyweightGoalMode));
+    if (targetWeightValue !== null && nextTarget !== targetWeightValue) {
+      setTargetBodyweight(nextTarget);
     }
-  }, [selectedBodyweightGoalMode, bodyweightPickerValue, targetWeightDraft, targetWeightValue, unitPreference]);
+  }, [bodyweightGoal, selectedBodyweightGoalMode, bodyweightPickerValue, targetWeightValue, unitPreference]);
 
   useEffect(() => {
     if (!isBuildingPlan) {
@@ -2358,7 +2572,7 @@ export function OnboardingScreen({
           <View style={styles.previewHeaderCopy}>
             <Text style={styles.previewKicker}>Start with</Text>
             <Text style={styles.previewTitle}>{previewTitle}</Text>
-            {previewDuration ? <Text style={styles.previewBody}>⏱ {previewDuration}</Text> : null}
+            {previewDuration ? <Text style={styles.previewBody}>Time {previewDuration}</Text> : null}
           </View>
           <View style={styles.previewHeaderAside}>
             <PreviewGlyph dayCount={projectedDaysPerWeek} />
@@ -2459,7 +2673,7 @@ export function OnboardingScreen({
 
   function renderLocation() {
     return renderSplitSelectionStage({
-      stepLabel: 'STEP 1 OF 6',
+      stepLabel: 'STEP 1 OF 5',
       titleLines: ['What equipment do', 'you have access to?'],
       subtitle: 'This helps us build the right program for you.',
       options: LOCATION_SELECTION_OPTIONS.map((option) => ({
@@ -2655,7 +2869,7 @@ export function OnboardingScreen({
 
   function renderGoal() {
     return renderSplitSelectionStage({
-      stepLabel: 'STEP 2 OF 6',
+      stepLabel: 'STEP 2 OF 5',
       titleLines: ['WHAT DO YOU', 'WANT MOST?'],
       subtitle: "We'll build your training around this.",
       options: GOAL_SELECTION_OPTIONS.map((option) => ({
@@ -2690,7 +2904,7 @@ export function OnboardingScreen({
         <View style={styles.trainingProfileContent}>
           <View style={styles.trainingProfileSection}>
             <View style={styles.trainingProfileSectionHeader}>
-              <TrainingSectionIcon icon="progress" />
+              <TrainingSectionIcon icon="strength" />
               <Text style={styles.trainingProfileSectionTitle}>Experience level</Text>
             </View>
             <Text style={styles.trainingProfileSectionPrompt}>How much training experience do you have?</Text>
@@ -2787,117 +3001,9 @@ export function OnboardingScreen({
               <Text style={styles.trainingPlanPreviewTitle}>Plan preview</Text>
             </View>
             <Text numberOfLines={1} style={styles.trainingPlanPreviewText}>
-              {setupSummary.workouts} · {setupSummary.duration} · {setupSummary.structure}
+              {setupSummary.workouts} - {setupSummary.duration} - {setupSummary.structure}
             </Text>
           </View>
-        </View>
-      ),
-    });
-  }
-
-  function renderFocus() {
-    const conditioningActive = focusAreas.includes('conditioning');
-    const mobilityActive = focusAreas.includes('mobility');
-    const isFrontView = focusBodyView === 'front';
-    const isFocusAreaActive = (area: SetupFocusArea) =>
-      focusAreas.includes(area) ||
-      conditioningActive ||
-      (area === 'legs' && (
-        focusAreas.includes('quads') ||
-        focusAreas.includes('hamstrings') ||
-        focusAreas.includes('calves')
-      ));
-    const torsoActive =
-      conditioningActive || mobilityActive || focusAreas.includes('back') || focusAreas.includes('chest') || focusAreas.includes('core');
-
-    return renderOnboardingShell({
-      stepLabel: 'STEP 6',
-      titleLines: ['WHERE SHOULD', 'WE FOCUS?'],
-      subtitle: 'Pick one or more.',
-      shellStyle: styles.focusStageShell,
-      topPaneStyle: styles.focusTopPane,
-      bottomStyle: styles.focusBottomPane,
-      children: (
-        <View style={styles.focusBodySelectionStage}>
-          <View style={styles.focusBodyViewToggle}>
-            {(['front', 'back'] as FocusBodyView[]).map((view) => {
-              const active = focusBodyView === view;
-              return (
-                <Pressable
-                  key={view}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${view === 'front' ? 'Front' : 'Back'} body view`}
-                  onPress={() => setFocusBodyView(view)}
-                  style={[styles.focusBodyViewToggleButton, active && styles.focusBodyViewToggleButtonActive]}
-                >
-                  <Text style={[styles.focusBodyViewToggleText, active && styles.focusBodyViewToggleTextActive]}>
-                    {view === 'front' ? 'Front' : 'Back'}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <View style={styles.focusBodySelectionContent}>
-            <View style={styles.focusBodyOptionList}>
-              {FOCUS_BODY_MENU_ORDER.map((area) => {
-                const active = focusAreas.includes(area);
-                return (
-                  <Pressable
-                    key={area}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${getFocusAreaTitle(area)} focus`}
-                    onPress={() => toggleFocusArea(area)}
-                    style={[styles.focusBodyOptionPill, active && styles.focusBodyOptionPillActive]}
-                  >
-                    <View style={[styles.focusBodyOptionCheck, active && styles.focusBodyOptionCheckActive]}>
-                      {active ? <GymlogIcon name="check" color="#FFFFFF" size={11} /> : null}
-                    </View>
-                    <Text style={[styles.focusBodyOptionText, active && styles.focusBodyOptionTextActive]}>
-                      {getFocusAreaTitle(area)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.focusBodyFigure}>
-              <View style={[styles.focusBodyConditioningGlow, (conditioningActive || mobilityActive) && styles.focusBodyConditioningGlowActive]} />
-              <Image
-                source={FOCUS_BODY_PERSON_ASSETS[focusBodyView]}
-                resizeMode="contain"
-                style={styles.focusBodyPersonImage}
-              />
-              <View style={[styles.focusBodyHead, (conditioningActive || mobilityActive) && styles.focusBodyBaseActive]} />
-              <View style={[styles.focusBodyNeck, (conditioningActive || mobilityActive) && styles.focusBodyBaseActive]} />
-              <View style={[styles.focusBodyTorso, torsoActive && styles.focusBodyTorsoActive]}>
-                <View style={[styles.focusBodyCore, isFocusAreaActive('core') && styles.focusBodyPartActive]} />
-                {isFrontView ? (
-                  <>
-                    <View style={[styles.focusBodyChestLeft, isFocusAreaActive('chest') && styles.focusBodyPartActive]} />
-                    <View style={[styles.focusBodyChestRight, isFocusAreaActive('chest') && styles.focusBodyPartActive]} />
-                  </>
-                ) : (
-                  <View style={[styles.focusBodyBackPanel, isFocusAreaActive('back') && styles.focusBodyPartActive]} />
-                )}
-              </View>
-              <View style={[styles.focusBodyShoulderLeft, isFocusAreaActive('shoulders') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyShoulderRight, isFocusAreaActive('shoulders') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyUpperArmLeft, isFocusAreaActive('arms') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyUpperArmRight, isFocusAreaActive('arms') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyForearmLeft, isFocusAreaActive('arms') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyForearmRight, isFocusAreaActive('arms') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyPelvis, isFocusAreaActive('glutes') && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyThighLeft, (isFocusAreaActive('legs') || focusAreas.includes('quads') || focusAreas.includes('hamstrings')) && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyThighRight, (isFocusAreaActive('legs') || focusAreas.includes('quads') || focusAreas.includes('hamstrings')) && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyCalfLeft, (isFocusAreaActive('legs') || focusAreas.includes('calves')) && styles.focusBodyPartActive]} />
-              <View style={[styles.focusBodyCalfRight, (isFocusAreaActive('legs') || focusAreas.includes('calves')) && styles.focusBodyPartActive]} />
-            </View>
-          </View>
-
-          <Text style={styles.focusBodyHint}>
-            {focusAreaSummary ? `Now: ${focusAreaSummary}` : 'Tap the areas you want your plan to emphasize.'}
-          </Text>
         </View>
       ),
     });
@@ -2906,87 +3012,84 @@ export function OnboardingScreen({
   function renderReview() {
     const programTitle = recommendedProgramPresentation?.title
       ?? (recommendedProgram ? formatWorkoutDisplayLabel(recommendedProgram.name, 'Program') : 'Starter plan');
-    const programSubtitle = recommendedProgramPresentation?.subtitle ?? null;
-    const weeklyMinutesLabel =
-      effectiveWeeklyMinutes && effectiveWeeklyMinutes > 0 ? `~${effectiveWeeklyMinutes} min / week` : null;
     const reviewHeroKey = getPlanReadyHeroKey({ title: programTitle, goal: goalLabel });
-    const sessionDurationLabel = recommendedProgram?.estimatedSessionDuration
-      ? `~${recommendedProgram.estimatedSessionDuration} min`
-      : '~50 min';
+    const formatScheduleDuration = (meta: string) => {
+      const minutes = meta.match(/^(\d+)/)?.[1];
+      return minutes ? `~${minutes} min` : null;
+    };
     const weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const planReadyScheduleByDay = new Map(
+      planReadyPayload.weeklySchedule.map((scheduleDay) => [scheduleDay.weekdayLabel, scheduleDay]),
+    );
     const reviewWeekRows = weekDayLabels.map((day) => {
-      const sessionIndex = projectedRhythm.findIndex((rhythmDay) => rhythmDay === day);
-      const session = sessionIndex >= 0 ? projectedSessions[sessionIndex] : null;
+      const scheduleDay = planReadyScheduleByDay.get(day) ?? null;
+      const session =
+        scheduleDay?.source === 'template'
+          ? projectedSessions.find((projectedSession) => projectedSession.id === scheduleDay.id) ?? null
+          : null;
+      const scheduleExercises =
+        scheduleDay?.keyLifts.map((lift, index) => ({
+          id: `${scheduleDay.id}-lift-${index}`,
+          name: lift,
+          prescription: scheduleDay.source === 'template' ? '' : (scheduleDay.note ?? 'Optional'),
+          compactPrescription: scheduleDay.source === 'template' ? '' : 'Optional',
+          setsLabel: scheduleDay.source === 'template' ? '' : 'Focus',
+          repsLabel: scheduleDay.source === 'template' ? '' : 'Optional',
+        })) ?? [];
 
       return {
         day,
-        sessionId: session?.id ?? null,
-        title: session ? formatWorkoutDisplayLabel(session.name, 'Workout') : 'REST DAY',
-        body: session?.body ?? 'Recovery and mobility',
-        duration: session ? sessionDurationLabel : null,
-        training: Boolean(session),
+        sessionId: session?.id ?? scheduleDay?.id ?? null,
+        title: session
+          ? formatWorkoutDisplayLabel(session.name, 'Workout')
+          : scheduleDay
+            ? formatWorkoutDisplayLabel(scheduleDay.name, 'Workout')
+            : 'REST DAY',
+        body: session?.body ?? scheduleDay?.keyLifts.join(', ') ?? 'Recovery and mobility',
+        duration: scheduleDay ? formatScheduleDuration(scheduleDay.meta) : null,
+        training: Boolean(scheduleDay),
+        hasDetails: Boolean(session),
         guidance: session?.guidance ?? null,
-        exercises: session?.exercises ?? [],
+        exercises: session?.exercises ?? scheduleExercises,
+        hiddenExerciseCount: session?.hiddenExerciseCount ?? 0,
         detailExercises: session?.detailExercises ?? [],
       };
     });
     const trainingWeekRows = reviewWeekRows.filter((item) => item.training);
-    const restDayLabels = reviewWeekRows
-      .filter((item) => !item.training)
-      .map((item) => item.day);
-    const planReadyPreviewRows = trainingWeekRows.slice(0, 2);
+    const maxPlanReadyWorkoutPage = Math.max(0, trainingWeekRows.length - 1);
+    const planReadyWorkoutPageStart = Math.min(planReadyWorkoutPage, maxPlanReadyWorkoutPage);
+    const planReadyActiveWorkout = trainingWeekRows[planReadyWorkoutPageStart] ?? null;
+    const planReadyWorkoutCarouselVisible = trainingWeekRows.length > 1;
+    const planReadyActiveWorkoutFocusLabel = planReadyActiveWorkout?.title.toLowerCase().includes('lower')
+      ? 'Lower focus'
+      : planReadyWorkoutPageStart % 2 === 0
+        ? 'Upper focus'
+        : 'Lower focus';
+    const planReadyWorkoutTabs = trainingWeekRows.map((workout, index) => ({
+      id: workout.sessionId ?? workout.day,
+      index,
+      label: workout.title,
+    }));
     const planReadyWeeklyOverviewRows = reviewWeekRows.map((item) => ({
       day: item.day,
       training: item.training,
       label: item.training ? 'Train' : 'Recover',
     }));
-    const planReadyRecoverySummary =
-      restDayLabels.length === 1 ? '1 recovery day built in' : `${restDayLabels.length} recovery days built in`;
-    const planReadyFirstWorkout = projectedSessions[0] ?? null;
-    const planReadyPrimarySessionId = trainingWeekRows[0]?.sessionId ?? planReadyFirstWorkout?.id ?? null;
-    const planReadyHeroChips: Array<{ label: string; icon: GymlogIconName }> = [
-      ...(weeklyMinutesLabel ? [{ label: weeklyMinutesLabel, icon: 'tempo' as GymlogIconName }] : []),
-      { label: 'Progressive overload', icon: 'progress' },
-      { label: 'Best fit for you', icon: 'check' },
-    ];
-    const planReadyOptions = recommendationOptionIds
-      .filter((programId) => programId !== activeRecommendedProgramId)
-      .slice(0, 2)
-      .map((programId) => {
-        const template = getWorkoutTemplateById(programId);
-        if (!template) {
-          return null;
-        }
-
-        const presentation = getReadyTemplatePresentation(template);
-        const optionHeroKey = getPlanReadyHeroKey({
-          title: presentation.title,
-          goal: presentation.subtitle,
-        });
-
-        return {
-          id: programId,
-          title: presentation.title,
-          subtitle: presentation.subtitle,
-          heroSource: getPlanReadyPreviewImageSource({
-            gender,
-            heroKey: optionHeroKey,
-            programId,
-          }),
-        };
-      })
-      .filter(
-        (
-          option,
-        ): option is {
-          id: string;
-          title: string;
-          subtitle: string;
-          heroSource: ImageSourcePropType;
-        } => option !== null,
-      );
-    const nextPlanOption = planReadyOptions[0] ?? null;
-    const planReadyStageMinHeight = Math.max(620, Dimensions.get('window').height - insets.top - insets.bottom);
+    const planReadyFitReasons = planReadyPayload.whyThisPlan.slice(0, 5);
+    const planReadyOverviewIcons: GymlogIconName[] = ['strength', 'tempo', 'progress', 'recovery'];
+    const planReadyOverviewRows: Array<{ label: string; icon: GymlogIconName }> = planReadyPayload.planOverview.map(
+      (label, index) => ({
+        label,
+        icon: planReadyOverviewIcons[index] ?? 'progress',
+      }),
+    );
+    const screenDimensions = Dimensions.get('window');
+    const compactPlanReady = screenDimensions.width < 520;
+    const planReadyFooterReserve = compactPlanReady ? 56 : 68;
+    const planReadyStageMinHeight = Math.max(
+      620,
+      screenDimensions.height - insets.top - insets.bottom - planReadyFooterReserve,
+    );
 
     return (
       <View
@@ -3010,7 +3113,7 @@ export function OnboardingScreen({
               <ImageBackground
                 source={PLAN_READY_GYM_BACKDROP_SOURCE}
                 resizeMode="cover"
-                style={styles.planReadyHeroImage}
+                style={[styles.planReadyHeroImage, compactPlanReady && styles.planReadyHeroImageCompact]}
                 imageStyle={styles.planReadyHeroImageStyle}
               >
                 <View pointerEvents="none" style={styles.planReadyHeroGradient}>
@@ -3019,179 +3122,182 @@ export function OnboardingScreen({
                   <View style={styles.planReadyHeroGradientBottom} />
                 </View>
                 <View pointerEvents="none" style={styles.planReadyHeroTextScrim} />
-                <View style={styles.planReadyHeroTopRow}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel="See other plans"
-                    disabled={!nextPlanOption}
-                    onPress={() => {
-                      if (!nextPlanOption) {
-                        return;
-                      }
-
-                      setPlanReadyOptionsMenuOpen((current) => !current);
-                    }}
-                    style={[
-                      styles.planReadyOtherPlansPeek,
-                      !nextPlanOption && styles.planReadyOtherPlansPeekDisabled,
-                    ]}
-                  >
-                    <Text style={styles.planReadyOtherPlansLabel}>See other plans</Text>
-                    <View style={styles.planReadyOtherPlansPeekFoldLine} />
-                  </Pressable>
-                  {planReadyOptionsMenuOpen ? (
-                    <View style={styles.planReadyOptionsMenu}>
-                      <Text style={styles.planReadyOptionsMenuTitle}>Other plans</Text>
-                      {planReadyOptions.map((option) => (
-                        <Pressable
-                          key={option.id}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Switch to ${option.title}`}
-                          onPress={() => {
-                            setSelectedRecommendationProgramId(option.id);
-                            setPlanReadyOptionsMenuOpen(false);
-                          }}
-                          style={styles.planReadyOptionsMenuItem}
-                        >
-                          <View style={styles.planReadyOptionsMenuIcon}>
-                            <GymlogIcon name="check" color="rgba(255,255,255,0.72)" size={12} />
-                          </View>
-                          <Text style={styles.planReadyOptionsMenuItemText} numberOfLines={1}>{option.title}</Text>
-                        </Pressable>
-                      ))}
-                      <Text style={styles.planReadyOptionsMenuFooter}>View all plans</Text>
-                    </View>
-                  ) : null}
-                </View>
-                <View style={styles.planReadyHeroCopy}>
-                  <Text style={styles.planReadyHeroKicker}>YOUR WORKOUT PLAN</Text>
-                  <View style={styles.planReadyHeroTitleRow}>
-                    <Text style={styles.planReadyHeroTitle}>{programTitle}</Text>
-                    <Pressable
-                      accessibilityRole="button"
-                      accessibilityLabel="View workout details"
-                      onPress={() => setSelectedPlanReadySessionId(planReadyPrimarySessionId)}
-                      style={styles.planReadyHeroTitleDetailsButton}
-                    >
-                      <GymlogIcon name="eye" color="#06080B" size={15} />
-                      <Text style={styles.planReadyHeroTitleDetailsText}>Details</Text>
-                    </Pressable>
-                  </View>
-                  {programSubtitle ? <Text style={styles.planReadyHeroBody}>{programSubtitle}</Text> : null}
-                  <View style={styles.planReadyHeroChipRow}>
-                    {planReadyHeroChips.map((chip) => (
-                      <View key={chip.label} style={styles.planReadyHeroChip}>
-                        <View style={styles.planReadyHeroChipIcon}>
-                          <GymlogIcon name={chip.icon} color="rgba(255,255,255,0.72)" size={13} />
-                        </View>
-                        <Text style={styles.planReadyHeroChipText}>{chip.label}</Text>
-                      </View>
-                    ))}
-                  </View>
+                <View style={[styles.planReadyHeroCopy, compactPlanReady && styles.planReadyHeroCopyCompact]}>
+                  <Text style={[styles.planReadyHeroKicker, compactPlanReady && styles.planReadyHeroKickerCompact]}>YOUR PLAN IS READY</Text>
+                  <Text style={[styles.planReadyHeroTitle, compactPlanReady && styles.planReadyHeroTitleCompact]}>{programTitle}</Text>
+                  <Text style={[styles.planReadyHeroBody, compactPlanReady && styles.planReadyHeroBodyCompact]}>Built around your goals, schedule and recovery.</Text>
                 </View>
               </ImageBackground>
             </View>
 
-            <View style={styles.planReadyCardContent}>
-              <Text style={styles.planReadyWorkoutSectionTitle}>YOUR WORKOUT PLAN</Text>
-              <View style={styles.planReadyWeekPanel}>
-                {planReadyPreviewRows.map((item, index) => (
-                  <Pressable
-                    key={item.day}
-                    onPress={() => setSelectedPlanReadySessionId(item.sessionId)}
-                    style={[
-                      styles.planReadyWeekPanelRow,
-                      styles.planReadyWorkoutDayCard,
-                    ]}
-                  >
-                    <View style={styles.planReadyWorkoutDayHeader}>
-                      <View style={styles.planReadyWorkoutDayMeta}>
-                        <Text style={styles.planReadyWorkoutDayNumber}>Day {index + 1}</Text>
-                        <Text style={styles.planReadyWorkoutDayName}>{item.day}</Text>
-                      </View>
-                      <View style={styles.planReadyWeekPanelIcon}>
-                        <GymlogIcon
-                          name={getPlanReadyWeekIconName({
-                            training: item.training,
-                            title: item.title,
-                            body: item.body,
-                          })}
-                          color="#FFFFFF"
-                          size={15}
-                        />
-                      </View>
-                      <View style={styles.planReadyWeekPanelTitleRow}>
-                        <Text style={styles.planReadyWeekPanelTitle} numberOfLines={1}>{item.title}</Text>
-                        {item.duration ? <Text style={styles.planReadyWeekPanelDuration}>{item.duration}</Text> : null}
-                      </View>
-                    </View>
-                    <View style={styles.planReadyWorkoutInlineExerciseList}>
-                      {item.exercises.map((exercise) => (
-                        <View key={exercise.id} style={styles.planReadyWorkoutInlineExerciseRow}>
-                          <Text style={styles.planReadyWorkoutInlineExerciseName} numberOfLines={1}>{exercise.name}</Text>
-                          <Text style={styles.planReadyWorkoutInlineExerciseTarget}>{exercise.compactPrescription}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-
-              <View style={styles.planReadyWeeklyOverview}>
-                <View style={styles.planReadyWeeklyOverviewHeader}>
-                  <Text style={styles.planReadyWeeklyOverviewTitle}>Your weekly overview</Text>
-                  <Text style={styles.planReadyWeeklyOverviewSummary}>{planReadyRecoverySummary}</Text>
-                </View>
-                <View style={styles.planReadyWeeklyOverviewRow}>
+            <View style={[styles.planReadyCardContent, compactPlanReady && styles.planReadyCardContentCompact]}>
+              <View style={[styles.planReadyWeeklyOverview, compactPlanReady && styles.planReadyWeeklyOverviewCompact]}>
+                <View style={[styles.planReadyWeeklyOverviewRow, compactPlanReady && styles.planReadyWeeklyOverviewRowCompact]}>
                   {planReadyWeeklyOverviewRows.map((item) => (
-                    <View key={item.day} style={styles.planReadyWeeklyOverviewDay}>
-                      <Text style={styles.planReadyWeeklyOverviewDayText}>{item.day}</Text>
+                    <View key={item.day} style={[styles.planReadyWeeklyOverviewDay, compactPlanReady && styles.planReadyWeeklyOverviewDayCompact]}>
+                      <Text style={[styles.planReadyWeeklyOverviewDayText, compactPlanReady && styles.planReadyWeeklyOverviewDayTextCompact]}>{item.day}</Text>
                       <View
                         style={[
                           styles.planReadyWeeklyOverviewDot,
+                          compactPlanReady && styles.planReadyWeeklyOverviewDotCompact,
                           item.training
                             ? styles.planReadyWeeklyOverviewDotActive
                             : styles.planReadyWeeklyOverviewDotRest,
                         ]}
                       >
-                        {item.training ? <GymlogIcon name="check" color="#06080B" size={10} /> : null}
+                        {item.training ? <GymlogIcon name="check" color="#06080B" size={compactPlanReady ? 8 : 10} /> : null}
                       </View>
-                      <Text style={styles.planReadyWeeklyOverviewLabel}>{item.training ? 'Train' : 'Recover'}</Text>
+                      <Text style={[styles.planReadyWeeklyOverviewLabel, compactPlanReady && styles.planReadyWeeklyOverviewLabelCompact]}>{item.training ? 'Train' : 'Recover'}</Text>
                     </View>
                   ))}
                 </View>
-                <View style={styles.planReadyWeeklyOverviewLegend}>
-                  <View style={styles.planReadyWeeklyOverviewLegendItem}>
-                    <View style={[styles.planReadyWeeklyOverviewLegendDot, styles.planReadyWeeklyOverviewLegendDotActive]} />
-                    <Text style={styles.planReadyWeeklyOverviewLegendText}>Training day</Text>
+              </View>
+
+              <View style={styles.planReadyWorkoutSectionHeader}>
+                <Text style={styles.planReadyWorkoutSectionTitle}>YOUR WORKOUT PLAN</Text>
+              </View>
+              {planReadyWorkoutCarouselVisible ? (
+                <View style={styles.planReadyWorkoutCarouselBar}>
+                  <View style={styles.planReadyWorkoutCarouselTabs}>
+                    {planReadyWorkoutTabs.map((tab) => {
+                      const active = tab.index === planReadyWorkoutPageStart;
+
+                      return (
+                        <Pressable
+                          key={tab.id}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Show ${tab.label}`}
+                          accessibilityState={{ selected: active }}
+                          onPress={() => setPlanReadyWorkoutPage(Math.min(tab.index, maxPlanReadyWorkoutPage))}
+                          style={[
+                            styles.planReadyWorkoutCarouselTab,
+                            active && styles.planReadyWorkoutCarouselTabActive,
+                          ]}
+                        >
+                          <Text
+                            numberOfLines={1}
+                            adjustsFontSizeToFit
+                            style={[
+                              styles.planReadyWorkoutCarouselTabText,
+                              active && styles.planReadyWorkoutCarouselTabTextActive,
+                            ]}
+                          >
+                            {tab.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                  <View style={styles.planReadyWeeklyOverviewLegendItem}>
-                    <View style={styles.planReadyWeeklyOverviewLegendDot} />
-                    <Text style={styles.planReadyWeeklyOverviewLegendText}>Recovery day</Text>
+                </View>
+              ) : null}
+              <View style={styles.planReadyWeekPanel}>
+                {planReadyActiveWorkout ? (
+                  <View
+                    key={planReadyActiveWorkout.day}
+                    style={[
+                      styles.planReadyWeekPanelRow,
+                      styles.planReadyWorkoutDayCard,
+                      styles.planReadyWorkoutSingleCard,
+                      compactPlanReady && styles.planReadyWeekPanelRowCompact,
+                      compactPlanReady && styles.planReadyWorkoutDayCardCompact,
+                    ]}
+                  >
+                    {compactPlanReady ? (
+                      <View style={styles.planReadyWorkoutDayHeaderCompact}>
+                        <View style={styles.planReadyWorkoutCardMetaRowCompact}>
+                          <Text style={[styles.planReadyWeekPanelTitle, styles.planReadyWeekPanelTitleCompact]} numberOfLines={1}>{planReadyActiveWorkout.title}</Text>
+                          <View style={styles.planReadyWorkoutHeaderActions}>
+                            {planReadyActiveWorkout.duration ? <Text style={[styles.planReadyWeekPanelDuration, styles.planReadyWeekPanelDurationCompact]}>{planReadyActiveWorkout.duration}</Text> : null}
+                            {planReadyActiveWorkout.hasDetails && planReadyActiveWorkout.sessionId ? (
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`View ${planReadyActiveWorkout.title} details`}
+                                onPress={() => setSelectedPlanReadySessionId(planReadyActiveWorkout.sessionId)}
+                                style={[styles.planReadyWorkoutDetailsButton, styles.planReadyWorkoutDetailsButtonCompact]}
+                              >
+                                <GymlogIcon name="eye" color="#FFFFFF" size={12} />
+                              </Pressable>
+                            ) : null}
+                          </View>
+                        </View>
+                        <View style={[styles.planReadyWorkoutFocusChip, styles.planReadyWorkoutFocusChipCompact]}>
+                          <Text style={[styles.planReadyWorkoutFocusChipText, styles.planReadyWorkoutFocusChipTextCompact]}>{planReadyActiveWorkoutFocusLabel}</Text>
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.planReadyWorkoutDayHeader}>
+                        <View style={styles.planReadyWeekPanelTitleRow}>
+                          <View style={styles.planReadyWorkoutTitleBlock}>
+                            <Text style={styles.planReadyWeekPanelTitle} numberOfLines={1}>{planReadyActiveWorkout.title}</Text>
+                            <View style={styles.planReadyWorkoutFocusChip}>
+                              <Text style={styles.planReadyWorkoutFocusChipText}>{planReadyActiveWorkoutFocusLabel}</Text>
+                            </View>
+                          </View>
+                          <View style={styles.planReadyWorkoutHeaderActions}>
+                            {planReadyActiveWorkout.duration ? <Text style={styles.planReadyWeekPanelDuration}>{planReadyActiveWorkout.duration}</Text> : null}
+                            {planReadyActiveWorkout.hasDetails && planReadyActiveWorkout.sessionId ? (
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={`View ${planReadyActiveWorkout.title} details`}
+                                onPress={() => setSelectedPlanReadySessionId(planReadyActiveWorkout.sessionId)}
+                                style={styles.planReadyWorkoutDetailsButton}
+                              >
+                                <GymlogIcon name="eye" color="#FFFFFF" size={14} />
+                              </Pressable>
+                            ) : null}
+                          </View>
+                        </View>
+                      </View>
+                    )}
+                    <View style={[styles.planReadyWorkoutInlineExerciseList, compactPlanReady && styles.planReadyWorkoutInlineExerciseListCompact]}>
+                      {planReadyActiveWorkout.exercises.map((exercise) => (
+                        <View key={exercise.id} style={[styles.planReadyWorkoutInlineExerciseRow, compactPlanReady && styles.planReadyWorkoutInlineExerciseRowCompact]}>
+                          <Text style={[styles.planReadyWorkoutInlineExerciseName, compactPlanReady && styles.planReadyWorkoutInlineExerciseNameCompact]} numberOfLines={1}>{exercise.name}</Text>
+                          <View style={[styles.planReadyWorkoutInlineExerciseTargets, compactPlanReady && styles.planReadyWorkoutInlineExerciseTargetsCompact]}>
+                            {exercise.setsLabel ? (
+                              <Text style={[styles.planReadyWorkoutInlineExerciseTarget, compactPlanReady && styles.planReadyWorkoutInlineExerciseTargetCompact]} numberOfLines={1}>
+                                {exercise.setsLabel}
+                              </Text>
+                            ) : null}
+                            {exercise.repsLabel ? (
+                              <Text style={[styles.planReadyWorkoutInlineExerciseTarget, compactPlanReady && styles.planReadyWorkoutInlineExerciseTargetCompact]} numberOfLines={1}>
+                                {exercise.repsLabel}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      ))}
+                      {planReadyActiveWorkout.hiddenExerciseCount > 0 ? (
+                        <Text style={[styles.planReadyWorkoutMoreExercises, compactPlanReady && styles.planReadyWorkoutMoreExercisesCompact]}>
+                          and {planReadyActiveWorkout.hiddenExerciseCount} more exercises
+                        </Text>
+                      ) : null}
+                    </View>
                   </View>
+                ) : null}
+              </View>
+
+              <View style={[styles.planReadyFitSummaryPanel, compactPlanReady && styles.planReadyFitSummaryPanelCompact]}>
+                <View style={[styles.planReadyFitReasons, compactPlanReady && styles.planReadyFitReasonsCompact]}>
+                  <Text style={[styles.planReadyFitSectionTitle, compactPlanReady && styles.planReadyFitSectionTitleCompact]}>WHY THIS PLAN?</Text>
+                  {planReadyFitReasons.map((reason) => (
+                    <View key={reason} style={[styles.planReadyFitReasonRow, compactPlanReady && styles.planReadyFitReasonRowCompact]}>
+                      <GymlogIcon name="check" color="#B8FF6A" size={compactPlanReady ? 12 : 18} />
+                      <Text style={[styles.planReadyFitReasonText, compactPlanReady && styles.planReadyFitReasonTextCompact]}>{reason}</Text>
+                    </View>
+                  ))}
+                </View>
+                <View style={[styles.planReadyOverviewCard, compactPlanReady && styles.planReadyOverviewCardCompact]}>
+                  <Text style={[styles.planReadyOverviewTitle, compactPlanReady && styles.planReadyOverviewTitleCompact]}>PLAN OVERVIEW</Text>
+                  {planReadyOverviewRows.map((row) => (
+                    <View key={row.label} style={[styles.planReadyOverviewRow, compactPlanReady && styles.planReadyOverviewRowCompact]}>
+                      <GymlogIcon name={row.icon} color="#FFFFFF" size={compactPlanReady ? 13 : 18} />
+                      <Text style={[styles.planReadyOverviewText, compactPlanReady && styles.planReadyOverviewTextCompact]}>{row.label}</Text>
+                    </View>
+                  ))}
                 </View>
               </View>
 
-              <View style={styles.planReadyInlineActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Back"
-                  disabled={busy}
-                  onPress={() => setStageIndex((current) => Math.max(0, current - 1))}
-                  style={styles.planReadyBackButton}
-                >
-                  <Text style={styles.planReadyBackButtonText}>‹</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`Use ${programTitle}`}
-                  disabled={busy}
-                  onPress={() => void runAction(() => onCompleteToStartingWeek(selection, activeRecommendedProgramId))}
-                  style={[styles.planReadyUsePlanButton, busy && styles.buttonDisabled]}
-                >
-                  <Text style={styles.planReadyUsePlanButtonText}>Start plan</Text>
-                </Pressable>
-              </View>
             </View>
           </View>
         </Animated.View>
@@ -3208,7 +3314,7 @@ export function OnboardingScreen({
     ];
 
     return renderOnboardingShell({
-      stepLabel: 'STEP 4 OF 6',
+      stepLabel: 'STEP 4 OF 5',
       titleLines: ['WHAT DO YOU', 'WANT TO FOCUS ON?'],
       topPaneStyle: styles.focusAreaTopPane,
       topCopyStyle: styles.focusAreaTopCopy,
@@ -3271,7 +3377,7 @@ export function OnboardingScreen({
               </Text>
             </View>
             <View style={styles.focusAreaInfoBadge}>
-              <Text style={styles.focusAreaInfoBadgeText}>Max 2 selections</Text>
+              <Text style={styles.focusAreaInfoBadgeText}>Pick 1-2 areas</Text>
             </View>
           </View>
         </View>
@@ -3280,20 +3386,24 @@ export function OnboardingScreen({
   }
 
   function renderAbout() {
-    const bodyweightGoalMode = getBodyweightGoalMode(goals);
-    const targetVisible = bodyweightGoalMode !== 'hidden';
-    const targetBodyweight = targetWeightValue ?? getDefaultTargetBodyweight(
+    const bodyweightGoalMode = getBodyweightGoalMode([bodyweightGoal]);
+    const targetLimits = getBodyweightTargetLimits(bodyweightPickerValue, unitPreference, bodyweightGoal);
+    const targetBodyweight = clampTargetBodyweightForGoal(
+      targetWeightValue ?? getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, bodyweightGoal),
       bodyweightPickerValue,
       unitPreference,
-      bodyweightGoalMode,
+      bodyweightGoal,
     );
 
     return renderOnboardingShell({
-      stepLabel: 'STEP 5',
-      titleLines: ['HOW MUCH', 'DO YOU WEIGH?'],
-      subtitle: targetVisible ? 'Add your current and target bodyweight.' : 'Add your current bodyweight.',
+      stepLabel: 'STEP 5 OF 5',
+      titleLines: ['TRACK YOUR', 'PROGRESS'],
+      subtitle: 'Set your current weight and optional goal.',
       shellStyle: styles.bodyweightStageShell,
       topPaneStyle: styles.bodyweightTopPane,
+      topCopyStyle: styles.bodyweightTopCopy,
+      titleStyle: styles.bodyweightHeadline,
+      bottomStyle: styles.bodyweightBottomPane,
       children: (
         <View style={styles.bodyweightStageContent}>
           <BodyweightStepper
@@ -3304,39 +3414,52 @@ export function OnboardingScreen({
             onUnitChange={setUnitPreference}
           />
 
-          {targetVisible ? (
-            <View style={styles.bodyweightTargetBlock}>
-              {bodyweightGoalMode === 'optional' && targetWeightValue === null ? (
-                <>
-                  <View style={styles.bodyweightTargetHeader}>
-                    <Text style={styles.bodyweightPickerLabel}>Target weight (optional)</Text>
-                    <Text style={styles.bodyweightTargetHint}>Use this if you want to gain weight.</Text>
-                  </View>
-                  <Pressable
-                    onPress={() => setTargetBodyweight(targetBodyweight)}
-                    style={styles.bodyweightTargetAddButton}
-                  >
-                    <Text style={styles.bodyweightTargetAddText}>Add target</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <BodyweightStepper
-                  label={`Target weight${bodyweightGoalMode === 'optional' ? ' (optional)' : ''}`}
-                  hint={
-                    bodyweightGoalMode === 'required'
-                      ? 'Pick the bodyweight you want to work toward.'
-                      : 'Use this if you want to gain weight.'
-                  }
-                  value={targetBodyweight}
-                  unit={unitPreference}
-                  onChange={setTargetBodyweight}
+          <View style={styles.bodyweightGoalBlock}>
+            <Text style={styles.bodyweightPickerLabel}>Your goal</Text>
+            <Text style={styles.bodyweightGoalPrompt}>What's your main goal?</Text>
+            <View style={styles.bodyweightGoalGrid}>
+              {BODYWEIGHT_GOAL_OPTIONS.map((option) => (
+                <BodyweightGoalOptionCard
+                  key={option.id}
+                  title={option.title}
+                  body={option.body}
+                  icon={option.icon}
+                  accentColor={option.accentColor}
+                  active={bodyweightGoal === option.id}
+                  onPress={() => {
+                    setBodyweightGoal(option.id);
+                    setTargetBodyweight(getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, option.id));
+                  }}
                 />
-              )}
+              ))}
             </View>
-          ) : null}
+          </View>
+
+          <View style={styles.bodyweightTargetBlock}>
+            <View style={styles.bodyweightTargetHeader}>
+              <Text style={styles.bodyweightPickerLabel}>Target weight (optional)</Text>
+              <Text style={styles.bodyweightTargetHint}>
+                {bodyweightGoalMode === 'required'
+                  ? 'Set a target weight to stay on track.'
+                  : 'Use this if you want a target to track.'}
+              </Text>
+            </View>
+            <BodyweightTargetSlider
+              value={targetBodyweight}
+              unit={unitPreference}
+              min={targetLimits.min}
+              max={targetLimits.max}
+              onChange={setTargetBodyweight}
+              onClear={() => setTargetWeightDraft('')}
+            />
+          </View>
+
+          <BodyweightExpectationCard
+            goal={bodyweightGoal}
+          />
 
           <Text style={[styles.bodyweightSupportText, styles.bodyweightStageSupportText]}>
-            Used for a better starting point.{'\n'}You can change it later.
+            You can update this anytime in your profile.
           </Text>
         </View>
       ),
@@ -3550,7 +3673,7 @@ export function OnboardingScreen({
                 <View style={styles.recommendationHeroCopy}>
                   {recommendationPlanLabel ? <Text style={styles.recommendationHeroEyebrow}>{recommendationPlanLabel}</Text> : null}
                   <Text style={styles.recommendationHeroTitle}>{recommendationHeroTitle}</Text>
-                  {recommendationDurationLabel ? <Text style={styles.recommendationHeroMeta}>⏱ {recommendationDurationLabel}</Text> : null}
+                  {recommendationDurationLabel ? <Text style={styles.recommendationHeroMeta}>Time {recommendationDurationLabel}</Text> : null}
                 </View>
               </View>
             </FitnessPhotoSurface>
@@ -3592,7 +3715,7 @@ export function OnboardingScreen({
                         </View>
                         <Text style={styles.recommendationSessionTitle}>{session.title}</Text>
                       </View>
-                      {index < recommendationFlowItems.length - 1 ? <Text style={styles.recommendationFlowConnector}>↓</Text> : null}
+                      {index < recommendationFlowItems.length - 1 ? <Text style={styles.recommendationFlowConnector}>v</Text> : null}
                     </React.Fragment>
                   ))}
                 </View>
@@ -3717,7 +3840,7 @@ export function OnboardingScreen({
       ? selectedLocationOptionId !== null
       : stage === 'goal'
       ? goals.length > 0
-      : stage === 'focus'
+      : stage === 'planning'
       ? focusAreas.length > 0
       : stage === 'about' && selectedBodyweightGoalMode === 'required'
       ? targetWeightValue !== null
@@ -3727,20 +3850,21 @@ export function OnboardingScreen({
     stage === 'goal' ||
     stage === 'profile' ||
     stage === 'planning' ||
-    stage === 'about' ||
-    stage === 'focus';
+    stage === 'about';
   const standaloneProgressHidden = locationStageActive || stage === 'review';
   const footerPrimaryLabel =
-    stage === 'focus'
+    stage === 'review'
+      ? 'START MY PLAN'
+      : stage === 'about'
       ? 'Build my first program'
       : 'Continue';
-  const footerVisible = stage !== 'review';
+  const footerVisible = true;
   const scrollLockedStage =
     stage === 'location' ||
     stage === 'profile' ||
     stage === 'planning' ||
     stage === 'about' ||
-    stage === 'focus';
+    stage === 'review';
   const scrollContentStyle = useMemo(
     () => [
       styles.scrollContent,
@@ -3776,7 +3900,6 @@ export function OnboardingScreen({
         {stage === 'profile' ? renderProfile() : null}
         {stage === 'planning' ? renderPlanning() : null}
         {stage === 'about' ? renderAbout() : null}
-        {stage === 'focus' ? renderFocus() : null}
         {stage === 'review' ? renderReview() : null}
       </ScrollView>
 
@@ -3786,9 +3909,11 @@ export function OnboardingScreen({
             styles.footer,
             styles.footerLight,
             locationStageActive && styles.locationFooter,
-            stage === 'focus' && styles.focusFooter,
+            stage === 'review' && styles.planReadyFixedFooter,
             {
-              paddingBottom: locationStageActive
+              paddingBottom: stage === 'review'
+                ? insets.bottom + spacing.xs
+                : locationStageActive
                 ? insets.bottom + spacing.xs
                 : spacing.md + insets.bottom,
             },
@@ -3801,16 +3926,21 @@ export function OnboardingScreen({
                   return;
                 }
 
-                if (stage === 'focus') {
+                if (stage === 'about') {
                   setIsBuildingPlan(true);
+                  return;
+                }
+
+                if (stage === 'review') {
+                  void runAction(() => onCompleteToStartingWeek(selection, activeRecommendedProgramId));
                   return;
                 }
 
                 setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
               }}
               style={[
-                styles.primaryButton,
-                styles.primaryButtonDark,
+                stage === 'review' ? styles.planReadyFooterUsePlanButton : styles.primaryButton,
+                stage === 'review' ? null : styles.primaryButtonDark,
                 locationStageActive && styles.locationPrimaryButton,
                 (!canContinue || busy) &&
                   (locationStageActive ? styles.locationPrimaryButtonDisabled : styles.buttonDisabled),
@@ -3819,8 +3949,8 @@ export function OnboardingScreen({
             >
               <Text
                 style={[
-                  styles.primaryButtonText,
-                  styles.primaryButtonTextLight,
+                  stage === 'review' ? styles.planReadyFooterUsePlanButtonText : styles.primaryButtonText,
+                  stage === 'review' ? null : styles.primaryButtonTextLight,
                   (!canContinue || busy) && locationStageActive && styles.locationPrimaryButtonTextDisabled,
                 ]}
               >
@@ -3828,7 +3958,7 @@ export function OnboardingScreen({
               </Text>
             </Pressable>
 
-            {stage === 'location' ? (
+            {stage === 'review' ? null : stage === 'location' ? (
               editMode ? (
                 <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark]}>Cancel</Text>
@@ -3860,59 +3990,89 @@ export function OnboardingScreen({
           </View>
           {selectedPlanReadySession ? (
             <View style={[styles.sheet, styles.planReadyDetailSheet]}>
-              <View style={styles.sheetHeader}>
-                <View style={styles.sheetHeaderCopy}>
-                  <Text style={styles.sheetKicker}>Workout details</Text>
-                  <Text style={styles.sheetTitle}>{formatWorkoutDisplayLabel(selectedPlanReadySession.name, 'Workout')}</Text>
-                </View>
-                <Pressable onPress={() => setSelectedPlanReadySessionId(null)}>
-                  <Text style={styles.sheetClose}>Close</Text>
+              <View style={styles.planReadyWorkoutDetailCloseRail}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Close workout details"
+                  onPress={() => setSelectedPlanReadySessionId(null)}
+                  style={styles.planReadyWorkoutDetailCloseButton}
+                >
+                  <Text style={styles.planReadyWorkoutDetailCloseIcon}>X</Text>
                 </Pressable>
               </View>
 
-              <Text style={styles.sheetBody}>{selectedPlanReadySession.guidance.estimatedDuration}</Text>
+              <View style={styles.planReadyWorkoutDetailHero}>
+                <View style={styles.planReadyWorkoutDetailHeroCopy}>
+                  <Text style={styles.planReadyWorkoutDetailKicker}>WORKOUT DETAILS</Text>
+                  <Text style={styles.planReadyWorkoutDetailTitle}>{formatWorkoutDisplayLabel(selectedPlanReadySession.name, 'Workout')}</Text>
+                  <View style={styles.planReadyWorkoutDetailDurationRow}>
+                    <GymlogIcon name="tempo" color="#B8FF6A" size={18} />
+                    <Text style={styles.planReadyWorkoutDetailDuration}>{selectedPlanReadySession.guidance.estimatedDuration}</Text>
+                  </View>
+                </View>
+              </View>
 
-              <ScrollView
-                style={styles.planReadyDetailScroll}
-                contentContainerStyle={styles.planReadyDetailContent}
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.planReadyWorkoutDetailGrid}>
-                  <View style={styles.planReadyWorkoutDetailBlock}>
-                    <Text style={styles.planReadyWorkoutDetailLabel}>WARMUP</Text>
+              <View style={[styles.planReadyDetailScroll, styles.planReadyDetailContent]}>
+                <View style={styles.planReadyWorkoutDetailBlock}>
+                  <View style={styles.planReadyWorkoutDetailIconSlot}>
+                    <GymlogIcon name="check" color="#B8FF6A" size={21} />
+                  </View>
+                  <View style={styles.planReadyWorkoutDetailCopy}>
                     <Text style={styles.planReadyWorkoutDetailText}>{selectedPlanReadySession.guidance.warmup}</Text>
                   </View>
-                  <View style={styles.planReadyWorkoutDetailBlock}>
+                </View>
+
+                <View style={styles.planReadyWorkoutDetailBlock}>
+                  <View style={styles.planReadyWorkoutDetailIconSlot}>
+                    <GymlogIcon name="progress" color="#B8FF6A" size={23} />
+                  </View>
+                  <View style={styles.planReadyWorkoutDetailCopy}>
                     <Text style={styles.planReadyWorkoutDetailLabel}>MAIN FOCUS</Text>
                     <Text style={styles.planReadyWorkoutDetailText}>{selectedPlanReadySession.guidance.mainFocus}</Text>
                   </View>
                 </View>
 
                 <View style={styles.planReadyWorkoutExerciseBlock}>
-                  <Text style={styles.planReadyWorkoutDetailLabel}>ALL EXERCISES</Text>
-                  {selectedPlanReadySession.detailExercises.map((exercise) => (
+                  <View style={styles.planReadyWorkoutDetailIconSlot}>
+                    <GymlogIcon name="strength" color="#B8FF6A" size={22} />
+                  </View>
+                  <View style={styles.planReadyWorkoutDetailCopy}>
+                    <Text style={styles.planReadyWorkoutDetailLabel}>ALL EXERCISES</Text>
+                  {selectedPlanReadySession.detailExercises.map((exercise, index) => (
                     <View key={exercise.id} style={styles.planReadyWorkoutExerciseRow}>
-                      <Text style={styles.planReadyWorkoutExerciseName}>{exercise.name}</Text>
-                      <Text style={styles.planReadyWorkoutExerciseMeta}>{exercise.prescription}</Text>
+                      <View style={styles.planReadyWorkoutExerciseIndexBubble}>
+                        <Text style={styles.planReadyWorkoutExerciseIndexText}>{index + 1}</Text>
+                      </View>
+                      <View style={styles.planReadyWorkoutExerciseCopy}>
+                        <Text style={styles.planReadyWorkoutExerciseName}>{exercise.name}</Text>
+                        <Text style={styles.planReadyWorkoutExerciseMeta}>{exercise.prescription}</Text>
+                      </View>
                     </View>
                   ))}
+                  </View>
                 </View>
 
                 <View style={styles.planReadyWorkoutDetailBlock}>
-                  <Text style={styles.planReadyWorkoutDetailLabel}>REST</Text>
-                  <Text style={styles.planReadyWorkoutDetailText}>{selectedPlanReadySession.guidance.restGuidance}</Text>
+                  <View style={styles.planReadyWorkoutDetailIconSlot}>
+                    <GymlogIcon name="tempo" color="#B8FF6A" size={22} />
+                  </View>
+                  <View style={styles.planReadyWorkoutDetailCopy}>
+                    <Text style={styles.planReadyWorkoutDetailLabel}>REST</Text>
+                    <Text style={styles.planReadyWorkoutDetailText}>{selectedPlanReadySession.guidance.restGuidance}</Text>
+                  </View>
                 </View>
 
                 <View style={styles.planReadyWorkoutDetailBlock}>
-                  <Text style={styles.planReadyWorkoutDetailLabel}>PROGRESSION</Text>
-                  <Text style={styles.planReadyWorkoutDetailText}>{selectedPlanReadySession.guidance.progressionHint}</Text>
+                  <View style={styles.planReadyWorkoutDetailIconSlot}>
+                    <GymlogIcon name="progress" color="#B8FF6A" size={22} />
+                  </View>
+                  <View style={styles.planReadyWorkoutDetailCopy}>
+                    <Text style={styles.planReadyWorkoutDetailLabel}>PROGRESSION</Text>
+                    <Text style={styles.planReadyWorkoutDetailText}>{selectedPlanReadySession.guidance.progressionHint}</Text>
+                  </View>
                 </View>
 
-                <View style={styles.planReadyWorkoutDetailBlock}>
-                  <Text style={styles.planReadyWorkoutDetailLabel}>FIRST ACTION</Text>
-                  <Text style={styles.planReadyWorkoutDetailText}>{selectedPlanReadySession.guidance.firstAction}</Text>
-                </View>
-              </ScrollView>
+              </View>
             </View>
           ) : null}
         </View>
@@ -4918,7 +5078,7 @@ const styles = StyleSheet.create({
     color: '#06080B',
   },
   bodyweightStepperBlock: {
-    gap: spacing.sm,
+    gap: 6,
   },
   bodyweightPickerLabel: {
     color: '#06080B',
@@ -4927,12 +5087,12 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
-    marginBottom: spacing.sm,
+    marginBottom: 4,
   },
   bodyweightUnitPill: {
-    minWidth: 54,
-    minHeight: 42,
-    borderRadius: radii.md,
+    minWidth: 48,
+    minHeight: 30,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: 'rgba(6,8,11,0.10)',
     backgroundColor: '#FFFFFF',
@@ -4946,7 +5106,7 @@ const styles = StyleSheet.create({
   },
   bodyweightUnitText: {
     color: 'rgba(6,8,11,0.54)',
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -4955,8 +5115,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   bodyweightTargetBlock: {
-    marginTop: spacing.md,
-    gap: spacing.sm,
+    marginTop: 10,
+    gap: 5,
   },
   bodyweightTargetHeader: {
     gap: 2,
@@ -4968,19 +5128,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bodyweightTargetCard: {
-    minHeight: 62,
-    borderRadius: radii.lg,
+    minHeight: 50,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(6,8,11,0.08)',
     backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 10,
   },
   bodyweightTargetValueWrap: {
-    width: 142,
-    minHeight: 42,
+    width: 152,
+    minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -4998,19 +5158,20 @@ const styles = StyleSheet.create({
   },
   bodyweightTargetValueUnit: {
     color: '#06080B',
-    fontSize: 30,
-    lineHeight: 34,
+    fontSize: 15,
+    lineHeight: 18,
     fontWeight: '900',
     includeFontPadding: false,
-    marginLeft: 6,
+    marginLeft: 5,
+    marginTop: 7,
   },
   bodyweightTargetStepButton: {
-    width: 42,
-    height: 42,
-    borderRadius: radii.md,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: '#F7F7F7',
   },
   bodyweightTargetStepText: {
     color: '#06080B',
@@ -5046,7 +5207,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   bodyweightStepperUnitPill: {
-    minHeight: 34,
+    minHeight: 30,
   },
   bodyweightSupportText: {
     color: 'rgba(6,8,11,0.54)',
@@ -5058,6 +5219,179 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   bodyweightTopPane: {
+    justifyContent: 'flex-start',
+    height: 248,
+    paddingTop: 32,
+    paddingBottom: 18,
+  },
+  bodyweightTopCopy: {
+    paddingTop: 20,
+    paddingBottom: 0,
+    gap: 3,
+  },
+  bodyweightHeadline: {
+    fontSize: 34,
+    lineHeight: 37,
+    letterSpacing: -0.8,
+  },
+  bodyweightBottomPane: {
+    paddingTop: 4,
+  },
+  bodyweightGoalBlock: {
+    marginTop: 8,
+  },
+  bodyweightGoalPrompt: {
+    color: 'rgba(6,8,11,0.54)',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+    marginTop: -7,
+    marginBottom: 8,
+  },
+  bodyweightGoalGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  bodyweightGoalTrendIcon: {
+    marginBottom: 1,
+  },
+  bodyweightGoalCard: {
+    flex: 1,
+    minHeight: 88,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.10)',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+  },
+  bodyweightGoalCardActive: {
+    backgroundColor: '#000000',
+  },
+  bodyweightGoalCardTitle: {
+    color: '#06080B',
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '900',
+    marginTop: 3,
+    textAlign: 'center',
+  },
+  bodyweightGoalCardTitleActive: {
+    color: '#FFFFFF',
+  },
+  bodyweightGoalCardBody: {
+    color: 'rgba(6,8,11,0.56)',
+    fontSize: 8.5,
+    lineHeight: 10,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  bodyweightGoalCardBodyActive: {
+    color: 'rgba(255,255,255,0.78)',
+  },
+  bodyweightSliderCard: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(6,8,11,0.08)',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    justifyContent: 'center',
+  },
+  bodyweightSliderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  bodyweightSliderValue: {
+    color: '#06080B',
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '900',
+    letterSpacing: -0.2,
+  },
+  bodyweightSliderClearText: {
+    color: 'rgba(6,8,11,0.34)',
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '800',
+  },
+  bodyweightSliderTrackWrap: {
+    flex: 1,
+    height: 24,
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  bodyweightSliderTrack: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: 'rgba(6,8,11,0.10)',
+  },
+  bodyweightSliderTrackActive: {
+    position: 'absolute',
+    left: 0,
+    top: 11,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: '#06080B',
+  },
+  bodyweightSliderThumb: {
+    position: 'absolute',
+    top: 8,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#000000',
+    marginLeft: -4,
+  },
+  bodyweightExpectationCard: {
+    minHeight: 120,
+    borderRadius: 8,
+    backgroundColor: '#050505',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  bodyweightExpectationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  bodyweightExpectationIcon: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bodyweightExpectationKicker: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  bodyweightExpectationTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+    marginTop: 7,
+    marginBottom: 3,
+  },
+  bodyweightExpectationText: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '700',
   },
   focusStageShell: {
     backgroundColor: '#F5F5F5',
@@ -5537,11 +5871,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bodyweightStageContent: {
-    paddingTop: 4,
-    paddingBottom: 8,
+    paddingTop: 2,
+    paddingBottom: 0,
+    transform: [{ translateY: -5 }],
   },
   bodyweightStageSupportText: {
-    marginTop: spacing.md,
+    marginTop: 6,
+    fontSize: 10,
+    lineHeight: 13,
   },
   buildingPlanScreen: {
     flex: 1,
@@ -6449,10 +6786,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#0B0B0B',
   },
   planReadyHeroCard: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 190,
+    zIndex: 0,
     marginHorizontal: 0,
     borderRadius: 0,
     overflow: 'hidden',
-    backgroundColor: '#0B0B0B',
+    backgroundColor: 'transparent',
     borderWidth: 0,
     borderColor: 'transparent',
   },
@@ -6461,10 +6804,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     padding: spacing.md,
   },
+  planReadyHeroImageCompact: {
+    minHeight: 190,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: 6,
+  },
   planReadyHeroImageStyle: {
     borderRadius: 0,
-    opacity: 0.84,
-    transform: [{ scaleX: 1.12 }, { scaleY: 1.26 }, { translateX: 24 }],
+    opacity: 0.9,
+    transform: [{ scaleX: 1.06 }, { scaleY: 1.12 }, { translateX: 12 }],
   },
   planReadyHeroGradient: {
     ...StyleSheet.absoluteFillObject,
@@ -6489,22 +6838,16 @@ const styles = StyleSheet.create({
     width: '74%',
     backgroundColor: 'rgba(0,0,0,0.24)',
   },
-  planReadyHeroTopRow: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    zIndex: 3,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: spacing.sm,
-  },
   planReadyHeroKicker: {
     color: 'rgba(255,255,255,0.58)',
-    fontSize: 10,
-    lineHeight: 12,
+    fontSize: 17,
+    lineHeight: 20,
     fontWeight: '900',
-    letterSpacing: 0.9,
+    letterSpacing: 0.3,
+  },
+  planReadyHeroKickerCompact: {
+    fontSize: 11,
+    lineHeight: 13,
   },
   planReadyHeroInfoButton: {
     width: 38,
@@ -6515,9 +6858,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   planReadyHeroCopy: {
-    gap: spacing.xs,
+    gap: spacing.sm,
     width: '100%',
-    marginTop: 90,
+    marginTop: 108,
+  },
+  planReadyHeroCopyCompact: {
+    gap: 4,
+    marginTop: 26,
   },
   planReadyHeroTitleRow: {
     flexDirection: 'row',
@@ -6526,15 +6873,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   planReadyHeroTitle: {
-    flex: 1,
     color: '#FFFFFF',
-    fontSize: 32,
-    lineHeight: 33,
+    fontSize: 54,
+    lineHeight: 57,
     fontWeight: '900',
-    letterSpacing: -1,
+    letterSpacing: -1.2,
     textShadowColor: 'rgba(0,0,0,0.65)',
     textShadowOffset: { width: 0, height: 2 },
     textShadowRadius: 8,
+  },
+  planReadyHeroTitleCompact: {
+    fontSize: 28,
+    lineHeight: 31,
+    letterSpacing: 0,
+    maxWidth: '78%',
   },
   planReadyHeroTitleDetailsButton: {
     minWidth: 82,
@@ -6558,20 +6910,72 @@ const styles = StyleSheet.create({
   },
   planReadyHeroBody: {
     color: 'rgba(255,255,255,0.72)',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 27,
+    lineHeight: 35,
     fontWeight: '700',
-    maxWidth: '74%',
+    maxWidth: '62%',
     textShadowColor: 'rgba(0,0,0,0.55)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 6,
   },
+  planReadyHeroBodyCompact: {
+    fontSize: 13,
+    lineHeight: 17,
+    maxWidth: '88%',
+  },
+  planReadyWorkoutSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
   planReadyWorkoutSectionTitle: {
     color: '#FFFFFF',
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '900',
     letterSpacing: 0.8,
+  },
+  planReadyWorkoutCarouselBar: {
+    minHeight: 38,
+    borderRadius: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 5,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  planReadyWorkoutCarouselTabs: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  planReadyWorkoutCarouselTab: {
+    flex: 1,
+    minWidth: 0,
+    minHeight: 26,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 6,
+    backgroundColor: 'transparent',
+  },
+  planReadyWorkoutCarouselTabActive: {
+    backgroundColor: 'rgba(198,139,255,0.82)',
+  },
+  planReadyWorkoutCarouselTabText: {
+    color: 'rgba(255,255,255,0.70)',
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '900',
+  },
+  planReadyWorkoutCarouselTabTextActive: {
+    color: '#FFFFFF',
   },
   planReadyWeekPanel: {
     borderRadius: 0,
@@ -6587,12 +6991,25 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.10)',
     backgroundColor: 'rgba(255,255,255,0.05)',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     gap: spacing.sm,
-    minHeight: 116,
+    minHeight: 304,
   },
   planReadyWorkoutDayCard: {
+    flex: 1,
     overflow: 'hidden',
+  },
+  planReadyWorkoutSingleCard: {
+    width: '100%',
+  },
+  planReadyWorkoutDayCardCompact: {
+    flexGrow: 0,
+    flexShrink: 0,
+    minWidth: 0,
+    minHeight: 286,
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    gap: 10,
   },
   planReadyWeekPanelRowLast: {
     borderBottomWidth: 0,
@@ -6601,10 +7018,48 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
+    minHeight: 52,
+  },
+  planReadyWorkoutDayHeaderCompact: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 9,
+    minHeight: 0,
+  },
+  planReadyWorkoutCardMetaRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 6,
+  },
+  planReadyWorkoutHeaderActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+    flexShrink: 0,
+  },
+  planReadyWorkoutDetailsButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  planReadyWorkoutDetailsButtonCompact: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
   },
   planReadyWorkoutDayMeta: {
     width: 38,
     gap: 2,
+  },
+  planReadyWorkoutDayMetaCompact: {
+    width: 25,
   },
   planReadyWorkoutDayNumber: {
     color: 'rgba(255,255,255,0.82)',
@@ -6612,11 +7067,19 @@ const styles = StyleSheet.create({
     lineHeight: 12,
     fontWeight: '900',
   },
+  planReadyWorkoutDayNumberCompact: {
+    fontSize: 7,
+    lineHeight: 8,
+  },
   planReadyWorkoutDayName: {
     color: 'rgba(255,255,255,0.66)',
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '800',
+  },
+  planReadyWorkoutDayNameCompact: {
+    fontSize: 7,
+    lineHeight: 8,
   },
   planReadyWeekPanelDayPill: {
     width: 52,
@@ -6643,6 +7106,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     marginTop: 4,
   },
+  planReadyWeekPanelIconCompact: {
+    width: 12,
+    height: 12,
+    marginTop: 0,
+  },
   planReadyWeekPanelCopy: {
     flex: 1,
     minWidth: 0,
@@ -6652,22 +7120,44 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.sm,
+  },
+  planReadyWeekPanelTitleRowCompact: {
+    alignItems: 'flex-start',
+    gap: 4,
+  },
+  planReadyWorkoutTitleBlock: {
+    flex: 1,
+    minWidth: 0,
+    gap: 6,
+  },
+  planReadyWorkoutTitleBlockCompact: {
+    gap: 4,
   },
   planReadyWeekPanelTitle: {
     flex: 1,
     color: '#FFFFFF',
-    fontSize: 17,
-    lineHeight: 20,
+    fontSize: 24,
+    lineHeight: 28,
     fontWeight: '900',
+  },
+  planReadyWeekPanelTitleCompact: {
+    maxWidth: '68%',
+    flex: 0,
+    fontSize: 23,
+    lineHeight: 25,
   },
   planReadyWeekPanelDuration: {
     color: '#FFFFFF',
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 17,
+    lineHeight: 21,
     fontWeight: '900',
+  },
+  planReadyWeekPanelDurationCompact: {
+    fontSize: 12,
+    lineHeight: 14,
   },
   planReadyWeekPanelBody: {
     color: 'rgba(255,255,255,0.64)',
@@ -6678,8 +7168,13 @@ const styles = StyleSheet.create({
   planReadyWorkoutInlineExerciseList: {
     gap: 0,
   },
+  planReadyWorkoutInlineExerciseListCompact: {
+    flexGrow: 0,
+    justifyContent: 'flex-start',
+    paddingTop: 2,
+  },
   planReadyWorkoutInlineExerciseRow: {
-    minHeight: 23,
+    minHeight: 40,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -6687,19 +7182,54 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(255,255,255,0.07)',
   },
+  planReadyWorkoutInlineExerciseRowCompact: {
+    minHeight: 35,
+    gap: 6,
+  },
   planReadyWorkoutInlineExerciseName: {
     flex: 1,
     minWidth: 0,
     color: 'rgba(255,255,255,0.72)',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '700',
+  },
+  planReadyWorkoutInlineExerciseNameCompact: {
+    fontSize: 12,
+    lineHeight: 15,
+  },
+  planReadyWorkoutInlineExerciseTargets: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing.md,
+    minWidth: 168,
+  },
+  planReadyWorkoutInlineExerciseTargetsCompact: {
+    gap: 8,
+    minWidth: 122,
   },
   planReadyWorkoutInlineExerciseTarget: {
     color: 'rgba(255,255,255,0.72)',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  planReadyWorkoutInlineExerciseTargetCompact: {
+    fontSize: 12,
+    lineHeight: 15,
+  },
+  planReadyWorkoutMoreExercises: {
+    paddingTop: spacing.sm,
+    color: 'rgba(255,255,255,0.46)',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  planReadyWorkoutMoreExercisesCompact: {
+    paddingTop: 6,
     fontSize: 11,
     lineHeight: 14,
-    fontWeight: '800',
   },
   planReadyWeekPanelRest: {
     marginTop: spacing.sm,
@@ -6717,13 +7247,22 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   planReadyWeeklyOverview: {
-    borderRadius: radii.sm,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.10)',
     backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    gap: spacing.lg,
+  },
+  planReadyWeeklyOverviewCompact: {
+    borderRadius: 16,
+    borderColor: 'rgba(198,139,255,0.72)',
+    backgroundColor: 'rgba(198,139,255,0.12)',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    marginBottom: 8,
+    gap: 8,
   },
   planReadyWeeklyOverviewHeader: {
     flexDirection: 'row',
@@ -6731,18 +7270,30 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
+  planReadyWeeklyOverviewHeaderCompact: {
+    gap: 6,
+  },
   planReadyWeeklyOverviewTitle: {
     flex: 1,
-    color: '#FFFFFF',
-    fontSize: 12,
-    lineHeight: 15,
+    color: '#B8FF6A',
+    fontSize: 17,
+    lineHeight: 21,
     fontWeight: '900',
   },
+  planReadyWeeklyOverviewTitleCompact: {
+    color: '#C68BFF',
+    fontSize: 14,
+    lineHeight: 16,
+  },
   planReadyWeeklyOverviewSummary: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 10,
-    lineHeight: 12,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '800',
+  },
+  planReadyWeeklyOverviewSummaryCompact: {
+    fontSize: 11,
+    lineHeight: 13,
   },
   planReadyWeeklyOverviewRow: {
     flexDirection: 'row',
@@ -6750,16 +7301,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 4,
   },
+  planReadyWeeklyOverviewRowCompact: {
+    gap: 2,
+  },
   planReadyWeeklyOverviewDay: {
     flex: 1,
     alignItems: 'center',
     gap: 8,
+  },
+  planReadyWeeklyOverviewDayCompact: {
+    gap: 4,
   },
   planReadyWeeklyOverviewDayText: {
     color: 'rgba(255,255,255,0.72)',
     fontSize: 9,
     lineHeight: 11,
     fontWeight: '800',
+  },
+  planReadyWeeklyOverviewDayTextCompact: {
+    fontSize: 8,
+    lineHeight: 9,
   },
   planReadyWeeklyOverviewDot: {
     width: 22,
@@ -6772,11 +7333,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   planReadyWeeklyOverviewDotActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#B8FF6A',
+    backgroundColor: '#B8FF6A',
   },
   planReadyWeeklyOverviewDotRest: {
     borderColor: 'rgba(255,255,255,0.24)',
+  },
+  planReadyWeeklyOverviewDotCompact: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
   },
   planReadyWeeklyOverviewLabel: {
     color: 'rgba(255,255,255,0.58)',
@@ -6784,10 +7350,17 @@ const styles = StyleSheet.create({
     lineHeight: 10,
     fontWeight: '800',
   },
+  planReadyWeeklyOverviewLabelCompact: {
+    fontSize: 7,
+    lineHeight: 8,
+  },
   planReadyWeeklyOverviewLegend: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  planReadyWeeklyOverviewLegendCompact: {
+    gap: 8,
   },
   planReadyWeeklyOverviewLegendItem: {
     flexDirection: 'row',
@@ -6802,14 +7375,18 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.35)',
   },
   planReadyWeeklyOverviewLegendDotActive: {
-    borderColor: '#FFFFFF',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#B8FF6A',
+    backgroundColor: '#B8FF6A',
   },
   planReadyWeeklyOverviewLegendText: {
     color: 'rgba(255,255,255,0.54)',
     fontSize: 9,
     lineHeight: 11,
     fontWeight: '800',
+  },
+  planReadyWeeklyOverviewLegendTextCompact: {
+    fontSize: 8,
+    lineHeight: 9,
   },
   planReadyHeroScheduleRow: {
     flexDirection: 'row',
@@ -6884,20 +7461,30 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   planReadyHeroChipRow: {
-    flexDirection: 'column',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'flex-start',
-    gap: spacing.xs,
+    gap: spacing.sm,
+    marginTop: spacing.xl,
+  },
+  planReadyHeroChipRowCompact: {
+    gap: 6,
+    marginTop: spacing.sm,
   },
   planReadyHeroChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     borderRadius: 999,
-    backgroundColor: '#222222',
+    backgroundColor: 'rgba(255,255,255,0.10)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.30)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 7,
+    borderColor: 'rgba(255,255,255,0.16)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 10,
+  },
+  planReadyHeroChipCompact: {
+    paddingHorizontal: 7,
+    paddingVertical: 4,
   },
   planReadyHeroChipIcon: {
     width: 15,
@@ -6907,17 +7494,161 @@ const styles = StyleSheet.create({
   },
   planReadyHeroChipText: {
     color: 'rgba(255,255,255,0.86)',
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 14,
+    lineHeight: 17,
     fontWeight: '900',
+  },
+  planReadyHeroChipTextCompact: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   planReadyCardContent: {
     flex: 1,
-    gap: spacing.sm,
+    gap: spacing.xl,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
     backgroundColor: '#0B0B0B',
+  },
+  planReadyCardContentCompact: {
+    gap: 8,
+    paddingHorizontal: spacing.md,
+    paddingTop: 144,
+    paddingBottom: 6,
+    backgroundColor: 'transparent',
+  },
+  planReadyFitSummaryPanel: {
+    flexDirection: 'row',
+    gap: spacing.xl,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    padding: spacing.xl,
+  },
+  planReadyFitSummaryPanelCompact: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+    padding: 14,
+    minHeight: 132,
+  },
+  planReadyFitReasons: {
+    flex: 1,
+    gap: spacing.md,
+  },
+  planReadyFitReasonsCompact: {
+    flex: 1,
+    gap: 8,
+  },
+  planReadyFitSectionTitle: {
+    color: '#B8FF6A',
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '900',
+  },
+  planReadyFitSectionTitleCompact: {
+    maxWidth: '100%',
+    fontSize: 12,
+    lineHeight: 14,
+  },
+  planReadyFitReasonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  planReadyFitReasonRowCompact: {
+    gap: 7,
+  },
+  planReadyFitReasonText: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.86)',
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: '700',
+  },
+  planReadyFitReasonTextCompact: {
+    fontSize: 11.5,
+    lineHeight: 14,
+  },
+  planReadyOverviewCard: {
+    width: '40%',
+    minWidth: 248,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    gap: spacing.md,
+  },
+  planReadyOverviewCardCompact: {
+    width: '48%',
+    minWidth: 0,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 9,
+  },
+  planReadyOverviewTitle: {
+    color: '#B8FF6A',
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '900',
+  },
+  planReadyOverviewTitleCompact: {
+    fontSize: 12,
+    lineHeight: 14,
+  },
+  planReadyOverviewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  planReadyOverviewRowCompact: {
+    gap: 7,
+  },
+  planReadyOverviewText: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.86)',
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '700',
+  },
+  planReadyOverviewTextCompact: {
+    fontSize: 11.5,
+    lineHeight: 14,
+  },
+  planReadyWorkoutGrid: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+  },
+  planReadyWorkoutGridCompact: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  planReadyWeekPanelRowCompact: {
+    minHeight: 0,
+  },
+  planReadyWorkoutFocusChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: 'rgba(198,139,255,0.28)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 5,
+  },
+  planReadyWorkoutFocusChipCompact: {
+    marginTop: 0,
+    marginLeft: 0,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  planReadyWorkoutFocusChipText: {
+    color: '#D7B8FF',
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: '900',
+  },
+  planReadyWorkoutFocusChipTextCompact: {
+    fontSize: 10,
+    lineHeight: 12,
   },
   planReadyWhyMiniCard: {
     flexDirection: 'row',
@@ -6993,13 +7724,123 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: '700',
   },
+  planReadyExpectationPanel: {
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(198,139,255,0.72)',
+    backgroundColor: 'rgba(198,139,255,0.12)',
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.xl,
+    gap: spacing.lg,
+  },
+  planReadyExpectationPanelCompact: {
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  planReadyExpectationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  planReadyExpectationHeaderCompact: {
+    gap: 8,
+  },
+  planReadyExpectationBadge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(198,139,255,0.34)',
+  },
+  planReadyExpectationBadgeCompact: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+  },
+  planReadyExpectationTitle: {
+    color: '#C68BFF',
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '900',
+  },
+  planReadyExpectationTitleCompact: {
+    fontSize: 13,
+    lineHeight: 15,
+  },
+  planReadyExpectationItems: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: spacing.lg,
+  },
+  planReadyExpectationItemsCompact: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  planReadyExpectationItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(255,255,255,0.18)',
+  },
+  planReadyExpectationItemCompact: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    borderRightWidth: 0,
+    paddingHorizontal: 0,
+    gap: 4,
+  },
+  planReadyExpectationItemCopy: {
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  planReadyExpectationItemCopyCompact: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+    gap: 2,
+  },
+  planReadyExpectationItemTitle: {
+    color: '#FFFFFF',
+    textAlign: 'center',
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '900',
+  },
+  planReadyExpectationItemTitleCompact: {
+    textAlign: 'left',
+    fontSize: 8.5,
+    lineHeight: 10,
+  },
+  planReadyExpectationItemBody: {
+    color: 'rgba(255,255,255,0.72)',
+    textAlign: 'center',
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  planReadyExpectationItemBodyCompact: {
+    textAlign: 'left',
+    fontSize: 7.5,
+    lineHeight: 9,
+  },
   planReadyInlineActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: 'auto',
-    paddingTop: 2,
-    paddingBottom: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: 0,
+  },
+  planReadyInlineActionsCompact: {
+    paddingTop: 0,
   },
   planReadyBackButton: {
     width: 52,
@@ -7020,17 +7861,25 @@ const styles = StyleSheet.create({
   },
   planReadyUsePlanButton: {
     flex: 1,
-    minHeight: 52,
-    borderRadius: radii.md,
+    minHeight: 78,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F2F2F2',
+    backgroundColor: '#B8FF6A',
+  },
+  planReadyUsePlanButtonCompact: {
+    minHeight: 44,
+    maxWidth: 360,
   },
   planReadyUsePlanButtonText: {
     color: '#06080B',
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 26,
+    lineHeight: 31,
     fontWeight: '900',
+  },
+  planReadyUsePlanButtonTextCompact: {
+    fontSize: 19,
+    lineHeight: 23,
   },
   planReadyDetailsIconButton: {
     width: 52,
@@ -7041,103 +7890,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.18)',
     backgroundColor: '#111111',
-  },
-  planReadyOtherPlansPeek: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 126,
-    height: 46,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 18,
-    borderTopRightRadius: 0,
-    borderBottomRightRadius: 0,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOpacity: 0.28,
-    shadowRadius: 18,
-    shadowOffset: { width: -8, height: 8 },
-    elevation: 8,
-  },
-  planReadyOtherPlansLabel: {
-    color: '#06080B',
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
-    marginRight: 20,
-  },
-  planReadyOtherPlansPeekDisabled: {
-    opacity: 0.42,
-  },
-  planReadyOtherPlansPeekFoldLine: {
-    position: 'absolute',
-    right: -3,
-    top: 20,
-    width: 42,
-    height: 1,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-    transform: [{ rotate: '-45deg' }],
-  },
-  planReadyOptionsMenu: {
-    position: 'absolute',
-    top: 40,
-    right: spacing.md,
-    width: 168,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(17,17,17,0.94)',
-    padding: spacing.sm,
-    gap: 4,
-    shadowColor: '#000000',
-    shadowOpacity: 0.35,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 10,
-  },
-  planReadyOptionsMenuTitle: {
-    color: 'rgba(255,255,255,0.52)',
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '800',
-    paddingBottom: 3,
-  },
-  planReadyOptionsMenuItem: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  planReadyOptionsMenuIcon: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  planReadyOptionsMenuItemText: {
-    flex: 1,
-    minWidth: 0,
-    color: '#FFFFFF',
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '800',
-  },
-  planReadyOptionsMenuFooter: {
-    marginTop: spacing.xs,
-    paddingTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-    color: 'rgba(255,255,255,0.64)',
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '800',
   },
   planReadyHeroDetailButton: {
     minHeight: 44,
@@ -7412,13 +8164,83 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   planReadyDetailSheet: {
-    maxHeight: '86%',
+    margin: 0,
+    height: '100%',
+    maxHeight: '100%',
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'rgba(255,255,255,0.10)',
+    backgroundColor: '#000000',
+    paddingHorizontal: spacing.md,
+    paddingTop: 14,
+    paddingBottom: spacing.sm,
+    gap: 8,
+  },
+  planReadyWorkoutDetailCloseRail: {
+    minHeight: 66,
+    alignItems: 'flex-end',
+    justifyContent: 'flex-start',
+    paddingTop: 30,
+  },
+  planReadyWorkoutDetailHero: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    marginBottom: 8,
+  },
+  planReadyWorkoutDetailHeroCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 5,
+  },
+  planReadyWorkoutDetailKicker: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '900',
+    letterSpacing: 2,
+  },
+  planReadyWorkoutDetailTitle: {
+    color: '#FFFFFF',
+    fontSize: 36,
+    lineHeight: 39,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  planReadyWorkoutDetailDurationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  planReadyWorkoutDetailDuration: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  planReadyWorkoutDetailCloseButton: {
+    alignItems: 'center',
+  },
+  planReadyWorkoutDetailCloseIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    overflow: 'hidden',
+    color: '#B8FF6A',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 23,
+    lineHeight: 37,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: '#121212',
   },
   planReadyDetailScroll: {
-    maxHeight: 520,
+    flex: 1,
   },
   planReadyDetailContent: {
-    gap: spacing.sm,
+    gap: 8,
     paddingBottom: spacing.sm,
   },
   planReadyWorkoutDetailGrid: {
@@ -7426,43 +8248,88 @@ const styles = StyleSheet.create({
     marginTop: spacing.xs,
   },
   planReadyWorkoutDetailBlock: {
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    padding: spacing.sm,
-    gap: 3,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.13)',
+    backgroundColor: '#101010',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  planReadyWorkoutDetailIconSlot: {
+    width: 28,
+    alignItems: 'center',
+    paddingTop: 2,
+  },
+  planReadyWorkoutDetailCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
   },
   planReadyWorkoutDetailLabel: {
-    color: 'rgba(255,255,255,0.50)',
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-  },
-  planReadyWorkoutDetailText: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '700',
-  },
-  planReadyWorkoutExerciseBlock: {
-    borderRadius: radii.sm,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    padding: spacing.sm,
-    gap: spacing.xs,
-  },
-  planReadyWorkoutExerciseRow: {
-    gap: 2,
-  },
-  planReadyWorkoutExerciseName: {
     color: '#FFFFFF',
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '900',
+    letterSpacing: 1.9,
+  },
+  planReadyWorkoutDetailText: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  planReadyWorkoutExerciseBlock: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.13)',
+    backgroundColor: '#101010',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  planReadyWorkoutExerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 45,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  planReadyWorkoutExerciseIndexBubble: {
+    width: 29,
+    height: 29,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#B8FF6A',
+  },
+  planReadyWorkoutExerciseIndexText: {
+    color: '#B8FF6A',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  planReadyWorkoutExerciseCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  planReadyWorkoutExerciseName: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '900',
   },
   planReadyWorkoutExerciseMeta: {
     color: 'rgba(255,255,255,0.62)',
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '700',
   },
   planReadyFirstWorkoutAction: {
@@ -7984,6 +8851,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     borderTopColor: 'rgba(255,255,255,0.08)',
   },
+  planReadyFixedFooter: {
+    backgroundColor: '#000000',
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
+    paddingHorizontal: 18,
+    paddingTop: 0,
+    alignItems: 'center',
+    gap: 6,
+  },
   primaryButton: {
     width: '100%',
     maxWidth: 360,
@@ -8016,6 +8892,24 @@ const styles = StyleSheet.create({
   },
   locationPrimaryButtonTextDisabled: {
     color: 'rgba(255,255,255,0.42)',
+  },
+  planReadyFooterUsePlanButton: {
+    width: '100%',
+    maxWidth: 360,
+    minHeight: 44,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#B8FF6A',
+    borderWidth: 1,
+    borderColor: '#B8FF6A',
+  },
+  planReadyFooterUsePlanButtonText: {
+    color: '#06080B',
+    fontSize: 19,
+    lineHeight: 23,
+    fontWeight: '900',
+    letterSpacing: -0.3,
   },
   primaryButtonText: {
     color: '#06080B',

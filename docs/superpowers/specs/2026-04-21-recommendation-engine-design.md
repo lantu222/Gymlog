@@ -32,7 +32,7 @@ The recommendation engine should answer a narrower question than "what exact wor
 It should answer:
 
 1. What weekly training structure is most likely to fit this user right now?
-2. What 6-8 week programme style best matches their goal, schedule, recovery, equipment, and preferences?
+2. What programme style best matches their goal, schedule, recovery, equipment, and preferences?
 3. How can Gymlog explain that recommendation in a way that feels tailored instead of generic?
 
 The engine should not try to solve everything at once. In particular:
@@ -49,6 +49,17 @@ The engine should not try to solve everything at once. In particular:
 - Template and programme recommendation are not AI features and must work without AI access.
 - AI_COACH can explain and safely adjust recommendations, but does not become the system of record for training logic.
 - Recommendation output should be reusable in first run, AI coach, and later "change my plan" flows.
+
+## Current MVP Note
+
+The product direction can still grow toward 6-8 week programmes, but the current implementation should be documented as a 4-week starter block. That is the safer MVP: it gives the user a concrete first plan, exposes progression metadata, and avoids pretending the catalog already contains full long-form programmes for every Step 1-5 path.
+
+Implementation documents should therefore distinguish:
+
+- Current MVP: deterministic template recommendation plus first week and 4-week starter block.
+- Later version: deeper 6-8 week programme generation from the same template family and programme profile.
+
+The detailed MVP contract lives in `docs/recommendation-4-week-programme-contract.md`.
 
 ## Existing Product Anchors
 
@@ -228,15 +239,16 @@ The onboarding model should collect only the information needed to improve fit. 
 These can disqualify or materially reshape a candidate.
 
 1. `Primary goal`
-- Question: "What is your main goal right now?"
-- Options: `muscle`, `strength`, `general fitness`, `glute focus`, `body recomposition / fat-loss support`
+- Current Step 2 question: "WHAT DO YOU WANT MOST?"
+- Current options: `strength`, `muscle`, `lean_athletic`, `general_fitness`
 - Why: defines the candidate pool and programme profile
 - Required: yes
 - Affects: family eligibility, progression profile, explanation copy
+- Note: glute focus is now a Step 4 soft preference, not a primary goal. Body recomposition / fat-loss support is derived from `lean_athletic`, `general_fitness`, and Step 5 weight direction.
 
 2. `Realistic training frequency`
-- Question: "How many days per week do you realistically train?"
-- Options: `2`, `3`, `4`, `5`
+- Current Step 3 question: "How many days per week can you train?"
+- Current options: `2`, `3`, `4`, `5`, `6+`
 - Why: the strongest determinant of split viability
 - Required: yes
 - Affects: candidate filtering, session budget, adherence fit
@@ -245,12 +257,12 @@ These can disqualify or materially reshape a candidate.
 - Question: "How much time do you usually have per session?"
 - Options: `30`, `45`, `60`, `75+ minutes`
 - Why: prevents recommending bloated weekly structures
-- Required: yes
+- Required: later version; not part of the current Step 1-5 MVP input set
 - Affects: session-volume budget, family filtering, confidence
 
 4. `Equipment access`
-- Question: "Where do you train most often?"
-- Options: `full gym`, `basic gym`, `home dumbbells/bands`, `mixed`
+- Current Step 1 question: "What equipment do you have access to?"
+- Current options: `full_gym`, `home_gym`, `minimal_equipment`, `bodyweight_only`, `running_hybrid`
 - Why: determines equipment-compatible catalog variants
 - Required: yes
 - Affects: hard filter, swap rules, family ranking
@@ -259,7 +271,7 @@ These can disqualify or materially reshape a candidate.
 - Question: "Any movements or areas we should avoid or protect?"
 - Options: structured tags plus optional text, such as `shoulder`, `knee`, `lower back`, `none`
 - Why: essential for safety and wrong-fit avoidance
-- Required: yes
+- Required: later version; not part of the current Step 1-5 MVP input set
 - Affects: hard fail rules, joint-friendly reranking, allowed swap set
 
 #### Soft preferences

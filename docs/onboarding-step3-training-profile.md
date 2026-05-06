@@ -27,7 +27,7 @@ PROFILE
 
 Product decision: this target intentionally asks experience level and training frequency on Step 3 even though the current app asks related values in later stages. Treat this as the desired product direction, not a blocker.
 
-Current code note: the existing Step 3 implementation is `YOUR PROFILE`, with gender cards and an age slider. The target removes those from Step 3 and replaces the screen with training-level and frequency controls.
+Current implementation note: Step 3 is now the training-profile screen. Gender and age are no longer the primary Step 3 content.
 
 ## Product Requirement
 
@@ -37,14 +37,29 @@ Step 3 should gather the inputs that directly change recommendation quality:
 | --- | --- | --- |
 | Beginner | `level: beginner` | Lower fatigue, simpler workouts, more recovery-friendly plans. |
 | Intermediate | `level: intermediate` | Balanced volume, progressive overload, more training variety. |
-| Advanced | New value needed: `level: advanced` | Higher workload and advanced progression if the catalog supports it; otherwise use intermediate recommendations with advanced copy guarded carefully. |
+| Advanced | `level: advanced` | Higher workload and advanced progression if the catalog supports it; otherwise use intermediate recommendations with advanced copy guarded carefully. |
 | 2 days | `daysPerWeek: 2` | Low-frequency schedule, usually full-body or minimal split. |
 | 3 days | `daysPerWeek: 3` | Default balanced setup; screenshot-selected state. |
 | 4 days | `daysPerWeek: 4` | Higher weekly structure where compatible. |
 | 5 days | `daysPerWeek: 5` | Higher-frequency split where compatible. |
-| 6+ days | New value needed or mapped fallback | Future support needed. If not implemented immediately, map to `5` internally but preserve the visible intent separately. |
+| 6+ days | `daysPerWeek: 6` | Future support needed. Current recommendation should choose the closest coherent plan and explain any fallback. |
 
-Current data gap: `SetupLevel` currently supports only `beginner | intermediate`, and `SetupDaysPerWeek` supports only `2 | 3 | 4 | 5`. The target UI introduces `Advanced` and `6+ days`. These need either storage expansion or a precise-intent field so the UI does not silently collapse user intent.
+Current data state: `SetupLevel` supports `beginner | intermediate | advanced`, and `SetupDaysPerWeek` supports `2 | 3 | 4 | 5 | 6`.
+
+## Plan Generation Contract
+
+Step 3 controls whether a recommended plan is realistically runnable. It should never be treated as cosmetic copy.
+
+| Input | Recommendation effect | Programme effect | Plan content requirement |
+| --- | --- | --- | --- |
+| Beginner | Prefers low/moderate recovery demand, simple templates, fewer moving parts. | Uses baseline week carefully and avoids aggressive jumps. | Exercise menu should be learnable and repeatable. |
+| Intermediate | Allows balanced volume, strength + hypertrophy blends, and more weekly structure. | Can use clearer build weeks and more accessories. | Plan can include more exercise variety while keeping anchors stable. |
+| Advanced | May allow higher workload, but only if catalog support exists. | Should use a guarded fallback if no advanced-specific programme exists. | Explanation must be honest when an intermediate plan is the closest fit. |
+| 2 days | Strongly prefers full-body/minimal structures. | Progression must work with fewer exposures. | Each session should cover enough major patterns. |
+| 3 days | Default balanced setup. | Works for strength base, full body, PPL, run + mobility. | Weekly rhythm should be easy to understand. |
+| 4 days | Enables upper/lower, powerbuilding, and higher-volume hypertrophy. | Allows split-specific progression. | Plan should not accidentally become a 3-day plan without explaining the mismatch. |
+| 5 days | Enables higher-frequency hypertrophy/hybrid if goal-compatible. | Higher recovery demand must be checked. | Beginner 5-day requests need conservative output or fallback. |
+| 6+ days | Signals high availability but current catalog may not fully support it. | Prefer closest coherent 5-day or 4-day base plus optional day. | Must explain fallback instead of pretending a 6-day plan exists. |
 
 ## Target Content
 
