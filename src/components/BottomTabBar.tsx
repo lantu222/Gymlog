@@ -14,15 +14,15 @@ interface BottomTabBarProps {
 }
 
 const sideTabs: { key: RootTabKey; label: string }[] = [
-  { key: 'home', label: 'Training' },
+  { key: 'home', label: 'Home' },
   { key: 'workout', label: 'Exercises' },
   { key: 'progress', label: 'Progress' },
   { key: 'profile', label: 'Profile' },
 ];
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
-  const stroke = active ? '#111111' : '#4B5563';
-  const fill = active ? '#111111' : 'none';
+  const stroke = active ? '#B8FF6A' : 'rgba(255,255,255,0.66)';
+  const fill = active ? '#B8FF6A' : 'none';
   const size = 18;
 
   if (tab === 'home') {
@@ -80,7 +80,7 @@ function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
 }
 
 function AiIcon({ active }: { active: boolean }) {
-  const stroke = active ? '#FFFFFF' : '#7C3AED';
+  const stroke = active ? '#FFFFFF' : '#C68BFF';
   const fill = active ? '#FFFFFF' : 'none';
 
   return (
@@ -154,9 +154,9 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#151515',
     borderTopWidth: 1,
-    borderColor: 'rgba(17,17,17,0.08)',
+    borderColor: 'rgba(255,255,255,0.10)',
     paddingTop: 8,
     paddingHorizontal: spacing.md,
   },
@@ -181,33 +181,33 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   sideLabel: {
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.62)',
     fontSize: 10,
     fontWeight: '700',
   },
   sideLabelActive: {
-    color: '#111111',
+    color: '#B8FF6A',
   },
   centerButton: {
     width: 64,
     minHeight: 64,
     marginTop: -18,
     borderRadius: radii.pill,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#202020',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: 'rgba(255,255,255,0.20)',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-    shadowColor: '#000000',
+    shadowColor: '#7C3AED',
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.18,
     shadowRadius: 16,
     elevation: 6,
   },
   centerButtonActive: {
     backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    borderColor: '#A78BFA',
   },
   centerLabel: {
     color: '#7C3AED',

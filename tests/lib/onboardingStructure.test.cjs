@@ -86,8 +86,9 @@ module.exports = [
       assert.match(reviewBody, /<GymlogIcon name="eye"/);
       assert.doesNotMatch(reviewBody, /setSelectedPlanReadySessionId\(planReadyPrimarySessionId\)/);
       assert.doesNotMatch(reviewBody, /onCompleteToStartingWeek\(selection, activeRecommendedProgramId\)/);
-      assert.match(onboardingSource, /if \(stage === 'review'\) \{[\s\S]*onCompleteToStartingWeek\(selection, activeRecommendedProgramId\)/);
-      assert.match(appSource, /handleOnboardingCompleteToStartingWeek[\s\S]*openStartingWeek\(recommendedProgramId, 'first_run'\)/);
+      assert.match(onboardingSource, /if \(stage === 'review'\) \{[\s\S]*onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
+      assert.match(appSource, /handleOnboardingCompleteToTraining[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/);
+      assert.doesNotMatch(appSource, /openStartingWeek\(recommendedProgramId, 'first_run'\)/);
       assert.match(reviewBody, /minHeight: planReadyStageMinHeight/);
       assert.doesNotMatch(reviewBody, /height: planReadyStageMinHeight/);
       assert.doesNotMatch(reviewBody, /CALORIES/);

@@ -5,7 +5,7 @@ const { ROOT_ROUTES } = require('../../.test-dist/navigation/routes.js');
 
 module.exports = [
   {
-    name: 'logger fallback returns active starting week when the live session belongs to the recommended plan',
+    name: 'logger fallback returns home when the live session belongs to the recommended plan',
     run() {
       const route = resolveWorkoutLoggerFallbackRoute({
         activeWorkoutTemplateId: 'tpl_3_day_strength_base_v1',
@@ -13,12 +13,7 @@ module.exports = [
         setupCompleted: true,
       });
 
-      assert.deepEqual(route, {
-        tab: 'home',
-        screen: 'starting_week',
-        recommendedProgramId: 'tpl_3_day_strength_base_v1',
-        source: 'active',
-      });
+      assert.deepEqual(route, ROOT_ROUTES.home);
     },
   },
   {

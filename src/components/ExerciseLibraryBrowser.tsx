@@ -11,31 +11,36 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { layout, radii, spacing } from '../theme';
-import { ExerciseLibraryItem } from '../types/models';
+import { GymlogIcon, GymlogIconName } from './GymlogIcon';
+import { layout, spacing } from '../theme';
+import { ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
 
-const GREEN = '#2FAE66';
-const GREEN_SOFT = '#E9F8EF';
-const BORDER = '#E6E7EB';
-const TEXT = '#121212';
-const MUTED = '#6B7280';
+const GREEN = '#B8FF6A';
+const PURPLE = '#C68BFF';
+const BACKGROUND = '#000000';
+const SURFACE = '#151515';
+const SURFACE_SOFT = 'rgba(255,255,255,0.045)';
+const BORDER = 'rgba(255,255,255,0.12)';
+const TEXT = '#FFFFFF';
+const MUTED = 'rgba(255,255,255,0.62)';
+const FAINT = 'rgba(255,255,255,0.42)';
 
 const COMMON_EXERCISE_KEYWORDS = [
-  ['bench press'],
-  ['dumbbell bench press'],
   ['incline dumbbell press', 'incline bench press'],
-  ['lat pulldown', 'pulldown'],
-  ['seated row', 'cable row'],
-  ['shoulder press', 'overhead press'],
-  ['lateral raise'],
-  ['barbell squat', 'squat'],
+  ['chest supported row'],
   ['leg press'],
-  ['leg extension'],
-  ['leg curl'],
+  ['lateral raise'],
+  ['bench press'],
+  ['pull-up', 'pull ups', 'pullup'],
   ['romanian deadlift', 'stiff-leg deadlift'],
-  ['hip thrust', 'glute bridge'],
-  ['biceps curl', 'dumbbell curl', 'barbell curl'],
+  ['overhead press', 'shoulder press'],
+  ['dumbbell fly', 'fly'],
+  ['seated row', 'cable row'],
   ['triceps pushdown', 'cable pushdown', 'pushdown'],
+  ['barbell squat', 'squat'],
+  ['lat pulldown', 'pulldown'],
+  ['biceps curl', 'dumbbell curl', 'barbell curl'],
+  ['hip thrust', 'glute bridge'],
   ['calf raise', 'calf press'],
   ['crunch', 'sit-up'],
 ] as const;
@@ -72,6 +77,7 @@ function buildCommonExerciseOrder(items: ExerciseLibraryItem[]) {
       if (picked.has(item.id)) {
         return false;
       }
+
       const normalizedName = item.name.toLowerCase();
       return keywords.some((keyword) => normalizedName.includes(keyword));
     });
@@ -85,21 +91,21 @@ function buildCommonExerciseOrder(items: ExerciseLibraryItem[]) {
   return new Map(ids.map((id, index) => [id, index]));
 }
 
-function SearchIcon() {
+function SearchIcon({ color = TEXT, size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="6.5" stroke="#111111" strokeWidth="2" />
-      <Path d="M16 16L21 21" stroke="#111111" strokeWidth="2" strokeLinecap="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="6.5" stroke={color} strokeWidth="2" />
+      <Path d="M16 16L21 21" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
 
-function FilterIcon() {
+function FilterIcon({ color = TEXT, size = 20 }: { color?: string; size?: number }) {
   return (
-    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 7H20" stroke="#111111" strokeWidth="2" strokeLinecap="round" />
-      <Path d="M7 12H17" stroke="#111111" strokeWidth="2" strokeLinecap="round" />
-      <Path d="M10 17H14" stroke="#111111" strokeWidth="2" strokeLinecap="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 7H20" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M7 12H17" stroke={color} strokeWidth="2" strokeLinecap="round" />
+      <Path d="M10 17H14" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </Svg>
   );
 }
@@ -112,11 +118,178 @@ function formatFilterLabel(raw: string) {
     .join(' ');
 }
 
+function formatCompactBodyPartLabel(raw: string) {
+  if (raw === 'all') {
+    return 'All';
+  }
+  if (raw === 'full body') {
+    return 'Full';
+  }
+  return formatFilterLabel(raw);
+}
+
 function buildActiveFilterSummary(parts: string[]) {
   if (!parts.length) {
     return 'All exercises';
   }
-  return parts.join(' · ');
+
+  return parts.join(' - ');
+}
+
+function getBodyPartIcon(bodyPart: ExerciseBodyPart | 'all'): GymlogIconName {
+  switch (bodyPart) {
+    case 'chest':
+      return 'chest';
+    case 'back':
+      return 'back';
+    case 'shoulders':
+      return 'shoulders';
+    case 'legs':
+      return 'legs';
+    case 'biceps':
+    case 'triceps':
+      return 'arms';
+    case 'core':
+      return 'core';
+    case 'glutes':
+      return 'glutes';
+    case 'full body':
+      return 'strength';
+    default:
+      return 'check';
+  }
+}
+
+function getItemImage(item: ExerciseLibraryItem) {
+  return item.imageUrls?.[0] ?? null;
+}
+
+function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: ExerciseLibraryItem[]) {
+  const commonOrder = useMemo(() => buildCommonExerciseOrder(items), [items]);
+
+  const orderedItems = useMemo(() => {
+    return [...filteredItems].sort((left, right) => {
+      const leftCommon = commonOrder.get(left.id);
+      const rightCommon = commonOrder.get(right.id);
+
+      if (leftCommon !== undefined && rightCommon !== undefined) {
+        return leftCommon - rightCommon;
+      }
+      if (leftCommon !== undefined) {
+        return -1;
+      }
+      if (rightCommon !== undefined) {
+        return 1;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
+  }, [commonOrder, filteredItems]);
+
+  return { commonOrder, orderedItems };
+}
+
+function ExerciseThumb({ item, size = 58 }: { item: ExerciseLibraryItem; size?: number }) {
+  const previewImage = getItemImage(item);
+
+  if (previewImage) {
+    return (
+      <Image
+        source={{ uri: previewImage }}
+        resizeMode="cover"
+        style={[styles.thumbImage, { width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.18)) }]}
+      />
+    );
+  }
+
+  return (
+    <View style={[styles.thumbFallback, { width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.18)) }]}>
+      <Text style={styles.thumbFallbackText}>{item.name.charAt(0).toUpperCase()}</Text>
+    </View>
+  );
+}
+
+function AddButton({
+  selected,
+  onPress,
+}: {
+  selected: boolean;
+  onPress?: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} hitSlop={8} style={[styles.addButton, selected && styles.addButtonSelected]}>
+      <Text style={[styles.addButtonText, selected && styles.addButtonTextSelected]}>{selected ? '✓' : '+'}</Text>
+    </Pressable>
+  );
+}
+
+function FavoriteButton({
+  active,
+  onPress,
+  compact = false,
+}: {
+  active: boolean;
+  onPress?: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={!onPress}
+      hitSlop={8}
+      style={[styles.favoriteButton, compact && styles.favoriteButtonCompact, active && styles.favoriteButtonActive]}
+    >
+      <Text style={[styles.favoriteButtonText, compact && styles.favoriteButtonTextCompact, active && styles.favoriteButtonTextActive]}>
+        {'\u2605'}
+      </Text>
+    </Pressable>
+  );
+}
+
+function MiniExerciseCard({
+  item,
+  selected,
+  tracked,
+  onPress,
+  onAction,
+  onToggleFavorite,
+}: {
+  item: ExerciseLibraryItem;
+  selected: boolean;
+  tracked: boolean;
+  onPress: () => void;
+  onAction?: () => void;
+  onToggleFavorite?: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={[styles.miniCard, selected && styles.cardSelected]}>
+      <View style={styles.miniThumbWrap}>
+        <ExerciseThumb item={item} size={42} />
+        <View style={styles.miniFavoriteWrap}>
+          <FavoriteButton active={tracked} compact onPress={onToggleFavorite} />
+        </View>
+      </View>
+      <View style={styles.miniCopy}>
+        <Text numberOfLines={2} style={styles.miniTitle}>{item.name}</Text>
+        <Text numberOfLines={1} style={styles.miniMeta}>{formatFilterLabel(item.bodyPart)}</Text>
+      </View>
+      <View style={styles.miniAddWrap}>
+        <AddButton selected={selected} onPress={onAction} />
+      </View>
+    </Pressable>
+  );
+}
+
+function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+  return (
+    <View style={styles.sectionHeader}>
+      <View style={styles.sectionHeaderCopy}>
+        <Text style={styles.sectionTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+      </View>
+      <Text style={styles.viewAllText}>View all</Text>
+    </View>
+  );
 }
 
 export function ExerciseLibraryBrowser({
@@ -126,10 +299,8 @@ export function ExerciseLibraryBrowser({
   onSelectItem,
   onOpenItem,
   onToggleTracked,
-  actionLabel = 'Open',
 }: ExerciseLibraryBrowserProps) {
   const [search, setSearch] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bodyPartFilter, setBodyPartFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -167,28 +338,9 @@ export function ExerciseLibraryBrowser({
     });
   }, [items, search, bodyPartFilter, categoryFilter, equipmentFilter]);
 
-  const commonOrder = useMemo(() => buildCommonExerciseOrder(items), [items]);
+  const { commonOrder, orderedItems } = useOrderedExercises(items, filteredItems);
   const hasCustomFilters = bodyPartFilter !== 'all' || categoryFilter !== 'all' || equipmentFilter !== 'all';
-  const showPopularBlock = search.trim().length === 0 && !hasCustomFilters;
-
-  const orderedItems = useMemo(() => {
-    return [...filteredItems].sort((left, right) => {
-      const leftCommon = commonOrder.get(left.id);
-      const rightCommon = commonOrder.get(right.id);
-
-      if (leftCommon !== undefined && rightCommon !== undefined) {
-        return leftCommon - rightCommon;
-      }
-      if (leftCommon !== undefined) {
-        return -1;
-      }
-      if (rightCommon !== undefined) {
-        return 1;
-      }
-
-      return left.name.localeCompare(right.name);
-    });
-  }, [commonOrder, filteredItems]);
+  const showDashboardSections = search.trim().length === 0 && !hasCustomFilters;
 
   const activeFilterCount =
     (bodyPartFilter !== 'all' ? 1 : 0) +
@@ -209,56 +361,105 @@ export function ExerciseLibraryBrowser({
     return buildActiveFilterSummary(parts);
   }, [bodyPartFilter, categoryFilter, equipmentFilter]);
 
-  const popularItems = useMemo(() => {
-    if (!showPopularBlock) {
-      return [];
-    }
-    return orderedItems.filter((item) => commonOrder.has(item.id)).slice(0, 4);
-  }, [commonOrder, orderedItems, showPopularBlock]);
+  const recentlyUsedItems = useMemo(
+    () => orderedItems.filter((item) => commonOrder.has(item.id)).slice(0, 6),
+    [commonOrder, orderedItems],
+  );
+  const favoriteItems = useMemo(() => {
+    const trackedSet = new Set(trackedIds);
+    return orderedItems.filter((item) => trackedSet.has(item.id)).slice(0, 6);
+  }, [orderedItems, trackedIds]);
+  const suggestedItems = useMemo(() => {
+    const excluded = new Set([...recentlyUsedItems.map((item) => item.id), ...favoriteItems.map((item) => item.id)]);
+    return orderedItems.filter((item) => !excluded.has(item.id)).slice(0, 6);
+  }, [favoriteItems, orderedItems, recentlyUsedItems]);
 
-  const popularItemIds = useMemo(() => new Set(popularItems.map((item) => item.id)), [popularItems]);
+  const listItems = useMemo(() => orderedItems.slice(0, showDashboardSections ? 36 : undefined), [orderedItems, showDashboardSections]);
 
-  const mainItems = useMemo(() => {
-    if (!showPopularBlock) {
-      return orderedItems;
+  function handleOpen(item: ExerciseLibraryItem) {
+    if (onOpenItem) {
+      onOpenItem(item);
+      return;
     }
-    return orderedItems.filter((item) => !popularItemIds.has(item.id));
-  }, [orderedItems, popularItemIds, showPopularBlock]);
+    if (onSelectItem) {
+      onSelectItem(item);
+    }
+  }
+
+  function handleAction(item: ExerciseLibraryItem) {
+    if (onSelectItem) {
+      onSelectItem(item);
+      return;
+    }
+    handleOpen(item);
+  }
+
+  function renderHorizontalSection({
+  title,
+  subtitle,
+  sectionItems,
+  emptyBody,
+}: {
+  title: string;
+  subtitle?: string;
+  sectionItems: ExerciseLibraryItem[];
+  emptyBody?: string;
+}) {
+    if (!sectionItems.length && !emptyBody) {
+      return null;
+    }
+
+    return (
+      <View style={styles.dashboardSection}>
+        <SectionHeader title={title} subtitle={subtitle} />
+        {sectionItems.length ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalCards}>
+            {sectionItems.map((item) => {
+              const selected = selectedIds.includes(item.id);
+              const tracked = trackedIds.includes(item.id);
+
+              return (
+                <MiniExerciseCard
+                  key={`${title}:${item.id}`}
+                  item={item}
+                  selected={selected}
+                  tracked={tracked}
+                  onPress={() => handleOpen(item)}
+                  onAction={() => handleAction(item)}
+                  onToggleFavorite={onToggleTracked ? () => onToggleTracked(item) : undefined}
+                />
+              );
+            })}
+          </ScrollView>
+        ) : (
+          <View style={styles.emptyFavoriteCard}>
+            <Text style={styles.emptyFavoriteTitle}>No favorites yet</Text>
+            <Text style={styles.emptyFavoriteText}>{emptyBody}</Text>
+          </View>
+        )}
+      </View>
+    );
+  }
 
   return (
     <FlatList
-      data={mainItems}
+      data={listItems}
       keyExtractor={(item) => item.id}
-      numColumns={2}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
-      columnWrapperStyle={styles.column}
       contentContainerStyle={styles.listContent}
       ListHeaderComponent={
         <View style={styles.headerBlock}>
           <View style={styles.headerRow}>
-            <Text style={styles.title}>Exercises</Text>
+            <View style={styles.headerCopy}>
+              <Text style={styles.title}>Exercises</Text>
+              <Text style={styles.subtitle}>Find and add exercises to your workouts.</Text>
+            </View>
             <View style={styles.headerActions}>
-              <Pressable
-                onPress={() => {
-                  setSearchOpen((current) => !current);
-                  if (filtersOpen) {
-                    setFiltersOpen(false);
-                  }
-                }}
-                style={[styles.iconButton, searchOpen && styles.iconButtonActive]}
-              >
+              <Pressable style={styles.iconButton}>
                 <SearchIcon />
               </Pressable>
-              <Pressable
-                onPress={() => {
-                  setFiltersOpen((current) => !current);
-                  if (searchOpen) {
-                    setSearchOpen(false);
-                  }
-                }}
-                style={[styles.iconButton, filtersOpen && styles.iconButtonActive]}
-              >
+              <Pressable onPress={() => setFiltersOpen((current) => !current)} style={[styles.iconButton, filtersOpen && styles.iconButtonActive]}>
                 <FilterIcon />
                 {activeFilterCount > 0 ? (
                   <View style={styles.filterBadge}>
@@ -269,176 +470,103 @@ export function ExerciseLibraryBrowser({
             </View>
           </View>
 
-          {searchOpen ? (
-            <View style={styles.searchWrap}>
-              <View style={styles.searchShell}>
-                <TextInput
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder="Search exercises"
-                  placeholderTextColor="#8E949C"
-                  style={styles.searchInput}
-                  autoFocus
-                />
-              </View>
-            </View>
-          ) : null}
+          <View style={styles.searchShell}>
+            <SearchIcon color="rgba(255,255,255,0.56)" size={20} />
+            <TextInput
+              value={search}
+              onChangeText={setSearch}
+              placeholder="Search exercises..."
+              placeholderTextColor="rgba(255,255,255,0.48)"
+              style={styles.searchInput}
+            />
+          </View>
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRail}>
+            {bodyPartOptions.map((option) => {
+              const selected = bodyPartFilter === option;
+              const bodyPart = option as ExerciseBodyPart | 'all';
+
+              return (
+                <Pressable
+                  key={option}
+                  onPress={() => setBodyPartFilter(option)}
+                  style={[styles.categoryChip, selected && styles.categoryChipActive]}
+                >
+                  <GymlogIcon name={getBodyPartIcon(bodyPart)} color={selected ? GREEN : 'rgba(255,255,255,0.76)'} size={13} />
+                  <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>
+                    {formatCompactBodyPartLabel(option)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
 
           {filtersOpen ? (
             <View style={styles.filtersShell}>
               <Text style={styles.filtersTitle}>Filters</Text>
-              <Text style={styles.filtersSubtitle}>Pick what you want to see first.</Text>
+              <Text style={styles.filtersSubtitle}>Narrow the library by category or equipment.</Text>
 
-              <ScrollView
-                style={styles.filtersScroll}
-                contentContainerStyle={styles.filtersContent}
-                showsVerticalScrollIndicator={false}
-              >
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterSectionLabel}>Body part</Text>
-                  <View style={styles.filterGrid}>
-                    {bodyPartOptions.map((option) => {
-                      const selected = bodyPartFilter === option;
-                      return (
-                        <Pressable
-                          key={option}
-                          onPress={() => setBodyPartFilter(option)}
-                          style={[styles.filterChip, selected && styles.filterChipSelected]}
-                        >
-                          <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
-                            {option === 'all' ? 'All' : formatFilterLabel(option)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>Category</Text>
+                <View style={styles.filterGrid}>
+                  {categoryOptions.map((option) => {
+                    const selected = categoryFilter === option;
+                    return (
+                      <Pressable
+                        key={option}
+                        onPress={() => setCategoryFilter(option)}
+                        style={[styles.filterChip, selected && styles.filterChipSelected]}
+                      >
+                        <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
+                          {option === 'all' ? 'All' : formatFilterLabel(option)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
+              </View>
 
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterSectionLabel}>Category</Text>
-                  <View style={styles.filterGrid}>
-                    {categoryOptions.map((option) => {
-                      const selected = categoryFilter === option;
-                      return (
-                        <Pressable
-                          key={option}
-                          onPress={() => setCategoryFilter(option)}
-                          style={[styles.filterChip, selected && styles.filterChipSelected]}
-                        >
-                          <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
-                            {option === 'all' ? 'All' : formatFilterLabel(option)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
+              <View style={styles.filterSection}>
+                <Text style={styles.filterSectionLabel}>Equipment</Text>
+                <View style={styles.filterGrid}>
+                  {equipmentOptions.map((option) => {
+                    const selected = equipmentFilter === option;
+                    return (
+                      <Pressable
+                        key={option}
+                        onPress={() => setEquipmentFilter(option)}
+                        style={[styles.filterChip, selected && styles.filterChipSelected]}
+                      >
+                        <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
+                          {option === 'all' ? 'All' : formatFilterLabel(option)}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
-
-                <View style={styles.filterSection}>
-                  <Text style={styles.filterSectionLabel}>Equipment</Text>
-                  <View style={styles.filterGrid}>
-                    {equipmentOptions.map((option) => {
-                      const selected = equipmentFilter === option;
-                      return (
-                        <Pressable
-                          key={option}
-                          onPress={() => setEquipmentFilter(option)}
-                          style={[styles.filterChip, selected && styles.filterChipSelected]}
-                        >
-                          <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
-                            {option === 'all' ? 'All' : formatFilterLabel(option)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              </ScrollView>
+              </View>
             </View>
           ) : null}
 
-          {popularItems.length > 0 ? (
-            <View style={styles.featuredSection}>
-              <View style={styles.featuredHeader}>
-                <Text style={styles.featuredTitle}>Popular to start</Text>
-                <Text style={styles.featuredSubtitle}>Common first picks for a new workout.</Text>
-              </View>
-              <View style={styles.featuredGrid}>
-                {popularItems.map((item) => {
-                  const selected = selectedIds.includes(item.id);
-                  const tracked = trackedIds.includes(item.id);
-                  const previewImage = item.imageUrls?.[0] ?? null;
-
-                  return (
-                    <Pressable
-                      key={item.id}
-                      onPress={() => {
-                        if (onOpenItem) {
-                          onOpenItem(item);
-                          return;
-                        }
-                        if (onSelectItem) {
-                          onSelectItem(item);
-                        }
-                      }}
-                      style={[styles.card, styles.featuredCard, selected && styles.cardSelected]}
-                    >
-                      <View style={styles.mediaWrap}>
-                        {previewImage ? (
-                          <Image source={{ uri: previewImage }} resizeMode="cover" style={styles.cardImage} />
-                        ) : (
-                          <View style={styles.cardImageFallback}>
-                            <Text style={styles.cardImageFallbackText}>{item.name.charAt(0).toUpperCase()}</Text>
-                          </View>
-                        )}
-
-                        {onToggleTracked ? (
-                          <Pressable
-                            onPress={() => onToggleTracked(item)}
-                            hitSlop={8}
-                            style={styles.starBadge}
-                          >
-                            <Text style={[styles.starIcon, tracked && styles.starIconTracked]}>{tracked ? '★' : '☆'}</Text>
-                          </Pressable>
-                        ) : null}
-
-                        {onSelectItem ? (
-                          <View style={[styles.cardActionBadge, selected && styles.cardActionBadgeSelected]}>
-                            <Text style={[styles.cardActionBadgeText, selected && styles.cardActionBadgeTextSelected]}>
-                              {selected ? '✓' : '+'}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-
-                      <View style={styles.cardCopy}>
-                        <Text numberOfLines={2} style={styles.cardTitle}>
-                          {item.name}
-                        </Text>
-                        <Text numberOfLines={1} style={styles.cardBodyPart}>
-                          {formatFilterLabel(item.bodyPart)}
-                        </Text>
-                        <Text numberOfLines={2} style={styles.cardMeta}>
-                          {formatFilterLabel(item.category)} · {formatFilterLabel(item.equipment)}
-                        </Text>
-                        {onSelectItem ? (
-                          <View style={[styles.cardActionPill, selected && styles.cardActionPillSelected]}>
-                            <Text style={[styles.cardActionText, selected && styles.cardActionTextSelected]}>
-                              {selected ? 'Selected' : actionLabel}
-                            </Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
+          {showDashboardSections ? (
+            <>
+              {renderHorizontalSection({ title: 'Recently used', sectionItems: recentlyUsedItems })}
+              {renderHorizontalSection({
+                title: 'Favorites',
+                sectionItems: favoriteItems,
+                emptyBody: 'Tap the star on any exercise to keep it here.',
+              })}
+              {renderHorizontalSection({
+                title: 'Suggested for your plan',
+                subtitle: 'Based on your current workout focus',
+                sectionItems: suggestedItems,
+              })}
+            </>
           ) : null}
 
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>{showPopularBlock ? 'All exercises' : filterSummary}</Text>
-            <Text style={styles.summaryCount}>{mainItems.length} results</Text>
+            <Text style={styles.summaryLabel}>{showDashboardSections ? 'All exercises' : filterSummary}</Text>
+            <Text style={styles.summaryCount}>{orderedItems.length} exercises</Text>
           </View>
         </View>
       }
@@ -451,67 +579,22 @@ export function ExerciseLibraryBrowser({
       renderItem={({ item }) => {
         const selected = selectedIds.includes(item.id);
         const tracked = trackedIds.includes(item.id);
-        const previewImage = item.imageUrls?.[0] ?? null;
 
         return (
-          <Pressable
-            onPress={() => {
-              if (onOpenItem) {
-                onOpenItem(item);
-                return;
-              }
-              if (onSelectItem) {
-                onSelectItem(item);
-              }
-            }}
-            style={[styles.card, selected && styles.cardSelected]}
-          >
-            <View style={styles.mediaWrap}>
-              {previewImage ? (
-                <Image source={{ uri: previewImage }} resizeMode="cover" style={styles.cardImage} />
-              ) : (
-                <View style={styles.cardImageFallback}>
-                  <Text style={styles.cardImageFallbackText}>{item.name.charAt(0).toUpperCase()}</Text>
-                </View>
-              )}
-
-              {onToggleTracked ? (
-                <Pressable
-                  onPress={() => onToggleTracked(item)}
-                  hitSlop={8}
-                  style={styles.starBadge}
-                >
-                  <Text style={[styles.starIcon, tracked && styles.starIconTracked]}>{tracked ? '★' : '☆'}</Text>
-                </Pressable>
-              ) : null}
-
-              {onSelectItem ? (
-                <View style={[styles.cardActionBadge, selected && styles.cardActionBadgeSelected]}>
-                  <Text style={[styles.cardActionBadgeText, selected && styles.cardActionBadgeTextSelected]}>
-                    {selected ? '✓' : '+'}
-                  </Text>
-                </View>
-              ) : null}
+          <Pressable onPress={() => handleOpen(item)} style={[styles.listRow, selected && styles.cardSelected]}>
+            <View style={styles.listThumbWrap}>
+              <ExerciseThumb item={item} size={48} />
+              <View style={styles.listFavoriteWrap}>
+                <FavoriteButton active={tracked} compact onPress={onToggleTracked ? () => onToggleTracked(item) : undefined} />
+              </View>
             </View>
-
-            <View style={styles.cardCopy}>
-              <Text numberOfLines={2} style={styles.cardTitle}>
-                {item.name}
+            <View style={styles.listRowCopy}>
+              <Text numberOfLines={1} style={styles.listRowTitle}>{item.name}</Text>
+              <Text numberOfLines={1} style={styles.listRowMeta}>
+                {formatFilterLabel(item.bodyPart)}  •  {formatFilterLabel(item.equipment)}  •  {formatFilterLabel(item.category)}
               </Text>
-              <Text numberOfLines={1} style={styles.cardBodyPart}>
-                {formatFilterLabel(item.bodyPart)}
-              </Text>
-              <Text numberOfLines={2} style={styles.cardMeta}>
-                {formatFilterLabel(item.category)} · {formatFilterLabel(item.equipment)}
-              </Text>
-              {onSelectItem ? (
-                <View style={[styles.cardActionPill, selected && styles.cardActionPillSelected]}>
-                  <Text style={[styles.cardActionText, selected && styles.cardActionTextSelected]}>
-                    {selected ? 'Selected' : actionLabel}
-                  </Text>
-                </View>
-              ) : null}
             </View>
+            <AddButton selected={selected} onPress={() => handleAction(item)} />
           </Pressable>
         );
       }}
@@ -523,12 +606,13 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: layout.bottomTabBarReserve,
     paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+    paddingTop: spacing.lg,
+    gap: 0,
+    backgroundColor: BACKGROUND,
   },
   headerBlock: {
-    gap: spacing.md,
-    paddingTop: spacing.md,
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
+    paddingBottom: spacing.sm,
   },
   headerRow: {
     flexDirection: 'row',
@@ -536,36 +620,47 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
+  headerCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   title: {
     color: TEXT,
-    fontSize: 24,
+    fontSize: 25,
+    lineHeight: 29,
     fontWeight: '900',
-    letterSpacing: -0.6,
+  },
+  subtitle: {
+    color: MUTED,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: spacing.sm,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: SURFACE_SOFT,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   iconButtonActive: {
-    backgroundColor: GREEN_SOFT,
-    borderColor: '#BDE8CD',
+    borderColor: 'rgba(184,255,106,0.46)',
+    backgroundColor: 'rgba(184,255,106,0.09)',
   },
   filterBadge: {
     position: 'absolute',
-    top: -4,
-    right: -4,
+    top: 5,
+    right: 5,
     minWidth: 16,
     height: 16,
     borderRadius: 8,
@@ -575,262 +670,357 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   filterBadgeText: {
-    color: '#FFFFFF',
+    color: '#050505',
     fontSize: 10,
-    fontWeight: '800',
-  },
-  searchWrap: {
-    marginTop: -4,
+    fontWeight: '900',
   },
   searchShell: {
-    minHeight: 48,
-    borderRadius: 16,
-    backgroundColor: '#F7F8FA',
-    paddingHorizontal: 16,
-    justifyContent: 'center',
+    minHeight: 40,
+    borderRadius: 10,
+    backgroundColor: SURFACE,
+    paddingHorizontal: spacing.md,
     borderWidth: 1,
     borderColor: BORDER,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
   },
   searchInput: {
+    flex: 1,
     color: TEXT,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
     paddingVertical: 0,
   },
-  filtersShell: {
-    borderRadius: 20,
+  categoryRail: {
+    gap: 6,
+    paddingRight: spacing.sm,
+  },
+  categoryChip: {
+    minHeight: 32,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: '#FBFBFC',
-    padding: spacing.lg,
-    gap: spacing.sm,
+    backgroundColor: SURFACE_SOFT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+  },
+  categoryChipActive: {
+    borderColor: GREEN,
+    backgroundColor: 'rgba(184,255,106,0.08)',
+  },
+  categoryChipText: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: '900',
+  },
+  categoryChipTextActive: {
+    color: GREEN,
+  },
+  filtersShell: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE,
+    padding: spacing.md,
+    gap: spacing.md,
   },
   filtersTitle: {
     color: TEXT,
-    fontSize: 20,
+    fontSize: 18,
+    lineHeight: 22,
     fontWeight: '900',
   },
   filtersSubtitle: {
     color: MUTED,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  filtersScroll: {
-    maxHeight: 340,
-  },
-  filtersContent: {
-    gap: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   filterSection: {
     gap: spacing.sm,
   },
   filterSectionLabel: {
-    color: MUTED,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+    color: FAINT,
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: '900',
     textTransform: 'uppercase',
   },
   filterGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
   },
   filterChip: {
-    minHeight: 38,
-    paddingHorizontal: 14,
+    minHeight: 34,
+    paddingHorizontal: spacing.md,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255,255,255,0.05)',
     borderWidth: 1,
     borderColor: BORDER,
   },
   filterChipSelected: {
-    backgroundColor: GREEN,
+    backgroundColor: 'rgba(184,255,106,0.12)',
     borderColor: GREEN,
   },
   filterChipText: {
-    color: TEXT,
-    fontSize: 13,
-    fontWeight: '700',
+    color: MUTED,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
   },
   filterChipTextSelected: {
-    color: '#FFFFFF',
+    color: GREEN,
+  },
+  dashboardSection: {
+    gap: spacing.sm,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  sectionHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  sectionTitle: {
+    color: 'rgba(255,255,255,0.76)',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  sectionSubtitle: {
+    color: MUTED,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  viewAllText: {
+    color: GREEN,
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: '900',
+  },
+  horizontalCards: {
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  miniCard: {
+    width: 172,
+    minHeight: 70,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 8,
+    paddingRight: 28,
+    position: 'relative',
+  },
+  miniThumbWrap: {
+    position: 'relative',
+  },
+  miniFavoriteWrap: {
+    position: 'absolute',
+    top: -7,
+    left: -7,
+  },
+  miniCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  miniTitle: {
+    color: TEXT,
+    fontSize: 12,
+    lineHeight: 13,
+    fontWeight: '900',
+  },
+  miniMeta: {
+    color: MUTED,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '700',
+  },
+  miniAddWrap: {
+    position: 'absolute',
+    right: 5,
+    bottom: 5,
+    transform: [{ scale: 0.64 }],
+  },
+  favoriteButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(0,0,0,0.52)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  favoriteButtonCompact: {
+    width: 22,
+    height: 22,
+  },
+  favoriteButtonActive: {
+    borderColor: 'rgba(184,255,106,0.72)',
+    backgroundColor: 'rgba(184,255,106,0.16)',
+  },
+  favoriteButtonText: {
+    color: 'rgba(255,255,255,0.58)',
+    fontSize: 17,
+    lineHeight: 18,
+    fontWeight: '900',
+    marginTop: -1,
+  },
+  favoriteButtonTextCompact: {
+    fontSize: 13,
+    lineHeight: 14,
+  },
+  favoriteButtonTextActive: {
+    color: GREEN,
+  },
+  emptyFavoriteCard: {
+    minHeight: 62,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: SURFACE,
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: spacing.md,
+  },
+  emptyFavoriteTitle: {
+    color: TEXT,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '900',
+  },
+  emptyFavoriteText: {
+    color: MUTED,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
   },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  featuredSection: {
-    gap: spacing.sm,
-  },
-  featuredHeader: {
-    gap: 2,
-  },
-  featuredTitle: {
-    color: TEXT,
-    fontSize: 20,
-    fontWeight: '900',
-  },
-  featuredSubtitle: {
-    color: MUTED,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  featuredGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: spacing.md,
-  },
-  featuredCard: {
-    maxWidth: '48%',
-    marginBottom: 0,
+    paddingTop: spacing.xs,
   },
   summaryLabel: {
-    color: TEXT,
+    color: 'rgba(255,255,255,0.76)',
     fontSize: 15,
-    fontWeight: '800',
+    lineHeight: 18,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
   summaryCount: {
     color: MUTED,
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: '800',
   },
-  column: {
-    gap: spacing.md,
-  },
-  card: {
-    flex: 1,
-    maxWidth: '48%',
-    borderRadius: 18,
+  listRow: {
+    minHeight: 58,
     borderWidth: 1,
     borderColor: BORDER,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-    marginBottom: spacing.md,
+    backgroundColor: SURFACE,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    borderBottomWidth: 0,
   },
-  cardSelected: {
-    borderColor: '#BDE8CD',
-    backgroundColor: '#FBFFFC',
-  },
-  mediaWrap: {
-    position: 'relative',
-    aspectRatio: 0.82,
-    backgroundColor: '#F2F4F7',
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cardImageFallback: {
+  listRowCopy: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
+    minWidth: 0,
+    gap: 3,
   },
-  cardImageFallbackText: {
-    color: '#111111',
-    fontSize: 28,
+  listThumbWrap: {
+    position: 'relative',
+  },
+  listFavoriteWrap: {
+    position: 'absolute',
+    top: -5,
+    left: -5,
+  },
+  listRowTitle: {
+    color: TEXT,
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: '900',
   },
-  starBadge: {
-    position: 'absolute',
-    top: 10,
-    left: 10,
-    width: 20,
-    height: 20,
+  listRowMeta: {
+    color: MUTED,
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
+  thumbImage: {
+    backgroundColor: '#080808',
+  },
+  thumbFallback: {
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  starIcon: {
-    color: '#FFFFFF',
-    textShadowColor: 'rgba(0,0,0,0.32)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-    fontSize: 18,
+  thumbFallbackText: {
+    color: TEXT,
+    fontSize: 22,
+    lineHeight: 24,
     fontWeight: '900',
   },
-  starIconTracked: {
-    color: GREEN,
-    textShadowColor: 'rgba(255,255,255,0.15)',
-  },
-  cardActionBadge: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+  addButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(184,255,106,0.62)',
+    backgroundColor: 'rgba(0,0,0,0.24)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cardActionBadgeSelected: {
+  addButtonSelected: {
     backgroundColor: GREEN,
     borderColor: GREEN,
   },
-  cardActionBadgeText: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '900',
-    lineHeight: 18,
-  },
-  cardActionBadgeTextSelected: {
-    color: '#FFFFFF',
-  },
-  cardCopy: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 4,
-  },
-  cardTitle: {
-    color: TEXT,
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-  },
-  cardBodyPart: {
-    color: TEXT,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  cardMeta: {
-    color: MUTED,
-    fontSize: 12,
-    fontWeight: '500',
-    lineHeight: 16,
-    minHeight: 32,
-  },
-  cardActionPill: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
-    minHeight: 30,
-    paddingHorizontal: 12,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F4F4F4',
-  },
-  cardActionPillSelected: {
-    backgroundColor: GREEN_SOFT,
-  },
-  cardActionText: {
-    color: '#111111',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  cardActionTextSelected: {
+  addButtonText: {
     color: GREEN,
+    fontSize: 21,
+    lineHeight: 22,
+    fontWeight: '500',
+    marginTop: -2,
+  },
+  addButtonTextSelected: {
+    color: '#06080B',
+    fontSize: 15,
+    lineHeight: 17,
+    fontWeight: '900',
+    marginTop: 0,
+  },
+  cardSelected: {
+    borderColor: 'rgba(184,255,106,0.74)',
+    backgroundColor: 'rgba(184,255,106,0.08)',
   },
   emptyCard: {
-    borderRadius: radii.md,
-    backgroundColor: '#F7F8FA',
+    borderRadius: 16,
+    backgroundColor: SURFACE,
     padding: spacing.lg,
     gap: 4,
     borderWidth: 1,
@@ -839,11 +1029,13 @@ const styles = StyleSheet.create({
   emptyTitle: {
     color: TEXT,
     fontSize: 16,
-    fontWeight: '800',
+    lineHeight: 20,
+    fontWeight: '900',
   },
   emptyText: {
     color: MUTED,
     fontSize: 13,
-    fontWeight: '500',
+    lineHeight: 17,
+    fontWeight: '700',
   },
 });

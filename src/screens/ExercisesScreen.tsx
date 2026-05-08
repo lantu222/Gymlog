@@ -28,6 +28,6 @@ export function ExercisesScreen({ items, trackedIds, onBack, onOpenExercise, onT
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#000000',
   },
 });

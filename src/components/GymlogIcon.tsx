@@ -5,6 +5,7 @@ export type GymlogIconName =
   | 'arms'
   | 'back'
   | 'benchPress'
+  | 'bell'
   | 'cardio'
   | 'check'
   | 'chest'
@@ -12,11 +13,13 @@ export type GymlogIconName =
   | 'deadlift'
   | 'endurance'
   | 'eye'
+  | 'file'
   | 'glutes'
   | 'legs'
   | 'lightning'
   | 'mobility'
   | 'progress'
+  | 'profile'
   | 'recovery'
   | 'restDay'
   | 'shoulders'
@@ -163,6 +166,44 @@ function renderIcon(name: GymlogIconName, color: string) {
             strokeLinejoin="round"
           />
           <Circle cx={12} cy={12} r={3} stroke={color} strokeWidth={2} />
+        </>
+      );
+    case 'file':
+      return (
+        <>
+          <Path
+            d="M7.2 3.8h6.8l3.8 3.8v12.6H7.2V3.8Z"
+            stroke={color}
+            strokeWidth={1.8}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M14 3.9v4h3.8M9.8 12h4.4M9.8 15.4h4.4" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+        </>
+      );
+    case 'bell':
+      return (
+        <>
+          <Path
+            d="M6.8 10.7c0-3.2 2.1-5.4 5.2-5.4s5.2 2.2 5.2 5.4v3.7l1.4 2.2H5.4l1.4-2.2v-3.7Z"
+            stroke={color}
+            strokeWidth={1.9}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path d="M10 19c.5.7 1.2 1.1 2 1.1s1.5-.4 2-1.1" stroke={color} strokeWidth={1.9} strokeLinecap="round" />
+        </>
+      );
+    case 'profile':
+      return (
+        <>
+          <Circle cx={12} cy={8.2} r={3.1} stroke={color} strokeWidth={1.9} />
+          <Path
+            d="M5.8 19.2c.8-3.3 2.9-5 6.2-5s5.4 1.7 6.2 5"
+            stroke={color}
+            strokeWidth={1.9}
+            strokeLinecap="round"
+          />
         </>
       );
     default:

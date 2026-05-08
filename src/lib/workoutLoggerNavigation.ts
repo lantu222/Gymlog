@@ -11,20 +11,6 @@ export function resolveWorkoutLoggerFallbackRoute({
   recommendedProgramId,
   setupCompleted,
 }: WorkoutLoggerFallbackInput): AppRoute {
-  if (
-    setupCompleted &&
-    activeWorkoutTemplateId &&
-    recommendedProgramId &&
-    activeWorkoutTemplateId === recommendedProgramId
-  ) {
-    return {
-      tab: 'home',
-      screen: 'starting_week',
-      recommendedProgramId,
-      source: 'active',
-    };
-  }
-
   if (activeWorkoutTemplateId) {
     return ROOT_ROUTES.home;
   }

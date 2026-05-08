@@ -24,12 +24,6 @@ export type AppRoute =
       sessionId: string;
     }
   | {
-      tab: 'home';
-      screen: 'starting_week';
-      recommendedProgramId: string;
-      source: 'first_run' | 'edit' | 'active';
-    }
-  | {
       tab: 'workout';
       screen: 'list';
     }

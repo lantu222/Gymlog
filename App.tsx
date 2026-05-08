@@ -15,8 +15,8 @@ import {
   FirstRunSetupSelection,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
-import { buildStartingWeekView } from './src/lib/startingWeek';
 import { getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
+import { rankExerciseAlternatives } from './src/lib/exerciseAlternatives';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
@@ -65,7 +65,6 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ProfileSettingsScreen } from './src/screens/ProfileSettingsScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
-import { StartingWeekScreen } from './src/screens/StartingWeekScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
@@ -309,7 +308,7 @@ const WORKOUT_EDITOR_TIP_ID = 'workout_editor_start';
 function getBackRoute(route: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
-    (route.screen === 'ai' || route.screen === 'ai_setup' || route.screen === 'history' || route.screen === 'session' || route.screen === 'starting_week')
+    (route.screen === 'ai' || route.screen === 'ai_setup' || route.screen === 'history' || route.screen === 'session')
   ) {
     return ROOT_ROUTES.home;
   }
@@ -521,7 +520,6 @@ function GymlogApp() {
     [exerciseLibrary],
   );
   const summaryExitRouteRef = useRef<AppRoute | null>(null);
-  const allowStartingWeekRouteRef = useRef(false);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
 
@@ -815,23 +813,6 @@ function GymlogApp() {
     preferences.onboardingCompleted,
     preferences.setupCurrentWeightKg,
   ]);
-
-  useEffect(() => {
-    if (onboardingActive) {
-      return;
-    }
-
-    if (route.tab !== 'home' || route.screen !== 'starting_week') {
-      return;
-    }
-
-    if (allowStartingWeekRouteRef.current) {
-      allowStartingWeekRouteRef.current = false;
-      return;
-    }
-
-    replaceRoute(ROOT_ROUTES.home);
-  }, [onboardingActive, route]);
 
   useEffect(() => {
     if (onboardingActive) {
@@ -1285,16 +1266,6 @@ function GymlogApp() {
     });
   }
 
-  function openStartingWeek(recommendedProgramId: string, source: 'first_run' | 'edit') {
-    allowStartingWeekRouteRef.current = true;
-    replaceRoute({
-      tab: 'home',
-      screen: 'starting_week',
-      recommendedProgramId,
-      source,
-    });
-  }
-
   function openRecommendedProgramDetail(recommendedProgramId: string) {
     replaceRoute({
       tab: 'workout',
@@ -1304,12 +1275,12 @@ function GymlogApp() {
     });
   }
 
-  async function handleOnboardingCompleteToStartingWeek(
+  async function handleOnboardingCompleteToTraining(
     selection: FirstRunSetupSelection,
     recommendedProgramId: string,
   ) {
     await persistSetupSelection(selection, recommendedProgramId);
-    openStartingWeek(recommendedProgramId, 'first_run');
+    resetToRoute(ROOT_ROUTES.home);
   }
 
   async function handleOnboardingCompleteToProgramDetail(
@@ -1397,10 +1368,10 @@ function GymlogApp() {
     showToast(nextMode === 'app_managed' ? 'Gymlog manages the week' : 'You manage the days');
   }
 
-  async function handleSetupCompleteToStartingWeek(selection: FirstRunSetupSelection, recommendedProgramId: string) {
+  async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
     await persistSetupSelection(selection, recommendedProgramId);
     showToast('Setup updated');
-    openStartingWeek(recommendedProgramId, 'edit');
+    resetToRoute(ROOT_ROUTES.home);
   }
 
   async function handleSetupOpenProgramDetail(selection: FirstRunSetupSelection, recommendedProgramId: string) {
@@ -1631,7 +1602,7 @@ function GymlogApp() {
           name: exercise.exerciseName,
           setsLabel: `${exercise.sets} sets`,
         })),
-        hiddenExerciseCount: Math.max(nextSession.exercises.length - 3, 0),
+        hiddenExerciseCount: Math.max(nextSession.exercises.length - 5, 0),
       },
     };
   }, [recommendedReadyContent, recommendedReadyTemplate]);
@@ -1966,7 +1937,7 @@ function GymlogApp() {
           onDismissTip={handleDismissTip}
           onBackToEntry={handleBackToEntry}
           onSkip={handleOnboardingSkip}
-          onCompleteToStartingWeek={handleOnboardingCompleteToStartingWeek}
+          onCompleteToTraining={handleOnboardingCompleteToTraining}
           onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
           onCompleteToCustom={handleOnboardingCompleteToCustom}
         />
@@ -1986,7 +1957,7 @@ function GymlogApp() {
         onDismissTip={handleDismissTip}
         onSkip={() => navigateBack(ROOT_ROUTES.profile)}
         onCancel={() => navigateBack(ROOT_ROUTES.profile)}
-        onCompleteToStartingWeek={handleSetupCompleteToStartingWeek}
+        onCompleteToTraining={handleSetupCompleteToTraining}
         onCompleteToProgramDetail={handleSetupOpenProgramDetail}
         onCompleteToCustom={handleSetupBuildOwn}
       />
@@ -2247,28 +2218,6 @@ function GymlogApp() {
         onBack={() => navigateBack(ROOT_ROUTES.progress)}
       />
     );
-  } else if (route.tab === 'home' && route.screen === 'starting_week') {
-    const week = setupSelection ? buildStartingWeekView(setupSelection, route.recommendedProgramId, route.source) : null;
-    content = week ? (
-      <StartingWeekScreen
-        week={week}
-        hasActiveWorkout={workout.activeSession?.templateId === week.programId}
-        hasLiveWorkout={Boolean(workout.activeSession)}
-        onStart={() => (workout.activeSession ? handleResumeWorkout() : handleStartReadyProgram(week.programId))}
-        onAdjust={handleOpenSetupEditor}
-        onOpenProgram={() =>
-          navigate({
-            tab: 'workout',
-            screen: 'program',
-            programType: 'ready',
-            workoutTemplateId: week.programId,
-          })
-        }
-        onAskAiCoach={() => navigate({ tab: 'home', screen: 'ai', prompt: week.helperPrompt })}
-      />
-    ) : (
-      <View />
-    );
   } else if (route.tab === 'home' && route.screen === 'ai') {
     content = (
       <AICoachScreen
@@ -2344,11 +2293,6 @@ function GymlogApp() {
         onOpenJointSwaps={handleOpenJointSwaps}
         onOpenPremium={handleOpenPremium}
         onScheduleModeChange={(mode) => void handleUpdateScheduleMode(mode)}
-        onOpenWeek={
-          (setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)
-            ? () => openStartingWeek((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!, 'edit')
-            : undefined
-        }
         onOpenProgram={
           (setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)
             ? () => openRecommendedProgramDetail((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!)
@@ -2460,28 +2404,44 @@ function GymlogApp() {
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'detail') {
-      const exercise = exerciseBrowserItems.find((item) => item.id === route.exerciseId) ?? null;
-      content = exercise ? (
-        <ExerciseDetailScreen item={exercise} onBack={() => navigateBack(ROOT_ROUTES.workout)} />
-      ) : (
-        <View />
-      );
-      } else if (route.tab === 'workout') {
-        content = (
-          <ExercisesScreen
-            items={exerciseBrowserItems}
-            trackedIds={preferences.trackedExerciseLibraryItemIds}
-            onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
-            onToggleTracked={(item) => {
-              const trackedIds = preferences.trackedExerciseLibraryItemIds;
-              const nextTrackedIds = trackedIds.includes(item.id)
-                ? trackedIds.filter((id) => id !== item.id)
-                : [...trackedIds, item.id];
+    const exercise = exerciseBrowserItems.find((item) => item.id === route.exerciseId) ?? null;
+    const alternatives = exercise ? rankExerciseAlternatives(exercise, exerciseBrowserItems, 8) : [];
+    content = exercise ? (
+      <ExerciseDetailScreen
+        item={exercise}
+        alternatives={alternatives}
+        tracked={preferences.trackedExerciseLibraryItemIds.includes(exercise.id)}
+        onBack={() => navigateBack(ROOT_ROUTES.workout)}
+        onToggleTracked={(item) => {
+          const trackedIds = preferences.trackedExerciseLibraryItemIds;
+          const nextTrackedIds = trackedIds.includes(item.id)
+            ? trackedIds.filter((id) => id !== item.id)
+            : [...trackedIds, item.id];
 
-              void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
-            }}
-          />
-        );
+          void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
+        }}
+        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name })}
+        onOpenAlternative={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
+      />
+    ) : (
+      <View />
+    );
+  } else if (route.tab === 'workout') {
+    content = (
+      <ExercisesScreen
+        items={exerciseBrowserItems}
+        trackedIds={preferences.trackedExerciseLibraryItemIds}
+        onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
+        onToggleTracked={(item) => {
+          const trackedIds = preferences.trackedExerciseLibraryItemIds;
+          const nextTrackedIds = trackedIds.includes(item.id)
+            ? trackedIds.filter((id) => id !== item.id)
+            : [...trackedIds, item.id];
+
+          void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
+        }}
+      />
+    );
   } else {
     content = (
       <HomeScreen
@@ -2497,6 +2457,11 @@ function GymlogApp() {
             handleStartReadyProgram(homeActivePlanCard.programId);
           }
         }}
+        onOpenActivePlan={() => {
+          if (homeActivePlanCard) {
+            handleOpenReadyProgramDetail(homeActivePlanCard.programId);
+          }
+        }}
         onOpenTemplatesHub={() => navigate(WORKOUT_PLAN_ROUTE)}
         onOpenCustomTemplate={handleOpenCustomProgramDetail}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'editor' })}
@@ -2510,7 +2475,10 @@ function GymlogApp() {
 
   const showTabBar =
     !onboardingActive &&
-    !(route.tab === 'workout' && (route.screen === 'log' || route.screen === 'summary' || route.screen === 'celebration'));
+    !(
+      route.tab === 'workout' &&
+      (route.screen === 'detail' || route.screen === 'log' || route.screen === 'summary' || route.screen === 'celebration')
+    );
   const shellTone =
     onboardingActive ||
     route.tab === 'progress' ||

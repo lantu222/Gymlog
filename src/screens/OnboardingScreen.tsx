@@ -89,7 +89,7 @@ interface OnboardingScreenProps {
   tailoringPreferences?: TailoringPreferencesInput | null;
   onBackToEntry?: () => void | Promise<void>;
   onSkip: () => void | Promise<void>;
-  onCompleteToStartingWeek: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
+  onCompleteToTraining: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
   onCompleteToProgramDetail: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
   onCompleteToCustom: (
     selection: FirstRunSetupSelection,
@@ -1891,7 +1891,7 @@ export function OnboardingScreen({
   tailoringPreferences = null,
   onBackToEntry,
   onSkip,
-  onCompleteToStartingWeek,
+  onCompleteToTraining,
   onCompleteToProgramDetail,
   onCompleteToCustom,
   onCancel,
@@ -3680,7 +3680,7 @@ export function OnboardingScreen({
 
             <View style={styles.recommendationActions}>
               <Pressable
-                onPress={() => runAction(() => onCompleteToStartingWeek(selection, activeRecommendedProgramId))}
+                onPress={() => runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId))}
                 style={styles.primaryButton}
               >
                 <Text style={styles.primaryButtonText}>{recommendationPrimaryLabel}</Text>
@@ -3932,7 +3932,7 @@ export function OnboardingScreen({
                 }
 
                 if (stage === 'review') {
-                  void runAction(() => onCompleteToStartingWeek(selection, activeRecommendedProgramId));
+                  void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
                   return;
                 }
 
