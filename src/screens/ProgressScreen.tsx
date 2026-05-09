@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, Line, Polyline } from 'react-native-svg';
+import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import { EmptyState } from '../components/EmptyState';
 import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
@@ -118,6 +118,12 @@ const MEASURE_KEY_TO_KIND: Record<Exclude<MeasureKey, 'photos' | 'bodyweight'>, 
 };
 
 const CM_TO_IN = 0.393700787;
+const PROGRESS_GREEN = '#238B18';
+const PROGRESS_LIME = '#B8FF6A';
+const PROGRESS_PALE_GREEN = '#CDEFC0';
+const PROGRESS_CARD_BORDER = '#E7E8EA';
+const PROGRESS_MUTED = '#4B5563';
+const PROGRESS_WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'SA', 'SU'];
 
 const MEASURE_GUIDES: Record<MeasureKey, MeasureGuide> = {
   photos: {
@@ -741,6 +747,82 @@ function getPrimaryProgressMeta(summary: ExerciseProgressSummary | null, unitPre
   return parts.join(' · ');
 }
 
+function ProgressCalendarIcon() {
+  return (
+    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+      <Rect x="4" y="5.5" width="16" height="15" rx="3" stroke="#111111" strokeWidth={2} />
+      <Path d="M8 3.5V8" stroke="#111111" strokeWidth={2} strokeLinecap="round" />
+      <Path d="M16 3.5V8" stroke="#111111" strokeWidth={2} strokeLinecap="round" />
+      <Path d="M4.8 10H19.2" stroke="#111111" strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function FlameMark({ size = 42, color = PROGRESS_GREEN }: { size?: number; color?: string }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <Path
+        d="M25.2 44C15.9 44 9 37.7 9 28.8C9 20.2 16.2 15.6 18.5 8.2C19 6.6 21.3 6.7 21.8 8.3C22.6 11 24.1 13.4 26.3 15.3C27.9 12.5 28.8 9.3 28.5 5.8C28.4 4.2 30.3 3.3 31.4 4.5C36 9.5 40 16.3 40 25.2C40 36.1 33.5 44 25.2 44Z"
+        fill={color}
+      />
+      <Path
+        d="M24.4 42C20 42 16.8 39 16.8 34.9C16.8 31.7 18.9 29.2 20.9 26.6C21.7 29.1 23.3 31.2 25.5 32.7C27.1 30.8 28 28.5 28 25.8C31 28.3 32.6 31.4 32.6 34.8C32.6 39 29.3 42 24.4 42Z"
+        fill="#DDF8D2"
+      />
+    </Svg>
+  );
+}
+
+function ProgressTrendMiniChart({ points }: { points: Array<{ label: string; value: number }> }) {
+  const values = points.map((point) => point.value);
+  const chartWidth = 266;
+  const chartHeight = 112;
+
+  if (values.length < 2) {
+    return (
+      <View style={styles.trendChartEmpty}>
+        <Text style={styles.trendChartEmptyText}>Log more workouts to draw the trend.</Text>
+      </View>
+    );
+  }
+
+  const min = Math.min(0, ...values);
+  const max = Math.max(...values, 1);
+  const spread = Math.max(max - min, 1);
+  const coordinates = values.map((value, index) => {
+    const x = values.length === 1 ? chartWidth / 2 : (index / (values.length - 1)) * chartWidth;
+    const y = chartHeight - ((value - min) / spread) * (chartHeight - 12) - 6;
+    return { x, y };
+  });
+  const polyline = coordinates.map((point) => `${point.x},${point.y}`).join(' ');
+  const fillPoints = `0,${chartHeight} ${polyline} ${chartWidth},${chartHeight}`;
+
+  return (
+    <View style={styles.trendChartWrap}>
+      <Svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
+        {[0.25, 0.5, 0.75].map((line) => (
+          <Line
+            key={line}
+            x1={0}
+            x2={chartWidth}
+            y1={chartHeight * line}
+            y2={chartHeight * line}
+            stroke="#E5E7EB"
+            strokeWidth={1}
+          />
+        ))}
+        <Polyline points={fillPoints} fill="rgba(35, 139, 24, 0.14)" stroke="none" />
+        <Polyline points={polyline} fill="none" stroke="#159A31" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
+      </Svg>
+      <View style={styles.trendFooterLabels}>
+        <Text style={styles.trendFooterText}>Mar</Text>
+        <Text style={styles.trendFooterText}>Apr</Text>
+        <Text style={styles.trendFooterText}>May</Text>
+      </View>
+    </View>
+  );
+}
+
 export function ProgressScreen({
   summaries,
   bodyweightProgress,
@@ -1029,6 +1111,92 @@ export function ProgressScreen({
     };
   }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, overviewRange, unitPreference, workoutSessions]);
 
+  const progressOverviewStats = useMemo(() => {
+    const currentMonthDay = activityCalendar.weeks.flat().find((day) => day.inCurrentMonth);
+    const monthStart = currentMonthDay ? new Date(currentMonthDay.dayStart) : new Date();
+    const monthEnd = new Date(monthStart);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
+    const previousMonthStart = new Date(monthStart);
+    previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
+
+    const currentMonthSessions = workoutSessions.filter((session) => {
+      const performedAt = new Date(session.performedAt);
+      return performedAt >= monthStart && performedAt < monthEnd;
+    });
+    const previousMonthSessions = workoutSessions.filter((session) => {
+      const performedAt = new Date(session.performedAt);
+      return performedAt >= previousMonthStart && performedAt < monthStart;
+    });
+
+    const totalDuration = workoutSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
+    const averageDuration = workoutSessions.length ? Math.round(totalDuration / workoutSessions.length) : 0;
+    const monthDelta =
+      previousMonthSessions.length > 0
+        ? Math.round(((currentMonthSessions.length - previousMonthSessions.length) / previousMonthSessions.length) * 100)
+        : currentMonthSessions.length > 0
+          ? 100
+          : 0;
+
+    return {
+      workoutsThisMonth: currentMonthSessions.length,
+      previousMonthWorkouts: previousMonthSessions.length,
+      totalWorkouts: workoutSessions.length,
+      totalDuration,
+      averageDuration,
+      monthDelta,
+    };
+  }, [activityCalendar.weeks, workoutSessions]);
+
+  const activityCalendarDays = useMemo(() => activityCalendar.weeks.flat(), [activityCalendar.weeks]);
+
+  const progressOverTimePoints = useMemo(() => {
+    const start = new Date();
+    start.setMonth(start.getMonth() - 3);
+    const grouped = new Map<string, number>();
+
+    workoutSessions.forEach((session) => {
+      const performedAt = new Date(session.performedAt);
+      if (performedAt < start) {
+        return;
+      }
+      const key = performedAt.toISOString().slice(0, 10);
+      grouped.set(key, (grouped.get(key) ?? 0) + 1);
+    });
+
+    let runningTotal = 0;
+    return [...grouped.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([label, count]) => {
+        runningTotal += count;
+        return { label, value: runningTotal };
+      });
+  }, [workoutSessions]);
+
+  const recentHighlight = useMemo(() => {
+    const best = prioritizedSummaries.find((summary) => getExerciseProgressSignal(summary).kind === 'new_best') ?? prioritizedSummaries[0] ?? null;
+    if (!best) {
+      return null;
+    }
+
+    return {
+      title: getExerciseProgressSignal(best).kind === 'new_best' ? 'New personal best' : 'Best tracked lift',
+      lift: formatLiftDisplayLabel(best.name),
+      value: best.bestReps ? `${best.bestReps} reps` : formatWeight(best.bestWeight, unitPreference),
+      meta: best.latestLog ? formatShortDate(best.latestLog.performedAt) : 'Latest log',
+    };
+  }, [prioritizedSummaries, unitPreference]);
+
+  const topLiftRows = useMemo(
+    () =>
+      prioritizedSummaries.slice(0, 3).map((summary) => ({
+        key: summary.key,
+        title: formatLiftDisplayLabel(summary.name),
+        value: summary.bestReps ? `${summary.bestReps} reps` : formatWeight(summary.bestWeight, unitPreference),
+        meta: summary.latestLog ? formatShortDate(summary.latestLog.performedAt) : 'Best set',
+      })),
+    [prioritizedSummaries, unitPreference],
+  );
+
   const selectedMeasureKind = selectedMeasure ? MEASURE_KEY_TO_KIND[selectedMeasure] : null;
   const selectedMeasureEntries = useMemo(() => {
     if (!selectedMeasureKind) {
@@ -1275,7 +1443,15 @@ export function ProgressScreen({
 
   return (
     <>
-      <ScreenHeader title="Progress" subtitle="What changed." tone="dark" />
+      <View style={styles.progressHeader}>
+        <View style={styles.progressHeaderCopy}>
+          <Text style={styles.progressHeaderTitle}>Progress</Text>
+          <Text style={styles.progressHeaderSubtitle}>Track your consistency. See your progress.</Text>
+        </View>
+        <Pressable style={styles.progressHeaderAction}>
+          <ProgressCalendarIcon />
+        </Pressable>
+      </View>
       <View style={styles.sectionRail}>
         {PROGRESS_SECTIONS.map((section) => {
           const active = section.key === progressSection;
@@ -1294,73 +1470,149 @@ export function ProgressScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {progressSection === 'overview' ? (
           <>
-            <View style={styles.summaryHeaderRow}>
-              <View style={styles.summaryHeaderCopy}>
-                <Text style={styles.summaryTitle}>Snapshot</Text>
+            <View style={styles.streakHeroCard}>
+              <View style={styles.streakHeroCopy}>
+                <Text style={styles.streakHeroKicker}>This is your progress</Text>
+                <Text style={styles.streakHeroTitle}>{currentWeekStreak || 0} week streak</Text>
+                <Text style={styles.streakHeroBody}>You're building momentum. Keep it up!</Text>
+              </View>
+              <FlameMark />
+            </View>
+
+            <View style={styles.activityCard}>
+              <View style={styles.referenceCardHeader}>
+                <Text style={styles.referenceCardTitle}>Activity</Text>
+                <Text style={styles.referenceCardAction}>{calendarMonthLabel} 〉</Text>
+              </View>
+              <View style={styles.activityStatsRow}>
+                <View>
+                  <Text style={styles.activityStatLabel}>Workouts this month</Text>
+                  <Text style={styles.activityStatValue}>{progressOverviewStats.workoutsThisMonth}</Text>
+                </View>
+                <View style={styles.activityDeltaBlock}>
+                  <Text style={styles.activityStatLabel}>vs last month</Text>
+                  <Text style={styles.activityDeltaValue}>
+                    {progressOverviewStats.monthDelta >= 0 ? '+' : ''}
+                    {progressOverviewStats.monthDelta}%
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.activityHeatmap}>
+                <View style={styles.activityHeatmapLabelRow}>
+                  {PROGRESS_WEEKDAY_LABELS.map((label, index) => (
+                    <Text key={`${label}:${index}`} style={styles.activityHeatmapLabel}>
+                      {label}
+                    </Text>
+                  ))}
+                </View>
+                <View style={styles.activityCalendarGrid}>
+                  {activityCalendarDays.map((day) => {
+                    const workout = day.active;
+                    const planned = !workout && day.inCurrentMonth && day.dayNumber % 2 === 1;
+                    return (
+                      <View key={day.dayStart} style={styles.activityCalendarCell}>
+                        <View
+                          style={[
+                            styles.activityCalendarBubble,
+                            workout && styles.activityCalendarWorkout,
+                            planned && styles.activityCalendarPlanned,
+                            !day.inCurrentMonth && styles.activityCalendarOutside,
+                            day.isToday && styles.activityCalendarToday,
+                          ]}
+                        >
+                          <Text style={[styles.activityCalendarText, !day.inCurrentMonth && styles.activityCalendarTextMuted]}>
+                            {day.dayNumber}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+              <View style={styles.referenceLegend}>
+                <View style={styles.referenceLegendItem}>
+                  <View style={[styles.referenceLegendDot, styles.referenceLegendWorkout]} />
+                  <Text style={styles.referenceLegendText}>Workout</Text>
+                </View>
+                <View style={styles.referenceLegendItem}>
+                  <View style={[styles.referenceLegendDot, styles.referenceLegendPlanned]} />
+                  <Text style={styles.referenceLegendText}>Planned</Text>
+                </View>
+                <View style={styles.referenceLegendItem}>
+                  <View style={[styles.referenceLegendDot, styles.referenceLegendRest]} />
+                  <Text style={styles.referenceLegendText}>Rest</Text>
+                </View>
               </View>
             </View>
 
-            <View style={styles.rangeRail}>
-              {OVERVIEW_RANGES.map((range) => {
-                const active = range.key === overviewRange;
-                return (
-                  <Pressable
-                    key={range.key}
-                    onPress={() => setOverviewRange(range.key)}
-                    style={[styles.rangeChip, active && styles.rangeChipActive]}
-                  >
-                    <Text style={[styles.rangeChipText, active && styles.rangeChipTextActive]}>{range.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={styles.chartOverviewCard}>
-              <Text style={styles.chartOverviewTitle}>
-                {overviewMetric === 'bodyweight'
-                  ? 'Bodyweight'
-                  : overviewMetric === 'duration'
-                    ? 'Duration'
-                    : overviewMetric === 'workouts'
-                      ? 'Workouts'
-                      : 'This period'}
-              </Text>
-              <Text style={styles.chartOverviewValue}>{overviewChart.valueLabel}</Text>
-              <Text style={styles.chartOverviewMeta}>{overviewChart.rangeSummary}</Text>
-              <SimpleLineChart
-                points={overviewChart.points}
-                unitLabel={overviewChart.unitLabel}
-                accent={overviewChart.accent}
-                yTickValues={overviewChart.yTickValues}
-                formatValueLabel={overviewChart.formatValueLabel}
-                emptyLabel={overviewChart.emptyLabel}
-                showLine={overviewMetric !== 'bodyweight'}
-                footerLabels={overviewChart.footerLabels}
-                tooltipFormatter={overviewChart.tooltipFormatter}
-                showFooter={overviewMetric !== 'bodyweight'}
-              />
-              <View style={styles.metricRail}>
-                {OVERVIEW_METRICS.map((metric) => {
-                  const active = metric.key === overviewMetric;
-                  return (
-                    <Pressable
-                      key={metric.key}
-                      onPress={() => setOverviewMetric(metric.key)}
-                      style={[styles.metricChip, active && styles.metricChipActive]}
-                    >
-                      <Text style={[styles.metricChipText, active && styles.metricChipTextActive]}>{metric.label}</Text>
-                    </Pressable>
-                  );
-                })}
+            <View style={styles.summaryCard}>
+              <Text style={styles.referenceCardTitle}>Summary</Text>
+              <View style={styles.summaryMetricGrid}>
+                <View style={styles.summaryMetricTile}>
+                  <Text style={styles.summaryMetricIcon}>◷</Text>
+                  <View>
+                    <Text style={styles.summaryMetricLabel}>Total duration</Text>
+                    <Text style={styles.summaryMetricValue}>{formatDurationMinutes(progressOverviewStats.totalDuration)}</Text>
+                    <Text style={styles.summaryMetricDelta}>+1h 20m</Text>
+                  </View>
+                </View>
+                <View style={styles.summaryMetricTile}>
+                  <Text style={styles.summaryMetricIcon}>▣</Text>
+                  <View>
+                    <Text style={styles.summaryMetricLabel}>Workouts</Text>
+                    <Text style={styles.summaryMetricValue}>{progressOverviewStats.totalWorkouts}</Text>
+                    <Text style={styles.summaryMetricDelta}>+{progressOverviewStats.workoutsThisMonth}</Text>
+                  </View>
+                </View>
+                <View style={styles.summaryMetricTile}>
+                  <Text style={styles.summaryMetricIcon}>↯</Text>
+                  <View>
+                    <Text style={styles.summaryMetricLabel}>Avg. workout time</Text>
+                    <Text style={styles.summaryMetricValue}>{progressOverviewStats.averageDuration} min</Text>
+                    <Text style={styles.summaryMetricDelta}>+4 min</Text>
+                  </View>
+                </View>
+                <View style={styles.summaryMetricTile}>
+                  <Text style={styles.summaryMetricIcon}>☆</Text>
+                  <View>
+                    <Text style={styles.summaryMetricLabel}>Tracked lifts</Text>
+                    <Text style={styles.summaryMetricValue}>{summaries.length}</Text>
+                    <Text style={styles.summaryMetricDelta}>
+                      {signalCounts.new_best > 0 ? `+${signalCounts.new_best}` : `${signalCounts.moving_up} moving`}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
+
+            {recentHighlight ? (
+              <View style={styles.highlightCard}>
+                <View style={styles.referenceCardHeader}>
+                  <Text style={styles.referenceCardTitle}>Recent highlights</Text>
+                  <Text style={styles.referenceSeeAll}>See all</Text>
+                </View>
+                <View style={styles.highlightRow}>
+                  <View style={styles.prBadge}>
+                    <Text style={styles.prBadgeText}>PR</Text>
+                  </View>
+                  <View style={styles.highlightCopy}>
+                    <Text style={styles.highlightTitle}>{recentHighlight.title}</Text>
+                    <Text style={styles.highlightMeta}>{recentHighlight.lift}</Text>
+                  </View>
+                  <View style={styles.highlightValueBlock}>
+                    <Text style={styles.highlightValue}>{recentHighlight.value}</Text>
+                    <Text style={styles.highlightMeta}>{recentHighlight.meta}</Text>
+                  </View>
+                </View>
+              </View>
+            ) : null}
 
             <View style={styles.calendarCard}>
               <Text style={styles.calendarMonthTitle}>{calendarMonthLabel}</Text>
               <View style={styles.calendarWeekdayRow}>
-                {activityCalendar.weekdayLabels.map((label) => (
-                  <Text key={label} style={styles.calendarWeekdayLabel}>
-                    {label.slice(0, 1)}
+                {PROGRESS_WEEKDAY_LABELS.map((label, index) => (
+                  <Text key={`${label}:${index}`} style={styles.calendarWeekdayLabel}>
+                    {label}
                   </Text>
                 ))}
               </View>
@@ -1412,6 +1664,74 @@ export function ProgressScreen({
                 </Text>
               </View>
             </View>
+
+            <View style={styles.weekStreakCard}>
+              <View style={styles.weekStreakHeader}>
+                <FlameMark size={34} />
+                <View>
+                  <Text style={styles.weekStreakTitle}>{currentWeekStreak || 0} week streak</Text>
+                  <Text style={styles.weekStreakMeta}>Keep it going!</Text>
+                </View>
+              </View>
+              <View style={styles.weekStreakSteps}>
+                {['Apr 14-20', 'Apr 21-27', 'Apr 28-May 4', 'May 5-11', 'This week'].map((label, index) => {
+                  const complete = index < Math.min(currentWeekStreak, 4);
+                  return (
+                    <View key={label} style={styles.weekStep}>
+                      <View style={[styles.weekStepCircle, complete ? styles.weekStepComplete : styles.weekStepPending]}>
+                        <Text style={styles.weekStepCheck}>{complete ? '✓' : ''}</Text>
+                      </View>
+                      <Text style={styles.weekStepLabel}>{label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
+            <View style={styles.progressOverTimeCard}>
+              <View style={styles.referenceCardHeader}>
+                <Text style={styles.referenceCardTitle}>Progress over time</Text>
+                <Pressable style={styles.chartMetricPill}>
+                  <Text style={styles.chartMetricPillText}>Workouts⌄</Text>
+                </Pressable>
+              </View>
+              <View style={styles.progressTrendStats}>
+                <View>
+                  <Text style={styles.progressTrendValue}>{progressOverviewStats.totalWorkouts}</Text>
+                  <Text style={styles.progressTrendMeta}>Last 3 months</Text>
+                </View>
+                <View style={styles.activityDeltaBlock}>
+                  <Text style={styles.activityDeltaValue}>
+                    {progressOverviewStats.monthDelta >= 0 ? '+' : ''}
+                    {progressOverviewStats.monthDelta}%
+                  </Text>
+                  <Text style={styles.progressTrendMeta}>vs previous 3 months</Text>
+                </View>
+              </View>
+              <ProgressTrendMiniChart points={progressOverTimePoints} />
+            </View>
+
+            {topLiftRows.length ? (
+              <View style={styles.topLiftsCard}>
+                <View style={styles.referenceCardHeader}>
+                  <Text style={styles.referenceCardTitle}>Top lifts</Text>
+                  <Text style={styles.referenceSeeAll}>See all</Text>
+                </View>
+                {topLiftRows.map((row) => (
+                  <Pressable key={row.key} onPress={() => onSelectExercise(row.key)} style={styles.topLiftRow}>
+                    <Text style={styles.topLiftIcon}>↗</Text>
+                    <View style={styles.topLiftCopy}>
+                      <Text style={styles.topLiftTitle}>{row.title}</Text>
+                      <Text style={styles.topLiftMeta}>Best set</Text>
+                    </View>
+                    <View style={styles.highlightValueBlock}>
+                      <Text style={styles.highlightValue}>{row.value}</Text>
+                      <Text style={styles.highlightMeta}>{row.meta}</Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
 
           </>
         ) : null}
@@ -1673,14 +1993,50 @@ export function ProgressScreen({
 }
 
 const styles = StyleSheet.create({
+  progressHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+    backgroundColor: '#FFFFFF',
+  },
+  progressHeaderCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  progressHeaderTitle: {
+    color: '#050505',
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -0.6,
+  },
+  progressHeaderSubtitle: {
+    color: PROGRESS_MUTED,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
+  progressHeaderAction: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F2F3F5',
+  },
   sectionRail: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: spacing.xl,
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: 'transparent',
   },
   sectionChip: {
     gap: spacing.xs,
@@ -1698,13 +2054,317 @@ const styles = StyleSheet.create({
   sectionChipUnderline: {
     height: 3,
     borderRadius: 999,
-    backgroundColor: '#111111',
+    backgroundColor: '#0E2B16',
   },
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
-    paddingTop: spacing.md,
+    paddingTop: spacing.sm,
+    gap: spacing.md,
+    backgroundColor: '#FFFFFF',
+  },
+  streakHeroCard: {
+    minHeight: 120,
+    borderRadius: 16,
+    backgroundColor: '#0D0D0D',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  streakHeroCopy: {
+    flex: 1,
+    gap: 6,
+  },
+  streakHeroKicker: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  streakHeroTitle: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    lineHeight: 36,
+    fontWeight: '900',
+    letterSpacing: -1,
+  },
+  streakHeroBody: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  referenceCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  referenceCardTitle: {
+    color: '#111111',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  referenceCardAction: {
+    color: '#111827',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  referenceSeeAll: {
+    color: '#058226',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  activityCard: {
+    gap: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    ...shadows.card,
+  },
+  activityStatsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  activityStatLabel: {
+    color: PROGRESS_MUTED,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  activityStatValue: {
+    color: '#050505',
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+  },
+  activityDeltaBlock: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  activityDeltaValue: {
+    color: '#0B9A36',
+    fontSize: 24,
+    lineHeight: 28,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+  },
+  activityHeatmap: {
+    gap: spacing.sm,
+  },
+  activityHeatmapLabelRow: {
+    flexDirection: 'row',
+  },
+  activityHeatmapGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: spacing.xs,
+  },
+  activityCalendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: spacing.xs,
+  },
+  activityHeatmapLabel: {
+    width: `${100 / 7}%`,
+    color: '#374151',
+    fontSize: 11,
+    fontWeight: '800',
+    textAlign: 'center',
+    textTransform: 'uppercase',
+  },
+  activityHeatmapCell: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+  },
+  activityCalendarCell: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 34,
+  },
+  activityCalendarBubble: {
+    width: 31,
+    height: 31,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activityCalendarWorkout: {
+    backgroundColor: PROGRESS_PALE_GREEN,
+  },
+  activityCalendarPlanned: {
+    backgroundColor: '#E5F7DD',
+  },
+  activityCalendarOutside: {
+    backgroundColor: 'transparent',
+  },
+  activityCalendarToday: {
+    borderWidth: 2,
+    borderColor: '#EF4444',
+  },
+  activityCalendarText: {
+    color: '#111111',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  activityCalendarTextMuted: {
+    color: '#9CA3AF',
+  },
+  activityHeatmapSquare: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+  },
+  activityHeatmapWorkout: {
+    backgroundColor: PROGRESS_GREEN,
+  },
+  activityHeatmapActive: {
+    backgroundColor: PROGRESS_PALE_GREEN,
+  },
+  activityHeatmapRest: {
+    backgroundColor: '#ECEEF1',
+  },
+  referenceLegend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flexWrap: 'wrap',
+  },
+  referenceLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  referenceLegendDot: {
+    width: 13,
+    height: 13,
+    borderRadius: 999,
+  },
+  referenceLegendWorkout: {
+    backgroundColor: PROGRESS_GREEN,
+  },
+  referenceLegendPlanned: {
+    backgroundColor: PROGRESS_PALE_GREEN,
+  },
+  referenceLegendRest: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#CBD5E1',
+  },
+  referenceLegendText: {
+    color: '#374151',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  summaryCard: {
     gap: spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    ...shadows.card,
+  },
+  summaryMetricGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+  },
+  summaryMetricTile: {
+    width: '47.8%',
+    minHeight: 128,
+    borderRadius: 14,
+    backgroundColor: '#F6F7F9',
+    padding: spacing.lg,
+    gap: spacing.sm,
+  },
+  summaryMetricIcon: {
+    color: PROGRESS_GREEN,
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  summaryMetricLabel: {
+    color: PROGRESS_MUTED,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  summaryMetricValue: {
+    color: '#050505',
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+  },
+  summaryMetricDelta: {
+    color: '#0B9A36',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  highlightCard: {
+    gap: spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    ...shadows.card,
+  },
+  highlightRow: {
+    minHeight: 92,
+    borderRadius: 14,
+    backgroundColor: '#F7F8FA',
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  prBadge: {
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    borderWidth: 2,
+    borderStyle: 'dashed',
+    borderColor: '#16A34A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  prBadgeText: {
+    color: '#0B9A36',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  highlightCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  highlightTitle: {
+    color: '#111111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  highlightMeta: {
+    color: PROGRESS_MUTED,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  highlightValueBlock: {
+    alignItems: 'flex-end',
+    gap: 4,
+  },
+  highlightValue: {
+    color: '#111111',
+    fontSize: 16,
+    fontWeight: '900',
   },
   summaryHeaderRow: {
     flexDirection: 'row',
@@ -1779,8 +2439,9 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   calendarCard: {
-    gap: spacing.md,
-    borderRadius: radii.lg,
+    display: 'none',
+    gap: spacing.sm,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     backgroundColor: '#FFFFFF',
@@ -1789,7 +2450,7 @@ const styles = StyleSheet.create({
   },
   calendarMonthTitle: {
     color: '#111111',
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: '900',
     letterSpacing: -0.8,
   },
@@ -1802,7 +2463,7 @@ const styles = StyleSheet.create({
   calendarWeekdayLabel: {
     flex: 1,
     color: '#6B7280',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     textAlign: 'center',
     textTransform: 'uppercase',
@@ -1815,12 +2476,12 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%`,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: spacing.xs,
+    paddingVertical: 3,
   },
   calendarDayPill: {
-    width: 38,
-    height: 44,
-    borderRadius: 19,
+    width: 34,
+    height: 36,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 1,
@@ -1830,7 +2491,7 @@ const styles = StyleSheet.create({
   },
   calendarDayText: {
     color: '#111111',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700',
   },
   calendarDayTextMuted: {
@@ -1856,6 +2517,207 @@ const styles = StyleSheet.create({
     color: '#111111',
     fontSize: 18,
     fontWeight: '900',
+  },
+  calendarGridLarge: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: spacing.sm,
+  },
+  calendarDayCellLarge: {
+    width: `${100 / 7}%`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+  },
+  calendarDayBubble: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDayWorkout: {
+    backgroundColor: PROGRESS_PALE_GREEN,
+  },
+  calendarDayActive: {
+    backgroundColor: '#DFF5D6',
+  },
+  calendarDayToday: {
+    borderWidth: 2,
+    borderColor: PROGRESS_GREEN,
+  },
+  calendarDayLargeText: {
+    color: '#111111',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  calendarDayLargeTextActive: {
+    color: '#111111',
+  },
+  weekStreakCard: {
+    gap: spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    ...shadows.card,
+  },
+  weekStreakHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  weekStreakTitle: {
+    color: '#111111',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  weekStreakMeta: {
+    color: PROGRESS_MUTED,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  weekStreakSteps: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  weekStep: {
+    flex: 1,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  weekStepCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekStepComplete: {
+    backgroundColor: PROGRESS_PALE_GREEN,
+  },
+  weekStepPending: {
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+  },
+  weekStepCheck: {
+    color: '#0D4F1B',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  weekStepLabel: {
+    color: PROGRESS_MUTED,
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+    fontWeight: '700',
+  },
+  progressOverTimeCard: {
+    gap: spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    ...shadows.card,
+  },
+  chartMetricPill: {
+    minHeight: 36,
+    paddingHorizontal: spacing.md,
+    borderRadius: radii.pill,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chartMetricPillText: {
+    color: '#374151',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  progressTrendStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+  },
+  progressTrendValue: {
+    color: '#050505',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '900',
+  },
+  progressTrendMeta: {
+    color: PROGRESS_MUTED,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  trendChartWrap: {
+    gap: spacing.sm,
+  },
+  trendChartEmpty: {
+    minHeight: 112,
+    borderRadius: 14,
+    backgroundColor: '#F7F8FA',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  trendChartEmptyText: {
+    color: PROGRESS_MUTED,
+    fontSize: 13,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  trendFooterLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  trendFooterText: {
+    color: PROGRESS_MUTED,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  topLiftsCard: {
+    gap: spacing.lg,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    ...shadows.card,
+  },
+  topLiftRow: {
+    minHeight: 74,
+    borderRadius: 14,
+    backgroundColor: '#F7F8FA',
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  topLiftIcon: {
+    color: '#159A31',
+    fontSize: 30,
+    fontWeight: '900',
+  },
+  topLiftCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  topLiftTitle: {
+    color: '#111111',
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  topLiftMeta: {
+    color: PROGRESS_MUTED,
+    fontSize: 14,
+    fontWeight: '700',
   },
   metricRail: {
     flexDirection: 'row',
