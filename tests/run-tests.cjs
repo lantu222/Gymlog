@@ -16,6 +16,8 @@ const suites = [
   ...require('./lib/dashboard.test.cjs'),
   ...require('./lib/progressionActivePlan.test.cjs'),
   ...require('./lib/progressionSignal.test.cjs'),
+  ...require('./lib/progressionAnalyzer.test.cjs'),
+  ...require('./lib/fatigueModel.test.cjs'),
   ...require('./lib/homeProgramSelection.test.cjs'),
   ...require('./lib/homePrimaryAction.test.cjs'),
   ...require('./lib/aiTrainingContext.test.cjs'),
