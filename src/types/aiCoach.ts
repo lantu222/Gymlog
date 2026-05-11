@@ -1,4 +1,5 @@
 import { UnitPreference } from './models';
+import { FatigueSignal } from '../lib/fatigueModel';
 
 export interface AICoachLiftHighlight {
   key: string;
@@ -39,6 +40,20 @@ export interface AICoachRhythmDay {
   isToday: boolean;
 }
 
+export interface AICoachPlateauSummary {
+  exerciseKey: string;
+  name: string;
+  stagnantSessions: number;
+  topWeightKg: number | null;
+}
+
+export interface AICoachFatigueSummary {
+  acwr: number;
+  recoveryScore: number;
+  signal: FatigueSignal;
+  sessionCount7d: number;
+}
+
 export interface AICoachPlannerSetupSummary {
   goal: string | null;
   daysPerWeek: number | null;
@@ -64,6 +79,8 @@ export interface AICoachTrainingContext {
   recommendedProgramId: string | null;
   recommendedProgramTitle: string | null;
   customProgramTitle: string | null;
+  plateaus: AICoachPlateauSummary[];
+  fatigue: AICoachFatigueSummary;
   plannerSetup?: AICoachPlannerSetupSummary | null;
 }
 

@@ -24,7 +24,7 @@ module.exports = [
     name: 'fatigue: no sessions produces undertrained signal and safe defaults',
     run() {
       const db = createEmptyDatabase();
-      const result = buildFatigueModel(db, NOW);
+      const result = buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW);
       assert.equal(result.signal, 'undertrained');
       assert.equal(result.acuteLoadKg, 0);
       assert.equal(result.chronicLoadKg, 0);
@@ -60,7 +60,7 @@ module.exports = [
         makeSession('w1c', daysAgo(26), 500),
         makeSession('w1d', daysAgo(27), 500),
       ];
-      const result = buildFatigueModel(db, NOW);
+      const result = buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW);
       assert.equal(result.signal, 'optimal');
       assert.equal(result.acwr, 1);
       assert.ok(result.recoveryScore >= 75, `expected score >= 75, got ${result.recoveryScore}`);
@@ -81,7 +81,7 @@ module.exports = [
         makeSession('base2', daysAgo(17), 500),
         makeSession('base3', daysAgo(24), 500),
       ];
-      const result = buildFatigueModel(db, NOW);
+      const result = buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW);
       assert.ok(result.acwr > 1.5, `expected acwr > 1.5, got ${result.acwr}`);
       assert.equal(result.signal, 'high');
       assert.ok(result.recoveryScore < 50);
@@ -96,7 +96,7 @@ module.exports = [
         makeSession('old2', daysAgo(15), 1000),
         makeSession('old3', daysAgo(22), 1000),
       ];
-      const result = buildFatigueModel(db, NOW);
+      const result = buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW);
       assert.equal(result.acuteLoadKg, 0);
       assert.equal(result.sessionCount7d, 0);
       assert.equal(result.sessionCount28d, 3);
@@ -111,7 +111,7 @@ module.exports = [
         makeSession('recent', daysAgo(3), 2000),
         makeSession('old', daysAgo(35), 99999), // must not count
       ];
-      const result = buildFatigueModel(db, NOW);
+      const result = buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW);
       assert.equal(result.sessionCount28d, 1);
       assert.equal(result.acuteLoadKg, 2000);
     },
@@ -155,7 +155,7 @@ module.exports = [
         ...makeLogs('sess3'),
         ...makeLogs('sess4'),
       ];
-      const result = buildFatigueModel(db, NOW);
+      const result = buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW);
       // each session: 4 logs * 4 sets * 100 kg * 5 reps = 8000 kg
       assert.ok(result.acuteLoadKg > 0, 'should compute volume from logs');
       assert.equal(result.sessionCount7d, 1);
@@ -178,7 +178,7 @@ module.exports = [
           makeSession('old2', daysAgo(17), (4000 - acuteLoad) / 3),
           makeSession('old3', daysAgo(24), (4000 - acuteLoad) / 3),
         ];
-        return buildFatigueModel(db, NOW).recoveryScore;
+        return buildFatigueModel({ workoutSessions: db.workoutSessions, exerciseLogs: db.exerciseLogs }, NOW).recoveryScore;
       }
 
       const scoreOptimal = scoreAt(1.05);

@@ -691,6 +691,8 @@ export function buildFirstRunAiCoachContext(
     recommendedProgramId: null,
     recommendedProgramTitle: null,
     customProgramTitle: null,
+    plateaus: [],
+    fatigue: { acwr: 0, recoveryScore: 50, signal: 'undertrained', sessionCount7d: 0 },
     plannerSetup: null,
   };
 }

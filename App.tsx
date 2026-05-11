@@ -1507,6 +1507,7 @@ function GymlogApp() {
         activeWorkoutSummary: homeActiveWorkoutSummary,
         homeSummary,
         workoutSessions,
+        exerciseLogs: database.exerciseLogs,
         trackedProgress,
         readyProgramCount: workout.templates.length,
         recommendedProgramId: preferences.recommendedProgramId,
@@ -1559,6 +1560,7 @@ function GymlogApp() {
       preferences.recommendedProgramId,
       workout.templates.length,
       workoutSessions,
+      database.exerciseLogs,
     ],
   );
   const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [preferences]);

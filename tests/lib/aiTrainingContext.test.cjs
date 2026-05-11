@@ -37,6 +37,7 @@ module.exports = [
             },
           },
         },
+        exerciseLogs: [],
         workoutSessions: [
           {
             id: 's1',
@@ -72,7 +73,9 @@ module.exports = [
       assert.deepEqual(Object.keys(context).sort(), [
         'activeSession',
         'customProgramTitle',
+        'fatigue',
         'latestTopSets',
+        'plateaus',
         'readyProgramCount',
         'recentCompletedSessions',
         'recommendedProgramId',

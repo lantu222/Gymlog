@@ -1,5 +1,10 @@
-import { AppDatabase, ExerciseLog, WorkoutSession } from '../types/models';
+import { ExerciseLog, WorkoutSession } from '../types/models';
 import { getSessionTotalVolume } from './progression';
+
+export interface FatigueModelInput {
+  workoutSessions: WorkoutSession[];
+  exerciseLogs: ExerciseLog[];
+}
 
 export type FatigueSignal = 'undertrained' | 'optimal' | 'elevated' | 'high';
 
@@ -46,20 +51,20 @@ function resolveSignal(acwr: number): FatigueSignal {
   return 'high';
 }
 
-export function buildFatigueModel(database: AppDatabase, referenceDate?: Date): FatigueResult {
+export function buildFatigueModel(input: FatigueModelInput, referenceDate?: Date): FatigueResult {
   const now = referenceDate ?? new Date();
   const cutoff7d = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const cutoff28d = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000);
 
   const logsBySession: Record<string, ExerciseLog[]> = {};
-  for (const log of database.exerciseLogs) {
+  for (const log of input.exerciseLogs) {
     if (!logsBySession[log.sessionId]) {
       logsBySession[log.sessionId] = [];
     }
     logsBySession[log.sessionId].push(log);
   }
 
-  const sessions28d = database.workoutSessions.filter((s) => {
+  const sessions28d = input.workoutSessions.filter((s) => {
     const d = new Date(s.performedAt);
     return d >= cutoff28d && d <= now;
   });

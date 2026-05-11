@@ -1,7 +1,9 @@
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
-import { UnitPreference, WorkoutSession } from '../types/models';
+import { ExerciseLog, UnitPreference, WorkoutSession } from '../types/models';
 import { AICoachTrainingContext } from '../types/aiCoach';
+import { detectPlateaus } from './progressionAnalyzer';
+import { buildFatigueModel } from './fatigueModel';
 
 export interface BuildAiTrainingContextInput {
   unitPreference: UnitPreference;
@@ -12,6 +14,7 @@ export interface BuildAiTrainingContextInput {
   } | null;
   homeSummary: Pick<HomeSummary, 'streak'>;
   workoutSessions: WorkoutSession[];
+  exerciseLogs: ExerciseLog[];
   trackedProgress: ExerciseProgressSummary[];
   readyProgramCount: number;
   recommendedProgramId: string | null;
@@ -35,6 +38,7 @@ export function buildAiTrainingContext({
   activeWorkoutSummary,
   homeSummary,
   workoutSessions,
+  exerciseLogs,
   trackedProgress,
   readyProgramCount,
   recommendedProgramId,
@@ -70,6 +74,23 @@ export function buildAiTrainingContext({
     performedAt: summary.latestLog?.performedAt ?? null,
   }));
 
+  const plateaus = detectPlateaus(trackedProgress)
+    .filter((p) => p.isPlateau)
+    .map((p) => ({
+      exerciseKey: p.exerciseKey,
+      name: p.name,
+      stagnantSessions: p.stagnantSessions,
+      topWeightKg: p.topWeightHistory[0] ?? null,
+    }));
+
+  const fatigueResult = buildFatigueModel({ workoutSessions, exerciseLogs });
+  const fatigue = {
+    acwr: fatigueResult.acwr,
+    recoveryScore: fatigueResult.recoveryScore,
+    signal: fatigueResult.signal,
+    sessionCount7d: fatigueResult.sessionCount7d,
+  };
+
   return {
     unitPreference,
     activeSession: activeWorkoutSummary
@@ -95,6 +116,8 @@ export function buildAiTrainingContext({
     recommendedProgramId,
     recommendedProgramTitle,
     customProgramTitle,
+    plateaus,
+    fatigue,
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
   };
 }
