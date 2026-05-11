@@ -1,4 +1,5 @@
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
+import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../src/types/aiCoach';
 
 type ApiRequest = {
@@ -191,7 +192,9 @@ async function requestOpenAI(input: AICoachAdviceRequest) {
                   'Respond in JSON only and follow the provided schema exactly.',
                   'Give practical coaching, not marketing copy.',
                   'Do not give medical diagnoses. If uncertainty exists, mention it in assumptions.',
-                  'Base the answer on the provided training context and the user prompt.',
+                  'Base the answer on the structured training context and the user question.',
+                  'If "Plateaus detected" lists exercises, name them and suggest a concrete fix.',
+                  'If ACWR is elevated or high, address recovery before adding volume.',
                   'Do not reveal hidden reasoning.',
                 ].join(' '),
               },
@@ -202,7 +205,7 @@ async function requestOpenAI(input: AICoachAdviceRequest) {
             content: [
               {
                 type: 'input_text',
-                text: JSON.stringify(input),
+                text: `## Question\n${input.prompt}\n\n${buildAiCoachSystemContext(input.context)}`,
               },
             ],
           },
