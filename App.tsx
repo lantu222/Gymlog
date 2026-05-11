@@ -2218,6 +2218,8 @@ function GymlogApp() {
           showToast('Measurement saved');
         }}
         onBack={() => navigateBack(ROOT_ROUTES.progress)}
+        plateaus={aiCoachTrainingContext.plateaus}
+        fatigue={aiCoachTrainingContext.fatigue}
       />
     );
   } else if (route.tab === 'home' && route.screen === 'ai') {

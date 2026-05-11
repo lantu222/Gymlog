@@ -30,6 +30,7 @@ import {
 } from '../lib/progression';
 import { colors, layout, radii, shadows, spacing } from '../theme';
 import { MeasurementEntry, MeasurementKind, MeasurementUnit, UnitPreference, WorkoutSession } from '../types/models';
+import { AICoachFatigueSummary, AICoachPlateauSummary } from '../types/aiCoach';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface ProgressScreenProps {
@@ -59,6 +60,8 @@ interface ProgressScreenProps {
   onAddBodyweight: (weightKg: number) => void;
   onAddMeasurement: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<void>;
   onBack: () => void;
+  plateaus?: AICoachPlateauSummary[];
+  fatigue?: AICoachFatigueSummary;
 }
 
 type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
@@ -823,6 +826,51 @@ function ProgressTrendMiniChart({ points }: { points: Array<{ label: string; val
   );
 }
 
+function PlateauAlertCard({ plateaus, unitPreference }: { plateaus: AICoachPlateauSummary[]; unitPreference: UnitPreference }) {
+  const primary = plateaus[0];
+  const extra = plateaus.length - 1;
+  const weightLabel = primary.topWeightKg !== null ? `${primary.topWeightKg} ${unitPreference}` : null;
+
+  return (
+    <View style={styles.alertCard}>
+      <View style={[styles.alertAccentBar, styles.alertAccentOrange]} />
+      <View style={styles.alertRow}>
+        <Text style={styles.alertKickerOrange}>Plateau detected</Text>
+        <View style={styles.alertBadgeOrange}>
+          <Text style={styles.alertBadgeTextOrange}>{primary.stagnantSessions} sessions</Text>
+        </View>
+      </View>
+      <Text style={styles.alertTitle}>{primary.name}</Text>
+      <Text style={styles.alertBody}>
+        {weightLabel ? `Stuck at ${weightLabel} with no improvement.` : 'No weight increase detected.'}
+        {extra > 0 ? ` Plus ${extra} more lift${extra === 1 ? '' : 's'}.` : ''}
+        {' '}Try a deload week or variation.
+      </Text>
+    </View>
+  );
+}
+
+function FatigueAlertCard({ fatigue }: { fatigue: AICoachFatigueSummary }) {
+  const isHigh = fatigue.signal === 'high';
+  return (
+    <View style={styles.alertCard}>
+      <View style={[styles.alertAccentBar, isHigh ? styles.alertAccentRose : styles.alertAccentOrange]} />
+      <View style={styles.alertRow}>
+        <Text style={isHigh ? styles.alertKickerRose : styles.alertKickerOrange}>
+          {isHigh ? 'High load' : 'Elevated load'}
+        </Text>
+        <View style={isHigh ? styles.alertBadgeRose : styles.alertBadgeOrange}>
+          <Text style={isHigh ? styles.alertBadgeTextRose : styles.alertBadgeTextOrange}>ACWR {fatigue.acwr}</Text>
+        </View>
+      </View>
+      <Text style={styles.alertTitle}>Recovery score {fatigue.recoveryScore}/100</Text>
+      <Text style={styles.alertBody}>
+        Load is above the safe zone (0.8–1.3). Consider a lighter week before it compounds.
+      </Text>
+    </View>
+  );
+}
+
 export function ProgressScreen({
   summaries,
   bodyweightProgress,
@@ -838,6 +886,8 @@ export function ProgressScreen({
   onAddBodyweight,
   onAddMeasurement,
   onBack,
+  plateaus,
+  fatigue,
 }: ProgressScreenProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -1470,6 +1520,8 @@ export function ProgressScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {progressSection === 'overview' ? (
           <>
+            {plateaus && plateaus.length > 0 ? <PlateauAlertCard plateaus={plateaus} unitPreference={unitPreference} /> : null}
+            {fatigue && (fatigue.signal === 'elevated' || fatigue.signal === 'high') ? <FatigueAlertCard fatigue={fatigue} /> : null}
             <View style={styles.streakHeroCard}>
               <View style={styles.streakHeroCopy}>
                 <Text style={styles.streakHeroKicker}>This is your progress</Text>
@@ -3636,5 +3688,85 @@ const styles = StyleSheet.create({
   chartCard: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
+  },
+  alertCard: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E7E8EA',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: 6,
+    overflow: 'hidden',
+    ...shadows.card,
+  },
+  alertAccentBar: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 3,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  alertAccentOrange: {
+    backgroundColor: '#EA580C',
+  },
+  alertAccentRose: {
+    backgroundColor: '#E11D48',
+  },
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
+  alertKickerOrange: {
+    color: '#EA580C',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  alertKickerRose: {
+    color: '#E11D48',
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  alertBadgeOrange: {
+    backgroundColor: '#FFF7ED',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  alertBadgeRose: {
+    backgroundColor: '#FFF1F2',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  alertBadgeTextOrange: {
+    color: '#EA580C',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  alertBadgeTextRose: {
+    color: '#E11D48',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  alertTitle: {
+    color: '#111111',
+    fontSize: 16,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  alertBody: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
   },
 });
