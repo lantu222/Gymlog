@@ -173,6 +173,137 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
     },
   },
 
+  tpl_4_day_ppl_plus_v1: {
+    summary: 'A four-day PPL+1 split that adds a dedicated upper session to the classic push/pull/legs pattern for more weekly volume without training six days.',
+    audience: 'Best for intermediate lifters who have outgrown three-day PPL but are not ready for a full six-day commitment.',
+    equipmentProfile: 'Full gym required. The template assumes barbell, dumbbell, cable, pulldown, and machine access throughout.',
+    whyItWorks: 'By splitting the fourth day into an upper catch-up rather than a fourth lower day, the template keeps legs from being over-trained while giving chest, back, and arms a meaningful second exposure.',
+    sessionFocusById: {
+      ppl_plus_push: 'Chest, shoulder, and triceps pressing day with cable fly finisher.',
+      ppl_plus_pull: 'Lat, upper-back, rear-delt, and arm volume in one pull session.',
+      ppl_plus_legs: 'Quad-led lower day with hinge, hamstring, calf, and core work.',
+      ppl_plus_upper: 'Second upper exposure with incline press, rows, shoulder, and arm accessories.',
+    },
+  },
+
+  tpl_5_day_ppl_v1: {
+    summary: 'A five-day PPL block that runs push and pull twice each week and fits a single leg session in the middle so lower-body recovery stays clean.',
+    audience: 'Best for intermediate-to-advanced lifters who train five days per week and want a high-volume push/pull structure.',
+    equipmentProfile: 'Full gym required across all five days. Cable and machine access is especially important for the second push and pull sessions.',
+    whyItWorks: 'Running push and pull patterns twice gives upper body double the exposure without stacking a second heavy leg day that would compromise recovery.',
+    sessionFocusById: {
+      ppl5_push_a: 'Primary push day with flat bench, overhead press, and triceps work.',
+      ppl5_pull_a: 'Primary pull day with deadlift, barbell row, and lat/arm volume.',
+      ppl5_legs: 'Full lower-body session with squat, hinge, unilateral, and calf work.',
+      ppl5_push_b: 'Second push day focused on incline, cable fly, lateral delt, and triceps accessories.',
+      ppl5_pull_b: 'Second pull day with more lat and arm specialization using cables and dumbbells.',
+    },
+  },
+
+  tpl_5_day_upper_lower_full_v1: {
+    summary: 'A five-day plan that runs upper and lower twice each week and caps the week with a full-body session for extra practice and volume.',
+    audience: 'Best for intermediate lifters who want to add a fifth day without doubling a single muscle group too aggressively.',
+    equipmentProfile: 'Full gym required. The full-body day is deliberately lighter so it works in a gym with standard barbell and machine access.',
+    whyItWorks: 'The full-body day acts as a skill and volume buffer — it keeps each pattern in the week three times without loading any of them to the point of impairing recovery.',
+    sessionFocusById: {
+      ulf5_upper_a: 'Strength-biased upper day with bench, row, and overhead pressing.',
+      ulf5_lower_a: 'Squat-led lower day with hinge, unilateral, and core support.',
+      ulf5_full: 'Moderate full-body session for practice and volume without heavy loading.',
+      ulf5_upper_b: 'Volume-biased upper day with machine pressing, cables, and arm work.',
+      ulf5_lower_b: 'Hinge-led lower day with hip thrust, unilateral, and calf finishers.',
+    },
+  },
+
+  tpl_6_day_ppl_v1: {
+    summary: 'The classic six-day PPL double, running push, pull, and legs twice per week for maximum weekly volume and frequency.',
+    audience: 'Best for advanced lifters who recover well from high weekly volume and want the most specialization time available in a training week.',
+    equipmentProfile: 'Full gym required on all six days. Machine variety is especially helpful on the B sessions where volume peaks.',
+    whyItWorks: 'Running the full PPL cycle twice gives every major muscle group two distinct stimuli per week while still keeping individual session length manageable.',
+    sessionFocusById: {
+      ppl6_push_a: 'Heavy push day anchored by flat bench and overhead press.',
+      ppl6_pull_a: 'Heavy pull day anchored by barbell row and weighted pull-ups.',
+      ppl6_legs_a: 'Squat-led leg day with Romanian deadlift and single-leg accessories.',
+      ppl6_push_b: 'Volume push day with incline, cable fly, lateral delt, and triceps isolation.',
+      ppl6_pull_b: 'Volume pull day with cable rows, pulldowns, face pulls, and arm specialization.',
+      ppl6_legs_b: 'Hinge-led second leg day with hip thrust, leg curl, calf, and core volume.',
+    },
+  },
+
+  tpl_6_day_arnold_v1: {
+    summary: 'Six days of chest/back, shoulders/arms, and legs — the structure made famous by Arnold Schwarzenegger, updated with modern double-progression rails.',
+    audience: 'Best for advanced lifters who enjoy pairing antagonist muscles and want a high-frequency bodybuilding split with strong structural logic.',
+    equipmentProfile: 'Full gym required on all six days, especially pressing machines, cables, and a complete lower-body setup.',
+    whyItWorks: 'Pairing chest with back and shoulders with arms allows one muscle to recover while its opposite is working, which keeps overall session density high without local fatigue killing effort.',
+    sessionFocusById: {
+      arnold_chest_back_a: 'Primary chest/back day with bench, barbell row, and cable fly/pulldown support.',
+      arnold_shoulders_arms_a: 'Shoulder, biceps, and triceps day with pressing, curls, and extension volume.',
+      arnold_legs_a: 'Squat-led leg day with hinge, accessories, and core work.',
+      arnold_chest_back_b: 'Second chest/back day with incline press, machine row, and rear-delt accessories.',
+      arnold_shoulders_arms_b: 'Second shoulder and arm day with lateral raises, cable curls, and overhead triceps work.',
+      arnold_legs_b: 'Hinge-led second leg day with hip thrust, leg curl, and calf finishers.',
+    },
+  },
+
+  tpl_focus_chest_v1: {
+    summary: 'A dedicated chest session with multi-angle pressing and fly work to maximise pec volume in a single visit.',
+    audience: 'Best used as an add-on day, a specialization block, or a standalone chest session inside a custom weekly plan.',
+    equipmentProfile: 'Requires a flat and incline bench, dumbbells, and ideally a cable or pec-deck machine.',
+    whyItWorks: 'The session hits the chest from three angles — flat, incline, and fly — so both the clavicular and sternal heads receive direct work in one efficient block.',
+    sessionFocusById: {
+      focus_chest: 'Flat bench, incline press, dumbbell fly, and cable fly for full pec coverage.',
+    },
+  },
+
+  tpl_focus_back_v1: {
+    summary: 'A full back session covering lats, upper back, and rear delts with pull, row, and shrug patterns.',
+    audience: 'Best as a standalone back day, a supplementary pull session, or part of a custom higher-frequency week.',
+    equipmentProfile: 'Requires a pull-up or pulldown station, a barbell or cable row setup, and access to face pull or rear-delt machine.',
+    whyItWorks: 'Combining vertical and horizontal pulling patterns with a rear-delt finisher ensures all three primary back regions — lats, mid-back, and posterior delt — are trained in one session.',
+    sessionFocusById: {
+      focus_back: 'Pull-ups, barbell row, cable row, face pull, and shrug for complete back coverage.',
+    },
+  },
+
+  tpl_focus_shoulders_v1: {
+    summary: 'A shoulder-focused session built around pressing and lateral/rear delt isolation to add weekly delt volume without overloading push days.',
+    audience: 'Best for lifters who want more delt development on top of their existing program or as a targeted shoulder day in a custom split.',
+    equipmentProfile: 'Requires dumbbells, a barbell or machine press option, and cable or machine access for rear-delt work.',
+    whyItWorks: 'Separating pressing from isolation lets the lateral and posterior delts receive direct work rather than relying on carry-over from chest days.',
+    sessionFocusById: {
+      focus_shoulders: 'Overhead press, lateral raises, face pulls, and rear-delt fly for complete delt coverage.',
+    },
+  },
+
+  tpl_focus_arms_v1: {
+    summary: 'A standalone arm session with biceps curls and triceps extensions across multiple angles for direct arm development.',
+    audience: 'Best for lifters who want extra arm volume beyond what push and pull days provide, or anyone running a dedicated arm day.',
+    equipmentProfile: 'Requires dumbbells, a barbell or EZ-bar, and cable access for curls and pushdowns.',
+    whyItWorks: 'Direct biceps and triceps work in the same session keeps the session short while ensuring both muscle groups get enough stimulus to grow beyond indirect carry-over alone.',
+    sessionFocusById: {
+      focus_arms: 'Barbell curl, dumbbell curl, triceps pushdown, and skull crusher for full arm volume.',
+    },
+  },
+
+  tpl_focus_legs_v1: {
+    summary: 'A complete leg session with quad, hamstring, glute, and calf work to build lower-body volume in a single dedicated visit.',
+    audience: 'Best as a standalone leg day, an add-on session, or the lower-body anchor in a custom split.',
+    equipmentProfile: 'Requires a squat rack, leg press, leg curl machine, and calf raise station.',
+    whyItWorks: 'The session runs squat, hinge, and unilateral patterns before finishing with isolation, which mirrors the best-practice fatigue order for lower-body compound work.',
+    sessionFocusById: {
+      focus_legs: 'Back squat, Romanian deadlift, leg press, leg curl, and calf raises for full lower-body coverage.',
+    },
+  },
+
+  tpl_focus_glutes_v1: {
+    summary: 'A glute-focused session built around hip thrust, cable kickback, and Romanian deadlift patterns for targeted posterior chain development.',
+    audience: 'Best for lifters who want more glute volume than standard leg days provide, or anyone running a glute specialization phase.',
+    equipmentProfile: 'Requires a hip thrust bench or stable surface, a cable machine, and Romanian deadlift access.',
+    whyItWorks: 'The session prioritises hip extension patterns that load the glutes at long length, which research consistently shows produces greater hypertrophy than compound carry-over alone.',
+    sessionFocusById: {
+      focus_glutes: 'Hip thrust, Romanian deadlift, cable kickback, and sumo squat for complete glute work.',
+    },
+  },
+
 };
 
 export function getReadyProgramContent(templateId: string): ReadyProgramContent | null {

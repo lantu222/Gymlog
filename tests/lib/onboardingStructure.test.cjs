@@ -437,16 +437,19 @@ module.exports = [
       assert.match(appSource, /if \(!minimumSplashElapsed\) \{\s*return;\s*\}/);
       assert.doesNotMatch(appSource, /firstAppOpen/);
 
-      assert.match(welcomeSource, /Build your plan\.\\nTrack your progress\./);
-      assert.match(welcomeSource, /Rakenna ohjelma\.\\nSeuraa kehitysta\./);
-      assert.match(welcomeSource, /useWindowDimensions/);
-      assert.match(welcomeSource, /styles\.topOrb/);
+      assert.match(welcomeSource, /Sinä menet salille/);
+      assert.match(welcomeSource, /Me hoidamme loput/);
+      assert.match(welcomeSource, /Aloita ilmaiseksi/);
+      assert.match(welcomeSource, /Minulla on jo tili/);
+      assert.match(welcomeSource, /brandNameWhite/);
+      assert.match(welcomeSource, /brandNamePurple/);
+      assert.match(welcomeSource, /#7F77DD/);
+      assert.match(welcomeSource, /#0f0f0f/);
       assert.doesNotMatch(welcomeSource, /styles\.orbArcWrap/);
       assert.doesNotMatch(welcomeSource, /strokeDasharray/);
       assert.doesNotMatch(welcomeSource, /react-native-svg/);
       assert.doesNotMatch(welcomeSource, /styles\.orbMark/);
-      assert.doesNotMatch(welcomeSource, />G<\/Text>/);
-      assert.match(welcomeSource, /<Text style=\{styles\.brandTitle\}>GYMLOG<\/Text>/);
+      assert.doesNotMatch(welcomeSource, /GYMLOG/);
       assert.doesNotMatch(welcomeSource, /Takes less than a minute to set up\./);
     },
   },
