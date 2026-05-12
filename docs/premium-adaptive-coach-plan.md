@@ -1,4 +1,13 @@
-# Gymlog Premium Plan
+# Archived
+
+This document is outdated and should not be used for implementation decisions.
+See `premium-philosophy.md` for current premium direction, and `mvp-launch-scope.md` §4 for the full excluded features list.
+
+**Reason archived:** This document proposes in-session AI coaching ("set-to-set guidance during logging," "session adjustment when energy, time, or recovery is off") which is architecturally prohibited by ADR-001. It also proposes features explicitly excluded from MVP. The premium philosophy remains active in `premium-philosophy.md`.
+
+---
+
+# Gymlog Premium Plan (ARCHIVED)
 
 This document defines the first premium feature direction for Gymlog.
 

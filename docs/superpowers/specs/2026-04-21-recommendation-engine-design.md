@@ -1,4 +1,11 @@
-# Gymlog Recommendation Engine Design
+# Archived
+
+This document is outdated and should not be used for implementation decisions.
+See `docs/source-of-truth/onboarding-contract.md`, `docs/source-of-truth/recommendation-engine.md`, and `docs/adr/ADR-005-deterministic-recommendation.md` for current authoritative guidance.
+
+---
+
+# Gymlog Recommendation Engine Design (ARCHIVED)
 
 ## Context
 

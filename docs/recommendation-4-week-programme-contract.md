@@ -1,3 +1,13 @@
+# Source of Truth
+
+This document is authoritative.
+If any other document conflicts with this file, this file takes precedence.
+
+**Type:** Implementation spec — programme payload structure, progression variables, goal profiles, copy contract
+**Scope:** Owns programme construction after a template is selected. Template selection is owned by `onboarding-impact-matrix.md`. These are complementary, not overlapping.
+
+---
+
 # Recommendation 4-Week Programme Contract
 
 This document defines the deterministic 4-week programme layer that turns an onboarding recommendation into a concrete starter plan. It is the source of truth for programme metadata, `yourplan` plan-ready content, and the next implementation pass in `recommendationProgramme.ts`.

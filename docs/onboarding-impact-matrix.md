@@ -1,3 +1,13 @@
+# Source of Truth
+
+This document is authoritative.
+If any other document conflicts with this file, this file takes precedence.
+
+**Type:** Implementation spec — onboarding input/output contract and recommendation scoring
+**Scope:** Owns onboarding input schema, scoring dimensions, and plan assembly order. Programme payload fields are owned by `recommendation-4-week-programme-contract.md`. These are complementary, not overlapping.
+
+---
+
 # Onboarding Impact Matrix
 
 This document defines how the current Step 1-5 onboarding answers become a ready training plan. It is the source of truth for recommendation tests, plan-ready review copy, and future programme-generation work.

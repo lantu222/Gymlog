@@ -1,4 +1,11 @@
-# Recommendation Engine Implementation Plan
+# Archived
+
+This document is outdated and should not be used for implementation decisions.
+The recommendation engine described here is now implemented. See `docs/source-of-truth/onboarding-contract.md` and `docs/source-of-truth/recommendation-engine.md` for current authoritative specs.
+
+---
+
+# Recommendation Engine Implementation Plan (ARCHIVED)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

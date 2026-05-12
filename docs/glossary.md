@@ -1,6 +1,13 @@
-# GAINER — Shared Terminology Glossary
+# Source of Truth
 
-**Type:** Reference — canonical definitions for all GAINER documentation and implementation
+This document is authoritative.
+If any other document conflicts with this file, this file takes precedence.
+
+---
+
+# Gainer — Shared Terminology Glossary
+
+**Type:** Reference — canonical definitions for all Gainer documentation and implementation
 **Status:** Living document. Add terms when introduced; deprecate variants when standardised.
 **Related:** All docs/ files. When a term is used in any document, it must match the canonical form defined here.
 

@@ -1,3 +1,12 @@
+# Source of Truth
+
+This document is authoritative.
+If any other document conflicts with this file, this file takes precedence.
+
+**Type:** Implementation spec — workout content rules, content fit checks, and acceptance matrix by goal and equipment
+
+---
+
 # Workout Content Matrix
 
 This document defines what the recommended workouts should contain after onboarding. It focuses on the actual session content: exercises, set/rep intent, equipment fit, and progression.

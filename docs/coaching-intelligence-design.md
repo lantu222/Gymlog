@@ -103,13 +103,13 @@ Higher priority signals suppress lower priority ones. A safety signal does not s
 
 ### The coaching cadence model
 
-**In-session:** Intervention threshold extremely high. Only exercise substitution suggestions allowed. Never unsolicited messages or encouragement.
+**In-session:** No AI coaching output of any kind. This is architecturally prohibited — see ADR-001. Exercise substitution is a user-initiated data lookup (finding an alternative exercise), not AI coaching output, and is allowed only when explicitly requested by the user via a substitution button. Unsolicited messages, suggestions, and encouragement are prohibited during active sessions.
 
 **Post-session:** One observation if meaningful. Never multiple insights.
 
-**Weekly (opt-in):** Data-forward summary, one forward-looking insight, training plan adjustment suggestion if warranted.
+**Weekly (opt-in):** 🔜 Future — not part of MVP. See `mvp-launch-scope.md` §4 for the excluded features list. When built: data-forward summary, one forward-looking insight, training plan adjustment suggestion if warranted.
 
-**Milestone (event-triggered):** PR acknowledgment, streak milestone, goal achievement, plateau break. Must feel earned, not automatic.
+**Milestone (event-triggered):** 🔜 Future — streak milestones are excluded from MVP (see `mvp-launch-scope.md` §4.7). PR acknowledgment is available via the post-session insight system (`post-session-single-insight-mvp.md`). Goal achievement and plateau break markers are post-launch.
 
 ---
 

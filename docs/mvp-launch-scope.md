@@ -1,4 +1,15 @@
-# GAINER — MVP Launch Scope
+# Source of Truth
+
+This document is authoritative.
+If any other document conflicts with this file, this file takes precedence.
+
+# Launch Critical
+
+Failure in this system blocks launch.
+
+---
+
+# Gainer — MVP Launch Scope
 
 **Type:** Implementation spec — authoritative launch boundary definition
 **Status:** Definitive scope reference. Supersedes item-level feature discussions where they conflict.

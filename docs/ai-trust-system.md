@@ -1,4 +1,11 @@
-# GAINER — AI Trust System
+# Source of Truth
+
+This document is authoritative.
+If any other document conflicts with this file, this file takes precedence.
+
+---
+
+# Gainer — AI Trust System
 
 **Type:** Design reference — behavioral intent with future implementation targets
 **Status:** Design reference. Not an implementation spec.

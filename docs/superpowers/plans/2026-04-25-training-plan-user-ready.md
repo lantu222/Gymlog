@@ -1,4 +1,11 @@
-# Training Plan User-Ready Implementation Plan
+# Archived
+
+This document is outdated and should not be used for implementation decisions.
+The training plan user-ready work described here is complete or superseded by current specs in `docs/source-of-truth/`.
+
+---
+
+# Training Plan User-Ready Implementation Plan (ARCHIVED)
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
