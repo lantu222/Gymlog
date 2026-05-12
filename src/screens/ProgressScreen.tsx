@@ -1520,8 +1520,6 @@ export function ProgressScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {progressSection === 'overview' ? (
           <>
-            {plateaus && plateaus.length > 0 ? <PlateauAlertCard plateaus={plateaus} unitPreference={unitPreference} /> : null}
-            {fatigue && (fatigue.signal === 'elevated' || fatigue.signal === 'high') ? <FatigueAlertCard fatigue={fatigue} /> : null}
             <View style={styles.streakHeroCard}>
               <View style={styles.streakHeroCopy}>
                 <Text style={styles.streakHeroKicker}>This is your progress</Text>
