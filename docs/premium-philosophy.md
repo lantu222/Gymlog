@@ -19,9 +19,9 @@ A subscription that delivers genuine recurring value earns renewal. A subscripti
 
 Premium is justified when the value delivered has three properties simultaneously:
 
-**Real cost to produce.** AI coaching intelligence requires computation, infrastructure, and ongoing development. A subscription that funds something real is an honest exchange. A subscription that funds cosmetic differentiation is not.
+**Real cost to produce.** GAINER AI intelligence requires computation, infrastructure, and ongoing development. A subscription that funds something real is an honest exchange. A subscription that funds cosmetic differentiation is not.
 
-**Recurring value that compounds.** A one-time payment makes sense for a one-time thing. A subscription makes sense when the value delivered grows over time. GAINER's AI coaching layer fits this model exactly: the longer a user subscribes, the more data the system has, and the better the coaching becomes. Month twelve of a subscription should be more valuable than month one. If it is not, the subscription is not justified.
+**Recurring value that compounds.** A one-time payment makes sense for a one-time thing. A subscription makes sense when the value delivered grows over time. GAINER's GAINER AI layer fits this model exactly: the longer a user subscribes, the more data the system has, and the better the coaching becomes. Month twelve of a subscription should be more valuable than month one. If it is not, the subscription is not justified.
 
 **Genuine differentiation from the free experience.** Premium must deliver something the free tier does not, and that something must be substantive enough that users notice its absence. The differentiation should be observable and felt, not described in a feature comparison table.
 
@@ -44,7 +44,7 @@ The free tier is not a demo. It is a complete, functional version of the core pr
 
 **Access to their own training history.** Users' data belongs to them. It was produced by their effort. Paywalling access to a user's own history is not a monetization strategy — it is coercion. It will be recognized as such and will destroy trust permanently.
 
-**Core program access.** A reasonable selection of programs must be freely available. The AI coach is what makes programs adaptive and intelligent over time. The programs themselves are the structure the coach operates on. Locking all programs behind a paywall leaves free users with nothing to track.
+**Core program access.** A reasonable selection of programs must be freely available. The GAINER AI is what makes programs adaptive and intelligent over time. The programs themselves are the structure the coach operates on. Locking all programs behind a paywall leaves free users with nothing to track.
 
 **Basic progress visualization.** Seeing whether you are getting stronger over time is not a premium feature. It is the fundamental feedback loop that makes training meaningful. If this requires a subscription, GAINER has made progress itself feel like a premium feature — which is the wrong message.
 
@@ -62,17 +62,17 @@ The distinction between free and premium should feel like depth, not access.
 
 **Free:** Complete tracking. Solid programs. Standard double-progression. Honest progress history. The product works.
 
-**Premium:** The product gets smarter. The AI coaching layer activates. Post-session insights appear. Progression intelligence becomes individual-specific rather than general. The system begins to develop a picture of this particular athlete. Month over month, the coaching becomes more accurate and more personal.
+**Premium:** The product gets smarter. The GAINER AI layer activates. Post-session insights appear. Progression intelligence becomes individual-specific rather than general. The system begins to develop a picture of this particular athlete. Month over month, the coaching becomes more accurate and more personal.
 
 A free user who upgrades to premium should feel like they have gained an intelligent observer working in the background — not like a gate has been lifted and previously withheld functionality has been released.
 
-The language used to describe premium matters. "Unlock advanced features" implies the features were locked from a user who earned them through training. "Activate AI coaching" implies something new is being added. The second framing is both accurate and honest.
+The language used to describe premium matters. "Unlock advanced features" implies the features were locked from a user who earned them through training. "Activate GAINER AI" implies something new is being added. The second framing is both accurate and honest.
 
 ---
 
-## What Makes AI Coaching Feel Premium
+## What Makes GAINER AI Feel Premium
 
-Premium must be felt, not just listed on a features page. The AI coaching layer earns its subscription by demonstrating observable intelligence over time.
+Premium must be felt, not just listed on a features page. The GAINER AI layer earns its subscription by demonstrating observable intelligence over time.
 
 **What creates the premium feeling:**
 
@@ -88,7 +88,7 @@ Premium must be felt, not just listed on a features page. The AI coaching layer 
 
 *Generic AI output.* "Great session! Remember to rest and recover." No AI needed. No data required. No subscription justified.
 
-*Features that are cosmetic.* Premium app icons, color themes, badge collections — these are not intelligence. Users who subscribe for AI coaching and receive decoration feel deceived.
+*Features that are cosmetic.* Premium app icons, color themes, badge collections — these are not intelligence. Users who subscribe for GAINER AI and receive decoration feel deceived.
 
 *Insights that could appear on day one.* If the premium coaching outputs are identical in quality and specificity regardless of how long the user has been subscribed, the compounding value model has failed. The subscription is a monthly payment for a fixed product, and fixed products do not retain subscribers.
 
@@ -129,7 +129,7 @@ The test for any upgrade flow element: if a user described this to a friend imme
 
 Subscription renewal is not driven by what a product can do. It is driven by what a product has done, and by confidence that it will continue.
 
-**The compounding value case.** Every month the user trains in GAINER, the AI coaching system accumulates more data about their individual patterns. Month twelve of a subscription produces more personalized, more accurate coaching than month one. The user who understands this — who feels it through better and more specific insights — renews because next month will be even more valuable than last month.
+**The compounding value case.** Every month the user trains in GAINER, the GAINER AI system accumulates more data about their individual patterns. Month twelve of a subscription produces more personalized, more accurate coaching than month one. The user who understands this — who feels it through better and more specific insights — renews because next month will be even more valuable than last month.
 
 **The switching cost case.** A user with three years of training history in GAINER has a training record that no other system contains. The AI's understanding of their plateaus, recovery patterns, and progression rate is built on that history. Switching to a competitor means starting over — not with the tracking, but with the intelligence. This switching cost is real value, earned by the product's performance. It is very different from engineered lock-in, which uses artificial friction or data hostage to achieve the same retention through illegitimate means.
 
@@ -187,7 +187,7 @@ The correct balance: make the free tier good enough that users see the product w
 
 **Make the free tier visibly good.** An obviously crippled free tier signals greed. A genuinely useful free tier that makes the premium tier feel like a meaningful upgrade signals confidence in the product's value. The second signal is accurate; the first is not.
 
-**Upgrade prompts should educate, not pressure.** A prompt that says "here's what AI coaching does and why it gets better over time" is education. A prompt with a countdown timer and loss-aversion framing is pressure. Education builds the subscription; pressure builds the cancellation.
+**Upgrade prompts should educate, not pressure.** A prompt that says "here's what GAINER AI does and why it gets better over time" is education. A prompt with a countdown timer and loss-aversion framing is pressure. Education builds the subscription; pressure builds the cancellation.
 
 **The cancellation should be as easy as the signup.** An industry that makes cancellation difficult has decided to hold users through friction rather than value. The correct response to a user wanting to cancel is to make it easy and to ensure they leave with their history intact. A user who cancelled and had a good experience is a user who might return. A user who was trapped in a confusing cancellation flow will not.
 
@@ -198,7 +198,7 @@ The correct balance: make the free tier good enough that users see the product w
 ### Free tier positioning
 
 **Good:**
-Free tier includes full workout logging, core program access, and complete training history. Premium adds the AI coaching layer — post-session insights, advanced progression intelligence, and personalization that deepens over time.
+Free tier includes full workout logging, core program access, and complete training history. Premium adds the GAINER AI layer — post-session insights, advanced progression intelligence, and personalization that deepens over time.
 
 Why: the free product works completely. Premium is genuinely additional. The user can evaluate the core product before deciding if the coaching is worth paying for.
 
@@ -212,7 +212,7 @@ Why: core functionality is paywalled. Users feel extorted rather than offered va
 ### Upgrade prompt
 
 **Good:**
-Surfaced after a user's fourth completed session, not during onboarding: "You've logged four sessions. With AI coaching, GAINER starts detecting patterns in your training and surfaces personalized insights after each session — it gets more specific to you over time."
+Surfaced after a user's fourth completed session, not during onboarding: "You've logged four sessions. With GAINER AI, GAINER starts detecting patterns in your training and surfaces personalized insights after each session — it gets more specific to you over time."
 
 Why: the prompt appears after the user has experienced the core product, references their actual behavior (four sessions), explains the value in terms of what it does rather than what it unlocks, and does not create urgency.
 
@@ -226,12 +226,12 @@ Why: no value has been demonstrated, the user has no basis for evaluating the of
 ### Cancellation experience
 
 **Good:**
-One-tap cancellation. Confirmation screen explains what changes (AI coaching deactivates at end of billing period), what remains (all training history, full logging, core programs). Option to pause instead of cancel. No guilt-adjacent copy.
+One-tap cancellation. Confirmation screen explains what changes (GAINER AI deactivates at end of billing period), what remains (all training history, full logging, core programs). Option to pause instead of cancel. No guilt-adjacent copy.
 
 Why: the user is treated as an adult. The experience leaves them feeling the product was honest. They might return.
 
 **Bad:**
-"Are you sure you want to cancel? You'll lose your AI coaching insights and your progress analysis. Your training streak and personalised plan will be removed. This cannot be undone."
+"Are you sure you want to cancel? You'll lose your GAINER AI insights and your progress analysis. Your training streak and personalised plan will be removed. This cannot be undone."
 
 Why: everything in this message is either false (progress history doesn't go away) or manipulative loss framing. It accurately represents that the product values the payment over the user.
 
@@ -240,7 +240,7 @@ Why: everything in this message is either false (progress history doesn't go awa
 ### Renewal value demonstration
 
 **Good:**
-Periodic, un-prompted display of what the AI coaching has observed over the past month — specific insights delivered, progression outcomes, any pattern it identified. This is not a sales message; it is a value statement the user can evaluate.
+Periodic, un-prompted display of what the GAINER AI has observed over the past month — specific insights delivered, progression outcomes, any pattern it identified. This is not a sales message; it is a value statement the user can evaluate.
 
 Why: reminds the user what they have been paying for in concrete terms. If the value is real, this demonstration earns renewal. If the value has been weak, it prompts an honest reconsideration — which is the correct outcome.
 
@@ -257,13 +257,13 @@ The minimum monetization model that is honest, functional, and sustainable at la
 
 **1. Free tier that works completely.** Full logging, core program catalog, complete training history, standard progression. No artificial caps on sessions, exercises, or history duration.
 
-**2. Premium tier with one clear value proposition: AI coaching.** Post-session insights, advanced progression intelligence, personalization that deepens over time. This is the subscription's purpose and it should be stated simply.
+**2. Premium tier with one clear value proposition: GAINER AI.** Post-session insights, advanced progression intelligence, personalization that deepens over time. This is the subscription's purpose and it should be stated simply.
 
 **3. Transparent pricing with no dark patterns.** Price visible before trial. Trial requires opt-in to convert, not opt-out. Cancellation one tap. No urgency mechanics.
 
 **4. Upgrade prompt timing: after demonstrated core value.** The first upgrade prompt should appear after the user has logged at least three sessions — not during onboarding, not at first open. They should have experienced the product before being asked to pay for more of it.
 
-**5. No data hostage.** Training history is always accessible. Export is always available. Downgrade preserves everything except the AI coaching layer.
+**5. No data hostage.** Training history is always accessible. Export is always available. Downgrade preserves everything except the GAINER AI layer.
 
 ---
 

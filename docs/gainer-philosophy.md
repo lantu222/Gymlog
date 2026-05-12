@@ -257,11 +257,11 @@ Features that look impressive in a walkthrough but become annoying in daily use 
 
 ---
 
-### AI coach visibility
+### GAINER AI visibility
 
 **Good:** An AI that has been watching for six weeks surfaces one insight that references a specific trend in the user's squat data. The user thinks "this app actually noticed something."
 
-**Bad:** An AI coach tab with a chat interface available from day one. The user asks "how do I get bigger arms?" and receives a five-paragraph response that could have been copied from any fitness website.
+**Bad:** An GAINER AI tab with a chat interface available from day one. The user asks "how do I get bigger arms?" and receives a five-paragraph response that could have been copied from any fitness website.
 
 ---
 

@@ -4,8 +4,8 @@ This document captures the Step 5 visual update from the May 5, 2026 onboarding 
 
 ## Source Screens
 
-- Target reference: `D:\Gymlog dokumentointi\Step5\Step5_referenssi.png` (`307 x 649`)
-- Previous implementation: `D:\Gymlog dokumentointi\Step5\Step5.png` (`405 x 863`)
+- Target reference: `<reference-assets>\Step5\Step5_referenssi.png` (`307 x 649`)
+- Previous implementation: `<reference-assets>\Step5\Step5.png` (`405 x 863`)
 - Baseline measurements: `docs/onboarding-step1-equipment-access.md`, section `Accepted Layout Snapshot`
 
 ## Intended Change

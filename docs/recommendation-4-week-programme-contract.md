@@ -22,7 +22,7 @@ The goal is not to generate a perfect long-term training programme. The MVP goal
 
 ## Product Boundary
 
-The 4-week programme is core product logic. AI_COACH can later explain it, compare options, or suggest guarded changes, but it must not invent the programme.
+The 4-week programme is core product logic. GAINER AI can later explain it, compare options, or suggest guarded changes, but it must not invent the programme.
 
 | Allowed in MVP | Not allowed in MVP |
 | --- | --- |
@@ -277,7 +277,7 @@ A 4-week programme is ready for MVP when:
 - equipment-specific progression differs between full gym, minimal, bodyweight, and running/hybrid paths
 - beginner and high-frequency guardrails can lower intensity or explain fallback
 - `yourplan` can render the plan without inventing copy
-- AI_COACH is not required for any part of programme creation
+- GAINER AI is not required for any part of programme creation
 
 ## Implementation Notes
 

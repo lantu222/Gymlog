@@ -250,7 +250,7 @@ export function getScheduleModeLabel(mode: SetupScheduleMode) {
 export function getScheduleModeDescription(mode: SetupScheduleMode) {
   switch (mode) {
     case 'app_managed':
-      return 'Gymlog places the week.';
+      return 'GAINER places the week.';
     case 'self_managed':
       return 'You pick the days.';
     default:
@@ -523,7 +523,7 @@ function buildSchedulePromptFragment(selection: FirstRunSetupSelection) {
   fragments.push(
     scheduleMode === 'self_managed'
       ? 'I want to manage the training days myself'
-      : 'I am happy to let Gymlog place the weekly rhythm for me',
+      : 'I am happy to let GAINER place the weekly rhythm for me',
   );
 
   if (typeof selection.weeklyMinutes === 'number' && selection.weeklyMinutes > 0) {
@@ -540,9 +540,9 @@ function buildSchedulePromptFragment(selection: FirstRunSetupSelection) {
 function buildGuidancePromptFragment(mode: SetupGuidanceMode) {
   switch (mode) {
     case 'done_for_me':
-      return 'Gymlog to keep the path simple and mostly done for me';
+      return 'GAINER to keep the path simple and mostly done for me';
     case 'guided_editable':
-      return 'Gymlog to recommend the path but still leave room to edit';
+      return 'GAINER to recommend the path but still leave room to edit';
     case 'self_directed':
       return 'a strong starting point before I build my own split';
     default:
@@ -573,7 +573,7 @@ function buildLowEquipmentMismatchNote(selection: FirstRunSetupSelection) {
   const base =
     selection.daysPerWeek === 2
       ? 'You picked a lighter equipment setup, so this is the cleanest low-equipment starting point.'
-      : 'You picked a lighter equipment setup, so Gymlog recommends the closest low-equipment starting point even though the weekly rhythm is lighter than your target.';
+      : 'You picked a lighter equipment setup, so GAINER recommends the closest low-equipment starting point even though the weekly rhythm is lighter than your target.';
 
   return selection.guidanceMode === 'self_directed'
     ? `${base} You can still use it as the base for your own custom split.`
@@ -593,7 +593,7 @@ function buildRecommendationMismatchNote(
   const featuredDays = featuredDefinition?.daysPerWeek ?? getWorkoutTemplateById(featuredProgramId)?.daysPerWeek ?? selection.daysPerWeek;
 
   if (selection.goal === 'run_mobility' && featuredProgramId === PROGRAM_IDS.runMobility && selection.daysPerWeek > featuredDays) {
-    return 'Gymlog closest match is a 3-day run + mobility split. Add Yoga Recovery as an optional 4th session if you want extra movement.';
+    return "GAINER's closest match is a 3-day run + mobility split. Add Yoga Recovery as an optional 4th session if you want extra movement.";
   }
 
   if (selection.equipment !== 'gym' && featuredDefinition?.equipmentTier === 'low_equipment') {
@@ -601,7 +601,7 @@ function buildRecommendationMismatchNote(
   }
 
   if (featuredDays !== selection.daysPerWeek) {
-    return `Gymlog closest match keeps this start at ${featuredDays} days so the week stays coherent.`;
+    return `GAINER's closest match keeps this start at ${featuredDays} days so the week stays coherent.`;
   }
 
   return buildTailoringRecommendationNote(tailoringPreferences);

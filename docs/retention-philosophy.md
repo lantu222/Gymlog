@@ -142,11 +142,11 @@ The system acknowledges it neutrally. It does not mourn it, pressure the user to
 
 ---
 
-## How AI Coaching Affects Retention
+## How GAINER AI Affects Retention
 
-The AI coaching layer is GAINER's most important long-term retention mechanism — but only if it is built correctly. A generic, over-communicating AI coaching layer is a churn driver, not a retention driver.
+The GAINER AI layer is GAINER's most important long-term retention mechanism — but only if it is built correctly. A generic, over-communicating GAINER AI layer is a churn driver, not a retention driver.
 
-**How AI coaching creates retention correctly:**
+**How GAINER AI creates retention correctly:**
 
 *Compounding personalization.* The longer a user trains in GAINER, the more accurately the AI understands their individual patterns. This creates genuine switching cost: leaving means starting over with a system that knows nothing about them. The user who has been in GAINER for a year has a coaching relationship with accumulated value. This value cannot be transferred to a competitor.
 

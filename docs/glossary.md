@@ -5,9 +5,9 @@ If any other document conflicts with this file, this file takes precedence.
 
 ---
 
-# Gainer — Shared Terminology Glossary
+# GAINER — Shared Terminology Glossary
 
-**Type:** Reference — canonical definitions for all Gainer documentation and implementation
+**Type:** Reference — canonical definitions for all GAINER documentation and implementation
 **Status:** Living document. Add terms when introduced; deprecate variants when standardised.
 **Related:** All docs/ files. When a term is used in any document, it must match the canonical form defined here.
 
@@ -98,7 +98,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Concept (noun phrase)
 
-**Definition:** The incremental right of the AI coaching system to make more specific, predictive, and higher-stakes recommendations as it accumulates accurate, verified observations about a specific user. Authority is not granted on day one — it is earned through correct, restrained output over time.
+**Definition:** The incremental right of the GAINER AI system to make more specific, predictive, and higher-stakes recommendations as it accumulates accurate, verified observations about a specific user. Authority is not granted on day one — it is earned through correct, restrained output over time.
 
 **Allowed usage:** In philosophy and design reference documents when describing the arc of the coaching relationship. "The system earns authority by being right, not by being present."
 
@@ -114,7 +114,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun | **Code identifier:** `CoachingInsight` (interface), `PostSessionInsight` (MVP type)
 
-**Definition:** A specific, data-referenced observation or recommendation surfaced to the user by the AI coaching system. A coaching insight must contain at least one reference to the user's specific training history. Generic statements are not coaching insights.
+**Definition:** A specific, data-referenced observation or recommendation surfaced to the user by the GAINER AI system. A coaching insight must contain at least one reference to the user's specific training history. Generic statements are not coaching insights.
 
 **Allowed usage:** The canonical term for what the AI produces and the user sees. Use "coaching insight" in all prose, "CoachingInsight" in code.
 
@@ -136,7 +136,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (outcome), Design principle
 
-**Definition (as outcome):** The state in which the AI coaching system produces no visible output for a given session or trigger point. Silence is expressed as `null` from the insight computation function — not as a "nothing to show" message, not as an empty state with explanatory text.
+**Definition (as outcome):** The state in which the GAINER AI system produces no visible output for a given session or trigger point. Silence is expressed as `null` from the insight computation function — not as a "nothing to show" message, not as an empty state with explanatory text.
 
 **Definition (as principle):** The design philosophy that the AI should default to producing no output unless a specific, high-confidence observation is warranted. "Silence is the correct output for most sessions."
 
@@ -281,7 +281,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun | **Code identifier:** `CoachingAction` (future type, not yet implemented)
 
-**Definition:** A structured, typed value representing a specific intervention the AI coaching system has decided is warranted. Coaching actions are the output of the intelligence layer and the input to the delivery layer. In MVP, coaching actions are implicit in the insight types; the formal `CoachingAction` type system is future work.
+**Definition:** A structured, typed value representing a specific intervention the GAINER AI system has decided is warranted. Coaching actions are the output of the intelligence layer and the input to the delivery layer. In MVP, coaching actions are implicit in the insight types; the formal `CoachingAction` type system is future work.
 
 **MVP insight types that will become formal coaching actions:**
 `personal_record`, `plateau_detected`, `session_volume_peak`, `return_after_gap`, `progression_ready` (future), `deload_recommended` (future)
@@ -939,7 +939,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (system design)
 
-**Definition:** The layered architecture of GAINER's AI coaching system. Five layers, each with a single responsibility, where lower layers never depend on higher ones.
+**Definition:** The layered architecture of GAINER's GAINER AI system. Five layers, each with a single responsibility, where lower layers never depend on higher ones.
 
 **Canonical layer names (bottom to top):**
 
@@ -1149,7 +1149,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (user experience concept)
 
-**Definition:** The user's belief that the AI coaching system is watching their data, is right when it speaks, and is on their side. Trust is built through specificity, restraint, accuracy, and demonstrated memory. It is lost through generic advice, wrong recommendations, and over-messaging. Trust is a user experience outcome, not a system property.
+**Definition:** The user's belief that the GAINER AI system is watching their data, is right when it speaks, and is on their side. Trust is built through specificity, restraint, accuracy, and demonstrated memory. It is lost through generic advice, wrong recommendations, and over-messaging. Trust is a user experience outcome, not a system property.
 
 **Distinguished from earned authority:** Earned authority is the system's capability level (a function of data volume). Trust is the user's perception. A system can have earned authority without the user trusting it (if early outputs were wrong). A user can trust a system before it has full authority (if early outputs were right despite limited data).
 

@@ -9,7 +9,7 @@
 
 ## Context
 
-Gainer's onboarding flow must produce a programme recommendation. Two approaches were available:
+GAINER's onboarding flow must produce a programme recommendation. Two approaches were available:
 
 1. **LLM-generated recommendations:** The user's onboarding answers are sent to an AI model, which selects or generates an appropriate programme.
 
@@ -29,7 +29,7 @@ The recommendation engine:
 - Returns the highest-scoring programme as the primary recommendation
 - Produces explanation copy from the onboarding answers and scoring result — no LLM required
 
-The AI Coach may explain or discuss a recommendation after it has been made. The AI Coach does not make or change the recommendation itself.
+The GAINER AI may explain or discuss a recommendation after it has been made. The GAINER AI does not make or change the recommendation itself.
 
 ---
 
@@ -43,20 +43,20 @@ The AI Coach may explain or discuss a recommendation after it has been made. The
 
 4. **Trust at first impression.** If the recommendation is wrong (wrong equipment, wrong frequency), the user's first impression is broken. Deterministic scoring with hard constraints guarantees that hard constraints are never violated — no gym-only programme for a home gym user.
 
-5. **AI is a better coach than a better selector.** The AI Coach's value is in observing patterns over time and making specific, evidence-based coaching observations. Using LLM calls to select a programme from a catalog wastes AI capacity on a problem that deterministic scoring solves better.
+5. **AI is a better coach than a better selector.** The GAINER AI's value is in observing patterns over time and making specific, evidence-based coaching observations. Using LLM calls to select a programme from a catalog wastes AI capacity on a problem that deterministic scoring solves better.
 
 ---
 
 ## Boundaries This Decision Establishes
 
-**The AI Coach must not:**
+**The GAINER AI must not:**
 - Override a deterministic recommendation during onboarding
 - Generate a programme that does not exist in the catalog
 - Invent exercise selections, rep schemes, or weekly structures
 - Be called as part of the recommendation flow itself
 
 **The recommendation engine must not:**
-- Call the AI Coach for any part of selection or explanation
+- Call the GAINER AI for any part of selection or explanation
 - Return a programme that requires equipment the user does not have (hard constraint)
 - Invent a programme for a frequency/goal combination the catalog does not support (honest fallback required instead)
 
@@ -75,7 +75,7 @@ Catalog gaps are content work, not AI work. If a 5-day strength programme does n
 - All programmes must exist as static catalog entries in `workoutCatalog.ts`
 - The scoring dimensions and weights in `onboarding-impact-matrix.md` are the only inputs to selection
 - Explanation copy is generated from typed programme metadata and onboarding answers — no LLM
-- AI Coach in onboarding is limited to after the recommendation is shown (e.g., "Ask AI Coach about this plan")
+- GAINER AI in onboarding is limited to after the recommendation is shown (e.g., "Ask GAINER AI about this plan")
 
 ---
 

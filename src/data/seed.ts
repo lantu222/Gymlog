@@ -1,4 +1,4 @@
-﻿import {
+import {
   AppDatabase,
   ExerciseLibraryItem,
   SetupFocusArea,
@@ -61,6 +61,8 @@ const DEFAULT_PREFERENCES = {
   aiCoachTemplateId: null,
   aiCoachSetupHash: null,
   aiCoachPlanGeneratedAt: null,
+  lastInsightSessionId: null,
+  lastInsightType: null,
   recommendedProgramId: null,
   trackedExerciseLibraryItemIds: [] as string[],
   dismissedTipIds: [] as string[],

@@ -8,7 +8,7 @@ Use only image and icon sources that are:
 
 - free to use in a commercial mobile app
 - safe to ship without in-app credits when possible
-- easy to replace, crop, and theme into Gymlog's dark visual system
+- easy to replace, crop, and theme into GAINER's dark visual system
 
 ## Approved Sources
 
@@ -30,7 +30,7 @@ Notes:
 
 - prefer clean single-subject shots
 - avoid visible logos, brand-heavy clothing, and watermarks
-- do not imply the model endorses Gymlog
+- do not imply the model endorses GAINER
 
 ### 2. Supporting illustrations
 
@@ -109,7 +109,7 @@ Keep one line per asset in an internal register:
 
 `strength-man-01 | Pexels | <url> | Home hero alt | downloaded 2026-04-02`
 
-## Search Terms For Gymlog
+## Search Terms For GAINER
 
 ### Strength
 
@@ -143,7 +143,7 @@ Keep one line per asset in an internal register:
 - use photos as one strong surface, not repeated everywhere
 - keep the main home hero image-led, but keep the logger more utilitarian
 
-## Recommended First Stack For Gymlog
+## Recommended First Stack For GAINER
 
 If we stay fully free, use this mix:
 

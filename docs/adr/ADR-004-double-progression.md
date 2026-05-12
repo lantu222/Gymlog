@@ -9,11 +9,11 @@
 
 ## Context
 
-Gainer needs a consistent, understandable, and correctly-implementable model for deciding when to increase training load. Multiple models exist in the fitness domain: linear progression, percentage-based periodization, RPE-based autoregulation, double progression, and others.
+GAINER needs a consistent, understandable, and correctly-implementable model for deciding when to increase training load. Multiple models exist in the fitness domain: linear progression, percentage-based periodization, RPE-based autoregulation, double progression, and others.
 
 The chosen model must be:
 - Deterministic (computable without user input beyond logged sets)
-- Appropriate for the full range of Gainer's user base (beginner to intermediate)
+- Appropriate for the full range of GAINER's user base (beginner to intermediate)
 - Explainable in terms the user can understand and verify
 - Robust enough to handle irregular training frequency
 

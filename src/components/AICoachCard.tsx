@@ -21,7 +21,7 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
     () => formatWorkoutDisplayLabel(activeWorkoutTitle, 'Workout'),
     [activeWorkoutTitle],
   );
-  const helperText = activeWorkoutTitle ? `Live help for ${workoutTitle}` : 'Get help instantly';
+  const helperText = activeWorkoutTitle ? `${workoutTitle} is in progress` : 'Review saved plan context';
   const trimmed = draft.trim();
   const compactPrompt = safeSuggestions[0] ?? 'Help with my training';
 
@@ -39,14 +39,14 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
       <SurfaceCard accent="neutral" emphasis="flat" style={styles.compactShell}>
         <View style={styles.compactRow}>
           <View style={styles.compactCopy}>
-            <Text style={styles.compactKicker}>AI Coach</Text>
+          <Text style={styles.compactKicker}>GAINER AI</Text>
             <Text style={styles.compactTitle}>{helperText}</Text>
           </View>
           <WorkoutSceneGraphic variant="search" accent="neutral" compact style={styles.compactVisual} />
         </View>
 
         <Pressable onPress={() => onSubmit(compactPrompt)} style={styles.compactButton}>
-          <Text style={styles.compactButtonText}>Open coach</Text>
+          <Text style={styles.compactButtonText}>Review plan</Text>
         </Pressable>
       </SurfaceCard>
     );
@@ -57,11 +57,11 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
       <View style={styles.heroRow}>
         <View style={styles.heroCopy}>
           <View style={styles.titleRow}>
-            <Text style={styles.eyebrow}>AI Coach</Text>
-            {activeWorkoutTitle ? <BadgePill accent="neutral" label="Live help" /> : null}
+            <Text style={styles.eyebrow}>GAINER AI</Text>
+            {activeWorkoutTitle ? <BadgePill accent="neutral" label="Workout active" /> : null}
           </View>
 
-          <Text style={styles.title}>Get help instantly</Text>
+          <Text style={styles.title}>Review your plan</Text>
           <Text style={styles.subtitle}>{helperText}</Text>
         </View>
 
@@ -71,7 +71,7 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
       <TextInput
         value={draft}
         onChangeText={setDraft}
-        placeholder="Ask one short question"
+        placeholder="Ask about your saved plan"
         placeholderTextColor={colors.textMuted}
         selectionColor="#FFFFFF"
         multiline
@@ -90,7 +90,7 @@ export function AICoachCard({ suggestions, activeWorkoutTitle, onSubmit, variant
       </View>
 
       <Pressable onPress={() => submitPrompt(trimmed)} style={[styles.button, !trimmed && styles.buttonDisabled]}>
-        <Text style={styles.buttonText}>Get answer</Text>
+        <Text style={styles.buttonText}>Review</Text>
       </Pressable>
     </SurfaceCard>
   );

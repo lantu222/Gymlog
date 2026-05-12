@@ -31,6 +31,7 @@ export interface BuildAiTrainingContextInput {
     avoid: string[];
     limitations: string[];
   } | null;
+  includeActiveSessionContext?: boolean;
 }
 
 export function buildAiTrainingContext({
@@ -45,6 +46,7 @@ export function buildAiTrainingContext({
   recommendedProgramTitle,
   customProgramTitle,
   plannerSetup,
+  includeActiveSessionContext = false,
 }: BuildAiTrainingContextInput): AICoachTrainingContext {
   const recentCompletedSessions = [...workoutSessions]
     .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
@@ -93,7 +95,7 @@ export function buildAiTrainingContext({
 
   return {
     unitPreference,
-    activeSession: activeWorkoutSummary
+    activeSession: includeActiveSessionContext && activeWorkoutSummary
       ? {
           title: activeWorkoutSummary.title,
           nextExercise: activeWorkoutSummary.nextExercise,

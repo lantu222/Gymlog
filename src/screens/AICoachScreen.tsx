@@ -116,7 +116,7 @@ export function AICoachScreen({
     if (request.prompt.trim().length < 6) {
       setState('error');
       setAnswer(null);
-      setErrorMessage('Ask one short question.');
+      setErrorMessage('Ask about the saved plan.');
       return;
     }
 
@@ -186,7 +186,7 @@ export function AICoachScreen({
     const tokens: string[] = [];
 
     if (trainingContext.activeSession) {
-      tokens.push('Live workout');
+      tokens.push('Workout active');
     }
 
     if (trainingContext.recommendedProgramTitle) {
@@ -232,9 +232,7 @@ export function AICoachScreen({
     return signals.slice(0, 3);
   }, [trainingContext.activeSession, trainingContext.recommendedProgramTitle, trainingContext.sessionsThisWeek, trainingContext.trackedLifts]);
 
-  const heroMeta = trainingContext.activeSession
-    ? `Live help for ${formatWorkoutDisplayLabel(trainingContext.activeSession.title, 'Workout')}`
-    : 'Lift, plan, or session.';
+  const heroMeta = 'Uses saved training context only.';
 
   function submitPrompt(nextPrompt: string) {
     const trimmed = nextPrompt.trim();
@@ -256,13 +254,13 @@ export function AICoachScreen({
 
   return (
     <>
-      <ScreenHeader title="AI Coach" subtitle="One question. Quick answer." onBack={onBack} />
+      <ScreenHeader title="GAINER AI" subtitle="Preview guidance. Not for live workout decisions." onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroVariant} style={[styles.heroSurface, hasAnswer && styles.heroSurfaceCompact]}>
           <View style={styles.heroContent}>
             <View style={styles.heroTopRow}>
-              <Text style={styles.heroKicker}>AI Coach</Text>
-              <BadgePill accent="neutral" label={trainingContext.activeSession ? 'Live help' : 'Quick answer'} />
+              <Text style={styles.heroKicker}>GAINER AI</Text>
+              <BadgePill accent="neutral" label="Preview" />
             </View>
 
             <View style={styles.heroTokenRow}>
@@ -271,7 +269,7 @@ export function AICoachScreen({
               ))}
             </View>
 
-            <Text style={styles.heroTitle}>Get help instantly</Text>
+            <Text style={styles.heroTitle}>Review your plan</Text>
             <Text style={styles.heroMeta}>{heroMeta}</Text>
           </View>
         </FitnessPhotoSurface>
@@ -286,7 +284,7 @@ export function AICoachScreen({
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask one short question"
+            placeholder="Ask about your saved plan"
             placeholderTextColor={colors.textMuted}
             selectionColor="#FFFFFF"
             multiline
@@ -305,7 +303,7 @@ export function AICoachScreen({
           ) : null}
 
           <Pressable onPress={() => submitPrompt(draft)} style={[styles.button, !draft.trim() && styles.buttonDisabled]}>
-            <Text style={styles.buttonText}>Get answer</Text>
+            <Text style={styles.buttonText}>Review</Text>
           </Pressable>
         </SurfaceCard>
 
@@ -315,7 +313,7 @@ export function AICoachScreen({
             <View style={styles.feedbackCopy}>
               <Text style={styles.feedbackTitle}>Getting an answer</Text>
               <Text style={styles.feedbackBody}>
-                {trainingContext.activeSession ? 'Using your live workout.' : 'Using your current plan.'}
+                Using saved plan and training history.
               </Text>
             </View>
           </SurfaceCard>
@@ -324,7 +322,7 @@ export function AICoachScreen({
         {state === 'error' ? (
           <SurfaceCard accent="neutral" emphasis="flat" style={styles.feedbackCard}>
             <View style={styles.feedbackCopy}>
-              <Text style={styles.feedbackTitle}>Try one short question</Text>
+              <Text style={styles.feedbackTitle}>Try a saved-plan question</Text>
               <Text style={styles.feedbackBody}>{errorMessage}</Text>
             </View>
             <Pressable onPress={retryPrompt} style={styles.retryButton}>

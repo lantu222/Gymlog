@@ -3,6 +3,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { ScreenHeader } from '../components/ScreenHeader';
 import { formatDurationMinutes, formatSessionDate, formatVolume, formatWeight, pluralize } from '../lib/format';
+import { PostSessionInsight } from '../lib/postSessionInsight';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
 import { radii, spacing } from '../theme';
 import { UnitPreference } from '../types/models';
@@ -16,6 +17,7 @@ interface WorkoutCompletionScreenProps {
   exercisesLogged: number;
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
+  insight?: PostSessionInsight | null;
   unitPreference: UnitPreference;
   isSaving?: boolean;
   onSaveSummary: (input: { sessionName: string; notes: string }) => Promise<void> | void;
@@ -41,6 +43,7 @@ export function WorkoutCompletionScreen({
   exercisesLogged,
   exerciseCards,
   prCards,
+  insight = null,
   unitPreference,
   isSaving = false,
   onSaveSummary,
@@ -100,6 +103,15 @@ export function WorkoutCompletionScreen({
                   </View>
                 </View>
               ))}
+            </View>
+          </View>
+        ) : null}
+
+        {insight ? (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Coach note</Text>
+            <View style={styles.insightCard}>
+              <Text style={styles.insightMessage}>{insight.message}</Text>
             </View>
           </View>
         ) : null}
@@ -297,6 +309,19 @@ const styles = StyleSheet.create({
     color: '#F97316',
     fontSize: 12,
     fontWeight: '800',
+  },
+  insightCard: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: '#D1FAE5',
+    backgroundColor: '#F0FDF4',
+    padding: spacing.md,
+  },
+  insightMessage: {
+    color: '#14532D',
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
   },
   input: {
     minHeight: 56,

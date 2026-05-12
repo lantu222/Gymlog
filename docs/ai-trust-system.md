@@ -5,7 +5,7 @@ If any other document conflicts with this file, this file takes precedence.
 
 ---
 
-# Gainer — AI Trust System
+# GAINER — AI Trust System
 
 **Type:** Design reference — behavioral intent with future implementation targets
 **Status:** Design reference. Not an implementation spec.
@@ -16,7 +16,7 @@ If any other document conflicts with this file, this file takes precedence.
 
 ## 1. Trust Philosophy
 
-Trust in an AI coaching system is not built by being impressive. It is built by being consistently, quietly right — and by knowing when to say nothing.
+Trust in a GAINER AI system is not built by being impressive. It is built by being consistently, quietly right — and by knowing when to say nothing.
 
 Most fitness apps fail at trust not because their advice is wrong, but because they spend trust capital recklessly. Every generic motivational push notification, every "You're doing amazing!" after a mediocre session, every unsolicited advice message during a workout — each one costs more than it delivers. The account goes into deficit. Users learn to ignore everything. By the time the system has something genuinely valuable to say, no one is listening.
 
@@ -474,7 +474,7 @@ These are not guidelines. They are failure modes that must be impossible, not ju
 
 ## Summary
 
-The trust system is not a feature. It is the operating constraint that all AI coaching output exists within.
+The trust system is not a feature. It is the operating constraint that all GAINER AI output exists within.
 
 Every message the AI delivers is a withdrawal from a trust account that is built slowly and depleted quickly. The system's job is to keep that account in surplus — by making far fewer withdrawals than the account can support, and by making every withdrawal count.
 

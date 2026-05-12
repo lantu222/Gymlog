@@ -79,23 +79,6 @@ function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
   );
 }
 
-function AiIcon({ active }: { active: boolean }) {
-  const stroke = active ? '#FFFFFF' : '#C68BFF';
-  const fill = active ? '#FFFFFF' : 'none';
-
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Circle cx="12" cy="12" r="8.3" stroke={stroke} strokeWidth={1.8} fill={fill} opacity={active ? 0.16 : 0} />
-      <Path
-        d="M12 7.2L12.9 9.7L15.4 10.6L12.9 11.5L12 14L11.1 11.5L8.6 10.6L11.1 9.7L12 7.2Z"
-        fill={stroke}
-      />
-      <Circle cx="7.3" cy="8.2" r="1.1" fill={stroke} />
-      <Circle cx="16.9" cy="15.9" r="1" fill={stroke} />
-    </Svg>
-  );
-}
-
 function SideTab({
   tab,
   active,
@@ -133,8 +116,8 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
         </View>
 
         <Pressable onPress={onAiPress} style={[styles.centerButton, aiActive && styles.centerButtonActive]}>
-          <AiIcon active={aiActive} />
-          <Text style={[styles.centerLabel, aiActive && styles.centerLabelActive]}>AI</Text>
+          <Text style={[styles.centerPlus, aiActive && styles.centerLabelActive]}>+</Text>
+          <Text style={[styles.centerLabel, aiActive && styles.centerLabelActive]}>Start</Text>
         </Pressable>
 
         <View style={styles.sideGroup}>
@@ -214,6 +197,12 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.2,
+  },
+  centerPlus: {
+    color: '#7C3AED',
+    fontSize: 28,
+    lineHeight: 30,
+    fontWeight: '600',
   },
   centerLabelActive: {
     color: '#FFFFFF',

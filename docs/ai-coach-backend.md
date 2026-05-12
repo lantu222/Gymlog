@@ -1,4 +1,4 @@
-# AI Coach backend setup
+# GAINER AI backend setup
 
 Last updated: 26 March 2026
 
@@ -7,14 +7,14 @@ This backend path is designed so that the app can work in two modes:
 - live mode: app calls your own endpoint, which calls OpenAI
 
 ## Files
-- D:\Gymlog\api\ai-coach.ts
-- D:\Gymlog\src\lib\aiCoachClient.ts
-- D:\Gymlog\src\lib\aiCoachPreview.ts
-- D:\Gymlog\src\types\aiCoach.ts
+- <repo-root>\api\ai-coach.ts
+- <repo-root>\src\lib\aiCoachClient.ts
+- <repo-root>\src\lib\aiCoachPreview.ts
+- <repo-root>\src\types\aiCoach.ts
 
 ## Environment variables
 ### App
-Set this in the Expo environment for builds that should use live AI Coach:
+Set this in the Expo environment for builds that should use live GAINER AI:
 - `EXPO_PUBLIC_AI_COACH_API_URL=https://your-domain.example/api/ai-coach`
 
 If this variable is missing, the app automatically falls back to local preview mode.

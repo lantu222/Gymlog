@@ -1,4 +1,4 @@
-﻿export interface ReadyProgramContentSection {
+export interface ReadyProgramContentSection {
   kicker: string;
   body: string;
 }
@@ -153,7 +153,7 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
   },
   tpl_2_day_yoga_recovery_v1: {
     summary: 'A two-day yoga-oriented recovery block for mobility, balance, breathing, and slower full-body movement practice.',
-    audience: 'Best for beginners, mobility-focused weeks, or anyone who wants a calmer movement option inside Gymlog.',
+    audience: 'Best for beginners, mobility-focused weeks, or anyone who wants a calmer movement option inside GAINER.',
     equipmentProfile: 'Mat-friendly and bodyweight-only. No gym setup is required for the core flow of the program.',
     whyItWorks: 'The template uses short repeatable flows instead of complex sequencing, so you can build a steady yoga habit without needing a full studio class every time.',
     sessionFocusById: {
@@ -163,7 +163,7 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
   },
   tpl_3_day_run_mobility_v1: {
     summary: 'A beginner-friendly run-and-reset template that pairs interval-based running blocks with mobility and recovery work.',
-    audience: 'Best for people who want a simple running entry point inside the current Gymlog model without jumping straight into high mileage.',
+    audience: 'Best for people who want a simple running entry point inside the current GAINER model without jumping straight into high mileage.',
     equipmentProfile: 'Minimal setup. The running days are structured as simple blocks, and the reset day only needs floor space.',
     whyItWorks: 'Instead of chasing long runs immediately, the plan alternates easy and tempo-style run blocks with a dedicated reset day so your legs and hips can keep up.',
     sessionFocusById: {

@@ -19,7 +19,7 @@ const copy = {
     title: 'Choose your start',
     subtitle: 'Start free or unlock the full coaching layer from day one.',
     premiumKicker: 'Premium',
-    premiumTitle: 'Let Gymlog coach the whole block',
+    premiumTitle: 'Let GAINER coach the whole block',
     premiumBody: 'A more personalized start with smarter progression, rest, and coaching from the first workout.',
     premiumBullet1: 'A plan that fits you',
     premiumBullet2: 'Always know what to do',
@@ -36,7 +36,7 @@ const copy = {
     title: 'Valitse aloitus',
     subtitle: 'Aloita ilmaiseksi tai avaa koko valmennuskerros heti alusta.',
     premiumKicker: 'Premium',
-    premiumTitle: 'Anna Gymlogin ohjata koko blokkia',
+    premiumTitle: 'Anna GAINERin ohjata koko blokkia',
     premiumBody: 'Henkilokohtaisempi alku, fiksumpi progressio, palautukset ja valmennus heti ensimmaisesta treenista.',
     premiumBullet1: 'Sinulle sopiva suunnitelma',
     premiumBullet2: 'Tiedat mita tehda',
@@ -67,7 +67,7 @@ export function AccessChoiceScreen({
         <FitnessPhotoSurface variant="strength" compact style={styles.heroSurface}>
           <View style={styles.heroContent}>
             <View style={styles.heroCopy}>
-              <Text style={styles.heroKicker}>GYMLOG</Text>
+              <Text style={styles.heroKicker}>GAINER</Text>
               <Text style={styles.heroTitle}>{content.title}</Text>
             </View>
           </View>

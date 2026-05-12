@@ -183,7 +183,7 @@ function buildSessionBlueprints(goal: ReturnType<typeof mapSetupGoalToAiGoal>, d
     1: [
       {
         key: 'full_body',
-        name: 'AI Full Body',
+        name: 'GAINER AI Full Body',
         focus: 'Full-body strength and hypertrophy in one slot.',
         slots: [
           { key: 'warmup', variant: 'warmup', name: 'Warm-up flow' },
@@ -859,7 +859,7 @@ export function buildAiCoachPlanSchema(preferences: AppPreferences, exerciseLibr
   });
 
   return {
-    title: `AI Coach - ${daysPerWeek} Day ${formatAiGoalLabel(goal)}`,
+    title: `GAINER AI - ${daysPerWeek} Day ${formatAiGoalLabel(goal)}`,
     summary: `${daysPerWeek} sessions built around ${goal.replace('_', ' ')} with ${sessionMinutes}-minute sessions.`,
     goal,
     daysPerWeek,
@@ -991,7 +991,7 @@ export function getAiCoachNextSessionId(
   completedTemplateSessionCount: number,
 ) {
   if (runtimeTemplate.sessions.length === 0) {
-    throw new Error(`AI Coach template ${templateId} has no sessions.`);
+    throw new Error(`GAINER AI template ${templateId} has no sessions.`);
   }
 
   const nextIndex = completedTemplateSessionCount % runtimeTemplate.sessions.length;

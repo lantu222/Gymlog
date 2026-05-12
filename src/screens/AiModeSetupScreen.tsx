@@ -86,10 +86,10 @@ export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupSc
 
   return (
     <>
-      <ScreenHeader title="AI mode setup" subtitle="Answer once. Reuse every workout." onBack={onBack} tone="dark" />
+      <ScreenHeader title="GAINER AI setup" subtitle="Answer once. Reuse every workout." onBack={onBack} tone="dark" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.noteCard}>
-          <Text style={styles.noteTitle}>Paid AI replies</Text>
+          <Text style={styles.noteTitle}>Paid GAINER AI replies</Text>
           <Text style={styles.noteBody}>
             Keep the app free. Charge only the AI layer. This setup is saved once, then the center AI button can open the next workout flow directly.
           </Text>
@@ -197,9 +197,9 @@ export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupSc
         />
 
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>What AI will use</Text>
+          <Text style={styles.summaryTitle}>What GAINER AI will use</Text>
           <Text style={styles.summaryBody}>
-            Existing onboarding data, workout history, tracked lifts, bodyweight, measurements, and this AI setup.
+            Existing onboarding data, workout history, tracked lifts, bodyweight, measurements, and this GAINER AI setup.
           </Text>
           <Text style={styles.summaryMeta}>
             Includes: {splitCsv(mustInclude).slice(0, 3).join(' / ') || 'no required lifts yet'}
@@ -224,7 +224,7 @@ export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupSc
           }
           style={[styles.primaryButton, !readyToSave && styles.primaryButtonDisabled]}
         >
-          <Text style={styles.primaryButtonText}>Save AI setup</Text>
+          <Text style={styles.primaryButtonText}>Save GAINER AI setup</Text>
         </Pressable>
       </ScrollView>
     </>

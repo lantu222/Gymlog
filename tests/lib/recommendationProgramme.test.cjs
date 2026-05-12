@@ -121,7 +121,7 @@ module.exports = [
       assert.match(payload.fallbackReason ?? '', /optional extra day/i);
       assert.ok(payload.whyThisPlan.length <= 4);
       assert.ok(payload.whyThisPlan.every((reason) => reason.length <= 34), payload.whyThisPlan.join(' | '));
-      assert.doesNotMatch(payload.whyThisPlan.join(' '), /Gymlog recommends|starting point|optional extra day/i);
+      assert.doesNotMatch(payload.whyThisPlan.join(' '), /GAINER recommends|starting point|optional extra day/i);
       assert.match(payload.readinessGuardrail, /beginner|conservative|recovery/i);
     },
   },

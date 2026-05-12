@@ -4,7 +4,7 @@ This document captures the target redesign for the post-onboarding plan-ready sc
 
 ## Source Screens
 
-- Target reference: `D:\Gymlog dokumentointi\Your_plan\Yourplan_referenssi.png` (`863 x 1823`)
+- Target reference: `<reference-assets>\Your_plan\Yourplan_referenssi.png` (`863 x 1823`)
 - Current implementation anchor: `src/screens/OnboardingScreen.tsx`, `renderReview()`
 - Current assets/data anchor:
   - `PLAN_READY_GYM_BACKDROP_SOURCE`
@@ -39,7 +39,7 @@ The screen must answer four questions without requiring user interaction:
 
 | Question | UI section |
 | --- | --- |
-| What plan did Gymlog pick? | Hero title and subtitle |
+| What plan did GAINER pick? | Hero title and subtitle |
 | Why did this plan fit me? | `WHY THIS PLAN?` checklist |
 | What will my week look like? | Workout cards and weekly overview |
 | What happens next? | `WHAT TO EXPECT` panel and primary CTA |
@@ -160,7 +160,7 @@ Each row uses a lime check icon, `20-22` px icon box, and `15-17` px text.
 - plan structure, e.g. `Full body focus`
 - estimated duration horizon, e.g. `3-6 months est. time`
 
-Use existing `GymlogIcon` names where possible. If an exact icon is missing, map to the closest existing icon first before adding new icon paths.
+Use existing `GAINERIcon` names where possible. If an exact icon is missing, map to the closest existing icon first before adding new icon paths.
 
 ### Workout Plan Cards
 
@@ -283,7 +283,7 @@ Current `renderReview()` already has several building blocks, but the layout dif
 ## Implementation Notes For Later
 
 - Keep the new screen inside `renderReview()` unless the file becomes too hard to maintain. If implementation grows too large, extract presentational components near the existing Plan Ready helpers first.
-- Reuse `GymlogIcon` wherever possible.
+- Reuse `GAINERIcon` wherever possible.
 - Keep `PLAN_READY_GYM_BACKDROP_SOURCE` if it visually matches the reference; otherwise replace with a darker barbell/gym image asset.
 - Keep `Other plans` behavior secondary. The reference exposes it, but the primary visual hierarchy belongs to the selected plan.
 - Do not reintroduce onboarding progress dots on this screen. The onboarding input flow is complete before this view appears.

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
@@ -1107,7 +1107,7 @@ export function WorkoutLoggingScreen({
           <View style={styles.swapSheetHeader}>
             <Text style={styles.swapSheetTitle}>Ranked for your setup</Text>
             <Text style={styles.swapSheetBody}>
-              Gymlog is using your equipment fit and joint-friendly preferences to push the best-matching swaps up first.
+              GAINER is using your equipment fit and joint-friendly preferences to push the best-matching swaps up first.
             </Text>
             {swapBadgeLabels.length ? (
               <View style={styles.swapSheetBadgeRow}>

@@ -1,4 +1,4 @@
-# Gainer — System Boundaries
+# GAINER — System Boundaries
 
 **Type:** Architecture reference
 **Status:** Authoritative. Defines what each subsystem may and may not do.
@@ -12,7 +12,7 @@ Failure in this system blocks launch.
 
 ## Purpose
 
-This document defines the hard boundaries between Gainer's subsystems. These are not style guidelines — they are constraints enforced at the architectural level. A boundary violation is a bug, not a design choice.
+This document defines the hard boundaries between GAINER's subsystems. These are not style guidelines — they are constraints enforced at the architectural level. A boundary violation is a bug, not a design choice.
 
 Any proposed feature or implementation that requires crossing a boundary defined here must produce an ADR before proceeding.
 
@@ -59,7 +59,7 @@ Any proposed feature or implementation that requires crossing a boundary defined
 **Forbidden:**
 - Computing recommendation scores (scoring lives in `src/lib/recommendationScoring.ts`)
 - Generating programme content (content lives in `workoutCatalog.ts` and `recommendationProgramme.ts`)
-- Calling the AI Coach layer for any part of programme selection or construction
+- Calling the GAINER AI layer for any part of programme selection or construction
 - Displaying any premium prompt or paywall during onboarding
 - Asking questions whose answers have no visible effect on the recommendation
 
@@ -80,7 +80,7 @@ Any proposed feature or implementation that requires crossing a boundary defined
 
 **Forbidden:**
 - Generating free-form programme content (templates are static catalog data)
-- Calling the AI Coach layer to select or construct a programme
+- Calling the GAINER AI layer to select or construct a programme
 - Guaranteeing specific outcomes (strength gains, weight loss, muscle gain)
 - Returning a recommendation that requires equipment the user does not have
 - Pretending a plan exists for a frequency/goal combination that the catalog does not support
@@ -101,13 +101,13 @@ Any proposed feature or implementation that requires crossing a boundary defined
 - Show inline validation errors for blocked actions
 
 **Forbidden:**
-- Showing any AI coaching output during an active session — absolutely none, including exercise substitution suggestions surfaced without user request
+- Showing any GAINER AI output during an active session — absolutely none, including exercise substitution suggestions surfaced without user request
 - Triggering `computePostSessionInsight()` while the session is active
 - Displaying a completion or saved state before `saveCompletedWorkoutSession` resolves successfully
 - Showing a "saved" state when zero sets were logged
 - Calling OpenAI or any external service during logging
 
-**Boundary rule — ADR-001:** No AI output of any kind may be surfaced while a workout session is active. This is architecturally enforced: `computePostSessionInsight()` and the AI Coach client must not be called while `WorkoutProvider` has an active session.
+**Boundary rule — ADR-001:** No AI output of any kind may be surfaced while a workout session is active. This is architecturally enforced: `computePostSessionInsight()` and the GAINER AI client must not be called while `WorkoutProvider` has an active session.
 
 **Boundary rule — ADR-002:** The completion screen (`WorkoutCompletionScreen`) may only be entered after `saveCompletedWorkoutSession` resolves successfully. The save flow must expose three explicit states: saving, saved, save failed.
 
@@ -159,7 +159,7 @@ Any proposed feature or implementation that requires crossing a boundary defined
 
 ---
 
-## 6. AI Coach Layer
+## 6. GAINER AI Layer
 
 **Owns:** Formatting coaching context and calling the serverless endpoint in live mode, or returning mock responses in preview mode.
 
@@ -174,9 +174,9 @@ Any proposed feature or implementation that requires crossing a boundary defined
 - Overriding recommendations from the deterministic recommendation engine
 - Calling OpenAI directly from the mobile app (must go through the serverless layer)
 - Running during an active workout session (ADR-001)
-- Producing output while there is no post-session context (the AI Coach is not a chatbot on-demand for arbitrary queries in MVP)
+- Producing output while there is no post-session context (the GAINER AI is not a chatbot on-demand for arbitrary queries in MVP)
 
-**Boundary rule:** The AI Coach explains and advises. It does not generate programmes, select templates, or modify the user's training plan directly.
+**Boundary rule:** The GAINER AI explains and advises. It does not generate programmes, select templates, or modify the user's training plan directly.
 
 ---
 
@@ -270,7 +270,7 @@ User completes onboarding inputs
   → recommendation engine scores catalog against profile
   → returns primary recommendation with metadata
   → display recommendation with explanation
-  → NEVER: call AI Coach to select or explain the programme during onboarding
+  → NEVER: call GAINER AI to select or explain the programme during onboarding
   → NEVER: show a programme that requires equipment the user does not have
 ```
 

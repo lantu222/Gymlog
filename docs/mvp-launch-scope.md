@@ -9,7 +9,7 @@ Failure in this system blocks launch.
 
 ---
 
-# Gainer — MVP Launch Scope
+# GAINER — MVP Launch Scope
 
 **Type:** Implementation spec — authoritative launch boundary definition
 **Status:** Definitive scope reference. Supersedes item-level feature discussions where they conflict.
@@ -40,7 +40,7 @@ Failure in this system blocks launch.
 
 **GAINER's MVP is a workout tracker that recommends a structured program, lets the user log sessions reliably, and keeps an honest record of their training history.**
 
-That is the complete core. Everything else — AI coaching, progression intelligence, advanced analytics, social features, premium monetization — is built on top of this foundation, and that foundation must be solid before anything else matters.
+That is the complete core. Everything else — GAINER AI, progression intelligence, advanced analytics, social features, premium monetization — is built on top of this foundation, and that foundation must be solid before anything else matters.
 
 The MVP succeeds when a user can complete this loop without friction or confusion:
 
@@ -355,17 +355,17 @@ If social features are ever added, they will not be in onboarding and will not b
 
 ---
 
-### 4.5 Live AI Coach as a primary feature
+### 4.5 Live GAINER AI as a primary feature
 
-**Excluded from v1 launch as a prominently marketed feature.** The AI Coach exists in preview mode (local mock responses). It can ship in that state without marketing it as a key differentiator.
+**Excluded from v1 launch as a prominently marketed feature.** The GAINER AI exists in preview mode (local mock responses). It can ship in that state without marketing it as a key differentiator.
 
 **What this means in practice:**
-- AI Coach preview mode: ships, accessible, not prominently marketed
-- AI Coach live mode (LLM calls): does not ship at launch unless the serverless endpoint, rate limiting, cost controls, and data safety review are complete
-- AI Coach as the primary onboarding or session hook: excluded
-- AI Coach as a chatbot users are encouraged to interact with continuously: excluded
+- GAINER AI preview mode: ships, accessible, not prominently marketed
+- GAINER AI live mode (LLM calls): does not ship at launch unless the serverless endpoint, rate limiting, cost controls, and data safety review are complete
+- GAINER AI as the primary onboarding or session hook: excluded
+- GAINER AI as a chatbot users are encouraged to interact with continuously: excluded
 
-**Decision required before launch:** Choose whether AI Coach launches in preview-only mode or with live backend enabled. If live backend is enabled, the privacy policy must be updated and Data Safety answers re-checked. See `manual-launch-tasks.md`.
+**Decision required before launch:** Choose whether GAINER AI launches in preview-only mode or with live backend enabled. If live backend is enabled, the privacy policy must be updated and Data Safety answers re-checked. See `manual-launch-tasks.md`.
 
 ---
 
@@ -445,9 +445,9 @@ The following AI-adjacent features are allowed in v1. "Allowed" means they can s
 
 ---
 
-### 5.1 AI Coach in preview mode
+### 5.1 GAINER AI in preview mode
 
-The AI Coach exists with local mock responses (`aiCoachPreview.ts`). It provides a realistic preview of the coaching experience without a live backend.
+The GAINER AI exists with local mock responses (`aiCoachPreview.ts`). It provides a realistic preview of the coaching experience without a live backend.
 
 **Allowed because:** It is already implemented, it demonstrates the product's coaching direction, and it works fully offline. It is clearly framed as preview mode in the UI.
 
@@ -679,11 +679,11 @@ The app must work completely without a network connection. This is not aspiratio
 - All program catalog access: offline
 - Recommendation engine: offline
 - Post-session insights (MVP, deterministic): offline
-- AI Coach in preview mode: offline
-- AI Coach in live mode: gracefully degraded (falls back to preview mode, user is informed)
+- GAINER AI in preview mode: offline
+- GAINER AI in live mode: gracefully degraded (falls back to preview mode, user is informed)
 
 **What online means:**
-- AI Coach live mode only, with explicit fallback
+- GAINER AI live mode only, with explicit fallback
 - Future: account sync and backup (Supabase, not yet active)
 
 ---
@@ -722,7 +722,7 @@ Any new function in `src/lib/` that makes a decision (branching logic, threshold
 
 ### 9.7 OpenAI never called from the mobile app
 
-The live AI Coach endpoint is serverless (`api/ai-coach.ts`). The mobile app calls its own endpoint. The endpoint calls OpenAI. This indirection is load-bearing: it prevents API keys from being extracted from app binaries, enables rate limiting and cost controls at the server layer, and keeps sensitive data off the device.
+The live GAINER AI endpoint is serverless (`api/ai-coach.ts`). The mobile app calls its own endpoint. The endpoint calls OpenAI. This indirection is load-bearing: it prevents API keys from being extracted from app binaries, enables rate limiting and cost controls at the server layer, and keeps sensitive data off the device.
 
 **Hard rule:** `openai` package is never imported in `src/`. It belongs only in `api/`.
 
@@ -757,7 +757,7 @@ Track only what informs a specific product decision. If a metric cannot inform a
 | Insight engagement rate | Post-session insights may not exist at launch; need usage volume first |
 | Premium conversion rate | No premium tier in v1 |
 | Notification open rate | No notifications in v1 |
-| AI Coach interaction rate | Preview mode only; rate reflects curiosity, not value |
+| GAINER AI interaction rate | Preview mode only; rate reflects curiosity, not value |
 | Exercise substitution rate | Data volume too low to be meaningful |
 | Feature discovery rate (tabs visited, settings opened) | Vanity metric at v1 scale |
 | Daily active users | DAU is meaningless for a training app; sessions per week is the right proxy |
@@ -898,23 +898,23 @@ These are the failure modes most likely to cause the launch to damage rather tha
 
 ---
 
-### Risk 4: AI Coach live mode ships without cost controls (medium risk)
+### Risk 4: GAINER AI live mode ships without cost controls (medium risk)
 
-**Scenario:** Live AI Coach is enabled at launch. A subset of engaged users makes hundreds of requests. OpenAI costs spike before any revenue exists.
+**Scenario:** Live GAINER AI is enabled at launch. A subset of engaged users makes hundreds of requests. OpenAI costs spike before any revenue exists.
 
 **Impact:** Financial risk. Potential service interruption if rate limits are not enforced.
 
-**Mitigation:** If live AI Coach ships, enforce rate limiting in `api/ai-coach.ts` (`AI_COACH_RATE_LIMIT_MAX` and `AI_COACH_RATE_LIMIT_WINDOW_MS`). Consider keeping live mode off in v1 and shipping preview mode only. See `manual-launch-tasks.md`.
+**Mitigation:** If live GAINER AI ships, enforce rate limiting in `api/ai-coach.ts` (`AI_COACH_RATE_LIMIT_MAX` and `AI_COACH_RATE_LIMIT_WINDOW_MS`). Consider keeping live mode off in v1 and shipping preview mode only. See `manual-launch-tasks.md`.
 
 ---
 
 ### Risk 5: Privacy policy gap (medium risk, high consequence)
 
-**Scenario:** Google Play Data Safety form does not accurately describe data collection. Especially relevant if live AI Coach ships (training context is sent to OpenAI).
+**Scenario:** Google Play Data Safety form does not accurately describe data collection. Especially relevant if live GAINER AI ships (training context is sent to OpenAI).
 
 **Impact:** Play Store policy violation, potential removal from store.
 
-**Mitigation:** Complete the Data Safety form accurately. If live AI Coach is enabled, update the privacy policy to disclose that session context is sent to a third-party AI provider. If uncertain, launch with preview-only AI and update after the full policy review.
+**Mitigation:** Complete the Data Safety form accurately. If live GAINER AI is enabled, update the privacy policy to disclose that session context is sent to a third-party AI provider. If uncertain, launch with preview-only AI and update after the full policy review.
 
 ---
 
@@ -996,9 +996,9 @@ Likely first-30-day work:
 
 **Priority: premium tier and AI intelligence.**
 
-- Premium subscription tier (AI coaching insights as the primary unlock)
-- Live AI Coach as a prominently marketed feature (if not shipped at launch)
-- Operational AI Coach with scoped actions (why this plan, adapt to 2 days, swap for home gym)
+- Premium subscription tier (GAINER AI insights as the primary unlock)
+- Live GAINER AI as a prominently marketed feature (if not shipped at launch)
+- Operational GAINER AI with scoped actions (why this plan, adapt to 2 days, swap for home gym)
 - Advanced progression analytics and trend detection
 - Phase-aware coaching delivery (`observation → trusted` system from `ai-trust-system.md`)
 
@@ -1060,7 +1060,7 @@ A v1 launch succeeds if, at Day 30:
 ### What v1 is explicitly not trying to prove
 
 - That GAINER is the most feature-complete fitness app
-- That the AI coaching layer is fully operational
+- That the GAINER AI layer is fully operational
 - That the premium tier is revenue-positive
 - That 1,000 users love it
 
@@ -1080,10 +1080,10 @@ Onboarding, recommendation engine, workout logging with truthful save states, or
 Editable setup post-onboarding, post-session coaching insight, personal data export, Home continue/browse clarity, body weight tracking
 
 **Explicitly excluded from MVP:**
-Push notifications, social features, nutrition tracking, wellness tracking, premium paywall, streak/gamification mechanics, calendar integration, program catalog search, live AI Coach as primary feature (TBD), LLM-generated coaching messages, progression gating recommendations, AI program builder, long-range analytics, in-session coaching, multiple insights per session
+Push notifications, social features, nutrition tracking, wellness tracking, premium paywall, streak/gamification mechanics, calendar integration, program catalog search, live GAINER AI as primary feature (TBD), LLM-generated coaching messages, progression gating recommendations, AI program builder, long-range analytics, in-session coaching, multiple insights per session
 
 **AI allowed in MVP:**
-Recommendation engine, AI Coach preview mode, post-session insight (4 types, deterministic, silence-default), internal progression signal computation
+Recommendation engine, GAINER AI preview mode, post-session insight (4 types, deterministic, silence-default), internal progression signal computation
 
 **AI not allowed in MVP:**
 LLM-generated messages, push notification delivery, `progression_ready` insight, full progression gating surface, weekly/monthly summaries, deload recommendations, phase-aware coaching delivery, chatbot interface, in-session coaching

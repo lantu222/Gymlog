@@ -1,15 +1,15 @@
-# Gymlog Project Context
+# GAINER Project Context
 
 Tama tiedosto on projektin "AI-muisti": lue tama ensin, jos et tunne aiempaa keskusteluhistoriaa.
 
 ## Project Purpose
 
-Gymlog is a mobile-first workout planning and logging app. The product goal is to make training feel decisive and practical:
+GAINER is a mobile-first workout planning and logging app. The product goal is to make training feel decisive and practical:
 
 - recommend a useful plan from onboarding inputs
 - let the user start, log, and finish workouts quickly
 - preserve completed workout data for History and Progress
-- provide AI Coach guidance without making the core app depend on a live AI backend
+- provide GAINER AI guidance without making the core app depend on a live AI backend
 
 The app is currently focused on Android/Expo development, but the codebase is React Native and keeps iOS/web scripts available.
 
@@ -23,7 +23,7 @@ The app is currently focused on Android/Expo development, but the codebase is Re
 - `react-native-svg` for SVG rendering
 - `@react-native-async-storage/async-storage` for local storage
 - Node-based CommonJS tests under `tests/`
-- Optional serverless AI Coach endpoint in `api/ai-coach.ts`
+- Optional serverless GAINER AI endpoint in `api/ai-coach.ts`
 
 There is no Supabase/Next.js/Tailwind stack in this repo.
 
@@ -85,9 +85,9 @@ npm run exercise:sync
 
 ## Important Decisions
 
-- The app should work locally without a backend. AI Coach has preview mode when `EXPO_PUBLIC_AI_COACH_API_URL` is not configured.
-- Live AI Coach should call a project-owned endpoint, which then calls OpenAI. Do not call OpenAI directly from the mobile app.
-- Prompt text and training context should not be intentionally logged by the AI Coach endpoint.
+- The app should work locally without a backend. GAINER AI has preview mode when `EXPO_PUBLIC_AI_COACH_API_URL` is not configured.
+- Live GAINER AI should call a project-owned endpoint, which then calls OpenAI. Do not call OpenAI directly from the mobile app.
+- Prompt text and training context should not be intentionally logged by the GAINER AI endpoint.
 - Product principle: one clear next action, visible reasoning, honest save state, and fast logging.
 - Saved workout UX must be truthful: do not imply a workout was saved until persistence succeeds.
 - Onboarding is treated as a plan-fit system, not just a first-run wizard.
@@ -101,7 +101,7 @@ npm run exercise:sync
 - Ready program catalog and program detail screens
 - Workout logging, validation, completion, and persistence
 - History and Progress surfaces
-- AI Coach preview/live guidance
+- GAINER AI preview/live guidance
 - Profile/settings and launch-readiness documentation
 
 ## Current TODO List
@@ -128,20 +128,20 @@ Phase 3: Depth and retention
 - Improve workout discovery with search and filters.
 - Persist richer saved-session detail such as notes, swaps, partial completion, and useful set context.
 - Improve History and Progress with highlights, trends, filters, and clearer tracked-exercise copy.
-- Make AI Coach operational with scoped actions that can move users into real app flows.
+- Make GAINER AI operational with scoped actions that can move users into real app flows.
 
 Manual launch tasks are tracked in `docs/manual-launch-tasks.md`.
 
 ## Folder Structure
 
 ```text
-D:\Gymlog
+<repo-root>
 |-- App.tsx                         Main app shell, navigation, top-level flow wiring
 |-- index.ts                        Expo entry point
 |-- app.json                        Expo app metadata, Android package, icons, splash
 |-- package.json                    Scripts and dependencies
 |-- api\
-|   `-- ai-coach.ts                 Optional serverless AI Coach endpoint
+|   `-- ai-coach.ts                 Optional serverless GAINER AI endpoint
 |-- assets\                         App icons, splash images, fitness imagery, custom SVG icons
 |-- docs\                           Product, launch, AI, roadmap, onboarding, and planning docs
 |-- scripts\                        Utility scripts such as exercise library generation
@@ -164,7 +164,7 @@ D:\Gymlog
 `-- android\                        Native Android project for release builds
 ```
 
-## AI Coach Backend
+## GAINER AI Backend
 
 Relevant files:
 

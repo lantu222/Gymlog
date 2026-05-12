@@ -13,7 +13,7 @@ This document defines what the recommended workouts should contain after onboard
 
 ## Step 1-5 to Ready Plan Assembly
 
-The ready plan must be constructible from the current five onboarding steps without AI generation. The engine can use AI_COACH later to explain or discuss the plan, but the template, session content, and starter block come from deterministic product data.
+The ready plan must be constructible from the current five onboarding steps without AI generation. The engine can use GAINER AI later to explain or discuss the plan, but the template, session content, and starter block come from deterministic product data.
 
 | Input layer | Decides | Required output |
 | --- | --- | --- |
@@ -33,7 +33,7 @@ The minimum plan-ready payload should include:
 - recommendation confidence and fallback reason when applicable
 - `why this plan` reasons tied back to the user's Step 1-5 answers
 
-If any of these fields cannot be generated from catalog data, the issue is a content gap, not something AI_COACH should invent.
+If any of these fields cannot be generated from catalog data, the issue is a content gap, not something GAINER AI should invent.
 
 ## Content Rules
 

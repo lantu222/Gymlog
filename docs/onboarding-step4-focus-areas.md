@@ -4,8 +4,8 @@ This document captures the Step 4 visual and product change from the May 2, 2026
 
 ## Source Screens
 
-- Target reference: `D:\Gymlog dokumentointi\Step4\Step4screen_reference.png` (`853 x 1844`)
-- Current implementation: `D:\Gymlog dokumentointi\Step4\Step4_screen.png` (`393 x 856`)
+- Target reference: `<reference-assets>\Step4\Step4screen_reference.png` (`853 x 1844`)
+- Current implementation: `<reference-assets>\Step4\Step4_screen.png` (`393 x 856`)
 
 ## Intended Change
 

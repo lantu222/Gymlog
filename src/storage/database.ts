@@ -1,4 +1,4 @@
-﻿import AsyncStorage from '@react-native-async-storage/async-storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { createEmptyDatabase, createSeedDatabase } from '../data/seed';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
@@ -574,6 +574,18 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.aiCoachPlanGeneratedAt === 'string' || input?.preferences?.aiCoachPlanGeneratedAt === null
           ? input.preferences.aiCoachPlanGeneratedAt
           : fallback.preferences.aiCoachPlanGeneratedAt,
+      lastInsightSessionId:
+        typeof input?.preferences?.lastInsightSessionId === 'string' || input?.preferences?.lastInsightSessionId === null
+          ? input.preferences.lastInsightSessionId
+          : fallback.preferences.lastInsightSessionId,
+      lastInsightType:
+        input?.preferences?.lastInsightType === 'personal_record' ||
+        input?.preferences?.lastInsightType === 'plateau_detected' ||
+        input?.preferences?.lastInsightType === 'session_volume_peak' ||
+        input?.preferences?.lastInsightType === 'return_after_gap' ||
+        input?.preferences?.lastInsightType === null
+          ? input.preferences.lastInsightType
+          : fallback.preferences.lastInsightType,
       recommendedProgramId:
         typeof input?.preferences?.recommendedProgramId === 'string' || input?.preferences?.recommendedProgramId === null
           ? input.preferences.recommendedProgramId

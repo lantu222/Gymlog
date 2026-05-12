@@ -156,6 +156,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       recommendedProgramId: null,
       trackedExerciseLibraryItemIds: [],
       dismissedTipIds: [],
+      lastInsightSessionId: null,
+      lastInsightType: null,
       activePlanId: null,
     },
   });

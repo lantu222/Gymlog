@@ -66,7 +66,7 @@ export interface UserFitnessProfile {
 // SessionPerformanceSignal — computed after each session        [later]
 // AdherenceRecord        — weekly planned vs actual             [later]
 // CoachingAction         — typed coaching recommendation union  [later]
-// CoachingContext        — assembled context for AI coach       [later]
+// CoachingContext        — assembled context for GAINER AI       [later]
 // MuscleGroupFatigueState — per-muscle ACWR                    [do not build yet]
 // GoalMilestone          — goal progress tracking               [do not build yet]
 // RecentMemory / BlockMemory / LifetimeMemory                   [do not build yet]

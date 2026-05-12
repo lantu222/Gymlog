@@ -69,6 +69,11 @@ export type AiPlannerDaysPerWeek = 1 | 2 | 3 | 4;
 export type AiPlannerExperience = 'beginner' | 'intermediate' | 'advanced';
 export type AiPlannerEquipment = 'full_gym' | 'home_gym' | 'minimal' | 'bodyweight';
 export type AiPlannerRecovery = 'low' | 'moderate' | 'high';
+export type PostSessionInsightType =
+  | 'personal_record'
+  | 'plateau_detected'
+  | 'session_volume_peak'
+  | 'return_after_gap';
 
 export interface WorkoutTemplateSessionRecord {
   id: string;
@@ -256,6 +261,8 @@ export interface AppPreferences {
   aiCoachTemplateId: string | null;
   aiCoachSetupHash: string | null;
   aiCoachPlanGeneratedAt: string | null;
+  lastInsightSessionId: string | null;
+  lastInsightType: PostSessionInsightType | null;
   recommendedProgramId: string | null;
   trackedExerciseLibraryItemIds: string[];
   dismissedTipIds: string[];

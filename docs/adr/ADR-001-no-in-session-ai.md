@@ -13,7 +13,7 @@ Failure in this system blocks launch.
 
 ## Context
 
-During active workout sessions, the user's attention is on training. Any AI coaching output — whether an insight, a suggestion, a substitution prompt, or an encouragement message — competes with that attention and constitutes an interruption.
+During active workout sessions, the user's attention is on training. Any GAINER AI output — whether an insight, a suggestion, a substitution prompt, or an encouragement message — competes with that attention and constitutes an interruption.
 
 Multiple documents in the codebase have proposed or implied in-session AI behavior:
 - `premium-adaptive-coach-plan.md` proposed "set-to-set guidance during logging" (archived)
@@ -25,7 +25,7 @@ The question of whether any in-session AI output is acceptable needed a formal d
 
 ## Decision
 
-**All AI coaching output is architecturally prohibited during active workout sessions. No exceptions.**
+**All GAINER AI output is architecturally prohibited during active workout sessions. No exceptions.**
 
 This applies to:
 - Post-session insights
@@ -49,13 +49,13 @@ This applies to:
 
 4. **Post-session is always available.** Any observation worth surfacing after a set is still worth surfacing after the session. The information does not expire in the 30 minutes between the set and session completion.
 
-5. **Substitution suggestions are a user-initiated action.** If a user requests a substitution (by tapping a substitution button), that is user-initiated and not in-session AI coaching. This decision prohibits *unsolicited* AI output only. User-initiated exercise substitution lookup is allowed.
+5. **Substitution suggestions are a user-initiated action.** If a user requests a substitution (by tapping a substitution button), that is user-initiated and not in-session GAINER AI. This decision prohibits *unsolicited* AI output only. User-initiated exercise substitution lookup is allowed.
 
 ---
 
 ## Implementation Constraint
 
-`computePostSessionInsight()` and the AI Coach client (`aiCoachClient.ts`) must only be called after the session save resolves. The `WorkoutProvider` active session state is the gate.
+`computePostSessionInsight()` and the GAINER AI client (`aiCoachClient.ts`) must only be called after the session save resolves. The `WorkoutProvider` active session state is the gate.
 
 **Permitted call sequence:**
 ```

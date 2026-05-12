@@ -4,7 +4,7 @@ const { buildAiTrainingContext } = require('../../.test-dist/lib/aiTrainingConte
 
 module.exports = [
   {
-    name: 'ai training context keeps a compact but actionable aiCoach summary',
+    name: 'ai training context keeps a compact but actionable aiCoach summary without active workout context by default',
     run() {
       const context = buildAiTrainingContext({
         unitPreference: 'kg',
@@ -86,7 +86,7 @@ module.exports = [
         'trackedLifts',
         'unitPreference',
       ]);
-      assert.equal(context.activeSession.title, '3-Day Full Body');
+      assert.equal(context.activeSession, null);
       assert.equal(context.recentCompletedSessions[0].title, 'Push Day');
       assert.equal(context.recentCompletedSessions[0].sessionId, 's1');
       assert.equal(context.recentCompletedSessions[0].noteCount, 2);

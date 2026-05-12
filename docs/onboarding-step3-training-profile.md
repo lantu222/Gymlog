@@ -4,8 +4,8 @@ This document captures the Step 3 visual and product change from the April 30, 2
 
 ## Source Screens
 
-- Target reference: `D:\Gymlog dokumentointi\Step3\Step3screen_reference.png` (`853 x 1844`)
-- Current implementation: `D:\Gymlog dokumentointi\Step3\Step3_screen.png` (`381 x 843`)
+- Target reference: `<reference-assets>\Step3\Step3screen_reference.png` (`853 x 1844`)
+- Current implementation: `<reference-assets>\Step3\Step3_screen.png` (`381 x 843`)
 
 ## Intended Change
 

@@ -1,8 +1,8 @@
-# Gainer — Documentation Architecture
+# GAINER — Documentation Architecture
 
 **Type:** Meta-document — documentation structure, ownership, and integrity rules
 **Status:** Authoritative. This document governs how all other docs/ files are classified, owned, and used.
-**App name:** Gainer (formerly Gymlog — rename applies to all future documentation)
+**App name:** GAINER (formerly GAINER — rename applies to all future documentation)
 
 ---
 
@@ -80,7 +80,7 @@ docs/
 │   ├── ux-principles.md             ← UX behavioral rules
 │   ├── retention-philosophy.md      ← Retention approach
 │   ├── premium-philosophy.md        ← Monetization intent
-│   ├── coaching-intelligence-design.md ← AI coaching behavioral intent (design ref)
+│   ├── coaching-intelligence-design.md ← GAINER AI behavioral intent (design ref)
 │   ├── product-roadmap-phases.md    ← Three-phase implementation roadmap
 │   ├── your-plan-ready-review.md    ← Plan-ready screen design intent
 │   ├── manual-launch-tasks.md       ← Launch checklist (external tasks)
@@ -140,7 +140,7 @@ docs/
 | `ux-principles.md` | product | Low-Med | UX behavioral rules. References authority docs for specific values. |
 | `retention-philosophy.md` | product | Low | Retention design intent. |
 | `premium-philosophy.md` | product | Low-Med | Free-tier definition and monetization ethics. Canonical owner of free-tier rules. |
-| `coaching-intelligence-design.md` | product | Low | AI coaching behavioral intent. Superseded by implementation specs on all numeric values. |
+| `coaching-intelligence-design.md` | product | Low | GAINER AI behavioral intent. Superseded by implementation specs on all numeric values. |
 | `product-roadmap-phases.md` | product | Low | Three-phase roadmap. Not a feature commitment. |
 | `your-plan-ready-review.md` | product | Low | Plan-ready screen redesign intent. Design reference only. |
 | `manual-launch-tasks.md` | product | Medium | External launch checklist. Non-implementation tasks. |
@@ -148,7 +148,7 @@ docs/
 | `play-data-safety.md` | product | High (legal) | Store compliance. Must be accurate. |
 | `asset-shortlist-free.md` | product | Low | Asset inventory. |
 | `asset-strategy-fully-free.md` | product | Low | Asset sourcing. |
-| `premium-adaptive-coach-plan.md` | **archive** | **None** | Proposes in-session AI coaching. Explicitly excluded from MVP. |
+| `premium-adaptive-coach-plan.md` | **archive** | **None** | Proposes in-session GAINER AI. Explicitly excluded from MVP. |
 | `superpowers/plans/2026-04-21-*` | **archive** | None | Historical implementation plan. Superseded. |
 | `superpowers/plans/2026-04-25-*` | **archive** | None | Historical training-plan spec. Superseded. |
 | `superpowers/specs/2026-04-21-*` | **archive** | None | Historical recommendation engine design. Superseded. |
@@ -231,10 +231,10 @@ These conflicts were identified and resolved in a prior documentation pass. List
 | C-02 | **Critical** | `coaching-intelligence-design.md` §3 states "In-session: exercise substitution suggestions allowed" — this conflicts with the absolute no-in-session-AI rule in `ai-trust-system.md` §3.5 and `post-session-single-insight-mvp.md`. | `coaching-intelligence-design.md` | Update §3 to remove the in-session exception. No coaching output is allowed during an active session, including substitution suggestions. |
 | C-03 | **High** | `your-plan-ready-review.md` references implementation anchors (`renderReview()`, specific asset names) that may be outdated or renamed. It contains no "design reference only" label. | `your-plan-ready-review.md` | Add Type: Design reference label. Verify implementation anchors are current or note they require verification. |
 | C-04 | **Medium** | `onboarding-impact-matrix.md` and `recommendation-4-week-programme-contract.md` both define content rules for recommendation output. The boundary between "what gets selected" (impact matrix) and "what gets built into the programme" (contract) is clear in intent but not in naming. | Both | Add explicit scope statements at the top of each document clarifying the boundary: impact matrix owns *selection*, programme contract owns *construction*. |
-| C-05 | **Medium** | `product-roadmap-phases.md` uses "Gymlog" throughout. App has been renamed to "Gainer." | `product-roadmap-phases.md` | Update all instances of "Gymlog" to "Gainer." |
-| C-06 | **Medium** | `premium-adaptive-coach-plan.md` (archived) proposes "AI Coach actions that can change the plan" during sessions. If future premium docs are created, they must not inherit this proposal. | Future premium docs | When premium documentation is rebuilt, start from `premium-philosophy.md` as the canonical base. Do not reference the archived plan. |
-| C-07 | **Low** | `project-context.md` uses "Gymlog" in title and throughout. | `project-context.md` | Update to "Gainer." |
-| C-08 | **Low** | `superpowers/specs/2026-04-21-recommendation-engine-design.md` uses "Gymlog" and contains design decisions that may conflict with current implementation. It has no archive label. | superpowers/specs/ | Archive the entire `superpowers/` folder. See §5. |
+| C-05 | **Medium** | `product-roadmap-phases.md` uses "GAINER" throughout. App has been renamed to "GAINER." | `product-roadmap-phases.md` | Update all instances of "GAINER" to "GAINER." |
+| C-06 | **Medium** | `premium-adaptive-coach-plan.md` (archived) proposes "GAINER AI actions that can change the plan" during sessions. If future premium docs are created, they must not inherit this proposal. | Future premium docs | When premium documentation is rebuilt, start from `premium-philosophy.md` as the canonical base. Do not reference the archived plan. |
+| C-07 | **Low** | `project-context.md` uses "GAINER" in title and throughout. | `project-context.md` | Update to "GAINER." |
+| C-08 | **Low** | `superpowers/specs/2026-04-21-recommendation-engine-design.md` uses "GAINER" and contains design decisions that may conflict with current implementation. It has no archive label. | superpowers/specs/ | Archive the entire `superpowers/` folder. See §5. |
 
 ### Active conflicts (in-spec ambiguity)
 
@@ -253,7 +253,7 @@ These conflicts were identified and resolved in a prior documentation pass. List
 - "set-to-set guidance during logging" — in-session AI (architecturally prohibited)
 - "smarter rest and next-set recommendations" — in-session AI (architecturally prohibited)
 - "session adjustment when energy, time, or recovery is off" — in-session AI (architecturally prohibited)
-- "AI Coach actions that can change the plan" — speculative feature with no current foundation
+- "GAINER AI actions that can change the plan" — speculative feature with no current foundation
 
 **Action:** Add the Archived header. Move to `docs/archive/`. Do not reference this document in future implementation work.
 
@@ -323,9 +323,9 @@ The current filenames use inconsistent naming conventions that make it unclear w
 
 ---
 
-### R-03: App rename — Gymlog → Gainer
+### R-03: App rename — GAINER → GAINER
 
-Every document that uses "Gymlog" as a product name must be updated. "Gymlog" is acceptable as an internal package/code identifier (e.g., `@gymlog/database/v1`). It is not acceptable as the user-facing product name in documentation.
+Every document that uses "GAINER" as a product name must be updated. "GAINER" is acceptable as an internal package/code identifier (e.g., `@gymlog/database/v1`). It is not acceptable as the user-facing product name in documentation.
 
 **Files requiring name updates:**
 - `project-context.md` — title and throughout
@@ -415,7 +415,7 @@ AI features that require live backend, LLM generation, or always produce output 
 
 ## 9. Scope Creep Risks
 
-Patterns that historically introduce scope creep in fitness apps, ordered by current risk level for Gainer.
+Patterns that historically introduce scope creep in fitness apps, ordered by current risk level for GAINER.
 
 | Risk | Current signal | Mitigation |
 |---|---|---|
@@ -437,7 +437,7 @@ Systems where boundary violations are most likely to occur during implementation
 | Boundary | Risk | Protection |
 |---|---|---|
 | **Coaching output ↔ Session state** | An engineer adds an insight trigger that fires while WorkoutProvider has an active session | ADR-001 (no in-session AI). `computePostSessionInsight()` must only be called after session save. |
-| **Recommendation engine ↔ AI Coach** | AI Coach begins generating or overriding programme selections | `recommendation-4-week-programme-contract.md` §"Product Boundary" explicitly prohibits this. |
+| **Recommendation engine ↔ GAINER AI** | GAINER AI begins generating or overriding programme selections | `recommendation-4-week-programme-contract.md` §"Product Boundary" explicitly prohibits this. |
 | **Save flow ↔ Completion UI** | Completion screen appears optimistically before persistence resolves | ADR-002 (truthful save states). `WorkoutCompletionScreen` must only be entered after successful persistence. |
 | **src/lib/ ↔ Storage** | A lib function accesses AsyncStorage directly | CLAUDE.md and `system-architecture.md` §13 prohibit side effects in `src/lib/`. |
 | **Progression logic ↔ User-facing messaging** | `evaluateProgressionGating()` return value is shown directly to the user | `progression-gating-rules.md` §display-contract: hold is always silent to user. Function output drives internal logic only. |
@@ -482,7 +482,7 @@ Architecture Decision Records are in `docs/adr/`. Each ADR represents a finalize
 
 | ADR | Title | Status | Key constraint |
 |---|---|---|---|
-| ADR-001 | No In-Session AI | **Accepted** | All AI coaching output is architecturally prohibited during active sessions |
+| ADR-001 | No In-Session AI | **Accepted** | All GAINER AI output is architecturally prohibited during active sessions |
 | ADR-002 | Truthful Save States | **Accepted** | Completion UI cannot appear before persistence resolves |
 | ADR-003 | Silence as Default for Coaching | **Accepted** | `null` is the correct and expected return for most sessions |
 | ADR-004 | Double Progression Model | **Accepted** | All weighted exercises use rep-accumulation-then-load-increment |

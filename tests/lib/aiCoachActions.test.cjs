@@ -62,7 +62,7 @@ module.exports = [
         actions.map((action) => action.kind),
         ['open_recommended_program', 'review_setup', 'open_custom_editor'],
       );
-      assert.equal(actions[2].prefillName, '4-Day AI Coach Plan');
+      assert.equal(actions[2].prefillName, '4-Day GAINER AI Plan');
     },
   },
   {

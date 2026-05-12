@@ -481,7 +481,7 @@ const SCHEDULE_MODE_OPTIONS: Array<{
   {
     mode: 'app_managed',
     title: 'Plan it for me',
-    body: 'Gymlog places the week.',
+    body: 'GAINER places the week.',
   },
   {
     mode: 'self_managed',
@@ -3638,7 +3638,7 @@ export function OnboardingScreen({
       if (activeRecommendationRefinement === 'ai') {
         return (
           <View style={styles.refinementPanel}>
-            <Text style={styles.personalizationTitle}>Ask AI Coach</Text>
+            <Text style={styles.personalizationTitle}>Ask GAINER AI</Text>
             <Text style={styles.personalizationBody}>Ask about this exact fit.</Text>
             <Pressable
               onPress={() => openHelper(helperSuggestions[1] ?? helperSuggestions[0] ?? helperPrompt)}
@@ -3745,7 +3745,7 @@ export function OnboardingScreen({
               onPress={() => toggleRecommendationRefinement('custom')}
             />
             <ChoiceChip
-              label="AI Coach"
+              label="GAINER AI"
               active={activeRecommendationRefinement === 'ai'}
               onPress={() => toggleRecommendationRefinement('ai')}
             />
@@ -4086,8 +4086,8 @@ export function OnboardingScreen({
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderCopy}>
-                <Text style={styles.sheetKicker}>AI Coach</Text>
-        <Text style={styles.sheetTitle}>Ask AI Coach</Text>
+                <Text style={styles.sheetKicker}>GAINER AI</Text>
+        <Text style={styles.sheetTitle}>Ask GAINER AI</Text>
               </View>
               <Pressable onPress={() => setHelperVisible(false)}>
                 <Text style={styles.sheetClose}>Close</Text>
@@ -4122,7 +4122,7 @@ export function OnboardingScreen({
             {helperState === 'loading' ? (
               <View style={styles.helperStatusBlock}>
                 <ActivityIndicator color="#F3F7FF" size="small" />
-                <Text style={styles.helperStatusText}>AI Coach is answering.</Text>
+                <Text style={styles.helperStatusText}>GAINER GAINER AI is answering.</Text>
               </View>
             ) : null}
 

@@ -123,7 +123,7 @@ export function PlanSettingsScreen({
   const weekdaySummary =
     scheduleMode === 'self_managed' && preferences.setupAvailableDays.length > 0
       ? formatWeekdayList(preferences.setupAvailableDays)
-      : 'Gymlog places the week';
+      : 'GAINER places the week';
   const exercisePreferenceSummary = summarizeExercisePreferences({
     trainingFeel: preferences.setupTrainingFeel,
     workoutVariety: preferences.setupWorkoutVariety,
@@ -248,7 +248,7 @@ export function PlanSettingsScreen({
               style={[styles.scheduleToggle, scheduleMode === 'app_managed' && styles.scheduleToggleActive]}
             >
               <Text style={[styles.scheduleToggleTitle, scheduleMode === 'app_managed' && styles.scheduleToggleTitleActive]}>
-                Gymlog manages this
+                GAINER manages this
               </Text>
               <Text style={[styles.scheduleToggleMeta, scheduleMode === 'app_managed' && styles.scheduleToggleMetaActive]}>
                 App places the week.
@@ -312,7 +312,7 @@ export function PlanSettingsScreen({
 
           {onAskAiCoach ? (
             <SurfaceCard accent="neutral" emphasis="flat" onPress={onAskAiCoach} style={styles.actionCard}>
-              <Text style={styles.actionKicker}>AI Coach</Text>
+              <Text style={styles.actionKicker}>GAINER AI</Text>
               <Text style={styles.actionTitle}>Ask why</Text>
               <Text style={styles.actionBody}>Open the plan context directly.</Text>
             </SurfaceCard>

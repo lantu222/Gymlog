@@ -94,7 +94,7 @@ export function EquipmentPreferencesScreen({
         <View style={styles.optionGrid}>
           <SurfaceCard accent="neutral" emphasis="standard" style={styles.questionCard}>
             <View style={styles.questionHeader}>
-              <Text style={styles.questionTitle}>What setup should Gymlog assume most weeks?</Text>
+              <Text style={styles.questionTitle}>What setup should GAINER assume most weeks?</Text>
               <Text style={styles.questionBody}>This steers recommendation, discovery, and quick swaps.</Text>
             </View>
 

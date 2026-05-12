@@ -1,4 +1,4 @@
-# GAINER — AI Coaching Intelligence Design
+# GAINER — GAINER AI Intelligence Design
 
 **Type:** Design reference — behavioral intent only. Numeric thresholds in this document are design illustrations unless marked otherwise. For authoritative MVP values, see the implementation specs listed below.
 **Status:** Design reference. Not an implementation spec.
@@ -103,7 +103,7 @@ Higher priority signals suppress lower priority ones. A safety signal does not s
 
 ### The coaching cadence model
 
-**In-session:** No AI coaching output of any kind. This is architecturally prohibited — see ADR-001. Exercise substitution is a user-initiated data lookup (finding an alternative exercise), not AI coaching output, and is allowed only when explicitly requested by the user via a substitution button. Unsolicited messages, suggestions, and encouragement are prohibited during active sessions.
+**In-session:** No GAINER AI output of any kind. This is architecturally prohibited — see ADR-001. Exercise substitution is a user-initiated data lookup (finding an alternative exercise), not GAINER AI output, and is allowed only when explicitly requested by the user via a substitution button. Unsolicited messages, suggestions, and encouragement are prohibited during active sessions.
 
 **Post-session:** One observation if meaningful. Never multiple insights.
 
@@ -349,7 +349,7 @@ These are the moments that make a user think "this app actually gets me":
 
 ## Core summary
 
-GAINER's AI coaching intelligence has one job: be right less often, but be undeniably right when it speaks.
+GAINER's GAINER AI intelligence has one job: be right less often, but be undeniably right when it speaks.
 
 The system earns trust through restraint, builds retention through compounding personalization, and delivers value through precise observation — not volume of output.
 

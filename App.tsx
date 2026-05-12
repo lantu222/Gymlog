@@ -21,6 +21,7 @@ import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
+import { computePostSessionInsight, PostSessionInsight } from './src/lib/postSessionInsight';
 import {
   buildAiCoachRuntimeTemplate,
   buildAiCoachSetupHash,
@@ -80,6 +81,8 @@ import {
   AppDatabase,
   AppPreferences,
   ExerciseLibraryItem,
+  ExerciseLog,
+  ExerciseLogDraft,
   ExerciseTemplate,
   SetupEquipment,
   SetupScheduleMode,
@@ -104,6 +107,7 @@ interface CompletionSummaryState {
   exercisesLogged: number;
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
+  insight: PostSessionInsight | null;
 }
 
 function isWorkoutCompletionPrCard(
@@ -214,6 +218,28 @@ function buildCompletionCardsFromAdaptedSession({
     exerciseCards,
     prCards,
   };
+}
+
+function buildExerciseLogsForCompletedSession(sessionId: string, drafts: ExerciseLogDraft[]): ExerciseLog[] {
+  return drafts.map((draft, index) => ({
+    id: `draft:${sessionId}:${index}`,
+    sessionId,
+    exerciseTemplateId: draft.exerciseTemplateId,
+    exerciseNameSnapshot: draft.exerciseNameSnapshot,
+    weight: draft.skipped ? 0 : draft.weight ?? 0,
+    repsPerSet: draft.skipped ? [] : draft.repsPerSet ?? [],
+    sets: draft.sets,
+    tracked: draft.tracked,
+    orderIndex: draft.orderIndex,
+    skipped: draft.skipped,
+    sessionInserted: draft.sessionInserted,
+    status: draft.status,
+    slotId: draft.slotId,
+    templateSlotId: draft.templateSlotId,
+    templateExerciseId: draft.templateExerciseId,
+    notes: draft.notes,
+    swappedFrom: draft.swappedFrom,
+  }));
 }
 
 interface NavigationState {
@@ -656,10 +682,10 @@ function GymlogApp() {
         nextPreferences.unitPreference,
       );
       navigate({ tab: 'workout', screen: 'log', workoutTemplateId: persistedTemplateId });
-      showToast(shouldRegenerate ? 'AI Coach plan ready' : 'AI Coach next workout loaded');
+      showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
     } catch (error) {
-      console.error('Failed to open AI Coach workout flow', error);
-      showToast('Could not build the AI Coach workout');
+      console.error('Failed to open GAINER AI workout flow', error);
+      showToast('Could not build the GAINER AI workout');
       navigate({
         tab: 'home',
         screen: 'ai',
@@ -926,7 +952,34 @@ function GymlogApp() {
         throw new Error('Workout save did not produce a valid summary');
       }
 
-      await updatePreferences({ trainingFirstRunDismissed: true });
+      const sessionExerciseLogs = buildExerciseLogsForCompletedSession(adaptedSession.sessionId, adaptedSession.logs);
+      const insight = computePostSessionInsight(
+        {
+          completedSession: {
+            id: adaptedSession.sessionId,
+            performedAt: summary.performedAt,
+            totalVolumeKg: summary.totalVolume,
+            setsCompleted: summary.setsCompleted,
+          },
+          sessionExerciseLogs,
+          allPriorSessions: database.workoutSessions,
+          allPriorExerciseLogs: database.exerciseLogs,
+          lastInsightSessionId: preferences.lastInsightSessionId,
+          lastInsightType: preferences.lastInsightType,
+          unitPreference,
+        },
+        new Date(summary.performedAt),
+      );
+
+      await updatePreferences({
+        trainingFirstRunDismissed: true,
+        ...(insight
+          ? {
+              lastInsightSessionId: adaptedSession.sessionId,
+              lastInsightType: insight.type,
+            }
+          : {}),
+      });
       workout.finishWorkout(summary.performedAt);
       const completionCards = buildCompletionCardsFromAdaptedSession({
         exercises: adaptedSession.exercises,
@@ -944,6 +997,7 @@ function GymlogApp() {
         exercisesLogged: summary.exercisesLogged,
         exerciseCards: completionCards.exerciseCards,
         prCards: completionCards.prCards,
+        insight,
       });
       setFinishSaveState({ status: 'idle', sessionId: null, message: null });
       replaceRoute({ tab: 'workout', screen: 'summary' });
@@ -1052,7 +1106,7 @@ function GymlogApp() {
         navigate({
           tab: 'workout',
           screen: 'editor',
-          prefillName: action.prefillName ?? (prompt.trim() ? 'AI Coach custom workout' : undefined),
+          prefillName: action.prefillName ?? (prompt.trim() ? 'GAINER AI custom workout' : undefined),
         });
         return;
 
@@ -1365,7 +1419,7 @@ function GymlogApp() {
     }
 
     await updatePreferences(patch);
-    showToast(nextMode === 'app_managed' ? 'Gymlog manages the week' : 'You manage the days');
+    showToast(nextMode === 'app_managed' ? 'GAINER manages the week' : 'You manage the days');
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
@@ -2077,6 +2131,7 @@ function GymlogApp() {
           setCompletionSummary({
             sessionId,
             ...summary,
+            insight: null,
           });
           summaryExitRouteRef.current = ROOT_ROUTES.home;
           replaceRoute({ tab: 'workout', screen: 'summary' });
@@ -2117,6 +2172,7 @@ function GymlogApp() {
         exercisesLogged={completionSummary.exercisesLogged}
         exerciseCards={completionSummary.exerciseCards}
         prCards={completionSummary.prCards}
+        insight={completionSummary.insight}
         unitPreference={unitPreference}
         onDone={() => {
           setCompletionSummary(null);
@@ -2245,7 +2301,7 @@ function GymlogApp() {
             aiCoachPlanGeneratedAt: null,
           };
           await updatePreferences(nextPatch);
-          showToast('AI mode setup saved');
+          showToast('GAINER AI setup saved');
           await openAiMode(nextPatch);
         }}
       />
@@ -2512,7 +2568,9 @@ function GymlogApp() {
             aiActive={route.tab === 'home' && (route.screen === 'ai' || route.screen === 'ai_setup')}
             onTabPress={navigateToTab}
             onAiPress={() => {
-              void openAiMode();
+              if (!navigateToActiveWorkout()) {
+                navigateToTab('workout');
+              }
             }}
           />
         ) : undefined

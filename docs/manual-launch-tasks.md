@@ -6,7 +6,7 @@ These items require your external accounts, legal decisions, public URLs, or sto
 
 ## Required manual tasks
 1. Choose the public publisher / developer name exactly as it will appear in Google Play.
-2. Create or confirm a support email address for Gymlog.
+2. Create or confirm a support email address for GAINER.
 3. Publish the privacy policy at a public, non-editable URL.
 4. Add the privacy policy link in Play Console.
 5. Add a privacy policy link or privacy text inside the app before public launch.
@@ -24,8 +24,8 @@ These items require your external accounts, legal decisions, public URLs, or sto
 14. Decide whether to disable Android backup or disclose that device-level backup may apply.
 
 ## Strongly recommended manual decisions
-1. Decide whether AI Coach launches as Beta in the store listing.
-2. Decide whether AI Coach stays preview-only in v1 or ships with the live backend enabled.
+1. Decide whether GAINER AI launches as Beta in the store listing.
+2. Decide whether GAINER AI stays preview-only in v1 or ships with the live backend enabled.
    - If live backend is enabled, publish the updated privacy policy and re-check Play Data Safety answers.
 3. Decide what support promise you want to make publicly, if any.
 4. Decide whether to include a public website or landing page.

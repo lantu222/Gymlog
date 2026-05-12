@@ -9,6 +9,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { getLogSetStatusCounts } from '../lib/exerciseLog';
+import { getProgressActivityDayStatus } from '../lib/progressActivity';
 import {
   convertWeightFromKg,
   convertWeightToKg,
@@ -96,7 +97,7 @@ const OVERVIEW_RANGES: Array<{ key: OverviewRange; label: string }> = [
 const OVERVIEW_METRICS: Array<{ key: OverviewMetric; label: string }> = [
   { key: 'bodyweight', label: 'Bodyweight' },
   { key: 'duration', label: 'Duration' },
-  { key: 'workouts', label: '🔥 Workouts' },
+  { key: 'workouts', label: 'Workouts' },
 ];
 
 const PROGRESS_SECTIONS: Array<{ key: ProgressSection; label: string }> = [
@@ -1520,15 +1521,6 @@ export function ProgressScreen({
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {progressSection === 'overview' ? (
           <>
-            <View style={styles.streakHeroCard}>
-              <View style={styles.streakHeroCopy}>
-                <Text style={styles.streakHeroKicker}>This is your progress</Text>
-                <Text style={styles.streakHeroTitle}>{currentWeekStreak || 0} week streak</Text>
-                <Text style={styles.streakHeroBody}>You're building momentum. Keep it up!</Text>
-              </View>
-              <FlameMark />
-            </View>
-
             <View style={styles.activityCard}>
               <View style={styles.referenceCardHeader}>
                 <Text style={styles.referenceCardTitle}>Activity</Text>
@@ -1557,20 +1549,20 @@ export function ProgressScreen({
                 </View>
                 <View style={styles.activityCalendarGrid}>
                   {activityCalendarDays.map((day) => {
-                    const workout = day.active;
-                    const planned = !workout && day.inCurrentMonth && day.dayNumber % 2 === 1;
+                    const status = getProgressActivityDayStatus(day);
+                    const workout = status === 'workout';
+                    const outside = status === 'outside';
                     return (
                       <View key={day.dayStart} style={styles.activityCalendarCell}>
                         <View
                           style={[
                             styles.activityCalendarBubble,
                             workout && styles.activityCalendarWorkout,
-                            planned && styles.activityCalendarPlanned,
-                            !day.inCurrentMonth && styles.activityCalendarOutside,
+                            outside && styles.activityCalendarOutside,
                             day.isToday && styles.activityCalendarToday,
                           ]}
                         >
-                          <Text style={[styles.activityCalendarText, !day.inCurrentMonth && styles.activityCalendarTextMuted]}>
+                          <Text style={[styles.activityCalendarText, outside && styles.activityCalendarTextMuted]}>
                             {day.dayNumber}
                           </Text>
                         </View>
@@ -1583,10 +1575,6 @@ export function ProgressScreen({
                 <View style={styles.referenceLegendItem}>
                   <View style={[styles.referenceLegendDot, styles.referenceLegendWorkout]} />
                   <Text style={styles.referenceLegendText}>Workout</Text>
-                </View>
-                <View style={styles.referenceLegendItem}>
-                  <View style={[styles.referenceLegendDot, styles.referenceLegendPlanned]} />
-                  <Text style={styles.referenceLegendText}>Planned</Text>
                 </View>
                 <View style={styles.referenceLegendItem}>
                   <View style={[styles.referenceLegendDot, styles.referenceLegendRest]} />
@@ -1657,42 +1645,6 @@ export function ProgressScreen({
               </View>
             ) : null}
 
-            <View style={styles.calendarCard}>
-              <Text style={styles.calendarMonthTitle}>{calendarMonthLabel}</Text>
-              <View style={styles.calendarWeekdayRow}>
-                {PROGRESS_WEEKDAY_LABELS.map((label, index) => (
-                  <Text key={`${label}:${index}`} style={styles.calendarWeekdayLabel}>
-                    {label}
-                  </Text>
-                ))}
-              </View>
-              <View style={styles.calendarGrid}>
-                {activityCalendar.weeks.flat().map((day) => {
-                  const dayPillStyles = [styles.calendarDayPill, day.isToday && styles.calendarDayPillToday];
-                  const dayTextStyles = [
-                    styles.calendarDayText,
-                    !day.inCurrentMonth && styles.calendarDayTextMuted,
-                    day.isToday && styles.calendarDayTextToday,
-                  ];
-
-                  return (
-                    <View key={day.dayStart} style={styles.calendarDayCell}>
-                      <View style={dayPillStyles}>
-                        <Text style={dayTextStyles}>{day.dayNumber}</Text>
-                        {day.active ? <Text style={styles.calendarFlame}>🔥</Text> : null}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-              <View style={styles.calendarFooter}>
-                <Text style={styles.calendarFooterLabel}>Your streak</Text>
-                <Text style={styles.calendarFooterValue}>
-                  {currentWeekStreak} {currentWeekStreak === 1 ? 'week' : 'weeks'}
-                </Text>
-              </View>
-            </View>
-
             <View style={styles.snapshotGrid}>
               <Pressable onPress={onSelectBodyweight} style={[styles.snapshotCard, styles.snapshotCardLarge]}>
                 <Text style={styles.snapshotLabel}>Bodyweight</Text>
@@ -1712,29 +1664,6 @@ export function ProgressScreen({
                 <Text style={styles.snapshotTrend}>
                   {signalCounts.new_best > 0 ? `${signalCounts.new_best} new best` : `${signalCounts.moving_up} moving`}
                 </Text>
-              </View>
-            </View>
-
-            <View style={styles.weekStreakCard}>
-              <View style={styles.weekStreakHeader}>
-                <FlameMark size={34} />
-                <View>
-                  <Text style={styles.weekStreakTitle}>{currentWeekStreak || 0} week streak</Text>
-                  <Text style={styles.weekStreakMeta}>Keep it going!</Text>
-                </View>
-              </View>
-              <View style={styles.weekStreakSteps}>
-                {['Apr 14-20', 'Apr 21-27', 'Apr 28-May 4', 'May 5-11', 'This week'].map((label, index) => {
-                  const complete = index < Math.min(currentWeekStreak, 4);
-                  return (
-                    <View key={label} style={styles.weekStep}>
-                      <View style={[styles.weekStepCircle, complete ? styles.weekStepComplete : styles.weekStepPending]}>
-                        <Text style={styles.weekStepCheck}>{complete ? '✓' : ''}</Text>
-                      </View>
-                      <Text style={styles.weekStepLabel}>{label}</Text>
-                    </View>
-                  );
-                })}
               </View>
             </View>
 
@@ -2113,40 +2042,6 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     backgroundColor: '#FFFFFF',
   },
-  streakHeroCard: {
-    minHeight: 120,
-    borderRadius: 16,
-    backgroundColor: '#0D0D0D',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    overflow: 'hidden',
-    ...shadows.card,
-  },
-  streakHeroCopy: {
-    flex: 1,
-    gap: 6,
-  },
-  streakHeroKicker: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  streakHeroTitle: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    lineHeight: 36,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-  streakHeroBody: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
   referenceCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2251,9 +2146,6 @@ const styles = StyleSheet.create({
   activityCalendarWorkout: {
     backgroundColor: PROGRESS_PALE_GREEN,
   },
-  activityCalendarPlanned: {
-    backgroundColor: '#E5F7DD',
-  },
   activityCalendarOutside: {
     backgroundColor: 'transparent',
   },
@@ -2301,9 +2193,6 @@ const styles = StyleSheet.create({
   },
   referenceLegendWorkout: {
     backgroundColor: PROGRESS_GREEN,
-  },
-  referenceLegendPlanned: {
-    backgroundColor: PROGRESS_PALE_GREEN,
   },
   referenceLegendRest: {
     backgroundColor: '#FFFFFF',
@@ -2487,184 +2376,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginTop: -4,
-  },
-  calendarCard: {
-    display: 'none',
-    gap: spacing.sm,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    ...shadows.card,
-  },
-  calendarMonthTitle: {
-    color: '#111111',
-    fontSize: 21,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-  },
-  calendarWeekdayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.xs,
-  },
-  calendarWeekdayLabel: {
-    flex: 1,
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '800',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  calendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  calendarDayCell: {
-    width: `${100 / 7}%`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 3,
-  },
-  calendarDayPill: {
-    width: 34,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
-  },
-  calendarDayPillToday: {
-    backgroundColor: '#F3F4F6',
-  },
-  calendarDayText: {
-    color: '#111111',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  calendarDayTextMuted: {
-    color: '#9CA3AF',
-  },
-  calendarDayTextToday: {
-    color: '#111111',
-  },
-  calendarFlame: {
-    fontSize: 11,
-    lineHeight: 12,
-  },
-  calendarFooter: {
-    gap: 2,
-    paddingTop: spacing.sm,
-  },
-  calendarFooterLabel: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  calendarFooterValue: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  calendarGridLarge: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: spacing.sm,
-  },
-  calendarDayCellLarge: {
-    width: `${100 / 7}%`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  calendarDayBubble: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  calendarDayWorkout: {
-    backgroundColor: PROGRESS_PALE_GREEN,
-  },
-  calendarDayActive: {
-    backgroundColor: '#DFF5D6',
-  },
-  calendarDayToday: {
-    borderWidth: 2,
-    borderColor: PROGRESS_GREEN,
-  },
-  calendarDayLargeText: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  calendarDayLargeTextActive: {
-    color: '#111111',
-  },
-  weekStreakCard: {
-    gap: spacing.lg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    ...shadows.card,
-  },
-  weekStreakHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  weekStreakTitle: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  weekStreakMeta: {
-    color: PROGRESS_MUTED,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  weekStreakSteps: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  weekStep: {
-    flex: 1,
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  weekStepCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weekStepComplete: {
-    backgroundColor: PROGRESS_PALE_GREEN,
-  },
-  weekStepPending: {
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: '#CBD5E1',
-    backgroundColor: '#FFFFFF',
-  },
-  weekStepCheck: {
-    color: '#0D4F1B',
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  weekStepLabel: {
-    color: PROGRESS_MUTED,
-    fontSize: 11,
-    lineHeight: 14,
-    textAlign: 'center',
-    fontWeight: '700',
   },
   progressOverTimeCard: {
     gap: spacing.lg,

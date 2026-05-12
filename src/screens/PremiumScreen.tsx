@@ -33,7 +33,7 @@ const premiumLanes = [
   },
   {
     title: 'Session rescue',
-    body: 'When the day goes sideways, Gymlog will shorten or soften the session.',
+    body: 'When the day goes sideways, GAINER will shorten or soften the session.',
     accent: 'rose' as const,
     visual: 'rescue' as const,
     live: false,
@@ -68,7 +68,7 @@ export function PremiumScreen({
   return (
     <>
       <ScreenHeader
-        title="Gymlog Premium"
+        title="GAINER Premium"
         subtitle="A premium layer for adaptive coaching, smarter rest, and the next step after each set."
         onBack={onBack}
       />
@@ -79,7 +79,7 @@ export function PremiumScreen({
             <Text style={styles.heroKicker}>Adaptive Coach</Text>
             <Text style={styles.heroTitle}>Train with a live coaching layer</Text>
             <Text style={styles.heroBody}>
-              Gymlog Premium reads the set you just did, adjusts rest, and tells you how the next one should feel.
+              GAINER Premium reads the set you just did, adjusts rest, and tells you how the next one should feel.
             </Text>
           </View>
 

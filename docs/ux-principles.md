@@ -108,7 +108,7 @@ Complexity should appear only where the underlying domain genuinely requires it.
 
 ## How AI Should Appear in the UX
 
-The AI coaching layer has one primary appearance rule: it shows up where the user already is, never where it wants to take the user.
+The GAINER AI layer has one primary appearance rule: it shows up where the user already is, never where it wants to take the user.
 
 **In the post-session completion screen.** This is the correct place for a coaching insight. The user has finished training. They are in a moment of completion and reflection. A single, specific observation — if one has been earned — appears here. One line or two. Then the session is done.
 
@@ -116,7 +116,7 @@ The AI coaching layer has one primary appearance rule: it shows up where the use
 
 **In program recommendations.** The AI's understanding of the user's profile shapes which programs surface at the top and which are presented as less relevant. Again, invisible — the user experiences a recommendation that seems right, not an AI that is explaining itself.
 
-**Nowhere else by default.** There is no AI tab. There is no chat interface. There is no AI widget on the home screen reminding the user that AI coaching is active. The AI exists in the background and surfaces through specific, contextual outputs — not through ambient presence.
+**Nowhere else by default.** There is no AI tab. There is no chat interface. There is no AI widget on the home screen reminding the user that GAINER AI is active. The AI exists in the background and surfaces through specific, contextual outputs — not through ambient presence.
 
 **When the AI has no output, the UX reflects that accurately.** A post-session completion screen without an AI insight should look complete, not empty. The absence of a coaching message should feel like everything is fine, not like something failed to load.
 
@@ -277,7 +277,7 @@ Current exercise name, large. Current set number and target reps. Last session's
 Why: the user is mid-training. Nothing competes with the current set for attention. The interface has exactly what is needed and nothing more.
 
 **Bad:**
-Current exercise at the top. Exercise video looping in the middle. Motivation quote at the bottom. Tab bar visible. AI coaching status indicator. Progress ring for today's session in the corner. Share button.
+Current exercise at the top. Exercise video looping in the middle. Motivation quote at the bottom. Tab bar visible. GAINER AI status indicator. Progress ring for today's session in the corner. Share button.
 
 Why: each element was probably added by a different team. Together, they describe an interface that does not trust the user to train without entertainment.
 
@@ -305,7 +305,7 @@ A single line chart for a tracked exercise: weight over time, last six months. A
 Why: the chart answers one question — is this lift going in the right direction? It answers it immediately without requiring the user to interpret multiple variables.
 
 **Bad:**
-A progress screen with twelve cards: recent sessions, body measurements, streak, weekly volume, monthly volume, exercise variety, calories burned estimate, active minutes, heartrate graph from phone integration, friends' activity, AI coaching score, and a "your fitness age" metric.
+A progress screen with twelve cards: recent sessions, body measurements, streak, weekly volume, monthly volume, exercise variety, calories burned estimate, active minutes, heartrate graph from phone integration, friends' activity, GAINER AI score, and a "your fitness age" metric.
 
 Why: none of these compete with each other on usefulness, but together they compete for attention in a way that makes each less useful. The screen requires management rather than glance.
 

@@ -5,16 +5,16 @@ See `docs/source-of-truth/onboarding-contract.md`, `docs/source-of-truth/recomme
 
 ---
 
-# Gymlog Recommendation Engine Design (ARCHIVED)
+# GAINER Recommendation Engine Design (ARCHIVED)
 
 ## Context
 
-Gymlog already has four overlapping product surfaces that influence training choice:
+GAINER already has four overlapping product surfaces that influence training choice:
 
 - onboarding and first-run setup
 - ready templates / ready plans
 - custom template creation
-- AI_COACH guidance
+- GAINER AI guidance
 
 Right now those surfaces can recommend or explain training, but they do not yet form one coherent decision system. The next product step is not "more AI." It is a deterministic recommendation engine that can:
 
@@ -22,15 +22,15 @@ Right now those surfaces can recommend or explain training, but they do not yet 
 - recommend a template family and programme style that feel personally relevant
 - preserve deterministic product logic instead of relying on free-form LLM generation
 - keep AI out of template and programme recommendation itself
-- let AI_COACH explain and later adapt within explicit guardrails as a separate premium layer
+- let GAINER AI explain and later adapt within explicit guardrails as a separate premium layer
 
-This design assumes Gymlog keeps supporting all current entry paths:
+This design assumes GAINER keeps supporting all current entry paths:
 
 - start an empty workout
 - build your own template
 - choose ready templates / ready plans
 - accept a recommendation from onboarding
-- later use AI_COACH for explanation, comparison, and adaptation
+- later use GAINER AI for explanation, comparison, and adaptation
 
 ## Problem Framing
 
@@ -40,7 +40,7 @@ It should answer:
 
 1. What weekly training structure is most likely to fit this user right now?
 2. What programme style best matches their goal, schedule, recovery, equipment, and preferences?
-3. How can Gymlog explain that recommendation in a way that feels tailored instead of generic?
+3. How can GAINER explain that recommendation in a way that feels tailored instead of generic?
 
 The engine should not try to solve everything at once. In particular:
 
@@ -50,12 +50,12 @@ The engine should not try to solve everything at once. In particular:
 
 ## Assumptions
 
-- Gymlog keeps its current distinction between ready programme content, custom templates, and AI_COACH surfaces.
+- GAINER keeps its current distinction between ready programme content, custom templates, and GAINER AI surfaces.
 - Existing onboarding data in `AppPreferences` remains the base input model, with selective expansion rather than a full rewrite.
 - MVP recommendation works from a curated catalog of template families and variants, not free-form programme generation.
 - Template and programme recommendation are not AI features and must work without AI access.
-- AI_COACH can explain and safely adjust recommendations, but does not become the system of record for training logic.
-- Recommendation output should be reusable in first run, AI coach, and later "change my plan" flows.
+- GAINER AI can explain and safely adjust recommendations, but does not become the system of record for training logic.
+- Recommendation output should be reusable in first run, GAINER AI, and later "change my plan" flows.
 
 ## Current MVP Note
 
@@ -73,7 +73,7 @@ The detailed MVP contract lives in `docs/recommendation-4-week-programme-contrac
 This design is intentionally aligned with the current codebase:
 
 - onboarding flow and first-run recommendation logic in `src/screens/OnboardingScreen.tsx` and `src/lib/firstRunSetup.ts`
-- AI coach experience in `src/screens/AICoachScreen.tsx`, `src/lib/aiCoachActions.ts`, and `src/lib/aiCoachPlan.ts`
+- GAINER AI experience in `src/screens/AICoachScreen.tsx`, `src/lib/aiCoachActions.ts`, and `src/lib/aiCoachPlan.ts`
 - ready programme grouping and editorial presentation in `src/lib/readyProgramCollections.ts`, `src/lib/readyProgramContent.ts`, and `src/lib/templatePresentation.ts`
 - premium direction in `docs/premium-adaptive-coach-plan.md`
 
@@ -124,7 +124,7 @@ This design is intentionally aligned with the current codebase:
   - emphasis profile
   - programme profile
 
-`AI_COACH`
+`GAINER AI`
 - The premium conversational layer on top of the engine.
 - It explains recommendations and later proposes guarded adjustments.
 - It does not replace the recommendation engine.
@@ -137,7 +137,7 @@ What the user chooses:
 - create a custom template
 - accept the primary recommendation
 - choose one of the secondary alternatives
-- ask AI_COACH for explanation or a guarded variation if premium is active
+- ask GAINER AI for explanation or a guarded variation if premium is active
 
 What the system recommends:
 
@@ -148,13 +148,13 @@ What the system recommends:
 
 This recommendation step is core product logic, not an AI feature.
 
-What AI_COACH does:
+What GAINER AI does:
 
 - translates recommendation logic into human language
 - explains tradeoffs
 - proposes safe swaps inside policy boundaries
 
-What AI_COACH does not do:
+What GAINER AI does not do:
 
 - invent uncataloged plans for first-run recommendation
 - override hard constraints
@@ -186,7 +186,7 @@ Use a hybrid model:
 - deterministic constraint filtering
 - weighted scoring and ranking
 - confidence layer
-- optional AI_COACH explanation and limited premium adaptation
+- optional GAINER AI explanation and limited premium adaptation
 
 ### Alternatives Considered
 
@@ -671,26 +671,26 @@ Triggered easier week conditions:
 - repeated pain or swap events
 - low readiness trend
 
-## AI_COACH Interaction Rules
+## GAINER AI Interaction Rules
 
-AI_COACH should be useful because it makes the engine understandable and adaptive, not because it ignores the engine.
+GAINER AI should be useful because it makes the engine understandable and adaptive, not because it ignores the engine.
 
 ### During Onboarding
 
-AI_COACH may:
+GAINER AI may:
 
 - ask one clarifying question at a time
 - help turn free text into structured preferences
 - explain what a question means
 
-AI_COACH may not:
+GAINER AI may not:
 
 - generate a custom plan instead of letting the engine rank candidates
 - bypass required questions
 
 ### After Recommendation
 
-AI_COACH should:
+GAINER AI should:
 
 - explain why the primary recommendation fits
 - explain why the top alternatives were not the default
@@ -706,13 +706,13 @@ Example explanation dimensions:
 
 ### Allowed Modifications
 
-AI_COACH may:
+GAINER AI may:
 
 - switch to a shorter-session version in the same family
 - recommend safe exercise swaps in the same slot class
 - tune emphasis inside the chosen family
 
-AI_COACH may not:
+GAINER AI may not:
 
 - silently change families
 - violate injury or equipment constraints
@@ -720,7 +720,7 @@ AI_COACH may not:
 
 ### Family / Programme Switch Triggers
 
-AI_COACH can recommend re-ranking or switching when:
+GAINER AI can recommend re-ranking or switching when:
 
 - the user repeatedly skips the same session type
 - many manual swaps target the same pattern
@@ -752,7 +752,7 @@ The engine should improve from product data, not only from model prompting.
 - early abandonment
 - repeated skipping of the same session archetype
 - repeated movement substitutions
-- AI_COACH conversations tagged with:
+- GAINER AI conversations tagged with:
   - too long
   - too hard
   - boring
@@ -832,11 +832,11 @@ Decision:
 
 ### Risk: AI feels smart but undermines trust
 
-If AI_COACH can improvise too freely, users will get inconsistent recommendations and developers will lose debuggability.
+If GAINER AI can improvise too freely, users will get inconsistent recommendations and developers will lose debuggability.
 
 Decision:
 
-- keep AI_COACH as interpreter and guarded adapter, not recommendation engine of record
+- keep GAINER AI as interpreter and guarded adapter, not recommendation engine of record
 
 ## MVP-First Recommendation
 
@@ -846,9 +846,9 @@ Build the first version around:
 - deterministic scoring
 - top-3 recommendations with confidence
 - editorially strong naming and explanation
-- AI_COACH guardrails
+- GAINER AI guardrails
 
-This will make Gymlog feel personalized without becoming unpredictable. The user should come away feeling that Gymlog understood:
+This will make GAINER feel personalized without becoming unpredictable. The user should come away feeling that GAINER understood:
 
 - how often they can actually train
 - what kind of weekly rhythm fits them

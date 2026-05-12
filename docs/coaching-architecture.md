@@ -1,4 +1,4 @@
-# GAINER — AI Coaching Architecture
+# GAINER — GAINER AI Architecture
 
 **Type:** Design reference — phased implementation roadmap only. Layer definitions live in `system-architecture.md`.
 **Status:** Reference document. MVP types only. No implementation beyond `UserFitnessProfile`.
@@ -7,7 +7,7 @@
 
 ## Purpose
 
-This document defines the long-term architecture for GAINER's AI coaching system.
+This document defines the long-term architecture for GAINER's GAINER AI system.
 It exists to prevent ad-hoc decisions from blocking future capability.
 
 **Do not implement ahead of need.**
@@ -41,7 +41,7 @@ Used by: `aiCoachClient`, `aiCoachPreview`, future `contextAssembler`.
 **`ProgressionState`** (per exercise)
 - Consecutive successes/failures, current tier, deload flag
 - Requires: post-session computation hook
-- Unlocks: smarter load recommendations in AI coach
+- Unlocks: smarter load recommendations in GAINER AI
 
 **`SessionPerformanceSignal`** (per session)
 - Volume load, completion rate, session quality score
@@ -56,12 +56,12 @@ Used by: `aiCoachClient`, `aiCoachPreview`, future `contextAssembler`.
 **`CoachingAction` type system**
 - Typed action union: `progression_ready`, `deload_needed`, `plateau_intervention`, etc.
 - Requires: signal layer to be meaningful
-- Unlocks: structured AI coach context, ranked recommendations
+- Unlocks: structured GAINER AI context, ranked recommendations
 
 **`buildCoachingContext()`**
-- Assembles memory tiers into a structured object for the AI coach
+- Assembles memory tiers into a structured object for the GAINER AI
 - Requires: at least `UserFitnessProfile` + `SessionPerformanceSignal`
-- Unlocks: live AI coach with real user data
+- Unlocks: live GAINER AI with real user data
 
 ---
 
@@ -99,7 +99,7 @@ Used by: `aiCoachClient`, `aiCoachPreview`, future `contextAssembler`.
 ```
 AppPreferences ──derives──▶ UserFitnessProfile
                                     │
-                          used by AI coach context
+                          used by GAINER AI context
 
 WorkoutSession ──computes──▶ SessionPerformanceSignal   [later]
 ExerciseLog    ──computes──▶ ExercisePerformanceSignal  [later]
@@ -112,7 +112,7 @@ GoalMilestone   (per goal)  [do not build yet]
 
 All of the above ──assembles──▶ CoachingContext  [later]
                                       │
-                             LLM prompt / AI coach response
+                             LLM prompt / GAINER AI response
 ```
 
 ---

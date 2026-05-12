@@ -128,7 +128,7 @@ export function getSetupEquipmentHint(value: SetupEquipment | null | undefined) 
     case 'minimal':
       return 'Favor lighter, simpler equipment.';
     default:
-      return 'Pick the setup Gymlog should assume most weeks.';
+      return 'Pick the setup GAINER should assume most weeks.';
   }
 }
 

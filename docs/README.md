@@ -1,8 +1,8 @@
-# Gainer — Documentation Index
+# GAINER — Documentation Index
 
-This is the navigation hub for all Gainer documentation.
+This is the navigation hub for all GAINER documentation.
 
-**App name:** Gainer (package identifier: `gymlog` — internal only)
+**App name:** GAINER (package identifier: `gymlog` — internal only)
 **Documentation architecture:** See `documentation-architecture.md` for classification, ownership, and conflict rules.
 
 ---
@@ -94,7 +94,7 @@ Philosophy, UX principles, branding, roadmap. Informs decisions but does not ove
 | `ux-principles.md` | UX behavioral rules |
 | `retention-philosophy.md` | Retention approach |
 | `premium-philosophy.md` | Monetization ethics and free-tier definition |
-| `coaching-intelligence-design.md` | AI coaching behavioral intent (design reference) |
+| `coaching-intelligence-design.md` | GAINER AI behavioral intent (design reference) |
 | `product-roadmap-phases.md` | Three-phase implementation roadmap |
 | `your-plan-ready-review.md` | Plan-ready screen design intent |
 | `manual-launch-tasks.md` | External launch checklist |

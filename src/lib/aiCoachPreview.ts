@@ -260,7 +260,7 @@ export function buildAiCoachPreviewAnswer(prompt: string, context: AICoachTraini
       takeaway: 'Set the week first.',
       why: [
         'The week matters more than one exercise list.',
-        `${context.readyProgramCount} ready plans in Gymlog.`,
+        `${context.readyProgramCount} ready plans in GAINER.`,
         plateauNames
           ? `Stuck lifts to address in the new split: ${plateauNames}.`
           : (activeContext ?? recentSessionLine ?? 'Recent work should shape the split.'),

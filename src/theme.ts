@@ -45,7 +45,7 @@ export const layout = {
 };
 
 export const appInfo = {
-  name: 'Gymlog',
+  name: 'GAINER',
   version: '1.1.0',
   starterSuggestions: ['Ylakroppa', 'Alakroppa', 'Koko kroppa', 'Push', 'Pull', 'Jalat'],
 };

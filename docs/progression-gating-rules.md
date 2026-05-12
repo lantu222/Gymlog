@@ -5,7 +5,7 @@ If any other document conflicts with this file, this file takes precedence.
 
 ---
 
-# Gainer — Progression Gating Rules (MVP Specification)
+# GAINER — Progression Gating Rules (MVP Specification)
 
 **Type:** Implementation spec — values defined here are authoritative and buildable
 **Status:** MVP implementation specification. Ready to implement.

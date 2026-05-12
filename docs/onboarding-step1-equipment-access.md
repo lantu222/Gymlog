@@ -4,8 +4,8 @@ This document captures the Step 1 visual and product change from the April 30, 2
 
 ## Source Screens
 
-- Current implementation: `D:\Gymlog dokumentointi\Step1\Step1_1.png`
-- Target reference: `D:\Gymlog dokumentointi\Step1\Step1screen_reference.png`
+- Current implementation: `<reference-assets>\Step1\Step1_1.png`
+- Target reference: `<reference-assets>\Step1\Step1screen_reference.png`
 
 ## Intended Change
 

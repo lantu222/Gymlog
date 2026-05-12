@@ -1,6 +1,6 @@
 # Free Fitness Image Shortlist
 
-This is the first `fully free` image shortlist for Gymlog.
+This is the first `fully free` image shortlist for GAINER.
 
 Source policy:
 
