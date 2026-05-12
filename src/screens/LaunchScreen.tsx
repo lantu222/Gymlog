@@ -4,12 +4,12 @@ import { StyleSheet, Text, View } from 'react-native';
 export function LaunchScreen() {
   return (
     <View style={styles.screen}>
-      <View style={styles.topHalf} />
-      <View style={styles.bottomHalf} />
-
       <View pointerEvents="none" style={styles.backgroundLogo}>
-        <Text style={styles.gymText}>GYM</Text>
-        <Text style={styles.logText}>LOG</Text>
+        <Text style={styles.gainerText}>
+          <Text style={styles.gainerTextWhite}>G</Text>
+          <Text style={styles.gainerTextPurple}>AI</Text>
+          <Text style={styles.gainerTextWhite}>NER</Text>
+        </Text>
       </View>
     </View>
   );
@@ -18,17 +18,7 @@ export function LaunchScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  topHalf: {
-    ...StyleSheet.absoluteFillObject,
-    bottom: '50%',
-    backgroundColor: '#000000',
-  },
-  bottomHalf: {
-    ...StyleSheet.absoluteFillObject,
-    top: '50%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#080815',
   },
   backgroundLogo: {
     position: 'absolute',
@@ -36,22 +26,18 @@ const styles = StyleSheet.create({
     right: 0,
     top: '50%',
     alignItems: 'center',
-    transform: [{ translateY: -118 }],
+    transform: [{ translateY: -48 }],
   },
-  gymText: {
+  gainerText: {
+    fontSize: 74,
+    lineHeight: 96,
+    fontWeight: '900',
+    letterSpacing: 0,
+  },
+  gainerTextWhite: {
     color: '#FFFFFF',
-    marginBottom: -10,
-    fontSize: 122,
-    lineHeight: 122,
-    fontWeight: '900',
-    letterSpacing: -4.4,
   },
-  logText: {
-    color: '#000000',
-    marginTop: -10,
-    fontSize: 130,
-    lineHeight: 130,
-    fontWeight: '900',
-    letterSpacing: -3.8,
+  gainerTextPurple: {
+    color: '#7F77DD',
   },
 });
