@@ -1,5 +1,6 @@
 # GAINER — AI Coaching Architecture
 
+**Type:** Design reference — phased implementation roadmap only. Layer definitions live in `system-architecture.md`.
 **Status:** Reference document. MVP types only. No implementation beyond `UserFitnessProfile`.
 
 ---
@@ -14,17 +15,11 @@ The app must remain stable and shippable at every phase.
 
 ---
 
-## System layers (long-term target)
+## System layers
 
-```
-DELIVERY        Coaching messages, recommendations, UI signals
-INTELLIGENCE    Progression logic, fatigue decisions, goal tracking
-SIGNAL          Performance signals computed from raw log data
-MEMORY          Tiered history: session → recent → block → lifetime
-PROFILE         Who the user is — goals, constraints, preferences
-```
+The five-layer coaching architecture (`PROFILE → MEMORY → SIGNAL → INTELLIGENCE → DELIVERY`) is defined and owned by `system-architecture.md` §2 and §4. Refer to that document for layer responsibilities, data flow, and ownership rules.
 
-Each layer has a single responsibility. Lower layers never depend on higher ones.
+This document covers only the **phased implementation roadmap** — what to build and in what order.
 
 ---
 

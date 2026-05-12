@@ -1,7 +1,8 @@
 # GAINER — Onboarding Philosophy
 
+**Type:** Philosophy — design intent only, no implementation values
 **Status:** Design reference. Not an implementation spec.
-**Related:** `gainer-philosophy.md`, `coaching-intelligence-design.md`
+**Related:** `gainer-philosophy.md`, `coaching-intelligence-design.md`, `ai-trust-system.md`
 
 ---
 
@@ -177,7 +178,7 @@ A swipeable introduction to every app section, complete with animation and copy 
 **Generic pattern: Asking for permissions and notifications immediately.**
 Notification permission dialogs presented before the user has seen any value are declined by the majority of users. Once declined, they are extremely difficult to recover.
 
-**GAINER alternative:** Ask for notification permission after the user has completed their first session and seen a genuine coaching insight. The value of the notification is now demonstrated.
+**GAINER alternative:** Ask for notification permission after the user has completed their first session and seen a genuine coaching insight. The value of the notification is now demonstrated. For the full notification rule system — tiers, timing, interruption rules, and what qualifies as a Tier 1 event — see `ai-trust-system.md` §5.
 
 ---
 

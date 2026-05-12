@@ -1,7 +1,9 @@
 # GAINER — AI Trust System
 
+**Type:** Design reference — behavioral intent with future implementation targets
 **Status:** Design reference. Not an implementation spec.
-**Related:** `coaching-intelligence-design.md`, `post-session-single-insight-mvp.md`
+**Related:** `coaching-intelligence-design.md`, `post-session-single-insight-mvp.md`, `system-architecture.md`, `progression-gating-rules.md`
+**Canonical owner of:** trust philosophy, notification/interruption rules, frequency caps (future), per-type confidence targets (future)
 
 ---
 
@@ -128,21 +130,30 @@ Prevention: the system never references missed sessions with pressure framing. A
 
 ## 4. The Authority Progression Model
 
-The AI does not have the same authority on day one as it does at month six. Authority is earned incrementally as data accumulates and recommendations prove accurate. The system should behave differently at each phase.
+The AI does not have the same authority on session one as it does at session sixty. Authority is earned incrementally as data accumulates and recommendations prove accurate. The system should behave differently at each phase.
 
-### Phase 1 — Observation only (weeks 1–4)
+> **Canonical phase model.** Phase boundaries are defined by **session count**, not calendar time. A user who trains 5×/week reaches the `active` phase in one month; a user who trains 1×/week takes five months. Calendar-based thresholds are wrong for a fitness app where training frequency varies. Phase names and boundaries are owned by `system-architecture.md` §4.4 — this document describes the behavioral implications per phase.
+>
+> | Phase | Sessions | Confidence threshold |
+> |---|---|---|
+> | `observation` | 0–6 | No output regardless of signal |
+> | `emerging` | 7–20 | 0.80 (future — MVP uses 0.75 universal) |
+> | `active` | 21–60 | 0.75 |
+> | `trusted` | 60+ | 0.70 (future) |
+
+### `observation` phase (sessions 0–6)
 
 The system has no meaningful baseline. It cannot distinguish this user's patterns from population norms. During this phase:
 
 - No recommendations that require historical comparison
-- Only safe, clearly-triggered outputs: PR detection (if prior session exists), return-after-gap acknowledgment
+- Only safe, clearly-triggered outputs: PR detection (requires prior session), return-after-gap acknowledgment
 - Tone: observational, never prescriptive
-- Output frequency: maximum once per week, likely less
+- Output frequency: maximum once per phase, likely zero
 - Purpose: begin establishing the baseline silently
 
 The user should notice almost nothing from the AI during this phase. That is correct.
 
-### Phase 2 — Conservative guidance (weeks 4–12)
+### `emerging` phase (sessions 7–20)
 
 Enough data exists to detect simple patterns. The system earns the right to make low-stakes recommendations:
 
@@ -150,23 +161,23 @@ Enough data exists to detect simple patterns. The system earns the right to make
 - Session volume peaks become computable (requires 4+ sessions in window)
 - Deload recommendations remain off — insufficient baseline for reliable fatigue modeling
 - Tone: observational with light suggestions
-- Output frequency: roughly once every two weeks
+- Output frequency: roughly once every 4–6 sessions
 
 Users begin to notice the system is watching. The first "it caught something" moment often happens here.
 
-### Phase 3 — Pattern-based coaching (months 3–6)
+### `active` phase (sessions 21–60)
 
 Individual patterns are now visible in the data. The system can begin referencing them:
 
-- Deload recommendations available (with conservative ACWR threshold)
+- Deload recommendations available (with conservative fatigue threshold — see `progression-gating-rules.md` §7 for values)
 - Training day patterns can be surfaced ("your Wednesday sessions trend 15% below your Monday sessions")
 - Adherence patterns visible enough to reference
 - Tone: specific, evidence-forward, more confident
-- Output frequency: roughly once per week when warranted
+- Output frequency: roughly once every 8–12 sessions when warranted
 
 This is the phase where the compounding value becomes felt. Users begin to sense the system "knows them."
 
-### Phase 4 — Earned authority (6+ months)
+### `trusted` phase (sessions 60+)
 
 The system has a genuine longitudinal picture of this user. It can make predictions, not just observations:
 
@@ -174,7 +185,7 @@ The system has a genuine longitudinal picture of this user. It can make predicti
 - Seasonal pattern awareness
 - Individual plateau type recognition ("this looks like the same pattern as your bench plateau in March — deload resolved it then")
 - Tone: peer-level, showing reasoning, not just conclusions
-- Output frequency: quality-gated, not calendar-gated
+- Output frequency: quality-gated, not session-count-gated
 
 At this phase, users treat the AI's output the way they would treat advice from a coach who has been watching them train for years. This is the goal.
 
@@ -233,14 +244,16 @@ Confidence is the internal gate between a potential insight and a delivered one.
 
 ### Threshold by recommendation type
 
-| Insight type | Minimum confidence | Rationale |
+> **MVP vs future.** MVP post-session insights apply a **universal 0.75 threshold** for all types — see `post-session-single-insight-mvp.md`. The per-type thresholds below are **future targets** for when each insight type has its own mature confidence model. `progression_ready` is excluded from MVP entirely — see `post-session-single-insight-mvp.md` "What not to build yet."
+
+| Insight type | Future threshold | Rationale |
 |---|---|---|
 | `personal_record` | 0.75 | Low cost if wrong — user can verify immediately |
 | `return_after_gap` | 0.90 | Deterministic date math — threshold is for edge cases |
 | `session_volume_peak` | 0.80 | Requires sufficient window; thin baseline inflates false positives |
 | `plateau_detected` | 0.85 | Wrong plateau call is actively unhelpful and erodes trust |
 | `deload_recommended` | 0.90 | Wrong deload advice interrupts productive training |
-| `progression_ready` | 0.80 | Incorrect load increase risks failed sessions |
+| `progression_ready` | 0.80 🔜 future | Excluded from MVP. When built: see `progression-gating-rules.md` for gate logic |
 
 ### What lowers confidence
 
@@ -269,13 +282,15 @@ The user never sees a confidence score, a probability, or hedging language like 
 
 ### Hard frequency caps
 
+> **MVP vs future.** The caps below describe the full future system. **MVP (post-session single insight) applies two simpler rules only**: (1) no back-to-back sessions with insights, (2) no consecutive same insight type. See `post-session-single-insight-mvp.md` silence rules. The full cap system below applies when the multi-surface coaching system is built.
+
 These are enforced architecturally, not by judgment:
 
 - Maximum 1 insight per completed session
-- Maximum 3 insights per 7-day rolling window
-- Same insight type: minimum 14-day cooldown between instances
-- After a deload recommendation: minimum 21-day cooldown before another deload recommendation
-- After a wrong or overridden recommendation: extended silence window (28 days minimum before same type)
+- Maximum 3 insights per 7-day rolling window 🔜 future
+- Same insight type: minimum 14-day cooldown between instances 🔜 future
+- After a deload recommendation: minimum 21-day cooldown before another deload recommendation 🔜 future
+- After a wrong or overridden recommendation: extended silence window (28 days minimum before same type) 🔜 future
 
 ### Perishability
 

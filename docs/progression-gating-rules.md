@@ -1,8 +1,10 @@
 # GAINER — Progression Gating Rules (MVP Specification)
 
+**Type:** Implementation spec — values defined here are authoritative and buildable
 **Status:** MVP implementation specification. Ready to implement.
 **Related:** `coaching-architecture.md`, `post-session-single-insight-mvp.md`, `system-architecture.md`
 **Implements:** `src/lib/progressionGating.ts` (not yet created)
+**Canonical owner of:** fatigue signal enum (`'normal'/'elevated'/'high'`), ACWR thresholds (1.3/1.5), MVP progression completion rate threshold (80%)
 
 ---
 

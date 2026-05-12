@@ -1,7 +1,14 @@
 # GAINER — AI Coaching Intelligence Design
 
+**Type:** Design reference — behavioral intent only. Numeric thresholds in this document are design illustrations unless marked otherwise. For authoritative MVP values, see the implementation specs listed below.
 **Status:** Design reference. Not an implementation spec.
-**Related:** `coaching-architecture.md`, `post-session-single-insight-mvp.md`
+**Related:** `coaching-architecture.md`, `post-session-single-insight-mvp.md`, `ai-trust-system.md`, `progression-gating-rules.md`, `system-architecture.md`
+**Implementation specs that supersede this doc on specific values:**
+- Completion rate threshold for progression: `progression-gating-rules.md` (80%, not 90%)
+- Fatigue enum and ACWR thresholds: `progression-gating-rules.md` §7
+- Coaching phase names and session-count boundaries: `system-architecture.md` §4.4
+- MVP confidence threshold: `post-session-single-insight-mvp.md` (0.75 universal)
+- Frequency caps: `ai-trust-system.md` §7
 
 ---
 
@@ -45,7 +52,7 @@ It does not deliver motivation, encouragement, accountability pressure, or perso
 
 **Observe before concluding.** No coaching output triggered by a single data point. Minimum data thresholds before acting:
 - Plateau: 3+ consecutive non-progressing sessions
-- Fatigue recommendation: ACWR elevated for 5+ consecutive days
+- Fatigue recommendation: ACWR `'elevated'` or `'high'` sustained — see `progression-gating-rules.md` §7 for the canonical fatigue enum and ACWR threshold values
 - Adherence intervention: 2+ missed planned sessions in a 14-day window
 - Recovery suggestion: declining density and completion rate across 3+ sessions
 
@@ -111,16 +118,16 @@ Higher priority signals suppress lower priority ones. A safety signal does not s
 ### Progression
 
 Recommend load progression only when all three are simultaneously true:
-1. User hit the top of their rep range in the last session
-2. Session quality was adequate (completion rate ≥ 90%)
-3. Fatigue state is optimal or undertrained
+1. User hit the top of their rep range in the last session (all working sets at rep ceiling)
+2. Session quality was adequate (completion rate ≥ 80%) — see `progression-gating-rules.md` T12 for the authoritative threshold
+3. Fatigue state is `'normal'` — see `progression-gating-rules.md` §7 for the fatigue enum
 
 If any fails, hold load. Do not explain this every time — simply do not recommend the increase.
 
 ### Deload
 
 Frame deload as performance strategy, never as rest.
-- Trigger: ACWR sustained > 1.3 for 10+ days AND performance declining across 3+ sessions on different muscle groups
+- Trigger: fatigue signal `'elevated'` or `'high'` sustained AND performance declining across 3+ sessions on different muscle groups. See `progression-gating-rules.md` §7 for the canonical fatigue enum and ACWR threshold values (`'elevated'`: ACWR 1.3–1.5; `'high'`: ACWR > 1.5).
 - Framing: "Your system has been accumulating load for 7 weeks. A lighter week now will likely result in a meaningful jump in output the following week."
 - Never: "You seem tired" or "Make sure to rest"
 - Structure: reduce load 40–50%, keep movement patterns, keep frequency
@@ -154,6 +161,8 @@ A substitution the user will actually complete outweighs a technically superior 
 The single most trust-building behavior is saying nothing when things are fine. Users learn to read the AI's silence as a positive signal: "it would have told me if something was wrong." This gives eventual coaching messages real weight.
 
 Every unnecessary message trains the user to ignore all messages.
+
+For the full trust model — how trust is gained, how it is lost, interruption rules, and frequency caps — see `ai-trust-system.md`. That document is the canonical owner of the trust system.
 
 ### Trust destruction events — must be architecturally prevented
 
@@ -255,26 +264,30 @@ The advanced athlete will immediately detect if the AI says something that doesn
 
 ### Phases
 
-**Phase 1 — Profiling (weeks 1–8)**
-Establishing baselines. Recommendations are accurate but not highly personalized — rely on population-level principles applied to stated profile. Keep recommendations conservative.
+> **Canonical phase model.** Phase names, session-count boundaries, and confidence thresholds are defined in `system-architecture.md` §4.4 and `ai-trust-system.md` §4. The canonical phases are `observation` (0–6 sessions), `emerging` (7–20), `active` (21–60), and `trusted` (60+). The behavioral descriptions below map to those phases.
 
-**Phase 2 — Pattern recognition (weeks 8–24)**
-Enough data to detect individual patterns:
+**`observation` phase (0–6 sessions)**
+Establishing baselines. The system collects data without acting on it. Recommendations rely on stated profile only (`UserFitnessProfile`). Keep all outputs conservative — no historical comparison is yet possible.
+
+**`emerging` phase (7–20 sessions)**
+Enough data to detect simple individual patterns:
 - Which training days produce best performance
 - How quickly this user recovers between sessions
 - Which exercises plateau first
-- Whether self-reported RPE is calibrated
 - Volume ceiling before performance degrades
 
-**Phase 3 — Predictive modeling (months 6+)**
-System begins to anticipate:
-- When a deload is likely needed based on accumulation rate
-- When motivation tends to dip
+**`active` phase (21–60 sessions)**
+System begins to reference individual patterns:
+- When a deload is likely needed based on this user's accumulation rate
 - Which plateau type this user tends to experience
-- What intervention has worked previously
+- What intervention has worked previously for this user
 
-**Phase 4 — Deep calibration (year 2+)**
-Seasonal patterns, life disruption signatures, long-term strength curves, what program types produce the best response for this individual.
+**`trusted` phase (60+ sessions)**
+Full longitudinal picture. System can anticipate rather than observe:
+- Seasonal training patterns
+- Life disruption signatures (gap timing correlations)
+- Long-term strength curves
+- What program types produce the best response for this individual
 
 ### What the system should learn
 

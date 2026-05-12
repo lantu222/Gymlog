@@ -1,7 +1,8 @@
 # GAINER — Product Philosophy
 
+**Type:** Philosophy — design intent only, no implementation values
 **Status:** Living document. Defines what GAINER is and what it is not.
-**Related:** `coaching-intelligence-design.md`, `ai-trust-system.md`, `coaching-architecture.md`
+**Related:** `coaching-intelligence-design.md`, `ai-trust-system.md`, `coaching-architecture.md`, `system-architecture.md`
 
 ---
 
@@ -154,6 +155,8 @@ The implications of this vision:
 ---
 
 ## Anti-Bloat Principles
+
+> **Canonical source.** This section and the Anti-Generic-AI section below are the authoritative prohibition lists for anti-gamification and anti-bloat rules. Other documents (`retention-philosophy.md`, `ux-principles.md`, `ai-trust-system.md`) apply these principles in their own context but do not redefine them. When rules appear to conflict, this document is the source of truth.
 
 These principles define what GAINER will not become.
 

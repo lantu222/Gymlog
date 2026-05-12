@@ -1,5 +1,6 @@
 # GAINER — Retention Philosophy
 
+**Type:** Philosophy — design intent only, no implementation values
 **Status:** Design reference. Not an implementation spec.
 **Related:** `gainer-philosophy.md`, `ai-trust-system.md`, `coaching-intelligence-design.md`
 

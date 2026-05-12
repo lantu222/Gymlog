@@ -1,7 +1,9 @@
 # Post-Session Single Insight — MVP Spec
 
+**Type:** Implementation spec — values defined here are authoritative and buildable
 **Status:** Spec only. Not yet implemented.
 **Scope:** One optional insight surface after a completed workout. No chatbot. No notifications. No UI redesign.
+**Canonical owner of:** universal 0.75 confidence threshold (MVP), no-back-to-back silence rule (MVP)
 
 ---
 
@@ -23,6 +25,8 @@ The system returns null whenever any of the following are true. No exceptions.
 - The highest-confidence candidate is below the 0.75 threshold
 - The candidate type matches the type delivered last time (no consecutive repeats)
 - No tracked exercises with set data in this session
+
+> **Frequency caps (MVP vs future).** MVP applies the two rules above: no back-to-back sessions with insights, and no consecutive same-type repeats. The full frequency cap system — 3 insights per 7-day window, 14-day same-type cooldown, 21-day deload cooldown — is defined in `ai-trust-system.md` §7 and applies to the future multi-insight coaching system, not to this MVP surface.
 
 ---
 
@@ -229,7 +233,7 @@ No new database schema. No new storage key. These are small, non-critical prefer
 
 | Feature | Reason |
 |---|---|
-| `progression_ready` insight type | Requires template `repsMax`; validate data flow first |
+| `progression_ready` insight type | Requires template `repsMax`; validate data flow first. When built: applies 0.80 threshold (see `ai-trust-system.md` §6) and follows progression logic in `progression-gating-rules.md` |
 | LLM-generated messages | Template messages are deterministic and sufficient |
 | Insight history or log | No UI surface; premature persistence |
 | Push notifications | Different delivery system; out of scope |

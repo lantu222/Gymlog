@@ -1,7 +1,9 @@
 # GAINER — System Architecture
 
+**Type:** Implementation spec — architecture decisions defined here are authoritative
 **Status:** Reference document. Design authority, not implementation spec.
 **Related:** `coaching-architecture.md`, `gainer-philosophy.md`, `ai-trust-system.md`, `coaching-intelligence-design.md`
+**Canonical owner of:** five-layer coaching architecture, coaching phase names and session-count boundaries (`observation/emerging/active/trusted`)
 
 ---
 
@@ -704,7 +706,9 @@ profileMatchScore:    is this signal type appropriate for this user?
 
 ### Delivery thresholds by coaching phase
 
-| Phase | Threshold | Rationale |
+> **🔜 Future architecture.** The phase-based threshold model below describes the target system once the full coaching phase infrastructure is built. **MVP applies a universal 0.75 threshold for all post-session insight types** — see `post-session-single-insight-mvp.md`. The per-type thresholds in `ai-trust-system.md` §6 are future targets aligned with this model.
+
+| Phase | Future threshold | Rationale |
 |---|---|---|
 | `observation` (0–6 sessions) | No output regardless | Not enough data |
 | `emerging` (7–20) | 0.80 | Earning trust — only say highly certain things |
@@ -714,11 +718,13 @@ profileMatchScore:    is this signal type appropriate for this user?
 ### What gets gated
 
 ```
-Post-session insight:         confidence ≥ threshold → deliver
-                              confidence < threshold → silence
+Post-session insight (MVP):   confidence ≥ 0.75 → deliver  [universal threshold]
+Post-session insight (future): confidence ≥ phase threshold → deliver
+                               confidence < threshold → silence
 
-Progression recommendation:   confidence ≥ 0.70 → show in-session suggestion
-                              confidence < 0.70 → no suggestion shown
+Progression recommendation:   confidence ≥ 0.80 → show suggestion
+                              confidence < 0.80 → silence
+                              (see progression-gating-rules.md for full gate logic)
 
 Program recommendation:       always shown (deterministic scoring, not probabilistic)
                               "no recommendation" state shown if no program scores above 60%

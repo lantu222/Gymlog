@@ -1,7 +1,9 @@
 # GAINER — Premium Philosophy
 
+**Type:** Philosophy — design intent only, no implementation values
 **Status:** Design reference. Not an implementation spec.
 **Related:** `gainer-philosophy.md`, `retention-philosophy.md`, `ai-trust-system.md`
+**Canonical owner of:** free-tier definition, ethical monetization rules, premium feature criteria
 
 ---
 
