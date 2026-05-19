@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { spacing } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -138,9 +139,7 @@ export function WelcomeScreen({ onContinue, onSignIn }: WelcomeScreenProps) {
           </View>
 
           <View style={styles.actionStack}>
-            <Pressable onPress={onContinue} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Start free</Text>
-            </Pressable>
+            <PrimaryCTAButton title="Start free" onPress={onContinue} style={styles.welcomeCTAButton} />
 
             <Pressable onPress={onSignIn ?? onContinue} style={styles.signInLink}>
               <Text style={styles.signInLinkText}>I already have an account</Text>
@@ -263,22 +262,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
   },
-  primaryButton: {
+  welcomeCTAButton: {
     width: '100%',
-    minHeight: 58,
-    borderRadius: 18,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: PURPLE,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.24)',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '900',
-    letterSpacing: 0,
+    maxWidth: 360,
   },
   signInLink: {
     paddingVertical: spacing.sm,

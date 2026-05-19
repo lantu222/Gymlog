@@ -238,7 +238,7 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /const STAGES: SetupStage\[\] = \[[^\]]*'focus'/);
       assert.doesNotMatch(onboardingSource, /function renderFocus\(/);
       assert.match(aboutBody, /stepLabel: 'STEP 5 OF 5'/);
-      assert.match(footerBody, /stage === 'about'[\s\S]*'Build my first program'/);
+      assert.match(footerBody, /stage === 'about'[\s\S]*'BUILD MY PLAN'/);
       assert.match(footerBody, /if \(stage === 'about'\) \{[\s\S]*setIsBuildingPlan\(true\)/);
       assert.doesNotMatch(footerBody, /stage === 'focus'/);
       assert.doesNotMatch(onboardingSource, /stage === 'focus'/);
@@ -589,7 +589,7 @@ module.exports = [
           reviewBody.indexOf('YOUR WORKOUT PLAN') < reviewBody.indexOf('styles.planReadyFitSummaryPanel'),
         'weekly overview, workout cards, and plan reason panel should render in that order',
       );
-      assert.match(onboardingSource, /stage === 'review'[\s\S]*'START MY PLAN'/);
+      assert.match(onboardingSource, /stage === 'review'[\s\S]*'SAVE PLAN & START'/);
       assert.doesNotMatch(reviewBody, /Day \{index \+ 1\}/);
       assert.doesNotMatch(reviewBody, /planReadyWorkoutDayNumber/);
       assert.doesNotMatch(reviewBody, /planReadyWorkoutDayName/);

@@ -17,6 +17,7 @@ interface AppShellProps {
   statusBarStyleOverride?: 'light' | 'dark';
   statusBarBackgroundColor?: string;
   statusBarTranslucent?: boolean;
+  shellBackgroundColor?: string;
 }
 
 const toneStyles: Record<AppShellTone, { topWash: string; sideWash: string; bottomWash: string; edgeLine: string }> = {
@@ -62,9 +63,10 @@ export function AppShell({
   statusBarStyleOverride,
   statusBarBackgroundColor,
   statusBarTranslucent = false,
+  shellBackgroundColor,
 }: AppShellProps) {
   const tone = toneStyles[screenTone];
-  const shellBackground = screenTone === 'home' || screenTone === 'profile' ? '#FFFFFF' : colors.background;
+  const shellBackground = shellBackgroundColor ?? (screenTone === 'home' || screenTone === 'profile' ? '#FFFFFF' : colors.background);
   const statusBarStyle = statusBarStyleOverride ?? (screenTone === 'home' || screenTone === 'profile' ? 'dark' : 'light');
 
   return (

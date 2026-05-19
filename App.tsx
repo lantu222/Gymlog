@@ -2539,6 +2539,8 @@ function GymlogApp() {
       route.tab === 'workout' &&
       (route.screen === 'detail' || route.screen === 'log' || route.screen === 'summary' || route.screen === 'celebration')
     );
+  const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
+  const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const shellTone =
     onboardingActive ||
     route.tab === 'progress' ||
@@ -2558,9 +2560,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={welcomeActive ? 'light' : undefined}
+      statusBarStyleOverride={welcomeActive || onboardingScreenActive ? 'light' : undefined}
       statusBarBackgroundColor={welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
+      shellBackgroundColor={onboardingScreenActive ? '#1D1C35' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
