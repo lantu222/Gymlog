@@ -42,12 +42,20 @@ const ICONS = {
   trophy: Trophy,
 };
 
-export function OnboardingOptionIcon({ name }: { name: OnboardingOptionIconName }) {
+export function OnboardingOptionIcon({
+  name,
+  active = false,
+  subdued = false,
+}: {
+  name: OnboardingOptionIconName;
+  active?: boolean;
+  subdued?: boolean;
+}) {
   const Icon = ICONS[name];
 
   return (
-    <View style={styles.container}>
-      <Icon size={24} color="#FFFFFF" weight="fill" />
+    <View style={[styles.container, active && styles.containerActive, subdued && styles.containerSubdued]}>
+      <Icon size={24} color={subdued ? 'rgba(255,255,255,0.52)' : '#FFFFFF'} weight="fill" />
     </View>
   );
 }
@@ -59,6 +67,16 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: 'rgba(6,5,18,0.94)',
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.10)',
+  },
+  containerActive: {
+    backgroundColor: 'rgba(18,14,48,0.78)',
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  containerSubdued: {
+    backgroundColor: 'rgba(7,7,18,0.66)',
+    borderColor: 'rgba(169,139,255,0.05)',
   },
 });

@@ -2,6 +2,7 @@ const suites = [
   ...require('./features/workout/workoutAppAdapter.test.cjs'),
   ...require('./features/workout/workoutState.test.cjs'),
   ...require('./state/completedWorkoutPersistence.test.cjs'),
+  ...require('./utils/haptics.test.cjs'),
   ...require('./components/primaryCTAButton.test.cjs'),
   ...require('./integration/liveWorkoutSavePipeline.test.cjs'),
   ...require('./lib/workoutInput.test.cjs'),

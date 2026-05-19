@@ -19,11 +19,12 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { GymlogIcon, GymlogIconName } from '../components/GymlogIcon';
+import { GainerCoachOrb, GainerCoachOrbVariant } from '../components/GainerCoachOrb';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -61,6 +62,7 @@ import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tai
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { colors, radii, spacing } from '../theme';
+import { haptics } from '../utils/haptics';
 import {
   SetupDaysPerWeek,
   SetupAgeRange,
@@ -113,12 +115,22 @@ type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | nu
 type PlanReadyHeroKey = 'mass' | 'strength' | 'athletic';
 type BodyweightGoalMode = 'hidden' | 'optional' | 'required';
 type BodyweightGoalIconName = 'up' | 'flat' | 'down';
+type BodyweightSetupStep = 'goal' | 'current' | 'target' | 'outcome';
 type LocationSelectionOptionId = SetupTrainingEnvironment;
+type LocationBenefit = { icon: GymlogIconName; label: string };
+type OnboardingRewardConfig = {
+  title: string;
+  body: string;
+  orbVariant: GainerCoachOrbVariant;
+  benefits: LocationBenefit[];
+};
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
 type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
 
 const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about', 'review'];
 const ONBOARDING_PROGRESS_STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about'];
+const BODYWEIGHT_SETUP_STEPS: BodyweightSetupStep[] = ['goal', 'current', 'target', 'outcome'];
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const DEFAULT_BODYWEIGHT_KG = 70;
 const DEFAULT_BODYWEIGHT_LB = 154;
@@ -589,6 +601,34 @@ const LOCATION_SELECTION_OPTIONS: Array<{
   },
 ];
 
+const LOCATION_SELECTION_BENEFITS: Record<LocationSelectionOptionId, LocationBenefit[]> = {
+  full_gym: [
+    { icon: 'progress', label: 'Best for muscle growth' },
+    { icon: 'strength', label: 'Largest exercise library' },
+    { icon: 'tempo', label: 'Personalized gym programs' },
+  ],
+  home_gym: [
+    { icon: 'strength', label: 'Built around your setup' },
+    { icon: 'tempo', label: 'Easy to repeat weekly' },
+    { icon: 'progress', label: 'Progress without commuting' },
+  ],
+  minimal_equipment: [
+    { icon: 'lightning', label: 'Efficient low-equipment sessions' },
+    { icon: 'strength', label: 'Smart band and dumbbell swaps' },
+    { icon: 'progress', label: 'Simple setup, clear progression' },
+  ],
+  bodyweight_only: [
+    { icon: 'strength', label: 'Train anywhere' },
+    { icon: 'progress', label: 'Progressive bodyweight structure' },
+    { icon: 'tempo', label: 'No equipment friction' },
+  ],
+  running_hybrid: [
+    { icon: 'cardio', label: 'Balanced run and strength plan' },
+    { icon: 'recovery', label: 'Recovery-aware weekly rhythm' },
+    { icon: 'progress', label: 'Cardio and muscle progress together' },
+  ],
+};
+
 const GOAL_SELECTION_OPTIONS: Array<{
   id: SetupGoal;
   label: string;
@@ -602,6 +642,69 @@ const GOAL_SELECTION_OPTIONS: Array<{
   icon: option.icon,
   tags: option.tags,
 }));
+
+const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
+  strength: {
+    title: 'Great choice!',
+    body: "You've selected to get stronger.",
+    orbVariant: 'pr',
+    benefits: [
+      { icon: 'check', label: 'Heavy lift progression' },
+      { icon: 'check', label: 'Longer rest, stronger sets' },
+      { icon: 'check', label: 'Built around strength gains' },
+    ],
+  },
+  muscle: {
+    title: 'Great choice!',
+    body: "You've selected to build muscle.",
+    orbVariant: 'success',
+    benefits: [
+      { icon: 'check', label: 'Higher volume training' },
+      { icon: 'check', label: 'Progressive overload focus' },
+      { icon: 'check', label: 'Size-focused workout structure' },
+    ],
+  },
+  lean_athletic: {
+    title: 'Great choice!',
+    body: "You've selected a lean athletic focus.",
+    orbVariant: 'idle',
+    benefits: [
+      { icon: 'check', label: 'Strength and conditioning balance' },
+      { icon: 'check', label: 'Lean performance focus' },
+      { icon: 'check', label: 'Recovery-aware weekly rhythm' },
+    ],
+  },
+  general_fitness: {
+    title: 'Great choice!',
+    body: "You've selected general fitness.",
+    orbVariant: 'idle',
+    benefits: [
+      { icon: 'check', label: 'Balanced weekly training' },
+      { icon: 'check', label: 'Simple sustainable progression' },
+      { icon: 'check', label: 'Flexible plan structure' },
+    ],
+  },
+  general: {
+    title: 'Great choice!',
+    body: "You've selected general fitness.",
+    orbVariant: 'idle',
+    benefits: [
+      { icon: 'check', label: 'Balanced weekly training' },
+      { icon: 'check', label: 'Simple sustainable progression' },
+      { icon: 'check', label: 'Flexible plan structure' },
+    ],
+  },
+  run_mobility: {
+    title: 'Great choice!',
+    body: "You've selected run and mobility.",
+    orbVariant: 'thinking',
+    benefits: [
+      { icon: 'check', label: 'Running-friendly structure' },
+      { icon: 'check', label: 'Mobility and recovery support' },
+      { icon: 'check', label: 'Strength without excess fatigue' },
+    ],
+  },
+};
 
 const BODYWEIGHT_GOAL_OPTIONS: Array<{
   id: SetupGoal;
@@ -710,7 +813,9 @@ function LocationChoiceCard({
   focusLabel,
   focusTone = 'neutral',
   tags,
+  benefits,
   active,
+  subdued = false,
   onPress,
   compact = false,
   roomy = false,
@@ -724,7 +829,9 @@ function LocationChoiceCard({
   focusLabel?: FocusBadgeInput;
   focusTone?: FocusBadgeTone;
   tags?: FocusBadgeInput[];
+  benefits?: LocationBenefit[];
   active: boolean;
+  subdued?: boolean;
   onPress: () => void;
   compact?: boolean;
   roomy?: boolean;
@@ -748,13 +855,18 @@ function LocationChoiceCard({
   }, [active, progress]);
 
   const animatedStyle = {
-    opacity: progress.interpolate({
+    opacity: subdued ? 0.42 : progress.interpolate({
       inputRange: [0, 1],
-      outputRange: [0.94, 1],
+      outputRange: [0.9, 1],
     }),
-  };
-  const outlineStyle = {
-    opacity: progress,
+    transform: [
+      {
+        scale: progress.interpolate({
+          inputRange: [0, 1],
+          outputRange: [1, 1.015],
+        }),
+      },
+    ],
   };
   const radio = (
     <View
@@ -775,7 +887,6 @@ function LocationChoiceCard({
 
   return (
     <Pressable onPress={onPress} style={styles.locationChoicePressable}>
-      <Animated.View pointerEvents="none" style={[styles.locationChoiceActiveOutline, outlineStyle]} />
       <Animated.View
         style={[
           styles.locationChoiceCard,
@@ -783,12 +894,14 @@ function LocationChoiceCard({
           roomy && styles.locationChoiceCardRoomy,
           tall && styles.locationChoiceCardTall,
           active && styles.locationChoiceCardActive,
+          subdued && styles.locationChoiceCardSubdued,
           animatedStyle,
         ]}
       >
+        {active ? <Animated.View pointerEvents="none" style={[styles.locationChoiceActiveOutline, { opacity: progress }]} /> : null}
         <View style={styles.locationChoiceRow}>
           {leadingRadio ? radio : null}
-          {hideIcon ? null : <OnboardingOptionIcon name={icon} />}
+          {hideIcon ? null : <OnboardingOptionIcon name={icon} active={active} subdued={subdued} />}
           <View style={[styles.locationChoiceCopy, hideIcon && styles.locationChoiceCopyNoIcon]}>
             <View style={styles.locationChoiceTitleRow}>
               <Text numberOfLines={1} style={[styles.locationChoiceLabel, active && styles.locationChoiceLabelActive]}>
@@ -819,6 +932,21 @@ function LocationChoiceCard({
           </View>
           {leadingRadio ? null : radio}
         </View>
+        {active && benefits?.length ? (
+          <View style={styles.locationChoiceBenefitsPanel}>
+            <Text style={styles.locationChoiceBenefitsKicker}>WHY IT'S GREAT FOR YOU</Text>
+            <View style={styles.locationChoiceBenefitsList}>
+              {benefits.map((benefit) => (
+                <View key={benefit.label} style={styles.locationChoiceBenefitRow}>
+                  <View style={styles.locationChoiceBenefitCheck}>
+                    <GymlogIcon name="check" size={10} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.locationChoiceBenefitText}>{benefit.label}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
       </Animated.View>
     </Pressable>
   );
@@ -1545,12 +1673,11 @@ function BodyweightStepper({
       </View>
 
       <View style={styles.bodyweightTargetCard}>
-        <Pressable
+        <BodyweightStepButton
+          label="-"
           onPress={() => updateValue(clampedValue - step)}
-          style={styles.bodyweightTargetStepButton}
-        >
-          <Text style={[styles.bodyweightTargetStepText, styles.bodyweightTargetMinusText]}>-</Text>
-        </Pressable>
+          textStyle={styles.bodyweightTargetMinusText}
+        />
         <View style={styles.bodyweightTargetValueWrap}>
           <TextInput
             value={editingValue ? draftValue : clampedValue.toFixed(1)}
@@ -1569,12 +1696,10 @@ function BodyweightStepper({
           />
           <Text style={styles.bodyweightTargetValueUnit}>{unit}</Text>
         </View>
-        <Pressable
+        <BodyweightStepButton
+          label="+"
           onPress={() => updateValue(clampedValue + step)}
-          style={styles.bodyweightTargetStepButton}
-        >
-          <Text style={styles.bodyweightTargetStepText}>+</Text>
-        </Pressable>
+        />
       </View>
 
       {onUnitChange ? (
@@ -1617,12 +1742,60 @@ function BodyweightGoalTrendIcon({ name, color }: { name: BodyweightGoalIconName
   );
 }
 
+function BodyweightStepButton({
+  label,
+  textStyle,
+  onPress,
+}: {
+  label: '+' | '-';
+  textStyle?: TextStyle;
+  onPress: () => void;
+}) {
+  const pressProgress = useRef(new Animated.Value(0)).current;
+  const scale = pressProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.05],
+  });
+
+  function animate(toValue: number) {
+    Animated.timing(pressProgress, {
+      toValue,
+      duration: 95,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={label === '+' ? 'Increase weight' : 'Decrease weight'}
+      onPress={() => {
+        void haptics.select();
+        onPress();
+      }}
+      onPressIn={() => animate(1)}
+      onPressOut={() => animate(0)}
+      style={[
+        styles.bodyweightTargetStepButton,
+        {
+          transform: [{ scale }],
+        },
+      ]}
+    >
+      <Animated.View pointerEvents="none" style={[styles.bodyweightTargetStepGlow, { opacity: pressProgress }]} />
+      <Text style={[styles.bodyweightTargetStepText, textStyle]}>{label}</Text>
+    </AnimatedPressable>
+  );
+}
+
 function BodyweightGoalOptionCard({
   title,
   body,
   icon,
   accentColor,
   active,
+  wide = false,
   onPress,
 }: {
   title: string;
@@ -1630,29 +1803,53 @@ function BodyweightGoalOptionCard({
   icon: BodyweightGoalIconName;
   accentColor: string;
   active: boolean;
+  wide?: boolean;
   onPress: () => void;
 }) {
-  const iconColor = accentColor;
+  const iconColor = wide ? '#FFFFFF' : accentColor;
+  const scale = useRef(new Animated.Value(active ? 1.04 : 1)).current;
+
+  useEffect(() => {
+    Animated.spring(scale, {
+      toValue: active ? 1.04 : 1,
+      useNativeDriver: true,
+      speed: 18,
+      bounciness: active ? 9 : 4,
+    }).start();
+  }, [active, scale]);
 
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={`${title}. ${body}`}
       accessibilityState={{ selected: active }}
       onPress={onPress}
       style={[
         styles.bodyweightGoalCard,
+        wide && styles.bodyweightGoalCardWide,
         { borderColor: active ? accentColor : `${accentColor}66` },
         active && styles.bodyweightGoalCardActive,
+        wide && active && styles.bodyweightGoalCardWideActive,
         active && { borderColor: accentColor },
+        wide && { transform: [{ scale }] },
       ]}
     >
-      <BodyweightGoalTrendIcon name={icon} color={iconColor} />
-      <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.bodyweightGoalCardTitle, active && styles.bodyweightGoalCardTitleActive]}>
-        {title}
-      </Text>
-      <Text style={[styles.bodyweightGoalCardBody, active && styles.bodyweightGoalCardBodyActive]}>{body}</Text>
-    </Pressable>
+      {wide && active ? <View pointerEvents="none" style={styles.bodyweightGoalCardActiveBloom} /> : null}
+      <View style={[styles.bodyweightGoalIconBubble, wide && styles.bodyweightGoalIconBubbleWide, active && styles.bodyweightGoalIconBubbleActive]}>
+        <BodyweightGoalTrendIcon name={icon} color={iconColor} />
+      </View>
+      <View style={styles.bodyweightGoalCardCopy}>
+        <Text numberOfLines={1} adjustsFontSizeToFit style={[styles.bodyweightGoalCardTitle, active && styles.bodyweightGoalCardTitleActive]}>
+          {title}
+        </Text>
+        <Text style={[styles.bodyweightGoalCardBody, active && styles.bodyweightGoalCardBodyActive]}>{body}</Text>
+      </View>
+      {wide && active ? (
+        <View style={styles.bodyweightGoalCheck}>
+          <GymlogIcon name="check" color={ONBOARDING_PRIMARY} size={16} />
+        </View>
+      ) : null}
+    </AnimatedPressable>
   );
 }
 
@@ -1931,6 +2128,8 @@ export function OnboardingScreen({
   const buildingPlanPulse = useRef(new Animated.Value(0)).current;
   const planReadyCardTranslateX = useRef(new Animated.Value(0)).current;
   const planReadyCardOpacity = useRef(new Animated.Value(1)).current;
+  const profileFrequencyReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
+  const profilePreviewReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
   const [age, setAge] = useState(() =>
     typeof setupSeed.age === 'number' && Number.isFinite(setupSeed.age)
@@ -1942,6 +2141,8 @@ export function OnboardingScreen({
   const [goals, setGoals] = useState<SetupGoal[]>(setupSeed.goals?.length ? setupSeed.goals : [setupSeed.goal]);
   const [level, setLevel] = useState<SetupLevel>(setupSeed.level);
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
+  const [profileLevelSelected, setProfileLevelSelected] = useState(() => Boolean(initialSelection || editMode));
+  const [profileFrequencySelected, setProfileFrequencySelected] = useState(() => Boolean(initialSelection || editMode));
   const [equipment, setEquipment] = useState<SetupEquipment>(setupSeed.equipment);
   const [trainingEnvironment, setTrainingEnvironment] = useState<SetupTrainingEnvironment>(
     setupSeed.trainingEnvironment,
@@ -1951,6 +2152,8 @@ export function OnboardingScreen({
       ? getDefaultLocationOptionId(setupSeed.equipment, setupSeed.trainingEnvironment)
       : null,
   );
+  const [locationChoiceConfirmed, setLocationChoiceConfirmed] = useState(false);
+  const [goalChoiceConfirmed, setGoalChoiceConfirmed] = useState(false);
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
   );
@@ -1971,6 +2174,8 @@ export function OnboardingScreen({
     return seedValue ?? getDefaultBodyweightForUnit(initialUnitPreference);
   });
   const [bodyweightGoal, setBodyweightGoal] = useState<SetupGoal>(() => getDefaultBodyweightGoal(setupSeed.goal));
+  const [bodyweightSetupStep, setBodyweightSetupStep] = useState<BodyweightSetupStep>('goal');
+  const [bodyweightGoalSelected, setBodyweightGoalSelected] = useState(() => Boolean(initialSelection || editMode));
   const [busy, setBusy] = useState(false);
   const [activeRecommendationRefinement, setActiveRecommendationRefinement] =
     useState<RecommendationRefinementPanel>(null);
@@ -2160,6 +2365,7 @@ export function OnboardingScreen({
   );
 
   function toggleGoal(nextGoal: SetupGoal) {
+    setGoalChoiceConfirmed(false);
     setGoal(nextGoal);
     setGoals([nextGoal]);
   }
@@ -2224,6 +2430,24 @@ export function OnboardingScreen({
       setSelectedRecommendationProgramId(null);
     }
   }, [recommendationOptionIds, selectedRecommendationProgramId]);
+
+  useEffect(() => {
+    Animated.timing(profileFrequencyReveal, {
+      toValue: profileLevelSelected ? 1 : 0,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [profileFrequencyReveal, profileLevelSelected]);
+
+  useEffect(() => {
+    Animated.timing(profilePreviewReveal, {
+      toValue: profileFrequencySelected ? 1 : 0,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [profileFrequencySelected, profilePreviewReveal]);
 
   useEffect(() => {
     setPlanReadyWorkoutPage(0);
@@ -2387,6 +2611,7 @@ export function OnboardingScreen({
           if (!finished) {
             return;
           }
+          void haptics.success();
           setIsBuildingPlan(false);
           setShowBuildingPlanThinking(false);
           setStageIndex(getStageIndex('review'));
@@ -2662,16 +2887,26 @@ export function OnboardingScreen({
   }
 
   function renderLocation() {
+    if (locationChoiceConfirmed && selectedLocationOptionId) {
+      return renderLocationReward(selectedLocationOptionId);
+    }
+
+    const hasSelectedLocation = selectedLocationOptionId !== null;
+
     return renderSplitSelectionStage({
       stepLabel: 'STEP 1 OF 5',
-      titleLines: ['What equipment do', 'you have access to?'],
+      titleLines: ['Where do you train?'],
       options: LOCATION_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
         label: option.label,
         subtitle: option.subtitle,
         icon: option.icon,
         active: selectedLocationOptionId === option.id,
+        subdued: hasSelectedLocation && selectedLocationOptionId !== option.id,
+        benefits: LOCATION_SELECTION_BENEFITS[option.id],
         onPress: () => {
+          void haptics.select();
+          setLocationChoiceConfirmed(false);
           setSelectedLocationOptionId(option.id);
           setEquipment(option.equipment);
           setTrainingEnvironment(option.trainingEnvironment);
@@ -2684,6 +2919,58 @@ export function OnboardingScreen({
       topCopyStyle: styles.locationEquipmentTopCopy,
       titleStyleOverride: styles.locationEquipmentHeadline,
     });
+  }
+
+  function renderLocationReward(selectedOptionId: LocationSelectionOptionId) {
+    const selectedOption = LOCATION_SELECTION_OPTIONS.find((option) => option.id === selectedOptionId) ?? LOCATION_SELECTION_OPTIONS[0];
+    return renderOnboardingReward({
+      title: 'Great choice!',
+      body: `We'll build the perfect plan for your ${selectedOption.label.toLowerCase()} access.`,
+      orbVariant: 'success',
+      benefits: LOCATION_SELECTION_BENEFITS[selectedOption.id],
+    });
+  }
+
+  function renderOnboardingReward({ title, body, orbVariant, benefits }: OnboardingRewardConfig) {
+    const rewardStageHeight = Math.max(640, Dimensions.get('window').height - insets.top - insets.bottom - 150);
+
+    return (
+      <View style={[styles.locationRewardShell, { minHeight: rewardStageHeight }]}>
+        <View pointerEvents="none" style={styles.locationRewardBottomGlow}>
+          <Svg width="100%" height="100%" viewBox="0 0 390 260" preserveAspectRatio="none">
+            <Defs>
+              <SvgLinearGradient id="locationRewardBottomGlowGradient" x1="195" y1="0" x2="195" y2="260">
+                <Stop offset="0" stopColor="#1D1C35" stopOpacity="0" />
+                <Stop offset="0.62" stopColor="#8B5CF6" stopOpacity="0.035" />
+                <Stop offset="1" stopColor="#8B5CF6" stopOpacity="0.16" />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="390" height="260" fill="url(#locationRewardBottomGlowGradient)" />
+          </Svg>
+        </View>
+        <View style={styles.locationRewardContent}>
+          <View style={styles.locationRewardMarkWrap}>
+            <GainerCoachOrb variant={orbVariant} />
+          </View>
+
+          <View style={styles.locationRewardCopy}>
+            <Text style={styles.locationRewardTitle}>{title}</Text>
+            <Text style={styles.locationRewardBody}>{body}</Text>
+          </View>
+
+          <View style={styles.locationRewardBenefitList}>
+            {benefits.map((benefit) => (
+              <View key={benefit.label} style={styles.locationRewardBenefitRow}>
+                <View style={styles.locationRewardBenefitIcon}>
+                  <GymlogIcon name="check" size={16} color="#FFFFFF" />
+                </View>
+                <Text style={styles.locationRewardBenefitText}>{benefit.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    );
   }
 
   function renderSplitSelectionStage({
@@ -2735,7 +3022,9 @@ export function OnboardingScreen({
       focusLabel?: string;
       focusTone?: FocusBadgeTone;
       tags?: FocusBadgeInput[];
+      benefits?: LocationBenefit[];
       active: boolean;
+      subdued?: boolean;
       onPress: () => void;
     }>;
   }) {
@@ -2768,7 +3057,9 @@ export function OnboardingScreen({
                     focusLabel={option.focusLabel}
                     focusTone={option.focusTone}
                     tags={option.tags}
+                    benefits={option.benefits}
                     active={option.active}
+                    subdued={option.subdued}
                     onPress={option.onPress}
                     compact={compactCards}
                     roomy={roomyCards}
@@ -2790,7 +3081,9 @@ export function OnboardingScreen({
                   focusLabel={option.focusLabel}
                   focusTone={option.focusTone}
                   tags={option.tags}
+                  benefits={option.benefits}
                   active={option.active}
+                  subdued={option.subdued}
                   onPress={option.onPress}
                   compact={compactCards}
                   roomy={roomyCards}
@@ -2856,6 +3149,10 @@ export function OnboardingScreen({
   }
 
   function renderGoal() {
+    if (goalChoiceConfirmed) {
+      return renderOnboardingReward(GOAL_SELECTION_REWARDS[goal]);
+    }
+
     return renderSplitSelectionStage({
       stepLabel: 'STEP 2 OF 5',
       titleLines: ['WHAT DO YOU', 'WANT MOST?'],
@@ -2867,7 +3164,10 @@ export function OnboardingScreen({
         icon: option.icon,
         tags: option.tags,
         active: goal === option.id,
-        onPress: () => toggleGoal(option.id),
+        onPress: () => {
+          void haptics.select();
+          toggleGoal(option.id);
+        },
       })),
       roomyCards: true,
       optionsContainerStyle: styles.locationStepTwoOptionsShift,
@@ -2879,6 +3179,30 @@ export function OnboardingScreen({
 
   function renderProfile() {
     const setupSummary = getTrainingProfileSetupSummary(level, daysPerWeek);
+    const selectedLevelOption = TRAINING_LEVEL_OPTIONS.find((option) => option.level === level) ?? TRAINING_LEVEL_OPTIONS[0];
+    const selectedFrequencyOption = TRAINING_FREQUENCY_OPTIONS.find((option) => option.value === daysPerWeek) ?? TRAINING_FREQUENCY_OPTIONS[1];
+    const frequencyRevealStyle = {
+      opacity: profileFrequencyReveal,
+      transform: [
+        {
+          translateY: profileFrequencyReveal.interpolate({
+            inputRange: [0, 1],
+            outputRange: [12, 0],
+          }),
+        },
+      ],
+    };
+    const previewRevealStyle = {
+      opacity: profilePreviewReveal,
+      transform: [
+        {
+          translateY: profilePreviewReveal.interpolate({
+            inputRange: [0, 1],
+            outputRange: [10, 0],
+          }),
+        },
+      ],
+    };
 
     return renderOnboardingShell({
       stepLabel: 'STEP 3 OF 5',
@@ -2895,103 +3219,139 @@ export function OnboardingScreen({
               <TrainingSectionIcon icon="strength" />
               <Text style={styles.trainingProfileSectionTitle}>Experience level</Text>
             </View>
-            <Text style={styles.trainingProfileSectionPrompt}>How much training experience do you have?</Text>
-
-            <View style={styles.trainingExperienceList}>
-              {TRAINING_LEVEL_OPTIONS.map((option) => {
-                const active = level === option.level;
-
-                return (
-                  <Pressable
-                    key={option.level}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${option.title} experience level`}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => setLevel(option.level)}
-                    style={[styles.trainingExperienceCard, active && styles.trainingExperienceCardActive]}
-                  >
-                    <OnboardingOptionIcon name={option.icon} />
-                    <View style={styles.trainingExperienceCopy}>
-                      <Text style={[styles.trainingExperienceTitle, active && styles.trainingExperienceTitleActive]}>
-                        {option.title}
-                      </Text>
-                      <Text style={[styles.trainingExperienceBody, active && styles.trainingExperienceBodyActive]}>
-                        {option.body}
-                      </Text>
-                      <View style={styles.trainingExperienceChipStack}>
-                        {[option.chips.slice(0, 2), option.chips.slice(2)].map((chipRow, rowIndex) => (
-                          <View key={`${option.level}-chip-row-${rowIndex}`} style={styles.trainingExperienceChipRow}>
-                            {chipRow.map((chip) => (
-                              <View
-                                key={`${chip.label}:${chip.tone}`}
-                                style={[
-                                  styles.locationFocusBadge,
-                                  styles.trainingExperienceChip,
-                                  getLocationFocusBadgeStyle(chip.tone),
-                                ]}
-                              >
-                                <Text
-                                  numberOfLines={1}
+            {profileLevelSelected ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`${selectedLevelOption.title} experience level selected`}
+                accessibilityState={{ selected: true }}
+                onPress={() => setProfileLevelSelected(false)}
+                style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
+              >
+                <View style={styles.trainingProfileSummaryCheck}>
+                  <GymlogIcon name="check" size={13} color="#FFFFFF" />
+                </View>
+                <Text style={styles.trainingProfileSummaryText}>{selectedLevelOption.title}</Text>
+              </Pressable>
+            ) : (
+              <>
+                <Text style={styles.trainingProfileSectionPrompt}>How much training experience do you have?</Text>
+                <View style={styles.trainingExperienceList}>
+                  {TRAINING_LEVEL_OPTIONS.map((option) => (
+                    <Pressable
+                      key={option.level}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${option.title} experience level`}
+                      onPress={() => {
+                        void haptics.select();
+                        setLevel(option.level);
+                        setProfileLevelSelected(true);
+                        setProfileFrequencySelected(false);
+                      }}
+                      style={styles.trainingExperienceCard}
+                    >
+                      <OnboardingOptionIcon name={option.icon} />
+                      <View style={styles.trainingExperienceCopy}>
+                        <Text style={styles.trainingExperienceTitle}>{option.title}</Text>
+                        <Text style={styles.trainingExperienceBody}>{option.body}</Text>
+                        <View style={styles.trainingExperienceChipStack}>
+                          {[option.chips.slice(0, 2), option.chips.slice(2)].map((chipRow, rowIndex) => (
+                            <View key={`${option.level}-chip-row-${rowIndex}`} style={styles.trainingExperienceChipRow}>
+                              {chipRow.map((chip) => (
+                                <View
+                                  key={`${chip.label}:${chip.tone}`}
                                   style={[
-                                    styles.locationFocusBadgeText,
-                                    styles.trainingExperienceChipText,
-                                    getLocationFocusBadgeTextStyle(chip.tone),
+                                    styles.locationFocusBadge,
+                                    styles.trainingExperienceChip,
+                                    getLocationFocusBadgeStyle(chip.tone),
                                   ]}
                                 >
-                                  {chip.label}
-                                </Text>
-                              </View>
-                            ))}
-                          </View>
-                        ))}
+                                  <Text
+                                    numberOfLines={1}
+                                    style={[
+                                      styles.locationFocusBadgeText,
+                                      styles.trainingExperienceChipText,
+                                      getLocationFocusBadgeTextStyle(chip.tone),
+                                    ]}
+                                  >
+                                    {chip.label}
+                                  </Text>
+                                </View>
+                              ))}
+                            </View>
+                          ))}
+                        </View>
                       </View>
-                    </View>
-                    <View style={[styles.trainingProfileRadio, active && styles.trainingProfileRadioActive]}>
-                      {active ? <GymlogIcon name="check" size={14} color={ONBOARDING_TEXT} /> : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
+                      <View style={styles.trainingProfileRadio} />
+                    </Pressable>
+                  ))}
+                </View>
+              </>
+            )}
           </View>
 
-          <View style={styles.trainingProfileSection}>
-            <View style={styles.trainingProfileSectionHeader}>
-              <TrainingSectionIcon icon="tempo" />
-              <Text style={styles.trainingProfileSectionTitle}>Training frequency</Text>
-            </View>
-            <Text style={styles.trainingProfileSectionPrompt}>How many days per week can you train?</Text>
+          {profileLevelSelected ? (
+            <Animated.View style={[styles.trainingProfileSection, frequencyRevealStyle]}>
+              <View style={styles.trainingProfileSectionHeader}>
+                <TrainingSectionIcon icon="tempo" />
+                <Text style={styles.trainingProfileSectionTitle}>Training frequency</Text>
+              </View>
+              {profileFrequencySelected ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${selectedFrequencyOption.title} ${selectedFrequencyOption.body} selected`}
+                  accessibilityState={{ selected: true }}
+                  onPress={() => setProfileFrequencySelected(false)}
+                  style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
+                >
+                  <View style={styles.trainingProfileSummaryCheck}>
+                    <GymlogIcon name="check" size={13} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.trainingProfileSummaryText}>
+                    {selectedFrequencyOption.title} {selectedFrequencyOption.body}
+                  </Text>
+                </Pressable>
+              ) : (
+                <>
+                  <Text style={styles.trainingProfileSectionPrompt}>How many days per week can you train?</Text>
+                  <View style={styles.trainingFrequencyRow}>
+                    {TRAINING_FREQUENCY_OPTIONS.map((option) => {
+                      const active = daysPerWeek === option.value;
 
-            <View style={styles.trainingFrequencyRow}>
-              {TRAINING_FREQUENCY_OPTIONS.map((option) => {
-                const active = daysPerWeek === option.value;
+                      return (
+                        <Pressable
+                          key={option.value}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${option.title} ${option.body} per week`}
+                          accessibilityState={{ selected: active }}
+                          onPress={() => {
+                            void haptics.select();
+                            setDaysPerWeek(option.value);
+                            setProfileFrequencySelected(true);
+                          }}
+                          style={[styles.trainingFrequencyTile, active && styles.trainingFrequencyTileActive]}
+                        >
+                          <Text style={styles.trainingFrequencyNumber}>{option.title}</Text>
+                          <Text style={styles.trainingFrequencyLabel}>{option.body}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+            </Animated.View>
+          ) : null}
 
-                return (
-                  <Pressable
-                    key={option.value}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${option.title} ${option.body} per week`}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => setDaysPerWeek(option.value)}
-                    style={[styles.trainingFrequencyTile, active && styles.trainingFrequencyTileActive]}
-                  >
-                    <Text style={styles.trainingFrequencyNumber}>{option.title}</Text>
-                    <Text style={styles.trainingFrequencyLabel}>{option.body}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-
-          <View style={styles.trainingPlanPreviewStrip}>
-            <View style={styles.trainingPlanPreviewLead}>
-              <GymlogIcon name="lightning" size={12} color={ONBOARDING_TEXT} />
-              <Text style={styles.trainingPlanPreviewTitle}>Plan preview</Text>
-            </View>
-            <Text numberOfLines={1} style={styles.trainingPlanPreviewText}>
-              {setupSummary.workouts} - {setupSummary.duration} - {setupSummary.structure}
-            </Text>
-          </View>
+          {profileFrequencySelected ? (
+            <Animated.View style={[styles.trainingPlanPreviewStrip, previewRevealStyle]}>
+              <View style={styles.trainingPlanPreviewLead}>
+                <GymlogIcon name="lightning" size={12} color={ONBOARDING_TEXT} />
+                <Text style={styles.trainingPlanPreviewTitle}>Plan preview</Text>
+              </View>
+              <Text style={styles.trainingPlanPreviewText}>{setupSummary.workouts}</Text>
+              <Text style={styles.trainingPlanPreviewText}>{setupSummary.duration}</Text>
+              <Text style={styles.trainingPlanPreviewText}>{setupSummary.structure}</Text>
+            </Animated.View>
+          ) : null}
         </View>
       ),
     });
@@ -3707,7 +4067,10 @@ export function OnboardingScreen({
                       accessibilityRole="button"
                       accessibilityLabel={option.accessibilityLabel}
                       accessibilityState={{ selected: active }}
-                      onPress={() => toggleFocusArea(option.area)}
+                      onPress={() => {
+                        void haptics.select();
+                        toggleFocusArea(option.area);
+                      }}
                       style={[styles.focusAreaCard, active && styles.focusAreaCardActive]}
                     >
                       <View style={styles.focusAreaImageSlot}>
@@ -3767,11 +4130,117 @@ export function OnboardingScreen({
       unitPreference,
       bodyweightGoal,
     );
+    const selectedGoalOption = BODYWEIGHT_GOAL_OPTIONS.find((option) => option.id === bodyweightGoal) ?? BODYWEIGHT_GOAL_OPTIONS[0];
+    const aboutTitleLines =
+      bodyweightSetupStep === 'goal'
+        ? ["WHAT'S YOUR", 'GOAL?']
+        : bodyweightSetupStep === 'current'
+        ? ["WHAT'S YOUR", 'CURRENT WEIGHT?']
+        : bodyweightSetupStep === 'target'
+        ? ['SET A GOAL', 'WEIGHT']
+        : ['EXPECTED', 'OUTCOME'];
+    const showGoalSummary = bodyweightGoalSelected && bodyweightSetupStep !== 'goal';
+
+    const goalSummary = showGoalSummary ? (
+      <View style={styles.bodyweightGoalSummaryPill}>
+        <View style={styles.bodyweightGoalSummaryCheck}>
+          <GymlogIcon name="check" color={ONBOARDING_PRIMARY} size={14} />
+        </View>
+        <Text style={styles.bodyweightGoalSummaryText}>Goal: {selectedGoalOption.title}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit bodyweight goal"
+          onPress={() => setBodyweightSetupStep('goal')}
+          style={styles.bodyweightGoalSummaryEdit}
+        >
+          <Text style={styles.bodyweightGoalSummaryEditText}>Edit</Text>
+        </Pressable>
+      </View>
+    ) : null;
+
+    const currentWeightBlock = (
+      <BodyweightStepper
+        label="Current weight"
+        value={bodyweightPickerValue}
+        unit={unitPreference}
+        onChange={setCurrentBodyweight}
+      />
+    );
+
+    const targetWeightBlock = (
+      <BodyweightStepper
+        label="Goal weight (optional)"
+        hint={bodyweightGoalMode === 'required'
+          ? 'Set a target weight to stay on track.'
+          : 'Only if you have a target in mind.'}
+        value={targetBodyweight}
+        unit={unitPreference}
+        onChange={(nextValue) => {
+          const clampedTarget = clampTargetBodyweightForGoal(nextValue, bodyweightPickerValue, unitPreference, bodyweightGoal);
+          setTargetBodyweight(clampedTarget);
+        }}
+      />
+    );
+
+    const renderBodyweightStepContent = () => {
+      if (bodyweightSetupStep === 'goal') {
+        return (
+          <View style={styles.bodyweightGoalStepList}>
+            {BODYWEIGHT_GOAL_OPTIONS.map((option) => (
+              <BodyweightGoalOptionCard
+                key={option.id}
+                title={option.title}
+                body={option.body}
+                icon={option.icon}
+                accentColor={option.accentColor}
+                active={bodyweightGoalSelected && bodyweightGoal === option.id}
+                wide
+                onPress={() => {
+                  void haptics.select();
+                  setBodyweightGoalSelected(true);
+                  setBodyweightGoal(option.id);
+                  setTargetBodyweight(getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, option.id));
+                }}
+              />
+            ))}
+          </View>
+        );
+      }
+
+      if (bodyweightSetupStep === 'current') {
+        return (
+          <View style={styles.bodyweightProgressiveStack}>
+            {goalSummary}
+            {currentWeightBlock}
+            <Text style={styles.bodyweightProgressiveHint}>This helps us personalize your plan and calories.</Text>
+          </View>
+        );
+      }
+
+      if (bodyweightSetupStep === 'target') {
+        return (
+          <View style={styles.bodyweightProgressiveStack}>
+            {goalSummary}
+            {currentWeightBlock}
+            {targetWeightBlock}
+          </View>
+        );
+      }
+
+      return (
+        <View style={styles.bodyweightProgressiveStack}>
+          {goalSummary}
+          {currentWeightBlock}
+          {targetWeightBlock}
+          <BodyweightExpectationCard goal={bodyweightGoal} />
+          <Text style={styles.bodyweightAlmostDoneText}>Almost done - generating your personalized plan.</Text>
+        </View>
+      );
+    };
 
     return renderOnboardingShell({
       stepLabel: 'STEP 5 OF 5',
-      titleLines: ['TRACK YOUR', 'PROGRESS'],
-      subtitle: 'Set your current weight and optional goal.',
+      titleLines: aboutTitleLines,
       shellStyle: styles.bodyweightStageShell,
       topPaneStyle: styles.bodyweightTopPane,
       topCopyStyle: styles.bodyweightTopCopy,
@@ -3779,61 +4248,7 @@ export function OnboardingScreen({
       bottomStyle: styles.bodyweightBottomPane,
       children: (
         <View style={styles.bodyweightStageContent}>
-          <BodyweightStepper
-            label="Current weight"
-            value={bodyweightPickerValue}
-            unit={unitPreference}
-            onChange={setCurrentBodyweight}
-            onUnitChange={setUnitPreference}
-          />
-
-          <View style={styles.bodyweightGoalBlock}>
-            <Text style={styles.bodyweightPickerLabel}>Your goal</Text>
-            <Text style={styles.bodyweightGoalPrompt}>What's your main goal?</Text>
-            <View style={styles.bodyweightGoalGrid}>
-              {BODYWEIGHT_GOAL_OPTIONS.map((option) => (
-                <BodyweightGoalOptionCard
-                  key={option.id}
-                  title={option.title}
-                  body={option.body}
-                  icon={option.icon}
-                  accentColor={option.accentColor}
-                  active={bodyweightGoal === option.id}
-                  onPress={() => {
-                    setBodyweightGoal(option.id);
-                    setTargetBodyweight(getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, option.id));
-                  }}
-                />
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.bodyweightTargetBlock}>
-            <View style={styles.bodyweightTargetHeader}>
-              <Text style={styles.bodyweightPickerLabel}>Target weight (optional)</Text>
-              <Text style={styles.bodyweightTargetHint}>
-                {bodyweightGoalMode === 'required'
-                  ? 'Set a target weight to stay on track.'
-                  : 'Use this if you want a target to track.'}
-              </Text>
-            </View>
-            <BodyweightTargetSlider
-              value={targetBodyweight}
-              unit={unitPreference}
-              min={targetLimits.min}
-              max={targetLimits.max}
-              onChange={setTargetBodyweight}
-              onClear={() => setTargetWeightDraft('')}
-            />
-          </View>
-
-          <BodyweightExpectationCard
-            goal={bodyweightGoal}
-          />
-
-          <Text style={[styles.bodyweightSupportText, styles.bodyweightStageSupportText]}>
-            You can update this anytime in your profile.
-          </Text>
+          {renderBodyweightStepContent()}
         </View>
       ),
     });
@@ -3961,7 +4376,10 @@ export function OnboardingScreen({
                 return (
                   <Pressable
                     key={area}
-                    onPress={() => toggleFocusArea(area)}
+                    onPress={() => {
+                      void haptics.select();
+                      toggleFocusArea(area);
+                    }}
                     style={[
                       styles.personalizationOption,
                       active && styles.personalizationOptionActive,
@@ -4281,9 +4699,15 @@ export function OnboardingScreen({
       ? selectedLocationOptionId !== null
       : stage === 'goal'
       ? goals.length > 0
+      : stage === 'profile'
+      ? profileLevelSelected && profileFrequencySelected
       : stage === 'planning'
       ? focusAreas.length > 0
-      : stage === 'about' && selectedBodyweightGoalMode === 'required'
+      : stage === 'about' && bodyweightSetupStep === 'goal'
+      ? bodyweightGoalSelected
+      : stage === 'about' &&
+        (bodyweightSetupStep === 'target' || bodyweightSetupStep === 'outcome') &&
+        selectedBodyweightGoalMode === 'required'
       ? targetWeightValue !== null
       : true;
   const locationStageActive =
@@ -4296,8 +4720,10 @@ export function OnboardingScreen({
   const footerPrimaryLabel =
     stage === 'review'
       ? 'SAVE PLAN & START'
-      : stage === 'about'
+      : stage === 'about' && bodyweightSetupStep === 'outcome'
       ? 'BUILD MY PLAN'
+      : stage === 'about'
+      ? 'CONTINUE'
       : 'CONTINUE';
   const footerVisible = true;
   const scrollLockedStage =
@@ -4390,7 +4816,36 @@ export function OnboardingScreen({
                   return;
                 }
 
+                if (stage === 'location') {
+                  if (!locationChoiceConfirmed) {
+                    void haptics.success();
+                    setLocationChoiceConfirmed(true);
+                    return;
+                  }
+
+                  setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
+                  return;
+                }
+
+                if (stage === 'goal') {
+                  if (!goalChoiceConfirmed) {
+                    void haptics.success();
+                    setGoalChoiceConfirmed(true);
+                    return;
+                  }
+
+                  setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
+                  return;
+                }
+
                 if (stage === 'about') {
+                  void haptics.impactMedium();
+                  const currentBodyweightStepIndex = BODYWEIGHT_SETUP_STEPS.indexOf(bodyweightSetupStep);
+                  if (currentBodyweightStepIndex < BODYWEIGHT_SETUP_STEPS.length - 1) {
+                    setBodyweightSetupStep(BODYWEIGHT_SETUP_STEPS[currentBodyweightStepIndex + 1]);
+                    return;
+                  }
+
                   setIsBuildingPlan(true);
                   return;
                 }
@@ -4407,7 +4862,11 @@ export function OnboardingScreen({
             />
 
             {stage === 'review' ? null : stage === 'location' ? (
-              editMode ? (
+              locationChoiceConfirmed ? (
+                <Pressable onPress={() => setLocationChoiceConfirmed(false)} disabled={busy}>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                </Pressable>
+              ) : editMode ? (
                 <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Cancel</Text>
                 </Pressable>
@@ -4416,8 +4875,29 @@ export function OnboardingScreen({
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
                 </Pressable>
               )
+            ) : stage === 'goal' && goalChoiceConfirmed ? (
+              <Pressable onPress={() => setGoalChoiceConfirmed(false)} disabled={busy}>
+                <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+              </Pressable>
             ) : (
-              <Pressable onPress={() => setStageIndex((current) => Math.max(0, current - 1))} disabled={busy}>
+              <Pressable
+                onPress={() => {
+                  if (stage === 'about') {
+                    const currentBodyweightStepIndex = BODYWEIGHT_SETUP_STEPS.indexOf(bodyweightSetupStep);
+                    if (currentBodyweightStepIndex > 0) {
+                      setBodyweightSetupStep(BODYWEIGHT_SETUP_STEPS[currentBodyweightStepIndex - 1]);
+                      return;
+                    }
+                  }
+
+                  if (stage === 'profile') {
+                    setGoalChoiceConfirmed(false);
+                  }
+
+                  setStageIndex((current) => Math.max(0, current - 1));
+                }}
+                disabled={busy}
+              >
                 <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
               </Pressable>
             )}
@@ -4707,7 +5187,7 @@ const styles = StyleSheet.create({
   },
   locationEquipmentTopPane: {
     justifyContent: 'flex-start',
-    height: 222,
+    height: 206,
     paddingTop: 36,
     paddingBottom: 12,
   },
@@ -4781,13 +5261,13 @@ const styles = StyleSheet.create({
     paddingTop: 6,
   },
   locationCardList: {
-    gap: 8,
+    gap: 7,
   },
   locationCardListCompact: {
     gap: 8,
   },
   locationStepOneOptionsShift: {
-    transform: [{ translateY: -22 }],
+    transform: [{ translateY: -36 }],
   },
   locationStepTwoOptionsShift: {
     marginBottom: 18,
@@ -4869,6 +5349,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
     fontWeight: '600',
+  },
+  trainingProfileSummaryRow: {
+    minHeight: 46,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.18)',
+    backgroundColor: 'rgba(18,17,39,0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+  },
+  trainingProfileSummaryRowActive: {
+    borderColor: 'rgba(169,139,255,0.62)',
+    backgroundColor: 'rgba(95,78,232,0.22)',
+  },
+  trainingProfileSummaryCheck: {
+    width: 25,
+    height: 25,
+    borderRadius: 12.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#7F77DD',
+  },
+  trainingProfileSummaryText: {
+    flex: 1,
+    color: ONBOARDING_TEXT,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '900',
   },
   trainingExperienceList: {
     gap: 7,
@@ -5083,15 +5593,20 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   locationChoiceCard: {
-    minHeight: 86,
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: ONBOARDING_CARD,
+    minHeight: 74,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: '#121127',
     borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: 'rgba(222,218,245,0.12)',
     justifyContent: 'center',
     overflow: 'hidden',
+    shadowColor: '#05040F',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 2,
   },
   locationChoiceCardCompact: {
     minHeight: 54,
@@ -5106,21 +5621,30 @@ const styles = StyleSheet.create({
     paddingVertical: 22,
   },
   locationChoiceCardActive: {
-    backgroundColor: ONBOARDING_CARD_ACTIVE,
-    borderColor: ONBOARDING_BORDER_ACTIVE,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 14,
-    elevation: 4,
+    backgroundColor: '#5F4EE8',
+    borderColor: '#A98BFF',
+    shadowColor: '#8B5CF6',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.46,
+    shadowRadius: 26,
+    elevation: 10,
+  },
+  locationChoiceCardSubdued: {
+    borderColor: 'rgba(127,119,221,0.18)',
+    backgroundColor: 'rgba(18,17,39,0.66)',
+    shadowOpacity: 0.1,
   },
   locationChoiceActiveOutline: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: ONBOARDING_PRIMARY,
-    backgroundColor: 'transparent',
+    borderColor: '#A98BFF',
+    backgroundColor: 'rgba(139,92,246,0.08)',
     zIndex: 2,
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
   },
   locationChoiceRow: {
     flexDirection: 'row',
@@ -5129,8 +5653,8 @@ const styles = StyleSheet.create({
   },
   locationChoiceCopy: {
     flex: 1,
-    gap: 3,
-    marginLeft: 12,
+    gap: 2,
+    marginLeft: 10,
   },
   locationChoiceCopyNoIcon: {
     marginLeft: 12,
@@ -5143,7 +5667,7 @@ const styles = StyleSheet.create({
   },
   locationChoiceLabel: {
     color: ONBOARDING_TEXT,
-    fontSize: 17,
+    fontSize: 16.5,
     lineHeight: 19,
     fontWeight: '900',
     letterSpacing: -0.2,
@@ -5188,26 +5712,67 @@ const styles = StyleSheet.create({
     color: '#D9A9FF',
   },
   locationChoiceSubtitle: {
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 9.5,
-    lineHeight: 12,
+    color: 'rgba(222,218,245,0.68)',
+    fontSize: 8.8,
+    lineHeight: 11,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
   locationChoiceSubtitleActive: {
-    color: ONBOARDING_TEXT_SOFT,
+    color: 'rgba(255,255,255,0.84)',
   },
   locationChoiceTagRow: {
     flexDirection: 'row',
     flexWrap: 'nowrap',
     gap: 4,
   },
+  locationChoiceBenefitsPanel: {
+    marginTop: 9,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.44)',
+    backgroundColor: 'rgba(10,9,24,0.48)',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    gap: 7,
+  },
+  locationChoiceBenefitsKicker: {
+    color: '#C7A7FF',
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  locationChoiceBenefitsList: {
+    gap: 6,
+  },
+  locationChoiceBenefitRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  locationChoiceBenefitCheck: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+  },
+  locationChoiceBenefitText: {
+    flex: 1,
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
   locationChoiceRadio: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 23,
+    height: 23,
+    borderRadius: 11.5,
     borderWidth: 1.5,
-    borderColor: 'rgba(127,119,221,0.72)',
+    borderColor: 'rgba(139,125,236,0.72)',
+    backgroundColor: 'rgba(127,119,221,0.05)',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
@@ -5218,8 +5783,12 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(127,119,221,0.72)',
   },
   locationChoiceRadioActive: {
-    borderColor: ONBOARDING_PRIMARY,
-    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#FFFFFF',
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
   },
   locationChoiceRadioCheck: {
     width: 16,
@@ -5233,7 +5802,7 @@ const styles = StyleSheet.create({
     left: 1,
     top: 9,
     borderRadius: 2,
-    backgroundColor: ONBOARDING_TEXT,
+    backgroundColor: '#5F4EE8',
     transform: [{ rotate: '45deg' }],
   },
   locationChoiceRadioCheckLong: {
@@ -5243,8 +5812,101 @@ const styles = StyleSheet.create({
     left: 5,
     top: 6,
     borderRadius: 2,
-    backgroundColor: ONBOARDING_TEXT,
+    backgroundColor: '#5F4EE8',
     transform: [{ rotate: '-45deg' }],
+  },
+  locationRewardShell: {
+    position: 'relative',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 92,
+    backgroundColor: ONBOARDING_PANEL,
+  },
+  locationRewardBottomGlow: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 260,
+  },
+  locationRewardContent: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+  },
+  locationRewardMarkWrap: {
+    width: 144,
+    height: 132,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationRewardCheckCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6D5AFB',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.44,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+  },
+  locationRewardCopy: {
+    alignItems: 'center',
+    gap: 5,
+    marginTop: -4,
+  },
+  locationRewardTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '900',
+    letterSpacing: -0.7,
+    textAlign: 'center',
+  },
+  locationRewardBody: {
+    maxWidth: 230,
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  locationRewardBenefitList: {
+    width: '100%',
+    gap: 12,
+    marginTop: 10,
+  },
+  locationRewardBenefitRow: {
+    minHeight: 70,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.16)',
+    backgroundColor: 'rgba(18,17,39,0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingHorizontal: 16,
+  },
+  locationRewardBenefitIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6D5AFB',
+  },
+  locationRewardBenefitText: {
+    flex: 1,
+    color: ONBOARDING_TEXT,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
   },
   locationStageBody: {
     gap: spacing.md,
@@ -5540,7 +6202,7 @@ const styles = StyleSheet.create({
     color: '#06080B',
   },
   bodyweightStepperBlock: {
-    gap: 6,
+    gap: 8,
   },
   bodyweightPickerLabel: {
     color: ONBOARDING_TEXT,
@@ -5552,9 +6214,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   bodyweightUnitPill: {
-    minWidth: 48,
-    minHeight: 30,
-    borderRadius: 15,
+    minWidth: 40,
+    minHeight: 24,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
     backgroundColor: ONBOARDING_CARD,
@@ -5568,7 +6230,7 @@ const styles = StyleSheet.create({
   },
   bodyweightUnitText: {
     color: ONBOARDING_TEXT_MUTED,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
@@ -5590,50 +6252,60 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   bodyweightTargetCard: {
-    minHeight: 50,
-    borderRadius: 14,
+    minHeight: 96,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
     backgroundColor: ONBOARDING_CARD,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
+    paddingHorizontal: 18,
   },
   bodyweightTargetValueWrap: {
-    width: 152,
-    minHeight: 36,
-    flexDirection: 'row',
+    width: 172,
+    minHeight: 64,
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
   },
   bodyweightTargetValueInput: {
-    minWidth: 76,
+    minWidth: 104,
     color: ONBOARDING_TEXT,
-    fontSize: 32,
-    lineHeight: 36,
+    fontSize: 40,
+    lineHeight: 44,
     fontWeight: '900',
     includeFontPadding: false,
     textAlignVertical: 'center',
-    textAlign: 'right',
+    textAlign: 'center',
     padding: 0,
   },
   bodyweightTargetValueUnit: {
     color: ONBOARDING_TEXT,
-    fontSize: 16,
-    lineHeight: 19,
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: '900',
     includeFontPadding: false,
-    marginLeft: 5,
-    marginTop: 7,
+    marginLeft: 0,
+    marginTop: 0,
   },
   bodyweightTargetStepButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: ONBOARDING_PRIMARY_SOFT,
+    overflow: 'hidden',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
+  },
+  bodyweightTargetStepGlow: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#8B5CF6',
   },
   bodyweightTargetStepText: {
     color: ONBOARDING_TEXT,
@@ -5666,10 +6338,10 @@ const styles = StyleSheet.create({
   bodyweightStepperUnitRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: spacing.sm,
+    gap: 7,
   },
   bodyweightStepperUnitPill: {
-    minHeight: 30,
+    minHeight: 24,
   },
   bodyweightSupportText: {
     color: ONBOARDING_TEXT_MUTED,
@@ -5682,7 +6354,7 @@ const styles = StyleSheet.create({
   },
   bodyweightTopPane: {
     justifyContent: 'flex-start',
-    height: 206,
+    height: 214,
     paddingTop: 24,
     paddingBottom: 8,
   },
@@ -5702,6 +6374,11 @@ const styles = StyleSheet.create({
   bodyweightGoalBlock: {
     marginTop: 10,
   },
+  bodyweightGoalStepList: {
+    gap: 18,
+    paddingTop: 6,
+    paddingHorizontal: 6,
+  },
   bodyweightGoalPrompt: {
     color: ONBOARDING_TEXT_MUTED,
     fontSize: 11,
@@ -5719,8 +6396,8 @@ const styles = StyleSheet.create({
   },
   bodyweightGoalCard: {
     flex: 1,
-    minHeight: 92,
-    borderRadius: 8,
+    minHeight: 86,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
     backgroundColor: ONBOARDING_CARD,
@@ -5729,28 +6406,88 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 10,
   },
+  bodyweightGoalCardWide: {
+    flex: 0,
+    minHeight: 97,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    gap: 15,
+    paddingHorizontal: 18,
+    paddingVertical: 13,
+    backgroundColor: 'rgba(18,17,39,0.86)',
+    overflow: 'hidden',
+  },
   bodyweightGoalCardActive: {
     borderColor: ONBOARDING_BORDER_ACTIVE,
     backgroundColor: ONBOARDING_CARD_ACTIVE,
   },
+  bodyweightGoalCardWideActive: {
+    backgroundColor: '#5F4EE8',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.46,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  bodyweightGoalCardActiveBloom: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#8B5CF6',
+    opacity: 0.34,
+  },
+  bodyweightGoalIconBubble: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bodyweightGoalIconBubbleWide: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#7C6AF2',
+    zIndex: 1,
+  },
+  bodyweightGoalIconBubbleActive: {
+    backgroundColor: '#9B8CFF',
+  },
+  bodyweightGoalCardCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+    zIndex: 1,
+  },
+  bodyweightGoalCheck: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.72)',
+    shadowColor: '#FFFFFF',
+    shadowOpacity: 0.32,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+    zIndex: 1,
+  },
   bodyweightGoalCardTitle: {
     color: ONBOARDING_TEXT,
-    fontSize: 13,
-    lineHeight: 15,
+    fontSize: 17,
+    lineHeight: 21,
     fontWeight: '900',
-    marginTop: 3,
-    textAlign: 'center',
   },
   bodyweightGoalCardTitleActive: {
     color: '#FFFFFF',
   },
   bodyweightGoalCardBody: {
     color: ONBOARDING_TEXT_MUTED,
-    fontSize: 9,
-    lineHeight: 11,
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 2,
   },
   bodyweightGoalCardBodyActive: {
     color: 'rgba(255,255,255,0.78)',
@@ -5873,6 +6610,62 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
     paddingTop: 24,
     paddingBottom: 8,
+  },
+  bodyweightProgressiveStack: {
+    gap: 16,
+    paddingTop: 2,
+  },
+  bodyweightGoalSummaryPill: {
+    minHeight: 50,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(222,218,245,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+  },
+  bodyweightGoalSummaryCheck: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+  },
+  bodyweightGoalSummaryText: {
+    flex: 1,
+    minWidth: 0,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  bodyweightGoalSummaryEdit: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  bodyweightGoalSummaryEditText: {
+    color: 'rgba(222,218,245,0.72)',
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  bodyweightProgressiveHint: {
+    alignSelf: 'center',
+    maxWidth: 230,
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  bodyweightAlmostDoneText: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
   },
   focusAreaTopCopy: {
     paddingTop: 58,
