@@ -278,22 +278,25 @@ module.exports = [
     },
   },
   {
-    name: 'onboarding step 5 matches the progress tracking reference structure',
+    name: 'onboarding step 5 expected outcome uses compact timeline structure',
     run() {
       const aboutBody = getFunctionBody('renderAbout');
 
       assert.match(aboutBody, /stepLabel: 'STEP 5 OF 5'/);
-      assert.match(aboutBody, /titleLines: \['TRACK YOUR', 'PROGRESS'\]/);
-      assert.match(aboutBody, /Set your current weight and optional goal\./);
+      assert.match(aboutBody, /: \['EXPECTED', 'OUTCOME'\]/);
       assert.match(aboutBody, /<BodyweightGoalOptionCard/);
-      assert.match(aboutBody, /<BodyweightTargetSlider/);
-      assert.match(aboutBody, /<BodyweightExpectationCard/);
+      assert.match(aboutBody, /<BodyweightStepper/);
+      assert.match(aboutBody, /<BodyweightSummaryRow/);
+      assert.match(aboutBody, /<BodyweightTimelineCard current=\{bodyweightPickerValue\} target=\{targetBodyweight\} unit=\{unitPreference\}/);
+      assert.doesNotMatch(aboutBody, /<BodyweightExpectationCard/);
       assert.match(onboardingSource, /const BODYWEIGHT_GOAL_OPTIONS/);
       assert.match(onboardingSource, /function BodyweightGoalOptionCard\(/);
-      assert.match(onboardingSource, /function BodyweightTargetSlider\(/);
-      assert.match(onboardingSource, /function BodyweightExpectationCard\(/);
+      assert.match(onboardingSource, /function BodyweightStepper\(/);
+      assert.match(onboardingSource, /function BodyweightSummaryRow\(/);
+      assert.match(onboardingSource, /function BodyweightTimelineCard\(/);
+      assert.doesNotMatch(onboardingSource, /function BodyweightExpectationCard\(/);
       assert.match(onboardingSource, /function BodyweightGoalTrendIcon\(/);
-      assert.match(onboardingSource, /import Svg, \{ Path \} from 'react-native-svg'/);
+      assert.match(onboardingSource, /import Svg, \{ Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop \} from 'react-native-svg'/);
       assert.match(onboardingSource, /strokeLinecap="round"/);
       assert.match(onboardingSource, /strokeLinejoin="round"/);
       assert.match(onboardingSource, /'M12 15 V4'/);
@@ -308,21 +311,25 @@ module.exports = [
       assert.match(onboardingSource, /bodyweightSliderCard:\s*\{[\s\S]*minHeight: 50/);
       assert.match(onboardingSource, /bodyweightSliderTrackWrap:\s*\{[\s\S]*flex: 1/);
       assert.match(onboardingSource, /bodyweightGoalGrid/);
-      assert.match(onboardingSource, /bodyweightGoalCard:\s*\{[\s\S]*minHeight: 88/);
+      assert.match(onboardingSource, /bodyweightGoalCard:\s*\{[\s\S]*minHeight: 86/);
       assert.match(onboardingSource, /bodyweightGoalCard:\s*\{[\s\S]*paddingVertical: 10/);
-      assert.match(onboardingSource, /bodyweightExpectationText/);
-      assert.match(onboardingSource, /bodyweightExpectationCard:\s*\{[\s\S]*minHeight: 120/);
-      assert.match(onboardingSource, /bodyweightStageContent:\s*\{[\s\S]*translateY: -5/);
+      assert.match(onboardingSource, /bodyweightSummaryRow:\s*\{[\s\S]*minHeight: 58/);
+      assert.match(onboardingSource, /bodyweightTimelineCard:\s*\{[\s\S]*minHeight: 236/);
+      assert.match(onboardingSource, /Expected timeline/);
+      assert.match(onboardingSource, /Based on a sustainable weekly rate\. You can adjust this later\./);
+      assert.match(onboardingSource, /Today\{"\\n"\}\{formatBodyweightDisplay\(current, unit\)\}/);
+      assert.match(onboardingSource, /Target\{"\\n"\}\{formatBodyweightDisplay\(target, unit\)\}/);
+      assert.match(onboardingSource, /bodyweightStageContent:\s*\{[\s\S]*translateY: -12/);
 
-      const expectationStart = onboardingSource.indexOf('function BodyweightExpectationCard(');
-      const expectationEnd = onboardingSource.indexOf('\nfunction StepDots', expectationStart);
-      assert.notEqual(expectationStart, -1, 'BodyweightExpectationCard should exist');
-      assert.notEqual(expectationEnd, -1, 'BodyweightExpectationCard should be followed by StepDots');
-      const expectationBody = onboardingSource.slice(expectationStart, expectationEnd);
-      assert.doesNotMatch(expectationBody, /bodyweightExpectationChart/);
-      assert.doesNotMatch(expectationBody, /bodyweightExpectationBulletRow/);
-      assert.doesNotMatch(expectationBody, /bodyweightExpectationTargetLabel/);
-      assert.doesNotMatch(expectationBody, /content\.bullets/);
+      const timelineStart = onboardingSource.indexOf('function BodyweightTimelineCard(');
+      const timelineEnd = onboardingSource.indexOf('\nfunction StepDots', timelineStart);
+      assert.notEqual(timelineStart, -1, 'BodyweightTimelineCard should exist');
+      assert.notEqual(timelineEnd, -1, 'BodyweightTimelineCard should be followed by StepDots');
+      const timelineBody = onboardingSource.slice(timelineStart, timelineEnd);
+      assert.match(timelineBody, /const curve = `M18 \$\{startY\} C100 \$\{startY\}, 196 \$\{endY\}, 302 \$\{endY\}`/);
+      assert.match(timelineBody, /stroke="#A98BFF"/);
+      assert.doesNotMatch(timelineBody, /bodyweightTimelineIcon/);
+      assert.doesNotMatch(timelineBody, /bodyweightExpectation/);
     },
   },
   {

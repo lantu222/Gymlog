@@ -153,7 +153,9 @@ const BODYWEIGHT_INTEGER_LIMITS: Record<UnitPreference, { min: number; max: numb
 
 function clampBodyweightInteger(value: number, unit: UnitPreference) {
   const limits = BODYWEIGHT_INTEGER_LIMITS[unit];
-  return Math.min(Math.max(Math.round(value), limits.min), limits.max);
+  const step = getBodyweightStep(unit);
+  const roundedValue = Math.round(value / step) * step;
+  return Math.min(Math.max(Math.round(roundedValue * 10) / 10, limits.min), limits.max);
 }
 
 function getDefaultBodyweightForUnit(unit: UnitPreference) {
@@ -377,40 +379,24 @@ const TRAINING_LEVEL_OPTIONS: Array<{
   level: SetupLevel;
   title: string;
   body: string;
-  chips: Array<{ label: string; tone: FocusBadgeTone }>;
   icon: OnboardingOptionIconName;
 }> = [
   {
     level: 'beginner',
     title: 'Beginner',
     body: '0-1 years of consistent training',
-    chips: [
-      { label: 'Simpler workouts', tone: 'blue' },
-      { label: 'Lower fatigue', tone: 'blue' },
-      { label: 'More recovery', tone: 'green' },
-    ],
     icon: 'star',
   },
   {
     level: 'intermediate',
     title: 'Intermediate',
     body: '1-3 years of training',
-    chips: [
-      { label: 'Balanced volume', tone: 'neutral' },
-      { label: 'Progressive overload', tone: 'green' },
-      { label: 'More variety', tone: 'purple' },
-    ],
     icon: 'trend_up',
   },
   {
     level: 'advanced',
     title: 'Advanced',
     body: '3+ years of serious training',
-    chips: [
-      { label: 'Higher volume', tone: 'purple' },
-      { label: 'Advanced progression', tone: 'green' },
-      { label: 'Greater workload', tone: 'neutral' },
-    ],
     icon: 'trophy',
   },
 ];
@@ -1694,7 +1680,6 @@ function BodyweightStepper({
             selectTextOnFocus
             style={styles.bodyweightTargetValueInput}
           />
-          <Text style={styles.bodyweightTargetValueUnit}>{unit}</Text>
         </View>
         <BodyweightStepButton
           label="+"
@@ -1783,7 +1768,6 @@ function BodyweightStepButton({
         },
       ]}
     >
-      <Animated.View pointerEvents="none" style={[styles.bodyweightTargetStepGlow, { opacity: pressProgress }]} />
       <Text style={[styles.bodyweightTargetStepText, textStyle]}>{label}</Text>
     </AnimatedPressable>
   );
@@ -1910,37 +1894,89 @@ function BodyweightTargetSlider({
   );
 }
 
-function BodyweightExpectationCard({
-  goal,
+function formatBodyweightDisplay(value: number, unit: UnitPreference) {
+  const roundedValue = Math.round(value * 10) / 10;
+  const valueText = Number.isInteger(roundedValue) ? `${roundedValue}` : roundedValue.toFixed(1);
+  return `${valueText} ${unit}`;
+}
+
+function formatBodyweightSummaryDisplay(value: number, unit: UnitPreference) {
+  const roundedValue = Math.round(value * 10) / 10;
+  const valueText = Number.isInteger(roundedValue) ? `${roundedValue}` : roundedValue.toFixed(1);
+  return `${valueText}${unit.toUpperCase()}`;
+}
+
+function BodyweightSummaryRow({
+  label,
+  value,
+  onEdit,
 }: {
-  goal: SetupGoal;
+  label: string;
+  value: string;
+  onEdit: () => void;
 }) {
-  const content =
-    goal === 'muscle'
-      ? {
-        title: 'Lean muscle gain',
-        body: 'A small surplus supports muscle growth while your plan keeps strength progressing.',
-      }
-      : goal === 'lean_athletic'
-      ? {
-        title: 'Lean down',
-        body: 'Aim for steady weight loss while keeping strength work and recovery in the plan.',
-      }
-      : {
-        title: 'Maintain',
-        body: 'Stay close to your current weight while building consistency and strength.',
-      };
+  return (
+    <View style={styles.bodyweightSummaryRow}>
+      <View style={styles.bodyweightSummaryCheck}>
+        <GymlogIcon name="check" color="#FFFFFF" size={13} />
+      </View>
+      <View style={styles.bodyweightSummaryCopy}>
+        <Text style={styles.bodyweightSummaryValue}>{label}: {value}</Text>
+      </View>
+      <Pressable accessibilityRole="button" accessibilityLabel={`Edit ${label}`} onPress={onEdit} style={styles.bodyweightSummaryEdit}>
+        <Text style={styles.bodyweightSummaryEditText}>Edit</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function BodyweightTimelineCard({
+  current,
+  target,
+  unit,
+}: {
+  current: number;
+  target: number;
+  unit: UnitPreference;
+}) {
+  const difference = target - current;
+  const absoluteDifference = Math.abs(difference);
+  const startY = difference > 0 ? 78 : difference < 0 ? 24 : 51;
+  const endY = difference > 0 ? 24 : difference < 0 ? 78 : 51;
+  const curve = `M18 ${startY} C100 ${startY}, 196 ${endY}, 302 ${endY}`;
+  const weeksMin = Math.max(4, Math.round(absoluteDifference * 4));
+  const weeksMax = Math.max(8, Math.round(absoluteDifference * 6));
+  const timelineLabel = absoluteDifference < 0.25 ? '~4-8 weeks' : `~${weeksMin}-${weeksMax} weeks`;
 
   return (
-    <View style={styles.bodyweightExpectationCard}>
-      <View style={styles.bodyweightExpectationHeader}>
-        <View style={styles.bodyweightExpectationIcon}>
-          <GymlogIcon name="progress" size={10} color="#FFFFFF" />
-        </View>
-        <Text style={styles.bodyweightExpectationKicker}>WHAT TO EXPECT</Text>
+    <View style={styles.bodyweightTimelineCard}>
+      <View style={styles.bodyweightTimelineHeader}>
+        <Text style={styles.bodyweightTimelineTitle}>Expected timeline</Text>
       </View>
-      <Text style={styles.bodyweightExpectationTitle}>{content.title}</Text>
-      <Text style={styles.bodyweightExpectationText}>{content.body}</Text>
+
+      <View style={styles.bodyweightTimelineChart}>
+        <Svg width="100%" height={114} viewBox="0 0 320 114" fill="none">
+          <Path d="M18 34H302" stroke="rgba(255,255,255,0.055)" strokeWidth={1} strokeLinecap="round" strokeDasharray="5 10" />
+          <Path d="M18 60H302" stroke="rgba(169,139,255,0.075)" strokeWidth={1} strokeLinecap="round" strokeDasharray="5 10" />
+          <Path d="M18 92H302" stroke="rgba(255,255,255,0.12)" strokeWidth={1.2} strokeLinecap="round" />
+          <Path d="M18 16V92" stroke="rgba(255,255,255,0.10)" strokeWidth={1.2} strokeLinecap="round" />
+          <Path d={curve} stroke="rgba(169,139,255,0.22)" strokeWidth={9} strokeLinecap="round" fill="none" />
+          <Path d={curve} stroke="#A98BFF" strokeWidth={4} strokeLinecap="round" fill="none" />
+          <Circle cx={18} cy={startY} r={6} fill="#7F77DD" stroke="#FFFFFF" strokeWidth={1.5} />
+          <Circle cx={302} cy={endY} r={7} fill="#A98BFF" stroke="#FFFFFF" strokeWidth={1.5} />
+        </Svg>
+        <Text style={[styles.bodyweightTimelinePointLabel, styles.bodyweightTimelineStartLabel]}>
+          Today{"\n"}{formatBodyweightDisplay(current, unit)}
+        </Text>
+        <Text style={[styles.bodyweightTimelinePointLabel, styles.bodyweightTimelineTargetLabel]}>
+          Target{"\n"}{formatBodyweightDisplay(target, unit)}
+        </Text>
+        <Text style={styles.bodyweightTimelineDuration}>{timelineLabel}</Text>
+      </View>
+
+      <Text style={styles.bodyweightTimelineNote}>
+        Based on a sustainable weekly rate. You can adjust this later.
+      </Text>
     </View>
   );
 }
@@ -2073,19 +2109,29 @@ function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDay
   };
 }
 
+function getTrainingProfileWeekPreview(daysPerWeek: SetupDaysPerWeek) {
+  const labelsByCadence: Record<SetupDaysPerWeek, Array<string | null>> = {
+    2: ['Upper', null, 'Lower', null, null, null, null],
+    3: ['Upper', null, 'Lower', null, 'Full', null, null],
+    4: ['Upper A', null, 'Lower A', null, 'Upper B', null, 'Lower B'],
+    5: ['Upper A', 'Lower A', null, 'Full Body', 'Upper B', null, 'Lower B'],
+    6: ['Push', 'Pull', 'Legs', null, 'Upper', 'Lower', 'Full'],
+  };
+  const weekDays = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const labels = labelsByCadence[daysPerWeek];
+
+  return weekDays.map((day, index) => ({
+    day,
+    label: labels[index],
+    training: labels[index] !== null,
+  }));
+}
+
 function TrainingSetupMetric({ icon, label }: { icon: GymlogIconName; label: string }) {
   return (
     <View style={styles.trainingSetupMetric}>
       <GymlogIcon name={icon} size={18} color={ONBOARDING_PRIMARY} />
       <Text style={styles.trainingSetupMetricText}>{label}</Text>
-    </View>
-  );
-}
-
-function TrainingSectionIcon({ icon }: { icon: GymlogIconName }) {
-  return (
-    <View style={styles.trainingProfileSectionIcon}>
-      <GymlogIcon name={icon} size={16} color="#FFFFFF" />
     </View>
   );
 }
@@ -3181,6 +3227,7 @@ export function OnboardingScreen({
     const setupSummary = getTrainingProfileSetupSummary(level, daysPerWeek);
     const selectedLevelOption = TRAINING_LEVEL_OPTIONS.find((option) => option.level === level) ?? TRAINING_LEVEL_OPTIONS[0];
     const selectedFrequencyOption = TRAINING_FREQUENCY_OPTIONS.find((option) => option.value === daysPerWeek) ?? TRAINING_FREQUENCY_OPTIONS[1];
+    const weekPreviewDays = getTrainingProfileWeekPreview(daysPerWeek);
     const frequencyRevealStyle = {
       opacity: profileFrequencyReveal,
       transform: [
@@ -3215,22 +3262,25 @@ export function OnboardingScreen({
       children: (
         <View style={styles.trainingProfileContent}>
           <View style={styles.trainingProfileSection}>
-            <View style={styles.trainingProfileSectionHeader}>
-              <TrainingSectionIcon icon="strength" />
-              <Text style={styles.trainingProfileSectionTitle}>Experience level</Text>
+            <View style={styles.trainingProfileExperienceHeader}>
+              <Text style={styles.trainingProfileExperienceTitle}>Experience Level</Text>
             </View>
             {profileLevelSelected ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`${selectedLevelOption.title} experience level selected`}
                 accessibilityState={{ selected: true }}
-                onPress={() => setProfileLevelSelected(false)}
+                onPress={() => {
+                  void haptics.select();
+                  setProfileLevelSelected(false);
+                }}
                 style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
               >
                 <View style={styles.trainingProfileSummaryCheck}>
                   <GymlogIcon name="check" size={13} color="#FFFFFF" />
                 </View>
                 <Text style={styles.trainingProfileSummaryText}>{selectedLevelOption.title}</Text>
+                <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
               </Pressable>
             ) : (
               <>
@@ -3253,33 +3303,6 @@ export function OnboardingScreen({
                       <View style={styles.trainingExperienceCopy}>
                         <Text style={styles.trainingExperienceTitle}>{option.title}</Text>
                         <Text style={styles.trainingExperienceBody}>{option.body}</Text>
-                        <View style={styles.trainingExperienceChipStack}>
-                          {[option.chips.slice(0, 2), option.chips.slice(2)].map((chipRow, rowIndex) => (
-                            <View key={`${option.level}-chip-row-${rowIndex}`} style={styles.trainingExperienceChipRow}>
-                              {chipRow.map((chip) => (
-                                <View
-                                  key={`${chip.label}:${chip.tone}`}
-                                  style={[
-                                    styles.locationFocusBadge,
-                                    styles.trainingExperienceChip,
-                                    getLocationFocusBadgeStyle(chip.tone),
-                                  ]}
-                                >
-                                  <Text
-                                    numberOfLines={1}
-                                    style={[
-                                      styles.locationFocusBadgeText,
-                                      styles.trainingExperienceChipText,
-                                      getLocationFocusBadgeTextStyle(chip.tone),
-                                    ]}
-                                  >
-                                    {chip.label}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          ))}
-                        </View>
                       </View>
                       <View style={styles.trainingProfileRadio} />
                     </Pressable>
@@ -3291,16 +3314,18 @@ export function OnboardingScreen({
 
           {profileLevelSelected ? (
             <Animated.View style={[styles.trainingProfileSection, frequencyRevealStyle]}>
-              <View style={styles.trainingProfileSectionHeader}>
-                <TrainingSectionIcon icon="tempo" />
-                <Text style={styles.trainingProfileSectionTitle}>Training frequency</Text>
+              <View style={styles.trainingProfileExperienceHeader}>
+                <Text style={styles.trainingProfileExperienceTitle}>Training Frequency</Text>
               </View>
               {profileFrequencySelected ? (
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={`${selectedFrequencyOption.title} ${selectedFrequencyOption.body} selected`}
                   accessibilityState={{ selected: true }}
-                  onPress={() => setProfileFrequencySelected(false)}
+                  onPress={() => {
+                    void haptics.select();
+                    setProfileFrequencySelected(false);
+                  }}
                   style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
                 >
                   <View style={styles.trainingProfileSummaryCheck}>
@@ -3309,6 +3334,7 @@ export function OnboardingScreen({
                   <Text style={styles.trainingProfileSummaryText}>
                     {selectedFrequencyOption.title} {selectedFrequencyOption.body}
                   </Text>
+                  <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
                 </Pressable>
               ) : (
                 <>
@@ -3344,12 +3370,79 @@ export function OnboardingScreen({
           {profileFrequencySelected ? (
             <Animated.View style={[styles.trainingPlanPreviewStrip, previewRevealStyle]}>
               <View style={styles.trainingPlanPreviewLead}>
-                <GymlogIcon name="lightning" size={12} color={ONBOARDING_TEXT} />
-                <Text style={styles.trainingPlanPreviewTitle}>Plan preview</Text>
+                <GymlogIcon name="lightning" size={14} color="#A98BFF" />
+                <Text style={styles.trainingPlanPreviewTitle}>Your plan preview</Text>
               </View>
-              <Text style={styles.trainingPlanPreviewText}>{setupSummary.workouts}</Text>
-              <Text style={styles.trainingPlanPreviewText}>{setupSummary.duration}</Text>
-              <Text style={styles.trainingPlanPreviewText}>{setupSummary.structure}</Text>
+
+              <View style={styles.trainingWeekRhythmRow}>
+                {weekPreviewDays.map((day) => (
+                  <View key={day.day} style={styles.trainingWeekDay}>
+                    <Text style={styles.trainingWeekDayLabel}>{day.day}</Text>
+                    <View style={[styles.trainingWeekDayIcon, day.training && styles.trainingWeekDayIconActive]}>
+                      <GymlogIcon
+                        name={day.training ? 'strength' : 'moon'}
+                        size={18}
+                        color={day.training ? '#FFFFFF' : 'rgba(255,255,255,0.68)'}
+                      />
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.trainingPlanPreviewDivider} />
+
+              <View style={styles.trainingPlanMetricsRow}>
+                <View style={styles.trainingPlanMetric}>
+                  <GymlogIcon name="tempo" size={25} color="#A98BFF" />
+                  <Text style={styles.trainingPlanMetricLabel}>Workouts / week</Text>
+                  <Text style={styles.trainingPlanMetricValue}>{daysPerWeek === 6 ? '6+' : daysPerWeek}</Text>
+                </View>
+                <View style={styles.trainingPlanMetricSeparator} />
+                <View style={styles.trainingPlanMetric}>
+                  <GymlogIcon name="progress" size={25} color="#A98BFF" />
+                  <Text style={styles.trainingPlanMetricLabel}>Session length</Text>
+                  <Text style={styles.trainingPlanMetricValue}>{setupSummary.duration.replace(' sessions', '')}</Text>
+                </View>
+                <View style={styles.trainingPlanMetricSeparator} />
+                <View style={styles.trainingPlanMetric}>
+                  <GymlogIcon name="profile" size={25} color="#A98BFF" />
+                  <Text style={styles.trainingPlanMetricLabel}>Level</Text>
+                  <Text style={styles.trainingPlanMetricValue}>{selectedLevelOption.title}</Text>
+                </View>
+              </View>
+
+              <View style={styles.trainingPlanAiCard}>
+                <View pointerEvents="none" style={styles.trainingPlanAiOrbSlot}>
+                  <View style={styles.trainingPlanAiOrbScale}>
+                    <GainerCoachOrb variant="thinking" />
+                  </View>
+                </View>
+                <View style={styles.trainingPlanAiCopy}>
+                  <Text style={styles.trainingPlanAiTitle}>AI is building your personalized plan</Text>
+                  <Text style={styles.trainingPlanAiText}>
+                    Based on your {goalLabel.toLowerCase()}, {locationLabel.toLowerCase()} setup and {selectedLevelOption.title.toLowerCase()} experience.
+                  </Text>
+                </View>
+                <View style={styles.trainingPlanCompatibility}>
+                  <Svg width={64} height={64} viewBox="0 0 64 64" fill="none">
+                    <Circle cx={32} cy={32} r={25} stroke="rgba(169,139,255,0.20)" strokeWidth={6} />
+                    <Circle
+                      cx={32}
+                      cy={32}
+                      r={25}
+                      stroke="#A98BFF"
+                      strokeWidth={6}
+                      strokeLinecap="round"
+                      strokeDasharray="94 158"
+                      transform="rotate(-90 32 32)"
+                    />
+                  </Svg>
+                  <View style={styles.trainingPlanCompatibilityCopy}>
+                    <Text style={styles.trainingPlanCompatibilityValue}>60%</Text>
+                    <Text style={styles.trainingPlanCompatibilityLabel}>Fit</Text>
+                  </View>
+                </View>
+              </View>
             </Animated.View>
           ) : null}
         </View>
@@ -4140,27 +4233,43 @@ export function OnboardingScreen({
         ? ['SET A GOAL', 'WEIGHT']
         : ['EXPECTED', 'OUTCOME'];
     const showGoalSummary = bodyweightGoalSelected && bodyweightSetupStep !== 'goal';
+    const currentWeightSummary = (
+      <BodyweightSummaryRow
+        label="Current Weight"
+        value={formatBodyweightSummaryDisplay(bodyweightPickerValue, unitPreference)}
+        onEdit={() => setBodyweightSetupStep('current')}
+      />
+    );
+    const targetWeightSummary = (
+      <BodyweightSummaryRow
+        label="Goal Weight"
+        value={formatBodyweightSummaryDisplay(targetBodyweight, unitPreference)}
+        onEdit={() => setBodyweightSetupStep('target')}
+      />
+    );
 
     const goalSummary = showGoalSummary ? (
-      <View style={styles.bodyweightGoalSummaryPill}>
-        <View style={styles.bodyweightGoalSummaryCheck}>
-          <GymlogIcon name="check" color={ONBOARDING_PRIMARY} size={14} />
+      <View style={styles.bodyweightSummaryRow}>
+        <View style={styles.bodyweightSummaryCheck}>
+          <GymlogIcon name="check" color="#FFFFFF" size={13} />
         </View>
-        <Text style={styles.bodyweightGoalSummaryText}>Goal: {selectedGoalOption.title}</Text>
+        <View style={styles.bodyweightSummaryCopy}>
+          <Text style={styles.bodyweightSummaryValue}>Goal: {selectedGoalOption.title}</Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Edit bodyweight goal"
           onPress={() => setBodyweightSetupStep('goal')}
-          style={styles.bodyweightGoalSummaryEdit}
+          style={styles.bodyweightSummaryEdit}
         >
-          <Text style={styles.bodyweightGoalSummaryEditText}>Edit</Text>
+          <Text style={styles.bodyweightSummaryEditText}>Edit</Text>
         </Pressable>
       </View>
     ) : null;
 
     const currentWeightBlock = (
       <BodyweightStepper
-        label="Current weight"
+        label={`Current Weight (${unitPreference.toUpperCase()})`}
         value={bodyweightPickerValue}
         unit={unitPreference}
         onChange={setCurrentBodyweight}
@@ -4169,7 +4278,7 @@ export function OnboardingScreen({
 
     const targetWeightBlock = (
       <BodyweightStepper
-        label="Goal weight (optional)"
+        label={`Goal Weight (${unitPreference.toUpperCase()})`}
         hint={bodyweightGoalMode === 'required'
           ? 'Set a target weight to stay on track.'
           : 'Only if you have a target in mind.'}
@@ -4230,10 +4339,9 @@ export function OnboardingScreen({
       return (
         <View style={styles.bodyweightProgressiveStack}>
           {goalSummary}
-          {currentWeightBlock}
-          {targetWeightBlock}
-          <BodyweightExpectationCard goal={bodyweightGoal} />
-          <Text style={styles.bodyweightAlmostDoneText}>Almost done - generating your personalized plan.</Text>
+          {currentWeightSummary}
+          {targetWeightSummary}
+          <BodyweightTimelineCard current={bodyweightPickerValue} target={targetBodyweight} unit={unitPreference} />
         </View>
       );
     };
@@ -5317,32 +5425,20 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   trainingProfileContent: {
-    gap: 10,
+    gap: 14,
   },
   trainingProfileSection: {
-    gap: 4,
+    gap: 7,
   },
-  trainingProfileSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  trainingProfileExperienceHeader: {
+    gap: 3,
   },
-  trainingProfileSectionIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: ONBOARDING_PRIMARY,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trainingProfileSectionTitle: {
-    flex: 1,
+  trainingProfileExperienceTitle: {
     color: ONBOARDING_TEXT,
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 23,
+    lineHeight: 28,
     fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1.7,
+    letterSpacing: -0.35,
   },
   trainingProfileSectionPrompt: {
     color: ONBOARDING_TEXT_SOFT,
@@ -5380,11 +5476,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '900',
   },
+  trainingProfileSummaryEdit: {
+    color: '#A98BFF',
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+  },
   trainingExperienceList: {
-    gap: 7,
+    gap: 8,
   },
   trainingExperienceCard: {
-    height: 84,
+    height: 72,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
@@ -5423,49 +5526,13 @@ const styles = StyleSheet.create({
   },
   trainingExperienceBody: {
     color: 'rgba(255,255,255,0.72)',
-    fontSize: 9.8,
-    lineHeight: 12,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
   trainingExperienceBodyActive: {
     color: 'rgba(255,255,255,0.72)',
-  },
-  trainingExperienceChipStack: {
-    gap: 1,
-    marginTop: 2,
-  },
-  trainingExperienceChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'nowrap',
-    alignItems: 'center',
-    gap: 4,
-  },
-  trainingExperienceChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  trainingExperienceChipCheck: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.60)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trainingExperienceChipCheckActive: {
-    borderColor: 'rgba(255,255,255,0.60)',
-  },
-  trainingExperienceChipText: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 8,
-    lineHeight: 10,
-    fontWeight: '900',
-  },
-  trainingExperienceChipTextActive: {
-    color: 'rgba(255,255,255,0.78)',
   },
   trainingProfileRadio: {
     width: 26,
@@ -5515,13 +5582,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   trainingPlanPreviewStrip: {
-    minHeight: 42,
-    borderRadius: 10,
-    backgroundColor: ONBOARDING_PRIMARY_SOFT,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    justifyContent: 'center',
-    gap: 4,
+    minHeight: 274,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.30)',
+    backgroundColor: 'rgba(30,30,67,0.88)',
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 12,
+    overflow: 'hidden',
+    gap: 10,
   },
   trainingPlanPreviewLead: {
     flexDirection: 'row',
@@ -5536,11 +5606,129 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1.4,
   },
-  trainingPlanPreviewText: {
-    color: ONBOARDING_TEXT,
+  trainingWeekRhythmRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 3,
+  },
+  trainingWeekDay: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
+  },
+  trainingWeekDayLabel: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  trainingWeekDayIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trainingWeekDayIconActive: {
+    backgroundColor: '#6D4FEA',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.34,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 5,
+  },
+  trainingPlanPreviewDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  trainingPlanMetricsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+  },
+  trainingPlanMetric: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  trainingPlanMetricSeparator: {
+    width: 1,
+    backgroundColor: 'rgba(169,139,255,0.22)',
+    marginHorizontal: 8,
+  },
+  trainingPlanMetricLabel: {
+    color: 'rgba(255,255,255,0.58)',
     fontSize: 10.5,
     lineHeight: 13,
-    fontWeight: '800',
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  trainingPlanMetricValue: {
+    color: ONBOARDING_TEXT,
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  trainingPlanAiCard: {
+    minHeight: 70,
+    borderRadius: 16,
+    backgroundColor: 'rgba(10,9,25,0.70)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  trainingPlanAiOrbSlot: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trainingPlanAiOrbScale: {
+    transform: [{ scale: 0.38 }],
+  },
+  trainingPlanAiCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  trainingPlanAiTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '900',
+  },
+  trainingPlanAiText: {
+    color: 'rgba(255,255,255,0.68)',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  trainingPlanCompatibility: {
+    width: 66,
+    height: 66,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trainingPlanCompatibilityCopy: {
+    position: 'absolute',
+    alignItems: 'center',
+  },
+  trainingPlanCompatibilityValue: {
+    color: ONBOARDING_TEXT,
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+  trainingPlanCompatibilityLabel: {
+    color: '#A98BFF',
+    fontSize: 8,
+    lineHeight: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
   trainingSetupCard: {
     borderRadius: 12,
@@ -6264,7 +6452,7 @@ const styles = StyleSheet.create({
   },
   bodyweightTargetValueWrap: {
     width: 172,
-    minHeight: 64,
+    minHeight: 58,
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
@@ -6280,32 +6468,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     padding: 0,
   },
-  bodyweightTargetValueUnit: {
-    color: ONBOARDING_TEXT,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '900',
-    includeFontPadding: false,
-    marginLeft: 0,
-    marginTop: 0,
-  },
   bodyweightTargetStepButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.36)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: ONBOARDING_PRIMARY_SOFT,
+    backgroundColor: 'rgba(42,36,88,0.96)',
     overflow: 'hidden',
     shadowColor: '#8B5CF6',
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-  },
-  bodyweightTargetStepGlow: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#8B5CF6',
+    shadowOpacity: 0.08,
+    shadowRadius: 7,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   bodyweightTargetStepText: {
     color: ONBOARDING_TEXT,
@@ -6549,49 +6726,109 @@ const styles = StyleSheet.create({
     backgroundColor: ONBOARDING_PRIMARY,
     marginLeft: -4,
   },
-  bodyweightExpectationCard: {
-    minHeight: 120,
-    borderRadius: 8,
-    backgroundColor: ONBOARDING_CARD,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  bodyweightExpectationHeader: {
+  bodyweightSummaryRow: {
+    minHeight: 60,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.28)',
+    backgroundColor: 'rgba(18,17,39,0.92)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 10,
+    paddingHorizontal: 12,
   },
-  bodyweightExpectationIcon: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.52)',
+  bodyweightSummaryCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#7F77DD',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bodyweightExpectationKicker: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 8,
-    lineHeight: 10,
-    fontWeight: '900',
-    letterSpacing: 1,
+  bodyweightSummaryCopy: {
+    flex: 1,
+    minWidth: 0,
   },
-  bodyweightExpectationTitle: {
-    color: '#FFFFFF',
+  bodyweightSummaryValue: {
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  bodyweightSummaryEdit: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  bodyweightSummaryEditText: {
+    color: '#A98BFF',
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  bodyweightTimelineCard: {
+    minHeight: 236,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.28)',
+    backgroundColor: 'rgba(18,17,39,0.94)',
+    paddingHorizontal: 14,
+    paddingTop: 15,
+    paddingBottom: 15,
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 5,
+  },
+  bodyweightTimelineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 0,
+  },
+  bodyweightTimelineTitle: {
+    color: ONBOARDING_TEXT,
     fontSize: 17,
-    lineHeight: 20,
+    lineHeight: 21,
     fontWeight: '900',
-    marginTop: 7,
-    marginBottom: 3,
   },
-  bodyweightExpectationText: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 11.5,
+  bodyweightTimelineChart: {
+    height: 140,
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  bodyweightTimelinePointLabel: {
+    position: 'absolute',
+    color: ONBOARDING_TEXT,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '800',
+  },
+  bodyweightTimelineStartLabel: {
+    left: 3,
+    bottom: 0,
+  },
+  bodyweightTimelineTargetLabel: {
+    right: 0,
+    top: 0,
+    textAlign: 'right',
+  },
+  bodyweightTimelineDuration: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 4,
+    color: '#A98BFF',
+    fontSize: 12,
     lineHeight: 15,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  bodyweightTimelineNote: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
+    marginTop: 10,
   },
   focusStageShell: {
     backgroundColor: ONBOARDING_PANEL,
@@ -6615,43 +6852,6 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingTop: 2,
   },
-  bodyweightGoalSummaryPill: {
-    minHeight: 50,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(222,218,245,0.14)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 12,
-  },
-  bodyweightGoalSummaryCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#8B5CF6',
-  },
-  bodyweightGoalSummaryText: {
-    flex: 1,
-    minWidth: 0,
-    color: 'rgba(255,255,255,0.88)',
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  bodyweightGoalSummaryEdit: {
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-  },
-  bodyweightGoalSummaryEditText: {
-    color: 'rgba(222,218,245,0.72)',
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
   bodyweightProgressiveHint: {
     alignSelf: 'center',
     maxWidth: 230,
@@ -6660,12 +6860,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  bodyweightAlmostDoneText: {
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: '700',
   },
   focusAreaTopCopy: {
     paddingTop: 58,
@@ -6723,8 +6917,13 @@ const styles = StyleSheet.create({
   focusAreaCardActive: {
     borderWidth: 2,
     borderColor: ONBOARDING_BORDER_ACTIVE,
-    shadowOpacity: 0.22,
-    shadowRadius: 12,
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.46,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+    transform: [{ scale: 1.04 }],
+    zIndex: 5,
   },
   focusAreaCardFiller: {
     flex: 1,
