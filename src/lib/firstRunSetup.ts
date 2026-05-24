@@ -23,6 +23,7 @@ import type { RecommendationCandidate, RecommendationConfidence, RecommendationT
 import { AICoachTrainingContext } from '../types/aiCoach';
 
 export interface FirstRunSetupSelection {
+  profileName?: string | null;
   gender: SetupGender;
   age?: number | null;
   ageRange?: SetupAgeRange;
@@ -92,6 +93,7 @@ export const DEFAULT_RHYTHM_BY_DAYS: Record<SetupDaysPerWeek, SetupWeekday[]> = 
 const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
+  profileName: null,
   gender: 'unspecified',
   age: 25,
   ageRange: '19_25',

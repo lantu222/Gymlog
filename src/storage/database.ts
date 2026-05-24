@@ -295,6 +295,12 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         input?.preferences?.selectedAccessTier === null
           ? input.preferences.selectedAccessTier
           : fallback.preferences.selectedAccessTier,
+      profileName:
+        typeof input?.preferences?.profileName === 'string' && input.preferences.profileName.trim().length
+          ? input.preferences.profileName.trim().slice(0, 32)
+          : input?.preferences?.profileName === null
+            ? null
+            : fallback.preferences.profileName,
       setupCurrentWeightKg:
         typeof input?.preferences?.setupCurrentWeightKg === 'number' || input?.preferences?.setupCurrentWeightKg === null
           ? input.preferences.setupCurrentWeightKg

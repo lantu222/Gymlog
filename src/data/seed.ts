@@ -22,6 +22,7 @@ const DEFAULT_PREFERENCES = {
   trainingFirstRunDismissed: false,
   selectedSignInMethod: null,
   selectedAccessTier: null,
+  profileName: null,
   setupCurrentWeightKg: null,
   bodyweightGoalKg: null,
   onboardingCompleted: false,

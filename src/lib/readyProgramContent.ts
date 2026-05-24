@@ -11,6 +11,22 @@ export interface ReadyProgramContent {
   sessionFocusById: Record<string, string>;
 }
 
+function buildFallbackReadyProgramContent(templateId: string): ReadyProgramContent | null {
+  if (!templateId.startsWith('tpl_gainer_')) {
+    return null;
+  }
+
+  return {
+    summary: 'A structured Gainer program with clear sessions, exercise targets, and progression rules for the selected training profile.',
+    audience: 'Best for users whose onboarding choices match this program style, weekly frequency, experience level, and training focus.',
+    equipmentProfile: 'Equipment needs follow the exercises in the selected plan. Review the first week before starting if your gym setup is limited.',
+    whyItWorks: 'The plan groups related training days into a repeatable weekly structure and keeps sets, reps, and rest targets explicit so progression stays easy to follow.',
+    sessionFocusById: {
+      [templateId]: 'Structured Gainer training block with focused weekly sessions.',
+    },
+  };
+}
+
 const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
   tpl_3_day_full_body_v1: {
     summary: 'Three full-body sessions built to keep strength practice frequent while overall weekly fatigue stays manageable.',
@@ -307,5 +323,5 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
 };
 
 export function getReadyProgramContent(templateId: string): ReadyProgramContent | null {
-  return READY_PROGRAM_CONTENT[templateId] ?? null;
+  return READY_PROGRAM_CONTENT[templateId] ?? buildFallbackReadyProgramContent(templateId);
 }

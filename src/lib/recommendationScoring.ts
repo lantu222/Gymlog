@@ -55,7 +55,22 @@ function scoreGoalAlignment(definition: RecommendationProgramDefinition, input: 
 
 function scoreScheduleFit(definition: RecommendationProgramDefinition, input: RecommendationInput) {
   const dayDifference = Math.abs(definition.daysPerWeek - input.daysPerWeek);
-  let score = dayDifference === 0 ? 13 : dayDifference === 1 ? 6 : dayDifference === 2 ? 1 : 0;
+  let score =
+    input.daysPerWeek >= 6
+      ? dayDifference === 0
+        ? 22
+        : dayDifference === 1
+          ? 8
+          : dayDifference === 2
+            ? 1
+            : -8
+      : dayDifference === 0
+        ? 13
+        : dayDifference === 1
+          ? 6
+          : dayDifference === 2
+            ? 1
+            : 0;
 
   const preferredMinutes = input.preferredSessionMinutes ?? definition.estimatedSessionMinutes;
   const durationDifference = Math.abs(definition.estimatedSessionMinutes - preferredMinutes);
@@ -66,7 +81,7 @@ function scoreScheduleFit(definition: RecommendationProgramDefinition, input: Re
     score += 2;
   }
 
-  return clampScore(score, 0, 20);
+  return input.daysPerWeek >= 6 ? clampScore(score, -8, 30) : clampScore(score, 0, 20);
 }
 
 function scoreEquipmentFit(definition: RecommendationProgramDefinition, input: RecommendationInput) {
@@ -83,6 +98,22 @@ function scoreExperienceFit(definition: RecommendationProgramDefinition, input: 
   }
 
   return input.level === 'beginner' ? 2 : input.level === 'advanced' ? 6 : 5;
+}
+
+function scoreGenderFit(definition: RecommendationProgramDefinition, input: RecommendationInput) {
+  if (input.gender === 'unspecified') {
+    return definition.targetGender === 'unisex' ? 5 : 1;
+  }
+
+  if (definition.targetGender === input.gender) {
+    return 5;
+  }
+
+  if (definition.targetGender === 'unisex') {
+    return 3;
+  }
+
+  return -4;
 }
 
 function scorePreferenceFit(definition: RecommendationProgramDefinition, input: RecommendationInput) {
@@ -173,6 +204,7 @@ function buildBreakdown(definition: RecommendationProgramDefinition, input: Reco
     scheduleFit: scoreScheduleFit(definition, input),
     equipmentFit: scoreEquipmentFit(definition, input),
     experienceFit: scoreExperienceFit(definition, input),
+    genderFit: scoreGenderFit(definition, input),
     preferenceFit: scorePreferenceFit(definition, input),
     focusFit: scoreFocusFit(definition, input),
     contentFit: scoreContentFit(definition, input),
@@ -185,6 +217,7 @@ function sumBreakdown(breakdown: RecommendationScoreBreakdown) {
     breakdown.scheduleFit +
     breakdown.equipmentFit +
     breakdown.experienceFit +
+    breakdown.genderFit +
     breakdown.preferenceFit +
     breakdown.focusFit +
     breakdown.contentFit

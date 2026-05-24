@@ -1,4 +1,4 @@
-import type { SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment } from './models';
+import type { SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment, SetupGender } from './models';
 import type { RecommendationProfile } from '../lib/recommendationProfile';
 
 export type TemplateFamilyId =
@@ -16,12 +16,14 @@ export type RecommendationWeekRole = 'baseline' | 'build' | 'review';
 export type RecommendationEquipmentTier = 'full_gym' | 'low_equipment';
 export type RecommendationRecoveryDemand = 'low' | 'moderate' | 'high';
 export type RecommendationStyleTag = 'heavy' | 'pump' | 'balanced' | 'express' | 'recovery' | 'conditioning';
+export type RecommendationTargetGender = 'male' | 'female' | 'unisex';
 
 export interface RecommendationInput {
   goal: SetupGoal;
   level: SetupLevel;
   daysPerWeek: number;
   equipment: SetupEquipment;
+  gender: SetupGender;
   profile: RecommendationProfile;
   secondaryOutcomes: SetupSecondaryOutcome[];
   focusAreas: SetupFocusArea[];
@@ -43,6 +45,7 @@ export interface RecommendationProgramDefinition {
   focusAreaTags: SetupFocusArea[];
   lowFriction: boolean;
   jointFriendly: boolean;
+  targetGender: RecommendationTargetGender;
   daysPerWeek: number;
   estimatedSessionMinutes: number;
 }
@@ -52,6 +55,7 @@ export interface RecommendationScoreBreakdown {
   scheduleFit: number;
   equipmentFit: number;
   experienceFit: number;
+  genderFit: number;
   preferenceFit: number;
   focusFit: number;
   contentFit: number;

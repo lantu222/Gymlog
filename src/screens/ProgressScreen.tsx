@@ -1980,21 +1980,21 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
     paddingBottom: spacing.lg,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   progressHeaderCopy: {
     flex: 1,
     gap: 6,
   },
   progressHeaderTitle: {
-    color: '#050505',
+    color: '#FFFFFF',
     fontSize: 30,
     lineHeight: 34,
     fontWeight: '900',
     letterSpacing: -0.6,
   },
   progressHeaderSubtitle: {
-    color: PROGRESS_MUTED,
+    color: 'rgba(255,255,255,0.62)',
     fontSize: 16,
     lineHeight: 21,
     fontWeight: '600',
@@ -2005,7 +2005,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F2F3F5',
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   sectionRail: {
     flexDirection: 'row',
@@ -2040,7 +2040,7 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
     paddingTop: spacing.sm,
     gap: spacing.md,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
   },
   referenceCardHeader: {
     flexDirection: 'row',

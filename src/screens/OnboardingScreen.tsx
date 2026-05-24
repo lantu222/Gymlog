@@ -117,12 +117,13 @@ type BodyweightGoalMode = 'hidden' | 'optional' | 'required';
 type BodyweightGoalIconName = 'up' | 'flat' | 'down';
 type BodyweightSetupStep = 'goal' | 'current' | 'target' | 'outcome';
 type LocationSelectionOptionId = SetupTrainingEnvironment;
-type LocationBenefit = { icon: GymlogIconName; label: string };
+type LocationBenefit = { icon: GymlogIconName; label: string; body?: string };
 type OnboardingRewardConfig = {
   title: string;
   body: string;
   orbVariant: GainerCoachOrbVariant;
   benefits: LocationBenefit[];
+  showNamePrompt?: boolean;
 };
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
 type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
@@ -308,17 +309,17 @@ const GENDER_OPTIONS: Array<{
   {
     gender: 'male',
     title: 'Male',
-    body: '',
+    body: 'Male-focused programs',
   },
   {
     gender: 'female',
     title: 'Female',
-    body: '',
+    body: 'Female-focused programs',
   },
   {
     gender: 'unspecified',
-    title: 'Prefer not to say',
-    body: '',
+    title: 'No preference',
+    body: 'Neutral matching',
   },
 ];
 
@@ -504,18 +505,82 @@ const SCHEDULE_MODE_OPTIONS: Array<{
 const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions();
 const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea[] = FOCUS_AREA_OPTIONS.map((option) => option.area);
 const FOCUS_AREA_CARD_ASSETS: Partial<Record<SetupFocusArea, ImageSourcePropType>> = {
-  chest: require('../../assets/fitness/selected/focus-chest-anatomy-card.png'),
-  back: require('../../assets/fitness/selected/focus-back-anatomy-card.png'),
-  shoulders: require('../../assets/fitness/selected/focus-shoulders-anatomy-card.png'),
-  arms: require('../../assets/fitness/selected/focus-arms-anatomy-card.png'),
-  core: require('../../assets/fitness/selected/focus-abs-anatomy-card.png'),
-  quads: require('../../assets/fitness/selected/focus-quads-anatomy-card.png'),
-  glutes: require('../../assets/fitness/selected/focus-glutes-anatomy-card.png'),
-  hamstrings: require('../../assets/fitness/selected/focus-hamstrings-anatomy-card.png'),
-  calves: require('../../assets/fitness/selected/focus-calves-anatomy-card.png'),
-  mobility: require('../../assets/fitness/selected/focus-mobility-anatomy-card.png'),
+  chest: require('../../assets/fitness/selected/focus-chest-anatomy-card.webp'),
+  back: require('../../assets/fitness/selected/focus-back-anatomy-card.webp'),
+  shoulders: require('../../assets/fitness/selected/focus-shoulders-anatomy-card.webp'),
+  arms: require('../../assets/fitness/selected/focus-arms-anatomy-card.webp'),
+  core: require('../../assets/fitness/selected/focus-abs-anatomy-card.webp'),
+  quads: require('../../assets/fitness/selected/focus-quads-anatomy-card.webp'),
+  glutes: require('../../assets/fitness/selected/focus-glutes-anatomy-card.webp'),
+  hamstrings: require('../../assets/fitness/selected/focus-hamstrings-anatomy-card.webp'),
+  calves: require('../../assets/fitness/selected/focus-calves-anatomy-card.webp'),
+  mobility: require('../../assets/fitness/selected/focus-mobility-anatomy-card.webp'),
 };
 type FocusAreaOnboardingOption = (typeof FOCUS_AREA_OPTIONS)[number];
+
+function FocusAreaImageCard({
+  option,
+  active,
+  imageSource,
+  onPress,
+}: {
+  option: FocusAreaOnboardingOption;
+  active: boolean;
+  imageSource?: ImageSourcePropType;
+  onPress: () => void;
+}) {
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const imageOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!imageLoaded) {
+      return;
+    }
+
+    Animated.timing(imageOpacity, {
+      toValue: 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [imageLoaded, imageOpacity]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={option.accessibilityLabel}
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={[styles.focusAreaCard, active && styles.focusAreaCardActive]}
+    >
+      <View style={styles.focusAreaImageSlot}>
+        <View style={styles.focusAreaSkeleton} />
+        {imageSource ? (
+          <Animated.Image
+            source={imageSource}
+            resizeMode="contain"
+            resizeMethod="resize"
+            fadeDuration={0}
+            onLoadEnd={() => setImageLoaded(true)}
+            style={[styles.focusAreaImage, { opacity: imageOpacity }]}
+          />
+        ) : option.area === 'mobility' ? (
+          <View style={styles.focusAreaIconFallback}>
+            <GymlogIcon name="mobility" color="rgba(255,255,255,0.78)" size={34} />
+          </View>
+        ) : null}
+      </View>
+      <View pointerEvents="none" style={styles.focusAreaTitleScrim} />
+      <View style={[styles.focusAreaCheck, active && styles.focusAreaCheckActive]}>
+        {active ? <GymlogIcon name="check" color={ONBOARDING_TEXT} size={12} /> : null}
+      </View>
+      <Text numberOfLines={1} adjustsFontSizeToFit style={styles.focusAreaCardTitle}>
+        {option.title}
+      </Text>
+    </Pressable>
+  );
+}
+
 const PLAN_READY_GYM_BACKDROP_SOURCE = require('../../assets/fitness/selected/plan-ready-empty-gym-backdrop-bw.jpg');
 const PLAN_READY_UPPER_WORKOUT_SOURCE = require('../../assets/fitness/selected/upper-focus-background.png');
 const PLAN_READY_LOWER_WORKOUT_SOURCE = require('../../assets/fitness/selected/lower-focus-background.png');
@@ -589,29 +654,34 @@ const LOCATION_SELECTION_OPTIONS: Array<{
 
 const LOCATION_SELECTION_BENEFITS: Record<LocationSelectionOptionId, LocationBenefit[]> = {
   full_gym: [
-    { icon: 'progress', label: 'Best for muscle growth' },
-    { icon: 'strength', label: 'Largest exercise library' },
-    { icon: 'tempo', label: 'Personalized gym programs' },
+    { icon: 'progress', label: 'Adaptive plan', body: 'Built around gym access.' },
+    { icon: 'strength', label: 'Exercise variety', body: 'More swaps available.' },
+    { icon: 'tempo', label: 'Weekly rhythm', body: 'Structured for progress.' },
+    { icon: 'recovery', label: 'Recovery aware', body: 'Load stays manageable.' },
   ],
   home_gym: [
-    { icon: 'strength', label: 'Built around your setup' },
-    { icon: 'tempo', label: 'Easy to repeat weekly' },
-    { icon: 'progress', label: 'Progress without commuting' },
+    { icon: 'strength', label: 'Adaptive plan', body: 'Built around your setup.' },
+    { icon: 'tempo', label: 'Weekly rhythm', body: 'Easy to repeat.' },
+    { icon: 'progress', label: 'Progress tracking', body: 'Clear progression.' },
+    { icon: 'recovery', label: 'Recovery aware', body: 'Load adjusts to you.' },
   ],
   minimal_equipment: [
-    { icon: 'lightning', label: 'Efficient low-equipment sessions' },
-    { icon: 'strength', label: 'Smart band and dumbbell swaps' },
-    { icon: 'progress', label: 'Simple setup, clear progression' },
+    { icon: 'lightning', label: 'Adaptive plan', body: 'Efficient sessions.' },
+    { icon: 'strength', label: 'Smart swaps', body: 'Bands and dumbbells.' },
+    { icon: 'progress', label: 'Progress tracking', body: 'Simple progression.' },
+    { icon: 'tempo', label: 'Weekly rhythm', body: 'Fits your lifestyle.' },
   ],
   bodyweight_only: [
-    { icon: 'strength', label: 'Train anywhere' },
-    { icon: 'progress', label: 'Progressive bodyweight structure' },
-    { icon: 'tempo', label: 'No equipment friction' },
+    { icon: 'strength', label: 'Adaptive plan', body: 'Train anywhere.' },
+    { icon: 'progress', label: 'Progress tracking', body: 'Bodyweight progress.' },
+    { icon: 'tempo', label: 'Weekly rhythm', body: 'No equipment friction.' },
+    { icon: 'recovery', label: 'Recovery aware', body: 'Load adjusts to you.' },
   ],
   running_hybrid: [
-    { icon: 'cardio', label: 'Balanced run and strength plan' },
-    { icon: 'recovery', label: 'Recovery-aware weekly rhythm' },
-    { icon: 'progress', label: 'Cardio and muscle progress together' },
+    { icon: 'cardio', label: 'Adaptive plan', body: 'Run + strength balance.' },
+    { icon: 'recovery', label: 'Recovery aware', body: 'Weekly load adjusts.' },
+    { icon: 'progress', label: 'Progress tracking', body: 'Cardio and muscle.' },
+    { icon: 'tempo', label: 'Weekly rhythm', body: 'Fits your lifestyle.' },
   ],
 };
 
@@ -635,9 +705,9 @@ const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
     body: "You've selected to get stronger.",
     orbVariant: 'pr',
     benefits: [
-      { icon: 'check', label: 'Heavy lift progression' },
-      { icon: 'check', label: 'Longer rest, stronger sets' },
-      { icon: 'check', label: 'Built around strength gains' },
+      { icon: 'strength', label: 'Heavy lift progression', body: 'Main lifts progress week by week.' },
+      { icon: 'tempo', label: 'Stronger set quality', body: 'Rest and reps support better output.' },
+      { icon: 'progress', label: 'Strength-first structure', body: 'Your split prioritizes measurable gains.' },
     ],
   },
   muscle: {
@@ -645,9 +715,9 @@ const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
     body: "You've selected to build muscle.",
     orbVariant: 'success',
     benefits: [
-      { icon: 'check', label: 'Higher volume training' },
-      { icon: 'check', label: 'Progressive overload focus' },
-      { icon: 'check', label: 'Size-focused workout structure' },
+      { icon: 'arms', label: 'Higher volume training', body: 'Enough weekly work for visible growth.' },
+      { icon: 'progress', label: 'Progressive overload', body: 'Small increases keep momentum steady.' },
+      { icon: 'strength', label: 'Muscle-focused split', body: 'Exercises are grouped for better stimulus.' },
     ],
   },
   lean_athletic: {
@@ -655,9 +725,9 @@ const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
     body: "You've selected a lean athletic focus.",
     orbVariant: 'idle',
     benefits: [
-      { icon: 'check', label: 'Strength and conditioning balance' },
-      { icon: 'check', label: 'Lean performance focus' },
-      { icon: 'check', label: 'Recovery-aware weekly rhythm' },
+      { icon: 'strength', label: 'Strength + conditioning', body: 'Balanced sessions for performance.' },
+      { icon: 'cardio', label: 'Lean athletic focus', body: 'Training supports a sharper engine.' },
+      { icon: 'recovery', label: 'Recovery-aware rhythm', body: 'Hard days and lighter days are balanced.' },
     ],
   },
   general_fitness: {
@@ -665,9 +735,9 @@ const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
     body: "You've selected general fitness.",
     orbVariant: 'idle',
     benefits: [
-      { icon: 'check', label: 'Balanced weekly training' },
-      { icon: 'check', label: 'Simple sustainable progression' },
-      { icon: 'check', label: 'Flexible plan structure' },
+      { icon: 'strength', label: 'Balanced weekly training', body: 'Strength, fitness and recovery stay aligned.' },
+      { icon: 'progress', label: 'Sustainable progression', body: 'Simple increases without overcomplicating it.' },
+      { icon: 'tempo', label: 'Flexible plan structure', body: 'The plan adapts around your weekly setup.' },
     ],
   },
   general: {
@@ -675,9 +745,9 @@ const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
     body: "You've selected general fitness.",
     orbVariant: 'idle',
     benefits: [
-      { icon: 'check', label: 'Balanced weekly training' },
-      { icon: 'check', label: 'Simple sustainable progression' },
-      { icon: 'check', label: 'Flexible plan structure' },
+      { icon: 'strength', label: 'Balanced weekly training', body: 'Strength, fitness and recovery stay aligned.' },
+      { icon: 'progress', label: 'Sustainable progression', body: 'Simple increases without overcomplicating it.' },
+      { icon: 'tempo', label: 'Flexible plan structure', body: 'The plan adapts around your weekly setup.' },
     ],
   },
   run_mobility: {
@@ -685,9 +755,9 @@ const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
     body: "You've selected run and mobility.",
     orbVariant: 'thinking',
     benefits: [
-      { icon: 'check', label: 'Running-friendly structure' },
-      { icon: 'check', label: 'Mobility and recovery support' },
-      { icon: 'check', label: 'Strength without excess fatigue' },
+      { icon: 'cardio', label: 'Running-friendly structure', body: 'Strength work supports your running days.' },
+      { icon: 'mobility', label: 'Mobility support', body: 'Movement quality stays part of the plan.' },
+      { icon: 'recovery', label: 'Lower fatigue balance', body: 'Workouts avoid stacking too much stress.' },
     ],
   },
 };
@@ -1906,6 +1976,11 @@ function formatBodyweightSummaryDisplay(value: number, unit: UnitPreference) {
   return `${valueText}${unit.toUpperCase()}`;
 }
 
+function formatProfileName(value: string) {
+  const trimmedStart = value.replace(/^\s+/, '');
+  return trimmedStart.replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase());
+}
+
 function BodyweightSummaryRow({
   label,
   value,
@@ -2079,6 +2154,18 @@ function getLevelLabel(level: SetupLevel) {
   return level === 'advanced' ? 'Advanced' : 'Intermediate';
 }
 
+function getGenderProfileLabel(gender: SetupGender) {
+  if (gender === 'male') {
+    return 'Male';
+  }
+
+  if (gender === 'female') {
+    return 'Female';
+  }
+
+  return 'No preference';
+}
+
 function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDaysPerWeek) {
   const duration =
     level === 'advanced'
@@ -2163,6 +2250,8 @@ export function OnboardingScreen({
   const [showBuildingPlanThinking, setShowBuildingPlanThinking] = useState(false);
   const [buildingPlanPhaseIndex, setBuildingPlanPhaseIndex] = useState(0);
   const [buildingPlanPercent, setBuildingPlanPercent] = useState(0);
+  const [buildingPlanComplete, setBuildingPlanComplete] = useState(false);
+  const [buildingPlanEllipsisStep, setBuildingPlanEllipsisStep] = useState(0);
   const buildingPlanScreenOpacity = useRef(new Animated.Value(1)).current;
   const buildingPlanEntryOpacity = useRef(new Animated.Value(0)).current;
   const buildingPlanTopTranslate = useRef(new Animated.Value(-36)).current;
@@ -2172,10 +2261,14 @@ export function OnboardingScreen({
   const buildingPlanThinkingOpacity = useRef(new Animated.Value(0)).current;
   const buildingPlanCaptionOpacity = useRef(new Animated.Value(0)).current;
   const buildingPlanPulse = useRef(new Animated.Value(0)).current;
+  const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
   const planReadyCardTranslateX = useRef(new Animated.Value(0)).current;
   const planReadyCardOpacity = useRef(new Animated.Value(1)).current;
+  const focusAreaPreloadStartedRef = useRef(false);
   const profileFrequencyReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
+  const profileGenderReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
   const profilePreviewReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
+  const [profileName, setProfileName] = useState(setupSeed.profileName ?? '');
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
   const [age, setAge] = useState(() =>
     typeof setupSeed.age === 'number' && Number.isFinite(setupSeed.age)
@@ -2189,6 +2282,7 @@ export function OnboardingScreen({
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
   const [profileLevelSelected, setProfileLevelSelected] = useState(() => Boolean(initialSelection || editMode));
   const [profileFrequencySelected, setProfileFrequencySelected] = useState(() => Boolean(initialSelection || editMode));
+  const [profileGenderSelected, setProfileGenderSelected] = useState(() => Boolean(initialSelection || editMode));
   const [equipment, setEquipment] = useState<SetupEquipment>(setupSeed.equipment);
   const [trainingEnvironment, setTrainingEnvironment] = useState<SetupTrainingEnvironment>(
     setupSeed.trainingEnvironment,
@@ -2239,15 +2333,26 @@ export function OnboardingScreen({
   const [helperError, setHelperError] = useState('');
 
   const stage = STAGES[stageIndex];
+  const focusAreaLabelsPreloadTrigger = stage === 'profile' || stage === 'planning';
   const selectedBodyweightGoalMode = useMemo(() => getBodyweightGoalMode([bodyweightGoal]), [bodyweightGoal]);
   const buildingPlanPhases = useMemo(
-    () => ['Mapping your inputs', 'Structuring your program', 'Optimizing for results', 'Finalizing your plan'],
+    () => ['Analyzing your inputs', 'Building your split', 'Matching exercises', 'Finalizing your plan'],
+    [],
+  );
+  const buildingPlanStepSubtitles = useMemo(
+    () => [
+      'Reading your setup and goals...',
+      'Creating training structure...',
+      'Pairing lifts to your equipment...',
+      'Polishing the first week...',
+    ],
     [],
   );
   const currentWeightValue = useMemo(() => parseNumberInput(currentWeightDraft), [currentWeightDraft]);
   const targetWeightValue = useMemo(() => parseNumberInput(targetWeightDraft), [targetWeightDraft]);
   const selection = useMemo<FirstRunSetupSelection>(
     () => ({
+      profileName: formatProfileName(profileName).trim() ? formatProfileName(profileName).trim().slice(0, 32) : null,
       gender,
       age,
       ageRange,
@@ -2280,6 +2385,7 @@ export function OnboardingScreen({
       goals,
       guidanceMode,
       level,
+      profileName,
       scheduleMode,
       secondaryOutcomes,
       targetWeightValue,
@@ -2479,21 +2585,30 @@ export function OnboardingScreen({
 
   useEffect(() => {
     Animated.timing(profileFrequencyReveal, {
-      toValue: profileLevelSelected ? 1 : 0,
+      toValue: profileLevelSelected || profileFrequencySelected ? 1 : 0,
       duration: 200,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [profileFrequencyReveal, profileLevelSelected]);
+  }, [profileFrequencyReveal, profileFrequencySelected, profileLevelSelected]);
+
+  useEffect(() => {
+    Animated.timing(profileGenderReveal, {
+      toValue: profileFrequencySelected || profileGenderSelected ? 1 : 0,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [profileFrequencySelected, profileGenderReveal, profileGenderSelected]);
 
   useEffect(() => {
     Animated.timing(profilePreviewReveal, {
-      toValue: profileFrequencySelected ? 1 : 0,
+      toValue: profileGenderSelected ? 1 : 0,
       duration: 200,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [profileFrequencySelected, profilePreviewReveal]);
+  }, [profileGenderSelected, profilePreviewReveal]);
 
   useEffect(() => {
     setPlanReadyWorkoutPage(0);
@@ -2551,13 +2666,18 @@ export function OnboardingScreen({
   }, [bodyweightGoal, selectedBodyweightGoalMode, bodyweightPickerValue, targetWeightValue, unitPreference]);
 
   useEffect(() => {
+    if (!focusAreaLabelsPreloadTrigger || focusAreaPreloadStartedRef.current) {
+      return;
+    }
+
+    focusAreaPreloadStartedRef.current = true;
     Object.values(FOCUS_AREA_CARD_ASSETS).forEach((source) => {
       const asset = Image.resolveAssetSource(source);
       if (asset?.uri) {
         void Image.prefetch(asset.uri);
       }
     });
-  }, []);
+  }, [focusAreaLabelsPreloadTrigger]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -2577,14 +2697,20 @@ export function OnboardingScreen({
       buildingPlanCaptionOpacity.setValue(0);
       setShowBuildingPlanThinking(false);
       setBuildingPlanPercent(0);
+      setBuildingPlanComplete(false);
+      setBuildingPlanEllipsisStep(0);
       buildingPlanPulse.stopAnimation();
       buildingPlanPulse.setValue(0);
+      buildingPlanRingSpin.stopAnimation();
+      buildingPlanRingSpin.setValue(0);
       return;
     }
 
     setBuildingPlanPhaseIndex(0);
     setShowBuildingPlanThinking(true);
     setBuildingPlanPercent(0);
+    setBuildingPlanComplete(false);
+    setBuildingPlanEllipsisStep(0);
     buildingPlanScreenOpacity.setValue(1);
     buildingPlanEntryOpacity.setValue(0);
     buildingPlanTopTranslate.setValue(-36);
@@ -2594,6 +2720,7 @@ export function OnboardingScreen({
     buildingPlanThinkingOpacity.setValue(0);
     buildingPlanCaptionOpacity.setValue(0);
     buildingPlanPulse.setValue(0);
+    buildingPlanRingSpin.setValue(0);
 
     const timeouts: ReturnType<typeof setTimeout>[] = [];
     const startedAt = Date.now();
@@ -2602,22 +2729,33 @@ export function OnboardingScreen({
       const percent = Math.min(100, Math.round((elapsed / BUILDING_PLAN_TOTAL_MS) * 100));
       setBuildingPlanPercent(percent);
     }, 80);
+    const ellipsisIntervalId = setInterval(() => {
+      setBuildingPlanEllipsisStep((current) => (current + 1) % 3);
+    }, 460);
 
     const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(buildingPlanPulse, {
           toValue: 1,
-          duration: 700,
-          easing: Easing.out(Easing.quad),
+          duration: 1550,
+          easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
         Animated.timing(buildingPlanPulse, {
           toValue: 0,
-          duration: 700,
+          duration: 1550,
           easing: Easing.inOut(Easing.quad),
           useNativeDriver: true,
         }),
       ]),
+    );
+    const ringSpinLoop = Animated.loop(
+      Animated.timing(buildingPlanRingSpin, {
+        toValue: 1,
+        duration: 22000,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }),
     );
 
     Animated.timing(buildingPlanThinkingOpacity, {
@@ -2627,6 +2765,7 @@ export function OnboardingScreen({
       useNativeDriver: true,
     }).start();
     pulseLoop.start();
+    ringSpinLoop.start();
 
     const fadeCaption = (index: number) => {
       setBuildingPlanPhaseIndex(index);
@@ -2646,11 +2785,21 @@ export function OnboardingScreen({
 
     timeouts.push(
       setTimeout(() => {
+        clearInterval(percentIntervalId);
+        clearInterval(ellipsisIntervalId);
+        setBuildingPlanPhaseIndex(buildingPlanPhases.length - 1);
         setBuildingPlanPercent(100);
+        setBuildingPlanComplete(true);
+      }, BUILDING_PLAN_TOTAL_MS - 1500),
+    );
+
+    timeouts.push(
+      setTimeout(() => {
         pulseLoop.stop();
+        ringSpinLoop.stop();
         Animated.timing(buildingPlanScreenOpacity, {
           toValue: 0,
-          duration: 500,
+          duration: 480,
           easing: Easing.out(Easing.cubic),
           useNativeDriver: true,
         }).start(({ finished }) => {
@@ -2662,13 +2811,15 @@ export function OnboardingScreen({
           setShowBuildingPlanThinking(false);
           setStageIndex(getStageIndex('review'));
         });
-      }, BUILDING_PLAN_TOTAL_MS - 500),
+      }, BUILDING_PLAN_TOTAL_MS - 420),
     );
 
     return () => {
       timeouts.forEach((timeoutId) => clearTimeout(timeoutId));
       clearInterval(percentIntervalId);
+      clearInterval(ellipsisIntervalId);
       pulseLoop.stop();
+      ringSpinLoop.stop();
       buildingPlanScreenOpacity.stopAnimation();
       buildingPlanEntryOpacity.stopAnimation();
       buildingPlanTopTranslate.stopAnimation();
@@ -2678,6 +2829,7 @@ export function OnboardingScreen({
       buildingPlanThinkingOpacity.stopAnimation();
       buildingPlanCaptionOpacity.stopAnimation();
       buildingPlanPulse.stopAnimation();
+      buildingPlanRingSpin.stopAnimation();
       buildingPlanScreenOpacity.setValue(1);
       buildingPlanEntryOpacity.setValue(0);
       buildingPlanTopTranslate.setValue(-36);
@@ -2688,16 +2840,21 @@ export function OnboardingScreen({
       buildingPlanCaptionOpacity.setValue(0);
       setShowBuildingPlanThinking(false);
       setBuildingPlanPercent(0);
+      setBuildingPlanComplete(false);
+      setBuildingPlanEllipsisStep(0);
       buildingPlanPulse.setValue(0);
+      buildingPlanRingSpin.setValue(0);
     };
   }, [
     BUILDING_PLAN_TOTAL_MS,
+    buildingPlanPhases.length,
     buildingPlanBottomTranslate,
     buildingPlanCaptionOpacity,
     buildingPlanEntryOpacity,
     buildingPlanLogoOpacity,
     buildingPlanLogoScale,
     buildingPlanPulse,
+    buildingPlanRingSpin,
     buildingPlanScreenOpacity,
     buildingPlanThinkingOpacity,
     buildingPlanTopTranslate,
@@ -2953,6 +3110,10 @@ export function OnboardingScreen({
         onPress: () => {
           void haptics.select();
           setLocationChoiceConfirmed(false);
+          if (selectedLocationOptionId === option.id) {
+            setSelectedLocationOptionId(null);
+            return;
+          }
           setSelectedLocationOptionId(option.id);
           setEquipment(option.equipment);
           setTrainingEnvironment(option.trainingEnvironment);
@@ -2969,16 +3130,20 @@ export function OnboardingScreen({
 
   function renderLocationReward(selectedOptionId: LocationSelectionOptionId) {
     const selectedOption = LOCATION_SELECTION_OPTIONS.find((option) => option.id === selectedOptionId) ?? LOCATION_SELECTION_OPTIONS[0];
+
     return renderOnboardingReward({
-      title: 'Great choice!',
-      body: `We'll build the perfect plan for your ${selectedOption.label.toLowerCase()} access.`,
+      title: 'Perfect.',
+      body: `Your ${selectedOption.label.toLowerCase()} plan is being prepared for you.`,
       orbVariant: 'success',
-      benefits: LOCATION_SELECTION_BENEFITS[selectedOption.id],
+      benefits: LOCATION_SELECTION_BENEFITS[selectedOption.id].slice(0, 4),
+      showNamePrompt: true,
     });
   }
 
-  function renderOnboardingReward({ title, body, orbVariant, benefits }: OnboardingRewardConfig) {
-    const rewardStageHeight = Math.max(640, Dimensions.get('window').height - insets.top - insets.bottom - 150);
+  function renderOnboardingReward({ title, body, orbVariant, benefits, showNamePrompt = false }: OnboardingRewardConfig) {
+    const displayName = formatProfileName(profileName);
+    const nameReady = displayName.length > 0;
+    const rewardStageHeight = Math.max(560, Dimensions.get('window').height - insets.top - insets.bottom - 210);
 
     return (
       <View style={[styles.locationRewardShell, { minHeight: rewardStageHeight }]}>
@@ -2996,21 +3161,78 @@ export function OnboardingScreen({
         </View>
         <View style={styles.locationRewardContent}>
           <View style={styles.locationRewardMarkWrap}>
-            <GainerCoachOrb variant={orbVariant} />
+            <View style={styles.locationRewardOrbAuraOuter} />
+            <View style={styles.locationRewardOrbAuraMid} />
+            <View style={styles.locationRewardOrbAuraCore} />
+            <View style={[styles.locationRewardSpark, styles.locationRewardSparkOne]} />
+            <View style={[styles.locationRewardSpark, styles.locationRewardSparkTwo]} />
+            <View style={[styles.locationRewardSpark, styles.locationRewardSparkThree]} />
+            <View style={styles.locationRewardOrbDouble}>
+              <View style={styles.locationRewardOrbNativeScale}>
+                <GainerCoachOrb variant={orbVariant} />
+              </View>
+            </View>
+            {!showNamePrompt ? (
+              <View style={styles.goalRewardOrbBadge}>
+                <Text style={styles.goalRewardOrbBadgeText}>💪</Text>
+              </View>
+            ) : null}
           </View>
 
           <View style={styles.locationRewardCopy}>
-            <Text style={styles.locationRewardTitle}>{title}</Text>
-            <Text style={styles.locationRewardBody}>{body}</Text>
+            <Text style={styles.locationRewardTitle}>
+              {showNamePrompt ? (
+                <>
+                  Perfect <Text style={styles.locationRewardTitleEmoji}>🔥🔥🔥</Text>
+                </>
+              ) : (
+                title
+              )}
+            </Text>
+            {!showNamePrompt && body ? <Text style={styles.locationRewardBody}>{body}</Text> : null}
           </View>
 
-          <View style={styles.locationRewardBenefitList}>
+          {showNamePrompt ? (
+            <View style={styles.locationRewardNameCard}>
+              <Text style={styles.locationRewardNameLabel}>What should Gainer call you?</Text>
+              <View style={[styles.locationRewardNameInputWrap, nameReady && styles.locationRewardNameInputWrapReady]}>
+                <TextInput
+                  value={profileName}
+                  onChangeText={(value) => setProfileName(formatProfileName(value).slice(0, 32))}
+                  placeholder="Name"
+                  placeholderTextColor="rgba(222,218,245,0.42)"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  style={styles.locationRewardNameInput}
+                />
+                {nameReady ? (
+                  <View style={styles.locationRewardNameCheck}>
+                    <GymlogIcon name="check" color="#FFFFFF" size={12} />
+                  </View>
+                ) : null}
+              </View>
+              <Text style={styles.locationRewardNameHint}>
+                Nice to meet you{nameReady ? `, ${displayName}.` : ','}
+              </Text>
+            </View>
+          ) : null}
+
+          <Text style={styles.locationRewardSectionLabel}>What you'll get</Text>
+          <View style={[styles.locationRewardBenefitGrid, !showNamePrompt && styles.goalRewardBenefitStack]}>
             {benefits.map((benefit) => (
-              <View key={benefit.label} style={styles.locationRewardBenefitRow}>
-                <View style={styles.locationRewardBenefitIcon}>
-                  <GymlogIcon name="check" size={16} color="#FFFFFF" />
+              <View key={benefit.label} style={[styles.locationRewardBenefitCard, !showNamePrompt && styles.goalRewardBenefitCard]}>
+                <View style={[styles.locationRewardBenefitIcon, !showNamePrompt && styles.goalRewardBenefitIcon]}>
+                  <GymlogIcon name={benefit.icon} size={!showNamePrompt ? 20 : 18} color="#FFFFFF" />
                 </View>
-                <Text style={styles.locationRewardBenefitText}>{benefit.label}</Text>
+                <View style={[styles.locationRewardBenefitCopy, !showNamePrompt && styles.goalRewardBenefitCopy]}>
+                  <Text style={[styles.locationRewardBenefitText, !showNamePrompt && styles.goalRewardBenefitText]}>{benefit.label}</Text>
+                  {benefit.body ? (
+                    <Text style={[styles.locationRewardBenefitBody, !showNamePrompt && styles.goalRewardBenefitBody]}>
+                      {benefit.body}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
             ))}
           </View>
@@ -3227,6 +3449,7 @@ export function OnboardingScreen({
     const setupSummary = getTrainingProfileSetupSummary(level, daysPerWeek);
     const selectedLevelOption = TRAINING_LEVEL_OPTIONS.find((option) => option.level === level) ?? TRAINING_LEVEL_OPTIONS[0];
     const selectedFrequencyOption = TRAINING_FREQUENCY_OPTIONS.find((option) => option.value === daysPerWeek) ?? TRAINING_FREQUENCY_OPTIONS[1];
+    const selectedGenderOption = GENDER_OPTIONS.find((option) => option.gender === gender) ?? GENDER_OPTIONS[2];
     const weekPreviewDays = getTrainingProfileWeekPreview(daysPerWeek);
     const frequencyRevealStyle = {
       opacity: profileFrequencyReveal,
@@ -3235,6 +3458,17 @@ export function OnboardingScreen({
           translateY: profileFrequencyReveal.interpolate({
             inputRange: [0, 1],
             outputRange: [12, 0],
+          }),
+        },
+      ],
+    };
+    const genderRevealStyle = {
+      opacity: profileGenderReveal,
+      transform: [
+        {
+          translateY: profileGenderReveal.interpolate({
+            inputRange: [0, 1],
+            outputRange: [10, 0],
           }),
         },
       ],
@@ -3262,9 +3496,6 @@ export function OnboardingScreen({
       children: (
         <View style={styles.trainingProfileContent}>
           <View style={styles.trainingProfileSection}>
-            <View style={styles.trainingProfileExperienceHeader}>
-              <Text style={styles.trainingProfileExperienceTitle}>Experience Level</Text>
-            </View>
             {profileLevelSelected ? (
               <Pressable
                 accessibilityRole="button"
@@ -3284,6 +3515,9 @@ export function OnboardingScreen({
               </Pressable>
             ) : (
               <>
+                <View style={styles.trainingProfileExperienceHeader}>
+                  <Text style={styles.trainingProfileExperienceTitle}>Experience Level</Text>
+                </View>
                 <Text style={styles.trainingProfileSectionPrompt}>How much training experience do you have?</Text>
                 <View style={styles.trainingExperienceList}>
                   {TRAINING_LEVEL_OPTIONS.map((option) => (
@@ -3295,7 +3529,6 @@ export function OnboardingScreen({
                         void haptics.select();
                         setLevel(option.level);
                         setProfileLevelSelected(true);
-                        setProfileFrequencySelected(false);
                       }}
                       style={styles.trainingExperienceCard}
                     >
@@ -3312,11 +3545,8 @@ export function OnboardingScreen({
             )}
           </View>
 
-          {profileLevelSelected ? (
+          {profileLevelSelected || profileFrequencySelected ? (
             <Animated.View style={[styles.trainingProfileSection, frequencyRevealStyle]}>
-              <View style={styles.trainingProfileExperienceHeader}>
-                <Text style={styles.trainingProfileExperienceTitle}>Training Frequency</Text>
-              </View>
               {profileFrequencySelected ? (
                 <Pressable
                   accessibilityRole="button"
@@ -3338,6 +3568,9 @@ export function OnboardingScreen({
                 </Pressable>
               ) : (
                 <>
+                  <View style={styles.trainingProfileExperienceHeader}>
+                    <Text style={styles.trainingProfileExperienceTitle}>Training Frequency</Text>
+                  </View>
                   <Text style={styles.trainingProfileSectionPrompt}>How many days per week can you train?</Text>
                   <View style={styles.trainingFrequencyRow}>
                     {TRAINING_FREQUENCY_OPTIONS.map((option) => {
@@ -3367,7 +3600,63 @@ export function OnboardingScreen({
             </Animated.View>
           ) : null}
 
-          {profileFrequencySelected ? (
+          {profileFrequencySelected || profileGenderSelected ? (
+            <Animated.View style={[styles.trainingProfileSection, genderRevealStyle]}>
+              {profileGenderSelected ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`${selectedGenderOption.title} program fit selected`}
+                  accessibilityState={{ selected: true }}
+                  onPress={() => {
+                    void haptics.select();
+                    setProfileGenderSelected(false);
+                  }}
+                  style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
+                >
+                  <View style={styles.trainingProfileSummaryCheck}>
+                    <GymlogIcon name="check" size={13} color="#FFFFFF" />
+                  </View>
+                  <View style={styles.trainingProfileSummaryCopy}>
+                    <Text style={styles.trainingProfileSummaryText}>{getGenderProfileLabel(gender)}</Text>
+                    <Text style={styles.trainingProfileSummarySubtext}>{selectedGenderOption.body}</Text>
+                  </View>
+                  <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
+                </Pressable>
+              ) : (
+                <>
+                  <View style={styles.trainingProfileExperienceHeader}>
+                    <Text style={styles.trainingProfileExperienceTitle}>Program Fit</Text>
+                  </View>
+                  <Text style={styles.trainingProfileSectionPrompt}>Which program style should we prioritize?</Text>
+                  <View style={styles.trainingGenderRow}>
+                    {GENDER_OPTIONS.map((option) => {
+                      const active = gender === option.gender;
+
+                      return (
+                        <Pressable
+                          key={option.gender}
+                          accessibilityRole="button"
+                          accessibilityLabel={`${option.title} program fit`}
+                          accessibilityState={{ selected: active }}
+                          onPress={() => {
+                            void haptics.select();
+                            setGender(option.gender);
+                            setProfileGenderSelected(true);
+                          }}
+                          style={[styles.trainingGenderTile, active && styles.trainingGenderTileActive]}
+                        >
+                          <Text style={styles.trainingGenderTitle}>{option.title}</Text>
+                          <Text style={styles.trainingGenderBody}>{option.body}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </>
+              )}
+            </Animated.View>
+          ) : null}
+
+          {profileLevelSelected && profileFrequencySelected && profileGenderSelected ? (
             <Animated.View style={[styles.trainingPlanPreviewStrip, previewRevealStyle]}>
               <View style={styles.trainingPlanPreviewLead}>
                 <GymlogIcon name="lightning" size={14} color="#A98BFF" />
@@ -3607,7 +3896,7 @@ export function OnboardingScreen({
           <View style={styles.planReadyProgramOverviewShell}>
             <View pointerEvents="none" style={styles.planReadyProgramCarbonBackdrop}>
               <Svg width="100%" height="100%" viewBox="0 0 390 760" preserveAspectRatio="none">
-                <Rect x="0" y="0" width="390" height="760" fill="#05050D" />
+                <Rect x="0" y="0" width="390" height="760" fill="transparent" />
                 {Array.from({ length: 20 }).map((_, index) => {
                   const y = index * 44 - 18;
 
@@ -4155,40 +4444,16 @@ export function OnboardingScreen({
                   const active = focusAreas.includes(option.area);
                   const imageSource = FOCUS_AREA_CARD_ASSETS[option.area];
                   return (
-                    <Pressable
+                    <FocusAreaImageCard
                       key={option.area}
-                      accessibilityRole="button"
-                      accessibilityLabel={option.accessibilityLabel}
-                      accessibilityState={{ selected: active }}
+                      option={option}
+                      active={active}
+                      imageSource={imageSource}
                       onPress={() => {
                         void haptics.select();
                         toggleFocusArea(option.area);
                       }}
-                      style={[styles.focusAreaCard, active && styles.focusAreaCardActive]}
-                    >
-                      <View style={styles.focusAreaImageSlot}>
-                        {imageSource ? (
-                          <Image
-                            source={imageSource}
-                            resizeMode="contain"
-                            resizeMethod="resize"
-                            fadeDuration={0}
-                            style={styles.focusAreaImage}
-                          />
-                        ) : option.area === 'mobility' ? (
-                          <View style={styles.focusAreaIconFallback}>
-                            <GymlogIcon name="mobility" color="rgba(255,255,255,0.78)" size={34} />
-                          </View>
-                        ) : null}
-                      </View>
-                      <View pointerEvents="none" style={styles.focusAreaTitleScrim} />
-                      <View style={[styles.focusAreaCheck, active && styles.focusAreaCheckActive]}>
-                        {active ? <GymlogIcon name="check" color={ONBOARDING_TEXT} size={12} /> : null}
-                      </View>
-                      <Text numberOfLines={1} adjustsFontSizeToFit style={styles.focusAreaCardTitle}>
-                        {option.title}
-                      </Text>
-                    </Pressable>
+                    />
                   );
                 })}
               </View>
@@ -4661,19 +4926,28 @@ export function OnboardingScreen({
 
   function renderBuildingPlan() {
     const activePhaseIndex = Math.min(buildingPlanPhaseIndex, buildingPlanPhases.length - 1);
-    const ringSize = 188;
+    const ringSize = 282;
     const ringCenter = ringSize / 2;
-    const progressRadius = 72;
+    const progressRadius = 118;
     const progressCircumference = 2 * Math.PI * progressRadius;
     const progressOffset = progressCircumference * (1 - buildingPlanPercent / 100);
     const pulseScale = buildingPlanPulse.interpolate({
       inputRange: [0, 1],
-      outputRange: [1, 1.1],
+      outputRange: [1, 1.045],
     });
     const pulseOpacity = buildingPlanPulse.interpolate({
       inputRange: [0, 1],
-      outputRange: [0.14, 0.32],
+      outputRange: [0.64, 1],
     });
+    const orbFloatTranslate = buildingPlanPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [5, -6],
+    });
+    const innerRingRotate = buildingPlanRingSpin.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+    const buildingPlanAnimatedEllipsis = '.'.repeat(buildingPlanEllipsisStep + 1);
 
     return (
       <Animated.View style={[styles.buildingPlanScreen, { opacity: buildingPlanScreenOpacity }]}>
@@ -4684,38 +4958,45 @@ export function OnboardingScreen({
                 <Animated.View
                   pointerEvents="none"
                   style={[
-                    styles.buildingPlanRingPulse,
+                    styles.buildingPlanOrbGlow,
                     {
                       opacity: pulseOpacity,
                       transform: [{ scale: pulseScale }],
                     },
                   ]}
                 />
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.buildingPlanInnerRingOrbit, { transform: [{ rotate: innerRingRotate }] }]}
+                >
+                  <Svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
+                    <Circle
+                      cx={ringCenter}
+                      cy={ringCenter}
+                      r={progressRadius - 18}
+                      stroke="rgba(222,218,245,0.28)"
+                      strokeWidth={1.5}
+                      strokeDasharray="10 13"
+                      fill="none"
+                    />
+                  </Svg>
+                </Animated.View>
                 <Svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
                   <Circle
                     cx={ringCenter}
                     cy={ringCenter}
-                    r={82}
-                    stroke="rgba(167,128,255,0.72)"
-                    strokeWidth={2}
-                    strokeDasharray="8 8"
-                    fill="none"
-                  />
-                  <Circle
-                    cx={ringCenter}
-                    cy={ringCenter}
-                    r={62}
-                    stroke="rgba(222,218,245,0.78)"
-                    strokeWidth={2}
-                    strokeDasharray="9 8"
+                    r={progressRadius + 16}
+                    stroke="rgba(169,139,255,0.28)"
+                    strokeWidth={1.4}
+                    strokeDasharray="7 8"
                     fill="none"
                   />
                   <Circle
                     cx={ringCenter}
                     cy={ringCenter}
                     r={progressRadius}
-                    stroke="rgba(127,119,221,0.18)"
-                    strokeWidth={16}
+                    stroke="rgba(127,119,221,0.22)"
+                    strokeWidth={5}
                     fill="none"
                   />
                   <Circle
@@ -4723,7 +5004,7 @@ export function OnboardingScreen({
                     cy={ringCenter}
                     r={progressRadius}
                     stroke={ONBOARDING_PRIMARY}
-                    strokeWidth={16}
+                    strokeWidth={5}
                     strokeLinecap="round"
                     strokeDasharray={`${progressCircumference} ${progressCircumference}`}
                     strokeDashoffset={progressOffset}
@@ -4732,21 +5013,39 @@ export function OnboardingScreen({
                     rotation="-90"
                   />
                 </Svg>
-                <View style={styles.buildingPlanRingContent}>
+                <Animated.View
+                  style={[
+                    styles.buildingPlanOrbFloat,
+                    {
+                      transform: [{ translateY: orbFloatTranslate }, { scale: pulseScale }],
+                    },
+                  ]}
+                >
+                  <GainerCoachOrb variant={buildingPlanPercent >= 100 ? 'success' : 'thinking'} style={styles.buildingPlanOrb} />
+                </Animated.View>
+                <View style={styles.buildingPlanPercentBadge}>
                   <Text style={styles.buildingPlanPercentText}>{`${buildingPlanPercent}%`}</Text>
                 </View>
               </View>
               <Animated.Text style={[styles.buildingPlanThinkingText, { opacity: buildingPlanCaptionOpacity }]}>
-                Building your plan...
+                {buildingPlanComplete ? 'Your plan is ready' : `Building your plan${buildingPlanAnimatedEllipsis}`}
               </Animated.Text>
 
               <View style={styles.buildingPlanStepList}>
                 {buildingPlanPhases.map((label, index) => {
                   const completed = index < activePhaseIndex;
                   const active = index === activePhaseIndex;
+                  const activeSubtitle = buildingPlanStepSubtitles[index];
 
                   return (
-                    <View key={label} style={styles.buildingPlanStepRow}>
+                    <Animated.View
+                      key={label}
+                      style={[
+                        styles.buildingPlanStepRow,
+                        active && styles.buildingPlanStepRowActive,
+                        active && { opacity: pulseOpacity },
+                      ]}
+                    >
                       <View
                         style={[
                           styles.buildingPlanStepIcon,
@@ -4756,44 +5055,23 @@ export function OnboardingScreen({
                       >
                         {completed ? (
                           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                            <Path d="M4 12.4 9.2 17.6 20 6.8" stroke={ONBOARDING_PRIMARY} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                            <Path d="M4 12.4 9.2 17.6 20 6.8" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
                           </Svg>
                         ) : active ? (
-                          <ActivityIndicator color={ONBOARDING_PRIMARY} size="small" />
+                          <Animated.View style={[styles.buildingPlanStepActiveDot, { transform: [{ scale: pulseScale }] }]} />
                         ) : null}
                       </View>
-                      <Text style={[styles.buildingPlanStepText, !completed && !active && styles.buildingPlanStepTextPending]}>
-                        {label}
-                      </Text>
-                    </View>
+                      <View style={styles.buildingPlanStepCopy}>
+                        <Text style={[styles.buildingPlanStepText, !completed && !active && styles.buildingPlanStepTextPending]}>
+                          {label}
+                        </Text>
+                        {active && activeSubtitle ? (
+                          <Text style={styles.buildingPlanStepSubtitle}>{activeSubtitle}</Text>
+                        ) : null}
+                      </View>
+                    </Animated.View>
                   );
                 })}
-              </View>
-
-              <View style={styles.buildingPlanTipCard}>
-                <Svg width={58} height={58} viewBox="0 0 74 74" fill="none">
-                  <Path
-                    d="M32.4 17.8c-6.6-3.8-15 1-15 8.9-5.2 1.1-9 5.7-9 11.2 0 5.1 3.3 9.5 7.9 11 0 6.8 6.9 11.2 12.8 8.3 2.1 3.2 7.4 2.1 7.4-1.8V20.3c0-2.1-2.3-3.3-4.1-2.5Z"
-                    stroke={ONBOARDING_PRIMARY}
-                    strokeWidth={4}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <Path
-                    d="M41.6 17.8c6.6-3.8 15 1 15 8.9 5.2 1.1 9 5.7 9 11.2 0 5.1-3.3 9.5-7.9 11 0 6.8-6.9 11.2-12.8 8.3-2.1 3.2-7.4 2.1-7.4-1.8V20.3c0-2.1 2.3-3.3 4.1-2.5Z"
-                    stroke={ONBOARDING_PRIMARY}
-                    strokeWidth={4}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  <Path d="M19 36h11M22 28h8M21 47h10M44 36h11M44 28h8M43 47h10" stroke={ONBOARDING_PRIMARY} strokeWidth={3.4} strokeLinecap="round" />
-                </Svg>
-                <View style={styles.buildingPlanTipCopy}>
-                  <Text style={styles.buildingPlanTipKicker}>DID YOU KNOW?</Text>
-                  <Text style={styles.buildingPlanTipText}>
-                    Plans that adapt to you get better results than static one-size programs.
-                  </Text>
-                </View>
               </View>
             </View>
           </Animated.View>
@@ -4804,11 +5082,13 @@ export function OnboardingScreen({
 
   const canContinue =
     stage === 'location'
-      ? selectedLocationOptionId !== null
+      ? locationChoiceConfirmed
+        ? formatProfileName(profileName).trim().length > 0
+        : selectedLocationOptionId !== null
       : stage === 'goal'
       ? goals.length > 0
       : stage === 'profile'
-      ? profileLevelSelected && profileFrequencySelected
+      ? profileLevelSelected && profileFrequencySelected && profileGenderSelected
       : stage === 'planning'
       ? focusAreas.length > 0
       : stage === 'about' && bodyweightSetupStep === 'goal'
@@ -4826,7 +5106,9 @@ export function OnboardingScreen({
     stage === 'about';
   const standaloneProgressHidden = locationStageActive || stage === 'review';
   const footerPrimaryLabel =
-    stage === 'review'
+    stage === 'review' && busy
+      ? 'SAVING PLAN...'
+      : stage === 'review'
       ? 'SAVE PLAN & START'
       : stage === 'about' && bodyweightSetupStep === 'outcome'
       ? 'BUILD MY PLAN'
@@ -5476,6 +5758,16 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontWeight: '900',
   },
+  trainingProfileSummaryCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  trainingProfileSummarySubtext: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
   trainingProfileSummaryEdit: {
     color: '#A98BFF',
     fontSize: 12,
@@ -5580,6 +5872,40 @@ const styles = StyleSheet.create({
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '700',
+  },
+  trainingGenderRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  trainingGenderTile: {
+    flex: 1,
+    minHeight: 58,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    gap: 3,
+  },
+  trainingGenderTileActive: {
+    borderWidth: 2,
+    borderColor: ONBOARDING_BORDER_ACTIVE,
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+  },
+  trainingGenderTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 14,
+    lineHeight: 17,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  trainingGenderBody: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   trainingPlanPreviewStrip: {
     minHeight: 274,
@@ -5915,34 +6241,34 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   locationChoiceBenefitsPanel: {
-    marginTop: 9,
-    borderRadius: 10,
+    marginTop: 6,
+    borderRadius: 9,
     borderWidth: 1,
     borderColor: 'rgba(169,139,255,0.44)',
     backgroundColor: 'rgba(10,9,24,0.48)',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    gap: 4,
   },
   locationChoiceBenefitsKicker: {
     color: '#C7A7FF',
-    fontSize: 9,
-    lineHeight: 11,
+    fontSize: 8,
+    lineHeight: 9,
     fontWeight: '900',
     letterSpacing: 1.1,
   },
   locationChoiceBenefitsList: {
-    gap: 6,
+    gap: 3,
   },
   locationChoiceBenefitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   locationChoiceBenefitCheck: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 14,
+    height: 14,
+    borderRadius: 7,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#8B5CF6',
@@ -5950,8 +6276,8 @@ const styles = StyleSheet.create({
   locationChoiceBenefitText: {
     flex: 1,
     color: 'rgba(255,255,255,0.92)',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 10.5,
+    lineHeight: 12,
     fontWeight: '700',
   },
   locationChoiceRadio: {
@@ -6005,9 +6331,9 @@ const styles = StyleSheet.create({
   },
   locationRewardShell: {
     position: 'relative',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 22,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 20,
+    paddingTop: 86,
     paddingBottom: 92,
     backgroundColor: ONBOARDING_PANEL,
   },
@@ -6020,14 +6346,112 @@ const styles = StyleSheet.create({
   },
   locationRewardContent: {
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
+    justifyContent: 'flex-start',
+    gap: 11,
   },
   locationRewardMarkWrap: {
-    width: 144,
-    height: 132,
+    width: 210,
+    height: 190,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 0,
+    overflow: 'visible',
+    transform: [{ translateY: -8 }],
+  },
+  locationRewardOrbDouble: {
+    width: 180,
+    height: 180,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
+  locationRewardOrbNativeScale: {
+    width: 118,
+    height: 118,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ scale: 1.525 }],
+  },
+  locationRewardOrbAuraOuter: {
+    position: 'absolute',
+    top: 6,
+    width: 218,
+    height: 136,
+    borderRadius: 999,
+    backgroundColor: 'rgba(139,92,246,0.12)',
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.9,
+    shadowRadius: 42,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  locationRewardOrbAuraMid: {
+    position: 'absolute',
+    top: 20,
+    width: 170,
+    height: 116,
+    borderRadius: 999,
+    backgroundColor: 'rgba(198,139,255,0.16)',
+    shadowColor: '#C68BFF',
+    shadowOpacity: 0.8,
+    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  locationRewardOrbAuraCore: {
+    position: 'absolute',
+    top: 36,
+    width: 124,
+    height: 86,
+    borderRadius: 999,
+    backgroundColor: 'rgba(127,119,221,0.20)',
+    shadowColor: '#A98BFF',
+    shadowOpacity: 0.8,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  locationRewardSpark: {
+    position: 'absolute',
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: '#C68BFF',
+    shadowColor: '#C68BFF',
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  locationRewardSparkOne: {
+    top: 18,
+    left: 28,
+  },
+  locationRewardSparkTwo: {
+    top: 66,
+    right: 22,
+  },
+  locationRewardSparkThree: {
+    bottom: 18,
+    left: 52,
+  },
+  goalRewardOrbBadge: {
+    position: 'absolute',
+    right: 28,
+    top: 54,
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#6D5AFB',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.24)',
+    shadowColor: '#C68BFF',
+    shadowOpacity: 0.42,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 0 },
+    elevation: 10,
+  },
+  goalRewardOrbBadgeText: {
+    fontSize: 30,
+    lineHeight: 34,
   },
   locationRewardCheckCircle: {
     width: 72,
@@ -6046,55 +6470,176 @@ const styles = StyleSheet.create({
   },
   locationRewardCopy: {
     alignItems: 'center',
-    gap: 5,
-    marginTop: -4,
+    gap: 4,
+    marginTop: -6,
   },
   locationRewardTitle: {
     color: ONBOARDING_TEXT,
-    fontSize: 26,
-    lineHeight: 31,
+    fontSize: 28,
+    lineHeight: 32,
     fontWeight: '900',
     letterSpacing: -0.7,
     textAlign: 'center',
   },
+  locationRewardTitleEmoji: {
+    fontSize: 26,
+    lineHeight: 32,
+    letterSpacing: 0,
+  },
   locationRewardBody: {
-    maxWidth: 230,
+    maxWidth: 218,
     color: ONBOARDING_TEXT_SOFT,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 12.5,
+    lineHeight: 16,
     fontWeight: '700',
     textAlign: 'center',
   },
-  locationRewardBenefitList: {
+  locationRewardNameCard: {
     width: '100%',
-    gap: 12,
-    marginTop: 10,
-  },
-  locationRewardBenefitRow: {
-    minHeight: 70,
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.16)',
-    backgroundColor: 'rgba(18,17,39,0.9)',
+    borderColor: 'rgba(198,139,255,0.42)',
+    backgroundColor: 'rgba(18,17,39,0.78)',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    gap: 7,
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  locationRewardNameLabel: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: '800',
+  },
+  locationRewardNameInputWrap: {
+    minHeight: 38,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.34)',
+    backgroundColor: 'rgba(7,5,22,0.82)',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    paddingHorizontal: 16,
+    paddingLeft: 10,
+    paddingRight: 6,
   },
-  locationRewardBenefitIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#6D5AFB',
+  locationRewardNameInputWrapReady: {
+    borderColor: 'rgba(198,139,255,0.72)',
   },
-  locationRewardBenefitText: {
+  locationRewardNameInput: {
     flex: 1,
+    minHeight: 36,
     color: ONBOARDING_TEXT,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
+    padding: 0,
+  },
+  locationRewardNameCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: '#7F77DD',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  locationRewardNameHint: {
+    color: '#C68BFF',
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
+  locationRewardSectionLabel: {
+    width: '100%',
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 11,
+    lineHeight: 13,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  locationRewardBenefitGrid: {
+    width: '100%',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 10,
+    rowGap: 10,
+  },
+  goalRewardBenefitStack: {
+    flexDirection: 'column',
+    flexWrap: 'nowrap',
+    rowGap: 9,
+  },
+  locationRewardBenefitCard: {
+    width: '48.2%',
+    minHeight: 112,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: 'rgba(198,139,255,0.28)',
+    backgroundColor: 'rgba(22,18,48,0.94)',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    gap: 10,
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.16,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  goalRewardBenefitCard: {
+    width: '100%',
+    minHeight: 78,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    gap: 12,
+  },
+  locationRewardBenefitIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8B5CF6',
+    borderWidth: 1,
+    borderColor: 'rgba(198,139,255,0.58)',
+    shadowColor: '#C68BFF',
+    shadowOpacity: 0.32,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  goalRewardBenefitIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+  },
+  locationRewardBenefitCopy: {
+    gap: 3,
+  },
+  goalRewardBenefitCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  locationRewardBenefitText: {
+    color: ONBOARDING_TEXT,
+    fontSize: 12.5,
+    lineHeight: 15,
+    fontWeight: '900',
+  },
+  goalRewardBenefitText: {
+    fontSize: 14,
+    lineHeight: 17,
+  },
+  locationRewardBenefitBody: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '700',
+  },
+  goalRewardBenefitBody: {
+    fontSize: 11.5,
+    lineHeight: 14,
   },
   locationStageBody: {
     gap: spacing.md,
@@ -6936,6 +7481,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     justifyContent: 'center',
   },
+  focusAreaSkeleton: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: 'hidden',
+    backgroundColor: '#000000',
+  },
   focusAreaImage: {
     width: '92%',
     height: '92%',
@@ -7356,7 +7906,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: 18,
-    paddingTop: 112,
+    paddingTop: 44,
   },
   buildingPlanThinkingCenter: {
     width: '100%',
@@ -7364,32 +7914,62 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-start',
   },
   buildingPlanRingStack: {
-    width: 188,
-    height: 188,
+    width: 282,
+    height: 310,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  buildingPlanOrbGlow: {
+    position: 'absolute',
+    top: 28,
+    left: 32,
+    width: 218,
+    height: 218,
+    borderRadius: 109,
+    backgroundColor: 'rgba(127,119,221,0.24)',
+    shadowColor: '#A98BFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.74,
+    shadowRadius: 46,
+    elevation: 10,
+  },
+  buildingPlanInnerRingOrbit: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 282,
+    height: 282,
+  },
+  buildingPlanOrbFloat: {
+    position: 'absolute',
+    top: 76,
+    left: 82,
+    width: 118,
+    height: 118,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buildingPlanRingPulse: {
-    position: 'absolute',
-    width: 174,
-    height: 174,
-    borderRadius: 87,
-    borderWidth: 2,
-    borderColor: ONBOARDING_PRIMARY,
+  buildingPlanOrb: {
+    transform: [{ scale: 1.82 }],
   },
-  buildingPlanRingContent: {
+  buildingPlanPercentBadge: {
     position: 'absolute',
-    width: 124,
-    height: 124,
-    borderRadius: 62,
+    top: 246,
+    left: 106,
+    minWidth: 70,
+    minHeight: 30,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(8,8,21,0.32)',
+    paddingHorizontal: 14,
+    backgroundColor: 'rgba(127,119,221,0.34)',
+    borderWidth: 1,
+    borderColor: 'rgba(169,139,255,0.38)',
   },
   buildingPlanPercentText: {
     color: '#FFFFFF',
-    fontSize: 38,
-    lineHeight: 44,
+    fontSize: 15,
+    lineHeight: 18,
     fontWeight: '900',
     letterSpacing: 0,
   },
@@ -7399,21 +7979,31 @@ const styles = StyleSheet.create({
     lineHeight: 36,
     fontWeight: '900',
     textAlign: 'center',
-    marginTop: 28,
-    marginBottom: 28,
+    marginTop: -2,
+    marginBottom: 20,
     minHeight: 36,
   },
   buildingPlanStepList: {
     width: '100%',
     maxWidth: 270,
     alignSelf: 'center',
-    gap: 18,
+    gap: 12,
   },
   buildingPlanStepRow: {
-    minHeight: 28,
+    minHeight: 48,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
+    borderRadius: 14,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+  },
+  buildingPlanStepRowActive: {
+    shadowColor: '#A98BFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 2,
   },
   buildingPlanStepIcon: {
     width: 22,
@@ -7426,51 +8016,36 @@ const styles = StyleSheet.create({
   },
   buildingPlanStepIconDone: {
     borderWidth: 0,
+    backgroundColor: ONBOARDING_PRIMARY,
   },
   buildingPlanStepIconActive: {
-    borderColor: 'transparent',
+    borderColor: ONBOARDING_PRIMARY,
+    backgroundColor: 'rgba(127,119,221,0.14)',
+  },
+  buildingPlanStepActiveDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: ONBOARDING_PRIMARY,
+  },
+  buildingPlanStepCopy: {
+    flex: 1,
+    gap: 3,
   },
   buildingPlanStepText: {
-    flex: 1,
     color: '#FFFFFF',
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '600',
   },
+  buildingPlanStepSubtitle: {
+    color: 'rgba(196,181,253,0.72)',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
   buildingPlanStepTextPending: {
-    color: 'rgba(255,255,255,0.86)',
-  },
-  buildingPlanTipCard: {
-    width: '100%',
-    maxWidth: 332,
-    minHeight: 92,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: 'rgba(29,28,53,0.58)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 18,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    marginTop: 54,
-  },
-  buildingPlanTipCopy: {
-    flex: 1,
-    gap: 6,
-  },
-  buildingPlanTipKicker: {
-    color: '#B59BFF',
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
-    letterSpacing: 0.3,
-  },
-  buildingPlanTipText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    lineHeight: 20,
-    fontWeight: '500',
+    color: 'rgba(255,255,255,0.64)',
   },
   photoSelectionCard: {
     borderRadius: radii.lg,
@@ -8812,7 +9387,7 @@ const styles = StyleSheet.create({
   },
   planReadyProgramCarbonBackdrop: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.36,
+    opacity: 0,
   },
   planReadyProgramOverviewRootImage: {
     position: 'absolute',
@@ -8826,7 +9401,7 @@ const styles = StyleSheet.create({
   },
   planReadyProgramOverviewRootShade: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(3,3,10,0.34)',
+    backgroundColor: 'transparent',
   },
   planReadyProgramOverviewHero: {
     height: 288,
@@ -8846,6 +9421,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.16)',
   },
   planReadyProgramOverviewContent: {
+    position: 'relative',
     paddingHorizontal: 14,
     paddingTop: 14,
     paddingBottom: 16,
@@ -8910,26 +9486,28 @@ const styles = StyleSheet.create({
   },
   planReadyProgramWeekList: {
     marginTop: 150,
+    marginHorizontal: 10,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#A15BFF',
-    backgroundColor: 'rgba(5,5,13,0.96)',
-    overflow: 'hidden',
-    gap: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'rgba(18,17,39,0.46)',
+    overflow: 'visible',
+    gap: 10,
   },
   planReadyProgramWeekCard: {
-    borderRadius: 0,
-    borderWidth: 0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(161,91,255,0.28)',
     borderTopWidth: 1,
-    borderTopColor: 'rgba(161,91,255,0.24)',
-    backgroundColor: 'transparent',
+    borderTopColor: 'rgba(161,91,255,0.28)',
+    backgroundColor: ONBOARDING_CARD,
     overflow: 'hidden',
   },
   planReadyProgramWeekCardFirst: {
-    borderTopWidth: 0,
+    borderTopWidth: 1,
   },
   planReadyProgramWeekCardExpanded: {
-    backgroundColor: 'rgba(36,18,70,0.72)',
+    backgroundColor: ONBOARDING_CARD,
   },
   planReadyProgramWeekHeader: {
     minHeight: 62,
@@ -8969,14 +9547,14 @@ const styles = StyleSheet.create({
   planReadyProgramWeekWorkoutList: {
     borderTopWidth: 1,
     borderTopColor: 'rgba(127,119,221,0.20)',
-    padding: 12,
-    gap: 10,
+    padding: 18,
+    gap: 16,
   },
   planReadyProgramWeekWorkoutCard: {
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(127,119,221,0.20)',
-    backgroundColor: 'rgba(8,8,22,0.56)',
+    backgroundColor: ONBOARDING_CARD,
     overflow: 'hidden',
   },
   planReadyProgramWeekWorkoutHeader: {
@@ -8985,7 +9563,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 14,
   },
   planReadyProgramWeekWorkoutBadge: {
     minWidth: 42,
@@ -9024,12 +9602,12 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(127,119,221,0.16)',
   },
   planReadyProgramExerciseRow: {
-    minHeight: 48,
+    minHeight: 54,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 11,
     borderTopWidth: 1,
     borderTopColor: 'rgba(127,119,221,0.12)',
   },
@@ -9058,14 +9636,14 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   planReadyProgramExerciseTargets: {
-    width: 64,
+    width: 76,
     alignItems: 'flex-end',
     gap: 2,
   },
   planReadyProgramExerciseTarget: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 10,
-    lineHeight: 13,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '800',
   },
   planReadyAllWorkoutsCard: {

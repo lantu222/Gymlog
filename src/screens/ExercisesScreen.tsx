@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
+import { colors } from '../theme';
 import { ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
@@ -28,6 +29,6 @@ export function ExercisesScreen({ items, trackedIds, onBack, onOpenExercise, onT
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.background,
   },
 });

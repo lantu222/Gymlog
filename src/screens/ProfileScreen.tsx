@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenHeader } from '../components/ScreenHeader';
-import { radii, spacing } from '../theme';
+import { colors, radii, spacing } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
 
 interface ProfileScreenProps {
@@ -84,11 +84,11 @@ export function ProfileScreen({ preferences, onPreferencesChange, onOpenSettings
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     paddingHorizontal: spacing.lg,
   },
   sectionLabel: {
-    color: '#111111',
+    color: 'rgba(255,255,255,0.68)',
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',

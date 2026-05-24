@@ -28,6 +28,7 @@ import {
   MeasurementKind,
   MeasurementUnit,
   UnitPreference,
+  WorkoutPlan,
   WorkoutTemplateDraft,
   WorkoutTemplateSessionDraft,
   WorkoutTemplateSessionWithExercises,
@@ -55,6 +56,7 @@ interface AppContextValue {
   updatePreferences: (patch: Partial<AppPreferences>) => Promise<void>;
   completeOnboarding: (patch?: Partial<AppPreferences>) => Promise<void>;
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
+  upsertWorkoutPlan: (plan: WorkoutPlan) => Promise<void>;
   renameWorkoutTemplate: (workoutTemplateId: string, nextName: string) => Promise<void>;
   deleteWorkoutTemplate: (workoutTemplateId: string) => Promise<void>;
   saveWorkoutSession: (
@@ -114,6 +116,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       trainingFirstRunDismissed: false,
       selectedSignInMethod: null,
       selectedAccessTier: null,
+      profileName: null,
       setupCurrentWeightKg: null,
       bodyweightGoalKg: null,
       onboardingCompleted: false,
@@ -299,6 +302,21 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     return workoutTemplateId;
   }
 
+  async function upsertWorkoutPlan(plan: WorkoutPlan) {
+    const current = databaseRef.current;
+    const currentWithoutActivePlans = {
+      ...current,
+      workoutPlans: current.workoutPlans.map((item) => ({ ...item, isActive: false })),
+    };
+
+    await commit(
+      workoutPlanRepository.upsert(currentWithoutActivePlans, {
+        ...plan,
+        isActive: true,
+      }),
+    );
+  }
+
   async function renameWorkoutTemplate(workoutTemplateId: string, nextName: string) {
     const current = databaseRef.current;
     const template = workoutTemplateRepository.findById(current, workoutTemplateId);
@@ -481,6 +499,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       updatePreferences,
       completeOnboarding,
       upsertWorkoutTemplate,
+      upsertWorkoutPlan,
       renameWorkoutTemplate,
       deleteWorkoutTemplate,
       saveWorkoutSession,

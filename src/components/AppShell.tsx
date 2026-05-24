@@ -66,8 +66,8 @@ export function AppShell({
   shellBackgroundColor,
 }: AppShellProps) {
   const tone = toneStyles[screenTone];
-  const shellBackground = shellBackgroundColor ?? (screenTone === 'home' || screenTone === 'profile' ? '#FFFFFF' : colors.background);
-  const statusBarStyle = statusBarStyleOverride ?? (screenTone === 'home' || screenTone === 'profile' ? 'dark' : 'light');
+  const shellBackground = shellBackgroundColor ?? colors.background;
+  const statusBarStyle = statusBarStyleOverride ?? 'light';
 
   return (
     <SafeAreaProvider style={[styles.root, { backgroundColor: shellBackground }]}>

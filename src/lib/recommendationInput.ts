@@ -29,6 +29,7 @@ export function buildRecommendationInput(selection: FirstRunSetupSelection): Rec
     level: selection.level,
     daysPerWeek: selection.daysPerWeek,
     equipment: selection.equipment,
+    gender: selection.gender,
     profile: buildRecommendationProfile(selection),
     secondaryOutcomes: selection.secondaryOutcomes,
     focusAreas: selection.focusAreas,

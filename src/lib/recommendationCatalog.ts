@@ -1,4 +1,5 @@
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { GAINER_PROGRAM_RECOMMENDATIONS } from '../features/workout/gainerProgramCatalog';
 import type { SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome } from '../types/models';
 import type { RecommendationProgramDefinition, TemplateFamilyId } from '../types/recommendation';
 
@@ -16,6 +17,7 @@ function defineProgram(
     focusAreaTags?: SetupFocusArea[];
     lowFriction?: boolean;
     jointFriendly?: boolean;
+    targetGender?: RecommendationProgramDefinition['targetGender'];
   },
 ): RecommendationProgramDefinition {
   const template = getWorkoutTemplateById(programId);
@@ -36,6 +38,7 @@ function defineProgram(
     focusAreaTags: config.focusAreaTags ?? [],
     lowFriction: config.lowFriction ?? false,
     jointFriendly: config.jointFriendly ?? false,
+    targetGender: config.targetGender ?? 'unisex',
     daysPerWeek: template.daysPerWeek,
     estimatedSessionMinutes: template.estimatedSessionDuration,
   };
@@ -170,6 +173,17 @@ export const RECOMMENDATION_PROGRAMS: RecommendationProgramDefinition[] = [
     secondaryOutcomeTags: ['muscle'],
     focusAreaTags: ['chest', 'back', 'arms', 'legs'],
   }),
+  defineProgram('tpl_6_day_ppl_v1', {
+    familyId: 'mass_hypertrophy',
+    supportedGoals: ['muscle', 'general_fitness'],
+    backupGoals: ['strength', 'general', 'lean_athletic'],
+    supportedLevels: ['intermediate', 'advanced'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['pump', 'heavy', 'balanced'],
+    secondaryOutcomeTags: ['muscle', 'strength'],
+    focusAreaTags: ['chest', 'back', 'arms', 'legs', 'shoulders'],
+  }),
   defineProgram('tpl_2_day_mobility_reset_v1', {
     familyId: 'joint_friendly',
     supportedGoals: ['general', 'general_fitness', 'run_mobility'],
@@ -208,6 +222,7 @@ export const RECOMMENDATION_PROGRAMS: RecommendationProgramDefinition[] = [
     focusAreaTags: ['conditioning'],
     jointFriendly: true,
   }),
+  ...GAINER_PROGRAM_RECOMMENDATIONS.map((program) => defineProgram(program.programId, program)),
 ];
 
 export function getRecommendationProgramDefinition(programId: string) {

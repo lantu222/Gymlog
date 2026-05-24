@@ -87,7 +87,15 @@ module.exports = [
       assert.doesNotMatch(reviewBody, /setSelectedPlanReadySessionId\(planReadyPrimarySessionId\)/);
       assert.doesNotMatch(reviewBody, /onCompleteToStartingWeek\(selection, activeRecommendedProgramId\)/);
       assert.match(onboardingSource, /if \(stage === 'review'\) \{[\s\S]*onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
-      assert.match(appSource, /handleOnboardingCompleteToTraining[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/);
+      assert.match(appSource, /function waitForPlanSaveFeedback\(\)[\s\S]*setTimeout\(resolve, 3000\)/);
+      assert.match(appSource, /function buildSavedOnboardingPlan\([\s\S]*buildRecommendationPlanReadyPayload\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)/);
+      assert.match(appSource, /handleOnboardingCompleteToTraining[\s\S]*waitForPlanSaveFeedback\(\)[\s\S]*persistSetupSelection\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)[\s\S]*workout\.startCustomWorkout\(runtimeSession, selection\.unitPreference\)/);
+      assert.match(appSource, /handleSetupCompleteToTraining[\s\S]*waitForPlanSaveFeedback\(\)[\s\S]*persistSetupSelection\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)[\s\S]*workout\.startCustomWorkout\(runtimeSession, selection\.unitPreference\)/);
+      const savePlanStartBody = appSource.slice(
+        appSource.indexOf('async function handleOnboardingCompleteToTraining'),
+        appSource.indexOf('async function handleOnboardingCompleteToProgramDetail'),
+      );
+      assert.doesNotMatch(savePlanStartBody, /openRecommendedProgramDetail\(recommendedProgramId\)/);
       assert.doesNotMatch(appSource, /openStartingWeek\(recommendedProgramId, 'first_run'\)/);
       assert.match(reviewBody, /minHeight: planReadyStageMinHeight/);
       assert.doesNotMatch(reviewBody, /height: planReadyStageMinHeight/);
@@ -219,6 +227,7 @@ module.exports = [
       assert.notEqual(locationStageActiveStart, -1, 'locationStageActive should exist');
 
       const canContinueBlock = onboardingSource.slice(canContinueStart, locationStageActiveStart);
+      assert.match(canContinueBlock, /stage === 'profile'[\s\S]*profileLevelSelected && profileFrequencySelected && profileGenderSelected/);
       assert.match(canContinueBlock, /stage === 'planning'[\s\S]*focusAreas\.length > 0/);
       assert.match(onboardingSource, /if \(!canContinue \|\| busy\)/);
       assert.match(onboardingSource, /disabled=\{!canContinue \|\| busy\}/);
@@ -372,28 +381,27 @@ module.exports = [
       assert.match(profileBody, /We'll tailor your plan to your experience and availability\./);
       assert.match(profileBody, /TRAINING_LEVEL_OPTIONS\.map/);
       assert.match(profileBody, /TRAINING_FREQUENCY_OPTIONS\.map/);
+      assert.match(profileBody, /GENDER_OPTIONS\.map/);
       assert.match(profileBody, /setLevel\(option\.level\)/);
       assert.match(profileBody, /setDaysPerWeek\(option\.value\)/);
-      assert.match(profileBody, /Plan preview/);
-      assert.match(profileBody, /<TrainingSectionIcon icon="strength" \/>/);
-      assert.match(profileBody, /\{setupSummary\.workouts\} - \{setupSummary\.duration\} - \{setupSummary\.structure\}/);
+      assert.match(profileBody, /setGender\(option\.gender\)/);
+      assert.match(profileBody, /Program Fit/);
+      assert.match(profileBody, /Your plan preview/);
+      assert.match(profileBody, /trainingPlanMetricsRow/);
+      assert.match(profileBody, /setupSummary\.duration\.replace\(' sessions', ''\)/);
       assert.doesNotMatch(profileBody, /Â|Å|â/);
-      assert.doesNotMatch(profileBody, /GENDER_OPTIONS/);
       assert.doesNotMatch(profileBody, /AgeSlider/);
       assert.match(onboardingSource, /level: 'advanced'/);
       assert.match(onboardingSource, /\{ value: 6, title: '6\+', body: 'days' \}/);
       assert.match(onboardingSource, /function getTrainingProfileSetupSummary\(level: SetupLevel, daysPerWeek: SetupDaysPerWeek\)/);
-      assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 248/);
+      assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 206/);
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderWidth: 2/);
-      assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: '#141414'/);
-      assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderColor: '#FFFFFF'[\s\S]*backgroundColor: '#171717'/);
-      assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 17[\s\S]*lineHeight: 19/);
-      assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 9\.5[\s\S]*letterSpacing: -0\.1/);
-      assert.match(onboardingSource, /\{ label: 'More recovery', tone: 'green' \}/);
-      assert.match(onboardingSource, /\{ label: 'More variety', tone: 'purple' \}/);
-      assert.match(onboardingSource, /\{ label: 'Advanced progression', tone: 'green' \}/);
-      assert.match(profileBody, /getLocationFocusBadgeStyle\(chip\.tone\)/);
-      assert.match(profileBody, /getLocationFocusBadgeTextStyle\(chip\.tone\)/);
+      assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE[\s\S]*backgroundColor: ONBOARDING_CARD_ACTIVE/);
+      assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 18[\s\S]*lineHeight: 20/);
+      assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 11[\s\S]*letterSpacing: -0\.1/);
+      assert.match(onboardingSource, /trainingGenderTileActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE/);
+      assert.match(onboardingSource, /trainingGenderTitle:\s*\{[\s\S]*fontSize: 14/);
     },
   },
   {

@@ -8,6 +8,7 @@ import { getHomeSummary } from './src/lib/dashboard';
 import { formatDurationMinutes, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import {
+  buildFirstRunCustomProgramName,
   buildFirstRunRecommendationReasons,
   buildFirstRunPromptSuggestions,
   DEFAULT_RHYTHM_BY_DAYS,
@@ -29,6 +30,7 @@ import {
   getAiCoachNextSessionId,
   getAiCoachTemplateId,
 } from './src/lib/aiCoachPlan';
+import { buildRecommendationPlanReadyPayload } from './src/lib/recommendationProgramme';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -75,6 +77,7 @@ import { WorkoutProvider, useWorkoutContext } from './src/features/workout/Worko
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
+import { WorkoutRuntimeTemplate, WorkoutTemplateExercise } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import { colors } from './src/theme';
 import {
@@ -414,6 +417,7 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
   }
 
   return {
+    profileName: preferences.profileName,
     gender: preferences.setupGender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
     age: preferences.setupAge ?? DEFAULT_FIRST_RUN_SELECTION.age,
     ageRange: preferences.setupAgeRange ?? DEFAULT_FIRST_RUN_SELECTION.ageRange,
@@ -452,6 +456,7 @@ function buildSetupPreferencePatch(
   return {
     onboardingCompleted: true,
     setupCompleted: true,
+    profileName: selection.profileName?.trim() ? selection.profileName.trim().slice(0, 32) : null,
     setupGender: selection.gender,
     setupAge: selection.age ?? null,
     setupAgeRange: selection.ageRange ?? null,
@@ -472,6 +477,129 @@ function buildSetupPreferencePatch(
     recommendedProgramId,
     activePlanId: null,
     unitPreference: selection.unitPreference,
+  };
+}
+
+function getOnboardingFallbackTrackingMode(name: string): WorkoutTemplateExercise['trackingMode'] {
+  const normalized = name.toLowerCase();
+  if (
+    normalized.includes('bodyweight') ||
+    normalized.includes('push-up') ||
+    normalized.includes('plank') ||
+    normalized.includes('mountain climber') ||
+    normalized.includes('glute bridge') ||
+    normalized.includes('lunge') ||
+    normalized.includes('inverted row') ||
+    normalized.includes('mobility') ||
+    normalized.includes('run')
+  ) {
+    return 'bodyweight';
+  }
+
+  return 'load_and_reps';
+}
+
+function buildOnboardingFallbackExercise(
+  name: string,
+  sessionId: string,
+  exerciseIndex: number,
+): WorkoutTemplateExercise {
+  const role = exerciseIndex === 0 ? 'primary' : exerciseIndex < 3 ? 'secondary' : 'accessory';
+
+  return {
+    id: `${sessionId}_exercise_${exerciseIndex + 1}`,
+    exerciseName: name,
+    slotId: `${role}_${exerciseIndex + 1}`,
+    role,
+    progressionPriority: exerciseIndex === 0 ? 'high' : exerciseIndex < 3 ? 'medium' : 'low',
+    trackingMode: getOnboardingFallbackTrackingMode(name),
+    sets: exerciseIndex === 0 ? 3 : 2,
+    repsMin: name.toLowerCase().includes('plank') ? 20 : 10,
+    repsMax: name.toLowerCase().includes('plank') ? 40 : 15,
+    restSecondsMin: exerciseIndex === 0 ? 75 : 45,
+    restSecondsMax: exerciseIndex === 0 ? 120 : 75,
+    substitutionGroup: `onboarding_${role}_${exerciseIndex + 1}`,
+  };
+}
+
+function buildSavedOnboardingPlan(
+  selection: FirstRunSetupSelection,
+  recommendedProgramId: string,
+  savedTemplateId?: string,
+) {
+  const template = getWorkoutTemplateById(recommendedProgramId);
+  const planReadyPayload = buildRecommendationPlanReadyPayload(selection, recommendedProgramId);
+  const trainingDays = planReadyPayload.weeklySchedule.filter((day) => day.source === 'template' || day.keyLifts.length > 0);
+  const sessions = trainingDays.map((day, dayIndex) => {
+    const sourceSession = day.source === 'template'
+      ? template?.sessions.find((session) => session.id === day.id) ?? null
+      : null;
+    const sessionId = `onboarding_${recommendedProgramId}_${dayIndex + 1}`;
+    const exercises = sourceSession
+      ? sourceSession.exercises.map((exercise) => ({
+          ...exercise,
+          id: `${sessionId}_${exercise.id}`,
+          slotId: `${exercise.slotId}_${dayIndex + 1}`,
+        }))
+      : day.keyLifts.map((lift, exerciseIndex) => buildOnboardingFallbackExercise(lift, sessionId, exerciseIndex));
+
+    return {
+      id: sessionId,
+      name: formatWorkoutDisplayLabel(day.name, 'Workout'),
+      orderIndex: dayIndex,
+      exercises,
+    };
+  });
+  const draft: WorkoutTemplateDraft = {
+    name: buildFirstRunCustomProgramName(selection),
+    sessions: sessions.map((session) => ({
+      id: session.id,
+      name: session.name,
+      exercises: session.exercises.map((exercise) => ({
+        id: exercise.id,
+        name: exercise.exerciseName,
+        targetSets: exercise.sets,
+        repMin: exercise.repsMin,
+        repMax: exercise.repsMax,
+        restSeconds: exercise.restSecondsMax,
+        trackedDefault: true,
+      })),
+    })),
+  };
+  const runtimeTemplate: WorkoutRuntimeTemplate = {
+    id: savedTemplateId ?? recommendedProgramId,
+    name: draft.name,
+    defaultScheduleMode: 'rolling_sequence',
+    sessions,
+  };
+
+  return { draft, runtimeTemplate, firstSessionId: sessions[0]?.id ?? null };
+}
+
+function buildSavedOnboardingWorkoutPlan(
+  selection: FirstRunSetupSelection,
+  workoutTemplateId: string,
+  sessionCount: number,
+) {
+  const days = selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
+    ? selection.availableDays
+    : DEFAULT_RHYTHM_BY_DAYS[selection.daysPerWeek] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+  const timestamp = new Date().toISOString();
+  const planId = `onboarding_plan_${workoutTemplateId}`;
+
+  return {
+    id: planId,
+    name: buildFirstRunCustomProgramName(selection),
+    mode: 'rotation' as const,
+    entries: Array.from({ length: Math.max(1, sessionCount) }, (_, index) => ({
+      id: `${planId}_entry_${index + 1}`,
+      workoutTemplateId,
+      label: days[index % days.length] ?? `Day ${index + 1}`,
+      orderIndex: index,
+    })),
+    isActive: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   };
 }
 
@@ -498,6 +626,53 @@ function formatSplitLabel(splitType?: string) {
     .join(' / ');
 }
 
+function formatShortHomePlanName(name: string, daysPerWeek?: number) {
+  const normalized = formatWorkoutDisplayLabel(name, 'Workout plan')
+    .replace(/^my\s+/i, '')
+    .replace(/\s+split$/i, '')
+    .replace(/\s*\+\s*.*/i, '')
+    .replace(/minimal/gi, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  if (daysPerWeek && /^\d+-day/i.test(normalized)) {
+    return normalized.length > 24 ? `${normalized.slice(0, 22).trim()}...` : normalized;
+  }
+
+  const withDays = daysPerWeek ? `${daysPerWeek}-Day ${normalized}` : normalized;
+  return withDays.length > 24 ? `${withDays.slice(0, 22).trim()}...` : withDays;
+}
+
+function getExerciseFocusName(name: string) {
+  const normalized = name.toLowerCase();
+  if (/(squat|lunge|leg press|leg extension|quad)/.test(normalized)) {
+    return 'Lower Focus';
+  }
+  if (/(deadlift|hip thrust|glute|leg curl|hamstring)/.test(normalized)) {
+    return 'Posterior Focus';
+  }
+  if (/(bench|press|push-up|fly|dip)/.test(normalized)) {
+    return 'Push Focus';
+  }
+  if (/(row|pull-up|pulldown|face pull)/.test(normalized)) {
+    return 'Pull Focus';
+  }
+  if (/(run|mobility|stretch|yoga|conditioning|hiit)/.test(normalized)) {
+    return 'Conditioning Focus';
+  }
+  return 'Full Body Focus';
+}
+
+function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; exerciseName?: string }>) {
+  const displayName = formatWorkoutDisplayLabel(name, 'Workout');
+  if (!/^(minimal\s+[abc]|workout\s+[abc]|day\s+\d+|session\s+\d+)$/i.test(displayName.trim())) {
+    return displayName.length > 22 ? `${displayName.slice(0, 20).trim()}...` : displayName;
+  }
+
+  const primaryName = exercises[0]?.name ?? exercises[0]?.exerciseName ?? '';
+  return getExerciseFocusName(primaryName);
+}
+
 function GymlogApp() {
   const {
     database,
@@ -517,6 +692,7 @@ function GymlogApp() {
     updatePreferences,
     completeOnboarding,
     upsertWorkoutTemplate,
+    upsertWorkoutPlan,
     deleteWorkoutTemplate,
     resetAllData,
     addBodyweightEntry,
@@ -1035,6 +1211,12 @@ function GymlogApp() {
     }
   }
 
+  function waitForPlanSaveFeedback() {
+    return new Promise<void>((resolve) => {
+      setTimeout(resolve, 3000);
+    });
+  }
+
   function handleOpenReadyPrograms() {
     navigate(WORKOUT_PLAN_ROUTE);
   }
@@ -1333,7 +1515,13 @@ function GymlogApp() {
     selection: FirstRunSetupSelection,
     recommendedProgramId: string,
   ) {
+    await waitForPlanSaveFeedback();
     await persistSetupSelection(selection, recommendedProgramId);
+    const savedPlan = buildSavedOnboardingPlan(selection, recommendedProgramId);
+    const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
+    const activePlan = buildSavedOnboardingWorkoutPlan(selection, savedTemplateId, savedPlan.runtimeTemplate.sessions.length);
+    await upsertWorkoutPlan(activePlan);
+    await updatePreferences({ activePlanId: activePlan.id });
     resetToRoute(ROOT_ROUTES.home);
   }
 
@@ -1423,7 +1611,13 @@ function GymlogApp() {
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
+    await waitForPlanSaveFeedback();
     await persistSetupSelection(selection, recommendedProgramId);
+    const savedPlan = buildSavedOnboardingPlan(selection, recommendedProgramId);
+    const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
+    const activePlan = buildSavedOnboardingWorkoutPlan(selection, savedTemplateId, savedPlan.runtimeTemplate.sessions.length);
+    await upsertWorkoutPlan(activePlan);
+    await updatePreferences({ activePlanId: activePlan.id });
     showToast('Setup updated');
     resetToRoute(ROOT_ROUTES.home);
   }
@@ -1636,6 +1830,39 @@ function GymlogApp() {
     [recommendedReadyTemplate],
   );
   const homeActivePlanCard = useMemo(() => {
+    const activeWorkoutPlan = database.workoutPlans.find((plan) => plan.id === preferences.activePlanId) ?? null;
+    if (activeWorkoutPlan?.entries.length) {
+      const sortedEntries = [...activeWorkoutPlan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+      const firstEntry = sortedEntries[0];
+      const activeTemplate = workoutTemplates.find((template) => template.id === firstEntry.workoutTemplateId) ?? null;
+      const activeTemplateSessions = activeTemplate ? getWorkoutTemplateSessions(activeTemplate.id) : [];
+      const nextSession = activeTemplateSessions[0] ?? null;
+      if (activeTemplate && nextSession) {
+        const exerciseCount = nextSession.exercises.length;
+        const estimatedDuration = Math.max(20, Math.round(exerciseCount * 10));
+
+        return {
+          programId: activeTemplate.id,
+          programType: 'custom' as const,
+          eyebrow: `${sortedEntries.length} day custom plan`,
+          title: formatShortHomePlanName(activeWorkoutPlan.name || activeTemplate.name, sortedEntries.length),
+          subtitle: `${sortedEntries.length} workouts in rotation.`,
+          sessionsPerWeek: `${sortedEntries.length}`,
+          weeklyMinutes: `~${estimatedDuration * sortedEntries.length} min`,
+          nextSession: {
+            label: 'Week 1 · Day 1',
+            title: formatHomeSessionTitle(nextSession.name, nextSession.exercises),
+            duration: `~${estimatedDuration} min`,
+            exercises: nextSession.exercises.slice(0, 5).map((exercise) => ({
+              name: exercise.name,
+              setsLabel: `${exercise.targetSets} sets`,
+            })),
+            hiddenExerciseCount: Math.max(exerciseCount - 5, 0),
+          },
+        };
+      }
+    }
+
     const nextSession = recommendedReadyTemplate?.sessions[0] ?? null;
     if (!recommendedReadyTemplate || !nextSession) {
       return null;
@@ -1645,14 +1872,15 @@ function GymlogApp() {
 
     return {
       programId: recommendedReadyTemplate.id,
+      programType: 'ready' as const,
       eyebrow: `${recommendedReadyTemplate.daysPerWeek} day ${formatSplitLabel(recommendedReadyTemplate.splitType)}`,
-      title: formatWorkoutDisplayLabel(recommendedReadyTemplate.name, 'Workout plan'),
+      title: formatShortHomePlanName(recommendedReadyTemplate.name, recommendedReadyTemplate.daysPerWeek),
       subtitle: recommendedReadyContent?.summary ?? 'Your recommended plan is ready to run.',
       sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
       weeklyMinutes: `~${weeklyMinutes} min`,
       nextSession: {
         label: 'Week 1 · Day 1',
-        title: formatWorkoutDisplayLabel(nextSession.name, 'Workout'),
+        title: formatHomeSessionTitle(nextSession.name, nextSession.exercises),
         duration: `~${recommendedReadyTemplate.estimatedSessionDuration} min`,
         exercises: nextSession.exercises.map((exercise) => ({
           name: exercise.exerciseName,
@@ -1661,7 +1889,7 @@ function GymlogApp() {
         hiddenExerciseCount: Math.max(nextSession.exercises.length - 5, 0),
       },
     };
-  }, [recommendedReadyContent, recommendedReadyTemplate]);
+  }, [database.workoutPlans, getWorkoutTemplateSessions, preferences.activePlanId, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
   const homeAiPromptSuggestions = useMemo(
     () =>
       setupSelection
@@ -2506,6 +2734,7 @@ function GymlogApp() {
     content = (
       <HomeScreen
         hasNoProgramState={!hasSavedTrainingSetup}
+        profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
         streak={homeSummary.streak}
         quickStats={homeQuickStats}
@@ -2514,11 +2743,21 @@ function GymlogApp() {
         customTemplates={customWorkouts}
         onStartActivePlan={() => {
           if (homeActivePlanCard) {
+            if (homeActivePlanCard.programType === 'custom') {
+              handleStartCustomProgram(homeActivePlanCard.programId);
+              return;
+            }
+
             handleStartReadyProgram(homeActivePlanCard.programId);
           }
         }}
         onOpenActivePlan={() => {
           if (homeActivePlanCard) {
+            if (homeActivePlanCard.programType === 'custom') {
+              handleOpenCustomProgramDetail(homeActivePlanCard.programId);
+              return;
+            }
+
             handleOpenReadyProgramDetail(homeActivePlanCard.programId);
           }
         }}

@@ -12,12 +12,12 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { GymlogIcon, GymlogIconName } from './GymlogIcon';
-import { layout, spacing } from '../theme';
+import { colors, layout, spacing } from '../theme';
 import { ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
 
 const GREEN = '#B8FF6A';
 const PURPLE = '#C68BFF';
-const BACKGROUND = '#000000';
+const BACKGROUND = colors.background;
 const SURFACE = '#151515';
 const SURFACE_SOFT = 'rgba(255,255,255,0.045)';
 const BORDER = 'rgba(255,255,255,0.12)';

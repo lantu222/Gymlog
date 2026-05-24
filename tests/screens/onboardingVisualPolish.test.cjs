@@ -57,10 +57,11 @@ module.exports = [
       assert.match(onboardingSource, /source=\{PLAN_READY_PROGRAM_OVERVIEW_HERO_SOURCE\}[\s\S]*style=\{styles\.planReadyProgramOverviewRootImage\}/);
       assert.match(onboardingSource, /styles\.planReadyProgramOverviewStage/);
       assert.match(onboardingSource, /styles\.planReadyProgramOverviewScrollView/);
+      assert.match(onboardingSource, /planReadyProgramOverviewStage:\s*\{[^}]*backgroundColor: 'transparent'/);
       assert.doesNotMatch(onboardingSource, /styles\.planReadyProgramOverviewHeroImage/);
       assert.doesNotMatch(onboardingSource, /styles\.planReadyProgramOverviewScreenImage/);
       assert.match(onboardingSource, /planReadyProgramOverviewRootImage:\s*\{[\s\S]*left: -52[\s\S]*width: '124%'[\s\S]*translateX: 42/);
-      assert.match(onboardingSource, /planReadyProgramOverviewRootShade:\s*\{[\s\S]*backgroundColor: 'rgba\(3,3,10,0\.34\)'/);
+      assert.match(onboardingSource, /planReadyProgramOverviewRootShade:\s*\{[\s\S]*backgroundColor: 'transparent'/);
       assert.match(onboardingSource, /planReadyProgramOverviewFooter:\s*\{[\s\S]*backgroundColor: 'transparent'/);
       assert.doesNotMatch(onboardingSource, /planReadyProgramOverviewBackText/);
       assert.match(onboardingSource, /planReadyProgramWeeks = \[/);
@@ -68,7 +69,7 @@ module.exports = [
       assert.match(onboardingSource, /title: 'Build'/);
       assert.match(onboardingSource, /title: 'Progress'/);
       assert.match(onboardingSource, /title: 'Peak'/);
-      assert.match(onboardingSource, /planReadyProgramWeekList:\s*\{[\s\S]*marginTop: 150[\s\S]*borderRadius: 18[\s\S]*borderColor: '#A15BFF'[\s\S]*overflow: 'hidden'[\s\S]*gap: 0/);
+      assert.match(onboardingSource, /planReadyProgramWeekList:\s*\{[\s\S]*marginTop: 150[\s\S]*marginHorizontal: 10[\s\S]*backgroundColor: 'transparent'[\s\S]*overflow: 'visible'[\s\S]*gap: 10/);
       assert.match(onboardingSource, /weekIndex === 0 && styles\.planReadyProgramWeekCardFirst/);
       assert.doesNotMatch(onboardingSource, /styles\.planReadyProgramOverviewIntro/);
       assert.doesNotMatch(onboardingSource, /<Text style=\{styles\.planReadyProgramWeekSummary\}>/);
@@ -80,13 +81,28 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /styles\.planReadyProgramWeekRhythm/);
       assert.doesNotMatch(onboardingSource, /styles\.planReadyProgramWeekRhythmItem/);
       assert.doesNotMatch(onboardingSource, /styles\.planReadyProgramWeekFocus/);
-      assert.match(onboardingSource, /planReadyProgramWeekList:\s*\{[\s\S]*backgroundColor: 'rgba\(5,5,13,0\.96\)'/);
-      assert.match(onboardingSource, /planReadyProgramWeekCardExpanded:\s*\{[\s\S]*backgroundColor: 'rgba\(36,18,70,0\.72\)'/);
+      assert.match(onboardingSource, /planReadyProgramOverviewContent:\s*\{[\s\S]*position: 'relative'/);
+      assert.doesNotMatch(onboardingSource, /planReadyProgramWeekListScrim/);
+      assert.match(onboardingSource, /<Rect x="0" y="0" width="390" height="760" fill="transparent" \/>/);
+      assert.match(onboardingSource, /planReadyProgramCarbonBackdrop:\s*\{[\s\S]*opacity: 0/);
+      assert.match(onboardingSource, /planReadyProgramOverviewShell:\s*\{[\s\S]*backgroundColor: 'transparent'/);
+      assert.match(onboardingSource, /planReadyProgramWeekList:\s*\{[\s\S]*backgroundColor: 'rgba\(18,17,39,0\.46\)'[\s\S]*gap: 10/);
+      assert.match(onboardingSource, /planReadyProgramWeekCard:\s*\{[\s\S]*borderRadius: 12[\s\S]*borderWidth: 1[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      assert.match(onboardingSource, /planReadyProgramWeekCardExpanded:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      assert.match(onboardingSource, /planReadyProgramWeekWorkoutCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      assert.match(onboardingSource, /planReadyProgramWeekWorkoutList:\s*\{[\s\S]*padding: 18[\s\S]*gap: 16/);
+      assert.match(onboardingSource, /planReadyProgramWeekWorkoutHeader:\s*\{[\s\S]*paddingVertical: 14/);
+      assert.match(onboardingSource, /planReadyProgramExerciseRow:\s*\{[\s\S]*minHeight: 54[\s\S]*paddingVertical: 11/);
+      assert.match(onboardingSource, /planReadyProgramExerciseTargets:\s*\{[\s\S]*width: 76/);
+      assert.match(onboardingSource, /planReadyProgramExerciseTarget:\s*\{[\s\S]*color: 'rgba\(255,255,255,0\.9\)'[\s\S]*fontSize: 12[\s\S]*lineHeight: 15/);
+      assert.doesNotMatch(onboardingSource, /planReadyProgramWeekList:\s*\{[\s\S]*backgroundColor: 'rgba\(5,5,13,0\.96\)'/);
+      assert.doesNotMatch(onboardingSource, /planReadyProgramWeekCardExpanded:\s*\{[\s\S]*backgroundColor: 'rgba\(36,18,70,0\.72\)'/);
       assert.match(onboardingSource, /expandedPlanReadyProgramWeek === programWeek\.week/);
       assert.match(onboardingSource, /workout\.exercises\.map\(\(exercise, exerciseIndex\) =>/);
       assert.match(onboardingSource, /setPlanReadyProgramOverviewVisible\(true\)/);
       assert.match(onboardingSource, /setPlanReadyProgramOverviewVisible\(false\)/);
       assert.match(onboardingSource, /import \{ PrimaryCTAButton \} from '\.\.\/components\/PrimaryCTAButton'/);
+      assert.match(onboardingSource, /stage === 'review' && busy[\s\S]*\? 'SAVING PLAN\.\.\.'/);
       assert.match(onboardingSource, /stage === 'review'[\s\S]*\? 'SAVE PLAN & START'/);
       assert.match(onboardingSource, /stage === 'about'[\s\S]*\? 'BUILD MY PLAN'/);
       assert.match(onboardingSource, /: 'CONTINUE'/);
@@ -146,9 +162,19 @@ module.exports = [
       assert.match(onboardingSource, /currentBodyweightStepIndex < BODYWEIGHT_SETUP_STEPS\.length - 1[\s\S]*setBodyweightSetupStep\(BODYWEIGHT_SETUP_STEPS\[currentBodyweightStepIndex \+ 1\]\)/);
       assert.match(onboardingSource, /Object\.entries\(FOCUS_AREA_CARD_ASSETS\)\.map/);
       assert.match(onboardingSource, /style=\{styles\.focusAreaPreloadTray\}/);
-      assert.match(onboardingSource, /resizeMode="contain"[\s\S]*resizeMethod="resize"[\s\S]*fadeDuration=\{0\}[\s\S]*style=\{styles\.focusAreaImage\}/);
+      assert.match(onboardingSource, /focus-chest-anatomy-card\.webp/);
+      assert.match(onboardingSource, /function FocusAreaImageCard\(/);
+      assert.match(onboardingSource, /const \[imageLoaded, setImageLoaded\] = useState\(false\)/);
+      assert.doesNotMatch(onboardingSource, /focusAreaSkeletonShimmer/);
+      assert.match(onboardingSource, /onLoadEnd=\{\(\) => setImageLoaded\(true\)\}/);
+      assert.match(onboardingSource, /Animated\.timing\(imageOpacity[\s\S]*duration: 240/);
+      assert.match(onboardingSource, /style=\{\[styles\.focusAreaImage, \{ opacity: imageOpacity \}\]\}/);
+      assert.match(onboardingSource, /styles\.focusAreaSkeleton/);
+      assert.match(onboardingSource, /focusAreaLabelsPreloadTrigger/);
+      assert.match(onboardingSource, /Image\.prefetch\(asset\.uri\)/);
       assert.doesNotMatch(onboardingSource, /FOCUS_AREA_IMAGE_FRAMES/);
       assert.match(onboardingSource, /focusAreaImageSlot:\s*\{[\s\S]*backgroundColor: '#000000'/);
+      assert.match(onboardingSource, /focusAreaSkeleton:\s*\{[\s\S]*backgroundColor: '#000000'/);
       assert.match(onboardingSource, /planReadyWorkoutTabs\.map\(\(tab\) =>/);
       assert.match(onboardingSource, /<Text style=\{styles\.planReadyCurrentWorkoutTitle\}>CURRENT WORKOUT<\/Text>/);
       assert.match(onboardingSource, /<Text style=\{styles\.planReadyAllWorkoutsTitle\}>ALL WORKOUTS<\/Text>/);
@@ -172,6 +198,29 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /<Text style=\{styles\.planReadyCurrentWorkoutMetaText\}>\{planReadyActiveWorkout\.duration\}<\/Text>/);
       assert.doesNotMatch(onboardingSource, /\{workout\.duration \?\? 'Guided workout'\} - \{workout\.exercises\.length \+ workout\.hiddenExerciseCount\} exercises/);
       assert.match(onboardingSource, /VIEW FULL PROGRAM/);
+    },
+  },
+  {
+    name: 'plan-building loading screen centers GainerOrb with coach-like progress steps',
+    run() {
+      assert.match(onboardingSource, /const buildingPlanPhases = useMemo\([\s\S]*'Analyzing your inputs'[\s\S]*'Building your split'[\s\S]*'Matching exercises'[\s\S]*'Finalizing your plan'/);
+      assert.match(onboardingSource, /<GainerCoachOrb variant=\{buildingPlanPercent >= 100 \? 'success' : 'thinking'\}/);
+      assert.match(onboardingSource, /styles\.buildingPlanOrbGlow/);
+      assert.match(onboardingSource, /styles\.buildingPlanOrbFloat/);
+      assert.match(onboardingSource, /styles\.buildingPlanPercentBadge/);
+      assert.match(onboardingSource, /active && styles\.buildingPlanStepRowActive/);
+      assert.match(onboardingSource, /const buildingPlanStepSubtitles = useMemo/);
+      assert.match(onboardingSource, /Creating training structure\.\.\./);
+      assert.match(onboardingSource, /buildingPlanEllipsisStep/);
+      assert.match(onboardingSource, /'\.'\.repeat\(buildingPlanEllipsisStep \+ 1\)/);
+      assert.match(onboardingSource, /buildingPlanComplete \? 'Your plan is ready' : `Building your plan\$\{buildingPlanAnimatedEllipsis\}`/);
+      assert.match(onboardingSource, /setBuildingPlanComplete\(true\)/);
+      assert.match(onboardingSource, /const ringSize = 282/);
+      assert.match(onboardingSource, /const progressRadius = 118/);
+      assert.match(onboardingSource, /buildingPlanOrb:\s*\{[\s\S]*scale: 1\.82/);
+      assert.match(onboardingSource, /completed \? \(/);
+      assert.doesNotMatch(onboardingSource, /DID YOU KNOW\?/);
+      assert.doesNotMatch(onboardingSource, /Plans that adapt to you get better results/);
     },
   },
 ];

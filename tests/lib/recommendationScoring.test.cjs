@@ -73,8 +73,17 @@ module.exports = [
         }),
       );
 
-      assert.equal(result.featuredProgramId, 'tpl_2_day_minimal_full_body_v1');
-      assert.equal(result.scoredCandidates.every((candidate) => candidate.programId.startsWith('tpl_2_day_') || candidate.programId === 'tpl_3_day_run_mobility_v1'), true);
+      assert.equal(result.featuredProgramId, 'tpl_gainer_at_home_beginner_v1');
+      assert.equal(
+        result.scoredCandidates.every((candidate) =>
+          candidate.programId.startsWith('tpl_2_day_') ||
+          candidate.programId === 'tpl_3_day_run_mobility_v1' ||
+          candidate.programId.startsWith('tpl_gainer_at_home_') ||
+          candidate.programId === 'tpl_gainer_fat_burn_hiit_v1' ||
+          candidate.programId === 'tpl_gainer_mobility_flow_v1',
+        ),
+        true,
+      );
     },
   },
   {
@@ -107,6 +116,48 @@ module.exports = [
       );
 
       assert.equal(result.featuredProgramId, 'tpl_4_day_strength_size_v1');
+    },
+  },
+  {
+    name: 'recommendation scoring uses program fit gender as a soft signal',
+    run() {
+      const femaleResult = recommendPrograms(
+        buildRecommendationInput({
+          goal: 'muscle',
+          level: 'beginner',
+          daysPerWeek: 3,
+          equipment: 'gym',
+          secondaryOutcomes: [],
+          focusAreas: ['glutes'],
+          guidanceMode: 'guided_editable',
+          scheduleMode: 'app_managed',
+          weeklyMinutes: null,
+          availableDays: [],
+          gender: 'female',
+          unitPreference: 'kg',
+        }),
+      );
+      const maleResult = recommendPrograms(
+        buildRecommendationInput({
+          goal: 'muscle',
+          level: 'intermediate',
+          daysPerWeek: 5,
+          equipment: 'gym',
+          secondaryOutcomes: [],
+          focusAreas: ['chest', 'arms'],
+          guidanceMode: 'guided_editable',
+          scheduleMode: 'app_managed',
+          weeklyMinutes: null,
+          availableDays: [],
+          gender: 'male',
+          unitPreference: 'kg',
+        }),
+      );
+
+      assert.equal(femaleResult.featuredProgramId, 'tpl_gainer_glute_foundations_v1');
+      assert.equal(maleResult.featuredProgramId, 'tpl_gainer_dream_body_man_v1');
+      assert.equal(femaleResult.scoredCandidates[0].breakdown.genderFit > 0, true);
+      assert.equal(maleResult.scoredCandidates[0].breakdown.genderFit > 0, true);
     },
   },
   {
@@ -165,6 +216,30 @@ module.exports = [
       assert.equal(result.trainingBlock.currentWeek, 1);
       assert.equal(result.trainingBlock.currentWeekRole, 'baseline');
       assert.match(result.trainingBlock.nextWeekAction, /week 2/i);
+    },
+  },
+  {
+    name: 'recommendation scoring respects a 6-day general fitness frequency',
+    run() {
+      const result = recommendPrograms(
+        buildRecommendationInput({
+          goal: 'general_fitness',
+          level: 'beginner',
+          daysPerWeek: 6,
+          equipment: 'gym',
+          secondaryOutcomes: ['consistency'],
+          focusAreas: [],
+          guidanceMode: 'guided_editable',
+          scheduleMode: 'app_managed',
+          weeklyMinutes: null,
+          availableDays: [],
+          gender: 'unspecified',
+          unitPreference: 'kg',
+        }),
+      );
+
+      assert.equal(result.featuredProgramId, 'tpl_6_day_ppl_v1');
+      assert.equal(result.scoredCandidates[0].breakdown.scheduleFit > 20, true);
     },
   },
 ];

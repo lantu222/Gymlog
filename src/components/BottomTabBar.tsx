@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { RootTabKey } from '../navigation/routes';
-import { radii, spacing } from '../theme';
+import { colors, radii, spacing } from '../theme';
 
 interface BottomTabBarProps {
   activeTab: RootTabKey;
@@ -137,9 +137,9 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: '#151515',
+    backgroundColor: colors.background,
     borderTopWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
+    borderColor: 'rgba(198,139,255,0.18)',
     paddingTop: 8,
     paddingHorizontal: spacing.md,
   },

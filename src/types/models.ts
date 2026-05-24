@@ -222,6 +222,7 @@ export interface AppPreferences {
   trainingFirstRunDismissed: boolean;
   selectedSignInMethod: SignInMethod | null;
   selectedAccessTier: AccessTier | null;
+  profileName: string | null;
   setupCurrentWeightKg: number | null;
   bodyweightGoalKg: number | null;
   onboardingCompleted: boolean;
