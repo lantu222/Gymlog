@@ -34,6 +34,7 @@ export interface AdaptedCompletedWorkoutExercise {
 export interface AdaptedCompletedWorkoutSession {
   sessionId: string;
   workoutTemplateId: string;
+  workoutTemplateSessionId: string | null;
   workoutNameSnapshot: string;
   startedAt: string;
   performedAt: string;
@@ -172,6 +173,7 @@ export function adaptCompletedWorkoutSessionForAppDatabase(
   return {
     sessionId: session.sessionId,
     workoutTemplateId: session.templateId,
+    workoutTemplateSessionId: session.templateSessionId,
     workoutNameSnapshot: session.templateName,
     startedAt: session.startedAt,
     performedAt: session.completedAt ?? session.updatedAt,

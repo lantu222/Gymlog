@@ -579,7 +579,7 @@ function buildSavedOnboardingPlan(
 function buildSavedOnboardingWorkoutPlan(
   selection: FirstRunSetupSelection,
   workoutTemplateId: string,
-  sessionCount: number,
+  sessionIds: string[],
 ) {
   const days = selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
     ? selection.availableDays
@@ -591,9 +591,10 @@ function buildSavedOnboardingWorkoutPlan(
     id: planId,
     name: buildFirstRunCustomProgramName(selection),
     mode: 'rotation' as const,
-    entries: Array.from({ length: Math.max(1, sessionCount) }, (_, index) => ({
+    entries: Array.from({ length: Math.max(1, sessionIds.length) }, (_, index) => ({
       id: `${planId}_entry_${index + 1}`,
       workoutTemplateId,
+      workoutTemplateSessionId: sessionIds[index] ?? null,
       label: days[index % days.length] ?? `Day ${index + 1}`,
       orderIndex: index,
     })),
@@ -722,6 +723,7 @@ function GymlogApp() {
     [exerciseLibrary],
   );
   const summaryExitRouteRef = useRef<AppRoute | null>(null);
+  const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
 
@@ -799,6 +801,11 @@ function GymlogApp() {
     resetToRoute(ROOT_ROUTES[tab]);
   }
 
+  function navigateToWorkoutLog(workoutTemplateId: string) {
+    workoutLogNavigationAllowedAtRef.current = Date.now();
+    navigate({ tab: 'workout', screen: 'log', workoutTemplateId });
+  }
+
   async function openAiMode(preferencesPatch?: Partial<AppPreferences>) {
     const nextPreferences = preferencesPatch ? { ...preferences, ...preferencesPatch } : preferences;
     if (!nextPreferences.aiSetupCompleted) {
@@ -857,7 +864,7 @@ function GymlogApp() {
         buildCustomSessionRuntimeTemplate(runtimeTemplate, nextSessionId),
         nextPreferences.unitPreference,
       );
-      navigate({ tab: 'workout', screen: 'log', workoutTemplateId: persistedTemplateId });
+      navigateToWorkoutLog(persistedTemplateId);
       showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
     } catch (error) {
       console.error('Failed to open GAINER AI workout flow', error);
@@ -920,6 +927,16 @@ function GymlogApp() {
   }, [finishSaveState.sessionId, finishSaveState.status, workout.activeSession?.sessionId]);
 
   useEffect(() => {
+    if (route.tab === 'workout' && route.screen === 'log') {
+      const allowedAt = workoutLogNavigationAllowedAtRef.current;
+      workoutLogNavigationAllowedAtRef.current = null;
+
+      if (!allowedAt || Date.now() - allowedAt > 2000) {
+        replaceRoute(ROOT_ROUTES.home);
+        return;
+      }
+    }
+
     if (
       route.tab === 'workout' &&
       route.screen === 'log' &&
@@ -1075,7 +1092,7 @@ function GymlogApp() {
     }
 
     workout.resumeWorkout();
-    navigate({ tab: 'workout', screen: 'log', workoutTemplateId: workout.activeSession.templateId });
+    navigateToWorkoutLog(workout.activeSession.templateId);
     return true;
   }
 
@@ -1324,7 +1341,7 @@ function GymlogApp() {
     void updatePreferences({ trainingFirstRunDismissed: true });
     const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
     workout.startCustomWorkout(runtimeTemplate, nextUnitPreference);
-    navigate({ tab: 'workout', screen: 'log', workoutTemplateId });
+    navigateToWorkoutLog(workoutTemplateId);
   }
 
   function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
@@ -1367,7 +1384,7 @@ function GymlogApp() {
     void updatePreferences({ trainingFirstRunDismissed: true });
     const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
     workout.startCustomWorkout(runtimeTemplate, unitPreference);
-    navigate({ tab: 'workout', screen: 'log', workoutTemplateId });
+    navigateToWorkoutLog(workoutTemplateId);
   }
 
   function handleStartCustomProgram(workoutTemplateId: string) {
@@ -1519,7 +1536,11 @@ function GymlogApp() {
     await persistSetupSelection(selection, recommendedProgramId);
     const savedPlan = buildSavedOnboardingPlan(selection, recommendedProgramId);
     const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
-    const activePlan = buildSavedOnboardingWorkoutPlan(selection, savedTemplateId, savedPlan.runtimeTemplate.sessions.length);
+    const activePlan = buildSavedOnboardingWorkoutPlan(
+      selection,
+      savedTemplateId,
+      savedPlan.runtimeTemplate.sessions.map((session) => session.id),
+    );
     await upsertWorkoutPlan(activePlan);
     await updatePreferences({ activePlanId: activePlan.id });
     resetToRoute(ROOT_ROUTES.home);
@@ -1615,7 +1636,11 @@ function GymlogApp() {
     await persistSetupSelection(selection, recommendedProgramId);
     const savedPlan = buildSavedOnboardingPlan(selection, recommendedProgramId);
     const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
-    const activePlan = buildSavedOnboardingWorkoutPlan(selection, savedTemplateId, savedPlan.runtimeTemplate.sessions.length);
+    const activePlan = buildSavedOnboardingWorkoutPlan(
+      selection,
+      savedTemplateId,
+      savedPlan.runtimeTemplate.sessions.map((session) => session.id),
+    );
     await upsertWorkoutPlan(activePlan);
     await updatePreferences({ activePlanId: activePlan.id });
     showToast('Setup updated');
@@ -1836,28 +1861,47 @@ function GymlogApp() {
       const firstEntry = sortedEntries[0];
       const activeTemplate = workoutTemplates.find((template) => template.id === firstEntry.workoutTemplateId) ?? null;
       const activeTemplateSessions = activeTemplate ? getWorkoutTemplateSessions(activeTemplate.id) : [];
-      const nextSession = activeTemplateSessions[0] ?? null;
-      if (activeTemplate && nextSession) {
-        const exerciseCount = nextSession.exercises.length;
+      const orderedPlanSessions = sortedEntries
+        .map((entry) => {
+          if (entry.workoutTemplateSessionId) {
+            return activeTemplateSessions.find((session) => session.id === entry.workoutTemplateSessionId) ?? null;
+          }
+
+          return activeTemplateSessions[entry.orderIndex] ?? null;
+        })
+        .filter((session): session is NonNullable<typeof session> => Boolean(session));
+      const homeSessions = orderedPlanSessions.map((session) => {
+        const exerciseCount = session.exercises.length;
         const estimatedDuration = Math.max(20, Math.round(exerciseCount * 10));
+
+        return {
+          id: session.id,
+          title: formatHomeSessionTitle(session.name, session.exercises),
+          duration: `~${estimatedDuration} min`,
+          exercises: session.exercises.slice(0, 5).map((exercise) => ({
+            name: exercise.name,
+            setsLabel: `${exercise.targetSets} sets`,
+          })),
+          hiddenExerciseCount: Math.max(exerciseCount - 5, 0),
+        };
+      });
+      const nextSession = homeSessions[0] ?? null;
+      if (activeTemplate && nextSession) {
+        const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
 
         return {
           programId: activeTemplate.id,
           programType: 'custom' as const,
           eyebrow: `${sortedEntries.length} day custom plan`,
+          goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
           title: formatShortHomePlanName(activeWorkoutPlan.name || activeTemplate.name, sortedEntries.length),
           subtitle: `${sortedEntries.length} workouts in rotation.`,
           sessionsPerWeek: `${sortedEntries.length}`,
           weeklyMinutes: `~${estimatedDuration * sortedEntries.length} min`,
+          sessions: homeSessions,
           nextSession: {
+            ...nextSession,
             label: 'Week 1 · Day 1',
-            title: formatHomeSessionTitle(nextSession.name, nextSession.exercises),
-            duration: `~${estimatedDuration} min`,
-            exercises: nextSession.exercises.slice(0, 5).map((exercise) => ({
-              name: exercise.name,
-              setsLabel: `${exercise.targetSets} sets`,
-            })),
-            hiddenExerciseCount: Math.max(exerciseCount - 5, 0),
           },
         };
       }
@@ -1869,24 +1913,31 @@ function GymlogApp() {
     }
 
     const weeklyMinutes = recommendedReadyTemplate.daysPerWeek * recommendedReadyTemplate.estimatedSessionDuration;
+    const homeSessions = recommendedReadyTemplate.sessions.map((session) => ({
+      id: session.id,
+      title: formatHomeSessionTitle(session.name, session.exercises),
+      duration: `~${recommendedReadyTemplate.estimatedSessionDuration} min`,
+      exercises: session.exercises.map((exercise) => ({
+        name: exercise.exerciseName,
+        setsLabel: `${exercise.sets} sets`,
+      })),
+      hiddenExerciseCount: Math.max(session.exercises.length - 5, 0),
+    }));
+    const firstHomeSession = homeSessions[0];
 
     return {
       programId: recommendedReadyTemplate.id,
       programType: 'ready' as const,
       eyebrow: `${recommendedReadyTemplate.daysPerWeek} day ${formatSplitLabel(recommendedReadyTemplate.splitType)}`,
+      goalLabel: formatGoalLabel(recommendedReadyTemplate.goalType),
       title: formatShortHomePlanName(recommendedReadyTemplate.name, recommendedReadyTemplate.daysPerWeek),
       subtitle: recommendedReadyContent?.summary ?? 'Your recommended plan is ready to run.',
       sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
       weeklyMinutes: `~${weeklyMinutes} min`,
+      sessions: homeSessions,
       nextSession: {
+        ...firstHomeSession,
         label: 'Week 1 · Day 1',
-        title: formatHomeSessionTitle(nextSession.name, nextSession.exercises),
-        duration: `~${recommendedReadyTemplate.estimatedSessionDuration} min`,
-        exercises: nextSession.exercises.map((exercise) => ({
-          name: exercise.exerciseName,
-          setsLabel: `${exercise.sets} sets`,
-        })),
-        hiddenExerciseCount: Math.max(nextSession.exercises.length - 5, 0),
       },
     };
   }, [database.workoutPlans, getWorkoutTemplateSessions, preferences.activePlanId, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
@@ -2635,12 +2686,7 @@ function GymlogApp() {
         }
         onOpenWorkout={
           workout.activeSession
-            ? () =>
-                navigate({
-                  tab: 'workout',
-                  screen: 'log',
-                  workoutTemplateId: workout.activeSession?.templateId ?? preferences.recommendedProgramId ?? 'workout_upper',
-                })
+            ? () => navigateToWorkoutLog(workout.activeSession?.templateId ?? preferences.recommendedProgramId ?? 'workout_upper')
             : undefined
         }
         onOpenPlanSettings={handleOpenPlanSettings}
@@ -2680,7 +2726,7 @@ function GymlogApp() {
         programInsightsByTemplateId={programInsightsByTemplateId}
         recommendedReadyProgramId={recommendedReadyTemplate?.id ?? null}
         tailoringPreferences={tailoringPreferences}
-        onOpenWorkout={(workoutTemplateId) => navigate({ tab: 'workout', screen: 'log', workoutTemplateId })}
+        onOpenWorkout={navigateToWorkoutLog}
         onOpenReadyProgram={handleOpenReadyProgramDetail}
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
@@ -2736,21 +2782,12 @@ function GymlogApp() {
         hasNoProgramState={!hasSavedTrainingSetup}
         profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
+        hasActiveWorkout={Boolean(workout.activeSession)}
         streak={homeSummary.streak}
         quickStats={homeQuickStats}
         weeklySnapshot={weeklySnapshot}
         upcomingSessions={homeUpcomingSessions}
         customTemplates={customWorkouts}
-        onStartActivePlan={() => {
-          if (homeActivePlanCard) {
-            if (homeActivePlanCard.programType === 'custom') {
-              handleStartCustomProgram(homeActivePlanCard.programId);
-              return;
-            }
-
-            handleStartReadyProgram(homeActivePlanCard.programId);
-          }
-        }}
         onOpenActivePlan={() => {
           if (homeActivePlanCard) {
             if (homeActivePlanCard.programType === 'custom') {
@@ -2760,6 +2797,18 @@ function GymlogApp() {
 
             handleOpenReadyProgramDetail(homeActivePlanCard.programId);
           }
+        }}
+        onStartActivePlanSession={(sessionId) => {
+          if (!homeActivePlanCard) {
+            return;
+          }
+
+          if (homeActivePlanCard.programType === 'custom') {
+            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId);
+            return;
+          }
+
+          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
         }}
         onOpenTemplatesHub={() => navigate(WORKOUT_PLAN_ROUTE)}
         onOpenCustomTemplate={handleOpenCustomProgramDetail}

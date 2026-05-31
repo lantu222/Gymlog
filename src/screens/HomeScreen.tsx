@@ -1,20 +1,21 @@
 import React, { useMemo, useState } from 'react';
-import { ImageBackground, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 
 import { HomeUpcomingSessionSummary } from '../components/HomeStreakCard';
 import { GymlogIcon } from '../components/GymlogIcon';
 import { pluralize } from '../lib/format';
 import { HomeStreakSummary } from '../lib/dashboard';
+import { getHomeCarouselCalendarDays, getHomeDayView, HomeDaySessionSummary } from '../lib/homeCalendar';
 import { getCustomTemplatePresentation } from '../lib/templatePresentation';
 import { colors, spacing } from '../theme';
 
-const HOME_WORKOUT_HERO_IMAGE = require('../../assets/fitness/selected/step7-preview-male-mass.png');
+const HOME_TRAINING_BACKGROUND_IMAGE = require('../../assets/fitness/selected/home-training-background.png');
+const HOME_RECOVERY_BACKGROUND_IMAGE = require('../../assets/fitness/selected/home-recovery-background.png');
 const DAILY_TIP_IMAGE = require('../../assets/fitness/selected/endurance-cardio-goal-card.png');
 const WEEKLY_OVERVIEW_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const WEEKLY_OVERVIEW_CARD_HEIGHT = 124;
 const PROGRESS_SUMMARY_CARD_HEIGHT = 178;
 const HOME_CARD_BACKGROUND = '#17162F';
-const HOME_CARD_BACKGROUND_DEEP = '#121127';
 const HOME_CARD_BORDER = 'rgba(198,139,255,0.24)';
 const TRAINING_DAY_PATTERNS: Record<number, number[]> = {
   1: [0],
@@ -50,19 +51,14 @@ interface HomePlanCard {
   programId: string;
   programType?: 'ready' | 'custom';
   eyebrow: string;
+  goalLabel: string;
   title: string;
   subtitle: string;
   sessionsPerWeek: string;
   weeklyMinutes: string;
-  nextSession: {
+  sessions: HomeDaySessionSummary[];
+  nextSession: HomeDaySessionSummary & {
     label: string;
-    title: string;
-    duration: string;
-    exercises: Array<{
-      name: string;
-      setsLabel: string;
-    }>;
-    hiddenExerciseCount: number;
   };
 }
 
@@ -70,13 +66,14 @@ interface HomeScreenProps {
   hasNoProgramState?: boolean;
   profileName?: string | null;
   activePlan?: HomePlanCard | null;
+  hasActiveWorkout?: boolean;
   streak: HomeStreakSummary;
   quickStats: HomeQuickStat[];
   weeklySnapshot: WeeklySnapshotItem[];
   upcomingSessions: HomeUpcomingSessionSummary[];
   customTemplates?: HomeTemplateItem[];
-  onStartActivePlan?: () => void;
   onOpenActivePlan?: () => void;
+  onStartActivePlanSession?: (sessionId: string) => void;
   onOpenTemplatesHub: () => void;
   onOpenCustomTemplate: (workoutTemplateId: string) => void;
   onCreateWorkoutFromExercises: () => void;
@@ -93,43 +90,13 @@ function getWeeklyTrainingIndexes(activePlan: HomePlanCard | null) {
   return TRAINING_DAY_PATTERNS[clampedSessionsPerWeek] ?? [];
 }
 
-function buildFallbackPreviewSessions(
-  activePlan: HomePlanCard,
-  trainingDayIndexes: number[],
-  upcomingSessions: HomeUpcomingSessionSummary[],
-) {
-  const previewCount = Math.max(3, Math.min(trainingDayIndexes.length || 3, 6));
-  const fallbackLabels = trainingDayIndexes.length ? trainingDayIndexes : [0, 2, 4];
-  const titleMatch = activePlan.nextSession.title.match(/^(.*?)(?:\s+([A-Z]))$/);
-  const titleBase = titleMatch?.[1]?.trim() || activePlan.nextSession.title;
-
-  return Array.from({ length: previewCount }, (_, index) => {
-    const existing = upcomingSessions[index];
-
-    if (existing) {
-      return existing;
-    }
-
-    const letter = String.fromCharCode(65 + index);
-    const dayIndex = fallbackLabels[index % fallbackLabels.length];
-
-    return {
-      label: WEEKLY_OVERVIEW_DAYS[dayIndex] ?? 'Next',
-      title: titleMatch ? `${titleBase} ${letter}` : index === 0 ? activePlan.nextSession.title : `${titleBase} ${letter}`,
-      meta: activePlan.nextSession.duration,
-    };
-  });
-}
-
 export function HomeScreen({
   hasNoProgramState = false,
   profileName = null,
   activePlan = null,
   streak,
-  upcomingSessions,
   customTemplates = [],
-  onStartActivePlan,
-  onOpenActivePlan,
+  onStartActivePlanSession,
   onOpenTemplatesHub,
   onOpenCustomTemplate,
   onCreateWorkoutFromExercises,
@@ -140,38 +107,47 @@ export function HomeScreen({
   const visibleTemplates = customTemplates.slice(0, 3);
   const hasTemplates = customTemplates.length > 0;
   const hasActivePlan = Boolean(activePlan);
-  const [calendarVisible, setCalendarVisible] = useState(false);
+  const [selectedDayStart, setSelectedDayStart] = useState<number | null>(null);
+  const { width: screenWidth } = useWindowDimensions();
+  const miniCalendarDayWidth = (screenWidth - spacing.lg * 2) / 7;
+  const miniCalendarPageWidth = miniCalendarDayWidth * 7;
   const greetingName = profileName?.trim() || 'there';
   const trainingDayIndexes = getWeeklyTrainingIndexes(activePlan);
   const todayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
   const completedTrainingIndexes = trainingDayIndexes
     .filter((index) => index <= todayIndex)
     .slice(0, Math.max(0, streak.sessionsThisWeek));
-  const planPreviewSessions = activePlan
-    ? buildFallbackPreviewSessions(activePlan, trainingDayIndexes, upcomingSessions)
-    : [];
   const weekCalendarDays = useMemo(() => {
-    const now = new Date();
-    const monday = new Date(now);
-    monday.setHours(0, 0, 0, 0);
-    monday.setDate(now.getDate() - todayIndex);
-
-    return WEEKLY_OVERVIEW_DAYS.map((day, index) => {
-      const date = new Date(monday);
-      date.setDate(monday.getDate() + index);
-
-      return {
-        day,
-        dateLabel: String(date.getDate()),
-        isToday: index === todayIndex,
-        isTrainingDay: trainingDayIndexes.includes(index),
-        isCompleted: completedTrainingIndexes.includes(index),
-      };
-    });
-  }, [completedTrainingIndexes, todayIndex, trainingDayIndexes]);
+    return getHomeCarouselCalendarDays(undefined, { daysBefore: 7, daysAfter: 13 }).map((day) => ({
+      ...day,
+      isTrainingDay: trainingDayIndexes.includes(day.weekdayIndex),
+      isCompleted: completedTrainingIndexes.includes(day.weekdayIndex),
+    }));
+  }, [completedTrainingIndexes, trainingDayIndexes]);
+  const selectedCalendarDay =
+    weekCalendarDays.find((day) => day.dayStart === selectedDayStart) ??
+    weekCalendarDays.find((day) => day.isToday) ??
+    weekCalendarDays[0];
+  const todayCalendarDay = weekCalendarDays.find((day) => day.isToday) ?? selectedCalendarDay;
+  const activePlanSessions = activePlan?.sessions ?? (activePlan ? [activePlan.nextSession] : []);
+  const selectedDayView = getHomeDayView(selectedCalendarDay, trainingDayIndexes, activePlanSessions);
+  const isRecoveryDay = selectedDayView.kind === 'recovery';
+  const homeModeAccent = isRecoveryDay ? '#9DFF4F' : '#A86BFF';
+  const homeModeBackground = isRecoveryDay ? HOME_RECOVERY_BACKGROUND_IMAGE : HOME_TRAINING_BACKGROUND_IMAGE;
+  const homeModeTitle = isRecoveryDay ? 'RECOVERY' : activePlan?.goalLabel.toUpperCase() ?? 'TRAINING';
+  const homeModeSubtitle = isRecoveryDay ? 'REST. REPAIR. COME BACK STRONGER.' : 'FOCUS. LIFT. GET STRONGER.';
+  const planExerciseCount = activePlan?.nextSession.exercises.length ?? 0;
+  const selectedPlanExercises = selectedDayView.session?.exercises.slice(0, 3) ?? activePlan?.nextSession.exercises.slice(0, 3) ?? [];
 
   return (
     <>
+    <ImageBackground
+      source={homeModeBackground}
+      resizeMode="cover"
+      style={styles.screenBackground}
+      imageStyle={styles.screenBackgroundImage}
+    >
+    <View style={styles.screenBackgroundWash} />
     <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
@@ -191,98 +167,174 @@ export function HomeScreen({
         </View>
       </View>
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Open training calendar"
-        onPress={() => setCalendarVisible(true)}
-        style={styles.miniCalendarRow}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.miniCalendarScroller}
+        contentContainerStyle={styles.miniCalendarRow}
+        contentOffset={{ x: miniCalendarPageWidth, y: 0 }}
+        snapToInterval={miniCalendarPageWidth}
+        snapToAlignment="start"
+        decelerationRate="fast"
+        disableIntervalMomentum
       >
-        {weekCalendarDays.map((item) => (
-          <View key={`mini-${item.day}`} style={styles.miniCalendarDay}>
-            <Text style={[styles.miniCalendarDayLabel, item.isToday && styles.miniCalendarDayLabelActive]}>
-              {item.day.slice(0, 1)}
-            </Text>
-            <View
-              style={[
-                styles.miniCalendarDateBubble,
-                item.isTrainingDay && styles.miniCalendarDateBubbleTraining,
-                item.isToday && styles.miniCalendarDateBubbleActive,
-              ]}
+        {weekCalendarDays.map((item) => {
+          const selected = item.dayStart === selectedCalendarDay.dayStart;
+          const futureTrainingDay = item.isTrainingDay && item.dayStart > todayCalendarDay.dayStart;
+
+          return (
+            <Pressable
+              key={`mini-${item.dayStart}`}
+              accessibilityRole="button"
+              accessibilityLabel={`Show ${item.label}`}
+              onPress={(event) => {
+                event.stopPropagation();
+                setSelectedDayStart(item.dayStart);
+              }}
+              style={[styles.miniCalendarDay, { width: miniCalendarDayWidth }]}
             >
-              <Text style={[styles.miniCalendarDateText, item.isTrainingDay && styles.miniCalendarDateTextTraining, item.isToday && styles.miniCalendarDateTextActive]}>
-                {item.isCompleted && !item.isToday ? 'ðŸ”¥' : item.dateLabel}
+              <View
+                style={[
+                  styles.miniCalendarDateBubble,
+                  styles.miniCalendarDateBubbleEmpty,
+                  futureTrainingDay && styles.miniCalendarDateBubbleFutureTraining,
+                  selected && styles.miniCalendarDateBubbleActive,
+                ]}
+              />
+              <Text style={[styles.miniCalendarDayLabel, selected && styles.miniCalendarDayLabelActive]}>
+                {item.label}
               </Text>
-            </View>
-          </View>
-        ))}
-      </Pressable>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       {activePlan ? (
         <View style={styles.activePlanSection}>
-          <View style={styles.todayWorkoutCard}>
-            <ImageBackground
-              source={HOME_WORKOUT_HERO_IMAGE}
-              resizeMode="cover"
-              style={styles.todayWorkoutBackground}
-              imageStyle={styles.todayWorkoutImage}
-            >
-              <View style={styles.todayWorkoutScrim} />
-              <View style={styles.todayWorkoutGreenGlow} />
-              <Pressable accessibilityRole="button" accessibilityLabel="Start workout" onPress={onStartActivePlan} style={styles.startWorkoutFloatingButton}>
-                <View style={styles.startWorkoutFloatingTriangle} />
-              </Pressable>
-              <View pointerEvents="none" style={styles.todayWorkoutCtaCopy}>
-                <Text style={styles.todayWorkoutCtaEyebrow}>START YOUR</Text>
-                <Text style={styles.todayWorkoutCtaTitle}>WORKOUT HERE</Text>
+          <View style={styles.homeModeHero}>
+            <View style={styles.homeModeHeroBackground}>
+              <View style={styles.homeModeHeroScrim} />
+              <View style={styles.homeModeHeroCopy}>
+                <Text style={[styles.homeModeKicker, { color: homeModeAccent }]}>TODAY</Text>
+                <Text style={[styles.homeModeTitle, { color: homeModeAccent }]} numberOfLines={1} adjustsFontSizeToFit>
+                  {homeModeTitle}
+                </Text>
+                <Text style={styles.homeModeSubtitle}>{homeModeSubtitle}</Text>
               </View>
-            </ImageBackground>
+            </View>
           </View>
 
-          <View style={styles.workoutPlanCard}>
-            <View style={styles.workoutPlanHeader}>
-              <View style={styles.workoutPlanHeaderCopy}>
-                <Text style={styles.todayMissionKicker}>Today's workout</Text>
-                <Text style={styles.todayMissionTitle} numberOfLines={1}>{activePlan.nextSession.title}</Text>
-                <Text style={styles.todayMissionMeta} numberOfLines={1}>
-                  {activePlan.nextSession.duration} - {pluralize(activePlan.nextSession.exercises.length, 'exercise')}
+          <View style={styles.homeModeFocusCard}>
+            <View style={styles.homeModeFocusTop}>
+              <View style={styles.homeModeFocusCopy}>
+                <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>Today's focus</Text>
+                <Text style={styles.homeModeFocusText}>
+                  {isRecoveryDay
+                    ? 'Prioritize recovery to rebuild your body and improve performance.'
+                    : 'Maximize strength and performance through heavy compound lifts.'}
                 </Text>
               </View>
-              {onOpenActivePlan ? (
-                <Pressable onPress={onOpenActivePlan} style={styles.todayMissionDetailsButton}>
-                  <Text style={styles.todayMissionDetailsText}>Details</Text>
-                </Pressable>
-              ) : null}
-            </View>
-
-            <View style={styles.workoutPlanDivider} />
-
-            <View style={styles.planPreviewHeader}>
-              <View style={styles.planPreviewHeaderCopy}>
-                <Text style={styles.planPreviewKicker}>Plan preview</Text>
-                <Text style={styles.planPreviewTitle} numberOfLines={1}>{activePlan.title}</Text>
+              <View style={styles.homeModeGoalBlock}>
+                <View style={[styles.homeModeGoalIcon, { backgroundColor: isRecoveryDay ? 'rgba(157,255,79,0.13)' : 'rgba(168,107,255,0.22)' }]}>
+                  <GymlogIcon name={isRecoveryDay ? 'restDay' : 'strength'} color={homeModeAccent} size={30} />
+                </View>
+                <View style={styles.homeModeGoalCopy}>
+                  <Text style={styles.homeModeGoalLabel}>Primary goal</Text>
+                  <Text style={styles.homeModeGoalTitle}>{isRecoveryDay ? 'Improve recovery' : `Increase ${activePlan.goalLabel.toLowerCase()}`}</Text>
+                  <Text style={[styles.homeModeGoalAccent, { color: homeModeAccent }]}>{isRecoveryDay ? 'Reduce fatigue' : 'Build power'}</Text>
+                </View>
               </View>
-              {onOpenActivePlan ? (
-                <Pressable onPress={onOpenActivePlan} style={styles.planPreviewButton}>
-                  <Text style={styles.planPreviewButtonText}>View plan</Text>
-                </Pressable>
-              ) : null}
             </View>
+            <View style={styles.homeModeDivider} />
+            <View style={styles.homeModeProgressRow}>
+              <View style={styles.homeModeProgressCopy}>
+                <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>
+                  {isRecoveryDay ? 'Recovery score' : 'Weekly progress'}
+                </Text>
+                <Text style={[styles.homeModeProgressValue, { color: homeModeAccent }]}>{isRecoveryDay ? '82%' : '78%'}</Text>
+                <Text style={styles.homeModeProgressMeta}>{isRecoveryDay ? 'Great recovery' : 'Overall completion'}</Text>
+              </View>
+              <View style={styles.homeModeChart}>
+                {[38, 50, 64, 52, 60, 78, 68].map((height, index) => (
+                  <View key={`home-chart-${index}`} style={styles.homeModeChartColumn}>
+                    <View style={[styles.homeModeChartDot, { bottom: height, backgroundColor: homeModeAccent }]} />
+                    <View style={[styles.homeModeChartLine, { height, backgroundColor: homeModeAccent }]} />
+                    <Text style={styles.homeModeChartLabel}>{WEEKLY_OVERVIEW_DAYS[index]?.toUpperCase().slice(0, 3)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </View>
 
-            <View style={styles.planPreviewList}>
-              {planPreviewSessions.map((session, index) => (
-                <View key={`${session.label}:${session.title}:${index}`} style={styles.planPreviewRow}>
-                  <View style={styles.planPreviewDayChip}>
-                    <Text style={styles.planPreviewDayChipText}>{session.label}</Text>
+          <View style={styles.homeModeMetricsCard}>
+            {(isRecoveryDay
+              ? [
+                  { icon: 'recovery' as const, label: 'HRV', value: '68 ms', meta: '+12% from last week' },
+                  { icon: 'moon' as const, label: 'Sleep', value: '7h 48m', meta: 'Good quality' },
+                  { icon: 'lightning' as const, label: 'Muscle soreness', value: 'Low', meta: 'Optimal' },
+                ]
+              : [
+                  { icon: 'strength' as const, label: 'Volume', value: activePlan.weeklyMinutes, meta: '+8% from last week' },
+                  { icon: 'progress' as const, label: 'PR lifts', value: String(Math.max(1, streak.sessionsThisWeek)), meta: 'New personal bests' },
+                  { icon: 'tempo' as const, label: 'Sessions', value: `${activePlan.sessionsPerWeek}/wk`, meta: `${pluralize(planExerciseCount, 'exercise')}` },
+                ]).map((metric, index) => (
+                <View key={metric.label} style={[styles.homeModeMetricItem, index > 0 && styles.homeModeMetricDivider]}>
+                  <View style={styles.homeModeMetricIcon}>
+                    <GymlogIcon name={metric.icon} color={homeModeAccent} size={17} />
+                </View>
+                  <Text style={styles.homeModeMetricLabel}>{metric.label}</Text>
+                  <Text style={styles.homeModeMetricValue}>{metric.value}</Text>
+                  <Text style={[styles.homeModeMetricMeta, { color: homeModeAccent }]} numberOfLines={1}>{metric.meta}</Text>
+                </View>
+              ))}
+          </View>
+
+          {isRecoveryDay ? (
+            <View style={styles.homeModeListCard}>
+              <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>Recovery tips</Text>
+              {[
+                { icon: 'mobility' as const, title: 'Mobility & stretching', body: '10-15 min to improve flexibility' },
+                { icon: 'recovery' as const, title: 'Hydration', body: 'Stay hydrated and support recovery' },
+                { icon: 'moon' as const, title: 'Sleep focus', body: 'Aim for 7-9 hours of quality sleep' },
+              ].map((tip) => (
+                <View key={tip.title} style={styles.homeModeListRow}>
+                  <View style={styles.homeModeListIcon}>
+                    <GymlogIcon name={tip.icon} color={homeModeAccent} size={22} />
                   </View>
-                  <View style={styles.planPreviewRowCopy}>
-                    <Text style={styles.planPreviewRowTitle} numberOfLines={1}>{session.title}</Text>
-                    {session.meta ? <Text style={styles.planPreviewRowMeta} numberOfLines={1}>{session.meta}</Text> : null}
+                  <View style={styles.homeModeListCopy}>
+                    <Text style={styles.homeModeListTitle}>{tip.title}</Text>
+                    <Text style={styles.homeModeListBody}>{tip.body}</Text>
                   </View>
+                  <Text style={styles.homeModeListArrow}>{'>'}</Text>
                 </View>
               ))}
             </View>
+          ) : (
+            <View style={styles.homeModeListCard}>
+              <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>Today's plan</Text>
+              {selectedPlanExercises.map((exercise) => (
+                <View key={exercise.name} style={styles.homeModePlanRow}>
+                  <View>
+                    <Text style={styles.homeModeListTitle}>{exercise.name}</Text>
+                    <Text style={styles.homeModeListBody}>{exercise.setsLabel}</Text>
+                  </View>
+                  <Text style={[styles.homeModePlanMeta, { color: homeModeAccent }]}>1RM</Text>
+                </View>
+              ))}
+              {selectedDayView.session && onStartActivePlanSession ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Start workout"
+                  onPress={() => onStartActivePlanSession(selectedDayView.session?.id ?? activePlan.nextSession.id)}
+                  style={styles.homeModeStartButton}
+                >
+                  <Text style={styles.homeModeStartButtonText}>Start Workout</Text>
+                  <Text style={styles.homeModeStartButtonArrow}>{'>'}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          )}
           </View>
-        </View>
       ) : null}
 
 
@@ -437,57 +489,33 @@ export function HomeScreen({
         <View style={styles.bottomSafeFadeSoft} />
       </View>
     </ScrollView>
-    <Modal transparent visible={calendarVisible} animationType="fade" onRequestClose={() => setCalendarVisible(false)}>
-      <Pressable style={styles.calendarModalBackdrop} onPress={() => setCalendarVisible(false)}>
-        <Pressable style={styles.calendarSheet}>
-          <View style={styles.calendarSheetHeader}>
-            <View>
-              <Text style={styles.calendarSheetKicker}>Training calendar</Text>
-              <Text style={styles.calendarSheetTitle}>This week</Text>
-            </View>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close calendar" onPress={() => setCalendarVisible(false)} style={styles.calendarCloseButton}>
-              <Text style={styles.calendarCloseText}>Ã—</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.calendarLargeGrid}>
-            {weekCalendarDays.map((item) => (
-              <View
-                key={`calendar-${item.day}`}
-                style={[
-                  styles.calendarLargeDay,
-                  item.isTrainingDay && styles.calendarLargeDayTraining,
-                  item.isToday && styles.calendarLargeDayToday,
-                ]}
-              >
-                <Text style={[styles.calendarLargeDayLabel, item.isToday && styles.calendarLargeDayLabelToday]}>{item.day}</Text>
-                <Text style={[styles.calendarLargeDate, item.isTrainingDay && styles.calendarLargeDateTraining, item.isToday && styles.calendarLargeDateToday]}>
-                  {item.isCompleted && !item.isToday ? 'ðŸ”¥' : item.dateLabel}
-                </Text>
-                <Text style={[styles.calendarLargeStatus, item.isTrainingDay && styles.calendarLargeStatusTraining, item.isToday && styles.calendarLargeStatusToday]}>
-                  {item.isToday ? 'Today' : item.isCompleted ? 'Done' : item.isTrainingDay ? 'Train' : 'Recover'}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </Pressable>
-      </Pressable>
-    </Modal>
+    </ImageBackground>
     </>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  screenBackground: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  screenBackgroundImage: {
+    opacity: 1,
+  },
+  screenBackgroundWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(4,3,13,0.26)',
+  },
+  scrollView: {
+    flex: 1,
+    backgroundColor: 'transparent',
   },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
     paddingBottom: spacing.xs,
     gap: spacing.lg,
-    backgroundColor: colors.background,
+    backgroundColor: 'transparent',
   },
   header: {
     flexDirection: 'row',
@@ -539,107 +567,360 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#000000',
   },
-  miniCalendarRow: {
+  miniCalendarScroller: {
     minHeight: 52,
+    marginTop: -spacing.xs,
+  },
+  miniCalendarRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginTop: -spacing.xs,
+    paddingVertical: 2,
   },
   miniCalendarDay: {
     alignItems: 'center',
     gap: 6,
-    minWidth: 34,
   },
   miniCalendarDayLabel: {
     color: 'rgba(255,255,255,0.62)',
     fontSize: 10,
     lineHeight: 12,
     fontWeight: '800',
+    textAlign: 'center',
   },
   miniCalendarDayLabelActive: {
     color: '#FFFFFF',
   },
   miniCalendarDateBubble: {
-    width: 28,
-    height: 28,
+    width: 24,
+    height: 24,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 2,
+  },
+  miniCalendarDateBubbleEmpty: {
+    backgroundColor: 'transparent',
+    borderColor: 'rgba(255,255,255,0.86)',
   },
   miniCalendarDateBubbleActive: {
-    backgroundColor: '#7C3AED',
     borderColor: '#C68BFF',
+    backgroundColor: '#7C3AED',
     shadowColor: '#C68BFF',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.62,
-    shadowRadius: 16,
+    shadowOpacity: 0.54,
+    shadowRadius: 12,
     elevation: 4,
   },
-  miniCalendarDateBubbleTraining: {
-    borderColor: 'rgba(184,255,106,0.52)',
-    backgroundColor: 'rgba(184,255,106,0.10)',
-  },
-  miniCalendarDateText: {
-    color: 'rgba(255,255,255,0.70)',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-  },
-  miniCalendarDateTextTraining: {
-    color: '#B8FF6A',
-  },
-  miniCalendarDateTextActive: {
-    color: '#FFFFFF',
+  miniCalendarDateBubbleFutureTraining: {
+    borderColor: '#B8FF6A',
+    backgroundColor: '#B8FF6A',
   },
   activePlanSection: {
     gap: spacing.md,
   },
-  planSummaryRow: {
-    minHeight: 54,
+  homeModeHero: {
+    marginHorizontal: -spacing.lg,
+    marginTop: -spacing.md,
+    overflow: 'hidden',
+  },
+  homeModeHeroBackground: {
+    minHeight: 430,
+    justifyContent: 'flex-start',
+  },
+  homeModeHeroScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(2,2,8,0.04)',
+  },
+  homeModeHeroCopy: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: 64,
+    gap: 8,
+  },
+  homeModeKicker: {
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
+  },
+  homeModeTitle: {
+    fontSize: 72,
+    lineHeight: 78,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    letterSpacing: 0,
+    textTransform: 'uppercase',
+    textShadowColor: 'rgba(0,0,0,0.42)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 10,
+  },
+  homeModeSubtitle: {
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: '900',
+    fontStyle: 'italic',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  homeModeFocusCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(198,139,255,0.26)',
+    backgroundColor: 'rgba(11,11,27,0.92)',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  homeModeFocusTop: {
+    flexDirection: 'row',
+    gap: spacing.lg,
+    alignItems: 'center',
+  },
+  homeModeFocusCopy: {
+    flex: 1,
+    gap: 10,
+  },
+  homeModeSectionLabel: {
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  homeModeFocusText: {
+    color: '#FFFFFF',
+    fontSize: 21,
+    lineHeight: 29,
+    fontWeight: '700',
+  },
+  homeModeGoalBlock: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'center',
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.12)',
+    paddingLeft: spacing.lg,
+  },
+  homeModeGoalIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeModeGoalCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  homeModeGoalLabel: {
+    color: 'rgba(255,255,255,0.50)',
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  homeModeGoalTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  homeModeGoalAccent: {
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  homeModeDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  homeModeProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: spacing.lg,
+  },
+  homeModeProgressCopy: {
+    width: 118,
+    gap: 4,
+  },
+  homeModeProgressValue: {
+    fontSize: 48,
+    lineHeight: 54,
+    fontWeight: '900',
+  },
+  homeModeProgressMeta: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  homeModeChart: {
+    flex: 1,
+    height: 98,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  homeModeChartColumn: {
+    width: 25,
+    height: 92,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  homeModeChartLine: {
+    width: 2,
+    opacity: 0.22,
+    borderRadius: 999,
+  },
+  homeModeChartDot: {
+    position: 'absolute',
+    width: 7,
+    height: 7,
+    borderRadius: 999,
+  },
+  homeModeChartLabel: {
+    color: 'rgba(255,255,255,0.50)',
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '900',
+    marginTop: 8,
+  },
+  homeModeMetricsCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(198,139,255,0.18)',
+    backgroundColor: 'rgba(11,11,27,0.92)',
+    flexDirection: 'row',
+    paddingVertical: spacing.md,
+  },
+  homeModeMetricItem: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    gap: 6,
+  },
+  homeModeMetricDivider: {
+    borderLeftWidth: 1,
+    borderLeftColor: 'rgba(255,255,255,0.12)',
+  },
+  homeModeMetricIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    backgroundColor: 'rgba(124,58,237,0.24)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeModeMetricLabel: {
+    color: 'rgba(255,255,255,0.58)',
+    fontSize: 12,
+    lineHeight: 14,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  homeModeMetricValue: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    lineHeight: 24,
+    fontWeight: '900',
+  },
+  homeModeMetricMeta: {
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
+  homeModeListCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(198,139,255,0.26)',
+    backgroundColor: 'rgba(11,11,27,0.92)',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  homeModeListRow: {
+    minHeight: 70,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.045)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    padding: spacing.md,
+  },
+  homeModeListIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: 'rgba(157,255,79,0.10)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  homeModeListCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  homeModeListTitle: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '900',
+  },
+  homeModeListBody: {
+    color: 'rgba(255,255,255,0.62)',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  homeModeListArrow: {
+    color: 'rgba(255,255,255,0.56)',
+    fontSize: 26,
+    lineHeight: 28,
+    fontWeight: '300',
+  },
+  homeModePlanRow: {
+    minHeight: 72,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: 'rgba(255,255,255,0.045)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    padding: spacing.md,
   },
-  planSummaryCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 5,
+  homeModePlanMeta: {
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '900',
   },
-  planSummaryTitleRow: {
-    flexDirection: 'row',
+  homeModeStartButton: {
+    minHeight: 58,
+    borderRadius: 18,
+    backgroundColor: '#7C3AED',
     alignItems: 'center',
-    gap: spacing.sm,
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+    shadowColor: '#A86BFF',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.36,
+    shadowRadius: 16,
+    elevation: 8,
   },
-  planSummaryTitle: {
-    flexShrink: 1,
+  homeModeStartButtonText: {
     color: '#FFFFFF',
     fontSize: 18,
     lineHeight: 22,
     fontWeight: '900',
   },
-  planDetailsButton: {
-    minHeight: 30,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: spacing.sm,
-  },
-  planDetailsButtonText: {
+  homeModeStartButtonArrow: {
     color: '#FFFFFF',
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '900',
+    fontSize: 28,
+    lineHeight: 30,
+    fontWeight: '300',
   },
   sectionKicker: {
     color: 'rgba(255,255,255,0.62)',
@@ -649,112 +930,6 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  todayWorkoutCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.34)',
-    backgroundColor: HOME_CARD_BACKGROUND_DEEP,
-    overflow: 'hidden',
-  },
-  todayWorkoutBackground: {
-    minHeight: 410,
-    justifyContent: 'flex-start',
-  },
-  todayWorkoutImage: {
-    opacity: 1,
-    transform: [{ translateX: 0 }, { scale: 1 }],
-  },
-  todayWorkoutScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(7,8,24,0.16)',
-  },
-  todayWorkoutGreenGlow: {
-    position: 'absolute',
-    top: -18,
-    right: -16,
-    width: 178,
-    height: 112,
-    borderRadius: 999,
-    backgroundColor: 'rgba(184,255,106,0.22)',
-    shadowColor: '#B8FF6A',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.34,
-    shadowRadius: 28,
-    elevation: 5,
-  },
-  todayWorkoutViewIconButton: {
-    position: 'absolute',
-    top: 16,
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.38)',
-    backgroundColor: 'rgba(18,17,39,0.74)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#C68BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.42,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  startWorkoutFloatingButton: {
-    position: 'absolute',
-    left: 28,
-    bottom: 34,
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: '#B8FF6A',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.34)',
-    shadowColor: '#B8FF6A',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.34,
-    shadowRadius: 22,
-    elevation: 10,
-  },
-  startWorkoutFloatingTriangle: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 15,
-    borderBottomWidth: 15,
-    borderLeftWidth: 22,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#06080B',
-    marginLeft: 6,
-  },
-  todayWorkoutCtaCopy: {
-    position: 'absolute',
-    left: 136,
-    right: 10,
-    bottom: 48,
-  },
-  todayWorkoutCtaEyebrow: {
-    color: 'rgba(255,255,255,0.92)',
-    fontSize: 21,
-    lineHeight: 25,
-    fontWeight: '500',
-    letterSpacing: 1.1,
-    textShadowColor: 'rgba(0,0,0,0.62)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 6,
-  },
-  todayWorkoutCtaTitle: {
-    color: '#B8FF6A',
-    fontSize: 21,
-    lineHeight: 26,
-    fontWeight: '900',
-    letterSpacing: 0.7,
-    textShadowColor: 'rgba(0,0,0,0.74)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 7,
-  },
   workoutPlanCard: {
     borderRadius: 16,
     borderWidth: 1,
@@ -762,57 +937,6 @@ const styles = StyleSheet.create({
     backgroundColor: HOME_CARD_BACKGROUND,
     padding: spacing.md,
     gap: spacing.md,
-  },
-  workoutPlanHeader: {
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  workoutPlanHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 5,
-  },
-  workoutPlanDivider: {
-    height: 1,
-    backgroundColor: 'rgba(198,139,255,0.14)',
-  },
-  todayMissionKicker: {
-    color: '#B8FF6A',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  todayMissionTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: '900',
-  },
-  todayMissionMeta: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  todayMissionDetailsButton: {
-    minHeight: 38,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
-  },
-  todayMissionDetailsText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    lineHeight: 14,
-    fontWeight: '900',
   },
   planPreviewCard: {
     borderRadius: 16,
@@ -1414,122 +1538,5 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(21,21,21,0.18)',
     borderBottomLeftRadius: 18,
     borderBottomRightRadius: 18,
-  },
-  calendarModalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(4,3,14,0.72)',
-    padding: spacing.lg,
-  },
-  calendarSheet: {
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.30)',
-    backgroundColor: '#17162F',
-    padding: spacing.lg,
-    gap: spacing.lg,
-    shadowColor: '#C68BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.20,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  calendarSheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  calendarSheetKicker: {
-    color: '#C68BFF',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
-  calendarSheetTitle: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    lineHeight: 29,
-    fontWeight: '900',
-  },
-  calendarCloseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
-  calendarCloseText: {
-    color: '#FFFFFF',
-    fontSize: 24,
-    lineHeight: 26,
-    fontWeight: '700',
-    marginTop: -2,
-  },
-  calendarLargeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  calendarLargeDay: {
-    width: '31.8%',
-    minHeight: 94,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    padding: 10,
-    justifyContent: 'space-between',
-  },
-  calendarLargeDayTraining: {
-    borderColor: 'rgba(184,255,106,0.38)',
-    backgroundColor: 'rgba(184,255,106,0.08)',
-  },
-  calendarLargeDayToday: {
-    borderColor: 'rgba(198,139,255,0.82)',
-    backgroundColor: 'rgba(124,58,237,0.24)',
-    shadowColor: '#C68BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.36,
-    shadowRadius: 18,
-    elevation: 8,
-  },
-  calendarLargeDayLabel: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-  },
-  calendarLargeDayLabelToday: {
-    color: '#FFFFFF',
-  },
-  calendarLargeDate: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: '900',
-  },
-  calendarLargeDateTraining: {
-    color: '#B8FF6A',
-  },
-  calendarLargeDateToday: {
-    color: '#FFFFFF',
-  },
-  calendarLargeStatus: {
-    color: 'rgba(255,255,255,0.46)',
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '800',
-  },
-  calendarLargeStatusTraining: {
-    color: '#B8FF6A',
-  },
-  calendarLargeStatusToday: {
-    color: '#C68BFF',
   },
 });

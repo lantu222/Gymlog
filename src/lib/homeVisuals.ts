@@ -160,15 +160,16 @@ export function buildHomeUpcomingSessions(input: {
         if (!template) {
           return null;
         }
+        const session = entry.workoutTemplateSessionId
+          ? template.sessions.find((item) => item.id === entry.workoutTemplateSessionId) ?? template.sessions[0]
+          : template.sessions[entry.orderIndex] ?? template.sessions[0];
+        const sessionTitle = formatWorkoutDisplayLabel(session?.name ?? template.name, 'Workout');
+        const templateTitle = formatWorkoutDisplayLabel(template.name, 'Workout');
 
         return {
           label: entry.label.slice(0, 3),
-          title: formatWorkoutDisplayLabel(template.sessions[0]?.name ?? template.name, 'Workout'),
-          meta:
-            formatWorkoutDisplayLabel(template.sessions[0]?.name ?? template.name, 'Workout') ===
-            formatWorkoutDisplayLabel(template.name, 'Workout')
-              ? undefined
-              : formatWorkoutDisplayLabel(template.name, 'Workout'),
+          title: sessionTitle,
+          meta: sessionTitle === templateTitle ? undefined : templateTitle,
         } satisfies HomeUpcomingSession;
       })
       .filter(Boolean)

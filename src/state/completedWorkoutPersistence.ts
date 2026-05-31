@@ -21,6 +21,7 @@ export interface SessionSaveSummary {
 export interface PersistCompletedWorkoutInput {
   sessionId: string;
   workoutTemplateId: string;
+  workoutTemplateSessionId?: string | null;
   workoutNameSnapshot: string;
   logs: ExerciseLogDraft[];
   startedAt?: string;
@@ -144,6 +145,7 @@ export function persistCompletedWorkoutSessionToDatabase(
   const nextSession = {
     id: input.sessionId,
     workoutTemplateId: input.workoutTemplateId,
+    workoutTemplateSessionId: input.workoutTemplateSessionId ?? null,
     workoutNameSnapshot: input.workoutNameSnapshot,
     sessionNotes: null,
     performedAt,

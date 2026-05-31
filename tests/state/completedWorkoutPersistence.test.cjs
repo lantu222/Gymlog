@@ -142,5 +142,22 @@ module.exports = [
       assert.equal(result.summary.sessionInsertedExercises, 1);
     },
   },
+  {
+    name: 'completed workout persistence preserves workout template session id',
+    run() {
+      const result = persistCompletedWorkoutSessionToDatabase(createEmptyDatabase(), {
+        sessionId: 'feature_session_day_b',
+        workoutTemplateId: 'custom_full_body',
+        workoutTemplateSessionId: 'day_b',
+        workoutNameSnapshot: 'Full Body B',
+        startedAt: '2026-05-25T10:00:00.000Z',
+        performedAt: '2026-05-25T10:30:00.000Z',
+        logs: [createLog({ exerciseNameSnapshot: 'Incline Push-Up' })],
+      });
+
+      assert.equal(result.didPersist, true);
+      assert.equal(result.database.workoutSessions[0].workoutTemplateSessionId, 'day_b');
+    },
+  },
 ];
 

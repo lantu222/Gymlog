@@ -214,6 +214,7 @@ function materializeWorkoutSessionFromTemplate(
   template: WorkoutRuntimeTemplate,
   options: WorkoutSessionMaterializeOptions,
 ): WorkoutSessionRuntime {
+  const orderedSessions = template.sessions.slice().sort((left, right) => left.orderIndex - right.orderIndex);
   const exercises = template.sessions
     .slice()
     .sort((left, right) => left.orderIndex - right.orderIndex)
@@ -228,6 +229,7 @@ function materializeWorkoutSessionFromTemplate(
   return {
     sessionId: createId('workout_session'),
     templateId: template.id,
+    templateSessionId: orderedSessions.length === 1 ? orderedSessions[0]?.id ?? null : null,
     templateName: template.name,
     status: 'active',
     startedAt,
@@ -339,6 +341,7 @@ function buildSummary(session: WorkoutSessionRuntime): WorkoutSessionSummary {
   return {
     sessionId: session.sessionId,
     templateId: session.templateId,
+    templateSessionId: session.templateSessionId,
     templateName: session.templateName,
     performedAt,
     durationMinutes: Math.max(1, Math.round((new Date(performedAt).getTime() - new Date(session.startedAt).getTime()) / 60000) || 1),

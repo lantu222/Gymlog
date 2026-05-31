@@ -113,6 +113,7 @@ export interface WorkoutTemplateSessionWithExercises extends WorkoutTemplateSess
 export interface WorkoutPlanEntry {
   id: string;
   workoutTemplateId: string;
+  workoutTemplateSessionId?: string | null;
   label: string;
   orderIndex: number;
 }
@@ -158,6 +159,7 @@ export interface ExerciseLogSet {
 export interface WorkoutSession {
   id: string;
   workoutTemplateId: string;
+  workoutTemplateSessionId?: string | null;
   workoutNameSnapshot: string;
   sessionNotes?: string | null;
   performedAt: string;

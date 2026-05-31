@@ -150,12 +150,29 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
   return {
     workoutTemplates: normalizedTemplates,
     exerciseTemplates: normalizedExerciseTemplates,
-    workoutPlans: Array.isArray(input?.workoutPlans) ? input.workoutPlans : [],
+    workoutPlans: Array.isArray(input?.workoutPlans)
+      ? input.workoutPlans.map((plan: any) => ({
+          ...plan,
+          entries: Array.isArray(plan?.entries)
+            ? plan.entries.map((entry: any) => ({
+                ...entry,
+                workoutTemplateSessionId:
+                  typeof entry?.workoutTemplateSessionId === 'string' && entry.workoutTemplateSessionId.trim().length
+                    ? entry.workoutTemplateSessionId
+                    : null,
+              }))
+            : [],
+        }))
+      : [],
     exerciseLibrary: mergeExerciseLibrary(input?.exerciseLibrary, fallback.exerciseLibrary),
     workoutSessions: Array.isArray(input?.workoutSessions)
       ? input.workoutSessions.map((session: any) => ({
           id: String(session?.id ?? ''),
           workoutTemplateId: String(session?.workoutTemplateId ?? ''),
+          workoutTemplateSessionId:
+            typeof session?.workoutTemplateSessionId === 'string' && session.workoutTemplateSessionId.trim().length
+              ? session.workoutTemplateSessionId
+              : null,
           workoutNameSnapshot:
             typeof session?.workoutNameSnapshot === 'string' && session.workoutNameSnapshot.trim().length
               ? session.workoutNameSnapshot.trim()

@@ -97,6 +97,16 @@ function sortPlanEntries(plan: WorkoutPlan) {
   return [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
 }
 
+function planEntryMatchesSession(entry: WorkoutPlanEntry, session: AppDatabase['workoutSessions'][number]) {
+  if (entry.workoutTemplateId !== session.workoutTemplateId) {
+    return false;
+  }
+
+  return entry.workoutTemplateSessionId
+    ? entry.workoutTemplateSessionId === session.workoutTemplateSessionId
+    : true;
+}
+
 export function getWorkoutMap(database: AppDatabase) {
   return Object.fromEntries(database.workoutTemplates.map((template) => [template.id, template] as const));
 }
@@ -110,11 +120,11 @@ export function getNextWorkoutCandidate(database: AppDatabase) {
 
     if (activePlan.mode === 'rotation') {
       const latestPlanSession = getCanonicalCompletedSessions(database)
-        .filter((session) => entries.some((entry) => entry.workoutTemplateId === session.workoutTemplateId))
+        .filter((session) => entries.some((entry) => planEntryMatchesSession(entry, session)))
         .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())[0];
 
       const latestIndex = latestPlanSession
-        ? entries.findIndex((entry) => entry.workoutTemplateId === latestPlanSession.workoutTemplateId)
+        ? entries.findIndex((entry) => planEntryMatchesSession(entry, latestPlanSession))
         : -1;
       const entry = entries[(latestIndex + 1 + entries.length) % entries.length];
       const workout = workoutsById[entry.workoutTemplateId];

@@ -91,6 +91,7 @@ function normalizeActiveSession(input: unknown): WorkoutSessionRuntime | null {
 
   return {
     ...session,
+    templateSessionId: session.templateSessionId ?? null,
     exercises,
     restTimer: {
       ...session.restTimer,

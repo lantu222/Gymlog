@@ -131,6 +131,7 @@ export interface WorkoutUiState {
 export interface WorkoutSessionRuntime {
   sessionId: string;
   templateId: string;
+  templateSessionId: string | null;
   templateName: string;
   status: WorkoutStatus;
   startedAt: string;
@@ -168,6 +169,7 @@ export interface WorkoutSlotHistoryEntry {
 export interface WorkoutSessionSummary {
   sessionId: string;
   templateId: string;
+  templateSessionId: string | null;
   templateName: string;
   performedAt: string;
   durationMinutes: number;

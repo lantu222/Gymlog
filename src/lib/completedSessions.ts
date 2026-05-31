@@ -23,6 +23,7 @@ const FI_WEEKDAYS_SHORT = ['su', 'ma', 'ti', 'ke', 'to', 'pe', 'la'];
 function buildCompletedSessionSignature(session: WorkoutSession) {
   return [
     session.workoutTemplateId,
+    session.workoutTemplateSessionId ?? '',
     session.workoutNameSnapshot.trim().toLowerCase(),
     new Date(session.performedAt).toISOString(),
   ].join('|');

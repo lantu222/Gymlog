@@ -8,6 +8,7 @@ const {
   getSessionsLast30Days,
   getSessionsThisWeek,
 } = require('../../.test-dist/lib/completedSessions.js');
+const { getNextWorkoutCandidate } = require('../../.test-dist/lib/dashboard.js');
 
 function createSession(id, performedAt, workoutTemplateId = 'workout_upper', workoutNameSnapshot = 'Upper') {
   return { id, workoutTemplateId, workoutNameSnapshot, performedAt };
@@ -167,6 +168,56 @@ module.exports = [
       );
       assert.equal(today?.dayNumber, 22);
       assert.equal(today?.weekdayLabel, 'su');
+    },
+  },
+  {
+    name: 'active plan rotation advances by workout template session id',
+    run() {
+      const database = createEmptyDatabase();
+      database.workoutTemplates = [
+        {
+          id: 'custom_full_body',
+          name: 'Full Body',
+          description: '',
+          mode: 'custom',
+          exerciseIds: [],
+          sessions: [
+            { id: 'day_a', name: 'Full Body A', orderIndex: 0, exerciseIds: [] },
+            { id: 'day_b', name: 'Full Body B', orderIndex: 1, exerciseIds: [] },
+          ],
+          createdAt: '2026-05-25T00:00:00.000Z',
+          updatedAt: '2026-05-25T00:00:00.000Z',
+        },
+      ];
+      database.workoutPlans = [
+        {
+          id: 'plan_full_body',
+          name: 'Full Body Plan',
+          mode: 'rotation',
+          isActive: true,
+          createdAt: '2026-05-25T00:00:00.000Z',
+          updatedAt: '2026-05-25T00:00:00.000Z',
+          entries: [
+            { id: 'entry_a', workoutTemplateId: 'custom_full_body', workoutTemplateSessionId: 'day_a', label: 'Mon', orderIndex: 0 },
+            { id: 'entry_b', workoutTemplateId: 'custom_full_body', workoutTemplateSessionId: 'day_b', label: 'Thu', orderIndex: 1 },
+          ],
+        },
+      ];
+      database.preferences.activePlanId = 'plan_full_body';
+      database.workoutSessions = [
+        {
+          id: 'completed_a',
+          workoutTemplateId: 'custom_full_body',
+          workoutTemplateSessionId: 'day_a',
+          workoutNameSnapshot: 'Full Body A',
+          performedAt: '2026-05-25T12:00:00.000Z',
+        },
+      ];
+      database.exerciseLogs = [createCompletedLog('completed_a')];
+
+      const candidate = getNextWorkoutCandidate(database);
+      assert.equal(candidate?.entry?.id, 'entry_b');
+      assert.equal(candidate?.entry?.workoutTemplateSessionId, 'day_b');
     },
   },
 ];
