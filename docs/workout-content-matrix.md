@@ -29,7 +29,7 @@ The minimum plan-ready payload should include:
 - user-facing plan name and subtitle
 - days per week and first-week session list
 - session guidance for each day: warmup, main focus, support focus, rest, estimated duration, progression hint, first action
-- 4-week starter block metadata from `docs/recommendation-4-week-programme-contract.md`
+- programme metadata from `docs/recommendation-programme-contract.md`
 - recommendation confidence and fallback reason when applicable
 - `why this plan` reasons tied back to the user's Step 1-5 answers
 
@@ -90,7 +90,7 @@ Each ready-template session now has generated guidance from the template data. T
 
 The recommended week is the first week of a continuing 4-week starter block, not a one-off plan.
 
-Detailed programme-generation rules live in `docs/recommendation-4-week-programme-contract.md`. This section summarizes the current content expectations that tests should enforce.
+Detailed programme-generation rules live in `docs/recommendation-programme-contract.md`. This section summarizes the current content expectations that tests should enforce.
 
 | Week | Role | What happens |
 | --- | --- | --- |

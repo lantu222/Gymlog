@@ -11,7 +11,11 @@ import {
   View,
 } from 'react-native';
 
-import { getSuggestedExerciseLibraryItems } from '../lib/exerciseSuggestions';
+import {
+  getPopularExerciseLibraryItems,
+  getPopularExerciseLibraryOrder,
+  getSuggestedExerciseLibraryItems,
+} from '../lib/exerciseSuggestions';
 import {
   ExerciseBodyPart,
   ExerciseCategory,
@@ -37,11 +41,6 @@ interface AddExerciseSheetProps {
   onConfirmSelection?: (items: ExerciseLibraryItem[]) => void;
 }
 
-interface CommonExerciseSeed {
-  label: string;
-  keywords: string[];
-}
-
 const categoryOptions: Array<'all' | ExerciseCategory> = ['all', 'compound', 'isolation', 'cardio', 'core'];
 const bodyPartOptions: Array<'all' | ExerciseBodyPart> = [
   'all',
@@ -64,26 +63,6 @@ const equipmentOptions: Array<'all' | ExerciseEquipment> = [
   'bodyweight',
 ];
 
-const COMMON_EXERCISE_SEEDS: CommonExerciseSeed[] = [
-  { label: 'Bench Press', keywords: ['bench press'] },
-  { label: 'Dumbbell Bench Press', keywords: ['dumbbell bench press'] },
-  { label: 'Incline Dumbbell Press', keywords: ['incline dumbbell press', 'incline bench press'] },
-  { label: 'Lat Pulldown', keywords: ['lat pulldown', 'pulldown'] },
-  { label: 'Seated Row', keywords: ['seated row', 'cable row'] },
-  { label: 'Shoulder Press', keywords: ['shoulder press', 'overhead press'] },
-  { label: 'Lateral Raise', keywords: ['lateral raise'] },
-  { label: 'Squat', keywords: ['barbell squat', 'squat'] },
-  { label: 'Leg Press', keywords: ['leg press'] },
-  { label: 'Leg Extension', keywords: ['leg extension'] },
-  { label: 'Leg Curl', keywords: ['leg curl'] },
-  { label: 'Romanian Deadlift', keywords: ['romanian deadlift', 'stiff-leg deadlift'] },
-  { label: 'Hip Thrust', keywords: ['hip thrust', 'glute bridge'] },
-  { label: 'Biceps Curl', keywords: ['biceps curl', 'dumbbell curl', 'barbell curl'] },
-  { label: 'Triceps Pushdown', keywords: ['triceps pushdown', 'cable pushdown', 'pushdown'] },
-  { label: 'Calf Raise', keywords: ['calf raise', 'calf press'] },
-  { label: 'Crunch', keywords: ['crunch', 'sit-up'] },
-];
-
 function toLabel(value: string) {
   return value
     .split(' ')
@@ -104,52 +83,6 @@ function toBodyPartQuickLabel(value: 'all' | ExerciseBodyPart) {
 
 function buildSearchHaystack(item: ExerciseLibraryItem) {
   return [item.name, item.category, item.bodyPart, item.equipment].join(' ').toLowerCase();
-}
-
-function findCommonExerciseItems(items: ExerciseLibraryItem[]) {
-  const picked = new Set<string>();
-  const matches: ExerciseLibraryItem[] = [];
-
-  for (const seed of COMMON_EXERCISE_SEEDS) {
-    const match = items.find((item) => {
-      if (picked.has(item.id)) {
-        return false;
-      }
-
-      const normalizedName = item.name.toLowerCase();
-      return seed.keywords.some((keyword) => normalizedName.includes(keyword));
-    });
-
-    if (match) {
-      picked.add(match.id);
-      matches.push(match);
-    }
-  }
-
-  return matches;
-}
-
-function buildCommonExerciseOrder(items: ExerciseLibraryItem[]) {
-  const ids: string[] = [];
-  const picked = new Set<string>();
-
-  for (const seed of COMMON_EXERCISE_SEEDS) {
-    const match = items.find((item) => {
-      if (picked.has(item.id)) {
-        return false;
-      }
-
-      const normalizedName = item.name.toLowerCase();
-      return seed.keywords.some((keyword) => normalizedName.includes(keyword));
-    });
-
-    if (match) {
-      picked.add(match.id);
-      ids.push(match.id);
-    }
-  }
-
-  return new Map(ids.map((id, index) => [id, index]));
 }
 
 interface FilterPillGroupProps<T extends string> {
@@ -292,8 +225,8 @@ export function AddExerciseSheet({
     [currentItemIds, items, recentItems],
   );
 
-  const commonStarterItems = useMemo(() => findCommonExerciseItems(items).slice(0, 8), [items]);
-  const commonStarterOrder = useMemo(() => buildCommonExerciseOrder(items), [items]);
+  const commonStarterItems = useMemo(() => getPopularExerciseLibraryItems(items).slice(0, 8), [items]);
+  const commonStarterOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
 
   const hasCustomFilters = category !== 'all' || bodyPart !== 'all' || equipment !== 'all';
   const showSuggestedOrdering = search.trim().length === 0 && !hasCustomFilters;

@@ -23,6 +23,7 @@ export interface HomeStreakSummary {
   currentWeekStreak: number;
   sessionsThisWeek: number;
   sessionsLast30Days: number;
+  totalDurationMinutes: number;
   calendar: {
     monthLabel: string;
     weekdayLabels: string[];
@@ -243,11 +244,16 @@ function getHomeStreak(database: AppDatabase): HomeStreakSummary {
   const currentWeekStreak = getCurrentWeekStreak(database);
   const calendar = getMonthlyActivityCalendar(database);
   const activity = getRecentActivityStrip(database);
+  const totalDurationMinutes = getCanonicalCompletedSessions(database).reduce(
+    (sum, session) => sum + getSessionDurationMinutes(session),
+    0,
+  );
 
   return {
     currentWeekStreak,
     sessionsThisWeek,
     sessionsLast30Days,
+    totalDurationMinutes,
     calendar,
     activity: {
       days: activity,

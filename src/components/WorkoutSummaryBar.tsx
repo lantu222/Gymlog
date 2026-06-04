@@ -3,8 +3,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { formatVolume } from '../lib/format';
 import { WorkoutFlowTrailItem } from '../lib/workoutFlow';
-import { colors, radii, spacing } from '../theme';
+import { radii, spacing } from '../theme';
 import { UnitPreference } from '../types/models';
+
+const LOGGING_BACKGROUND = '#F7F3FF';
+const LOGGING_PURPLE = '#7C3AED';
+const LOGGING_GREEN = '#16A34A';
 
 interface WorkoutSummaryBarProps {
   elapsedSeconds: number;
@@ -130,22 +134,22 @@ const styles = StyleSheet.create({
   wrapper: {
     overflow: 'hidden',
     marginHorizontal: spacing.lg,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.18)',
-    backgroundColor: 'rgba(18, 24, 33, 0.78)',
-    gap: spacing.xs,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
+    borderColor: 'rgba(124, 58, 237, 0.16)',
+    backgroundColor: '#FFFFFF',
+    gap: spacing.sm,
+    shadowColor: LOGGING_PURPLE,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
     shadowRadius: 18,
     elevation: 6,
   },
   wrapperUrgent: {
-    borderColor: 'rgba(162, 54, 18, 0.28)',
+    borderColor: 'rgba(22, 163, 74, 0.24)',
   },
   topAccent: {
     position: 'absolute',
@@ -153,10 +157,10 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 2,
-    backgroundColor: colors.accent,
+    backgroundColor: LOGGING_PURPLE,
   },
   topAccentUrgent: {
-    backgroundColor: colors.warning,
+    backgroundColor: LOGGING_GREEN,
   },
   glowOrangeUrgent: {
     width: 132,
@@ -180,63 +184,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.24)',
-    backgroundColor: 'rgba(85, 138, 189, 0.12)',
+    borderColor: 'rgba(124, 58, 237, 0.20)',
+    backgroundColor: '#F3ECFF',
     justifyContent: 'center',
   },
   phaseChipUrgent: {
-    borderColor: 'rgba(162, 54, 18, 0.34)',
-    backgroundColor: 'rgba(162, 54, 18, 0.12)',
+    borderColor: 'rgba(22, 163, 74, 0.24)',
+    backgroundColor: '#ECFDF3',
   },
   phaseChipText: {
-    color: '#9ACCFF',
+    color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   phaseChipTextUrgent: {
-    color: '#E37A58',
+    color: LOGGING_GREEN,
   },
   headerMeta: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 12,
     fontWeight: '700',
   },
   metrics: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 0,
   },
   metricPill: {
     flex: 1,
-    minHeight: 38,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(15, 21, 29, 0.86)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+    minHeight: 62,
+    borderRightWidth: 1,
+    borderRightColor: 'rgba(124, 58, 237, 0.14)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
     gap: 1,
+    alignItems: 'center',
     justifyContent: 'center',
   },
   metricPillUrgent: {
-    borderColor: 'rgba(162, 54, 18, 0.20)',
+    borderRightColor: 'rgba(22, 163, 74, 0.16)',
   },
   label: {
-    color: colors.textMuted,
-    fontSize: 9,
+    color: '#667085',
+    fontSize: 11,
     fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    textAlign: 'center',
   },
   labelUrgent: {
-    color: '#E37A58',
+    color: LOGGING_GREEN,
   },
   value: {
-    color: colors.textPrimary,
-    fontSize: 14,
+    color: '#111827',
+    fontSize: 18,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
   },
   restPill: {
     flexDirection: 'row',
@@ -245,35 +248,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: radii.pill,
-    backgroundColor: 'rgba(85, 138, 189, 0.16)',
+    backgroundColor: '#F3ECFF',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.30)',
+    borderColor: 'rgba(124, 58, 237, 0.22)',
   },
   restPillUrgent: {
-    backgroundColor: 'rgba(162, 54, 18, 0.20)',
-    borderColor: 'rgba(162, 54, 18, 0.42)',
-    shadowColor: colors.warning,
+    backgroundColor: '#ECFDF3',
+    borderColor: 'rgba(22, 163, 74, 0.28)',
+    shadowColor: LOGGING_GREEN,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.22,
     shadowRadius: 12,
     elevation: 5,
   },
   restLabel: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 11,
     fontWeight: '700',
   },
   restLabelUrgent: {
-    color: '#E37A58',
+    color: LOGGING_GREEN,
   },
   restValue: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 12,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   restValueUrgent: {
-    color: '#FFFFFF',
+    color: LOGGING_GREEN,
   },
   restRow: {
     flexDirection: 'row',
@@ -287,11 +290,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.28)',
-    backgroundColor: 'rgba(15, 21, 29, 0.92)',
+    borderColor: 'rgba(124, 58, 237, 0.18)',
+    backgroundColor: LOGGING_BACKGROUND,
   },
   restActionText: {
-    color: colors.textPrimary,
+    color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -305,27 +308,27 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(60, 92, 119, 0.24)',
-    backgroundColor: 'rgba(13, 19, 27, 0.72)',
+    borderColor: 'rgba(124, 58, 237, 0.12)',
+    backgroundColor: LOGGING_BACKGROUND,
     alignItems: 'center',
     justifyContent: 'center',
   },
   trailChipCurrent: {
-    borderColor: 'rgba(85, 138, 189, 0.34)',
-    backgroundColor: 'rgba(85, 138, 189, 0.14)',
+    borderColor: 'rgba(124, 58, 237, 0.24)',
+    backgroundColor: '#F3ECFF',
   },
   trailChipComplete: {
     opacity: 0.56,
   },
   trailChipText: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 10,
     fontWeight: '800',
   },
   trailChipTextCurrent: {
-    color: '#8FC1F2',
+    color: LOGGING_PURPLE,
   },
   trailChipTextComplete: {
-    color: colors.textSecondary,
+    color: '#667085',
   },
 });

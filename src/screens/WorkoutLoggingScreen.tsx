@@ -7,12 +7,11 @@ import { InlineTip } from '../components/InlineTip';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { WorkoutExerciseCard } from '../components/WorkoutExerciseCard';
 import { WorkoutQueueItem } from '../components/WorkoutQueueItem';
-import { WorkoutSceneGraphic } from '../components/WorkoutSceneGraphic';
 import { WorkoutSummaryBar } from '../components/WorkoutSummaryBar';
 import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation } from '../lib/adaptiveCoach';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
 import { buildTailoredSwapOptions, buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { formatWorkoutExerciseQueueMeta, getWorkoutFlowPhase, getWorkoutFlowTrail } from '../lib/workoutFlow';
+import { formatWorkoutExerciseQueueMeta, getWorkoutFlowPhase } from '../lib/workoutFlow';
 import { getActiveSetAutoFocusTarget } from '../lib/workoutLoggingFocus';
 import { getWorkoutLoggingSessionBootstrapResult } from '../lib/workoutLoggingSessionBootstrap';
 import { colors, radii, spacing } from '../theme';
@@ -75,6 +74,9 @@ interface PostEffortTransitionState {
 
 const LOGGER_FIRST_SET_GUIDE_TIP_ID = 'workout_logger_first_set';
 const LOGGER_EFFORT_GUIDE_TIP_ID = 'workout_logger_effort';
+const LOGGING_BACKGROUND = '#F7F3FF';
+const LOGGING_PURPLE = '#7C3AED';
+const LOGGING_GREEN = '#16A34A';
 const EFFORT_OPTIONS: { value: WorkoutSetEffort; label: string }[] = [
   { value: 'easy', label: 'Easy' },
   { value: 'good', label: 'Good' },
@@ -200,6 +202,18 @@ function formatEffortSignal(effort: WorkoutSetEffort) {
   }
 
   return 'Hard';
+}
+
+function formatActiveWorkoutSubtitle(templateName: string) {
+  if (/Minimal A$/i.test(templateName)) {
+    return 'Day 1. Full Body';
+  }
+
+  if (/Minimal B$/i.test(templateName)) {
+    return 'Day 2. Full Body';
+  }
+
+  return templateName;
 }
 
 export function WorkoutLoggingScreen({
@@ -348,10 +362,6 @@ export function WorkoutLoggingScreen({
       }, 0) ?? 0,
     [activeSession?.exercises],
   );
-  const flowTrail = useMemo(
-    () => getWorkoutFlowTrail(activeSession?.exercises ?? [], activeSlotId),
-    [activeSession?.exercises, activeSlotId],
-  );
   const nextExercise = useMemo(() => selectNextExercise(activeSession), [activeSession]);
   const incompleteQueueExercises = useMemo(
     () =>
@@ -369,30 +379,6 @@ export function WorkoutLoggingScreen({
       incompleteQueueExercises.filter((exercise) => exercise.slotId !== (nextUpExercise?.slotId ?? null)),
     [incompleteQueueExercises, nextUpExercise?.slotId],
   );
-  const completedExerciseCount = useMemo(
-    () =>
-      activeSession?.exercises.filter(
-        (exercise) =>
-          exercise.slotId !== activeSlotId &&
-          (exercise.status === 'completed' ||
-            exercise.status === 'swapped' ||
-            exercise.sets.some((set) => set.status === 'completed')),
-      ).length ?? 0,
-    [activeSession?.exercises, activeSlotId],
-  );
-  const currentPhase = flowTrail.find((item) => item.state === 'current') ?? flowTrail[0] ?? null;
-  const remainingMoveCount = Math.max(0, incompleteQueueExercises.length + (activeExercise ? 1 : 0));
-  const activePendingSet = activeExercise
-    ? activeExercise.sets.find((set) => set.setIndex === activeSession?.ui.activeSetIndex && set.status === 'pending') ??
-      activeExercise.sets.find((set) => set.status === 'pending') ??
-      null
-    : null;
-  const activePendingSetNumber = activePendingSet ? activePendingSet.setIndex + 1 : null;
-  const statusMeta = nextUpExercise
-    ? `${pluralize(remainingMoveCount, 'move')} left | Next ${nextUpExercise.exerciseName}`
-    : completedExerciseCount > 0
-      ? `${pluralize(completedExerciseCount, 'exercise')} logged`
-      : 'One move at a time';
   const latestEffortTarget = useMemo(() => getLatestCompletedSetWithoutEffort(activeSession), [activeSession]);
   const overlaySurfaceOpen =
     showAddExercise ||
@@ -413,24 +399,10 @@ export function WorkoutLoggingScreen({
     Boolean(postEffortTransition) &&
     !showEffortPrompt &&
     !overlaySurfaceOpen;
-  const showSessionStartCard =
-    Boolean(activeExercise) &&
-    completedSets === 0 &&
-    !showEffortPrompt &&
-    !showRestTransition &&
-    !overlaySurfaceOpen;
   const showGenericInlineTip =
     Boolean(inlineTip) && !isFirstSession && !showFirstSessionCoach && !showEffortPrompt && !showRestTransition;
 
   useEffect(() => {
-    if (showSessionStartCard) {
-      const timeout = setTimeout(() => {
-        scrollRef.current?.scrollTo({ y: 0, animated: false });
-      }, 16);
-
-      return () => clearTimeout(timeout);
-    }
-
     if (!activeSlotId) {
       return;
     }
@@ -445,7 +417,7 @@ export function WorkoutLoggingScreen({
     }, 48);
 
     return () => clearTimeout(timeout);
-  }, [activeSlotId, showSessionStartCard]);
+  }, [activeSlotId]);
 
   useEffect(() => {
     if (!autoFocusNextInput || !activeSession || !activeExercise) {
@@ -684,13 +656,15 @@ export function WorkoutLoggingScreen({
   return (
     <View style={styles.screen}>
       <ScreenHeader
-        title={activeSession.templateName}
+        title="Active Workout"
+        subtitle={formatActiveWorkoutSubtitle(activeSession.templateName)}
         onBack={onBack}
         rightActionLabel="Finish"
         onRightActionPress={() => {
           Keyboard.dismiss();
           setFinishReviewVisible(true);
         }}
+        tone="dark"
       />
 
       <WorkoutSummaryBar
@@ -698,63 +672,12 @@ export function WorkoutLoggingScreen({
         completedSets={completedSets}
         totalVolume={totalVolume}
         unitPreference={unitPreference}
-        flowTrail={flowTrail}
-        currentPhaseLabel={currentPhase ? `${currentPhase.label} now` : 'Workout'}
-        statusMeta={statusMeta}
         restSecondsRemaining={remainingSeconds}
         restPaused={restTimerPaused}
         onDismissRest={clearRestTimer}
         onPauseRest={restTimerStatus === 'running' ? pauseRestTimer : undefined}
         onResumeRest={restTimerPaused ? resumeRestTimer : undefined}
       />
-
-      {showSessionStartCard && activeExercise ? (
-        <View style={styles.inlineTipWrap}>
-          <Pressable
-            onPress={() => {
-              handleOpenExercise(activeExercise, activeSession.ui.activeSetIndex);
-              if (showFirstSessionCoach) {
-                void onDismissTip(LOGGER_FIRST_SET_GUIDE_TIP_ID);
-              }
-            }}
-            style={styles.sessionStartCard}
-          >
-            <View style={styles.sessionStartTopRow}>
-              <View style={styles.sessionStartCopy}>
-                <Text style={styles.sessionStartKicker}>Today starts here</Text>
-                <Text style={styles.sessionStartTitle}>{activeExercise.exerciseName}</Text>
-                <Text style={styles.sessionStartBody}>
-                  {activePendingSetNumber
-                    ? `Set ${activePendingSetNumber} of ${activeExercise.sets.length} | ${activePendingSet?.plannedRepsMin}-${activePendingSet?.plannedRepsMax} reps`
-                    : `${activeExercise.sets.length} sets queued`}
-                </Text>
-              </View>
-              <WorkoutSceneGraphic variant="today" accent="blue" compact style={styles.sessionStartVisual} />
-            </View>
-
-            <View style={styles.sessionStartSignalRow}>
-              <View style={styles.sessionStartSignalCard}>
-                <Text style={styles.sessionStartSignalLabel}>Do now</Text>
-                <Text style={styles.sessionStartSignalValue}>Load + reps</Text>
-                <Text style={styles.sessionStartSignalMeta}>Then tap Done</Text>
-              </View>
-              <View style={styles.sessionStartSignalCard}>
-                <Text style={styles.sessionStartSignalLabel}>Then</Text>
-                <Text style={styles.sessionStartSignalValue}>
-                  {nextUpExercise ? nextUpExercise.exerciseName : 'Keep moving'}
-                </Text>
-                <Text style={styles.sessionStartSignalMeta}>
-                  {nextUpExercise ? formatWorkoutExerciseQueueMeta(nextUpExercise) : 'One move at a time'}
-                </Text>
-              </View>
-            </View>
-
-            {showFirstSessionCoach ? (
-              <Text style={styles.sessionStartHint}>First workout: just finish the set cleanly. The rest unfolds from there.</Text>
-            ) : null}
-          </Pressable>
-        </View>
-      ) : null}
 
       {showEffortPrompt && activeEffortPrompt ? (
         <View style={styles.inlineTipWrap}>
@@ -957,6 +880,16 @@ export function WorkoutLoggingScreen({
             />
           ) : null}
 
+          <Pressable
+            onPress={() => {
+              Keyboard.dismiss();
+              setShowAddExercise(true);
+            }}
+            style={styles.addExerciseButton}
+          >
+            <Text style={styles.addExerciseButtonText}>+ Add Exercise</Text>
+          </Pressable>
+
           {nextUpExercise ? (
             <View style={styles.queueSection}>
               <View style={styles.queueSectionHeader}>
@@ -1007,12 +940,11 @@ export function WorkoutLoggingScreen({
         <Pressable
           onPress={() => {
             Keyboard.dismiss();
-            setShowMoreActions(true);
+            setFinishReviewVisible(true);
           }}
-          disabled={!activeExercise}
-          style={[styles.moreButton, !activeExercise && styles.moreButtonDisabled]}
+          style={styles.finishWorkoutButton}
         >
-          <Text style={[styles.moreButtonText, !activeExercise && styles.moreButtonTextDisabled]}>More</Text>
+          <Text style={styles.finishWorkoutButtonText}>Finish Workout</Text>
         </Pressable>
       </View>
 
@@ -1258,20 +1190,20 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: LOGGING_BACKGROUND,
   },
   loadingText: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 16,
     fontWeight: '700',
   },
   screen: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: LOGGING_BACKGROUND,
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: 156,
+    paddingBottom: 124,
   },
   inlineTipWrap: {
     paddingHorizontal: spacing.lg,
@@ -1745,38 +1677,54 @@ const styles = StyleSheet.create({
     right: spacing.lg,
     bottom: spacing.md,
   },
-  moreButton: {
+  addExerciseButton: {
     minHeight: 46,
-    borderRadius: radii.md,
+    borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.18)',
-    backgroundColor: 'rgba(18, 24, 33, 0.90)',
+    borderColor: 'rgba(124, 58, 237, 0.24)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: LOGGING_PURPLE,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  moreButtonDisabled: {
-    opacity: 0.48,
-  },
-  moreButtonText: {
-    color: colors.textPrimary,
+  addExerciseButtonText: {
+    color: LOGGING_PURPLE,
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '900',
     letterSpacing: 0.2,
   },
-  moreButtonTextDisabled: {
-    color: colors.textMuted,
+  finishWorkoutButton: {
+    minHeight: 54,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: LOGGING_PURPLE,
+    shadowColor: LOGGING_PURPLE,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.28,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  finishWorkoutButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
   },
   sheetOverlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
-    backgroundColor: colors.overlay,
+    backgroundColor: 'rgba(17, 24, 39, 0.34)',
   },
   sheet: {
     margin: spacing.lg,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.18)',
-    backgroundColor: 'rgba(18, 24, 33, 0.92)',
+    borderColor: 'rgba(124, 58, 237, 0.16)',
+    backgroundColor: '#FFFFFF',
     padding: spacing.xl,
     gap: spacing.sm,
   },
@@ -1788,12 +1736,12 @@ const styles = StyleSheet.create({
   },
   sheetTitle: {
     flex: 1,
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 18,
     fontWeight: '800',
   },
   sheetClose: {
-    color: colors.accent,
+    color: LOGGING_PURPLE,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -1801,7 +1749,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sheetBodyText: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
@@ -1832,13 +1780,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: 'rgba(124, 58, 237, 0.12)',
+    backgroundColor: '#F8F5FF',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
   },
   sheetRowText: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 15,
     fontWeight: '700',
   },
@@ -1868,10 +1816,10 @@ const styles = StyleSheet.create({
     minHeight: 112,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: 'rgba(124, 58, 237, 0.18)',
+    backgroundColor: '#FFFFFF',
     padding: spacing.md,
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 15,
     textAlignVertical: 'top',
   },
@@ -1880,12 +1828,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accentAlt,
-    borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.28)',
+    backgroundColor: LOGGING_PURPLE,
   },
   sheetButtonText: {
-    color: colors.textPrimary,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
@@ -1915,22 +1861,22 @@ const styles = StyleSheet.create({
     minHeight: 64,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
+    borderColor: 'rgba(124, 58, 237, 0.14)',
+    backgroundColor: '#F8F5FF',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     gap: 3,
     justifyContent: 'center',
   },
   finishStatLabel: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   finishStatValue: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 16,
     fontWeight: '900',
   },

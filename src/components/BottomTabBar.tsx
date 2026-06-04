@@ -4,10 +4,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { RootTabKey } from '../navigation/routes';
-import { colors, radii, spacing } from '../theme';
+import { radii, spacing } from '../theme';
 
 interface BottomTabBarProps {
-  activeTab: RootTabKey;
+  activeTab: RootTabKey | null;
   aiActive?: boolean;
   onTabPress: (tab: RootTabKey) => void;
   onAiPress: () => void;
@@ -21,9 +21,9 @@ const sideTabs: { key: RootTabKey; label: string }[] = [
 ];
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
-  const stroke = active ? '#B8FF6A' : 'rgba(255,255,255,0.66)';
-  const fill = active ? '#B8FF6A' : 'none';
-  const size = 18;
+  const stroke = active ? '#7C3AED' : '#667085';
+  const fill = active ? '#7C3AED' : 'none';
+  const size = 22;
 
   if (tab === 'home') {
     return (
@@ -109,7 +109,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
             <SideTab
               key={tab.key}
               tab={tab}
-              active={!aiActive && activeTab === tab.key}
+              active={!aiActive && activeTab !== null && activeTab === tab.key}
               onPress={() => onTabPress(tab.key)}
             />
           ))}
@@ -125,7 +125,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
             <SideTab
               key={tab.key}
               tab={tab}
-              active={!aiActive && activeTab === tab.key}
+              active={!aiActive && activeTab !== null && activeTab === tab.key}
               onPress={() => onTabPress(tab.key)}
             />
           ))}
@@ -137,10 +137,10 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: colors.background,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderColor: 'rgba(198,139,255,0.18)',
-    paddingTop: 8,
+    borderColor: '#E4D8FF',
+    paddingTop: 10,
     paddingHorizontal: spacing.md,
   },
   row: {
@@ -157,32 +157,32 @@ const styles = StyleSheet.create({
   },
   sideTab: {
     minWidth: 62,
-    minHeight: 46,
+    minHeight: 54,
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 4,
+    gap: 5,
     paddingBottom: 2,
   },
   sideLabel: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 10,
+    color: '#667085',
+    fontSize: 12,
     fontWeight: '700',
   },
   sideLabelActive: {
-    color: '#B8FF6A',
+    color: '#7C3AED',
   },
   centerButton: {
-    width: 64,
-    minHeight: 64,
-    marginTop: -18,
+    width: 58,
+    minHeight: 58,
+    marginTop: -14,
     borderRadius: radii.pill,
-    backgroundColor: '#202020',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.20)',
+    borderColor: '#E4D8FF',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 2,
-    shadowColor: '#7C3AED',
+    shadowColor: '#D8C7FF',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
@@ -190,18 +190,18 @@ const styles = StyleSheet.create({
   },
   centerButtonActive: {
     backgroundColor: '#7C3AED',
-    borderColor: '#A78BFA',
+    borderColor: '#7C3AED',
   },
   centerLabel: {
     color: '#7C3AED',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
   centerPlus: {
     color: '#7C3AED',
-    fontSize: 28,
-    lineHeight: 30,
+    fontSize: 26,
+    lineHeight: 28,
     fontWeight: '600',
   },
   centerLabelActive: {

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
@@ -54,6 +54,7 @@ interface ProgressScreenProps {
   };
   currentWeekStreak: number;
   unitPreference: UnitPreference;
+  initialSection?: ProgressSection;
   selectedExerciseKey?: string;
   showBodyweightDetail?: boolean;
   onSelectExercise: (exerciseKey: string) => void;
@@ -880,6 +881,7 @@ export function ProgressScreen({
   activityCalendar,
   currentWeekStreak,
   unitPreference,
+  initialSection,
   selectedExerciseKey,
   showBodyweightDetail,
   onSelectExercise,
@@ -897,11 +899,18 @@ export function ProgressScreen({
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
   const [overviewRange, setOverviewRange] = useState<OverviewRange>('3m');
   const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>('duration');
-  const [progressSection, setProgressSection] = useState<ProgressSection>('overview');
+  const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [selectedMeasure, setSelectedMeasure] = useState<Exclude<MeasureKey, 'photos' | 'bodyweight'> | null>(null);
   const [measureInput, setMeasureInput] = useState('');
   const [measureUnit, setMeasureUnit] = useState<MeasurementUnit>('cm');
   const [measureRange, setMeasureRange] = useState<MeasureRange>('3m');
+
+  useEffect(() => {
+    if (initialSection) {
+      setProgressSection(initialSection);
+    }
+  }, [initialSection]);
+
   const selectedSummary = summaries.find((summary) => summary.key === selectedExerciseKey);
   const selectedSummaryDisplayName = selectedSummary ? formatLiftDisplayLabel(selectedSummary.name) : '';
   const stackSignalRow = width < 420;

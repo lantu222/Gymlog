@@ -64,11 +64,9 @@ module.exports = [
       assert.match(onboardingSource, /planReadyProgramOverviewRootShade:\s*\{[\s\S]*backgroundColor: 'transparent'/);
       assert.match(onboardingSource, /planReadyProgramOverviewFooter:\s*\{[\s\S]*backgroundColor: 'transparent'/);
       assert.doesNotMatch(onboardingSource, /planReadyProgramOverviewBackText/);
-      assert.match(onboardingSource, /planReadyProgramWeeks = \[/);
-      assert.match(onboardingSource, /title: 'Foundation'/);
-      assert.match(onboardingSource, /title: 'Build'/);
-      assert.match(onboardingSource, /title: 'Progress'/);
-      assert.match(onboardingSource, /title: 'Peak'/);
+      assert.match(onboardingSource, /planReadyProgramWeeks = planReadyPayload\.fourWeekProgression\.map/);
+      assert.match(onboardingSource, /title: phase\.label\.replace/);
+      assert.match(onboardingSource, /summary: phase\.body/);
       assert.match(onboardingSource, /planReadyProgramWeekList:\s*\{[\s\S]*marginTop: 150[\s\S]*marginHorizontal: 10[\s\S]*backgroundColor: 'transparent'[\s\S]*overflow: 'visible'[\s\S]*gap: 10/);
       assert.match(onboardingSource, /weekIndex === 0 && styles\.planReadyProgramWeekCardFirst/);
       assert.doesNotMatch(onboardingSource, /styles\.planReadyProgramOverviewIntro/);

@@ -3817,32 +3817,15 @@ export function OnboardingScreen({
       label: getPlanReadyWorkoutFocusLabel(workout.title, index),
       letter: String.fromCharCode(65 + index),
     }));
-    const planReadyProgramWeeks = [
-      {
-        week: 1,
-        title: 'Foundation',
-        summary: 'Build clean technique, steady rhythm and baseline volume.',
-        suffix: '',
-      },
-      {
-        week: 2,
-        title: 'Build',
-        summary: 'Add reps first, then small weight increases where form stays strong.',
-        suffix: '+',
-      },
-      {
-        week: 3,
-        title: 'Progress',
-        summary: 'Push the main lifts with stronger working sets and tighter rest.',
-        suffix: '++',
-      },
-      {
-        week: 4,
-        title: 'Peak',
-        summary: 'Highest effort week before the next block adapts from your results.',
-        suffix: '+++',
-      },
-    ];
+    const planReadyProgramWeeks = planReadyPayload.fourWeekProgression.map((phase, index) => ({
+      week: phase.week,
+      title: phase.label.replace(/^Week\s+\d+:\s*/i, ''),
+      summary: phase.body,
+      suffix: phase.role === 'review' ? 'R' : '+'.repeat(index),
+    }));
+    const planReadySessionBlocks = planReadyPayload.sessionBlocks.filter((block) =>
+      ['prep', 'main', 'support', 'cooldown'].includes(block.type),
+    );
     const planReadyWeeklyOverviewRows = reviewWeekRows.map((item) => ({
       day: item.day,
       training: item.training,
@@ -4104,6 +4087,17 @@ export function OnboardingScreen({
                         <Text style={styles.planReadyNextSessionBody}>
                           A simple and effective {planReadyActiveWorkoutFocusLabel.replace(' focus', ' focused').toLowerCase()} workout to build strength and size.
                         </Text>
+                        <View style={styles.planReadySessionFlowCard}>
+                          <Text style={styles.planReadySessionFlowTitle}>SESSION FLOW</Text>
+                          <View style={styles.planReadySessionFlowList}>
+                            {planReadySessionBlocks.map((block) => (
+                              <View key={block.type} style={styles.planReadySessionFlowItem}>
+                                <Text style={styles.planReadySessionFlowLabel}>{block.label}</Text>
+                                <Text style={styles.planReadySessionFlowBody} numberOfLines={2}>{block.body}</Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
                       </View>
                     </View>
                   </View>
@@ -9260,6 +9254,41 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.76)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 5,
+  },
+  planReadySessionFlowCard: {
+    maxWidth: '76%',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: 'rgba(4,4,8,0.62)',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    gap: 7,
+  },
+  planReadySessionFlowTitle: {
+    color: '#A98BFF',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  planReadySessionFlowList: {
+    gap: 6,
+  },
+  planReadySessionFlowItem: {
+    gap: 2,
+  },
+  planReadySessionFlowLabel: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '900',
+  },
+  planReadySessionFlowBody: {
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '700',
   },
   planReadyNextSessionStats: {
     gap: 11,

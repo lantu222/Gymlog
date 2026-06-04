@@ -1,31 +1,24 @@
-import React, { useMemo, useState } from 'react';
-import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { HomeUpcomingSessionSummary } from '../components/HomeStreakCard';
 import { GymlogIcon } from '../components/GymlogIcon';
-import { pluralize } from '../lib/format';
 import { HomeStreakSummary } from '../lib/dashboard';
-import { getHomeCarouselCalendarDays, getHomeDayView, HomeDaySessionSummary } from '../lib/homeCalendar';
-import { getCustomTemplatePresentation } from '../lib/templatePresentation';
-import { colors, spacing } from '../theme';
+import { getHomeMiniCalendarDays, HomeDaySessionSummary } from '../lib/homeCalendar';
+import { spacing } from '../theme';
 
-const HOME_TRAINING_BACKGROUND_IMAGE = require('../../assets/fitness/selected/home-training-background.png');
-const HOME_RECOVERY_BACKGROUND_IMAGE = require('../../assets/fitness/selected/home-recovery-background.png');
-const DAILY_TIP_IMAGE = require('../../assets/fitness/selected/endurance-cardio-goal-card.png');
-const WEEKLY_OVERVIEW_DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const WEEKLY_OVERVIEW_CARD_HEIGHT = 124;
-const PROGRESS_SUMMARY_CARD_HEIGHT = 178;
-const HOME_CARD_BACKGROUND = '#17162F';
-const HOME_CARD_BORDER = 'rgba(198,139,255,0.24)';
-const TRAINING_DAY_PATTERNS: Record<number, number[]> = {
-  1: [0],
-  2: [0, 3],
-  3: [0, 2, 4],
-  4: [0, 1, 3, 5],
-  5: [0, 1, 2, 4, 5],
-  6: [0, 1, 2, 3, 4, 5],
-  7: [0, 1, 2, 3, 4, 5, 6],
-};
+const HOME_BACKGROUND = '#F7F3FF';
+const HOME_SURFACE = '#FFFFFF';
+const HOME_SURFACE_SOFT = '#F2ECFF';
+const HOME_TEXT = '#101828';
+const HOME_TEXT_MUTED = '#667085';
+const HOME_BORDER = '#E4D8FF';
+const HOME_SHADOW = '#D8C7FF';
+const HOME_PURPLE = '#7C3AED';
+const HOME_PURPLE_DARK = '#5B21B6';
+const HOME_PURPLE_LIGHT = '#EFE7FF';
+const HOME_GREEN = '#16A34A';
+const HOME_BLUE = '#0A84FF';
 
 interface HomeQuickStat {
   value: string;
@@ -47,6 +40,17 @@ interface HomeTemplateItem {
   updatedAt: string;
 }
 
+interface HomeRecentSessionItem {
+  id: string;
+  title: string;
+  dateLabel: string;
+  durationLabel: string;
+  volumeLabel: string;
+  detailLabel: string;
+  exercisePreview: string;
+  notePreview?: string | null;
+}
+
 interface HomePlanCard {
   programId: string;
   programType?: 'ready' | 'custom';
@@ -54,6 +58,8 @@ interface HomePlanCard {
   goalLabel: string;
   title: string;
   subtitle: string;
+  weekLabel: string;
+  progressPercent: number;
   sessionsPerWeek: string;
   weeklyMinutes: string;
   sessions: HomeDaySessionSummary[];
@@ -71,7 +77,9 @@ interface HomeScreenProps {
   quickStats: HomeQuickStat[];
   weeklySnapshot: WeeklySnapshotItem[];
   upcomingSessions: HomeUpcomingSessionSummary[];
+  recentSessions?: HomeRecentSessionItem[];
   customTemplates?: HomeTemplateItem[];
+  readyTemplateCount?: number;
   onOpenActivePlan?: () => void;
   onStartActivePlanSession?: (sessionId: string) => void;
   onOpenTemplatesHub: () => void;
@@ -79,1464 +87,1001 @@ interface HomeScreenProps {
   onCreateWorkoutFromExercises: () => void;
   onCreateTemplate: () => void;
   onBrowseReadyPlans: () => void;
-  onOpenStreak: () => void;
-  onOpenAICoach: (prompt: string) => void;
+  onOpenProgressOverview: () => void;
+  onOpenTrackedProgress: () => void;
+  onOpenBodyStats: () => void;
+  onOpenSessionHistory: () => void;
+  onOpenRecentSession: (sessionId: string) => void;
 }
 
-function getWeeklyTrainingIndexes(activePlan: HomePlanCard | null) {
-  const sessionsPerWeek = Number.parseInt(activePlan?.sessionsPerWeek ?? '0', 10);
-  const clampedSessionsPerWeek = Math.max(0, Math.min(7, Number.isFinite(sessionsPerWeek) ? sessionsPerWeek : 0));
+function formatWorkoutTotalTime(totalMinutes: number) {
+  const safeMinutes = Math.max(0, Math.round(totalMinutes));
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
 
-  return TRAINING_DAY_PATTERNS[clampedSessionsPerWeek] ?? [];
+  if (hours <= 0) {
+    return `${minutes} min`;
+  }
+
+  return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
 }
 
 export function HomeScreen({
-  hasNoProgramState = false,
-  profileName = null,
   activePlan = null,
   streak,
+  recentSessions = [],
   customTemplates = [],
-  onStartActivePlanSession,
+  readyTemplateCount = 0,
+  onOpenActivePlan,
   onOpenTemplatesHub,
   onOpenCustomTemplate,
   onCreateWorkoutFromExercises,
-  onCreateTemplate,
   onBrowseReadyPlans,
-  onOpenStreak,
+  onOpenProgressOverview,
+  onOpenTrackedProgress,
+  onOpenBodyStats,
+  onOpenSessionHistory,
+  onOpenRecentSession,
 }: HomeScreenProps) {
-  const visibleTemplates = customTemplates.slice(0, 3);
-  const hasTemplates = customTemplates.length > 0;
-  const hasActivePlan = Boolean(activePlan);
-  const [selectedDayStart, setSelectedDayStart] = useState<number | null>(null);
-  const { width: screenWidth } = useWindowDimensions();
-  const miniCalendarDayWidth = (screenWidth - spacing.lg * 2) / 7;
-  const miniCalendarPageWidth = miniCalendarDayWidth * 7;
-  const greetingName = profileName?.trim() || 'there';
-  const trainingDayIndexes = getWeeklyTrainingIndexes(activePlan);
-  const todayIndex = new Date().getDay() === 0 ? 6 : new Date().getDay() - 1;
-  const completedTrainingIndexes = trainingDayIndexes
-    .filter((index) => index <= todayIndex)
-    .slice(0, Math.max(0, streak.sessionsThisWeek));
-  const weekCalendarDays = useMemo(() => {
-    return getHomeCarouselCalendarDays(undefined, { daysBefore: 7, daysAfter: 13 }).map((day) => ({
-      ...day,
-      isTrainingDay: trainingDayIndexes.includes(day.weekdayIndex),
-      isCompleted: completedTrainingIndexes.includes(day.weekdayIndex),
-    }));
-  }, [completedTrainingIndexes, trainingDayIndexes]);
-  const selectedCalendarDay =
-    weekCalendarDays.find((day) => day.dayStart === selectedDayStart) ??
-    weekCalendarDays.find((day) => day.isToday) ??
-    weekCalendarDays[0];
-  const todayCalendarDay = weekCalendarDays.find((day) => day.isToday) ?? selectedCalendarDay;
-  const activePlanSessions = activePlan?.sessions ?? (activePlan ? [activePlan.nextSession] : []);
-  const selectedDayView = getHomeDayView(selectedCalendarDay, trainingDayIndexes, activePlanSessions);
-  const isRecoveryDay = selectedDayView.kind === 'recovery';
-  const homeModeAccent = isRecoveryDay ? '#9DFF4F' : '#A86BFF';
-  const homeModeBackground = isRecoveryDay ? HOME_RECOVERY_BACKGROUND_IMAGE : HOME_TRAINING_BACKGROUND_IMAGE;
-  const homeModeTitle = isRecoveryDay ? 'RECOVERY' : activePlan?.goalLabel.toUpperCase() ?? 'TRAINING';
-  const homeModeSubtitle = isRecoveryDay ? 'REST. REPAIR. COME BACK STRONGER.' : 'FOCUS. LIFT. GET STRONGER.';
-  const planExerciseCount = activePlan?.nextSession.exercises.length ?? 0;
-  const selectedPlanExercises = selectedDayView.session?.exercises.slice(0, 3) ?? activePlan?.nextSession.exercises.slice(0, 3) ?? [];
+  const primaryTemplate = customTemplates[0] ?? null;
+  const planTitle = activePlan?.title ?? primaryTemplate?.name ?? 'Upper / Lower Split';
+  const planWeekLabel = activePlan?.weekLabel ?? (primaryTemplate ? 'Week 1 of 8' : 'Week 1 of 8');
+  const planProgressPercent = activePlan?.progressPercent ?? 0;
+  const savedRoutineCount = customTemplates.length;
+  const totalWorkoutTime = formatWorkoutTotalTime(streak.totalDurationMinutes);
+  const planChartBars = [0.32, 0.56, 0.82, 1];
+  const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
+  const trainingDayIndexes = activePlan ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2)) : [0, 3];
+
+  function handleOpenPrimaryRoutine() {
+    if (activePlan && onOpenActivePlan) {
+      onOpenActivePlan();
+      return;
+    }
+
+    if (primaryTemplate) {
+      onOpenCustomTemplate(primaryTemplate.id);
+      return;
+    }
+
+    onOpenTemplatesHub();
+  }
 
   return (
-    <>
-    <ImageBackground
-      source={homeModeBackground}
-      resizeMode="cover"
-      style={styles.screenBackground}
-      imageStyle={styles.screenBackgroundImage}
-    >
-    <View style={styles.screenBackgroundWash} />
-    <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.greetingTitle}>Welcome back, {greetingName}.</Text>
-          <Text style={styles.greetingSubtitle}>
-            {hasActivePlan ? "Let's crush today." : 'Start with what the week needs next.'}
-          </Text>
-        </View>
-        <View style={styles.headerActions}>
-          <View style={styles.headerActionButton}>
-            <GymlogIcon name="bell" color="#FFFFFF" size={18} />
-            <View style={styles.notificationDot} />
+    <View style={styles.screenBackground}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerCopy}>
+            <Text style={styles.greetingTitle}>Welcome back! {String.fromCodePoint(0x1f4aa)}</Text>
+            <Text style={styles.greetingSubtitle}>Let's get after it today.</Text>
           </View>
-          <View style={styles.headerActionButton}>
-            <GymlogIcon name="profile" color="#FFFFFF" size={18} />
+          <View style={styles.proBadge}>
+            <Text style={styles.proBadgeText}>PRO</Text>
           </View>
         </View>
-      </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.miniCalendarScroller}
-        contentContainerStyle={styles.miniCalendarRow}
-        contentOffset={{ x: miniCalendarPageWidth, y: 0 }}
-        snapToInterval={miniCalendarPageWidth}
-        snapToAlignment="start"
-        decelerationRate="fast"
-        disableIntervalMomentum
-      >
-        {weekCalendarDays.map((item) => {
-          const selected = item.dayStart === selectedCalendarDay.dayStart;
-          const futureTrainingDay = item.isTrainingDay && item.dayStart > todayCalendarDay.dayStart;
+        <View style={styles.homeCalendarStrip}>
+          {topCalendarDays.map((day) => {
+            const isTrainingDay = trainingDayIndexes.includes(day.weekdayIndex);
+            const dayLabel = day.isToday ? day.dateLabel : day.weekdayLabel;
 
-          return (
-            <Pressable
-              key={`mini-${item.dayStart}`}
-              accessibilityRole="button"
-              accessibilityLabel={`Show ${item.label}`}
-              onPress={(event) => {
-                event.stopPropagation();
-                setSelectedDayStart(item.dayStart);
-              }}
-              style={[styles.miniCalendarDay, { width: miniCalendarDayWidth }]}
-            >
-              <View
-                style={[
-                  styles.miniCalendarDateBubble,
-                  styles.miniCalendarDateBubbleEmpty,
-                  futureTrainingDay && styles.miniCalendarDateBubbleFutureTraining,
-                  selected && styles.miniCalendarDateBubbleActive,
-                ]}
-              />
-              <Text style={[styles.miniCalendarDayLabel, selected && styles.miniCalendarDayLabelActive]}>
-                {item.label}
+            return (
+              <View key={day.dayStart} style={[styles.homeCalendarItem, day.isToday && styles.homeCalendarItemToday]}>
+                <View style={[styles.homeCalendarDot, isTrainingDay ? styles.homeCalendarDotStrength : styles.homeCalendarDotRecovery]} />
+                <Text style={[styles.homeCalendarDayLabel, day.isToday && styles.homeCalendarDayLabelToday]}>{dayLabel}</Text>
+              </View>
+            );
+          })}
+        </View>
+
+        <View style={styles.statsCard}>
+          <View style={styles.statItem}>
+            <View style={styles.statIconTileGreen}>
+              <GymlogIcon name="flame" color={HOME_GREEN} size={24} />
+            </View>
+            <View style={styles.statCopy}>
+              <Text style={styles.statLabel}>Streak</Text>
+              <Text style={styles.statValue}>{streak.value} <Text style={styles.statUnit}>days</Text></Text>
+            </View>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <View style={styles.statIconTilePurple}>
+              <GymlogIcon name="progress" color={HOME_GREEN} size={23} />
+            </View>
+            <View style={styles.statCopy}>
+              <Text style={styles.statLabel}>Workouts</Text>
+              <Text style={styles.statValue}>{streak.sessionsLast30Days} <Text style={styles.statUnit}>this month</Text></Text>
+            </View>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <View style={styles.statIconTileGreen}>
+              <GymlogIcon name="clock" color={HOME_GREEN} size={24} />
+            </View>
+            <View style={styles.statCopy}>
+              <Text style={styles.statLabel}>Total time</Text>
+              <Text style={styles.statValue}>{totalWorkoutTime}</Text>
+            </View>
+          </View>
+        </View>
+
+        <Pressable accessibilityRole="button" accessibilityLabel="View plan" onPress={handleOpenPrimaryRoutine} style={[styles.yourPlanCard, styles.fullBleedCard]}>
+          <View style={styles.yourPlanMain}>
+            <Text style={styles.yourPlanEyebrow}>YOUR PLAN</Text>
+            <Text style={styles.yourPlanTitle} numberOfLines={1} adjustsFontSizeToFit>
+              {planTitle}
+            </Text>
+            <Text style={styles.yourPlanWeek}>{planWeekLabel}</Text>
+
+            <View style={styles.yourPlanProgressRow}>
+              <Text style={styles.yourPlanProgressLabel}>Progress</Text>
+              <View style={styles.yourPlanProgressTrack}>
+                <View style={[styles.yourPlanProgressFill, { width: `${planProgressPercent}%` }]} />
+              </View>
+              <Text style={styles.yourPlanProgressPercent}>{planProgressPercent}%</Text>
+            </View>
+          </View>
+
+          <View style={styles.yourPlanSide}>
+            <View style={styles.yourPlanChart}>
+              {planChartBars.map((height, index) => (
+                <View key={`plan-chart-${index}`} style={[styles.yourPlanChartBar, { height: 56 * height, opacity: 0.42 + index * 0.14 }]} />
+              ))}
+            </View>
+
+            <View style={styles.viewPlanButton}>
+              <Text style={styles.viewPlanButtonText} numberOfLines={1}>
+                VIEW PLAN
               </Text>
+              <GymlogIcon name="chevronRight" color={HOME_GREEN} size={28} />
+            </View>
+          </View>
+        </Pressable>
+
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Routines</Text>
+          <Pressable onPress={onOpenTemplatesHub} hitSlop={8}>
+            <Text style={styles.seeAllText}>See all</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.routineShortcutRow}>
+          <Pressable onPress={onOpenTemplatesHub} style={styles.routineShortcutCard}>
+            <View style={styles.routineShortcutIcon}>
+              <GymlogIcon name="file" color={HOME_GREEN} size={21} />
+            </View>
+            <View style={styles.routineShortcutCopy}>
+              <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
+                Templates
+              </Text>
+              <Text style={styles.routineShortcutSubtitle}>{savedRoutineCount} saved</Text>
+            </View>
+            <GymlogIcon name="chevronRight" color={HOME_GREEN} size={20} />
+          </Pressable>
+
+          <Pressable onPress={onBrowseReadyPlans} style={styles.routineShortcutCard}>
+            <View style={styles.routineShortcutIcon}>
+              <GymlogIcon name="progress" color={HOME_GREEN} size={21} />
+            </View>
+            <View style={styles.routineShortcutCopy}>
+              <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
+                Explore
+              </Text>
+              <Text style={styles.routineShortcutSubtitle}>
+                {readyTemplateCount > 0 ? `${readyTemplateCount} templates` : 'Find new Templates'}
+              </Text>
+            </View>
+            <GymlogIcon name="chevronRight" color={HOME_GREEN} size={20} />
+          </Pressable>
+        </View>
+
+        <Pressable accessibilityRole="button" accessibilityLabel="Start workout" onPress={onCreateWorkoutFromExercises} style={[styles.startWorkoutHero, styles.fullBleedCard]}>
+          <View style={styles.startWorkoutAccentOne} />
+          <View style={styles.startWorkoutAccentTwo} />
+          <View style={styles.startWorkoutIconTile}>
+            <GymlogIcon name="dumbbell" color={HOME_GREEN} size={26} />
+          </View>
+          <View style={styles.startWorkoutCopy}>
+            <Text style={styles.startWorkoutTitle} numberOfLines={1} adjustsFontSizeToFit>
+              Start Workout
+            </Text>
+            <Text style={styles.startWorkoutSubtitle}>Jump into an empty workout</Text>
+          </View>
+          <View style={styles.startWorkoutArrowCircle}>
+            <GymlogIcon name="chevronRight" color={HOME_GREEN} size={20} />
+          </View>
+        </Pressable>
+
+        <View style={styles.quickAccessSection}>
+          <Text style={styles.sectionTitle}>Quick Access</Text>
+          <View style={styles.quickAccessGrid}>
+            <Pressable onPress={onOpenProgressOverview} style={styles.quickAccessCard}>
+              <GymlogIcon name="progress" color={HOME_GREEN} size={24} />
+              <Text style={styles.quickAccessText}>Progress</Text>
             </Pressable>
-          );
-        })}
-      </ScrollView>
+            <Pressable onPress={onOpenBodyStats} style={styles.quickAccessCard}>
+              <GymlogIcon name="profile" color={HOME_GREEN} size={24} />
+              <Text style={styles.quickAccessText}>Body Stats</Text>
+            </Pressable>
+            <Pressable onPress={onOpenTrackedProgress} style={styles.quickAccessCard}>
+              <GymlogIcon name="check" color={HOME_GREEN} size={24} />
+              <Text style={styles.quickAccessText}>PR Tracker</Text>
+            </Pressable>
+          </View>
+        </View>
 
-      {activePlan ? (
-        <View style={styles.activePlanSection}>
-          <View style={styles.homeModeHero}>
-            <View style={styles.homeModeHeroBackground}>
-              <View style={styles.homeModeHeroScrim} />
-              <View style={styles.homeModeHeroCopy}>
-                <Text style={[styles.homeModeKicker, { color: homeModeAccent }]}>TODAY</Text>
-                <Text style={[styles.homeModeTitle, { color: homeModeAccent }]} numberOfLines={1} adjustsFontSizeToFit>
-                  {homeModeTitle}
-                </Text>
-                <Text style={styles.homeModeSubtitle}>{homeModeSubtitle}</Text>
-              </View>
-            </View>
+        <View style={styles.recentSessionsSection}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Recent Sessions</Text>
+            <Pressable onPress={onOpenSessionHistory} hitSlop={8}>
+              <Text style={styles.seeAllText}>See all</Text>
+            </Pressable>
           </View>
 
-          <View style={styles.homeModeFocusCard}>
-            <View style={styles.homeModeFocusTop}>
-              <View style={styles.homeModeFocusCopy}>
-                <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>Today's focus</Text>
-                <Text style={styles.homeModeFocusText}>
-                  {isRecoveryDay
-                    ? 'Prioritize recovery to rebuild your body and improve performance.'
-                    : 'Maximize strength and performance through heavy compound lifts.'}
-                </Text>
-              </View>
-              <View style={styles.homeModeGoalBlock}>
-                <View style={[styles.homeModeGoalIcon, { backgroundColor: isRecoveryDay ? 'rgba(157,255,79,0.13)' : 'rgba(168,107,255,0.22)' }]}>
-                  <GymlogIcon name={isRecoveryDay ? 'restDay' : 'strength'} color={homeModeAccent} size={30} />
-                </View>
-                <View style={styles.homeModeGoalCopy}>
-                  <Text style={styles.homeModeGoalLabel}>Primary goal</Text>
-                  <Text style={styles.homeModeGoalTitle}>{isRecoveryDay ? 'Improve recovery' : `Increase ${activePlan.goalLabel.toLowerCase()}`}</Text>
-                  <Text style={[styles.homeModeGoalAccent, { color: homeModeAccent }]}>{isRecoveryDay ? 'Reduce fatigue' : 'Build power'}</Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.homeModeDivider} />
-            <View style={styles.homeModeProgressRow}>
-              <View style={styles.homeModeProgressCopy}>
-                <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>
-                  {isRecoveryDay ? 'Recovery score' : 'Weekly progress'}
-                </Text>
-                <Text style={[styles.homeModeProgressValue, { color: homeModeAccent }]}>{isRecoveryDay ? '82%' : '78%'}</Text>
-                <Text style={styles.homeModeProgressMeta}>{isRecoveryDay ? 'Great recovery' : 'Overall completion'}</Text>
-              </View>
-              <View style={styles.homeModeChart}>
-                {[38, 50, 64, 52, 60, 78, 68].map((height, index) => (
-                  <View key={`home-chart-${index}`} style={styles.homeModeChartColumn}>
-                    <View style={[styles.homeModeChartDot, { bottom: height, backgroundColor: homeModeAccent }]} />
-                    <View style={[styles.homeModeChartLine, { height, backgroundColor: homeModeAccent }]} />
-                    <Text style={styles.homeModeChartLabel}>{WEEKLY_OVERVIEW_DAYS[index]?.toUpperCase().slice(0, 3)}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
+          {recentSessions.length > 0 ? (
+            <View style={styles.recentSessionsList}>
+              {recentSessions.map((session, index) => {
+                const isGreenTheme = index % 2 === 0;
+                const accentColor = isGreenTheme ? HOME_GREEN : HOME_PURPLE;
+                const themedCardStyle = isGreenTheme ? styles.recentSessionCardGreen : styles.recentSessionCardPurple;
+                const themedIconStyle = isGreenTheme ? styles.recentSessionIconGreen : styles.recentSessionIconPurple;
+                const themedMetricStyle = isGreenTheme ? styles.recentSessionMetricGreen : styles.recentSessionMetricPurple;
 
-          <View style={styles.homeModeMetricsCard}>
-            {(isRecoveryDay
-              ? [
-                  { icon: 'recovery' as const, label: 'HRV', value: '68 ms', meta: '+12% from last week' },
-                  { icon: 'moon' as const, label: 'Sleep', value: '7h 48m', meta: 'Good quality' },
-                  { icon: 'lightning' as const, label: 'Muscle soreness', value: 'Low', meta: 'Optimal' },
-                ]
-              : [
-                  { icon: 'strength' as const, label: 'Volume', value: activePlan.weeklyMinutes, meta: '+8% from last week' },
-                  { icon: 'progress' as const, label: 'PR lifts', value: String(Math.max(1, streak.sessionsThisWeek)), meta: 'New personal bests' },
-                  { icon: 'tempo' as const, label: 'Sessions', value: `${activePlan.sessionsPerWeek}/wk`, meta: `${pluralize(planExerciseCount, 'exercise')}` },
-                ]).map((metric, index) => (
-                <View key={metric.label} style={[styles.homeModeMetricItem, index > 0 && styles.homeModeMetricDivider]}>
-                  <View style={styles.homeModeMetricIcon}>
-                    <GymlogIcon name={metric.icon} color={homeModeAccent} size={17} />
-                </View>
-                  <Text style={styles.homeModeMetricLabel}>{metric.label}</Text>
-                  <Text style={styles.homeModeMetricValue}>{metric.value}</Text>
-                  <Text style={[styles.homeModeMetricMeta, { color: homeModeAccent }]} numberOfLines={1}>{metric.meta}</Text>
-                </View>
-              ))}
-          </View>
-
-          {isRecoveryDay ? (
-            <View style={styles.homeModeListCard}>
-              <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>Recovery tips</Text>
-              {[
-                { icon: 'mobility' as const, title: 'Mobility & stretching', body: '10-15 min to improve flexibility' },
-                { icon: 'recovery' as const, title: 'Hydration', body: 'Stay hydrated and support recovery' },
-                { icon: 'moon' as const, title: 'Sleep focus', body: 'Aim for 7-9 hours of quality sleep' },
-              ].map((tip) => (
-                <View key={tip.title} style={styles.homeModeListRow}>
-                  <View style={styles.homeModeListIcon}>
-                    <GymlogIcon name={tip.icon} color={homeModeAccent} size={22} />
+                return (
+                <Pressable
+                  key={session.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${session.title}`}
+                  onPress={() => onOpenRecentSession(session.id)}
+                  style={[styles.recentSessionCard, themedCardStyle]}
+                >
+                  <View style={styles.recentSessionTopRow}>
+                    <View style={[styles.recentSessionIcon, themedIconStyle]}>
+                      <GymlogIcon name="dumbbell" color={accentColor} size={20} />
+                    </View>
+                    <View style={styles.recentSessionCopy}>
+                      <Text style={styles.recentSessionTitle} numberOfLines={1}>
+                        {session.title}
+                      </Text>
+                      <Text style={styles.recentSessionDate}>{session.dateLabel}</Text>
+                    </View>
+                    <GymlogIcon name="chevronRight" color={accentColor} size={18} />
                   </View>
-                  <View style={styles.homeModeListCopy}>
-                    <Text style={styles.homeModeListTitle}>{tip.title}</Text>
-                    <Text style={styles.homeModeListBody}>{tip.body}</Text>
+                  <View style={styles.recentSessionMetricRow}>
+                    <Text style={[styles.recentSessionMetric, themedMetricStyle]}>{session.durationLabel}</Text>
+                    <Text style={[styles.recentSessionMetric, themedMetricStyle]}>{session.volumeLabel}</Text>
+                    <Text style={[styles.recentSessionMetric, themedMetricStyle]}>{session.detailLabel}</Text>
                   </View>
-                  <Text style={styles.homeModeListArrow}>{'>'}</Text>
-                </View>
-              ))}
+                  <Text style={styles.recentSessionPreview} numberOfLines={1}>
+                    {session.exercisePreview}
+                  </Text>
+                  {session.notePreview ? (
+                    <View style={[styles.recentSessionNoteRow, isGreenTheme ? styles.recentSessionNoteRowGreen : styles.recentSessionNoteRowPurple]}>
+                      <GymlogIcon name="file" color={accentColor} size={13} />
+                      <Text style={styles.recentSessionNoteText} numberOfLines={1}>
+                        {session.notePreview}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+                );
+              })}
             </View>
           ) : (
-            <View style={styles.homeModeListCard}>
-              <Text style={[styles.homeModeSectionLabel, { color: homeModeAccent }]}>Today's plan</Text>
-              {selectedPlanExercises.map((exercise) => (
-                <View key={exercise.name} style={styles.homeModePlanRow}>
-                  <View>
-                    <Text style={styles.homeModeListTitle}>{exercise.name}</Text>
-                    <Text style={styles.homeModeListBody}>{exercise.setsLabel}</Text>
-                  </View>
-                  <Text style={[styles.homeModePlanMeta, { color: homeModeAccent }]}>1RM</Text>
-                </View>
-              ))}
-              {selectedDayView.session && onStartActivePlanSession ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Start workout"
-                  onPress={() => onStartActivePlanSession(selectedDayView.session?.id ?? activePlan.nextSession.id)}
-                  style={styles.homeModeStartButton}
-                >
-                  <Text style={styles.homeModeStartButtonText}>Start Workout</Text>
-                  <Text style={styles.homeModeStartButtonArrow}>{'>'}</Text>
-                </Pressable>
-              ) : null}
+            <View style={styles.recentSessionEmptyCard}>
+              <View>
+                <Text style={styles.recentSessionTitle}>No sessions yet</Text>
+                <Text style={styles.recentSessionPreview}>Start a workout and your latest sessions will appear here.</Text>
+              </View>
             </View>
           )}
-          </View>
-      ) : null}
-
-
-      <View style={styles.progressAndTipStack}>
-        <View style={styles.progressSummaryCard}>
-          <View style={styles.progressSummaryHeader}>
-            <Text style={styles.progressSummaryTitle}>At a glance</Text>
-            <Pressable onPress={onOpenStreak} style={styles.viewProgressButton}>
-              <GymlogIcon name="progress" color="#B8FF6A" size={15} />
-              <Text style={styles.viewProgressButtonText}>View all</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.progressStatGrid}>
-            <View style={styles.progressStatCard}>
-              <View style={styles.progressStatTopRow}>
-                <Text style={styles.progressStatEmojiIcon}>{'\uD83D\uDC4D'}</Text>
-                <Text style={styles.progressStatLabel} numberOfLines={2}>Workouts completed</Text>
-              </View>
-              <Text style={styles.progressStatValue}>{streak.sessionsThisWeek}</Text>
-            </View>
-            <View style={styles.progressStatCard}>
-              <View style={styles.progressStatTopRow}>
-                <Text style={styles.progressStatEmojiIcon}>{'\uD83D\uDD25'}</Text>
-                <Text style={styles.progressStatLabel} numberOfLines={2}>Current streak</Text>
-              </View>
-              <Text style={styles.progressStatValue}>{streak.value}</Text>
-            </View>
-            <View style={styles.progressStatCard}>
-              <View style={styles.progressStatTopRow}>
-                <Text style={styles.progressStatEmojiIcon}>{'\uD83C\uDFC6'}</Text>
-                <Text style={styles.progressStatLabel} numberOfLines={2}>Total workouts</Text>
-              </View>
-              <Text style={styles.progressStatValue}>{streak.sessionsLast30Days}</Text>
-            </View>
-          </View>
         </View>
 
-
-        <ImageBackground
-          source={DAILY_TIP_IMAGE}
-          resizeMode="cover"
-          style={styles.dailyTipCard}
-          imageStyle={styles.dailyTipImage}
-        >
-          <View style={styles.dailyTipImageScrim} />
-          <View style={styles.dailyTipPurpleWashBase} />
-          <View style={styles.dailyTipPurpleWashStrong} />
-          <View style={styles.dailyTipPurpleWashSoft} />
-          <View style={styles.dailyTipContent}>
-            <View style={styles.dailyTipIcon}>
-              <GymlogIcon name="lightning" color="#FFFFFF" size={17} />
-            </View>
-            <View style={styles.dailyTipCopy}>
-              <Text style={styles.dailyTipTitle}>Daily tip</Text>
-              <Text style={styles.dailyTipBody} numberOfLines={3}>
-                Focus on quality over quantity. Good reps, better results.
-              </Text>
-            </View>
-          </View>
-        </ImageBackground>
-      </View>
-
-      {hasTemplates ? (
-        <View style={styles.templatesSection}>
-          <View style={styles.templatesHeaderRow}>
-            <View style={styles.templatesHeaderCopy}>
-              <Text style={styles.sectionKicker}>TEMPLATES</Text>
-              <Text style={styles.templatesTitle}>Your templates</Text>
-              <Text style={styles.templatesSubtitle}>Reusable weekly splits you can run again.</Text>
-            </View>
-            <Pressable onPress={onOpenTemplatesHub} hitSlop={8}>
-              <Text style={styles.templatesHubLink}>See all</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.templatesList}>
-            {visibleTemplates.map((template) => {
-              const presentation = getCustomTemplatePresentation(template);
-
-              return (
-                <Pressable key={template.id} onPress={() => onOpenCustomTemplate(template.id)} style={styles.templateCard}>
-                  <View style={styles.templateCardVisual}>
-                    <Text style={styles.templateCardVisualText}>{presentation.tags[0]?.slice(0, 1) ?? 'T'}</Text>
-                  </View>
-                  <View style={styles.templateCardCopy}>
-                    <View style={styles.templateCardTagRow}>
-                      {presentation.tags.map((tag) => (
-                        <View key={`${template.id}:${tag}`} style={styles.templateTag}>
-                          <Text style={styles.templateTagText}>{tag}</Text>
-                        </View>
-                      ))}
-                    </View>
-                    <Text style={styles.templateCardTitle}>{presentation.title}</Text>
-                    <Text style={styles.templateCardSubtitle}>{presentation.subtitle}</Text>
-                    <Text style={styles.templateCardMeta}>
-                      {pluralize(template.sessionCount, 'session')} - {pluralize(template.exerciseCount, 'exercise')}
-                    </Text>
-                  </View>
-                  <Text style={styles.templateCardArrow}>{'>'}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      ) : hasNoProgramState && !activePlan ? (
-        <View style={styles.emptyTemplateNote}>
-          <Text style={styles.emptyTemplateTitle}>No plan yet</Text>
-          <Text style={styles.emptyTemplateBody}>Create your first template or browse ready plans when you want more structure.</Text>
-        </View>
-      ) : null}
-
-      <View style={styles.quickActionSection}>
-        <Text style={styles.quickActionKicker}>Quick actions</Text>
-        <View style={styles.quickActionList}>
-          <Pressable onPress={onCreateWorkoutFromExercises} style={styles.quickStartCard}>
-            <View style={[styles.quickStartIcon, styles.quickStartIconPlay]}>
-              <View style={styles.quickStartPlayTriangle} />
-            </View>
-            <View style={styles.quickStartCopy}>
-              <Text style={styles.quickStartTitle}>Start empty workout</Text>
-              <Text style={styles.quickStartBody}>Log a custom session from scratch.</Text>
-            </View>
-            <Text style={styles.quickStartArrow}>{'>'}</Text>
-          </Pressable>
-
-          <Pressable onPress={onBrowseReadyPlans} style={styles.quickStartCard}>
-            <View style={[styles.quickStartIcon, styles.quickStartIconPlus]}>
-              <Text style={styles.quickStartIconPlusText}>+</Text>
-            </View>
-            <View style={styles.quickStartCopy}>
-              <Text style={styles.quickStartTitle}>Explore workout plans</Text>
-              <Text style={styles.quickStartBody}>Browse structured programs and templates.</Text>
-            </View>
-            <Text style={styles.quickStartArrow}>{'>'}</Text>
-          </Pressable>
-
-          <Pressable onPress={onCreateTemplate} style={styles.quickStartCard}>
-            <View style={[styles.quickStartIcon, styles.quickStartFileIcon]}>
-              <View style={styles.quickStartFileFold} />
-            </View>
-            <View style={styles.quickStartCopy}>
-              <Text style={styles.quickStartTitle}>Build your own split</Text>
-              <Text style={styles.quickStartBody}>Create and save your own weekly structure.</Text>
-            </View>
-            <Text style={styles.quickStartArrow}>{'>'}</Text>
-          </Pressable>
-        </View>
-      </View>
-      <View style={styles.bottomSafeFade}>
-        <View style={styles.bottomSafeFadeLine} />
-        <View style={styles.bottomSafeFadeSoft} />
-      </View>
-    </ScrollView>
-    </ImageBackground>
-    </>
+        <View style={styles.bottomSafeFade} />
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   screenBackground: {
     flex: 1,
-    backgroundColor: colors.background,
-  },
-  screenBackgroundImage: {
-    opacity: 1,
-  },
-  screenBackgroundWash: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(4,3,13,0.26)',
+    backgroundColor: HOME_BACKGROUND,
   },
   scrollView: {
     flex: 1,
     backgroundColor: 'transparent',
   },
   content: {
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xs,
-    gap: spacing.lg,
-    backgroundColor: 'transparent',
+    paddingHorizontal: 15,
+    paddingTop: 20,
+    paddingBottom: 132,
+    gap: 11,
   },
-  header: {
+  fullBleedCard: {
+    marginHorizontal: -8,
+  },
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.lg,
+    marginTop: 2,
   },
   headerCopy: {
     flex: 1,
-    minWidth: 0,
     gap: 4,
   },
   greetingTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    lineHeight: 27,
+    color: HOME_TEXT,
+    fontSize: 21,
+    lineHeight: 25,
     fontWeight: '900',
+    letterSpacing: 0,
   },
   greetingSubtitle: {
-    color: 'rgba(255,255,255,0.58)',
+    color: HOME_TEXT_MUTED,
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  headerActionButton: {
-    width: 42,
-    height: 42,
+  proBadge: {
+    minHeight: 23,
+    paddingHorizontal: 10,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.07)',
     alignItems: 'center',
     justifyContent: 'center',
-    position: 'relative',
+    backgroundColor: HOME_GREEN,
   },
-  notificationDot: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: '#B8FF6A',
-    borderWidth: 1,
-    borderColor: '#000000',
-  },
-  miniCalendarScroller: {
-    minHeight: 52,
-    marginTop: -spacing.xs,
-  },
-  miniCalendarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 2,
-  },
-  miniCalendarDay: {
-    alignItems: 'center',
-    gap: 6,
-  },
-  miniCalendarDayLabel: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 10,
-    lineHeight: 12,
+  proBadgeText: {
+    color: HOME_SURFACE,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
-    textAlign: 'center',
   },
-  miniCalendarDayLabelActive: {
-    color: '#FFFFFF',
+  homeCalendarStrip: {
+    minHeight: 36,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.42)',
+    borderWidth: 1,
+    borderColor: 'rgba(228,216,255,0.62)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
   },
-  miniCalendarDateBubble: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
+  homeCalendarItem: {
+    minWidth: 39,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 3,
+  },
+  homeCalendarItemToday: {
+    minHeight: 29,
+    borderRadius: 10,
+    backgroundColor: HOME_SURFACE,
+  },
+  homeCalendarDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 999,
     borderWidth: 2,
   },
-  miniCalendarDateBubbleEmpty: {
-    backgroundColor: 'transparent',
-    borderColor: 'rgba(255,255,255,0.86)',
+  homeCalendarDotRecovery: {
+    borderColor: HOME_GREEN,
+    backgroundColor: HOME_GREEN,
   },
-  miniCalendarDateBubbleActive: {
-    borderColor: '#C68BFF',
-    backgroundColor: '#7C3AED',
-    shadowColor: '#C68BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.54,
-    shadowRadius: 12,
-    elevation: 4,
+  homeCalendarDotStrength: {
+    borderColor: HOME_PURPLE,
+    backgroundColor: HOME_PURPLE,
   },
-  miniCalendarDateBubbleFutureTraining: {
-    borderColor: '#B8FF6A',
-    backgroundColor: '#B8FF6A',
-  },
-  activePlanSection: {
-    gap: spacing.md,
-  },
-  homeModeHero: {
-    marginHorizontal: -spacing.lg,
-    marginTop: -spacing.md,
-    overflow: 'hidden',
-  },
-  homeModeHeroBackground: {
-    minHeight: 430,
-    justifyContent: 'flex-start',
-  },
-  homeModeHeroScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(2,2,8,0.04)',
-  },
-  homeModeHeroCopy: {
-    paddingHorizontal: spacing.xl,
-    paddingTop: 64,
-    gap: 8,
-  },
-  homeModeKicker: {
-    fontSize: 17,
-    lineHeight: 21,
-    fontWeight: '900',
-    fontStyle: 'italic',
-    textTransform: 'uppercase',
-    letterSpacing: 1.2,
-  },
-  homeModeTitle: {
-    fontSize: 72,
-    lineHeight: 78,
-    fontWeight: '900',
-    fontStyle: 'italic',
-    letterSpacing: 0,
-    textTransform: 'uppercase',
-    textShadowColor: 'rgba(0,0,0,0.42)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 10,
-  },
-  homeModeSubtitle: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '900',
-    fontStyle: 'italic',
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-  },
-  homeModeFocusCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.26)',
-    backgroundColor: 'rgba(11,11,27,0.92)',
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  homeModeFocusTop: {
-    flexDirection: 'row',
-    gap: spacing.lg,
-    alignItems: 'center',
-  },
-  homeModeFocusCopy: {
-    flex: 1,
-    gap: 10,
-  },
-  homeModeSectionLabel: {
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-  },
-  homeModeFocusText: {
-    color: '#FFFFFF',
-    fontSize: 21,
-    lineHeight: 29,
-    fontWeight: '700',
-  },
-  homeModeGoalBlock: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: spacing.md,
-    alignItems: 'center',
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255,255,255,0.12)',
-    paddingLeft: spacing.lg,
-  },
-  homeModeGoalIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  homeModeGoalCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  homeModeGoalLabel: {
-    color: 'rgba(255,255,255,0.50)',
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  homeModeGoalTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '900',
-  },
-  homeModeGoalAccent: {
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '900',
-  },
-  homeModeDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-  },
-  homeModeProgressRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.lg,
-  },
-  homeModeProgressCopy: {
-    width: 118,
-    gap: 4,
-  },
-  homeModeProgressValue: {
-    fontSize: 48,
-    lineHeight: 54,
-    fontWeight: '900',
-  },
-  homeModeProgressMeta: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  homeModeChart: {
-    flex: 1,
-    height: 98,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-  },
-  homeModeChartColumn: {
-    width: 25,
-    height: 92,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  homeModeChartLine: {
-    width: 2,
-    opacity: 0.22,
-    borderRadius: 999,
-  },
-  homeModeChartDot: {
-    position: 'absolute',
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-  },
-  homeModeChartLabel: {
-    color: 'rgba(255,255,255,0.50)',
+  homeCalendarDayLabel: {
+    color: HOME_TEXT_MUTED,
     fontSize: 9,
     lineHeight: 11,
-    fontWeight: '900',
-    marginTop: 8,
-  },
-  homeModeMetricsCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.18)',
-    backgroundColor: 'rgba(11,11,27,0.92)',
-    flexDirection: 'row',
-    paddingVertical: spacing.md,
-  },
-  homeModeMetricItem: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    gap: 6,
-  },
-  homeModeMetricDivider: {
-    borderLeftWidth: 1,
-    borderLeftColor: 'rgba(255,255,255,0.12)',
-  },
-  homeModeMetricIcon: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    backgroundColor: 'rgba(124,58,237,0.24)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  homeModeMetricLabel: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 12,
-    lineHeight: 14,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  homeModeMetricValue: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    lineHeight: 24,
-    fontWeight: '900',
-  },
-  homeModeMetricMeta: {
-    fontSize: 12,
-    lineHeight: 15,
     fontWeight: '800',
   },
-  homeModeListCard: {
-    borderRadius: 18,
+  homeCalendarDayLabelToday: {
+    color: HOME_TEXT,
+  },
+  statsCard: {
+    minHeight: 62,
+    borderRadius: 15,
     borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.26)',
-    backgroundColor: 'rgba(11,11,27,0.92)',
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  homeModeListRow: {
-    minHeight: 70,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.045)',
+    borderColor: HOME_BORDER,
+    backgroundColor: HOME_SURFACE,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    padding: spacing.md,
-  },
-  homeModeListIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 10,
-    backgroundColor: 'rgba(157,255,79,0.10)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  homeModeListCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  homeModeListTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    lineHeight: 21,
-    fontWeight: '900',
-  },
-  homeModeListBody: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  homeModeListArrow: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 26,
-    lineHeight: 28,
-    fontWeight: '300',
-  },
-  homeModePlanRow: {
-    minHeight: 72,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    backgroundColor: 'rgba(255,255,255,0.045)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-  },
-  homeModePlanMeta: {
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '900',
-  },
-  homeModeStartButton: {
-    minHeight: 58,
-    borderRadius: 18,
-    backgroundColor: '#7C3AED',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-    shadowColor: '#A86BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.36,
-    shadowRadius: 16,
+    paddingHorizontal: 8,
+    shadowColor: HOME_SHADOW,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.22,
+    shadowRadius: 24,
     elevation: 8,
   },
-  homeModeStartButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '900',
-  },
-  homeModeStartButtonArrow: {
-    color: '#FFFFFF',
-    fontSize: 28,
-    lineHeight: 30,
-    fontWeight: '300',
-  },
-  sectionKicker: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  workoutPlanCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HOME_CARD_BORDER,
-    backgroundColor: HOME_CARD_BACKGROUND,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  planPreviewCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HOME_CARD_BORDER,
-    backgroundColor: HOME_CARD_BACKGROUND,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  planPreviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  planPreviewHeaderCopy: {
+  statItem: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
-  planPreviewKicker: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 10,
-    lineHeight: 12,
+  statIconTileGreen: {
+    width: 25,
+    height: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statIconTilePurple: {
+    width: 25,
+    height: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  statLabel: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '600',
+  },
+  statValue: {
+    color: HOME_TEXT,
+    fontSize: 15,
+    lineHeight: 19,
     fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
   },
-  planPreviewTitle: {
-    color: '#FFFFFF',
+  statUnit: {
+    color: HOME_TEXT,
+    fontSize: 9,
+    lineHeight: 11,
+    fontWeight: '600',
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
+    backgroundColor: HOME_BORDER,
+    marginHorizontal: 5,
+  },
+  startWorkoutHero: {
+    minHeight: 82,
+    borderRadius: 18,
+    backgroundColor: HOME_PURPLE,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    shadowColor: HOME_PURPLE,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.23,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  startWorkoutAccentOne: {
+    position: 'absolute',
+    top: -90,
+    right: -42,
+    width: 210,
+    height: 210,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  startWorkoutAccentTwo: {
+    position: 'absolute',
+    right: -14,
+    bottom: -92,
+    width: 260,
+    height: 260,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  startWorkoutIconTile: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HOME_SURFACE,
+  },
+  startWorkoutCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  startWorkoutTitle: {
+    color: HOME_SURFACE,
     fontSize: 19,
     lineHeight: 23,
     fontWeight: '900',
   },
-  planPreviewButton: {
-    minHeight: 30,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(198,139,255,0.14)',
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.28)',
-  },
-  planPreviewButtonText: {
-    color: '#C68BFF',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-  },
-  planPreviewList: {
-    gap: 9,
-  },
-  planPreviewRow: {
-    minHeight: 50,
-    borderRadius: 13,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(255,255,255,0.055)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  planPreviewDayChip: {
-    minWidth: 46,
-    height: 28,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(184,255,106,0.12)',
-  },
-  planPreviewDayChipText: {
-    color: '#B8FF6A',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-  },
-  planPreviewRowCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  planPreviewRowTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    lineHeight: 17,
-    fontWeight: '900',
-  },
-  planPreviewRowMeta: {
-    color: 'rgba(255,255,255,0.54)',
-    fontSize: 11.5,
-    lineHeight: 14,
-    fontWeight: '700',
-  },
-  weeklyOverviewCard: {
-    height: WEEKLY_OVERVIEW_CARD_HEIGHT,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HOME_CARD_BORDER,
-    backgroundColor: HOME_CARD_BACKGROUND,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: spacing.sm,
-  },
-  weeklyOverviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  weeklyOverviewTitle: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  weeklyOverviewMeta: {
-    color: 'rgba(255,255,255,0.68)',
+  startWorkoutSubtitle: {
+    color: 'rgba(255,255,255,0.86)',
     fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '800',
+    lineHeight: 16,
+    fontWeight: '600',
   },
-  weeklyOverviewDays: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 5,
-  },
-  weeklyOverviewDay: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'center',
-    gap: 4,
-  },
-  weeklyOverviewDayLabel: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '800',
-  },
-  weeklyOverviewDayLabelActive: {
-    color: '#B8FF6A',
-  },
-  weeklyOverviewDayMarker: {
-    width: 25,
-    height: 25,
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  weeklyOverviewDayMarkerActive: {
-    backgroundColor: '#B8FF6A',
-    borderColor: '#B8FF6A',
-  },
-  weeklyOverviewCheck: {
-    color: '#050505',
-    fontSize: 15,
-    lineHeight: 17,
-    fontWeight: '900',
-  },
-  weeklyOverviewDayType: {
-    color: 'rgba(255,255,255,0.55)',
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: '800',
-  },
-  weeklyOverviewDayTypeActive: {
-    color: '#B8FF6A',
-  },
-  weeklyOverviewLegend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    marginTop: -1,
-  },
-  weeklyOverviewLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  weeklyOverviewLegendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.35)',
-  },
-  weeklyOverviewLegendDotActive: {
-    backgroundColor: '#B8FF6A',
-  },
-  weeklyOverviewLegendText: {
-    color: 'rgba(255,255,255,0.66)',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-  },
-  progressAndTipStack: {
-    gap: spacing.md,
-  },
-  progressSummaryCard: {
-    height: PROGRESS_SUMMARY_CARD_HEIGHT,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HOME_CARD_BORDER,
-    backgroundColor: HOME_CARD_BACKGROUND,
-    paddingHorizontal: spacing.md,
-    paddingTop: 11,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  progressSummaryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  progressSummaryTitle: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  viewProgressButton: {
-    minHeight: 28,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-  },
-  viewProgressButtonText: {
-    color: '#FFFFFF',
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '900',
-  },
-  progressStatGrid: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: spacing.sm,
-  },
-  progressStatCard: {
-    flex: 1,
-    minWidth: 0,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    paddingHorizontal: 10,
-    paddingTop: 13,
-    paddingBottom: 13,
-    justifyContent: 'center',
-    gap: 9,
-  },
-  progressStatTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 5,
-  },
-  progressStatLabel: {
-    flex: 1,
-    color: 'rgba(255,255,255,0.66)',
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '800',
-  },
-  progressStatEmojiIcon: {
-    fontSize: 21,
-    lineHeight: 23,
-  },
-  progressStatValue: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    lineHeight: 33,
-    fontWeight: '900',
-  },
-  dailyTipCard: {
-    height: PROGRESS_SUMMARY_CARD_HEIGHT,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.46)',
-    backgroundColor: HOME_CARD_BACKGROUND,
-    overflow: 'hidden',
-  },
-  dailyTipImage: {
-    opacity: 1,
-    transform: [{ translateX: 34 }, { scale: 1.22 }],
-  },
-  dailyTipImageScrim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-  },
-  dailyTipPurpleWashBase: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(54,28,88,0.18)',
-  },
-  dailyTipPurpleWashStrong: {
-    position: 'absolute',
-    top: -62,
-    bottom: -62,
-    left: -118,
-    width: '108%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(54,28,88,0.34)',
-  },
-  dailyTipPurpleWashSoft: {
-    position: 'absolute',
-    top: -74,
-    bottom: -74,
-    left: -12,
-    width: '116%',
-    borderRadius: 999,
-    backgroundColor: 'rgba(54,28,88,0.10)',
-  },
-  dailyTipContent: {
-    minHeight: PROGRESS_SUMMARY_CARD_HEIGHT,
-    width: '68%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  dailyTipIcon: {
+  startWorkoutArrowCircle: {
     width: 36,
     height: 36,
     borderRadius: 999,
-    backgroundColor: 'rgba(151,101,214,0.70)',
+    backgroundColor: HOME_SURFACE,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dailyTipCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 5,
+  startWorkoutArrow: {
+    color: HOME_TEXT,
+    fontSize: 32,
+    lineHeight: 34,
+    fontWeight: '500',
+    marginTop: -2,
   },
-  dailyTipTitle: {
-    color: '#C68BFF',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  dailyTipBody: {
-    color: 'rgba(255,255,255,0.84)',
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  templatesSection: {
-    gap: spacing.md,
-  },
-  templatesHeaderRow: {
+  sectionHeaderRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
+    marginTop: 0,
   },
-  templatesHeaderCopy: {
-    flex: 1,
-    gap: 3,
-  },
-  templatesTitle: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    lineHeight: 26,
+  sectionTitle: {
+    color: '#050505',
+    fontSize: 19,
+    lineHeight: 23,
     fontWeight: '900',
   },
-  templatesSubtitle: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 13,
+  seeAllText: {
+    color: HOME_PURPLE,
+    fontSize: 14,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
-  templatesHubLink: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  templatesList: {
-    gap: spacing.sm,
-  },
-  templateCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+  routineShortcutRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
+    gap: 9,
+    marginTop: -6,
   },
-  templateCardVisual: {
-    width: 46,
-    height: 46,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(184,255,106,0.12)',
-    borderWidth: 1,
-    borderColor: 'rgba(184,255,106,0.22)',
-  },
-  templateCardVisualText: {
-    color: '#B8FF6A',
-    fontSize: 20,
-    lineHeight: 22,
-    fontWeight: '900',
-  },
-  templateCardCopy: {
+  routineShortcutCard: {
     flex: 1,
-    gap: 4,
-  },
-  templateCardTagRow: {
+    minHeight: 56,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HOME_BORDER,
+    backgroundColor: 'rgba(255,255,255,0.58)',
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  templateTag: {
-    minHeight: 22,
+    alignItems: 'center',
+    gap: 7,
     paddingHorizontal: 8,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  templateTagText: {
-    color: 'rgba(255,255,255,0.68)',
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  templateCardTitle: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    lineHeight: 21,
-    fontWeight: '900',
-  },
-  templateCardSubtitle: {
-    color: 'rgba(255,255,255,0.68)',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  templateCardMeta: {
-    color: 'rgba(255,255,255,0.50)',
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  templateCardArrow: {
-    color: 'rgba(255,255,255,0.40)',
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '900',
-  },
-  emptyTemplateNote: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: spacing.md,
-    gap: 3,
-  },
-  emptyTemplateTitle: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '900',
-  },
-  emptyTemplateBody: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  quickActionSection: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: HOME_CARD_BORDER,
-    backgroundColor: HOME_CARD_BACKGROUND,
-    padding: spacing.sm,
-    gap: spacing.xs,
-  },
-  quickActionKicker: {
-    color: 'rgba(255,255,255,0.48)',
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    paddingHorizontal: spacing.xs,
-    paddingTop: 2,
-  },
-  quickActionList: {
-    gap: 4,
-  },
-  quickStartCard: {
-    minHeight: 58,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
-    backgroundColor: 'rgba(255,255,255,0.035)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  quickStartIcon: {
+  routineShortcutIcon: {
     width: 34,
     height: 34,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: HOME_PURPLE_LIGHT,
   },
-  quickStartIconPlay: {
-    backgroundColor: 'rgba(184,255,106,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(184,255,106,0.42)',
-  },
-  quickStartPlayTriangle: {
-    width: 0,
-    height: 0,
-    borderTopWidth: 7,
-    borderBottomWidth: 7,
-    borderLeftWidth: 11,
-    borderTopColor: 'transparent',
-    borderBottomColor: 'transparent',
-    borderLeftColor: '#B8FF6A',
-    marginLeft: 3,
-  },
-  quickStartIconPlus: {
-    backgroundColor: 'rgba(198,139,255,0.20)',
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.42)',
-  },
-  quickStartIconPlusText: {
-    color: '#C68BFF',
-    fontSize: 20,
-    lineHeight: 20,
-    fontWeight: '900',
-    marginTop: -1,
-  },
-  quickStartFileIcon: {
-    backgroundColor: 'rgba(242,183,5,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(242,183,5,0.42)',
-  },
-  quickStartFileFold: {
-    width: 15,
-    height: 16,
-    borderRadius: 3,
-    borderWidth: 2,
-    borderColor: '#F2B705',
-    borderTopRightRadius: 7,
-  },
-  quickStartCopy: {
+  routineShortcutCopy: {
     flex: 1,
-    gap: 2,
+    minWidth: 0,
+    gap: 3,
   },
-  quickStartTitle: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    lineHeight: 17,
+  routineShortcutTitle: {
+    color: HOME_TEXT,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '900',
   },
-  quickStartBody: {
-    color: 'rgba(255,255,255,0.56)',
-    fontSize: 10.5,
+  routineShortcutSubtitle: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '600',
+  },
+  cardArrow: {
+    color: '#050505',
+    fontSize: 27,
+    lineHeight: 28,
+    fontWeight: '400',
+  },
+  yourPlanCard: {
+    minHeight: 134,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(228,216,255,0.74)',
+    backgroundColor: HOME_SURFACE,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    flexDirection: 'row',
+    gap: 10,
+    shadowColor: HOME_SHADOW,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.22,
+    shadowRadius: 28,
+    elevation: 8,
+  },
+  yourPlanMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  yourPlanEyebrow: {
+    color: HOME_PURPLE_DARK,
+    fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
+    letterSpacing: 1.8,
+    marginBottom: 7,
   },
-  quickStartArrow: {
-    color: 'rgba(255,255,255,0.48)',
+  yourPlanTitle: {
+    color: HOME_TEXT,
+    fontSize: 19,
+    lineHeight: 23,
+    fontWeight: '800',
+  },
+  yourPlanWeek: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '500',
+    marginTop: 9,
+  },
+  yourPlanProgressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    marginTop: 'auto',
+  },
+  yourPlanProgressLabel: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '500',
+  },
+  yourPlanProgressTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#ECEEF5',
+    overflow: 'hidden',
+  },
+  yourPlanProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: HOME_PURPLE,
+  },
+  yourPlanProgressPercent: {
+    color: HOME_PURPLE_DARK,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+    minWidth: 36,
+    textAlign: 'right',
+  },
+  yourPlanSide: {
+    width: 108,
+    alignItems: 'stretch',
+    justifyContent: 'space-between',
+  },
+  yourPlanChart: {
+    height: 52,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+    gap: 6,
+    paddingRight: 5,
+  },
+  yourPlanChartBar: {
+    width: 15,
+    borderTopLeftRadius: 8,
+    borderTopRightRadius: 8,
+    backgroundColor: HOME_PURPLE,
+  },
+  viewPlanButton: {
+    minHeight: 38,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: '#A975FF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 4,
+    paddingLeft: 12,
+    paddingRight: 6,
+  },
+  viewPlanButtonText: {
+    color: HOME_PURPLE_DARK,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  myRoutineSection: {
+    gap: 10,
+    marginTop: 0,
+  },
+  myRoutineLabel: {
+    color: HOME_PURPLE,
     fontSize: 18,
-    lineHeight: 20,
+    lineHeight: 23,
+    fontWeight: '600',
+  },
+  myRoutineCard: {
+    minHeight: 154,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: HOME_BORDER,
+    backgroundColor: HOME_SURFACE,
+    paddingHorizontal: 17,
+    paddingTop: 17,
+    paddingBottom: 16,
+    gap: 17,
+    shadowColor: HOME_SHADOW,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    elevation: 5,
+  },
+  myRoutineTopRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 13,
+  },
+  myRoutineInitialTile: {
+    width: 54,
+    height: 54,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HOME_PURPLE_LIGHT,
+  },
+  myRoutineInitial: {
+    color: HOME_PURPLE_DARK,
+    fontSize: 26,
+    lineHeight: 30,
     fontWeight: '900',
+  },
+  myRoutineCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  myRoutineTitle: {
+    color: '#050505',
+    fontSize: 20.5,
+    lineHeight: 25,
+    fontWeight: '900',
+  },
+  myRoutineDescription: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  myRoutineMenu: {
+    color: '#050505',
+    fontSize: 25,
+    lineHeight: 25,
+    fontWeight: '900',
+    marginTop: -6,
+  },
+  myRoutineBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 'auto',
+  },
+  routineInfoPill: {
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 82,
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: HOME_SURFACE_SOFT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 8,
+  },
+  routineInfoPillWide: {
+    flexBasis: 104,
+  },
+  routineInfoPillCompact: {
+    flexBasis: 86,
+  },
+  routineInfoText: {
+    color: HOME_TEXT_MUTED,
+    flexShrink: 1,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  startRoutineButton: {
+    width: 86,
+    minHeight: 44,
+    borderRadius: 14,
+    backgroundColor: HOME_PURPLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  startRoutineButtonText: {
+    width: '100%',
+    color: HOME_SURFACE,
+    fontSize: 13.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  quickAccessSection: {
+    gap: 10,
+  },
+  quickAccessGrid: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickAccessCard: {
+    flex: 1,
+    minHeight: 58,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: HOME_BORDER,
+    backgroundColor: 'rgba(255,255,255,0.72)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    shadowColor: HOME_SHADOW,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.10,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  quickAccessText: {
+    color: HOME_TEXT,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  recentSessionsSection: {
+    gap: 9,
+    marginTop: 2,
+  },
+  recentSessionsList: {
+    gap: 12,
+  },
+  recentSessionCard: {
+    minHeight: 126,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: HOME_BORDER,
+    backgroundColor: HOME_SURFACE,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    gap: 11,
+    shadowColor: HOME_SHADOW,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 3,
+  },
+  recentSessionCardGreen: {
+    borderColor: '#BBF7D0',
+    backgroundColor: '#FBFFFC',
+  },
+  recentSessionCardPurple: {
+    borderColor: HOME_BORDER,
+    backgroundColor: '#FFFFFF',
+  },
+  recentSessionTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  recentSessionIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HOME_PURPLE_LIGHT,
+  },
+  recentSessionIconGreen: {
+    backgroundColor: '#E8F7EE',
+  },
+  recentSessionIconPurple: {
+    backgroundColor: HOME_PURPLE_LIGHT,
+  },
+  recentSessionCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  recentSessionTitle: {
+    color: HOME_TEXT,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '900',
+  },
+  recentSessionDate: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '600',
+  },
+  recentSessionMetricRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recentSessionMetric: {
+    flex: 1,
+    minHeight: 30,
+    borderRadius: 10,
+    backgroundColor: HOME_SURFACE_SOFT,
+    color: HOME_TEXT,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 5,
+  },
+  recentSessionMetricGreen: {
+    backgroundColor: '#E8F7EE',
+  },
+  recentSessionMetricPurple: {
+    backgroundColor: HOME_SURFACE_SOFT,
+  },
+  recentSessionPreview: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  recentSessionNoteRow: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 7,
+  },
+  recentSessionNoteRowGreen: {
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+  },
+  recentSessionNoteRowPurple: {
+    borderColor: HOME_BORDER,
+    backgroundColor: HOME_PURPLE_LIGHT,
+  },
+  recentSessionNoteText: {
+    flex: 1,
+    color: HOME_TEXT,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  recentSessionEmptyCard: {
+    minHeight: 74,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HOME_BORDER,
+    backgroundColor: HOME_SURFACE,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    justifyContent: 'center',
   },
   bottomSafeFade: {
     height: 16,
-    marginTop: -spacing.sm,
-    overflow: 'hidden',
-  },
-  bottomSafeFadeLine: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  bottomSafeFadeSoft: {
-    height: 15,
-    backgroundColor: 'rgba(21,21,21,0.18)',
-    borderBottomLeftRadius: 18,
-    borderBottomRightRadius: 18,
   },
 });

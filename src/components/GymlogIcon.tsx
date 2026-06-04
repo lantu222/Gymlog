@@ -6,14 +6,19 @@ export type GymlogIconName =
   | 'back'
   | 'benchPress'
   | 'bell'
+  | 'brain'
   | 'cardio'
   | 'check'
+  | 'chevronRight'
   | 'chest'
+  | 'clock'
   | 'core'
   | 'deadlift'
+  | 'dumbbell'
   | 'endurance'
   | 'eye'
   | 'file'
+  | 'flame'
   | 'glutes'
   | 'legs'
   | 'lightning'
@@ -110,6 +115,16 @@ function renderIcon(name: GymlogIconName, color: string) {
           <Path d="M10.3 6.2h3.4l2.1 7.5h-2.3l-1.5-4.1-1.5 4.1H8.2l2.1-7.5Z" fill={color} />
         </>
       );
+    case 'dumbbell':
+      return (
+        <>
+          <Path d="M8.3 12h7.4" stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+          <Rect x={3.4} y={8.2} width={2.7} height={7.6} rx={1.2} stroke={color} strokeWidth={2} />
+          <Rect x={6.5} y={6.8} width={2.8} height={10.4} rx={1.2} stroke={color} strokeWidth={2} />
+          <Rect x={14.7} y={6.8} width={2.8} height={10.4} rx={1.2} stroke={color} strokeWidth={2} />
+          <Rect x={17.9} y={8.2} width={2.7} height={7.6} rx={1.2} stroke={color} strokeWidth={2} />
+        </>
+      );
     case 'strength':
       return (
         <>
@@ -130,6 +145,42 @@ function renderIcon(name: GymlogIconName, color: string) {
           <Path d="M12 7.2v5l3.2 2" stroke="#06080B" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
         </>
       );
+    case 'clock':
+      return (
+        <>
+          <Circle cx={12} cy={12} r={8.3} stroke={color} strokeWidth={1.9} />
+          <Path d="M12 7.4v5.1l3.3 2" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+    case 'chevronRight':
+      return (
+        <Path
+          d="M9 5.2 15.8 12 9 18.8"
+          stroke={color}
+          strokeWidth={2.7}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      );
+    case 'brain':
+      return (
+        <>
+          <Path
+            d="M8.4 17.5c-2.1 0-3.6-1.4-3.6-3.3 0-1 .4-1.8 1.1-2.4-.4-1.8.7-3.5 2.5-3.8.5-1.5 1.8-2.5 3.6-2.5 1.8 0 3.1 1 3.6 2.5 1.8.3 2.9 2 2.5 3.8.7.6 1.1 1.4 1.1 2.4 0 1.9-1.5 3.3-3.6 3.3H8.4Z"
+            stroke={color}
+            strokeWidth={1.7}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+          <Path
+            d="M12 5.7v11.6M8.2 10.5c1 .2 1.8.8 2.2 1.7M15.8 10.5c-1 .2-1.8.8-2.2 1.7M8.7 14.4h6.6"
+            stroke={color}
+            strokeWidth={1.7}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </>
+      );
     case 'mobility':
       return <Path d="M16 5.4a2.1 2.1 0 1 1-4.2 0 2.1 2.1 0 0 1 4.2 0Zm-4.9 4.2 3.3 1.5 3.5 4.8-2 1.3-2.7-3.7-2.2-.9-2.4 2.6-2.5 3.6-2.1-1.3 2.8-4.2 4.3-3.7Z" fill={color} />;
     case 'restDay':
@@ -145,15 +196,20 @@ function renderIcon(name: GymlogIconName, color: string) {
       return <Path d="M12 4.1c3.7 0 6.8 3 6.8 6.8 0 3.7-3 6.8-6.8 6.8H8.9l1.9 1.9-1.5 1.5-4.6-4.6 4.6-4.6 1.5 1.5-2.1 2.1H12a4.6 4.6 0 1 0-4.6-4.6H5.2c0-3.8 3.1-6.8 6.8-6.8Z" fill={color} />;
     case 'moon':
       return <Path d="M17.8 15.9c-4.6 0-8.3-3.7-8.3-8.3 0-1.3.3-2.5.8-3.6-3.1.8-5.4 3.6-5.4 7 0 4 3.2 7.2 7.2 7.2 2.5 0 4.8-1.3 6.1-3.2-.2.6-.3.9-.4.9Z" fill={color} />;
+    case 'flame':
+      return (
+        <Path
+          d="M12.4 21.2c-4.2 0-7.3-2.8-7.3-6.8 0-2.8 1.5-4.9 3.7-6.7.4 1.7 1.2 2.7 2.2 3.2-.6-3.3.7-6.3 4.3-8.3.4 3 1.6 4.7 3 6.3 1.1 1.3 2 2.8 2 5.1 0 4.2-3.3 7.2-7.9 7.2Zm.1-2.5c1.7 0 3-1.2 3-2.8 0-1-.4-1.8-1.1-2.6-.7-.8-1.2-1.5-1.5-2.8-1.5 1.1-2 2.5-1.6 4.1-.9-.3-1.6-1-2.1-2-.8.9-1.2 1.8-1.2 2.9 0 1.9 1.8 3.2 4.5 3.2Z"
+          fill={color}
+        />
+      );
     case 'lightning':
       return <Path d="M13.2 2.8 5.4 13.2h5.3l-1.1 8 8-11h-5.2l.8-7.4Z" fill={color} />;
     case 'progress':
       return (
         <>
-          <Rect x={4} y={13.5} width={3.2} height={5.5} rx={1} fill={color} />
-          <Rect x={10.4} y={10.2} width={3.2} height={8.8} rx={1} fill={color} />
-          <Rect x={16.8} y={6.4} width={3.2} height={12.6} rx={1} fill={color} />
-          <Path d="M5.1 8.7 10.8 7l3.1 2.1 4.8-4.5 1.4 1.5-6 5.7-3.7-2.5-4.7 1.4-.6-2Z" fill={color} />
+          <Path d="M4.4 18.8h15.2M4.7 15.2l4.6-4.5 3.2 2.7 6.2-6.5" stroke={color} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
+          <Path d="M15.8 6.9h2.9v2.9" stroke={color} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
         </>
       );
     case 'check':

@@ -1,7 +1,5 @@
-﻿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { useEffect } from 'react';
-
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
@@ -18,7 +16,6 @@ import { getCustomTemplatePresentation, getReadyTemplatePresentation } from '../
 import { getWorkoutFlowPhasePreview } from '../lib/workoutFlow';
 import {
   filterAndSortReadyDiscoveryItems,
-  getDefaultReadyEquipmentFilter,
   getReadyProgramEquipmentLabel,
   getReadyProgramTradeoff,
   ReadyEquipmentFilter,
@@ -173,7 +170,7 @@ function formatFlowExerciseMeta(exercise: WorkoutTemplateExercise | WorkoutExerc
       return '';
     }
     if (typeof firstSet.plannedLoadKg === 'number') {
-      return `${firstSet.plannedLoadKg} kg × ${formatReps(firstSet.plannedRepsMin, firstSet.plannedRepsMax)}`;
+      return `${firstSet.plannedLoadKg} kg � ${formatReps(firstSet.plannedRepsMin, firstSet.plannedRepsMax)}`;
     }
     return `${exercise.sets.length} ${exercise.sets.length === 1 ? 'set' : 'sets'}`;
   }
@@ -181,7 +178,7 @@ function formatFlowExerciseMeta(exercise: WorkoutTemplateExercise | WorkoutExerc
   const templateExercise = exercise as WorkoutTemplateExercise;
 
   if (templateExercise.trackingMode === 'load_and_reps') {
-    return `${templateExercise.sets} ${templateExercise.sets === 1 ? 'set' : 'sets'} · ${formatReps(templateExercise.repsMin, templateExercise.repsMax)} reps`;
+    return `${templateExercise.sets} ${templateExercise.sets === 1 ? 'set' : 'sets'} � ${formatReps(templateExercise.repsMin, templateExercise.repsMax)} reps`;
   }
 
   return `${templateExercise.sets} ${templateExercise.sets === 1 ? 'set' : 'sets'}`;
@@ -250,14 +247,12 @@ export function WorkoutsScreen({
   const [readyCollectionFilter, setReadyCollectionFilter] = useState<ReadyCollectionFilter>('all');
   const [readyGoalFilter, setReadyGoalFilter] = useState<ReadyGoalFilter>('all');
   const [readyTimeFilter, setReadyTimeFilter] = useState<ReadyTimeFilter>('all');
-  const [readyEquipmentFilter, setReadyEquipmentFilter] = useState<ReadyEquipmentFilter>(
-    getDefaultReadyEquipmentFilter(tailoringPreferences),
-  );
+  const [readyEquipmentFilter, setReadyEquipmentFilter] = useState<ReadyEquipmentFilter>('all');
   const [readyLevelFilter, setReadyLevelFilter] = useState<ReadyLevelFilter>('all');
   const [compareTemplateIds, setCompareTemplateIds] = useState<string[]>([]);
-  const [showReadyLibrary, setShowReadyLibrary] = useState(false);
+  const [showReadyLibrary, setShowReadyLibrary] = useState(true);
   const [showAllCustomWorkouts, setShowAllCustomWorkouts] = useState(false);
-  const [showBrowseWorkouts, setShowBrowseWorkouts] = useState(false);
+  const [showBrowseWorkouts, setShowBrowseWorkouts] = useState(true);
 
   const menuTemplate = customWorkouts.find((template) => template.id === menuTemplateId) ?? null;
   const confirmDeleteTemplate = customWorkouts.find((template) => template.id === confirmDeleteTemplateId) ?? null;
@@ -265,10 +260,6 @@ export function WorkoutsScreen({
     ? templates.find((template) => template.id === recommendedReadyProgramId) ?? null
     : null;
   const recommendedKickoffSession = recommendedReadyTemplate?.sessions[0] ?? null;
-  useEffect(() => {
-    setReadyEquipmentFilter(getDefaultReadyEquipmentFilter(tailoringPreferences));
-  }, [tailoringPreferences?.setupEquipment]);
-
   const activeSessionDurationMinutes = activeSession ? Math.max(1, Math.round(activeSession.elapsedSeconds / 60)) : null;
   const primaryCustomWorkout =
     customWorkouts.find((template) => template.id === activeTemplateId) ??
@@ -357,6 +348,8 @@ export function WorkoutsScreen({
     [compareTemplateIds, templates],
   );
   const featuredReadyItems = filteredReadyItems.slice(0, 2);
+  const allGainerProgramItems = readyDiscoveryItems.filter((item) => item.template.id.startsWith('tpl_gainer_'));
+  const gainerProgramItems = filteredReadyItems.filter((item) => item.template.id.startsWith('tpl_gainer_'));
   const hiddenReadyCount = Math.max(filteredReadyItems.length - featuredReadyItems.length, 0);
   const visibleCustomWorkouts = showAllCustomWorkouts ? filteredCustomWorkouts : filteredCustomWorkouts.slice(0, 2);
   const hiddenCustomWorkoutCount = Math.max(filteredCustomWorkouts.length - visibleCustomWorkouts.length, 0);
@@ -379,581 +372,249 @@ export function WorkoutsScreen({
 
   return (
     <>
-      <ScreenHeader
-        title="Workout"
-      />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {activeSession ? (
-          <SurfaceCard accent="neutral" emphasis="hero" style={styles.activeCard}>
-            <Text style={styles.nextPlanKicker}>Today</Text>
+      <ScreenHeader title="Ready Templates" />
+      <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.readyTemplateIntro}>
+          <Text style={styles.readyTemplateCount}>{allGainerProgramItems.length} templates</Text>
+          <Text style={styles.readyTemplateSubtitle}>Pick a ready-made plan, inspect the days, then start when it fits.</Text>
+        </View>
 
-            <View style={styles.nextPlanTokenRow}>
-              <View style={styles.statusChip}>
-                <Text style={styles.statusChipText}>Live</Text>
-              </View>
-              <View style={styles.nextPlanBadgeMuted}>
-                <Text style={styles.nextPlanBadgeMutedText}>{activeSessionDurationMinutes} min</Text>
-              </View>
-            </View>
-
-            <View style={styles.nextPlanHeaderCopy}>
-              <Text style={styles.nextPlanTitle}>{formatWorkoutDisplayLabel(activeSession.templateName, 'Workout')}</Text>
-            </View>
-
-            <Pressable onPress={() => onOpenWorkout(activeSession.templateId)} style={styles.primaryButton}>
-              <Text style={styles.primaryButtonText}>Resume workout</Text>
-            </Pressable>
-          </SurfaceCard>
-        ) : recommendedReadyTemplate ? (
-          <SurfaceCard accent="neutral" emphasis="hero" style={styles.nextPlanCard}>
-            <Text style={styles.nextPlanKicker}>Today</Text>
-
-            <View style={styles.nextPlanTokenRow}>
-              <View style={styles.nextPlanBadge}>
-                <Text style={styles.nextPlanBadgeText}>{formatLevel(recommendedReadyTemplate.level)}</Text>
-              </View>
-              <View style={styles.nextPlanBadgeMuted}>
-                <Text style={styles.nextPlanBadgeMutedText}>{recommendedReadyTemplate.daysPerWeek} days</Text>
-              </View>
-            </View>
-
-            <View style={styles.nextPlanHeaderCopy}>
-              <Text style={styles.nextPlanTitle}>{getReadyTemplatePresentation(recommendedReadyTemplate).title}</Text>
-              <Text style={styles.nextPlanMetaLine}>{getReadyTemplatePresentation(recommendedReadyTemplate).subtitle}</Text>
-              <Text style={styles.nextPlanDuration}>{recommendedReadyTemplate.estimatedSessionDuration} min</Text>
-            </View>
-
-            <View style={styles.nextPlanActionRow}>
-              <Pressable
-                onPress={() => onStartReadyProgram(recommendedReadyTemplate.id)}
-                style={styles.nextPlanPrimaryButton}
-              >
-                <Text style={styles.nextPlanPrimaryButtonText}>Start workout</Text>
-              </Pressable>
-            </View>
-          </SurfaceCard>
-        ) : primaryCustomWorkout ? (
-          <SurfaceCard accent="neutral" emphasis="hero" style={styles.nextPlanCard}>
-            <Text style={styles.nextPlanKicker}>Today</Text>
-
-            <View style={styles.nextPlanTokenRow}>
-              <View style={styles.nextPlanBadge}>
-                <Text style={styles.nextPlanBadgeText}>Custom</Text>
-              </View>
-              <View style={styles.nextPlanBadgeMuted}>
-                <Text style={styles.nextPlanBadgeMutedText}>
-                  {pluralize(primaryCustomWorkout.sessionCount, 'session')}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.nextPlanHeaderCopy}>
-              <Text style={styles.nextPlanTitle}>{getCustomTemplatePresentation(primaryCustomWorkout).title}</Text>
-              <Text style={styles.nextPlanMetaLine}>{getCustomTemplatePresentation(primaryCustomWorkout).subtitle}</Text>
-              <Text style={styles.nextPlanDuration}>
-                {pluralize(primaryCustomWorkout.exerciseCount, 'exercise')}
-              </Text>
-            </View>
-
-            <View style={styles.nextPlanActionRow}>
-              <Pressable
-                onPress={() =>
-                  primaryCustomWorkout.sessionCount <= 1
-                    ? onStartCustomWorkout(primaryCustomWorkout.id)
-                    : onOpenCustomProgram(primaryCustomWorkout.id)
-                }
-                style={styles.nextPlanPrimaryButton}
-              >
-                <Text style={styles.nextPlanPrimaryButtonText}>
-                  {primaryCustomWorkout.sessionCount <= 1 ? 'Start workout' : 'Open workout'}
-                </Text>
-              </Pressable>
-            </View>
-          </SurfaceCard>
-        ) : null}
-
-        {todayFlowItems.length ? (
-          <View style={styles.section}>
-            <Text style={styles.todayFlowLabel}>Today flow</Text>
-            <View style={styles.todayFlowList}>
-              {todayFlowItems.map((item, index) => (
-                <React.Fragment key={`${item.label}:${item.title}`}>
-                  <SurfaceCard
-                    accent="neutral"
-                    emphasis="flat"
-                    style={[styles.todayFlowCard, index === 0 && styles.todayFlowCardActive]}
-                  >
-                    <Text style={styles.todayFlowCardLabel}>{item.label}</Text>
-                    <Text style={styles.todayFlowCardTitle}>{item.title}</Text>
-                    <Text style={styles.todayFlowCardMeta}>{item.meta}</Text>
-                  </SurfaceCard>
-                  {index < todayFlowItems.length - 1 ? <Text style={styles.todayFlowConnector}>↓</Text> : null}
-                </React.Fragment>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {collapsedWorkoutShortcuts.length ? (
-          <View style={styles.section}>
-            <View style={styles.collapsedHeader}>
-              <Text style={styles.todayFlowLabel}>Your workouts</Text>
-              <Pressable onPress={() => setShowBrowseWorkouts((current) => !current)}>
-                <Text style={styles.collapsedActionText}>{showBrowseWorkouts ? 'Hide' : 'Browse all'}</Text>
-              </Pressable>
-            </View>
-            <View style={styles.collapsedWorkoutRow}>
-              {collapsedWorkoutShortcuts.map((template) => (
-                <Pressable
-                  key={template.id}
-                  onPress={() => onOpenCustomProgram(template.id)}
-                  style={styles.collapsedWorkoutChip}
-                >
-                  <Text style={styles.collapsedWorkoutChipText}>
-                    {getCustomTemplatePresentation(template).title}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : null}
-
-        {showBrowseWorkouts ? (
-          <>
-        <SurfaceCard accent="neutral" emphasis="standard" onPress={onCreateWorkout} style={styles.createCard}>
-          <View style={styles.createTopRow}>
-            <View style={styles.createCopy}>
-              <Text style={styles.createKicker}>Own template</Text>
-              <Text style={styles.createTitle}>Create your own split</Text>
-              <Text style={styles.createMeta}>Build a reusable weekly template and keep every session editable.</Text>
-            </View>
-          </View>
-          <View style={styles.secondaryPill}>
-            <Text style={styles.secondaryPillText}>Create template</Text>
-          </View>
-        </SurfaceCard>
-
-        {customWorkouts.length ? (
-          <View style={styles.section}>
-            <SectionHeaderBlock
-              accent="neutral"
-            kicker="Custom"
-            title="Your workouts"
-            subtitle="Open the split you already know or build a new one."
+        <View style={styles.readyTemplateSearchCard}>
+          <TextInput
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search ready templates"
+            placeholderTextColor={colors.textMuted}
+            selectionColor={colors.accentAlt}
+            style={styles.readyTemplateSearchInput}
           />
-            <View style={styles.list}>
-              {visibleCustomWorkouts.map((template, index) => {
-                const variant = getVariant(customCardVariants, index);
-                const insights = programInsightsByTemplateId[template.id];
-                const presentation = getCustomTemplatePresentation(template);
-                return (
-                  <View key={template.id} style={[styles.customCard, { borderColor: variant.borderColor }]}>
-                    <Pressable onPress={() => onOpenCustomProgram(template.id)} style={styles.templateMainTap}>
-                      <View style={styles.templateRow}>
-                        <View style={styles.templateCopy}>
-                          <View style={styles.templateTagRow}>
-                            {presentation.tags.map((tag) => (
-                              <View key={`${template.id}:${tag}`} style={styles.templateTagChip}>
-                                <Text style={styles.templateTagChipText}>{tag}</Text>
-                              </View>
-                            ))}
-                          </View>
-                          <Text style={styles.templateName}>{presentation.title}</Text>
-                          <Text style={styles.templateMeta}>
-                            {pluralize(template.sessionCount, 'session')} | {pluralize(template.exerciseCount, 'exercise')}
-                          </Text>
-                          <Text style={styles.templateSupporting}>
-                            {insights?.cardPrimary ?? presentation.subtitle}
-                          </Text>
-                          <Text style={styles.templateSecondaryMeta}>
-                            {insights?.cardSecondary ?? `Updated ${formatShortDate(template.updatedAt)}`}
-                          </Text>
-                        </View>
+        </View>
+
+        {gainerProgramItems.length ? (
+          <View style={styles.readyTemplateList}>
+            {gainerProgramItems.map((item, index) => {
+              const { template, content } = item;
+              const current = template.id === activeTemplateId;
+              const firstSession = template.sessions[0] ?? null;
+              const firstExercise = firstSession?.exercises[0]?.exerciseName ?? null;
+              const accentStyle = index % 2 === 0 ? styles.readyTemplateAccentPurple : styles.readyTemplateAccentGreen;
+
+              return (
+                <View key={`ready-template:${template.id}`} style={[styles.readyTemplateCard, current && styles.readyTemplateCardCurrent]}>
+                  <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.readyTemplateCardMain}>
+                    <View style={[styles.readyTemplateAccent, accentStyle]} />
+                    <View style={styles.readyTemplateHeaderRow}>
+                      <View style={styles.readyTemplateIconTile}>
+                        <Text style={styles.readyTemplateIconText}>{template.daysPerWeek}</Text>
                       </View>
-                    </Pressable>
-                    <View style={styles.customActions}>
-                      <Pressable
-                        onPress={() => onStartCustomWorkout(template.id)}
-                        style={[styles.startPill, { backgroundColor: variant.startBackground, borderColor: variant.startBorder }]}
-                      >
-                        <Text style={[styles.startPillText, { color: variant.startText }]}>Start</Text>
-                      </Pressable>
-                      <Pressable onPress={() => setMenuTemplateId(template.id)} hitSlop={10} style={styles.menuButton}>
-                        <Text style={styles.menuButtonText}>...</Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-            {hiddenCustomWorkoutCount > 0 ? (
-              <Pressable onPress={() => setShowAllCustomWorkouts(true)} style={styles.showMoreButton}>
-                <Text style={styles.showMoreButtonText}>See all {filteredCustomWorkouts.length} workouts</Text>
-              </Pressable>
-            ) : null}
-            {!filteredCustomWorkouts.length ? (
-              <EmptyState
-                title="No custom workouts match this search"
-                description="Try a broader search or open the ready library instead."
-              />
-            ) : null}
-          </View>
-        ) : null}
-
-        <View style={styles.section}>
-          {shouldShowFeaturedReady ? (
-            <SectionHeaderBlock
-              accent="neutral"
-              kicker="Ready"
-              title="Featured plans"
-              subtitle="Start with the clearest matches first."
-            />
-          ) : null}
-
-          {shouldShowFeaturedReady && featuredReadyItems.length ? (
-            <View style={styles.featuredReadyList}>
-              {featuredReadyItems.map((item, index) => {
-                const { template, content } = item;
-                const current = template.id === activeTemplateId;
-                const firstSession = template.sessions[0] ?? null;
-                const phasePreview = firstSession ? getWorkoutFlowPhasePreview(firstSession.exercises) : [];
-                const insight = programInsightsByTemplateId[template.id];
-                const presentation = getReadyTemplatePresentation(template);
-
-                return (
-                  <SurfaceCard
-                    key={`featured:${template.id}`}
-                    accent="neutral"
-                    emphasis="flat"
-                    style={[styles.featuredReadyCard, current && styles.templateCardActive]}
-                  >
-                    <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.featuredReadyMainTap}>
-                      <View style={styles.featuredReadyCopy}>
-                      <View style={styles.featuredReadyChipRow}>
-                        {presentation.tags.map((tag) => (
-                          <View key={`${template.id}:${tag}`} style={styles.featuredReadyChip}>
-                            <Text style={styles.featuredReadyChipText}>{tag}</Text>
-                          </View>
-                        ))}
-                        </View>
-                        <Text style={styles.featuredReadyName}>{presentation.title}</Text>
-                        <Text style={styles.featuredReadyMeta}>{presentation.subtitle}</Text>
-                        <Text style={styles.featuredReadyBody}>{template.estimatedSessionDuration} min · {template.daysPerWeek} days</Text>
-                      </View>
-
-                      {phasePreview.length ? <WorkoutPhasePreview phases={phasePreview} compact /> : null}
-                    </Pressable>
-
-                    <View style={styles.featuredReadyActions}>
-                      <Pressable
-                        onPress={() => onStartReadyProgram(template.id)}
-                        style={[styles.featuredStartButton, current && styles.currentPill]}
-                      >
-                        <Text style={[styles.featuredStartButtonText, current && styles.currentPillText]}>
-                          {current ? 'Current' : 'Start'}
+                      <View style={styles.readyTemplateTitleBlock}>
+                        <Text style={styles.readyTemplateName} numberOfLines={1} adjustsFontSizeToFit>
+                          {formatWorkoutDisplayLabel(template.name, 'Template')}
                         </Text>
-                      </Pressable>
+                        <Text style={styles.readyTemplateMeta} numberOfLines={1}>
+                          {template.daysPerWeek} days | {formatGoal(template.goalType)} | {formatLevel(template.level)}
+                        </Text>
+                      </View>
+                      <Text style={styles.readyTemplateChevron}>{'>'}</Text>
                     </View>
-                  </SurfaceCard>
-                );
-              })}
-            </View>
-          ) : null}
 
-          {!showReadyLibrary && hiddenReadyCount > 0 ? (
-            <SurfaceCard accent="neutral" emphasis="flat" style={styles.libraryGateCard}>
-              <Text style={styles.libraryGateKicker}>Library</Text>
-              <Text style={styles.libraryGateTitle}>Browse the full library only when you need it</Text>
-              <Text style={styles.libraryGateBody}>
-                Keep this page focused. Open filters and the full ready-plan list only when you want more detail.
-              </Text>
-              <Pressable onPress={() => setShowReadyLibrary(true)} style={styles.libraryGateButton}>
-                <Text style={styles.libraryGateButtonText}>Browse all {filteredReadyItems.length} ready plans</Text>
-              </Pressable>
-            </SurfaceCard>
-          ) : null}
+                    <Text style={styles.readyTemplateBody} numberOfLines={2}>
+                      {content?.summary ?? content?.audience ?? `${template.sessions.length} sessions built for ${template.goalType} training.`}
+                    </Text>
 
-          {showReadyLibrary ? (
-            <>
-              <SurfaceCard accent="neutral" emphasis="flat" style={styles.discoveryCard}>
-                <View style={styles.discoveryTopRow}>
-                  <View style={styles.discoveryCopy}>
-                    <Text style={styles.discoveryKicker}>Discovery</Text>
-                    <Text style={styles.discoveryTitle}>Narrow the field fast</Text>
-                  </View>
-                </View>
-                <TextInput
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  placeholder="Search ready plans or your workouts"
-                  placeholderTextColor={colors.textMuted}
-                  selectionColor={colors.accentAlt}
-                  style={styles.searchInput}
-                />
-                <Text style={styles.discoveryMeta}>
-                  {filteredReadyItems.length} ready {filteredReadyItems.length === 1 ? 'plan' : 'plans'} {'\u00b7'} {filteredCustomWorkouts.length}{' '}
-                  custom {filteredCustomWorkouts.length === 1 ? 'workout' : 'workouts'}
-                </Text>
-              </SurfaceCard>
-
-              <View style={styles.collectionSection}>
-                <Text style={styles.collectionLabel}>Recommended for</Text>
-                <View style={styles.filterRow}>
-                  <Pressable
-                    onPress={() => setReadyCollectionFilter('all')}
-                    style={[styles.filterChip, readyCollectionFilter === 'all' && styles.filterChipActive]}
-                  >
-                    <Text style={[styles.filterChipText, readyCollectionFilter === 'all' && styles.filterChipTextActive]}>All programs</Text>
+                    <View style={styles.readyTemplateFooterRow}>
+                      <View style={styles.readyTemplatePill}>
+                        <Text style={styles.readyTemplatePillText}>{template.sessions.length} sessions</Text>
+                      </View>
+                      <View style={styles.readyTemplatePill}>
+                        <Text style={styles.readyTemplatePillText}>{template.estimatedSessionDuration} min</Text>
+                      </View>
+                      {firstExercise ? (
+                        <View style={[styles.readyTemplatePill, styles.readyTemplatePillWide]}>
+                          <Text style={styles.readyTemplatePillText} numberOfLines={1}>
+                            Next: {firstExercise}
+                          </Text>
+                        </View>
+                      ) : null}
+                    </View>
                   </Pressable>
-                  {READY_PROGRAM_COLLECTIONS.map((collection) => {
-                    const active = collection.key === readyCollectionFilter;
-                    return (
-                      <Pressable
-                        key={collection.key}
-                        onPress={() => setReadyCollectionFilter(collection.key as ReadyCollectionFilter)}
-                        style={[styles.filterChip, active && styles.filterChipActive]}
-                      >
-                        <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{collection.label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-                {selectedCollection ? (
-                  <SurfaceCard accent="neutral" emphasis="flat" style={styles.collectionCard}>
-                    <Text style={styles.collectionTitle}>{selectedCollection.label}</Text>
-                    <Text style={styles.collectionBody}>{selectedCollection.description}</Text>
-                    <Text style={styles.collectionRecommendation}>{selectedCollection.recommendedFor}</Text>
-                  </SurfaceCard>
-                ) : null}
-              </View>
 
-              <View style={styles.filterSection}>
-                <Text style={styles.collectionLabel}>Time</Text>
-                <View style={styles.filterRow}>
-                  {READY_TIME_FILTERS.map((filter) => {
-                    const active = filter.key === readyTimeFilter;
-                    return (
-                      <Pressable
-                        key={filter.key}
-                        onPress={() => setReadyTimeFilter(filter.key)}
-                        style={[styles.filterChip, active && styles.filterChipActive]}
-                      >
-                        <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.filterSection}>
-                <Text style={styles.collectionLabel}>Equipment</Text>
-                <View style={styles.filterRow}>
-                  {READY_EQUIPMENT_FILTERS.map((filter) => {
-                    const active = filter.key === readyEquipmentFilter;
-                    return (
-                      <Pressable
-                        key={filter.key}
-                        onPress={() => setReadyEquipmentFilter(filter.key)}
-                        style={[styles.filterChip, active && styles.filterChipActive]}
-                      >
-                        <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              <View style={styles.filterSection}>
-                <Text style={styles.collectionLabel}>Experience</Text>
-                <View style={styles.filterRow}>
-                  {READY_LEVEL_FILTERS.map((filter) => {
-                    const active = filter.key === readyLevelFilter;
-                    return (
-                      <Pressable
-                        key={filter.key}
-                        onPress={() => setReadyLevelFilter(filter.key)}
-                        style={[styles.filterChip, active && styles.filterChipActive]}
-                      >
-                        <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
-              {compareItems.length ? (
-                <SurfaceCard accent="neutral" emphasis="flat" style={styles.compareCard}>
-                  <Text style={styles.collectionLabel}>Compare</Text>
-                  <Text style={styles.compareTitle}>
-                    {compareItems.length === 1 ? 'Pick one more plan to compare.' : 'Quick tradeoffs side by side'}
-                  </Text>
-                  <View style={styles.compareGrid}>
-                    {compareItems.map((item) => (
-                      <View key={item.template.id} style={styles.compareColumn}>
-                        <Text style={styles.compareName}>{formatWorkoutDisplayLabel(item.template.name, 'Workout')}</Text>
-                        <Text style={styles.compareMeta}>
-                          {item.template.daysPerWeek} days {'\u00b7'} {item.template.estimatedSessionDuration} min {'\u00b7'} {formatLevel(item.template.level)}
-                        </Text>
-                        <Text style={styles.compareBody}>
-                          {item.content?.audience ?? 'Built as a ready plan you can inspect before starting.'}
-                        </Text>
-                        <Text style={styles.compareSupport}>{getReadyProgramEquipmentLabel(item)}</Text>
-                        <Text style={styles.compareTradeoff}>{getReadyProgramTradeoff(item.template.id)}</Text>
-                        <Pressable onPress={() => toggleCompareTemplate(item.template.id)} style={styles.compareRemove}>
-                          <Text style={styles.compareRemoveText}>Remove</Text>
-                        </Pressable>
-                      </View>
-                    ))}
-                  </View>
-                </SurfaceCard>
-              ) : null}
-
-              <View style={styles.filterRow}>
-                {READY_GOAL_FILTERS.map((filter) => {
-                  const active = filter.key === readyGoalFilter;
-                  return (
-                    <Pressable
-                      key={filter.key}
-                      onPress={() => setReadyGoalFilter(filter.key)}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                    >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              {filteredReadyItems.length ? (
-            <View style={styles.list}>
-              {filteredReadyItems.map((item, index) => {
-                const { template, content } = item;
-                const current = template.id === activeTemplateId;
-                const variant = getVariant(readyCardVariants, index);
-                const insights = programInsightsByTemplateId[template.id];
-                const comparing = compareTemplateIds.includes(template.id);
-                return (
-                  <View
-                    key={template.id}
-                    style={[
-                      styles.templateCard,
-                      { borderColor: current ? 'rgba(255,255,255,0.14)' : variant.borderColor },
-                      current && styles.templateCardActive,
-                    ]}
+                  <Pressable
+                    onPress={() => onStartReadyProgram(template.id)}
+                    style={[styles.readyTemplateStartButton, current && styles.readyTemplateStartButtonCurrent]}
                   >
-                    <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.templateMainTap}>
-                      <View style={styles.templateRow}>
-                        <View style={styles.templateCopy}>
-                          <Text style={styles.templateName}>{formatWorkoutDisplayLabel(template.name, 'Workout')}</Text>
-                          <Text style={styles.templateMeta}>
-                            {template.daysPerWeek} days | {formatGoal(template.goalType)} | {formatLevel(template.level)}
-                          </Text>
-                          <Text style={styles.templateSupporting}>
-                            {content?.audience ?? `${template.sessions.length} sessions | ${template.estimatedSessionDuration} min`}
-                          </Text>
-                          <Text style={styles.templateSecondaryMeta}>
-                            {insights?.cardPrimary ?? `${template.sessions.length} sessions | ${template.estimatedSessionDuration} min`}
-                          </Text>
-                          <Text style={styles.templateSecondaryMeta}>
-                            {insights?.cardSecondary ?? `Equipment: ${content?.equipmentProfile ?? 'Gym ready'}`}
-                          </Text>
-                          <Text style={styles.tradeoffLine}>{getReadyProgramTradeoff(template.id)}</Text>
-                        </View>
-                      </View>
-                    </Pressable>
-                    <View style={styles.readyActions}>
-                      <Pressable
-                        onPress={() => toggleCompareTemplate(template.id)}
-                        style={[styles.comparePill, comparing && styles.comparePillActive]}
-                      >
-                        <Text style={[styles.comparePillText, comparing && styles.comparePillTextActive]}>
-                          {comparing ? 'Comparing' : 'Compare'}
-                        </Text>
-                      </Pressable>
-                      <Pressable
-                        onPress={() => onStartReadyProgram(template.id)}
-                        style={[
-                          styles.startPill,
-                          !current && { backgroundColor: variant.startBackground, borderColor: variant.startBorder },
-                          current && styles.currentPill,
-                        ]}
-                      >
-                        <Text style={[styles.startPillText, !current && { color: variant.startText }, current && styles.currentPillText]}>
-                          Start
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-              ) : (
-            <EmptyState
-              title="No ready plans match these filters"
-              description="Try a broader search or switch one of the discovery filters."
-            />
-              )}
-            </>
-          ) : null}
-        </View>
-          </>
-        ) : null}
-      </ScrollView>
-
-      {menuTemplate ? (
-        <View style={styles.sheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenuTemplateId(null)} />
-          <View style={styles.sheet}>
-            <Text style={styles.sheetTitle}>{formatWorkoutDisplayLabel(menuTemplate.name)}</Text>
-            <Pressable
-              onPress={() => {
-                setMenuTemplateId(null);
-                onEditCustomWorkout(menuTemplate.id);
-              }}
-              style={styles.sheetRow}
-            >
-              <Text style={styles.sheetRowText}>Edit workout</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setMenuTemplateId(null);
-                onDuplicateCustomWorkout(menuTemplate.id);
-              }}
-              style={styles.sheetRow}
-            >
-              <Text style={styles.sheetRowText}>Duplicate workout</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                setMenuTemplateId(null);
-                setConfirmDeleteTemplateId(menuTemplate.id);
-              }}
-              style={styles.sheetRow}
-            >
-              <Text style={[styles.sheetRowText, styles.deleteText]}>Delete workout</Text>
-            </Pressable>
+                    <Text style={styles.readyTemplateStartText}>{current ? 'Current' : 'Start'}</Text>
+                  </Pressable>
+                </View>
+              );
+            })}
           </View>
-        </View>
-      ) : null}
-
-      <ConfirmDialog
-        visible={Boolean(confirmDeleteTemplate)}
-        title="Delete workout"
-        message={confirmDeleteTemplate ? `Delete ${formatWorkoutDisplayLabel(confirmDeleteTemplate.name)}? This removes the template from the workout list.` : ''}
-        confirmLabel="Delete"
-        destructive
-        onCancel={() => setConfirmDeleteTemplateId(null)}
-        onConfirm={() => {
-          if (confirmDeleteTemplate) {
-            onDeleteCustomWorkout(confirmDeleteTemplate.id);
-          }
-          setConfirmDeleteTemplateId(null);
-        }}
-      />
+        ) : (
+          <EmptyState
+            title="No ready templates match this search"
+            description="Clear the search field or try a shorter keyword."
+          />
+        )}
+      </ScrollView>
     </>
   );
 }
 
+
 const styles = StyleSheet.create({
+  readyTemplateContent: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: layout.bottomTabBarReserve,
+    gap: spacing.md,
+  },
+  readyTemplateIntro: {
+    gap: 4,
+  },
+  readyTemplateCount: {
+    color: colors.textPrimary,
+    fontSize: 34,
+    fontWeight: '900',
+    letterSpacing: -0.8,
+  },
+  readyTemplateSubtitle: {
+    color: colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  readyTemplateSearchCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(18, 24, 33, 0.72)',
+    padding: spacing.md,
+  },
+  readyTemplateSearchInput: {
+    minHeight: 52,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.input,
+    color: colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '800',
+    paddingHorizontal: spacing.md,
+  },
+  readyTemplateList: {
+    gap: spacing.md,
+  },
+  readyTemplateCard: {
+    overflow: 'hidden',
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#050505',
+    padding: spacing.lg,
+    gap: spacing.md,
+  },
+  readyTemplateCardCurrent: {
+    borderColor: 'rgba(124,58,237,0.42)',
+    backgroundColor: '#10101C',
+  },
+  readyTemplateCardMain: {
+    gap: spacing.sm,
+  },
+  readyTemplateAccent: {
+    position: 'absolute',
+    left: -spacing.lg,
+    top: -spacing.lg,
+    bottom: -spacing.lg,
+    width: 5,
+  },
+  readyTemplateAccentPurple: {
+    backgroundColor: '#7C3AED',
+  },
+  readyTemplateAccentGreen: {
+    backgroundColor: '#16A34A',
+  },
+  readyTemplateHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  readyTemplateIconTile: {
+    width: 46,
+    height: 46,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(124,58,237,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(124,58,237,0.30)',
+  },
+  readyTemplateIconText: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  readyTemplateTitleBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  readyTemplateName: {
+    color: colors.textPrimary,
+    fontSize: 20,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  readyTemplateMeta: {
+    color: colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  readyTemplateChevron: {
+    color: colors.textSecondary,
+    fontSize: 28,
+    fontWeight: '900',
+  },
+  readyTemplateBody: {
+    color: colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
+  },
+  readyTemplateFooterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  readyTemplatePill: {
+    minHeight: 30,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  readyTemplatePillWide: {
+    maxWidth: '100%',
+  },
+  readyTemplatePillText: {
+    color: colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '900',
+  },
+  readyTemplateStartButton: {
+    minHeight: 44,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3F7FF',
+  },
+  readyTemplateStartButtonCurrent: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  readyTemplateStartText: {
+    color: '#06080B',
+    fontSize: 14,
+    fontWeight: '900',
+  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,

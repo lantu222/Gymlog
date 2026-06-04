@@ -120,7 +120,7 @@ const READY_TEMPLATE_PRESENTATION: Record<string, TemplatePresentation> = {
     tags: ['Strength', 'Beginner', '2 Days'],
   },
   tpl_2_day_minimal_full_body_v1: {
-    title: 'Minimal Full Body',
+    title: 'Full Body',
     subtitle: 'Two efficient sessions that still cover the big patterns.',
     tags: ['Full Body', 'Minimal', '2 Days'],
   },

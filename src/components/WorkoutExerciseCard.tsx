@@ -3,11 +3,15 @@ import { LayoutChangeEvent, Pressable, StyleSheet, Text, TextInput, View } from 
 
 import { buildProgressionSuggestion, getBestComparableWorkingSet } from '../lib/workoutIntelligence';
 import { formatRepRange, formatWeight, formatWeightInputValue } from '../lib/format';
-import { colors, radii, spacing } from '../theme';
+import { radii, spacing } from '../theme';
 import { ExerciseLog } from '../types/models';
 import { WorkoutExerciseInstance, WorkoutSetInstance, WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { UnitPreference } from '../types/models';
 import { WorkoutSetRow } from './WorkoutSetRow';
+
+const LOGGING_BACKGROUND = '#F7F3FF';
+const LOGGING_PURPLE = '#7C3AED';
+const LOGGING_GREEN = '#16A34A';
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutExerciseInstance;
@@ -183,9 +187,6 @@ export function WorkoutExerciseCard({
   return (
     <View onLayout={onLayout} style={[styles.card, isActiveExercise && styles.cardActive]}>
       {isActiveExercise ? <View style={styles.cardAccent} /> : null}
-      {isActiveExercise ? <View style={styles.cardGlowBlue} /> : null}
-      {isActiveExercise ? <View style={styles.cardGlowRose} /> : null}
-      {isActiveExercise ? <View style={styles.cardGlowOrange} /> : null}
 
       <Pressable onPress={onActivateExercise} style={styles.header}>
         <View style={styles.headerCopy}>
@@ -221,6 +222,13 @@ export function WorkoutExerciseCard({
               {activeStepLabel ? <Text style={styles.activeGuideTitle}>{activeStepLabel}</Text> : null}
               {helperText ? <Text style={styles.activeGuideBody}>{helperText}</Text> : null}
             </View>
+          </View>
+
+          <View style={styles.tableHeader}>
+            <Text style={styles.tableSetHeader}>SET</Text>
+            <Text style={styles.tableCellHeader}>KG</Text>
+            <Text style={styles.tableCellHeader}>REPS</Text>
+            <Text style={styles.tableCheckHeader}>CHECK</Text>
           </View>
 
           <View style={styles.rows}>
@@ -283,19 +291,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(18, 24, 33, 0.84)',
+    borderColor: 'rgba(124, 58, 237, 0.16)',
+    backgroundColor: '#FFFFFF',
     padding: spacing.md,
     gap: spacing.sm,
+    shadowColor: LOGGING_PURPLE,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 18,
+    elevation: 5,
   },
   cardActive: {
-    borderColor: 'rgba(85, 138, 189, 0.36)',
-    backgroundColor: colors.cardElevated,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.28,
-    shadowRadius: 24,
-    elevation: 8,
+    borderColor: 'rgba(124, 58, 237, 0.18)',
+    backgroundColor: '#FFFFFF',
   },
   cardAccent: {
     position: 'absolute',
@@ -303,34 +311,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     height: 3,
-    backgroundColor: colors.accent,
-  },
-  cardGlowBlue: {
-    position: 'absolute',
-    top: -36,
-    right: -18,
-    width: 132,
-    height: 132,
-    borderRadius: 132,
-    backgroundColor: 'rgba(85, 138, 189, 0.14)',
-  },
-  cardGlowRose: {
-    position: 'absolute',
-    bottom: -50,
-    left: -20,
-    width: 120,
-    height: 120,
-    borderRadius: 120,
-    backgroundColor: 'rgba(191, 74, 105, 0.10)',
-  },
-  cardGlowOrange: {
-    position: 'absolute',
-    bottom: -44,
-    right: -16,
-    width: 110,
-    height: 110,
-    borderRadius: 110,
-    backgroundColor: 'rgba(162, 54, 18, 0.12)',
+    backgroundColor: LOGGING_PURPLE,
   },
   header: {
     gap: 6,
@@ -346,7 +327,7 @@ const styles = StyleSheet.create({
   },
   name: {
     flex: 1,
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: -0.3,
@@ -357,29 +338,29 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(85, 138, 189, 0.16)',
+    backgroundColor: '#F3ECFF',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.30)',
+    borderColor: 'rgba(124, 58, 237, 0.18)',
   },
   activeChipText: {
-    color: '#7FB3E6',
+    color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   contextText: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 12,
     fontWeight: '700',
   },
   helperText: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 11,
     fontWeight: '700',
   },
   helperTextActive: {
-    color: '#A7B7C7',
+    color: '#667085',
   },
   activeGuideRow: {
     flexDirection: 'row',
@@ -387,8 +368,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.26)',
-    backgroundColor: 'rgba(15, 22, 30, 0.76)',
+    borderColor: 'rgba(124, 58, 237, 0.14)',
+    backgroundColor: LOGGING_BACKGROUND,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
@@ -399,12 +380,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(85, 138, 189, 0.18)',
+    backgroundColor: '#F3ECFF',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.34)',
+    borderColor: 'rgba(124, 58, 237, 0.20)',
   },
   activeGuideBadgeText: {
-    color: '#8FC1F2',
+    color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -415,31 +396,62 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   activeGuideTitle: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 14,
     fontWeight: '900',
   },
   activeGuideBody: {
-    color: '#A7B7C7',
+    color: '#667085',
     fontSize: 11,
     fontWeight: '700',
   },
   noteBox: {
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: 'rgba(191, 74, 105, 0.22)',
-    backgroundColor: 'rgba(191, 74, 105, 0.12)',
+    borderColor: 'rgba(124, 58, 237, 0.16)',
+    backgroundColor: '#F3ECFF',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
   },
   noteText: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '700',
   },
   rows: {
     gap: spacing.sm,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 2,
+    paddingTop: 2,
+  },
+  tableSetHeader: {
+    width: 50,
+    color: '#667085',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  tableCellHeader: {
+    flex: 1,
+    color: '#667085',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textAlign: 'center',
+  },
+  tableCheckHeader: {
+    width: 58,
+    color: '#667085',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textAlign: 'center',
   },
   footerRow: {
     flexDirection: 'row',
@@ -452,12 +464,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(85, 138, 189, 0.16)',
+    backgroundColor: '#F3ECFF',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.28)',
+    borderColor: 'rgba(124, 58, 237, 0.20)',
   },
   addSetText: {
-    color: '#7FB3E6',
+    color: LOGGING_PURPLE,
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.2,

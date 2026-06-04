@@ -6,6 +6,9 @@ import { UnitPreference } from '../types/models';
 import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { canCompleteWorkoutSet, getWorkoutSetValidationMessage } from '../lib/workoutValidation';
 
+const LOGGING_PURPLE = '#7C3AED';
+const LOGGING_GREEN = '#16A34A';
+
 interface WorkoutSetRowProps {
   setNumber: number;
   trackingMode: WorkoutTrackingMode;
@@ -88,11 +91,6 @@ export function WorkoutSetRow({
       onPress={onActivate}
       style={[styles.row, active && styles.rowActive, completed && styles.rowCompleted, future && styles.rowFuture]}
     >
-      {active ? <View style={styles.activeTopAccent} /> : null}
-      {active ? <View style={styles.activeGlowBlue} /> : null}
-      {active ? <View style={styles.activeGlowRose} /> : null}
-      {active ? <View style={styles.activeGlowOrange} /> : null}
-
       <View style={styles.mainLine}>
         <View style={[styles.setBadge, active && styles.setBadgeActive, completed && styles.setBadgeCompleted]}>
           <Text style={[styles.setBadgeLabel, active && styles.setBadgeLabelActive]}>Set</Text>
@@ -173,7 +171,7 @@ export function WorkoutSetRow({
 
       {active && !completed ? (
         <View style={styles.activeHintRow}>
-          <Text style={styles.activeHintText}>Fill the two fields, then tap Done.</Text>
+          <Text style={styles.activeHintText}>Fill the fields, then tap Done.</Text>
         </View>
       ) : null}
 
@@ -208,63 +206,19 @@ export function WorkoutSetRow({
 const styles = StyleSheet.create({
   row: {
     overflow: 'hidden',
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(15, 21, 29, 0.96)',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
+    borderRadius: radii.sm,
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 2,
     gap: 8,
   },
   rowActive: {
-    borderColor: 'rgba(85, 138, 189, 0.60)',
-    backgroundColor: 'rgba(22, 32, 43, 0.99)',
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.26,
-    shadowRadius: 18,
-    elevation: 8,
+    backgroundColor: '#FFFFFF',
   },
   rowCompleted: {
-    borderColor: 'rgba(191, 74, 105, 0.24)',
+    backgroundColor: '#ECFDF3',
   },
   rowFuture: {
     opacity: 0.56,
-  },
-  activeTopAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 2,
-    backgroundColor: colors.accent,
-  },
-  activeGlowBlue: {
-    position: 'absolute',
-    top: -18,
-    right: -10,
-    width: 90,
-    height: 90,
-    borderRadius: 90,
-    backgroundColor: 'rgba(85, 138, 189, 0.18)',
-  },
-  activeGlowRose: {
-    position: 'absolute',
-    bottom: -28,
-    left: -14,
-    width: 82,
-    height: 82,
-    borderRadius: 82,
-    backgroundColor: 'rgba(191, 74, 105, 0.10)',
-  },
-  activeGlowOrange: {
-    position: 'absolute',
-    bottom: -24,
-    right: -12,
-    width: 88,
-    height: 88,
-    borderRadius: 88,
-    backgroundColor: 'rgba(162, 54, 18, 0.16)',
   },
   mainLine: {
     flexDirection: 'row',
@@ -274,33 +228,30 @@ const styles = StyleSheet.create({
   setBadge: {
     width: 50,
     minHeight: 50,
-    borderRadius: radii.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
+    borderRadius: radii.pill,
+    backgroundColor: '#F8F5FF',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 1,
   },
   setBadgeActive: {
-    borderColor: 'rgba(85, 138, 189, 0.42)',
-    backgroundColor: 'rgba(13, 19, 27, 0.96)',
+    backgroundColor: '#F3ECFF',
   },
   setBadgeCompleted: {
-    borderColor: 'rgba(191, 74, 105, 0.20)',
+    backgroundColor: '#DCFCE7',
   },
   setBadgeLabel: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 8,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   setBadgeLabelActive: {
-    color: '#8FC1F2',
+    color: LOGGING_PURPLE,
   },
   setBadgeValue: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 16,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
@@ -311,23 +262,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.sm,
   },
   inputWrapActive: {
-    borderColor: 'rgba(85, 138, 189, 0.58)',
-    backgroundColor: 'rgba(13, 19, 27, 0.98)',
+    borderColor: 'rgba(124, 58, 237, 0.24)',
+    backgroundColor: '#FFFFFF',
   },
   loadCell: {
-    width: 118,
+    flex: 1,
   },
   repsCell: {
-    width: 90,
+    flex: 1,
   },
   input: {
     flex: 1,
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 17,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
@@ -335,84 +286,87 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   inputSuffix: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 9,
     fontWeight: '800',
     textTransform: 'uppercase',
   },
   inputSuffixActive: {
-    color: '#8FC1F2',
+    color: LOGGING_PURPLE,
   },
   valueCell: {
     minHeight: 50,
     borderRadius: radii.sm,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.xs,
     justifyContent: 'center',
     gap: 1,
   },
   valueCellCompleted: {
-    borderColor: 'rgba(191, 74, 105, 0.18)',
+    borderColor: 'rgba(22, 163, 74, 0.24)',
+    backgroundColor: '#F0FDF4',
   },
   valueLabel: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 8,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   valueText: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 14,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   doneButton: {
-    width: 84,
+    width: 58,
     minHeight: 50,
-    borderRadius: radii.sm,
+    borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 0,
   },
   doneButtonReady: {
-    borderColor: 'rgba(95, 159, 224, 0.48)',
-    backgroundColor: colors.accentAlt,
-    shadowColor: colors.warning,
+    borderColor: 'rgba(124, 58, 237, 0.32)',
+    backgroundColor: LOGGING_PURPLE,
+    shadowColor: LOGGING_PURPLE,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
     elevation: 6,
   },
   doneButtonCompleted: {
-    backgroundColor: 'rgba(191, 74, 105, 0.22)',
-    borderColor: 'rgba(191, 74, 105, 0.44)',
+    backgroundColor: LOGGING_GREEN,
+    borderColor: 'rgba(22, 163, 74, 0.34)',
   },
   doneButtonDisabled: {
     opacity: 0.52,
   },
   doneText: {
-    color: colors.textPrimary,
-    fontSize: 13,
+    color: '#94A3B8',
+    fontSize: 18,
     fontWeight: '900',
     textAlign: 'center',
   },
   doneTextReady: {
     color: '#FFFFFF',
+    fontSize: 12,
   },
   doneTextCompleted: {
     color: '#FFFFFF',
+    fontSize: 12,
   },
   activeHintRow: {
     paddingHorizontal: 2,
   },
   activeHintText: {
-    color: '#9FB3C7',
+    color: '#667085',
     fontSize: 10,
     fontWeight: '700',
   },
@@ -426,12 +380,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(85, 138, 189, 0.16)',
+    backgroundColor: '#F3ECFF',
     borderWidth: 1,
-    borderColor: 'rgba(85, 138, 189, 0.32)',
+    borderColor: 'rgba(124, 58, 237, 0.22)',
   },
   repeatText: {
-    color: '#8FC1F2',
+    color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -459,7 +413,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(191, 74, 105, 0.18)',
   },
   effortText: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',

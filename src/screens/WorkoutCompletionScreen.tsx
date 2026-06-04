@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ScreenHeader } from '../components/ScreenHeader';
+import { GymlogIcon } from '../components/GymlogIcon';
 import { formatDurationMinutes, formatSessionDate, formatVolume, formatWeight, pluralize } from '../lib/format';
 import { PostSessionInsight } from '../lib/postSessionInsight';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
@@ -22,7 +23,6 @@ interface WorkoutCompletionScreenProps {
   isSaving?: boolean;
   onSaveSummary: (input: { sessionName: string; notes: string }) => Promise<void> | void;
   onDone: () => void;
-  onViewProgress: () => void;
 }
 
 function formatPrDelta(currentKg: number, previousKg: number | null, unitPreference: UnitPreference) {
@@ -48,10 +48,8 @@ export function WorkoutCompletionScreen({
   isSaving = false,
   onSaveSummary,
   onDone,
-  onViewProgress,
 }: WorkoutCompletionScreenProps) {
   const [sessionName, setSessionName] = useState(workoutName);
-  const [notes, setNotes] = useState('');
 
   const detailRows = useMemo(
     () => [
@@ -117,7 +115,13 @@ export function WorkoutCompletionScreen({
         ) : null}
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Session</Text>
+          <View style={styles.sessionTitleRow}>
+            <Text style={styles.sectionTitle}>Session</Text>
+            <View style={styles.renameHintPill}>
+              <GymlogIcon name="file" color="#16A34A" size={13} />
+              <Text style={styles.renameHintText}>Tap to rename</Text>
+            </View>
+          </View>
           <TextInput
             value={sessionName}
             onChangeText={setSessionName}
@@ -126,28 +130,6 @@ export function WorkoutCompletionScreen({
             selectionColor="#111111"
             style={styles.input}
           />
-          <TextInput
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Add Notes"
-            placeholderTextColor="#9CA3AF"
-            selectionColor="#111111"
-            multiline
-            style={styles.notesInput}
-          />
-          <Pressable style={styles.photoCard}>
-            <Text style={styles.photoIcon}>+</Text>
-            <View style={styles.photoCopy}>
-              <Text style={styles.photoTitle}>Add photo</Text>
-              <Text style={styles.photoBody}>Photos are next. Keep this slot ready.</Text>
-            </View>
-            <View style={styles.soonBadge}>
-              <Text style={styles.soonBadgeText}>Soon</Text>
-            </View>
-          </Pressable>
-        </View>
-
-        <View style={styles.section}>
           <Text style={styles.sectionTitle}>Details</Text>
           <View style={styles.detailStack}>
             {detailRows.map((row) => (
@@ -164,23 +146,30 @@ export function WorkoutCompletionScreen({
           <View style={styles.exerciseStack}>
             {exerciseCards.map((exercise) => (
               <View key={exercise.id} style={styles.exerciseCard}>
-                <View style={styles.exerciseLead}>
-                  <View style={styles.exerciseThumb}>
-                    {exercise.imageUrl ? (
-                      <Image source={{ uri: exercise.imageUrl }} style={styles.exerciseThumbImage} resizeMode="cover" />
-                    ) : (
-                      <Text style={styles.exerciseThumbFallback}>{exercise.name.charAt(0).toUpperCase()}</Text>
-                    )}
+                <View style={styles.exerciseCardHeader}>
+                  <View style={styles.exerciseLead}>
+                    <View style={styles.exerciseThumb}>
+                      {exercise.imageUrl ? (
+                        <Image source={{ uri: exercise.imageUrl }} style={styles.exerciseThumbImage} resizeMode="cover" />
+                      ) : (
+                        <Text style={styles.exerciseThumbFallback}>{exercise.name.charAt(0).toUpperCase()}</Text>
+                      )}
+                    </View>
+                    <View style={styles.exerciseCopy}>
+                      <Text style={styles.exerciseName}>{exercise.name}</Text>
+                      <Text style={styles.exerciseMeta}>
+                        {exercise.completedSets}/{exercise.totalSets} Done
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.exerciseCopy}>
-                    <Text style={styles.exerciseName}>{exercise.name}</Text>
-                    <Text style={styles.exerciseMeta}>
-                      {exercise.completedSets}/{exercise.totalSets} Done
-                    </Text>
-                    {exercise.notes ? <Text style={styles.exerciseNotes}>{exercise.notes}</Text> : null}
-                  </View>
+                  <Text style={styles.exerciseVolume}>{formatVolume(exercise.totalVolumeKg, unitPreference)}</Text>
                 </View>
-                <Text style={styles.exerciseVolume}>{formatVolume(exercise.totalVolumeKg, unitPreference)}</Text>
+                {exercise.notes ? (
+                  <View style={styles.exerciseNoteRow}>
+                    <GymlogIcon name="file" color="#16A34A" size={15} />
+                    <Text style={styles.exerciseNotes}>{exercise.notes}</Text>
+                  </View>
+                ) : null}
               </View>
             ))}
           </View>
@@ -192,16 +181,13 @@ export function WorkoutCompletionScreen({
           onPress={() => {
             void onSaveSummary({
               sessionName,
-              notes,
+              notes: '',
             });
           }}
           style={[styles.primaryButton, isSaving ? styles.primaryButtonDisabled : null]}
           disabled={isSaving}
         >
           <Text style={styles.primaryButtonText}>{isSaving ? 'Saving...' : 'Save'}</Text>
-        </Pressable>
-        <Pressable onPress={onViewProgress} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>View progress</Text>
         </Pressable>
       </View>
     </View>
@@ -211,7 +197,7 @@ export function WorkoutCompletionScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7F3FF',
   },
   content: {
     paddingHorizontal: spacing.lg,
@@ -221,11 +207,34 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.md,
   },
+  sessionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
   sectionTitle: {
-    color: '#111111',
+    color: '#101828',
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: -0.4,
+  },
+  renameHintPill: {
+    minHeight: 28,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+  },
+  renameHintText: {
+    color: '#14532D',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '900',
   },
   sectionStack: {
     gap: spacing.sm,
@@ -233,7 +242,7 @@ const styles = StyleSheet.create({
   prCard: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(249, 115, 22, 0.30)',
+    borderColor: '#E4D8FF',
     backgroundColor: '#FFFFFF',
     padding: spacing.md,
     flexDirection: 'row',
@@ -256,14 +265,14 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#EFE7FF',
   },
   prThumbImage: {
     width: '100%',
     height: '100%',
   },
   prThumbFallback: {
-    color: '#111111',
+    color: '#7C3AED',
     fontSize: 20,
     fontWeight: '900',
     textAlign: 'center',
@@ -274,7 +283,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   prName: {
-    color: '#111111',
+    color: '#101828',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -298,7 +307,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     justifyContent: 'center',
-    backgroundColor: '#FB923C',
+    backgroundColor: '#7C3AED',
   },
   prBadgeText: {
     color: '#FFFFFF',
@@ -306,15 +315,15 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   prDelta: {
-    color: '#F97316',
+    color: '#16A34A',
     fontSize: 12,
     fontWeight: '800',
   },
   insightCard: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#D1FAE5',
-    backgroundColor: '#F0FDF4',
+    borderColor: '#E4D8FF',
+    backgroundColor: '#FFFFFF',
     padding: spacing.md,
   },
   insightMessage: {
@@ -327,12 +336,17 @@ const styles = StyleSheet.create({
     minHeight: 56,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E4D8FF',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.md,
-    color: '#111111',
+    color: '#101828',
     fontSize: 16,
     fontWeight: '700',
+    shadowColor: '#D8C7FF',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 2,
   },
   notesInput: {
     minHeight: 128,
@@ -404,7 +418,7 @@ const styles = StyleSheet.create({
     minHeight: 58,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E4D8FF',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.md,
     flexDirection: 'row',
@@ -419,7 +433,7 @@ const styles = StyleSheet.create({
   },
   detailValue: {
     flexShrink: 1,
-    color: '#111111',
+    color: '#101828',
     fontSize: 16,
     fontWeight: '800',
     textAlign: 'right',
@@ -430,9 +444,12 @@ const styles = StyleSheet.create({
   exerciseCard: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E4D8FF',
     backgroundColor: '#FFFFFF',
     padding: spacing.md,
+    gap: spacing.sm,
+  },
+  exerciseCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -450,14 +467,14 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 12,
     overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: '#EFE7FF',
   },
   exerciseThumbImage: {
     width: '100%',
     height: '100%',
   },
   exerciseThumbFallback: {
-    color: '#111111',
+    color: '#7C3AED',
     fontSize: 18,
     fontWeight: '900',
     textAlign: 'center',
@@ -469,7 +486,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   exerciseName: {
-    color: '#111111',
+    color: '#101828',
     fontSize: 16,
     fontWeight: '800',
   },
@@ -478,13 +495,26 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  exerciseNoteRow: {
+    borderRadius: 12,
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
   exerciseNotes: {
-    color: '#374151',
+    flex: 1,
+    color: '#14532D',
     fontSize: 12,
-    fontWeight: '600',
+    lineHeight: 16,
+    fontWeight: '800',
   },
   exerciseVolume: {
-    color: '#111111',
+    color: '#7C3AED',
     fontSize: 13,
     fontWeight: '800',
   },
@@ -496,15 +526,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.md,
     paddingBottom: spacing.xl,
-    gap: spacing.sm,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F7F3FF',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: '#E4D8FF',
   },
   primaryButton: {
     minHeight: 56,
     borderRadius: radii.lg,
-    backgroundColor: '#111111',
+    backgroundColor: '#7C3AED',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -520,13 +549,13 @@ const styles = StyleSheet.create({
     minHeight: 48,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: '#E4D8FF',
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryButtonText: {
-    color: '#111111',
+    color: '#7C3AED',
     fontSize: 15,
     fontWeight: '800',
   },

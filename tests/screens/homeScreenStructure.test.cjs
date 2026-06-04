@@ -6,239 +6,224 @@ const homeScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'HomeScreen.tsx'),
   'utf8',
 );
-const homeCalendarSource = fs.readFileSync(
-  path.join(__dirname, '..', '..', 'src', 'lib', 'homeCalendar.ts'),
-  'utf8',
-);
 const bottomTabBarSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'BottomTabBar.tsx'),
   'utf8',
 );
+const gymlogIconSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'components', 'GymlogIcon.tsx'),
+  'utf8',
+);
+const dashboardSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'lib', 'dashboard.ts'),
+  'utf8',
+);
+const progressScreenSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'screens', 'ProgressScreen.tsx'),
+  'utf8',
+);
+const workoutEditorScreenSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutEditorScreen.tsx'),
+  'utf8',
+);
+const workoutsScreenSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutsScreen.tsx'),
+  'utf8',
+);
+const routesSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'navigation', 'routes.ts'), 'utf8');
 const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
 
 module.exports = [
   {
-    name: 'training tab prioritizes the active plan before quick starts',
+    name: 'home screen uses light routine dashboard with purple workout actions',
     run() {
-      assert.match(homeScreenSource, /interface HomePlanCard/);
-      assert.match(homeScreenSource, /activePlan\?: HomePlanCard \| null/);
-      assert.match(homeScreenSource, /onOpenActivePlan\?: \(\) => void/);
-      assert.match(homeScreenSource, /onStartActivePlanSession\?: \(sessionId: string\) => void/);
-      assert.match(homeScreenSource, /const hasActivePlan = Boolean\(activePlan\)/);
-      assert.match(homeScreenSource, /ImageBackground/);
-      assert.match(homeScreenSource, /HOME_TRAINING_BACKGROUND_IMAGE/);
-      assert.match(homeScreenSource, /HOME_RECOVERY_BACKGROUND_IMAGE/);
-      assert.match(homeScreenSource, /home-training-background\.png/);
-      assert.match(homeScreenSource, /home-recovery-background\.png/);
-      assert.match(homeScreenSource, /<ImageBackground[\s\S]*source=\{homeModeBackground\}[\s\S]*style=\{styles\.screenBackground\}/);
-      assert.match(homeScreenSource, /screenBackgroundWash/);
-      assert.match(homeScreenSource, /profileName\?: string \| null/);
-      assert.match(homeScreenSource, /Welcome back, \{greetingName\}\./);
-      assert.match(homeScreenSource, /Let's crush today\./);
-      assert.match(homeScreenSource, /name="bell"/);
-      assert.match(homeScreenSource, /name="profile"/);
-      assert.match(homeScreenSource, /notificationDot/);
-      assert.match(homeScreenSource, /activePlan\?\.goalLabel\.toUpperCase\(\)/);
-      assert.match(homeScreenSource, /miniCalendarRow/);
-      assert.match(homeScreenSource, /ScrollView/);
-      assert.match(homeScreenSource, /horizontal/);
-      assert.match(homeScreenSource, /useWindowDimensions/);
-      assert.match(homeScreenSource, /const miniCalendarDayWidth = \(screenWidth - spacing\.lg \* 2\) \/ 7/);
-      assert.match(homeScreenSource, /getHomeCarouselCalendarDays\(undefined, \{ daysBefore: 7, daysAfter: 13 \}\)/);
-      assert.match(homeScreenSource, /contentOffset=\{\{ x: miniCalendarPageWidth, y: 0 \}\}/);
-      assert.match(homeScreenSource, /snapToInterval=\{miniCalendarPageWidth\}/);
-      assert.match(homeScreenSource, /disableIntervalMomentum/);
-      assert.match(homeScreenSource, /miniCalendarDateBubbleEmpty/);
-      assert.match(homeScreenSource, /futureTrainingDay && styles\.miniCalendarDateBubbleFutureTraining/);
-      assert.match(homeScreenSource, /miniCalendarDateBubbleFutureTraining:\s*\{[\s\S]*backgroundColor: '#B8FF6A'/);
-      assert.match(homeScreenSource, /miniCalendarDateBubbleActive:\s*\{[\s\S]*backgroundColor: '#7C3AED'/);
-      assert.doesNotMatch(homeScreenSource, /item\.isTrainingDay && styles\.miniCalendarDateBubbleTraining/);
-      assert.match(homeScreenSource, /miniCalendarDayLabel:\s*\{[\s\S]*textAlign: 'center'/);
-      assert.match(homeScreenSource, /Show \$\{item\.label\}/);
-      assert.match(homeScreenSource, /const \[selectedDayStart, setSelectedDayStart\] = useState<number \| null>\(null\)/);
-      assert.match(homeScreenSource, /event\.stopPropagation\(\)/);
-      assert.match(homeScreenSource, /setSelectedDayStart\(item\.dayStart\)/);
-      assert.match(homeScreenSource, /getHomeDayView\(selectedCalendarDay, trainingDayIndexes, activePlanSessions\)/);
-      assert.doesNotMatch(homeScreenSource, /RecoveryStatusOrb/);
-      assert.doesNotMatch(homeScreenSource, /resolveCoachOrbMood/);
-      assert.doesNotMatch(homeScreenSource, /buildCoachOrbCarouselPages/);
-      assert.doesNotMatch(homeScreenSource, /coachOrbCarouselPages/);
-      assert.doesNotMatch(homeScreenSource, /coachOrbCarouselScrollX/);
-      assert.match(homeScreenSource, /hasActiveWorkout\?: boolean/);
-      assert.match(homeScreenSource, /goalLabel: string/);
-      assert.doesNotMatch(homeScreenSource, /HOME_RECOVERY_HERO_IMAGES/);
-      assert.doesNotMatch(homeScreenSource, /recovery-main\.png/);
-      assert.doesNotMatch(homeScreenSource, /recovery-1\.png/);
-      assert.doesNotMatch(homeScreenSource, /recovery-2\.png/);
-      assert.doesNotMatch(homeScreenSource, /recoveryCarouselPage/);
-      assert.doesNotMatch(homeScreenSource, /recoveryCarouselHeight/);
-      assert.doesNotMatch(homeScreenSource, /recoveryCarouselPages/);
-      assert.match(homeScreenSource, /const homeModeTitle = isRecoveryDay \? 'RECOVERY' : activePlan\?\.goalLabel\.toUpperCase\(\) \?\? 'TRAINING'/);
-      assert.match(homeScreenSource, /const homeModeBackground = isRecoveryDay \? HOME_RECOVERY_BACKGROUND_IMAGE : HOME_TRAINING_BACKGROUND_IMAGE/);
-      assert.doesNotMatch(homeScreenSource, /HOME_RECOVERY_ORB_BACKGROUND_IMAGE/);
-      assert.doesNotMatch(homeScreenSource, /HOME_TRAINING_ORB_BACKGROUND_IMAGE/);
-      assert.doesNotMatch(homeScreenSource, /Recovery_image\.png/);
-      assert.doesNotMatch(homeScreenSource, /Trainingday_image\.png/);
-      assert.doesNotMatch(homeScreenSource, /Focusmode_image\.png/);
-      assert.doesNotMatch(homeScreenSource, /Proud_image\.png/);
-      assert.doesNotMatch(homeScreenSource, /Concerned_image\.png/);
-      assert.doesNotMatch(homeScreenSource, /recoveryAmbientDepthOne/);
-      assert.doesNotMatch(homeScreenSource, /recoveryGymSilhouetteLayer/);
-      assert.doesNotMatch(homeScreenSource, /recoveryDataParticleLayer/);
-      assert.doesNotMatch(homeScreenSource, /recoveryParticleLineOne/);
-      assert.doesNotMatch(homeScreenSource, /recoveryCoachBubble/);
-      assert.doesNotMatch(homeScreenSource, /recoveryCoachBubbleTail/);
-      assert.doesNotMatch(homeScreenSource, /recoveryCoachBubblePage/);
-      assert.doesNotMatch(homeScreenSource, /recoveryCarouselDots/);
-      assert.doesNotMatch(homeScreenSource, /coachInsightCard/);
-      assert.doesNotMatch(homeScreenSource, /Recovery status/);
-      assert.doesNotMatch(homeScreenSource, /Your last workout highlights/);
-      assert.doesNotMatch(homeScreenSource, /recoveryOrbPercent/);
-      assert.match(homeScreenSource, /const isRecoveryDay = selectedDayView\.kind === 'recovery'/);
-      assert.doesNotMatch(homeScreenSource, /calendarVisible/);
-      assert.doesNotMatch(homeScreenSource, /Training calendar/);
-      assert.doesNotMatch(homeScreenSource, /calendarSheet/);
-      assert.match(homeScreenSource, /activePlan\?\.nextSession\.exercises/);
-      assert.match(homeScreenSource, /homeModeHero/);
-      assert.match(homeScreenSource, /homeModeFocusCard/);
-      assert.match(homeScreenSource, /homeModeMetricsCard/);
-      assert.match(homeScreenSource, /homeModeListCard/);
-      assert.match(homeScreenSource, /homeModeStartButton/);
-      assert.doesNotMatch(homeScreenSource, /todayWorkoutGreenGlow/);
-      assert.doesNotMatch(homeScreenSource, /HOME_FUTURE_WORKOUT_HERO_IMAGE/);
-      assert.doesNotMatch(homeScreenSource, /showTodayStartHero/);
-      assert.doesNotMatch(homeScreenSource, /showFutureWorkoutHero/);
-      assert.doesNotMatch(homeScreenSource, /showCoachOrbHero/);
-      assert.match(homeScreenSource, /selectedDayView\.kind === 'recovery'/);
-      assert.match(homeScreenSource, /RECOVERY/);
-      assert.match(homeScreenSource, /REST\. REPAIR\. COME BACK STRONGER\./);
-      assert.match(homeScreenSource, /FOCUS\. LIFT\. GET STRONGER\./);
+      assert.match(homeScreenSource, /const HOME_BACKGROUND = '#F7F3FF'/);
+      assert.match(homeScreenSource, /const HOME_PURPLE = '#7C3AED'/);
+      assert.match(homeScreenSource, /const HOME_PURPLE_DARK = '#5B21B6'/);
+      assert.match(homeScreenSource, /const HOME_GREEN = '#16A34A'/);
+      assert.match(homeScreenSource, /const HOME_BLUE = '#0A84FF'/);
+
+      assert.match(homeScreenSource, /Welcome back!/);
+      assert.match(homeScreenSource, /Let's get after it today\./);
+      assert.match(homeScreenSource, /PRO/);
+      assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: HOME_GREEN/);
+      assert.match(homeScreenSource, /topCalendarDays/);
+      assert.match(homeScreenSource, /homeCalendarStrip/);
+      assert.match(homeScreenSource, /homeCalendarItem/);
+      assert.match(homeScreenSource, /homeCalendarDayLabel/);
+      assert.match(homeScreenSource, /Streak/);
+      assert.match(homeScreenSource, /Workouts/);
+      assert.match(homeScreenSource, /Total time/);
+      assert.match(homeScreenSource, /const totalWorkoutTime = formatWorkoutTotalTime\(streak\.totalDurationMinutes\)/);
+      assert.match(homeScreenSource, /<Text style=\{styles\.statValue\}>\{totalWorkoutTime\}<\/Text>/);
+      assert.match(dashboardSource, /totalDurationMinutes: number/);
+      assert.match(dashboardSource, /getCanonicalCompletedSessions\(database\)\.reduce/);
+
+      assert.match(gymlogIconSource, /\| 'flame'/);
+      assert.match(gymlogIconSource, /\| 'dumbbell'/);
+      assert.match(gymlogIconSource, /\| 'chevronRight'/);
+      assert.match(gymlogIconSource, /case 'flame':/);
+      assert.match(gymlogIconSource, /case 'dumbbell':/);
+      assert.match(gymlogIconSource, /case 'chevronRight':/);
+      assert.match(homeScreenSource, /name="flame" color=\{HOME_GREEN\} size=\{24\}/);
+      assert.match(homeScreenSource, /name="progress" color=\{HOME_GREEN\} size=\{23\}/);
+      assert.match(homeScreenSource, /name="clock" color=\{HOME_GREEN\} size=\{24\}/);
+
       assert.match(homeScreenSource, /Start Workout/);
-      assert.doesNotMatch(homeScreenSource, /FlatList/);
-      assert.doesNotMatch(homeScreenSource, /Track Recovery/);
-      assert.doesNotMatch(homeScreenSource, /recoveryHeroImage/);
-      assert.match(homeCalendarSource, /day\.isToday \? 'NO EXCUSES' : 'TRAINING'/);
-      assert.match(homeCalendarSource, /day\.isToday \? 'JUST RESULTS' : 'TODAY'/);
-      assert.doesNotMatch(homeCalendarSource, /START YOUR/);
-      assert.doesNotMatch(homeCalendarSource, /WORKOUT HERE/);
-      assert.doesNotMatch(homeScreenSource, /startWorkoutFloatingButton/);
-      assert.doesNotMatch(homeScreenSource, /onStartActivePlan\?:/);
-      assert.match(homeScreenSource, /Today's plan/);
-      assert.match(homeScreenSource, /Recovery tips/);
-      assert.doesNotMatch(homeScreenSource, /Plan preview/);
-      assert.doesNotMatch(homeScreenSource, /recoveryHeroCopy/);
-      assert.doesNotMatch(homeScreenSource, /recoveryHeroKicker/);
-      assert.doesNotMatch(homeScreenSource, /recoveryHeroTitle/);
-      assert.doesNotMatch(homeScreenSource, /todayMissionKicker/);
-      assert.doesNotMatch(homeScreenSource, /todayMissionTitle/);
-      assert.doesNotMatch(homeScreenSource, /todayMissionMeta/);
-      assert.doesNotMatch(homeScreenSource, /todayMissionDetailsButton/);
-      assert.doesNotMatch(homeScreenSource, /View plan/);
-      assert.doesNotMatch(homeScreenSource, /buildFallbackPreviewSessions/);
-      assert.match(homeScreenSource, /quickActionSection/);
-      assert.match(homeScreenSource, /Quick actions/);
-      assert.match(homeScreenSource, /Explore workout plans/);
-      assert.match(homeScreenSource, /Build your own split/);
-      assert.match(homeScreenSource, /bottomSafeFade/);
-      assert.match(homeScreenSource, /bottomSafeFadeSoft/);
-      assert.match(homeScreenSource, /WEEKLY_OVERVIEW_DAYS/);
-      assert.match(homeScreenSource, /WEEKLY_OVERVIEW_CARD_HEIGHT/);
-      assert.match(homeScreenSource, /PROGRESS_SUMMARY_CARD_HEIGHT = 178/);
-      assert.match(homeScreenSource, /TRAINING_DAY_PATTERNS/);
-      assert.match(homeScreenSource, /getWeeklyTrainingIndexes/);
-      assert.doesNotMatch(homeScreenSource, /recoveryDaysBuiltIn/);
-      assert.match(homeScreenSource, /At a glance/);
-      assert.match(homeScreenSource, /View all/);
-      assert.match(homeScreenSource, /progressSummaryCard/);
-      assert.match(homeScreenSource, /progressStatGrid/);
-      assert.match(homeScreenSource, /progressStatTopRow/);
-      assert.match(homeScreenSource, /progressStatEmojiIcon/);
-      assert.match(homeScreenSource, /\\uD83D\\uDC4D/);
-      assert.match(homeScreenSource, /\\uD83D\\uDD25/);
-      assert.match(homeScreenSource, /\\uD83C\\uDFC6/);
-      assert.match(homeScreenSource, /Workouts completed/);
-      assert.match(homeScreenSource, /Current streak/);
-      assert.match(homeScreenSource, /Total workouts/);
-      assert.doesNotMatch(homeScreenSource, /progressStatMeta/);
-      assert.match(homeScreenSource, /DAILY_TIP_IMAGE/);
-      assert.match(homeScreenSource, /endurance-cardio-goal-card\.png/);
-      assert.match(homeScreenSource, /Daily tip/);
-      assert.match(homeScreenSource, /Focus on quality over quantity\. Good reps, better results\./);
-      assert.match(homeScreenSource, /dailyTipCard/);
-      assert.match(homeScreenSource, /dailyTipImageScrim/);
-      assert.match(homeScreenSource, /dailyTipPurpleWashStrong/);
-      assert.match(homeScreenSource, /dailyTipIcon/);
-      assert.match(homeScreenSource, /quickStartIconPlay/);
-      assert.match(homeScreenSource, /quickStartPlayTriangle/);
-      assert.match(homeScreenSource, /quickStartIconPlus/);
-      assert.match(homeScreenSource, /quickStartFileIcon/);
-      assert.match(homeScreenSource, /Start with what the week needs next\./);
-      assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: colors\.background/);
-      assert.match(homeScreenSource, /scrollView:\s*\{[\s\S]*backgroundColor: 'transparent'/);
-      assert.match(homeScreenSource, /content:\s*\{[\s\S]*backgroundColor: 'transparent'/);
-      assert.doesNotMatch(homeScreenSource, /homeModeHeroImage/);
-      assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*color: '#FFFFFF'/);
-      assert.match(homeScreenSource, /headerActionButton:\s*\{[\s\S]*borderRadius: 999/);
-      assert.doesNotMatch(homeScreenSource, /startWorkoutFloatingButton/);
-      assert.doesNotMatch(homeScreenSource, /startWorkoutFloatingTriangle/);
-      assert.match(homeScreenSource, /progressSummaryCard:\s*\{[\s\S]*backgroundColor: HOME_CARD_BACKGROUND/);
-      assert.match(homeScreenSource, /dailyTipCard:\s*\{[\s\S]*borderColor: 'rgba\(198,139,255,0\.46\)'/);
-      assert.match(homeScreenSource, /quickActionSection:\s*\{[\s\S]*backgroundColor: HOME_CARD_BACKGROUND/);
+      assert.match(homeScreenSource, /Jump into an empty workout/);
+      assert.match(homeScreenSource, /startWorkoutHero/);
+      assert.match(homeScreenSource, /startWorkoutHero:\s*\{[\s\S]*backgroundColor: HOME_PURPLE/);
+      assert.match(homeScreenSource, /name="dumbbell" color=\{HOME_GREEN\} size=\{26\}/);
+      assert.match(homeScreenSource, /name="chevronRight" color=\{HOME_GREEN\} size=\{20\}/);
+      assert.match(homeScreenSource, /onPress=\{onCreateWorkoutFromExercises\}/);
+
+      assert.match(homeScreenSource, /Routines/);
+      assert.match(homeScreenSource, /Templates/);
+      assert.doesNotMatch(homeScreenSource, /My Routines/);
+      assert.match(homeScreenSource, /Explore/);
+      assert.match(homeScreenSource, /readyTemplateCount > 0 \? `\$\{readyTemplateCount\} templates` : 'Find new Templates'/);
+      assert.doesNotMatch(homeScreenSource, /Find new routines/);
+      assert.match(workoutsScreenSource, /const \[showReadyLibrary, setShowReadyLibrary\] = useState\(true\)/);
+      assert.match(workoutsScreenSource, /const \[showBrowseWorkouts, setShowBrowseWorkouts\] = useState\(true\)/);
+      assert.match(workoutsScreenSource, /const \[readyEquipmentFilter, setReadyEquipmentFilter\] = useState<ReadyEquipmentFilter>\('all'\)/);
+      assert.match(appSource, /const readyTemplateCount = workout\.templates\.filter\(\(template\) => template\.id\.startsWith\('tpl_gainer_'\)\)\.length/);
+      assert.match(appSource, /readyTemplateCount=\{readyTemplateCount\}/);
+      assert.match(workoutsScreenSource, /const gainerProgramItems = filteredReadyItems\.filter/);
+      assert.match(workoutsScreenSource, /const allGainerProgramItems = readyDiscoveryItems\.filter/);
+      assert.match(workoutsScreenSource, /title="Ready Templates"/);
+      assert.match(workoutsScreenSource, /Search ready templates/);
+      assert.match(workoutsScreenSource, /readyTemplateCount/);
+      assert.match(workoutsScreenSource, /readyTemplateCard/);
+      assert.doesNotMatch(workoutsScreenSource, /title="Programs"/);
+      assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
+      assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
+      assert.match(homeScreenSource, /YOUR PLAN/);
+      assert.match(homeScreenSource, /planTitle/);
+      assert.match(homeScreenSource, /planWeekLabel/);
+      assert.match(homeScreenSource, /planProgressPercent/);
+      assert.match(homeScreenSource, /activePlan\?\.weekLabel/);
+      assert.match(homeScreenSource, /activePlan\?\.progressPercent/);
+      assert.doesNotMatch(homeScreenSource, /activePlan \? 'Week 3 of 8'/);
+      assert.doesNotMatch(homeScreenSource, /activePlan \? 42/);
+      assert.match(appSource, /weekLabel: planProgress\.weekLabel/);
+      assert.match(appSource, /progressPercent: planProgress\.progressPercent/);
+      assert.match(homeScreenSource, /planChartBars/);
+      assert.match(homeScreenSource, /View plan/);
+      assert.match(homeScreenSource, /VIEW PLAN/);
+      assert.match(homeScreenSource, /yourPlanCard:\s*\{[\s\S]*backgroundColor: HOME_SURFACE/);
+      assert.match(homeScreenSource, /yourPlanProgressTrack/);
+      assert.match(homeScreenSource, /yourPlanProgressFill/);
+      assert.match(homeScreenSource, /yourPlanChartBar/);
+      assert.match(homeScreenSource, /viewPlanButton/);
+      assert.match(homeScreenSource, /fullBleedCard/);
+      assert.match(homeScreenSource, /style=\{\[styles\.yourPlanCard, styles\.fullBleedCard\]\}/);
+      assert.match(homeScreenSource, /style=\{\[styles\.startWorkoutHero, styles\.fullBleedCard\]\}/);
+      assert.match(homeScreenSource, /onOpenActivePlan/);
+      assert.doesNotMatch(homeScreenSource, /<Text style=\{styles\.myRoutineLabel\}>My Routine<\/Text>/);
+      assert.doesNotMatch(homeScreenSource, /style=\{styles\.myRoutineCard\}/);
+      assert.match(homeScreenSource, /Start Workout/);
+      assert.match(homeScreenSource, /Quick Access/);
+      assert.match(homeScreenSource, /Recent Sessions/);
+      assert.match(homeScreenSource, /recentSessions/);
+      assert.match(homeScreenSource, /recentSessionsSection/);
+      assert.match(homeScreenSource, /recentSessionCard/);
+      assert.match(homeScreenSource, /No sessions yet/);
+      assert.doesNotMatch(homeScreenSource, /recentSessionEmptyButton/);
+      assert.doesNotMatch(homeScreenSource, /recentSessionEmptyButtonText/);
+      assert.match(homeScreenSource, /onOpenSessionHistory/);
+      assert.match(homeScreenSource, /onOpenRecentSession/);
+      assert.match(homeScreenSource, /onOpenProgressOverview/);
+      assert.match(homeScreenSource, /onOpenTrackedProgress/);
+      assert.match(homeScreenSource, /onOpenBodyStats/);
+      assert.match(homeScreenSource, /Progress/);
+      assert.match(homeScreenSource, /Body Stats/);
+      assert.match(homeScreenSource, /PR Tracker/);
+      assert.doesNotMatch(homeScreenSource, /<Text style=\{styles\.quickAccessText\}>History<\/Text>/);
+      assert.doesNotMatch(homeScreenSource, /onOpenAICoach\('Open body stats'\)/);
+
+      assert.doesNotMatch(homeScreenSource, /Weekly overview/);
+      assert.doesNotMatch(homeScreenSource, /At a glance/);
+      assert.doesNotMatch(homeScreenSource, /Daily tip/);
+      assert.doesNotMatch(homeScreenSource, /HOME_RECOVERY_BACKGROUND_IMAGE/);
+      assert.doesNotMatch(homeScreenSource, /HOME_TRAINING_BACKGROUND_IMAGE/);
+      assert.doesNotMatch(homeScreenSource, /ImageBackground/);
 
       assert.ok(
-        homeScreenSource.indexOf('homeModeHero') < homeScreenSource.indexOf("Today's focus"),
-        'mode hero should render before the focus card',
+        homeScreenSource.indexOf('styles.headerRow') < homeScreenSource.indexOf('styles.homeCalendarStrip'),
+        'header should render before calendar',
       );
       assert.ok(
-        homeScreenSource.indexOf("Today's focus") < homeScreenSource.indexOf('homeModeMetricsCard'),
-        'focus card should render before the metrics card',
+        homeScreenSource.indexOf('styles.homeCalendarStrip') < homeScreenSource.indexOf('styles.statsCard'),
+        'calendar should render before stats',
       );
       assert.ok(
-        homeScreenSource.indexOf('homeModeMetricsCard') < homeScreenSource.indexOf('Recovery tips'),
-        'metrics should render before the mode list card',
+        homeScreenSource.indexOf('styles.statsCard') < homeScreenSource.indexOf('styles.yourPlanCard'),
+        'stats should render before your plan',
       );
       assert.ok(
-        homeScreenSource.indexOf('At a glance') < homeScreenSource.indexOf('Daily tip'),
-        'daily tip should render below progress summary',
+        homeScreenSource.indexOf('styles.yourPlanCard') < homeScreenSource.indexOf('styles.sectionHeaderRow'),
+        'your plan should render before routines',
       );
       assert.ok(
-        homeScreenSource.indexOf('Daily tip') < homeScreenSource.indexOf('Quick actions'),
-        'daily tip should stay above quick actions',
+        homeScreenSource.indexOf('styles.routineShortcutRow') < homeScreenSource.indexOf('styles.startWorkoutHero'),
+        'start workout hero should render after routine shortcuts',
       );
       assert.ok(
-        homeScreenSource.indexOf('Quick actions') < homeScreenSource.indexOf('bottomSafeFade'),
-        'bottom fade should finish the home screen below quick actions',
+        homeScreenSource.indexOf('styles.startWorkoutHero') < homeScreenSource.indexOf('Quick Access'),
+        'start workout hero should render before quick access',
       );
       assert.ok(
-        homeScreenSource.indexOf('Templates') < homeScreenSource.indexOf('Quick actions') ||
-          !homeScreenSource.includes('Templates'),
-        'quick actions should be the last section when templates exist',
+        homeScreenSource.indexOf('Quick Access') < homeScreenSource.indexOf('Recent Sessions'),
+        'recent sessions should fill the lower home area after quick access',
       );
 
-      assert.match(appSource, /const homeActivePlanCard = useMemo/);
-      assert.match(appSource, /setsLabel: `\$\{exercise\.sets\} sets`/);
-      assert.match(appSource, /hiddenExerciseCount: Math\.max\(session\.exercises\.length - 5, 0\)/);
-      assert.match(appSource, /goalLabel: formatGoalLabel\(preferences\.aiPlannerGoal \|\| preferences\.setupGoal \|\| 'general'\)/);
-      assert.match(appSource, /goalLabel: formatGoalLabel\(recommendedReadyTemplate\.goalType\)/);
       assert.match(appSource, /activePlan=\{homeActivePlanCard\}/);
-      assert.match(appSource, /hasActiveWorkout=\{Boolean\(workout\.activeSession\)\}/);
-      assert.doesNotMatch(appSource, /onStartActivePlan=\{/);
-      assert.match(appSource, /onStartActivePlanSession=\{\(sessionId\) =>/);
-      assert.match(appSource, /handleStartCustomProgramSession\(homeActivePlanCard\.programId, sessionId\)/);
-      assert.match(appSource, /handleStartReadyProgramSession\(homeActivePlanCard\.programId, sessionId\)/);
-      assert.match(appSource, /sessions: homeSessions/);
-      assert.match(appSource, /const workoutLogNavigationAllowedAtRef = useRef<number \| null>\(null\)/);
-      assert.match(appSource, /function navigateToWorkoutLog\(workoutTemplateId: string\)/);
-      assert.match(appSource, /workoutLogNavigationAllowedAtRef\.current = Date\.now\(\)/);
-      assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'log'/);
-      assert.match(appSource, /!allowedAt \|\| Date\.now\(\) - allowedAt > 2000/);
-      assert.match(appSource, /replaceRoute\(ROOT_ROUTES\.home\)/);
-      assert.equal((appSource.match(/navigate\(\{ tab: 'workout', screen: 'log'/g) ?? []).length, 1);
-      assert.match(appSource, /onOpenActivePlan=\{\(\) =>/);
-      assert.match(appSource, /handleOpenReadyProgramDetail\(homeActivePlanCard\.programId\)/);
+      assert.match(appSource, /const homeRecentSessions = useMemo/);
+      assert.match(appSource, /\[\.\.\.workoutSessions\][\s\S]*\.sort/);
+      assert.match(appSource, /\.slice\(0, 3\)/);
+      assert.match(appSource, /recentSessions=\{homeRecentSessions\}/);
+      assert.match(appSource, /customTemplates=\{customWorkouts\}/);
+      assert.match(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\}/);
+      assert.doesNotMatch(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'editor' \}\)\}/);
+      assert.match(appSource, /onBrowseReadyPlans=\{\(\) => navigate\(WORKOUT_PLAN_ROUTE\)\}/);
+      assert.match(appSource, /onOpenProgressOverview=\{\(\) => navigate\(\{ tab: 'progress', screen: 'list', section: 'overview' \}\)\}/);
+      assert.match(appSource, /onOpenTrackedProgress=\{\(\) => navigate\(\{ tab: 'progress', screen: 'list', section: 'tracked' \}\)\}/);
+      assert.match(appSource, /onOpenBodyStats=\{\(\) => navigate\(\{ tab: 'progress', screen: 'list', section: 'measures' \}\)\}/);
+      assert.match(appSource, /onOpenSessionHistory=\{\(\) => navigate\(\{ tab: 'home', screen: 'history' \}\)\}/);
+      assert.match(appSource, /onOpenRecentSession=\{\(sessionId\) => navigate\(\{ tab: 'home', screen: 'session', sessionId \}\)\}/);
+      assert.doesNotMatch(appSource, /onOpenAICoach=\{handleOpenAICoach\}/);
 
-      assert.match(bottomTabBarSource, /key: 'home', label: 'Home'/);
-      assert.doesNotMatch(bottomTabBarSource, /key: 'home', label: 'Training'/);
+      assert.match(routesSource, /screen: 'empty'/);
+      assert.match(appSource, /route\.tab === 'workout' && \(route\.screen === 'editor' \|\| route\.screen === 'empty'\)/);
+      assert.match(appSource, /presentation=\{route\.screen === 'empty' \? 'emptyWorkout' : 'editor'\}/);
+      assert.match(appSource, /route\.screen === 'empty'/);
+      assert.match(appSource, /inlineTip=\{null\}/);
+      assert.doesNotMatch(appSource, /Start with the main lift first/);
+      assert.doesNotMatch(appSource, /WORKOUT_EDITOR_TIP_ID/);
+      assert.match(workoutEditorScreenSource, /presentation\?: 'editor' \| 'emptyWorkout'/);
+      assert.match(workoutEditorScreenSource, /Empty Workout/);
+      assert.match(workoutEditorScreenSource, /No exercises added yet/);
+      assert.match(workoutEditorScreenSource, /Recent Exercises/);
+      assert.match(workoutEditorScreenSource, /Popular Exercises/);
+      assert.match(workoutEditorScreenSource, /getPopularExerciseLibraryItems/);
+      assert.match(workoutEditorScreenSource, /emptyWorkoutHasRecentExercises/);
+      assert.match(workoutEditorScreenSource, /Finish Workout/);
+      assert.match(workoutEditorScreenSource, /emptyWorkoutBottomBar/);
+      assert.match(workoutEditorScreenSource, /getExerciseListIcon/);
+
+      assert.match(routesSource, /section\?: 'overview' \| 'tracked' \| 'measures'/);
+      assert.match(progressScreenSource, /initialSection\?: ProgressSection/);
+      assert.match(progressScreenSource, /useState<ProgressSection>\(initialSection \?\? 'overview'\)/);
+      assert.match(progressScreenSource, /useEffect\(\(\) => \{[\s\S]*setProgressSection\(initialSection\);[\s\S]*\}, \[initialSection\]\)/);
+      assert.match(appSource, /initialSection=\{route\.screen === 'list' \? route\.section : undefined\}/);
+
+      assert.match(bottomTabBarSource, /backgroundColor: '#FFFFFF'/);
+      assert.match(bottomTabBarSource, /activeTab: RootTabKey \| null/);
+      assert.match(bottomTabBarSource, /activeTab !== null && activeTab === tab\.key/);
+      assert.match(appSource, /activeTab=\{route\.tab === 'workout' && route\.screen === 'plans' \? null : route\.tab\}/);
+      assert.match(bottomTabBarSource, /const stroke = active \? '#7C3AED'/);
+      assert.match(bottomTabBarSource, /const fill = active \? '#7C3AED'/);
+      assert.match(bottomTabBarSource, /centerButtonActive:\s*\{[\s\S]*backgroundColor: '#7C3AED'/);
     },
   },
 ];

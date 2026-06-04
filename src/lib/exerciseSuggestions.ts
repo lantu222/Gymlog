@@ -21,8 +21,42 @@ interface SuggestedExercisesOptions {
   limit?: number;
 }
 
+interface PopularExerciseSeed {
+  label: string;
+  keywords: string[];
+}
+
+const POPULAR_EXERCISE_SEEDS: PopularExerciseSeed[] = [
+  { label: 'Bench Press', keywords: ['barbell bench press', 'bench press'] },
+  { label: 'Squat', keywords: ['barbell squat', 'squat'] },
+  { label: 'Deadlift', keywords: ['barbell deadlift', 'deadlift'] },
+  { label: 'Lat Pulldown', keywords: ['lat pulldown', 'pulldown'] },
+  { label: 'Hip Thrust', keywords: ['hip thrust', 'glute bridge'] },
+  { label: 'Dumbbell Bicep Curl', keywords: ['dumbbell bicep curl', 'dumbbell curl', 'biceps curl', 'barbell curl'] },
+  { label: 'Overhead Press', keywords: ['overhead press', 'shoulder press'] },
+  { label: 'Romanian Deadlift', keywords: ['romanian deadlift', 'stiff-leg deadlift'] },
+];
+
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
+}
+
+function findFirstKeywordMatch(items: ExerciseLibraryItem[], keywords: string[], picked: Set<string>) {
+  for (const keyword of keywords) {
+    const match = items.find((item) => {
+      if (picked.has(item.id)) {
+        return false;
+      }
+
+      return normalizeName(item.name).includes(keyword);
+    });
+
+    if (match) {
+      return match;
+    }
+  }
+
+  return undefined;
 }
 
 function shouldTrackByDefault(item?: ExerciseLibraryItem) {
@@ -157,6 +191,30 @@ export function getRecentExerciseLibraryItems({
   }
 
   return result;
+}
+
+export function getPopularExerciseLibraryItems(exerciseLibrary: ExerciseLibraryItem[], limit = 8) {
+  const picked = new Set<string>();
+  const matches: ExerciseLibraryItem[] = [];
+
+  for (const seed of POPULAR_EXERCISE_SEEDS) {
+    const match = findFirstKeywordMatch(exerciseLibrary, seed.keywords, picked);
+
+    if (match) {
+      picked.add(match.id);
+      matches.push(match);
+    }
+
+    if (matches.length >= limit) {
+      break;
+    }
+  }
+
+  return matches;
+}
+
+export function getPopularExerciseLibraryOrder(exerciseLibrary: ExerciseLibraryItem[]) {
+  return new Map(getPopularExerciseLibraryItems(exerciseLibrary).map((item, index) => [item.id, index]));
 }
 
 export function getSuggestedExerciseLibraryItems({

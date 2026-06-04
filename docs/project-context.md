@@ -207,5 +207,5 @@ If the app env var is missing, the app falls back to local preview mode.
 - Roadmap: `docs/product-roadmap-phases.md`
 - AI backend setup: `docs/ai-coach-backend.md`
 - Manual launch tasks: `docs/manual-launch-tasks.md`
-- Recommendation contract: `docs/recommendation-4-week-programme-contract.md`
+- Recommendation contract: `docs/recommendation-programme-contract.md`
 - Premium adaptive coach plan: `docs/premium-adaptive-coach-plan.md`

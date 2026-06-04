@@ -44,6 +44,10 @@ export type AppRoute =
     }
   | {
       tab: 'workout';
+      screen: 'empty';
+    }
+  | {
+      tab: 'workout';
       screen: 'editor';
       workoutTemplateId?: string;
       prefillName?: string;
@@ -69,6 +73,7 @@ export type AppRoute =
   | {
       tab: 'progress';
       screen: 'list';
+      section?: 'overview' | 'tracked' | 'measures';
     }
   | {
       tab: 'progress';

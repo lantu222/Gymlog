@@ -185,7 +185,7 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
   },
   {
     id: 'tpl_2_day_minimal_full_body_v1',
-    name: '2-Day Minimal Full Body',
+    name: '2-Day Full Body',
     goalType: 'general',
     level: 'beginner',
     splitType: 'full_body',
@@ -300,7 +300,7 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
   },
   {
     id: 'tpl_2_day_beginner_strength_v1',
-    name: '2-Day Beginner Strength',
+    name: '2-Day Strength',
     goalType: 'strength',
     level: 'beginner',
     splitType: 'full_body',

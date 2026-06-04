@@ -3,7 +3,10 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { WorkoutExerciseInstance } from '../features/workout/workoutTypes';
 import { WorkoutFlowPhase, getWorkoutFlowPhaseMeta } from '../lib/workoutFlow';
-import { colors, radii, spacing } from '../theme';
+import { radii, spacing } from '../theme';
+
+const LOGGING_PURPLE = '#7C3AED';
+const LOGGING_GREEN = '#16A34A';
 
 interface WorkoutQueueItemProps {
   exercise: WorkoutExerciseInstance;
@@ -17,36 +20,36 @@ interface WorkoutQueueItemProps {
 function getPhaseColors(phase: WorkoutFlowPhase) {
   if (phase === 'warmup') {
     return {
-      border: 'rgba(226, 170, 119, 0.30)',
-      background: 'rgba(226, 170, 119, 0.10)',
-      text: '#F0C998',
-      accent: 'rgba(226, 170, 119, 0.72)',
+      border: 'rgba(124, 58, 237, 0.16)',
+      background: '#F3ECFF',
+      text: LOGGING_PURPLE,
+      accent: 'rgba(124, 58, 237, 0.72)',
     };
   }
 
   if (phase === 'main') {
     return {
-      border: 'rgba(103, 168, 233, 0.34)',
-      background: 'rgba(103, 168, 233, 0.12)',
-      text: '#8FC1F2',
-      accent: 'rgba(103, 168, 233, 0.78)',
+      border: 'rgba(22, 163, 74, 0.18)',
+      background: '#ECFDF3',
+      text: LOGGING_GREEN,
+      accent: 'rgba(22, 163, 74, 0.72)',
     };
   }
 
   if (phase === 'build') {
     return {
-      border: 'rgba(191, 74, 105, 0.30)',
-      background: 'rgba(191, 74, 105, 0.10)',
-      text: '#E39AAF',
-      accent: 'rgba(191, 74, 105, 0.72)',
+      border: 'rgba(124, 58, 237, 0.16)',
+      background: '#F3ECFF',
+      text: LOGGING_PURPLE,
+      accent: 'rgba(124, 58, 237, 0.72)',
     };
   }
 
   return {
-    border: 'rgba(162, 54, 18, 0.30)',
-    background: 'rgba(162, 54, 18, 0.10)',
-    text: '#E4A287',
-    accent: 'rgba(162, 54, 18, 0.72)',
+    border: 'rgba(22, 163, 74, 0.18)',
+    background: '#ECFDF3',
+    text: LOGGING_GREEN,
+    accent: 'rgba(22, 163, 74, 0.72)',
   };
 }
 
@@ -136,19 +139,24 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(60, 92, 119, 0.22)',
-    backgroundColor: 'rgba(18, 24, 33, 0.80)',
+    borderColor: 'rgba(124, 58, 237, 0.14)',
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: 6,
+    shadowColor: LOGGING_PURPLE,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
   cardNext: {
-    backgroundColor: 'rgba(18, 24, 33, 0.90)',
-    borderColor: 'rgba(85, 138, 189, 0.30)',
+    backgroundColor: '#FFFFFF',
+    borderColor: 'rgba(124, 58, 237, 0.20)',
     paddingVertical: spacing.md,
   },
   cardLater: {
-    opacity: 0.78,
+    opacity: 0.92,
   },
   leftAccent: {
     position: 'absolute',
@@ -189,13 +197,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(10, 14, 19, 0.56)',
+    borderColor: 'rgba(124, 58, 237, 0.12)',
+    backgroundColor: '#F8F5FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   positionChipText: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -206,13 +214,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(103, 168, 233, 0.32)',
-    backgroundColor: 'rgba(103, 168, 233, 0.14)',
+    borderColor: 'rgba(124, 58, 237, 0.18)',
+    backgroundColor: '#F3ECFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   nextChipText: {
-    color: '#8FC1F2',
+    color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -228,20 +236,20 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: -0.2,
   },
   setLine: {
-    color: '#8FC1F2',
+    color: LOGGING_PURPLE,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
   summary: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -256,13 +264,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(11, 15, 20, 0.42)',
+    borderColor: 'rgba(124, 58, 237, 0.12)',
+    backgroundColor: '#F8F5FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   metaPillText: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 11,
     fontWeight: '800',
   },
@@ -270,8 +278,8 @@ const styles = StyleSheet.create({
     width: 72,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(11, 15, 20, 0.40)',
+    borderColor: 'rgba(124, 58, 237, 0.12)',
+    backgroundColor: '#F8F5FF',
     paddingHorizontal: spacing.xs,
     paddingVertical: spacing.sm,
     justifyContent: 'space-between',
@@ -279,8 +287,8 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   visualPanelNext: {
-    borderColor: 'rgba(85, 138, 189, 0.22)',
-    backgroundColor: 'rgba(14, 20, 28, 0.56)',
+    borderColor: 'rgba(124, 58, 237, 0.16)',
+    backgroundColor: '#F3ECFF',
   },
   visualStack: {
     width: '100%',
@@ -289,19 +297,19 @@ const styles = StyleSheet.create({
   visualBar: {
     height: 8,
     borderRadius: radii.pill,
-    backgroundColor: 'rgba(66, 84, 102, 0.48)',
+    backgroundColor: '#E9D5FF',
   },
   visualBarCompleted: {
-    backgroundColor: 'rgba(150, 216, 255, 0.54)',
+    backgroundColor: 'rgba(22, 163, 74, 0.48)',
   },
   visualBarCurrent: {
-    backgroundColor: 'rgba(85, 138, 189, 0.92)',
+    backgroundColor: LOGGING_PURPLE,
   },
   visualBarFuture: {
     backgroundColor: 'rgba(66, 84, 102, 0.32)',
   },
   visualLabel: {
-    color: colors.textMuted,
+    color: '#667085',
     fontSize: 10,
     fontWeight: '800',
     textAlign: 'center',

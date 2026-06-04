@@ -17,6 +17,8 @@ export type RecommendationEquipmentTier = 'full_gym' | 'low_equipment';
 export type RecommendationRecoveryDemand = 'low' | 'moderate' | 'high';
 export type RecommendationStyleTag = 'heavy' | 'pump' | 'balanced' | 'express' | 'recovery' | 'conditioning';
 export type RecommendationTargetGender = 'male' | 'female' | 'unisex';
+export type RecommendationProgrammeDurationStatus = 'starter' | 'standard' | 'long_catalog' | 'advanced_reference';
+export type RecommendationSessionBlockType = 'prep' | 'main' | 'support' | 'focus' | 'conditioning' | 'cooldown';
 
 export interface RecommendationInput {
   goal: SetupGoal;
@@ -73,10 +75,35 @@ export interface RecommendationProgrammeEasierWeek {
   reason: string;
 }
 
+export interface RecommendationProgrammeDurationModel {
+  status: RecommendationProgrammeDurationStatus;
+  blockLengthWeeks: number;
+  label: string;
+  description: string;
+  laterDurations: number[];
+}
+
+export interface RecommendationSessionBlock {
+  type: RecommendationSessionBlockType;
+  label: string;
+  body: string;
+}
+
+export interface RecommendationSessionComposition {
+  prepBlock: RecommendationSessionBlock;
+  mainBlock: RecommendationSessionBlock;
+  supportBlock: RecommendationSessionBlock;
+  focusBlock: RecommendationSessionBlock | null;
+  conditioningBlock: RecommendationSessionBlock | null;
+  cooldownBlock: RecommendationSessionBlock;
+}
+
 export interface RecommendationProgrammeProfile {
   programId: string;
   familyId: TemplateFamilyId;
   blockLengthWeeks: number;
+  durationModel: RecommendationProgrammeDurationModel;
+  sessionComposition: RecommendationSessionComposition;
   progressionStyle: string;
   phaseLabels: string[];
   volumeProgression: string;
@@ -118,12 +145,17 @@ export interface RecommendationPlanReadyPayload {
   title: string;
   subtitle: string;
   blockLengthWeeks: number;
+  durationModel: RecommendationProgrammeDurationModel;
   requestedDaysPerWeek: number;
   programDaysPerWeek: number;
   whyThisPlan: string[];
   planOverview: string[];
   weeklySchedule: RecommendationPlanReadyScheduleDay[];
   fourWeekProgression: RecommendationPlanReadyWeekPhase[];
+  sessionComposition: RecommendationSessionComposition;
+  sessionBlocks: RecommendationSessionBlock[];
+  prepSummary: string;
+  cooldownSummary: string;
   howToProgress: string;
   focusAllocation: string;
   readinessGuardrail: string;

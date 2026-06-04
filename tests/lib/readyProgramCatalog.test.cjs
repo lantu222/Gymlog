@@ -31,6 +31,28 @@ module.exports = [
     },
   },
   {
+    name: 'gainer program catalog includes the current xlsx set with warmup and cooldown blocks',
+    run() {
+      const gainerTemplates = WORKOUT_TEMPLATES_V1.filter((template) => template.id.startsWith('tpl_gainer_'));
+      assert.equal(gainerTemplates.length, 20);
+
+      gainerTemplates.forEach((template) => {
+        template.sessions.forEach((session) => {
+          assert.equal(session.exercises[0].exerciseName, 'Dynamic Warm-Up', `${template.id} ${session.id}`);
+          assert.equal(session.exercises[session.exercises.length - 1].exerciseName, 'Cooldown Flow', `${template.id} ${session.id}`);
+        });
+      });
+    },
+  },
+  {
+    name: 'renamed ready programs avoid beginner and minimal labels requested for home plan copy',
+    run() {
+      assert.equal(getWorkoutTemplateById('tpl_2_day_minimal_full_body_v1').name, '2-Day Full Body');
+      assert.equal(getWorkoutTemplateById('tpl_2_day_beginner_strength_v1').name, '2-Day Strength');
+      assert.equal(getWorkoutTemplateById('tpl_gainer_beginner_bro_split_v1').name, 'Bro Split');
+    },
+  },
+  {
     name: 'ready workout content exists for every ready template',
     run() {
       WORKOUT_TEMPLATES_V1.forEach((template) => {

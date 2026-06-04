@@ -32,6 +32,8 @@ import {
 } from './src/lib/aiCoachPlan';
 import { buildRecommendationPlanReadyPayload } from './src/lib/recommendationProgramme';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
+import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
+import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
@@ -330,9 +332,7 @@ const DEFAULT_HOME_AI_PROMPT_SUGGESTIONS = [
   '30-day run challenge?',
 ];
 
-const PROGRAM_DETAIL_TIP_ID = 'program_detail_start';
 const WORKOUT_LOGGER_TIP_ID = 'workout_logger_start';
-const WORKOUT_EDITOR_TIP_ID = 'workout_editor_start';
 
 function getBackRoute(route: AppRoute): AppRoute | null {
   if (
@@ -625,23 +625,6 @@ function formatSplitLabel(splitType?: string) {
     .split('_')
     .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
     .join(' / ');
-}
-
-function formatShortHomePlanName(name: string, daysPerWeek?: number) {
-  const normalized = formatWorkoutDisplayLabel(name, 'Workout plan')
-    .replace(/^my\s+/i, '')
-    .replace(/\s+split$/i, '')
-    .replace(/\s*\+\s*.*/i, '')
-    .replace(/minimal/gi, '')
-    .replace(/\s{2,}/g, ' ')
-    .trim();
-
-  if (daysPerWeek && /^\d+-day/i.test(normalized)) {
-    return normalized.length > 24 ? `${normalized.slice(0, 22).trim()}...` : normalized;
-  }
-
-  const withDays = daysPerWeek ? `${daysPerWeek}-Day ${normalized}` : normalized;
-  return withDays.length > 24 ? `${withDays.slice(0, 22).trim()}...` : withDays;
 }
 
 function getExerciseFocusName(name: string) {
@@ -1855,6 +1838,7 @@ function GymlogApp() {
     [recommendedReadyTemplate],
   );
   const homeActivePlanCard = useMemo(() => {
+    const completedPlanSessions = getCanonicalCompletedSessions(database);
     const activeWorkoutPlan = database.workoutPlans.find((plan) => plan.id === preferences.activePlanId) ?? null;
     if (activeWorkoutPlan?.entries.length) {
       const sortedEntries = [...activeWorkoutPlan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
@@ -1888,14 +1872,22 @@ function GymlogApp() {
       const nextSession = homeSessions[0] ?? null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
+        const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
+        const completedSessionCount = completedPlanSessions.filter((session) => planTemplateIds.has(session.workoutTemplateId)).length;
+        const planProgress = buildHomePlanProgress({
+          completedSessions: completedSessionCount,
+          sessionsPerWeek: sortedEntries.length,
+        });
 
         return {
           programId: activeTemplate.id,
           programType: 'custom' as const,
           eyebrow: `${sortedEntries.length} day custom plan`,
           goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
-          title: formatShortHomePlanName(activeWorkoutPlan.name || activeTemplate.name, sortedEntries.length),
+          title: formatWorkoutDisplayLabel(activeWorkoutPlan.name || activeTemplate.name, 'Workout plan'),
           subtitle: `${sortedEntries.length} workouts in rotation.`,
+          weekLabel: planProgress.weekLabel,
+          progressPercent: planProgress.progressPercent,
           sessionsPerWeek: `${sortedEntries.length}`,
           weeklyMinutes: `~${estimatedDuration * sortedEntries.length} min`,
           sessions: homeSessions,
@@ -1913,6 +1905,13 @@ function GymlogApp() {
     }
 
     const weeklyMinutes = recommendedReadyTemplate.daysPerWeek * recommendedReadyTemplate.estimatedSessionDuration;
+    const completedSessionCount = completedPlanSessions.filter(
+      (session) => session.workoutTemplateId === recommendedReadyTemplate.id,
+    ).length;
+    const planProgress = buildHomePlanProgress({
+      completedSessions: completedSessionCount,
+      sessionsPerWeek: recommendedReadyTemplate.daysPerWeek,
+    });
     const homeSessions = recommendedReadyTemplate.sessions.map((session) => ({
       id: session.id,
       title: formatHomeSessionTitle(session.name, session.exercises),
@@ -1930,8 +1929,10 @@ function GymlogApp() {
       programType: 'ready' as const,
       eyebrow: `${recommendedReadyTemplate.daysPerWeek} day ${formatSplitLabel(recommendedReadyTemplate.splitType)}`,
       goalLabel: formatGoalLabel(recommendedReadyTemplate.goalType),
-      title: formatShortHomePlanName(recommendedReadyTemplate.name, recommendedReadyTemplate.daysPerWeek),
+      title: formatWorkoutDisplayLabel(recommendedReadyTemplate.name, 'Workout plan'),
       subtitle: recommendedReadyContent?.summary ?? 'Your recommended plan is ready to run.',
+      weekLabel: planProgress.weekLabel,
+      progressPercent: planProgress.progressPercent,
       sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
       weeklyMinutes: `~${weeklyMinutes} min`,
       sessions: homeSessions,
@@ -1940,7 +1941,7 @@ function GymlogApp() {
         label: 'Week 1 · Day 1',
       },
     };
-  }, [database.workoutPlans, getWorkoutTemplateSessions, preferences.activePlanId, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
+  }, [database, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
   const homeAiPromptSuggestions = useMemo(
     () =>
       setupSelection
@@ -2107,6 +2108,42 @@ function GymlogApp() {
       },
     ];
   }, [homeSummary.bodyweight.latest, homeSummary.bodyweight.previous, homeSummary.weeklySnapshot, unitPreference]);
+  const homeRecentSessions = useMemo(
+    () =>
+      [...workoutSessions]
+        .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
+        .slice(0, 3)
+        .map((session) => {
+          const sessionLogs = [...getSessionLogs(session.id)].sort((left, right) => left.orderIndex - right.orderIndex);
+          const exercisePreview = sessionLogs
+            .filter((log) => !log.skipped)
+            .map((log) => log.exerciseNameSnapshot)
+            .slice(0, 3)
+            .join(', ');
+          const notePreview =
+            sessionLogs.find((log) => typeof log.notes === 'string' && log.notes.trim().length > 0)?.notes?.trim() ?? null;
+          const completedSets = typeof session.setsCompleted === 'number' ? session.setsCompleted : null;
+          const completedExercises =
+            typeof session.exercisesCompleted === 'number'
+              ? session.exercisesCompleted
+              : sessionLogs.filter((log) => !log.skipped).length;
+
+          return {
+            id: session.id,
+            title: formatWorkoutDisplayLabel(session.workoutNameSnapshot, 'Workout'),
+            dateLabel: formatShortDate(session.performedAt),
+            durationLabel:
+              typeof session.durationMinutes === 'number' && session.durationMinutes > 0
+                ? formatDurationMinutes(session.durationMinutes)
+                : '0 min',
+            volumeLabel: formatVolume(session.totalVolumeKg ?? 0, unitPreference),
+            detailLabel: completedSets !== null ? `${completedSets} sets` : `${completedExercises} exercises`,
+            exercisePreview: exercisePreview || 'Workout completed',
+            notePreview,
+          };
+        }),
+    [getSessionLogs, unitPreference, workoutSessions],
+  );
   const dismissedTipIds = preferences.dismissedTipIds ?? [];
   const readyProgramBadgeLabel = 'Browse';
   const readyProgramTitle = 'Ready plans';
@@ -2118,6 +2155,7 @@ function GymlogApp() {
     : 'Browse';
   const readyProgramCtaLabel = 'Browse ready plans';
   const customProgramCount = customWorkouts.length;
+  const readyTemplateCount = workout.templates.filter((template) => template.id.startsWith('tpl_gainer_')).length;
   const customProgramBadgeLabel = customProgramCount > 0 ? 'Browse' : 'Start';
   const customProgramTitle = 'Your workouts';
   const customProgramSubtitle = selectedCustomProgram.workoutId
@@ -2221,26 +2259,6 @@ function GymlogApp() {
     return <LaunchScreen />;
   }
 
-  const programDetailInlineTip = dismissedTipIds.includes(PROGRAM_DETAIL_TIP_ID)
-    ? null
-    : {
-        title: 'Open the exact session first',
-        body: 'Read the split, then start the exact session you want instead of launching blindly from the list.',
-        accent: 'blue' as const,
-        onDismiss: () => {
-          void handleDismissTip(PROGRAM_DETAIL_TIP_ID);
-        },
-      };
-  const workoutEditorInlineTip = dismissedTipIds.includes(WORKOUT_EDITOR_TIP_ID)
-    ? null
-    : {
-        title: 'Start with the main lift first',
-        body: 'Name the workout, put the main lift on the first row, then fill the rest of the table underneath it.',
-        accent: 'rose' as const,
-        onDismiss: () => {
-          void handleDismissTip(WORKOUT_EDITOR_TIP_ID);
-        },
-      };
   const workoutLoggerInlineTip = dismissedTipIds.includes(WORKOUT_LOGGER_TIP_ID)
     ? null
     : {
@@ -2323,7 +2341,16 @@ function GymlogApp() {
     content = program ? (
       <ProgramDetailScreen
         program={program}
-        inlineTip={programDetailInlineTip}
+        activePlanSummary={
+          homeActivePlanCard?.programId === route.workoutTemplateId && homeActivePlanCard.programType === route.programType
+            ? {
+                weekLabel: homeActivePlanCard.weekLabel,
+                progressPercent: homeActivePlanCard.progressPercent,
+                sessionsPerWeek: homeActivePlanCard.sessionsPerWeek,
+                weeklyMinutes: homeActivePlanCard.weeklyMinutes,
+              }
+            : null
+        }
         onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
         onPrimaryAction={() => {
           if (route.programType === 'ready') {
@@ -2347,8 +2374,6 @@ function GymlogApp() {
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
         onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId }) : undefined}
-        secondaryActionLabel={route.programType === 'ready' ? 'Make it mine' : 'Duplicate'}
-        onSecondaryAction={route.programType === 'ready' ? () => handleDuplicateReadyProgram(route.workoutTemplateId) : () => handleDuplicateCustomProgram(route.workoutTemplateId)}
         destructiveActionLabel={route.programType === 'custom' ? 'Delete' : undefined}
         destructiveActionTitle={route.programType === 'custom' ? 'Delete workout' : undefined}
         destructiveActionMessage={
@@ -2378,10 +2403,11 @@ function GymlogApp() {
         }}
       />
     );
-  } else if (route.tab === 'workout' && route.screen === 'editor') {
+  } else if (route.tab === 'workout' && (route.screen === 'editor' || route.screen === 'empty')) {
     content = (
       <WorkoutEditorScreen
-        key={`${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}`}
+        key={`${route.screen}:${route.screen === 'editor' ? route.workoutTemplateId ?? 'new' : 'empty'}:${route.screen === 'editor' ? route.prefillName ?? '' : ''}`}
+        presentation={route.screen === 'empty' ? 'emptyWorkout' : 'editor'}
         initialDraft={editorDraft}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
@@ -2389,8 +2415,8 @@ function GymlogApp() {
         unitPreference={unitPreference}
         exerciseHistoryLookup={editorExerciseHistoryLookup}
         exercisePrLookup={exercisePrLookup}
-        inlineTip={workoutEditorInlineTip}
-        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
+        inlineTip={null}
+        onBack={() => navigateBack(route.screen === 'empty' ? ROOT_ROUTES.home : WORKOUT_PLAN_ROUTE)}
         onUseTemplate={() => navigate(WORKOUT_PLAN_ROUTE)}
         onSave={async (draft, summary: WorkoutEditorFinishSummary) => {
           const isNew = !draft.id;
@@ -2404,7 +2430,7 @@ function GymlogApp() {
             startedAt: summary.startedAt,
             performedAt: summary.performedAt,
           });
-          if (isNew) {
+          if (isNew && route.screen !== 'empty') {
             showToast('Workout created');
           }
           setCompletionSummary({
@@ -2493,19 +2519,6 @@ function GymlogApp() {
           }
         }}
         isSaving={finishSaveState.status === 'saving' && finishSaveState.sessionId === completionSummary.sessionId}
-        onViewProgress={() => {
-          const trackedExercise = workout.activeSession?.exercises.find((exercise) => exercise.progressionPriority !== 'low');
-          const trackedExerciseKey = trackedExercise?.exerciseName.trim().toLowerCase() ?? null;
-          const nextRoute: AppRoute =
-            trackedExerciseKey && trackedProgress.some((item) => item.key === trackedExerciseKey)
-              ? { tab: 'progress', screen: 'detail', exerciseKey: trackedExerciseKey }
-              : ROOT_ROUTES.progress;
-          setCompletionSummary(null);
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          workout.clearCompletedWorkout();
-          resetToRoute(nextRoute);
-        }}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'celebration' && workoutCelebration) {
@@ -2541,6 +2554,7 @@ function GymlogApp() {
           currentWeekStreak={homeSummary.streak.currentWeekStreak}
           unitPreference={unitPreference}
           selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
+        initialSection={route.screen === 'list' ? route.section : undefined}
         showBodyweightDetail={route.screen === 'bodyweight'}
         onSelectExercise={(exerciseKey) => navigate({ tab: 'progress', screen: 'detail', exerciseKey })}
         onSelectBodyweight={() => navigate({ tab: 'progress', screen: 'bodyweight' })}
@@ -2787,7 +2801,9 @@ function GymlogApp() {
         quickStats={homeQuickStats}
         weeklySnapshot={weeklySnapshot}
         upcomingSessions={homeUpcomingSessions}
+        recentSessions={homeRecentSessions}
         customTemplates={customWorkouts}
+        readyTemplateCount={readyTemplateCount}
         onOpenActivePlan={() => {
           if (homeActivePlanCard) {
             if (homeActivePlanCard.programType === 'custom') {
@@ -2812,11 +2828,14 @@ function GymlogApp() {
         }}
         onOpenTemplatesHub={() => navigate(WORKOUT_PLAN_ROUTE)}
         onOpenCustomTemplate={handleOpenCustomProgramDetail}
-        onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'editor' })}
+        onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
         onCreateTemplate={() => navigate({ tab: 'workout', screen: 'template' })}
         onBrowseReadyPlans={() => navigate(WORKOUT_PLAN_ROUTE)}
-        onOpenStreak={() => navigate(ROOT_ROUTES.progress)}
-        onOpenAICoach={handleOpenAICoach}
+        onOpenProgressOverview={() => navigate({ tab: 'progress', screen: 'list', section: 'overview' })}
+        onOpenTrackedProgress={() => navigate({ tab: 'progress', screen: 'list', section: 'tracked' })}
+        onOpenBodyStats={() => navigate({ tab: 'progress', screen: 'list', section: 'measures' })}
+        onOpenSessionHistory={() => navigate({ tab: 'home', screen: 'history' })}
+        onOpenRecentSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );
   }
@@ -2825,7 +2844,11 @@ function GymlogApp() {
     !onboardingActive &&
     !(
       route.tab === 'workout' &&
-      (route.screen === 'detail' || route.screen === 'log' || route.screen === 'summary' || route.screen === 'celebration')
+      (route.screen === 'detail' ||
+        route.screen === 'empty' ||
+        route.screen === 'log' ||
+        route.screen === 'summary' ||
+        route.screen === 'celebration')
     );
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
@@ -2837,6 +2860,7 @@ function GymlogApp() {
       ? 'home'
       : route.tab;
   const welcomeActive = onboardingActive && entryFlowActive;
+  const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
 
   return (
     <AppShell
@@ -2848,14 +2872,14 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={welcomeActive || onboardingScreenActive ? 'light' : undefined}
-      statusBarBackgroundColor={welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive ? 'dark' : welcomeActive || onboardingScreenActive ? 'light' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#1D1C35' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#1D1C35' : emptyWorkoutActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
-            activeTab={route.tab}
+            activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
             aiActive={route.tab === 'home' && (route.screen === 'ai' || route.screen === 'ai_setup')}
             onTabPress={navigateToTab}
             onAiPress={() => {

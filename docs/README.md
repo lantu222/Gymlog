@@ -13,7 +13,7 @@ This is the navigation hub for all GAINER documentation.
 |---|---|
 | What ships in MVP and what does not | `mvp-launch-scope.md` |
 | How onboarding answers become a recommendation | `onboarding-impact-matrix.md` |
-| How the 4-week programme is structured | `recommendation-4-week-programme-contract.md` |
+| How recommended programmes are structured | `recommendation-programme-contract.md` |
 | What content a workout session must contain | `workout-content-matrix.md` |
 | How post-session coaching insights work | `post-session-single-insight-mvp.md` |
 | When and how load should increase | `progression-gating-rules.md` |
@@ -40,7 +40,7 @@ Authoritative implementation logic. These documents override all conflicting doc
 |---|---|
 | `mvp-launch-scope.md` | MVP feature boundary |
 | `onboarding-impact-matrix.md` | Onboarding input schema, scoring weights |
-| `recommendation-4-week-programme-contract.md` | Programme payload, progression variables |
+| `recommendation-programme-contract.md` | Programme payload, duration model, progression variables |
 | `workout-content-matrix.md` | Content rules by goal and equipment |
 | `post-session-single-insight-mvp.md` | Post-session insight function, 4 types, silence rules |
 | `progression-gating-rules.md` | Double progression, fatigue enum, ACWR thresholds |

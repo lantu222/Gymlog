@@ -37,7 +37,7 @@ docs/
 │   │
 │   ├── mvp-scope.md                 ← (was mvp-launch-scope.md) MVP boundary definition
 │   ├── onboarding-contract.md       ← (was onboarding-impact-matrix.md) Onboarding input/output
-│   ├── recommendation-engine.md     ← (was recommendation-4-week-programme-contract.md)
+│   ├── recommendation-engine.md     ← (was recommendation-programme-contract.md)
 │   ├── workout-content-rules.md     ← (was workout-content-matrix.md)
 │   ├── post-session-insight-rules.md← (was post-session-single-insight-mvp.md)
 │   ├── progression-system.md        ← (was progression-gating-rules.md)
@@ -119,7 +119,7 @@ docs/
 |---|---|---|---|
 | `mvp-launch-scope.md` | source-of-truth | **Highest** | MVP boundary definition. Overrides all feature discussions. |
 | `onboarding-impact-matrix.md` | source-of-truth | High | Onboarding input/output contract and scoring weights. |
-| `recommendation-4-week-programme-contract.md` | source-of-truth | High | 4-week programme payload, progression variables, copy contract. |
+| `recommendation-programme-contract.md` | source-of-truth | High | Programme payload, duration model, progression variables, session composition, copy contract. |
 | `workout-content-matrix.md` | source-of-truth | High | Exercise content rules and acceptance matrix by goal/equipment. |
 | `post-session-single-insight-mvp.md` | source-of-truth | High | MVP post-session insight spec: 4 types, thresholds, silence rules, pure function contract. |
 | `progression-gating-rules.md` | source-of-truth | High | Double progression model, fatigue enum, ACWR thresholds, gating logic. |
@@ -164,9 +164,9 @@ Every implementation responsibility is owned by exactly one document. If a value
 | **MVP feature boundary** | `mvp-launch-scope.md` | What ships vs what does not. Overrides all other feature discussions. |
 | **Onboarding input schema** | `onboarding-impact-matrix.md` | Step 1–5 field names, scoring dimensions, constraint rules. |
 | **Onboarding scoring weights** | `onboarding-impact-matrix.md` | Goal fit 35%, frequency 20%, readiness 15%, focus 12%, bodyweight 8%, catalog 10%. |
-| **Programme payload fields** | `recommendation-4-week-programme-contract.md` | `blockLengthWeeks`, `phaseLabels`, `weekRoles`, `progressionRules`, etc. |
-| **4-week phase model** | `recommendation-4-week-programme-contract.md` | Baseline/build/build/review roles with week-specific behavior. |
-| **Progression variables by goal** | `recommendation-4-week-programme-contract.md` | Load vs reps vs sets vs density by goal type. |
+| **Programme payload fields** | `recommendation-programme-contract.md` | `blockLengthWeeks`, `durationModel`, `phaseLabels`, `weekRoles`, `progressionRules`, etc. |
+| **MVP starter phase model** | `recommendation-programme-contract.md` | 4-week baseline/build/build/review roles, plus later 6-8 week duration shapes. |
+| **Progression variables by goal** | `recommendation-programme-contract.md` | Load vs reps vs sets vs density by goal type. |
 | **Workout content rules by goal** | `workout-content-matrix.md` | Exercise mix, set/rep bias, progression bias by goal type. |
 | **Content fit acceptance matrix** | `workout-content-matrix.md` | Which template passes which path. |
 | **Post-session insight function contract** | `post-session-single-insight-mvp.md` | `computePostSessionInsight()` signature, return types, silence rules. |
@@ -205,7 +205,7 @@ The following responsibilities appear in more than one document. The owner above
 | ACWR threshold values | `progression-gating-rules.md` | `coaching-intelligence-design.md`, `ai-trust-system.md` | Secondary docs reference owner by section. No further action. |
 | Anti-gamification rules | `gainer-philosophy.md` | `ux-principles.md` | `ux-principles.md` references owner. No further action. |
 | Notification rules | `ai-trust-system.md` | `ux-principles.md`, `onboarding-philosophy.md` | Secondaries reference owner by section. No further action. |
-| Onboarding content rules | `onboarding-impact-matrix.md` | `recommendation-4-week-programme-contract.md`, `workout-content-matrix.md` | Overlap is legitimate specialization, not duplication. Each doc owns a distinct aspect. |
+| Onboarding content rules | `onboarding-impact-matrix.md` | `recommendation-programme-contract.md`, `workout-content-matrix.md` | Overlap is legitimate specialization, not duplication. Each doc owns a distinct aspect. |
 
 ---
 
@@ -230,7 +230,7 @@ These conflicts were identified and resolved in a prior documentation pass. List
 | C-01 | **Critical** | `premium-adaptive-coach-plan.md` proposes "set-to-set guidance during logging" and "session adjustment when energy, time, or recovery is off" — both are in-session AI outputs, which are architecturally prohibited. | `premium-adaptive-coach-plan.md` | Archive this document. See §5. |
 | C-02 | **Critical** | `coaching-intelligence-design.md` §3 states "In-session: exercise substitution suggestions allowed" — this conflicts with the absolute no-in-session-AI rule in `ai-trust-system.md` §3.5 and `post-session-single-insight-mvp.md`. | `coaching-intelligence-design.md` | Update §3 to remove the in-session exception. No coaching output is allowed during an active session, including substitution suggestions. |
 | C-03 | **High** | `your-plan-ready-review.md` references implementation anchors (`renderReview()`, specific asset names) that may be outdated or renamed. It contains no "design reference only" label. | `your-plan-ready-review.md` | Add Type: Design reference label. Verify implementation anchors are current or note they require verification. |
-| C-04 | **Medium** | `onboarding-impact-matrix.md` and `recommendation-4-week-programme-contract.md` both define content rules for recommendation output. The boundary between "what gets selected" (impact matrix) and "what gets built into the programme" (contract) is clear in intent but not in naming. | Both | Add explicit scope statements at the top of each document clarifying the boundary: impact matrix owns *selection*, programme contract owns *construction*. |
+| C-04 | **Medium** | `onboarding-impact-matrix.md` and `recommendation-programme-contract.md` both define content rules for recommendation output. The boundary between "what gets selected" (impact matrix) and "what gets built into the programme" (contract) is clear in intent. | Both | Keep explicit scope statements at the top of each document clarifying the boundary: impact matrix owns *selection*, programme contract owns *construction*. |
 | C-05 | **Medium** | `product-roadmap-phases.md` uses "GAINER" throughout. App has been renamed to "GAINER." | `product-roadmap-phases.md` | Update all instances of "GAINER" to "GAINER." |
 | C-06 | **Medium** | `premium-adaptive-coach-plan.md` (archived) proposes "GAINER AI actions that can change the plan" during sessions. If future premium docs are created, they must not inherit this proposal. | Future premium docs | When premium documentation is rebuilt, start from `premium-philosophy.md` as the canonical base. Do not reference the archived plan. |
 | C-07 | **Low** | `project-context.md` uses "GAINER" in title and throughout. | `project-context.md` | Update to "GAINER." |
@@ -288,7 +288,7 @@ These documents are referenced or implied by the current system but do not yet e
 | `validation/save-state-regression.md` | validation | **High** | Test cases for the three most critical launch risks: save truthfulness, navigation context, recommendation personalization. |
 | `adr/ADR-001-no-in-session-ai.md` | adr | **High** | Documents the architectural decision to prohibit all AI output during active sessions. Created as part of this restructure. |
 | `adr/ADR-002-truthful-save-states.md` | adr | **High** | Documents the requirement that completion UI cannot appear before persistence resolves. Created as part of this restructure. |
-| `source-of-truth/onboarding-contract.md` | source-of-truth | Medium | Consolidation of `onboarding-impact-matrix.md` with clearer scope boundary from `recommendation-4-week-programme-contract.md`. |
+| `source-of-truth/onboarding-contract.md` | source-of-truth | Medium | Consolidation of `onboarding-impact-matrix.md` with clearer scope boundary from `recommendation-programme-contract.md`. |
 | `product/gainer-brand-voice.md` | product | Low | Tone-of-voice rules for copy, coaching messages, onboarding text. Currently scattered across multiple philosophy docs. |
 
 ---
@@ -315,7 +315,7 @@ The current filenames use inconsistent naming conventions that make it unclear w
 |---|---|---|
 | `mvp-launch-scope.md` | `source-of-truth/mvp-scope.md` | Shorter; category is implied by folder |
 | `onboarding-impact-matrix.md` | `source-of-truth/onboarding-contract.md` | "Matrix" implies a table; "contract" implies an implementation boundary |
-| `recommendation-4-week-programme-contract.md` | `source-of-truth/recommendation-engine.md` | Simpler; the 4-week detail is in the file |
+| `recommendation-programme-contract.md` | `source-of-truth/recommendation-engine.md` | Simpler; MVP 4-week detail and later duration model are in the file |
 | `post-session-single-insight-mvp.md` | `source-of-truth/post-session-insight-rules.md` | Cleaner; "MVP" will be outdated as the spec evolves |
 | `progression-gating-rules.md` | `source-of-truth/progression-system.md` | Broader scope; gating is one aspect |
 | `ai-trust-system.md` | `source-of-truth/ai-trust-rules.md` | Consistent with "rules" naming in source-of-truth/ |
@@ -344,7 +344,7 @@ All documents should have a Type label at the top:
 ```
 
 **Documents missing this label:**
-- `recommendation-4-week-programme-contract.md` — add "Implementation spec"
+- `recommendation-programme-contract.md` — add "Implementation spec"
 - `onboarding-impact-matrix.md` — add "Implementation spec"
 - `workout-content-matrix.md` — add "Implementation spec"
 - `project-context.md` — add "Architecture reference"
@@ -437,7 +437,7 @@ Systems where boundary violations are most likely to occur during implementation
 | Boundary | Risk | Protection |
 |---|---|---|
 | **Coaching output ↔ Session state** | An engineer adds an insight trigger that fires while WorkoutProvider has an active session | ADR-001 (no in-session AI). `computePostSessionInsight()` must only be called after session save. |
-| **Recommendation engine ↔ GAINER AI** | GAINER AI begins generating or overriding programme selections | `recommendation-4-week-programme-contract.md` §"Product Boundary" explicitly prohibits this. |
+| **Recommendation engine ↔ GAINER AI** | GAINER AI begins generating or overriding programme selections | `recommendation-programme-contract.md` §"Product Boundary" explicitly prohibits this. |
 | **Save flow ↔ Completion UI** | Completion screen appears optimistically before persistence resolves | ADR-002 (truthful save states). `WorkoutCompletionScreen` must only be entered after successful persistence. |
 | **src/lib/ ↔ Storage** | A lib function accesses AsyncStorage directly | CLAUDE.md and `system-architecture.md` §13 prohibit side effects in `src/lib/`. |
 | **Progression logic ↔ User-facing messaging** | `evaluateProgressionGating()` return value is shown directly to the user | `progression-gating-rules.md` §display-contract: hold is always silent to user. Function output drives internal logic only. |

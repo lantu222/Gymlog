@@ -36,6 +36,22 @@ function selection(overrides = {}) {
   };
 }
 
+function assertProgrammeContractPayload(payload, expectations = {}) {
+  assert.equal(payload.blockLengthWeeks, 4);
+  assert.equal(payload.durationModel.status, 'starter');
+  assert.equal(payload.durationModel.blockLengthWeeks, 4);
+  assert.match(payload.durationModel.label, /starter|4-week/i);
+  assert.ok(payload.sessionComposition.prepBlock.body.length > 20);
+  assert.ok(payload.sessionComposition.mainBlock.body.length > 20);
+  assert.ok(payload.sessionComposition.supportBlock.body.length > 20);
+  assert.ok(payload.sessionComposition.cooldownBlock.body.length > 20);
+  assert.ok(payload.sessionBlocks.length >= 4);
+  assert.equal(payload.sessionBlocks[0].type, 'prep');
+  assert.equal(payload.sessionBlocks[payload.sessionBlocks.length - 1].type, 'cooldown');
+  assert.match(payload.prepSummary, expectations.prep ?? /prep|warm|ramp|mobility|activation/i);
+  assert.match(payload.cooldownSummary, expectations.cooldown ?? /cooldown|mobility|recovery|breathing|stretch/i);
+}
+
 module.exports = [
   {
     name: 'recommendation programme builds a 4-week strength block with an easier review week',
@@ -43,12 +59,16 @@ module.exports = [
       const profile = buildRecommendationProgrammeProfile('tpl_3_day_strength_base_v1');
 
       assert.equal(profile.blockLengthWeeks, 4);
+      assert.equal(profile.durationModel.status, 'starter');
+      assert.equal(profile.durationModel.blockLengthWeeks, 4);
       assert.equal(profile.progressionStyle, 'strength_wave');
       assert.equal(profile.easierWeek.week, 4);
       assert.match(profile.phaseLabels[0], /Week 1/i);
       assert.match(profile.phaseLabels[3], /Week 4/i);
       assert.match(profile.volumeProgression, /volume/i);
       assert.match(profile.intensityProgression, /intensity|load/i);
+      assert.match(profile.sessionComposition.prepBlock.body, /ramp|warm|mobility/i);
+      assert.match(profile.sessionComposition.cooldownBlock.body, /cooldown|breathing|mobility/i);
     },
   },
   {
@@ -80,7 +100,10 @@ module.exports = [
       );
 
       assert.equal(payload.programId, 'tpl_5_day_hybrid_v1');
-      assert.equal(payload.blockLengthWeeks, 4);
+      assertProgrammeContractPayload(payload, {
+        prep: /muscle|prep|warm|ramp/i,
+        cooldown: /accessory|recovery|cooldown|breathing/i,
+      });
       assert.ok(payload.title.length > 0);
       assert.match(payload.subtitle, /goals|schedule|recovery|muscle/i);
       assert.equal('starterNote' in payload, false);
@@ -98,6 +121,85 @@ module.exports = [
       assert.match(payload.howToProgress, /reps|load|volume/i);
       assert.match(payload.readinessGuardrail, /intermediate|recovery|build/i);
       assert.match(payload.firstAction, /start|open|begin/i);
+    },
+  },
+  {
+    name: 'recommendation programme payload covers the core onboarding programme paths',
+    run() {
+      const scenarios = [
+        {
+          programId: 'tpl_3_day_strength_base_v1',
+          selection: selection({
+            goal: 'strength',
+            level: 'intermediate',
+            daysPerWeek: 3,
+            equipment: 'gym',
+            trainingEnvironment: 'full_gym',
+          }),
+          prep: /ramp|heavy|anchor|warm/i,
+          cooldown: /breathing|mobility|cooldown/i,
+        },
+        {
+          programId: 'tpl_5_day_hybrid_v1',
+          selection: selection({
+            goal: 'muscle',
+            level: 'intermediate',
+            daysPerWeek: 5,
+            equipment: 'gym',
+            trainingEnvironment: 'full_gym',
+            currentWeightKg: 80,
+            targetWeightKg: 90,
+          }),
+          prep: /muscle|prep|warm|ramp/i,
+          cooldown: /recovery|cooldown|breathing/i,
+        },
+        {
+          programId: 'tpl_2_day_minimal_full_body_v1',
+          selection: selection({
+            goal: 'general_fitness',
+            level: 'beginner',
+            daysPerWeek: 3,
+            equipment: 'minimal',
+            trainingEnvironment: 'bodyweight_only',
+          }),
+          prep: /movement|bodyweight|range|warm/i,
+          cooldown: /mobility|cooldown|recovery/i,
+        },
+        {
+          programId: 'tpl_3_day_run_mobility_v1',
+          selection: selection({
+            goal: 'lean_athletic',
+            level: 'beginner',
+            daysPerWeek: 4,
+            equipment: 'minimal',
+            trainingEnvironment: 'running_hybrid',
+          }),
+          prep: /ankle|calf|hips|run|dynamic/i,
+          cooldown: /calves|hips|breathing|cooldown/i,
+        },
+        {
+          programId: 'tpl_4_day_muscle_builder_v1',
+          selection: selection({
+            goal: 'muscle',
+            level: 'intermediate',
+            daysPerWeek: 4,
+            equipment: 'gym',
+            trainingEnvironment: 'full_gym',
+            focusAreas: ['glutes', 'quads'],
+          }),
+          prep: /muscle|prep|warm|ramp/i,
+          cooldown: /recovery|cooldown|breathing/i,
+        },
+      ];
+
+      scenarios.forEach((scenario) => {
+        const payload = buildRecommendationPlanReadyPayload(scenario.selection, scenario.programId);
+
+        assertProgrammeContractPayload(payload, {
+          prep: scenario.prep,
+          cooldown: scenario.cooldown,
+        });
+      });
     },
   },
   {

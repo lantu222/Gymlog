@@ -12,6 +12,7 @@ import {
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { GymlogIcon, GymlogIconName } from './GymlogIcon';
+import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { colors, layout, spacing } from '../theme';
 import { ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
 
@@ -24,26 +25,6 @@ const BORDER = 'rgba(255,255,255,0.12)';
 const TEXT = '#FFFFFF';
 const MUTED = 'rgba(255,255,255,0.62)';
 const FAINT = 'rgba(255,255,255,0.42)';
-
-const COMMON_EXERCISE_KEYWORDS = [
-  ['incline dumbbell press', 'incline bench press'],
-  ['chest supported row'],
-  ['leg press'],
-  ['lateral raise'],
-  ['bench press'],
-  ['pull-up', 'pull ups', 'pullup'],
-  ['romanian deadlift', 'stiff-leg deadlift'],
-  ['overhead press', 'shoulder press'],
-  ['dumbbell fly', 'fly'],
-  ['seated row', 'cable row'],
-  ['triceps pushdown', 'cable pushdown', 'pushdown'],
-  ['barbell squat', 'squat'],
-  ['lat pulldown', 'pulldown'],
-  ['biceps curl', 'dumbbell curl', 'barbell curl'],
-  ['hip thrust', 'glute bridge'],
-  ['calf raise', 'calf press'],
-  ['crunch', 'sit-up'],
-] as const;
 
 interface ExerciseLibraryBrowserProps {
   items: ExerciseLibraryItem[];
@@ -66,29 +47,6 @@ function buildSearchHaystack(item: ExerciseLibraryItem) {
   ]
     .join(' ')
     .toLowerCase();
-}
-
-function buildCommonExerciseOrder(items: ExerciseLibraryItem[]) {
-  const ids: string[] = [];
-  const picked = new Set<string>();
-
-  for (const keywords of COMMON_EXERCISE_KEYWORDS) {
-    const match = items.find((item) => {
-      if (picked.has(item.id)) {
-        return false;
-      }
-
-      const normalizedName = item.name.toLowerCase();
-      return keywords.some((keyword) => normalizedName.includes(keyword));
-    });
-
-    if (match) {
-      picked.add(match.id);
-      ids.push(match.id);
-    }
-  }
-
-  return new Map(ids.map((id, index) => [id, index]));
 }
 
 function SearchIcon({ color = TEXT, size = 20 }: { color?: string; size?: number }) {
@@ -165,7 +123,7 @@ function getItemImage(item: ExerciseLibraryItem) {
 }
 
 function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: ExerciseLibraryItem[]) {
-  const commonOrder = useMemo(() => buildCommonExerciseOrder(items), [items]);
+  const commonOrder = useMemo(() => getPopularExerciseLibraryOrder(items), [items]);
 
   const orderedItems = useMemo(() => {
     return [...filteredItems].sort((left, right) => {
@@ -361,7 +319,7 @@ export function ExerciseLibraryBrowser({
     return buildActiveFilterSummary(parts);
   }, [bodyPartFilter, categoryFilter, equipmentFilter]);
 
-  const recentlyUsedItems = useMemo(
+  const popularItems = useMemo(
     () => orderedItems.filter((item) => commonOrder.has(item.id)).slice(0, 6),
     [commonOrder, orderedItems],
   );
@@ -370,9 +328,9 @@ export function ExerciseLibraryBrowser({
     return orderedItems.filter((item) => trackedSet.has(item.id)).slice(0, 6);
   }, [orderedItems, trackedIds]);
   const suggestedItems = useMemo(() => {
-    const excluded = new Set([...recentlyUsedItems.map((item) => item.id), ...favoriteItems.map((item) => item.id)]);
+    const excluded = new Set([...popularItems.map((item) => item.id), ...favoriteItems.map((item) => item.id)]);
     return orderedItems.filter((item) => !excluded.has(item.id)).slice(0, 6);
-  }, [favoriteItems, orderedItems, recentlyUsedItems]);
+  }, [favoriteItems, orderedItems, popularItems]);
 
   const listItems = useMemo(() => orderedItems.slice(0, showDashboardSections ? 36 : undefined), [orderedItems, showDashboardSections]);
 
@@ -550,7 +508,11 @@ export function ExerciseLibraryBrowser({
 
           {showDashboardSections ? (
             <>
-              {renderHorizontalSection({ title: 'Recently used', sectionItems: recentlyUsedItems })}
+              {renderHorizontalSection({
+                title: 'Popular Exercises',
+                subtitle: 'Common first picks for a new workout',
+                sectionItems: popularItems,
+              })}
               {renderHorizontalSection({
                 title: 'Favorites',
                 sectionItems: favoriteItems,

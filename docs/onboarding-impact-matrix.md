@@ -4,7 +4,7 @@ This document is authoritative.
 If any other document conflicts with this file, this file takes precedence.
 
 **Type:** Implementation spec — onboarding input/output contract and recommendation scoring
-**Scope:** Owns onboarding input schema, scoring dimensions, and plan assembly order. Programme payload fields are owned by `recommendation-4-week-programme-contract.md`. These are complementary, not overlapping.
+**Scope:** Owns onboarding input schema, scoring dimensions, and plan assembly order. Programme payload fields are owned by `recommendation-programme-contract.md`. These are complementary, not overlapping.
 
 ---
 
@@ -31,7 +31,7 @@ The engine should build a plan in this order:
 2. Filter out templates that cannot satisfy equipment, frequency, or beginner-safety rules.
 3. Rank remaining candidates by Step 2 goal fit, Step 4 focus fit, Step 5 bodyweight-direction fit, and catalog quality.
 4. Select one primary recommendation and two useful alternatives.
-5. Attach programme metadata from `docs/recommendation-4-week-programme-contract.md`: first week, 4-week block, progression rules, fallback reason, and confidence.
+5. Attach programme metadata from `docs/recommendation-programme-contract.md`: first week, MVP starter block, progression rules, fallback reason, and confidence.
 6. Generate explanation copy from the selected candidate and the exact Step 1-5 answers.
 
 The plan-ready screen should be able to answer these questions without asking AI:

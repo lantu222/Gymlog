@@ -66,7 +66,7 @@ Implementation documents should therefore distinguish:
 - Current MVP: deterministic template recommendation plus first week and 4-week starter block.
 - Later version: deeper 6-8 week programme generation from the same template family and programme profile.
 
-The detailed MVP contract lives in `docs/recommendation-4-week-programme-contract.md`.
+The detailed programme contract lives in `docs/recommendation-programme-contract.md`.
 
 ## Existing Product Anchors
 

@@ -2,7 +2,14 @@ import { getRecommendationProgramDefinition } from './recommendationCatalog';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { formatLiftDisplayLabel } from './displayLabel';
 import type { FirstRunSetupSelection } from './firstRunSetup';
-import type { RecommendationProgrammeProfile, RecommendationTrainingBlock, TemplateFamilyId } from '../types/recommendation';
+import type {
+  RecommendationProgrammeDurationModel,
+  RecommendationProgrammeProfile,
+  RecommendationSessionBlock,
+  RecommendationSessionComposition,
+  RecommendationTrainingBlock,
+  TemplateFamilyId,
+} from '../types/recommendation';
 import type {
   RecommendationPlanReadyPayload,
   RecommendationPlanReadyScheduleDay,
@@ -21,13 +28,103 @@ const DEFAULT_RHYTHM_BY_DAYS: Record<number, SetupWeekday[]> = {
   6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
 };
 
+function buildStarterDurationModel(): RecommendationProgrammeDurationModel {
+  return {
+    status: 'starter',
+    blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+    label: '4-week starter block',
+    description: 'A concrete first block that can be repeated, edited, or upgraded after week 4.',
+    laterDurations: [6, 8],
+  };
+}
+
+function block(type: RecommendationSessionBlock['type'], label: string, body: string): RecommendationSessionBlock {
+  return { type, label, body };
+}
+
+function buildFamilySessionComposition(familyId: TemplateFamilyId): RecommendationSessionComposition {
+  switch (familyId) {
+    case 'strength_base':
+    case 'powerbuilding':
+      return {
+        prepBlock: block('prep', 'Prep', 'Warm up with joint-specific mobility and 1-3 ramp sets before the first heavy anchor lift.'),
+        mainBlock: block('main', 'Main work', 'Start with the key strength lift or heavy compound while focus and energy are highest.'),
+        supportBlock: block('support', 'Support work', 'Use secondary compounds and accessories to build the muscles that support the main lifts.'),
+        focusBlock: null,
+        conditioningBlock: null,
+        cooldownBlock: block('cooldown', 'Cooldown', 'Finish with easy breathing and short mobility for the joints used hardest in the session.'),
+      };
+    case 'mass_hypertrophy':
+      return {
+        prepBlock: block('prep', 'Prep', 'Use muscle-specific warmup sets and light activation before the first hard hypertrophy block.'),
+        mainBlock: block('main', 'Main work', 'Open with the highest-value compound or machine movement for the target muscles.'),
+        supportBlock: block('support', 'Support work', 'Add stable accessory work so volume builds without random exercise changes.'),
+        focusBlock: block('focus', 'Focus work', 'Give selected focus areas extra quality work only after the main structure is covered.'),
+        conditioningBlock: null,
+        cooldownBlock: block('cooldown', 'Cooldown', 'Downshift with short recovery work so the next muscle-building session stays repeatable.'),
+      };
+    case 'glute_priority':
+      return {
+        prepBlock: block('prep', 'Prep', 'Start with hip mobility, glute activation, and light ramp sets before heavy lower-body work.'),
+        mainBlock: block('main', 'Main work', 'Prioritize the main glute or lower-body lift while technique and output are fresh.'),
+        supportBlock: block('support', 'Support work', 'Use hinge, lunge, squat, bridge, or curl patterns to support the focus area.'),
+        focusBlock: block('focus', 'Focus work', 'Keep glute-focused accessories visible without replacing the full lower-body structure.'),
+        conditioningBlock: null,
+        cooldownBlock: block('cooldown', 'Cooldown', 'Use short hip, glute, hamstring, and breathing recovery after lower-body work.'),
+      };
+    case 'athletic_recomp':
+      return {
+        prepBlock: block('prep', 'Prep', 'Use dynamic full-body prep and gradually raise intensity before strength or conditioning work.'),
+        mainBlock: block('main', 'Main work', 'Preserve the main resistance or athletic block before adding extra density.'),
+        supportBlock: block('support', 'Support work', 'Keep support work efficient so the week stays athletic instead of exhausting.'),
+        focusBlock: null,
+        conditioningBlock: block('conditioning', 'Conditioning', 'Add conditioning or density only where recovery stays controlled.'),
+        cooldownBlock: block('cooldown', 'Cooldown', 'Cool down with easy movement and breathing so conditioning does not bury recovery.'),
+      };
+    case 'low_equipment':
+    case 'full_body_minimal':
+      return {
+        prepBlock: block('prep', 'Prep', 'Rehearse the first movements with bodyweight range, tempo, and easy variations before working sets.'),
+        mainBlock: block('main', 'Main work', 'Cover the major movement patterns with simple, repeatable exercises.'),
+        supportBlock: block('support', 'Support work', 'Use reps, tempo, range, unilateral work, and density when load options are limited.'),
+        focusBlock: null,
+        conditioningBlock: null,
+        cooldownBlock: block('cooldown', 'Cooldown', 'Finish with a short mobility reset based on the hardest movement pattern of the day.'),
+      };
+    case 'joint_friendly':
+      return {
+        prepBlock: block('prep', 'Prep', 'Start with gentle range work and supported movement rehearsal before adding load.'),
+        mainBlock: block('main', 'Main work', 'Use stable supported exercises that keep joints controlled and repeatable.'),
+        supportBlock: block('support', 'Support work', 'Build strength with moderate effort, smooth execution, and conservative progression.'),
+        focusBlock: null,
+        conditioningBlock: null,
+        cooldownBlock: block('cooldown', 'Cooldown', 'Use low-irritation mobility and breathing rather than aggressive stretching.'),
+      };
+    default:
+      return {
+        prepBlock: block('prep', 'Prep', 'Warm up with simple movement prep before the first hard block.'),
+        mainBlock: block('main', 'Main work', 'Complete the highest-value training work first.'),
+        supportBlock: block('support', 'Support work', 'Use supporting exercises to round out the session.'),
+        focusBlock: null,
+        conditioningBlock: null,
+        cooldownBlock: block('cooldown', 'Cooldown', 'Finish with a short recovery reset.'),
+      };
+  }
+}
+
 function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamilyId): RecommendationProgrammeProfile {
+  const base = {
+    programId,
+    familyId,
+    blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+    durationModel: buildStarterDurationModel(),
+    sessionComposition: buildFamilySessionComposition(familyId),
+  };
+
   switch (familyId) {
     case 'strength_base':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'strength_wave',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Use week 1 as the baseline volume, build in weeks 2-3, then pull fatigue back in week 4 before deciding whether to repeat or edit.',
@@ -40,9 +137,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     case 'powerbuilding':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'powerbuilding_wave',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Open with enough bodybuilding volume to support the heavy lifts, build for two weeks, then reduce fatigue in week 4.',
@@ -55,9 +150,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     case 'mass_hypertrophy':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'hypertrophy_accumulation',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Start with repeatable volume, add reps or quality in weeks 2-3, then use week 4 as an easier review week.',
@@ -70,9 +163,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     case 'full_body_minimal':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'minimal_consistency',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Keep total work tight, add a little work in weeks 2-3 only if recovery stays easy, then review in week 4.',
@@ -85,9 +176,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     case 'joint_friendly':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'recovery_rebuild',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Increase total work slowly in weeks 2-3 and only after the previous week feels repeatable.',
@@ -100,9 +189,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     case 'athletic_recomp':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'hybrid_wave',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Progress by adding a little density or total work in weeks 2-3 while keeping the weekly rhythm sustainable.',
@@ -115,9 +202,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     case 'low_equipment':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'resource_limited_progression',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Use reps, rounds, or shorter rest as the main volume lever in weeks 2-3 when load options are limited.',
@@ -130,9 +215,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     case 'glute_priority':
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'focus_volume_wave',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Bias more total work toward the focus area in weeks 2-3, then review recovery in week 4.',
@@ -145,9 +228,7 @@ function buildFamilyProgrammeProfile(programId: string, familyId: TemplateFamily
       };
     default:
       return {
-        programId,
-        familyId,
-        blockLengthWeeks: STARTER_BLOCK_LENGTH_WEEKS,
+        ...base,
         progressionStyle: 'steady_progression',
         phaseLabels: STARTER_PHASE_LABELS,
         volumeProgression: 'Add work gradually in weeks 2-3, then reduce it briefly and review in week 4.',
@@ -428,6 +509,64 @@ function getWeightDirection(selection: Pick<FirstRunSetupSelection, 'currentWeig
   return 'maintain';
 }
 
+function buildSelectionSessionComposition(
+  selection: FirstRunSetupSelection,
+  profile: RecommendationProgrammeProfile,
+): RecommendationSessionComposition {
+  if (selection.trainingEnvironment === 'running_hybrid' || selection.goal === 'run_mobility') {
+    return {
+      prepBlock: block('prep', 'Prep', 'Use dynamic ankle, calf, hip and glute prep, then ease into the first run or strength block.'),
+      mainBlock: block('main', 'Main work', 'Keep the primary run, strength, or hybrid block clear before adding extra density.'),
+      supportBlock: block('support', 'Support work', 'Use core, mobility, and lower-leg support so running and lifting recover together.'),
+      focusBlock: profile.sessionComposition.focusBlock,
+      conditioningBlock: block('conditioning', 'Conditioning', 'Progress one running or conditioning exposure at a time, not every session.'),
+      cooldownBlock: block('cooldown', 'Cooldown', 'Cool down with calves, hips, easy breathing, and mobility after run or conditioning days.'),
+    };
+  }
+
+  if (selection.trainingEnvironment === 'bodyweight_only') {
+    return {
+      prepBlock: block('prep', 'Prep', 'Warm up through bodyweight movement rehearsal, range, tempo, and easier variations.'),
+      mainBlock: block('main', 'Main work', 'Train the main bodyweight movement patterns with repeatable effort and clean positions.'),
+      supportBlock: block('support', 'Support work', 'Progress with reps, range, tempo, holds, density, and harder variations before load.'),
+      focusBlock: profile.sessionComposition.focusBlock,
+      conditioningBlock: selection.goal === 'lean_athletic'
+        ? block('conditioning', 'Conditioning', 'Use short density blocks only when the main bodyweight work stays clean.')
+        : null,
+      cooldownBlock: block('cooldown', 'Cooldown', 'Finish with a short mobility and recovery reset for the hardest bodyweight pattern.'),
+    };
+  }
+
+  if (selection.goal === 'muscle') {
+    return {
+      ...profile.sessionComposition,
+      prepBlock: block('prep', 'Prep', 'Use muscle-specific prep, light activation, and warmup sets before the first hard set.'),
+      cooldownBlock: block('cooldown', 'Cooldown', 'Finish with short recovery work and breathing so the next muscle session stays repeatable.'),
+    };
+  }
+
+  if (selection.goal === 'strength') {
+    return {
+      ...profile.sessionComposition,
+      prepBlock: block('prep', 'Prep', 'Use mobility plus ramp-up sets before heavy anchor lifts so working sets start clean.'),
+      cooldownBlock: block('cooldown', 'Cooldown', 'Use easy breathing and joint-specific mobility after the heavy work.'),
+    };
+  }
+
+  return profile.sessionComposition;
+}
+
+function getSessionBlocks(composition: RecommendationSessionComposition) {
+  return [
+    composition.prepBlock,
+    composition.mainBlock,
+    composition.supportBlock,
+    composition.focusBlock,
+    composition.conditioningBlock,
+    composition.cooldownBlock,
+  ].filter((entry): entry is RecommendationSessionBlock => Boolean(entry));
+}
+
 function getStructureLabel(familyId: TemplateFamilyId, daysPerWeek: number) {
   if (familyId === 'athletic_recomp') {
     return 'Hybrid rhythm';
@@ -607,6 +746,8 @@ export function buildRecommendationPlanReadyPayload(
   const template = getWorkoutTemplateById(programId);
   const definition = getRecommendationProgramDefinition(programId);
   const profile = buildRecommendationProgrammeProfile(programId);
+  const sessionComposition = buildSelectionSessionComposition(selection, profile);
+  const sessionBlocks = getSessionBlocks(sessionComposition);
   const weeklySchedule = buildPlanReadyWeeklySchedule(selection, programId);
   const programDaysPerWeek = template?.daysPerWeek ?? definition?.daysPerWeek ?? selection.daysPerWeek;
   const requestedDaysPerWeek = selection.daysPerWeek;
@@ -630,6 +771,7 @@ export function buildRecommendationPlanReadyPayload(
     title: template?.name ?? 'Starter plan',
     subtitle: `Built around your goals, schedule and recovery.`,
     blockLengthWeeks: profile.blockLengthWeeks,
+    durationModel: profile.durationModel,
     requestedDaysPerWeek,
     programDaysPerWeek,
     whyThisPlan,
@@ -641,6 +783,10 @@ export function buildRecommendationPlanReadyPayload(
     ],
     weeklySchedule,
     fourWeekProgression: buildFourWeekProgression(selection, profile),
+    sessionComposition,
+    sessionBlocks,
+    prepSummary: sessionComposition.prepBlock.body,
+    cooldownSummary: sessionComposition.cooldownBlock.body,
     howToProgress: buildHowToProgress(selection, profile),
     focusAllocation,
     readinessGuardrail: buildReadinessGuardrail(selection),
