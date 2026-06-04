@@ -2861,6 +2861,7 @@ function GymlogApp() {
       : route.tab;
   const welcomeActive = onboardingActive && entryFlowActive;
   const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
+  const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
 
   return (
     <AppShell
@@ -2872,10 +2873,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive ? 'dark' : welcomeActive || onboardingScreenActive ? 'light' : undefined}
-      statusBarBackgroundColor={emptyWorkoutActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive ? 'dark' : welcomeActive || onboardingScreenActive ? 'light' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#1D1C35' : emptyWorkoutActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#1D1C35' : emptyWorkoutActive || readyTemplatesActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar

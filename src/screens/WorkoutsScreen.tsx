@@ -93,6 +93,14 @@ const READY_LEVEL_FILTERS: Array<{ key: ReadyLevelFilter; label: string }> = [
   { key: 'intermediate', label: 'Intermediate' },
 ];
 
+const READY_TEMPLATE_FILTERS: Array<{ key: ReadyCollectionFilter; label: string }> = [
+  { key: 'all', label: 'All templates' },
+  { key: 'starter', label: 'Starter picks' },
+  { key: 'strength', label: 'Strength' },
+  { key: 'muscle', label: 'Build muscle' },
+  { key: 'balanced', label: 'Balanced rhythm' },
+];
+
 const customCardVariants: CardVariant[] = [
   {
     borderColor: 'rgba(255,255,255,0.08)',
@@ -159,6 +167,13 @@ function formatLevel(value: string) {
   return value ? value[0].toUpperCase() + value.slice(1) : value;
 }
 
+function formatTemplateHeroLabel(value: string) {
+  return value
+    .replace(/_/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function formatReps(min: number, max: number) {
   return min === max ? `${max}` : `${min}-${max}`;
 }
@@ -170,7 +185,7 @@ function formatFlowExerciseMeta(exercise: WorkoutTemplateExercise | WorkoutExerc
       return '';
     }
     if (typeof firstSet.plannedLoadKg === 'number') {
-      return `${firstSet.plannedLoadKg} kg × ${formatReps(firstSet.plannedRepsMin, firstSet.plannedRepsMax)}`;
+      return `${firstSet.plannedLoadKg} kg x ${formatReps(firstSet.plannedRepsMin, firstSet.plannedRepsMax)}`;
     }
     return `${exercise.sets.length} ${exercise.sets.length === 1 ? 'set' : 'sets'}`;
   }
@@ -178,7 +193,7 @@ function formatFlowExerciseMeta(exercise: WorkoutTemplateExercise | WorkoutExerc
   const templateExercise = exercise as WorkoutTemplateExercise;
 
   if (templateExercise.trackingMode === 'load_and_reps') {
-    return `${templateExercise.sets} ${templateExercise.sets === 1 ? 'set' : 'sets'} · ${formatReps(templateExercise.repsMin, templateExercise.repsMax)} reps`;
+    return `${templateExercise.sets} ${templateExercise.sets === 1 ? 'set' : 'sets'} - ${formatReps(templateExercise.repsMin, templateExercise.repsMax)} reps`;
   }
 
   return `${templateExercise.sets} ${templateExercise.sets === 1 ? 'set' : 'sets'}`;
@@ -372,13 +387,8 @@ export function WorkoutsScreen({
 
   return (
     <>
-      <ScreenHeader title="Ready Templates" />
+      <ScreenHeader title="Ready Templates" subtitle={`${allGainerProgramItems.length} templates ready to inspect or start.`} tone="dark" />
       <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
-        <View style={styles.readyTemplateIntro}>
-          <Text style={styles.readyTemplateCount}>{allGainerProgramItems.length} templates</Text>
-          <Text style={styles.readyTemplateSubtitle}>Pick a ready-made plan, inspect the days, then start when it fits.</Text>
-        </View>
-
         <View style={styles.readyTemplateSearchCard}>
           <TextInput
             value={searchQuery}
@@ -390,51 +400,71 @@ export function WorkoutsScreen({
           />
         </View>
 
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.readyTemplateFilterRow}
+          snapToInterval={195}
+          decelerationRate="fast"
+        >
+          {READY_TEMPLATE_FILTERS.map((filter) => {
+            const active = readyCollectionFilter === filter.key;
+
+            return (
+              <Pressable
+                key={filter.key}
+                onPress={() => setReadyCollectionFilter(filter.key)}
+                style={[styles.readyTemplateFilterChip, active && styles.readyTemplateFilterChipActive]}
+              >
+                <Text style={[styles.readyTemplateFilterText, active && styles.readyTemplateFilterTextActive]}>
+                  {filter.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.readyTemplateSectionHeader}>
+          <Text style={styles.readyTemplateSectionTitle}>Popular Programs</Text>
+          <Text style={styles.readyTemplateSectionMeta}>{gainerProgramItems.length} shown</Text>
+        </View>
+
         {gainerProgramItems.length ? (
           <View style={styles.readyTemplateList}>
             {gainerProgramItems.map((item, index) => {
-              const { template, content } = item;
+              const { template } = item;
               const current = template.id === activeTemplateId;
               const firstSession = template.sessions[0] ?? null;
               const firstExercise = firstSession?.exercises[0]?.exerciseName ?? null;
-              const accentStyle = index % 2 === 0 ? styles.readyTemplateAccentPurple : styles.readyTemplateAccentGreen;
+              const heroStyle = index % 2 === 0 ? styles.readyTemplateHeroPurple : styles.readyTemplateHeroGreen;
 
               return (
                 <View key={`ready-template:${template.id}`} style={[styles.readyTemplateCard, current && styles.readyTemplateCardCurrent]}>
                   <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.readyTemplateCardMain}>
-                    <View style={[styles.readyTemplateAccent, accentStyle]} />
-                    <View style={styles.readyTemplateHeaderRow}>
-                      <View style={styles.readyTemplateIconTile}>
-                        <Text style={styles.readyTemplateIconText}>{template.daysPerWeek}</Text>
-                      </View>
-                      <View style={styles.readyTemplateTitleBlock}>
-                        <Text style={styles.readyTemplateName} numberOfLines={1} adjustsFontSizeToFit>
-                          {formatWorkoutDisplayLabel(template.name, 'Template')}
-                        </Text>
-                        <Text style={styles.readyTemplateMeta} numberOfLines={1}>
-                          {template.daysPerWeek} days | {formatGoal(template.goalType)} | {formatLevel(template.level)}
-                        </Text>
-                      </View>
-                      <Text style={styles.readyTemplateChevron}>{'>'}</Text>
+                    <View style={[styles.readyTemplateHero, heroStyle]}>
+                      <View style={styles.readyTemplateHeroOverlay} />
+                      <Text style={styles.readyTemplateHeroDays}>{template.daysPerWeek} DAY</Text>
+                      <Text style={styles.readyTemplateHeroTitle} numberOfLines={2} adjustsFontSizeToFit>
+                        {formatTemplateHeroLabel(template.splitType)}
+                      </Text>
                     </View>
 
-                    <Text style={styles.readyTemplateBody} numberOfLines={2}>
-                      {content?.summary ?? content?.audience ?? `${template.sessions.length} sessions built for ${template.goalType} training.`}
-                    </Text>
-
-                    <View style={styles.readyTemplateFooterRow}>
-                      <View style={styles.readyTemplatePill}>
-                        <Text style={styles.readyTemplatePillText}>{template.sessions.length} sessions</Text>
-                      </View>
-                      <View style={styles.readyTemplatePill}>
-                        <Text style={styles.readyTemplatePillText}>{template.estimatedSessionDuration} min</Text>
+                    <View style={styles.readyTemplateCopy}>
+                      <Text style={styles.readyTemplateName} numberOfLines={2}>
+                        {formatWorkoutDisplayLabel(template.name, 'Template')}
+                      </Text>
+                      <Text style={styles.readyTemplateMeta} numberOfLines={1}>
+                        {template.daysPerWeek} days | {formatGoal(template.goalType)}
+                      </Text>
+                      <View style={styles.readyTemplateFooterRow}>
+                        <Text style={styles.readyTemplateDuration}>{template.estimatedSessionDuration} min</Text>
+                        <Text style={styles.readyTemplateDot}>â€¢</Text>
+                        <Text style={styles.readyTemplateDuration}>{formatLevel(template.level)}</Text>
                       </View>
                       {firstExercise ? (
-                        <View style={[styles.readyTemplatePill, styles.readyTemplatePillWide]}>
-                          <Text style={styles.readyTemplatePillText} numberOfLines={1}>
-                            Next: {firstExercise}
-                          </Text>
-                        </View>
+                        <Text style={styles.readyTemplateNext} numberOfLines={1}>
+                          Next: {firstExercise}
+                        </Text>
                       ) : null}
                     </View>
                   </Pressable>
@@ -463,156 +493,179 @@ export function WorkoutsScreen({
 
 const styles = StyleSheet.create({
   readyTemplateContent: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
     paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.md,
-  },
-  readyTemplateIntro: {
-    gap: 4,
-  },
-  readyTemplateCount: {
-    color: colors.textPrimary,
-    fontSize: 34,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-  },
-  readyTemplateSubtitle: {
-    color: colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
+    gap: spacing.lg,
+    backgroundColor: '#F7F3FF',
   },
   readyTemplateSearchCard: {
-    borderRadius: radii.lg,
+    borderRadius: 32,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(18, 24, 33, 0.72)',
-    padding: spacing.md,
+    borderColor: '#E7D9FF',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.md,
+    shadowColor: '#BDA5F4',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 18,
+    elevation: 6,
   },
   readyTemplateSearchInput: {
-    minHeight: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.input,
-    color: colors.textPrimary,
-    fontSize: 15,
+    minHeight: 58,
+    color: '#0F172A',
+    fontSize: 17,
     fontWeight: '800',
+  },
+  readyTemplateFilterRow: {
+    gap: spacing.sm,
+    paddingRight: spacing.xl,
+  },
+  readyTemplateFilterChip: {
+    width: 185,
+    minHeight: 58,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#E2D3FF',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: spacing.md,
   },
+  readyTemplateFilterChipActive: {
+    backgroundColor: '#7C3AED',
+    borderColor: '#7C3AED',
+  },
+  readyTemplateFilterText: {
+    color: '#667085',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  readyTemplateFilterTextActive: {
+    color: '#FFFFFF',
+  },
+  readyTemplateSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  readyTemplateSectionTitle: {
+    color: '#050817',
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  readyTemplateSectionMeta: {
+    color: '#7C3AED',
+    fontSize: 14,
+    fontWeight: '900',
+  },
   readyTemplateList: {
-    gap: spacing.md,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: spacing.lg,
   },
   readyTemplateCard: {
     overflow: 'hidden',
-    borderRadius: radii.lg,
+    width: '48%',
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#050505',
-    padding: spacing.lg,
-    gap: spacing.md,
+    borderColor: '#E7D9FF',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#BDA5F4',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 5,
   },
   readyTemplateCardCurrent: {
-    borderColor: 'rgba(124,58,237,0.42)',
-    backgroundColor: '#10101C',
+    borderColor: '#7C3AED',
   },
   readyTemplateCardMain: {
     gap: spacing.sm,
   },
-  readyTemplateAccent: {
-    position: 'absolute',
-    left: -spacing.lg,
-    top: -spacing.lg,
-    bottom: -spacing.lg,
-    width: 5,
+  readyTemplateHero: {
+    minHeight: 132,
+    padding: spacing.md,
+    justifyContent: 'flex-end',
   },
-  readyTemplateAccentPurple: {
-    backgroundColor: '#7C3AED',
+  readyTemplateHeroPurple: {
+    backgroundColor: '#2B115F',
   },
-  readyTemplateAccentGreen: {
-    backgroundColor: '#16A34A',
+  readyTemplateHeroGreen: {
+    backgroundColor: '#073D2B',
   },
-  readyTemplateHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  readyTemplateHeroOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.18)',
   },
-  readyTemplateIconTile: {
-    width: 46,
-    height: 46,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(124,58,237,0.18)',
-    borderWidth: 1,
-    borderColor: 'rgba(124,58,237,0.30)',
-  },
-  readyTemplateIconText: {
-    color: colors.textPrimary,
-    fontSize: 20,
+  readyTemplateHeroDays: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: '900',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
   },
-  readyTemplateTitleBlock: {
-    flex: 1,
-    gap: 2,
+  readyTemplateHeroTitle: {
+    color: '#FFFFFF',
+    fontSize: 25,
+    lineHeight: 27,
+    fontWeight: '900',
+    letterSpacing: -0.5,
+    textTransform: 'uppercase',
+  },
+  readyTemplateCopy: {
+    padding: spacing.md,
+    gap: spacing.xs,
   },
   readyTemplateName: {
-    color: colors.textPrimary,
-    fontSize: 20,
+    color: '#0F172A',
+    fontSize: 16,
+    lineHeight: 19,
     fontWeight: '900',
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
   },
   readyTemplateMeta: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 12,
     fontWeight: '800',
   },
-  readyTemplateChevron: {
-    color: colors.textSecondary,
-    fontSize: 28,
-    fontWeight: '900',
-  },
-  readyTemplateBody: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
   readyTemplateFooterRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: spacing.xs,
   },
-  readyTemplatePill: {
-    minHeight: 30,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  readyTemplateDuration: {
+    color: '#667085',
+    fontSize: 12,
+    fontWeight: '800',
   },
-  readyTemplatePillWide: {
-    maxWidth: '100%',
-  },
-  readyTemplatePillText: {
-    color: colors.textSecondary,
-    fontSize: 11,
+  readyTemplateDot: {
+    color: '#98A2B3',
+    fontSize: 12,
     fontWeight: '900',
   },
+  readyTemplateNext: {
+    color: '#475467',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
   readyTemplateStartButton: {
-    minHeight: 44,
-    borderRadius: radii.pill,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    minHeight: 38,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3F7FF',
+    backgroundColor: '#F3ECFF',
   },
   readyTemplateStartButtonCurrent: {
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: '#DCFCE7',
   },
   readyTemplateStartText: {
-    color: '#06080B',
-    fontSize: 14,
+    color: '#7C3AED',
+    fontSize: 13,
     fontWeight: '900',
   },
   content: {

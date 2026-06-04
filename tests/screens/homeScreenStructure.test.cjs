@@ -91,9 +91,29 @@ module.exports = [
       assert.match(workoutsScreenSource, /const gainerProgramItems = filteredReadyItems\.filter/);
       assert.match(workoutsScreenSource, /const allGainerProgramItems = readyDiscoveryItems\.filter/);
       assert.match(workoutsScreenSource, /title="Ready Templates"/);
+      assert.match(workoutsScreenSource, /tone="dark"/);
       assert.match(workoutsScreenSource, /Search ready templates/);
-      assert.match(workoutsScreenSource, /readyTemplateCount/);
+      assert.match(workoutsScreenSource, /READY_TEMPLATE_FILTERS/);
+      const readyTemplateFilterBlock = workoutsScreenSource.slice(
+        workoutsScreenSource.indexOf('const READY_TEMPLATE_FILTERS'),
+        workoutsScreenSource.indexOf('const customCardVariants'),
+      );
+      assert.ok(
+        readyTemplateFilterBlock.indexOf("label: 'All templates'") < readyTemplateFilterBlock.indexOf("label: 'Starter picks'"),
+        'all templates should be the first visible ready-template filter',
+      );
+      assert.ok(
+        readyTemplateFilterBlock.indexOf("label: 'Starter picks'") < readyTemplateFilterBlock.indexOf("label: 'Strength'"),
+        'strength should sit after the two initially visible ready-template filters',
+      );
+      assert.match(workoutsScreenSource, /snapToInterval=\{195\}/);
+      assert.match(workoutsScreenSource, /readyTemplateFilterChip:\s*\{[\s\S]*width: 185/);
+      assert.match(workoutsScreenSource, /Popular Programs/);
       assert.match(workoutsScreenSource, /readyTemplateCard/);
+      assert.match(workoutsScreenSource, /width: '48%'/);
+      assert.match(workoutsScreenSource, /readyTemplateHero/);
+      assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
+      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#1D1C35' : emptyWorkoutActive \|\| readyTemplatesActive \? '#F7F3FF' : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /title="Programs"/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
