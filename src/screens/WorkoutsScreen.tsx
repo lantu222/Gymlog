@@ -174,6 +174,10 @@ function formatTemplateHeroLabel(value: string) {
     .trim();
 }
 
+function formatTemplateSubtitle(value: string) {
+  return value.replace(/\s+/g, ' ').trim();
+}
+
 function formatReps(min: number, max: number) {
   return min === max ? `${max}` : `${min}-${max}`;
 }
@@ -400,29 +404,97 @@ export function WorkoutsScreen({
           />
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.readyTemplateFilterRow}
-          snapToInterval={195}
-          decelerationRate="fast"
-        >
-          {READY_TEMPLATE_FILTERS.map((filter) => {
-            const active = readyCollectionFilter === filter.key;
+        <View style={styles.readyTemplateFilterBlock}>
+          <Text style={styles.readyTemplateFilterLabel}>Recommended for</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.readyTemplateFilterRow}
+            snapToInterval={196}
+            decelerationRate="fast"
+          >
+            {READY_TEMPLATE_FILTERS.map((filter) => {
+              const active = readyCollectionFilter === filter.key;
 
-            return (
-              <Pressable
-                key={filter.key}
-                onPress={() => setReadyCollectionFilter(filter.key)}
-                style={[styles.readyTemplateFilterChip, active && styles.readyTemplateFilterChipActive]}
-              >
-                <Text style={[styles.readyTemplateFilterText, active && styles.readyTemplateFilterTextActive]}>
-                  {filter.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+              return (
+                <Pressable
+                  key={filter.key}
+                  onPress={() => setReadyCollectionFilter(filter.key)}
+                  style={[styles.readyTemplateFilterChip, active && styles.readyTemplateFilterChipActive]}
+                >
+                  <Text style={[styles.readyTemplateFilterText, active && styles.readyTemplateFilterTextActive]}>
+                    {filter.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+
+        <View style={styles.readyTemplateRefinePanel}>
+          <View style={styles.readyTemplateRefineGroup}>
+            <Text style={styles.readyTemplateFilterLabel}>Time</Text>
+            <View style={styles.readyTemplateMiniChipRow}>
+              {READY_TIME_FILTERS.map((filter) => {
+                const active = readyTimeFilter === filter.key;
+
+                return (
+                  <Pressable
+                    key={filter.key}
+                    onPress={() => setReadyTimeFilter(filter.key)}
+                    style={[styles.readyTemplateMiniChip, active && styles.readyTemplateMiniChipActive]}
+                  >
+                    <Text style={[styles.readyTemplateMiniChipText, active && styles.readyTemplateMiniChipTextActive]}>
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.readyTemplateRefineGroup}>
+            <Text style={styles.readyTemplateFilterLabel}>Equipment</Text>
+            <View style={styles.readyTemplateMiniChipRow}>
+              {READY_EQUIPMENT_FILTERS.map((filter) => {
+                const active = readyEquipmentFilter === filter.key;
+
+                return (
+                  <Pressable
+                    key={filter.key}
+                    onPress={() => setReadyEquipmentFilter(filter.key)}
+                    style={[styles.readyTemplateMiniChip, active && styles.readyTemplateMiniChipActive]}
+                  >
+                    <Text style={[styles.readyTemplateMiniChipText, active && styles.readyTemplateMiniChipTextActive]}>
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.readyTemplateRefineGroup}>
+            <Text style={styles.readyTemplateFilterLabel}>Experience</Text>
+            <View style={styles.readyTemplateMiniChipRow}>
+              {READY_LEVEL_FILTERS.map((filter) => {
+                const active = readyLevelFilter === filter.key;
+
+                return (
+                  <Pressable
+                    key={filter.key}
+                    onPress={() => setReadyLevelFilter(filter.key)}
+                    style={[styles.readyTemplateMiniChip, active && styles.readyTemplateMiniChipActive]}
+                  >
+                    <Text style={[styles.readyTemplateMiniChipText, active && styles.readyTemplateMiniChipTextActive]}>
+                      {filter.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
 
         <View style={styles.readyTemplateSectionHeader}>
           <Text style={styles.readyTemplateSectionTitle}>Popular Programs</Text>
@@ -432,10 +504,8 @@ export function WorkoutsScreen({
         {gainerProgramItems.length ? (
           <View style={styles.readyTemplateList}>
             {gainerProgramItems.map((item, index) => {
-              const { template } = item;
+              const { template, content } = item;
               const current = template.id === activeTemplateId;
-              const firstSession = template.sessions[0] ?? null;
-              const firstExercise = firstSession?.exercises[0]?.exerciseName ?? null;
               const heroStyle = index % 2 === 0 ? styles.readyTemplateHeroPurple : styles.readyTemplateHeroGreen;
 
               return (
@@ -461,11 +531,9 @@ export function WorkoutsScreen({
                         <Text style={styles.readyTemplateDot}>•</Text>
                         <Text style={styles.readyTemplateDuration}>{formatLevel(template.level)}</Text>
                       </View>
-                      {firstExercise ? (
-                        <Text style={styles.readyTemplateNext} numberOfLines={1}>
-                          Next: {firstExercise}
-                        </Text>
-                      ) : null}
+                      <Text style={styles.readyTemplateSummary} numberOfLines={2}>
+                        {formatTemplateSubtitle(content?.summary ?? `${template.sessions.length} sessions built for ${template.goalType} training.`)}
+                      </Text>
                     </View>
                   </Pressable>
 
@@ -495,7 +563,7 @@ const styles = StyleSheet.create({
   readyTemplateContent: {
     paddingHorizontal: spacing.md,
     paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.lg,
+    gap: spacing.md,
     backgroundColor: '#F7F3FF',
   },
   readyTemplateSearchCard: {
@@ -511,19 +579,29 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   readyTemplateSearchInput: {
-    minHeight: 58,
+    minHeight: 50,
     color: '#0F172A',
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '800',
   },
+  readyTemplateFilterBlock: {
+    gap: spacing.xs,
+  },
+  readyTemplateFilterLabel: {
+    color: '#7C3AED',
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
   readyTemplateFilterRow: {
-    gap: spacing.sm,
+    gap: spacing.md,
     paddingRight: spacing.xl,
   },
   readyTemplateFilterChip: {
-    width: 185,
-    minHeight: 58,
-    borderRadius: 22,
+    width: 180,
+    minHeight: 48,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: '#E2D3FF',
     backgroundColor: '#FFFFFF',
@@ -537,11 +615,49 @@ const styles = StyleSheet.create({
   },
   readyTemplateFilterText: {
     color: '#667085',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '900',
   },
   readyTemplateFilterTextActive: {
     color: '#FFFFFF',
+  },
+  readyTemplateRefinePanel: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E7D9FF',
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xs,
+    gap: spacing.xs,
+  },
+  readyTemplateRefineGroup: {
+    gap: 3,
+  },
+  readyTemplateMiniChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  readyTemplateMiniChip: {
+    minHeight: 28,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2D3FF',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  readyTemplateMiniChipActive: {
+    backgroundColor: '#F3ECFF',
+    borderColor: '#B994FF',
+  },
+  readyTemplateMiniChipText: {
+    color: '#667085',
+    fontSize: 10,
+    fontWeight: '900',
+  },
+  readyTemplateMiniChipTextActive: {
+    color: '#7C3AED',
   },
   readyTemplateSectionHeader: {
     flexDirection: 'row',
@@ -550,7 +666,7 @@ const styles = StyleSheet.create({
   },
   readyTemplateSectionTitle: {
     color: '#050817',
-    fontSize: 24,
+    fontSize: 21,
     fontWeight: '900',
     letterSpacing: -0.4,
   },
@@ -563,7 +679,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    rowGap: spacing.lg,
+    rowGap: spacing.md,
   },
   readyTemplateCard: {
     overflow: 'hidden',
@@ -585,8 +701,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   readyTemplateHero: {
-    minHeight: 132,
-    padding: spacing.md,
+    minHeight: 104,
+    padding: spacing.sm,
     justifyContent: 'flex-end',
   },
   readyTemplateHeroPurple: {
@@ -601,33 +717,33 @@ const styles = StyleSheet.create({
   },
   readyTemplateHeroDays: {
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
   readyTemplateHeroTitle: {
     color: '#FFFFFF',
-    fontSize: 25,
-    lineHeight: 27,
+    fontSize: 20,
+    lineHeight: 22,
     fontWeight: '900',
     letterSpacing: -0.5,
     textTransform: 'uppercase',
   },
   readyTemplateCopy: {
-    padding: spacing.md,
-    gap: spacing.xs,
+    padding: spacing.sm,
+    gap: 3,
   },
   readyTemplateName: {
     color: '#0F172A',
-    fontSize: 16,
-    lineHeight: 19,
+    fontSize: 14,
+    lineHeight: 17,
     fontWeight: '900',
     letterSpacing: -0.2,
   },
   readyTemplateMeta: {
     color: '#667085',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
   },
   readyTemplateFooterRow: {
@@ -637,25 +753,25 @@ const styles = StyleSheet.create({
   },
   readyTemplateDuration: {
     color: '#667085',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '800',
   },
   readyTemplateDot: {
     color: '#98A2B3',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '900',
   },
-  readyTemplateNext: {
+  readyTemplateSummary: {
     color: '#475467',
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10,
+    lineHeight: 14,
     fontWeight: '800',
   },
   readyTemplateStartButton: {
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    minHeight: 38,
-    borderRadius: 16,
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.sm,
+    minHeight: 34,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3ECFF',
@@ -665,7 +781,7 @@ const styles = StyleSheet.create({
   },
   readyTemplateStartText: {
     color: '#7C3AED',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
   },
   content: {

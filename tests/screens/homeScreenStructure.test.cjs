@@ -106,12 +106,20 @@ module.exports = [
         readyTemplateFilterBlock.indexOf("label: 'Starter picks'") < readyTemplateFilterBlock.indexOf("label: 'Strength'"),
         'strength should sit after the two initially visible ready-template filters',
       );
-      assert.match(workoutsScreenSource, /snapToInterval=\{195\}/);
-      assert.match(workoutsScreenSource, /readyTemplateFilterChip:\s*\{[\s\S]*width: 185/);
+      assert.match(workoutsScreenSource, /Recommended for/);
+      assert.match(workoutsScreenSource, /Time/);
+      assert.match(workoutsScreenSource, /Equipment/);
+      assert.match(workoutsScreenSource, /Experience/);
+      assert.match(workoutsScreenSource, /READY_TIME_FILTERS\.map/);
+      assert.match(workoutsScreenSource, /READY_EQUIPMENT_FILTERS\.map/);
+      assert.match(workoutsScreenSource, /READY_LEVEL_FILTERS\.map/);
+      assert.match(workoutsScreenSource, /snapToInterval=\{196\}/);
+      assert.match(workoutsScreenSource, /readyTemplateFilterChip:\s*\{[\s\S]*width: 180/);
       assert.match(workoutsScreenSource, /Popular Programs/);
       assert.match(workoutsScreenSource, /readyTemplateCard/);
       assert.match(workoutsScreenSource, /width: '48%'/);
       assert.match(workoutsScreenSource, /readyTemplateHero/);
+      assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);
       assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
       assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#1D1C35' : emptyWorkoutActive \|\| readyTemplatesActive \? '#F7F3FF' : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /title="Programs"/);
