@@ -1,5 +1,6 @@
 import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
+import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
@@ -700,6 +701,7 @@ function GymlogApp() {
   });
   const [minimumSplashElapsed, setMinimumSplashElapsed] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
+  const [fontsLoaded, setFontsLoaded] = useState(false);
 
   const exerciseBrowserItems = useMemo(
     () => exerciseLibrary.filter((item) => !item.id.startsWith('lib_')),
@@ -726,7 +728,29 @@ function GymlogApp() {
   }, []);
 
   useEffect(() => {
-    if (nativeSplashHidden || !appHydrated) {
+    let cancelled = false;
+
+    async function loadFonts() {
+      await Font.loadAsync({
+        Inter: require('./assets/fonts/Inter.ttf'),
+      }).catch(() => {
+        // Keep the app usable if font loading fails in a dev host.
+      });
+
+      if (!cancelled) {
+        setFontsLoaded(true);
+      }
+    }
+
+    void loadFonts();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (nativeSplashHidden || !appHydrated || !fontsLoaded) {
       return;
     }
 
@@ -751,7 +775,7 @@ function GymlogApp() {
     return () => {
       cancelled = true;
     };
-  }, [appHydrated, minimumSplashElapsed, nativeSplashHidden]);
+  }, [appHydrated, fontsLoaded, minimumSplashElapsed, nativeSplashHidden]);
 
   function navigate(nextRoute: AppRoute) {
     startTransition(() =>
@@ -2569,6 +2593,9 @@ function GymlogApp() {
         onBack={() => navigateBack(ROOT_ROUTES.progress)}
         plateaus={aiCoachTrainingContext.plateaus}
         fatigue={aiCoachTrainingContext.fatigue}
+        recentSessions={homeRecentSessions}
+        onOpenSessionHistory={() => navigate({ tab: 'home', screen: 'history' })}
+        onOpenRecentSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );
   } else if (route.tab === 'home' && route.screen === 'ai') {
@@ -2793,27 +2820,10 @@ function GymlogApp() {
   } else {
     content = (
       <HomeScreen
-        hasNoProgramState={!hasSavedTrainingSetup}
-        profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
-        hasActiveWorkout={Boolean(workout.activeSession)}
         streak={homeSummary.streak}
-        quickStats={homeQuickStats}
-        weeklySnapshot={weeklySnapshot}
-        upcomingSessions={homeUpcomingSessions}
-        recentSessions={homeRecentSessions}
         customTemplates={customWorkouts}
         readyTemplateCount={readyTemplateCount}
-        onOpenActivePlan={() => {
-          if (homeActivePlanCard) {
-            if (homeActivePlanCard.programType === 'custom') {
-              handleOpenCustomProgramDetail(homeActivePlanCard.programId);
-              return;
-            }
-
-            handleOpenReadyProgramDetail(homeActivePlanCard.programId);
-          }
-        }}
         onStartActivePlanSession={(sessionId) => {
           if (!homeActivePlanCard) {
             return;
@@ -2827,15 +2837,8 @@ function GymlogApp() {
           handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
         }}
         onOpenTemplatesHub={() => navigate(WORKOUT_PLAN_ROUTE)}
-        onOpenCustomTemplate={handleOpenCustomProgramDetail}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
-        onCreateTemplate={() => navigate({ tab: 'workout', screen: 'template' })}
         onBrowseReadyPlans={() => navigate(WORKOUT_PLAN_ROUTE)}
-        onOpenProgressOverview={() => navigate({ tab: 'progress', screen: 'list', section: 'overview' })}
-        onOpenTrackedProgress={() => navigate({ tab: 'progress', screen: 'list', section: 'tracked' })}
-        onOpenBodyStats={() => navigate({ tab: 'progress', screen: 'list', section: 'measures' })}
-        onOpenSessionHistory={() => navigate({ tab: 'home', screen: 'history' })}
-        onOpenRecentSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );
   }

@@ -1,20 +1,18 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ExerciseInfoSheet } from '../components/ExerciseInfoSheet';
 import { InlineTip } from '../components/InlineTip';
-import { ScreenHeader } from '../components/ScreenHeader';
 import { WorkoutExerciseCard } from '../components/WorkoutExerciseCard';
-import { WorkoutQueueItem } from '../components/WorkoutQueueItem';
-import { WorkoutSummaryBar } from '../components/WorkoutSummaryBar';
 import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation } from '../lib/adaptiveCoach';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
 import { buildTailoredSwapOptions, buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { formatWorkoutExerciseQueueMeta, getWorkoutFlowPhase } from '../lib/workoutFlow';
+import { formatWorkoutExerciseQueueMeta } from '../lib/workoutFlow';
 import { getActiveSetAutoFocusTarget } from '../lib/workoutLoggingFocus';
 import { getWorkoutLoggingSessionBootstrapResult } from '../lib/workoutLoggingSessionBootstrap';
-import { colors, radii, spacing } from '../theme';
+import { formatVolume } from '../lib/format';
+import { colors, radii, spacing, typography } from '../theme';
 import { BadgePill, SurfaceAccent } from '../components/MainScreenPrimitives';
 import { ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_SUBSTITUTION_GROUPS, getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -76,7 +74,6 @@ const LOGGER_FIRST_SET_GUIDE_TIP_ID = 'workout_logger_first_set';
 const LOGGER_EFFORT_GUIDE_TIP_ID = 'workout_logger_effort';
 const LOGGING_BACKGROUND = '#F7F3FF';
 const LOGGING_PURPLE = '#7C3AED';
-const LOGGING_GREEN = '#16A34A';
 const EFFORT_OPTIONS: { value: WorkoutSetEffort; label: string }[] = [
   { value: 'easy', label: 'Easy' },
   { value: 'good', label: 'Good' },
@@ -204,7 +201,7 @@ function formatEffortSignal(effort: WorkoutSetEffort) {
   return 'Hard';
 }
 
-function formatActiveWorkoutSubtitle(templateName: string) {
+function getActiveWorkoutDisplayName(templateName: string) {
   if (/Minimal A$/i.test(templateName)) {
     return 'Day 1. Full Body';
   }
@@ -213,8 +210,101 @@ function formatActiveWorkoutSubtitle(templateName: string) {
     return 'Day 2. Full Body';
   }
 
-  return templateName;
+  if (/push\s*a/i.test(templateName)) {
+    return 'Push A';
+  }
+
+  if (/push\s*b/i.test(templateName)) {
+    return 'Push B';
+  }
+
+  if (/pull\s*a/i.test(templateName)) {
+    return 'Pull A';
+  }
+
+  if (/pull\s*b/i.test(templateName)) {
+    return 'Pull B';
+  }
+
+  if (/legs?\s*a/i.test(templateName)) {
+    return 'Legs A';
+  }
+
+  if (/legs?\s*b/i.test(templateName)) {
+    return 'Legs B';
+  }
+
+  const compactName = templateName
+    .replace(/^my\s+/i, '')
+    .replace(/^\d+[-\s]?day\s+/i, '')
+    .replace(/\bworkout\b/gi, '')
+    .replace(/\bhamstrings\b/gi, 'Hams')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  return compactName || templateName;
 }
+
+function formatLoggerClock(totalSeconds: number) {
+  const safeSeconds = Math.max(0, Math.round(totalSeconds));
+  const minutes = Math.floor(safeSeconds / 60);
+  const seconds = safeSeconds % 60;
+
+  return `${minutes}:${`${seconds}`.padStart(2, '0')}`;
+}
+
+function formatExercisePrescription(exercise: WorkoutExerciseInstance) {
+  const firstSet = exercise.sets[0] ?? null;
+  const setCount = Math.max(1, exercise.sets.length);
+
+  if (!firstSet) {
+    return `${setCount} sets`;
+  }
+
+  return `${setCount} x ${firstSet.plannedRepsMin}-${firstSet.plannedRepsMax}`;
+}
+
+function getExerciseCompletionMeta(exercise: WorkoutExerciseInstance) {
+  const completedSets = exercise.sets.filter((set) => set.status === 'completed').length;
+  const totalSets = Math.max(1, exercise.sets.length);
+
+  return `${completedSets}/${totalSets} sets`;
+}
+
+function formatRestLoggedSummary(
+  activeSession: ReturnType<typeof useWorkoutContext>['activeSession'],
+  target: EffortPromptTarget | null,
+  unitPreference: UnitPreference,
+) {
+  if (!activeSession || !target) {
+    return 'Set logged';
+  }
+
+  const exercise = activeSession.exercises.find((item) => item.slotId === target.slotId);
+  const set = exercise?.sets.find((item) => item.setIndex === target.setIndex);
+
+  if (!set) {
+    return `Set ${target.setNumber} logged`;
+  }
+
+  const loadText = typeof set.actualLoadKg === 'number' ? `${set.actualLoadKg} ${unitPreference}` : null;
+  const repsText = typeof set.actualReps === 'number' ? `${set.actualReps}` : null;
+  const detailText = loadText && repsText ? ` - ${loadText} x ${repsText}` : '';
+
+  return `Set ${target.setNumber} logged${detailText}`;
+}
+
+const WARMUP_FLOW_ITEMS = [
+  { label: 'Shoulder circles', meta: '1 min - controlled range' },
+  { label: 'Scapular push-up', meta: '2 x 8 slow reps' },
+  { label: 'Band pull-apart', meta: '2 x 12 light tension' },
+];
+
+const COOLDOWN_FLOW_ITEMS = [
+  { label: 'Doorway chest stretch', meta: '60 sec each side' },
+  { label: 'Overhead triceps stretch', meta: '45 sec each side' },
+  { label: 'Slow breathing reset', meta: '2 min nasal breathing' },
+];
 
 export function WorkoutLoggingScreen({
   sessionKey,
@@ -249,6 +339,8 @@ export function WorkoutLoggingScreen({
     resumeRestTimer,
     overrideRestTimer,
     setActiveExercise,
+    expandExercise,
+    collapseExercise,
     insertExerciseAfter,
     updateSetDraft,
     completeSet,
@@ -268,6 +360,7 @@ export function WorkoutLoggingScreen({
   const previousCompletedSetsRef = useRef<number | null>(null);
   const previousActiveSlotIdRef = useRef<string | null>(null);
   const autoDismissedFirstGuideSessionRef = useRef<string | null>(null);
+  const restProgressValue = useRef(new Animated.Value(0)).current;
 
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [showMoreActions, setShowMoreActions] = useState(false);
@@ -278,6 +371,9 @@ export function WorkoutLoggingScreen({
   const [finishReviewVisible, setFinishReviewVisible] = useState(false);
   const [skippedEffortKeys, setSkippedEffortKeys] = useState<string[]>([]);
   const [postEffortTransition, setPostEffortTransition] = useState<PostEffortTransitionState | null>(null);
+  const [collapsedExerciseSlotIds, setCollapsedExerciseSlotIds] = useState<string[]>([]);
+  const [warmupExpanded, setWarmupExpanded] = useState(false);
+  const [cooldownExpanded, setCooldownExpanded] = useState(false);
   const bootstrappedTargetKeyRef = useRef<string | null>(null);
 
   const bootstrapTargetKey = customTemplate ? `custom:${customTemplate.id}` : `template:${sessionKey}`;
@@ -315,6 +411,9 @@ export function WorkoutLoggingScreen({
     activeSession?.restTimer.durationSeconds ?? 0,
     state.nowMs,
   );
+  const animatedRestDurationSeconds = Math.max(1, activeSession?.restTimer.durationSeconds || defaultRestSeconds);
+  const animatedRestProgressRatio =
+    typeof remainingSeconds === 'number' ? Math.max(0, Math.min(1, 1 - remainingSeconds / animatedRestDurationSeconds)) : 0;
 
   const libraryIdByName = useMemo(
     () => new Map(exerciseLibrary.map((item) => [normalizeName(item.name), item.id] as const)),
@@ -363,22 +462,7 @@ export function WorkoutLoggingScreen({
     [activeSession?.exercises],
   );
   const nextExercise = useMemo(() => selectNextExercise(activeSession), [activeSession]);
-  const incompleteQueueExercises = useMemo(
-    () =>
-      activeSession?.exercises.filter(
-        (exercise) => exercise.slotId !== activeSlotId && exercise.status !== 'completed' && exercise.status !== 'skipped',
-      ) ?? [],
-    [activeSession?.exercises, activeSlotId],
-  );
-  const nextUpExercise = nextExercise ?? incompleteQueueExercises[0] ?? null;
-  const nextUpIndex = nextUpExercise
-    ? activeSession?.exercises.findIndex((exercise) => exercise.slotId === nextUpExercise.slotId) ?? -1
-    : -1;
-  const laterQueueExercises = useMemo(
-    () =>
-      incompleteQueueExercises.filter((exercise) => exercise.slotId !== (nextUpExercise?.slotId ?? null)),
-    [incompleteQueueExercises, nextUpExercise?.slotId],
-  );
+  const nextUpExercise = nextExercise;
   const latestEffortTarget = useMemo(() => getLatestCompletedSetWithoutEffort(activeSession), [activeSession]);
   const overlaySurfaceOpen =
     showAddExercise ||
@@ -394,13 +478,11 @@ export function WorkoutLoggingScreen({
     !overlaySurfaceOpen;
   const activeEffortPrompt =
     latestEffortTarget && !skippedEffortKeys.includes(latestEffortTarget.key) ? latestEffortTarget : null;
-  const showEffortPrompt = Boolean(activeEffortPrompt) && !overlaySurfaceOpen;
   const showRestTransition =
     Boolean(postEffortTransition) &&
-    !showEffortPrompt &&
     !overlaySurfaceOpen;
   const showGenericInlineTip =
-    Boolean(inlineTip) && !isFirstSession && !showFirstSessionCoach && !showEffortPrompt && !showRestTransition;
+    Boolean(inlineTip) && !isFirstSession && !showFirstSessionCoach && !showRestTransition;
 
   useEffect(() => {
     if (!activeSlotId) {
@@ -474,6 +556,9 @@ export function WorkoutLoggingScreen({
     autoDismissedFirstGuideSessionRef.current = null;
     setPostEffortTransition(null);
     setExerciseInfoSlotId(null);
+    setCollapsedExerciseSlotIds([]);
+    setWarmupExpanded(false);
+    setCooldownExpanded(false);
   }, [activeSession?.sessionId]);
 
   useEffect(() => {
@@ -497,18 +582,18 @@ export function WorkoutLoggingScreen({
     void onDismissTip(LOGGER_FIRST_SET_GUIDE_TIP_ID);
   }, [activeSession?.sessionId, completedSets, dismissedTipIds, onDismissTip]);
 
+  useEffect(() => {
+    Animated.timing(restProgressValue, {
+      toValue: animatedRestProgressRatio,
+      duration: 650,
+      useNativeDriver: true,
+    }).start();
+  }, [animatedRestProgressRatio, restProgressValue]);
+
   if (!hydrated || isRestoring || !activeSession) {
     return (
       <View style={styles.loading}>
         <Text style={styles.loadingText}>Loading workout...</Text>
-      </View>
-    );
-  }
-
-  if (isSavingWorkout) {
-    return (
-      <View style={styles.loading}>
-        <Text style={styles.loadingText}>Saving workout...</Text>
       </View>
     );
   }
@@ -524,7 +609,27 @@ export function WorkoutLoggingScreen({
   function handleOpenExercise(exercise: WorkoutExerciseInstance, setIndex?: number) {
     Keyboard.dismiss();
     setPostEffortTransition(null);
+    setCollapsedExerciseSlotIds((current) => current.filter((slotId) => slotId !== exercise.slotId));
+    expandExercise(exercise.slotId);
     setActiveExercise(exercise.slotId, typeof setIndex === 'number' ? setIndex : findFirstPendingSetIndex(exercise));
+  }
+
+  function handleToggleExercise(exercise: WorkoutExerciseInstance) {
+    Keyboard.dismiss();
+    setPostEffortTransition(null);
+
+    const isOpen = activeSlotId === exercise.slotId && !collapsedExerciseSlotIds.includes(exercise.slotId);
+    if (isOpen) {
+      setCollapsedExerciseSlotIds((current) =>
+        current.includes(exercise.slotId) ? current : [...current, exercise.slotId],
+      );
+      collapseExercise(exercise.slotId);
+      return;
+    }
+
+    setCollapsedExerciseSlotIds((current) => current.filter((slotId) => slotId !== exercise.slotId));
+    expandExercise(exercise.slotId);
+    setActiveExercise(exercise.slotId, findFirstPendingSetIndex(exercise));
   }
 
   function handleWeightSubmit(exercise: WorkoutExerciseInstance, rowIndex: number) {
@@ -652,67 +757,82 @@ export function WorkoutLoggingScreen({
     1,
     Math.round((new Date().getTime() - new Date(activeSession.startedAt).getTime()) / 60000) || 1,
   );
+  const workoutExerciseRows = activeSession.exercises;
+  const restingVisible = typeof remainingSeconds === 'number';
+  const restDurationSeconds = Math.max(1, activeSession.restTimer.durationSeconds || defaultRestSeconds);
+  const restLoggedSummary = formatRestLoggedSummary(activeSession, activeEffortPrompt, unitPreference);
+  const restOrbitRotation = restProgressValue.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
+  const elapsedText = formatLoggerClock(activeSession.elapsedSeconds);
+  const volumeText = formatVolume(totalVolume, unitPreference);
+  const elapsedIsLong = elapsedText.length >= 7;
+  const volumeIsLong = volumeText.length >= 7;
+
+  if (restingVisible) {
+    return (
+      <View style={styles.fullRestTimerScreen}>
+        <View style={styles.fullRestTimerTop}>
+          <View style={styles.fullRestTimerTitleBlock}>
+            <Text style={styles.fullRestTimerWorkoutName}>{getActiveWorkoutDisplayName(activeSession.templateName)}</Text>
+            <Text style={styles.fullRestTimerLoggedText} numberOfLines={1}>
+              {restLoggedSummary}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.fullRestTimerCenter}>
+          <View style={styles.fullRestTimerRing}>
+            <Animated.View style={[styles.fullRestTimerOrbit, { transform: [{ rotate: restOrbitRotation }] }]}>
+              <View style={styles.fullRestTimerOrbitDot} />
+            </Animated.View>
+            <Text style={styles.fullRestTimerKicker}>REST</Text>
+            <Text style={styles.fullRestTimerValue}>{formatLoggerClock(remainingSeconds)}</Text>
+            <Text style={styles.fullRestTimerTotal}>of {formatLoggerClock(restDurationSeconds)} rest</Text>
+          </View>
+        </View>
+
+        <View style={styles.fullRestTimerBottom}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Skip rest and start next set" onPress={clearRestTimer} style={styles.fullRestTimerSkipButton}>
+            <Text style={styles.fullRestTimerSkipText}>Skip Rest</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.screen}>
-      <ScreenHeader
-        title="Active Workout"
-        subtitle={formatActiveWorkoutSubtitle(activeSession.templateName)}
-        onBack={onBack}
-        rightActionLabel="Finish"
-        onRightActionPress={() => {
-          Keyboard.dismiss();
-          setFinishReviewVisible(true);
-        }}
-        tone="dark"
-      />
-
-      <WorkoutSummaryBar
-        elapsedSeconds={activeSession.elapsedSeconds}
-        completedSets={completedSets}
-        totalVolume={totalVolume}
-        unitPreference={unitPreference}
-        restSecondsRemaining={remainingSeconds}
-        restPaused={restTimerPaused}
-        onDismissRest={clearRestTimer}
-        onPauseRest={restTimerStatus === 'running' ? pauseRestTimer : undefined}
-        onResumeRest={restTimerPaused ? resumeRestTimer : undefined}
-      />
-
-      {showEffortPrompt && activeEffortPrompt ? (
-        <View style={styles.inlineTipWrap}>
-          <View style={[styles.coachCard, styles.coachCardEffort]}>
-            <Text style={styles.coachKicker}>Quick effort check</Text>
-            <Text style={styles.coachTitle}>How was that?</Text>
-            <Text style={styles.coachBody} numberOfLines={2}>
-              {activeEffortPrompt.exerciseName} | Set {activeEffortPrompt.setNumber}
-            </Text>
-            {!dismissedTipIds.includes(LOGGER_EFFORT_GUIDE_TIP_ID) ? (
-              <Text style={styles.coachSupport}>Quick signal for the next week.</Text>
-            ) : null}
-            <View style={styles.effortOptionsRow}>
-              {EFFORT_OPTIONS.map((option) => (
-                <Pressable
-                  key={option.value}
-                  onPress={() => handleRecordEffort(option.value)}
-                  hitSlop={8}
-                  style={[
-                    styles.effortOptionButton,
-                    option.value === 'easy' && styles.effortOptionButtonEasy,
-                    option.value === 'good' && styles.effortOptionButtonGood,
-                    option.value === 'hard' && styles.effortOptionButtonHard,
-                  ]}
-                >
-                  <Text style={styles.effortOptionText}>{option.label}</Text>
-                </Pressable>
-              ))}
-            </View>
-            <Pressable hitSlop={8} onPress={handleSkipEffortPrompt} style={styles.effortSkipButton}>
-              <Text style={styles.effortSkipText}>Skip for now</Text>
-            </Pressable>
-          </View>
+      <View style={styles.activeWorkoutHeader}>
+        <View style={styles.activeWorkoutTitleBlock}>
+          <Text style={styles.activeWorkoutKicker}>ACTIVE WORKOUT</Text>
+          <Text style={styles.activeWorkoutTitle} numberOfLines={1}>
+            {getActiveWorkoutDisplayName(activeSession.templateName)}
+          </Text>
         </View>
-      ) : null}
+      </View>
+
+      <View style={styles.liveStatsCard}>
+        <View style={[styles.liveStat, styles.liveStatDuration]}>
+          <Text style={[styles.liveStatValue, elapsedIsLong && styles.liveStatValueLong]} numberOfLines={1}>
+            {elapsedText}
+          </Text>
+          <Text style={styles.liveStatLabel}>Duration</Text>
+        </View>
+        <View style={styles.liveStatDivider} />
+        <View style={[styles.liveStat, styles.liveStatSets]}>
+          <Text style={styles.liveStatValue} numberOfLines={1}>{completedSets}</Text>
+          <Text style={styles.liveStatLabel}>Sets</Text>
+        </View>
+        <View style={styles.liveStatDivider} />
+        <View style={[styles.liveStat, styles.liveStatVolume]}>
+          <Text style={[styles.liveStatValue, volumeIsLong && styles.liveStatValueLong]} numberOfLines={1}>
+            {volumeText}
+          </Text>
+          <Text style={styles.liveStatLabel}>Volume</Text>
+        </View>
+      </View>
 
       {showRestTransition && postEffortTransition ? (
         <View style={styles.inlineTipWrap}>
@@ -845,39 +965,137 @@ export function WorkoutLoggingScreen({
         keyboardDismissMode="on-drag"
       >
         <View style={styles.exerciseList}>
-          {activeExercise ? (
-            <WorkoutExerciseCard
-              key={activeExercise.slotId}
-              exercise={activeExercise}
-              previousEntries={previousEntriesBySlot[activeExercise.slotId]}
-              unitPreference={unitPreference}
-              activeSetIndex={activeSession.ui.activeSetIndex}
-              isActiveExercise
-              onLayout={(event) => {
-                exerciseOffsets.current[activeExercise.slotId] = event.nativeEvent.layout.y;
-              }}
-              onActivateExercise={() => handleOpenExercise(activeExercise)}
-              onActivateRow={(rowIndex) => handleOpenExercise(activeExercise, rowIndex)}
-              onWeightChange={(rowIndex, value) => updateSetDraft(activeExercise.slotId, rowIndex, { loadText: value })}
-              onRepsChange={(rowIndex, value) => updateSetDraft(activeExercise.slotId, rowIndex, { repsText: value })}
-              onCompleteRow={(rowIndex) => {
-                Keyboard.dismiss();
-                completeSet(activeExercise.slotId, rowIndex, unitPreference);
-              }}
-              onUndoRow={(rowIndex) => undoSet(activeExercise.slotId, rowIndex)}
-              onRepeatLastSet={(rowIndex) => {
-                Keyboard.dismiss();
-                repeatLastSet(activeExercise.slotId, rowIndex, unitPreference);
-              }}
-              onAddSet={() => {
-                Keyboard.dismiss();
-                addSet(activeExercise.slotId);
-              }}
-              bindWeightInput={(rowIndex, input) => bindWeightInput(activeExercise.slotId, rowIndex, input)}
-              bindRepsInput={(rowIndex, input) => bindRepsInput(activeExercise.slotId, rowIndex, input)}
-              onWeightSubmit={(rowIndex) => handleWeightSubmit(activeExercise, rowIndex)}
-              onRepsSubmit={(rowIndex) => handleRepsSubmit(activeExercise, rowIndex)}
-            />
+          <Pressable onPress={() => setWarmupExpanded((current) => !current)} style={styles.sessionQueueRow}>
+            <View style={[styles.sessionQueueBadge, styles.sessionWarmupBadge]}>
+              <Text style={styles.sessionWarmupText}>WU</Text>
+            </View>
+            <View style={styles.sessionQueueCopy}>
+              <View style={styles.sessionQueueTitleRow}>
+                <Text style={styles.sessionQueueTitle}>Warm-up</Text>
+              </View>
+              <Text style={styles.sessionQueueMeta}>5 min - Mobility + activation</Text>
+            </View>
+          </Pressable>
+          {warmupExpanded ? (
+            <View style={styles.sessionFlowDetails}>
+              {WARMUP_FLOW_ITEMS.map((item, itemIndex) => (
+                <View key={item.label} style={styles.sessionFlowStep}>
+                  <View style={styles.sessionFlowStepBadge}>
+                    <Text style={styles.sessionFlowStepBadgeText}>{itemIndex + 1}</Text>
+                  </View>
+                  <View style={styles.sessionQueueCopy}>
+                    <Text style={styles.sessionFlowStepTitle}>{item.label}</Text>
+                    <Text style={styles.sessionFlowStepMeta}>{item.meta}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {workoutExerciseRows.map((exercise, exerciseIndex) => {
+            const isActiveRow = exercise.slotId === activeSlotId;
+            const isExpandedRow = isActiveRow && !collapsedExerciseSlotIds.includes(exercise.slotId);
+            const isNextRow = exercise.slotId === nextUpExercise?.slotId;
+
+            if (isExpandedRow) {
+              return (
+                <WorkoutExerciseCard
+                  key={exercise.slotId}
+                  exercise={exercise}
+                  previousEntries={previousEntriesBySlot[exercise.slotId]}
+                  unitPreference={unitPreference}
+                  activeSetIndex={activeSession.ui.activeSetIndex}
+                  isActiveExercise
+                  onLayout={(event) => {
+                    exerciseOffsets.current[exercise.slotId] = event.nativeEvent.layout.y;
+                  }}
+                  onActivateExercise={() => handleToggleExercise(exercise)}
+                  onActivateRow={(rowIndex) => handleOpenExercise(exercise, rowIndex)}
+                  onWeightChange={(rowIndex, value) => updateSetDraft(exercise.slotId, rowIndex, { loadText: value })}
+                  onRepsChange={(rowIndex, value) => updateSetDraft(exercise.slotId, rowIndex, { repsText: value })}
+                  onCompleteRow={(rowIndex) => {
+                    Keyboard.dismiss();
+                    completeSet(exercise.slotId, rowIndex, unitPreference);
+                  }}
+                  onUndoRow={(rowIndex) => undoSet(exercise.slotId, rowIndex)}
+                  onRepeatLastSet={(rowIndex) => {
+                    Keyboard.dismiss();
+                    repeatLastSet(exercise.slotId, rowIndex, unitPreference);
+                  }}
+                  onAddSet={() => {
+                    Keyboard.dismiss();
+                    addSet(exercise.slotId);
+                  }}
+                  bindWeightInput={(rowIndex, input) => bindWeightInput(exercise.slotId, rowIndex, input)}
+                  bindRepsInput={(rowIndex, input) => bindRepsInput(exercise.slotId, rowIndex, input)}
+                  onWeightSubmit={(rowIndex) => handleWeightSubmit(exercise, rowIndex)}
+                  onRepsSubmit={(rowIndex) => handleRepsSubmit(exercise, rowIndex)}
+                />
+              );
+            }
+
+            const completed = exercise.status === 'completed' || exercise.status === 'skipped';
+            const started = exercise.sets.some((set) => set.status === 'completed');
+
+            return (
+              <Pressable
+                key={exercise.slotId}
+                onPress={() => handleToggleExercise(exercise)}
+                style={[styles.sessionQueueRow, completed && styles.sessionExerciseDoneRow]}
+              >
+                <View style={[styles.sessionQueueBadge, completed && styles.sessionQueueBadgeDone]}>
+                  <Text style={[styles.sessionQueueBadgeText, completed && styles.sessionQueueBadgeTextDone]}>{exerciseIndex + 1}</Text>
+                </View>
+                <View style={styles.sessionQueueCopy}>
+                  <View style={styles.sessionQueueTitleRow}>
+                    <Text style={styles.sessionQueueTitle} numberOfLines={1}>{exercise.exerciseName}</Text>
+                    {isNextRow ? (
+                      <View style={styles.sessionNextChip}>
+                        <Text style={styles.sessionNextChipText}>NEXT</Text>
+                      </View>
+                    ) : null}
+                    {started && !completed ? (
+                      <View style={styles.sessionLaterChip}>
+                        <Text style={styles.sessionLaterChipText}>{getExerciseCompletionMeta(exercise)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.sessionQueueMeta}>
+                    {completed || started ? getExerciseCompletionMeta(exercise) : formatExercisePrescription(exercise)}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+
+          <Pressable onPress={() => setCooldownExpanded((current) => !current)} style={[styles.sessionQueueRow, styles.cooldownRow]}>
+            <View style={styles.sessionQueueBadge}>
+              <Text style={styles.sessionCooldownIcon}>CD</Text>
+            </View>
+            <View style={styles.sessionQueueCopy}>
+              <View style={styles.sessionQueueTitleRow}>
+                <Text style={styles.sessionQueueTitle}>Cool-down</Text>
+                <View style={styles.sessionLaterChip}>
+                  <Text style={styles.sessionLaterChipText}>LATER</Text>
+                </View>
+              </View>
+              <Text style={styles.sessionQueueMeta}>5 min - Stretch & breathe</Text>
+            </View>
+          </Pressable>
+          {cooldownExpanded ? (
+            <View style={styles.sessionFlowDetails}>
+              {COOLDOWN_FLOW_ITEMS.map((item, itemIndex) => (
+                <View key={item.label} style={styles.sessionFlowStep}>
+                  <View style={styles.sessionFlowStepBadge}>
+                    <Text style={styles.sessionFlowStepBadgeText}>{itemIndex + 1}</Text>
+                  </View>
+                  <View style={styles.sessionQueueCopy}>
+                    <Text style={styles.sessionFlowStepTitle}>{item.label}</Text>
+                    <Text style={styles.sessionFlowStepMeta}>{item.meta}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
           ) : null}
 
           <Pressable
@@ -887,52 +1105,8 @@ export function WorkoutLoggingScreen({
             }}
             style={styles.addExerciseButton}
           >
-            <Text style={styles.addExerciseButtonText}>+ Add Exercise</Text>
+            <Text style={styles.addExerciseButtonText}>+ Add exercise</Text>
           </Pressable>
-
-          {nextUpExercise ? (
-            <View style={styles.queueSection}>
-              <View style={styles.queueSectionHeader}>
-                <Text style={styles.queueSectionTitle}>Next up</Text>
-                <Text style={styles.queueSectionMeta}>
-                  {nextUpIndex >= 0 ? `Move ${nextUpIndex + 1}` : 'Tap to open'}
-                </Text>
-              </View>
-              <WorkoutQueueItem
-                exercise={nextUpExercise}
-                phase={getWorkoutFlowPhase(activeSession.exercises, nextUpExercise.slotId)}
-                summary={formatWorkoutExerciseQueueMeta(nextUpExercise)}
-                positionLabel={nextUpIndex >= 0 ? `Move ${nextUpIndex + 1}` : 'Queued'}
-                isNextUp
-                onPress={() => handleOpenExercise(nextUpExercise)}
-              />
-            </View>
-          ) : null}
-
-          {laterQueueExercises.length > 0 ? (
-            <View style={styles.queueSection}>
-              <View style={styles.queueSectionHeader}>
-                <Text style={styles.queueSectionTitle}>Later in workout</Text>
-                <Text style={styles.queueSectionMeta}>{pluralize(laterQueueExercises.length, 'move')} queued</Text>
-              </View>
-              <View style={styles.queueList}>
-                {laterQueueExercises.map((exercise) => (
-                  <WorkoutQueueItem
-                    key={exercise.slotId}
-                    exercise={exercise}
-                    phase={getWorkoutFlowPhase(activeSession.exercises, exercise.slotId)}
-                    summary={formatWorkoutExerciseQueueMeta(exercise)}
-                    positionLabel={
-                      activeSession.exercises.findIndex((item) => item.slotId === exercise.slotId) >= 0
-                        ? `Move ${activeSession.exercises.findIndex((item) => item.slotId === exercise.slotId) + 1}`
-                        : 'Queued'
-                    }
-                    onPress={() => handleOpenExercise(exercise)}
-                  />
-                ))}
-              </View>
-            </View>
-          ) : null}
         </View>
       </ScrollView>
 
@@ -944,7 +1118,7 @@ export function WorkoutLoggingScreen({
           }}
           style={styles.finishWorkoutButton}
         >
-          <Text style={styles.finishWorkoutButtonText}>Finish Workout</Text>
+          <Text style={styles.finishWorkoutButtonText}>Finish workout</Text>
         </Pressable>
       </View>
 
@@ -1193,6 +1367,7 @@ const styles = StyleSheet.create({
     backgroundColor: LOGGING_BACKGROUND,
   },
   loadingText: {
+    fontFamily: typography.fontFamily,
     color: '#111827',
     fontSize: 16,
     fontWeight: '700',
@@ -1201,9 +1376,194 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: LOGGING_BACKGROUND,
   },
+  fullRestTimerScreen: {
+    flex: 1,
+    backgroundColor: '#4C1D95',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
+  fullRestTimerTop: {
+    minHeight: 86,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+  },
+  fullRestTimerTitleBlock: {
+    alignItems: 'center',
+    paddingTop: 6,
+  },
+  fullRestTimerWorkoutName: {
+    fontFamily: typography.fontFamily,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '900',
+    letterSpacing: 1.4,
+    textTransform: 'uppercase',
+  },
+  fullRestTimerLoggedText: {
+    fontFamily: typography.fontFamily,
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '900',
+  },
+  fullRestTimerCenter: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullRestTimerRing: {
+    width: 274,
+    height: 274,
+    borderRadius: 137,
+    borderWidth: 13,
+    borderColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fullRestTimerOrbit: {
+    position: 'absolute',
+    width: 274,
+    height: 274,
+    borderRadius: 137,
+    alignItems: 'center',
+  },
+  fullRestTimerOrbitDot: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    marginTop: -1,
+  },
+  fullRestTimerKicker: {
+    fontFamily: typography.fontFamily,
+    color: 'rgba(255,255,255,0.72)',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '900',
+    letterSpacing: 2.4,
+  },
+  fullRestTimerValue: {
+    fontFamily: typography.fontFamily,
+    color: '#FFFFFF',
+    fontSize: 66,
+    lineHeight: 76,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  fullRestTimerTotal: {
+    fontFamily: typography.fontFamily,
+    color: 'rgba(255,255,255,0.66)',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  fullRestTimerBottom: {
+    gap: 0,
+  },
+  fullRestTimerSkipButton: {
+    minHeight: 58,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  fullRestTimerSkipText: {
+    fontFamily: typography.fontFamily,
+    color: '#5B21B6',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '900',
+  },
+  activeWorkoutHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.sm,
+  },
+  activeWorkoutTitleBlock: {
+    flex: 1,
+    gap: 3,
+  },
+  activeWorkoutKicker: {
+    fontFamily: typography.fontFamily,
+    color: LOGGING_PURPLE,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '900',
+    letterSpacing: 1.6,
+  },
+  activeWorkoutTitle: {
+    fontFamily: typography.fontFamily,
+    color: '#111827',
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '800',
+  },
+  liveStatsCard: {
+    minHeight: 88,
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    marginBottom: spacing.lg,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E4D8FF',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  liveStat: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 2,
+    minWidth: 0,
+  },
+  liveStatDuration: {
+    flex: 1.35,
+  },
+  liveStatSets: {
+    flex: 0.58,
+  },
+  liveStatVolume: {
+    flex: 0.92,
+  },
+  liveStatDivider: {
+    width: 1,
+    height: 54,
+    backgroundColor: '#E4D8FF',
+  },
+  liveStatValue: {
+    fontFamily: typography.fontFamily,
+    color: '#111827',
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+    maxWidth: '100%',
+    textAlign: 'center',
+  },
+  liveStatValueLong: {
+    fontSize: 18,
+    lineHeight: 24,
+  },
+  liveStatLabel: {
+    fontFamily: typography.fontFamily,
+    color: '#8D7FA9',
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.2,
+    textAlign: 'center',
+  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: 124,
+    paddingTop: spacing.sm,
   },
   inlineTipWrap: {
     paddingHorizontal: spacing.lg,
@@ -1581,6 +1941,162 @@ const styles = StyleSheet.create({
   exerciseList: {
     gap: spacing.md,
   },
+  sessionQueueRow: {
+    minHeight: 74,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.24)',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 12,
+  },
+  sessionExerciseDoneRow: {
+    borderColor: 'rgba(124, 58, 237, 0.38)',
+    backgroundColor: '#F4ECFF',
+  },
+  sessionQueueBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#F3ECFF',
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionWarmupBadge: {
+    backgroundColor: '#F3ECFF',
+  },
+  sessionWarmupText: {
+    fontFamily: typography.fontFamily,
+    color: LOGGING_PURPLE,
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.3,
+  },
+  sessionQueueBadgeDone: {
+    backgroundColor: LOGGING_PURPLE,
+    borderColor: 'rgba(124, 58, 237, 0.34)',
+  },
+  sessionQueueBadgeText: {
+    fontFamily: typography.fontFamily,
+    color: LOGGING_PURPLE,
+    fontSize: 14,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  sessionCooldownIcon: {
+    fontFamily: typography.fontFamily,
+    color: LOGGING_PURPLE,
+    fontSize: 17,
+    fontWeight: '900',
+  },
+  sessionQueueCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  sessionQueueTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sessionQueueTitle: {
+    fontFamily: typography.fontFamily,
+    color: '#111827',
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '900',
+  },
+  sessionQueueMeta: {
+    fontFamily: typography.fontFamily,
+    color: '#667085',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  sessionQueueBadgeTextDone: {
+    color: '#FFFFFF',
+  },
+  sessionNextChip: {
+    minHeight: 20,
+    paddingHorizontal: 7,
+    borderRadius: radii.pill,
+    backgroundColor: LOGGING_PURPLE,
+    justifyContent: 'center',
+  },
+  sessionNextChipText: {
+    fontFamily: typography.fontFamily,
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
+  sessionLaterChip: {
+    minHeight: 20,
+    paddingHorizontal: 7,
+    borderRadius: radii.pill,
+    backgroundColor: '#F3ECFF',
+    justifyContent: 'center',
+  },
+  sessionLaterChipText: {
+    fontFamily: typography.fontFamily,
+    color: '#8D7FA9',
+    fontSize: 9,
+    fontWeight: '900',
+    letterSpacing: 0.6,
+  },
+  cooldownRow: {
+    marginTop: 2,
+  },
+  sessionFlowDetails: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(124, 58, 237, 0.18)',
+    backgroundColor: 'rgba(255,255,255,0.58)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    marginTop: -8,
+  },
+  sessionFlowStep: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sessionFlowStepBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: '#F3ECFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionFlowStepBadgeText: {
+    fontFamily: typography.fontFamily,
+    color: LOGGING_PURPLE,
+    fontSize: 11,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  sessionFlowStepTitle: {
+    fontFamily: typography.fontFamily,
+    color: '#111827',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+  sessionFlowStepMeta: {
+    fontFamily: typography.fontFamily,
+    color: '#667085',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
   flowCard: {
     borderRadius: radii.lg,
     borderWidth: 1,
@@ -1678,20 +2194,17 @@ const styles = StyleSheet.create({
     bottom: spacing.md,
   },
   addExerciseButton: {
-    minHeight: 46,
-    borderRadius: radii.pill,
+    minHeight: 28,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.24)',
-    backgroundColor: '#FFFFFF',
-    shadowColor: LOGGING_PURPLE,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.10,
-    shadowRadius: 16,
-    elevation: 4,
+    borderStyle: 'dashed',
+    borderColor: '#D8C7FF',
+    backgroundColor: 'rgba(255,255,255,0.32)',
   },
   addExerciseButtonText: {
+    fontFamily: typography.fontFamily,
     color: LOGGING_PURPLE,
     fontSize: 13,
     fontWeight: '900',
@@ -1699,17 +2212,18 @@ const styles = StyleSheet.create({
   },
   finishWorkoutButton: {
     minHeight: 54,
-    borderRadius: radii.pill,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: LOGGING_PURPLE,
-    shadowColor: LOGGING_PURPLE,
+    backgroundColor: '#111827',
+    shadowColor: '#111827',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.28,
     shadowRadius: 18,
     elevation: 8,
   },
   finishWorkoutButtonText: {
+    fontFamily: typography.fontFamily,
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '900',

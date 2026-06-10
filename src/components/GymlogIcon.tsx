@@ -24,6 +24,7 @@ export type GymlogIconName =
   | 'lightning'
   | 'mobility'
   | 'moon'
+  | 'plus'
   | 'progress'
   | 'profile'
   | 'recovery'
@@ -160,6 +161,15 @@ function renderIcon(name: GymlogIconName, color: string) {
           strokeWidth={2.7}
           strokeLinecap="round"
           strokeLinejoin="round"
+        />
+      );
+    case 'plus':
+      return (
+        <Path
+          d="M12 5.2v13.6M5.2 12h13.6"
+          stroke={color}
+          strokeWidth={2.2}
+          strokeLinecap="round"
         />
       );
     case 'brain':

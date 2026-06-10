@@ -1,5 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ImageBackground, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Barbell } from 'phosphor-react-native/lib/commonjs/icons/Barbell';
+import { CalendarBlank } from 'phosphor-react-native/lib/commonjs/icons/CalendarBlank';
+import { Clock } from 'phosphor-react-native/lib/commonjs/icons/Clock';
+import { Fire } from 'phosphor-react-native/lib/commonjs/icons/Fire';
+import { Heartbeat } from 'phosphor-react-native/lib/commonjs/icons/Heartbeat';
+import { Lightning } from 'phosphor-react-native/lib/commonjs/icons/Lightning';
+import { MagnifyingGlass } from 'phosphor-react-native/lib/commonjs/icons/MagnifyingGlass';
+import { SlidersHorizontal } from 'phosphor-react-native/lib/commonjs/icons/SlidersHorizontal';
+import { Target } from 'phosphor-react-native/lib/commonjs/icons/Target';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { EmptyState } from '../components/EmptyState';
 import { SectionHeaderBlock, SurfaceCard } from '../components/MainScreenPrimitives';
@@ -10,14 +19,15 @@ import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { WorkoutExerciseInstance, WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { formatShortDate, pluralize } from '../lib/format';
-import { getReadyProgramCollection, READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getCustomTemplatePresentation, getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { getWorkoutFlowPhasePreview } from '../lib/workoutFlow';
 import {
+  buildReadyProgramSearchText,
   filterAndSortReadyDiscoveryItems,
   getReadyProgramEquipmentLabel,
   getReadyProgramTradeoff,
+  ReadyDiscoveryItem,
   ReadyEquipmentFilter,
   ReadyLevelFilter,
   ReadyTimeFilter,
@@ -50,17 +60,7 @@ interface WorkoutsScreenProps {
   tailoringPreferences?: TailoringPreferencesInput | null;
 }
 
-type CardVariant = {
-  borderColor: string;
-  accentColor: string;
-  orbColor: string;
-  startBackground: string;
-  startBorder: string;
-  startText: string;
-};
-
-type ReadyGoalFilter = 'all' | 'strength' | 'hypertrophy' | 'general';
-type ReadyCollectionFilter = 'all' | 'starter' | 'strength' | 'muscle' | 'balanced';
+type ReadyGoalFilter = 'all' | 'fat_loss' | 'strength' | 'hypertrophy' | 'general';
 type TodayFlowItem = {
   label: 'Next' | 'Then' | 'Finish';
   title: string;
@@ -69,10 +69,20 @@ type TodayFlowItem = {
 
 const READY_GOAL_FILTERS: Array<{ key: ReadyGoalFilter; label: string }> = [
   { key: 'all', label: 'All' },
+  { key: 'fat_loss', label: 'Fat Loss' },
   { key: 'strength', label: 'Strength' },
   { key: 'hypertrophy', label: 'Hypertrophy' },
-  { key: 'general', label: 'General' },
+  { key: 'general', label: 'General Fitness' },
 ];
+
+const READY_CATEGORY_SECTIONS: Array<{ key: Exclude<ReadyGoalFilter, 'all'>; title: string }> = [
+  { key: 'hypertrophy', title: 'Hypertrophy' },
+  { key: 'general', title: 'General Fitness' },
+  { key: 'strength', title: 'Strength' },
+  { key: 'fat_loss', title: 'Fat Loss' },
+];
+
+const READY_TEMPLATE_CARD_IMAGE = require('../../assets/fitness/selected/ready-template-card.jpg');
 
 const READY_TIME_FILTERS: Array<{ key: ReadyTimeFilter; label: string }> = [
   { key: 'all', label: 'Any time' },
@@ -93,70 +103,43 @@ const READY_LEVEL_FILTERS: Array<{ key: ReadyLevelFilter; label: string }> = [
   { key: 'intermediate', label: 'Intermediate' },
 ];
 
-const READY_TEMPLATE_FILTERS: Array<{ key: ReadyCollectionFilter; label: string }> = [
-  { key: 'all', label: 'All templates' },
-  { key: 'starter', label: 'Starter picks' },
-  { key: 'strength', label: 'Strength' },
-  { key: 'muscle', label: 'Build muscle' },
-  { key: 'balanced', label: 'Balanced rhythm' },
-];
+function ReadyGoalIcon({ filter, active }: { filter: ReadyGoalFilter; active: boolean }) {
+  const color = active ? '#FFFFFF' : '#667085';
+  const size = 18;
 
-const customCardVariants: CardVariant[] = [
-  {
-    borderColor: 'rgba(255,255,255,0.08)',
-    accentColor: '#D8ECFF',
-    orbColor: 'rgba(255,255,255,0.10)',
-    startBackground: '#F3F7FF',
-    startBorder: 'rgba(255,255,255,0.24)',
-    startText: '#06080B',
-  },
-  {
-    borderColor: 'rgba(255,255,255,0.08)',
-    accentColor: '#D8ECFF',
-    orbColor: 'rgba(255,255,255,0.08)',
-    startBackground: '#F3F7FF',
-    startBorder: 'rgba(255,255,255,0.24)',
-    startText: '#06080B',
-  },
-  {
-    borderColor: 'rgba(255,255,255,0.08)',
-    accentColor: '#D8ECFF',
-    orbColor: 'rgba(255,255,255,0.08)',
-    startBackground: '#F3F7FF',
-    startBorder: 'rgba(255,255,255,0.24)',
-    startText: '#06080B',
-  },
-];
+  if (filter === 'fat_loss') {
+    return <Fire size={size} color={color} weight="bold" />;
+  }
 
-const readyCardVariants: CardVariant[] = [
-  {
-    borderColor: 'rgba(255,255,255,0.08)',
-    accentColor: '#D8ECFF',
-    orbColor: 'rgba(255,255,255,0.08)',
-    startBackground: '#F3F7FF',
-    startBorder: 'rgba(255,255,255,0.24)',
-    startText: '#06080B',
-  },
-  {
-    borderColor: 'rgba(255,255,255,0.08)',
-    accentColor: '#D8ECFF',
-    orbColor: 'rgba(255,255,255,0.08)',
-    startBackground: '#F3F7FF',
-    startBorder: 'rgba(255,255,255,0.24)',
-    startText: '#06080B',
-  },
-  {
-    borderColor: 'rgba(255,255,255,0.08)',
-    accentColor: '#D8ECFF',
-    orbColor: 'rgba(255,255,255,0.08)',
-    startBackground: '#F3F7FF',
-    startBorder: 'rgba(255,255,255,0.24)',
-    startText: '#06080B',
-  },
-];
+  if (filter === 'strength') {
+    return <Barbell size={size} color={color} weight="bold" />;
+  }
 
-function getVariant(variants: CardVariant[], index: number): CardVariant {
-  return variants[index % variants.length];
+  if (filter === 'hypertrophy') {
+    return <Target size={size} color={color} weight="bold" />;
+  }
+
+  if (filter === 'general') {
+    return <Heartbeat size={size} color={color} weight="bold" />;
+  }
+
+  return null;
+}
+
+function isFatLossReadyItem(item: ReadyDiscoveryItem) {
+  const searchText = buildReadyProgramSearchText(item);
+
+  return ['fat', 'conditioning', 'hiit', 'cardio', 'runner', 'run', 'lean'].some((keyword) =>
+    searchText.includes(keyword),
+  );
+}
+
+function itemMatchesReadyCategory(item: ReadyDiscoveryItem, category: Exclude<ReadyGoalFilter, 'all'>) {
+  if (category === 'fat_loss') {
+    return isFatLossReadyItem(item);
+  }
+
+  return item.template.goalType === category;
 }
 
 function formatGoal(value: string) {
@@ -172,10 +155,6 @@ function formatTemplateHeroLabel(value: string) {
     .replace(/_/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
-}
-
-function formatTemplateSubtitle(value: string) {
-  return value.replace(/\s+/g, ' ').trim();
 }
 
 function formatReps(min: number, max: number) {
@@ -263,11 +242,11 @@ export function WorkoutsScreen({
   const [menuTemplateId, setMenuTemplateId] = useState<string | null>(null);
   const [confirmDeleteTemplateId, setConfirmDeleteTemplateId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [readyCollectionFilter, setReadyCollectionFilter] = useState<ReadyCollectionFilter>('all');
   const [readyGoalFilter, setReadyGoalFilter] = useState<ReadyGoalFilter>('all');
   const [readyTimeFilter, setReadyTimeFilter] = useState<ReadyTimeFilter>('all');
   const [readyEquipmentFilter, setReadyEquipmentFilter] = useState<ReadyEquipmentFilter>('all');
   const [readyLevelFilter, setReadyLevelFilter] = useState<ReadyLevelFilter>('all');
+  const [showAdvancedReadyFilters, setShowAdvancedReadyFilters] = useState(false);
   const [compareTemplateIds, setCompareTemplateIds] = useState<string[]>([]);
   const [showReadyLibrary, setShowReadyLibrary] = useState(true);
   const [showAllCustomWorkouts, setShowAllCustomWorkouts] = useState(false);
@@ -304,34 +283,29 @@ export function WorkoutsScreen({
 
     return [];
   }, [activeSession, primaryCustomWorkout, recommendedKickoffSession]);
-  const selectedCollection = getReadyProgramCollection(readyCollectionFilter);
   const readyDiscoveryItems = useMemo(() => {
-    const byCollection = selectedCollection
-      ? templates.filter((template) => selectedCollection.templateIds.includes(template.id))
-      : templates;
-
-    return byCollection.map((template) => ({
+    return templates.map((template) => ({
       template,
       content: getReadyProgramContent(template.id),
     }));
-  }, [selectedCollection, templates]);
+  }, [templates]);
   const filteredReadyItems = useMemo(
-    () =>
-      filterAndSortReadyDiscoveryItems(
+    () => {
+      return filterAndSortReadyDiscoveryItems(
         readyDiscoveryItems,
         {
-        query: searchQuery,
-        goal: readyGoalFilter,
-        level: readyLevelFilter,
-        time: readyTimeFilter,
-        equipment: readyEquipmentFilter,
+          query: searchQuery,
+          goal: 'all',
+          level: readyLevelFilter,
+          time: readyTimeFilter,
+          equipment: readyEquipmentFilter,
         },
         tailoringPreferences,
-      ),
+      );
+    },
     [
       readyDiscoveryItems,
       readyEquipmentFilter,
-      readyGoalFilter,
       readyLevelFilter,
       readyTimeFilter,
       searchQuery,
@@ -366,10 +340,15 @@ export function WorkoutsScreen({
         })),
     [compareTemplateIds, templates],
   );
-  const featuredReadyItems = filteredReadyItems.slice(0, 2);
   const allGainerProgramItems = readyDiscoveryItems.filter((item) => item.template.id.startsWith('tpl_gainer_'));
   const gainerProgramItems = filteredReadyItems.filter((item) => item.template.id.startsWith('tpl_gainer_'));
-  const hiddenReadyCount = Math.max(filteredReadyItems.length - featuredReadyItems.length, 0);
+  const readyCategorySections = READY_CATEGORY_SECTIONS
+    .filter((section) => readyGoalFilter === 'all' || readyGoalFilter === section.key)
+    .map((section) => ({
+      ...section,
+      items: gainerProgramItems.filter((item) => itemMatchesReadyCategory(item, section.key)),
+    }))
+    .filter((section) => section.items.length > 0);
   const visibleCustomWorkouts = showAllCustomWorkouts ? filteredCustomWorkouts : filteredCustomWorkouts.slice(0, 2);
   const hiddenCustomWorkoutCount = Math.max(filteredCustomWorkouts.length - visibleCustomWorkouts.length, 0);
   const shouldShowFeaturedReady = !recommendedReadyTemplate || showReadyLibrary;
@@ -394,34 +373,45 @@ export function WorkoutsScreen({
       <ScreenHeader title="Ready Templates" subtitle={`${allGainerProgramItems.length} templates ready to inspect or start.`} tone="dark" />
       <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
         <View style={styles.readyTemplateSearchCard}>
+          <MagnifyingGlass size={18} color="#98A2B3" weight="bold" />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search ready templates"
+            placeholder="Search ready templates..."
             placeholderTextColor={colors.textMuted}
             selectionColor={colors.accentAlt}
             style={styles.readyTemplateSearchInput}
           />
+          <Pressable
+            onPress={() => setShowAdvancedReadyFilters((visible) => !visible)}
+            hitSlop={10}
+            style={[styles.readyTemplateFilterButton, showAdvancedReadyFilters && styles.readyTemplateFilterButtonActive]}
+            accessibilityRole="button"
+            accessibilityLabel="Open ready template filters"
+          >
+            <SlidersHorizontal size={18} color={showAdvancedReadyFilters ? '#FFFFFF' : '#7C3AED'} weight="bold" />
+          </Pressable>
         </View>
 
         <View style={styles.readyTemplateFilterBlock}>
-          <Text style={styles.readyTemplateFilterLabel}>Recommended for</Text>
+          <Text style={styles.readyTemplateFilterLabel}>Filter templates</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.readyTemplateFilterRow}
-            snapToInterval={196}
+            snapToInterval={116}
             decelerationRate="fast"
           >
-            {READY_TEMPLATE_FILTERS.map((filter) => {
-              const active = readyCollectionFilter === filter.key;
+            {READY_GOAL_FILTERS.map((filter) => {
+              const active = readyGoalFilter === filter.key;
 
               return (
                 <Pressable
                   key={filter.key}
-                  onPress={() => setReadyCollectionFilter(filter.key)}
+                  onPress={() => setReadyGoalFilter(filter.key)}
                   style={[styles.readyTemplateFilterChip, active && styles.readyTemplateFilterChipActive]}
                 >
+                  <ReadyGoalIcon filter={filter.key} active={active} />
                   <Text style={[styles.readyTemplateFilterText, active && styles.readyTemplateFilterTextActive]}>
                     {filter.label}
                   </Text>
@@ -431,9 +421,10 @@ export function WorkoutsScreen({
           </ScrollView>
         </View>
 
+        {showAdvancedReadyFilters ? (
         <View style={styles.readyTemplateRefinePanel}>
           <View style={styles.readyTemplateRefineGroup}>
-            <Text style={styles.readyTemplateFilterLabel}>Time</Text>
+            <Text style={styles.readyTemplateFilterLabel}>Duration</Text>
             <View style={styles.readyTemplateMiniChipRow}>
               {READY_TIME_FILTERS.map((filter) => {
                 const active = readyTimeFilter === filter.key;
@@ -495,57 +486,86 @@ export function WorkoutsScreen({
             </View>
           </View>
         </View>
+        ) : null}
 
-        <View style={styles.readyTemplateSectionHeader}>
-          <Text style={styles.readyTemplateSectionTitle}>Popular Programs</Text>
-          <Text style={styles.readyTemplateSectionMeta}>{gainerProgramItems.length} shown</Text>
-        </View>
-
-        {gainerProgramItems.length ? (
-          <View style={styles.readyTemplateList}>
-            {gainerProgramItems.map((item, index) => {
-              const { template, content } = item;
-              const current = template.id === activeTemplateId;
-              const heroStyle = index % 2 === 0 ? styles.readyTemplateHeroPurple : styles.readyTemplateHeroGreen;
-
-              return (
-                <View key={`ready-template:${template.id}`} style={[styles.readyTemplateCard, current && styles.readyTemplateCardCurrent]}>
-                  <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.readyTemplateCardMain}>
-                    <View style={[styles.readyTemplateHero, heroStyle]}>
-                      <View style={styles.readyTemplateHeroOverlay} />
-                      <Text style={styles.readyTemplateHeroDays}>{template.daysPerWeek} DAY</Text>
-                      <Text style={styles.readyTemplateHeroTitle} numberOfLines={2} adjustsFontSizeToFit>
-                        {formatTemplateHeroLabel(template.splitType)}
-                      </Text>
-                    </View>
-
-                    <View style={styles.readyTemplateCopy}>
-                      <Text style={styles.readyTemplateName} numberOfLines={2}>
-                        {formatWorkoutDisplayLabel(template.name, 'Template')}
-                      </Text>
-                      <Text style={styles.readyTemplateMeta} numberOfLines={1}>
-                        {template.daysPerWeek} days | {formatGoal(template.goalType)}
-                      </Text>
-                      <View style={styles.readyTemplateFooterRow}>
-                        <Text style={styles.readyTemplateDuration}>{template.estimatedSessionDuration} min</Text>
-                        <Text style={styles.readyTemplateDot}>•</Text>
-                        <Text style={styles.readyTemplateDuration}>{formatLevel(template.level)}</Text>
-                      </View>
-                      <Text style={styles.readyTemplateSummary} numberOfLines={2}>
-                        {formatTemplateSubtitle(content?.summary ?? `${template.sessions.length} sessions built for ${template.goalType} training.`)}
-                      </Text>
-                    </View>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => onStartReadyProgram(template.id)}
-                    style={[styles.readyTemplateStartButton, current && styles.readyTemplateStartButtonCurrent]}
-                  >
-                    <Text style={styles.readyTemplateStartText}>{current ? 'Current' : 'Start'}</Text>
-                  </Pressable>
+        {readyCategorySections.length ? (
+          <View style={styles.readyTemplateCategoryList}>
+            {readyCategorySections.map((section) => (
+              <View key={`ready-section:${section.key}`} style={styles.readyTemplateCategorySection}>
+                <View style={styles.readyTemplateSectionHeader}>
+                  <Text style={styles.readyTemplateSectionTitle}>{section.title}</Text>
+                  <View style={styles.readyTemplateScrollHint}>
+                    <View style={styles.readyTemplateScrollDotActive} />
+                    <View style={styles.readyTemplateScrollDot} />
+                  </View>
                 </View>
-              );
-            })}
+
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.readyTemplateCarousel}
+                  decelerationRate="fast"
+                  snapToInterval={232}
+                >
+                  {section.items.map((item, index) => {
+                    const { template } = item;
+                    const current = template.id === activeTemplateId;
+                    const heroStyle =
+                      section.key === 'general' || section.key === 'fat_loss'
+                        ? styles.readyTemplateHeroGreen
+                        : index % 2 === 0
+                          ? styles.readyTemplateHeroPurple
+                          : styles.readyTemplateHeroGreen;
+
+                    return (
+                      <View key={`ready-template:${template.id}`} style={[styles.readyTemplateCard, current && styles.readyTemplateCardCurrent]}>
+                        <Pressable onPress={() => onOpenReadyProgram(template.id)} style={styles.readyTemplateCardMain}>
+                          <ImageBackground
+                            source={READY_TEMPLATE_CARD_IMAGE}
+                            resizeMode="cover"
+                            style={styles.readyTemplateHero}
+                            imageStyle={styles.readyTemplateHeroImage}
+                          >
+                            <View style={styles.readyTemplateHeroShade} />
+                            <View style={[styles.readyTemplateHeroTone, heroStyle]} />
+                            <View style={[styles.readyTemplateHeroBadge, heroStyle]}>
+                              <Lightning size={14} color="#FFFFFF" weight="fill" />
+                              <Text style={styles.readyTemplateHeroDays}>{template.daysPerWeek} DAY</Text>
+                            </View>
+                            <Text style={styles.readyTemplateHeroTitle} numberOfLines={2} adjustsFontSizeToFit>
+                              {formatTemplateHeroLabel(template.splitType)}
+                            </Text>
+                          </ImageBackground>
+
+                          <View style={styles.readyTemplateCopy}>
+                            <Text style={styles.readyTemplateName} numberOfLines={2}>
+                              {formatWorkoutDisplayLabel(template.name, 'Template')}
+                            </Text>
+                            <Text style={styles.readyTemplateMeta} numberOfLines={1}>
+                              <Text style={styles.readyTemplateMetaStrong}>{template.daysPerWeek} days</Text>
+                              <Text> | {formatGoal(template.goalType)}</Text>
+                            </Text>
+                            <View style={styles.readyTemplateFooterRow}>
+                              <CalendarBlank size={14} color="#7B7196" weight="bold" />
+                              <Text style={styles.readyTemplateDuration}>{template.sessions.length} sessions</Text>
+                              <Clock size={14} color="#7B7196" weight="bold" />
+                              <Text style={styles.readyTemplateDuration}>{template.estimatedSessionDuration} min</Text>
+                            </View>
+                          </View>
+                        </Pressable>
+
+                        <Pressable
+                          onPress={() => onStartReadyProgram(template.id)}
+                          style={[styles.readyTemplateStartButton, current && styles.readyTemplateStartButtonCurrent]}
+                        >
+                          <Text style={styles.readyTemplateStartText}>{current ? 'Current' : 'Start Plan'}</Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ))}
           </View>
         ) : (
           <EmptyState
@@ -567,47 +587,73 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F3FF',
   },
   readyTemplateSearchCard: {
-    borderRadius: 32,
+    minHeight: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E7D9FF',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    position: 'relative',
     shadowColor: '#BDA5F4',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 18,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.10,
+    shadowRadius: 12,
+    elevation: 3,
   },
   readyTemplateSearchInput: {
-    minHeight: 50,
+    flex: 1,
+    minHeight: 42,
     color: '#0F172A',
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
+    paddingVertical: 0,
+    paddingRight: 48,
+  },
+  readyTemplateFilterButton: {
+    width: 44,
+    height: 38,
+    borderRadius: 19,
+    position: 'absolute',
+    right: 4,
+    top: 3,
+    zIndex: 3,
+    elevation: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F3ECFF',
+  },
+  readyTemplateFilterButtonActive: {
+    backgroundColor: '#7C3AED',
   },
   readyTemplateFilterBlock: {
-    gap: spacing.xs,
+    gap: 6,
   },
   readyTemplateFilterLabel: {
     color: '#7C3AED',
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
     textTransform: 'uppercase',
   },
   readyTemplateFilterRow: {
-    gap: spacing.md,
+    gap: spacing.sm,
     paddingRight: spacing.xl,
   },
   readyTemplateFilterChip: {
-    width: 180,
-    minHeight: 48,
-    borderRadius: 18,
+    minWidth: 104,
+    minHeight: 40,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2D3FF',
     backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: spacing.md,
+    gap: 6,
+    paddingHorizontal: spacing.sm,
   },
   readyTemplateFilterChipActive: {
     backgroundColor: '#7C3AED',
@@ -615,7 +661,7 @@ const styles = StyleSheet.create({
   },
   readyTemplateFilterText: {
     color: '#667085',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
   },
   readyTemplateFilterTextActive: {
@@ -670,20 +716,36 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: -0.4,
   },
-  readyTemplateSectionMeta: {
-    color: '#7C3AED',
-    fontSize: 14,
-    fontWeight: '900',
+  readyTemplateCategoryList: {
+    gap: spacing.lg,
   },
-  readyTemplateList: {
+  readyTemplateCategorySection: {
+    gap: spacing.sm,
+  },
+  readyTemplateCarousel: {
+    gap: spacing.sm,
+    paddingRight: 42,
+  },
+  readyTemplateScrollHint: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: spacing.md,
+    alignItems: 'center',
+    gap: 5,
+  },
+  readyTemplateScrollDotActive: {
+    width: 16,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#7C3AED',
+  },
+  readyTemplateScrollDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#D8C7FF',
   },
   readyTemplateCard: {
     overflow: 'hidden',
-    width: '48%',
+    width: 220,
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E7D9FF',
@@ -698,80 +760,100 @@ const styles = StyleSheet.create({
     borderColor: '#7C3AED',
   },
   readyTemplateCardMain: {
-    gap: spacing.sm,
+    gap: 0,
   },
   readyTemplateHero: {
-    minHeight: 104,
-    padding: spacing.sm,
+    height: 222,
+    padding: spacing.md,
     justifyContent: 'flex-end',
   },
+  readyTemplateHeroImage: {
+    borderTopLeftRadius: 21,
+    borderTopRightRadius: 21,
+  },
   readyTemplateHeroPurple: {
-    backgroundColor: '#2B115F',
+    backgroundColor: 'rgba(74, 22, 158, 0.72)',
   },
   readyTemplateHeroGreen: {
-    backgroundColor: '#073D2B',
+    backgroundColor: 'rgba(5, 92, 57, 0.70)',
   },
-  readyTemplateHeroOverlay: {
+  readyTemplateHeroShade: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
+  },
+  readyTemplateHeroTone: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 112,
+    opacity: 0.72,
+  },
+  readyTemplateHeroBadge: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    minHeight: 36,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
   },
   readyTemplateHeroDays: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '900',
-    letterSpacing: 0.8,
+    letterSpacing: 0.2,
     textTransform: 'uppercase',
   },
   readyTemplateHeroTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
-    lineHeight: 22,
+    fontSize: 24,
+    lineHeight: 27,
     fontWeight: '900',
     letterSpacing: -0.5,
     textTransform: 'uppercase',
   },
   readyTemplateCopy: {
-    padding: spacing.sm,
-    gap: 3,
+    minHeight: 142,
+    padding: spacing.md,
+    gap: spacing.xs,
   },
   readyTemplateName: {
     color: '#0F172A',
-    fontSize: 14,
-    lineHeight: 17,
+    fontSize: 15,
+    lineHeight: 18,
     fontWeight: '900',
     letterSpacing: -0.2,
   },
   readyTemplateMeta: {
     color: '#667085',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
+  },
+  readyTemplateMetaStrong: {
+    color: '#7C3AED',
+    fontWeight: '900',
   },
   readyTemplateFooterRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: 6,
+    paddingTop: 4,
   },
   readyTemplateDuration: {
     color: '#667085',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  readyTemplateDot: {
-    color: '#98A2B3',
-    fontSize: 10,
-    fontWeight: '900',
-  },
-  readyTemplateSummary: {
-    color: '#475467',
-    fontSize: 10,
-    lineHeight: 14,
+    fontSize: 11,
     fontWeight: '800',
   },
   readyTemplateStartButton: {
-    marginHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
-    minHeight: 34,
-    borderRadius: 14,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+    minHeight: 40,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F3ECFF',
@@ -781,7 +863,7 @@ const styles = StyleSheet.create({
   },
   readyTemplateStartText: {
     color: '#7C3AED',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '900',
   },
   content: {

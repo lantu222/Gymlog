@@ -44,6 +44,10 @@ export const layout = {
   bottomTabBarReserve: spacing.xxl + 88,
 };
 
+export const typography = {
+  fontFamily: 'Inter',
+};
+
 export const appInfo = {
   name: 'GAINER',
   version: '1.1.0',

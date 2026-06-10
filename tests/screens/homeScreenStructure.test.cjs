@@ -41,47 +41,56 @@ module.exports = [
       assert.match(homeScreenSource, /const HOME_PURPLE = '#7C3AED'/);
       assert.match(homeScreenSource, /const HOME_PURPLE_DARK = '#5B21B6'/);
       assert.match(homeScreenSource, /const HOME_GREEN = '#16A34A'/);
-      assert.match(homeScreenSource, /const HOME_BLUE = '#0A84FF'/);
 
-      assert.match(homeScreenSource, /Welcome back!/);
+      assert.match(homeScreenSource, /Welcome back/);
       assert.match(homeScreenSource, /Let's get after it today\./);
+      assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
+      assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 24/);
+      assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 14/);
       assert.match(homeScreenSource, /PRO/);
       assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: HOME_GREEN/);
       assert.match(homeScreenSource, /topCalendarDays/);
       assert.match(homeScreenSource, /homeCalendarStrip/);
+      assert.match(homeScreenSource, /homeCalendarStrip:\s*\{[\s\S]*minHeight: 58/);
       assert.match(homeScreenSource, /homeCalendarItem/);
       assert.match(homeScreenSource, /homeCalendarDayLabel/);
-      assert.match(homeScreenSource, /Streak/);
-      assert.match(homeScreenSource, /Workouts/);
-      assert.match(homeScreenSource, /Total time/);
-      assert.match(homeScreenSource, /const totalWorkoutTime = formatWorkoutTotalTime\(streak\.totalDurationMinutes\)/);
-      assert.match(homeScreenSource, /<Text style=\{styles\.statValue\}>\{totalWorkoutTime\}<\/Text>/);
+      assert.match(homeScreenSource, /homeCalendarDayLabel:\s*\{[\s\S]*fontSize: 12/);
+      assert.match(homeScreenSource, /weeklyStatusRow/);
+      assert.match(homeScreenSource, /sessions this week/);
+      assert.match(homeScreenSource, /day streak/);
+      assert.match(homeScreenSource, /streakPill/);
+      assert.match(homeScreenSource, /streakPill:\s*\{[\s\S]*minHeight: 32/);
+      assert.match(homeScreenSource, /streakPillText:\s*\{[\s\S]*fontSize: 13/);
       assert.match(dashboardSource, /totalDurationMinutes: number/);
       assert.match(dashboardSource, /getCanonicalCompletedSessions\(database\)\.reduce/);
 
-      assert.match(gymlogIconSource, /\| 'flame'/);
       assert.match(gymlogIconSource, /\| 'dumbbell'/);
       assert.match(gymlogIconSource, /\| 'chevronRight'/);
-      assert.match(gymlogIconSource, /case 'flame':/);
       assert.match(gymlogIconSource, /case 'dumbbell':/);
       assert.match(gymlogIconSource, /case 'chevronRight':/);
-      assert.match(homeScreenSource, /name="flame" color=\{HOME_GREEN\} size=\{24\}/);
-      assert.match(homeScreenSource, /name="progress" color=\{HOME_GREEN\} size=\{23\}/);
-      assert.match(homeScreenSource, /name="clock" color=\{HOME_GREEN\} size=\{24\}/);
 
-      assert.match(homeScreenSource, /Start Workout/);
-      assert.match(homeScreenSource, /Jump into an empty workout/);
-      assert.match(homeScreenSource, /startWorkoutHero/);
-      assert.match(homeScreenSource, /startWorkoutHero:\s*\{[\s\S]*backgroundColor: HOME_PURPLE/);
-      assert.match(homeScreenSource, /name="dumbbell" color=\{HOME_GREEN\} size=\{26\}/);
-      assert.match(homeScreenSource, /name="chevronRight" color=\{HOME_GREEN\} size=\{20\}/);
+      assert.match(homeScreenSource, /CONTINUE PLAN/);
+      assert.match(homeScreenSource, /continuePlanCard/);
+      assert.match(homeScreenSource, /nextPlanSession/);
+      assert.match(homeScreenSource, /onStartActivePlanSession\(nextPlanSession\.id\)/);
+      assert.match(homeScreenSource, /Start workout/);
+      assert.match(homeScreenSource, /Empty workout/);
+      assert.match(homeScreenSource, /Log freestyle/);
+      assert.match(homeScreenSource, /emptyWorkoutRow/);
+      assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: 'rgba\(255,255,255,0\.58\)'/);
+      assert.match(homeScreenSource, /name="plus" color=\{HOME_PURPLE\} size=\{20\}/);
+      assert.doesNotMatch(homeScreenSource, /Jump into an empty workout/);
+      assert.doesNotMatch(homeScreenSource, /startWorkoutHero/);
       assert.match(homeScreenSource, /onPress=\{onCreateWorkoutFromExercises\}/);
 
       assert.match(homeScreenSource, /Routines/);
       assert.match(homeScreenSource, /Templates/);
       assert.doesNotMatch(homeScreenSource, /My Routines/);
       assert.match(homeScreenSource, /Explore/);
-      assert.match(homeScreenSource, /readyTemplateCount > 0 \? `\$\{readyTemplateCount\} templates` : 'Find new Templates'/);
+      assert.match(homeScreenSource, /routineShortcutCard:\s*\{[\s\S]*minHeight: 96/);
+      assert.match(homeScreenSource, /routineShortcutTitle:\s*\{[\s\S]*fontSize: 18/);
+      assert.match(homeScreenSource, /routineShortcutSubtitle:\s*\{[\s\S]*fontSize: 12/);
+      assert.match(homeScreenSource, /readyTemplateCount > 0 \? `\$\{readyTemplateCount\} plans` : 'Find new plans'/);
       assert.doesNotMatch(homeScreenSource, /Find new routines/);
       assert.match(workoutsScreenSource, /const \[showReadyLibrary, setShowReadyLibrary\] = useState\(true\)/);
       assert.match(workoutsScreenSource, /const \[showBrowseWorkouts, setShowBrowseWorkouts\] = useState\(true\)/);
@@ -93,79 +102,101 @@ module.exports = [
       assert.match(workoutsScreenSource, /title="Ready Templates"/);
       assert.match(workoutsScreenSource, /tone="dark"/);
       assert.match(workoutsScreenSource, /Search ready templates/);
-      assert.match(workoutsScreenSource, /READY_TEMPLATE_FILTERS/);
-      const readyTemplateFilterBlock = workoutsScreenSource.slice(
-        workoutsScreenSource.indexOf('const READY_TEMPLATE_FILTERS'),
-        workoutsScreenSource.indexOf('const customCardVariants'),
+      assert.match(workoutsScreenSource, /MagnifyingGlass/);
+      assert.match(workoutsScreenSource, /SlidersHorizontal/);
+      assert.match(workoutsScreenSource, /showAdvancedReadyFilters/);
+      assert.match(workoutsScreenSource, /READY_GOAL_FILTERS/);
+      const readyGoalFilterBlock = workoutsScreenSource.slice(
+        workoutsScreenSource.indexOf('const READY_GOAL_FILTERS'),
+        workoutsScreenSource.indexOf('const READY_TIME_FILTERS'),
       );
       assert.ok(
-        readyTemplateFilterBlock.indexOf("label: 'All templates'") < readyTemplateFilterBlock.indexOf("label: 'Starter picks'"),
-        'all templates should be the first visible ready-template filter',
+        readyGoalFilterBlock.indexOf("label: 'All'") < readyGoalFilterBlock.indexOf("label: 'Fat Loss'"),
+        'all should be the first visible goal filter',
       );
       assert.ok(
-        readyTemplateFilterBlock.indexOf("label: 'Starter picks'") < readyTemplateFilterBlock.indexOf("label: 'Strength'"),
-        'strength should sit after the two initially visible ready-template filters',
+        readyGoalFilterBlock.indexOf("label: 'Fat Loss'") < readyGoalFilterBlock.indexOf("label: 'Strength'"),
+        'fat loss should sit before strength in the ready-template goal carousel',
       );
-      assert.match(workoutsScreenSource, /Recommended for/);
-      assert.match(workoutsScreenSource, /Time/);
+      assert.match(workoutsScreenSource, /Filter templates/);
+      assert.match(workoutsScreenSource, /Duration/);
       assert.match(workoutsScreenSource, /Equipment/);
       assert.match(workoutsScreenSource, /Experience/);
       assert.match(workoutsScreenSource, /READY_TIME_FILTERS\.map/);
       assert.match(workoutsScreenSource, /READY_EQUIPMENT_FILTERS\.map/);
       assert.match(workoutsScreenSource, /READY_LEVEL_FILTERS\.map/);
-      assert.match(workoutsScreenSource, /snapToInterval=\{196\}/);
-      assert.match(workoutsScreenSource, /readyTemplateFilterChip:\s*\{[\s\S]*width: 180/);
-      assert.match(workoutsScreenSource, /Popular Programs/);
+      assert.match(workoutsScreenSource, /snapToInterval=\{116\}/);
+      assert.match(workoutsScreenSource, /readyTemplateFilterChip:\s*\{[\s\S]*minWidth: 104/);
+      assert.match(workoutsScreenSource, /READY_CATEGORY_SECTIONS/);
+      assert.match(workoutsScreenSource, /title: 'Hypertrophy'/);
+      assert.match(workoutsScreenSource, /title: 'General Fitness'/);
+      assert.match(workoutsScreenSource, /title: 'Strength'/);
+      assert.match(workoutsScreenSource, /title: 'Fat Loss'/);
+      assert.match(workoutsScreenSource, /itemMatchesReadyCategory/);
+      assert.match(workoutsScreenSource, /readyCategorySections/);
+      assert.match(workoutsScreenSource, /readyTemplateCategoryList/);
+      assert.match(workoutsScreenSource, /readyTemplateCarousel/);
+      assert.match(workoutsScreenSource, /readyTemplateScrollHint/);
+      assert.match(workoutsScreenSource, /snapToInterval=\{232\}/);
       assert.match(workoutsScreenSource, /readyTemplateCard/);
-      assert.match(workoutsScreenSource, /width: '48%'/);
+      assert.match(workoutsScreenSource, /width: 220/);
+      assert.match(workoutsScreenSource, /READY_TEMPLATE_CARD_IMAGE/);
+      assert.match(workoutsScreenSource, /ready-template-card\.jpg/);
+      assert.match(workoutsScreenSource, /ImageBackground/);
       assert.match(workoutsScreenSource, /readyTemplateHero/);
+      assert.match(workoutsScreenSource, /readyTemplateHeroBadge/);
+      assert.match(workoutsScreenSource, /Lightning/);
+      assert.match(workoutsScreenSource, /CalendarBlank/);
+      assert.match(workoutsScreenSource, /Clock/);
+      assert.match(workoutsScreenSource, /Start Plan/);
+      assert.doesNotMatch(workoutsScreenSource, /readyTemplateSummary/);
+      assert.doesNotMatch(workoutsScreenSource, /formatTemplateSubtitle/);
       assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);
       assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
       assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#1D1C35' : emptyWorkoutActive \|\| readyTemplatesActive \? '#F7F3FF' : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /title="Programs"/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
-      assert.match(homeScreenSource, /YOUR PLAN/);
-      assert.match(homeScreenSource, /planTitle/);
-      assert.match(homeScreenSource, /planWeekLabel/);
-      assert.match(homeScreenSource, /planProgressPercent/);
-      assert.match(homeScreenSource, /activePlan\?\.weekLabel/);
-      assert.match(homeScreenSource, /activePlan\?\.progressPercent/);
+      assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);
+      assert.doesNotMatch(homeScreenSource, /planTitle/);
+      assert.doesNotMatch(homeScreenSource, /planWeekLabel/);
+      assert.doesNotMatch(homeScreenSource, /planProgressPercent/);
+      assert.doesNotMatch(homeScreenSource, /activePlan\?\.weekLabel/);
+      assert.doesNotMatch(homeScreenSource, /activePlan\?\.progressPercent/);
       assert.doesNotMatch(homeScreenSource, /activePlan \? 'Week 3 of 8'/);
       assert.doesNotMatch(homeScreenSource, /activePlan \? 42/);
       assert.match(appSource, /weekLabel: planProgress\.weekLabel/);
       assert.match(appSource, /progressPercent: planProgress\.progressPercent/);
-      assert.match(homeScreenSource, /planChartBars/);
-      assert.match(homeScreenSource, /View plan/);
-      assert.match(homeScreenSource, /VIEW PLAN/);
-      assert.match(homeScreenSource, /yourPlanCard:\s*\{[\s\S]*backgroundColor: HOME_SURFACE/);
-      assert.match(homeScreenSource, /yourPlanProgressTrack/);
-      assert.match(homeScreenSource, /yourPlanProgressFill/);
-      assert.match(homeScreenSource, /yourPlanChartBar/);
-      assert.match(homeScreenSource, /viewPlanButton/);
+      assert.doesNotMatch(homeScreenSource, /planChartBars/);
+      assert.doesNotMatch(homeScreenSource, /View plan/);
+      assert.doesNotMatch(homeScreenSource, /VIEW PLAN/);
+      assert.doesNotMatch(homeScreenSource, /yourPlanCard/);
+      assert.doesNotMatch(homeScreenSource, /yourPlanProgressTrack/);
+      assert.doesNotMatch(homeScreenSource, /yourPlanProgressFill/);
+      assert.doesNotMatch(homeScreenSource, /yourPlanChartBar/);
+      assert.doesNotMatch(homeScreenSource, /viewPlanButton/);
       assert.match(homeScreenSource, /fullBleedCard/);
-      assert.match(homeScreenSource, /style=\{\[styles\.yourPlanCard, styles\.fullBleedCard\]\}/);
-      assert.match(homeScreenSource, /style=\{\[styles\.startWorkoutHero, styles\.fullBleedCard\]\}/);
-      assert.match(homeScreenSource, /onOpenActivePlan/);
+      assert.match(homeScreenSource, /style=\{\[styles\.continuePlanCard, styles\.fullBleedCard\]\}/);
+      assert.match(homeScreenSource, /style=\{styles\.emptyWorkoutRow\}/);
+      assert.doesNotMatch(homeScreenSource, /onOpenActivePlan/);
       assert.doesNotMatch(homeScreenSource, /<Text style=\{styles\.myRoutineLabel\}>My Routine<\/Text>/);
       assert.doesNotMatch(homeScreenSource, /style=\{styles\.myRoutineCard\}/);
-      assert.match(homeScreenSource, /Start Workout/);
-      assert.match(homeScreenSource, /Quick Access/);
-      assert.match(homeScreenSource, /Recent Sessions/);
-      assert.match(homeScreenSource, /recentSessions/);
-      assert.match(homeScreenSource, /recentSessionsSection/);
-      assert.match(homeScreenSource, /recentSessionCard/);
-      assert.match(homeScreenSource, /No sessions yet/);
+      assert.match(homeScreenSource, /Empty workout/);
+      assert.doesNotMatch(homeScreenSource, /Quick Access/);
+      assert.doesNotMatch(homeScreenSource, /Recent Sessions/);
+      assert.doesNotMatch(homeScreenSource, /recentSessions/);
+      assert.doesNotMatch(homeScreenSource, /recentSessionsSection/);
+      assert.doesNotMatch(homeScreenSource, /recentSessionCard/);
+      assert.doesNotMatch(homeScreenSource, /No sessions yet/);
       assert.doesNotMatch(homeScreenSource, /recentSessionEmptyButton/);
       assert.doesNotMatch(homeScreenSource, /recentSessionEmptyButtonText/);
-      assert.match(homeScreenSource, /onOpenSessionHistory/);
-      assert.match(homeScreenSource, /onOpenRecentSession/);
-      assert.match(homeScreenSource, /onOpenProgressOverview/);
-      assert.match(homeScreenSource, /onOpenTrackedProgress/);
-      assert.match(homeScreenSource, /onOpenBodyStats/);
-      assert.match(homeScreenSource, /Progress/);
-      assert.match(homeScreenSource, /Body Stats/);
-      assert.match(homeScreenSource, /PR Tracker/);
+      assert.doesNotMatch(homeScreenSource, /onOpenSessionHistory/);
+      assert.doesNotMatch(homeScreenSource, /onOpenRecentSession/);
+      assert.doesNotMatch(homeScreenSource, /onOpenProgressOverview/);
+      assert.doesNotMatch(homeScreenSource, /onOpenTrackedProgress/);
+      assert.doesNotMatch(homeScreenSource, /onOpenBodyStats/);
+      assert.doesNotMatch(homeScreenSource, /Body Stats/);
+      assert.doesNotMatch(homeScreenSource, /PR Tracker/);
       assert.doesNotMatch(homeScreenSource, /<Text style=\{styles\.quickAccessText\}>History<\/Text>/);
       assert.doesNotMatch(homeScreenSource, /onOpenAICoach\('Open body stats'\)/);
 
@@ -181,42 +212,34 @@ module.exports = [
         'header should render before calendar',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.homeCalendarStrip') < homeScreenSource.indexOf('styles.statsCard'),
-        'calendar should render before stats',
+        homeScreenSource.indexOf('styles.homeCalendarStrip') < homeScreenSource.indexOf('styles.weeklyStatusRow'),
+        'calendar should render before weekly status',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.statsCard') < homeScreenSource.indexOf('styles.yourPlanCard'),
-        'stats should render before your plan',
+        homeScreenSource.indexOf('styles.weeklyStatusRow') < homeScreenSource.indexOf('styles.continuePlanCard'),
+        'weekly status should render before continue plan',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.yourPlanCard') < homeScreenSource.indexOf('styles.sectionHeaderRow'),
-        'your plan should render before routines',
+        homeScreenSource.indexOf('styles.continuePlanCard') < homeScreenSource.indexOf('styles.sectionHeaderRow'),
+        'continue plan should render before routines',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.routineShortcutRow') < homeScreenSource.indexOf('styles.startWorkoutHero'),
-        'start workout hero should render after routine shortcuts',
+        homeScreenSource.indexOf('styles.routineShortcutRow') < homeScreenSource.indexOf('styles.emptyWorkoutRow'),
+        'empty workout row should render after routine shortcuts',
       );
-      assert.ok(
-        homeScreenSource.indexOf('styles.startWorkoutHero') < homeScreenSource.indexOf('Quick Access'),
-        'start workout hero should render before quick access',
-      );
-      assert.ok(
-        homeScreenSource.indexOf('Quick Access') < homeScreenSource.indexOf('Recent Sessions'),
-        'recent sessions should fill the lower home area after quick access',
-      );
-
       assert.match(appSource, /activePlan=\{homeActivePlanCard\}/);
       assert.match(appSource, /const homeRecentSessions = useMemo/);
       assert.match(appSource, /\[\.\.\.workoutSessions\][\s\S]*\.sort/);
       assert.match(appSource, /\.slice\(0, 3\)/);
-      assert.match(appSource, /recentSessions=\{homeRecentSessions\}/);
+      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
+      assert.match(appSource, /<ProgressScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
       assert.match(appSource, /customTemplates=\{customWorkouts\}/);
       assert.match(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\}/);
       assert.doesNotMatch(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'editor' \}\)\}/);
       assert.match(appSource, /onBrowseReadyPlans=\{\(\) => navigate\(WORKOUT_PLAN_ROUTE\)\}/);
-      assert.match(appSource, /onOpenProgressOverview=\{\(\) => navigate\(\{ tab: 'progress', screen: 'list', section: 'overview' \}\)\}/);
-      assert.match(appSource, /onOpenTrackedProgress=\{\(\) => navigate\(\{ tab: 'progress', screen: 'list', section: 'tracked' \}\)\}/);
-      assert.match(appSource, /onOpenBodyStats=\{\(\) => navigate\(\{ tab: 'progress', screen: 'list', section: 'measures' \}\)\}/);
+      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenProgressOverview=/);
+      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenTrackedProgress=/);
+      assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenBodyStats=/);
       assert.match(appSource, /onOpenSessionHistory=\{\(\) => navigate\(\{ tab: 'home', screen: 'history' \}\)\}/);
       assert.match(appSource, /onOpenRecentSession=\{\(sessionId\) => navigate\(\{ tab: 'home', screen: 'session', sessionId \}\)\}/);
       assert.doesNotMatch(appSource, /onOpenAICoach=\{handleOpenAICoach\}/);
@@ -241,6 +264,13 @@ module.exports = [
 
       assert.match(routesSource, /section\?: 'overview' \| 'tracked' \| 'measures'/);
       assert.match(progressScreenSource, /initialSection\?: ProgressSection/);
+      assert.match(progressScreenSource, /recentSessions\?: HomeRecentSessionItem\[\]/);
+      assert.match(progressScreenSource, /onOpenSessionHistory\?: \(\) => void/);
+      assert.match(progressScreenSource, /onOpenRecentSession\?: \(sessionId: string\) => void/);
+      assert.match(progressScreenSource, /<Text style=\{styles\.referenceCardTitle\}>History<\/Text>/);
+      assert.match(progressScreenSource, /recentSessions\.slice\(0, 3\)\.map/);
+      assert.match(progressScreenSource, /progressHistoryCard/);
+      assert.match(progressScreenSource, /onOpenRecentSession\?\.\(session\.id\)/);
       assert.match(progressScreenSource, /useState<ProgressSection>\(initialSection \?\? 'overview'\)/);
       assert.match(progressScreenSource, /useEffect\(\(\) => \{[\s\S]*setProgressSection\(initialSection\);[\s\S]*\}, \[initialSection\]\)/);
       assert.match(appSource, /initialSection=\{route\.screen === 'list' \? route\.section : undefined\}/);

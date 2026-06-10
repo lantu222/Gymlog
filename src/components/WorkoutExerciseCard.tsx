@@ -3,15 +3,16 @@ import { LayoutChangeEvent, Pressable, StyleSheet, Text, TextInput, View } from 
 
 import { buildProgressionSuggestion, getBestComparableWorkingSet } from '../lib/workoutIntelligence';
 import { formatRepRange, formatWeight, formatWeightInputValue } from '../lib/format';
-import { radii, spacing } from '../theme';
+import { radii, spacing, typography } from '../theme';
 import { ExerciseLog } from '../types/models';
 import { WorkoutExerciseInstance, WorkoutSetInstance, WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { UnitPreference } from '../types/models';
 import { WorkoutSetRow } from './WorkoutSetRow';
+import { canCompleteWorkoutSet } from '../lib/workoutValidation';
 
 const LOGGING_BACKGROUND = '#F7F3FF';
 const LOGGING_PURPLE = '#7C3AED';
-const LOGGING_GREEN = '#16A34A';
+const VALUE_CELL_WIDTH = 96;
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutExerciseInstance;
@@ -155,6 +156,7 @@ export function WorkoutExerciseCard({
   onRepsSubmit,
 }: WorkoutExerciseCardProps) {
   const latestPreviousLog = toComparableLog(previousEntries[0]);
+  const exerciseCompleted = exercise.status === 'completed' || exercise.status === 'skipped';
   const previousSessionLog = toComparableLog(previousEntries[1]);
   const previousBestSet = getBestComparableWorkingSet(latestPreviousLog);
   const previousBestLabel = formatBestSetLabel(previousBestSet, unitPreference);
@@ -166,14 +168,27 @@ export function WorkoutExerciseCard({
   );
   const activeSet = exercise.sets[activeSetIndex];
   const activeSetHasValues = Boolean(activeSet?.draftLoadText.trim() || activeSet?.draftRepsText.trim());
+  const activeSetLoadValue = activeSet ? getDisplayLoadValue(activeSet, unitPreference) : '';
+  const activeSetRepsValue = activeSet ? getDisplayRepsValue(activeSet) : '';
+  const activeSetCanLog = activeSet
+    ? activeSet.status !== 'completed' && canCompleteWorkoutSet(exercise.trackingMode, activeSetLoadValue, activeSetRepsValue)
+    : false;
   const notePreview = exercise.notes?.trim() ?? '';
   const latestSetEffort = getLatestCompletedSetEffort(exercise, activeSetIndex);
   const effortHelperText = getEffortHelperText(latestSetEffort);
   const activeStepLabel =
     isActiveExercise && activeSet
-      ? activeSet.status === 'completed'
+      ? exerciseCompleted
+        ? 'Done'
+        : activeSet.status === 'completed'
         ? `Review set ${activeSetIndex + 1}`
-        : `Set ${Math.min(activeSetIndex + 1, exercise.sets.length)} of ${exercise.sets.length}`
+        : `Set ${Math.min(activeSetIndex + 1, exercise.sets.length)} / ${exercise.sets.length}`
+      : null;
+  const activeTargetText =
+    isActiveExercise && activeSet
+      ? `Target ${activeSet.plannedRepsMin}-${activeSet.plannedRepsMax} reps${
+          previousBestLabel ? ` - last time ${previousBestLabel}` : ''
+        }`
       : null;
 
   const helperText = isActiveExercise
@@ -185,20 +200,18 @@ export function WorkoutExerciseCard({
     : null;
 
   return (
-    <View onLayout={onLayout} style={[styles.card, isActiveExercise && styles.cardActive]}>
-      {isActiveExercise ? <View style={styles.cardAccent} /> : null}
-
+    <View onLayout={onLayout} style={[styles.card, isActiveExercise && styles.cardActive, exerciseCompleted && styles.cardCompleted]}>
       <Pressable onPress={onActivateExercise} style={styles.header}>
         <View style={styles.headerCopy}>
           <View style={styles.headerTopRow}>
             <Text style={styles.name} numberOfLines={1}>{exercise.exerciseName}</Text>
             {isActiveExercise ? (
               <View style={styles.activeChip}>
-                <Text style={styles.activeChipText}>Active</Text>
+                <Text style={styles.activeChipText}>{activeStepLabel}</Text>
               </View>
             ) : null}
           </View>
-          {previousBestLabel ? <Text style={styles.contextText} numberOfLines={1}>Best {previousBestLabel}</Text> : null}
+          {previousBestLabel && !isActiveExercise ? <Text style={styles.contextText} numberOfLines={1}>Best {previousBestLabel}</Text> : null}
           {!isActiveExercise && helperText ? (
             <Text style={[styles.helperText, isActiveExercise && styles.helperTextActive]} numberOfLines={1}>
               {helperText}
@@ -214,15 +227,11 @@ export function WorkoutExerciseCard({
 
       {isActiveExercise ? (
         <>
-          <View style={styles.activeGuideRow}>
-            <View style={styles.activeGuideBadge}>
-              <Text style={styles.activeGuideBadgeText}>Now</Text>
-            </View>
-            <View style={styles.activeGuideCopy}>
-              {activeStepLabel ? <Text style={styles.activeGuideTitle}>{activeStepLabel}</Text> : null}
-              {helperText ? <Text style={styles.activeGuideBody}>{helperText}</Text> : null}
-            </View>
-          </View>
+          {activeTargetText ? (
+            <Text style={styles.activeTargetLine} numberOfLines={1}>
+              {activeTargetText}
+            </Text>
+          ) : null}
 
           <View style={styles.tableHeader}>
             <Text style={styles.tableSetHeader}>SET</Text>
@@ -277,7 +286,17 @@ export function WorkoutExerciseCard({
 
           <View style={styles.footerRow}>
             <Pressable onPress={onAddSet} style={styles.addSetButton}>
+              <Text style={styles.addSetPlus}>+</Text>
               <Text style={styles.addSetText}>Add set</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => activeSet ? onCompleteRow(activeSetIndex) : undefined}
+              disabled={!activeSetCanLog}
+              style={[styles.logSetButton, !activeSetCanLog && styles.logSetButtonDisabled]}
+            >
+              <Text style={styles.logSetText}>
+                Log set {Math.min(activeSetIndex + 1, exercise.sets.length)}
+              </Text>
             </Pressable>
           </View>
         </>
@@ -293,8 +312,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(124, 58, 237, 0.16)',
     backgroundColor: '#FFFFFF',
-    padding: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.lg,
+    gap: 6,
     shadowColor: LOGGING_PURPLE,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.08,
@@ -305,36 +326,33 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(124, 58, 237, 0.18)',
     backgroundColor: '#FFFFFF',
   },
-  cardAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: LOGGING_PURPLE,
+  cardCompleted: {
+    borderColor: 'rgba(124, 58, 237, 0.36)',
+    backgroundColor: '#FBF8FF',
   },
   header: {
-    gap: 6,
+    gap: 2,
   },
   headerCopy: {
-    gap: 4,
+    gap: 2,
   },
   headerTopRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: spacing.sm,
   },
   name: {
+    fontFamily: typography.fontFamily,
     flex: 1,
     color: '#111827',
-    fontSize: 18,
+    fontSize: 20,
+    lineHeight: 24,
     fontWeight: '900',
-    letterSpacing: -0.3,
   },
   activeChip: {
-    minHeight: 24,
-    paddingHorizontal: spacing.sm,
+    minHeight: 28,
+    paddingHorizontal: 12,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -343,18 +361,22 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(124, 58, 237, 0.18)',
   },
   activeChipText: {
+    fontFamily: typography.fontFamily,
     color: LOGGING_PURPLE,
-    fontSize: 10,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   contextText: {
+    fontFamily: typography.fontFamily,
     color: '#667085',
     fontSize: 12,
     fontWeight: '700',
   },
   helperText: {
+    fontFamily: typography.fontFamily,
     color: '#667085',
     fontSize: 11,
     fontWeight: '700',
@@ -385,6 +407,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(124, 58, 237, 0.20)',
   },
   activeGuideBadgeText: {
+    fontFamily: typography.fontFamily,
     color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '900',
@@ -396,14 +419,23 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   activeGuideTitle: {
+    fontFamily: typography.fontFamily,
     color: '#111827',
     fontSize: 14,
     fontWeight: '900',
   },
   activeGuideBody: {
+    fontFamily: typography.fontFamily,
     color: '#667085',
     fontSize: 11,
     fontWeight: '700',
+  },
+  activeTargetLine: {
+    fontFamily: typography.fontFamily,
+    color: '#667085',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
   },
   noteBox: {
     borderRadius: radii.sm,
@@ -414,23 +446,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   noteText: {
+    fontFamily: typography.fontFamily,
     color: '#111827',
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '700',
   },
   rows: {
-    gap: spacing.sm,
+    gap: 11,
   },
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     paddingHorizontal: 2,
-    paddingTop: 2,
+    paddingTop: 4,
   },
   tableSetHeader: {
-    width: 50,
+    fontFamily: typography.fontFamily,
+    width: 30,
     color: '#667085',
     fontSize: 10,
     fontWeight: '900',
@@ -438,7 +472,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tableCellHeader: {
-    flex: 1,
+    fontFamily: typography.fontFamily,
+    width: VALUE_CELL_WIDTH,
     color: '#667085',
     fontSize: 10,
     fontWeight: '900',
@@ -446,7 +481,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   tableCheckHeader: {
-    width: 58,
+    fontFamily: typography.fontFamily,
+    width: 38,
     color: '#667085',
     fontSize: 10,
     fontWeight: '900',
@@ -455,22 +491,50 @@ const styles = StyleSheet.create({
   },
   footerRow: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
-    paddingTop: 2,
+    gap: spacing.sm,
+    paddingTop: 5,
   },
   addSetButton: {
-    minHeight: 34,
+    flex: 1,
+    minHeight: 48,
     paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
     backgroundColor: '#F3ECFF',
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.20)',
+  },
+  addSetPlus: {
+    fontFamily: typography.fontFamily,
+    color: LOGGING_PURPLE,
+    fontSize: 26,
+    lineHeight: 28,
+    fontWeight: '900',
   },
   addSetText: {
+    fontFamily: typography.fontFamily,
     color: LOGGING_PURPLE,
-    fontSize: 11,
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 0.2,
+  },
+  logSetButton: {
+    flex: 1.65,
+    minHeight: 48,
+    paddingHorizontal: spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: LOGGING_PURPLE,
+  },
+  logSetButtonDisabled: {
+    opacity: 0.54,
+  },
+  logSetText: {
+    fontFamily: typography.fontFamily,
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '900',
     letterSpacing: 0.2,
   },

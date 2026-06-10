@@ -18,12 +18,32 @@ declare module 'phosphor-react-native/lib/commonjs/icons/Check' {
   export { Check, CheckIcon } from 'phosphor-react-native';
 }
 
+declare module 'phosphor-react-native/lib/commonjs/icons/Clock' {
+  export { Clock, ClockIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/Fire' {
+  export { Fire, FireIcon } from 'phosphor-react-native';
+}
+
 declare module 'phosphor-react-native/lib/commonjs/icons/Heart' {
   export { Heart, HeartIcon } from 'phosphor-react-native';
 }
 
+declare module 'phosphor-react-native/lib/commonjs/icons/Heartbeat' {
+  export { Heartbeat, HeartbeatIcon } from 'phosphor-react-native';
+}
+
 declare module 'phosphor-react-native/lib/commonjs/icons/HouseSimple' {
   export { HouseSimple, HouseSimpleIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/Lightning' {
+  export { Lightning, LightningIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/MagnifyingGlass' {
+  export { MagnifyingGlass, MagnifyingGlassIcon } from 'phosphor-react-native';
 }
 
 declare module 'phosphor-react-native/lib/commonjs/icons/PersonSimple' {
@@ -44,6 +64,10 @@ declare module 'phosphor-react-native/lib/commonjs/icons/Scales' {
 
 declare module 'phosphor-react-native/lib/commonjs/icons/ShieldCheck' {
   export { ShieldCheck, ShieldCheckIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/SlidersHorizontal' {
+  export { SlidersHorizontal, SlidersHorizontalIcon } from 'phosphor-react-native';
 }
 
 declare module 'phosphor-react-native/lib/commonjs/icons/SneakerMove' {

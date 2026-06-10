@@ -3,10 +3,12 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWin
 import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import { EmptyState } from '../components/EmptyState';
+import { GymlogIcon } from '../components/GymlogIcon';
 import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ProgressCard } from '../components/ProgressCard';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { SimpleLineChart } from '../components/SimpleLineChart';
+import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { getLogSetStatusCounts } from '../lib/exerciseLog';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
@@ -64,6 +66,9 @@ interface ProgressScreenProps {
   onBack: () => void;
   plateaus?: AICoachPlateauSummary[];
   fatigue?: AICoachFatigueSummary;
+  recentSessions?: HomeRecentSessionItem[];
+  onOpenSessionHistory?: () => void;
+  onOpenRecentSession?: (sessionId: string) => void;
 }
 
 type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
@@ -891,6 +896,9 @@ export function ProgressScreen({
   onBack,
   plateaus,
   fatigue,
+  recentSessions = [],
+  onOpenSessionHistory,
+  onOpenRecentSession,
 }: ProgressScreenProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
@@ -1592,6 +1600,51 @@ export function ProgressScreen({
               </View>
             </View>
 
+            <View style={styles.progressHistoryCard}>
+              <View style={styles.referenceCardHeader}>
+                <Text style={styles.referenceCardTitle}>History</Text>
+                {onOpenSessionHistory ? (
+                  <Pressable onPress={onOpenSessionHistory} hitSlop={8}>
+                    <Text style={styles.referenceSeeAll}>See all</Text>
+                  </Pressable>
+                ) : null}
+              </View>
+
+              {recentSessions.length > 0 ? (
+                <View style={styles.progressHistoryList}>
+                  {recentSessions.slice(0, 3).map((session) => (
+                    <Pressable
+                      key={session.id}
+                      onPress={() => onOpenRecentSession?.(session.id)}
+                      disabled={!onOpenRecentSession}
+                      style={styles.progressHistoryRow}
+                    >
+                      <View style={styles.progressHistoryIcon}>
+                        <GymlogIcon name="dumbbell" color="#16A34A" size={18} />
+                      </View>
+                      <View style={styles.progressHistoryCopy}>
+                        <Text style={styles.progressHistoryTitle} numberOfLines={1}>
+                          {session.title}
+                        </Text>
+                        <Text style={styles.progressHistoryMeta} numberOfLines={1}>
+                          {session.dateLabel} - {session.durationLabel} - {session.volumeLabel}
+                        </Text>
+                        <Text style={styles.progressHistoryPreview} numberOfLines={1}>
+                          {session.exercisePreview}
+                        </Text>
+                      </View>
+                      <GymlogIcon name="chevronRight" color="#16A34A" size={18} />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <View style={styles.progressHistoryEmpty}>
+                  <Text style={styles.progressHistoryTitle}>No sessions yet</Text>
+                  <Text style={styles.progressHistoryPreview}>Finish a workout and it will show up here.</Text>
+                </View>
+              )}
+            </View>
+
             <View style={styles.summaryCard}>
               <Text style={styles.referenceCardTitle}>Summary</Text>
               <View style={styles.summaryMetricGrid}>
@@ -2081,6 +2134,72 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.lg,
     ...shadows.card,
+  },
+  progressHistoryCard: {
+    gap: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    ...shadows.card,
+  },
+  progressHistoryList: {
+    gap: spacing.sm,
+  },
+  progressHistoryRow: {
+    minHeight: 72,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DDFBE8',
+    backgroundColor: '#FBFFFC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.sm,
+  },
+  progressHistoryIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E8F7EE',
+  },
+  progressHistoryCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  progressHistoryTitle: {
+    color: '#101828',
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '900',
+  },
+  progressHistoryMeta: {
+    color: '#667085',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  progressHistoryPreview: {
+    color: '#667085',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
+  progressHistoryEmpty: {
+    minHeight: 76,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: PROGRESS_CARD_BORDER,
+    backgroundColor: '#FBFFFC',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    gap: 4,
   },
   activityStatsRow: {
     flexDirection: 'row',
