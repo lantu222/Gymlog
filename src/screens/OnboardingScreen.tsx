@@ -135,18 +135,19 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const DEFAULT_BODYWEIGHT_KG = 70;
 const DEFAULT_BODYWEIGHT_LB = 154;
-const ONBOARDING_PANEL = '#1D1C35';
+// Light redesign palette (HG tokens from the design handoff).
+const ONBOARDING_PANEL = '#F7F3FF';
 const ONBOARDING_BG = ONBOARDING_PANEL;
 const ONBOARDING_TOP = ONBOARDING_PANEL;
-const ONBOARDING_CARD = '#121127';
-const ONBOARDING_CARD_ACTIVE = '#18163A';
-const ONBOARDING_PRIMARY = '#7F77DD';
-const ONBOARDING_PRIMARY_SOFT = 'rgba(127,119,221,0.16)';
-const ONBOARDING_TEXT = '#FFFFFF';
-const ONBOARDING_TEXT_SOFT = 'rgba(222,218,245,0.74)';
-const ONBOARDING_TEXT_MUTED = 'rgba(222,218,245,0.56)';
-const ONBOARDING_BORDER = 'rgba(222,218,245,0.12)';
-const ONBOARDING_BORDER_ACTIVE = 'rgba(127,119,221,0.82)';
+const ONBOARDING_CARD = '#FFFFFF';
+const ONBOARDING_CARD_ACTIVE = '#EFE7FF';
+const ONBOARDING_PRIMARY = '#7C3AED';
+const ONBOARDING_PRIMARY_SOFT = 'rgba(124,58,237,0.14)';
+const ONBOARDING_TEXT = '#101828';
+const ONBOARDING_TEXT_SOFT = '#667085';
+const ONBOARDING_TEXT_MUTED = '#9A93AC';
+const ONBOARDING_BORDER = '#E4D8FF';
+const ONBOARDING_BORDER_ACTIVE = '#7C3AED';
 const BODYWEIGHT_INTEGER_LIMITS: Record<UnitPreference, { min: number; max: number }> = {
   kg: { min: 35, max: 220 },
   lb: { min: 77, max: 485 },
@@ -5481,7 +5482,8 @@ const styles = StyleSheet.create({
     backgroundColor: ONBOARDING_BG,
   },
   rootBlack: {
-    backgroundColor: ONBOARDING_BG,
+    // Plan-ready (review) keeps the pre-redesign dark shell until Phase 5.
+    backgroundColor: '#1D1C35',
   },
   rootDark: {
     backgroundColor: ONBOARDING_BG,
@@ -5493,7 +5495,8 @@ const styles = StyleSheet.create({
     backgroundColor: ONBOARDING_BG,
   },
   scrollViewBlack: {
-    backgroundColor: ONBOARDING_BG,
+    // Plan-ready (review) keeps the pre-redesign dark shell until Phase 5.
+    backgroundColor: '#1D1C35',
   },
   planReadyProgramOverviewScrollView: {
     backgroundColor: 'transparent',
@@ -5613,7 +5616,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   locationHeadline: {
-    color: '#FFFFFF',
+    color: ONBOARDING_TEXT,
     fontSize: 42,
     lineHeight: 42,
     fontWeight: '900',
@@ -11734,7 +11737,8 @@ const styles = StyleSheet.create({
     borderTopColor: ONBOARDING_BORDER,
   },
   planReadyFixedFooter: {
-    backgroundColor: ONBOARDING_BG,
+    // Plan-ready (review) keeps the pre-redesign dark shell until Phase 5.
+    backgroundColor: '#1D1C35',
     borderTopWidth: 0,
     borderTopColor: 'transparent',
     paddingHorizontal: 18,

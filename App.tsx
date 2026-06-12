@@ -2910,10 +2910,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive ? 'dark' : welcomeActive || onboardingScreenActive ? 'light' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
       statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#1D1C35' : emptyWorkoutActive || readyTemplatesActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
