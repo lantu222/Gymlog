@@ -1,22 +1,25 @@
 ﻿import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, radii, spacing, typography } from '../theme';
+import { colors, radii, spacing } from '../theme';
 import { UnitPreference } from '../types/models';
 import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { canCompleteWorkoutSet, getWorkoutSetValidationMessage } from '../lib/workoutValidation';
 
 const LOGGING_PURPLE = '#7C3AED';
-const SET_BADGE_SIZE = 30;
+const WORKOUT_FONT_FAMILY = 'Manrope';
+const SET_BADGE_SIZE = 32;
 const VALUE_CELL_FLEX = 0.5;
-const VALUE_CELL_WIDTH = 96;
-const CHECK_BUTTON_SIZE = 38;
+const VALUE_CELL_WIDTH = 66;
+const PREVIOUS_CELL_WIDTH = 86;
+const CHECK_BUTTON_SIZE = 34;
 
 interface WorkoutSetRowProps {
   setNumber: number;
   trackingMode: WorkoutTrackingMode;
   weightValue: string;
   repsValue: string;
+  previousValue?: string | null;
   weightPlaceholder?: string;
   repsPlaceholder?: string;
   unitPreference: UnitPreference;
@@ -40,13 +43,15 @@ interface WorkoutSetRowProps {
 function CompactValueCell({
   value,
   completed,
+  muted,
 }: {
   value: string;
   completed?: boolean;
+  muted?: boolean;
 }) {
   return (
     <View style={[styles.valueCell, styles.valueCellFlex, completed && styles.valueCellCompletedPurple]}>
-      <Text style={styles.valueText} numberOfLines={1}>{value}</Text>
+      <Text style={[styles.valueText, muted && styles.valueTextMuted]} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
@@ -56,6 +61,7 @@ export function WorkoutSetRow({
   trackingMode,
   weightValue,
   repsValue,
+  previousValue,
   weightPlaceholder,
   repsPlaceholder,
   unitPreference,
@@ -83,6 +89,10 @@ export function WorkoutSetRow({
     ? getWorkoutSetValidationMessage(trackingMode, weightValue, repsValue)
     : null;
   const effortLabel = effort === 'easy' ? 'Easy' : effort === 'good' ? 'Good' : effort === 'hard' ? 'Hard' : null;
+  const loadDisplayValue = weightValue || weightPlaceholder || '0';
+  const repsDisplayValue = repsValue || repsPlaceholder || '6-8';
+  const loadMuted = !completed && !weightValue;
+  const repsMuted = !completed && !repsValue;
 
   return (
     <Pressable
@@ -94,54 +104,63 @@ export function WorkoutSetRow({
           <Text style={[styles.setBadgeValue, (active || completed) && styles.setBadgeValueOnPurple]}>{setNumber}</Text>
         </View>
 
-        {showLoadField ? (
-          showEditableInputs ? (
-            <View style={[styles.inputWrap, styles.loadCell, styles.inputWrapActive]}>
-              <TextInput
-                ref={bindWeightInput}
-                value={weightValue}
-                onChangeText={onWeightChange}
-                placeholder={weightPlaceholder || '0'}
-                placeholderTextColor={colors.textMuted}
-                keyboardType="decimal-pad"
-                selectionColor={colors.accent}
-                style={styles.input}
-                returnKeyType="next"
-                onSubmitEditing={onWeightSubmit}
-                blurOnSubmit={false}
-                selectTextOnFocus
-              />
-            </View>
-          ) : (
-            <CompactValueCell
-              value={weightValue || weightPlaceholder || '--'}
-              completed={completed}
-            />
-          )
-        ) : (
-          <CompactValueCell value="Body" completed={completed} />
-        )}
+        <View style={styles.setMiddleGroup}>
+          <Text style={styles.previousValue} numberOfLines={1}>
+            {previousValue || '--'}
+          </Text>
 
-        {showEditableInputs ? (
-          <View style={[styles.inputWrap, styles.repsCell, styles.inputWrapActive]}>
-            <TextInput
-              ref={bindRepsInput}
-              value={repsValue}
-              onChangeText={onRepsChange}
-              placeholder={repsPlaceholder || '0'}
-              placeholderTextColor={colors.textMuted}
-              keyboardType="number-pad"
-              selectionColor={colors.accent}
-              style={styles.input}
-              returnKeyType="done"
-              onSubmitEditing={onRepsSubmit}
-              blurOnSubmit
-              selectTextOnFocus
-            />
+          <View style={styles.valueCellsGroup}>
+            {showLoadField ? (
+              showEditableInputs ? (
+                <View style={[styles.inputWrap, styles.loadCell, styles.inputWrapActive]}>
+                  <TextInput
+                    ref={bindWeightInput}
+                    value={weightValue}
+                    onChangeText={onWeightChange}
+                    placeholder={weightPlaceholder || '0'}
+                    placeholderTextColor="#9B93AD"
+                    keyboardType="decimal-pad"
+                    selectionColor={colors.accent}
+                    style={styles.input}
+                    returnKeyType="next"
+                    onSubmitEditing={onWeightSubmit}
+                    blurOnSubmit={false}
+                    selectTextOnFocus
+                  />
+                </View>
+              ) : (
+                <CompactValueCell
+                  value={loadDisplayValue}
+                  completed={completed}
+                  muted={loadMuted}
+                />
+              )
+            ) : (
+              <CompactValueCell value="Body" completed={completed} muted={!completed} />
+            )}
+
+            {showEditableInputs ? (
+              <View style={[styles.inputWrap, styles.repsCell, styles.inputWrapActive]}>
+                <TextInput
+                  ref={bindRepsInput}
+                  value={repsValue}
+                  onChangeText={onRepsChange}
+                  placeholder={repsPlaceholder || '0'}
+                  placeholderTextColor="#9B93AD"
+                  keyboardType="number-pad"
+                  selectionColor={colors.accent}
+                  style={styles.input}
+                  returnKeyType="done"
+                  onSubmitEditing={onRepsSubmit}
+                  blurOnSubmit
+                  selectTextOnFocus
+                />
+              </View>
+            ) : (
+              <CompactValueCell value={repsDisplayValue} completed={completed} muted={repsMuted} />
+            )}
           </View>
-        ) : (
-          <CompactValueCell value={repsValue || repsPlaceholder || '--'} completed={completed} />
-        )}
+        </View>
 
         {showActionButton ? (
           <Pressable
@@ -173,6 +192,7 @@ export function WorkoutSetRow({
 
 const styles = StyleSheet.create({
   row: {
+    minHeight: 46,
     overflow: 'hidden',
     borderRadius: radii.sm,
     backgroundColor: '#FFFFFF',
@@ -191,46 +211,76 @@ const styles = StyleSheet.create({
   mainLine: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
+    gap: 0,
+    width: '100%',
   },
   setBadge: {
     width: SET_BADGE_SIZE,
     minHeight: SET_BADGE_SIZE,
-    borderRadius: radii.pill,
-    backgroundColor: '#F3ECFF',
+    marginLeft: 5,
+    borderRadius: 0,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   setBadgeActive: {
-    backgroundColor: LOGGING_PURPLE,
+    backgroundColor: 'transparent',
   },
   setBadgeCompletedPurple: {
-    backgroundColor: LOGGING_PURPLE,
+    backgroundColor: 'transparent',
   },
   setBadgeValue: {
-    fontFamily: typography.fontFamily,
-    color: LOGGING_PURPLE,
-    fontSize: 14,
+    fontFamily: WORKOUT_FONT_FAMILY,
+    color: '#111827',
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   setBadgeValueOnPurple: {
-    color: '#FFFFFF',
+    color: '#111827',
+  },
+  previousValue: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    width: PREVIOUS_CELL_WIDTH,
+    paddingLeft: 10,
+    color: '#80768F',
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'left',
+  },
+  setMiddleGroup: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 6,
+    paddingRight: 14,
+  },
+  valueCellsGroup: {
+    width: 146,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   inputWrap: {
-    minHeight: 44,
+    minHeight: 38,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: radii.sm,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.18)',
-    backgroundColor: '#F3ECFF',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F5F5F7',
     paddingHorizontal: spacing.sm,
   },
   inputWrapActive: {
     borderColor: LOGGING_PURPLE,
-    backgroundColor: '#F3ECFF',
+    backgroundColor: '#F5F5F7',
   },
   loadCell: {
     width: VALUE_CELL_WIDTH,
@@ -239,7 +289,7 @@ const styles = StyleSheet.create({
     width: VALUE_CELL_WIDTH,
   },
   input: {
-    fontFamily: typography.fontFamily,
+    fontFamily: WORKOUT_FONT_FAMILY,
     flex: 1,
     color: '#111827',
     fontSize: 16,
@@ -252,35 +302,40 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
   valueCell: {
-    minHeight: 44,
-    borderRadius: radii.sm,
+    minHeight: 38,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.16)',
-    backgroundColor: '#F3ECFF',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F5F5F7',
     paddingHorizontal: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
   },
   valueCellCompletedPurple: {
-    borderColor: 'rgba(124, 58, 237, 0.20)',
-    backgroundColor: '#EDE4FF',
+    borderColor: '#E5E7EB',
+    backgroundColor: '#F5F5F7',
   },
   valueCellFlex: {
     width: VALUE_CELL_WIDTH,
   },
   valueText: {
-    fontFamily: typography.fontFamily,
+    fontFamily: WORKOUT_FONT_FAMILY,
     color: '#111827',
-    fontSize: 15,
+    fontSize: 17,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
     width: '100%',
     includeFontPadding: false,
   },
+  valueTextMuted: {
+    color: '#9B93AD',
+    fontWeight: '800',
+  },
   doneButton: {
     width: CHECK_BUTTON_SIZE,
     minHeight: CHECK_BUTTON_SIZE,
+    marginRight: 10,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E5E7EB',
@@ -290,13 +345,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   doneButtonReady: {
-    borderColor: 'rgba(124, 58, 237, 0.32)',
-    backgroundColor: LOGGING_PURPLE,
-    shadowColor: LOGGING_PURPLE,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 6,
+    borderColor: 'rgba(124, 58, 237, 0.34)',
+    backgroundColor: '#F5F5F7',
   },
   doneButtonCompletedPurple: {
     backgroundColor: LOGGING_PURPLE,
@@ -306,15 +356,15 @@ const styles = StyleSheet.create({
     opacity: 0.86,
   },
   doneText: {
-    fontFamily: typography.fontFamily,
+    fontFamily: WORKOUT_FONT_FAMILY,
     color: '#94A3B8',
     fontSize: 16,
     fontWeight: '900',
     textAlign: 'center',
   },
   doneTextReady: {
-    color: '#FFFFFF',
-    fontSize: 12,
+    color: LOGGING_PURPLE,
+    fontSize: 16,
   },
   doneTextCompleted: {
     color: '#FFFFFF',
@@ -324,7 +374,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   activeHintText: {
-    fontFamily: typography.fontFamily,
+    fontFamily: WORKOUT_FONT_FAMILY,
     color: '#667085',
     fontSize: 10,
     fontWeight: '700',
@@ -344,7 +394,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(124, 58, 237, 0.22)',
   },
   repeatText: {
-    fontFamily: typography.fontFamily,
+    fontFamily: WORKOUT_FONT_FAMILY,
     color: LOGGING_PURPLE,
     fontSize: 10,
     fontWeight: '800',
@@ -373,7 +423,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(191, 74, 105, 0.18)',
   },
   effortText: {
-    fontFamily: typography.fontFamily,
+    fontFamily: WORKOUT_FONT_FAMILY,
     color: '#111827',
     fontSize: 10,
     fontWeight: '900',
@@ -381,7 +431,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   validationText: {
-    fontFamily: typography.fontFamily,
+    fontFamily: WORKOUT_FONT_FAMILY,
     color: '#F0A286',
     fontSize: 11,
     fontWeight: '700',

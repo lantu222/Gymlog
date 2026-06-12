@@ -40,6 +40,40 @@ module.exports = [
     },
   },
   {
+    name: 'tick does not keep completed workouts running in the background',
+    run() {
+      const completedAt = '2026-03-31T10:30:00.000Z';
+      const activeSession = createCompletedSession({
+        status: 'completed',
+        completedAt,
+        startedAt: '2026-03-31T09:30:00.000Z',
+        updatedAt: completedAt,
+        elapsedSeconds: 3600,
+        restTimer: {
+          status: 'idle',
+          exerciseSlotId: null,
+          setIndex: null,
+          startedAtMs: null,
+          endsAtMs: null,
+          durationSeconds: 0,
+        },
+      });
+
+      const nextState = workoutReducer(
+        {
+          ...workoutInitialState,
+          activeSession,
+          nowMs: Date.parse(completedAt),
+        },
+        { type: 'session/tick', payload: { nowMs: Date.parse(completedAt) + 8 * 60 * 60 * 1000 } },
+      );
+
+      assert.equal(nextState.activeSession.elapsedSeconds, 3600);
+      assert.equal(nextState.activeSession.restTimer.status, 'idle');
+      assert.equal(nextState.activeSession.updatedAt, completedAt);
+    },
+  },
+  {
     name: 'discardWorkout clears the active session without creating a completion summary',
     run() {
       const activeSession = createCompletedSession({

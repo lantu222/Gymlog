@@ -465,6 +465,9 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       if (!state.activeSession) {
         return { ...state, nowMs: action.payload.nowMs };
       }
+      if (state.activeSession.status !== 'active') {
+        return { ...state, nowMs: action.payload.nowMs };
+      }
       return {
         ...state,
         nowMs: action.payload.nowMs,

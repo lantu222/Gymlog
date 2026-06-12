@@ -708,6 +708,7 @@ function GymlogApp() {
     [exerciseLibrary],
   );
   const summaryExitRouteRef = useRef<AppRoute | null>(null);
+  const summaryNavigationPendingRef = useRef(false);
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
@@ -733,6 +734,7 @@ function GymlogApp() {
     async function loadFonts() {
       await Font.loadAsync({
         Inter: require('./assets/fonts/Inter.ttf'),
+        Manrope: require('./assets/fonts/Manrope.ttf'),
       }).catch(() => {
         // Keep the app usable if font loading fails in a dev host.
       });
@@ -938,7 +940,12 @@ function GymlogApp() {
       const allowedAt = workoutLogNavigationAllowedAtRef.current;
       workoutLogNavigationAllowedAtRef.current = null;
 
-      if (!allowedAt || Date.now() - allowedAt > 2000) {
+      if (
+        !workout.activeSession &&
+        finishSaveState.status !== 'saving' &&
+        !summaryNavigationPendingRef.current &&
+        (!allowedAt || Date.now() - allowedAt > 2000)
+      ) {
         replaceRoute(ROOT_ROUTES.home);
         return;
       }
@@ -1004,12 +1011,37 @@ function GymlogApp() {
       replaceRoute({ tab: 'home', screen: 'history' });
     }
 
-    if (route.tab === 'workout' && route.screen === 'summary' && !completionSummary) {
+    if (
+      route.tab === 'workout' &&
+      route.screen === 'summary' &&
+      completionSummary &&
+      summaryNavigationPendingRef.current
+    ) {
+      summaryNavigationPendingRef.current = false;
+    }
+
+    if (
+      route.tab === 'workout' &&
+      route.screen === 'summary' &&
+      !completionSummary &&
+      finishSaveState.status !== 'saving' &&
+      !summaryNavigationPendingRef.current
+    ) {
       const nextRoute = summaryExitRouteRef.current ?? WORKOUT_PLAN_ROUTE;
       summaryExitRouteRef.current = null;
       replaceRoute(nextRoute);
     }
-  }, [completionSummary, exerciseLibrary, route, trackedProgress, workoutSessions, workout.templates, workoutTemplates]);
+  }, [
+    completionSummary,
+    exerciseLibrary,
+    finishSaveState.status,
+    route,
+    trackedProgress,
+    workout.activeSession,
+    workoutSessions,
+    workout.templates,
+    workoutTemplates,
+  ]);
 
   const onboardingActive = !preferences.onboardingCompleted;
   const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
@@ -1141,6 +1173,7 @@ function GymlogApp() {
       sessionId: adaptedSession.sessionId,
       message: null,
     });
+    workout.finishWorkout(adaptedSession.performedAt);
 
     try {
       const summary = await saveCompletedWorkoutSession({
@@ -1180,7 +1213,6 @@ function GymlogApp() {
             }
           : {}),
       });
-      workout.finishWorkout(summary.performedAt);
       const completionCards = buildCompletionCardsFromAdaptedSession({
         exercises: adaptedSession.exercises,
         exerciseTemplates: database.exerciseTemplates,
@@ -1199,8 +1231,10 @@ function GymlogApp() {
         prCards: completionCards.prCards,
         insight,
       });
-      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+      summaryNavigationPendingRef.current = true;
+      workout.clearCompletedWorkout();
       replaceRoute({ tab: 'workout', screen: 'summary' });
+      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
     } catch (error) {
       console.error('Failed to save completed workout', error);
       setFinishSaveState({

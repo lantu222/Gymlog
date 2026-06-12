@@ -12,7 +12,6 @@ import { canCompleteWorkoutSet } from '../lib/workoutValidation';
 
 const LOGGING_BACKGROUND = '#F7F3FF';
 const LOGGING_PURPLE = '#7C3AED';
-const VALUE_CELL_WIDTH = 96;
 
 interface WorkoutExerciseCardProps {
   exercise: WorkoutExerciseInstance;
@@ -109,6 +108,19 @@ function getRepeatPreview(exercise: WorkoutExerciseInstance, rowIndex: number, u
   }
 
   return `Repeat ${formatWeight(source.actualLoadKg ?? 0, unitPreference)} x ${source.actualReps}`;
+}
+
+function getPreviousSetLabel(previousEntries: WorkoutSlotHistoryEntry[], rowIndex: number, unitPreference: UnitPreference) {
+  const previousSet = previousEntries[0]?.sets[rowIndex] ?? null;
+  if (!previousSet || typeof previousSet.reps !== 'number') {
+    return null;
+  }
+
+  if (typeof previousSet.loadKg === 'number' && previousSet.loadKg > 0) {
+    return `${formatWeight(previousSet.loadKg, unitPreference)} x ${previousSet.reps}`;
+  }
+
+  return `${previousSet.reps} reps`;
 }
 
 function getLatestCompletedSetEffort(exercise: WorkoutExerciseInstance, activeSetIndex: number) {
@@ -235,6 +247,7 @@ export function WorkoutExerciseCard({
 
           <View style={styles.tableHeader}>
             <Text style={styles.tableSetHeader}>SET</Text>
+            <Text style={styles.tablePreviousHeader}>PREVIOUS</Text>
             <Text style={styles.tableCellHeader}>KG</Text>
             <Text style={styles.tableCellHeader}>REPS</Text>
             <Text style={styles.tableCheckHeader}>CHECK</Text>
@@ -245,6 +258,7 @@ export function WorkoutExerciseCard({
               const weightValue = getDisplayLoadValue(set, unitPreference);
               const repsValue = getDisplayRepsValue(set);
               const repeatPreview = getRepeatPreview(exercise, rowIndex, unitPreference);
+              const previousValue = getPreviousSetLabel(previousEntries, rowIndex, unitPreference);
 
               return (
                 <WorkoutSetRow
@@ -253,6 +267,7 @@ export function WorkoutExerciseCard({
                   trackingMode={exercise.trackingMode}
                   weightValue={weightValue}
                   repsValue={repsValue}
+                  previousValue={previousValue}
                   weightPlaceholder={
                     exercise.trackingMode === 'bodyweight' ? '' : formatWeightInputValue(set.plannedLoadKg, unitPreference)
                   }
@@ -308,27 +323,22 @@ export function WorkoutExerciseCard({
 const styles = StyleSheet.create({
   card: {
     overflow: 'hidden',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.16)',
+    borderRadius: 0,
+    borderWidth: 0,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDE7F8',
     backgroundColor: '#FFFFFF',
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.lg,
-    gap: 6,
-    shadowColor: LOGGING_PURPLE,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 5,
+    paddingTop: 16,
+    paddingBottom: 18,
+    gap: 7,
   },
   cardActive: {
-    borderColor: 'rgba(124, 58, 237, 0.18)',
     backgroundColor: '#FFFFFF',
   },
   cardCompleted: {
-    borderColor: 'rgba(124, 58, 237, 0.36)',
-    backgroundColor: '#FBF8FF',
+    borderColor: 'rgba(124, 58, 237, 0.42)',
+    backgroundColor: '#F1E9FF',
   },
   header: {
     gap: 2,
@@ -351,8 +361,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   activeChip: {
-    minHeight: 28,
-    paddingHorizontal: 12,
+    minHeight: 30,
+    paddingHorizontal: 13,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -434,7 +444,7 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
     color: '#667085',
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 19,
     fontWeight: '800',
   },
   noteBox: {
@@ -453,7 +463,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   rows: {
-    gap: 11,
+    gap: 12,
   },
   tableHeader: {
     flexDirection: 'row',
@@ -464,16 +474,25 @@ const styles = StyleSheet.create({
   },
   tableSetHeader: {
     fontFamily: typography.fontFamily,
-    width: 30,
+    width: 24,
     color: '#667085',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.4,
     textAlign: 'center',
   },
+  tablePreviousHeader: {
+    fontFamily: typography.fontFamily,
+    width: 76,
+    color: '#8D7FA9',
+    fontSize: 10,
+    fontWeight: '900',
+    letterSpacing: 0.4,
+    textAlign: 'left',
+  },
   tableCellHeader: {
     fontFamily: typography.fontFamily,
-    width: VALUE_CELL_WIDTH,
+    width: 64,
     color: '#667085',
     fontSize: 10,
     fontWeight: '900',
@@ -482,9 +501,9 @@ const styles = StyleSheet.create({
   },
   tableCheckHeader: {
     fontFamily: typography.fontFamily,
-    width: 38,
+    width: 44,
     color: '#667085',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.4,
     textAlign: 'center',
@@ -492,11 +511,11 @@ const styles = StyleSheet.create({
   footerRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    paddingTop: 5,
+    paddingTop: 7,
   },
   addSetButton: {
     flex: 1,
-    minHeight: 48,
+    minHeight: 50,
     paddingHorizontal: spacing.md,
     borderRadius: 12,
     alignItems: 'center',
@@ -521,7 +540,7 @@ const styles = StyleSheet.create({
   },
   logSetButton: {
     flex: 1.65,
-    minHeight: 48,
+    minHeight: 50,
     paddingHorizontal: spacing.md,
     borderRadius: 12,
     alignItems: 'center',
