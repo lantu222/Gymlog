@@ -13,7 +13,7 @@ const welcomeSource = fs.readFileSync(
 
 module.exports = [
   {
-    name: 'PrimaryCTAButton defines reusable premium gradient CTA and is used on welcome',
+    name: 'PrimaryCTAButton defines reusable premium gradient CTA; welcome uses its own flat light-theme CTA',
     run() {
       assert.match(componentSource, /import Svg, \{ Defs, LinearGradient, Rect, Stop \} from 'react-native-svg'/);
       assert.match(componentSource, /interface PrimaryCTAButtonProps/);
@@ -50,9 +50,10 @@ module.exports = [
       assert.match(componentSource, /letterSpacing: 1\.2/);
       assert.match(componentSource, /textTransform: 'uppercase'/);
       assert.doesNotMatch(componentSource, /expo-linear-gradient|GymlogIcon|Phosphor|Arrow|Chevron|rightCapFill|borderWidth:/);
-      assert.match(welcomeSource, /import \{ PrimaryCTAButton \} from '\.\.\/components\/PrimaryCTAButton'/);
-      assert.match(welcomeSource, /<PrimaryCTAButton title="Start free" onPress=\{onContinue\} style=\{styles\.welcomeCTAButton\} \/>/);
-      assert.doesNotMatch(welcomeSource, /GainerCTAButton|<Pressable onPress=\{onContinue\} style=\{styles\.primaryButton\}>/);
+      // Redesigned welcome (light theme) renders its own flat purple CTA instead of the gradient button.
+      assert.doesNotMatch(welcomeSource, /PrimaryCTAButton/);
+      assert.match(welcomeSource, /Start free/);
+      assert.match(welcomeSource, /backgroundColor: PURPLE/);
     },
   },
 ];
