@@ -42,6 +42,12 @@ const ICONS = {
   trophy: Trophy,
 };
 
+// Light redesign tokens: purpleLight tile with purple icon; selected card
+// flips to a translucent white tile with a white icon (design OptionCard).
+const TILE_BG = '#EFE7FF';
+const TILE_BG_ACTIVE = 'rgba(255,255,255,0.16)';
+const ICON_PURPLE = '#7C3AED';
+
 export function OnboardingOptionIcon({
   name,
   active = false,
@@ -55,28 +61,24 @@ export function OnboardingOptionIcon({
 
   return (
     <View style={[styles.container, active && styles.containerActive, subdued && styles.containerSubdued]}>
-      <Icon size={24} color={subdued ? 'rgba(255,255,255,0.52)' : '#FFFFFF'} weight="fill" />
+      <Icon size={22} color={active ? '#FFFFFF' : ICON_PURPLE} weight="fill" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+    width: 44,
+    height: 44,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(6,5,18,0.94)',
-    borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.10)',
+    backgroundColor: TILE_BG,
   },
   containerActive: {
-    backgroundColor: 'rgba(18,14,48,0.78)',
-    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: TILE_BG_ACTIVE,
   },
   containerSubdued: {
-    backgroundColor: 'rgba(7,7,18,0.66)',
-    borderColor: 'rgba(169,139,255,0.05)',
+    opacity: 0.6,
   },
 });

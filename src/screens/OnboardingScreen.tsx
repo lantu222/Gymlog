@@ -912,7 +912,7 @@ function LocationChoiceCard({
   }, [active, progress]);
 
   const animatedStyle = {
-    opacity: subdued ? 0.42 : progress.interpolate({
+    opacity: subdued ? 0.6 : progress.interpolate({
       inputRange: [0, 1],
       outputRange: [0.9, 1],
     }),
@@ -965,8 +965,11 @@ function LocationChoiceCard({
                 {label}
               </Text>
               {focusBadge ? (
-                <View style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(focusBadge.tone)]}>
-                  <Text numberOfLines={1} style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(focusBadge.tone)]}>
+                <View style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(focusBadge.tone), active && styles.locationFocusBadgeOnActive]}>
+                  <Text
+                    numberOfLines={1}
+                    style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(focusBadge.tone), active && styles.locationFocusBadgeTextOnActive]}
+                  >
                     {focusBadge.label}
                   </Text>
                 </View>
@@ -978,8 +981,14 @@ function LocationChoiceCard({
             {normalizedTags.length > 0 ? (
               <View style={styles.locationChoiceTagRow}>
                 {normalizedTags.map((tag, index) => (
-                  <View key={`${tag.label}:${tag.tone}:${index}`} style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(tag.tone)]}>
-                    <Text numberOfLines={1} style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(tag.tone)]}>
+                  <View
+                    key={`${tag.label}:${tag.tone}:${index}`}
+                    style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(tag.tone), active && styles.locationFocusBadgeChipOnActive]}
+                  >
+                    <Text
+                      numberOfLines={1}
+                      style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(tag.tone), active && styles.locationFocusBadgeChipTextOnActive]}
+                    >
                       {tag.label}
                     </Text>
                   </View>
@@ -996,7 +1005,7 @@ function LocationChoiceCard({
               {benefits.map((benefit) => (
                 <View key={benefit.label} style={styles.locationChoiceBenefitRow}>
                   <View style={styles.locationChoiceBenefitCheck}>
-                    <GymlogIcon name="check" size={10} color="#FFFFFF" />
+                    <GymlogIcon name="check" size={13} color="#FFFFFF" />
                   </View>
                   <Text style={styles.locationChoiceBenefitText}>{benefit.label}</Text>
                 </View>
@@ -3201,7 +3210,7 @@ export function OnboardingScreen({
                   value={profileName}
                   onChangeText={(value) => setProfileName(formatProfileName(value).slice(0, 32))}
                   placeholder="Name"
-                  placeholderTextColor="rgba(222,218,245,0.42)"
+                  placeholderTextColor={ONBOARDING_TEXT_MUTED}
                   autoCapitalize="words"
                   autoCorrect={false}
                   returnKeyType="done"
@@ -3224,7 +3233,7 @@ export function OnboardingScreen({
             {benefits.map((benefit) => (
               <View key={benefit.label} style={[styles.locationRewardBenefitCard, !showNamePrompt && styles.goalRewardBenefitCard]}>
                 <View style={[styles.locationRewardBenefitIcon, !showNamePrompt && styles.goalRewardBenefitIcon]}>
-                  <GymlogIcon name={benefit.icon} size={!showNamePrompt ? 20 : 18} color="#FFFFFF" />
+                  <GymlogIcon name={benefit.icon} size={!showNamePrompt ? 20 : 18} color={ONBOARDING_PRIMARY} />
                 </View>
                 <View style={[styles.locationRewardBenefitCopy, !showNamePrompt && styles.goalRewardBenefitCopy]}>
                   <Text style={[styles.locationRewardBenefitText, !showNamePrompt && styles.goalRewardBenefitText]}>{benefit.label}</Text>
@@ -6100,19 +6109,14 @@ const styles = StyleSheet.create({
   },
   locationChoiceCard: {
     minHeight: 74,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#121127',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: ONBOARDING_CARD,
     borderWidth: 1,
-    borderColor: 'rgba(222,218,245,0.12)',
+    borderColor: ONBOARDING_BORDER,
     justifyContent: 'center',
     overflow: 'hidden',
-    shadowColor: '#05040F',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 16,
-    elevation: 2,
   },
   locationChoiceCardCompact: {
     minHeight: 54,
@@ -6127,30 +6131,24 @@ const styles = StyleSheet.create({
     paddingVertical: 22,
   },
   locationChoiceCardActive: {
-    backgroundColor: '#5F4EE8',
-    borderColor: '#A98BFF',
-    shadowColor: '#8B5CF6',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.46,
-    shadowRadius: 26,
-    elevation: 10,
+    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: ONBOARDING_PRIMARY,
+    shadowColor: ONBOARDING_PRIMARY,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   locationChoiceCardSubdued: {
-    borderColor: 'rgba(127,119,221,0.18)',
-    backgroundColor: 'rgba(18,17,39,0.66)',
-    shadowOpacity: 0.1,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
   },
   locationChoiceActiveOutline: {
+    // The design's selected card needs no extra outline overlay.
     ...StyleSheet.absoluteFillObject,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#A98BFF',
-    backgroundColor: 'rgba(139,92,246,0.08)',
-    zIndex: 2,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.5,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
+    borderRadius: 18,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
   locationChoiceRow: {
     flexDirection: 'row',
@@ -6168,64 +6166,77 @@ const styles = StyleSheet.create({
   locationChoiceTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'nowrap',
-    gap: 4,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   locationChoiceLabel: {
     color: ONBOARDING_TEXT,
-    fontSize: 16.5,
-    lineHeight: 19,
-    fontWeight: '900',
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '800',
     letterSpacing: -0.2,
     flexShrink: 1,
   },
   locationChoiceLabelActive: {
-    color: ONBOARDING_TEXT,
+    color: '#FFFFFF',
   },
   locationFocusBadge: {
-    borderRadius: 9,
-    paddingHorizontal: 5,
-    paddingVertical: 2,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
     flexShrink: 0,
   },
   locationFocusBadgeNeutral: {
-    backgroundColor: 'rgba(127,119,221,0.18)',
+    backgroundColor: '#F2ECFF',
   },
   locationFocusBadgeGreen: {
-    backgroundColor: 'rgba(69,190,126,0.2)',
+    backgroundColor: '#E8F7EE',
   },
   locationFocusBadgeBlue: {
-    backgroundColor: 'rgba(104,184,255,0.2)',
+    backgroundColor: '#E1ECFB',
   },
   locationFocusBadgePurple: {
-    backgroundColor: 'rgba(198,139,255,0.2)',
+    backgroundColor: '#EFE7FF',
   },
   locationFocusBadgeText: {
-    fontSize: 8,
-    lineHeight: 10,
-    fontWeight: '900',
+    fontSize: 10.5,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.42,
+    textTransform: 'uppercase',
   },
   locationFocusBadgeTextNeutral: {
-    color: 'rgba(255,255,255,0.88)',
+    color: ONBOARDING_TEXT_SOFT,
   },
   locationFocusBadgeTextGreen: {
-    color: '#8BDEAE',
+    color: '#16A34A',
   },
   locationFocusBadgeTextBlue: {
-    color: '#8FCAFF',
+    color: '#0A84FF',
   },
   locationFocusBadgeTextPurple: {
-    color: '#D9A9FF',
+    color: ONBOARDING_PRIMARY,
+  },
+  locationFocusBadgeOnActive: {
+    backgroundColor: '#FFFFFF',
+  },
+  locationFocusBadgeTextOnActive: {
+    color: '#5B21B6',
+  },
+  locationFocusBadgeChipOnActive: {
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  locationFocusBadgeChipTextOnActive: {
+    color: '#FFFFFF',
   },
   locationChoiceSubtitle: {
-    color: 'rgba(222,218,245,0.68)',
-    fontSize: 8.8,
-    lineHeight: 11,
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 12.5,
+    lineHeight: 16,
     fontWeight: '600',
-    letterSpacing: -0.1,
   },
   locationChoiceSubtitleActive: {
-    color: 'rgba(255,255,255,0.84)',
+    color: 'rgba(255,255,255,0.85)',
   },
   locationChoiceTagRow: {
     flexDirection: 'row',
@@ -6233,52 +6244,47 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   locationChoiceBenefitsPanel: {
-    marginTop: 6,
-    borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.44)',
-    backgroundColor: 'rgba(10,9,24,0.48)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    gap: 4,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.2)',
+    gap: 7,
   },
   locationChoiceBenefitsKicker: {
-    color: '#C7A7FF',
-    fontSize: 8,
-    lineHeight: 9,
-    fontWeight: '900',
-    letterSpacing: 1.1,
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 10.5,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 1.26,
   },
   locationChoiceBenefitsList: {
-    gap: 3,
+    gap: 7,
   },
   locationChoiceBenefitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   locationChoiceBenefitCheck: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    width: 15,
+    height: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8B5CF6',
   },
   locationChoiceBenefitText: {
     flex: 1,
-    color: 'rgba(255,255,255,0.92)',
-    fontSize: 10.5,
-    lineHeight: 12,
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    lineHeight: 17,
     fontWeight: '700',
   },
   locationChoiceRadio: {
-    width: 23,
-    height: 23,
-    borderRadius: 11.5,
-    borderWidth: 1.5,
-    borderColor: 'rgba(139,125,236,0.72)',
-    backgroundColor: 'rgba(127,119,221,0.05)',
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
@@ -6286,15 +6292,11 @@ const styles = StyleSheet.create({
   locationChoiceRadioLeading: {
     marginLeft: 0,
     marginRight: 0,
-    borderColor: 'rgba(127,119,221,0.72)',
+    borderColor: ONBOARDING_BORDER,
   },
   locationChoiceRadioActive: {
     borderColor: '#FFFFFF',
     backgroundColor: '#FFFFFF',
-    shadowColor: '#FFFFFF',
-    shadowOpacity: 0.28,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
   },
   locationChoiceRadioCheck: {
     width: 16,
@@ -6304,21 +6306,21 @@ const styles = StyleSheet.create({
   locationChoiceRadioCheckShort: {
     position: 'absolute',
     width: 7,
-    height: 2,
+    height: 2.4,
     left: 1,
     top: 9,
     borderRadius: 2,
-    backgroundColor: '#5F4EE8',
+    backgroundColor: ONBOARDING_PRIMARY,
     transform: [{ rotate: '45deg' }],
   },
   locationChoiceRadioCheckLong: {
     position: 'absolute',
     width: 13,
-    height: 2,
+    height: 2.4,
     left: 5,
     top: 6,
     borderRadius: 2,
-    backgroundColor: '#5F4EE8',
+    backgroundColor: ONBOARDING_PRIMARY,
     transform: [{ rotate: '-45deg' }],
   },
   locationRewardShell: {
@@ -6488,17 +6490,13 @@ const styles = StyleSheet.create({
   },
   locationRewardNameCard: {
     width: '100%',
-    borderRadius: 10,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.42)',
-    backgroundColor: 'rgba(18,17,39,0.78)',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
     gap: 7,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
   },
   locationRewardNameLabel: {
     color: ONBOARDING_TEXT_SOFT,
@@ -6509,16 +6507,16 @@ const styles = StyleSheet.create({
   locationRewardNameInputWrap: {
     minHeight: 38,
     borderRadius: 9,
-    borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.34)',
-    backgroundColor: 'rgba(7,5,22,0.82)',
+    borderWidth: 1.5,
+    borderColor: '#E2DBF2',
+    backgroundColor: '#FCFBFF',
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 10,
     paddingRight: 6,
   },
   locationRewardNameInputWrapReady: {
-    borderColor: 'rgba(198,139,255,0.72)',
+    borderColor: ONBOARDING_PRIMARY,
   },
   locationRewardNameInput: {
     flex: 1,
@@ -6533,12 +6531,12 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 999,
-    backgroundColor: '#7F77DD',
+    backgroundColor: ONBOARDING_PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
   locationRewardNameHint: {
-    color: '#C68BFF',
+    color: ONBOARDING_PRIMARY,
     fontSize: 10.5,
     lineHeight: 13,
     fontWeight: '700',
@@ -6566,17 +6564,13 @@ const styles = StyleSheet.create({
   locationRewardBenefitCard: {
     width: '48.2%',
     minHeight: 112,
-    borderRadius: 13,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.28)',
-    backgroundColor: 'rgba(22,18,48,0.94)',
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
     paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 10,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 0 },
   },
   goalRewardBenefitCard: {
     width: '100%',
@@ -6593,13 +6587,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8B5CF6',
-    borderWidth: 1,
-    borderColor: 'rgba(198,139,255,0.58)',
-    shadowColor: '#C68BFF',
-    shadowOpacity: 0.32,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
   },
   goalRewardBenefitIcon: {
     width: 42,
