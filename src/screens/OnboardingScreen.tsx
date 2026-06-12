@@ -3424,7 +3424,7 @@ export function OnboardingScreen({
 
     return renderSplitSelectionStage({
       stepLabel: 'STEP 2 OF 5',
-      titleLines: ['WHAT DO YOU', 'WANT MOST?'],
+      titleLines: ['What do you', 'want most?'],
       subtitle: "We'll build your training around this.",
       options: GOAL_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
@@ -3488,7 +3488,7 @@ export function OnboardingScreen({
 
     return renderOnboardingShell({
       stepLabel: 'STEP 3 OF 5',
-      titleLines: ['TRAINING', 'PROFILE'],
+      titleLines: ['Training profile'],
       subtitle: "We'll tailor your plan to your experience and availability.",
       topPaneStyle: styles.trainingProfileTopPane,
       topCopyStyle: styles.trainingProfileTopCopy,
@@ -4425,7 +4425,7 @@ export function OnboardingScreen({
 
     return renderOnboardingShell({
       stepLabel: 'STEP 4 OF 5',
-      titleLines: ['WHAT DO YOU', 'WANT TO FOCUS ON?'],
+      titleLines: ['What do you', 'want to focus on?'],
       topPaneStyle: styles.focusAreaTopPane,
       topCopyStyle: styles.focusAreaTopCopy,
       titleStyle: styles.focusAreaHeadline,
@@ -4486,12 +4486,12 @@ export function OnboardingScreen({
     const selectedGoalOption = BODYWEIGHT_GOAL_OPTIONS.find((option) => option.id === bodyweightGoal) ?? BODYWEIGHT_GOAL_OPTIONS[0];
     const aboutTitleLines =
       bodyweightSetupStep === 'goal'
-        ? ["WHAT'S YOUR", 'GOAL?']
+        ? ["What's your", 'goal?']
         : bodyweightSetupStep === 'current'
-        ? ["WHAT'S YOUR", 'CURRENT WEIGHT?']
+        ? ["What's your", 'current weight?']
         : bodyweightSetupStep === 'target'
-        ? ['SET A GOAL', 'WEIGHT']
-        : ['EXPECTED', 'OUTCOME'];
+        ? ['Set a goal', 'weight']
+        : ['Expected', 'outcome'];
     const showGoalSummary = bodyweightGoalSelected && bodyweightSetupStep !== 'goal';
     const currentWeightSummary = (
       <BodyweightSummaryRow
@@ -5102,14 +5102,14 @@ export function OnboardingScreen({
   const standaloneProgressHidden = locationStageActive || stage === 'review';
   const footerPrimaryLabel =
     stage === 'review' && busy
-      ? 'SAVING PLAN...'
+      ? 'Saving plan...'
       : stage === 'review'
-      ? 'SAVE PLAN & START'
+      ? 'Save plan & start'
       : stage === 'about' && bodyweightSetupStep === 'outcome'
-      ? 'BUILD MY PLAN'
+      ? 'Build my plan'
       : stage === 'about'
-      ? 'CONTINUE'
-      : 'CONTINUE';
+      ? 'Continue'
+      : 'Continue';
   const footerVisible = true;
   const scrollLockedStage =
     stage === 'location' ||
@@ -5526,20 +5526,15 @@ const styles = StyleSheet.create({
   },
   dot: {
     flex: 1,
-    height: 7,
+    height: 5,
     borderRadius: radii.pill,
-    backgroundColor: 'rgba(127,119,221,0.22)',
+    backgroundColor: '#E6DEF6',
   },
   dotLight: {
-    backgroundColor: 'rgba(127,119,221,0.22)',
+    backgroundColor: '#E6DEF6',
   },
   dotActive: {
     backgroundColor: ONBOARDING_PRIMARY,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.32,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 5,
   },
   dotActiveLight: {
     backgroundColor: ONBOARDING_PRIMARY,
@@ -5605,10 +5600,10 @@ const styles = StyleSheet.create({
   },
   locationStepLabel: {
     color: ONBOARDING_PRIMARY,
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
-    letterSpacing: 1.2,
+    fontSize: 12.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1.75,
     textTransform: 'uppercase',
     marginBottom: spacing.xs,
   },
@@ -5617,20 +5612,20 @@ const styles = StyleSheet.create({
   },
   locationHeadline: {
     color: ONBOARDING_TEXT,
-    fontSize: 42,
-    lineHeight: 42,
-    fontWeight: '900',
-    letterSpacing: -1.5,
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '800',
+    letterSpacing: -0.56,
   },
   locationHeadlineLarge: {
-    fontSize: 42,
-    lineHeight: 46,
-    maxWidth: 180,
+    fontSize: 28,
+    lineHeight: 32,
+    maxWidth: 220,
   },
   locationEquipmentHeadline: {
-    fontSize: 34,
-    lineHeight: 37,
-    letterSpacing: -0.8,
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -0.56,
   },
   locationSubtitle: {
     color: ONBOARDING_TEXT_SOFT,
@@ -5695,9 +5690,9 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   trainingProfileHeadline: {
-    fontSize: 34,
-    lineHeight: 37,
-    letterSpacing: -0.8,
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -0.56,
   },
   trainingProfileBottomPane: {
     paddingTop: 0,
@@ -7083,9 +7078,9 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   bodyweightHeadline: {
-    fontSize: 34,
-    lineHeight: 37,
-    letterSpacing: -0.8,
+    fontSize: 28,
+    lineHeight: 32,
+    letterSpacing: -0.56,
   },
   bodyweightBottomPane: {
     paddingTop: 0,
@@ -11718,7 +11713,8 @@ const styles = StyleSheet.create({
   },
   footerLight: {
     backgroundColor: ONBOARDING_PANEL,
-    borderTopColor: ONBOARDING_BORDER,
+    borderTopWidth: 0,
+    borderTopColor: 'transparent',
   },
   locationFooter: {
     paddingTop: 32,
@@ -11814,8 +11810,9 @@ const styles = StyleSheet.create({
     color: 'rgba(243,247,255,0.78)',
   },
   footerBackText: {
-    opacity: 0.6,
+    opacity: 1,
     fontSize: 15,
+    fontWeight: '700',
   },
   recommendationBackButton: {
     alignSelf: 'center',

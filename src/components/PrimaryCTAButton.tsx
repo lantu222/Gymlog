@@ -7,10 +7,14 @@ import {
   StyleProp,
   StyleSheet,
   Text,
-  View,
   ViewStyle,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+
+// Flat light-theme CTA from the redesign handoff (onb-shared CTA spec):
+// 56px solid purple pill, 17/800 label, soft purple drop shadow.
+const CTA_PURPLE = '#7C3AED';
+const CTA_DISABLED_BG = '#E3DAF5';
+const CTA_DISABLED_TEXT = '#9A93AC';
 
 interface PrimaryCTAButtonProps {
   title: string;
@@ -73,104 +77,48 @@ export function PrimaryCTAButton({
         onPressOut={() => animatePress(0)}
         style={styles.pressable}
       >
-        {({ pressed }) => (
-          <View style={styles.surface}>
-            <Svg pointerEvents="none" width="100%" height="100%" viewBox="0 0 360 64" preserveAspectRatio="none" style={StyleSheet.absoluteFill}>
-              <Defs>
-                <LinearGradient id="primaryCtaGradient" x1="0" y1="32" x2="360" y2="32" gradientUnits="userSpaceOnUse">
-                  {(pressed && !disabled ? pressedGradientStops : gradientStops).map((stop) => (
-                    <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
-                  ))}
-              </LinearGradient>
-              <LinearGradient id="primaryCtaBloom" x1="180" y1="64" x2="180" y2="24" gradientUnits="userSpaceOnUse">
-                <Stop offset="0" stopColor="#ffffff" stopOpacity="0.08" />
-                <Stop offset="0.44" stopColor="#d06cff" stopOpacity="0.07" />
-                <Stop offset="1" stopColor="#ffffff" stopOpacity="0" />
-              </LinearGradient>
-              </Defs>
-              <Rect x="0" y="0" width="360" height="64" rx="32" fill="url(#primaryCtaGradient)" />
-            <Rect x="90" y="36" width="180" height="28" rx="14" fill="url(#primaryCtaBloom)" />
-          </Svg>
-          <View pointerEvents="none" style={styles.innerHighlight} />
-          <View pointerEvents="none" style={styles.topEdgeHighlight} />
-          <Text style={styles.label} numberOfLines={1} adjustsFontSizeToFit>
-            {title.toUpperCase()}
-          </Text>
-          </View>
-        )}
+        <Text style={[styles.label, disabled && styles.labelDisabled]} numberOfLines={1} adjustsFontSizeToFit>
+          {title}
+        </Text>
       </Pressable>
     </Animated.View>
   );
 }
 
-const gradientStops = [
-  { offset: '0', color: '#5F4EE8' },
-  { offset: '0.52', color: '#8B5CF6' },
-  { offset: '1', color: '#D06CFF' },
-] as const;
-
-const pressedGradientStops = [
-  { offset: '0', color: '#5545d0' },
-  { offset: '0.52', color: '#7c52dd' },
-  { offset: '1', color: '#ba60e6' },
-] as const;
-
 const styles = StyleSheet.create({
   button: {
-    width: '90%',
-    alignSelf: 'center',
-    height: 64,
-    borderRadius: 32,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.14,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
+    width: '100%',
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: CTA_PURPLE,
+    shadowColor: CTA_PURPLE,
+    shadowOpacity: 0.32,
+    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 14 },
+    elevation: 10,
   },
   buttonDisabled: {
-    opacity: 0.45,
+    backgroundColor: CTA_DISABLED_BG,
     shadowOpacity: 0,
     elevation: 0,
   },
   pressable: {
     width: '100%',
     height: '100%',
-    borderRadius: 32,
-  },
-  surface: {
-    width: '100%',
-    height: 64,
-    borderRadius: 32,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: '#8B5CF6',
-  },
-  innerHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: '46%',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  topEdgeHighlight: {
-    position: 'absolute',
-    top: 1,
-    left: 22,
-    right: 22,
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-    opacity: 0.3,
+    paddingHorizontal: 16,
   },
   label: {
     color: '#FFFFFF',
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+    letterSpacing: 0.17,
     textAlign: 'center',
+  },
+  labelDisabled: {
+    color: CTA_DISABLED_TEXT,
   },
 });
