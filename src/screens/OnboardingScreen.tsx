@@ -1870,7 +1870,7 @@ function BodyweightGoalOptionCard({
   wide?: boolean;
   onPress: () => void;
 }) {
-  const iconColor = wide ? '#FFFFFF' : accentColor;
+  const iconColor = wide ? (active ? '#FFFFFF' : ONBOARDING_PRIMARY) : accentColor;
   const scale = useRef(new Animated.Value(active ? 1.04 : 1)).current;
 
   useEffect(() => {
@@ -2041,14 +2041,14 @@ function BodyweightTimelineCard({
 
       <View style={styles.bodyweightTimelineChart}>
         <Svg width="100%" height={114} viewBox="0 0 320 114" fill="none">
-          <Path d="M18 34H302" stroke="rgba(255,255,255,0.055)" strokeWidth={1} strokeLinecap="round" strokeDasharray="5 10" />
-          <Path d="M18 60H302" stroke="rgba(169,139,255,0.075)" strokeWidth={1} strokeLinecap="round" strokeDasharray="5 10" />
-          <Path d="M18 92H302" stroke="rgba(255,255,255,0.12)" strokeWidth={1.2} strokeLinecap="round" />
-          <Path d="M18 16V92" stroke="rgba(255,255,255,0.10)" strokeWidth={1.2} strokeLinecap="round" />
-          <Path d={curve} stroke="rgba(169,139,255,0.22)" strokeWidth={9} strokeLinecap="round" fill="none" />
-          <Path d={curve} stroke="#A98BFF" strokeWidth={4} strokeLinecap="round" fill="none" />
-          <Circle cx={18} cy={startY} r={6} fill="#7F77DD" stroke="#FFFFFF" strokeWidth={1.5} />
-          <Circle cx={302} cy={endY} r={7} fill="#A98BFF" stroke="#FFFFFF" strokeWidth={1.5} />
+          <Path d="M18 34H302" stroke="rgba(16,24,40,0.06)" strokeWidth={1} strokeLinecap="round" strokeDasharray="5 10" />
+          <Path d="M18 60H302" stroke="rgba(124,58,237,0.10)" strokeWidth={1} strokeLinecap="round" strokeDasharray="5 10" />
+          <Path d="M18 92H302" stroke="rgba(16,24,40,0.12)" strokeWidth={1.2} strokeLinecap="round" />
+          <Path d="M18 16V92" stroke="rgba(16,24,40,0.10)" strokeWidth={1.2} strokeLinecap="round" />
+          <Path d={curve} stroke="rgba(124,58,237,0.20)" strokeWidth={9} strokeLinecap="round" fill="none" />
+          <Path d={curve} stroke={ONBOARDING_PRIMARY} strokeWidth={4} strokeLinecap="round" fill="none" />
+          <Circle cx={18} cy={startY} r={6} fill={ONBOARDING_PRIMARY} stroke="#FFFFFF" strokeWidth={1.5} />
+          <Circle cx={302} cy={endY} r={7} fill={ONBOARDING_PRIMARY} stroke="#FFFFFF" strokeWidth={1.5} />
         </Svg>
         <Text style={[styles.bodyweightTimelinePointLabel, styles.bodyweightTimelineStartLabel]}>
           Today{"\n"}{formatBodyweightDisplay(current, unit)}
@@ -6988,16 +6988,11 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 19,
     borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.36)',
+    borderColor: ONBOARDING_BORDER,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(42,36,88,0.96)',
+    backgroundColor: ONBOARDING_CARD,
     overflow: 'hidden',
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.08,
-    shadowRadius: 7,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
   },
   bodyweightTargetStepText: {
     color: ONBOARDING_TEXT,
@@ -7108,7 +7103,7 @@ const styles = StyleSheet.create({
     gap: 15,
     paddingHorizontal: 18,
     paddingVertical: 13,
-    backgroundColor: 'rgba(18,17,39,0.86)',
+    backgroundColor: ONBOARDING_CARD,
     overflow: 'hidden',
   },
   bodyweightGoalCardActive: {
@@ -7116,17 +7111,17 @@ const styles = StyleSheet.create({
     backgroundColor: ONBOARDING_CARD_ACTIVE,
   },
   bodyweightGoalCardWideActive: {
-    backgroundColor: '#5F4EE8',
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.46,
-    shadowRadius: 26,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 10,
+    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: ONBOARDING_PRIMARY,
+    shadowColor: ONBOARDING_PRIMARY,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 16 },
+    elevation: 8,
   },
   bodyweightGoalCardActiveBloom: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#8B5CF6',
-    opacity: 0.34,
+    backgroundColor: 'transparent',
   },
   bodyweightGoalIconBubble: {
     width: 30,
@@ -7139,11 +7134,11 @@ const styles = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: '#7C6AF2',
+    backgroundColor: '#EFE7FF',
     zIndex: 1,
   },
   bodyweightGoalIconBubbleActive: {
-    backgroundColor: '#9B8CFF',
+    backgroundColor: 'rgba(255,255,255,0.16)',
   },
   bodyweightGoalCardCopy: {
     flex: 1,
@@ -7222,7 +7217,7 @@ const styles = StyleSheet.create({
   bodyweightSliderTrack: {
     height: 2,
     borderRadius: 1,
-    backgroundColor: 'rgba(222,218,245,0.18)',
+    backgroundColor: '#E6DEF6',
   },
   bodyweightSliderTrackActive: {
     position: 'absolute',
@@ -7243,10 +7238,10 @@ const styles = StyleSheet.create({
   },
   bodyweightSummaryRow: {
     minHeight: 60,
-    borderRadius: 13,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.28)',
-    backgroundColor: 'rgba(18,17,39,0.92)',
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -7256,7 +7251,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: '#7F77DD',
+    backgroundColor: ONBOARDING_PRIMARY,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -7265,7 +7260,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   bodyweightSummaryValue: {
-    color: 'rgba(255,255,255,0.88)',
+    color: ONBOARDING_TEXT,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
@@ -7275,7 +7270,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   bodyweightSummaryEditText: {
-    color: '#A98BFF',
+    color: ONBOARDING_PRIMARY,
     fontSize: 14,
     lineHeight: 17,
     fontWeight: '800',
@@ -7284,16 +7279,11 @@ const styles = StyleSheet.create({
     minHeight: 236,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.28)',
-    backgroundColor: 'rgba(18,17,39,0.94)',
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
     paddingHorizontal: 14,
     paddingTop: 15,
     paddingBottom: 15,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 5,
   },
   bodyweightTimelineHeader: {
     flexDirection: 'row',
@@ -7332,7 +7322,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 4,
-    color: '#A98BFF',
+    color: ONBOARDING_PRIMARY,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '900',
