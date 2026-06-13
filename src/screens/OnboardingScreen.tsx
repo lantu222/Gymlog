@@ -4930,11 +4930,6 @@ export function OnboardingScreen({
 
   function renderBuildingPlan() {
     const activePhaseIndex = Math.min(buildingPlanPhaseIndex, buildingPlanPhases.length - 1);
-    const ringSize = 282;
-    const ringCenter = ringSize / 2;
-    const progressRadius = 118;
-    const progressCircumference = 2 * Math.PI * progressRadius;
-    const progressOffset = progressCircumference * (1 - buildingPlanPercent / 100);
     const pulseScale = buildingPlanPulse.interpolate({
       inputRange: [0, 1],
       outputRange: [1, 1.045],
@@ -4943,14 +4938,6 @@ export function OnboardingScreen({
       inputRange: [0, 1],
       outputRange: [0.64, 1],
     });
-    const orbFloatTranslate = buildingPlanPulse.interpolate({
-      inputRange: [0, 1],
-      outputRange: [5, -6],
-    });
-    const innerRingRotate = buildingPlanRingSpin.interpolate({
-      inputRange: [0, 1],
-      outputRange: ['0deg', '360deg'],
-    });
     const buildingPlanAnimatedEllipsis = '.'.repeat(buildingPlanEllipsisStep + 1);
 
     return (
@@ -4958,82 +4945,16 @@ export function OnboardingScreen({
         {showBuildingPlanThinking ? (
           <Animated.View style={[styles.buildingPlanThinkingScene, { opacity: buildingPlanThinkingOpacity }]}>
             <View style={styles.buildingPlanThinkingCenter}>
-              <View style={styles.buildingPlanRingStack}>
-                <Animated.View
-                  pointerEvents="none"
-                  style={[
-                    styles.buildingPlanOrbGlow,
-                    {
-                      opacity: pulseOpacity,
-                      transform: [{ scale: pulseScale }],
-                    },
-                  ]}
-                />
-                <Animated.View
-                  pointerEvents="none"
-                  style={[styles.buildingPlanInnerRingOrbit, { transform: [{ rotate: innerRingRotate }] }]}
-                >
-                  <Svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
-                    <Circle
-                      cx={ringCenter}
-                      cy={ringCenter}
-                      r={progressRadius - 18}
-                      stroke="rgba(222,218,245,0.28)"
-                      strokeWidth={1.5}
-                      strokeDasharray="10 13"
-                      fill="none"
-                    />
-                  </Svg>
-                </Animated.View>
-                <Svg width={ringSize} height={ringSize} viewBox={`0 0 ${ringSize} ${ringSize}`}>
-                  <Circle
-                    cx={ringCenter}
-                    cy={ringCenter}
-                    r={progressRadius + 16}
-                    stroke="rgba(169,139,255,0.28)"
-                    strokeWidth={1.4}
-                    strokeDasharray="7 8"
-                    fill="none"
-                  />
-                  <Circle
-                    cx={ringCenter}
-                    cy={ringCenter}
-                    r={progressRadius}
-                    stroke="rgba(127,119,221,0.22)"
-                    strokeWidth={5}
-                    fill="none"
-                  />
-                  <Circle
-                    cx={ringCenter}
-                    cy={ringCenter}
-                    r={progressRadius}
-                    stroke={ONBOARDING_PRIMARY}
-                    strokeWidth={5}
-                    strokeLinecap="round"
-                    strokeDasharray={`${progressCircumference} ${progressCircumference}`}
-                    strokeDashoffset={progressOffset}
-                    fill="none"
-                    origin={`${ringCenter}, ${ringCenter}`}
-                    rotation="-90"
-                  />
-                </Svg>
-                <Animated.View
-                  style={[
-                    styles.buildingPlanOrbFloat,
-                    {
-                      transform: [{ translateY: orbFloatTranslate }, { scale: pulseScale }],
-                    },
-                  ]}
-                >
-                  <GainerCoachOrb variant={buildingPlanPercent >= 100 ? 'success' : 'thinking'} style={styles.buildingPlanOrb} />
-                </Animated.View>
-                <View style={styles.buildingPlanPercentBadge}>
-                  <Text style={styles.buildingPlanPercentText}>{`${buildingPlanPercent}%`}</Text>
-                </View>
-              </View>
               <Animated.Text style={[styles.buildingPlanThinkingText, { opacity: buildingPlanCaptionOpacity }]}>
                 {buildingPlanComplete ? 'Your plan is ready' : `Building your plan${buildingPlanAnimatedEllipsis}`}
               </Animated.Text>
+
+              <View style={styles.buildingPlanProgressBlock}>
+                <View style={styles.buildingPlanProgressTrack}>
+                  <View style={[styles.buildingPlanProgressFill, { width: `${buildingPlanPercent}%` }]} />
+                </View>
+                <Text style={styles.buildingPlanPercentText}>{`${buildingPlanPercent}%`}</Text>
+              </View>
 
               <View style={styles.buildingPlanStepList}>
                 {buildingPlanPhases.map((label, index) => {
@@ -7865,89 +7786,56 @@ const styles = StyleSheet.create({
     backgroundColor: ONBOARDING_TOP,
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: 18,
-    paddingTop: 44,
+    paddingHorizontal: 22,
+    paddingTop: 96,
   },
   buildingPlanThinkingCenter: {
     width: '100%',
-    alignItems: 'center',
+    alignItems: 'stretch',
     justifyContent: 'flex-start',
   },
-  buildingPlanRingStack: {
-    width: 282,
-    height: 310,
+  buildingPlanProgressBlock: {
+    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-start',
+    gap: 12,
+    marginBottom: 28,
   },
-  buildingPlanOrbGlow: {
-    position: 'absolute',
-    top: 28,
-    left: 32,
-    width: 218,
-    height: 218,
-    borderRadius: 109,
-    backgroundColor: 'rgba(127,119,221,0.24)',
-    shadowColor: '#A98BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.74,
-    shadowRadius: 46,
-    elevation: 10,
+  buildingPlanProgressTrack: {
+    flex: 1,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#E6DEF6',
+    overflow: 'hidden',
   },
-  buildingPlanInnerRingOrbit: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 282,
-    height: 282,
-  },
-  buildingPlanOrbFloat: {
-    position: 'absolute',
-    top: 76,
-    left: 82,
-    width: 118,
-    height: 118,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buildingPlanOrb: {
-    transform: [{ scale: 1.82 }],
-  },
-  buildingPlanPercentBadge: {
-    position: 'absolute',
-    top: 246,
-    left: 106,
-    minWidth: 70,
-    minHeight: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    backgroundColor: 'rgba(127,119,221,0.34)',
-    borderWidth: 1,
-    borderColor: 'rgba(169,139,255,0.38)',
+  buildingPlanProgressFill: {
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: ONBOARDING_PRIMARY,
   },
   buildingPlanPercentText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
+    color: ONBOARDING_PRIMARY,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '800',
     letterSpacing: 0,
+    fontVariant: ['tabular-nums'],
   },
   buildingPlanThinkingText: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: '900',
-    textAlign: 'center',
-    marginTop: -2,
-    marginBottom: 20,
-    minHeight: 36,
+    color: ONBOARDING_TEXT,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    letterSpacing: -0.56,
+    textAlign: 'left',
+    alignSelf: 'flex-start',
+    marginBottom: 22,
+    minHeight: 34,
   },
   buildingPlanStepList: {
     width: '100%',
-    maxWidth: 270,
-    alignSelf: 'center',
-    gap: 12,
+    alignSelf: 'stretch',
+    gap: 10,
   },
   buildingPlanStepRow: {
     minHeight: 48,
@@ -7955,22 +7843,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     borderRadius: 14,
-    paddingHorizontal: 8,
-    paddingVertical: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   buildingPlanStepRowActive: {
-    shadowColor: '#A98BFF',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 2,
+    backgroundColor: ONBOARDING_PRIMARY_SOFT,
   },
   buildingPlanStepIcon: {
     width: 22,
     height: 22,
     borderRadius: 11,
     borderWidth: 1.8,
-    borderColor: 'rgba(222,218,245,0.48)',
+    borderColor: ONBOARDING_BORDER,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -7980,7 +7864,7 @@ const styles = StyleSheet.create({
   },
   buildingPlanStepIconActive: {
     borderColor: ONBOARDING_PRIMARY,
-    backgroundColor: 'rgba(127,119,221,0.14)',
+    backgroundColor: ONBOARDING_PRIMARY_SOFT,
   },
   buildingPlanStepActiveDot: {
     width: 9,
@@ -7993,19 +7877,20 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   buildingPlanStepText: {
-    color: '#FFFFFF',
+    color: ONBOARDING_TEXT,
     fontSize: 14.5,
     lineHeight: 19,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   buildingPlanStepSubtitle: {
-    color: 'rgba(196,181,253,0.72)',
+    color: ONBOARDING_TEXT_SOFT,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
   },
   buildingPlanStepTextPending: {
-    color: 'rgba(255,255,255,0.64)',
+    color: ONBOARDING_TEXT_MUTED,
+    fontWeight: '600',
   },
   photoSelectionCard: {
     borderRadius: radii.lg,
