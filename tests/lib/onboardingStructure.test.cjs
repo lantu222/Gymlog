@@ -247,7 +247,7 @@ module.exports = [
       assert.doesNotMatch(onboardingSource, /const STAGES: SetupStage\[\] = \[[^\]]*'focus'/);
       assert.doesNotMatch(onboardingSource, /function renderFocus\(/);
       assert.match(aboutBody, /stepLabel: 'STEP 5 OF 5'/);
-      assert.match(footerBody, /stage === 'about'[\s\S]*'BUILD MY PLAN'/);
+      assert.match(footerBody, /stage === 'about'[\s\S]*'Build my plan'/);
       assert.match(footerBody, /if \(stage === 'about'\) \{[\s\S]*setIsBuildingPlan\(true\)/);
       assert.doesNotMatch(footerBody, /stage === 'focus'/);
       assert.doesNotMatch(onboardingSource, /stage === 'focus'/);
@@ -292,7 +292,7 @@ module.exports = [
       const aboutBody = getFunctionBody('renderAbout');
 
       assert.match(aboutBody, /stepLabel: 'STEP 5 OF 5'/);
-      assert.match(aboutBody, /: \['EXPECTED', 'OUTCOME'\]/);
+      assert.match(aboutBody, /: \['Expected', 'outcome'\]/);
       assert.match(aboutBody, /<BodyweightGoalOptionCard/);
       assert.match(aboutBody, /<BodyweightStepper/);
       assert.match(aboutBody, /<BodyweightSummaryRow/);
@@ -336,7 +336,7 @@ module.exports = [
       assert.notEqual(timelineEnd, -1, 'BodyweightTimelineCard should be followed by StepDots');
       const timelineBody = onboardingSource.slice(timelineStart, timelineEnd);
       assert.match(timelineBody, /const curve = `M18 \$\{startY\} C100 \$\{startY\}, 196 \$\{endY\}, 302 \$\{endY\}`/);
-      assert.match(timelineBody, /stroke="#A98BFF"/);
+      assert.match(timelineBody, /stroke=\{ONBOARDING_PRIMARY\}/);
       assert.doesNotMatch(timelineBody, /bodyweightTimelineIcon/);
       assert.doesNotMatch(timelineBody, /bodyweightExpectation/);
     },
@@ -377,7 +377,7 @@ module.exports = [
       const profileBody = getFunctionBody('renderProfile');
 
       assert.match(profileBody, /stepLabel: 'STEP 3 OF 5'/);
-      assert.match(profileBody, /titleLines: \['TRAINING', 'PROFILE'\]/);
+      assert.match(profileBody, /titleLines: \['Training profile'\]/);
       assert.match(profileBody, /We'll tailor your plan to your experience and availability\./);
       assert.match(profileBody, /TRAINING_LEVEL_OPTIONS\.map/);
       assert.match(profileBody, /TRAINING_FREQUENCY_OPTIONS\.map/);
@@ -398,8 +398,10 @@ module.exports = [
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderWidth: 2/);
       assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE[\s\S]*backgroundColor: ONBOARDING_CARD_ACTIVE/);
-      assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 18[\s\S]*lineHeight: 20/);
-      assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 11[\s\S]*letterSpacing: -0\.1/);
+      // Light redesign: experience card title 17/21 (design onb-screens2 = 15.5/800,
+      // within the handoff's 1-2px tolerance), body 12/15. Weight stays 800/600.
+      assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 17[\s\S]*lineHeight: 21/);
+      assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 12[\s\S]*lineHeight: 15/);
       assert.match(onboardingSource, /trainingGenderTileActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE/);
       assert.match(onboardingSource, /trainingGenderTitle:\s*\{[\s\S]*fontSize: 14/);
     },

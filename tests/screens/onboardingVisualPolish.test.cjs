@@ -171,8 +171,16 @@ module.exports = [
       assert.match(onboardingSource, /focusAreaLabelsPreloadTrigger/);
       assert.match(onboardingSource, /Image\.prefetch\(asset\.uri\)/);
       assert.doesNotMatch(onboardingSource, /FOCUS_AREA_IMAGE_FRAMES/);
-      assert.match(onboardingSource, /focusAreaImageSlot:\s*\{[\s\S]*backgroundColor: '#000000'/);
-      assert.match(onboardingSource, /focusAreaSkeleton:\s*\{[\s\S]*backgroundColor: '#000000'/);
+      // Focus-area cards sit on a dark backdrop behind the (currently dark)
+      // anatomy illustrations, softened from pure black to dark slate (#1A1726).
+      // These images are slated to be swapped for light-theme assets; once that
+      // lands the backdrop changes again, so assert "a 6-digit hex backdrop that
+      // is not pure black" rather than hard-coding the interim slate value.
+      // TODO(focus-image-swap): assert the final light-asset treatment here.
+      assert.match(onboardingSource, /focusAreaImageSlot:\s*\{[^}]*backgroundColor: '#[0-9A-Fa-f]{6}'/);
+      assert.doesNotMatch(onboardingSource, /focusAreaImageSlot:\s*\{[^}]*backgroundColor: '#000000'/);
+      assert.match(onboardingSource, /focusAreaSkeleton:\s*\{[^}]*backgroundColor: '#[0-9A-Fa-f]{6}'/);
+      assert.doesNotMatch(onboardingSource, /focusAreaSkeleton:\s*\{[^}]*backgroundColor: '#000000'/);
       assert.match(onboardingSource, /planReadyWorkoutTabs\.map\(\(tab\) =>/);
       assert.match(onboardingSource, /<Text style=\{styles\.planReadyCurrentWorkoutTitle\}>CURRENT WORKOUT<\/Text>/);
       assert.match(onboardingSource, /<Text style=\{styles\.planReadyAllWorkoutsTitle\}>ALL WORKOUTS<\/Text>/);
@@ -199,24 +207,46 @@ module.exports = [
     },
   },
   {
-    name: 'plan-building loading screen centers GainerOrb with coach-like progress steps',
+    name: 'plan-building loading screen shows a calm progress list with no orb or mascot',
     run() {
+      // Phase 2 redesign: the building-your-plan loader is a calm step list with
+      // a slim progress bar - no orb/mascot/hype (handoff README, Phase 2
+      // "Building-your-plan loader" + designs onb-screens3 "Building your plan").
+      const loaderStart = onboardingSource.indexOf('function renderBuildingPlan()');
+      assert.notEqual(loaderStart, -1, 'renderBuildingPlan should exist');
+      const loaderEnd = onboardingSource.indexOf('return renderBuildingPlan();', loaderStart);
+      const loaderBody = onboardingSource.slice(loaderStart, loaderEnd === -1 ? undefined : loaderEnd);
+
+      // Four calm phase labels with rotating active subtitles.
       assert.match(onboardingSource, /const buildingPlanPhases = useMemo\([\s\S]*'Analyzing your inputs'[\s\S]*'Building your split'[\s\S]*'Matching exercises'[\s\S]*'Finalizing your plan'/);
-      assert.match(onboardingSource, /<GainerCoachOrb variant=\{buildingPlanPercent >= 100 \? 'success' : 'thinking'\}/);
-      assert.match(onboardingSource, /styles\.buildingPlanOrbGlow/);
-      assert.match(onboardingSource, /styles\.buildingPlanOrbFloat/);
-      assert.match(onboardingSource, /styles\.buildingPlanPercentBadge/);
-      assert.match(onboardingSource, /active && styles\.buildingPlanStepRowActive/);
       assert.match(onboardingSource, /const buildingPlanStepSubtitles = useMemo/);
       assert.match(onboardingSource, /Creating training structure\.\.\./);
+
+      // Heading flips to the done copy; animated ellipsis while in progress.
+      assert.match(loaderBody, /buildingPlanComplete \? 'Your plan is ready' : `Building your plan\$\{buildingPlanAnimatedEllipsis\}`/);
       assert.match(onboardingSource, /buildingPlanEllipsisStep/);
       assert.match(onboardingSource, /'\.'\.repeat\(buildingPlanEllipsisStep \+ 1\)/);
-      assert.match(onboardingSource, /buildingPlanComplete \? 'Your plan is ready' : `Building your plan\$\{buildingPlanAnimatedEllipsis\}`/);
       assert.match(onboardingSource, /setBuildingPlanComplete\(true\)/);
-      assert.match(onboardingSource, /const ringSize = 282/);
-      assert.match(onboardingSource, /const progressRadius = 118/);
-      assert.match(onboardingSource, /buildingPlanOrb:\s*\{[\s\S]*scale: 1\.82/);
-      assert.match(onboardingSource, /completed \? \(/);
+
+      // Slim determinate progress bar + percent readout (calm, not a hype ring).
+      assert.match(loaderBody, /styles\.buildingPlanProgressTrack/);
+      assert.match(loaderBody, /styles\.buildingPlanProgressFill, \{ width: `\$\{buildingPlanPercent\}%` \}/);
+      assert.match(loaderBody, /<Text style=\{styles\.buildingPlanPercentText\}>\{`\$\{buildingPlanPercent\}%`\}<\/Text>/);
+
+      // Vertical step list with an active-row highlight and a done check.
+      assert.match(loaderBody, /styles\.buildingPlanStepList/);
+      assert.match(loaderBody, /buildingPlanPhases\.map\(\(label, index\) =>/);
+      assert.match(loaderBody, /active && styles\.buildingPlanStepRowActive/);
+      assert.match(loaderBody, /completed && styles\.buildingPlanStepIconDone/);
+      assert.match(loaderBody, /styles\.buildingPlanStepActiveDot/);
+
+      // No orb, mascot, progress ring, or "did you know" hype in the loader.
+      assert.doesNotMatch(loaderBody, /GainerCoachOrb/);
+      assert.doesNotMatch(onboardingSource, /buildingPlanOrbGlow/);
+      assert.doesNotMatch(onboardingSource, /buildingPlanOrbFloat/);
+      assert.doesNotMatch(onboardingSource, /buildingPlanPercentBadge/);
+      assert.doesNotMatch(onboardingSource, /const ringSize = 282/);
+      assert.doesNotMatch(onboardingSource, /const progressRadius = 118/);
       assert.doesNotMatch(onboardingSource, /DID YOU KNOW\?/);
       assert.doesNotMatch(onboardingSource, /Plans that adapt to you get better results/);
     },
