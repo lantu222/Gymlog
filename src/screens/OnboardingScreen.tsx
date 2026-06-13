@@ -3709,39 +3709,6 @@ export function OnboardingScreen({
                   <Text style={styles.trainingPlanMetricValue}>{selectedLevelOption.title}</Text>
                 </View>
               </View>
-
-              <View style={styles.trainingPlanAiCard}>
-                <View pointerEvents="none" style={styles.trainingPlanAiOrbSlot}>
-                  <View style={styles.trainingPlanAiOrbScale}>
-                    <GainerCoachOrb variant="thinking" />
-                  </View>
-                </View>
-                <View style={styles.trainingPlanAiCopy}>
-                  <Text style={styles.trainingPlanAiTitle}>AI is building your personalized plan</Text>
-                  <Text style={styles.trainingPlanAiText}>
-                    Based on your {goalLabel.toLowerCase()}, {locationLabel.toLowerCase()} setup and {selectedLevelOption.title.toLowerCase()} experience.
-                  </Text>
-                </View>
-                <View style={styles.trainingPlanCompatibility}>
-                  <Svg width={64} height={64} viewBox="0 0 64 64" fill="none">
-                    <Circle cx={32} cy={32} r={25} stroke="rgba(169,139,255,0.20)" strokeWidth={6} />
-                    <Circle
-                      cx={32}
-                      cy={32}
-                      r={25}
-                      stroke="#A98BFF"
-                      strokeWidth={6}
-                      strokeLinecap="round"
-                      strokeDasharray="94 158"
-                      transform="rotate(-90 32 32)"
-                    />
-                  </Svg>
-                  <View style={styles.trainingPlanCompatibilityCopy}>
-                    <Text style={styles.trainingPlanCompatibilityValue}>60%</Text>
-                    <Text style={styles.trainingPlanCompatibilityLabel}>Fit</Text>
-                  </View>
-                </View>
-              </View>
             </Animated.View>
           ) : null}
         </View>
@@ -5823,7 +5790,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   trainingPlanPreviewStrip: {
-    minHeight: 274,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
@@ -5906,67 +5872,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '900',
     textAlign: 'center',
-  },
-  trainingPlanAiCard: {
-    minHeight: 70,
-    borderRadius: 16,
-    backgroundColor: '#FAF8FF',
-    borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  trainingPlanAiOrbSlot: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trainingPlanAiOrbScale: {
-    transform: [{ scale: 0.38 }],
-  },
-  trainingPlanAiCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  trainingPlanAiTitle: {
-    color: ONBOARDING_TEXT,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '900',
-  },
-  trainingPlanAiText: {
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '600',
-  },
-  trainingPlanCompatibility: {
-    width: 66,
-    height: 66,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  trainingPlanCompatibilityCopy: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  trainingPlanCompatibilityValue: {
-    color: ONBOARDING_TEXT,
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
-  },
-  trainingPlanCompatibilityLabel: {
-    color: ONBOARDING_PRIMARY,
-    fontSize: 8,
-    lineHeight: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
   },
   trainingSetupCard: {
     borderRadius: 12,
