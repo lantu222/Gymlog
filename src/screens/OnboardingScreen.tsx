@@ -7326,7 +7326,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     height: 130,
-    borderRadius: 8,
+    borderRadius: 14,
     backgroundColor: ONBOARDING_CARD,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
@@ -7359,13 +7359,13 @@ const styles = StyleSheet.create({
   focusAreaImageSlot: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
-    backgroundColor: '#000000',
+    backgroundColor: '#1A1726',
     justifyContent: 'center',
   },
   focusAreaSkeleton: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
-    backgroundColor: '#000000',
+    backgroundColor: '#1A1726',
   },
   focusAreaImage: {
     width: '92%',
