@@ -3521,677 +3521,81 @@ export function OnboardingScreen({
   }
 
   function renderReview() {
-    const programTitle = recommendedProgramPresentation?.title
-      ?? (recommendedProgram ? formatWorkoutDisplayLabel(recommendedProgram.name, 'Program') : 'Starter plan');
-    const reviewHeroKey = getPlanReadyHeroKey({ title: programTitle, goal: goalLabel });
-    const formatScheduleDuration = (meta: string) => {
-      const minutes = meta.match(/^(\d+)/)?.[1];
-      return minutes ? `~${minutes} min` : null;
-    };
-    const weekDayLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const planReadyScheduleByDay = new Map(
-      planReadyPayload.weeklySchedule.map((scheduleDay) => [scheduleDay.weekdayLabel, scheduleDay]),
-    );
-    const reviewWeekRows = weekDayLabels.map((day) => {
-      const scheduleDay = planReadyScheduleByDay.get(day) ?? null;
-      const session =
-        scheduleDay?.source === 'template'
-          ? projectedSessions.find((projectedSession) => projectedSession.id === scheduleDay.id) ?? null
-          : null;
-      const scheduleExercises =
-        scheduleDay?.keyLifts.map((lift, index) => ({
-          id: `${scheduleDay.id}-lift-${index}`,
-          name: lift,
-          prescription: scheduleDay.source === 'template' ? '' : (scheduleDay.note ?? 'Optional'),
-          compactPrescription: scheduleDay.source === 'template' ? '' : 'Optional',
-          setsLabel: scheduleDay.source === 'template' ? '' : 'Focus',
-          repsLabel: scheduleDay.source === 'template' ? '' : 'Optional',
-        })) ?? [];
-
-      return {
-        day,
-        sessionId: session?.id ?? scheduleDay?.id ?? null,
-        title: session
-          ? formatWorkoutDisplayLabel(session.name, 'Workout')
-          : scheduleDay
-            ? formatWorkoutDisplayLabel(scheduleDay.name, 'Workout')
-            : 'REST DAY',
-        body: session?.body ?? scheduleDay?.keyLifts.join(', ') ?? 'Recovery and mobility',
-        duration: scheduleDay ? formatScheduleDuration(scheduleDay.meta) : null,
-        training: Boolean(scheduleDay),
-        hasDetails: Boolean(session),
-        guidance: session?.guidance ?? null,
-        exercises: session?.exercises ?? scheduleExercises,
-        hiddenExerciseCount: session?.hiddenExerciseCount ?? 0,
-        detailExercises: session?.detailExercises ?? [],
-      };
-    });
-    const trainingWeekRows = reviewWeekRows.filter((item) => item.training);
-    const maxPlanReadyWorkoutPage = Math.max(0, trainingWeekRows.length - 1);
-    const planReadyWorkoutPageStart = Math.min(planReadyWorkoutPage, maxPlanReadyWorkoutPage);
-    const planReadyActiveWorkout = trainingWeekRows[planReadyWorkoutPageStart] ?? null;
-    const planReadyWorkoutCarouselVisible = trainingWeekRows.length > 1;
-    const getPlanReadyWorkoutFocusLabel = (title: string, index: number) => {
-      const normalizedTitle = title.toLowerCase();
-
-      if (normalizedTitle.includes('full')) {
-        return 'Full Body';
-      }
-      if (normalizedTitle.includes('lower')) {
-        return 'Lower';
-      }
-      if (normalizedTitle.includes('upper')) {
-        return 'Upper';
-      }
-      return index === 2 ? 'Full Body' : index === 1 ? 'Lower' : 'Upper';
-    };
-    const planReadyWorkoutCount = Math.max(trainingWeekRows.length, 1);
-    const planReadyActiveWorkoutFocusLabel = planReadyActiveWorkout
-      ? `${getPlanReadyWorkoutFocusLabel(planReadyActiveWorkout.title, planReadyWorkoutPageStart)} focus`
-      : 'Upper focus';
-    const planReadyActiveWorkoutImageSource = planReadyActiveWorkout
-      ? PLAN_READY_WORKOUT_ROW_SOURCES[getPlanReadyWorkoutFocusLabel(planReadyActiveWorkout.title, planReadyWorkoutPageStart)] ?? PLAN_READY_UPPER_WORKOUT_SOURCE
-      : PLAN_READY_UPPER_WORKOUT_SOURCE;
-    const planReadyWorkoutTabs = trainingWeekRows.map((workout, index) => ({
-      id: workout.sessionId ?? workout.day,
-      index,
-      label: getPlanReadyWorkoutFocusLabel(workout.title, index),
-      letter: String.fromCharCode(65 + index),
+    const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : 4;
+    const planReadyPerWeek =
+      planReadyPayload.programDaysPerWeek
+      || projectedDaysPerWeek
+      || planReadyPayload.requestedDaysPerWeek
+      || 3;
+    const planReadyTotalWorkouts = planReadyWeeks * planReadyPerWeek;
+    const planReadyTitle = `${planReadyWeeks}-Week Progress Plan`;
+    const planReadyMeta = [goalLabel, locationLabel, levelLabel, `${planReadyPerWeek} days / week`]
+      .filter((part) => Boolean(part && part.trim()))
+      .join('  ·  ');
+    const planReadyWeekRows = planReadyPayload.fourWeekProgression.map((phase, index) => ({
+      week: phase.week > 0 ? phase.week : index + 1,
+      subtitle: phase.label.replace(/^Week\s+\d+:\s*/i, '').trim() || phase.body,
     }));
-    const planReadyProgramWeeks = planReadyPayload.fourWeekProgression.map((phase, index) => ({
-      week: phase.week,
-      title: phase.label.replace(/^Week\s+\d+:\s*/i, ''),
-      summary: phase.body,
-      suffix: phase.role === 'review' ? 'R' : '+'.repeat(index),
-    }));
-    const planReadySessionBlocks = planReadyPayload.sessionBlocks.filter((block) =>
-      ['prep', 'main', 'support', 'cooldown'].includes(block.type),
-    );
-    const planReadyWeeklyOverviewRows = reviewWeekRows.map((item) => ({
-      day: item.day,
-      training: item.training,
-      label: item.training ? 'Train' : 'Recover',
-    }));
-    const planReadyFitReasons = planReadyPayload.whyThisPlan.slice(0, 5);
-    const planReadyOverviewIcons: GymlogIconName[] = ['strength', 'tempo', 'progress', 'recovery'];
-    const planReadyOverviewRows: Array<{ label: string; icon: GymlogIconName }> = planReadyPayload.planOverview.map(
-      (label, index) => ({
-        label,
-        icon: planReadyOverviewIcons[index] ?? 'progress',
-      }),
-    );
-    const getPlanReadyExerciseFocusLabel = (name: string) => {
-      const normalizedName = name.toLowerCase();
-
-      if (normalizedName.includes('squat') || normalizedName.includes('lunge') || normalizedName.includes('leg')) {
-        return 'LEGS';
-      }
-      if (normalizedName.includes('push') || normalizedName.includes('press') || normalizedName.includes('chest')) {
-        return normalizedName.includes('shoulder') || normalizedName.includes('overhead') ? 'SHOULDERS' : 'CHEST';
-      }
-      if (normalizedName.includes('row') || normalizedName.includes('pull')) {
-        return 'BACK';
-      }
-      if (normalizedName.includes('plank') || normalizedName.includes('core') || normalizedName.includes('abs')) {
-        return 'CORE';
-      }
-      if (normalizedName.includes('curl') || normalizedName.includes('tricep')) {
-        return 'ARMS';
-      }
-      return planReadyActiveWorkoutFocusLabel.replace(' focus', '').toUpperCase();
-    };
-    const screenDimensions = Dimensions.get('window');
-    const compactPlanReady = screenDimensions.width < 520;
-    const planReadyFooterReserve = compactPlanReady ? 56 : 68;
-    const planReadyStageMinHeight = Math.max(
-      620,
-      screenDimensions.height - insets.top - insets.bottom - planReadyFooterReserve,
-    );
-
-    if (planReadyProgramOverviewVisible) {
-      return (
-        <View
-          style={[
-            styles.planReadyStage,
-            styles.planReadyProgramOverviewStage,
-            { minHeight: planReadyStageMinHeight },
-          ]}
-        >
-          <View style={styles.planReadyProgramOverviewShell}>
-            <View pointerEvents="none" style={styles.planReadyProgramCarbonBackdrop}>
-              <Svg width="100%" height="100%" viewBox="0 0 390 760" preserveAspectRatio="none">
-                <Rect x="0" y="0" width="390" height="760" fill="transparent" />
-                {Array.from({ length: 20 }).map((_, index) => {
-                  const y = index * 44 - 18;
-
-                  return (
-                    <React.Fragment key={`carbon-row-${index}`}>
-                      <Path d={`M-80 ${y + 28} L24 ${y - 18} L92 ${y - 18} L-12 ${y + 28} Z`} fill="rgba(255,255,255,0.025)" />
-                      <Path d={`M96 ${y + 28} L200 ${y - 18} L268 ${y - 18} L164 ${y + 28} Z`} fill="rgba(169,139,255,0.030)" />
-                      <Path d={`M272 ${y + 28} L376 ${y - 18} L444 ${y - 18} L340 ${y + 28} Z`} fill="rgba(255,255,255,0.020)" />
-                    </React.Fragment>
-                  );
-                })}
-              </Svg>
-            </View>
-            <View style={styles.planReadyProgramOverviewHero}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Back to plan ready"
-                onPress={() => setPlanReadyProgramOverviewVisible(false)}
-                style={styles.planReadyProgramOverviewBackButton}
-              >
-                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                  <Path d="M15.5 5 8.5 12l7 7" stroke="#FFFFFF" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              </Pressable>
-              <View style={styles.planReadyProgramOverviewHeroCopy}>
-                <Text style={styles.planReadyProgramOverviewKicker}>4-WEEK</Text>
-                <Text style={styles.planReadyProgramOverviewTitleProgress}>PROGRESS</Text>
-                <Text style={styles.planReadyProgramOverviewTitlePlan}>PLAN</Text>
-                <Text style={styles.planReadyProgramOverviewTagline}>
-                  BUILD. <Text style={styles.planReadyProgramOverviewTaglineAccent}>FOCUS.</Text> PROGRESS.
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.planReadyProgramOverviewContent}>
-              <View style={styles.planReadyProgramWeekList}>
-                {planReadyProgramWeeks.map((programWeek, weekIndex) => {
-                  const expanded = expandedPlanReadyProgramWeek === programWeek.week;
-
-                  return (
-                    <View
-                      key={programWeek.week}
-                      style={[
-                        styles.planReadyProgramWeekCard,
-                        weekIndex === 0 && styles.planReadyProgramWeekCardFirst,
-                        expanded && styles.planReadyProgramWeekCardExpanded,
-                      ]}
-                    >
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel={`Toggle week ${programWeek.week}`}
-                        accessibilityState={{ expanded }}
-                        onPress={() => setExpandedPlanReadyProgramWeek(expanded ? 0 : programWeek.week)}
-                        style={styles.planReadyProgramWeekHeader}
-                      >
-                        <View style={styles.planReadyProgramWeekTitleBlock}>
-                          <Text style={styles.planReadyProgramWeekTitle}>Week {programWeek.week}</Text>
-                          <Text style={styles.planReadyProgramWeekPhase}>{programWeek.title}</Text>
-                        </View>
-                        <Text style={styles.planReadyProgramWeekWorkoutCount}>{planReadyWorkoutCount} workouts</Text>
-                      </Pressable>
-
-                      {expanded ? (
-                        <View style={styles.planReadyProgramWeekWorkoutList}>
-                          {trainingWeekRows.map((workout, workoutIndex) => {
-                            const workoutFocusLabel = getPlanReadyWorkoutFocusLabel(workout.title, workoutIndex);
-
-                            return (
-                              <View key={`${programWeek.week}-${workout.sessionId ?? workout.day}`} style={styles.planReadyProgramWeekWorkoutCard}>
-                                <View style={styles.planReadyProgramWeekWorkoutHeader}>
-                                  <View style={styles.planReadyProgramWeekWorkoutBadge}>
-                                    <Text style={styles.planReadyProgramWeekWorkoutBadgeText}>
-                                      {String.fromCharCode(65 + workoutIndex)}{programWeek.suffix}
-                                    </Text>
-                                  </View>
-                                  <View style={styles.planReadyProgramWeekWorkoutCopy}>
-                                    <Text style={styles.planReadyProgramWeekWorkoutName}>{workoutFocusLabel} Focus</Text>
-                                    <Text style={styles.planReadyProgramWeekWorkoutMeta}>
-                                      {workout.exercises.length + workout.hiddenExerciseCount} exercises
-                                      {workout.duration ? ` - ${workout.duration}` : ''}
-                                    </Text>
-                                  </View>
-                                </View>
-                                <View style={styles.planReadyProgramExerciseList}>
-                                  {workout.exercises.map((exercise, exerciseIndex) => (
-                                    <View key={`${programWeek.week}-${exercise.id}`} style={styles.planReadyProgramExerciseRow}>
-                                      <Text style={styles.planReadyProgramExerciseIndex}>{String(exerciseIndex + 1).padStart(2, '0')}</Text>
-                                      <View style={styles.planReadyProgramExerciseCopy}>
-                                        <Text style={styles.planReadyProgramExerciseName} numberOfLines={1}>{exercise.name}</Text>
-                                        <Text style={styles.planReadyProgramExerciseFocus}>{getPlanReadyExerciseFocusLabel(exercise.name)}</Text>
-                                      </View>
-                                      <View style={styles.planReadyProgramExerciseTargets}>
-                                        {exercise.setsLabel ? <Text style={styles.planReadyProgramExerciseTarget}>{exercise.setsLabel}</Text> : null}
-                                        {exercise.repsLabel ? <Text style={styles.planReadyProgramExerciseTarget}>{exercise.repsLabel}</Text> : null}
-                                      </View>
-                                    </View>
-                                  ))}
-                                </View>
-                              </View>
-                            );
-                          })}
-                        </View>
-                      ) : null}
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          </View>
-        </View>
-      );
-    }
+    const planReadyStats: Array<[string, string]> = [
+      [String(planReadyTotalWorkouts), 'Workouts'],
+      [String(planReadyWeeks), 'Weeks'],
+      [String(planReadyPerWeek), 'Per week'],
+    ];
 
     return (
-      <View
+      <Animated.View
         style={[
-          styles.planReadyStage,
-          { minHeight: planReadyStageMinHeight },
+          styles.planReadyOverviewStage,
+          {
+            paddingTop: insets.top + spacing.lg,
+            opacity: planReadyCardOpacity,
+            transform: [{ translateX: planReadyCardTranslateX }],
+          },
         ]}
       >
-        <Animated.View
-          style={[
-            styles.planReadyCardShell,
-            {
-              minHeight: planReadyStageMinHeight,
-              opacity: planReadyCardOpacity,
-              transform: [{ translateX: planReadyCardTranslateX }],
-            },
-          ]}
-        >
-          <View style={styles.planReadyPlanCard}>
-            <View style={styles.planReadyHeroCard}>
-              <ImageBackground
-                source={PLAN_READY_GYM_BACKDROP_SOURCE}
-                resizeMode="cover"
-                style={[styles.planReadyHeroImage, compactPlanReady && styles.planReadyHeroImageCompact]}
-                imageStyle={styles.planReadyHeroImageStyle}
-              >
-                <View pointerEvents="none" style={styles.planReadyHeroGradient}>
-                  <View style={styles.planReadyHeroGradientTop} />
-                  <View style={styles.planReadyHeroGradientMiddle} />
-                  <View style={styles.planReadyHeroGradientBottom} />
-                </View>
-                <View pointerEvents="none" style={styles.planReadyHeroTextScrim} />
-                <View style={[styles.planReadyHeroCopy, compactPlanReady && styles.planReadyHeroCopyCompact]}>
-                  <Text style={[styles.planReadyHeroKicker, compactPlanReady && styles.planReadyHeroKickerCompact]}>YOUR PLAN IS READY</Text>
-                  <View style={styles.planReadyHeroTitleLine}>
-                    <Text
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.84}
-                      style={[styles.planReadyHeroTitle, compactPlanReady && styles.planReadyHeroTitleCompact]}
-                    >
-                      {programTitle}
-                    </Text>
-                    <View style={styles.planReadyHeroPlanBadge}>
-                      <Text style={styles.planReadyHeroPlanBadgeText}>4-WEEK PLAN</Text>
-                    </View>
-                  </View>
-                  <Text style={[styles.planReadyHeroBody, compactPlanReady && styles.planReadyHeroBodyCompact]}>Built around your goals, schedule and recovery.</Text>
-                </View>
-              </ImageBackground>
-            </View>
+        <Text style={styles.planReadyOverviewKicker}>YOUR PLAN IS READY</Text>
+        <Text style={styles.planReadyOverviewHeading}>{planReadyTitle}</Text>
+        {planReadyMeta ? <Text style={styles.planReadyOverviewMeta}>{planReadyMeta}</Text> : null}
 
-            <View style={[styles.planReadyCardContent, compactPlanReady && styles.planReadyCardContentCompact]}>
-              {planReadyActiveWorkout ? (
-                <View style={styles.planReadyNextSessionCard}>
-                  <View style={[styles.planReadyNextSessionHero, compactPlanReady && styles.planReadyNextSessionHeroCompact]}>
-                    <Image
-                      source={planReadyActiveWorkoutImageSource}
-                      resizeMode="cover"
-                      style={styles.planReadyNextSessionHeroImage}
-                    />
-                    <View pointerEvents="none" style={styles.planReadyNextSessionHeroShade} />
-                    <View pointerEvents="none" style={styles.planReadyNextSessionHeroSideShade} />
-                    <View style={[styles.planReadyNextSessionHeroCopy, compactPlanReady && styles.planReadyNextSessionHeroCopyCompact]}>
-                      <View style={styles.planReadyProgramTopRow}>
-                        <View style={styles.planReadyProgramWeekBadge}>
-                          <Text style={styles.planReadyProgramWeekBadgeText}>Week 1 of 4</Text>
-                        </View>
-                      </View>
-                      <View style={styles.planReadyHeroMainCopy}>
-                        <Text style={styles.planReadyProgramDayTitle}>{`Day ${planReadyWorkoutPageStart + 1} of ${planReadyWorkoutCount}`}</Text>
-                        <Text
-                          numberOfLines={1}
-                          adjustsFontSizeToFit
-                          minimumFontScale={0.78}
-                          style={styles.planReadyNextSessionTitle}
-                        >
-                          {planReadyActiveWorkoutFocusLabel.replace(' focus', ' Focus')}
-                        </Text>
-                        <View style={styles.planReadyNextSessionChipRow}>
-                          {planReadyActiveWorkout.duration ? (
-                            <View style={styles.planReadyProgramMetaItem}>
-                              <GymlogIcon name="tempo" color="#A98BFF" size={16} />
-                              <Text style={styles.planReadyNextSessionDuration}>{planReadyActiveWorkout.duration}</Text>
-                            </View>
-                          ) : null}
-                          <View style={styles.planReadyProgramMetaDivider} />
-                          <View style={styles.planReadyProgramMetaItem}>
-                            <GymlogIcon name="progress" color="#A98BFF" size={16} />
-                            <Text style={styles.planReadyNextSessionDuration}>{getLevelLabel(level)}</Text>
-                          </View>
-                        </View>
-                        <Text style={styles.planReadyNextSessionBody}>
-                          A simple and effective {planReadyActiveWorkoutFocusLabel.replace(' focus', ' focused').toLowerCase()} workout to build strength and size.
-                        </Text>
-                        <View style={styles.planReadySessionFlowCard}>
-                          <Text style={styles.planReadySessionFlowTitle}>SESSION FLOW</Text>
-                          <View style={styles.planReadySessionFlowList}>
-                            {planReadySessionBlocks.map((block) => (
-                              <View key={block.type} style={styles.planReadySessionFlowItem}>
-                                <Text style={styles.planReadySessionFlowLabel}>{block.label}</Text>
-                                <Text style={styles.planReadySessionFlowBody} numberOfLines={2}>{block.body}</Text>
-                              </View>
-                            ))}
-                          </View>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-
-                  {planReadyWorkoutCarouselVisible ? (
-                    <View style={styles.planReadyWorkoutCarouselBar}>
-                      <View style={styles.planReadyWorkoutCarouselTabs}>
-                        {planReadyWorkoutTabs.map((tab) => {
-                          const active = tab.index === planReadyWorkoutPageStart;
-
-                          return (
-                            <Pressable
-                              key={tab.id}
-                              accessibilityRole="button"
-                              accessibilityLabel={`Show ${tab.label}`}
-                              accessibilityState={{ selected: active }}
-                              onPress={() => setPlanReadyWorkoutPage(Math.min(tab.index, maxPlanReadyWorkoutPage))}
-                              style={[
-                                styles.planReadyWorkoutCarouselTab,
-                                active && styles.planReadyWorkoutCarouselTabActive,
-                              ]}
-                            >
-                              <Text
-                                numberOfLines={1}
-                                adjustsFontSizeToFit
-                                style={[
-                                  styles.planReadyWorkoutCarouselTabLetter,
-                                  active && styles.planReadyWorkoutCarouselTabTextActive,
-                                ]}
-                              >
-                                {tab.letter}
-                              </Text>
-                              <Text
-                                numberOfLines={1}
-                                adjustsFontSizeToFit
-                                style={[
-                                  styles.planReadyWorkoutCarouselTabText,
-                                  active && styles.planReadyWorkoutCarouselTabTextActive,
-                                ]}
-                              >
-                                {tab.label}
-                              </Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-                  ) : null}
-
-                  <View style={styles.planReadyNextExerciseList}>
-                    <View style={styles.planReadyCurrentWorkoutHeader}>
-                      <Text style={styles.planReadyCurrentWorkoutTitle}>CURRENT WORKOUT</Text>
-                      <View style={styles.planReadyCurrentWorkoutMetaRow}>
-                        <View style={styles.planReadyCurrentWorkoutMetaItem}>
-                          <GymlogIcon name="strength" color="#A98BFF" size={15} />
-                          <Text style={styles.planReadyCurrentWorkoutMetaText}>
-                            {planReadyActiveWorkout.exercises.length + planReadyActiveWorkout.hiddenExerciseCount} exercises
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                    {planReadyActiveWorkout.exercises.map((exercise, exerciseIndex) => (
-                      <View key={exercise.id} style={styles.planReadyNextExerciseRow}>
-                        <View style={styles.planReadyNextExerciseNumberColumn}>
-                          <Text style={styles.planReadyNextExerciseNumber}>
-                            {String(exerciseIndex + 1).padStart(2, '0')}
-                          </Text>
-                          <View style={styles.planReadyNextExerciseDivider} />
-                        </View>
-                        <View style={styles.planReadyNextExerciseCopy}>
-                          <Text style={styles.planReadyNextExerciseName} numberOfLines={1}>{exercise.name}</Text>
-                          <Text style={styles.planReadyNextExerciseFocus}>
-                            {getPlanReadyExerciseFocusLabel(exercise.name)}
-                          </Text>
-                        </View>
-                        <View style={styles.planReadyNextExerciseTargets}>
-                          {exercise.setsLabel ? (
-                            <Text style={styles.planReadyNextExerciseTarget} numberOfLines={1}>
-                              {exercise.setsLabel}
-                            </Text>
-                          ) : null}
-                          {exercise.repsLabel ? (
-                            <Text style={styles.planReadyNextExerciseTarget} numberOfLines={1}>
-                              {exercise.repsLabel}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </View>
-                    ))}
-                    {planReadyActiveWorkout.hiddenExerciseCount > 0 ? (
-                      <Text style={styles.planReadyWorkoutMoreExercises}>
-                        and {planReadyActiveWorkout.hiddenExerciseCount} more exercises
-                      </Text>
-                    ) : null}
-                  </View>
-                </View>
-              ) : null}
-              <View style={styles.planReadyAllWorkoutsCard}>
-                <View style={styles.planReadyAllWorkoutsHeader}>
-                  <Text style={styles.planReadyAllWorkoutsTitle}>ALL WORKOUTS</Text>
-                  <Text style={styles.planReadyAllWorkoutsMeta}>Tap to preview</Text>
-                </View>
-                <View style={styles.planReadyAllWorkoutsList}>
-                  {trainingWeekRows.map((workout, index) => {
-                    const active = index === planReadyWorkoutPageStart;
-                    const workoutFocusLabel = getPlanReadyWorkoutFocusLabel(workout.title, index);
-
-                    return (
-                      <Pressable
-                        key={workout.sessionId ?? workout.day}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Show day ${index + 1} of ${planReadyWorkoutCount}`}
-                        accessibilityState={{ selected: active }}
-                        onPress={() => setPlanReadyWorkoutPage(index)}
-                        style={styles.planReadyAllWorkoutPressable}
-                      >
-                        <View
-                          style={[
-                            styles.planReadyAllWorkoutRow,
-                            active && styles.planReadyAllWorkoutRowActive,
-                          ]}
-                        >
-                          <View style={[styles.planReadyAllWorkoutNumber, active && styles.planReadyAllWorkoutNumberActive]}>
-                            <Text style={styles.planReadyAllWorkoutNumberText}>{index + 1}</Text>
-                          </View>
-                          <View style={styles.planReadyAllWorkoutCopy}>
-                            <Text style={styles.planReadyAllWorkoutDayText}>Day {index + 1} of {planReadyWorkoutCount}</Text>
-                            <Text style={styles.planReadyAllWorkoutName}>{workoutFocusLabel} Focus</Text>
-                            <Text style={styles.planReadyAllWorkoutMeta}>
-                              {workout.exercises.length + workout.hiddenExerciseCount} exercises
-                            </Text>
-                          </View>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
+        <View style={styles.planReadyOverviewCover}>
+          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+            <Defs>
+              <SvgLinearGradient id="planReadyCoverGradient" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#5B21B6" />
+                <Stop offset="1" stopColor={ONBOARDING_PRIMARY} />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width="100%" height="100%" rx="20" ry="20" fill="url(#planReadyCoverGradient)" />
+          </Svg>
+          <View pointerEvents="none" style={styles.planReadyOverviewCoverGlow} />
+          <Text style={styles.planReadyOverviewCoverKicker}>BUILD · FOCUS · PROGRESS</Text>
+          <View style={styles.planReadyOverviewStatRow}>
+            {planReadyStats.map(([value, label]) => (
+              <View key={label} style={styles.planReadyOverviewStat}>
+                <Text style={styles.planReadyOverviewStatValue}>{value}</Text>
+                <Text style={styles.planReadyOverviewStatLabel}>{label}</Text>
               </View>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="View full program"
-                onPress={() => {
-                  setExpandedPlanReadyProgramWeek(2);
-                  setPlanReadyProgramOverviewVisible(true);
-                  onboardingScrollRef.current?.scrollTo({ y: 0, animated: true });
-                }}
-                style={styles.planReadyViewFullProgramButton}
-              >
-                <GymlogIcon name="file" color="#A98BFF" size={20} />
-                <Text style={styles.planReadyViewFullProgramText}>VIEW FULL PROGRAM</Text>
-              </Pressable>
-
-              {planReadyActiveWorkout ? (
-                <ImageBackground
-                  source={PLAN_READY_GYM_BACKDROP_SOURCE}
-                  resizeMode="cover"
-                  style={[styles.planReadyWorkoutMediaCard, styles.planReadyHidden]}
-                  imageStyle={styles.planReadyWorkoutMediaImage}
-                >
-                  <View pointerEvents="none" style={styles.planReadyWorkoutMediaShade} />
-                  <View style={styles.planReadyWorkoutMediaCopy}>
-                    <Text style={styles.planReadyWorkoutMediaKicker}>NEXT SESSION</Text>
-                    <Text style={styles.planReadyWorkoutMediaTitle}>{planReadyActiveWorkout.title}</Text>
-                    <Text style={styles.planReadyWorkoutMediaBody}>
-                      {planReadyActiveWorkoutFocusLabel} · {planReadyActiveWorkout.duration ?? 'Guided workout'}
-                    </Text>
-                  </View>
-                </ImageBackground>
-              ) : null}
-              <View style={[styles.planReadyWeekPanel, styles.planReadyHidden]}>
-                {planReadyActiveWorkout ? (
-                  <View
-                    key={planReadyActiveWorkout.day}
-                    style={[
-                      styles.planReadyWeekPanelRow,
-                      styles.planReadyWorkoutDayCard,
-                      styles.planReadyWorkoutSingleCard,
-                      compactPlanReady && styles.planReadyWeekPanelRowCompact,
-                      compactPlanReady && styles.planReadyWorkoutDayCardCompact,
-                    ]}
-                  >
-                    {compactPlanReady ? (
-                      <View style={styles.planReadyWorkoutDayHeaderCompact}>
-                        <View style={styles.planReadyWorkoutCardMetaRowCompact}>
-                          <Text style={[styles.planReadyWeekPanelTitle, styles.planReadyWeekPanelTitleCompact]} numberOfLines={1}>{planReadyActiveWorkout.title}</Text>
-                          <View style={styles.planReadyWorkoutHeaderActions}>
-                            {planReadyActiveWorkout.duration ? <Text style={[styles.planReadyWeekPanelDuration, styles.planReadyWeekPanelDurationCompact]}>{planReadyActiveWorkout.duration}</Text> : null}
-                            {planReadyActiveWorkout.hasDetails && planReadyActiveWorkout.sessionId ? (
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`View ${planReadyActiveWorkout.title} details`}
-                                onPress={() => setSelectedPlanReadySessionId(planReadyActiveWorkout.sessionId)}
-                                style={[styles.planReadyWorkoutDetailsButton, styles.planReadyWorkoutDetailsButtonCompact]}
-                              >
-                                <GymlogIcon name="eye" color="#FFFFFF" size={12} />
-                              </Pressable>
-                            ) : null}
-                          </View>
-                        </View>
-                        <View style={[styles.planReadyWorkoutFocusChip, styles.planReadyWorkoutFocusChipCompact]}>
-                          <Text style={[styles.planReadyWorkoutFocusChipText, styles.planReadyWorkoutFocusChipTextCompact]}>{planReadyActiveWorkoutFocusLabel}</Text>
-                        </View>
-                      </View>
-                    ) : (
-                      <View style={styles.planReadyWorkoutDayHeader}>
-                        <View style={styles.planReadyWeekPanelTitleRow}>
-                          <View style={styles.planReadyWorkoutTitleBlock}>
-                            <Text style={styles.planReadyWeekPanelTitle} numberOfLines={1}>{planReadyActiveWorkout.title}</Text>
-                            <View style={styles.planReadyWorkoutFocusChip}>
-                              <Text style={styles.planReadyWorkoutFocusChipText}>{planReadyActiveWorkoutFocusLabel}</Text>
-                            </View>
-                          </View>
-                          <View style={styles.planReadyWorkoutHeaderActions}>
-                            {planReadyActiveWorkout.duration ? <Text style={styles.planReadyWeekPanelDuration}>{planReadyActiveWorkout.duration}</Text> : null}
-                            {planReadyActiveWorkout.hasDetails && planReadyActiveWorkout.sessionId ? (
-                              <Pressable
-                                accessibilityRole="button"
-                                accessibilityLabel={`View ${planReadyActiveWorkout.title} details`}
-                                onPress={() => setSelectedPlanReadySessionId(planReadyActiveWorkout.sessionId)}
-                                style={styles.planReadyWorkoutDetailsButton}
-                              >
-                                <GymlogIcon name="eye" color="#FFFFFF" size={14} />
-                              </Pressable>
-                            ) : null}
-                          </View>
-                        </View>
-                      </View>
-                    )}
-                    <View style={[styles.planReadyWorkoutInlineExerciseList, compactPlanReady && styles.planReadyWorkoutInlineExerciseListCompact]}>
-                      {planReadyActiveWorkout.exercises.map((exercise, exerciseIndex) => (
-                        <View key={exercise.id} style={[styles.planReadyWorkoutInlineExerciseRow, compactPlanReady && styles.planReadyWorkoutInlineExerciseRowCompact]}>
-                          <Text style={[styles.planReadyWorkoutInlineExerciseIndex, compactPlanReady && styles.planReadyWorkoutInlineExerciseIndexCompact]}>{exerciseIndex + 1}</Text>
-                          <View style={styles.planReadyWorkoutInlineExerciseCopy}>
-                            <Text style={[styles.planReadyWorkoutInlineExerciseName, compactPlanReady && styles.planReadyWorkoutInlineExerciseNameCompact]} numberOfLines={1}>{exercise.name}</Text>
-                            <Text style={[styles.planReadyWorkoutInlineExerciseFocus, compactPlanReady && styles.planReadyWorkoutInlineExerciseFocusCompact]}>
-                              {getPlanReadyExerciseFocusLabel(exercise.name)}
-                            </Text>
-                          </View>
-                          <View style={[styles.planReadyWorkoutInlineExerciseTargets, compactPlanReady && styles.planReadyWorkoutInlineExerciseTargetsCompact]}>
-                            {exercise.setsLabel ? (
-                              <Text style={[styles.planReadyWorkoutInlineExerciseTarget, compactPlanReady && styles.planReadyWorkoutInlineExerciseTargetCompact]} numberOfLines={1}>
-                                {exercise.setsLabel}
-                              </Text>
-                            ) : null}
-                            {exercise.repsLabel ? (
-                              <Text style={[styles.planReadyWorkoutInlineExerciseTarget, compactPlanReady && styles.planReadyWorkoutInlineExerciseTargetCompact]} numberOfLines={1}>
-                                {exercise.repsLabel}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </View>
-                      ))}
-                      {planReadyActiveWorkout.hiddenExerciseCount > 0 ? (
-                        <Text style={[styles.planReadyWorkoutMoreExercises, compactPlanReady && styles.planReadyWorkoutMoreExercisesCompact]}>
-                          and {planReadyActiveWorkout.hiddenExerciseCount} more exercises
-                        </Text>
-                      ) : null}
-                    </View>
-                  </View>
-                ) : null}
-              </View>
-
-              <View style={[styles.planReadyFitSummaryPanel, styles.planReadyHidden, compactPlanReady && styles.planReadyFitSummaryPanelCompact]}>
-                <View style={[styles.planReadyFitReasons, compactPlanReady && styles.planReadyFitReasonsCompact]}>
-                  <Text style={[styles.planReadyFitSectionTitle, compactPlanReady && styles.planReadyFitSectionTitleCompact]}>WHY THIS PLAN?</Text>
-                  {planReadyFitReasons.map((reason) => (
-                    <View key={reason} style={[styles.planReadyFitReasonRow, compactPlanReady && styles.planReadyFitReasonRowCompact]}>
-                      <GymlogIcon name="check" color={ONBOARDING_PRIMARY} size={compactPlanReady ? 12 : 18} />
-                      <Text style={[styles.planReadyFitReasonText, compactPlanReady && styles.planReadyFitReasonTextCompact]}>{reason}</Text>
-                    </View>
-                  ))}
-                </View>
-                <View style={[styles.planReadyOverviewCard, compactPlanReady && styles.planReadyOverviewCardCompact]}>
-                  <Text style={[styles.planReadyOverviewTitle, compactPlanReady && styles.planReadyOverviewTitleCompact]}>PLAN OVERVIEW</Text>
-                  {planReadyOverviewRows.map((row) => (
-                    <View key={row.label} style={[styles.planReadyOverviewRow, compactPlanReady && styles.planReadyOverviewRowCompact]}>
-                      <GymlogIcon name={row.icon} color="#FFFFFF" size={compactPlanReady ? 13 : 18} />
-                      <Text style={[styles.planReadyOverviewText, compactPlanReady && styles.planReadyOverviewTextCompact]}>{row.label}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-              <View style={styles.planReadyHidden}>
-                <Text style={styles.planReadyWorkoutSectionTitle}>WEEKLY RHYTHM</Text>
-              </View>
-              <View style={[styles.planReadyWeeklyOverview, styles.planReadyHidden, compactPlanReady && styles.planReadyWeeklyOverviewCompact]}>
-                <View style={[styles.planReadyWeeklyOverviewRow, compactPlanReady && styles.planReadyWeeklyOverviewRowCompact]}>
-                  {planReadyWeeklyOverviewRows.map((item) => (
-                    <View key={item.day} style={[styles.planReadyWeeklyOverviewDay, compactPlanReady && styles.planReadyWeeklyOverviewDayCompact]}>
-                      <Text style={[styles.planReadyWeeklyOverviewDayText, compactPlanReady && styles.planReadyWeeklyOverviewDayTextCompact]}>{item.day}</Text>
-                      <View
-                        style={[
-                          styles.planReadyWeeklyOverviewDot,
-                          compactPlanReady && styles.planReadyWeeklyOverviewDotCompact,
-                          item.training
-                            ? styles.planReadyWeeklyOverviewDotActive
-                            : styles.planReadyWeeklyOverviewDotRest,
-                        ]}
-                      >
-                        {item.training ? <GymlogIcon name="check" color="#06080B" size={compactPlanReady ? 8 : 10} /> : null}
-                      </View>
-                      <Text style={[styles.planReadyWeeklyOverviewLabel, compactPlanReady && styles.planReadyWeeklyOverviewLabelCompact]}>{item.training ? 'Train' : 'Recover'}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-
-            </View>
+            ))}
           </View>
-        </Animated.View>
-      </View>
+        </View>
+
+        <View style={styles.planReadyOverviewWeeks}>
+          {planReadyWeekRows.map((row) => (
+            <View key={row.week} style={styles.planReadyOverviewWeekRow}>
+              <View style={styles.planReadyOverviewWeekBadge}>
+                <Text style={styles.planReadyOverviewWeekBadgeText}>{row.week}</Text>
+              </View>
+              <View style={styles.planReadyOverviewWeekCopy}>
+                <Text style={styles.planReadyOverviewWeekTitle}>{`Week ${row.week}`}</Text>
+                <Text style={styles.planReadyOverviewWeekSubtitle} numberOfLines={1}>
+                  {row.subtitle}
+                </Text>
+              </View>
+              <Text style={styles.planReadyOverviewWeekCount}>{`${planReadyPerWeek} workouts`}</Text>
+            </View>
+          ))}
+        </View>
+      </Animated.View>
     );
   }
 
@@ -4803,7 +4207,7 @@ export function OnboardingScreen({
     stage === 'review' && busy
       ? 'Saving plan...'
       : stage === 'review'
-      ? 'Save plan & start'
+      ? 'See day 1'
       : stage === 'about' && bodyweightSetupStep === 'outcome'
       ? 'Build my plan'
       : stage === 'about'
@@ -4832,30 +4236,19 @@ export function OnboardingScreen({
   }
 
   return (
-    <View style={[styles.root, stage === 'review' ? styles.rootBlack : styles.rootLight]}>
+    <View style={[styles.root, styles.rootLight]}>
       <View pointerEvents="none" style={styles.focusAreaPreloadTray}>
         {Object.entries(FOCUS_AREA_CARD_ASSETS).map(([area, source]) => (
           <Image key={area} source={source} resizeMode="contain" fadeDuration={0} style={styles.focusAreaPreloadImage} />
         ))}
       </View>
-      {stage === 'review' && planReadyProgramOverviewVisible ? (
-        <>
-          <Image
-            source={PLAN_READY_PROGRAM_OVERVIEW_HERO_SOURCE}
-            resizeMode="cover"
-            style={styles.planReadyProgramOverviewRootImage}
-          />
-          <View pointerEvents="none" style={styles.planReadyProgramOverviewRootShade} />
-        </>
-      ) : null}
       {locationStageActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
       <ScrollView
         key={stage}
         ref={onboardingScrollRef}
         style={[
           styles.scrollView,
-          stage === 'review' ? styles.scrollViewBlack : styles.scrollViewLight,
-          stage === 'review' && planReadyProgramOverviewVisible && styles.planReadyProgramOverviewScrollView,
+          styles.scrollViewLight,
         ]}
         contentContainerStyle={scrollContentStyle}
         showsVerticalScrollIndicator={false}
@@ -10972,9 +10365,119 @@ const styles = StyleSheet.create({
     backgroundColor: ONBOARDING_PANEL,
     borderTopColor: ONBOARDING_BORDER,
   },
+  planReadyOverviewStage: {
+    paddingBottom: spacing.lg,
+  },
+  planReadyOverviewKicker: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    letterSpacing: 1.75,
+    color: ONBOARDING_PRIMARY,
+  },
+  planReadyOverviewHeading: {
+    marginTop: 6,
+    fontSize: 27,
+    fontWeight: '800',
+    letterSpacing: -0.54,
+    color: ONBOARDING_TEXT,
+  },
+  planReadyOverviewMeta: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: '600',
+    color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyOverviewCover: {
+    marginTop: 16,
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  planReadyOverviewCoverGlow: {
+    position: 'absolute',
+    top: -50,
+    right: -30,
+    width: 160,
+    height: 160,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+  },
+  planReadyOverviewCoverKicker: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.6,
+    color: 'rgba(255,255,255,0.8)',
+  },
+  planReadyOverviewStatRow: {
+    flexDirection: 'row',
+    marginTop: 14,
+    gap: 18,
+  },
+  planReadyOverviewStat: {
+    minWidth: 0,
+  },
+  planReadyOverviewStatValue: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  planReadyOverviewStatLabel: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.78)',
+  },
+  planReadyOverviewWeeks: {
+    marginTop: 16,
+    gap: 9,
+  },
+  planReadyOverviewWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: ONBOARDING_CARD,
+    borderWidth: 1,
+    borderColor: ONBOARDING_BORDER,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+  },
+  planReadyOverviewWeekBadge: {
+    width: 30,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planReadyOverviewWeekBadgeText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#5B21B6',
+  },
+  planReadyOverviewWeekCopy: {
+    flex: 1,
+  },
+  planReadyOverviewWeekTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: ONBOARDING_TEXT,
+  },
+  planReadyOverviewWeekSubtitle: {
+    marginTop: 1,
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyOverviewWeekCount: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: ONBOARDING_TEXT_SOFT,
+  },
   planReadyFixedFooter: {
-    // Plan-ready (review) keeps the pre-redesign dark shell until Phase 5.
-    backgroundColor: '#1D1C35',
+    backgroundColor: ONBOARDING_PANEL,
     borderTopWidth: 0,
     borderTopColor: 'transparent',
     paddingHorizontal: 18,
