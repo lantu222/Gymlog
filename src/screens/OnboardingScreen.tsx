@@ -2259,6 +2259,7 @@ export function OnboardingScreen({
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [selectedPlanReadySessionId, setSelectedPlanReadySessionId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
+  const [planReadyShowDayDetail, setPlanReadyShowDayDetail] = useState(false);
   const [planReadyProgramOverviewVisible, setPlanReadyProgramOverviewVisible] = useState(false);
   const [expandedPlanReadyProgramWeek, setExpandedPlanReadyProgramWeek] = useState(2);
   const [helperVisible, setHelperVisible] = useState(false);
@@ -3521,6 +3522,9 @@ export function OnboardingScreen({
   }
 
   function renderReview() {
+    if (planReadyShowDayDetail) {
+      return renderPlanReadyDay();
+    }
     const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : 4;
     const planReadyPerWeek =
       planReadyPayload.programDaysPerWeek
@@ -3592,6 +3596,116 @@ export function OnboardingScreen({
                 </Text>
               </View>
               <Text style={styles.planReadyOverviewWeekCount}>{`${planReadyPerWeek} workouts`}</Text>
+            </View>
+          ))}
+        </View>
+      </Animated.View>
+    );
+  }
+
+  function renderPlanReadyDay() {
+    const days = projectedSessions;
+    const dayCount = Math.max(days.length, 1);
+    const selectedIndex = Math.min(Math.max(planReadyWorkoutPage, 0), dayCount - 1);
+    const selectedSession = days[selectedIndex] ?? null;
+    const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : 4;
+    const focusOf = (name: string, index: number) => {
+      const normalized = (name ?? '').toLowerCase();
+      if (normalized.includes('full')) return 'Full Body';
+      if (normalized.includes('lower')) return 'Lower';
+      if (normalized.includes('upper')) return 'Upper';
+      return index % 3 === 2 ? 'Full Body' : index % 3 === 1 ? 'Lower' : 'Upper';
+    };
+    const groupOf = (name: string) => {
+      const normalized = (name ?? '').toLowerCase();
+      if (normalized.includes('squat') || normalized.includes('lunge') || normalized.includes('leg')) return 'LEGS';
+      if (normalized.includes('curl') || normalized.includes('tricep')) return 'ARMS';
+      if (normalized.includes('row') || normalized.includes('pull')) return 'BACK';
+      if (normalized.includes('push') || normalized.includes('press') || normalized.includes('chest')) {
+        return normalized.includes('shoulder') || normalized.includes('overhead') ? 'SHOULDERS' : 'CHEST';
+      }
+      if (normalized.includes('plank') || normalized.includes('core') || normalized.includes('abs')) return 'CORE';
+      return focusOf(selectedSession?.name ?? '', selectedIndex).toUpperCase();
+    };
+    const dayFocus = selectedSession ? focusOf(selectedSession.name, selectedIndex) : 'Upper';
+    const dayDuration = selectedSession?.guidance?.estimatedDuration ?? null;
+    const dayExercises = selectedSession?.exercises ?? [];
+    const dayTabs = days.map((session, index) => ({
+      id: session.id,
+      index,
+      letter: String.fromCharCode(65 + index),
+      label: focusOf(session.name, index),
+    }));
+
+    return (
+      <Animated.View
+        style={[
+          styles.planReadyDayStage,
+          {
+            paddingTop: insets.top + spacing.lg,
+            opacity: planReadyCardOpacity,
+            transform: [{ translateX: planReadyCardTranslateX }],
+          },
+        ]}
+      >
+        <View style={styles.planReadyDayHeader}>
+          <View style={styles.planReadyDayHeaderCopy}>
+            <Text style={styles.planReadyDayKicker}>{`DAY ${selectedIndex + 1} OF ${dayCount}`}</Text>
+            <Text style={styles.planReadyDayTitle}>{`${dayFocus} Focus`}</Text>
+          </View>
+          <View style={styles.planReadyDayWeekBadge}>
+            <Text style={styles.planReadyDayWeekBadgeText}>{`Week 1 of ${planReadyWeeks}`}</Text>
+          </View>
+        </View>
+
+        <View style={styles.planReadyDayMetaRow}>
+          {dayDuration ? (
+            <View style={styles.planReadyDayMetaItem}>
+              <GymlogIcon name="tempo" color={ONBOARDING_TEXT_SOFT} size={15} />
+              <Text style={styles.planReadyDayMetaText}>{dayDuration}</Text>
+            </View>
+          ) : null}
+          <View style={styles.planReadyDayMetaItem}>
+            <GymlogIcon name="progress" color={ONBOARDING_TEXT_SOFT} size={15} />
+            <Text style={styles.planReadyDayMetaText}>{levelLabel}</Text>
+          </View>
+        </View>
+
+        {dayTabs.length > 1 ? (
+          <View style={styles.planReadyDayTabs}>
+            {dayTabs.map((tab) => {
+              const active = tab.index === selectedIndex;
+              return (
+                <Pressable
+                  key={tab.id}
+                  onPress={() => setPlanReadyWorkoutPage(tab.index)}
+                  style={[styles.planReadyDayTab, active && styles.planReadyDayTabActive]}
+                >
+                  <Text style={[styles.planReadyDayTabLetter, active && styles.planReadyDayTabLetterActive]}>{tab.letter}</Text>
+                  <Text style={[styles.planReadyDayTabLabel, active && styles.planReadyDayTabLabelActive]} numberOfLines={1}>
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : null}
+
+        <Text style={styles.planReadyDayExercisesLabel}>
+          {`${dayExercises.length} ${dayExercises.length === 1 ? 'EXERCISE' : 'EXERCISES'}`}
+        </Text>
+        <View style={styles.planReadyDayExerciseList}>
+          {dayExercises.map((exercise, index) => (
+            <View key={exercise.id} style={styles.planReadyDayExerciseRow}>
+              <Text style={styles.planReadyDayExerciseNumber}>{String(index + 1).padStart(2, '0')}</Text>
+              <View style={styles.planReadyDayExerciseCopy}>
+                <Text style={styles.planReadyDayExerciseName} numberOfLines={1}>{exercise.name}</Text>
+                <Text style={styles.planReadyDayExerciseGroup}>{groupOf(exercise.name)}</Text>
+              </View>
+              <View style={styles.planReadyDayExerciseRight}>
+                <Text style={styles.planReadyDayExerciseSets}>{exercise.setsLabel}</Text>
+                <Text style={styles.planReadyDayExerciseReps}>{exercise.repsLabel}</Text>
+              </View>
             </View>
           ))}
         </View>
@@ -4207,7 +4321,9 @@ export function OnboardingScreen({
     stage === 'review' && busy
       ? 'Saving plan...'
       : stage === 'review'
-      ? 'See day 1'
+      ? planReadyShowDayDetail
+        ? 'Save plan & start'
+        : 'See day 1'
       : stage === 'about' && bodyweightSetupStep === 'outcome'
       ? 'Build my plan'
       : stage === 'about'
@@ -4318,6 +4434,12 @@ export function OnboardingScreen({
                 }
 
                 if (stage === 'review') {
+                  if (!planReadyShowDayDetail) {
+                    void haptics.success();
+                    setPlanReadyWorkoutPage(0);
+                    setPlanReadyShowDayDetail(true);
+                    return;
+                  }
                   void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
                   return;
                 }
@@ -4328,7 +4450,13 @@ export function OnboardingScreen({
               style={styles.onboardingPrimaryCTA}
             />
 
-            {stage === 'review' ? null : stage === 'location' ? (
+            {stage === 'review' ? (
+              planReadyShowDayDetail ? (
+                <Pressable onPress={() => setPlanReadyShowDayDetail(false)} disabled={busy}>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                </Pressable>
+              ) : null
+            ) : stage === 'location' ? (
               editMode ? (
                 <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Cancel</Text>
@@ -10473,6 +10601,153 @@ const styles = StyleSheet.create({
   },
   planReadyOverviewWeekCount: {
     fontSize: 12.5,
+    fontWeight: '700',
+    color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyDayStage: {
+    paddingBottom: spacing.lg,
+  },
+  planReadyDayHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  planReadyDayHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  planReadyDayKicker: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    color: ONBOARDING_PRIMARY,
+  },
+  planReadyDayTitle: {
+    marginTop: 4,
+    fontSize: 25,
+    fontWeight: '800',
+    letterSpacing: -0.25,
+    color: ONBOARDING_TEXT,
+  },
+  planReadyDayWeekBadge: {
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+    borderRadius: 999,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+  },
+  planReadyDayWeekBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#5B21B6',
+  },
+  planReadyDayMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    marginTop: 8,
+  },
+  planReadyDayMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  planReadyDayMetaText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyDayTabs: {
+    flexDirection: 'row',
+    gap: 7,
+    marginTop: 16,
+  },
+  planReadyDayTab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 12,
+    backgroundColor: ONBOARDING_CARD,
+    borderWidth: 1,
+    borderColor: ONBOARDING_BORDER,
+  },
+  planReadyDayTabActive: {
+    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: ONBOARDING_PRIMARY,
+  },
+  planReadyDayTabLetter: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: ONBOARDING_TEXT,
+  },
+  planReadyDayTabLetterActive: {
+    color: '#FFFFFF',
+  },
+  planReadyDayTabLabel: {
+    marginTop: 1,
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyDayTabLabelActive: {
+    color: 'rgba(255,255,255,0.85)',
+  },
+  planReadyDayExercisesLabel: {
+    marginTop: 18,
+    marginBottom: 10,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.3,
+    color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyDayExerciseList: {
+    gap: 8,
+  },
+  planReadyDayExerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: ONBOARDING_CARD,
+    borderWidth: 1,
+    borderColor: ONBOARDING_BORDER,
+    borderRadius: 14,
+    paddingHorizontal: 15,
+    paddingVertical: 12,
+  },
+  planReadyDayExerciseNumber: {
+    width: 20,
+    fontSize: 13,
+    fontWeight: '800',
+    color: ONBOARDING_PRIMARY,
+  },
+  planReadyDayExerciseCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  planReadyDayExerciseName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: ONBOARDING_TEXT,
+  },
+  planReadyDayExerciseGroup: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.66,
+    color: ONBOARDING_TEXT_SOFT,
+    textTransform: 'uppercase',
+  },
+  planReadyDayExerciseRight: {
+    alignItems: 'flex-end',
+  },
+  planReadyDayExerciseSets: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: ONBOARDING_TEXT,
+  },
+  planReadyDayExerciseReps: {
+    marginTop: 1,
+    fontSize: 12,
     fontWeight: '700',
     color: ONBOARDING_TEXT_SOFT,
   },
