@@ -24,7 +24,6 @@ import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Sto
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { GymlogIcon, GymlogIconName } from '../components/GymlogIcon';
-import { GainerCoachOrb, GainerCoachOrbVariant } from '../components/GainerCoachOrb';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -118,13 +117,6 @@ type BodyweightGoalIconName = 'up' | 'flat' | 'down';
 type BodyweightSetupStep = 'goal' | 'current' | 'target' | 'outcome';
 type LocationSelectionOptionId = SetupTrainingEnvironment;
 type LocationBenefit = { icon: GymlogIconName; label: string; body?: string };
-type OnboardingRewardConfig = {
-  title: string;
-  body: string;
-  orbVariant: GainerCoachOrbVariant;
-  benefits: LocationBenefit[];
-  showNamePrompt?: boolean;
-};
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
 type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
 
@@ -699,69 +691,6 @@ const GOAL_SELECTION_OPTIONS: Array<{
   icon: option.icon,
   tags: option.tags,
 }));
-
-const GOAL_SELECTION_REWARDS: Record<SetupGoal, OnboardingRewardConfig> = {
-  strength: {
-    title: 'Great choice!',
-    body: "You've selected to get stronger.",
-    orbVariant: 'pr',
-    benefits: [
-      { icon: 'strength', label: 'Heavy lift progression', body: 'Main lifts progress week by week.' },
-      { icon: 'tempo', label: 'Stronger set quality', body: 'Rest and reps support better output.' },
-      { icon: 'progress', label: 'Strength-first structure', body: 'Your split prioritizes measurable gains.' },
-    ],
-  },
-  muscle: {
-    title: 'Great choice!',
-    body: "You've selected to build muscle.",
-    orbVariant: 'success',
-    benefits: [
-      { icon: 'arms', label: 'Higher volume training', body: 'Enough weekly work for visible growth.' },
-      { icon: 'progress', label: 'Progressive overload', body: 'Small increases keep momentum steady.' },
-      { icon: 'strength', label: 'Muscle-focused split', body: 'Exercises are grouped for better stimulus.' },
-    ],
-  },
-  lean_athletic: {
-    title: 'Great choice!',
-    body: "You've selected a lean athletic focus.",
-    orbVariant: 'idle',
-    benefits: [
-      { icon: 'strength', label: 'Strength + conditioning', body: 'Balanced sessions for performance.' },
-      { icon: 'cardio', label: 'Lean athletic focus', body: 'Training supports a sharper engine.' },
-      { icon: 'recovery', label: 'Recovery-aware rhythm', body: 'Hard days and lighter days are balanced.' },
-    ],
-  },
-  general_fitness: {
-    title: 'Great choice!',
-    body: "You've selected general fitness.",
-    orbVariant: 'idle',
-    benefits: [
-      { icon: 'strength', label: 'Balanced weekly training', body: 'Strength, fitness and recovery stay aligned.' },
-      { icon: 'progress', label: 'Sustainable progression', body: 'Simple increases without overcomplicating it.' },
-      { icon: 'tempo', label: 'Flexible plan structure', body: 'The plan adapts around your weekly setup.' },
-    ],
-  },
-  general: {
-    title: 'Great choice!',
-    body: "You've selected general fitness.",
-    orbVariant: 'idle',
-    benefits: [
-      { icon: 'strength', label: 'Balanced weekly training', body: 'Strength, fitness and recovery stay aligned.' },
-      { icon: 'progress', label: 'Sustainable progression', body: 'Simple increases without overcomplicating it.' },
-      { icon: 'tempo', label: 'Flexible plan structure', body: 'The plan adapts around your weekly setup.' },
-    ],
-  },
-  run_mobility: {
-    title: 'Great choice!',
-    body: "You've selected run and mobility.",
-    orbVariant: 'thinking',
-    benefits: [
-      { icon: 'cardio', label: 'Running-friendly structure', body: 'Strength work supports your running days.' },
-      { icon: 'mobility', label: 'Mobility support', body: 'Movement quality stays part of the plan.' },
-      { icon: 'recovery', label: 'Lower fatigue balance', body: 'Workouts avoid stacking too much stress.' },
-    ],
-  },
-};
 
 const BODYWEIGHT_GOAL_OPTIONS: Array<{
   id: SetupGoal;
@@ -2303,7 +2232,6 @@ export function OnboardingScreen({
       : null,
   );
   const [locationChoiceConfirmed, setLocationChoiceConfirmed] = useState(false);
-  const [goalChoiceConfirmed, setGoalChoiceConfirmed] = useState(false);
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
   );
@@ -2527,7 +2455,6 @@ export function OnboardingScreen({
   );
 
   function toggleGoal(nextGoal: SetupGoal) {
-    setGoalChoiceConfirmed(false);
     setGoal(nextGoal);
     setGoals([nextGoal]);
   }
@@ -3101,7 +3028,7 @@ export function OnboardingScreen({
 
   function renderLocation() {
     if (locationChoiceConfirmed && selectedLocationOptionId) {
-      return renderLocationReward(selectedLocationOptionId);
+      return renderLocationReward();
     }
 
     const hasSelectedLocation = selectedLocationOptionId !== null;
@@ -3138,113 +3065,36 @@ export function OnboardingScreen({
     });
   }
 
-  function renderLocationReward(selectedOptionId: LocationSelectionOptionId) {
-    const selectedOption = LOCATION_SELECTION_OPTIONS.find((option) => option.id === selectedOptionId) ?? LOCATION_SELECTION_OPTIONS[0];
-
-    return renderOnboardingReward({
-      title: 'Perfect.',
-      body: `Your ${selectedOption.label.toLowerCase()} plan is being prepared for you.`,
-      orbVariant: 'success',
-      benefits: LOCATION_SELECTION_BENEFITS[selectedOption.id].slice(0, 4),
-      showNamePrompt: true,
-    });
-  }
-
-  function renderOnboardingReward({ title, body, orbVariant, benefits, showNamePrompt = false }: OnboardingRewardConfig) {
+  function renderLocationReward() {
     const displayName = formatProfileName(profileName);
     const nameReady = displayName.length > 0;
-    const rewardStageHeight = Math.max(560, Dimensions.get('window').height - insets.top - insets.bottom - 210);
+    const stageHeight = Math.max(560, Dimensions.get('window').height - insets.top - insets.bottom - 210);
 
     return (
-      <View style={[styles.locationRewardShell, { minHeight: rewardStageHeight }]}>
-        <View pointerEvents="none" style={styles.locationRewardBottomGlow}>
-          <Svg width="100%" height="100%" viewBox="0 0 390 260" preserveAspectRatio="none">
-            <Defs>
-              <SvgLinearGradient id="locationRewardBottomGlowGradient" x1="195" y1="0" x2="195" y2="260">
-                <Stop offset="0" stopColor="#1D1C35" stopOpacity="0" />
-                <Stop offset="0.62" stopColor="#8B5CF6" stopOpacity="0.035" />
-                <Stop offset="1" stopColor="#8B5CF6" stopOpacity="0.16" />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="390" height="260" fill="url(#locationRewardBottomGlowGradient)" />
-          </Svg>
-        </View>
+      <View style={[styles.locationRewardShell, { minHeight: stageHeight }]}>
         <View style={styles.locationRewardContent}>
-          <View style={styles.locationRewardMarkWrap}>
-            <View style={styles.locationRewardOrbAuraOuter} />
-            <View style={styles.locationRewardOrbAuraMid} />
-            <View style={styles.locationRewardOrbAuraCore} />
-            <View style={[styles.locationRewardSpark, styles.locationRewardSparkOne]} />
-            <View style={[styles.locationRewardSpark, styles.locationRewardSparkTwo]} />
-            <View style={[styles.locationRewardSpark, styles.locationRewardSparkThree]} />
-            <View style={styles.locationRewardOrbDouble}>
-              <View style={styles.locationRewardOrbNativeScale}>
-                <GainerCoachOrb variant={orbVariant} />
-              </View>
+          <View style={styles.locationRewardNameCard}>
+            <Text style={styles.locationRewardNameLabel}>What should Gainer call you?</Text>
+            <View style={[styles.locationRewardNameInputWrap, nameReady && styles.locationRewardNameInputWrapReady]}>
+              <TextInput
+                value={profileName}
+                onChangeText={(value) => setProfileName(formatProfileName(value).slice(0, 32))}
+                placeholder="Name"
+                placeholderTextColor={ONBOARDING_TEXT_MUTED}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="done"
+                style={styles.locationRewardNameInput}
+              />
+              {nameReady ? (
+                <View style={styles.locationRewardNameCheck}>
+                  <GymlogIcon name="check" color="#FFFFFF" size={12} />
+                </View>
+              ) : null}
             </View>
-            {!showNamePrompt ? (
-              <View style={styles.goalRewardOrbBadge}>
-                <Text style={styles.goalRewardOrbBadgeText}>💪</Text>
-              </View>
-            ) : null}
-          </View>
-
-          <View style={styles.locationRewardCopy}>
-            <Text style={styles.locationRewardTitle}>
-              {showNamePrompt ? (
-                <>
-                  Perfect <Text style={styles.locationRewardTitleEmoji}>🔥🔥🔥</Text>
-                </>
-              ) : (
-                title
-              )}
+            <Text style={styles.locationRewardNameHint}>
+              Nice to meet you{nameReady ? `, ${displayName}.` : ','}
             </Text>
-            {!showNamePrompt && body ? <Text style={styles.locationRewardBody}>{body}</Text> : null}
-          </View>
-
-          {showNamePrompt ? (
-            <View style={styles.locationRewardNameCard}>
-              <Text style={styles.locationRewardNameLabel}>What should Gainer call you?</Text>
-              <View style={[styles.locationRewardNameInputWrap, nameReady && styles.locationRewardNameInputWrapReady]}>
-                <TextInput
-                  value={profileName}
-                  onChangeText={(value) => setProfileName(formatProfileName(value).slice(0, 32))}
-                  placeholder="Name"
-                  placeholderTextColor={ONBOARDING_TEXT_MUTED}
-                  autoCapitalize="words"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                  style={styles.locationRewardNameInput}
-                />
-                {nameReady ? (
-                  <View style={styles.locationRewardNameCheck}>
-                    <GymlogIcon name="check" color="#FFFFFF" size={12} />
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.locationRewardNameHint}>
-                Nice to meet you{nameReady ? `, ${displayName}.` : ','}
-              </Text>
-            </View>
-          ) : null}
-
-          <Text style={styles.locationRewardSectionLabel}>What you'll get</Text>
-          <View style={[styles.locationRewardBenefitGrid, !showNamePrompt && styles.goalRewardBenefitStack]}>
-            {benefits.map((benefit) => (
-              <View key={benefit.label} style={[styles.locationRewardBenefitCard, !showNamePrompt && styles.goalRewardBenefitCard]}>
-                <View style={[styles.locationRewardBenefitIcon, !showNamePrompt && styles.goalRewardBenefitIcon]}>
-                  <GymlogIcon name={benefit.icon} size={!showNamePrompt ? 20 : 18} color={ONBOARDING_PRIMARY} />
-                </View>
-                <View style={[styles.locationRewardBenefitCopy, !showNamePrompt && styles.goalRewardBenefitCopy]}>
-                  <Text style={[styles.locationRewardBenefitText, !showNamePrompt && styles.goalRewardBenefitText]}>{benefit.label}</Text>
-                  {benefit.body ? (
-                    <Text style={[styles.locationRewardBenefitBody, !showNamePrompt && styles.goalRewardBenefitBody]}>
-                      {benefit.body}
-                    </Text>
-                  ) : null}
-                </View>
-              </View>
-            ))}
           </View>
         </View>
       </View>
@@ -3427,10 +3277,6 @@ export function OnboardingScreen({
   }
 
   function renderGoal() {
-    if (goalChoiceConfirmed) {
-      return renderOnboardingReward(GOAL_SELECTION_REWARDS[goal]);
-    }
-
     return renderSplitSelectionStage({
       stepLabel: 'STEP 2 OF 5',
       titleLines: ['What do you', 'want most?'],
@@ -5110,12 +4956,7 @@ export function OnboardingScreen({
                 }
 
                 if (stage === 'goal') {
-                  if (!goalChoiceConfirmed) {
-                    void haptics.success();
-                    setGoalChoiceConfirmed(true);
-                    return;
-                  }
-
+                  void haptics.success();
                   setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
                   return;
                 }
@@ -5157,10 +4998,6 @@ export function OnboardingScreen({
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
                 </Pressable>
               )
-            ) : stage === 'goal' && goalChoiceConfirmed ? (
-              <Pressable onPress={() => setGoalChoiceConfirmed(false)} disabled={busy}>
-                <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
-              </Pressable>
             ) : (
               <Pressable
                 onPress={() => {
@@ -5170,10 +5007,6 @@ export function OnboardingScreen({
                       setBodyweightSetupStep(BODYWEIGHT_SETUP_STEPS[currentBodyweightStepIndex - 1]);
                       return;
                     }
-                  }
-
-                  if (stage === 'profile') {
-                    setGoalChoiceConfirmed(false);
                   }
 
                   setStageIndex((current) => Math.max(0, current - 1));
