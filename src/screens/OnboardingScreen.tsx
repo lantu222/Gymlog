@@ -20,6 +20,7 @@ import {
   ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Body, { Slug, ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
@@ -497,79 +498,73 @@ const SCHEDULE_MODE_OPTIONS: Array<{
 
 const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions();
 const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea[] = FOCUS_AREA_OPTIONS.map((option) => option.area);
-const FOCUS_AREA_CARD_ASSETS: Partial<Record<SetupFocusArea, ImageSourcePropType>> = {
-  chest: require('../../assets/fitness/selected/focus-chest-anatomy-card.webp'),
-  back: require('../../assets/fitness/selected/focus-back-anatomy-card.webp'),
-  shoulders: require('../../assets/fitness/selected/focus-shoulders-anatomy-card.webp'),
-  arms: require('../../assets/fitness/selected/focus-arms-anatomy-card.webp'),
-  core: require('../../assets/fitness/selected/focus-abs-anatomy-card.webp'),
-  quads: require('../../assets/fitness/selected/focus-quads-anatomy-card.webp'),
-  glutes: require('../../assets/fitness/selected/focus-glutes-anatomy-card.webp'),
-  hamstrings: require('../../assets/fitness/selected/focus-hamstrings-anatomy-card.webp'),
-  calves: require('../../assets/fitness/selected/focus-calves-anatomy-card.webp'),
-  mobility: require('../../assets/fitness/selected/focus-mobility-anatomy-card.webp'),
-};
 type FocusAreaOnboardingOption = (typeof FOCUS_AREA_OPTIONS)[number];
 
-function FocusAreaImageCard({
+// Focus-area cards render a cropped react-native-body-highlighter figure framed to the
+// target muscle. The asset bakes color:"#3f3f3f" onto every part, so `defaultFill` is
+// ignored — we colour the whole body explicitly (every slug at the rest fill, with the
+// target muscle(s) overridden).
+const FOCUS_BODY_REST_FILL = '#D9D2E6';
+const FOCUS_MUSCLE_FILL = '#B7A9D6';
+const FOCUS_MUSCLE_FILL_ACTIVE = '#7C3AED';
+const FOCUS_BODY_ALL_SLUGS: Slug[] = [
+  'abs', 'adductors', 'ankles', 'biceps', 'calves', 'chest', 'deltoids', 'feet', 'forearm',
+  'gluteal', 'hamstring', 'hands', 'head', 'knees', 'lower-back', 'neck', 'obliques',
+  'quadriceps', 'tibialis', 'trapezius', 'triceps', 'upper-back',
+];
+// Per area: which body side, the highlighted muscle(s), and the crop framing (transform
+// scale + translate) that centres the muscle inside the card's clipped box.
+const FOCUS_AREA_BODY_FRAMING: Partial<
+  Record<SetupFocusArea, { side: 'front' | 'back'; parts: Slug[]; scale: number; tx: number; ty: number }>
+> = {
+  chest: { side: 'front', parts: ['chest'], scale: 2.4, tx: 0, ty: 96 },
+  shoulders: { side: 'front', parts: ['deltoids'], scale: 2.5, tx: 0, ty: 120 },
+  arms: { side: 'front', parts: ['biceps', 'triceps'], scale: 1.8, tx: 0, ty: 52 },
+  core: { side: 'front', parts: ['abs', 'obliques'], scale: 2.2, tx: 0, ty: 22 },
+  quads: { side: 'front', parts: ['quadriceps'], scale: 2.2, tx: 0, ty: -66 },
+  back: { side: 'back', parts: ['upper-back', 'lower-back', 'trapezius'], scale: 1.9, tx: 0, ty: 52 },
+  glutes: { side: 'back', parts: ['gluteal'], scale: 2.3, tx: 0, ty: 6 },
+  hamstrings: { side: 'back', parts: ['hamstring'], scale: 2.3, tx: 0, ty: -78 },
+  calves: { side: 'back', parts: ['calves'], scale: 2.9, tx: 0, ty: -150 },
+};
+
+function FocusAreaBodyCard({
   option,
   active,
-  imageSource,
   onPress,
 }: {
   option: FocusAreaOnboardingOption;
   active: boolean;
-  imageSource?: ImageSourcePropType;
   onPress: () => void;
 }) {
-  const [imageLoaded, setImageLoaded] = useState(false);
-  const imageOpacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!imageLoaded) {
-      return;
-    }
-
-    Animated.timing(imageOpacity, {
-      toValue: 1,
-      duration: 240,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [imageLoaded, imageOpacity]);
+  const cfg = FOCUS_AREA_BODY_FRAMING[option.area];
+  const muscleColor = active ? FOCUS_MUSCLE_FILL_ACTIVE : FOCUS_MUSCLE_FILL;
+  const targetParts = cfg ? cfg.parts : [];
+  const data: ExtendedBodyPart[] = FOCUS_BODY_ALL_SLUGS.map((slug) => ({
+    slug,
+    color: targetParts.includes(slug) ? muscleColor : FOCUS_BODY_REST_FILL,
+  }));
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={option.accessibilityLabel}
       accessibilityState={{ selected: active }}
       onPress={onPress}
-      style={[styles.focusAreaCard, active && styles.focusAreaCardActive]}
+      style={[styles.focusBodyCard, active && styles.focusBodyCardActive]}
     >
-      <View style={styles.focusAreaImageSlot}>
-        <View style={styles.focusAreaSkeleton} />
-        {imageSource ? (
-          <Animated.Image
-            source={imageSource}
-            resizeMode="contain"
-            resizeMethod="resize"
-            fadeDuration={0}
-            onLoadEnd={() => setImageLoaded(true)}
-            style={[styles.focusAreaImage, { opacity: imageOpacity }]}
-          />
-        ) : option.area === 'mobility' ? (
-          <View style={styles.focusAreaIconFallback}>
-            <GymlogIcon name="mobility" color="rgba(255,255,255,0.78)" size={34} />
+      <View pointerEvents="none" style={styles.focusBodyCropBox}>
+        {cfg ? (
+          <View style={{ transform: [{ scale: cfg.scale }, { translateX: cfg.tx }, { translateY: cfg.ty }] }}>
+            <Body side={cfg.side} scale={1} border="none" defaultFill={FOCUS_BODY_REST_FILL} data={data} />
           </View>
         ) : null}
       </View>
-      <View pointerEvents="none" style={styles.focusAreaTitleScrim} />
-      <View style={[styles.focusAreaCheck, active && styles.focusAreaCheckActive]}>
-        {active ? <GymlogIcon name="check" color={ONBOARDING_TEXT} size={12} /> : null}
-      </View>
-      <Text numberOfLines={1} adjustsFontSizeToFit style={styles.focusAreaCardTitle}>
+      <Text numberOfLines={1} style={[styles.focusBodyTitle, active && styles.focusBodyTitleActive]}>
         {option.title}
       </Text>
+      <View style={[styles.focusBodyCheck, active && styles.focusBodyCheckActive]}>
+        {active ? <GymlogIcon name="check" color="#FFFFFF" size={12} /> : null}
+      </View>
     </Pressable>
   );
 }
@@ -2203,7 +2198,6 @@ export function OnboardingScreen({
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
   const planReadyCardTranslateX = useRef(new Animated.Value(0)).current;
   const planReadyCardOpacity = useRef(new Animated.Value(1)).current;
-  const focusAreaPreloadStartedRef = useRef(false);
   const profileFrequencyReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
   const profileGenderReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
   const profilePreviewReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
@@ -2268,7 +2262,6 @@ export function OnboardingScreen({
   const [helperError, setHelperError] = useState('');
 
   const stage = STAGES[stageIndex];
-  const focusAreaLabelsPreloadTrigger = stage === 'profile' || stage === 'planning';
   const selectedBodyweightGoalMode = useMemo(() => getBodyweightGoalMode([bodyweightGoal]), [bodyweightGoal]);
   const buildingPlanPhases = useMemo(
     () => ['Analyzing your inputs', 'Building your split', 'Matching exercises', 'Finalizing your plan'],
@@ -2593,20 +2586,6 @@ export function OnboardingScreen({
       setTargetBodyweight(nextTarget);
     }
   }, [bodyweightGoal, selectedBodyweightGoalMode, bodyweightPickerValue, targetWeightValue, unitPreference]);
-
-  useEffect(() => {
-    if (!focusAreaLabelsPreloadTrigger || focusAreaPreloadStartedRef.current) {
-      return;
-    }
-
-    focusAreaPreloadStartedRef.current = true;
-    Object.values(FOCUS_AREA_CARD_ASSETS).forEach((source) => {
-      const asset = Image.resolveAssetSource(source);
-      if (asset?.uri) {
-        void Image.prefetch(asset.uri);
-      }
-    });
-  }, [focusAreaLabelsPreloadTrigger]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -3798,13 +3777,11 @@ export function OnboardingScreen({
               <View key={`focus-area-row-${rowIndex}`} style={styles.focusAreaGridRow}>
                 {row.map((option) => {
                   const active = focusAreas.includes(option.area);
-                  const imageSource = FOCUS_AREA_CARD_ASSETS[option.area];
                   return (
-                    <FocusAreaImageCard
+                    <FocusAreaBodyCard
                       key={option.area}
                       option={option}
                       active={active}
-                      imageSource={imageSource}
                       onPress={() => {
                         void haptics.select();
                         toggleFocusArea(option.area);
@@ -4416,11 +4393,6 @@ export function OnboardingScreen({
 
   return (
     <View style={[styles.root, styles.rootLight]}>
-      <View pointerEvents="none" style={styles.focusAreaPreloadTray}>
-        {Object.entries(FOCUS_AREA_CARD_ASSETS).map(([area, source]) => (
-          <Image key={area} source={source} resizeMode="contain" fadeDuration={0} style={styles.focusAreaPreloadImage} />
-        ))}
-      </View>
       {locationStageActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
       <ScrollView
         key={stage}
@@ -6160,111 +6132,66 @@ const styles = StyleSheet.create({
   focusAreaContent: {
     gap: 6,
   },
-  focusAreaPreloadTray: {
-    position: 'absolute',
-    width: 1,
-    height: 1,
-    opacity: 0,
-    overflow: 'hidden',
-  },
-  focusAreaPreloadImage: {
-    width: 1,
-    height: 1,
-  },
   focusAreaGrid: {
     gap: 5,
   },
-  focusAreaGridRow: {
-    flexDirection: 'row',
-    gap: 5,
-  },
-  focusAreaCard: {
+  focusBodyCard: {
     flex: 1,
     minWidth: 0,
-    height: 130,
-    borderRadius: 14,
+    height: 132,
+    borderRadius: 18,
     backgroundColor: ONBOARDING_CARD,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
     overflow: 'hidden',
-    justifyContent: 'flex-end',
-    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 8,
     paddingBottom: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.16,
-    shadowRadius: 9,
-    elevation: 3,
   },
-  focusAreaCardActive: {
+  focusBodyCardActive: {
     borderWidth: 2,
-    borderColor: ONBOARDING_BORDER_ACTIVE,
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.46,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-    transform: [{ scale: 1.04 }],
-    zIndex: 5,
-  },
-  focusAreaCardFiller: {
-    flex: 1,
-    minWidth: 0,
-    height: 130,
-  },
-  focusAreaImageSlot: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    backgroundColor: '#1A1726',
-    justifyContent: 'center',
-  },
-  focusAreaSkeleton: {
-    ...StyleSheet.absoluteFillObject,
-    overflow: 'hidden',
-    backgroundColor: '#1A1726',
-  },
-  focusAreaImage: {
-    width: '92%',
-    height: '92%',
-  },
-  focusAreaIconFallback: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ONBOARDING_CARD,
-  },
-  focusAreaTitleScrim: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 40,
-    backgroundColor: 'rgba(0,0,0,0.58)',
-  },
-  focusAreaCheck: {
-    position: 'absolute',
-    top: 8,
-    right: 7,
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    borderColor: 'rgba(127,119,221,0.72)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'transparent',
-  },
-  focusAreaCheckActive: {
     borderColor: ONBOARDING_PRIMARY,
-    backgroundColor: ONBOARDING_PRIMARY,
+    shadowColor: '#8B5CF6',
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
-  focusAreaCardTitle: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    lineHeight: 16,
-    fontWeight: '900',
-    letterSpacing: -0.2,
-    textAlign: 'center',
+  focusBodyCropBox: {
+    width: '100%',
+    height: 92,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusBodyTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: ONBOARDING_TEXT,
+  },
+  focusBodyTitleActive: {
+    color: ONBOARDING_PRIMARY,
+  },
+  focusBodyCheck: {
+    position: 'absolute',
+    top: 7,
+    right: 7,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusBodyCheckActive: {
+    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: ONBOARDING_PRIMARY,
+  },
+  focusAreaGridRow: {
+    flexDirection: 'row',
+    gap: 5,
   },
   focusAreaInfoBox: {
     minHeight: 58,
