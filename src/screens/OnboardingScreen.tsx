@@ -2207,7 +2207,7 @@ export function OnboardingScreen({
   const profileFrequencyReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
   const profileGenderReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
   const profilePreviewReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
-  const [profileName, setProfileName] = useState(setupSeed.profileName ?? '');
+  const [profileName] = useState(setupSeed.profileName ?? '');
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
   const [age, setAge] = useState(() =>
     typeof setupSeed.age === 'number' && Number.isFinite(setupSeed.age)
@@ -2231,7 +2231,6 @@ export function OnboardingScreen({
       ? getDefaultLocationOptionId(setupSeed.equipment, setupSeed.trainingEnvironment)
       : null,
   );
-  const [locationChoiceConfirmed, setLocationChoiceConfirmed] = useState(false);
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
   );
@@ -3027,10 +3026,6 @@ export function OnboardingScreen({
   }
 
   function renderLocation() {
-    if (locationChoiceConfirmed && selectedLocationOptionId) {
-      return renderLocationReward();
-    }
-
     const hasSelectedLocation = selectedLocationOptionId !== null;
 
     return renderSplitSelectionStage({
@@ -3046,7 +3041,6 @@ export function OnboardingScreen({
         benefits: LOCATION_SELECTION_BENEFITS[option.id],
         onPress: () => {
           void haptics.select();
-          setLocationChoiceConfirmed(false);
           if (selectedLocationOptionId === option.id) {
             setSelectedLocationOptionId(null);
             return;
@@ -3063,42 +3057,6 @@ export function OnboardingScreen({
       topCopyStyle: styles.locationEquipmentTopCopy,
       titleStyleOverride: styles.locationEquipmentHeadline,
     });
-  }
-
-  function renderLocationReward() {
-    const displayName = formatProfileName(profileName);
-    const nameReady = displayName.length > 0;
-    const stageHeight = Math.max(560, Dimensions.get('window').height - insets.top - insets.bottom - 210);
-
-    return (
-      <View style={[styles.locationRewardShell, { minHeight: stageHeight }]}>
-        <View style={styles.locationRewardContent}>
-          <View style={styles.locationRewardNameCard}>
-            <Text style={styles.locationRewardNameLabel}>What should Gainer call you?</Text>
-            <View style={[styles.locationRewardNameInputWrap, nameReady && styles.locationRewardNameInputWrapReady]}>
-              <TextInput
-                value={profileName}
-                onChangeText={(value) => setProfileName(formatProfileName(value).slice(0, 32))}
-                placeholder="Name"
-                placeholderTextColor={ONBOARDING_TEXT_MUTED}
-                autoCapitalize="words"
-                autoCorrect={false}
-                returnKeyType="done"
-                style={styles.locationRewardNameInput}
-              />
-              {nameReady ? (
-                <View style={styles.locationRewardNameCheck}>
-                  <GymlogIcon name="check" color="#FFFFFF" size={12} />
-                </View>
-              ) : null}
-            </View>
-            <Text style={styles.locationRewardNameHint}>
-              Nice to meet you{nameReady ? `, ${displayName}.` : ','}
-            </Text>
-          </View>
-        </View>
-      </View>
-    );
   }
 
   function renderSplitSelectionStage({
@@ -4820,9 +4778,7 @@ export function OnboardingScreen({
 
   const canContinue =
     stage === 'location'
-      ? locationChoiceConfirmed
-        ? formatProfileName(profileName).trim().length > 0
-        : selectedLocationOptionId !== null
+      ? selectedLocationOptionId !== null
       : stage === 'goal'
       ? goals.length > 0
       : stage === 'profile'
@@ -4945,12 +4901,7 @@ export function OnboardingScreen({
                 }
 
                 if (stage === 'location') {
-                  if (!locationChoiceConfirmed) {
-                    void haptics.success();
-                    setLocationChoiceConfirmed(true);
-                    return;
-                  }
-
+                  void haptics.success();
                   setStageIndex((current) => Math.min(current + 1, STAGES.length - 1));
                   return;
                 }
@@ -4985,11 +4936,7 @@ export function OnboardingScreen({
             />
 
             {stage === 'review' ? null : stage === 'location' ? (
-              locationChoiceConfirmed ? (
-                <Pressable onPress={() => setLocationChoiceConfirmed(false)} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
-                </Pressable>
-              ) : editMode ? (
+              editMode ? (
                 <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Cancel</Text>
                 </Pressable>
@@ -5971,304 +5918,6 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: ONBOARDING_PRIMARY,
     transform: [{ rotate: '-45deg' }],
-  },
-  locationRewardShell: {
-    position: 'relative',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 20,
-    paddingTop: 86,
-    paddingBottom: 92,
-    backgroundColor: ONBOARDING_PANEL,
-  },
-  locationRewardBottomGlow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 260,
-  },
-  locationRewardContent: {
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    gap: 11,
-  },
-  locationRewardMarkWrap: {
-    width: 210,
-    height: 190,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 0,
-    overflow: 'visible',
-    transform: [{ translateY: -8 }],
-  },
-  locationRewardOrbDouble: {
-    width: 180,
-    height: 180,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'visible',
-  },
-  locationRewardOrbNativeScale: {
-    width: 118,
-    height: 118,
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ scale: 1.525 }],
-  },
-  locationRewardOrbAuraOuter: {
-    position: 'absolute',
-    top: 6,
-    width: 218,
-    height: 136,
-    borderRadius: 999,
-    backgroundColor: 'rgba(139,92,246,0.12)',
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.9,
-    shadowRadius: 42,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  locationRewardOrbAuraMid: {
-    position: 'absolute',
-    top: 20,
-    width: 170,
-    height: 116,
-    borderRadius: 999,
-    backgroundColor: 'rgba(198,139,255,0.16)',
-    shadowColor: '#C68BFF',
-    shadowOpacity: 0.8,
-    shadowRadius: 28,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  locationRewardOrbAuraCore: {
-    position: 'absolute',
-    top: 36,
-    width: 124,
-    height: 86,
-    borderRadius: 999,
-    backgroundColor: 'rgba(127,119,221,0.20)',
-    shadowColor: '#A98BFF',
-    shadowOpacity: 0.8,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  locationRewardSpark: {
-    position: 'absolute',
-    width: 3,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: '#C68BFF',
-    shadowColor: '#C68BFF',
-    shadowOpacity: 0.9,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 0 },
-  },
-  locationRewardSparkOne: {
-    top: 18,
-    left: 28,
-  },
-  locationRewardSparkTwo: {
-    top: 66,
-    right: 22,
-  },
-  locationRewardSparkThree: {
-    bottom: 18,
-    left: 52,
-  },
-  goalRewardOrbBadge: {
-    position: 'absolute',
-    right: 28,
-    top: 54,
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#6D5AFB',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.24)',
-    shadowColor: '#C68BFF',
-    shadowOpacity: 0.42,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 0 },
-    elevation: 10,
-  },
-  goalRewardOrbBadgeText: {
-    fontSize: 30,
-    lineHeight: 34,
-  },
-  locationRewardCheckCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#6D5AFB',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.22)',
-    shadowColor: '#8B5CF6',
-    shadowOpacity: 0.44,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 10,
-  },
-  locationRewardCopy: {
-    alignItems: 'center',
-    gap: 4,
-    marginTop: -6,
-  },
-  locationRewardTitle: {
-    color: ONBOARDING_TEXT,
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '900',
-    letterSpacing: -0.7,
-    textAlign: 'center',
-  },
-  locationRewardTitleEmoji: {
-    fontSize: 26,
-    lineHeight: 32,
-    letterSpacing: 0,
-  },
-  locationRewardBody: {
-    maxWidth: 218,
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  locationRewardNameCard: {
-    width: '100%',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    gap: 7,
-  },
-  locationRewardNameLabel: {
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '800',
-  },
-  locationRewardNameInputWrap: {
-    minHeight: 38,
-    borderRadius: 9,
-    borderWidth: 1.5,
-    borderColor: '#E2DBF2',
-    backgroundColor: '#FCFBFF',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: 10,
-    paddingRight: 6,
-  },
-  locationRewardNameInputWrapReady: {
-    borderColor: ONBOARDING_PRIMARY,
-  },
-  locationRewardNameInput: {
-    flex: 1,
-    minHeight: 36,
-    color: ONBOARDING_TEXT,
-    fontSize: 15,
-    lineHeight: 19,
-    fontWeight: '800',
-    padding: 0,
-  },
-  locationRewardNameCheck: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    backgroundColor: ONBOARDING_PRIMARY,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  locationRewardNameHint: {
-    color: ONBOARDING_PRIMARY,
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '700',
-  },
-  locationRewardSectionLabel: {
-    width: '100%',
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '800',
-    marginTop: 2,
-  },
-  locationRewardBenefitGrid: {
-    width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    columnGap: 10,
-    rowGap: 10,
-  },
-  goalRewardBenefitStack: {
-    flexDirection: 'column',
-    flexWrap: 'nowrap',
-    rowGap: 9,
-  },
-  locationRewardBenefitCard: {
-    width: '48.2%',
-    minHeight: 112,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    gap: 10,
-  },
-  goalRewardBenefitCard: {
-    width: '100%',
-    minHeight: 78,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 13,
-    paddingVertical: 11,
-    gap: 12,
-  },
-  locationRewardBenefitIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: ONBOARDING_CARD_ACTIVE,
-  },
-  goalRewardBenefitIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
-  },
-  locationRewardBenefitCopy: {
-    gap: 3,
-  },
-  goalRewardBenefitCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  locationRewardBenefitText: {
-    color: ONBOARDING_TEXT,
-    fontSize: 12.5,
-    lineHeight: 15,
-    fontWeight: '900',
-  },
-  goalRewardBenefitText: {
-    fontSize: 14,
-    lineHeight: 17,
-  },
-  locationRewardBenefitBody: {
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '700',
-  },
-  goalRewardBenefitBody: {
-    fontSize: 11.5,
-    lineHeight: 14,
   },
   locationStageBody: {
     gap: spacing.md,
