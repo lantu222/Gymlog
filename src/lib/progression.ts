@@ -154,6 +154,75 @@ export function getRecentLogsForExercise(database: AppDatabase, exerciseName: st
     .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
     .slice(0, limit);
 }
+function finalizeExerciseSummary(
+  key: string,
+  name: string,
+  logs: ExerciseLogWithSession[],
+): ExerciseProgressSummary {
+  const sortedLogs = [...logs].sort(
+    (left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime(),
+  );
+  const latestLog = sortedLogs[0];
+  const previousLog = sortedLogs[1];
+  const bestWeight = sortedLogs.reduce<number | null>((best, log) => {
+    const topWeight = getTopComparableWeight(log);
+    if (topWeight === null) {
+      return best;
+    }
+
+    if (best === null || topWeight > best) {
+      return topWeight;
+    }
+
+    return best;
+  }, null);
+  const bestReps = sortedLogs.reduce((best, log) => Math.max(best, getTotalReps(getComparableReps(log))), 0);
+
+  return {
+    key,
+    name,
+    logs: sortedLogs,
+    latestLog,
+    previousLog,
+    latestWeight: latestLog ? getTopComparableWeight(latestLog) : null,
+    previousWeight: previousLog ? getTopComparableWeight(previousLog) : null,
+    latestReps: latestLog ? getComparableReps(latestLog).join(',') : '-',
+    bestWeight,
+    bestReps,
+  };
+}
+
+/**
+ * Build a progress summary for a single exercise by name, regardless of whether
+ * the user has tracked it. Used by the Exercise Detail screen to show this lift's
+ * real history. Returns an empty-logs summary when nothing has been logged yet.
+ */
+export function getExerciseProgressForName(
+  database: AppDatabase,
+  exerciseName: string,
+): ExerciseProgressSummary {
+  const exercisesById = Object.fromEntries(
+    database.exerciseTemplates.map((exercise) => [exercise.id, exercise] as const),
+  );
+  const sessionsById = Object.fromEntries(
+    database.workoutSessions.map((session) => [session.id, session] as const),
+  );
+  const normalizedName = normalizeExerciseKey(exerciseName);
+
+  const logs = database.exerciseLogs
+    .filter((log) => {
+      if (log.skipped) {
+        return false;
+      }
+
+      return normalizeExerciseKey(resolveCanonicalExerciseName(log, exercisesById)) === normalizedName;
+    })
+    .map((log) => attachSession(log, sessionsById))
+    .filter((log): log is ExerciseLogWithSession => Boolean(log));
+
+  return finalizeExerciseSummary(normalizedName, exerciseName.trim(), logs);
+}
+
 export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgressSummary[] {
   const exercisesById = Object.fromEntries(
     database.exerciseTemplates.map((exercise) => [exercise.id, exercise] as const),
@@ -208,39 +277,7 @@ export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgr
   });
 
   return Array.from(grouped.entries())
-    .map(([key, value]) => {
-      const logs = value.logs.sort(
-        (left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime(),
-      );
-      const latestLog = logs[0];
-      const previousLog = logs[1];
-      const bestWeight = logs.reduce<number | null>((best, log) => {
-        const topWeight = getTopComparableWeight(log);
-        if (topWeight === null) {
-          return best;
-        }
-
-        if (best === null || topWeight > best) {
-          return topWeight;
-        }
-
-        return best;
-      }, null);
-      const bestReps = logs.reduce((best, log) => Math.max(best, getTotalReps(getComparableReps(log))), 0);
-
-      return {
-        key,
-        name: value.name,
-        logs,
-        latestLog,
-        previousLog,
-        latestWeight: latestLog ? getTopComparableWeight(latestLog) : null,
-        previousWeight: previousLog ? getTopComparableWeight(previousLog) : null,
-        latestReps: latestLog ? getComparableReps(latestLog).join(',') : '-',
-        bestWeight,
-        bestReps,
-      };
-    })
+    .map(([key, value]) => finalizeExerciseSummary(key, value.name, value.logs))
     .sort((left, right) => {
       const leftDate = left.latestLog ? new Date(left.latestLog.performedAt).getTime() : 0;
       const rightDate = right.latestLog ? new Date(right.latestLog.performedAt).getTime() : 0;

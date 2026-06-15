@@ -1,34 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
-import { GymlogIcon, GymlogIconName } from '../components/GymlogIcon';
-import { layout, spacing } from '../theme';
-import { ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
-
-const GREEN = '#B8FF6A';
-const BACKGROUND = '#000000';
-const SURFACE = '#151515';
-const SURFACE_ELEVATED = '#1D1D1D';
-const BORDER = 'rgba(255,255,255,0.12)';
-const TEXT = '#FFFFFF';
-const MUTED = 'rgba(255,255,255,0.66)';
-const FAINT = 'rgba(255,255,255,0.42)';
+import { SimpleLineChart } from '../components/SimpleLineChart';
+import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
+import { ExerciseProgressSummary } from '../lib/progression';
+import { HG } from '../lightTheme';
+import { ExerciseLibraryItem, UnitPreference } from '../types/models';
 
 interface ExerciseDetailScreenProps {
   item: ExerciseLibraryItem;
-  alternatives?: ExerciseLibraryItem[];
+  history?: ExerciseProgressSummary | null;
   tracked?: boolean;
+  unitPreference?: UnitPreference;
   onBack: () => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
   onAddToWorkout?: (item: ExerciseLibraryItem) => void;
-  onOpenAlternative?: (item: ExerciseLibraryItem) => void;
-}
-
-interface Cue {
-  title: string;
-  body: string;
-  icon: 'setup' | 'pull' | 'top' | 'avoid';
 }
 
 function toLabel(value?: string | null) {
@@ -43,396 +30,342 @@ function toLabel(value?: string | null) {
     .join(' ');
 }
 
-function getBodyPartIcon(bodyPart: ExerciseBodyPart): GymlogIconName {
-  switch (bodyPart) {
-    case 'chest':
-      return 'chest';
-    case 'back':
-      return 'back';
-    case 'shoulders':
-      return 'shoulders';
-    case 'legs':
-      return 'legs';
-    case 'biceps':
-    case 'triceps':
-      return 'arms';
-    case 'core':
-      return 'core';
-    case 'glutes':
-      return 'glutes';
-    default:
-      return 'strength';
+function formatLastDone(iso: string) {
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 0) {
+    return 'Today';
   }
+  if (days === 1) {
+    return 'Yesterday';
+  }
+  if (days < 7) {
+    return `${days} days ago`;
+  }
+  if (days < 14) {
+    return 'Last week';
+  }
+  return formatShortDate(iso);
 }
 
-function BackIcon({ color = TEXT, size = 18 }: { color?: string; size?: number }) {
+function ChevronLeftIcon() {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M15 5 8 12l7 7" stroke={color} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      <Path d="M15 6l-6 6 6 6" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function StarIcon({ active, color = TEXT, size = 18 }: { active?: boolean; color?: string; size?: number }) {
+function StarIcon({ active }: { active: boolean }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={active ? color : 'none'}>
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill={active ? HG.gold : 'none'}>
       <Path
-        d="m12 3.7 2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8L12 3.7Z"
-        stroke={color}
-        strokeWidth="1.9"
+        d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.5l1.1-6L3.4 9.3l6-.8z"
+        stroke={active ? HG.gold : HG.muted}
+        strokeWidth={2}
         strokeLinejoin="round"
       />
     </Svg>
   );
 }
 
-function DotsIcon({ color = TEXT, size = 18 }: { color?: string; size?: number }) {
+function DumbbellIcon({ color = HG.faint, size = 30 }: { color?: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="6.5" cy="12" r="1.7" fill={color} />
-      <Circle cx="12" cy="12" r="1.7" fill={color} />
-      <Circle cx="17.5" cy="12" r="1.7" fill={color} />
+      <Path
+        d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function PlayIcon({ color = TEXT, size = 34 }: { color?: string; size?: number }) {
+function ActionIcon({ added }: { added: boolean }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 7.3v9.4L16.5 12 9 7.3Z" fill={color} />
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+      {added ? (
+        <Path d="M5 13l4 4L19 7" stroke={HG.green} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+      ) : (
+        <Path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+      )}
     </Svg>
   );
 }
 
-function PlusIcon({ color = '#06080B', size = 22 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth="2.2" strokeLinecap="round" />
-    </Svg>
-  );
-}
+function HeroImage({ uri }: { uri?: string | null }) {
+  const [state, setState] = useState<'loading' | 'ok' | 'err'>(uri ? 'loading' : 'err');
+  const opacity = useRef(new Animated.Value(0)).current;
 
-function CalendarIcon({ color = TEXT, size = 22 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Rect x="5" y="6.5" width="14" height="13" rx="2.4" stroke={color} strokeWidth="1.8" />
-      <Path d="M8 4.5v4M16 4.5v4M5.5 10.4h13" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-      <Path d="M9.2 14h2.1M13.8 14h1.2M9.2 16.6h2.1M13.8 16.6h1.2" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
-    </Svg>
-  );
-}
+  useEffect(() => {
+    setState(uri ? 'loading' : 'err');
+    opacity.setValue(0);
+  }, [uri, opacity]);
 
-function CueIcon({ type, color = GREEN, size = 24 }: { type: Cue['icon']; color?: string; size?: number }) {
-  switch (type) {
-    case 'pull':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path d="M12 5v13M7 10l5-5 5 5" stroke={color} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      );
-    case 'top':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path d="M12 19V6M7 14l5 5 5-5" stroke={color} strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      );
-    case 'avoid':
-      return (
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Circle cx="12" cy="12" r="7.2" stroke={color} strokeWidth="2.1" />
-          <Path d="M7.2 16.8 16.8 7.2" stroke={color} strokeWidth="2.1" strokeLinecap="round" />
-        </Svg>
-      );
-    default:
-      return <GymlogIcon name="mobility" color={color} size={size} />;
-  }
-}
-
-function InfoPill({ icon, label, dot }: { icon?: GymlogIconName; label: string; dot?: boolean }) {
   return (
-    <View style={styles.infoPill}>
-      {dot ? <View style={styles.levelDot} /> : icon ? <GymlogIcon name={icon} color="rgba(255,255,255,0.82)" size={11} /> : null}
-      <Text numberOfLines={1} style={styles.infoPillText}>
-        {label}
-      </Text>
+    <View style={styles.hero}>
+      {state !== 'ok' ? (
+        <View style={styles.heroSkeleton}>
+          {state === 'err' ? <DumbbellIcon /> : null}
+        </View>
+      ) : null}
+      {uri ? (
+        <Animated.Image
+          source={{ uri }}
+          resizeMode="cover"
+          style={[styles.heroImage, { opacity }]}
+          onLoad={() => {
+            setState('ok');
+            Animated.timing(opacity, { toValue: 1, duration: 280, useNativeDriver: true }).start();
+          }}
+          onError={() => setState('err')}
+        />
+      ) : null}
     </View>
   );
 }
 
-function buildCues(item: ExerciseLibraryItem): Cue[] {
-  const isPullUp = item.name.toLowerCase().includes('pull');
-
-  if (isPullUp) {
-    return [
-      { title: 'Setup', body: 'Secure the band and brace.', icon: 'setup' },
-      { title: 'Pull', body: 'Drive elbows down.', icon: 'top' },
-      { title: 'Top', body: 'Chin over the bar.', icon: 'pull' },
-      { title: 'Lower', body: 'Lower with control.', icon: 'top' },
-    ];
-  }
-
-  return [
-    { title: 'Setup', body: 'Brace and set position.', icon: 'setup' },
-    { title: 'Move', body: 'Control the rep.', icon: 'top' },
-    { title: 'Range', body: 'Use full clean range.', icon: 'pull' },
-    { title: 'Reset', body: 'Reset before next rep.', icon: 'setup' },
-  ];
-}
-
-function buildMistakes(item: ExerciseLibraryItem) {
-  const isPullUp = item.name.toLowerCase().includes('pull');
-
-  if (isPullUp) {
-    return ['Swinging or using momentum', 'Partial range of motion', 'Shrugging at the top'];
-  }
-
-  return ['Rushing the movement', 'Losing your setup', 'Stopping short of full range'];
-}
-
-function ExerciseImage({ uri, compact = false }: { uri?: string | null; compact?: boolean }) {
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    setFailed(false);
-  }, [uri]);
-
-  if (!uri || failed) {
-    return (
-      <View style={[compact ? styles.alternativeImageFallback : styles.heroFallback]}>
-        <GymlogIcon name="strength" color="rgba(255,255,255,0.38)" size={compact ? 24 : 54} />
-      </View>
-    );
-  }
-
+function Chip({ label, filled }: { label: string; filled?: boolean }) {
   return (
-    <Image
-      source={{ uri }}
-      resizeMode="cover"
-      style={compact ? styles.alternativeImage : styles.heroImage}
-      onError={() => setFailed(true)}
-    />
+    <View style={[styles.chip, filled ? styles.chipFilled : styles.chipSoft]}>
+      <Text style={[styles.chipText, filled ? styles.chipTextFilled : styles.chipTextSoft]}>{label}</Text>
+    </View>
   );
 }
 
-function formatMuscleList(muscles: string[], fallback: string) {
-  if (!muscles.length) {
-    return fallback;
-  }
-
-  return muscles.slice(0, 3).map(toLabel).join(', ');
+function SectionLabel({ children, right }: { children: string; right?: React.ReactNode }) {
+  return (
+    <View style={styles.sectionLabelRow}>
+      <Text style={styles.sectionLabel}>{children}</Text>
+      {right}
+    </View>
+  );
 }
 
-function AlternativeCard({
-  item,
-  onPress,
-}: {
-  item: ExerciseLibraryItem;
-  onPress?: () => void;
-}) {
+function StatCard({ label, value, meta }: { label: string; value: string; meta?: string }) {
   return (
-    <Pressable onPress={onPress} disabled={!onPress} style={styles.alternativeCard}>
-      <ExerciseImage uri={item.imageUrls?.[0] ?? null} compact />
-      <View style={styles.alternativeCopy}>
-        <Text numberOfLines={2} style={styles.alternativeTitle}>
-          {item.name}
+    <View style={styles.statCard}>
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text numberOfLines={1} style={styles.statValue}>
+        {value}
+      </Text>
+      {meta ? (
+        <Text numberOfLines={1} style={styles.statMeta}>
+          {meta}
         </Text>
-        <Text numberOfLines={1} style={styles.alternativeMeta}>
-          {toLabel(item.equipment)}
-        </Text>
-      </View>
-      <View style={styles.alternativeAdd}>
-        <PlusIcon color={GREEN} size={18} />
-      </View>
-    </Pressable>
+      ) : null}
+    </View>
   );
 }
 
 export function ExerciseDetailScreen({
   item,
-  alternatives = [],
+  history = null,
   tracked = false,
+  unitPreference = 'kg',
   onBack,
   onToggleTracked,
   onAddToWorkout,
-  onOpenAlternative,
 }: ExerciseDetailScreenProps) {
-  const primaryMuscles = item.primaryMuscles?.filter(Boolean) ?? [];
-  const secondaryMuscles = item.secondaryMuscles?.filter(Boolean) ?? [];
-  const cues = useMemo(() => buildCues(item), [item]);
-  const mistakes = useMemo(() => buildMistakes(item), [item]);
-  const heroImage = item.imageUrls?.[0] ?? null;
-  const bodyPartLabel = toLabel(item.bodyPart);
-  const equipmentLabel = toLabel(item.sourceEquipment ?? item.equipment);
-  const mechanicLabel = toLabel(item.sourceMechanic ?? item.category);
-  const levelLabel = toLabel(item.sourceLevel ?? 'beginner');
-  const primaryLabel = formatMuscleList(primaryMuscles, bodyPartLabel || 'Main muscle');
-  const secondaryLabel = formatMuscleList(secondaryMuscles, 'Supporting muscles');
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+      }
+    },
+    [],
+  );
+
+  const flash = (message: string) => {
+    setToast(message);
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+    }
+    toastTimer.current = setTimeout(() => setToast(null), 1700);
+  };
+
+  const handleToggleTracked = () => {
+    if (!onToggleTracked) {
+      return;
+    }
+    flash(tracked ? 'Removed from tracked lifts' : 'Added to tracked lifts');
+    onToggleTracked(item);
+  };
+
+  const bodyPartLabel = toLabel(item.bodyPart) || 'Full body';
+  const equipmentLabel = toLabel(item.sourceEquipment ?? item.equipment) || 'Bodyweight';
+  const mechanicLabel = toLabel(item.sourceMechanic ?? item.category) || 'Compound';
+  const levelLabel = toLabel(item.sourceLevel ?? 'beginner') || 'Beginner';
+
+  const primaryMuscles = (item.primaryMuscles ?? []).filter(Boolean);
+  const secondaryMuscles = (item.secondaryMuscles ?? []).filter(Boolean);
+  const primaryChips = primaryMuscles.length ? primaryMuscles.map(toLabel) : [bodyPartLabel];
+
+  const instructions = (item.instructions ?? []).filter(Boolean);
+
+  const logs = history?.logs ?? [];
+  const hasHistory = logs.length > 0;
+
+  const chartPoints = useMemo(
+    () =>
+      [...logs].reverse().map((log) => ({
+        label: formatShortDate(log.performedAt),
+        value: convertWeightFromKg(log.weight, unitPreference),
+      })),
+    [logs, unitPreference],
+  );
+
+  const trendDelta = useMemo(() => {
+    if (chartPoints.length < 2) {
+      return null;
+    }
+    return chartPoints[chartPoints.length - 1].value - chartPoints[0].value;
+  }, [chartPoints]);
+
+  const personalBest =
+    history?.bestWeight != null
+      ? `${removeTrailingZeros(convertWeightFromKg(history.bestWeight, unitPreference))} ${unitPreference}`
+      : '—';
 
   return (
     <View style={styles.screen}>
+      <View style={styles.topBar}>
+        <Pressable onPress={onBack} hitSlop={8} style={styles.iconButton}>
+          <ChevronLeftIcon />
+        </Pressable>
+        <Text style={styles.topBarTitle}>EXERCISE</Text>
+        <Pressable
+          onPress={handleToggleTracked}
+          disabled={!onToggleTracked}
+          hitSlop={8}
+          style={styles.iconButton}
+        >
+          <StarIcon active={tracked} />
+        </Pressable>
+      </View>
+
       <ScrollView
+        style={styles.scroll}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.headerActions}>
-          <Pressable onPress={onBack} style={styles.roundButton} hitSlop={8}>
-            <BackIcon />
-          </Pressable>
-          <View style={styles.headerRight}>
-            <Pressable
-              onPress={onToggleTracked ? () => onToggleTracked(item) : undefined}
-              disabled={!onToggleTracked}
-              style={[styles.roundButton, tracked && styles.roundButtonActive]}
-              hitSlop={8}
-            >
-              <StarIcon active={tracked} color={tracked ? GREEN : TEXT} />
-            </Pressable>
-            <View style={styles.roundButton}>
-              <DotsIcon />
-            </View>
-          </View>
-        </View>
+        <HeroImage uri={item.imageUrls?.[0] ?? null} />
 
         <View style={styles.titleBlock}>
-          <Text numberOfLines={2} adjustsFontSizeToFit style={styles.title}>
-            {item.name}
-          </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pillRow}>
-            <InfoPill icon={getBodyPartIcon(item.bodyPart)} label={bodyPartLabel || 'Full body'} />
-            <InfoPill icon="strength" label={toLabel(item.category) || 'Compound'} />
-            <InfoPill icon="file" label={equipmentLabel || 'Bodyweight'} />
-            <InfoPill label={levelLabel || 'Beginner'} dot />
-          </ScrollView>
-        </View>
-
-        <View style={styles.heroCard}>
-          <ExerciseImage uri={heroImage} />
-          <View style={styles.heroShade} />
-          <View style={styles.playButton}>
-            <PlayIcon />
+          <Text style={styles.title}>{item.name}</Text>
+          <View style={styles.chipRow}>
+            <Chip label={bodyPartLabel} filled />
+            <Chip label={equipmentLabel} />
+            <Chip label={mechanicLabel} />
+            <Chip label={levelLabel} />
           </View>
         </View>
 
-        <View style={styles.summaryGrid}>
-          <View style={[styles.summaryCard, styles.summaryCardHalf]}>
-            <Text style={styles.sectionTitle}>Muscle emphasis</Text>
-            <View style={styles.muscleCompactList}>
-              <View style={styles.muscleCompactRow}>
-                <Text style={styles.legendDot}>●</Text>
-                <View style={styles.muscleCompactCopy}>
-                  <Text style={styles.legendLabel}>Primary muscle</Text>
-                  <Text numberOfLines={1} style={styles.legendValue}>{primaryLabel}</Text>
+        <View style={styles.section}>
+          <SectionLabel>YOUR HISTORY</SectionLabel>
+          {hasHistory ? (
+            <>
+              <View style={styles.statGrid}>
+                <StatCard label="PERSONAL BEST" value={personalBest} meta="top working set" />
+                <StatCard
+                  label="LAST DONE"
+                  value={history?.latestLog ? formatLastDone(history.latestLog.performedAt) : '—'}
+                  meta={history?.latestLog?.workoutNameSnapshot ?? undefined}
+                />
+                <StatCard label="SESSIONS" value={`${logs.length}`} meta="logged" />
+              </View>
+              <View style={styles.workingWeightHeader}>
+                <Text style={styles.workingWeightLabel}>Working weight</Text>
+                {trendDelta != null ? (
+                  <Text style={[styles.workingWeightDelta, trendDelta < 0 && styles.workingWeightDeltaDown]}>
+                    {trendDelta >= 0 ? '+' : ''}
+                    {removeTrailingZeros(trendDelta)} {unitPreference} since start
+                  </Text>
+                ) : null}
+              </View>
+              <SimpleLineChart points={chartPoints} accent={HG.purple} unitLabel={unitPreference} />
+            </>
+          ) : (
+            <View style={styles.emptyHistoryCard}>
+              <DumbbellIcon color={HG.faint} size={28} />
+              <Text style={styles.emptyHistoryTitle}>No history yet</Text>
+              <Text style={styles.emptyHistoryBody}>
+                Log this lift and your working-weight trend will appear here.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel>TARGET MUSCLES</SectionLabel>
+          <View style={styles.musclesCard}>
+            <Text style={styles.musclesGroupLabel}>PRIMARY</Text>
+            <View style={styles.chipRow}>
+              {primaryChips.map((muscle) => (
+                <Chip key={`p-${muscle}`} label={muscle} filled />
+              ))}
+            </View>
+            {secondaryMuscles.length ? (
+              <>
+                <Text style={[styles.musclesGroupLabel, styles.musclesGroupLabelSpaced]}>SECONDARY</Text>
+                <View style={styles.chipRow}>
+                  {secondaryMuscles.map((muscle) => (
+                    <Chip key={`s-${muscle}`} label={toLabel(muscle)} />
+                  ))}
                 </View>
-              </View>
-              <View style={styles.muscleCompactRow}>
-                <Text style={styles.softLegendDot}>●</Text>
-                <View style={styles.muscleCompactCopy}>
-                  <Text style={styles.legendLabel}>Secondary muscles</Text>
-                  <Text numberOfLines={3} style={styles.legendValue}>{secondaryLabel}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.summaryCard, styles.summaryCardHalf]}>
-            <Text style={styles.sectionTitle}>Need and avoid</Text>
-            <View style={styles.compactDetailRow}>
-              <GymlogIcon name="strength" color="rgba(255,255,255,0.78)" size={15} />
-              <Text numberOfLines={1} style={styles.compactDetailLabel}>Equipment</Text>
-              <Text numberOfLines={1} style={styles.compactDetailValue}>{equipmentLabel || 'Bodyweight'}</Text>
-            </View>
-            <View style={styles.compactDetailRow}>
-              <GymlogIcon name="progress" color="rgba(255,255,255,0.78)" size={15} />
-              <Text numberOfLines={1} style={styles.compactDetailLabel}>Type</Text>
-              <Text numberOfLines={1} style={styles.compactDetailValue}>{mechanicLabel || 'Compound'}</Text>
-            </View>
-            <View style={styles.compactDivider} />
-            {mistakes.map((mistake) => (
-              <View key={mistake} style={styles.mistakeRow}>
-                <Text style={styles.mistakeIcon}>x</Text>
-                <Text numberOfLines={1} style={styles.mistakeText}>{mistake}</Text>
-              </View>
-            ))}
+              </>
+            ) : null}
           </View>
         </View>
 
-        <View style={styles.howToCard}>
-          <Text style={styles.sectionTitle}>How to perform</Text>
-          <View style={styles.howToGrid}>
-            {cues.map((cue, index) => (
-              <View key={`${cue.title}_${index}`} style={styles.howToStep}>
-                <View style={styles.howToStepHeader}>
-                  <View style={styles.stepNumber}>
-                    <Text style={styles.stepNumberText}>{index + 1}</Text>
+        <View style={styles.section}>
+          <SectionLabel>HOW TO PERFORM</SectionLabel>
+          <View style={styles.howToCard}>
+            {instructions.length ? (
+              instructions.map((step, index) => (
+                <View
+                  key={`step-${index}`}
+                  style={[styles.howToStep, index === instructions.length - 1 && styles.howToStepLast]}
+                >
+                  <View style={styles.stepBadge}>
+                    <Text style={styles.stepBadgeText}>{index + 1}</Text>
                   </View>
-                  <Text numberOfLines={1} style={styles.howToTitle}>{cue.title}</Text>
+                  <Text style={styles.stepText}>{step}</Text>
                 </View>
-                <View style={styles.howToIconShell}>
-                  <CueIcon type={cue.icon} size={22} />
-                </View>
-                <Text numberOfLines={2} style={styles.howToText}>
-                  {cue.body}
+              ))
+            ) : (
+              <View style={[styles.howToStep, styles.howToStepLast]}>
+                <Text style={styles.stepTextMuted}>
+                  Step-by-step cues aren&apos;t in the library for this exercise yet.
                 </Text>
               </View>
-            ))}
-          </View>
-          <View style={styles.tipRow}>
-            <GymlogIcon name="lightning" color={GREEN} size={14} />
-            <Text numberOfLines={1} style={styles.tipText}>Control the movement and avoid rushing.</Text>
+            )}
           </View>
         </View>
 
-        {alternatives.length ? (
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>Alternatives</Text>
-            <View style={styles.alternativesScrollHint}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.alternativesRail}>
-                {alternatives.slice(0, 6).map((alternative) => (
-                <AlternativeCard
-                  key={alternative.id}
-                  item={alternative}
-                  onPress={onOpenAlternative ? () => onOpenAlternative(alternative) : undefined}
-                />
-                ))}
-              </ScrollView>
-              <View pointerEvents="none" style={styles.alternativesFade} />
-            </View>
-          </View>
-        ) : null}
-
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Your history</Text>
-            <Text style={styles.viewAll}>View all history</Text>
-          </View>
-          <View style={styles.historyCard}>
-            <View style={styles.historyColumn}>
-              <Text style={styles.historyLabel}>Last performed</Text>
-              <Text style={styles.historyValue}>Not logged yet</Text>
-              <Text style={styles.historySub}>Start tracking this movement</Text>
-            </View>
-            <View style={styles.historyDivider} />
-            <View style={styles.historyColumn}>
-              <Text style={styles.historyLabel}>Best set</Text>
-              <Text style={styles.historyValue}>-</Text>
-              <Text style={styles.historySub}>Build history over time</Text>
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.bottomActions}>
-          <Pressable
-            onPress={onAddToWorkout ? () => onAddToWorkout(item) : undefined}
-            style={styles.addWorkoutButton}
-          >
-            <PlusIcon />
-            <Text style={styles.addWorkoutText}>Add to workout</Text>
-          </Pressable>
-          <View style={styles.calendarButton}>
-            <CalendarIcon />
-          </View>
-        </View>
+        <Text style={styles.footnote}>Form cues are general guidance — adjust to how your body moves.</Text>
       </ScrollView>
+
+      {toast ? (
+        <View pointerEvents="none" style={styles.toast}>
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      ) : null}
+
+      <View style={styles.ctaBar}>
+        <Pressable
+          onPress={onAddToWorkout ? () => onAddToWorkout(item) : undefined}
+          disabled={!onAddToWorkout}
+          style={styles.ctaButton}
+        >
+          <ActionIcon added={false} />
+          <Text style={styles.ctaText}>Add to workout</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
@@ -440,454 +373,291 @@ export function ExerciseDetailScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: BACKGROUND,
+    backgroundColor: HG.bg,
   },
-  content: {
-    paddingHorizontal: 15,
-    paddingTop: 12,
-    paddingBottom: layout.bottomTabBarReserve - 28,
-    gap: 10,
-    backgroundColor: BACKGROUND,
-  },
-  headerActions: {
-    minHeight: 38,
+  topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: 2,
+    paddingBottom: 8,
   },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  roundButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 999,
+  iconButton: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: HG.surface,
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: 'rgba(255,255,255,0.055)',
+    borderColor: HG.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  roundButtonActive: {
-    borderColor: 'rgba(184,255,106,0.58)',
-    backgroundColor: 'rgba(184,255,106,0.1)',
-  },
-  titleBlock: {
-    gap: 7,
-  },
-  title: {
-    color: TEXT,
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: '900',
-  },
-  pillRow: {
-    gap: 7,
-    paddingRight: 15,
-  },
-  infoPill: {
-    minHeight: 24,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: 'rgba(255,255,255,0.055)',
-    paddingHorizontal: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  infoPillText: {
-    color: TEXT,
-    fontSize: 10,
-    lineHeight: 12,
+  topBarTitle: {
+    fontSize: 13,
     fontWeight: '800',
+    letterSpacing: 1,
+    color: HG.faint,
   },
-  levelDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 4,
-    backgroundColor: GREEN,
+  scroll: {
+    flex: 1,
   },
-  heroCard: {
-    height: 186,
-    borderRadius: 16,
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 4,
+    paddingBottom: 24,
+  },
+  hero: {
+    width: '100%',
+    aspectRatio: 16 / 10,
+    borderRadius: 20,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
+    backgroundColor: HG.surfaceSoft,
+  },
+  heroSkeleton: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HG.surfaceSoft,
   },
   heroImage: {
     width: '100%',
     height: '100%',
   },
-  heroFallback: {
-    flex: 1,
-    backgroundColor: SURFACE,
-    alignItems: 'center',
-    justifyContent: 'center',
+  titleBlock: {
+    marginTop: 15,
+    paddingHorizontal: 2,
   },
-  heroShade: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.18)',
-  },
-  playButton: {
-    position: 'absolute',
-    top: '50%',
-    left: '50%',
-    width: 58,
-    height: 58,
-    marginLeft: -29,
-    marginTop: -29,
-    borderRadius: 999,
-    borderWidth: 1.6,
-    borderColor: TEXT,
-    backgroundColor: 'rgba(0,0,0,0.24)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sectionCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  sectionTitle: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  viewAll: {
-    color: GREEN,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '900',
-  },
-  summaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  summaryCard: {
-    minHeight: 140,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
-    padding: 10,
-    gap: 8,
-  },
-  summaryCardHalf: {
-    width: '48.8%',
-    flexGrow: 0,
-    flexShrink: 0,
-  },
-  muscleCompactList: {
-    flex: 1,
-    gap: 9,
-    justifyContent: 'center',
-  },
-  muscleCompactRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 6,
-  },
-  muscleCompactCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  legendLabel: {
-    color: GREEN,
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: '900',
-  },
-  legendDot: {
-    color: GREEN,
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
-  },
-  softLegendDot: {
-    color: 'rgba(184,255,106,0.62)',
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '900',
-  },
-  legendValue: {
-    color: TEXT,
-    fontSize: 10.5,
-    lineHeight: 13,
+  title: {
+    fontSize: 25,
     fontWeight: '800',
-    marginBottom: 3,
+    color: HG.ink,
+    letterSpacing: -0.5,
+    lineHeight: 28,
   },
-  compactDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    minWidth: 0,
-  },
-  compactDetailLabel: {
-    flex: 1,
-    minWidth: 0,
-    color: FAINT,
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '800',
-  },
-  compactDetailValue: {
-    flex: 1,
-    minWidth: 0,
-    color: TEXT,
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '900',
-    textAlign: 'right',
-  },
-  compactDivider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  mistakeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  mistakeIcon: {
-    color: '#FF5A5F',
-    fontSize: 12,
-    lineHeight: 14,
-    fontWeight: '900',
-  },
-  mistakeText: {
-    flex: 1,
-    color: MUTED,
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '800',
-  },
-  howToCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
-    padding: 10,
-    gap: 10,
-  },
-  howToGrid: {
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
+    gap: 7,
+    marginTop: 12,
+  },
+  chip: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+  chipFilled: {
+    backgroundColor: HG.purple,
+  },
+  chipSoft: {
+    backgroundColor: HG.purpleLight,
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  chipTextFilled: {
+    color: '#FFFFFF',
+  },
+  chipTextSoft: {
+    color: HG.purpleDark,
+  },
+  section: {
+    marginTop: 24,
+  },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    paddingBottom: 11,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: HG.faint,
+  },
+  statGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  statLabel: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    color: HG.faint,
+  },
+  statValue: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: HG.ink,
+    letterSpacing: -0.3,
+    marginTop: 5,
+  },
+  statMeta: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: HG.muted,
+    marginTop: 2,
+  },
+  workingWeightHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: 14,
+    marginBottom: 8,
+    paddingHorizontal: 2,
+  },
+  workingWeightLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: HG.ink,
+  },
+  workingWeightDelta: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: HG.greenInk,
+  },
+  workingWeightDeltaDown: {
+    color: HG.muted,
+  },
+  emptyHistoryCard: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 16,
+    paddingVertical: 26,
+    paddingHorizontal: 18,
+    alignItems: 'center',
     gap: 8,
   },
-  howToStep: {
-    width: '48.7%',
-    minHeight: 86,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.035)',
-    padding: 8,
-    gap: 5,
+  emptyHistoryTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: HG.ink,
   },
-  howToStepHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+  emptyHistoryBody: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: HG.muted,
+    textAlign: 'center',
+    lineHeight: 19,
   },
-  stepNumber: {
-    width: 17,
-    height: 17,
-    borderRadius: 9,
-    backgroundColor: GREEN,
-    alignItems: 'center',
-    justifyContent: 'center',
+  musclesCard: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 16,
+    padding: 16,
   },
-  stepNumberText: {
-    color: '#06080B',
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: '900',
-  },
-  howToTitle: {
-    flex: 1,
-    color: TEXT,
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  howToIconShell: {
-    minHeight: 21,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  howToText: {
-    color: MUTED,
+  musclesGroupLabel: {
     fontSize: 11,
-    lineHeight: 14,
     fontWeight: '800',
+    letterSpacing: 0.4,
+    color: HG.faint,
   },
-  tipRow: {
-    minHeight: 28,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 9,
+  musclesGroupLabelSpaced: {
+    marginTop: 15,
   },
-  tipText: {
-    flex: 1,
-    color: MUTED,
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '800',
-  },
-  alternativesScrollHint: {
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  alternativesRail: {
-    gap: spacing.sm,
-    paddingRight: 34,
-  },
-  alternativesFade: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: 34,
-    backgroundColor: 'rgba(21,21,21,0.72)',
-  },
-  alternativeCard: {
-    width: 168,
-    minHeight: 152,
-    borderRadius: 14,
-    overflow: 'hidden',
+  howToCard: {
+    backgroundColor: HG.surface,
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE_ELEVATED,
+    borderColor: HG.border,
+    borderRadius: 18,
+    paddingHorizontal: 16,
   },
-  alternativeImage: {
-    width: '100%',
-    height: 78,
+  howToStep: {
+    flexDirection: 'row',
+    gap: 13,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: HG.border,
   },
-  alternativeImageFallback: {
-    width: '100%',
-    height: 78,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  howToStepLast: {
+    borderBottomWidth: 0,
   },
-  alternativeCopy: {
-    padding: spacing.sm,
-    paddingRight: 38,
-    gap: 2,
-  },
-  alternativeTitle: {
-    color: TEXT,
-    fontSize: 14,
-    lineHeight: 17,
-    fontWeight: '900',
-  },
-  alternativeMeta: {
-    color: MUTED,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '700',
-  },
-  alternativeAdd: {
-    position: 'absolute',
-    right: 10,
-    bottom: 10,
-    width: 32,
-    height: 32,
+  stepBadge: {
+    width: 26,
+    height: 26,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: 'rgba(0,0,0,0.36)',
+    backgroundColor: HG.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  historyCard: {
-    minHeight: 82,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.035)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.md,
-  },
-  historyColumn: {
-    flex: 1,
-    gap: 3,
-  },
-  historyDivider: {
-    width: 1,
-    height: '72%',
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    marginHorizontal: spacing.md,
-  },
-  historyLabel: {
-    color: MUTED,
-    fontSize: 12,
-    lineHeight: 15,
+  stepBadgeText: {
+    fontSize: 12.5,
     fontWeight: '800',
+    color: HG.purpleDark,
   },
-  historyValue: {
-    color: TEXT,
-    fontSize: 17,
-    lineHeight: 21,
-    fontWeight: '900',
-  },
-  historySub: {
-    color: FAINT,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '700',
-  },
-  bottomActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  addWorkoutButton: {
+  stepText: {
     flex: 1,
-    minHeight: 58,
-    borderRadius: 13,
-    backgroundColor: GREEN,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: HG.ink,
+    lineHeight: 21,
+  },
+  stepTextMuted: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: HG.muted,
+    lineHeight: 21,
+  },
+  footnote: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: HG.faint,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 16,
+  },
+  toast: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 92,
+    alignItems: 'center',
+  },
+  toastText: {
+    backgroundColor: 'rgba(20,12,38,0.94)',
+    color: '#FFFFFF',
+    fontSize: 12.5,
+    fontWeight: '700',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  ctaBar: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 10,
+    backgroundColor: HG.surface,
+    borderTopWidth: 1,
+    borderTopColor: HG.border,
+  },
+  ctaButton: {
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: HG.green,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing.md,
+    gap: 8,
   },
-  addWorkoutText: {
-    color: '#06080B',
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '900',
-  },
-  calendarButton: {
-    width: 58,
-    height: 58,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
-    alignItems: 'center',
-    justifyContent: 'center',
+  ctaText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
 });

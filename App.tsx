@@ -18,7 +18,7 @@ import {
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
 import { getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
-import { rankExerciseAlternatives } from './src/lib/exerciseAlternatives';
+import { getExerciseProgressForName } from './src/lib/progression';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
@@ -2814,11 +2814,11 @@ function GymlogApp() {
     );
   } else if (route.tab === 'workout' && route.screen === 'detail') {
     const exercise = exerciseBrowserItems.find((item) => item.id === route.exerciseId) ?? null;
-    const alternatives = exercise ? rankExerciseAlternatives(exercise, exerciseBrowserItems, 8) : [];
     content = exercise ? (
       <ExerciseDetailScreen
         item={exercise}
-        alternatives={alternatives}
+        history={getExerciseProgressForName(database, exercise.name)}
+        unitPreference={unitPreference}
         tracked={preferences.trackedExerciseLibraryItemIds.includes(exercise.id)}
         onBack={() => navigateBack(ROOT_ROUTES.workout)}
         onToggleTracked={(item) => {
@@ -2830,7 +2830,6 @@ function GymlogApp() {
           void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
         }}
         onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name })}
-        onOpenAlternative={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
       />
     ) : (
       <View />
@@ -2899,6 +2898,7 @@ function GymlogApp() {
   const welcomeActive = onboardingActive && entryFlowActive;
   const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
   const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
+  const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
 
   return (
     <AppShell
@@ -2910,10 +2910,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
