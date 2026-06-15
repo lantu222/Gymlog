@@ -519,7 +519,7 @@ const FOCUS_AREA_BODY_FRAMING: Partial<
 > = {
   chest: { side: 'front', parts: ['chest'], scale: 2.4, tx: 0, ty: 96 },
   shoulders: { side: 'front', parts: ['deltoids'], scale: 2.5, tx: 0, ty: 120 },
-  arms: { side: 'front', parts: ['biceps', 'triceps'], scale: 1.8, tx: 0, ty: 52 },
+  arms: { side: 'front', parts: ['biceps', 'triceps'], scale: 0.8, tx: 0, ty: 30 },
   core: { side: 'front', parts: ['abs', 'obliques'], scale: 2.2, tx: 0, ty: 22 },
   quads: { side: 'front', parts: ['quadriceps'], scale: 2.2, tx: 0, ty: -66 },
   back: { side: 'back', parts: ['upper-back', 'lower-back', 'trapezius'], scale: 1.9, tx: 0, ty: 52 },
