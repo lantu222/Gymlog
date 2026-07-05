@@ -35,6 +35,7 @@ import { buildRecommendationPlanReadyPayload } from './src/lib/recommendationPro
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
+import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -1101,6 +1102,10 @@ function GymlogApp() {
 
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
+  const premiumHeroChart = useMemo(
+    () => buildPremiumHeroChart(trackedProgress, unitPreference),
+    [trackedProgress, unitPreference],
+  );
   const homeActiveWorkoutSummary = useMemo(() => {
     if (!workout.activeSession) {
       return null;
@@ -2753,20 +2758,14 @@ function GymlogApp() {
     content = (
       <PremiumScreen
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
-        hasActiveWorkout={Boolean(workout.activeSession)}
-        activeWorkoutName={workout.activeSession?.templateName ?? null}
+        heroChart={premiumHeroChart}
+        unitPreference={unitPreference}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onTogglePreview={() =>
           void updatePreferences({
             adaptiveCoachPremiumUnlocked: !preferences.adaptiveCoachPremiumUnlocked,
           })
         }
-        onOpenWorkout={
-          workout.activeSession
-            ? () => navigateToWorkoutLog(workout.activeSession?.templateId ?? preferences.recommendedProgramId ?? 'workout_upper')
-            : undefined
-        }
-        onOpenPlanSettings={handleOpenPlanSettings}
       />
     );
   } else if (route.tab === 'profile') {
@@ -2915,6 +2914,7 @@ function GymlogApp() {
   const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
   const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
   const profileListActive = route.tab === 'profile' && route.screen === 'list';
+  const premiumActive = route.tab === 'profile' && route.screen === 'premium';
 
   return (
     <AppShell
@@ -2926,10 +2926,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
