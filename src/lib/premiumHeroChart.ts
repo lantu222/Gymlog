@@ -2,10 +2,7 @@ import { UnitPreference } from '../types/models';
 import { formatLiftDisplayLabel } from './displayLabel';
 import { convertWeightFromKg } from './format';
 import { ExerciseProgressSummary } from './progression';
-
-// The Adaptive Coach's typical micro-progression step, used to draw the dashed
-// "coach's next step" segment past the real history line.
-const COACH_INCREMENT_KG = 2.5;
+import { getLoadIncrementKg } from './workoutIntelligence';
 
 export interface PremiumHeroChart {
   /** Display name of the tracked lift the chart is built from. */
@@ -58,7 +55,8 @@ export function buildPremiumHeroChart(
     liftName: formatLiftDisplayLabel(best.summary.name),
     points,
     latest: points[points.length - 1],
-    projectedNext: convertWeightFromKg(latestKg + COACH_INCREMENT_KG, unitPreference),
+    // The coach's real micro-progression step (2.5 kg, or 5 lb for lb users).
+    projectedNext: convertWeightFromKg(latestKg + getLoadIncrementKg(unitPreference), unitPreference),
     sessions: points.length,
   };
 }

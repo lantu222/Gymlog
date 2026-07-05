@@ -53,10 +53,11 @@ module.exports = [
       const chart = buildPremiumHeroChart([summary('Barbell Squat', [100, 102.5])], 'lb');
 
       assert.ok(chart);
-      // 100 kg -> ~220.46 lb, 102.5 kg -> ~225.97 lb, projection 105 kg -> ~231.49 lb
+      // 100 kg -> ~220.46 lb, 102.5 kg -> ~225.97 lb; the coach's lb increment
+      // is exactly 5 lb, so the projection is latest + 5 lb (~230.97 lb).
       assert.ok(Math.abs(chart.points[0] - 220.46) < 0.1);
       assert.ok(Math.abs(chart.latest - 225.97) < 0.1);
-      assert.ok(Math.abs(chart.projectedNext - 231.49) < 0.1);
+      assert.ok(Math.abs(chart.projectedNext - (chart.latest + 5)) < 0.01);
     },
   },
 ];
