@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   FlatList,
   Image,
@@ -13,27 +13,19 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { GymlogIcon, GymlogIconName } from './GymlogIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
-import { colors, layout, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { layout } from '../theme';
 import { ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
 
-const GREEN = '#B8FF6A';
-const PURPLE = '#C68BFF';
-const BACKGROUND = colors.background;
-const SURFACE = '#151515';
-const SURFACE_SOFT = 'rgba(255,255,255,0.045)';
-const BORDER = 'rgba(255,255,255,0.12)';
-const TEXT = '#FFFFFF';
-const MUTED = 'rgba(255,255,255,0.62)';
-const FAINT = 'rgba(255,255,255,0.42)';
+// Card is 180 wide with a 1px border → 178 content width for the photo.
+const CARD_IMAGE_WIDTH = 178;
 
 interface ExerciseLibraryBrowserProps {
   items: ExerciseLibraryItem[];
-  selectedIds?: string[];
   trackedIds?: string[];
-  onSelectItem?: (item: ExerciseLibraryItem) => void;
   onOpenItem?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
-  actionLabel?: string;
+  onAddToWorkout?: (item: ExerciseLibraryItem) => void;
 }
 
 function buildSearchHaystack(item: ExerciseLibraryItem) {
@@ -49,25 +41,6 @@ function buildSearchHaystack(item: ExerciseLibraryItem) {
     .toLowerCase();
 }
 
-function SearchIcon({ color = TEXT, size = 20 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Circle cx="11" cy="11" r="6.5" stroke={color} strokeWidth="2" />
-      <Path d="M16 16L21 21" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function FilterIcon({ color = TEXT, size = 20 }: { color?: string; size?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <Path d="M4 7H20" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M7 12H17" stroke={color} strokeWidth="2" strokeLinecap="round" />
-      <Path d="M10 17H14" stroke={color} strokeWidth="2" strokeLinecap="round" />
-    </Svg>
-  );
-}
-
 function formatFilterLabel(raw: string) {
   return raw
     .split(/[_\s/()-]+/)
@@ -81,17 +54,9 @@ function formatCompactBodyPartLabel(raw: string) {
     return 'All';
   }
   if (raw === 'full body') {
-    return 'Full';
+    return 'Full body';
   }
   return formatFilterLabel(raw);
-}
-
-function buildActiveFilterSummary(parts: string[]) {
-  if (!parts.length) {
-    return 'All exercises';
-  }
-
-  return parts.join(' - ');
 }
 
 function getBodyPartIcon(bodyPart: ExerciseBodyPart | 'all'): GymlogIconName {
@@ -114,7 +79,7 @@ function getBodyPartIcon(bodyPart: ExerciseBodyPart | 'all'): GymlogIconName {
     case 'full body':
       return 'strength';
     default:
-      return 'check';
+      return 'strength';
   }
 }
 
@@ -147,122 +112,236 @@ function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: Exerci
   return { commonOrder, orderedItems };
 }
 
-function ExerciseThumb({ item, size = 58 }: { item: ExerciseLibraryItem; size?: number }) {
-  const previewImage = getItemImage(item);
+function SearchIcon({ color = HG.faint, size = 18 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={2} />
+      <Path d="M21 21l-4-4" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
-  if (previewImage) {
-    return (
-      <Image
-        source={{ uri: previewImage }}
-        resizeMode="cover"
-        style={[styles.thumbImage, { width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.18)) }]}
+function FilterIcon({ color = HG.purpleDark, size = 19 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M3 6h18M6 12h12M10 18h4" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function ListIcon({ color = HG.muted, size = 14 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 7h16M4 12h16M4 17h10" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function PlusIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M12 5v14M5 12h14" stroke={color} strokeWidth={2.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+function StarGlyph({ active, size = 18 }: { active: boolean; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={active ? HG.gold : 'none'}>
+      <Path
+        d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.5l1.1-6L3.4 9.3l6-.8z"
+        stroke={active ? HG.gold : HG.faint}
+        strokeWidth={2}
+        strokeLinejoin="round"
       />
-    );
+    </Svg>
+  );
+}
+
+function DumbbellIcon({ color = HG.faint, size = 22 }: { color?: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function CategoryIcon({ option, color }: { option: string; color: string }) {
+  if (option === 'all') {
+    return <ListIcon color={color} size={14} />;
   }
+  return <GymlogIcon name={getBodyPartIcon(option as ExerciseBodyPart)} color={color} size={14} />;
+}
+
+// Explicit numeric width/height (not '%' or absoluteFill): images nested in the
+// horizontal rail ScrollViews inside the FlatList header never get an initial
+// layout pass on Android, so a size-inheriting <Image> stays at zero and never
+// fires onLoad until a scroll forces re-layout. Intrinsic pixel dimensions let
+// the image request fire immediately at mount.
+function Thumb({
+  uri,
+  width,
+  height,
+  radius = 12,
+}: {
+  uri: string | null;
+  width: number;
+  height: number;
+  radius?: number;
+}) {
+  const [state, setState] = useState<'load' | 'ok' | 'err'>(uri ? 'load' : 'err');
+
+  useEffect(() => {
+    setState(uri ? 'load' : 'err');
+  }, [uri]);
 
   return (
-    <View style={[styles.thumbFallback, { width: size, height: size, borderRadius: Math.max(10, Math.round(size * 0.18)) }]}>
-      <Text style={styles.thumbFallbackText}>{item.name.charAt(0).toUpperCase()}</Text>
+    <View style={{ width, height, borderRadius: radius, overflow: 'hidden', backgroundColor: HG.surfaceSoft }}>
+      {uri ? (
+        <Image
+          source={{ uri }}
+          resizeMode="cover"
+          style={{ width, height }}
+          onLoad={() => setState('ok')}
+          onError={() => setState('err')}
+        />
+      ) : null}
+      {state !== 'ok' ? (
+        <View style={[StyleSheet.absoluteFill, styles.thumbSkeleton]}>
+          {state === 'err' ? <DumbbellIcon /> : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
-function AddButton({
-  selected,
-  onPress,
-}: {
-  selected: boolean;
-  onPress?: () => void;
-}) {
+function AddButton({ onPress }: { onPress?: () => void }) {
   return (
-    <Pressable onPress={onPress} hitSlop={8} style={[styles.addButton, selected && styles.addButtonSelected]}>
-      <Text style={[styles.addButtonText, selected && styles.addButtonTextSelected]}>{selected ? '✓' : '+'}</Text>
+    <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} style={styles.addButton}>
+      <PlusIcon />
     </Pressable>
   );
 }
 
-function FavoriteButton({
-  active,
-  onPress,
-  compact = false,
-}: {
-  active: boolean;
-  onPress?: () => void;
-  compact?: boolean;
-}) {
+function FavoriteStar({ active, onPress, framed }: { active: boolean; onPress?: () => void; framed?: boolean }) {
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={!onPress}
-      hitSlop={8}
-      style={[styles.favoriteButton, compact && styles.favoriteButtonCompact, active && styles.favoriteButtonActive]}
-    >
-      <Text style={[styles.favoriteButtonText, compact && styles.favoriteButtonTextCompact, active && styles.favoriteButtonTextActive]}>
-        {'\u2605'}
-      </Text>
+    <Pressable onPress={onPress} disabled={!onPress} hitSlop={8} style={framed ? styles.starFrame : styles.starPlain}>
+      <StarGlyph active={active} size={framed ? 15 : 18} />
     </Pressable>
   );
 }
 
-function MiniExerciseCard({
+function ExCard({
   item,
-  selected,
   tracked,
-  onPress,
-  onAction,
+  onOpen,
+  onAdd,
   onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
-  selected: boolean;
   tracked: boolean;
-  onPress: () => void;
-  onAction?: () => void;
+  onOpen: () => void;
+  onAdd?: () => void;
   onToggleFavorite?: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.miniCard, selected && styles.cardSelected]}>
-      <View style={styles.miniThumbWrap}>
-        <ExerciseThumb item={item} size={42} />
-        <View style={styles.miniFavoriteWrap}>
-          <FavoriteButton active={tracked} compact onPress={onToggleFavorite} />
+    <Pressable onPress={onOpen} style={styles.card}>
+      <View style={styles.cardImageWrap}>
+        <Thumb uri={getItemImage(item)} radius={0} width={CARD_IMAGE_WIDTH} height={104} />
+        <View style={styles.cardStar}>
+          <FavoriteStar active={tracked} onPress={onToggleFavorite} framed />
         </View>
       </View>
-      <View style={styles.miniCopy}>
-        <Text numberOfLines={2} style={styles.miniTitle}>{item.name}</Text>
-        <Text numberOfLines={1} style={styles.miniMeta}>{formatFilterLabel(item.bodyPart)}</Text>
-      </View>
-      <View style={styles.miniAddWrap}>
-        <AddButton selected={selected} onPress={onAction} />
+      <View style={styles.cardBody}>
+        <Text numberOfLines={2} style={styles.cardTitle}>
+          {item.name}
+        </Text>
+        <View style={styles.cardFooter}>
+          <Text numberOfLines={1} style={styles.cardMeta}>
+            {formatFilterLabel(item.bodyPart)}
+          </Text>
+          <AddButton onPress={onAdd} />
+        </View>
       </View>
     </Pressable>
   );
 }
 
-function SectionHeader({ title, subtitle }: { title: string; subtitle?: string }) {
+function ExRow({
+  item,
+  tracked,
+  onOpen,
+  onAdd,
+  onToggleFavorite,
+}: {
+  item: ExerciseLibraryItem;
+  tracked: boolean;
+  onOpen: () => void;
+  onAdd?: () => void;
+  onToggleFavorite?: () => void;
+}) {
   return (
-    <View style={styles.sectionHeader}>
-      <View style={styles.sectionHeaderCopy}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        {subtitle ? <Text style={styles.sectionSubtitle}>{subtitle}</Text> : null}
+    <Pressable onPress={onOpen} style={styles.row}>
+      <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
+      <View style={styles.rowCopy}>
+        <Text numberOfLines={1} style={styles.rowTitle}>
+          {item.name}
+        </Text>
+        <Text numberOfLines={1} style={styles.rowMeta}>
+          {formatFilterLabel(item.bodyPart)} · {formatFilterLabel(item.equipment)} · {formatFilterLabel(item.category)}
+        </Text>
       </View>
-      <Text style={styles.viewAllText}>View all</Text>
+      <FavoriteStar active={tracked} onPress={onToggleFavorite} />
+      <AddButton onPress={onAdd} />
+    </Pressable>
+  );
+}
+
+function SectionHead({ label, action, onAction }: { label: string; action?: string; onAction?: () => void }) {
+  return (
+    <View style={styles.sectionHead}>
+      <Text style={styles.sectionHeadLabel}>{label}</Text>
+      {action ? (
+        <Text onPress={onAction} style={styles.sectionHeadAction}>
+          {action}
+        </Text>
+      ) : null}
     </View>
   );
 }
 
 export function ExerciseLibraryBrowser({
   items,
-  selectedIds = [],
   trackedIds = [],
-  onSelectItem,
   onOpenItem,
   onToggleTracked,
+  onAddToWorkout,
 }: ExerciseLibraryBrowserProps) {
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bodyPartFilter, setBodyPartFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [equipmentFilter, setEquipmentFilter] = useState<string>('all');
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchRef = useRef<TextInput>(null);
+
+  useEffect(
+    () => () => {
+      if (toastTimer.current) {
+        clearTimeout(toastTimer.current);
+      }
+    },
+    [],
+  );
+
+  const flash = (message: string) => {
+    setToast(message);
+    if (toastTimer.current) {
+      clearTimeout(toastTimer.current);
+    }
+    toastTimer.current = setTimeout(() => setToast(null), 1700);
+  };
 
   const bodyPartOptions = useMemo(
     () => ['all', ...Array.from(new Set(items.map((item) => item.bodyPart))).sort((a, b) => a.localeCompare(b))],
@@ -297,175 +376,153 @@ export function ExerciseLibraryBrowser({
   }, [items, search, bodyPartFilter, categoryFilter, equipmentFilter]);
 
   const { commonOrder, orderedItems } = useOrderedExercises(items, filteredItems);
-  const hasCustomFilters = bodyPartFilter !== 'all' || categoryFilter !== 'all' || equipmentFilter !== 'all';
-  const showDashboardSections = search.trim().length === 0 && !hasCustomFilters;
+  const hasModalFilters = categoryFilter !== 'all' || equipmentFilter !== 'all';
+  const showDashboardSections = search.trim().length === 0 && bodyPartFilter === 'all' && !hasModalFilters;
 
-  const activeFilterCount =
-    (bodyPartFilter !== 'all' ? 1 : 0) +
-    (categoryFilter !== 'all' ? 1 : 0) +
-    (equipmentFilter !== 'all' ? 1 : 0);
+  const activeFilterCount = (categoryFilter !== 'all' ? 1 : 0) + (equipmentFilter !== 'all' ? 1 : 0);
 
-  const filterSummary = useMemo(() => {
-    const parts: string[] = [];
-    if (bodyPartFilter !== 'all') {
-      parts.push(formatFilterLabel(bodyPartFilter));
-    }
-    if (categoryFilter !== 'all') {
-      parts.push(formatFilterLabel(categoryFilter));
-    }
-    if (equipmentFilter !== 'all') {
-      parts.push(formatFilterLabel(equipmentFilter));
-    }
-    return buildActiveFilterSummary(parts);
-  }, [bodyPartFilter, categoryFilter, equipmentFilter]);
+  const trackedSet = useMemo(() => new Set(trackedIds), [trackedIds]);
 
   const popularItems = useMemo(
-    () => orderedItems.filter((item) => commonOrder.has(item.id)).slice(0, 6),
+    () => orderedItems.filter((item) => commonOrder.has(item.id)).slice(0, 8),
     [commonOrder, orderedItems],
   );
-  const favoriteItems = useMemo(() => {
-    const trackedSet = new Set(trackedIds);
-    return orderedItems.filter((item) => trackedSet.has(item.id)).slice(0, 6);
-  }, [orderedItems, trackedIds]);
+  const favoriteItems = useMemo(
+    () => orderedItems.filter((item) => trackedSet.has(item.id)).slice(0, 8),
+    [orderedItems, trackedSet],
+  );
   const suggestedItems = useMemo(() => {
     const excluded = new Set([...popularItems.map((item) => item.id), ...favoriteItems.map((item) => item.id)]);
-    return orderedItems.filter((item) => !excluded.has(item.id)).slice(0, 6);
+    return orderedItems.filter((item) => !excluded.has(item.id)).slice(0, 8);
   }, [favoriteItems, orderedItems, popularItems]);
 
-  const listItems = useMemo(() => orderedItems.slice(0, showDashboardSections ? 36 : undefined), [orderedItems, showDashboardSections]);
+  const listItems = useMemo(
+    () => orderedItems.slice(0, showDashboardSections ? 36 : undefined),
+    [orderedItems, showDashboardSections],
+  );
+
+  const resultsLabel = showDashboardSections
+    ? 'ALL EXERCISES'
+    : search.trim().length
+      ? 'RESULTS'
+      : bodyPartFilter !== 'all'
+        ? formatCompactBodyPartLabel(bodyPartFilter).toUpperCase()
+        : 'RESULTS';
 
   function handleOpen(item: ExerciseLibraryItem) {
-    if (onOpenItem) {
-      onOpenItem(item);
-      return;
-    }
-    if (onSelectItem) {
-      onSelectItem(item);
-    }
+    onOpenItem?.(item);
   }
 
-  function handleAction(item: ExerciseLibraryItem) {
-    if (onSelectItem) {
-      onSelectItem(item);
-      return;
-    }
-    handleOpen(item);
+  function handleAdd(item: ExerciseLibraryItem) {
+    onAddToWorkout?.(item);
   }
 
-  function renderHorizontalSection({
-  title,
-  subtitle,
-  sectionItems,
-  emptyBody,
-}: {
-  title: string;
-  subtitle?: string;
-  sectionItems: ExerciseLibraryItem[];
-  emptyBody?: string;
-}) {
-    if (!sectionItems.length && !emptyBody) {
-      return null;
+  function handleToggleFavorite(item: ExerciseLibraryItem) {
+    if (!onToggleTracked) {
+      return;
     }
+    flash(trackedSet.has(item.id) ? 'Removed from tracked lifts' : 'Added to tracked lifts');
+    onToggleTracked(item);
+  }
 
+  function renderRail(sectionItems: ExerciseLibraryItem[]) {
     return (
-      <View style={styles.dashboardSection}>
-        <SectionHeader title={title} subtitle={subtitle} />
-        {sectionItems.length ? (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalCards}>
-            {sectionItems.map((item) => {
-              const selected = selectedIds.includes(item.id);
-              const tracked = trackedIds.includes(item.id);
-
-              return (
-                <MiniExerciseCard
-                  key={`${title}:${item.id}`}
-                  item={item}
-                  selected={selected}
-                  tracked={tracked}
-                  onPress={() => handleOpen(item)}
-                  onAction={() => handleAction(item)}
-                  onToggleFavorite={onToggleTracked ? () => onToggleTracked(item) : undefined}
-                />
-              );
-            })}
-          </ScrollView>
-        ) : (
-          <View style={styles.emptyFavoriteCard}>
-            <Text style={styles.emptyFavoriteTitle}>No favorites yet</Text>
-            <Text style={styles.emptyFavoriteText}>{emptyBody}</Text>
-          </View>
-        )}
-      </View>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.rail}
+      >
+        {sectionItems.map((item) => (
+          <ExCard
+            key={item.id}
+            item={item}
+            tracked={trackedSet.has(item.id)}
+            onOpen={() => handleOpen(item)}
+            onAdd={onAddToWorkout ? () => handleAdd(item) : undefined}
+            onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
+          />
+        ))}
+      </ScrollView>
     );
   }
 
   return (
-    <FlatList
-      data={listItems}
-      keyExtractor={(item) => item.id}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
-      contentContainerStyle={styles.listContent}
-      ListHeaderComponent={
-        <View style={styles.headerBlock}>
-          <View style={styles.headerRow}>
-            <View style={styles.headerCopy}>
-              <Text style={styles.title}>Exercises</Text>
-              <Text style={styles.subtitle}>Find and add exercises to your workouts.</Text>
-            </View>
-            <View style={styles.headerActions}>
-              <Pressable style={styles.iconButton}>
-                <SearchIcon />
-              </Pressable>
-              <Pressable onPress={() => setFiltersOpen((current) => !current)} style={[styles.iconButton, filtersOpen && styles.iconButtonActive]}>
-                <FilterIcon />
-                {activeFilterCount > 0 ? (
-                  <View style={styles.filterBadge}>
-                    <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            </View>
-          </View>
-
-          <View style={styles.searchShell}>
-            <SearchIcon color="rgba(255,255,255,0.56)" size={20} />
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder="Search exercises..."
-              placeholderTextColor="rgba(255,255,255,0.48)"
-              style={styles.searchInput}
-            />
-          </View>
-
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRail}>
-            {bodyPartOptions.map((option) => {
-              const selected = bodyPartFilter === option;
-              const bodyPart = option as ExerciseBodyPart | 'all';
-
-              return (
-                <Pressable
-                  key={option}
-                  onPress={() => setBodyPartFilter(option)}
-                  style={[styles.categoryChip, selected && styles.categoryChipActive]}
-                >
-                  <GymlogIcon name={getBodyPartIcon(bodyPart)} color={selected ? GREEN : 'rgba(255,255,255,0.76)'} size={13} />
-                  <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>
-                    {formatCompactBodyPartLabel(option)}
-                  </Text>
+    <View style={styles.screen}>
+      <FlatList
+        data={listItems}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.listContent}
+        ListHeaderComponent={
+          <View style={styles.headerBlock}>
+            <View style={styles.headerRow}>
+              <View style={styles.headerCopy}>
+                <Text style={styles.title}>Exercises</Text>
+                <Text style={styles.subtitle}>Find and add exercises to your workouts.</Text>
+              </View>
+              <View style={styles.headerActions}>
+                <Pressable onPress={() => searchRef.current?.focus()} style={styles.iconButton}>
+                  <SearchIcon color={HG.purpleDark} size={19} />
                 </Pressable>
-              );
-            })}
-          </ScrollView>
+                <Pressable onPress={() => setFiltersOpen((current) => !current)} style={styles.iconButton}>
+                  <FilterIcon />
+                  {activeFilterCount > 0 ? (
+                    <View style={styles.filterBadge}>
+                      <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+              </View>
+            </View>
 
-          {filtersOpen ? (
-            <View style={styles.filtersShell}>
-              <Text style={styles.filtersTitle}>Filters</Text>
-              <Text style={styles.filtersSubtitle}>Narrow the library by category or equipment.</Text>
+            <View style={styles.searchShell}>
+              <SearchIcon />
+              <TextInput
+                ref={searchRef}
+                value={search}
+                onChangeText={setSearch}
+                placeholder="Search exercises..."
+                placeholderTextColor={HG.faint}
+                style={styles.searchInput}
+              />
+              {search.length ? (
+                <Text onPress={() => setSearch('')} style={styles.searchClear}>
+                  ×
+                </Text>
+              ) : null}
+            </View>
 
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionLabel}>Category</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={styles.categoryRail}
+            >
+              {bodyPartOptions.map((option) => {
+                const selected = bodyPartFilter === option;
+                return (
+                  <Pressable
+                    key={option}
+                    onPress={() => setBodyPartFilter(option)}
+                    style={[styles.categoryChip, selected && styles.categoryChipActive]}
+                  >
+                    <CategoryIcon option={option} color={selected ? '#FFFFFF' : HG.muted} />
+                    <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>
+                      {formatCompactBodyPartLabel(option)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            {filtersOpen ? (
+              <View style={styles.filtersShell}>
+                <Text style={styles.filtersTitle}>Filters</Text>
+                <Text style={styles.filtersSubtitle}>Narrow the library by type or equipment.</Text>
+
+                <Text style={styles.filterSectionLabel}>TYPE</Text>
                 <View style={styles.filterGrid}>
                   {categoryOptions.map((option) => {
                     const selected = categoryFilter === option;
@@ -482,10 +539,8 @@ export function ExerciseLibraryBrowser({
                     );
                   })}
                 </View>
-              </View>
 
-              <View style={styles.filterSection}>
-                <Text style={styles.filterSectionLabel}>Equipment</Text>
+                <Text style={[styles.filterSectionLabel, styles.filterSectionLabelSpaced]}>EQUIPMENT</Text>
                 <View style={styles.filterGrid}>
                   {equipmentOptions.map((option) => {
                     const selected = equipmentFilter === option;
@@ -503,501 +558,440 @@ export function ExerciseLibraryBrowser({
                   })}
                 </View>
               </View>
-            </View>
-          ) : null}
+            ) : null}
 
-          {showDashboardSections ? (
-            <>
-              {renderHorizontalSection({
-                title: 'Popular Exercises',
-                subtitle: 'Common first picks for a new workout',
-                sectionItems: popularItems,
-              })}
-              {renderHorizontalSection({
-                title: 'Favorites',
-                sectionItems: favoriteItems,
-                emptyBody: 'Tap the star on any exercise to keep it here.',
-              })}
-              {renderHorizontalSection({
-                title: 'Suggested for your plan',
-                subtitle: 'Based on your current workout focus',
-                sectionItems: suggestedItems,
-              })}
-            </>
-          ) : null}
+            {showDashboardSections ? (
+              <>
+                <View style={styles.dashboardSection}>
+                  <SectionHead label="POPULAR EXERCISES" action="View all" />
+                  {renderRail(popularItems)}
+                </View>
 
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>{showDashboardSections ? 'All exercises' : filterSummary}</Text>
-            <Text style={styles.summaryCount}>{orderedItems.length} exercises</Text>
-          </View>
-        </View>
-      }
-      ListEmptyComponent={
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>No matches</Text>
-          <Text style={styles.emptyText}>Try a broader search term.</Text>
-        </View>
-      }
-      renderItem={({ item }) => {
-        const selected = selectedIds.includes(item.id);
-        const tracked = trackedIds.includes(item.id);
+                <View style={styles.dashboardSection}>
+                  <SectionHead label="FAVORITES" action={favoriteItems.length ? 'View all' : undefined} />
+                  {favoriteItems.length ? (
+                    renderRail(favoriteItems)
+                  ) : (
+                    <View style={styles.emptyFavoriteCard}>
+                      <Text style={styles.emptyFavoriteTitle}>No favorites yet</Text>
+                      <Text style={styles.emptyFavoriteText}>Tap the star on any exercise to keep it here.</Text>
+                    </View>
+                  )}
+                </View>
 
-        return (
-          <Pressable onPress={() => handleOpen(item)} style={[styles.listRow, selected && styles.cardSelected]}>
-            <View style={styles.listThumbWrap}>
-              <ExerciseThumb item={item} size={48} />
-              <View style={styles.listFavoriteWrap}>
-                <FavoriteButton active={tracked} compact onPress={onToggleTracked ? () => onToggleTracked(item) : undefined} />
-              </View>
-            </View>
-            <View style={styles.listRowCopy}>
-              <Text numberOfLines={1} style={styles.listRowTitle}>{item.name}</Text>
-              <Text numberOfLines={1} style={styles.listRowMeta}>
-                {formatFilterLabel(item.bodyPart)}  •  {formatFilterLabel(item.equipment)}  •  {formatFilterLabel(item.category)}
+                <View style={styles.dashboardSection}>
+                  <SectionHead label="SUGGESTED FOR YOUR PLAN" action="View all" />
+                  {renderRail(suggestedItems)}
+                </View>
+              </>
+            ) : null}
+
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>{resultsLabel}</Text>
+              <Text style={styles.summaryCount}>
+                {orderedItems.length} {orderedItems.length === 1 ? 'exercise' : 'exercises'}
               </Text>
             </View>
-            <AddButton selected={selected} onPress={() => handleAction(item)} />
-          </Pressable>
-        );
-      }}
-    />
+          </View>
+        }
+        ListEmptyComponent={
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyTitle}>No matches</Text>
+            <Text style={styles.emptyText}>Try a broader search or category.</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <ExRow
+            item={item}
+            tracked={trackedSet.has(item.id)}
+            onOpen={() => handleOpen(item)}
+            onAdd={onAddToWorkout ? () => handleAdd(item) : undefined}
+            onToggleFavorite={onToggleTracked ? () => handleToggleFavorite(item) : undefined}
+          />
+        )}
+        ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
+      />
+
+      {toast ? (
+        <View pointerEvents="none" style={styles.toast}>
+          <Text style={styles.toastText}>{toast}</Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: HG.bg,
+  },
   listContent: {
     paddingBottom: layout.bottomTabBarReserve,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    gap: 0,
-    backgroundColor: BACKGROUND,
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
   headerBlock: {
-    gap: spacing.sm,
-    paddingBottom: spacing.sm,
+    paddingBottom: 4,
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: 12,
   },
   headerCopy: {
     flex: 1,
     minWidth: 0,
-    gap: 2,
   },
   title: {
-    color: TEXT,
-    fontSize: 25,
-    lineHeight: 29,
-    fontWeight: '900',
+    color: HG.ink,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   subtitle: {
-    color: MUTED,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '700',
+    color: HG.muted,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 9,
   },
   iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE_SOFT,
+    width: 40,
+    height: 40,
+    borderRadius: 13,
+    backgroundColor: HG.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
-  iconButtonActive: {
-    borderColor: 'rgba(184,255,106,0.46)',
-    backgroundColor: 'rgba(184,255,106,0.09)',
-  },
   filterBadge: {
     position: 'absolute',
-    top: 5,
-    right: 5,
+    top: 4,
+    right: 4,
     minWidth: 16,
     height: 16,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: GREEN,
+    backgroundColor: HG.purple,
     paddingHorizontal: 4,
   },
   filterBadgeText: {
-    color: '#050505',
+    color: '#FFFFFF',
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   searchShell: {
-    minHeight: 40,
-    borderRadius: 10,
-    backgroundColor: SURFACE,
-    paddingHorizontal: spacing.md,
+    marginTop: 14,
+    height: 46,
+    borderRadius: 14,
+    backgroundColor: HG.surface,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: HG.border,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: 10,
+    paddingHorizontal: 14,
   },
   searchInput: {
     flex: 1,
-    color: TEXT,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '700',
+    color: HG.ink,
+    fontSize: 14.5,
+    fontWeight: '600',
     paddingVertical: 0,
   },
+  searchClear: {
+    color: HG.faint,
+    fontSize: 20,
+    fontWeight: '700',
+    paddingHorizontal: 2,
+  },
   categoryRail: {
-    gap: 6,
-    paddingRight: spacing.sm,
+    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 2,
+    paddingRight: 8,
   },
   categoryChip: {
-    minHeight: 32,
+    height: 34,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE_SOFT,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
+    gap: 6,
+    paddingHorizontal: 14,
   },
   categoryChipActive: {
-    borderColor: GREEN,
-    backgroundColor: 'rgba(184,255,106,0.08)',
+    borderColor: HG.purple,
+    backgroundColor: HG.purple,
   },
   categoryChipText: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-  },
-  categoryChipTextActive: {
-    color: GREEN,
-  },
-  filtersShell: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  filtersTitle: {
-    color: TEXT,
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '900',
-  },
-  filtersSubtitle: {
-    color: MUTED,
+    color: HG.ink,
     fontSize: 13,
-    lineHeight: 18,
     fontWeight: '700',
   },
-  filterSection: {
-    gap: spacing.sm,
+  categoryChipTextActive: {
+    color: '#FFFFFF',
+  },
+  filtersShell: {
+    marginTop: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: 16,
+  },
+  filtersTitle: {
+    color: HG.ink,
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  filtersSubtitle: {
+    color: HG.muted,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 2,
   },
   filterSectionLabel: {
-    color: FAINT,
+    color: HG.faint,
     fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    marginTop: 14,
+  },
+  filterSectionLabelSpaced: {
+    marginTop: 16,
   },
   filterGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
+    marginTop: 8,
   },
   filterChip: {
     minHeight: 34,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: 14,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: HG.bg,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: HG.border,
   },
   filterChipSelected: {
-    backgroundColor: 'rgba(184,255,106,0.12)',
-    borderColor: GREEN,
+    backgroundColor: HG.purpleLight,
+    borderColor: HG.purple,
   },
   filterChipText: {
-    color: MUTED,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '800',
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   filterChipTextSelected: {
-    color: GREEN,
+    color: HG.purpleDark,
   },
   dashboardSection: {
-    gap: spacing.sm,
+    marginTop: 22,
   },
-  sectionHeader: {
+  sectionHead: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    paddingHorizontal: 2,
+    paddingBottom: 11,
   },
-  sectionHeaderCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  sectionTitle: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-  },
-  sectionSubtitle: {
-    color: MUTED,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  viewAllText: {
-    color: GREEN,
-    fontSize: 14,
-    lineHeight: 17,
-    fontWeight: '900',
-  },
-  horizontalCards: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
-  miniCard: {
-    width: 172,
-    minHeight: 70,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    padding: 8,
-    paddingRight: 28,
-    position: 'relative',
-  },
-  miniThumbWrap: {
-    position: 'relative',
-  },
-  miniFavoriteWrap: {
-    position: 'absolute',
-    top: -7,
-    left: -7,
-  },
-  miniCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 3,
-  },
-  miniTitle: {
-    color: TEXT,
+  sectionHeadLabel: {
+    color: HG.faint,
     fontSize: 12,
-    lineHeight: 13,
-    fontWeight: '900',
+    fontWeight: '800',
+    letterSpacing: 1,
   },
-  miniMeta: {
-    color: MUTED,
-    fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '700',
+  sectionHeadAction: {
+    color: HG.purple,
+    fontSize: 12.5,
+    fontWeight: '800',
   },
-  miniAddWrap: {
-    position: 'absolute',
-    right: 5,
-    bottom: 5,
-    transform: [{ scale: 0.64 }],
-  },
-  favoriteButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    backgroundColor: 'rgba(0,0,0,0.52)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  favoriteButtonCompact: {
-    width: 22,
-    height: 22,
-  },
-  favoriteButtonActive: {
-    borderColor: 'rgba(184,255,106,0.72)',
-    backgroundColor: 'rgba(184,255,106,0.16)',
-  },
-  favoriteButtonText: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 17,
-    lineHeight: 18,
-    fontWeight: '900',
-    marginTop: -1,
-  },
-  favoriteButtonTextCompact: {
-    fontSize: 13,
-    lineHeight: 14,
-  },
-  favoriteButtonTextActive: {
-    color: GREEN,
+  rail: {
+    gap: 12,
+    paddingRight: 20,
+    paddingVertical: 2,
   },
   emptyFavoriteCard: {
-    minHeight: 62,
-    borderRadius: 12,
+    backgroundColor: HG.surface,
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
-    justifyContent: 'center',
-    gap: 3,
-    paddingHorizontal: spacing.md,
+    borderColor: HG.border,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
   },
   emptyFavoriteTitle: {
-    color: TEXT,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '900',
+    fontSize: 15,
+    fontWeight: '800',
+    color: HG.ink,
   },
   emptyFavoriteText: {
-    color: MUTED,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
+    fontSize: 13,
+    fontWeight: '600',
+    color: HG.muted,
+    marginTop: 4,
   },
-  summaryRow: {
+  card: {
+    width: 180,
+    backgroundColor: HG.surface,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    overflow: 'hidden',
+  },
+  cardImageWrap: {
+    position: 'relative',
+  },
+  cardStar: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+  },
+  cardBody: {
+    paddingHorizontal: 12,
+    paddingTop: 11,
+    paddingBottom: 13,
+  },
+  cardTitle: {
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: HG.ink,
+    lineHeight: 17,
+    height: 34,
+  },
+  cardFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingTop: spacing.xs,
+    marginTop: 9,
   },
-  summaryLabel: {
-    color: 'rgba(255,255,255,0.76)',
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
-    textTransform: 'uppercase',
+  cardMeta: {
+    flex: 1,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: HG.muted,
   },
-  summaryCount: {
-    color: MUTED,
-    fontSize: 14,
-    lineHeight: 17,
-    fontWeight: '800',
-  },
-  listRow: {
-    minHeight: 58,
-    borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: SURFACE,
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: 7,
-    paddingVertical: 5,
-    borderBottomWidth: 0,
+    gap: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: HG.surface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: HG.border,
   },
-  listRowCopy: {
+  rowSeparator: {
+    height: 9,
+  },
+  rowCopy: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
   },
-  listThumbWrap: {
-    position: 'relative',
+  rowTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: HG.ink,
   },
-  listFavoriteWrap: {
-    position: 'absolute',
-    top: -5,
-    left: -5,
+  rowMeta: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: HG.muted,
+    marginTop: 3,
   },
-  listRowTitle: {
-    color: TEXT,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '900',
-  },
-  listRowMeta: {
-    color: MUTED,
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '700',
-  },
-  thumbImage: {
-    backgroundColor: '#080808',
-  },
-  thumbFallback: {
+  thumbSkeleton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  thumbFallbackText: {
-    color: TEXT,
-    fontSize: 22,
-    lineHeight: 24,
-    fontWeight: '900',
+    backgroundColor: HG.surfaceSoft,
   },
   addButton: {
-    width: 28,
-    height: 28,
+    width: 32,
+    height: 32,
     borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(184,255,106,0.62)',
-    backgroundColor: 'rgba(0,0,0,0.24)',
+    backgroundColor: HG.green,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
-  addButtonSelected: {
-    backgroundColor: GREEN,
-    borderColor: GREEN,
+  starFrame: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#140A28',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.18,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  addButtonText: {
-    color: GREEN,
-    fontSize: 21,
-    lineHeight: 22,
-    fontWeight: '500',
-    marginTop: -2,
+  starPlain: {
+    padding: 2,
   },
-  addButtonTextSelected: {
-    color: '#06080B',
-    fontSize: 15,
-    lineHeight: 17,
-    fontWeight: '900',
-    marginTop: 0,
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    marginTop: 26,
+    marginBottom: 12,
   },
-  cardSelected: {
-    borderColor: 'rgba(184,255,106,0.74)',
-    backgroundColor: 'rgba(184,255,106,0.08)',
+  summaryLabel: {
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  summaryCount: {
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   emptyCard: {
-    borderRadius: 16,
-    backgroundColor: SURFACE,
-    padding: spacing.lg,
-    gap: 4,
-    borderWidth: 1,
-    borderColor: BORDER,
+    alignItems: 'center',
+    paddingVertical: 38,
+    paddingHorizontal: 10,
   },
   emptyTitle: {
-    color: TEXT,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '900',
+    color: HG.ink,
+    fontSize: 15,
+    fontWeight: '800',
   },
   emptyText: {
-    color: MUTED,
+    color: HG.muted,
     fontSize: 13,
-    lineHeight: 17,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  toast: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 28,
+    alignItems: 'center',
+  },
+  toastText: {
+    backgroundColor: 'rgba(20,12,38,0.94)',
+    color: '#FFFFFF',
+    fontSize: 12.5,
     fontWeight: '700',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
 });

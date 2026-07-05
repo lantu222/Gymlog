@@ -2840,6 +2840,7 @@ function GymlogApp() {
         items={exerciseBrowserItems}
         trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
+        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name })}
         onToggleTracked={(item) => {
           const trackedIds = preferences.trackedExerciseLibraryItemIds;
           const nextTrackedIds = trackedIds.includes(item.id)
@@ -2899,6 +2900,7 @@ function GymlogApp() {
   const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
   const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
   const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
+  const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
 
   return (
     <AppShell
@@ -2910,10 +2912,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar

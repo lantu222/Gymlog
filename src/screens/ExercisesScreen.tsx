@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
-import { colors } from '../theme';
+import { HG } from '../lightTheme';
 import { ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
@@ -11,9 +11,16 @@ interface ExercisesScreenProps {
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
+  onAddToWorkout?: (item: ExerciseLibraryItem) => void;
 }
 
-export function ExercisesScreen({ items, trackedIds, onBack, onOpenExercise, onToggleTracked }: ExercisesScreenProps) {
+export function ExercisesScreen({
+  items,
+  trackedIds,
+  onOpenExercise,
+  onToggleTracked,
+  onAddToWorkout,
+}: ExercisesScreenProps) {
   return (
     <View style={styles.content}>
       <ExerciseLibraryBrowser
@@ -21,6 +28,7 @@ export function ExercisesScreen({ items, trackedIds, onBack, onOpenExercise, onT
         trackedIds={trackedIds}
         onOpenItem={onOpenExercise}
         onToggleTracked={onToggleTracked}
+        onAddToWorkout={onAddToWorkout}
       />
     </View>
   );
@@ -29,6 +37,6 @@ export function ExercisesScreen({ items, trackedIds, onBack, onOpenExercise, onT
 const styles = StyleSheet.create({
   content: {
     flex: 1,
-    backgroundColor: colors.background,
+    backgroundColor: HG.bg,
   },
 });
