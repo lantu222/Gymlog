@@ -444,26 +444,6 @@ export function ProfileScreen({
         <View style={styles.section}>
           <SectionLabel label="ACCOUNT" />
           <View style={styles.card}>
-            <View style={styles.accountRow}>
-              <AccountActionIcon path="M12 3v12M7 10l5 5 5-5M5 21h14" color={HG.faint} />
-              <View style={styles.accountCopy}>
-                <Text style={styles.accountLabel}>Export my data</Text>
-                <Text style={styles.accountSub}>Download a local copy.</Text>
-              </View>
-              <View style={styles.soonBadge}>
-                <Text style={styles.soonBadgeText}>Soon</Text>
-              </View>
-            </View>
-            <View style={styles.accountRow}>
-              <AccountActionIcon path="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z" color={HG.faint} />
-              <View style={styles.accountCopy}>
-                <Text style={styles.accountLabel}>Privacy</Text>
-                <Text style={styles.accountSub}>How your data is handled.</Text>
-              </View>
-              <View style={styles.soonBadge}>
-                <Text style={styles.soonBadgeText}>Soon</Text>
-              </View>
-            </View>
             <Pressable onPress={() => setResetVisible(true)} style={[styles.accountRow, styles.accountRowLast]}>
               <AccountActionIcon
                 path="M4 7h16M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"
@@ -962,18 +942,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
-  },
-  soonBadge: {
-    backgroundColor: HG.surfaceSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-  },
-  soonBadgeText: {
-    color: HG.faint,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.3,
   },
   versionText: {
     textAlign: 'center',
