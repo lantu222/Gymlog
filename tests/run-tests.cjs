@@ -22,6 +22,7 @@ const suites = [
   ...require('./lib/exerciseProgressForName.test.cjs'),
   ...require('./lib/lifetimeSummary.test.cjs'),
   ...require('./lib/premiumHeroChart.test.cjs'),
+  ...require('./lib/trainingRhythm.test.cjs'),
   ...require('./lib/progressionAnalyzer.test.cjs'),
   ...require('./lib/fatigueModel.test.cjs'),
   ...require('./lib/progressActivity.test.cjs'),
