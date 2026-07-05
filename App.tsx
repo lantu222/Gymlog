@@ -34,6 +34,7 @@ import {
 import { buildRecommendationPlanReadyPayload } from './src/lib/recommendationProgramme';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
+import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -1099,6 +1100,7 @@ function GymlogApp() {
   }, [navigationState.history.length, onboardingActive, route, workout]);
 
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
+  const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const homeActiveWorkoutSummary = useMemo(() => {
     if (!workout.activeSession) {
       return null;
@@ -2771,9 +2773,17 @@ function GymlogApp() {
     content = (
       <ProfileScreen
         preferences={preferences}
-        latestBodyweightKg={bodyweightProgress.latest?.weight ?? null}
+        lifetime={lifetimeSummary}
+        trackedProgress={trackedProgress}
+        exerciseLibrary={exerciseLibrary}
+        unitPreference={unitPreference}
         recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
         recommendedProgramDaysPerWeek={currentFitReadyTemplate?.daysPerWeek ?? recommendedReadyTemplate?.daysPerWeek ?? null}
+        planNextLabel={
+          homeSummary.nextWorkout?.workout
+            ? formatWorkoutDisplayLabel(homeSummary.nextWorkout.workout.name)
+            : null
+        }
         onUnitPreferenceChange={async (nextUnit) => {
           await setUnitPreference(nextUnit);
           showToast(`Units set to ${nextUnit}`);
@@ -2781,7 +2791,10 @@ function GymlogApp() {
         onPreferencesChange={async (patch) => {
           await updatePreferences(patch);
         }}
-        onOpenPlanSettings={handleOpenPlanSettings}
+        onManagePlan={handleOpenPlanSettings}
+        onEditTraining={handleOpenSetupEditor}
+        onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
+        onOpenPremium={handleOpenPremium}
         onOpenSettings={handleOpenProfileSettings}
         onResetAllData={async () => {
           await resetAllData();
@@ -2901,6 +2914,7 @@ function GymlogApp() {
   const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
   const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
   const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
+  const profileListActive = route.tab === 'profile' && route.screen === 'list';
 
   return (
     <AppShell
@@ -2912,10 +2926,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
