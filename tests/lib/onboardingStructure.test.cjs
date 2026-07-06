@@ -31,191 +31,70 @@ function getFunctionBody(name) {
 
 module.exports = [
   {
-    name: 'onboarding review step uses the final plan-ready structure',
+    name: 'onboarding review step uses the light plan-ready flow',
     run() {
       const reviewBody = getFunctionBody('renderReview');
+      const dayBody = getFunctionBody('renderPlanReadyDay');
+      const accountBody = getFunctionBody('renderPlanReadyAccount');
 
+      // Plan-ready is a three-view flow: overview -> day preview -> account gate.
+      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day' \| 'account'>\('overview'\)/);
+      assert.match(reviewBody, /if \(planReadyView === 'account'\) \{\s*return renderPlanReadyAccount\(\);/);
+      assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
+
+      // Overview: kicker, dynamic block title, meta line, gradient cover with stats.
       assert.match(reviewBody, /YOUR PLAN IS READY/);
-      assert.match(reviewBody, /Built around your goals, schedule and recovery\./);
-      assert.match(reviewBody, /YOUR WORKOUT PLAN/);
-      assert.match(reviewBody, /WHY THIS PLAN\?/);
-      assert.match(reviewBody, /PLAN OVERVIEW/);
-      assert.doesNotMatch(reviewBody, /YOUR WEEKLY OVERVIEW/);
-      assert.doesNotMatch(reviewBody, /WHAT TO EXPECT/);
-      assert.match(reviewBody, /planReadyCardShell/);
-      assert.match(reviewBody, /planReadyPlanCard/);
-      assert.match(reviewBody, /planReadyCardContent/);
-      assert.match(reviewBody, /planReadyHeroCard/);
-      assert.match(reviewBody, /planReadyHeroImage/);
-      assert.match(reviewBody, /PLAN_READY_GYM_BACKDROP_SOURCE/);
-      assert.match(reviewBody, /planReadyHeroGradient/);
-      assert.match(reviewBody, /planReadyHeroGradientTop/);
-      assert.match(reviewBody, /planReadyHeroGradientMiddle/);
-      assert.match(reviewBody, /planReadyHeroGradientBottom/);
-      assert.match(reviewBody, /planReadyHeroTextScrim/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroCharacterImage/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroChipRow/);
-      assert.match(reviewBody, /planReadyWeekPanel/);
-      assert.doesNotMatch(reviewBody, /planReadyWhyMiniCard/);
-      assert.doesNotMatch(reviewBody, /planReadyQuickDetail/);
-      assert.doesNotMatch(reviewBody, /FIRST ACTION/);
-      assert.doesNotMatch(reviewBody, /planReadyFirstWorkout\?\.guidance\.firstAction/);
-      assert.doesNotMatch(reviewBody, /planReadyInlineExerciseNames/);
-      assert.doesNotMatch(reviewBody, /planReadyDetailsButton/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroTitleDetailsButton/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroTitleDetailsText/);
-      assert.match(reviewBody, /planReadyFitSummaryPanel/);
-      assert.match(reviewBody, /planReadyFitReasons/);
-      assert.match(reviewBody, /planReadyOverviewCard/);
-      assert.match(reviewBody, /planReadyWorkoutSingleCard/);
-      assert.doesNotMatch(reviewBody, /planReadyBackButton/);
-      assert.doesNotMatch(reviewBody, /planReadyDetailsIconButton/);
-      assert.doesNotMatch(reviewBody, /planReadyInlineActions/);
-      assert.doesNotMatch(reviewBody, /planReadyUsePlanButton/);
-      assert.doesNotMatch(reviewBody, /Save plan & start/);
-      assert.doesNotMatch(reviewBody, /planReadyOtherPlansPeek/);
-      assert.doesNotMatch(reviewBody, /See other plans/);
-      assert.doesNotMatch(reviewBody, /planReadyOtherPlansLabel/);
-      assert.doesNotMatch(reviewBody, /planReadyOtherPlansPeekFoldLine/);
-      assert.doesNotMatch(reviewBody, /planReadyOtherPlansPeekArrow/);
-      assert.doesNotMatch(reviewBody, /planReadyOptionsMenu/);
-      assert.doesNotMatch(reviewBody, /Other plans/);
-      assert.doesNotMatch(reviewBody, /planReadyOptions\.map/);
-      assert.doesNotMatch(reviewBody, /planReadyOtherPlansRail/);
-      assert.doesNotMatch(reviewBody, /SEE OTHER PLANS/);
-      assert.match(reviewBody, /<GymlogIcon name="eye"/);
-      assert.doesNotMatch(reviewBody, /setSelectedPlanReadySessionId\(planReadyPrimarySessionId\)/);
-      assert.doesNotMatch(reviewBody, /onCompleteToStartingWeek\(selection, activeRecommendedProgramId\)/);
-      assert.match(onboardingSource, /if \(stage === 'review'\) \{[\s\S]*onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
+      assert.match(reviewBody, /\$\{planReadyWeeks\}-Week Progress Plan/);
+      assert.match(reviewBody, /BUILD · FOCUS · PROGRESS/);
+      assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), 'Workouts'\]/);
+      assert.match(reviewBody, /\[String\(planReadyWeeks\), 'Weeks'\]/);
+      assert.match(reviewBody, /\[String\(planReadyPerWeek\), 'Per week'\]/);
+      assert.match(reviewBody, /planReadyPayload\.fourWeekProgression\.map/);
+      assert.match(reviewBody, /planReadyWeekRows\.map/);
+      assert.match(reviewBody, /`Week \$\{row\.week\}`/);
+      assert.match(reviewBody, /`\$\{planReadyPerWeek\} workouts`/);
+
+      // Day view: day kicker/focus title, week badge, A/B/C tabs, numbered list.
+      assert.match(dayBody, /`DAY \$\{selectedIndex \+ 1\} OF \$\{dayCount\}`/);
+      assert.match(dayBody, /`\$\{dayFocus\} Focus`/);
+      assert.match(dayBody, /`Week 1 of \$\{planReadyWeeks\}`/);
+      assert.match(dayBody, /String\.fromCharCode\(65 \+ index\)/);
+      assert.match(dayBody, /setPlanReadyWorkoutPage\(tab\.index\)/);
+      assert.match(dayBody, /\? 'EXERCISE' : 'EXERCISES'/);
+      assert.match(dayBody, /String\(index \+ 1\)\.padStart\(2, '0'\)/);
+      assert.match(dayBody, /exercise\.setsLabel/);
+      assert.match(dayBody, /exercise\.repsLabel/);
+
+      // Account gate: save copy + three providers, all completing onboarding.
+      assert.match(accountBody, /Save your plan/);
+      assert.match(accountBody, /Continue with Google/);
+      assert.match(accountBody, /Continue with Apple/);
+      assert.match(accountBody, /Use email instead/);
+      assert.match(accountBody, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
+
+      // Footer drives the flow and hides on the account gate.
+      assert.match(onboardingSource, /if \(planReadyView === 'overview'\) \{[\s\S]*setPlanReadyView\('day'\)/);
+      assert.match(onboardingSource, /setPlanReadyView\('account'\)/);
+      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'account'\)/);
+      assert.match(onboardingSource, /\? 'Save plan & start'\s*: 'See day 1'/);
+
+      // App-side save truthfulness: persist the plan and activate it before
+      // landing on Home (no auto-started workout in the light flow).
       assert.match(appSource, /function waitForPlanSaveFeedback\(\)[\s\S]*setTimeout\(resolve, 3000\)/);
       assert.match(appSource, /function buildSavedOnboardingPlan\([\s\S]*buildRecommendationPlanReadyPayload\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)/);
-      assert.match(appSource, /handleOnboardingCompleteToTraining[\s\S]*waitForPlanSaveFeedback\(\)[\s\S]*persistSetupSelection\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)[\s\S]*workout\.startCustomWorkout\(runtimeSession, selection\.unitPreference\)/);
-      assert.match(appSource, /handleSetupCompleteToTraining[\s\S]*waitForPlanSaveFeedback\(\)[\s\S]*persistSetupSelection\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)[\s\S]*workout\.startCustomWorkout\(runtimeSession, selection\.unitPreference\)/);
-      const savePlanStartBody = appSource.slice(
-        appSource.indexOf('async function handleOnboardingCompleteToTraining'),
-        appSource.indexOf('async function handleOnboardingCompleteToProgramDetail'),
-      );
-      assert.doesNotMatch(savePlanStartBody, /openRecommendedProgramDetail\(recommendedProgramId\)/);
-      assert.doesNotMatch(appSource, /openStartingWeek\(recommendedProgramId, 'first_run'\)/);
-      assert.match(reviewBody, /minHeight: planReadyStageMinHeight/);
-      assert.doesNotMatch(reviewBody, /height: planReadyStageMinHeight/);
-      assert.doesNotMatch(reviewBody, /CALORIES/);
-      assert.doesNotMatch(reviewBody, /65%/);
-      assert.doesNotMatch(reviewBody, /bottomNav|BottomTab|bottom bar/i);
-      assert.doesNotMatch(reviewBody, /planReadyProgramCard/);
-      assert.doesNotMatch(reviewBody, /planReadyWeekCard/);
-      assert.doesNotMatch(reviewBody, /planReadyInsightPanel/);
-      assert.doesNotMatch(reviewBody, /FIRST WORKOUT/);
-      assert.doesNotMatch(onboardingSource, /buildRecommendationReasonLines/);
-      assert.doesNotMatch(onboardingSource, /getFallbackReasonCopy/);
-      assert.doesNotMatch(onboardingSource, /const recommendationReasonLines = useMemo/);
-      assert.doesNotMatch(onboardingSource, /const planReadyTargetReason = useMemo/);
-      assert.doesNotMatch(reviewBody, /recommendationReasonLines\[0\]/);
-      assert.doesNotMatch(reviewBody, /planReadyTargetReason \?\? recommendationReasonLines\[1\]/);
-      assert.doesNotMatch(reviewBody, /planReadyFallbackCopy/);
-      assert.doesNotMatch(reviewBody, /planReadyFirstWorkout/);
-      assert.doesNotMatch(reviewBody, /const planReadyPrimarySessionId/);
-      assert.doesNotMatch(reviewBody, /const planReadyHeroChips: Array<\{ label: string; icon: GymlogIconName \}> = \[/);
-      assert.match(onboardingSource, /buildSessionGuidance/);
-      assert.match(onboardingSource, /formatPlanReadyExercisePrescription/);
-      assert.match(onboardingSource, /formatPlanReadyExerciseRepTarget/);
-      assert.match(onboardingSource, /formatPlanReadyExerciseSetLabel/);
-      assert.match(onboardingSource, /formatPlanReadyExerciseRepLabel/);
-      assert.match(onboardingSource, /hiddenExerciseCount: Math\.max\(0, session\.exercises\.length - 5\)/);
-      assert.match(onboardingSource, /exercises: session\.exercises\.slice\(0, 5\)\.map/);
-      assert.match(onboardingSource, /compactPrescription: formatPlanReadyExerciseRepTarget\(exercise\)/);
-      assert.match(onboardingSource, /setsLabel: formatPlanReadyExerciseSetLabel\(exercise\)/);
-      assert.match(onboardingSource, /repsLabel: formatPlanReadyExerciseRepLabel\(exercise\)/);
-      assert.match(onboardingSource, /detailExercises: session\.exercises\.map/);
-      assert.doesNotMatch(onboardingSource, /const \[planReadyOptionsMenuOpen, setPlanReadyOptionsMenuOpen\] = useState\(false\)/);
-      assert.match(onboardingSource, /const \[selectedPlanReadySessionId, setSelectedPlanReadySessionId\] = useState<string \| null>\(null\)/);
-      assert.match(onboardingSource, /const selectedPlanReadySession = useMemo/);
-      assert.doesNotMatch(onboardingSource, /\.sort\(\(left, right\) => left\.orderIndex - right\.orderIndex\)\s*\n\s*\.slice\(0, 3\)/);
-      assert.match(onboardingSource, /selectedPlanReadySession\.guidance\.warmup/);
-      assert.match(onboardingSource, /MAIN FOCUS/);
-      assert.doesNotMatch(reviewBody, /KEY EXERCISES/);
-      assert.match(onboardingSource, /ALL EXERCISES/);
-      assert.match(onboardingSource, /PROGRESSION/);
-      assert.doesNotMatch(onboardingSource, /FIRST ACTION/);
-      assert.doesNotMatch(reviewBody, />View details</);
-      assert.match(reviewBody, /setSelectedPlanReadySessionId\(planReadyActiveWorkout\.sessionId\)/);
-      assert.match(reviewBody, /accessibilityLabel=\{`View \$\{planReadyActiveWorkout\.title\} details`\}/);
-      assert.match(reviewBody, /styles\.planReadyWorkoutDetailsButton/);
-      assert.match(reviewBody, /styles\.planReadyWorkoutHeaderActions/);
-      assert.doesNotMatch(reviewBody, /Hide details/);
-      assert.doesNotMatch(reviewBody, /expandedPlanReadySessionId === item\.sessionId/);
-      assert.doesNotMatch(reviewBody, /item\.detailExercises\.map/);
-      assert.match(onboardingSource, /<Modal\s+visible=\{Boolean\(selectedPlanReadySession\)\}/);
-      assert.match(onboardingSource, /selectedPlanReadySession\.detailExercises\.map/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailHero/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailCloseRail/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailCloseButton/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailIconSlot/);
-      assert.match(onboardingSource, /planReadyWorkoutExerciseIndexBubble/);
-      assert.match(onboardingSource, /selectedPlanReadySession\.detailExercises\.map\(\(exercise, index\) =>/);
-      assert.match(onboardingSource, /<GymlogIcon name="tempo" color="#B8FF6A"/);
-      assert.match(onboardingSource, /<GymlogIcon name="progress" color="#B8FF6A"/);
-      assert.match(onboardingSource, /<GymlogIcon name="strength" color="#B8FF6A"/);
-      assert.match(onboardingSource, /planReadyDetailSheet:\s*\{[\s\S]*height: '100%'/);
-      assert.match(onboardingSource, /planReadyDetailSheet:\s*\{[\s\S]*paddingTop: 14/);
-      assert.match(onboardingSource, /planReadyDetailSheet:\s*\{[\s\S]*backgroundColor: '#000000'/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailCloseRail:\s*\{[\s\S]*minHeight: 66/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailCloseRail:\s*\{[\s\S]*paddingTop: 30/);
-      assert.doesNotMatch(onboardingSource, /planReadyWorkoutDetailBackButton/);
-      assert.doesNotMatch(onboardingSource, /planReadyWorkoutDetailBackText/);
-      assert.doesNotMatch(onboardingSource, /planReadyWorkoutDetailCloseText/);
-      assert.ok(
-        onboardingSource.indexOf('style={styles.planReadyWorkoutDetailCloseRail}') <
-          onboardingSource.indexOf('style={styles.planReadyWorkoutDetailHero}'),
-        'workout detail close rail should render above the title hero',
-      );
-      assert.match(onboardingSource, /planReadyDetailScroll:\s*\{[\s\S]*flex: 1/);
-      assert.doesNotMatch(onboardingSource, /<ScrollView\s+style=\{styles\.planReadyDetailScroll\}/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailKicker:\s*\{[\s\S]*color: '#FFFFFF'/);
-      assert.match(onboardingSource, /planReadyWorkoutDetailBlock:\s*\{[\s\S]*backgroundColor: '#101010'/);
-      assert.match(onboardingSource, /planReadyWorkoutExerciseBlock:\s*\{[\s\S]*backgroundColor: '#101010'/);
-      assert.match(onboardingSource, /planReadyWorkoutExerciseRow:\s*\{[\s\S]*minHeight: 45/);
-      assert.doesNotMatch(onboardingSource, /<View style=\{styles\.sheetHeader\}>[\s\S]*Workout details/);
-      assert.match(onboardingSource, /setSelectedPlanReadySessionId\(null\)/);
-      assert.doesNotMatch(reviewBody, /planReadyFirstWorkout\.guidance\.warmup/);
-      assert.match(onboardingSource, /selectedPlanReadySession\.guidance\.warmup/);
-      assert.match(onboardingSource, /selectedPlanReadySession\.guidance\.mainFocus/);
-      assert.match(onboardingSource, /selectedPlanReadySession\.guidance\.progressionHint/);
-      assert.doesNotMatch(onboardingSource, /selectedPlanReadySession\.guidance\.firstAction/);
-      assert.doesNotMatch(reviewBody, /planReadyFirstWorkout\.exercises\.map/);
-      assert.doesNotMatch(reviewBody, /\.slice\(0, 2\)/);
-      assert.doesNotMatch(reviewBody, /recommendationOptionIds\s*\n\s*\.filter\(\(programId\) => programId !== activeRecommendedProgramId\)\s*\n\s*\.slice\(0, 2\)/);
-      assert.doesNotMatch(reviewBody, /selected: programId === activeRecommendedProgramId/);
-      assert.doesNotMatch(reviewBody, /getPlanReadyImageSource/);
-      assert.doesNotMatch(reviewBody, /getPlanReadyPreviewImageSource/);
-      assert.doesNotMatch(onboardingSource, /PLAN_READY_CHARACTER_ASSETS/);
-      assert.doesNotMatch(reviewBody, /step7-character-/);
-      assert.doesNotMatch(onboardingSource, /step7-preview-male-mass\.png/);
-      assert.doesNotMatch(onboardingSource, /step7-preview-female-athletic\.png/);
-      assert.doesNotMatch(onboardingSource, /function getPlanReadyImageGender/);
-      assert.doesNotMatch(reviewBody, /planReadyRecoverySummary/);
-      assert.match(reviewBody, /planReadyWeeklyOverviewRows\.map/);
-      assert.doesNotMatch(reviewBody, /planReadyWeeklyOverviewLegend/);
-      assert.doesNotMatch(reviewBody, /Training day/);
-      assert.doesNotMatch(reviewBody, /Recovery day/);
-      assert.doesNotMatch(reviewBody, /planReadyWorkoutDayMeta/);
-      assert.doesNotMatch(reviewBody, /planReadyWorkoutDayNumber/);
-      assert.doesNotMatch(reviewBody, /planReadyWorkoutDayName/);
-      assert.doesNotMatch(reviewBody, /REST \{restDayLabels\.join/);
-      assert.doesNotMatch(reviewBody, /planReadyWeekPanelDayPill/);
-      assert.doesNotMatch(reviewBody, /stepLabel: 'STEP 7'/);
-      assert.doesNotMatch(reviewBody, /renderOnboardingShell/);
-      assert.doesNotMatch(reviewBody, /styles\.stageBody/);
-      assert.match(onboardingSource, /const standaloneProgressHidden = locationStageActive \|\| stage === 'review'/);
-      assert.match(onboardingSource, /return 'tempo'/);
-      assert.match(onboardingSource, /return 'restDay'/);
-      assert.match(onboardingSource, /paddingBottom: spacing\.xxl \+ spacing\.xl \+ spacing\.lg/);
-      assert.match(onboardingSource, /const footerVisible = true/);
-      assert.match(onboardingSource, /stage === 'review' && styles\.planReadyFixedFooter/);
-      assert.match(onboardingSource, /stage === 'review' \? styles\.planReadyFooterUsePlanButton : styles\.primaryButton/);
-      assert.doesNotMatch(onboardingSource, /stage === 'review' \? styles\.secondaryTextLight : styles\.secondaryTextDark/);
-      assert.doesNotMatch(onboardingSource, /haystack\.includes\('tempo'\)\) \{\s*return 'chest'/);
-      assert.doesNotMatch(onboardingSource, /Easy Run Day/);
+      assert.match(appSource, /handleOnboardingCompleteToTraining[\s\S]*waitForPlanSaveFeedback\(\)[\s\S]*persistSetupSelection\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)[\s\S]*upsertWorkoutPlan\(activePlan\)[\s\S]*updatePreferences\(\{ activePlanId: activePlan\.id \}\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/);
+
+      // The removed dark plan-ready must stay gone.
+      assert.doesNotMatch(onboardingSource, /PLAN_READY_GYM_BACKDROP_SOURCE/);
+      assert.doesNotMatch(onboardingSource, /planReadyHeroGradient/);
+      assert.doesNotMatch(onboardingSource, /planReadyFitSummaryPanel/);
+      assert.doesNotMatch(onboardingSource, /planReadyDetailSheet/);
+      assert.doesNotMatch(onboardingSource, /planReadyProgramOverviewVisible/);
+      assert.doesNotMatch(onboardingSource, /VIEW FULL PROGRAM/);
+      assert.doesNotMatch(onboardingSource, /'SAVE PLAN & START'/);
+      assert.doesNotMatch(reviewBody, /WHY THIS PLAN\?/);
+      assert.doesNotMatch(reviewBody, /PLAN OVERVIEW/);
+      assert.doesNotMatch(reviewBody, /YOUR WORKOUT PLAN/);
     },
   },
   {
@@ -265,23 +144,24 @@ module.exports = [
 
       const aboutBody = getFunctionBody('renderAbout');
       assert.match(aboutBody, /const bodyweightGoalMode = getBodyweightGoalMode\(\[bodyweightGoal\]\)/);
-      assert.match(aboutBody, /Target weight/);
-      assert.match(aboutBody, /bodyweightGoalMode === 'required'/);
-      assert.match(aboutBody, /setTargetBodyweight/);
+
+      // Goal-aware clamping still bounds the target weight.
       assert.match(onboardingSource, /function getBodyweightTargetLimits\(current: number, unit: UnitPreference, goal: SetupGoal\)/);
       assert.match(onboardingSource, /function clampTargetBodyweightForGoal\(/);
       assert.match(onboardingSource, /goal === 'lean_athletic'[\s\S]*max: safeCurrent/);
       assert.match(onboardingSource, /goal === 'muscle'[\s\S]*min: safeCurrent/);
-      assert.match(aboutBody, /<BodyweightStepper[\s\S]*label="Current weight"/);
-      assert.match(aboutBody, /<BodyweightTargetSlider/);
-      assert.match(aboutBody, /const targetLimits = getBodyweightTargetLimits\(bodyweightPickerValue, unitPreference, bodyweightGoal\)/);
-      assert.match(aboutBody, /min=\{targetLimits\.min\}/);
-      assert.match(aboutBody, /max=\{targetLimits\.max\}/);
-      assert.doesNotMatch(aboutBody, /if \(targetWeightValue === null\)[\s\S]*setTargetBodyweight\(getDefaultTargetBodyweight\(bodyweightPickerValue, unitPreference, option\.id\)\)/);
-      assert.doesNotMatch(aboutBody, /<BodyweightPicker/);
+      assert.match(aboutBody, /clampTargetBodyweightForGoal\(/);
+      assert.match(aboutBody, /setTargetBodyweight/);
+
+      // Steppers replace the old target slider; the hint copy adapts by goal mode.
+      assert.match(aboutBody, /label=\{`Current Weight \(\$\{unitPreference\.toUpperCase\(\)\}\)`\}/);
+      assert.match(aboutBody, /label=\{`Goal Weight \(\$\{unitPreference\.toUpperCase\(\)\}\)`\}/);
+      assert.match(aboutBody, /bodyweightGoalMode === 'required'/);
+      assert.match(aboutBody, /'Set a target weight to stay on track\.'/);
+      assert.match(aboutBody, /'Only if you have a target in mind\.'/);
+      assert.doesNotMatch(aboutBody, /<BodyweightTargetSlider/);
       assert.match(onboardingSource, /function BodyweightStepper\(/);
       assert.match(onboardingSource, /<TextInput[\s\S]*keyboardType="decimal-pad"/);
-      assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{!scrollLockedStage\}/);
     },
@@ -342,15 +222,16 @@ module.exports = [
     },
   },
   {
-    name: 'onboarding step 2 uses the new Step 1-style primary-goal cards',
+    name: 'onboarding step 2 uses the light sentence-case primary-goal cards',
     run() {
       const goalBody = getFunctionBody('renderGoal');
 
       assert.match(goalBody, /stepLabel: 'STEP 2 OF 5'/);
-      assert.match(goalBody, /titleLines: \['WHAT DO YOU', 'WANT MOST\?'\]/);
+      assert.match(goalBody, /titleLines: \['What do you', 'want most\?'\]/);
       assert.match(goalBody, /We'll build your training around this\./);
-      assert.doesNotMatch(goalBody, /compactCards: true/);
+      assert.match(goalBody, /renderSplitSelectionStage\(\{/);
       assert.match(goalBody, /roomyCards: true/);
+      assert.doesNotMatch(goalBody, /compactCards: true/);
       assert.match(goalBody, /optionsContainerStyle: styles\.locationStepTwoOptionsShift/);
       assert.match(goalBody, /topPaneStyleOverride: styles\.locationEquipmentTopPane/);
       assert.match(goalBody, /titleStyleOverride: styles\.locationEquipmentHeadline/);
@@ -359,15 +240,11 @@ module.exports = [
       assert.match(onboardingSource, /title: 'Get stronger'/);
       assert.match(onboardingSource, /goal: 'lean_athletic'/);
       assert.match(onboardingSource, /goal: 'general_fitness'/);
-      assert.doesNotMatch(goalBody, /Running hybrid/);
-      assert.match(onboardingSource, /\{ label: 'Lower reps', tone: 'neutral' \}/);
-      assert.match(onboardingSource, /\{ label: 'Beginner friendly', tone: 'blue' \}/);
       assert.match(onboardingSource, /getLocationFocusBadgeStyle\(tag\.tone\)/);
       assert.match(onboardingSource, /getLocationFocusBadgeTextStyle\(tag\.tone\)/);
-      assert.match(onboardingSource, /locationChoiceTagRow/);
-      assert.match(onboardingSource, /locationChoiceCardRoomy:\s*\{[\s\S]*minHeight: 100/);
-      assert.match(onboardingSource, /locationStepTwoOptionsShift:\s*\{[\s\S]*translateY: 8/);
-      assert.doesNotMatch(goalBody, /WHAT IS YOUR/);
+      // Sentence case replaced the old shouty two-line headline.
+      assert.doesNotMatch(goalBody, /WHAT DO YOU/);
+      assert.doesNotMatch(goalBody, /WANT MOST\?/);
       assert.doesNotMatch(goalBody, /Pick one or more/);
     },
   },
@@ -407,67 +284,55 @@ module.exports = [
     },
   },
   {
-    name: 'onboarding step 4 uses focus area placeholder cards',
+    name: 'onboarding step 4 uses anatomy-highlight focus cards',
     run() {
       const planningBody = getFunctionBody('renderPlanning');
 
       assert.match(planningBody, /stepLabel: 'STEP 4 OF 5'/);
-      assert.match(planningBody, /titleLines: \['WHAT DO YOU', 'WANT TO FOCUS ON\?'\]/);
-      assert.match(planningBody, /Why focus areas\?/);
+      assert.match(planningBody, /titleLines: \['What do you', 'want to focus on\?'\]/);
       assert.match(planningBody, /FOCUS_AREA_OPTIONS\.filter\(\(option\) => option\.area !== 'mobility'\)/);
       assert.match(planningBody, /visibleFocusOptions\.slice\(0, 3\)/);
       assert.match(planningBody, /visibleFocusOptions\.slice\(6, 9\)/);
-      assert.match(planningBody, /focusAreaImageSlot/);
-      assert.match(planningBody, /FOCUS_AREA_CARD_ASSETS\[option\.area\]/);
-      assert.match(planningBody, /FOCUS_AREA_IMAGE_FRAMES\[option\.area\]/);
-      assert.match(planningBody, /resizeMode=\{imageFrameStyle \? 'contain' : 'cover'\}/);
-      assert.match(planningBody, /style=\{\[styles\.focusAreaImage, imageFrameStyle\]\}/);
+      assert.match(planningBody, /<FocusAreaBodyCard/);
+      assert.match(planningBody, /Why focus areas\?/);
       assert.match(planningBody, /This helps us build a program that prioritizes what matters most to you\./);
       assert.match(planningBody, /Pick 1-2 areas/);
-      assert.doesNotMatch(planningBody, /Select up to 2 areas/);
+
+      // Anatomy-highlight cards replace the old photo cards entirely.
+      assert.match(onboardingSource, /function FocusAreaBodyCard\(/);
+      assert.match(onboardingSource, /FOCUS_AREA_BODY_FRAMING\[option\.area\]/);
+      assert.match(onboardingSource, /accessibilityState=\{\{ selected: active \}\}/);
+      assert.doesNotMatch(onboardingSource, /FOCUS_AREA_CARD_ASSETS/);
+      assert.doesNotMatch(planningBody, /focusAreaImageSlot/);
+      assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
+      assert.match(onboardingSource, /current\.length >= 2/);
       assert.doesNotMatch(planningBody, /Upper Body/);
       assert.doesNotMatch(planningBody, /Lower Body/);
       assert.doesNotMatch(planningBody, /Performance/);
-      assert.doesNotMatch(planningBody, /TRAINING', 'DAYS/);
-      assert.doesNotMatch(planningBody, /\[2, 3, 4, 5, 6\]/);
-      assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
-      assert.match(onboardingSource, /focus-chest-anatomy-card\.png/);
-      assert.match(onboardingSource, /focus-abs-anatomy-card\.png/);
-      assert.match(onboardingSource, /focus-calves-anatomy-card\.png/);
-      assert.match(onboardingSource, /focus-mobility-anatomy-card\.png/);
-      assert.match(onboardingSource, /const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea\[\] = FOCUS_AREA_OPTIONS\.map/);
-      assert.match(onboardingSource, /current\.length >= 2/);
-      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 248/);
-      assert.match(onboardingSource, /focusAreaCard:\s*\{[\s\S]*height: 140/);
-      assert.match(onboardingSource, /focusAreaGridRow:\s*\{[\s\S]*gap: 6/);
-      assert.match(onboardingSource, /focusAreaCardTitle:\s*\{[\s\S]*fontSize: 14[\s\S]*lineHeight: 16/);
-      assert.match(onboardingSource, /focusAreaInfoBox:\s*\{[\s\S]*minHeight: 62/);
-      assert.match(onboardingSource, /backgroundColor: 'rgba\(198,139,255,0\.20\)'/);
-      assert.match(onboardingSource, /focusAreaCardActive:\s*\{[\s\S]*borderColor: '#FFFFFF'/);
     },
   },
   {
     name: 'launch splash waits on every app start and welcome copy is plan focused',
     run() {
       assert.match(appSource, /const \[minimumSplashElapsed, setMinimumSplashElapsed\] = useState\(false\)/);
-      assert.doesNotMatch(appSource, /if \(!firstAppOpen && !minimumSplashElapsed\)/);
       assert.match(appSource, /if \(!minimumSplashElapsed\) \{\s*return;\s*\}/);
       assert.doesNotMatch(appSource, /firstAppOpen/);
 
-      assert.match(welcomeSource, /Sinä menet salille/);
-      assert.match(welcomeSource, /Me hoidamme loput/);
-      assert.match(welcomeSource, /Aloita ilmaiseksi/);
-      assert.match(welcomeSource, /Minulla on jo tili/);
-      assert.match(welcomeSource, /brandNameWhite/);
-      assert.match(welcomeSource, /brandNamePurple/);
-      assert.match(welcomeSource, /#7F77DD/);
-      assert.match(welcomeSource, /#0f0f0f/);
-      assert.doesNotMatch(welcomeSource, /styles\.orbArcWrap/);
-      assert.doesNotMatch(welcomeSource, /strokeDasharray/);
-      assert.doesNotMatch(welcomeSource, /react-native-svg/);
-      assert.doesNotMatch(welcomeSource, /styles\.orbMark/);
+      // Light welcome: English plan-focused copy on the HG palette.
+      assert.match(welcomeSource, /You go to the gym\./);
+      assert.match(welcomeSource, /We handle the rest\./);
+      assert.match(welcomeSource, /Start free/);
+      assert.match(welcomeSource, /I already have an account/);
+      assert.match(welcomeSource, /const BG = '#F7F3FF'/);
+      assert.match(welcomeSource, /const PURPLE = '#7C3AED'/);
+      assert.match(welcomeSource, /logoInk/);
+      assert.match(welcomeSource, /logoPurple/);
+      assert.match(welcomeSource, /AI-built plans/);
+      assert.match(welcomeSource, /Recovery aware/);
+      assert.doesNotMatch(welcomeSource, /Sinä menet salille/);
+      assert.doesNotMatch(welcomeSource, /Aloita ilmaiseksi/);
       assert.doesNotMatch(welcomeSource, /GYMLOG/);
-      assert.doesNotMatch(welcomeSource, /Takes less than a minute to set up\./);
+      assert.doesNotMatch(welcomeSource, /#0f0f0f/);
     },
   },
   {
@@ -478,13 +343,14 @@ module.exports = [
         onboardingSource.indexOf('function PhotoSelectionCard'),
       );
 
-      assert.doesNotMatch(locationChoiceBody, /scale: progress\.interpolate/);
-      assert.doesNotMatch(locationChoiceBody, /outputRange: \[1, 1\.02\]/);
-      assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.38\) \+ 40\)/);
-      assert.match(onboardingSource, /styles\.locationTopPane,\s*\{ height: fixedTopPaneHeight \},\s*topPaneStyle/);
-      assert.doesNotMatch(onboardingSource, /topCopyStyle: styles\.locationTopCopyProfile/);
-      assert.match(onboardingSource, /bodyweightTopPane:\s*\{[\s\S]*height: 248/);
-      assert.match(onboardingSource, /focusTopPane:\s*\{[\s\S]*height: 246/);
+      // Selection highlight is a subtle scale (max 1.5%), never a layout jump.
+      assert.match(locationChoiceBody, /outputRange: \[1, 1\.015\]/);
+      assert.doesNotMatch(locationChoiceBody, /outputRange: \[1, 1\.1/);
+      assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.34\) \+ 34\)/);
+      assert.match(onboardingSource, /styles\.locationTopPane, \{ height: fixedTopPaneHeight \}, topPaneStyle/);
+      assert.match(onboardingSource, /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
+      assert.match(onboardingSource, /bodyweightTopPane:\s*\{[\s\S]*height: 214/);
+      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 206/);
       assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{!scrollLockedStage\}/);
@@ -493,12 +359,19 @@ module.exports = [
     },
   },
   {
-    name: 'plan-ready hero is black from header through program section',
+    name: 'plan-ready screens share the light onboarding palette',
     run() {
-      assert.match(onboardingSource, /planReadyStage:\s*\{\s*backgroundColor: '#050505'/);
-      assert.match(onboardingSource, /planReadyHeader:\s*\{[\s\S]*backgroundColor: '#000000'/);
-      assert.match(onboardingSource, /planReadyTitle:\s*\{[\s\S]*color: '#FFFFFF'/);
-      assert.match(onboardingSource, /planReadySubtitle:\s*\{[\s\S]*color: 'rgba\(255,255,255,0\.72\)'/);
+      assert.match(onboardingSource, /const ONBOARDING_PANEL = '#F7F3FF'/);
+      assert.match(onboardingSource, /const ONBOARDING_CARD = '#FFFFFF'/);
+      assert.match(onboardingSource, /const ONBOARDING_PRIMARY = '#7C3AED'/);
+      assert.match(onboardingSource, /const ONBOARDING_TEXT = '#101828'/);
+      // The old black plan-ready stage is gone.
+      assert.doesNotMatch(onboardingSource, /planReadyStage:\s*\{\s*backgroundColor: '#050505'/);
+      assert.doesNotMatch(onboardingSource, /planReadyHeader:/);
+      // Week rows are white cards; cover stats stay readable on the purple cover.
+      assert.match(onboardingSource, /planReadyOverviewWeekRow:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      assert.match(onboardingSource, /planReadyOverviewStatValue:\s*\{[\s\S]*color: '#FFFFFF'/);
+      assert.match(onboardingSource, /planReadyOverviewKicker:\s*\{[\s\S]*color: ONBOARDING_PRIMARY/);
     },
   },
   {
@@ -528,276 +401,32 @@ module.exports = [
     },
   },
   {
-    name: 'plan-ready summary matches the documented ready-plan reference',
+    name: 'plan-ready summary derives its numbers from the recommendation payload',
     run() {
       const reviewBody = getFunctionBody('renderReview');
-      const heroCardStyle = onboardingSource.slice(
-        onboardingSource.indexOf('planReadyHeroCard: {'),
-        onboardingSource.indexOf('planReadyHeroImage:', onboardingSource.indexOf('planReadyHeroCard: {')),
-      );
-      const heroImageStyle = onboardingSource.slice(
-        onboardingSource.indexOf('planReadyHeroImage: {'),
-        onboardingSource.indexOf('planReadyHeroImageStyle:', onboardingSource.indexOf('planReadyHeroImage: {')),
-      );
-      const weekPanelStyle = onboardingSource.slice(
-        onboardingSource.indexOf('planReadyWeekPanel: {'),
-        onboardingSource.indexOf('planReadyWeekPanelRow:', onboardingSource.indexOf('planReadyWeekPanel: {')),
-      );
-      const weekRowStyle = onboardingSource.slice(
-        onboardingSource.indexOf('planReadyWeekPanelRow: {'),
-        onboardingSource.indexOf('planReadyWeekPanelDay:', onboardingSource.indexOf('planReadyWeekPanelRow: {')),
-      );
-      const chipStyle = onboardingSource.slice(
-        onboardingSource.indexOf('planReadyHeroChip: {'),
-        onboardingSource.indexOf('planReadyHeroChipText:', onboardingSource.indexOf('planReadyHeroChip: {')),
-      );
-      const fitSummaryStyle = onboardingSource.slice(
-        onboardingSource.indexOf('planReadyFitSummaryPanel: {'),
-        onboardingSource.indexOf('planReadyFitReasons:', onboardingSource.indexOf('planReadyFitSummaryPanel: {')),
-      );
-      const expectationStyle = onboardingSource.slice(
-        onboardingSource.indexOf('planReadyExpectationPanel: {'),
-        onboardingSource.indexOf('planReadyExpectationHeader:', onboardingSource.indexOf('planReadyExpectationPanel: {')),
-      );
+      const dayBody = getFunctionBody('renderPlanReadyDay');
 
-      assert.match(reviewBody, /const trainingWeekRows = reviewWeekRows\.filter\(\(item\) => item\.training\)/);
-      assert.doesNotMatch(reviewBody, /const restDayLabels = reviewWeekRows/);
-      assert.match(reviewBody, /const maxPlanReadyWorkoutPage = Math\.max\(0, trainingWeekRows\.length - 1\)/);
-      assert.match(reviewBody, /const planReadyWorkoutPageStart = Math\.min\(planReadyWorkoutPage, maxPlanReadyWorkoutPage\)/);
-      assert.match(reviewBody, /const planReadyActiveWorkout = trainingWeekRows\[planReadyWorkoutPageStart\] \?\? null/);
-      assert.match(reviewBody, /const planReadyWorkoutCarouselVisible = trainingWeekRows\.length > 1/);
-      assert.match(reviewBody, /const planReadyWorkoutTabs = trainingWeekRows\.map/);
-      assert.match(reviewBody, /const planReadyWeeklyOverviewRows = reviewWeekRows\.map/);
-      assert.match(reviewBody, /const screenDimensions = Dimensions\.get\('window'\)/);
-      assert.match(reviewBody, /const compactPlanReady = screenDimensions\.width < 520/);
-      assert.match(reviewBody, /const planReadyFooterReserve = compactPlanReady \? 56 : 68/);
-      assert.match(reviewBody, /screenDimensions\.height - insets\.top - insets\.bottom - planReadyFooterReserve/);
-      assert.doesNotMatch(reviewBody, /planReadyPreviewRows\.map/);
-      assert.doesNotMatch(reviewBody, /trainingWeekRows\.slice\(planReadyWorkoutPageStart, planReadyWorkoutPageStart \+ 2\)/);
-      assert.doesNotMatch(reviewBody, /trainingWeekRows\.map\(\(item, index\) =>/);
-      assert.match(reviewBody, /YOUR PLAN IS READY/);
-      assert.match(reviewBody, /Minimal Full Body|programTitle/);
-      assert.match(reviewBody, /Built around your goals, schedule and recovery\./);
-      assert.match(reviewBody, /WHY THIS PLAN\?/);
-      assert.match(reviewBody, /PLAN OVERVIEW/);
-      assert.match(reviewBody, /YOUR WORKOUT PLAN/);
+      // Weeks / per-week / total workouts come from the payload with safe fallbacks.
+      assert.match(reviewBody, /const planReadyWeeks = planReadyPayload\.blockLengthWeeks > 0 \? planReadyPayload\.blockLengthWeeks : 4/);
+      assert.match(reviewBody, /planReadyPayload\.programDaysPerWeek[\s\S]*projectedDaysPerWeek[\s\S]*planReadyPayload\.requestedDaysPerWeek/);
+      assert.match(reviewBody, /const planReadyTotalWorkouts = planReadyWeeks \* planReadyPerWeek/);
+
+      // Meta line: goal / location / level / cadence, dot separated.
+      assert.match(reviewBody, /\[goalLabel, locationLabel, levelLabel, `\$\{planReadyPerWeek\} days \/ week`\]/);
+
+      // Week rows strip the "Week N:" prefix from progression labels.
+      assert.match(reviewBody, /phase\.label\.replace/);
+      assert.match(reviewBody, /planReadyPayload\.fourWeekProgression\.map/);
+
+      // Day view derives its focus and muscle groups from real session content.
+      assert.match(dayBody, /const focusOf = \(name: string, index: number\)/);
+      assert.match(dayBody, /normalized\.includes\('full'\)/);
+      assert.match(dayBody, /const groupOf = \(name: string\)/);
+      assert.match(dayBody, /projectedSessions/);
+      assert.match(dayBody, /selectedSession\?\.guidance\?\.estimatedDuration/);
       assert.match(onboardingSource, /const \[planReadyWorkoutPage, setPlanReadyWorkoutPage\] = useState\(0\)/);
-      assert.match(onboardingSource, /useEffect\(\(\) => \{[\s\S]*setPlanReadyWorkoutPage\(0\)[\s\S]*\}, \[activeRecommendedProgramId\]\)/);
-      assert.match(reviewBody, /planReadyWorkoutCarouselVisible \? \(/);
-      assert.match(reviewBody, /styles\.planReadyWorkoutCarouselBar/);
-      assert.match(reviewBody, /styles\.planReadyWorkoutCarouselTabs/);
-      assert.match(reviewBody, /planReadyWorkoutTabs\.map/);
-      assert.match(reviewBody, /styles\.planReadyWorkoutCarouselTabActive/);
-      assert.doesNotMatch(reviewBody, /accessibilityLabel="Previous workouts"/);
-      assert.doesNotMatch(reviewBody, /accessibilityLabel="Next workouts"/);
-      assert.match(reviewBody, /accessibilityLabel=\{`Show \$\{tab\.label\}`\}/);
-      assert.match(reviewBody, /accessibilityState=\{\{ selected: active \}\}/);
-      assert.doesNotMatch(reviewBody, /setPlanReadyWorkoutPage\(\(current\) => Math\.max\(0, current - 1\)\)/);
-      assert.doesNotMatch(reviewBody, /setPlanReadyWorkoutPage\(\(current\) => Math\.min\(maxPlanReadyWorkoutPage, current \+ 1\)\)/);
-      assert.match(reviewBody, /setPlanReadyWorkoutPage\(Math\.min\(tab\.index, maxPlanReadyWorkoutPage\)\)/);
-      assert.doesNotMatch(reviewBody, /YOUR WEEKLY OVERVIEW/);
-      assert.doesNotMatch(reviewBody, /planReadyRecoverySummary/);
-      assert.doesNotMatch(reviewBody, /planReadyWeeklyOverviewLegend/);
-      assert.doesNotMatch(reviewBody, /Training day/);
-      assert.doesNotMatch(reviewBody, /Recovery day/);
-      assert.doesNotMatch(reviewBody, /WHAT TO EXPECT/);
-      assert.ok(
-        reviewBody.indexOf('styles.planReadyWeeklyOverview') < reviewBody.indexOf('YOUR WORKOUT PLAN') &&
-          reviewBody.indexOf('YOUR WORKOUT PLAN') < reviewBody.indexOf('styles.planReadyFitSummaryPanel'),
-        'weekly overview, workout cards, and plan reason panel should render in that order',
-      );
-      assert.match(onboardingSource, /stage === 'review'[\s\S]*'SAVE PLAN & START'/);
-      assert.doesNotMatch(reviewBody, /Day \{index \+ 1\}/);
-      assert.doesNotMatch(reviewBody, /planReadyWorkoutDayNumber/);
-      assert.doesNotMatch(reviewBody, /planReadyWorkoutDayName/);
-      assert.match(reviewBody, /planReadyActiveWorkout \? \(/);
-      assert.match(reviewBody, /planReadyWorkoutDayCard/);
-      assert.match(reviewBody, /planReadyWorkoutSingleCard/);
-      assert.match(reviewBody, /planReadyWorkoutTitleBlock/);
-      assert.match(reviewBody, /numberOfLines=\{1\}>\{planReadyActiveWorkout\.title\}/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyHeroImageCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyHeroCopyCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyHeroTitleCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyHeroBodyCompact/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroChipRow/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroChips\.map/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyCardContentCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyFitSummaryPanelCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyOverviewCardCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWorkoutDayCardCompact/);
-      assert.ok(
-        reviewBody.indexOf('compactPlanReady && styles.planReadyWeekPanelRowCompact') <
-          reviewBody.indexOf('compactPlanReady && styles.planReadyWorkoutDayCardCompact'),
-        'base compact row style should be applied before the taller workout card compact style',
-      );
-      assert.match(reviewBody, /styles\.planReadyWorkoutDayHeaderCompact/);
-      assert.match(reviewBody, /styles\.planReadyWorkoutCardMetaRowCompact/);
-      assert.doesNotMatch(reviewBody, /styles\.planReadyWorkoutDayMetaCompact/);
-      assert.match(reviewBody, /styles\.planReadyWeekPanelTitleCompact/);
-      assert.match(reviewBody, /styles\.planReadyWeekPanelDurationCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWorkoutInlineExerciseRowCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWorkoutInlineExerciseNameCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWorkoutInlineExerciseListCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWorkoutInlineExerciseTargetsCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWorkoutMoreExercisesCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWeeklyOverviewCompact/);
-      assert.doesNotMatch(reviewBody, /compactPlanReady && styles\.planReadyWeeklyOverviewHeaderCompact/);
-      assert.doesNotMatch(reviewBody, /compactPlanReady && styles\.planReadyWeeklyOverviewTitleCompact/);
-      assert.doesNotMatch(reviewBody, /compactPlanReady && styles\.planReadyWeeklyOverviewSummaryCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWeeklyOverviewDayCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWeeklyOverviewDotCompact/);
-      assert.doesNotMatch(reviewBody, /planReadyInlineActions/);
-      assert.doesNotMatch(reviewBody, /planReadyUsePlanButton/);
-      assert.doesNotMatch(reviewBody, /compactPlanReady && styles\.planReadyOtherPlansLabelCompact/);
-      assert.match(reviewBody, /compactPlanReady && styles\.planReadyWeekPanelRowCompact/);
-      assert.match(reviewBody, /planReadyWorkoutFocusChip/);
-      assert.match(reviewBody, /planReadyActiveWorkout\.exercises\.map/);
-      assert.match(reviewBody, /exercise\.setsLabel/);
-      assert.match(reviewBody, /exercise\.repsLabel/);
-      assert.match(reviewBody, /planReadyActiveWorkout\.hiddenExerciseCount > 0/);
-      assert.doesNotMatch(reviewBody, /size=\{compactPlanReady \? 9 : 14\}/);
-      assert.match(reviewBody, /planReadyWeeklyOverviewRows\.map/);
-      assert.match(reviewBody, /item\.training \? 'Train' : 'Recover'/);
       assert.match(onboardingSource, /buildRecommendationPlanReadyPayload/);
-      assert.doesNotMatch(reviewBody, /planReadyPayload\.starterNote/);
-      assert.doesNotMatch(onboardingSource, /planReadyStarterNote/);
-      assert.doesNotMatch(onboardingSource, /Your 4-week starter plan begins with this first week/);
-      assert.match(reviewBody, /planReadyPayload\.weeklySchedule/);
-      assert.match(reviewBody, /scheduleDay\.source === 'template'/);
-      assert.doesNotMatch(reviewBody, /const sessionIndex = projectedRhythm\.findIndex/);
-      assert.match(reviewBody, /planReadyPayload\.whyThisPlan/);
-      assert.match(reviewBody, /planReadyPayload\.planOverview/);
-      assert.match(reviewBody, /planReadyFitReasons\.map/);
-      assert.match(reviewBody, /planReadyOverviewRows\.map/);
-      assert.doesNotMatch(reviewBody, /planReadyExpectationItems\.map/);
-      assert.doesNotMatch(reviewBody, /Track & adjust/);
-      assert.doesNotMatch(reviewBody, /Recovery focused/);
-      assert.doesNotMatch(reviewBody, /planReadyWeekPanelRest/);
-      assert.doesNotMatch(reviewBody, /restDayLabels\.join\(', '\)/);
-      assert.doesNotMatch(reviewBody, /Progressive overload/);
-      assert.match(reviewBody, /planReadyOverviewIcons: GymlogIconName\[\] = \['strength', 'tempo', 'progress', 'recovery'\]/);
-      assert.doesNotMatch(reviewBody, /key=\{chip\.label\}/);
-      assert.doesNotMatch(reviewBody, /<GymlogIcon name=\{chip\.icon\}/);
-      assert.match(heroCardStyle, /backgroundColor: 'transparent'/);
-      assert.match(heroCardStyle, /overflow: 'hidden'/);
-      assert.match(heroCardStyle, /position: 'absolute'/);
-      assert.match(heroCardStyle, /height: 190/);
-      assert.match(heroCardStyle, /marginHorizontal: 0/);
-      assert.match(heroCardStyle, /borderRadius: 0/);
-      assert.match(onboardingSource, /planReadyStage:\s*\{[\s\S]*paddingHorizontal: 0/);
-      assert.match(onboardingSource, /planReadyPlanCard:\s*\{[\s\S]*borderWidth: 0/);
-      assert.match(onboardingSource, /planReadyPlanCard:\s*\{[\s\S]*borderRadius: 0/);
-      assert.match(onboardingSource, /planReadyCardShell:\s*\{[\s\S]*flexDirection: 'row'/);
-      assert.match(heroImageStyle, /minHeight: 312/);
-      assert.match(onboardingSource, /PLAN_READY_GYM_BACKDROP_SOURCE = require\('\.\.\/\.\.\/assets\/fitness\/selected\/plan-ready-empty-gym-backdrop-bw\.jpg'\)/);
-      assert.doesNotMatch(onboardingSource, /PLAN_READY_GYM_BACKDROP_SOURCE = require\('\.\.\/\.\.\/assets\/fitness\/selected\/plan-ready-gym-backdrop-bw\.jpg'\)/);
-      assert.match(onboardingSource, /planReadyHeroImageStyle:\s*\{[\s\S]*opacity: 0\.9/);
-      assert.match(onboardingSource, /planReadyHeroImageStyle:\s*\{[\s\S]*transform: \[\{ scaleX: 1\.06 \}, \{ scaleY: 1\.12 \}, \{ translateX: 12 \}\]/);
-      assert.match(onboardingSource, /planReadyHeroGradientTop:\s*\{[\s\S]*backgroundColor: 'rgba\(0,0,0,0\.75\)'/);
-      assert.match(onboardingSource, /planReadyHeroGradientMiddle:\s*\{[\s\S]*backgroundColor: 'rgba\(0,0,0,0\.45\)'/);
-      assert.match(onboardingSource, /planReadyHeroGradientBottom:\s*\{[\s\S]*backgroundColor: 'rgba\(0,0,0,0\.90\)'/);
-      assert.doesNotMatch(onboardingSource, /planReadyHeroTopRow:\s*\{/);
-      assert.match(onboardingSource, /planReadyHeroTextScrim:\s*\{[\s\S]*backgroundColor: 'rgba\(0,0,0,0\.24\)'/);
-      assert.match(onboardingSource, /planReadyHeroCopy:\s*\{[\s\S]*marginTop: 108/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroTitleDetailsButton/);
-      assert.doesNotMatch(reviewBody, /planReadyHeroTitleDetailsText/);
-      assert.match(onboardingSource, /planReadyHeroKicker:\s*\{[\s\S]*color: 'rgba\(255,255,255,0\.58\)'/);
-      assert.match(onboardingSource, /planReadyHeroKicker:\s*\{[\s\S]*fontSize: 17/);
-      assert.match(onboardingSource, /planReadyHeroBody:\s*\{[\s\S]*color: 'rgba\(255,255,255,0\.72\)'/);
-      assert.match(onboardingSource, /planReadyHeroBody:\s*\{[\s\S]*fontSize: 27/);
-      assert.match(onboardingSource, /paddingBottom: \(footerVisible \? spacing\.xxl : spacing\.xl\) \+ insets\.bottom/);
-      assert.match(onboardingSource, /planReadyHeroImageCompact:\s*\{[\s\S]*minHeight: 190/);
-      assert.match(onboardingSource, /planReadyHeroCopyCompact:\s*\{[\s\S]*marginTop: 26/);
-      assert.match(onboardingSource, /planReadyHeroTitleCompact:\s*\{[\s\S]*fontSize: 28/);
-      assert.match(onboardingSource, /planReadyHeroTitleCompact:\s*\{[\s\S]*lineHeight: 31/);
-      assert.match(onboardingSource, /planReadyHeroBodyCompact:\s*\{[\s\S]*fontSize: 13/);
-      assert.match(onboardingSource, /planReadyHeroBodyCompact:\s*\{[\s\S]*lineHeight: 17/);
-      assert.match(onboardingSource, /planReadyHeroBodyCompact:\s*\{[\s\S]*maxWidth: '88%'/);
-      assert.match(onboardingSource, /planReadyCardContentCompact:\s*\{[\s\S]*gap: 8/);
-      assert.match(onboardingSource, /scrollLockedStage =[\s\S]*stage === 'review'/);
-      assert.match(onboardingSource, /planReadyCardContentCompact:\s*\{[\s\S]*paddingTop: 144/);
-      assert.match(onboardingSource, /planReadyCardContentCompact:\s*\{[\s\S]*backgroundColor: 'transparent'/);
-      assert.match(onboardingSource, /planReadyCardContentCompact:\s*\{[\s\S]*paddingBottom: 6/);
-      assert.match(weekPanelStyle, /backgroundColor: 'transparent'/);
-      assert.match(weekPanelStyle, /borderWidth: 0/);
-      assert.match(weekRowStyle, /backgroundColor: 'rgba\(255,255,255,0\.05\)'/);
-      assert.match(weekRowStyle, /borderRadius: radii\.sm/);
-      assert.match(fitSummaryStyle, /borderRadius: 22/);
-      assert.match(fitSummaryStyle, /backgroundColor: 'rgba\(255,255,255,0\.04\)'/);
-      assert.match(reviewBody, /size=\{compactPlanReady \? 12 : 18\}/);
-      assert.match(reviewBody, /size=\{compactPlanReady \? 13 : 18\}/);
-      assert.match(onboardingSource, /planReadyFitSummaryPanelCompact:\s*\{[\s\S]*flexDirection: 'row'/);
-      assert.match(onboardingSource, /planReadyFitSummaryPanelCompact:\s*\{[\s\S]*gap: 10/);
-      assert.match(onboardingSource, /planReadyFitSummaryPanelCompact:\s*\{[\s\S]*padding: 14/);
-      assert.match(onboardingSource, /planReadyFitSummaryPanelCompact:\s*\{[\s\S]*minHeight: 132/);
-      assert.match(onboardingSource, /planReadyFitReasonsCompact:\s*\{[\s\S]*gap: 8/);
-      assert.match(onboardingSource, /planReadyFitReasonRowCompact:\s*\{[\s\S]*gap: 7/);
-      assert.match(onboardingSource, /planReadyFitReasonTextCompact:\s*\{[\s\S]*fontSize: 11\.5/);
-      assert.match(onboardingSource, /planReadyFitSectionTitleCompact:\s*\{[\s\S]*maxWidth: '100%'/);
-      assert.match(onboardingSource, /planReadyFitSectionTitleCompact:\s*\{[\s\S]*fontSize: 12/);
-      assert.match(onboardingSource, /planReadyOverviewCardCompact:\s*\{[\s\S]*width: '48%'/);
-      assert.match(onboardingSource, /planReadyOverviewCardCompact:\s*\{[\s\S]*minWidth: 0/);
-      assert.match(onboardingSource, /planReadyOverviewCardCompact:\s*\{[\s\S]*paddingHorizontal: 12/);
-      assert.match(onboardingSource, /planReadyOverviewCardCompact:\s*\{[\s\S]*paddingVertical: 12/);
-      assert.match(onboardingSource, /planReadyOverviewTitleCompact:\s*\{[\s\S]*fontSize: 12/);
-      assert.match(onboardingSource, /planReadyOverviewTextCompact:\s*\{[\s\S]*fontSize: 11\.5/);
-      assert.match(onboardingSource, /planReadyWorkoutSingleCard:\s*\{[\s\S]*width: '100%'/);
-      assert.match(onboardingSource, /planReadyWorkoutSectionHeader:\s*\{[\s\S]*flexDirection: 'row'/);
-      assert.match(onboardingSource, /planReadyWorkoutCarouselBar:\s*\{[\s\S]*borderRadius: 18/);
-      assert.match(onboardingSource, /planReadyWorkoutCarouselBar:\s*\{[\s\S]*backgroundColor: 'rgba\(255,255,255,0\.08\)'/);
-      assert.doesNotMatch(onboardingSource, /planReadyWorkoutCarouselButton:\s*\{/);
-      assert.match(onboardingSource, /planReadyWorkoutCarouselTabs:\s*\{[\s\S]*flex: 1/);
-      assert.match(onboardingSource, /planReadyWorkoutCarouselTabActive:\s*\{[\s\S]*backgroundColor: 'rgba\(198,139,255,0\.82\)'/);
-      assert.doesNotMatch(onboardingSource, /planReadyWorkoutDayCardCompact:\s*\{[\s\S]*flexBasis: 0/);
-      assert.match(onboardingSource, /planReadyWorkoutDayCardCompact:\s*\{[\s\S]*flexGrow: 0/);
-      assert.match(onboardingSource, /planReadyWorkoutDayCardCompact:\s*\{[\s\S]*flexShrink: 0/);
-      assert.match(onboardingSource, /planReadyWorkoutDayCardCompact:\s*\{[\s\S]*minWidth: 0/);
-      assert.match(onboardingSource, /planReadyWorkoutDayCardCompact:\s*\{[\s\S]*paddingHorizontal: 12/);
-      assert.match(onboardingSource, /planReadyWorkoutDayCardCompact:\s*\{[\s\S]*minHeight: 286/);
-      assert.match(onboardingSource, /planReadyWorkoutDayHeaderCompact:\s*\{[\s\S]*flexDirection: 'column'/);
-      assert.match(onboardingSource, /planReadyWorkoutDayHeaderCompact:\s*\{[\s\S]*gap: 9/);
-      assert.match(onboardingSource, /planReadyWorkoutCardMetaRowCompact:\s*\{[\s\S]*justifyContent: 'space-between'/);
-      assert.match(onboardingSource, /planReadyWeekPanelTitleCompact:\s*\{[\s\S]*fontSize: 23/);
-      assert.match(onboardingSource, /planReadyWeekPanelTitleCompact:\s*\{[\s\S]*maxWidth: '68%'/);
-      assert.match(onboardingSource, /numberOfLines=\{1\}>\{planReadyActiveWorkout\.title\}/);
-      assert.match(onboardingSource, /planReadyWeekPanelDurationCompact:\s*\{[\s\S]*fontSize: 12/);
-      assert.match(onboardingSource, /planReadyWorkoutInlineExerciseRowCompact:\s*\{[\s\S]*minHeight: 35/);
-      assert.match(onboardingSource, /planReadyWorkoutInlineExerciseListCompact:\s*\{[\s\S]*flexGrow: 0/);
-      assert.match(onboardingSource, /planReadyWorkoutInlineExerciseListCompact:\s*\{[\s\S]*justifyContent: 'flex-start'/);
-      assert.match(onboardingSource, /planReadyWorkoutInlineExerciseNameCompact:\s*\{[\s\S]*fontSize: 12/);
-      assert.match(onboardingSource, /planReadyWorkoutInlineExerciseTargets:\s*\{[\s\S]*flexDirection: 'row'/);
-      assert.match(onboardingSource, /planReadyWorkoutInlineExerciseTargetsCompact:\s*\{[\s\S]*minWidth: 122/);
-      assert.match(onboardingSource, /planReadyWorkoutInlineExerciseTargetCompact:\s*\{[\s\S]*fontSize: 12/);
-      assert.match(onboardingSource, /planReadyWorkoutMoreExercisesCompact:\s*\{[\s\S]*fontSize: 11/);
-      assert.doesNotMatch(onboardingSource, /planReadyOtherPlansPeekCompact:\s*\{/);
-      assert.doesNotMatch(onboardingSource, /planReadyOtherPlansLabelCompact:\s*\{/);
-      assert.match(onboardingSource, /planReadyWeekPanelRowCompact:\s*\{[\s\S]*minHeight: 0/);
-      assert.match(onboardingSource, /planReadyWeekPanelTitleRowCompact:\s*\{[\s\S]*alignItems: 'center'/);
-      assert.match(onboardingSource, /planReadyWorkoutTitleBlockCompact:\s*\{[\s\S]*gap: 5/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewCompact:\s*\{[\s\S]*paddingHorizontal: 10/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewCompact:\s*\{[\s\S]*paddingVertical: 10/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewCompact:\s*\{[\s\S]*marginBottom: 8/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewCompact:\s*\{[\s\S]*borderColor: 'rgba\(198,139,255,0\.72\)'/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewCompact:\s*\{[\s\S]*backgroundColor: 'rgba\(198,139,255,0\.12\)'/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewDayCompact:\s*\{[\s\S]*gap: 4/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewDotCompact:\s*\{[\s\S]*width: 18/);
-      assert.doesNotMatch(reviewBody, /planReadyExpectationPanel/);
-      assert.match(onboardingSource, /planReadyCardContent:\s*\{[\s\S]*flex: 1/);
-      assert.match(onboardingSource, /planReadyCardContent:\s*\{[\s\S]*paddingBottom: spacing\.xl/);
-      assert.match(onboardingSource, /planReadyFixedFooter:\s*\{[\s\S]*backgroundColor: '#000000'/);
-      assert.match(onboardingSource, /planReadyFixedFooter:\s*\{[\s\S]*borderTopWidth: 0/);
-      assert.match(onboardingSource, /planReadyFooterUsePlanButton:\s*\{[\s\S]*minHeight: 44/);
-      assert.match(onboardingSource, /planReadyFooterUsePlanButton:\s*\{[\s\S]*maxWidth: 360/);
-      assert.match(onboardingSource, /planReadyFooterUsePlanButton:\s*\{[\s\S]*backgroundColor: '#B8FF6A'/);
-      assert.match(onboardingSource, /planReadyWeeklyOverviewDay:\s*\{[\s\S]*gap: 8/);
-      assert.match(onboardingSource, /planReadyHeroChipRow:\s*\{[\s\S]*flexDirection: 'row'/);
-      assert.match(onboardingSource, /planReadyHeroChipRow:\s*\{[\s\S]*flexWrap: 'wrap'/);
-      assert.match(onboardingSource, /planReadyHeroChip:\s*\{[\s\S]*flexDirection: 'row'/);
-      assert.match(onboardingSource, /planReadyHeroChipIcon/);
-      assert.doesNotMatch(reviewBody, /recommendationConfidenceCopy\.title/);
-      assert.doesNotMatch(reviewBody, /planReadyPrimaryReason/);
       assert.match(iconSource, /\| 'eye'/);
-      assert.match(iconSource, /case 'eye':/);
     },
   },
 ];

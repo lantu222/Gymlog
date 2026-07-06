@@ -134,7 +134,8 @@ module.exports = [
       });
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_strength_base_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_3_day_upper_lower_lite_v1');
+      // Same-cadence secondary now comes from the gainer catalog (3-day 5x5).
+      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_strength_5x5_v1');
     },
   },
   {
@@ -179,13 +180,13 @@ module.exports = [
         unitPreference: 'kg',
       });
 
-      assert.equal(recommendation.featuredProgramId, 'tpl_2_day_minimal_full_body_v1');
+      assert.equal(recommendation.featuredProgramId, 'tpl_gainer_at_home_beginner_v1');
       assert.ok(recommendation.mismatchNote);
       assert.match(recommendation.mismatchNote, /lighter equipment/i);
     },
   },
   {
-    name: 'first-run setup recommends run and mobility with yoga as the secondary 4-day option',
+    name: 'first-run setup recommends run and mobility with a conditioning secondary for the 4-day option',
     run() {
       const recommendation = resolveFirstRunRecommendation({
         goal: 'run_mobility',
@@ -199,7 +200,7 @@ module.exports = [
       });
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_run_mobility_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_2_day_yoga_recovery_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_fat_burn_hiit_v1');
       assert.match(recommendation.mismatchNote, /closest match/i);
     },
   },
@@ -457,7 +458,7 @@ module.exports = [
             daysPerWeek: 4,
             equipment: 'home',
           }),
-          expectedPrograms: ['tpl_2_day_minimal_full_body_v1'],
+          expectedPrograms: ['tpl_gainer_at_home_beginner_v1'],
           expectedReason: /home setup/i,
           expectedExplanation: /closest low-equipment starting point/i,
         },
@@ -565,7 +566,7 @@ module.exports = [
       const { recommendation, reasons, projectedDays } = evaluateHighPriorityScenario(selection);
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_strength_base_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_3_day_upper_lower_lite_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_strength_5x5_v1');
       assert.deepEqual(projectedDays, ['mon', 'wed', 'fri']);
       assert.match(reasons.join(' '), /3 days for strength/i);
       assert.match(reasons.join(' '), /heavy compounds/i);
@@ -626,7 +627,7 @@ module.exports = [
       const { recommendation, reasons, projectedDays } = evaluateHighPriorityScenario(selection);
 
       assert.equal(recommendation.featuredProgramId, 'tpl_5_day_hybrid_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_4_day_muscle_builder_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_dream_body_female_v1');
       assert.deepEqual(projectedDays, ['mon', 'tue', 'thu', 'fri', 'sat']);
       assert.match(reasons.join(' '), /5 days for muscle gain/i);
       assert.match(reasons.join(' '), /80 kg to 90 kg gain target/i);
@@ -663,9 +664,9 @@ module.exports = [
       });
       const { recommendation, reasons, projectedDays, projectedDaysPerWeek } = evaluateHighPriorityScenario(selection);
 
-      assert.equal(recommendation.featuredProgramId, 'tpl_2_day_minimal_full_body_v1');
-      assert.equal(projectedDaysPerWeek, 2);
-      assert.deepEqual(projectedDays, ['mon', 'thu']);
+      assert.equal(recommendation.featuredProgramId, 'tpl_gainer_at_home_beginner_v1');
+      assert.equal(projectedDaysPerWeek, 3);
+      assert.deepEqual(projectedDays, ['mon', 'wed', 'fri']);
       assert.match(reasons.join(' '), /home setup/i);
       assert.match(reasons.join(' '), /closest low-equipment starting point/i);
       assert.equal(
@@ -691,7 +692,7 @@ module.exports = [
       const { recommendation, reasons, projectedDays, projectedDaysPerWeek } = evaluateHighPriorityScenario(selection);
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_run_mobility_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_2_day_yoga_recovery_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_fat_burn_hiit_v1');
       assert.equal(projectedDaysPerWeek, 3);
       assert.deepEqual(projectedDays, ['mon', 'wed', 'fri']);
       assert.match(reasons.join(' '), /3 days for run \+ mobility/i);

@@ -569,16 +569,6 @@ function FocusAreaBodyCard({
   );
 }
 
-const PLAN_READY_GYM_BACKDROP_SOURCE = require('../../assets/fitness/selected/plan-ready-empty-gym-backdrop-bw.jpg');
-const PLAN_READY_UPPER_WORKOUT_SOURCE = require('../../assets/fitness/selected/upper-focus-background.png');
-const PLAN_READY_LOWER_WORKOUT_SOURCE = require('../../assets/fitness/selected/lower-focus-background.png');
-const PLAN_READY_FULL_BODY_WORKOUT_SOURCE = require('../../assets/fitness/selected/full-body-focus-background.png');
-const PLAN_READY_PROGRAM_OVERVIEW_HERO_SOURCE = require('../../assets/fitness/selected/progress-plan-purple-hero.png');
-const PLAN_READY_WORKOUT_ROW_SOURCES: Record<string, ImageSourcePropType> = {
-  Upper: PLAN_READY_UPPER_WORKOUT_SOURCE,
-  Lower: PLAN_READY_LOWER_WORKOUT_SOURCE,
-  'Full Body': PLAN_READY_FULL_BODY_WORKOUT_SOURCE,
-};
 const WEEKDAY_OPTIONS: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const LOCATION_SELECTION_OPTIONS: Array<{
   id: LocationSelectionOptionId;
