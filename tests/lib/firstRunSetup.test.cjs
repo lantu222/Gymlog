@@ -202,6 +202,8 @@ module.exports = [
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_run_mobility_v1');
       assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_fat_burn_hiit_v1');
       assert.match(recommendation.mismatchNote, /closest match/i);
+      assert.match(recommendation.mismatchNote, /Fat Burn HIIT/);
+      assert.doesNotMatch(recommendation.mismatchNote, /Yoga Recovery/);
     },
   },
   {
@@ -473,7 +475,7 @@ module.exports = [
           }),
           expectedPrograms: ['tpl_3_day_run_mobility_v1'],
           expectedReason: /run \+ mobility/i,
-          expectedExplanation: /optional 4th session/i,
+          expectedExplanation: /optional 4th day/i,
         },
       ];
 
@@ -696,7 +698,7 @@ module.exports = [
       assert.equal(projectedDaysPerWeek, 3);
       assert.deepEqual(projectedDays, ['mon', 'wed', 'fri']);
       assert.match(reasons.join(' '), /3 days for run \+ mobility/i);
-      assert.match(reasons.join(' '), /optional 4th session/i);
+      assert.match(reasons.join(' '), /Add a Fat Burn HIIT session as an optional 4th day/i);
     },
   },
 ];

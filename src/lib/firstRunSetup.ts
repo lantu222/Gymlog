@@ -589,13 +589,17 @@ export function resolveFirstRunRecommendation(selection: FirstRunSetupSelection)
 function buildRecommendationMismatchNote(
   selection: FirstRunSetupSelection,
   featuredProgramId: string,
+  secondaryProgramId: string | null,
   tailoringPreferences?: TailoringPreferencesInput | null,
 ) {
   const featuredDefinition = getRecommendationProgramDefinition(featuredProgramId);
   const featuredDays = featuredDefinition?.daysPerWeek ?? getWorkoutTemplateById(featuredProgramId)?.daysPerWeek ?? selection.daysPerWeek;
 
   if (selection.goal === 'run_mobility' && featuredProgramId === PROGRAM_IDS.runMobility && selection.daysPerWeek > featuredDays) {
-    return "GAINER's closest match is a 3-day run + mobility split. Add Yoga Recovery as an optional 4th session if you want extra movement.";
+    const secondaryName = secondaryProgramId ? getWorkoutTemplateById(secondaryProgramId)?.name ?? null : null;
+    return secondaryName
+      ? `GAINER's closest match is a 3-day run + mobility split. Add a ${secondaryName} session as an optional 4th day if you want extra conditioning.`
+      : "GAINER's closest match is a 3-day run + mobility split.";
   }
 
   if (selection.equipment !== 'gym' && featuredDefinition?.equipmentTier === 'low_equipment') {
@@ -617,7 +621,7 @@ export function resolveFirstRunRecommendationWithTailoring(
 
   return {
     ...recommendation,
-    mismatchNote: buildRecommendationMismatchNote(selection, recommendation.featuredProgramId, tailoringPreferences),
+    mismatchNote: buildRecommendationMismatchNote(selection, recommendation.featuredProgramId, recommendation.secondaryProgramId ?? null, tailoringPreferences),
   };
 }
 
