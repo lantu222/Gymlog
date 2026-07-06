@@ -17,7 +17,7 @@ import {
   FirstRunSetupSelection,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
-import { getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
+import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
 import { getExerciseProgressForName } from './src/lib/progression';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
@@ -93,6 +93,7 @@ import {
   ExerciseLog,
   ExerciseLogDraft,
   ExerciseTemplate,
+  ExerciseTemplateDraft,
   SetupEquipment,
   SetupScheduleMode,
   SetupGender,
@@ -2238,9 +2239,22 @@ function GymlogApp() {
     }
 
     if (!route.workoutTemplateId) {
+      const prefillExercise = route.prefillExerciseLibraryId
+        ? exerciseBrowserItems.find((item) => item.id === route.prefillExerciseLibraryId) ?? null
+        : null;
+      const prefillExercises: ExerciseTemplateDraft[] = prefillExercise
+        ? [
+            {
+              name: prefillExercise.name,
+              libraryItemId: prefillExercise.id,
+              ...getExerciseTemplateDefaults(prefillExercise, preferences.defaultRestSeconds),
+            },
+          ]
+        : [];
+
       return {
         name: route.prefillName ?? '',
-        sessions: [{ name: 'Session 1', exercises: [] }],
+        sessions: [{ name: 'Session 1', exercises: prefillExercises }],
       };
     }
 
@@ -2267,7 +2281,7 @@ function GymlogApp() {
         })),
       })),
     };
-  }, [getWorkoutTemplateSessions, route, workoutTemplates]);
+  }, [exerciseBrowserItems, getWorkoutTemplateSessions, preferences.defaultRestSeconds, route, workoutTemplates]);
   const templateBuilderDraft = useMemo<WorkoutTemplateDraft>(() => {
     if (route.tab !== 'workout' || route.screen !== 'template') {
       return {
@@ -2474,7 +2488,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && (route.screen === 'editor' || route.screen === 'empty')) {
     content = (
       <WorkoutEditorScreen
-        key={`${route.screen}:${route.screen === 'editor' ? route.workoutTemplateId ?? 'new' : 'empty'}:${route.screen === 'editor' ? route.prefillName ?? '' : ''}`}
+        key={`${route.screen}:${route.screen === 'editor' ? route.workoutTemplateId ?? 'new' : 'empty'}:${route.screen === 'editor' ? route.prefillName ?? '' : ''}:${route.screen === 'editor' ? route.prefillExerciseLibraryId ?? '' : ''}`}
         presentation={route.screen === 'empty' ? 'emptyWorkout' : 'editor'}
         initialDraft={editorDraft}
         exerciseLibrary={exerciseBrowserItems}
@@ -2840,7 +2854,7 @@ function GymlogApp() {
 
           void updatePreferences({ trackedExerciseLibraryItemIds: nextTrackedIds });
         }}
-        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name })}
+        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name, prefillExerciseLibraryId: item.id })}
       />
     ) : (
       <View />
@@ -2851,7 +2865,7 @@ function GymlogApp() {
         items={exerciseBrowserItems}
         trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
-        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name })}
+        onAddToWorkout={(item) => navigate({ tab: 'workout', screen: 'editor', prefillName: item.name, prefillExerciseLibraryId: item.id })}
         onToggleTracked={(item) => {
           const trackedIds = preferences.trackedExerciseLibraryItemIds;
           const nextTrackedIds = trackedIds.includes(item.id)
