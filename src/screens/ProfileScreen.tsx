@@ -9,7 +9,7 @@ import {
   getSetupEquipmentTitle,
   getSetupGoalTitle,
 } from '../lib/firstRunSetup';
-import { convertWeightFromKg, formatWeight, removeTrailingZeros } from '../lib/format';
+import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
 import { ExerciseProgressSummary } from '../lib/progression';
 import { HG } from '../lightTheme';
@@ -59,19 +59,6 @@ function formatTrainingSince(firstSessionAt: string | null) {
     return null;
   }
   return `Training since ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-function formatCompactVolume(totalKg: number, unitPreference: UnitPreference) {
-  const value = convertWeightFromKg(totalKg, unitPreference);
-  if (unitPreference === 'kg' && value >= 1000) {
-    const tonnes = value / 1000;
-    return `${removeTrailingZeros(Number(tonnes.toFixed(tonnes >= 100 ? 0 : 1)))} t`;
-  }
-  if (unitPreference === 'lb' && value >= 1000) {
-    const thousands = value / 1000;
-    return `${removeTrailingZeros(Number(thousands.toFixed(thousands >= 100 ? 0 : 1)))}k lb`;
-  }
-  return `${removeTrailingZeros(Math.round(value))} ${unitPreference}`;
 }
 
 function capitalize(value: string) {

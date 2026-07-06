@@ -73,6 +73,20 @@ export function formatVolume(value: number, unitPreference: UnitPreference = 'kg
   return `${removeTrailingZeros(convertWeightFromKg(value, unitPreference))} ${unitPreference}`;
 }
 
+/** Compact lifetime/monthly volume: "412 kg", "4.5 t", "12.3k lb". */
+export function formatCompactVolume(totalKg: number, unitPreference: UnitPreference = 'kg') {
+  const value = convertWeightFromKg(totalKg, unitPreference);
+  if (unitPreference === 'kg' && value >= 1000) {
+    const tonnes = value / 1000;
+    return `${removeTrailingZeros(Number(tonnes.toFixed(tonnes >= 100 ? 0 : 1)))} t`;
+  }
+  if (unitPreference === 'lb' && value >= 1000) {
+    const thousands = value / 1000;
+    return `${removeTrailingZeros(Number(thousands.toFixed(thousands >= 100 ? 0 : 1)))}k lb`;
+  }
+  return `${removeTrailingZeros(Math.round(value))} ${unitPreference}`;
+}
+
 export function formatDurationMinutes(totalMinutes: number) {
   if (totalMinutes < 60) {
     return `${totalMinutes} min`;

@@ -35,6 +35,7 @@ import { buildRecommendationPlanReadyPayload } from './src/lib/recommendationPro
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
+import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
@@ -1102,6 +1103,7 @@ function GymlogApp() {
 
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
+  const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
   const premiumHeroChart = useMemo(
     () => buildPremiumHeroChart(trackedProgress, unitPreference),
     [trackedProgress, unitPreference],
@@ -2007,6 +2009,7 @@ function GymlogApp() {
       },
     };
   }, [database, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
+  const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
   const homeAiPromptSuggestions = useMemo(
     () =>
       setupSelection
@@ -2616,13 +2619,12 @@ function GymlogApp() {
           measurementEntries={measurementEntries}
           workoutSessions={workoutSessions}
           activityCalendar={homeSummary.streak.calendar}
-          currentWeekStreak={homeSummary.streak.currentWeekStreak}
+          rhythm={progressTrainingRhythm}
+          weeklyTargetSessions={progressWeeklyTarget}
           unitPreference={unitPreference}
           selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
         initialSection={route.screen === 'list' ? route.section : undefined}
         showBodyweightDetail={route.screen === 'bodyweight'}
-        onSelectExercise={(exerciseKey) => navigate({ tab: 'progress', screen: 'detail', exerciseKey })}
-        onSelectBodyweight={() => navigate({ tab: 'progress', screen: 'bodyweight' })}
         onAddBodyweight={async (weightKg) => {
           await addBodyweightEntry(weightKg);
           showToast('Bodyweight saved');
@@ -2631,9 +2633,6 @@ function GymlogApp() {
           await addMeasurementEntry(kind, value, unit);
           showToast('Measurement saved');
         }}
-        onBack={() => navigateBack(ROOT_ROUTES.progress)}
-        plateaus={aiCoachTrainingContext.plateaus}
-        fatigue={aiCoachTrainingContext.fatigue}
         recentSessions={homeRecentSessions}
         onOpenSessionHistory={() => navigate({ tab: 'home', screen: 'history' })}
         onOpenRecentSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
@@ -2915,6 +2914,7 @@ function GymlogApp() {
   const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
   const profileListActive = route.tab === 'profile' && route.screen === 'list';
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
+  const progressActive = route.tab === 'progress';
 
   return (
     <AppShell
@@ -2926,10 +2926,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || progressActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar

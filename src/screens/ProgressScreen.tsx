@@ -1,20 +1,15 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
-import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
-import { EmptyState } from '../components/EmptyState';
 import { GymlogIcon } from '../components/GymlogIcon';
-import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
-import { ProgressCard } from '../components/ProgressCard';
-import { ScreenHeader } from '../components/ScreenHeader';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
-import { getLogSetStatusCounts } from '../lib/exerciseLog';
-import { getProgressActivityDayStatus } from '../lib/progressActivity';
 import {
   convertWeightFromKg,
   convertWeightToKg,
+  formatCompactVolume,
   formatDate,
   formatDurationMinutes,
   formatLogSetSummary,
@@ -22,19 +17,27 @@ import {
   formatTime,
   formatVolume,
   formatWeight,
-  formatWeightTrend,
   parseNumberInput,
   removeTrailingZeros,
 } from '../lib/format';
+import { getProgressActivityDayStatus } from '../lib/progressActivity';
 import {
   BodyweightProgressSummary,
   ExerciseProgressSummary,
   getExerciseProgressSignal,
 } from '../lib/progression';
-import { colors, layout, radii, shadows, spacing } from '../theme';
+import { TrainingRhythmSummary } from '../lib/trainingRhythm';
+import { HG } from '../lightTheme';
+import { layout } from '../theme';
 import { MeasurementEntry, MeasurementKind, MeasurementUnit, UnitPreference, WorkoutSession } from '../types/models';
-import { AICoachFatigueSummary, AICoachPlateauSummary } from '../types/aiCoach';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+type ProgressSection = 'overview' | 'tracked' | 'measures';
+type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
+type OverviewMetric = 'volume' | 'duration' | 'bodyweight';
+type OverviewRange = '1m' | '3m' | '6m' | 'all';
+type MeasureKey = 'bodyweight' | 'bodyfat' | 'shoulders' | 'chest' | 'waist' | 'hips' | 'thighs';
+type MeasureRange = '3m' | '1y' | 'all';
+type MeasureIconName = 'scale' | 'drop' | 'tape';
 
 interface ProgressScreenProps {
   summaries: ExerciseProgressSummary[];
@@ -54,36 +57,24 @@ interface ProgressScreenProps {
       }>
     >;
   };
-  currentWeekStreak: number;
+  rhythm: TrainingRhythmSummary;
+  weeklyTargetSessions?: number | null;
   unitPreference: UnitPreference;
   initialSection?: ProgressSection;
   selectedExerciseKey?: string;
   showBodyweightDetail?: boolean;
-  onSelectExercise: (exerciseKey: string) => void;
-  onSelectBodyweight: () => void;
   onAddBodyweight: (weightKg: number) => void;
   onAddMeasurement: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<void>;
-  onBack: () => void;
-  plateaus?: AICoachPlateauSummary[];
-  fatigue?: AICoachFatigueSummary;
   recentSessions?: HomeRecentSessionItem[];
   onOpenSessionHistory?: () => void;
   onOpenRecentSession?: (sessionId: string) => void;
 }
 
-type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
-type OverviewRange = '1m' | '3m' | '6m' | 'all';
-type OverviewMetric = 'bodyweight' | 'duration' | 'volume' | 'workouts';
-type ProgressSection = 'overview' | 'tracked' | 'measures';
-type MeasureKey = 'photos' | 'bodyweight' | 'bodyfat' | 'shoulders' | 'chest' | 'waist' | 'hips' | 'thighs';
-type MeasureRange = '3m' | '1y' | 'all';
-
-type MeasureGuide = {
-  title: string;
-  subtitle: string;
-  instructions: string[];
-  reference?: string;
-};
+const PROGRESS_SECTIONS: Array<{ key: ProgressSection; label: string }> = [
+  { key: 'overview', label: 'Overview' },
+  { key: 'tracked', label: 'Tracked' },
+  { key: 'measures', label: 'Measures' },
+];
 
 const PROGRESS_FILTERS: Array<{ key: ProgressFilter; label: string }> = [
   { key: 'all', label: 'All' },
@@ -93,23 +84,17 @@ const PROGRESS_FILTERS: Array<{ key: ProgressFilter; label: string }> = [
   { key: 'below_last', label: 'Below' },
 ];
 
+const OVERVIEW_METRICS: Array<{ key: OverviewMetric; label: string }> = [
+  { key: 'volume', label: 'Volume' },
+  { key: 'duration', label: 'Duration' },
+  { key: 'bodyweight', label: 'Bodyweight' },
+];
+
 const OVERVIEW_RANGES: Array<{ key: OverviewRange; label: string }> = [
   { key: '1m', label: '1M' },
   { key: '3m', label: '3M' },
   { key: '6m', label: '6M' },
   { key: 'all', label: 'All' },
-];
-
-const OVERVIEW_METRICS: Array<{ key: OverviewMetric; label: string }> = [
-  { key: 'bodyweight', label: 'Bodyweight' },
-  { key: 'duration', label: 'Duration' },
-  { key: 'workouts', label: 'Workouts' },
-];
-
-const PROGRESS_SECTIONS: Array<{ key: ProgressSection; label: string }> = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'tracked', label: 'Tracked' },
-  { key: 'measures', label: 'Measures' },
 ];
 
 const MEASURE_RANGES: Array<{ key: MeasureRange; label: string }> = [
@@ -118,99 +103,37 @@ const MEASURE_RANGES: Array<{ key: MeasureRange; label: string }> = [
   { key: 'all', label: 'All' },
 ];
 
-const MEASURE_KEY_TO_KIND: Record<Exclude<MeasureKey, 'photos' | 'bodyweight'>, MeasurementKind> = {
-  bodyfat: 'bodyfat',
-  shoulders: 'shoulders',
-  chest: 'chest',
-  waist: 'waist',
-  hips: 'hips',
-  thighs: 'thighs',
+const MEASURE_CONFIG: Array<{
+  key: MeasureKey;
+  label: string;
+  icon: MeasureIconName;
+  kind: MeasurementKind | null;
+  lowerIsBetter: boolean;
+}> = [
+  { key: 'bodyweight', label: 'Body weight', icon: 'scale', kind: null, lowerIsBetter: false },
+  { key: 'bodyfat', label: 'Body fat', icon: 'drop', kind: 'bodyfat', lowerIsBetter: true },
+  { key: 'shoulders', label: 'Shoulders', icon: 'tape', kind: 'shoulders', lowerIsBetter: false },
+  { key: 'chest', label: 'Chest', icon: 'tape', kind: 'chest', lowerIsBetter: false },
+  { key: 'waist', label: 'Waist', icon: 'tape', kind: 'waist', lowerIsBetter: true },
+  { key: 'hips', label: 'Hips', icon: 'tape', kind: 'hips', lowerIsBetter: false },
+  { key: 'thighs', label: 'Thighs', icon: 'tape', kind: 'thighs', lowerIsBetter: false },
+];
+
+// Honest signal palette (light) keyed by getExerciseProgressSignal kinds.
+const SIGNAL_STYLES: Record<
+  ReturnType<typeof getExerciseProgressSignal>['kind'],
+  { fg: string; bg: string; dot: string }
+> = {
+  new_best: { fg: '#157A3A', bg: '#E4F6EA', dot: '#1FA64E' },
+  moving_up: { fg: '#157A3A', bg: '#E9F6EE', dot: '#37C46B' },
+  building: { fg: '#5B21B6', bg: '#EFE7FF', dot: '#8B5CF6' },
+  below_last: { fg: '#9A5B16', bg: '#FBEFDD', dot: '#E0922F' },
+  starting: { fg: '#667085', bg: '#EEF0F4', dot: '#98A2B3' },
 };
 
 const CM_TO_IN = 0.393700787;
-const PROGRESS_GREEN = '#238B18';
-const PROGRESS_LIME = '#B8FF6A';
-const PROGRESS_PALE_GREEN = '#CDEFC0';
-const PROGRESS_CARD_BORDER = '#E7E8EA';
-const PROGRESS_MUTED = '#4B5563';
-const PROGRESS_WEEKDAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'SA', 'SU'];
 
-const MEASURE_GUIDES: Record<MeasureKey, MeasureGuide> = {
-  photos: {
-    title: 'Progress photos',
-    subtitle: 'Use the same setup every time.',
-    instructions: [
-      'Use the same light, pose, distance, and camera height.',
-      'Front, side, and back photos work best once every 2 to 4 weeks.',
-      'Take them relaxed, not flexed, if you want cleaner comparison.',
-    ],
-  },
-  bodyweight: {
-    title: 'Body weight',
-    subtitle: 'Best tracked against your own baseline.',
-    instructions: [
-      'Weigh at the same time of day, ideally in the morning after using the bathroom.',
-      'Use the same scale and similar clothing conditions each time.',
-      'Watch the weekly trend more than any single reading.',
-    ],
-  },
-  bodyfat: {
-    title: 'Body fat',
-    subtitle: 'Use the same method every time.',
-    instructions: [
-      'If you use a smart scale, measure under similar hydration and timing conditions.',
-      'If you use calipers or a scan, keep the method consistent between check-ins.',
-      'Body fat is best for long-term trend checks, not daily decisions.',
-    ],
-    reference: 'General ACE-style ranges: men about 18-24% average, women about 25-31% average.',
-  },
-  shoulders: {
-    title: 'Shoulders',
-    subtitle: 'Track change from your own starting point.',
-    instructions: [
-      'Wrap the tape around the widest part of the shoulders and upper delts.',
-      'Keep the tape level and relaxed, not pulled tight.',
-      'Measure in the same posture each time.',
-    ],
-  },
-  chest: {
-    title: 'Chest',
-    subtitle: 'Use nipple-line or fullest chest line consistently.',
-    instructions: [
-      'Wrap the tape around the fullest part of the chest.',
-      'Stand tall and measure after a normal exhale.',
-      'Keep the tape level across the back.',
-    ],
-  },
-  waist: {
-    title: 'Waist',
-    subtitle: 'One of the most useful health trend measures.',
-    instructions: [
-      'Measure around the abdomen after a normal exhale.',
-      'Keep the tape level and place it around the waistline or just above the top of the hip bones.',
-      'Use the same landmark each time.',
-    ],
-    reference: 'General cutoffs often used: above 102 cm for men and above 88 cm for women suggests higher risk.',
-  },
-  hips: {
-    title: 'Hips',
-    subtitle: 'Best used for body-composition trend checks.',
-    instructions: [
-      'Measure around the widest part of the hips and glutes.',
-      'Keep feet together and the tape level.',
-      'Use the same stance and placement each time.',
-    ],
-  },
-  thighs: {
-    title: 'Thighs',
-    subtitle: 'Use one fixed point on the upper thigh.',
-    instructions: [
-      'Measure the same thigh each time.',
-      'Pick one consistent point, such as mid-thigh or a set distance below the hip crease.',
-      'Stand relaxed and keep the tape snug, not tight.',
-    ],
-  },
-};
+// ── session/date helpers preserved from the previous Progress implementation ──
 
 function getSessionDurationMinutes(session: WorkoutSession) {
   if (typeof session.durationMinutes === 'number' && Number.isFinite(session.durationMinutes)) {
@@ -253,128 +176,6 @@ function getOverviewRangeStart(range: OverviewRange) {
     default:
       return null;
   }
-}
-
-function getOverviewDurationTicks(maxValue: number) {
-  const top = maxValue <= 15 ? 15 : maxValue <= 30 ? 30 : maxValue <= 45 ? 45 : maxValue <= 60 ? 60 : 90;
-  const step = top === 90 ? 30 : 15;
-  return Array.from({ length: top / step + 1 }, (_, index) => index * step);
-}
-
-function getOverviewBodyweightTicks(values: number[], unitPreference: UnitPreference, range: OverviewRange) {
-  if (!values.length) {
-    return unitPreference === 'lb' ? [100, 102, 104, 106] : [50, 50.5, 51, 51.5];
-  }
-
-  const spread = Math.max(...values) - Math.min(...values);
-  const step =
-    unitPreference === 'lb'
-      ? spread <= 4
-        ? 1
-        : spread <= 10
-          ? 2
-          : spread <= 25
-            ? 5
-            : 10
-      : spread <= 2
-        ? 0.5
-        : spread <= 5
-          ? 1
-          : spread <= 10
-            ? 2
-            : spread <= 25
-              ? 5
-              : 10;
-
-  let minTick = Math.floor(Math.min(...values) / step) * step;
-  let maxTick = Math.ceil(Math.max(...values) / step) * step;
-
-  while (Math.round((maxTick - minTick) / step) + 1 < 4) {
-    minTick -= step;
-    maxTick += step;
-  }
-
-  const ticks: number[] = [];
-  for (let tick = minTick; tick <= maxTick + step / 2; tick += step) {
-    ticks.push(Number(tick.toFixed(2)));
-  }
-
-  return ticks;
-}
-
-function formatOverviewBodyweightTick(value: number, unitLabel: string) {
-  return `${removeTrailingZeros(Number(value.toFixed(unitLabel === 'lb' ? 0 : 1)))} ${unitLabel}`;
-}
-
-function formatDayMonthLabel(dateString: string) {
-  const date = new Date(dateString);
-  const month = new Intl.DateTimeFormat(undefined, { month: 'short' }).format(date);
-  return `${date.getDate()} ${month}`;
-}
-
-function formatMonthLabel(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short' }).format(new Date(dateString));
-}
-
-function formatMonthYearLabel(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', year: '2-digit' }).format(new Date(dateString));
-}
-
-function formatOverviewChartLabel(dateString: string, range: OverviewRange) {
-  switch (range) {
-    case '1m':
-    case '3m':
-      return formatDayMonthLabel(dateString);
-    case '6m':
-      return formatMonthLabel(dateString);
-    case 'all':
-    default:
-      return formatMonthYearLabel(dateString);
-  }
-}
-
-function getOverviewFooterLabels(
-  points: Array<{ label: string; value: number }>,
-  range: OverviewRange,
-) {
-  if (!points.length) {
-    return [];
-  }
-
-  if (points.length === 1) {
-    return [formatOverviewChartLabel(points[0].label, range)];
-  }
-
-  const middleIndex = Math.floor((points.length - 1) / 2);
-  const labels = [points[0].label];
-
-  if (middleIndex > 0 && middleIndex < points.length - 1) {
-    labels.push(points[middleIndex].label);
-  }
-
-  labels.push(points[points.length - 1].label);
-
-  const formattedLabels = [...new Set(labels)].map((label) => formatOverviewChartLabel(label, range));
-  return formattedLabels;
-}
-
-function getOverviewRangeSummary(range: OverviewRange, pointCount: number, metric: OverviewMetric) {
-  const periodLabel =
-    range === '1m' ? 'Last month' : range === '3m' ? 'Last 3 months' : range === '6m' ? 'Last 6 months' : 'All time';
-  const noun = metric === 'bodyweight' ? 'entries' : 'days';
-  return `${periodLabel} · ${pointCount} ${noun}`;
-}
-
-function formatDurationTick(value: number) {
-  if (value === 60) {
-    return '1h';
-  }
-  if (value > 60) {
-    const hours = Math.floor(value / 60);
-    const minutes = value % 60;
-    return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
-  }
-  return `${value}m`;
 }
 
 function getOverviewBucketKey(dateString: string, range: OverviewRange) {
@@ -431,6 +232,117 @@ function bucketOverviewPointsByRange(
     .map(({ label, value }) => ({ label, value }));
 }
 
+function formatDayMonthLabel(dateString: string) {
+  const date = new Date(dateString);
+  const month = new Intl.DateTimeFormat(undefined, { month: 'short' }).format(date);
+  return `${date.getDate()} ${month}`;
+}
+
+function formatMonthLabel(dateString: string) {
+  return new Intl.DateTimeFormat(undefined, { month: 'short' }).format(new Date(dateString));
+}
+
+function formatMonthYearLabel(dateString: string) {
+  return new Intl.DateTimeFormat(undefined, { month: 'short', year: '2-digit' }).format(new Date(dateString));
+}
+
+function formatOverviewChartLabel(dateString: string, range: OverviewRange) {
+  switch (range) {
+    case '1m':
+    case '3m':
+      return formatDayMonthLabel(dateString);
+    case '6m':
+      return formatMonthLabel(dateString);
+    case 'all':
+    default:
+      return formatMonthYearLabel(dateString);
+  }
+}
+
+function getOverviewFooterLabels(points: Array<{ label: string; value: number }>, range: OverviewRange) {
+  if (!points.length) {
+    return [];
+  }
+
+  if (points.length === 1) {
+    return [formatOverviewChartLabel(points[0].label, range)];
+  }
+
+  const middleIndex = Math.floor((points.length - 1) / 2);
+  const labels = [points[0].label];
+
+  if (middleIndex > 0 && middleIndex < points.length - 1) {
+    labels.push(points[middleIndex].label);
+  }
+
+  labels.push(points[points.length - 1].label);
+
+  return [...new Set(labels)].map((label) => formatOverviewChartLabel(label, range));
+}
+
+function getOverviewDurationTicks(maxValue: number) {
+  const top = maxValue <= 15 ? 15 : maxValue <= 30 ? 30 : maxValue <= 45 ? 45 : maxValue <= 60 ? 60 : 90;
+  const step = top === 90 ? 30 : 15;
+  return Array.from({ length: top / step + 1 }, (_, index) => index * step);
+}
+
+function getOverviewBodyweightTicks(values: number[], unitPreference: UnitPreference) {
+  if (!values.length) {
+    return unitPreference === 'lb' ? [100, 102, 104, 106] : [50, 50.5, 51, 51.5];
+  }
+
+  const spread = Math.max(...values) - Math.min(...values);
+  const step =
+    unitPreference === 'lb'
+      ? spread <= 4
+        ? 1
+        : spread <= 10
+          ? 2
+          : spread <= 25
+            ? 5
+            : 10
+      : spread <= 2
+        ? 0.5
+        : spread <= 5
+          ? 1
+          : spread <= 10
+            ? 2
+            : spread <= 25
+              ? 5
+              : 10;
+
+  let minTick = Math.floor(Math.min(...values) / step) * step;
+  let maxTick = Math.ceil(Math.max(...values) / step) * step;
+
+  while (Math.round((maxTick - minTick) / step) + 1 < 4) {
+    minTick -= step;
+    maxTick += step;
+  }
+
+  const ticks: number[] = [];
+  for (let tick = minTick; tick <= maxTick + step / 2; tick += step) {
+    ticks.push(Number(tick.toFixed(2)));
+  }
+
+  return ticks;
+}
+
+function formatOverviewBodyweightTick(value: number, unitLabel: string) {
+  return `${removeTrailingZeros(Number(value.toFixed(unitLabel === 'lb' ? 0 : 1)))} ${unitLabel}`;
+}
+
+function formatDurationTick(value: number) {
+  if (value === 60) {
+    return '1h';
+  }
+  if (value > 60) {
+    const hours = Math.floor(value / 60);
+    const minutes = value % 60;
+    return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${value}m`;
+}
+
 function convertMeasurementValue(value: number, fromUnit: MeasurementUnit, toUnit: MeasurementUnit) {
   if (fromUnit === toUnit) {
     return value;
@@ -441,36 +353,6 @@ function convertMeasurementValue(value: number, fromUnit: MeasurementUnit, toUni
   }
 
   return fromUnit === 'cm' && toUnit === 'in' ? value * CM_TO_IN : value / CM_TO_IN;
-}
-
-function formatMeasurementValue(value: number | null | undefined, unit: MeasurementUnit) {
-  if (value === null || value === undefined || Number.isNaN(value)) {
-    return '-';
-  }
-
-  const rounded = unit === '%' ? value.toFixed(1) : value >= 100 ? value.toFixed(0) : value.toFixed(1);
-  return `${rounded.replace(/\.0$/, '')} ${unit}`;
-}
-
-function getMeasurementTicks(values: number[], unit: MeasurementUnit) {
-  if (!values.length) {
-    return unit === '%' ? [0, 5, 10, 15, 20, 25] : [0, 20, 40, 60, 80, 100];
-  }
-
-  const max = Math.max(...values);
-
-  if (unit === '%') {
-    const top = Math.max(25, Math.ceil(max / 5) * 5);
-    return Array.from({ length: top / 5 + 1 }, (_, index) => index * 5);
-  }
-
-  if (unit === 'in') {
-    const top = Math.max(40, Math.ceil(max / 5) * 5);
-    return Array.from({ length: top / 5 + 1 }, (_, index) => index * 5);
-  }
-
-  const top = Math.max(100, Math.ceil(max / 10) * 10);
-  return Array.from({ length: top / 10 + 1 }, (_, index) => index * 10);
 }
 
 function getMeasurementRangeStart(range: MeasureRange) {
@@ -485,233 +367,6 @@ function getMeasurementRangeStart(range: MeasureRange) {
     start.setFullYear(start.getFullYear() - 1);
   }
   return start;
-}
-
-function getMeasurementAxis(values: number[], unit: MeasurementUnit, range: MeasureRange) {
-  if (!values.length) {
-    const ticks = getMeasurementTicks(values, unit);
-    return {
-      ticks,
-      minTick: ticks[0] ?? 0,
-      maxTick: ticks[ticks.length - 1] ?? 1,
-    };
-  }
-
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const spread = max - min;
-
-  let step = 5;
-  if (unit === '%') {
-    step = range === '3m' ? 5 : range === '1y' ? 10 : 25;
-    if (spread <= 5) {
-      step = Math.min(step, 5);
-    }
-  } else if (unit === 'cm') {
-    step = range === '3m' ? 2 : range === '1y' ? 5 : 10;
-    if (spread > 0 && spread <= step) {
-      step = Math.max(1, Math.ceil(spread));
-    }
-  } else if (unit === 'in') {
-    step = range === '3m' ? 1 : range === '1y' ? 2 : 5;
-  }
-
-  let minTick = Math.floor(min / step) * step;
-  let maxTick = Math.ceil(max / step) * step;
-
-  if (minTick === maxTick) {
-    minTick -= step;
-    maxTick += step;
-  }
-
-  if (unit === '%') {
-    minTick = Math.max(0, minTick);
-  }
-
-  const ticks: number[] = [];
-  for (let tick = minTick; tick <= maxTick; tick += step) {
-    ticks.push(tick);
-  }
-
-  return { ticks, minTick, maxTick };
-}
-
-function SectionLabel({ label }: { label: string }) {
-  return <Text style={styles.sectionLabel}>{label}</Text>;
-}
-
-function SignalCard({ label, value, meta }: { label: string; value: string; meta?: string | null }) {
-  return (
-    <View style={styles.signalCard}>
-      <Text style={styles.signalLabel}>{label}</Text>
-      <Text style={styles.signalValue}>{value}</Text>
-      {meta ? <Text style={styles.signalMeta}>{meta}</Text> : null}
-    </View>
-  );
-}
-
-function RecentList({
-  rows,
-}: {
-  rows: Array<{
-    title: string;
-    meta?: string | null;
-    value: string;
-  }>;
-}) {
-  return (
-    <View style={styles.recentList}>
-      {rows.map((row, rowIndex) => (
-        <View key={`${row.title}:${rowIndex}`} style={[styles.recentRow, rowIndex > 0 && styles.recentRowBorder]}>
-          <View style={styles.recentCopy}>
-            <Text style={styles.recentTitle}>{row.title}</Text>
-            {row.meta ? <Text style={styles.recentMeta}>{row.meta}</Text> : null}
-          </View>
-          <Text style={styles.recentValue}>{row.value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function MeasureRow({
-  icon,
-  title,
-  subtitle,
-  value,
-  onPress,
-  active,
-}: {
-  icon: string;
-  title: string;
-  subtitle: string;
-  value?: string;
-  onPress?: () => void;
-  active?: boolean;
-}) {
-  const content = (
-    <View style={[styles.measureRow, active && styles.measureRowActive]}>
-      <View style={[styles.measureRowIconShell, active && styles.measureRowIconShellActive]}>
-        <Text style={styles.measureRowIconText}>{icon}</Text>
-      </View>
-      <View style={styles.measureRowCopy}>
-        <Text style={styles.measureRowTitle}>{title}</Text>
-        <Text style={styles.measureRowSubtitle}>{subtitle}</Text>
-      </View>
-      {value ? <Text style={styles.measureRowValue}>{value}</Text> : null}
-    </View>
-  );
-
-  if (onPress) {
-    return <Pressable onPress={onPress}>{content}</Pressable>;
-  }
-
-  return content;
-}
-
-function MeasureGuideCard({
-  guide,
-}: {
-  guide: MeasureGuide;
-}) {
-  return (
-    <View style={styles.measureGuideCard}>
-      <Text style={styles.measureGuideSectionLabel}>How to measure</Text>
-
-      <View style={styles.measureInstructionList}>
-        {guide.instructions.map((instruction) => (
-          <View key={instruction} style={styles.measureInstructionRow}>
-            <View style={styles.measureInstructionDot} />
-            <Text style={styles.measureInstructionText}>{instruction}</Text>
-          </View>
-        ))}
-      </View>
-
-      {guide.reference ? (
-        <View style={styles.measureReferenceNote}>
-          <Text style={styles.measureReferenceText}>{guide.reference}</Text>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function MeasurementHistoryRail({
-  values,
-  unit,
-  range,
-}: {
-  values: number[];
-  unit: MeasurementUnit;
-  range: MeasureRange;
-}) {
-  const [chartWidth, setChartWidth] = useState(0);
-
-  if (!values.length) {
-    return (
-      <View style={styles.measureHistoryEmpty}>
-        <Text style={styles.measureHistoryEmptyText}>No entries yet</Text>
-      </View>
-    );
-  }
-
-  const { ticks, minTick, maxTick } = getMeasurementAxis(values, unit, range);
-  const spread = Math.max(maxTick - minTick, 1);
-  const chartHeight = 124;
-  const labelWidth = 32;
-  const contentLeft = labelWidth + spacing.sm;
-  const plotWidth = Math.max(chartWidth - contentLeft, 0);
-  const points = values.map((value, index) => {
-    const x = values.length === 1 ? contentLeft + plotWidth / 2 : contentLeft + (index / (values.length - 1)) * plotWidth;
-    const y = chartHeight - ((value - minTick) / spread) * chartHeight;
-    return { x, y };
-  });
-  const polylinePoints = points.map((point) => `${point.x},${point.y}`).join(' ');
-
-  return (
-    <View style={styles.measureHistoryRailWrap}>
-      <View
-        style={styles.measureHistoryRail}
-        onLayout={(event) => setChartWidth(event.nativeEvent.layout.width)}
-      >
-        {ticks
-          .slice()
-          .reverse()
-          .map((tick) => {
-            const y = chartHeight - ((tick - minTick) / spread) * chartHeight;
-            return (
-              <View key={`tick-${tick}`} style={[styles.measureHistoryTickRow, { top: y - 8 }]}>
-                <Text style={styles.measureHistoryTickLabel}>{`${tick}${unit === '%' ? '%' : ''}`}</Text>
-                <View style={styles.measureHistoryTickLine} />
-              </View>
-            );
-          })}
-        {chartWidth > 0 ? (
-          <Svg style={styles.measureHistorySvg} width={chartWidth} height={chartHeight}>
-            {points.length > 1 ? (
-              <Polyline
-                points={polylinePoints}
-                fill="none"
-                stroke="#16A34A"
-                strokeWidth="2"
-              />
-            ) : null}
-            {points.map((point, index) => (
-              <Circle
-                key={`point-${index}`}
-                cx={point.x}
-                cy={point.y}
-                r="5"
-                fill="#16A34A"
-                stroke="#FFFFFF"
-                strokeWidth="2"
-              />
-            ))}
-          </Svg>
-        ) : null}
-      </View>
-    </View>
-  );
 }
 
 function getSignalPriority(kind: ReturnType<typeof getExerciseProgressSignal>['kind']) {
@@ -742,138 +397,153 @@ function compareProgressSummaries(left: ExerciseProgressSummary, right: Exercise
   return rightDate - leftDate;
 }
 
-function getPrimaryProgressMeta(summary: ExerciseProgressSummary | null, unitPreference: UnitPreference) {
-  if (!summary) {
-    return 'Track one lift while logging and it shows up here.';
-  }
-
-  const signal = getExerciseProgressSignal(summary);
-  const parts = [
-    signal.label,
-    summary.latestWeight !== null ? formatWeight(summary.latestWeight, unitPreference) : null,
-    summary.latestLog ? formatShortDate(summary.latestLog.performedAt) : null,
-  ].filter(Boolean);
-
-  return parts.join(' · ');
+function getSummaryChartPoints(summary: ExerciseProgressSummary, unitPreference: UnitPreference) {
+  return [...summary.logs].reverse().map((log) => ({
+    label: formatShortDate(log.performedAt),
+    value: convertWeightFromKg(log.weight, unitPreference),
+  }));
 }
 
-function ProgressCalendarIcon() {
+function fmtDelta(value: number) {
+  return removeTrailingZeros(Number(value.toFixed(1)));
+}
+
+// ── glyphs ──
+
+function SearchIcon({ color = HG.faint, size = 17 }: { color?: string; size?: number }) {
   return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Rect x="4" y="5.5" width="16" height="15" rx="3" stroke="#111111" strokeWidth={2} />
-      <Path d="M8 3.5V8" stroke="#111111" strokeWidth={2} strokeLinecap="round" />
-      <Path d="M16 3.5V8" stroke="#111111" strokeWidth={2} strokeLinecap="round" />
-      <Path d="M4.8 10H19.2" stroke="#111111" strokeWidth={2} strokeLinecap="round" />
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={2} />
+      <Path d="M21 21l-4-4" stroke={color} strokeWidth={2} strokeLinecap="round" />
     </Svg>
   );
 }
 
-function FlameMark({ size = 42, color = PROGRESS_GREEN }: { size?: number; color?: string }) {
+function ChevronDown({ open }: { open: boolean }) {
   return (
-    <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <Path
-        d="M25.2 44C15.9 44 9 37.7 9 28.8C9 20.2 16.2 15.6 18.5 8.2C19 6.6 21.3 6.7 21.8 8.3C22.6 11 24.1 13.4 26.3 15.3C27.9 12.5 28.8 9.3 28.5 5.8C28.4 4.2 30.3 3.3 31.4 4.5C36 9.5 40 16.3 40 25.2C40 36.1 33.5 44 25.2 44Z"
-        fill={color}
-      />
-      <Path
-        d="M24.4 42C20 42 16.8 39 16.8 34.9C16.8 31.7 18.9 29.2 20.9 26.6C21.7 29.1 23.3 31.2 25.5 32.7C27.1 30.8 28 28.5 28 25.8C31 28.3 32.6 31.4 32.6 34.8C32.6 39 29.3 42 24.4 42Z"
-        fill="#DDF8D2"
-      />
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={open ? { transform: [{ rotate: '180deg' }] } : undefined}>
+      <Path d="M6 9l6 6 6-6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function ProgressTrendMiniChart({ points }: { points: Array<{ label: string; value: number }> }) {
-  const values = points.map((point) => point.value);
-  const chartWidth = 266;
-  const chartHeight = 112;
-
-  if (values.length < 2) {
+function MeasureIcon({ name }: { name: MeasureIconName }) {
+  const common = { stroke: HG.purpleDark, strokeWidth: 2, fill: 'none' as const, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  if (name === 'scale') {
     return (
-      <View style={styles.trendChartEmpty}>
-        <Text style={styles.trendChartEmptyText}>Log more workouts to draw the trend.</Text>
-      </View>
+      <Svg width={18} height={18} viewBox="0 0 24 24">
+        <Rect x={3} y={3} width={18} height={18} rx={4} {...common} />
+        <Path d="M8 8l4 4M8 8h4" {...common} />
+      </Svg>
     );
   }
-
-  const min = Math.min(0, ...values);
-  const max = Math.max(...values, 1);
-  const spread = Math.max(max - min, 1);
-  const coordinates = values.map((value, index) => {
-    const x = values.length === 1 ? chartWidth / 2 : (index / (values.length - 1)) * chartWidth;
-    const y = chartHeight - ((value - min) / spread) * (chartHeight - 12) - 6;
-    return { x, y };
-  });
-  const polyline = coordinates.map((point) => `${point.x},${point.y}`).join(' ');
-  const fillPoints = `0,${chartHeight} ${polyline} ${chartWidth},${chartHeight}`;
-
-  return (
-    <View style={styles.trendChartWrap}>
-      <Svg width="100%" height={chartHeight} viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
-        {[0.25, 0.5, 0.75].map((line) => (
-          <Line
-            key={line}
-            x1={0}
-            x2={chartWidth}
-            y1={chartHeight * line}
-            y2={chartHeight * line}
-            stroke="#E5E7EB"
-            strokeWidth={1}
-          />
-        ))}
-        <Polyline points={fillPoints} fill="rgba(35, 139, 24, 0.14)" stroke="none" />
-        <Polyline points={polyline} fill="none" stroke="#159A31" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
+  if (name === 'drop') {
+    return (
+      <Svg width={18} height={18} viewBox="0 0 24 24">
+        <Path d="M12 3c3 4 6 7 6 11a6 6 0 01-12 0c0-4 3-7 6-11z" {...common} />
       </Svg>
-      <View style={styles.trendFooterLabels}>
-        <Text style={styles.trendFooterText}>Mar</Text>
-        <Text style={styles.trendFooterText}>Apr</Text>
-        <Text style={styles.trendFooterText}>May</Text>
-      </View>
+    );
+  }
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24">
+      <Rect x={3} y={8} width={18} height={8} rx={2} {...common} />
+      <Path d="M7 8v4M11 8v4M15 8v4M19 8v4" {...common} />
+    </Svg>
+  );
+}
+
+function ArrowGlyph({ up, color }: { up: boolean; color: string }) {
+  return (
+    <Svg width={9} height={9} viewBox="0 0 12 12">
+      <Path d={up ? 'M6 3l4 5H2z' : 'M6 9L2 4h8z'} fill={color} />
+    </Svg>
+  );
+}
+
+// ── shared light widgets ──
+
+function SectionLabel({ label, right }: { label: string; right?: string }) {
+  return (
+    <View style={styles.sectionHead}>
+      <Text style={styles.sectionHeadLabel}>{label}</Text>
+      {right ? <Text style={styles.sectionHeadRight}>{right}</Text> : null}
     </View>
   );
 }
 
-function PlateauAlertCard({ plateaus, unitPreference }: { plateaus: AICoachPlateauSummary[]; unitPreference: UnitPreference }) {
-  const primary = plateaus[0];
-  const extra = plateaus.length - 1;
-  const weightLabel = primary.topWeightKg !== null ? `${primary.topWeightKg} ${unitPreference}` : null;
-
+function SignalBadge({ summary }: { summary: ExerciseProgressSummary }) {
+  const signal = getExerciseProgressSignal(summary);
+  const palette = SIGNAL_STYLES[signal.kind];
   return (
-    <View style={styles.alertCard}>
-      <View style={[styles.alertAccentBar, styles.alertAccentOrange]} />
-      <View style={styles.alertRow}>
-        <Text style={styles.alertKickerOrange}>Plateau detected</Text>
-        <View style={styles.alertBadgeOrange}>
-          <Text style={styles.alertBadgeTextOrange}>{primary.stagnantSessions} sessions</Text>
-        </View>
-      </View>
-      <Text style={styles.alertTitle}>{primary.name}</Text>
-      <Text style={styles.alertBody}>
-        {weightLabel ? `Stuck at ${weightLabel} with no improvement.` : 'No weight increase detected.'}
-        {extra > 0 ? ` Plus ${extra} more lift${extra === 1 ? '' : 's'}.` : ''}
-        {' '}Try a deload week or variation.
+    <View style={[styles.signalBadge, { backgroundColor: palette.bg }]}>
+      <View style={[styles.signalBadgeDot, { backgroundColor: palette.dot }]} />
+      <Text style={[styles.signalBadgeText, { color: palette.fg }]}>{signal.label}</Text>
+    </View>
+  );
+}
+
+function DeltaPill({ delta, unit, lowerIsBetter = false }: { delta: number; unit: string; lowerIsBetter?: boolean }) {
+  const up = delta > 0;
+  const good = lowerIsBetter ? !up : up;
+  const color = good ? '#157A3A' : '#9A5B16';
+  const background = good ? '#E7F6EC' : '#FBEFDD';
+  return (
+    <View style={[styles.deltaPill, { backgroundColor: background }]}>
+      <ArrowGlyph up={up} color={color} />
+      <Text style={[styles.deltaPillText, { color }]}>
+        {up ? '+' : ''}
+        {fmtDelta(delta)}
+        {unit ? ` ${unit}` : ''}
       </Text>
     </View>
   );
 }
 
-function FatigueAlertCard({ fatigue }: { fatigue: AICoachFatigueSummary }) {
-  const isHigh = fatigue.signal === 'high';
+function Sparkline({ values, color, width = 62, height = 28 }: { values: number[]; color: string; width?: number; height?: number }) {
+  if (values.length < 2) {
+    return <View style={{ width, height }} />;
+  }
+
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const spread = Math.max(max - min, 0.001);
+  const x = (index: number) => (index / (values.length - 1)) * (width - 4) + 2;
+  const y = (value: number) => height - 3 - ((value - min) / spread) * (height - 6);
+  const line = values.map((value, index) => `${x(index)},${y(value)}`).join(' ');
+
   return (
-    <View style={styles.alertCard}>
-      <View style={[styles.alertAccentBar, isHigh ? styles.alertAccentRose : styles.alertAccentOrange]} />
-      <View style={styles.alertRow}>
-        <Text style={isHigh ? styles.alertKickerRose : styles.alertKickerOrange}>
-          {isHigh ? 'High load' : 'Elevated load'}
-        </Text>
-        <View style={isHigh ? styles.alertBadgeRose : styles.alertBadgeOrange}>
-          <Text style={isHigh ? styles.alertBadgeTextRose : styles.alertBadgeTextOrange}>ACWR {fatigue.acwr}</Text>
-        </View>
-      </View>
-      <Text style={styles.alertTitle}>Recovery score {fatigue.recoveryScore}/100</Text>
-      <Text style={styles.alertBody}>
-        Load is above the safe zone (0.8–1.3). Consider a lighter week before it compounds.
-      </Text>
+    <Svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+      <Polyline points={line} fill="none" stroke={color} strokeWidth={2.2} strokeLinejoin="round" strokeLinecap="round" />
+      <Circle cx={x(values.length - 1)} cy={y(values[values.length - 1])} r={2.6} fill={color} />
+    </Svg>
+  );
+}
+
+function Seg<T extends string>({
+  options,
+  value,
+  onChange,
+  grow,
+}: {
+  options: Array<{ key: T; label: string }>;
+  value: T;
+  onChange: (next: T) => void;
+  grow?: boolean;
+}) {
+  return (
+    <View style={[styles.seg, grow && styles.segGrow]}>
+      {options.map((option) => {
+        const active = option.key === value;
+        return (
+          <Pressable
+            key={option.key}
+            onPress={() => onChange(option.key)}
+            style={[styles.segItem, grow && styles.segItemGrow, active && styles.segItemActive]}
+          >
+            <Text style={[styles.segText, active && styles.segTextActive]}>{option.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
@@ -884,34 +554,29 @@ export function ProgressScreen({
   measurementEntries,
   workoutSessions,
   activityCalendar,
-  currentWeekStreak,
+  rhythm,
+  weeklyTargetSessions = null,
   unitPreference,
   initialSection,
   selectedExerciseKey,
   showBodyweightDetail,
-  onSelectExercise,
-  onSelectBodyweight,
   onAddBodyweight,
   onAddMeasurement,
-  onBack,
-  plateaus,
-  fatigue,
   recentSessions = [],
   onOpenSessionHistory,
   onOpenRecentSession,
 }: ProgressScreenProps) {
-  const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const [bodyweightInput, setBodyweightInput] = useState('');
+  const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [progressQuery, setProgressQuery] = useState('');
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
+  const [expandedKey, setExpandedKey] = useState<string | null>(selectedExerciseKey ?? null);
+  const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>('volume');
   const [overviewRange, setOverviewRange] = useState<OverviewRange>('3m');
-  const [overviewMetric, setOverviewMetric] = useState<OverviewMetric>('duration');
-  const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
-  const [selectedMeasure, setSelectedMeasure] = useState<Exclude<MeasureKey, 'photos' | 'bodyweight'> | null>(null);
-  const [measureInput, setMeasureInput] = useState('');
-  const [measureUnit, setMeasureUnit] = useState<MeasurementUnit>('cm');
+  const [selectedMeasure, setSelectedMeasure] = useState<MeasureKey>(showBodyweightDetail ? 'bodyweight' : 'bodyweight');
   const [measureRange, setMeasureRange] = useState<MeasureRange>('3m');
+  const [measureUnit, setMeasureUnit] = useState<MeasurementUnit>('cm');
+  const [measureInput, setMeasureInput] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     if (initialSection) {
@@ -919,13 +584,43 @@ export function ProgressScreen({
     }
   }, [initialSection]);
 
-  const selectedSummary = summaries.find((summary) => summary.key === selectedExerciseKey);
-  const selectedSummaryDisplayName = selectedSummary ? formatLiftDisplayLabel(selectedSummary.name) : '';
-  const stackSignalRow = width < 420;
+  // Deep links: AI coach opens progress/detail with a lift key; the old
+  // bodyweight detail route now lands on the Measures tab.
+  useEffect(() => {
+    if (selectedExerciseKey) {
+      setProgressSection('tracked');
+      setExpandedKey(selectedExerciseKey);
+    }
+  }, [selectedExerciseKey]);
+
+  useEffect(() => {
+    if (showBodyweightDetail) {
+      setProgressSection('measures');
+      setSelectedMeasure('bodyweight');
+    }
+  }, [showBodyweightDetail]);
+
+  function switchSection(section: ProgressSection) {
+    setProgressSection(section);
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }
+
+  // ── overview data ──
+
+  const prioritizedSummaries = useMemo(() => [...summaries].sort(compareProgressSummaries), [summaries]);
+  const heroSummary = prioritizedSummaries[0] ?? null;
+  const heroPoints = useMemo(
+    () => (heroSummary ? getSummaryChartPoints(heroSummary, unitPreference) : []),
+    [heroSummary, unitPreference],
+  );
+  const heroSignalDot = heroSummary ? SIGNAL_STYLES[getExerciseProgressSignal(heroSummary).kind].dot : HG.purple;
+  const heroLatest = heroPoints.length ? heroPoints[heroPoints.length - 1].value : null;
+  const heroStart = heroPoints.length ? heroPoints[0].value : null;
+  const heroDelta = heroLatest !== null && heroStart !== null && heroPoints.length > 1 ? heroLatest - heroStart : null;
+  const heroReps = heroSummary?.latestReps?.split(',')[0] ?? null;
+
   const calendarMonthLabel = useMemo(() => {
-    const currentMonthDay = activityCalendar.weeks
-      .flat()
-      .find((day) => day.inCurrentMonth);
+    const currentMonthDay = activityCalendar.weeks.flat().find((day) => day.inCurrentMonth);
 
     if (!currentMonthDay) {
       return activityCalendar.monthLabel;
@@ -937,100 +632,27 @@ export function ProgressScreen({
     }).format(new Date(currentMonthDay.dayStart));
   }, [activityCalendar.monthLabel, activityCalendar.weeks]);
 
-  const chartPoints = useMemo(
-    () =>
-      selectedSummary
-        ? [...selectedSummary.logs]
-            .reverse()
-            .map((log) => ({
-              label: formatShortDate(log.performedAt),
-              value: convertWeightFromKg(log.weight, unitPreference),
-            }))
-        : [],
-    [selectedSummary, unitPreference],
-  );
+  const monthStats = useMemo(() => {
+    const currentMonthDay = activityCalendar.weeks.flat().find((day) => day.inCurrentMonth);
+    const monthStart = currentMonthDay ? new Date(currentMonthDay.dayStart) : new Date();
+    const monthEnd = new Date(monthStart);
+    monthEnd.setMonth(monthEnd.getMonth() + 1);
 
-  const bodyweightChartPoints = useMemo(
-    () =>
-      [...bodyweightProgress.entries]
-        .reverse()
-        .map((entry) => ({
-          label: entry.recordedAt,
-          value: convertWeightFromKg(entry.weight, unitPreference),
-        })),
-    [bodyweightProgress.entries, unitPreference],
-  );
-
-  const signalCounts = useMemo(
-    () =>
-      summaries.reduce(
-        (counts, summary) => {
-          const signal = getExerciseProgressSignal(summary);
-          counts[signal.kind] += 1;
-          return counts;
-        },
-        {
-          new_best: 0,
-          moving_up: 0,
-          below_last: 0,
-          building: 0,
-          starting: 0,
-        },
-      ),
-    [summaries],
-  );
-
-  const filteredSummaries = useMemo(() => {
-    const normalizedQuery = progressQuery.trim().toLowerCase();
-
-    return summaries.filter((summary) => {
-      const signal = getExerciseProgressSignal(summary);
-      if (progressFilter !== 'all' && signal.kind !== progressFilter) {
-        return false;
-      }
-
-      if (!normalizedQuery) {
-        return true;
-      }
-
-      return formatLiftDisplayLabel(summary.name).toLowerCase().includes(normalizedQuery);
+    const currentMonthSessions = workoutSessions.filter((session) => {
+      const performedAt = new Date(session.performedAt);
+      return performedAt >= monthStart && performedAt < monthEnd;
     });
-  }, [progressFilter, progressQuery, summaries]);
 
-  const prioritizedSummaries = useMemo(() => [...summaries].sort(compareProgressSummaries), [summaries]);
-  const primarySummary = prioritizedSummaries[0] ?? null;
-  const primarySummaryName = primarySummary ? formatLiftDisplayLabel(primarySummary.name) : 'Start tracking one lift';
-  const primarySummaryMeta = useMemo(
-    () => getPrimaryProgressMeta(primarySummary, unitPreference),
-    [primarySummary, unitPreference],
-  );
-  const selectedSummaryLatestContext = useMemo(() => {
-    if (!selectedSummary?.latestLog) {
-      return null;
-    }
-
-    const statusCounts = getLogSetStatusCounts(selectedSummary.latestLog);
-    const statusSummary = [
-      statusCounts.completed > 0 ? `${statusCounts.completed} completed` : null,
-      statusCounts.skipped > 0 ? `${statusCounts.skipped} skipped` : null,
-      statusCounts.pending > 0 ? `${statusCounts.pending} pending` : null,
-    ]
-      .filter(Boolean)
-      .join(' · ');
-
-    if (!selectedSummary.latestLog.swappedFrom && !selectedSummary.latestLog.notes && !statusSummary) {
-      return null;
-    }
+    const volumeKg = currentMonthSessions.reduce((sum, session) => sum + getSessionVolumeKg(session), 0);
+    const totalDuration = currentMonthSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
+    const averageDuration = currentMonthSessions.length ? Math.round(totalDuration / currentMonthSessions.length) : 0;
 
     return {
-      sessionLabel: `${selectedSummary.latestLog.workoutNameSnapshot} · ${formatShortDate(selectedSummary.latestLog.performedAt)}`,
-      swapLine: selectedSummary.latestLog.swappedFrom
-        ? `Swapped from ${formatLiftDisplayLabel(selectedSummary.latestLog.swappedFrom)}`
-        : null,
-      notesLine: selectedSummary.latestLog.notes ?? null,
-      statusLine: statusSummary ? `Set detail: ${statusSummary}` : null,
+      sessions: currentMonthSessions.length,
+      volumeKg,
+      averageDuration,
     };
-  }, [selectedSummary]);
+  }, [activityCalendar.weeks, workoutSessions]);
 
   const overviewChart = useMemo(() => {
     const start = getOverviewRangeStart(overviewRange);
@@ -1050,13 +672,11 @@ export function ProgressScreen({
       );
 
       return {
-        title: overviewMetric,
         valueLabel: points.length ? formatWeight(bodyweightProgress.latest?.weight, unitPreference) : 'No entries',
         unitLabel: unitPreference,
         points,
         footerLabels: getOverviewFooterLabels(points, overviewRange),
-        rangeSummary: getOverviewRangeSummary(overviewRange, points.length, overviewMetric),
-        yTickValues: getOverviewBodyweightTicks(points.map((point) => point.value), unitPreference, overviewRange),
+        yTickValues: getOverviewBodyweightTicks(points.map((point) => point.value), unitPreference),
         formatValueLabel: (value: number, unitLabel: string) => formatOverviewBodyweightTick(value, unitLabel),
         tooltipFormatter: (point: { label: string; value: number }) => ({
           title: formatDate(point.label),
@@ -1065,12 +685,11 @@ export function ProgressScreen({
             unitPreference,
           )}`,
         }),
-        accent: '#5B9AF2',
         emptyLabel: 'No bodyweight entries yet',
       };
     }
 
-    const grouped = new Map<string, { performedAt: string; duration: number; volume: number; workouts: number }>();
+    const grouped = new Map<string, { performedAt: string; duration: number; volume: number }>();
     for (const session of workoutSessions) {
       const performedAt = new Date(session.performedAt);
       if (start && performedAt < start) {
@@ -1082,12 +701,10 @@ export function ProgressScreen({
         performedAt: session.performedAt,
         duration: 0,
         volume: 0,
-        workouts: 0,
       };
 
       bucket.duration += getSessionDurationMinutes(session);
       bucket.volume += getSessionVolumeKg(session);
-      bucket.workouts += 1;
       grouped.set(key, bucket);
     }
 
@@ -1106,2504 +723,1309 @@ export function ProgressScreen({
       );
       const totalDuration = points.reduce((sum, point) => sum + point.value, 0);
       return {
-        title: overviewMetric,
         valueLabel: formatDurationMinutes(totalDuration),
         unitLabel: 'min',
         points,
         footerLabels: getOverviewFooterLabels(points, overviewRange),
-        rangeSummary: getOverviewRangeSummary(overviewRange, points.length, overviewMetric),
         yTickValues: getOverviewDurationTicks(Math.max(...points.map((point) => point.value), 0)),
         formatValueLabel: (value: number) => formatDurationTick(value),
         tooltipFormatter: (point: { label: string; value: number }) => ({
           title: formatDate(point.label),
           value: formatDurationMinutes(point.value),
         }),
-        accent: '#5B9AF2',
         emptyLabel: 'No workout durations yet',
-      };
-    }
-
-    if (overviewMetric === 'volume') {
-      const points = bucketOverviewPointsByRange(
-        rows.map((row) => ({
-          label: row.performedAt,
-          value: convertWeightFromKg(row.volume, unitPreference),
-        })),
-        overviewRange,
-        'sum',
-      );
-      return {
-        title: overviewMetric,
-        valueLabel: formatVolume(rows.reduce((sum, row) => sum + row.volume, 0), unitPreference),
-        unitLabel: unitPreference,
-        points,
-        footerLabels: getOverviewFooterLabels(points, overviewRange),
-        rangeSummary: getOverviewRangeSummary(overviewRange, points.length, overviewMetric),
-        yTickValues: undefined,
-        formatValueLabel: undefined,
-        tooltipFormatter: (point: { label: string; value: number }) => ({
-          title: formatDate(point.label),
-          value: formatVolume(
-            unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
-            unitPreference,
-          ),
-        }),
-        accent: '#5B9AF2',
-        emptyLabel: 'No volume data yet',
       };
     }
 
     const points = bucketOverviewPointsByRange(
       rows.map((row) => ({
         label: row.performedAt,
-        value: row.workouts,
+        value: convertWeightFromKg(row.volume, unitPreference),
       })),
       overviewRange,
       'sum',
     );
     return {
-      title: overviewMetric,
-      valueLabel: `${rows.reduce((sum, row) => sum + row.workouts, 0)}`,
-      unitLabel: 'sessions',
+      valueLabel: formatCompactVolume(rows.reduce((sum, row) => sum + row.volume, 0), unitPreference),
+      unitLabel: unitPreference,
       points,
       footerLabels: getOverviewFooterLabels(points, overviewRange),
-      rangeSummary: getOverviewRangeSummary(overviewRange, points.length, overviewMetric),
-      yTickValues: [0, 1, 2, 3, 4, 5, 6],
-      formatValueLabel: (value: number) => `${value}`,
+      yTickValues: undefined,
+      formatValueLabel: undefined,
       tooltipFormatter: (point: { label: string; value: number }) => ({
         title: formatDate(point.label),
-        value: `${point.value} workouts`,
+        value: formatVolume(
+          unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
+          unitPreference,
+        ),
       }),
-      accent: '#F97316',
-      emptyLabel: 'No workouts completed yet',
+      emptyLabel: 'No volume data yet',
     };
   }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, overviewRange, unitPreference, workoutSessions]);
 
-  const progressOverviewStats = useMemo(() => {
-    const currentMonthDay = activityCalendar.weeks.flat().find((day) => day.inCurrentMonth);
-    const monthStart = currentMonthDay ? new Date(currentMonthDay.dayStart) : new Date();
-    const monthEnd = new Date(monthStart);
-    monthEnd.setMonth(monthEnd.getMonth() + 1);
-    const previousMonthStart = new Date(monthStart);
-    previousMonthStart.setMonth(previousMonthStart.getMonth() - 1);
-
-    const currentMonthSessions = workoutSessions.filter((session) => {
-      const performedAt = new Date(session.performedAt);
-      return performedAt >= monthStart && performedAt < monthEnd;
-    });
-    const previousMonthSessions = workoutSessions.filter((session) => {
-      const performedAt = new Date(session.performedAt);
-      return performedAt >= previousMonthStart && performedAt < monthStart;
-    });
-
-    const totalDuration = workoutSessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0);
-    const averageDuration = workoutSessions.length ? Math.round(totalDuration / workoutSessions.length) : 0;
-    const monthDelta =
-      previousMonthSessions.length > 0
-        ? Math.round(((currentMonthSessions.length - previousMonthSessions.length) / previousMonthSessions.length) * 100)
-        : currentMonthSessions.length > 0
-          ? 100
-          : 0;
-
-    return {
-      workoutsThisMonth: currentMonthSessions.length,
-      previousMonthWorkouts: previousMonthSessions.length,
-      totalWorkouts: workoutSessions.length,
-      totalDuration,
-      averageDuration,
-      monthDelta,
-    };
-  }, [activityCalendar.weeks, workoutSessions]);
-
   const activityCalendarDays = useMemo(() => activityCalendar.weeks.flat(), [activityCalendar.weeks]);
 
-  const progressOverTimePoints = useMemo(() => {
-    const start = new Date();
-    start.setMonth(start.getMonth() - 3);
-    const grouped = new Map<string, number>();
+  // ── tracked data ──
 
-    workoutSessions.forEach((session) => {
-      const performedAt = new Date(session.performedAt);
-      if (performedAt < start) {
+  const filteredSummaries = useMemo(() => {
+    const normalizedQuery = progressQuery.trim().toLowerCase();
+
+    return prioritizedSummaries.filter((summary) => {
+      const signal = getExerciseProgressSignal(summary);
+      if (progressFilter !== 'all' && signal.kind !== progressFilter) {
+        return false;
+      }
+
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return formatLiftDisplayLabel(summary.name).toLowerCase().includes(normalizedQuery);
+    });
+  }, [prioritizedSummaries, progressFilter, progressQuery]);
+
+  // ── measures data ──
+
+  const measureModels = useMemo(() => {
+    return MEASURE_CONFIG.map((config) => {
+      if (config.kind === null) {
+        const entries = bodyweightProgress.entries;
+        const values = [...entries].reverse().map((entry) => convertWeightFromKg(entry.weight, unitPreference));
+        const dates = [...entries].reverse().map((entry) => entry.recordedAt);
+        return {
+          ...config,
+          unit: unitPreference as string,
+          values,
+          dates,
+        };
+      }
+
+      const kindEntries = measurementEntries
+        .filter((entry) => entry.kind === config.kind)
+        .sort((left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime());
+      const unit: MeasurementUnit =
+        config.key === 'bodyfat' ? '%' : kindEntries[kindEntries.length - 1]?.unit === 'in' ? 'in' : 'cm';
+      return {
+        ...config,
+        unit: unit as string,
+        values: kindEntries.map((entry) => convertMeasurementValue(entry.value, entry.unit, unit)),
+        dates: kindEntries.map((entry) => entry.recordedAt),
+      };
+    });
+  }, [bodyweightProgress.entries, measurementEntries, unitPreference]);
+
+  const selectedMeasureModel = measureModels.find((model) => model.key === selectedMeasure) ?? measureModels[0];
+
+  useEffect(() => {
+    // Input unit follows the selected measure (fixed for bodyweight/bodyfat).
+    setMeasureUnit(
+      selectedMeasureModel.key === 'bodyfat' ? '%' : selectedMeasureModel.unit === 'in' ? 'in' : 'cm',
+    );
+    setMeasureInput('');
+  }, [selectedMeasureModel.key, selectedMeasureModel.unit]);
+
+  const selectedMeasureRangePoints = useMemo(() => {
+    const start = getMeasurementRangeStart(measureRange);
+    const points: Array<{ label: string; value: number }> = [];
+    selectedMeasureModel.values.forEach((value, index) => {
+      const recordedAt = selectedMeasureModel.dates[index];
+      if (start && new Date(recordedAt).getTime() < start.getTime()) {
         return;
       }
-      const key = performedAt.toISOString().slice(0, 10);
-      grouped.set(key, (grouped.get(key) ?? 0) + 1);
+      points.push({ label: formatShortDate(recordedAt), value });
     });
+    return points;
+  }, [measureRange, selectedMeasureModel]);
 
-    let runningTotal = 0;
-    return [...grouped.entries()]
-      .sort(([left], [right]) => left.localeCompare(right))
-      .map(([label, count]) => {
-        runningTotal += count;
-        return { label, value: runningTotal };
-      });
-  }, [workoutSessions]);
+  const selectedMeasureLatest = selectedMeasureModel.values.length
+    ? selectedMeasureModel.values[selectedMeasureModel.values.length - 1]
+    : null;
+  const selectedMeasureDelta =
+    selectedMeasureRangePoints.length >= 2
+      ? selectedMeasureRangePoints[selectedMeasureRangePoints.length - 1].value - selectedMeasureRangePoints[0].value
+      : null;
 
-  const recentHighlight = useMemo(() => {
-    const best = prioritizedSummaries.find((summary) => getExerciseProgressSignal(summary).kind === 'new_best') ?? prioritizedSummaries[0] ?? null;
-    if (!best) {
-      return null;
-    }
-
-    return {
-      title: getExerciseProgressSignal(best).kind === 'new_best' ? 'New personal best' : 'Best tracked lift',
-      lift: formatLiftDisplayLabel(best.name),
-      value: best.bestReps ? `${best.bestReps} reps` : formatWeight(best.bestWeight, unitPreference),
-      meta: best.latestLog ? formatShortDate(best.latestLog.performedAt) : 'Latest log',
-    };
-  }, [prioritizedSummaries, unitPreference]);
-
-  const topLiftRows = useMemo(
-    () =>
-      prioritizedSummaries.slice(0, 3).map((summary) => ({
-        key: summary.key,
-        title: formatLiftDisplayLabel(summary.name),
-        value: summary.bestReps ? `${summary.bestReps} reps` : formatWeight(summary.bestWeight, unitPreference),
-        meta: summary.latestLog ? formatShortDate(summary.latestLog.performedAt) : 'Best set',
-      })),
-    [prioritizedSummaries, unitPreference],
-  );
-
-  const selectedMeasureKind = selectedMeasure ? MEASURE_KEY_TO_KIND[selectedMeasure] : null;
-  const selectedMeasureEntries = useMemo(() => {
-    if (!selectedMeasureKind) {
-      return [];
-    }
-
-    return [...measurementEntries]
-      .filter((entry) => entry.kind === selectedMeasureKind)
-      .sort((left, right) => new Date(right.recordedAt).getTime() - new Date(left.recordedAt).getTime());
-  }, [measurementEntries, selectedMeasureKind]);
-  const selectedMeasureGuide = selectedMeasure ? MEASURE_GUIDES[selectedMeasure] : null;
-  const selectedMeasureLatest = selectedMeasureEntries[0] ?? null;
-  const selectedMeasureVisibleEntries = useMemo(() => {
-    const start = getMeasurementRangeStart(measureRange);
-    const filtered = start
-      ? selectedMeasureEntries.filter((entry) => new Date(entry.recordedAt).getTime() >= start.getTime())
-      : selectedMeasureEntries;
-    return filtered.slice().reverse();
-  }, [measureRange, selectedMeasureEntries]);
-  const selectedMeasureDisplayValue = selectedMeasureLatest
-    ? formatMeasurementValue(
-        convertMeasurementValue(selectedMeasureLatest.value, selectedMeasureLatest.unit, measureUnit),
-        measureUnit,
-      )
-    : undefined;
-  const selectedMeasureHistory = selectedMeasureVisibleEntries
-    .map((entry) => convertMeasurementValue(entry.value, entry.unit, measureUnit));
-  const selectedMeasureChange = selectedMeasureHistory.length >= 2 ? selectedMeasureHistory[selectedMeasureHistory.length - 1] - selectedMeasureHistory[0] : null;
-
-  function openMeasureSheet(key: Exclude<MeasureKey, 'photos' | 'bodyweight'>) {
-    const latest = [...measurementEntries]
-      .filter((entry) => entry.kind === MEASURE_KEY_TO_KIND[key])
-      .sort((left, right) => new Date(right.recordedAt).getTime() - new Date(left.recordedAt).getTime())[0];
-    const nextUnit: MeasurementUnit = key === 'bodyfat' ? '%' : latest?.unit === 'in' ? 'in' : 'cm';
-    setSelectedMeasure(key);
-    setMeasureRange('3m');
-    setMeasureUnit(nextUnit);
-    setMeasureInput(latest ? removeTrailingZeros(convertMeasurementValue(latest.value, latest.unit, nextUnit)) : '');
-  }
-
-  async function handleSaveMeasurement() {
-    if (!selectedMeasureKind || !selectedMeasure) {
-      return;
-    }
-
+  async function handleSaveMeasure() {
     const parsed = parseNumberInput(measureInput);
     if (!parsed || parsed <= 0) {
       return;
     }
 
-    await onAddMeasurement(selectedMeasureKind, parsed, measureUnit);
+    if (selectedMeasureModel.kind === null) {
+      onAddBodyweight(convertWeightToKg(parsed, unitPreference));
+    } else {
+      await onAddMeasurement(selectedMeasureModel.kind, parsed, measureUnit);
+    }
     setMeasureInput('');
   }
 
-  if (showBodyweightDetail) {
-    const latest = bodyweightProgress.latest;
-    const previous = bodyweightProgress.previous;
+  // ── sections ──
+
+  function renderOverview() {
+    const maxWeekSessions = Math.max(4, ...rhythm.sessionsPerWeek);
 
     return (
       <>
-        <ScreenHeader title="Bodyweight" subtitle="Latest change." onBack={onBack} tone="dark" />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <SurfaceCard accent="neutral" emphasis="hero" style={styles.heroSurface}>
-            <View style={styles.heroContent}>
-              <Text style={styles.heroKicker}>Bodyweight</Text>
-
-              <View style={styles.heroBadgeRow}>
-                <BadgePill accent="neutral" label={formatWeight(latest?.weight, unitPreference)} />
-                <BadgePill
-                  accent="neutral"
-                  label={formatWeightTrend(latest?.weight ?? null, previous?.weight ?? null, unitPreference)}
-                />
-                <BadgePill accent="neutral" label={`${bodyweightProgress.entries.length} entries`} />
+        {heroSummary ? (
+          <View style={styles.heroBlock}>
+            <View style={styles.heroCard}>
+              <View style={styles.heroHead}>
+                <Text numberOfLines={1} style={styles.heroLabel}>
+                  Working weight · {formatLiftDisplayLabel(heroSummary.name)}
+                </Text>
+                <SignalBadge summary={heroSummary} />
               </View>
-
-              <View style={styles.heroCopy}>
-                <Text style={styles.heroTitle}>Keep the trend clean</Text>
-                <Text style={styles.heroMeta}>
-                  {latest ? `Latest ${formatShortDate(latest.recordedAt)}` : 'Add one number to start the line.'}
+              <View style={styles.heroValueRow}>
+                <Text style={styles.heroValue}>{heroLatest !== null ? removeTrailingZeros(heroLatest) : '-'}</Text>
+                <Text style={styles.heroUnit}>
+                  {unitPreference}
+                  {heroReps ? ` × ${heroReps}` : ''}
                 </Text>
               </View>
+              {heroDelta !== null ? (
+                <Text style={styles.heroSince}>
+                  {heroDelta >= 0 ? '+' : ''}
+                  {fmtDelta(heroDelta)} {unitPreference} since you started · {removeTrailingZeros(heroStart ?? 0)} →{' '}
+                  {removeTrailingZeros(heroLatest ?? 0)} {unitPreference}
+                </Text>
+              ) : (
+                <Text style={styles.heroSinceMuted}>One more log and the trend starts here.</Text>
+              )}
             </View>
-          </SurfaceCard>
-
-          <SurfaceCard accent="neutral" emphasis="standard" style={styles.detailEntryCard}>
-            <View style={styles.detailHeader}>
-              <Text style={styles.detailKicker}>Bodyweight</Text>
-              <Text style={styles.detailTitle}>Log a new entry</Text>
-              <Text style={styles.detailBody}>Add one number and keep the trend clean.</Text>
-            </View>
-
-            <View style={styles.bodyweightEntryRow}>
-              <TextInput
-                value={bodyweightInput}
-                onChangeText={setBodyweightInput}
-                keyboardType="decimal-pad"
-                placeholder={`0 ${unitPreference}`}
-                placeholderTextColor={colors.textMuted}
-                style={styles.bodyweightInput}
-                selectionColor="#F4FAFF"
-              />
-              <Pressable
-                onPress={() => {
-                  const parsed = parseNumberInput(bodyweightInput);
-                  if (!parsed) {
-                    return;
-                  }
-
-                  onAddBodyweight(convertWeightToKg(parsed, unitPreference));
-                  setBodyweightInput('');
-                }}
-                style={styles.bodyweightButton}
-              >
-                <Text style={styles.bodyweightButtonText}>Add</Text>
-              </Pressable>
-            </View>
-          </SurfaceCard>
-
-          <View style={[styles.signalRow, stackSignalRow && styles.signalRowStacked]}>
-            <SignalCard
-              label="Latest"
-              value={formatWeight(latest?.weight, unitPreference)}
-              meta={latest ? formatShortDate(latest.recordedAt) : null}
-            />
-            <SignalCard
-              label="Change"
-              value={formatWeightTrend(latest?.weight ?? null, previous?.weight ?? null, unitPreference)}
-              meta={previous ? `Previous ${formatWeight(previous.weight, unitPreference)}` : 'Need one more entry'}
-            />
-          </View>
-
-          <SurfaceCard accent="neutral" emphasis="utility" style={styles.chartCard}>
-            <Text style={styles.detailSectionLabel}>Trend</Text>
             <SimpleLineChart
-              points={bodyweightChartPoints}
+              points={heroPoints}
               unitLabel={unitPreference}
-              accent="#5B9AF2"
-              showLine={false}
-              showFooter={false}
+              accent={heroSignalDot}
               tooltipFormatter={(point) => ({
-                title: formatDate(point.label),
-                value: `${formatTime(point.label)} · ${formatWeight(
+                title: point.label,
+                value: formatWeight(
                   unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
                   unitPreference,
-                )}`,
+                ),
               })}
             />
-          </SurfaceCard>
+          </View>
+        ) : (
+          <View style={styles.emptyHeroCard}>
+            <Text style={styles.emptyTitle}>No tracked lifts yet</Text>
+            <Text style={styles.emptyText}>Star a lift or track it while logging and your progress starts here.</Text>
+          </View>
+        )}
 
-          <SurfaceCard accent="neutral" emphasis="utility" style={styles.recentCard}>
-            <Text style={styles.detailSectionLabel}>Recent entries</Text>
-            <RecentList
-              rows={bodyweightProgress.entries.slice(0, 5).map((entry) => ({
-                title: formatDate(entry.recordedAt),
-                value: formatWeight(entry.weight, unitPreference),
-              }))}
-            />
-          </SurfaceCard>
-        </ScrollView>
+        <SectionLabel label="TRAINING RHYTHM" />
+        <View style={styles.card}>
+          <View style={styles.rhythmHead}>
+            <View style={styles.rhythmHeadLeft}>
+              <Text style={styles.rhythmBig}>{rhythm.weeksInRow}</Text>
+              <Text style={styles.rhythmBigLabel}>{rhythm.weeksInRow === 1 ? 'week in a row' : 'weeks in a row'}</Text>
+            </View>
+            <Text style={styles.rhythmThisWeek}>
+              {weeklyTargetSessions
+                ? `${rhythm.currentWeekSessions}/${weeklyTargetSessions} this week`
+                : `${rhythm.currentWeekSessions} this week`}
+            </Text>
+          </View>
+          <View style={styles.rhythmBars}>
+            {rhythm.sessionsPerWeek.map((count, index) => {
+              const isCurrent = index === rhythm.sessionsPerWeek.length - 1;
+              const height = Math.max(8, (count / maxWeekSessions) * 56);
+              return (
+                <View key={index} style={styles.rhythmBarSlot}>
+                  <View
+                    style={[
+                      styles.rhythmBar,
+                      { height },
+                      isCurrent ? styles.rhythmBarCurrent : null,
+                    ]}
+                  />
+                </View>
+              );
+            })}
+          </View>
+          <View style={styles.rhythmFootRow}>
+            <Text style={styles.rhythmFootText}>{rhythm.sessionsPerWeek.length} weeks ago</Text>
+            <Text style={styles.rhythmFootText}>This week</Text>
+          </View>
+          <Text style={styles.rhythmCaption}>
+            {rhythm.weeksInRow > 0
+              ? `At least one session every week for ${rhythm.weeksInRow} ${rhythm.weeksInRow === 1 ? 'week' : 'weeks'}. Bars show sessions per week.`
+              : 'Bars show sessions per week. Log a session to start the run.'}
+          </Text>
+        </View>
+
+        <SectionLabel label="THIS MONTH" />
+        <View style={styles.monthGrid}>
+          <View style={styles.monthCard}>
+            <Text style={styles.monthLabel}>SESSIONS</Text>
+            <Text style={styles.monthValue}>{monthStats.sessions}</Text>
+            <Text style={styles.monthMeta}>this month</Text>
+          </View>
+          <View style={styles.monthCard}>
+            <Text style={styles.monthLabel}>VOLUME</Text>
+            <Text style={styles.monthValue}>{formatCompactVolume(monthStats.volumeKg, unitPreference)}</Text>
+            <Text style={styles.monthMeta}>lifted</Text>
+          </View>
+          <View style={styles.monthCard}>
+            <Text style={styles.monthLabel}>AVG TIME</Text>
+            <Text style={styles.monthValue}>{monthStats.averageDuration} min</Text>
+            <Text style={styles.monthMeta}>per session</Text>
+          </View>
+        </View>
+
+        <SectionLabel label="TREND" />
+        <View style={styles.trendBlock}>
+          <View style={styles.trendHead}>
+            <Text style={styles.trendValue}>{overviewChart.valueLabel}</Text>
+            <Seg options={OVERVIEW_METRICS} value={overviewMetric} onChange={setOverviewMetric} />
+          </View>
+          <SimpleLineChart
+            points={overviewChart.points}
+            unitLabel={overviewChart.unitLabel}
+            accent={HG.purple}
+            yTickValues={overviewChart.yTickValues}
+            formatValueLabel={overviewChart.formatValueLabel}
+            footerLabels={overviewChart.footerLabels}
+            tooltipFormatter={overviewChart.tooltipFormatter}
+            emptyLabel={overviewChart.emptyLabel}
+          />
+          <View style={styles.trendRangeRow}>
+            <Seg options={OVERVIEW_RANGES} value={overviewRange} onChange={setOverviewRange} />
+          </View>
+        </View>
+
+        <SectionLabel label="ACTIVITY" right={calendarMonthLabel} />
+        <View style={styles.card}>
+          <View style={styles.calendarWeekdayRow}>
+            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
+              <Text key={`${label}:${index}`} style={styles.calendarWeekday}>
+                {label}
+              </Text>
+            ))}
+          </View>
+          <View style={styles.calendarGrid}>
+            {activityCalendarDays.map((day) => {
+              const status = getProgressActivityDayStatus(day);
+              if (status === 'outside') {
+                return <View key={day.dayStart} style={styles.calendarCell} />;
+              }
+              const workout = status === 'workout';
+              return (
+                <View key={day.dayStart} style={styles.calendarCell}>
+                  <View
+                    style={[
+                      styles.calendarBubble,
+                      workout && styles.calendarBubbleWorkout,
+                      !workout && day.isToday && styles.calendarBubbleToday,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.calendarBubbleText,
+                        workout && styles.calendarBubbleTextWorkout,
+                        !workout && day.isToday && styles.calendarBubbleTextToday,
+                      ]}
+                    >
+                      {day.dayNumber}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.progressHistoryCard}>
+          <View style={styles.historyHeadRow}>
+            <Text style={styles.referenceCardTitle}>History</Text>
+            {onOpenSessionHistory ? (
+              <Pressable onPress={onOpenSessionHistory} hitSlop={8}>
+                <Text style={styles.historySeeAll}>See all</Text>
+              </Pressable>
+            ) : null}
+          </View>
+          {recentSessions.length > 0 ? (
+            <View style={styles.historyList}>
+              {recentSessions.slice(0, 3).map((session) => (
+                <Pressable
+                  key={session.id}
+                  onPress={() => onOpenRecentSession?.(session.id)}
+                  disabled={!onOpenRecentSession}
+                  style={styles.historyRow}
+                >
+                  <View style={styles.historyIcon}>
+                    <GymlogIcon name="dumbbell" color={HG.purpleDark} size={17} />
+                  </View>
+                  <View style={styles.historyCopy}>
+                    <Text numberOfLines={1} style={styles.historyTitle}>
+                      {session.title}
+                    </Text>
+                    <Text numberOfLines={1} style={styles.historyMeta}>
+                      {session.dateLabel} · {session.durationLabel} · {session.volumeLabel}
+                    </Text>
+                  </View>
+                  <GymlogIcon name="chevronRight" color={HG.faint} size={16} />
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.historyEmpty}>
+              <Text style={styles.emptyTitle}>No sessions yet</Text>
+              <Text style={styles.emptyText}>Finish a workout and it will show up here.</Text>
+            </View>
+          )}
+        </View>
       </>
     );
   }
 
-  if (selectedSummary) {
-    const selectedSignal = getExerciseProgressSignal(selectedSummary);
+  function renderTracked() {
     return (
       <>
-        <ScreenHeader title={selectedSummaryDisplayName} subtitle="Latest change." onBack={onBack} tone="dark" />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <SurfaceCard accent="neutral" emphasis="hero" style={styles.heroSurface}>
-            <View style={styles.heroContent}>
-              <Text style={styles.heroKicker}>Lift detail</Text>
+        <View style={styles.searchShell}>
+          <SearchIcon />
+          <TextInput
+            value={progressQuery}
+            onChangeText={setProgressQuery}
+            placeholder="Search tracked lifts..."
+            placeholderTextColor={HG.faint}
+            style={styles.searchInput}
+          />
+        </View>
 
-              <View style={styles.heroBadgeRow}>
-                <BadgePill accent="neutral" label={selectedSignal.label} />
-                <BadgePill accent="neutral" label={formatWeight(selectedSummary.latestWeight, unitPreference)} />
-                <BadgePill accent="neutral" label={formatWeight(selectedSummary.bestWeight, unitPreference)} />
-              </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.filterRail}
+        >
+          {PROGRESS_FILTERS.map((filter) => {
+            const active = filter.key === progressFilter;
+            return (
+              <Pressable
+                key={filter.key}
+                onPress={() => setProgressFilter(filter.key)}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
 
-              <View style={styles.heroCopy}>
-                <Text style={styles.heroTitle}>{selectedSummaryDisplayName}</Text>
-                <Text style={styles.heroMeta}>
-                  {selectedSummary.latestLog
-                    ? `${formatLogSetSummary(selectedSummary.latestLog, unitPreference)} · ${formatShortDate(selectedSummary.latestLog.performedAt)}`
-                    : 'No tracked sets yet.'}
-                </Text>
-              </View>
+        {summaries.length === 0 ? (
+          <View style={styles.emptyBlock}>
+            <Text style={styles.emptyTitle}>No tracked lifts yet</Text>
+            <Text style={styles.emptyText}>Star one exercise or track it while logging and it shows up here.</Text>
+          </View>
+        ) : filteredSummaries.length === 0 ? (
+          <View style={styles.emptyBlock}>
+            <Text style={styles.emptyTitle}>Nothing here</Text>
+            <Text style={styles.emptyText}>No lifts match this filter.</Text>
+          </View>
+        ) : (
+          <View style={styles.trackedList}>
+            {filteredSummaries.map((summary) => {
+              const isOpen = expandedKey === summary.key;
+              const signalDot = SIGNAL_STYLES[getExerciseProgressSignal(summary).kind].dot;
+              const points = getSummaryChartPoints(summary, unitPreference);
+              const start = points[0]?.value ?? null;
+              const latest = points.length ? points[points.length - 1].value : null;
+              const delta = start !== null && latest !== null && points.length > 1 ? latest - start : null;
+              return (
+                <View key={summary.key} style={styles.trackedCard}>
+                  <Pressable onPress={() => setExpandedKey(isOpen ? null : summary.key)} style={styles.trackedHead}>
+                    <View style={styles.trackedCopy}>
+                      <Text numberOfLines={1} style={styles.trackedName}>
+                        {formatLiftDisplayLabel(summary.name)}
+                      </Text>
+                      <View style={styles.trackedMetaRow}>
+                        <SignalBadge summary={summary} />
+                        <Text numberOfLines={1} style={styles.trackedMeta}>
+                          {formatWeight(summary.latestWeight, unitPreference)}
+                          {summary.latestReps && summary.latestReps !== '-' ? ` × ${summary.latestReps.split(',')[0]}` : ''}
+                          {summary.latestLog ? ` · ${formatShortDate(summary.latestLog.performedAt)}` : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <Sparkline values={points.map((point) => point.value)} color={signalDot} />
+                    <ChevronDown open={isOpen} />
+                  </Pressable>
+                  {isOpen ? (
+                    <View style={styles.trackedDetail}>
+                      {delta !== null ? (
+                        <Text style={styles.trackedDelta}>
+                          {delta >= 0 ? '+' : ''}
+                          {fmtDelta(delta)} {unitPreference} · {removeTrailingZeros(start ?? 0)} →{' '}
+                          {removeTrailingZeros(latest ?? 0)} {unitPreference}
+                        </Text>
+                      ) : (
+                        <Text style={styles.trackedDeltaMuted}>One more log and the trend starts here.</Text>
+                      )}
+                      <SimpleLineChart
+                        points={points}
+                        unitLabel={unitPreference}
+                        accent={signalDot}
+                        tooltipFormatter={(point) => ({
+                          title: point.label,
+                          value: formatWeight(
+                            unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
+                            unitPreference,
+                          ),
+                        })}
+                      />
+                      {summary.logs.length ? (
+                        <View style={styles.trackedLogList}>
+                          {summary.logs.slice(0, 3).map((log) => (
+                            <View key={log.id} style={styles.trackedLogRow}>
+                              <View style={styles.trackedLogCopy}>
+                                <Text style={styles.trackedLogTitle}>{formatDate(log.performedAt)}</Text>
+                                <Text numberOfLines={1} style={styles.trackedLogMeta}>
+                                  {formatLogSetSummary(log, unitPreference)}
+                                </Text>
+                              </View>
+                              <Text style={styles.trackedLogValue}>{formatWeight(log.weight, unitPreference)}</Text>
+                            </View>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
+        )}
+      </>
+    );
+  }
+
+  function renderMeasures() {
+    const model = selectedMeasureModel;
+
+    return (
+      <>
+        <View style={styles.measureDetailBlock}>
+          <View style={styles.card}>
+            <View style={styles.measureDetailHead}>
+              <Text style={styles.measureDetailLabel}>{model.label}</Text>
+              {selectedMeasureDelta !== null && selectedMeasureDelta !== 0 ? (
+                <DeltaPill delta={selectedMeasureDelta} unit={model.unit} lowerIsBetter={model.lowerIsBetter} />
+              ) : null}
             </View>
-          </SurfaceCard>
+            <View style={styles.measureValueRow}>
+              <Text style={styles.measureValue}>
+                {selectedMeasureLatest !== null ? removeTrailingZeros(Number(selectedMeasureLatest.toFixed(1))) : '—'}
+              </Text>
+              <Text style={styles.measureUnit}>{model.unit}</Text>
+            </View>
+            <Text style={styles.measureCaption}>
+              {model.values.length
+                ? 'Tracked against your own baseline.'
+                : 'No entries yet — add your first below.'}
+            </Text>
 
-          {selectedSummaryLatestContext ? (
-            <SurfaceCard accent="neutral" emphasis="flat" style={styles.contextCard}>
-              <Text style={styles.contextKicker}>Last session</Text>
-              <Text style={styles.contextTitle}>{selectedSummaryLatestContext.sessionLabel}</Text>
-              {selectedSummaryLatestContext.swapLine ? (
-                <Text style={styles.contextBody}>{selectedSummaryLatestContext.swapLine}</Text>
+            <View style={styles.measureEntryRow}>
+              <TextInput
+                value={measureInput}
+                onChangeText={setMeasureInput}
+                keyboardType="decimal-pad"
+                placeholder={`0 ${model.kind === null ? unitPreference : measureUnit}`}
+                placeholderTextColor={HG.faint}
+                style={styles.measureInput}
+              />
+              {model.kind !== null && model.key !== 'bodyfat' ? (
+                <Seg
+                  options={[
+                    { key: 'cm' as MeasurementUnit, label: 'cm' },
+                    { key: 'in' as MeasurementUnit, label: 'in' },
+                  ]}
+                  value={measureUnit}
+                  onChange={setMeasureUnit}
+                />
               ) : null}
-              {selectedSummaryLatestContext.statusLine ? (
-                <Text style={styles.contextBody}>{selectedSummaryLatestContext.statusLine}</Text>
-              ) : null}
-              {selectedSummaryLatestContext.notesLine ? (
-                <Text style={styles.contextBody}>{selectedSummaryLatestContext.notesLine}</Text>
-              ) : null}
-            </SurfaceCard>
-          ) : null}
-
-          <View style={[styles.signalRow, stackSignalRow && styles.signalRowStacked]}>
-            <SignalCard
-              label="Latest"
-              value={formatWeight(selectedSummary.latestWeight, unitPreference)}
-              meta={selectedSummary.latestLog ? formatShortDate(selectedSummary.latestLog.performedAt) : null}
-            />
-            <SignalCard
-              label="Best"
-              value={formatWeight(selectedSummary.bestWeight, unitPreference)}
-              meta={selectedSummary.bestReps ? `${selectedSummary.bestReps} total reps` : null}
-            />
-            <SignalCard
-              label="Change"
-              value={formatWeightTrend(selectedSummary.latestWeight, selectedSummary.previousWeight, unitPreference)}
-              meta={selectedSummary.previousWeight !== null ? 'vs previous log' : 'Need one more log'}
-            />
+              <Pressable onPress={() => void handleSaveMeasure()} style={styles.measureSaveButton}>
+                <Text style={styles.measureSaveText}>Save</Text>
+              </Pressable>
+            </View>
           </View>
 
-          <SurfaceCard accent="neutral" emphasis="utility" style={styles.chartCard}>
-            <Text style={styles.detailSectionLabel}>Trend</Text>
-            <SimpleLineChart points={chartPoints} unitLabel={unitPreference} accent="#5B9AF2" />
-          </SurfaceCard>
+          <SimpleLineChart
+            points={selectedMeasureRangePoints}
+            unitLabel={model.unit}
+            accent={HG.purple}
+            emptyLabel="No entries in this range yet"
+            tooltipFormatter={(point) => ({
+              title: point.label,
+              value: `${removeTrailingZeros(Number(point.value.toFixed(1)))} ${model.unit}`,
+            })}
+          />
+          <View style={styles.trendRangeRow}>
+            <Seg options={MEASURE_RANGES} value={measureRange} onChange={setMeasureRange} />
+          </View>
+        </View>
 
-          <SurfaceCard accent="neutral" emphasis="utility" style={styles.recentCard}>
-            <Text style={styles.detailSectionLabel}>Recent logs</Text>
-            <RecentList
-              rows={selectedSummary.logs.slice(0, 5).map((log) => ({
-                title: formatDate(log.performedAt),
-                meta: formatLogSetSummary(log, unitPreference),
-                value: formatWeight(log.weight, unitPreference),
-              }))}
-            />
-          </SurfaceCard>
-        </ScrollView>
+        <SectionLabel label="ALL MEASURES" />
+        <View style={styles.measureList}>
+          {measureModels.map((item) => {
+            const active = item.key === selectedMeasure;
+            const latest = item.values.length ? item.values[item.values.length - 1] : null;
+            const delta = item.values.length >= 2 ? item.values[item.values.length - 1] - item.values[0] : null;
+            const good = delta === null ? true : item.lowerIsBetter ? delta < 0 : delta > 0;
+            return (
+              <Pressable
+                key={item.key}
+                onPress={() => setSelectedMeasure(item.key)}
+                style={[styles.measureRow, active && styles.measureRowActive]}
+              >
+                <View style={styles.measureRowIcon}>
+                  <MeasureIcon name={item.icon} />
+                </View>
+                <View style={styles.measureRowCopy}>
+                  <Text style={styles.measureRowTitle}>{item.label}</Text>
+                  <Text style={styles.measureRowMeta}>
+                    {latest !== null ? `${removeTrailingZeros(Number(latest.toFixed(1)))} ${item.unit}` : 'No entries yet'}
+                  </Text>
+                </View>
+                <Sparkline
+                  values={item.values.slice(-8)}
+                  color={delta === null ? HG.faint : good ? '#37C46B' : '#E0922F'}
+                  width={58}
+                />
+                {delta !== null && delta !== 0 ? (
+                  <DeltaPill delta={delta} unit={item.unit} lowerIsBetter={item.lowerIsBetter} />
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
       </>
     );
   }
 
   return (
-    <>
-      <View style={styles.progressHeader}>
-        <View style={styles.progressHeaderCopy}>
-          <Text style={styles.progressHeaderTitle}>Progress</Text>
-          <Text style={styles.progressHeaderSubtitle}>Track your consistency. See your progress.</Text>
-        </View>
-        <Pressable style={styles.progressHeaderAction}>
-          <ProgressCalendarIcon />
-        </Pressable>
-      </View>
-      <View style={styles.sectionRail}>
-        {PROGRESS_SECTIONS.map((section) => {
-          const active = section.key === progressSection;
-          return (
-            <Pressable
-              key={section.key}
-              onPress={() => setProgressSection(section.key)}
-              style={styles.sectionChip}
-            >
-              <Text style={[styles.sectionChipText, active && styles.sectionChipTextActive]}>{section.label}</Text>
-              {active ? <View style={styles.sectionChipUnderline} /> : null}
-            </Pressable>
-          );
-        })}
-      </View>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {progressSection === 'overview' ? (
-          <>
-            <View style={styles.activityCard}>
-              <View style={styles.referenceCardHeader}>
-                <Text style={styles.referenceCardTitle}>Activity</Text>
-                <Text style={styles.referenceCardAction}>{calendarMonthLabel} 〉</Text>
-              </View>
-              <View style={styles.activityStatsRow}>
-                <View>
-                  <Text style={styles.activityStatLabel}>Workouts this month</Text>
-                  <Text style={styles.activityStatValue}>{progressOverviewStats.workoutsThisMonth}</Text>
-                </View>
-                <View style={styles.activityDeltaBlock}>
-                  <Text style={styles.activityStatLabel}>vs last month</Text>
-                  <Text style={styles.activityDeltaValue}>
-                    {progressOverviewStats.monthDelta >= 0 ? '+' : ''}
-                    {progressOverviewStats.monthDelta}%
-                  </Text>
-                </View>
-              </View>
-              <View style={styles.activityHeatmap}>
-                <View style={styles.activityHeatmapLabelRow}>
-                  {PROGRESS_WEEKDAY_LABELS.map((label, index) => (
-                    <Text key={`${label}:${index}`} style={styles.activityHeatmapLabel}>
-                      {label}
-                    </Text>
-                  ))}
-                </View>
-                <View style={styles.activityCalendarGrid}>
-                  {activityCalendarDays.map((day) => {
-                    const status = getProgressActivityDayStatus(day);
-                    const workout = status === 'workout';
-                    const outside = status === 'outside';
-                    return (
-                      <View key={day.dayStart} style={styles.activityCalendarCell}>
-                        <View
-                          style={[
-                            styles.activityCalendarBubble,
-                            workout && styles.activityCalendarWorkout,
-                            outside && styles.activityCalendarOutside,
-                            day.isToday && styles.activityCalendarToday,
-                          ]}
-                        >
-                          <Text style={[styles.activityCalendarText, outside && styles.activityCalendarTextMuted]}>
-                            {day.dayNumber}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-              <View style={styles.referenceLegend}>
-                <View style={styles.referenceLegendItem}>
-                  <View style={[styles.referenceLegendDot, styles.referenceLegendWorkout]} />
-                  <Text style={styles.referenceLegendText}>Workout</Text>
-                </View>
-                <View style={styles.referenceLegendItem}>
-                  <View style={[styles.referenceLegendDot, styles.referenceLegendRest]} />
-                  <Text style={styles.referenceLegendText}>Rest</Text>
-                </View>
-              </View>
-            </View>
-
-            <View style={styles.progressHistoryCard}>
-              <View style={styles.referenceCardHeader}>
-                <Text style={styles.referenceCardTitle}>History</Text>
-                {onOpenSessionHistory ? (
-                  <Pressable onPress={onOpenSessionHistory} hitSlop={8}>
-                    <Text style={styles.referenceSeeAll}>See all</Text>
-                  </Pressable>
-                ) : null}
-              </View>
-
-              {recentSessions.length > 0 ? (
-                <View style={styles.progressHistoryList}>
-                  {recentSessions.slice(0, 3).map((session) => (
-                    <Pressable
-                      key={session.id}
-                      onPress={() => onOpenRecentSession?.(session.id)}
-                      disabled={!onOpenRecentSession}
-                      style={styles.progressHistoryRow}
-                    >
-                      <View style={styles.progressHistoryIcon}>
-                        <GymlogIcon name="dumbbell" color="#16A34A" size={18} />
-                      </View>
-                      <View style={styles.progressHistoryCopy}>
-                        <Text style={styles.progressHistoryTitle} numberOfLines={1}>
-                          {session.title}
-                        </Text>
-                        <Text style={styles.progressHistoryMeta} numberOfLines={1}>
-                          {session.dateLabel} - {session.durationLabel} - {session.volumeLabel}
-                        </Text>
-                        <Text style={styles.progressHistoryPreview} numberOfLines={1}>
-                          {session.exercisePreview}
-                        </Text>
-                      </View>
-                      <GymlogIcon name="chevronRight" color="#16A34A" size={18} />
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <View style={styles.progressHistoryEmpty}>
-                  <Text style={styles.progressHistoryTitle}>No sessions yet</Text>
-                  <Text style={styles.progressHistoryPreview}>Finish a workout and it will show up here.</Text>
-                </View>
-              )}
-            </View>
-
-            <View style={styles.summaryCard}>
-              <Text style={styles.referenceCardTitle}>Summary</Text>
-              <View style={styles.summaryMetricGrid}>
-                <View style={styles.summaryMetricTile}>
-                  <Text style={styles.summaryMetricIcon}>◷</Text>
-                  <View>
-                    <Text style={styles.summaryMetricLabel}>Total duration</Text>
-                    <Text style={styles.summaryMetricValue}>{formatDurationMinutes(progressOverviewStats.totalDuration)}</Text>
-                    <Text style={styles.summaryMetricDelta}>+1h 20m</Text>
-                  </View>
-                </View>
-                <View style={styles.summaryMetricTile}>
-                  <Text style={styles.summaryMetricIcon}>▣</Text>
-                  <View>
-                    <Text style={styles.summaryMetricLabel}>Workouts</Text>
-                    <Text style={styles.summaryMetricValue}>{progressOverviewStats.totalWorkouts}</Text>
-                    <Text style={styles.summaryMetricDelta}>+{progressOverviewStats.workoutsThisMonth}</Text>
-                  </View>
-                </View>
-                <View style={styles.summaryMetricTile}>
-                  <Text style={styles.summaryMetricIcon}>↯</Text>
-                  <View>
-                    <Text style={styles.summaryMetricLabel}>Avg. workout time</Text>
-                    <Text style={styles.summaryMetricValue}>{progressOverviewStats.averageDuration} min</Text>
-                    <Text style={styles.summaryMetricDelta}>+4 min</Text>
-                  </View>
-                </View>
-                <View style={styles.summaryMetricTile}>
-                  <Text style={styles.summaryMetricIcon}>☆</Text>
-                  <View>
-                    <Text style={styles.summaryMetricLabel}>Tracked lifts</Text>
-                    <Text style={styles.summaryMetricValue}>{summaries.length}</Text>
-                    <Text style={styles.summaryMetricDelta}>
-                      {signalCounts.new_best > 0 ? `+${signalCounts.new_best}` : `${signalCounts.moving_up} moving`}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-
-            {recentHighlight ? (
-              <View style={styles.highlightCard}>
-                <View style={styles.referenceCardHeader}>
-                  <Text style={styles.referenceCardTitle}>Recent highlights</Text>
-                  <Text style={styles.referenceSeeAll}>See all</Text>
-                </View>
-                <View style={styles.highlightRow}>
-                  <View style={styles.prBadge}>
-                    <Text style={styles.prBadgeText}>PR</Text>
-                  </View>
-                  <View style={styles.highlightCopy}>
-                    <Text style={styles.highlightTitle}>{recentHighlight.title}</Text>
-                    <Text style={styles.highlightMeta}>{recentHighlight.lift}</Text>
-                  </View>
-                  <View style={styles.highlightValueBlock}>
-                    <Text style={styles.highlightValue}>{recentHighlight.value}</Text>
-                    <Text style={styles.highlightMeta}>{recentHighlight.meta}</Text>
-                  </View>
-                </View>
-              </View>
-            ) : null}
-
-            <View style={styles.snapshotGrid}>
-              <Pressable onPress={onSelectBodyweight} style={[styles.snapshotCard, styles.snapshotCardLarge]}>
-                <Text style={styles.snapshotLabel}>Bodyweight</Text>
-                <Text style={styles.snapshotValue}>{formatWeight(bodyweightProgress.latest?.weight, unitPreference)}</Text>
-                <Text style={styles.snapshotTrend}>
-                  {formatWeightTrend(
-                    bodyweightProgress.latest?.weight ?? null,
-                    bodyweightProgress.previous?.weight ?? null,
-                    unitPreference,
-                  )}
-                </Text>
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Progress</Text>
+        <Text style={styles.headerSubtitle}>The training you&apos;ve built — honest and yours.</Text>
+        <View style={styles.tabsRow}>
+          {PROGRESS_SECTIONS.map((section) => {
+            const active = section.key === progressSection;
+            return (
+              <Pressable
+                key={section.key}
+                onPress={() => switchSection(section.key)}
+                style={[styles.tab, active && styles.tabActive]}
+              >
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>{section.label}</Text>
               </Pressable>
-
-              <View style={styles.snapshotCard}>
-                <Text style={styles.snapshotLabel}>Tracked lifts</Text>
-                <Text style={styles.snapshotValue}>{summaries.length}</Text>
-                <Text style={styles.snapshotTrend}>
-                  {signalCounts.new_best > 0 ? `${signalCounts.new_best} new best` : `${signalCounts.moving_up} moving`}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.progressOverTimeCard}>
-              <View style={styles.referenceCardHeader}>
-                <Text style={styles.referenceCardTitle}>Progress over time</Text>
-                <Pressable style={styles.chartMetricPill}>
-                  <Text style={styles.chartMetricPillText}>Workouts⌄</Text>
-                </Pressable>
-              </View>
-              <View style={styles.progressTrendStats}>
-                <View>
-                  <Text style={styles.progressTrendValue}>{progressOverviewStats.totalWorkouts}</Text>
-                  <Text style={styles.progressTrendMeta}>Last 3 months</Text>
-                </View>
-                <View style={styles.activityDeltaBlock}>
-                  <Text style={styles.activityDeltaValue}>
-                    {progressOverviewStats.monthDelta >= 0 ? '+' : ''}
-                    {progressOverviewStats.monthDelta}%
-                  </Text>
-                  <Text style={styles.progressTrendMeta}>vs previous 3 months</Text>
-                </View>
-              </View>
-              <ProgressTrendMiniChart points={progressOverTimePoints} />
-            </View>
-
-            {topLiftRows.length ? (
-              <View style={styles.topLiftsCard}>
-                <View style={styles.referenceCardHeader}>
-                  <Text style={styles.referenceCardTitle}>Top lifts</Text>
-                  <Text style={styles.referenceSeeAll}>See all</Text>
-                </View>
-                {topLiftRows.map((row) => (
-                  <Pressable key={row.key} onPress={() => onSelectExercise(row.key)} style={styles.topLiftRow}>
-                    <Text style={styles.topLiftIcon}>↗</Text>
-                    <View style={styles.topLiftCopy}>
-                      <Text style={styles.topLiftTitle}>{row.title}</Text>
-                      <Text style={styles.topLiftMeta}>Best set</Text>
-                    </View>
-                    <View style={styles.highlightValueBlock}>
-                      <Text style={styles.highlightValue}>{row.value}</Text>
-                      <Text style={styles.highlightMeta}>{row.meta}</Text>
-                    </View>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-
-          </>
-        ) : null}
-
-        {progressSection === 'tracked' ? (
-          <>
-            <Pressable
-              onPress={() => {
-                if (primarySummary) {
-                  onSelectExercise(primarySummary.key);
-                }
-              }}
-              style={[styles.primarySignalCard, !primarySummary && styles.primarySignalCardEmpty]}
-            >
-              <Text style={styles.primarySignalKicker}>Tracking</Text>
-              <Text style={styles.primarySignalTitle}>{primarySummaryName}</Text>
-              <Text style={styles.primarySignalBody}>{primarySummaryMeta}</Text>
-            </Pressable>
-
-            <View style={styles.browseSurface}>
-              <TextInput
-                value={progressQuery}
-                onChangeText={setProgressQuery}
-                placeholder="Search tracked lifts"
-                placeholderTextColor="#6B7280"
-                selectionColor="#16A34A"
-                style={styles.searchInputLight}
-              />
-              <View style={styles.filterRow}>
-                {PROGRESS_FILTERS.map((filter) => {
-                  const active = filter.key === progressFilter;
-                  return (
-                    <Pressable
-                      key={filter.key}
-                      onPress={() => setProgressFilter(filter.key)}
-                      style={[styles.filterChipLight, active && styles.filterChipLightActive]}
-                    >
-                      <Text style={[styles.filterChipTextLight, active && styles.filterChipTextLightActive]}>
-                        {filter.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            {summaries.length === 0 ? (
-              <View style={styles.trackedEmptyState}>
-                <Text style={styles.trackedEmptyTitle}>No tracked lifts yet</Text>
-                <Text style={styles.trackedEmptyBody}>Star one exercise or track it while logging and it shows up here.</Text>
-              </View>
-            ) : filteredSummaries.length ? (
-              <View style={styles.progressList}>
-                <View style={styles.listHeaderRow}>
-                  <SectionLabel label="Tracked progress" />
-                  <Text style={styles.listMetaText}>{filteredSummaries.length} lifts</Text>
-                </View>
-                {filteredSummaries.map((summary) => (
-                  <ProgressCard
-                    key={summary.key}
-                    summary={summary}
-                    unitPreference={unitPreference}
-                    onPress={() => onSelectExercise(summary.key)}
-                  />
-                ))}
-              </View>
-            ) : (
-              <View style={styles.trackedEmptyState}>
-                <Text style={styles.trackedEmptyTitle}>No tracked lifts match this view</Text>
-                <Text style={styles.trackedEmptyBody}>Try a broader search or switch the signal filter.</Text>
-              </View>
-            )}
-          </>
-        ) : null}
-
-        {progressSection === 'measures' ? (
-          <>
-            <View style={styles.measureSection}>
-              <Text style={styles.measureSectionLabel}>Progress Photos</Text>
-              <View style={styles.measureListCard}>
-                <MeasureRow
-                  icon="PH"
-                  title="Progress Photos"
-                  subtitle="Add photo"
-                />
-              </View>
-            </View>
-
-            <View style={styles.measureSection}>
-              <Text style={styles.measureSectionLabel}>My Measurements</Text>
-              <View style={styles.measureListCard}>
-                <MeasureRow
-                  icon="BW"
-                  title="Body weight"
-                  subtitle={bodyweightProgress.entries.length > 0 ? 'Open tracking' : 'Add measurement'}
-                  value={bodyweightChartPoints.length ? formatWeight(bodyweightProgress.latest?.weight, unitPreference) : undefined}
-                  onPress={onSelectBodyweight}
-                />
-                <View style={styles.measureDivider} />
-                <MeasureRow
-                  icon="BF"
-                  title="Body fat"
-                  subtitle="Add measurement"
-                  active={selectedMeasure === 'bodyfat'}
-                  onPress={() => openMeasureSheet('bodyfat')}
-                />
-                <View style={styles.measureDivider} />
-                <MeasureRow
-                  icon="SH"
-                  title="Shoulders"
-                  subtitle="Add measurement"
-                  active={selectedMeasure === 'shoulders'}
-                  onPress={() => openMeasureSheet('shoulders')}
-                />
-                <View style={styles.measureDivider} />
-                <MeasureRow
-                  icon="CH"
-                  title="Chest"
-                  subtitle="Add measurement"
-                  active={selectedMeasure === 'chest'}
-                  onPress={() => openMeasureSheet('chest')}
-                />
-                <View style={styles.measureDivider} />
-                <MeasureRow
-                  icon="WS"
-                  title="Waist"
-                  subtitle="Add measurement"
-                  active={selectedMeasure === 'waist'}
-                  onPress={() => openMeasureSheet('waist')}
-                />
-                <View style={styles.measureDivider} />
-                <MeasureRow
-                  icon="HP"
-                  title="Hips"
-                  subtitle="Add measurement"
-                  active={selectedMeasure === 'hips'}
-                  onPress={() => openMeasureSheet('hips')}
-                />
-                <View style={styles.measureDivider} />
-                <MeasureRow
-                  icon="TH"
-                  title="Thighs"
-                  subtitle="Add measurement"
-                  active={selectedMeasure === 'thighs'}
-                  onPress={() => openMeasureSheet('thighs')}
-                />
-              </View>
-            </View>
-          </>
-        ) : null}
-      </ScrollView>
-      <Modal visible={Boolean(selectedMeasure)} transparent animationType="slide" onRequestClose={() => setSelectedMeasure(null)}>
-        <View style={styles.sheetBackdrop}>
-          <Pressable style={styles.sheetBackdropHit} onPress={() => setSelectedMeasure(null)} />
-          <View style={[styles.sheetSurface, { paddingTop: insets.top + spacing.md, paddingBottom: Math.max(insets.bottom, spacing.xl) }]}>
-            {selectedMeasureGuide ? (
-              <>
-                <View style={styles.sheetHeader}>
-                  <View style={styles.sheetHeaderCopy}>
-                    <Text style={styles.sheetTitle}>{selectedMeasureGuide.title}</Text>
-                    <Text style={styles.sheetSubtitle}>{selectedMeasureGuide.subtitle}</Text>
-                  </View>
-                  <Pressable onPress={() => setSelectedMeasure(null)} style={styles.sheetCloseButton}>
-                    <Text style={styles.sheetCloseButtonText}>X</Text>
-                  </Pressable>
-                </View>
-
-                <ScrollView
-                  style={styles.sheetScroll}
-                  contentContainerStyle={styles.sheetScrollContent}
-                  showsVerticalScrollIndicator={false}
-                >
-                  <MeasureGuideCard guide={selectedMeasureGuide} />
-
-                  <View style={styles.measureEntryCard}>
-                    <View style={styles.measureEntryHeader}>
-                      <Text style={styles.measureEntryTitle}>Add measurement</Text>
-                      <View style={styles.measureUnitRail}>
-                        {(selectedMeasure === 'bodyfat' ? ['%'] : ['cm', 'in']).map((unit) => {
-                          const active = measureUnit === unit;
-                          return (
-                            <Pressable
-                              key={unit}
-                              onPress={() => setMeasureUnit(unit as MeasurementUnit)}
-                              style={[styles.measureUnitChip, active && styles.measureUnitChipActive]}
-                            >
-                              <Text style={[styles.measureUnitChipText, active && styles.measureUnitChipTextActive]}>{unit}</Text>
-                            </Pressable>
-                          );
-                        })}
-                      </View>
-                    </View>
-
-                    <View style={styles.measureInputRow}>
-                      <TextInput
-                        value={measureInput}
-                        onChangeText={setMeasureInput}
-                        keyboardType="decimal-pad"
-                        placeholder={`0 ${measureUnit}`}
-                        placeholderTextColor="#9CA3AF"
-                        selectionColor="#16A34A"
-                        style={styles.measureTextInput}
-                      />
-                      <Pressable onPress={() => void handleSaveMeasurement()} style={styles.measureSaveButton}>
-                        <Text style={styles.measureSaveButtonText}>Save</Text>
-                      </Pressable>
-                    </View>
-
-                    <View style={styles.measureSummaryRow}>
-                      <View style={styles.measureSummaryItem}>
-                        <Text style={styles.measureSummaryLabel}>Latest</Text>
-                        <Text style={styles.measureSummaryValue}>{selectedMeasureDisplayValue ?? '-'}</Text>
-                      </View>
-                      <View style={styles.measureSummaryItem}>
-                        <Text style={styles.measureSummaryLabel}>Change</Text>
-                        <Text style={styles.measureSummaryValue}>
-                          {selectedMeasureChange === null
-                            ? '-'
-                            : `${selectedMeasureChange > 0 ? '+' : ''}${removeTrailingZeros(selectedMeasureChange)}${measureUnit}`}
-                        </Text>
-                      </View>
-                      <View style={styles.measureSummaryItem}>
-                        <Text style={styles.measureSummaryLabel}>Entries</Text>
-                        <Text style={styles.measureSummaryValue}>{selectedMeasureVisibleEntries.length}</Text>
-                      </View>
-                    </View>
-
-                    <View style={styles.measureRangeRail}>
-                      {MEASURE_RANGES.map((range) => {
-                        const active = measureRange === range.key;
-                        return (
-                          <Pressable
-                            key={range.key}
-                            onPress={() => setMeasureRange(range.key)}
-                            style={[styles.measureRangeChip, active && styles.measureRangeChipActive]}
-                          >
-                            <Text style={[styles.measureRangeChipText, active && styles.measureRangeChipTextActive]}>{range.label}</Text>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-
-                    {!selectedMeasureHistory.length ? (
-                      <Text style={styles.measureEntryMeta}>
-                        {`Start with your first ${selectedMeasureGuide.title.toLowerCase()} entry.`}
-                      </Text>
-                    ) : null}
-
-                    <MeasurementHistoryRail values={selectedMeasureHistory} unit={measureUnit} range={measureRange} />
-                  </View>
-                </ScrollView>
-              </>
-            ) : null}
-          </View>
+            );
+          })}
         </View>
-      </Modal>
-    </>
+      </View>
+
+      <ScrollView
+        ref={scrollRef}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={styles.content}
+      >
+        {progressSection === 'overview' ? renderOverview() : null}
+        {progressSection === 'tracked' ? renderTracked() : null}
+        {progressSection === 'measures' ? renderMeasures() : null}
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  progressHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.xl,
-    paddingBottom: spacing.lg,
-    backgroundColor: colors.background,
-  },
-  progressHeaderCopy: {
+  screen: {
     flex: 1,
-    gap: 6,
+    backgroundColor: HG.bg,
   },
-  progressHeaderTitle: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '900',
-    letterSpacing: -0.6,
+  header: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 10,
   },
-  progressHeaderSubtitle: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 16,
-    lineHeight: 21,
+  headerTitle: {
+    color: HG.ink,
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    color: HG.muted,
+    fontSize: 13,
     fontWeight: '600',
+    marginTop: 2,
   },
-  progressHeaderAction: {
-    width: 54,
-    height: 54,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  sectionRail: {
+  tabsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: spacing.xl,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.md,
+    backgroundColor: HG.surfaceSoft,
+    borderRadius: 12,
+    padding: 3,
+    marginTop: 14,
+  },
+  tab: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: 9,
+  },
+  tabActive: {
     backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: 'transparent',
+    shadowColor: '#5028A0',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  sectionChip: {
-    gap: spacing.xs,
-    paddingVertical: spacing.xs,
+  tabText: {
+    color: HG.muted,
+    fontSize: 14,
+    fontWeight: '800',
   },
-  sectionChipText: {
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  sectionChipTextActive: {
-    color: '#111111',
-    fontWeight: '900',
-  },
-  sectionChipUnderline: {
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: '#0E2B16',
+  tabTextActive: {
+    color: HG.purpleDark,
   },
   content: {
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: 20,
+    paddingTop: 6,
     paddingBottom: layout.bottomTabBarReserve,
-    paddingTop: spacing.sm,
-    gap: spacing.md,
-    backgroundColor: colors.background,
   },
-  referenceCardHeader: {
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    paddingBottom: 11,
+    marginTop: 22,
+  },
+  sectionHeadLabel: {
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  sectionHeadRight: {
+    color: HG.purple,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  card: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    padding: 16,
+  },
+  heroBlock: {
+    gap: 10,
+  },
+  heroCard: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    padding: 18,
+  },
+  heroHead: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
+    gap: 10,
+  },
+  heroLabel: {
+    flex: 1,
+    minWidth: 0,
+    color: HG.muted,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  heroValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+    marginTop: 8,
+  },
+  heroValue: {
+    color: HG.ink,
+    fontSize: 46,
+    fontWeight: '800',
+    letterSpacing: -1,
+    lineHeight: 48,
+  },
+  heroUnit: {
+    color: HG.muted,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  heroSince: {
+    color: '#157A3A',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 7,
+  },
+  heroSinceMuted: {
+    color: HG.muted,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 7,
+  },
+  emptyHeroCard: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    paddingHorizontal: 18,
+    paddingVertical: 26,
+  },
+  signalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  signalBadgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 999,
+  },
+  signalBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  deltaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  deltaPillText: {
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  rhythmHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginBottom: 14,
+  },
+  rhythmHeadLeft: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+  },
+  rhythmBig: {
+    color: HG.ink,
+    fontSize: 30,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    lineHeight: 32,
+  },
+  rhythmBigLabel: {
+    color: HG.muted,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  rhythmThisWeek: {
+    color: HG.purple,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  rhythmBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+    height: 56,
+  },
+  rhythmBarSlot: {
+    flex: 1,
+    height: '100%',
+    justifyContent: 'flex-end',
+  },
+  rhythmBar: {
+    borderRadius: 7,
+    backgroundColor: HG.purple,
+  },
+  rhythmBarCurrent: {
+    backgroundColor: HG.purpleLight,
+    borderWidth: 1.5,
+    borderColor: HG.purple,
+    borderStyle: 'dashed',
+  },
+  rhythmFootRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 8,
+  },
+  rhythmFootText: {
+    color: HG.faint,
+    fontSize: 10.5,
+    fontWeight: '700',
+  },
+  rhythmCaption: {
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginTop: 12,
+  },
+  monthGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  monthCard: {
+    flex: 1,
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 13,
+  },
+  monthLabel: {
+    color: HG.faint,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  monthValue: {
+    color: HG.ink,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginTop: 5,
+  },
+  monthMeta: {
+    color: HG.muted,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  trendBlock: {
+    gap: 10,
+  },
+  trendHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  trendValue: {
+    flexShrink: 1,
+    color: HG.ink,
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  trendRangeRow: {
+    alignItems: 'center',
+  },
+  seg: {
+    flexDirection: 'row',
+    backgroundColor: HG.surfaceSoft,
+    borderRadius: 10,
+    padding: 3,
+    gap: 2,
+  },
+  segGrow: {
+    alignSelf: 'stretch',
+  },
+  segItem: {
+    paddingHorizontal: 11,
+    paddingVertical: 5,
+    borderRadius: 7,
+  },
+  segItemGrow: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  segItemActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#5028A0',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.14,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  segText: {
+    color: HG.muted,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  segTextActive: {
+    color: HG.purpleDark,
+  },
+  calendarWeekdayRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginBottom: 6,
+  },
+  calendarWeekday: {
+    flex: 1,
+    textAlign: 'center',
+    color: HG.faint,
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    rowGap: 6,
+  },
+  calendarCell: {
+    width: `${100 / 7}%`,
+    paddingHorizontal: 3,
+  },
+  calendarBubble: {
+    aspectRatio: 1,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F1ECFB',
+  },
+  calendarBubbleWorkout: {
+    backgroundColor: HG.purple,
+  },
+  calendarBubbleToday: {
+    backgroundColor: HG.purpleLight,
+    borderWidth: 1.5,
+    borderColor: HG.purple,
+    borderStyle: 'dashed',
+  },
+  calendarBubbleText: {
+    color: HG.faint,
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  calendarBubbleTextWorkout: {
+    color: '#FFFFFF',
+  },
+  calendarBubbleTextToday: {
+    color: HG.purpleDark,
+  },
+  progressHistoryCard: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    padding: 16,
+    marginTop: 22,
+  },
+  historyHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   referenceCardTitle: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '900',
+    color: HG.ink,
+    fontSize: 16,
+    fontWeight: '800',
   },
-  referenceCardAction: {
-    color: '#111827',
+  historySeeAll: {
+    color: HG.purple,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  historyList: {
+    marginTop: 6,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: HG.border,
+  },
+  historyIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: HG.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  historyTitle: {
+    color: HG.ink,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  historyMeta: {
+    color: HG.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  historyEmpty: {
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  searchShell: {
+    height: 44,
+    borderRadius: 13,
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 13,
+    marginBottom: 11,
+  },
+  searchInput: {
+    flex: 1,
+    color: HG.ink,
+    fontSize: 14,
+    fontWeight: '600',
+    paddingVertical: 0,
+  },
+  filterRail: {
+    gap: 8,
+    paddingBottom: 14,
+    paddingRight: 8,
+  },
+  filterChip: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+  },
+  filterChipActive: {
+    backgroundColor: HG.purple,
+    borderColor: HG.purple,
+  },
+  filterChipText: {
+    color: HG.ink,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  filterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  trackedList: {
+    gap: 10,
+  },
+  trackedCard: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    padding: 14,
+  },
+  trackedHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  trackedCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  trackedName: {
+    color: HG.ink,
+    fontSize: 15.5,
+    fontWeight: '800',
+  },
+  trackedMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 5,
+  },
+  trackedMeta: {
+    flexShrink: 1,
+    color: HG.muted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  trackedDetail: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: HG.border,
+    gap: 10,
+  },
+  trackedDelta: {
+    color: '#157A3A',
+    fontSize: 12.5,
+    fontWeight: '700',
+    textAlign: 'right',
+  },
+  trackedDeltaMuted: {
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  trackedLogList: {
+    gap: 0,
+  },
+  trackedLogRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: HG.border,
+  },
+  trackedLogCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  trackedLogTitle: {
+    color: HG.ink,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  trackedLogMeta: {
+    color: HG.muted,
+    fontSize: 11.5,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  trackedLogValue: {
+    color: HG.ink,
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  emptyBlock: {
+    alignItems: 'center',
+    paddingVertical: 34,
+    paddingHorizontal: 10,
+  },
+  emptyTitle: {
+    color: HG.ink,
     fontSize: 15,
     fontWeight: '800',
   },
-  referenceSeeAll: {
-    color: '#058226',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  activityCard: {
-    gap: spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...shadows.card,
-  },
-  progressHistoryCard: {
-    gap: spacing.md,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.lg,
-    ...shadows.card,
-  },
-  progressHistoryList: {
-    gap: spacing.sm,
-  },
-  progressHistoryRow: {
-    minHeight: 72,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#DDFBE8',
-    backgroundColor: '#FBFFFC',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  progressHistoryIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#E8F7EE',
-  },
-  progressHistoryCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  progressHistoryTitle: {
-    color: '#101828',
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '900',
-  },
-  progressHistoryMeta: {
-    color: '#667085',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-  },
-  progressHistoryPreview: {
-    color: '#667085',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-  },
-  progressHistoryEmpty: {
-    minHeight: 76,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FBFFFC',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.md,
-    gap: 4,
-  },
-  activityStatsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  activityStatLabel: {
-    color: PROGRESS_MUTED,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  activityStatValue: {
-    color: '#050505',
-    fontSize: 30,
-    lineHeight: 34,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-  },
-  activityDeltaBlock: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  activityDeltaValue: {
-    color: '#0B9A36',
-    fontSize: 24,
-    lineHeight: 28,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  activityHeatmap: {
-    gap: spacing.sm,
-  },
-  activityHeatmapLabelRow: {
-    flexDirection: 'row',
-  },
-  activityHeatmapGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: spacing.xs,
-  },
-  activityCalendarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    rowGap: spacing.xs,
-  },
-  activityHeatmapLabel: {
-    width: `${100 / 7}%`,
-    color: '#374151',
-    fontSize: 11,
-    fontWeight: '800',
-    textAlign: 'center',
-    textTransform: 'uppercase',
-  },
-  activityHeatmapCell: {
-    width: `${100 / 7}%`,
-    alignItems: 'center',
-  },
-  activityCalendarCell: {
-    width: `${100 / 7}%`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 34,
-  },
-  activityCalendarBubble: {
-    width: 31,
-    height: 31,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityCalendarWorkout: {
-    backgroundColor: PROGRESS_PALE_GREEN,
-  },
-  activityCalendarOutside: {
-    backgroundColor: 'transparent',
-  },
-  activityCalendarToday: {
-    borderWidth: 2,
-    borderColor: '#EF4444',
-  },
-  activityCalendarText: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  activityCalendarTextMuted: {
-    color: '#9CA3AF',
-  },
-  activityHeatmapSquare: {
-    width: 18,
-    height: 18,
-    borderRadius: 5,
-  },
-  activityHeatmapWorkout: {
-    backgroundColor: PROGRESS_GREEN,
-  },
-  activityHeatmapActive: {
-    backgroundColor: PROGRESS_PALE_GREEN,
-  },
-  activityHeatmapRest: {
-    backgroundColor: '#ECEEF1',
-  },
-  referenceLegend: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flexWrap: 'wrap',
-  },
-  referenceLegendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  referenceLegendDot: {
-    width: 13,
-    height: 13,
-    borderRadius: 999,
-  },
-  referenceLegendWorkout: {
-    backgroundColor: PROGRESS_GREEN,
-  },
-  referenceLegendRest: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-  },
-  referenceLegendText: {
-    color: '#374151',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  summaryCard: {
-    gap: spacing.lg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    ...shadows.card,
-  },
-  summaryMetricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
-  },
-  summaryMetricTile: {
-    width: '47.8%',
-    minHeight: 128,
-    borderRadius: 14,
-    backgroundColor: '#F6F7F9',
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  summaryMetricIcon: {
-    color: PROGRESS_GREEN,
-    fontSize: 30,
-    fontWeight: '900',
-  },
-  summaryMetricLabel: {
-    color: PROGRESS_MUTED,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  summaryMetricValue: {
-    color: '#050505',
-    fontSize: 28,
-    lineHeight: 32,
-    fontWeight: '900',
-    letterSpacing: -0.7,
-  },
-  summaryMetricDelta: {
-    color: '#0B9A36',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  highlightCard: {
-    gap: spacing.lg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    ...shadows.card,
-  },
-  highlightRow: {
-    minHeight: 92,
-    borderRadius: 14,
-    backgroundColor: '#F7F8FA',
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-  },
-  prBadge: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    borderWidth: 2,
-    borderStyle: 'dashed',
-    borderColor: '#16A34A',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  prBadgeText: {
-    color: '#0B9A36',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  highlightCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  highlightTitle: {
-    color: '#111111',
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  highlightMeta: {
-    color: PROGRESS_MUTED,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  highlightValueBlock: {
-    alignItems: 'flex-end',
-    gap: 4,
-  },
-  highlightValue: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  summaryHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  summaryHeaderCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  summaryTitle: {
-    color: '#111111',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-  },
-  summaryMeta: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  rangeRail: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    padding: spacing.xs,
-    borderRadius: radii.pill,
-    backgroundColor: '#F3F4F6',
-  },
-  rangeChip: {
-    flex: 1,
-    minHeight: 42,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rangeChipActive: {
-    backgroundColor: '#FFFFFF',
-  },
-  rangeChipText: {
-    color: '#4B5563',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  rangeChipTextActive: {
-    color: '#111111',
-  },
-  chartOverviewCard: {
-    gap: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    ...shadows.card,
-  },
-  chartOverviewTitle: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  chartOverviewValue: {
-    color: '#111111',
-    fontSize: 32,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-  },
-  chartOverviewMeta: {
-    color: '#4B5563',
+  emptyText: {
+    color: HG.muted,
     fontSize: 13,
     fontWeight: '600',
-    marginTop: -4,
-  },
-  progressOverTimeCard: {
-    gap: spacing.lg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    ...shadows.card,
-  },
-  chartMetricPill: {
-    minHeight: 36,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chartMetricPillText: {
-    color: '#374151',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  progressTrendStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  progressTrendValue: {
-    color: '#050505',
-    fontSize: 34,
-    lineHeight: 38,
-    fontWeight: '900',
-  },
-  progressTrendMeta: {
-    color: PROGRESS_MUTED,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  trendChartWrap: {
-    gap: spacing.sm,
-  },
-  trendChartEmpty: {
-    minHeight: 112,
-    borderRadius: 14,
-    backgroundColor: '#F7F8FA',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-  },
-  trendChartEmptyText: {
-    color: PROGRESS_MUTED,
-    fontSize: 13,
-    fontWeight: '700',
+    marginTop: 4,
     textAlign: 'center',
   },
-  trendFooterLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  measureDetailBlock: {
+    gap: 10,
   },
-  trendFooterText: {
-    color: PROGRESS_MUTED,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  topLiftsCard: {
-    gap: spacing.lg,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: PROGRESS_CARD_BORDER,
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    ...shadows.card,
-  },
-  topLiftRow: {
-    minHeight: 74,
-    borderRadius: 14,
-    backgroundColor: '#F7F8FA',
-    padding: spacing.lg,
+  measureDetailHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  topLiftIcon: {
-    color: '#159A31',
-    fontSize: 30,
-    fontWeight: '900',
+  measureDetailLabel: {
+    color: HG.muted,
+    fontSize: 13,
+    fontWeight: '800',
   },
-  topLiftCopy: {
-    flex: 1,
-    gap: 4,
+  measureValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    marginTop: 8,
   },
-  topLiftTitle: {
-    color: '#111111',
+  measureValue: {
+    color: HG.ink,
+    fontSize: 42,
+    fontWeight: '800',
+    letterSpacing: -1,
+    lineHeight: 44,
+  },
+  measureUnit: {
+    color: HG.muted,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '800',
   },
-  topLiftMeta: {
-    color: PROGRESS_MUTED,
-    fontSize: 14,
+  measureCaption: {
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  measureEntryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 14,
+  },
+  measureInput: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: HG.bg,
+    borderWidth: 1,
+    borderColor: HG.border,
+    paddingHorizontal: 13,
+    color: HG.ink,
+    fontSize: 14.5,
     fontWeight: '700',
   },
-  metricRail: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  metricChip: {
-    minHeight: 36,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
+  measureSaveButton: {
+    height: 44,
+    paddingHorizontal: 18,
+    borderRadius: 12,
+    backgroundColor: HG.green,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
   },
-  metricChipActive: {
-    borderColor: '#CFEED8',
-    backgroundColor: '#ECFDF3',
-  },
-  metricChipText: {
-    color: '#4B5563',
-    fontSize: 12,
+  measureSaveText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '800',
   },
-  metricChipTextActive: {
-    color: '#1A7F3C',
-  },
-  snapshotGrid: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  snapshotCard: {
-    flex: 1,
-    minHeight: 120,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    justifyContent: 'space-between',
-    ...shadows.card,
-  },
-  snapshotCardLarge: {
-    flex: 1.1,
-  },
-  snapshotLabel: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  snapshotValue: {
-    color: '#111111',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-  },
-  snapshotTrend: {
-    color: '#16A34A',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  measureCard: {
-    gap: spacing.xs,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    ...shadows.card,
-  },
-  measureCardTitle: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  measureCardValue: {
-    color: '#111111',
-    fontSize: 30,
-    fontWeight: '900',
-    letterSpacing: -0.8,
-  },
-  measureCardMeta: {
-    color: '#4B5563',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  measureSection: {
-    gap: spacing.sm,
-  },
-  measureSectionLabel: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  measureListCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-    ...shadows.card,
+  measureList: {
+    gap: 9,
   },
   measureRow: {
-    minHeight: 72,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    backgroundColor: '#FFFFFF',
+    gap: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    backgroundColor: HG.surface,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: HG.border,
   },
   measureRowActive: {
-    backgroundColor: '#F5FFF8',
+    borderColor: HG.purple,
   },
-  measureRowIconShell: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+  measureRowIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    backgroundColor: HG.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F7F8FA',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  measureRowIconShellActive: {
-    borderColor: '#86EFAC',
-    backgroundColor: '#ECFDF3',
-  },
-  measureRowIconText: {
-    color: '#111111',
-    fontSize: 12,
-    fontWeight: '900',
   },
   measureRowCopy: {
     flex: 1,
-    gap: 2,
+    minWidth: 0,
   },
   measureRowTitle: {
-    color: '#111111',
-    fontSize: 17,
+    color: HG.ink,
+    fontSize: 14.5,
     fontWeight: '800',
   },
-  measureRowSubtitle: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  measureRowValue: {
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  measureDivider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginLeft: spacing.lg + 40 + spacing.md,
-  },
-  measureGuideCard: {
-    gap: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    ...shadows.card,
-  },
-  measureGuideSectionLabel: {
-    color: '#111111',
-    fontSize: 12,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
-  measureGuideHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  measureGuideCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  measureGuideTitle: {
-    color: '#111111',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  measureGuideSubtitle: {
-    color: '#4B5563',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  measureGuideValue: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  measureInstructionList: {
-    gap: spacing.sm,
-  },
-  measureInstructionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  measureInstructionDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-    marginTop: 6,
-    backgroundColor: '#16A34A',
-  },
-  measureInstructionText: {
-    flex: 1,
-    color: '#111111',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  measureReferenceNote: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#BBF7D0',
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  measureReferenceText: {
-    color: '#166534',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  sheetBackdropHit: {
-    display: 'none',
-  },
-  sheetSurface: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.xl,
-    gap: spacing.lg,
-  },
-  sheetScroll: {
-    flex: 1,
-  },
-  sheetScrollContent: {
-    gap: spacing.lg,
-    paddingBottom: layout.bottomTabBarReserve,
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  sheetHeaderCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  sheetTitle: {
-    color: '#111111',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: -0.7,
-  },
-  sheetSubtitle: {
-    color: '#4B5563',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  sheetCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-  },
-  sheetCloseButtonText: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  measureEntryCard: {
-    gap: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    ...shadows.card,
-  },
-  measureEntryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  measureEntryTitle: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  measureUnitRail: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  measureUnitChip: {
-    minHeight: 34,
-    minWidth: 46,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-  },
-  measureUnitChipActive: {
-    borderColor: '#86EFAC',
-    backgroundColor: '#ECFDF3',
-  },
-  measureUnitChipText: {
-    color: '#4B5563',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  measureUnitChipTextActive: {
-    color: '#15803D',
-  },
-  measureInputRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  measureTextInput: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  measureSaveButton: {
-    minWidth: 92,
-    minHeight: 52,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: '#111111',
-  },
-  measureSaveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  measureEntryMeta: {
-    color: '#4B5563',
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  measureSummaryRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  measureSummaryItem: {
-    flex: 1,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    gap: 2,
-  },
-  measureSummaryLabel: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-  },
-  measureSummaryValue: {
-    color: '#111111',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  measureRangeRail: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  measureRangeChip: {
-    minHeight: 32,
-    minWidth: 54,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-  },
-  measureRangeChipActive: {
-    borderColor: '#86EFAC',
-    backgroundColor: '#ECFDF3',
-  },
-  measureRangeChipText: {
-    color: '#4B5563',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  measureRangeChipTextActive: {
-    color: '#15803D',
-  },
-  measureHistoryRailWrap: {
-    paddingTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  measureHistoryRail: {
-    height: 148,
-    position: 'relative',
-    paddingLeft: 44,
-  },
-  measureHistorySvg: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-  },
-  measureHistoryTickRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  measureHistoryTickLabel: {
-    width: 32,
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  measureHistoryTickLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#D1D5DB',
-  },
-  measureHistoryEmpty: {
-    minHeight: 120,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  measureHistoryEmptyText: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  primarySignalCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    gap: spacing.xs,
-    ...shadows.card,
-  },
-  primarySignalCardEmpty: {
-    borderColor: '#BBF7D0',
-    backgroundColor: '#F0FDF4',
-  },
-  primarySignalKicker: {
-    color: '#15803D',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  primarySignalTitle: {
-    color: '#111111',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: -0.7,
-  },
-  primarySignalBody: {
-    color: '#4B5563',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  browseSurface: {
-    gap: spacing.sm,
-  },
-  searchInputLight: {
-    minHeight: 48,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '700',
-    paddingHorizontal: spacing.md,
-  },
-  filterChipLight: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  filterChipLightActive: {
-    backgroundColor: '#ECFDF3',
-    borderColor: '#86EFAC',
-  },
-  filterChipTextLight: {
-    color: '#4B5563',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  filterChipTextLightActive: {
-    color: '#15803D',
-  },
-  trackedEmptyState: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    gap: spacing.sm,
-    ...shadows.card,
-  },
-  trackedEmptyTitle: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  trackedEmptyBody: {
-    color: '#4B5563',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  listHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  listMetaText: {
-    color: '#6B7280',
+  measureRowMeta: {
+    color: HG.muted,
     fontSize: 12,
     fontWeight: '700',
-  },
-  heroSurface: {
-    minHeight: 276,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  heroContent: {
-    flex: 1,
-    justifyContent: 'space-between',
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  heroKicker: {
-    color: 'rgba(255,255,255,0.58)',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
-  heroBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  heroCopy: {
-    gap: spacing.xs,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 32,
-    lineHeight: 34,
-    fontWeight: '900',
-    letterSpacing: -1,
-    maxWidth: '84%',
-  },
-  heroMeta: {
-    color: 'rgba(255,255,255,0.74)',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-    maxWidth: '88%',
-  },
-  heroActionRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  heroPrimaryButton: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F4FAFF',
-    borderWidth: 1,
-    borderColor: '#F4FAFF',
-  },
-  heroPrimaryButtonText: {
-    color: '#0B0F14',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  heroSecondaryButton: {
-    minWidth: 126,
-    minHeight: 52,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(7, 10, 14, 0.52)',
-    paddingHorizontal: spacing.md,
-  },
-  heroSecondaryButtonText: {
-    color: colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  sectionLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
-  },
-  signalRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  signalRowStacked: {
-    flexDirection: 'column',
-  },
-  signalCardPressable: {
-    flex: 1,
-  },
-  signalCard: {
-    flex: 1,
-    minHeight: 82,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    justifyContent: 'center',
-    gap: 3,
-  },
-  signalLabel: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  signalValue: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  signalMeta: {
-    color: '#4B5563',
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  discoveryCard: {
-    gap: spacing.sm,
-  },
-  discoveryHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  discoveryCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  discoveryTitle: {
-    color: colors.textPrimary,
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  discoveryMeta: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  discoveryExpandButton: {
-    minHeight: 36,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  discoveryExpandText: {
-    color: colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  searchInput: {
-    minHeight: 48,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(10, 14, 19, 0.84)',
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    paddingHorizontal: spacing.md,
-  },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  filterChip: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  filterChipActive: {
-    backgroundColor: '#F4FAFF',
-    borderColor: '#F4FAFF',
-  },
-  filterChipText: {
-    color: colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  filterChipTextActive: {
-    color: '#0B0F14',
-  },
-  progressList: {
-    gap: spacing.md,
-  },
-  detailEntryCard: {
-    gap: spacing.md,
-  },
-  detailHeader: {
-    gap: 2,
-  },
-  detailKicker: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  detailTitle: {
-    color: '#111111',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  detailBody: {
-    color: '#4B5563',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  detailSectionLabel: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-  },
-  bodyweightEntryRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  bodyweightInput: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  bodyweightButton: {
-    minWidth: 88,
-    minHeight: 52,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111111',
-    borderWidth: 1,
-    borderColor: '#111111',
-  },
-  bodyweightButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  contextCard: {
-    gap: spacing.xs,
-  },
-  contextKicker: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  contextTitle: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  contextBody: {
-    color: '#4B5563',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  recentCard: {
-    padding: 0,
-  },
-  recentList: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
-  },
-  recentRow: {
-    minHeight: 72,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  recentRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-  },
-  recentCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  recentTitle: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  recentMeta: {
-    color: colors.textMuted,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  recentValue: {
-    color: colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '900',
-    textAlign: 'right',
-    fontVariant: ['tabular-nums'],
-  },
-  chartCard: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  alertCard: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E7E8EA',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    gap: 6,
-    overflow: 'hidden',
-    ...shadows.card,
-  },
-  alertAccentBar: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  alertAccentOrange: {
-    backgroundColor: '#EA580C',
-  },
-  alertAccentRose: {
-    backgroundColor: '#E11D48',
-  },
-  alertRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6,
-  },
-  alertKickerOrange: {
-    color: '#EA580C',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  alertKickerRose: {
-    color: '#E11D48',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  alertBadgeOrange: {
-    backgroundColor: '#FFF7ED',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  alertBadgeRose: {
-    backgroundColor: '#FFF1F2',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  alertBadgeTextOrange: {
-    color: '#EA580C',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  alertBadgeTextRose: {
-    color: '#E11D48',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  alertTitle: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  alertBody: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '500',
-    lineHeight: 20,
+    marginTop: 2,
   },
 });
