@@ -505,6 +505,13 @@ export function WorkoutLoggingScreen({
   const nextExercise = useMemo(() => selectNextExercise(activeSession), [activeSession]);
   const nextUpExercise = nextExercise;
   const latestEffortTarget = useMemo(() => getLatestCompletedSetWithoutEffort(activeSession), [activeSession]);
+  // Must stay above the loading-state early return: a hook below it renders
+  // one fewer hook when the session clears mid-save and React throws
+  // ("recovered by synchronously rendering the entire root").
+  const swapBadgeLabels = useMemo(
+    () => buildTailoringBadgeLabels(tailoringPreferences).slice(0, 3),
+    [tailoringPreferences],
+  );
   const overlaySurfaceOpen =
     showAddExercise ||
     showMoreActions ||
@@ -791,10 +798,6 @@ export function WorkoutLoggingScreen({
   const swapTargetOptions = swapTarget
     ? buildTailoredSwapOptions(getAllowedSwaps(swapTarget.substitutionGroup), tailoringPreferences)
     : [];
-  const swapBadgeLabels = useMemo(
-    () => buildTailoringBadgeLabels(tailoringPreferences).slice(0, 3),
-    [tailoringPreferences],
-  );
   const exerciseInfoLibraryItem = exerciseInfoTarget
     ? libraryItemById.get(
         exerciseInfoTarget.libraryItemId ??
