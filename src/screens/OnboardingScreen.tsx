@@ -2993,7 +2993,7 @@ export function OnboardingScreen({
     return renderSplitSelectionStage({
       stepLabel: 'STEP 1 OF 5',
       titleLines: ['Where do you train?'],
-      options: LOCATION_SELECTION_OPTIONS.map((option) => ({
+      options: LOCATION_SELECTION_OPTIONS.map((option, index) => ({
         id: option.id,
         label: option.label,
         subtitle: option.subtitle,
@@ -3010,6 +3010,13 @@ export function OnboardingScreen({
           setSelectedLocationOptionId(option.id);
           setEquipment(option.equipment);
           setTrainingEnvironment(option.trainingEnvironment);
+          // Cards near the bottom push their own benefits panel below the
+          // fold; reveal it once the expanded layout settles.
+          if (index >= LOCATION_SELECTION_OPTIONS.length - 2) {
+            setTimeout(() => {
+              onboardingScrollRef.current?.scrollToEnd({ animated: true });
+            }, 80);
+          }
         },
         focusLabel: option.focusLabel,
         focusTone: option.focusTone,
@@ -4361,11 +4368,14 @@ export function OnboardingScreen({
       : 'Continue';
   const footerVisible = !(stage === 'review' && planReadyView === 'account');
   const scrollLockedStage =
-    stage === 'location' ||
     stage === 'goal' ||
     stage === 'profile' ||
     stage === 'planning' ||
     stage === 'about';
+  // Step 1 (location) scrolls so an expanded card's benefits panel stays
+  // reachable above the footer, but it should not rubber-band when the
+  // collapsed cards already fit the viewport.
+  const allowScrollBounce = !scrollLockedStage && stage !== 'location';
   const scrollContentStyle = useMemo(
     () => [
       styles.scrollContent,
@@ -4394,9 +4404,9 @@ export function OnboardingScreen({
         contentContainerStyle={scrollContentStyle}
         showsVerticalScrollIndicator={false}
         scrollEnabled={!scrollLockedStage}
-        bounces={!scrollLockedStage}
-        alwaysBounceVertical={!scrollLockedStage}
-        overScrollMode={scrollLockedStage ? 'never' : 'auto'}
+        bounces={allowScrollBounce}
+        alwaysBounceVertical={allowScrollBounce}
+        overScrollMode={allowScrollBounce ? 'auto' : 'never'}
         keyboardShouldPersistTaps="handled"
       >
         {standaloneProgressHidden ? null : <StepDots index={stageIndex} light />}

@@ -163,7 +163,7 @@ module.exports = [
       assert.match(onboardingSource, /function BodyweightStepper\(/);
       assert.match(onboardingSource, /<TextInput[\s\S]*keyboardType="decimal-pad"/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
-      assert.match(onboardingSource, /bounces=\{!scrollLockedStage\}/);
+      assert.match(onboardingSource, /bounces=\{allowScrollBounce\}/);
     },
   },
   {
@@ -353,9 +353,12 @@ module.exports = [
       assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 206/);
       assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
-      assert.match(onboardingSource, /bounces=\{!scrollLockedStage\}/);
-      assert.match(onboardingSource, /alwaysBounceVertical=\{!scrollLockedStage\}/);
-      assert.match(onboardingSource, /overScrollMode=\{scrollLockedStage \? 'never' : 'auto'\}/);
+      assert.match(onboardingSource, /bounces=\{allowScrollBounce\}/);
+      assert.match(onboardingSource, /alwaysBounceVertical=\{allowScrollBounce\}/);
+      assert.match(onboardingSource, /overScrollMode=\{allowScrollBounce \? 'auto' : 'never'\}/);
+      // Step 1 (location) scrolls so an expanded card's benefits stay reachable.
+      assert.doesNotMatch(onboardingSource, /const scrollLockedStage =\s*stage === 'location'/);
+      assert.match(onboardingSource, /const allowScrollBounce = !scrollLockedStage && stage !== 'location'/);
     },
   },
   {
