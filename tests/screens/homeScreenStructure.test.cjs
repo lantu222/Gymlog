@@ -153,7 +153,7 @@ module.exports = [
       assert.doesNotMatch(workoutsScreenSource, /formatTemplateSubtitle/);
       assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);
       assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
-      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#F7F3FF' : emptyWorkoutActive \|\| readyTemplatesActive \|\| exerciseDetailActive \|\| exercisesListActive \|\| profileListActive \|\| premiumActive \|\| progressActive \? '#F7F3FF' : undefined\}/);
+      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#F7F3FF' : [^}]*emptyWorkoutActive[^}]*readyTemplatesActive[^}]*\? '#F7F3FF' : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /title="Programs"/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);

@@ -1,12 +1,10 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
-import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
-import { PremiumFeatureVisual } from '../components/PremiumFeatureVisual';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { WorkoutSceneGraphic } from '../components/WorkoutSceneGraphic';
 import {
   formatWeekdayList,
   getGuidanceModeLabel,
@@ -24,7 +22,8 @@ import {
   summarizeExercisePreferences,
   summarizeJointSwapPreferences,
 } from '../lib/tailoring';
-import { colors, layout, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { layout, radii, spacing } from '../theme';
 import { AppPreferences, SetupScheduleMode } from '../types/models';
 
 interface PlanSettingsScreenProps {
@@ -53,39 +52,149 @@ function compactOutcomes(preferences: AppPreferences) {
     .join(' | ');
 }
 
+function PlanGlyph() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M8 3v3M16 3v3M4 8h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
+        stroke={HG.purpleDark}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 14l2 2 4-4" stroke={HG.purpleDark} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SlidersGlyph() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 8h10M18 8h2M4 16h4M12 16h8"
+        stroke={HG.purpleDark}
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+      <Circle cx={16} cy={8} r={2.4} stroke={HG.purpleDark} strokeWidth={2} />
+      <Circle cx={10} cy={16} r={2.4} stroke={HG.purpleDark} strokeWidth={2} />
+    </Svg>
+  );
+}
+
+function DumbbellGlyph() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
+        stroke={HG.purpleDark}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ShieldGlyph() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3l7 3v5c0 4.6-3 8.3-7 10-4-1.7-7-5.4-7-10V6l7-3z"
+        stroke={HG.purpleDark}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path d="M9 12l2 2 4-4" stroke={HG.purpleDark} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
+function SparkGlyph() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"
+        stroke={HG.purpleDark}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <Path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9L18 16z" fill={HG.purpleDark} />
+    </Svg>
+  );
+}
+
+function MoonGlyph() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"
+        stroke={HG.purpleDark}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function ChevronIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 6l6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
+}
+
+function EntryBadge({ label }: { label: string }) {
+  return (
+    <View style={styles.entryBadge}>
+      <Text style={styles.entryBadgeText}>{label}</Text>
+    </View>
+  );
+}
+
+function HeroPill({ label }: { label: string }) {
+  return (
+    <View style={styles.heroPill}>
+      <Text style={styles.heroPillText}>{label}</Text>
+    </View>
+  );
 }
 
 function TailoringEntry({
   kicker,
   title,
   body,
-  visual,
+  glyph,
   badgeLabel,
   onPress,
 }: {
   kicker: string;
   title: string;
   body: string;
-  visual: React.ReactNode;
+  glyph: React.ReactNode;
   badgeLabel?: string;
   onPress?: () => void;
 }) {
   return (
-    <SurfaceCard accent="neutral" emphasis="flat" onPress={onPress} style={styles.entryCard}>
-      <View style={styles.entryRow}>
-        <View style={styles.entryVisual}>{visual}</View>
-        <View style={styles.entryCopy}>
-          <View style={styles.entryTopRow}>
-            <Text style={styles.entryKicker}>{kicker}</Text>
-            {badgeLabel ? <BadgePill accent="neutral" label={badgeLabel} /> : null}
-          </View>
-          <Text style={styles.entryTitle}>{title}</Text>
-          <Text style={styles.entryBody}>{body}</Text>
+    <Pressable onPress={onPress} style={styles.entryCard}>
+      <View style={styles.entryIcon}>{glyph}</View>
+      <View style={styles.entryCopy}>
+        <View style={styles.entryTopRow}>
+          <Text style={styles.entryKicker}>{kicker}</Text>
+          {badgeLabel ? <EntryBadge label={badgeLabel} /> : null}
         </View>
+        <Text style={styles.entryTitle}>{title}</Text>
+        <Text style={styles.entryBody}>{body}</Text>
       </View>
-    </SurfaceCard>
+      <ChevronIcon />
+    </Pressable>
   );
 }
 
@@ -148,7 +257,7 @@ export function PlanSettingsScreen({
 
   return (
     <>
-      <ScreenHeader title="Plan settings" onBack={onBack} />
+      <ScreenHeader title="Plan settings" tone="dark" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroPhoto} style={styles.heroSurface}>
           <View style={styles.heroContent}>
@@ -156,7 +265,7 @@ export function PlanSettingsScreen({
 
             <View style={styles.heroTokenRow}>
               {heroTokens.map((token) => (
-                <BadgePill key={token} accent="neutral" label={token} />
+                <HeroPill key={token} label={token} />
               ))}
             </View>
 
@@ -188,7 +297,7 @@ export function PlanSettingsScreen({
                 : 'Lock in goal and schedule'
             }
             badgeLabel={setupComplete ? 'Core' : 'Required'}
-            visual={<WorkoutSceneGraphic variant="plan" accent="neutral" compact />}
+            glyph={<PlanGlyph />}
             onPress={onRefineSetup}
           />
 
@@ -197,7 +306,7 @@ export function PlanSettingsScreen({
             title={`${getTrainingFeelTitle(preferences.setupTrainingFeel)} | ${getWorkoutVarietyTitle(preferences.setupWorkoutVariety)}`}
             body={`FW ${getExerciseModalityPreferenceTitle(preferences.setupFreeWeightsPreference).toLowerCase()} | BW ${getExerciseModalityPreferenceTitle(preferences.setupBodyweightPreference).toLowerCase()} | Machines ${getExerciseModalityPreferenceTitle(preferences.setupMachinesPreference).toLowerCase()}`}
             badgeLabel="Tone"
-            visual={<WorkoutSceneGraphic variant="today" accent="neutral" compact />}
+            glyph={<SlidersGlyph />}
             onPress={onOpenExercisePreferences}
           />
         </View>
@@ -210,7 +319,7 @@ export function PlanSettingsScreen({
             title={getTailoringSetupEquipmentTitle(preferences.setupEquipment)}
             body={getSetupEquipmentHint(preferences.setupEquipment)}
             badgeLabel="Live"
-            visual={<WorkoutSceneGraphic variant="plan" accent="neutral" compact />}
+            glyph={<DumbbellGlyph />}
             onPress={onOpenEquipment}
           />
 
@@ -225,21 +334,21 @@ export function PlanSettingsScreen({
                 ? 'Active'
                 : 'Default'
             }
-            visual={<WorkoutSceneGraphic variant="today" accent="neutral" compact />}
+            glyph={<ShieldGlyph />}
             onPress={onOpenJointSwaps}
           />
         </View>
 
         <SectionLabel label="Who manages the week?" />
 
-        <SurfaceCard accent="neutral" emphasis="standard" style={styles.scheduleCard}>
+        <View style={styles.scheduleCard}>
           <View style={styles.scheduleHeader}>
             <View style={styles.scheduleCopy}>
               <Text style={styles.scheduleKicker}>Schedule</Text>
               <Text style={styles.scheduleTitle}>{getScheduleModeLabel(scheduleMode)}</Text>
               <Text style={styles.scheduleBody}>{weekdaySummary}</Text>
             </View>
-            <BadgePill accent="neutral" label={scheduleMode === 'app_managed' ? 'Managed' : 'Self-managed'} />
+            <EntryBadge label={scheduleMode === 'app_managed' ? 'Managed' : 'Self-managed'} />
           </View>
 
           <View style={styles.scheduleToggleRow}>
@@ -267,7 +376,7 @@ export function PlanSettingsScreen({
               </Text>
             </Pressable>
           </View>
-        </SurfaceCard>
+        </View>
 
         <SectionLabel label="Smarter layers" />
 
@@ -277,7 +386,7 @@ export function PlanSettingsScreen({
             title={preferences.adaptiveCoachPremiumUnlocked ? 'Premium preview is on' : 'Premium'}
             body="Effort changes the next set, rest, and session direction."
             badgeLabel={preferences.adaptiveCoachPremiumUnlocked ? 'Live now' : 'Locked'}
-            visual={<PremiumFeatureVisual variant="coach" accent="neutral" compact />}
+            glyph={<SparkGlyph />}
             onPress={onOpenPremium}
           />
 
@@ -286,7 +395,7 @@ export function PlanSettingsScreen({
             title="Recovery / readiness"
             body="Readiness checks and recovery-driven adjustments belong here next."
             badgeLabel="Soon"
-            visual={<PremiumFeatureVisual variant="rest" accent="neutral" compact />}
+            glyph={<MoonGlyph />}
             onPress={onOpenPremium}
           />
         </View>
@@ -295,27 +404,27 @@ export function PlanSettingsScreen({
 
         <View style={styles.actionGrid}>
           {onOpenWeek ? (
-            <SurfaceCard accent="neutral" emphasis="flat" onPress={onOpenWeek} style={styles.actionCard}>
+            <Pressable onPress={onOpenWeek} style={styles.actionCard}>
               <Text style={styles.actionKicker}>Week</Text>
               <Text style={styles.actionTitle}>See updated week</Text>
               <Text style={styles.actionBody}>Open the live handoff.</Text>
-            </SurfaceCard>
+            </Pressable>
           ) : null}
 
           {onOpenProgram ? (
-            <SurfaceCard accent="neutral" emphasis="flat" onPress={onOpenProgram} style={styles.actionCard}>
+            <Pressable onPress={onOpenProgram} style={styles.actionCard}>
               <Text style={styles.actionKicker}>Program</Text>
               <Text style={styles.actionTitle}>Full plan</Text>
               <Text style={styles.actionBody}>Check sessions and launch.</Text>
-            </SurfaceCard>
+            </Pressable>
           ) : null}
 
           {onAskAiCoach ? (
-            <SurfaceCard accent="neutral" emphasis="flat" onPress={onAskAiCoach} style={styles.actionCard}>
+            <Pressable onPress={onAskAiCoach} style={styles.actionCard}>
               <Text style={styles.actionKicker}>GAINER AI</Text>
               <Text style={styles.actionTitle}>Ask why</Text>
               <Text style={styles.actionBody}>Open the plan context directly.</Text>
-            </SurfaceCard>
+            </Pressable>
           ) : null}
         </View>
       </ScrollView>
@@ -332,8 +441,6 @@ const styles = StyleSheet.create({
   heroSurface: {
     minHeight: 288,
     borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   heroContent: {
     flex: 1,
@@ -341,7 +448,7 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
   },
   heroKicker: {
-    color: 'rgba(255,255,255,0.58)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -351,6 +458,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  heroPill: {
+    minHeight: 28,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  heroPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   heroCopy: {
     gap: spacing.xs,
@@ -379,46 +502,53 @@ const styles = StyleSheet.create({
     minHeight: 76,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    backgroundColor: 'rgba(18, 21, 26, 0.94)',
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     gap: 4,
   },
   signalLabel: {
-    color: 'rgba(255,255,255,0.56)',
+    color: HG.faint,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   signalValue: {
-    color: '#FFFFFF',
+    color: HG.ink,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   sectionLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '900',
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    letterSpacing: 1,
   },
   entryGrid: {
     gap: spacing.sm,
   },
   entryCard: {
-    padding: spacing.sm,
-  },
-  entryRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.md,
   },
-  entryVisual: {
-    width: 116,
+  entryIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 13,
+    backgroundColor: HG.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   entryCopy: {
     flex: 1,
@@ -431,25 +561,44 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   entryKicker: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   entryTitle: {
-    color: colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '900',
+    color: HG.ink,
+    fontSize: 17,
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   entryBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  entryBadge: {
+    minHeight: 24,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: HG.purpleLight,
+  },
+  entryBadgeText: {
+    color: HG.purpleDark,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   scheduleCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
     gap: spacing.md,
   },
   scheduleHeader: {
@@ -463,23 +612,23 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   scheduleKicker: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   scheduleTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.4,
   },
   scheduleBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   scheduleToggleRow: {
     gap: spacing.sm,
@@ -487,57 +636,62 @@ const styles = StyleSheet.create({
   scheduleToggle: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(11, 16, 22, 0.40)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: 4,
   },
   scheduleToggleActive: {
-    backgroundColor: '#F3F7FF',
-    borderColor: 'rgba(255,255,255,0.24)',
+    backgroundColor: HG.purpleLight,
+    borderColor: HG.purple,
   },
   scheduleToggleTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.2,
   },
   scheduleToggleTitleActive: {
-    color: '#06080B',
+    color: HG.purpleDark,
   },
   scheduleToggleMeta: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   scheduleToggleMetaActive: {
-    color: '#3F4A54',
+    color: HG.purple,
   },
   actionGrid: {
     gap: spacing.sm,
   },
   actionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.md,
     gap: spacing.xs,
   },
   actionKicker: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
   actionTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   actionBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
