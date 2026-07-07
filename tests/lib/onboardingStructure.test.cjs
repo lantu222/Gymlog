@@ -356,9 +356,12 @@ module.exports = [
       assert.match(onboardingSource, /bounces=\{allowScrollBounce\}/);
       assert.match(onboardingSource, /alwaysBounceVertical=\{allowScrollBounce\}/);
       assert.match(onboardingSource, /overScrollMode=\{allowScrollBounce \? 'auto' : 'never'\}/);
-      // Step 1 (location) scrolls so an expanded card's benefits stay reachable.
+      // Steps 1-2 (location/goal) scroll so expanded benefits / wrapped chips stay reachable.
       assert.doesNotMatch(onboardingSource, /const scrollLockedStage =\s*stage === 'location'/);
-      assert.match(onboardingSource, /const allowScrollBounce = !scrollLockedStage && stage !== 'location'/);
+      assert.doesNotMatch(onboardingSource, /const scrollLockedStage =\s*stage === 'location' \|\|\s*stage === 'goal'/);
+      assert.match(onboardingSource, /const allowScrollBounce = !scrollLockedStage && stage !== 'location' && stage !== 'goal'/);
+      // Step 2 goal chips wrap instead of truncating.
+      assert.match(onboardingSource, /locationChoiceTagRow:\s*\{[\s\S]*flexWrap: 'wrap'/);
     },
   },
   {

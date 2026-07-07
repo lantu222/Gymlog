@@ -900,7 +900,6 @@ function LocationChoiceCard({
                     style={[styles.locationFocusBadge, getLocationFocusBadgeStyle(tag.tone), active && styles.locationFocusBadgeChipOnActive]}
                   >
                     <Text
-                      numberOfLines={1}
                       style={[styles.locationFocusBadgeText, getLocationFocusBadgeTextStyle(tag.tone), active && styles.locationFocusBadgeChipTextOnActive]}
                     >
                       {tag.label}
@@ -4368,14 +4367,13 @@ export function OnboardingScreen({
       : 'Continue';
   const footerVisible = !(stage === 'review' && planReadyView === 'account');
   const scrollLockedStage =
-    stage === 'goal' ||
     stage === 'profile' ||
     stage === 'planning' ||
     stage === 'about';
-  // Step 1 (location) scrolls so an expanded card's benefits panel stays
-  // reachable above the footer, but it should not rubber-band when the
-  // collapsed cards already fit the viewport.
-  const allowScrollBounce = !scrollLockedStage && stage !== 'location';
+  // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
+  // wrapped chip row stays reachable above the footer, but they should not
+  // rubber-band when the cards already fit the viewport.
+  const allowScrollBounce = !scrollLockedStage && stage !== 'location' && stage !== 'goal';
   const scrollContentStyle = useMemo(
     () => [
       styles.scrollContent,
@@ -5277,8 +5275,8 @@ const styles = StyleSheet.create({
   },
   locationChoiceTagRow: {
     flexDirection: 'row',
-    flexWrap: 'nowrap',
-    gap: 4,
+    flexWrap: 'wrap',
+    gap: 6,
   },
   locationChoiceBenefitsPanel: {
     marginTop: 10,
