@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
-import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
 import {
   EXERCISE_MODALITY_OPTIONS,
@@ -15,7 +14,8 @@ import {
   TRAINING_FEEL_OPTIONS,
   WORKOUT_VARIETY_OPTIONS,
 } from '../lib/tailoring';
-import { colors, layout, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { layout, radii, spacing } from '../theme';
 import { AppPreferences, ExerciseModalityPreference, TrainingFeelPreference, WorkoutVarietyPreference } from '../types/models';
 
 interface ExercisePreferencesScreenProps {
@@ -38,6 +38,14 @@ function getHeroPhotoKey(preferences: AppPreferences) {
 
 function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
+}
+
+function HeroPill({ label }: { label: string }) {
+  return (
+    <View style={styles.heroPill}>
+      <Text style={styles.heroPillText}>{label}</Text>
+    </View>
+  );
 }
 
 function QuestionOption({
@@ -102,15 +110,15 @@ export function ExercisePreferencesScreen({
 
   return (
     <>
-      <ScreenHeader title="Exercise preferences" onBack={onBack} />
+      <ScreenHeader title="Exercise preferences" tone="dark" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroPhoto} style={styles.heroSurface}>
           <View style={styles.heroContent}>
             <Text style={styles.heroKicker}>Tailoring</Text>
 
             <View style={styles.heroBadgeRow}>
-              <BadgePill accent="neutral" label={getTrainingFeelTitle(trainingFeel)} />
-              <BadgePill accent="neutral" label={getWorkoutVarietyTitle(workoutVariety)} />
+              <HeroPill label={getTrainingFeelTitle(trainingFeel)} />
+              <HeroPill label={getWorkoutVarietyTitle(workoutVariety)} />
             </View>
 
             <View style={styles.heroCopy}>
@@ -130,7 +138,7 @@ export function ExercisePreferencesScreen({
 
         <SectionLabel label="Question 1" />
 
-        <SurfaceCard accent="neutral" emphasis="standard" style={styles.questionCard}>
+        <View style={styles.questionCard}>
           <View style={styles.questionHeader}>
             <Text style={styles.questionTitle}>How hard should training feel?</Text>
             <Text style={styles.questionBody}>Pick the default feel for the week.</Text>
@@ -147,11 +155,11 @@ export function ExercisePreferencesScreen({
               />
             ))}
           </View>
-        </SurfaceCard>
+        </View>
 
         <SectionLabel label="Question 2" />
 
-        <SurfaceCard accent="neutral" emphasis="standard" style={styles.questionCard}>
+        <View style={styles.questionCard}>
           <View style={styles.questionHeader}>
             <Text style={styles.questionTitle}>How much variety do you want?</Text>
             <Text style={styles.questionBody}>Keep the week tighter or let it rotate more.</Text>
@@ -168,11 +176,11 @@ export function ExercisePreferencesScreen({
               />
             ))}
           </View>
-        </SurfaceCard>
+        </View>
 
         <SectionLabel label="Training modes" />
 
-        <SurfaceCard accent="neutral" emphasis="standard" style={styles.preferenceCard}>
+        <View style={styles.preferenceCard}>
           <PreferenceRow
             label="Free weights"
             value={preferences.setupFreeWeightsPreference}
@@ -188,13 +196,13 @@ export function ExercisePreferencesScreen({
             value={preferences.setupMachinesPreference}
             onChange={(nextValue) => void onChange({ setupMachinesPreference: nextValue })}
           />
-        </SurfaceCard>
+        </View>
 
-        <SurfaceCard accent="neutral" emphasis="flat" style={styles.nextCard}>
+        <View style={styles.nextCard}>
           <Text style={styles.nextKicker}>Also in tailoring</Text>
           <Text style={styles.nextTitle}>Equipment and joint-friendly swaps</Text>
           <Text style={styles.nextBody}>Tune equipment rules and quick swaps next from Plan settings.</Text>
-        </SurfaceCard>
+        </View>
       </ScrollView>
     </>
   );
@@ -208,8 +216,6 @@ const styles = StyleSheet.create({
   },
   heroSurface: {
     minHeight: 282,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   heroContent: {
     flex: 1,
@@ -218,7 +224,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   heroKicker: {
-    color: 'rgba(255,255,255,0.58)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -228,6 +234,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  heroPill: {
+    minHeight: 28,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  heroPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   heroCopy: {
     gap: spacing.xs,
@@ -248,29 +270,34 @@ const styles = StyleSheet.create({
     maxWidth: '86%',
   },
   sectionLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '900',
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    letterSpacing: 1,
   },
   questionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
     gap: spacing.md,
   },
   questionHeader: {
     gap: 2,
   },
   questionTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.5,
   },
   questionBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   questionGrid: {
     flexDirection: 'row',
@@ -283,45 +310,50 @@ const styles = StyleSheet.create({
     minHeight: 96,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(10, 14, 19, 0.82)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     gap: 4,
   },
   questionOptionActive: {
-    borderColor: '#F4FAFF',
-    backgroundColor: '#F4FAFF',
+    borderColor: HG.purple,
+    backgroundColor: HG.purpleLight,
   },
   questionOptionLabel: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   questionOptionLabelActive: {
-    color: '#0B0F14',
+    color: HG.purpleDark,
   },
   questionOptionHint: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 12,
     lineHeight: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   questionOptionHintActive: {
-    color: '#44515C',
+    color: HG.purple,
   },
   preferenceCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
     gap: spacing.md,
   },
   preferenceRow: {
     gap: spacing.sm,
   },
   preferenceRowLabel: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.2,
   },
   preferenceSegmentRow: {
@@ -334,44 +366,49 @@ const styles = StyleSheet.create({
     minWidth: 76,
     borderRadius: radii.pill,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(10, 14, 19, 0.78)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },
   preferenceSegmentActive: {
-    borderColor: '#F4FAFF',
-    backgroundColor: '#F4FAFF',
+    borderColor: HG.purple,
+    backgroundColor: HG.purpleLight,
   },
   preferenceSegmentText: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   preferenceSegmentTextActive: {
-    color: '#0B0F14',
+    color: HG.purpleDark,
   },
   nextCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.md,
     gap: 4,
   },
   nextKicker: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   nextTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   nextBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 19,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
