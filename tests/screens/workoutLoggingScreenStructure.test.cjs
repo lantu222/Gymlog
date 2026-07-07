@@ -29,7 +29,7 @@ module.exports = [
       assert.match(source, /Font\.loadAsync/);
       assert.match(source, /Inter:\s*require\('\.\/assets\/fonts\/Inter\.ttf'\)/);
       assert.match(source, /Manrope:\s*require\('\.\/assets\/fonts\/Manrope\.ttf'\)/);
-      assert.match(source, /fontFamily:\s*'Inter'/);
+      assert.match(source, /fontFamily:\s*'Manrope'/);
       assert.match(source, /fontFamily:\s*typography\.fontFamily/);
       assert.match(screenSource, /WORKOUT_FONT_FAMILY\s*=\s*'Manrope'/);
       assert.match(screenSource, /fontFamily:\s*WORKOUT_FONT_FAMILY/);

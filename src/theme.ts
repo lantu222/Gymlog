@@ -45,7 +45,7 @@ export const layout = {
 };
 
 export const typography = {
-  fontFamily: 'Inter',
+  fontFamily: 'Manrope',
 };
 
 export const appInfo = {

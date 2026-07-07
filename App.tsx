@@ -1,3 +1,5 @@
+import './src/globalFont';
+
 import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
 import * as Font from 'expo-font';
