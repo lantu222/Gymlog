@@ -3,13 +3,13 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, 
 
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
-import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { buildAiCoachActions } from '../lib/aiCoachActions';
 import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { AICoachAction, AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
-import { colors, layout, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { layout, radii, spacing } from '../theme';
 
 interface AICoachScreenProps {
   initialPrompt?: string;
@@ -29,6 +29,22 @@ interface PreviewRequest {
 
 function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
+}
+
+function HeroPill({ label }: { label: string }) {
+  return (
+    <View style={styles.heroPill}>
+      <Text style={styles.heroPillText}>{label}</Text>
+    </View>
+  );
+}
+
+function SourceBadge({ label }: { label: string }) {
+  return (
+    <View style={styles.sourceBadge}>
+      <Text style={styles.sourceBadgeText}>{label}</Text>
+    </View>
+  );
 }
 
 function SignalCard({ label, value }: { label: string; value: string }) {
@@ -254,18 +270,18 @@ export function AICoachScreen({
 
   return (
     <>
-      <ScreenHeader title="GAINER AI" subtitle="Preview guidance. Not for live workout decisions." onBack={onBack} />
+      <ScreenHeader title="GAINER AI" subtitle="Preview guidance. Not for live workout decisions." tone="dark" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroVariant} style={[styles.heroSurface, hasAnswer && styles.heroSurfaceCompact]}>
           <View style={styles.heroContent}>
             <View style={styles.heroTopRow}>
               <Text style={styles.heroKicker}>GAINER AI</Text>
-              <BadgePill accent="neutral" label="Preview" />
+              <HeroPill label="Preview" />
             </View>
 
             <View style={styles.heroTokenRow}>
               {heroTokens.map((token) => (
-                <BadgePill key={token} accent="neutral" label={token} />
+                <HeroPill key={token} label={token} />
               ))}
             </View>
 
@@ -274,7 +290,7 @@ export function AICoachScreen({
           </View>
         </FitnessPhotoSurface>
 
-        <SurfaceCard accent="neutral" emphasis="standard" style={[styles.askSurface, hasAnswer && styles.askSurfaceCompact]}>
+        <View style={[styles.askSurface, hasAnswer && styles.askSurfaceCompact]}>
           <View style={styles.signalRow}>
             {promptSignals.map((signal) => (
               <SignalCard key={signal.label} label={signal.label} value={signal.value} />
@@ -285,8 +301,8 @@ export function AICoachScreen({
             value={draft}
             onChangeText={setDraft}
             placeholder="Ask about your saved plan"
-            placeholderTextColor={colors.textMuted}
-            selectionColor="#FFFFFF"
+            placeholderTextColor={HG.faint}
+            selectionColor={HG.purple}
             multiline
             textAlignVertical="top"
             style={[styles.input, hasAnswer && styles.inputCompact]}
@@ -305,22 +321,22 @@ export function AICoachScreen({
           <Pressable onPress={() => submitPrompt(draft)} style={[styles.button, !draft.trim() && styles.buttonDisabled]}>
             <Text style={styles.buttonText}>Review</Text>
           </Pressable>
-        </SurfaceCard>
+        </View>
 
         {state === 'loading' ? (
-          <SurfaceCard accent="neutral" emphasis="flat" style={styles.feedbackCard}>
-            <ActivityIndicator color="#FFFFFF" size="small" />
+          <View style={styles.feedbackCard}>
+            <ActivityIndicator color={HG.purple} size="small" />
             <View style={styles.feedbackCopy}>
               <Text style={styles.feedbackTitle}>Getting an answer</Text>
               <Text style={styles.feedbackBody}>
                 Using saved plan and training history.
               </Text>
             </View>
-          </SurfaceCard>
+          </View>
         ) : null}
 
         {state === 'error' ? (
-          <SurfaceCard accent="neutral" emphasis="flat" style={styles.feedbackCard}>
+          <View style={styles.feedbackCard}>
             <View style={styles.feedbackCopy}>
               <Text style={styles.feedbackTitle}>Try a saved-plan question</Text>
               <Text style={styles.feedbackBody}>{errorMessage}</Text>
@@ -328,14 +344,14 @@ export function AICoachScreen({
             <Pressable onPress={retryPrompt} style={styles.retryButton}>
               <Text style={styles.retryButtonText}>Try again</Text>
             </Pressable>
-          </SurfaceCard>
+          </View>
         ) : null}
 
         {state === 'ready' && answer ? (
-          <SurfaceCard accent="neutral" emphasis="standard" style={styles.answerSurface}>
+          <View style={styles.answerSurface}>
             <View style={styles.answerTopRow}>
               <SectionLabel label="Answer" />
-              <BadgePill accent="neutral" label={answerSource === 'live' ? 'Live' : 'Preview'} />
+              <SourceBadge label={answerSource === 'live' ? 'Live' : 'Preview'} />
             </View>
 
             <Text style={styles.questionText}>{submittedPrompt}</Text>
@@ -368,7 +384,7 @@ export function AICoachScreen({
                 Assumes {compactItems(answer.assumptions).join(' | ')}
               </Text>
             ) : null}
-          </SurfaceCard>
+          </View>
         ) : null}
       </ScrollView>
     </>
@@ -400,7 +416,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   heroKicker: {
-    color: 'rgba(255,255,255,0.58)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -410,6 +426,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  heroPill: {
+    minHeight: 28,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  heroPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  sourceBadge: {
+    minHeight: 24,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: HG.purpleLight,
+  },
+  sourceBadgeText: {
+    color: HG.purpleDark,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
   heroTitle: {
     color: '#FFFFFF',
@@ -425,6 +471,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   askSurface: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
     gap: spacing.md,
   },
   askSurfaceCompact: {
@@ -439,34 +490,34 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(7, 10, 14, 0.36)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: 4,
   },
   signalLabel: {
-    color: 'rgba(255,255,255,0.46)',
+    color: HG.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
   signalValue: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   input: {
     minHeight: 108,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(7, 10, 14, 0.42)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '600',
@@ -485,28 +536,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
   },
   suggestionChipText: {
-    color: 'rgba(255,255,255,0.82)',
+    color: HG.ink,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   button: {
     minHeight: 52,
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: HG.purple,
   },
   buttonDisabled: {
     opacity: 0.45,
   },
   buttonText: {
-    color: '#0B0F14',
+    color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '900',
   },
@@ -514,21 +563,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.md,
   },
   feedbackCopy: {
     flex: 1,
     gap: 2,
   },
   feedbackTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   feedbackBody: {
-    color: colors.textMuted,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   retryButton: {
     minHeight: 42,
@@ -536,14 +590,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: HG.purple,
   },
   retryButtonText: {
-    color: '#0B0F14',
+    color: '#FFFFFF',
     fontSize: 13,
     fontWeight: '900',
   },
   answerSurface: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
     gap: spacing.md,
   },
   answerTopRow: {
@@ -553,30 +612,30 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionLabel: {
-    color: 'rgba(255,255,255,0.46)',
+    color: HG.faint,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   questionText: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 24,
     lineHeight: 29,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.7,
   },
   answerNote: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   takeawayText: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 15,
     lineHeight: 22,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   actionList: {
     gap: spacing.sm,
@@ -584,54 +643,54 @@ const styles = StyleSheet.create({
   actionCard: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(7, 10, 14, 0.36)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: 4,
   },
   actionCardPrimary: {
-    backgroundColor: '#FFFFFF',
-    borderColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: HG.purple,
+    borderColor: HG.purple,
   },
   actionTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   actionTitlePrimary: {
-    color: '#0B0F14',
+    color: '#FFFFFF',
   },
   actionDescription: {
-    color: colors.textMuted,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   actionDescriptionPrimary: {
-    color: 'rgba(11,15,20,0.72)',
+    color: 'rgba(255,255,255,0.82)',
   },
   infoBlock: {
     gap: spacing.xs,
   },
   infoTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   infoList: {
     gap: spacing.xs,
   },
   infoItem: {
-    color: colors.textMuted,
+    color: HG.muted,
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   assumptionText: {
-    color: 'rgba(255,255,255,0.52)',
+    color: HG.faint,
     fontSize: 12,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
