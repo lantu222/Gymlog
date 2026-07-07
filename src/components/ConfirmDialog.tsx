@@ -1,7 +1,8 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { radii, spacing } from '../theme';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -50,24 +51,29 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     padding: spacing.xl,
-    backgroundColor: colors.overlay,
+    backgroundColor: 'rgba(16, 24, 40, 0.45)',
   },
   dialog: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     padding: spacing.xl,
     gap: spacing.md,
+    shadowColor: HG.shadow,
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
   title: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   message: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -81,12 +87,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.surface,
+    backgroundColor: HG.surfaceSoft,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: HG.border,
   },
   secondaryText: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -94,13 +100,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: colors.accent,
+    backgroundColor: HG.purple,
   },
   destructiveButton: {
-    backgroundColor: colors.danger,
+    backgroundColor: '#DC2626',
   },
   primaryText: {
-    color: colors.background,
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
