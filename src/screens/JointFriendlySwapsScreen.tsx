@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
-import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
 import {
   getJointSwapBiasHint,
@@ -13,7 +12,8 @@ import {
   JOINT_SWAP_PREFERENCE_OPTIONS,
   summarizeJointSwapPreferences,
 } from '../lib/tailoring';
-import { colors, layout, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { layout, radii, spacing } from '../theme';
 import { AppPreferences, JointSwapBias, JointSwapPreference } from '../types/models';
 
 interface JointFriendlySwapsScreenProps {
@@ -62,6 +62,36 @@ function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
+function HeroPill({ label }: { label: string }) {
+  return (
+    <View style={styles.heroPill}>
+      <Text style={styles.heroPillText}>{label}</Text>
+    </View>
+  );
+}
+
+function StateBadge({ value }: { value: JointSwapPreference }) {
+  return (
+    <View
+      style={[
+        styles.stateBadge,
+        value === 'prefer' && styles.stateBadgePrefer,
+        value === 'prioritize' && styles.stateBadgePrioritize,
+      ]}
+    >
+      <Text
+        style={[
+          styles.stateBadgeText,
+          value === 'prefer' && styles.stateBadgeTextPrefer,
+          value === 'prioritize' && styles.stateBadgeTextPrioritize,
+        ]}
+      >
+        {getJointSwapPreferenceTitle(value)}
+      </Text>
+    </View>
+  );
+}
+
 function JointPreferenceRow({
   bias,
   value,
@@ -78,7 +108,7 @@ function JointPreferenceRow({
           <Text style={styles.preferenceRowTitle}>{getJointSwapBiasTitle(bias)}</Text>
           <Text style={styles.preferenceRowBody}>{getJointSwapBiasHint(bias)}</Text>
         </View>
-        <BadgePill accent={value === 'prioritize' ? 'orange' : value === 'prefer' ? 'blue' : 'neutral'} label={getJointSwapPreferenceTitle(value)} />
+        <StateBadge value={value} />
       </View>
 
       <View style={styles.preferenceSegmentRow}>
@@ -118,8 +148,9 @@ export function JointFriendlySwapsScreen({
   return (
     <>
       <ScreenHeader
-      title="Joint-friendly swaps"
+        title="Joint-friendly swaps"
         subtitle="Bias quick swaps toward joints that need more protection."
+        tone="dark"
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -128,7 +159,7 @@ export function JointFriendlySwapsScreen({
             <Text style={styles.heroKicker}>Tailoring</Text>
 
             <View style={styles.heroBadgeRow}>
-              <BadgePill accent="neutral" label={summary} />
+              <HeroPill label={summary} />
             </View>
 
             <View style={styles.heroCopy}>
@@ -140,7 +171,7 @@ export function JointFriendlySwapsScreen({
 
         <SectionLabel label="Quick swap bias" />
 
-        <SurfaceCard accent="neutral" emphasis="standard" style={styles.preferenceCard}>
+        <View style={styles.preferenceCard}>
           <View style={styles.questionHeader}>
             <Text style={styles.questionTitle}>How strongly should swaps protect each joint?</Text>
             <Text style={styles.questionBody}>Keep this light by default or push friendlier options higher.</Text>
@@ -154,15 +185,15 @@ export function JointFriendlySwapsScreen({
               onChange={(nextValue) => void onChange(buildPatch(bias, nextValue))}
             />
           ))}
-        </SurfaceCard>
+        </View>
 
-        <SurfaceCard accent="neutral" emphasis="flat" style={styles.explainCard}>
+        <View style={styles.explainCard}>
           <Text style={styles.explainKicker}>What changes</Text>
           <Text style={styles.explainTitle}>Recommendation, discovery, and quick swaps all listen now</Text>
           <Text style={styles.explainBody}>
             Higher protection moves friendlier options up sooner when the movement pattern and your equipment still fit.
           </Text>
-        </SurfaceCard>
+        </View>
       </ScrollView>
     </>
   );
@@ -176,8 +207,6 @@ const styles = StyleSheet.create({
   },
   heroSurface: {
     minHeight: 272,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   heroContent: {
     flex: 1,
@@ -186,7 +215,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   heroKicker: {
-    color: 'rgba(255,255,255,0.58)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 11,
     fontWeight: '900',
     letterSpacing: 0.9,
@@ -196,6 +225,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  heroPill: {
+    minHeight: 28,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  heroPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   heroCopy: {
     gap: spacing.xs,
@@ -216,29 +261,34 @@ const styles = StyleSheet.create({
     maxWidth: '84%',
   },
   sectionLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '900',
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    letterSpacing: 1,
   },
   preferenceCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
     gap: spacing.md,
   },
   questionHeader: {
     gap: 2,
   },
   questionTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.5,
   },
   questionBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   preferenceRow: {
     gap: spacing.sm,
@@ -254,16 +304,42 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   preferenceRowTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   preferenceRowBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
+  },
+  stateBadge: {
+    minHeight: 24,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: HG.surfaceSoft,
+  },
+  stateBadgePrefer: {
+    backgroundColor: HG.purpleLight,
+  },
+  stateBadgePrioritize: {
+    backgroundColor: HG.purple,
+  },
+  stateBadgeText: {
+    color: HG.muted,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  stateBadgeTextPrefer: {
+    color: HG.purpleDark,
+  },
+  stateBadgeTextPrioritize: {
+    color: '#FFFFFF',
   },
   preferenceSegmentRow: {
     flexDirection: 'row',
@@ -276,54 +352,59 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(10, 14, 19, 0.82)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     gap: 4,
   },
   preferenceSegmentActive: {
-    borderColor: '#F4FAFF',
-    backgroundColor: '#F4FAFF',
+    borderColor: HG.purple,
+    backgroundColor: HG.purpleLight,
   },
   preferenceSegmentText: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   preferenceSegmentTextActive: {
-    color: '#0B0F14',
+    color: HG.purpleDark,
   },
   preferenceSegmentHint: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 11,
     lineHeight: 15,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   preferenceSegmentHintActive: {
-    color: '#44515C',
+    color: HG.purple,
   },
   explainCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.md,
     gap: spacing.xs,
   },
   explainKicker: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   explainTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     lineHeight: 24,
   },
   explainBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
