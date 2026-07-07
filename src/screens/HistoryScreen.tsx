@@ -2,11 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
-import { EmptyState } from '../components/EmptyState';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
-import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { SessionListItem } from '../components/SessionListItem';
 import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { getLogSetStatusCounts } from '../lib/exerciseLog';
 import {
@@ -16,7 +13,6 @@ import {
   HistorySessionViewModel,
 } from '../lib/historyView';
 import {
-  formatDate,
   formatDurationMinutes,
   formatLogResult,
   formatSessionDate,
@@ -26,7 +22,8 @@ import {
   pluralize,
 } from '../lib/format';
 import { AppDatabase, UnitPreference } from '../types/models';
-import { colors, layout, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { layout, radii, spacing } from '../theme';
 
 interface HistoryScreenProps {
   sessions: AppDatabase['workoutSessions'];
@@ -45,6 +42,70 @@ const HISTORY_FILTERS: Array<{ key: HistoryFilter; label: string }> = [
 
 function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
+}
+
+function HeroPill({ label }: { label: string }) {
+  return (
+    <View style={styles.heroPill}>
+      <Text style={styles.heroPillText}>{label}</Text>
+    </View>
+  );
+}
+
+function LightBadge({ label }: { label: string }) {
+  return (
+    <View style={styles.lightBadge}>
+      <Text style={styles.lightBadgeText}>{label}</Text>
+    </View>
+  );
+}
+
+function LightEmptyState({ title, description }: { title: string; description: string }) {
+  return (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyStateTitle}>{title}</Text>
+      <Text style={styles.emptyStateDescription}>{description}</Text>
+    </View>
+  );
+}
+
+function SessionRow({
+  workoutName,
+  performedAt,
+  exerciseCount,
+  summaryText,
+  highlightText,
+  badgeText,
+  onPress,
+}: {
+  workoutName: string;
+  performedAt: string;
+  exerciseCount: number;
+  summaryText?: string;
+  highlightText?: string;
+  badgeText?: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={styles.sessionRow}>
+      <View style={styles.sessionRowLeft}>
+        <Text style={styles.sessionRowKicker}>Saved session</Text>
+        <Text style={styles.sessionRowName}>{workoutName}</Text>
+        <Text style={styles.sessionRowMeta}>
+          {formatShortDate(performedAt)} {'·'} {pluralize(exerciseCount, 'exercise')}
+        </Text>
+        {summaryText ? <Text style={styles.sessionRowSummary}>{summaryText}</Text> : null}
+      </View>
+      <View style={styles.sessionRowRight}>
+        {badgeText ? <LightBadge label={badgeText} /> : null}
+        {highlightText ? (
+          <Text style={styles.sessionRowHighlight} numberOfLines={2}>
+            {highlightText}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
 }
 
 function SignalCard({ label, value, meta }: { label: string; value: string; meta?: string | null }) {
@@ -141,6 +202,7 @@ export function HistoryScreen({
         <ScreenHeader
           title={formatWorkoutDisplayLabel(selectedSession.workoutNameSnapshot, 'Workout')}
           subtitle="What happened in this session."
+          tone="dark"
           onBack={onBack}
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -149,11 +211,11 @@ export function HistoryScreen({
               <Text style={styles.heroKicker}>Saved session</Text>
 
               <View style={styles.heroBadgeRow}>
-                <BadgePill accent="neutral" label={formatShortDate(selectedSession.performedAt)} />
+                <HeroPill label={formatShortDate(selectedSession.performedAt)} />
                 {sessionView.durationMinutes ? (
-                  <BadgePill accent="neutral" label={formatDurationMinutes(sessionView.durationMinutes)} />
+                  <HeroPill label={formatDurationMinutes(sessionView.durationMinutes)} />
                 ) : null}
-                <BadgePill accent="neutral" label={pluralize(sessionView.exerciseCount, 'exercise')} />
+                <HeroPill label={pluralize(sessionView.exerciseCount, 'exercise')} />
               </View>
 
               <View style={styles.heroCopy}>
@@ -201,13 +263,13 @@ export function HistoryScreen({
           </View>
 
           {sessionView.topLiftName && sessionView.topLiftWeightKg !== null ? (
-            <SurfaceCard accent="neutral" emphasis="flat" style={styles.contextCard}>
+            <View style={styles.contextCard}>
               <Text style={styles.contextKicker}>Worth noting</Text>
               <Text style={styles.contextTitle}>
                 {formatLiftDisplayLabel(sessionView.topLiftName)} {formatWeight(sessionView.topLiftWeightKg, unitPreference)}
               </Text>
               <Text style={styles.contextBody}>Heaviest completed lift from this saved session.</Text>
-            </SurfaceCard>
+            </View>
           ) : null}
 
           <View style={styles.logList}>
@@ -231,7 +293,7 @@ export function HistoryScreen({
                 .join(' · ');
 
               return (
-                <SurfaceCard key={log.id} accent="neutral" emphasis="utility" style={styles.logCard}>
+                <View key={log.id} style={styles.logCard}>
                   <View style={styles.logCardHeader}>
                     <View style={styles.logCardCopy}>
                       <Text style={styles.logName}>{formatLiftDisplayLabel(log.exerciseNameSnapshot)}</Text>
@@ -240,7 +302,7 @@ export function HistoryScreen({
                     {logFlags.length ? (
                       <View style={styles.logBadgeRow}>
                         {logFlags.slice(0, 2).map((flag) => (
-                          <BadgePill key={`${log.id}:${flag}`} accent="neutral" label={flag ?? ''} />
+                          <LightBadge key={`${log.id}:${flag}`} label={flag ?? ''} />
                         ))}
                       </View>
                     ) : null}
@@ -251,7 +313,7 @@ export function HistoryScreen({
                     <Text style={styles.logSupport}>Swapped from {formatLiftDisplayLabel(log.swappedFrom)}</Text>
                   ) : null}
                   {log.notes ? <Text style={styles.logNote}>{log.notes}</Text> : null}
-                </SurfaceCard>
+                </View>
               );
             })}
           </View>
@@ -262,10 +324,10 @@ export function HistoryScreen({
 
   return (
     <>
-      <ScreenHeader title="History" subtitle="Open the session worth keeping." />
+      <ScreenHeader title="History" subtitle="Open the session worth keeping." tone="dark" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {sessions.length === 0 ? (
-          <EmptyState
+          <LightEmptyState
             title="No sessions yet"
             description="Once you save a workout, the session appears here."
           />
@@ -283,12 +345,12 @@ export function HistoryScreen({
                   <Text style={styles.heroKicker}>Latest save</Text>
 
                   <View style={styles.heroBadgeRow}>
-                    <BadgePill accent="neutral" label={`${sessionViewModels.length} sessions`} />
+                    <HeroPill label={`${sessionViewModels.length} sessions`} />
                     {latestSession.durationMinutes ? (
-                      <BadgePill accent="neutral" label={formatDurationMinutes(latestSession.durationMinutes)} />
+                      <HeroPill label={formatDurationMinutes(latestSession.durationMinutes)} />
                     ) : null}
                     {getReviewLabel(latestSession) ? (
-                      <BadgePill accent="neutral" label={getReviewLabel(latestSession)!} />
+                      <HeroPill label={getReviewLabel(latestSession)!} />
                     ) : null}
                   </View>
 
@@ -311,7 +373,7 @@ export function HistoryScreen({
               </FitnessPhotoSurface>
             ) : null}
 
-            <SurfaceCard accent="neutral" emphasis="standard" style={styles.discoveryCard}>
+            <View style={styles.discoveryCard}>
               <View style={styles.discoveryHeaderRow}>
                 <View style={styles.discoveryCopy}>
                   <Text style={styles.discoveryLabel}>Browse sessions</Text>
@@ -323,8 +385,8 @@ export function HistoryScreen({
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder="Search by workout or top lift"
-                placeholderTextColor={colors.textMuted}
-                selectionColor="#F4FAFF"
+                placeholderTextColor={HG.faint}
+                selectionColor={HG.purple}
                 style={styles.searchInput}
               />
               <Text style={styles.discoveryMeta}>
@@ -345,13 +407,13 @@ export function HistoryScreen({
                   );
                 })}
               </View>
-            </SurfaceCard>
+            </View>
 
             {filteredSessions.length ? (
               <View style={styles.logList}>
                 <SectionLabel label="Recent sessions" />
                 {filteredSessions.map((session) => (
-                  <SessionListItem
+                  <SessionRow
                     key={session.sessionId}
                     workoutName={formatWorkoutDisplayLabel(session.workoutName, 'Workout')}
                     performedAt={session.performedAt}
@@ -369,7 +431,7 @@ export function HistoryScreen({
                 ))}
               </View>
             ) : (
-              <EmptyState
+              <LightEmptyState
                 title="No sessions match this view"
                 description="Try a broader search or switch the history filter."
               />
@@ -388,16 +450,14 @@ const styles = StyleSheet.create({
     gap: spacing.lg,
   },
   sectionLabel: {
-    color: colors.textMuted,
-    fontSize: 11,
-    fontWeight: '900',
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
+    letterSpacing: 1,
   },
   heroSurface: {
     minHeight: 276,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
   },
   heroContent: {
     flex: 1,
@@ -406,7 +466,7 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   heroKicker: {
-    color: 'rgba(255,255,255,0.58)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -416,6 +476,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
+  },
+  heroPill: {
+    minHeight: 28,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.30)',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+  },
+  heroPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   heroCopy: {
     gap: spacing.xs,
@@ -445,16 +521,104 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F4FAFF',
-    borderWidth: 1,
-    borderColor: '#F4FAFF',
+    backgroundColor: HG.purple,
   },
   heroPrimaryButtonText: {
-    color: '#0B0F14',
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '900',
   },
+  lightBadge: {
+    minHeight: 24,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HG.purpleLight,
+  },
+  lightBadgeText: {
+    color: HG.purpleDark,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  emptyState: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.xl,
+    gap: spacing.sm,
+  },
+  emptyStateTitle: {
+    color: HG.ink,
+    fontSize: 22,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  emptyStateDescription: {
+    color: HG.muted,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  sessionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
+  },
+  sessionRowLeft: {
+    gap: spacing.xs,
+    flex: 1,
+  },
+  sessionRowKicker: {
+    color: HG.faint,
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  sessionRowRight: {
+    maxWidth: 150,
+    alignItems: 'flex-end',
+    gap: spacing.xs,
+  },
+  sessionRowName: {
+    color: HG.ink,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  sessionRowMeta: {
+    color: HG.muted,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sessionRowSummary: {
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  sessionRowHighlight: {
+    color: HG.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
   discoveryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
   discoveryHeaderRow: {
@@ -468,33 +632,33 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   discoveryLabel: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
   discoveryTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.5,
   },
   discoveryMeta: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   searchInput: {
     minHeight: 48,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: 'rgba(10, 14, 19, 0.84)',
+    borderColor: HG.border,
+    backgroundColor: HG.surfaceSoft,
     paddingHorizontal: spacing.md,
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   filterRow: {
     flexDirection: 'row',
@@ -507,21 +671,21 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: HG.surfaceSoft,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: HG.border,
   },
   filterChipActive: {
-    backgroundColor: '#F4FAFF',
-    borderColor: '#F4FAFF',
+    backgroundColor: HG.purpleLight,
+    borderColor: HG.purple,
   },
   filterChipText: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 12,
     fontWeight: '800',
   },
   filterChipTextActive: {
-    color: '#0B0F14',
+    color: HG.purpleDark,
   },
   signalRow: {
     flexDirection: 'row',
@@ -532,57 +696,67 @@ const styles = StyleSheet.create({
     minHeight: 92,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: 'rgba(18, 24, 33, 0.74)',
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     gap: 3,
   },
   signalLabel: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   signalValue: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 16,
     lineHeight: 20,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   signalMeta: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 11,
     lineHeight: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   contextCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.md,
     gap: spacing.xs,
   },
   contextKicker: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   contextTitle: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '800',
   },
   contextBody: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   logList: {
     gap: spacing.md,
   },
   logCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
+    padding: spacing.md,
     gap: spacing.sm,
   },
   logCardHeader: {
@@ -596,15 +770,15 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   logName: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
   logMeta: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   logBadgeRow: {
     flexDirection: 'row',
@@ -614,15 +788,15 @@ const styles = StyleSheet.create({
     maxWidth: '44%',
   },
   logSupport: {
-    color: colors.textMuted,
+    color: HG.faint,
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   logNote: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
