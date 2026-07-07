@@ -271,12 +271,14 @@ module.exports = [
       assert.match(onboardingSource, /level: 'advanced'/);
       assert.match(onboardingSource, /\{ value: 6, title: '6\+', body: 'days' \}/);
       assert.match(onboardingSource, /function getTrainingProfileSetupSummary\(level: SetupLevel, daysPerWeek: SetupDaysPerWeek\)/);
-      assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 206/);
+      // Top pane tightened (was 206) so Step 3's title hugs the Experience Level heading.
+      assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 150/);
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderWidth: 2/);
       assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE[\s\S]*backgroundColor: ONBOARDING_CARD_ACTIVE/);
       // Light redesign: experience card title 17/21 (design onb-screens2 = 15.5/800,
-      // within the handoff's 1-2px tolerance), body 12/15. Weight stays 800/600.
+      // within the handoff's 1-2px tolerance), body 12/15. Body weight bumped 600->700
+      // for legibility (spec §4).
       assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 17[\s\S]*lineHeight: 21/);
       assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 12[\s\S]*lineHeight: 15/);
       assert.match(onboardingSource, /trainingGenderTileActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE/);

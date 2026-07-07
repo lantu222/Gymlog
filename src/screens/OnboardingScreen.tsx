@@ -3398,10 +3398,7 @@ export function OnboardingScreen({
                   <View style={styles.trainingProfileSummaryCheck}>
                     <GymlogIcon name="check" size={13} color="#FFFFFF" />
                   </View>
-                  <View style={styles.trainingProfileSummaryCopy}>
-                    <Text style={styles.trainingProfileSummaryText}>{getGenderProfileLabel(gender)}</Text>
-                    <Text style={styles.trainingProfileSummarySubtext}>{selectedGenderOption.body}</Text>
-                  </View>
+                  <Text style={styles.trainingProfileSummaryText}>{getGenderProfileLabel(gender)}</Text>
                   <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
                 </Pressable>
               ) : (
@@ -4795,7 +4792,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   trainingProfileTopPane: {
-    height: 206,
+    height: 150,
     justifyContent: 'flex-start',
     paddingTop: 24,
     paddingBottom: 8,
@@ -4834,7 +4831,7 @@ const styles = StyleSheet.create({
     color: ONBOARDING_TEXT_SOFT,
     fontSize: 13,
     lineHeight: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   trainingProfileSummaryRow: {
     minHeight: 46,
@@ -4865,16 +4862,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '900',
-  },
-  trainingProfileSummaryCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  trainingProfileSummarySubtext: {
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '700',
   },
   trainingProfileSummaryEdit: {
     color: ONBOARDING_PRIMARY,
@@ -4922,7 +4909,7 @@ const styles = StyleSheet.create({
     color: ONBOARDING_TEXT_SOFT,
     fontSize: 12,
     lineHeight: 15,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   trainingExperienceBodyActive: {
     color: ONBOARDING_TEXT_SOFT,
