@@ -2930,6 +2930,7 @@ function GymlogApp() {
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
   const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';
+  const equipmentActive = route.tab === 'profile' && route.screen === 'equipment';
   const progressActive = route.tab === 'progress';
 
   return (
@@ -2942,10 +2943,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
+      statusBarBackgroundColor={emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || progressActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : emptyWorkoutActive || readyTemplatesActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || progressActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
