@@ -1,14 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { HG } from '../lightTheme';
+
 export function LaunchScreen() {
   return (
     <View style={styles.screen}>
       <View pointerEvents="none" style={styles.backgroundLogo}>
         <Text style={styles.gainerText}>
-          <Text style={styles.gainerTextWhite}>G</Text>
+          <Text style={styles.gainerTextInk}>G</Text>
           <Text style={styles.gainerTextPurple}>AI</Text>
-          <Text style={styles.gainerTextWhite}>NER</Text>
+          <Text style={styles.gainerTextInk}>NER</Text>
         </Text>
       </View>
     </View>
@@ -18,7 +20,7 @@ export function LaunchScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#080815',
+    backgroundColor: HG.bg,
   },
   backgroundLogo: {
     position: 'absolute',
@@ -34,10 +36,10 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0,
   },
-  gainerTextWhite: {
-    color: '#FFFFFF',
+  gainerTextInk: {
+    color: HG.ink,
   },
   gainerTextPurple: {
-    color: '#7F77DD',
+    color: HG.purple,
   },
 });
