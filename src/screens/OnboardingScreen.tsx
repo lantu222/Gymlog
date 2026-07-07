@@ -6657,7 +6657,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   buildingPlanStepTextPending: {
-    color: ONBOARDING_TEXT_MUTED,
+    color: ONBOARDING_TEXT_SOFT,
     fontWeight: '600',
   },
   photoSelectionCard: {
