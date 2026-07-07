@@ -14,8 +14,8 @@ import { getActiveSetAutoFocusTarget } from '../lib/workoutLoggingFocus';
 import { getWorkoutLoggingSessionBootstrapResult } from '../lib/workoutLoggingSessionBootstrap';
 import { formatVolume, formatWeight, formatWeightInputValue } from '../lib/format';
 import { canCompleteWorkoutSet } from '../lib/workoutValidation';
-import { colors, radii, spacing, typography } from '../theme';
-import { BadgePill, SurfaceAccent } from '../components/MainScreenPrimitives';
+import { radii, spacing, typography } from '../theme';
+import { SurfaceAccent } from '../components/MainScreenPrimitives';
 import { ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_SUBSTITUTION_GROUPS, getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
@@ -1146,7 +1146,9 @@ export function WorkoutLoggingScreen({
             {swapBadgeLabels.length ? (
               <View style={styles.swapSheetBadgeRow}>
                 {swapBadgeLabels.map((label) => (
-                  <BadgePill key={label} accent="orange" label={label} />
+                  <View key={label} style={styles.swapSheetBadge}>
+                    <Text style={styles.swapSheetBadgeText}>{label}</Text>
+                  </View>
                 ))}
               </View>
             ) : null}
@@ -1183,10 +1185,10 @@ export function WorkoutLoggingScreen({
             value={notesDraft}
             onChangeText={setNotesDraft}
             placeholder="Add a short note"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor="#9A93AC"
             multiline
             style={styles.notesInput}
-            selectionColor={colors.accent}
+            selectionColor={LOGGING_PURPLE}
           />
           <Pressable
             onPress={() => {
@@ -1682,13 +1684,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   swapSheetTitle: {
-    color: colors.textPrimary,
+    color: '#111827',
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: -0.3,
   },
   swapSheetBody: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '700',
@@ -1698,6 +1700,22 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     paddingTop: spacing.xs,
+  },
+  swapSheetBadge: {
+    minHeight: 26,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radii.pill,
+    justifyContent: 'center',
+    backgroundColor: '#FFF1E7',
+    borderWidth: 1,
+    borderColor: 'rgba(194, 65, 12, 0.24)',
+  },
+  swapSheetBadgeText: {
+    color: '#C2410C',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
   },
   sheetRow: {
     minHeight: 54,
@@ -1719,20 +1737,20 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   sheetRowMetaKicker: {
-    color: '#FFB389',
+    color: '#C2410C',
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   sheetRowMeta: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
   },
   sheetEmpty: {
-    color: colors.textSecondary,
+    color: '#667085',
     fontSize: 14,
     lineHeight: 20,
   },
@@ -1767,12 +1785,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: '#FEE2E2',
     borderWidth: 1,
-    borderColor: 'rgba(191, 74, 105, 0.34)',
+    borderColor: 'rgba(220, 38, 38, 0.28)',
   },
   sheetDestructiveButtonText: {
-    color: colors.textPrimary,
+    color: '#B91C1C',
     fontSize: 14,
     fontWeight: '800',
   },
