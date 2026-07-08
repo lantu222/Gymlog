@@ -826,7 +826,7 @@ function LocationChoiceCard({
   }, [active, progress]);
 
   const animatedStyle = {
-    opacity: subdued ? 0.6 : progress.interpolate({
+    opacity: progress.interpolate({
       inputRange: [0, 1],
       outputRange: [0.9, 1],
     }),
@@ -865,7 +865,6 @@ function LocationChoiceCard({
           roomy && styles.locationChoiceCardRoomy,
           tall && styles.locationChoiceCardTall,
           active && styles.locationChoiceCardActive,
-          subdued && styles.locationChoiceCardSubdued,
           animatedStyle,
         ]}
       >
@@ -911,21 +910,6 @@ function LocationChoiceCard({
           </View>
           {leadingRadio ? null : radio}
         </View>
-        {active && benefits?.length ? (
-          <View style={styles.locationChoiceBenefitsPanel}>
-            <Text style={styles.locationChoiceBenefitsKicker}>WHY IT'S GREAT FOR YOU</Text>
-            <View style={styles.locationChoiceBenefitsList}>
-              {benefits.map((benefit) => (
-                <View key={benefit.label} style={styles.locationChoiceBenefitRow}>
-                  <View style={styles.locationChoiceBenefitCheck}>
-                    <GymlogIcon name="check" size={13} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.locationChoiceBenefitText}>{benefit.label}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        ) : null}
       </Animated.View>
     </Pressable>
   );
@@ -1704,7 +1688,7 @@ function BodyweightGoalTrendIcon({ name, color }: { name: BodyweightGoalIconName
   if (name === 'flat') {
     return (
       <Svg width={24} height={18} viewBox="0 0 24 18" fill="none" style={styles.bodyweightGoalTrendIcon}>
-        <Path d="M6 9 H18" stroke={color} strokeWidth={2} strokeLinecap="round" />
+        <Path d="M6 9 H18" stroke={color} strokeWidth={2.75} strokeLinecap="round" />
       </Svg>
     );
   }
@@ -1714,8 +1698,8 @@ function BodyweightGoalTrendIcon({ name, color }: { name: BodyweightGoalIconName
 
   return (
     <Svg width={24} height={18} viewBox="0 0 24 18" fill="none" style={styles.bodyweightGoalTrendIcon}>
-      <Path d={path} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      <Path d={arrow} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={path} stroke={color} strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={arrow} stroke={color} strokeWidth={2.75} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -1783,7 +1767,7 @@ function BodyweightGoalOptionCard({
   wide?: boolean;
   onPress: () => void;
 }) {
-  const iconColor = wide ? (active ? '#FFFFFF' : ONBOARDING_PRIMARY) : accentColor;
+  const iconColor = wide ? (active ? '#FFFFFF' : '#5B21B6') : accentColor;
   const scale = useRef(new Animated.Value(active ? 1.04 : 1)).current;
 
   useEffect(() => {
@@ -2988,19 +2972,15 @@ export function OnboardingScreen({
   }
 
   function renderLocation() {
-    const hasSelectedLocation = selectedLocationOptionId !== null;
-
     return renderSplitSelectionStage({
       stepLabel: 'STEP 1 OF 5',
       titleLines: ['Where do you train?'],
-      options: LOCATION_SELECTION_OPTIONS.map((option, index) => ({
+      options: LOCATION_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
         label: option.label,
         subtitle: option.subtitle,
         icon: option.icon,
         active: selectedLocationOptionId === option.id,
-        subdued: hasSelectedLocation && selectedLocationOptionId !== option.id,
-        benefits: LOCATION_SELECTION_BENEFITS[option.id],
         onPress: () => {
           void haptics.select();
           if (selectedLocationOptionId === option.id) {
@@ -3010,13 +2990,6 @@ export function OnboardingScreen({
           setSelectedLocationOptionId(option.id);
           setEquipment(option.equipment);
           setTrainingEnvironment(option.trainingEnvironment);
-          // Cards near the bottom push their own benefits panel below the
-          // fold; reveal it once the expanded layout settles.
-          if (index >= LOCATION_SELECTION_OPTIONS.length - 2) {
-            setTimeout(() => {
-              onboardingScrollRef.current?.scrollToEnd({ animated: true });
-            }, 80);
-          }
         },
         focusLabel: option.focusLabel,
         focusTone: option.focusTone,
@@ -3500,8 +3473,10 @@ export function OnboardingScreen({
       || planReadyPayload.requestedDaysPerWeek
       || 3;
     const planReadyTotalWorkouts = planReadyWeeks * planReadyPerWeek;
-    const planReadyTitle = `${planReadyWeeks}-Week Progress Plan`;
-    const planReadyMeta = [goalLabel, locationLabel]
+    const planReadySessionLength =
+      projectedSessions[0]?.guidance?.estimatedDuration
+      ?? getTrainingProfileSetupSummary(level, daysPerWeek).duration.replace(' sessions', '');
+    const planReadyMeta = [`${planReadyWeeks}-week plan`, goalLabel, locationLabel]
       .filter((part) => Boolean(part && part.trim()))
       .join('  ·  ');
     const planReadyWeekRows = planReadyPayload.fourWeekProgression.map((phase, index) => ({
@@ -3509,9 +3484,9 @@ export function OnboardingScreen({
       subtitle: phase.label.replace(/^Week\s+\d+:\s*/i, '').trim() || phase.body,
     }));
     const planReadyStats: Array<[string, string]> = [
-      [String(planReadyTotalWorkouts), 'Workouts'],
-      [String(planReadyWeeks), 'Weeks'],
-      [String(planReadyPerWeek), 'Per week'],
+      [String(planReadyTotalWorkouts), 'workouts total'],
+      [`${planReadyWeeks}`, planReadyWeeks === 1 ? 'week' : 'weeks'],
+      [planReadySessionLength, 'per session'],
     ];
 
     return (
@@ -3525,8 +3500,7 @@ export function OnboardingScreen({
           },
         ]}
       >
-        <Text style={styles.planReadyOverviewKicker}>YOUR PLAN IS READY</Text>
-        <Text style={styles.planReadyOverviewHeading}>{planReadyTitle}</Text>
+        <Text style={styles.planReadyOverviewHeading}>Your plan is ready</Text>
         {planReadyMeta ? <Text style={styles.planReadyOverviewMeta}>{planReadyMeta}</Text> : null}
 
         <View style={styles.planReadyOverviewCover}>
@@ -3539,11 +3513,14 @@ export function OnboardingScreen({
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" rx="20" ry="20" fill="url(#planReadyCoverGradient)" />
           </Svg>
-          <Text style={styles.planReadyOverviewCoverKicker}>BUILD · FOCUS · PROGRESS</Text>
+          <Text style={styles.planReadyOverviewCoverHeadline}>{`${planReadyPerWeek} workouts a week`}</Text>
+          <Text style={styles.planReadyOverviewCoverSupport}>Progressive training that builds week over week.</Text>
           <View style={styles.planReadyOverviewStatRow}>
             {planReadyStats.map(([value, label]) => (
               <View key={label} style={styles.planReadyOverviewStat}>
-                <Text style={styles.planReadyOverviewStatValue}>{value}</Text>
+                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.planReadyOverviewStatValue}>
+                  {value}
+                </Text>
                 <Text style={styles.planReadyOverviewStatLabel}>{label}</Text>
               </View>
             ))}
@@ -3566,9 +3543,6 @@ export function OnboardingScreen({
                   }}
                   style={styles.planReadyOverviewWeekRow}
                 >
-                  <View style={styles.planReadyOverviewWeekBadge}>
-                    <Text style={styles.planReadyOverviewWeekBadgeText}>{row.week}</Text>
-                  </View>
                   <View style={styles.planReadyOverviewWeekCopy}>
                     <Text style={styles.planReadyOverviewWeekTitle}>{`Week ${row.week}`}</Text>
                     <Text style={styles.planReadyOverviewWeekSubtitle} numberOfLines={1}>
@@ -3577,8 +3551,8 @@ export function OnboardingScreen({
                   </View>
                   <Text style={styles.planReadyOverviewWeekCount}>{`${planReadyPerWeek} workouts`}</Text>
                   <View style={[styles.planReadyOverviewWeekChevron, expanded && styles.planReadyOverviewWeekChevronOpen]}>
-                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                      <Path d="M9 6l6 6-6 6" stroke={ONBOARDING_TEXT_SOFT} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                      <Path d="M9 6l6 6-6 6" stroke={ONBOARDING_TEXT_SOFT} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                   </View>
                 </Pressable>
@@ -3597,9 +3571,6 @@ export function OnboardingScreen({
                         }}
                         style={styles.planReadyOverviewDayRow}
                       >
-                        <View style={styles.planReadyOverviewDayBadge}>
-                          <Text style={styles.planReadyOverviewDayBadgeText}>{String.fromCharCode(65 + index)}</Text>
-                        </View>
                         <View style={styles.planReadyOverviewDayCopy}>
                           <Text style={styles.planReadyOverviewDayTitle}>{`Day ${index + 1}`}</Text>
                           <Text style={styles.planReadyOverviewDaySubtitle} numberOfLines={1}>
@@ -3643,15 +3614,9 @@ export function OnboardingScreen({
       if (normalized.includes('plank') || normalized.includes('core') || normalized.includes('abs')) return 'CORE';
       return focusOf(selectedSession?.name ?? '', selectedIndex).toUpperCase();
     };
-    const dayFocus = selectedSession ? focusOf(selectedSession.name, selectedIndex) : 'Upper';
+    const dayTitle = selectedSession?.name ?? `Day ${selectedIndex + 1}`;
     const dayDuration = selectedSession?.guidance?.estimatedDuration ?? null;
     const dayExercises = selectedSession?.exercises ?? [];
-    const dayTabs = days.map((session, index) => ({
-      id: session.id,
-      index,
-      letter: String.fromCharCode(65 + index),
-      label: focusOf(session.name, index),
-    }));
 
     return (
       <Animated.View
@@ -3667,7 +3632,7 @@ export function OnboardingScreen({
         <View style={styles.planReadyDayHeader}>
           <View style={styles.planReadyDayHeaderCopy}>
             <Text style={styles.planReadyDayKicker}>{`DAY ${selectedIndex + 1} OF ${dayCount}`}</Text>
-            <Text style={styles.planReadyDayTitle}>{`${dayFocus} Focus`}</Text>
+            <Text style={styles.planReadyDayTitle}>{dayTitle}</Text>
           </View>
           <View style={styles.planReadyDayWeekBadge}>
             <Text style={styles.planReadyDayWeekBadgeText}>{`Week 1 of ${planReadyWeeks}`}</Text>
@@ -3686,26 +3651,6 @@ export function OnboardingScreen({
             <Text style={styles.planReadyDayMetaText}>{levelLabel}</Text>
           </View>
         </View>
-
-        {dayTabs.length > 1 ? (
-          <View style={styles.planReadyDayTabs}>
-            {dayTabs.map((tab) => {
-              const active = tab.index === selectedIndex;
-              return (
-                <Pressable
-                  key={tab.id}
-                  onPress={() => setPlanReadyWorkoutPage(tab.index)}
-                  style={[styles.planReadyDayTab, active && styles.planReadyDayTabActive]}
-                >
-                  <Text style={[styles.planReadyDayTabLetter, active && styles.planReadyDayTabLetterActive]}>{tab.letter}</Text>
-                  <Text style={[styles.planReadyDayTabLabel, active && styles.planReadyDayTabLabelActive]} numberOfLines={1}>
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        ) : null}
 
         <Text style={styles.planReadyDayExercisesLabel}>
           {`${dayExercises.length} ${dayExercises.length === 1 ? 'EXERCISE' : 'EXERCISES'}`}
@@ -4403,15 +4348,18 @@ export function OnboardingScreen({
     stage === 'review' && busy
       ? 'Saving plan...'
       : stage === 'review'
-      ? 'Save plan & start'
+      ? planReadyView === 'day'
+        ? 'Back to plan'
+        : 'Save plan & start'
       : stage === 'about' && bodyweightSetupStep === 'outcome'
       ? 'Build my plan'
       : stage === 'about'
       ? 'Continue'
       : 'Continue';
-  // The plan-ready overview has no footer CTA — entry into the plan happens by
-  // expanding a week and tapping a day. The footer returns only in the day view.
-  const footerVisible = !(stage === 'review' && (planReadyView === 'account' || planReadyView === 'overview'));
+  // Overview is the primary "Save plan & start" surface; the day view is a
+  // read-only preview whose footer only returns to the plan. Hidden on the
+  // account gate.
+  const footerVisible = !(stage === 'review' && planReadyView === 'account');
   const scrollLockedStage =
     stage === 'profile' ||
     stage === 'planning' ||
@@ -4513,6 +4461,10 @@ export function OnboardingScreen({
 
                 if (stage === 'review') {
                   void haptics.success();
+                  if (planReadyView === 'day') {
+                    setPlanReadyView('overview');
+                    return;
+                  }
                   setPlanReadyView('account');
                   return;
                 }
@@ -4523,13 +4475,7 @@ export function OnboardingScreen({
               style={styles.onboardingPrimaryCTA}
             />
 
-            {stage === 'review' ? (
-              planReadyView === 'day' ? (
-                <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
-                </Pressable>
-              ) : null
-            ) : stage === 'location' ? (
+            {stage === 'review' ? null : stage === 'location' ? (
               editMode ? (
                 <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Cancel</Text>
@@ -7910,11 +7856,18 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  planReadyOverviewCoverKicker: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.6,
-    color: 'rgba(255,255,255,0.8)',
+  planReadyOverviewCoverHeadline: {
+    fontSize: 24,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
+  },
+  planReadyOverviewCoverSupport: {
+    marginTop: 4,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.82)',
   },
   planReadyOverviewStatRow: {
     flexDirection: 'row',

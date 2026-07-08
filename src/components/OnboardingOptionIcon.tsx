@@ -46,7 +46,9 @@ const ICONS = {
 // flips to a translucent white tile with a white icon (design OptionCard).
 const TILE_BG = '#EFE7FF';
 const TILE_BG_ACTIVE = 'rgba(255,255,255,0.16)';
-const ICON_PURPLE = '#7C3AED';
+// Deepened from #7C3AED so the leading circular icons read as boldly as the
+// (round-1) fixed labels instead of washing out on the light tile.
+const ICON_PURPLE = '#5B21B6';
 
 export function OnboardingOptionIcon({
   name,

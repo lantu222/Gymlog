@@ -42,24 +42,28 @@ module.exports = [
       assert.match(reviewBody, /if \(planReadyView === 'account'\) \{\s*return renderPlanReadyAccount\(\);/);
       assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
 
-      // Overview: kicker, dynamic block title, meta line, gradient cover with stats.
-      assert.match(reviewBody, /YOUR PLAN IS READY/);
-      assert.match(reviewBody, /\$\{planReadyWeeks\}-Week Progress Plan/);
-      assert.match(reviewBody, /BUILD · FOCUS · PROGRESS/);
-      assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), 'Workouts'\]/);
-      assert.match(reviewBody, /\[String\(planReadyWeeks\), 'Weeks'\]/);
-      assert.match(reviewBody, /\[String\(planReadyPerWeek\), 'Per week'\]/);
+      // Overview: "Your plan is ready" is the H1, subtitle line, gradient cover
+      // with a headline + support line + computed stat trio. No week/day badges.
+      assert.match(reviewBody, />Your plan is ready</);
+      assert.doesNotMatch(reviewBody, /YOUR PLAN IS READY/);
+      assert.doesNotMatch(reviewBody, /\$\{planReadyWeeks\}-Week Progress Plan/);
+      assert.match(reviewBody, /`\$\{planReadyPerWeek\} workouts a week`/);
+      assert.doesNotMatch(reviewBody, /BUILD · FOCUS · PROGRESS/);
+      assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), 'workouts total'\]/);
+      assert.match(reviewBody, /\[planReadySessionLength, 'per session'\]/);
+      assert.doesNotMatch(reviewBody, /planReadyOverviewWeekBadge/);
       assert.match(reviewBody, /planReadyPayload\.fourWeekProgression\.map/);
       assert.match(reviewBody, /planReadyWeekRows\.map/);
       assert.match(reviewBody, /`Week \$\{row\.week\}`/);
       assert.match(reviewBody, /`\$\{planReadyPerWeek\} workouts`/);
 
-      // Day view: day kicker/focus title, week badge, A/B/C tabs, numbered list.
+      // Day view: read-only preview — day title is the session name (one source
+      // of truth), no A-F switcher, no letter badges, numbered exercise list.
       assert.match(dayBody, /`DAY \$\{selectedIndex \+ 1\} OF \$\{dayCount\}`/);
-      assert.match(dayBody, /`\$\{dayFocus\} Focus`/);
+      assert.match(dayBody, /const dayTitle = selectedSession\?\.name/);
       assert.match(dayBody, /`Week 1 of \$\{planReadyWeeks\}`/);
-      assert.match(dayBody, /String\.fromCharCode\(65 \+ index\)/);
-      assert.match(dayBody, /setPlanReadyWorkoutPage\(tab\.index\)/);
+      assert.doesNotMatch(dayBody, /planReadyDayTab/);
+      assert.doesNotMatch(dayBody, /setPlanReadyWorkoutPage\(tab\.index\)/);
       assert.match(dayBody, /\? 'EXERCISE' : 'EXERCISES'/);
       assert.match(dayBody, /String\(index \+ 1\)\.padStart\(2, '0'\)/);
       assert.match(dayBody, /exercise\.setsLabel/);
@@ -72,13 +76,16 @@ module.exports = [
       assert.match(accountBody, /Use email instead/);
       assert.match(accountBody, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
 
-      // Plan-ready overview has no footer CTA: tapping a day row (inside an
-      // expanded week) enters the day view; the footer returns only there.
+      // Overview is the primary "Save plan & start" surface; a day row opens the
+      // read-only day preview whose footer only returns to the plan ("Back to
+      // plan"). Footer hides only on the account gate — never leaving the user
+      // stuck without a way back to the overview.
       assert.match(onboardingSource, /setPlanReadyWorkoutPage\(index\);\s*setPlanReadyView\('day'\)/);
+      assert.match(onboardingSource, /if \(planReadyView === 'day'\) \{\s*setPlanReadyView\('overview'\);/);
       assert.match(onboardingSource, /setPlanReadyView\('account'\)/);
-      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && \(planReadyView === 'account' \|\| planReadyView === 'overview'\)\)/);
+      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'account'\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
-      assert.match(onboardingSource, /stage === 'review'\s*\? 'Save plan & start'/);
+      assert.match(onboardingSource, /\? 'Back to plan'\s*: 'Save plan & start'/);
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
@@ -350,6 +357,13 @@ module.exports = [
       // Selection highlight is a subtle scale (max 1.5%), never a layout jump.
       assert.match(locationChoiceBody, /outputRange: \[1, 1\.015\]/);
       assert.doesNotMatch(locationChoiceBody, /outputRange: \[1, 1\.1/);
+      // Step 1 is a flat selectable list like Step 2: no expanding benefits
+      // panel and no per-card dim state (which caused the collapse-dim bug).
+      assert.doesNotMatch(locationChoiceBody, /WHY IT'S GREAT FOR YOU/);
+      assert.doesNotMatch(locationChoiceBody, /subdued \? 0\.6/);
+      const renderLocationBody = getFunctionBody('renderLocation');
+      assert.doesNotMatch(renderLocationBody, /benefits:/);
+      assert.doesNotMatch(renderLocationBody, /subdued:/);
       assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.34\) \+ 34\)/);
       assert.match(onboardingSource, /styles\.locationTopPane, \{ height: fixedTopPaneHeight \}, topPaneStyle/);
       assert.match(onboardingSource, /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
@@ -424,9 +438,8 @@ module.exports = [
       assert.match(reviewBody, /planReadyPayload\.programDaysPerWeek[\s\S]*projectedDaysPerWeek[\s\S]*planReadyPayload\.requestedDaysPerWeek/);
       assert.match(reviewBody, /const planReadyTotalWorkouts = planReadyWeeks \* planReadyPerWeek/);
 
-      // Meta line trimmed to the two most meaningful facts (goal / location),
-      // dot separated — weeks/cadence already live in the stat card.
-      assert.match(reviewBody, /\[goalLabel, locationLabel\]/);
+      // Subtitle line: "{N}-week plan · goal · location", dot separated.
+      assert.match(reviewBody, /\[`\$\{planReadyWeeks\}-week plan`, goalLabel, locationLabel\]/);
       assert.doesNotMatch(reviewBody, /\[goalLabel, locationLabel, levelLabel, `\$\{planReadyPerWeek\} days \/ week`\]/);
 
       // Week rows strip the "Week N:" prefix from progression labels.
