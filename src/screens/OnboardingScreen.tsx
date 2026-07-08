@@ -2242,6 +2242,7 @@ export function OnboardingScreen({
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
   const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'account'>('overview');
+  const [expandedPlanWeek, setExpandedPlanWeek] = useState<number | null>(null);
   const [helperVisible, setHelperVisible] = useState(false);
   const [helperDraft, setHelperDraft] = useState('');
   const [helperState, setHelperState] = useState<HelperState>('idle');
@@ -3500,7 +3501,7 @@ export function OnboardingScreen({
       || 3;
     const planReadyTotalWorkouts = planReadyWeeks * planReadyPerWeek;
     const planReadyTitle = `${planReadyWeeks}-Week Progress Plan`;
-    const planReadyMeta = [goalLabel, locationLabel, levelLabel, `${planReadyPerWeek} days / week`]
+    const planReadyMeta = [goalLabel, locationLabel]
       .filter((part) => Boolean(part && part.trim()))
       .join('  ·  ');
     const planReadyWeekRows = planReadyPayload.fourWeekProgression.map((phase, index) => ({
@@ -3538,7 +3539,6 @@ export function OnboardingScreen({
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" rx="20" ry="20" fill="url(#planReadyCoverGradient)" />
           </Svg>
-          <View pointerEvents="none" style={styles.planReadyOverviewCoverGlow} />
           <Text style={styles.planReadyOverviewCoverKicker}>BUILD · FOCUS · PROGRESS</Text>
           <View style={styles.planReadyOverviewStatRow}>
             {planReadyStats.map(([value, label]) => (
@@ -3551,20 +3551,69 @@ export function OnboardingScreen({
         </View>
 
         <View style={styles.planReadyOverviewWeeks}>
-          {planReadyWeekRows.map((row) => (
-            <View key={row.week} style={styles.planReadyOverviewWeekRow}>
-              <View style={styles.planReadyOverviewWeekBadge}>
-                <Text style={styles.planReadyOverviewWeekBadgeText}>{row.week}</Text>
+          {planReadyWeekRows.map((row) => {
+            const expanded = expandedPlanWeek === row.week;
+
+            return (
+              <View key={row.week} style={styles.planReadyOverviewWeekCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded }}
+                  accessibilityLabel={`Week ${row.week}, ${row.subtitle}`}
+                  onPress={() => {
+                    void haptics.select();
+                    setExpandedPlanWeek((current) => (current === row.week ? null : row.week));
+                  }}
+                  style={styles.planReadyOverviewWeekRow}
+                >
+                  <View style={styles.planReadyOverviewWeekBadge}>
+                    <Text style={styles.planReadyOverviewWeekBadgeText}>{row.week}</Text>
+                  </View>
+                  <View style={styles.planReadyOverviewWeekCopy}>
+                    <Text style={styles.planReadyOverviewWeekTitle}>{`Week ${row.week}`}</Text>
+                    <Text style={styles.planReadyOverviewWeekSubtitle} numberOfLines={1}>
+                      {row.subtitle}
+                    </Text>
+                  </View>
+                  <Text style={styles.planReadyOverviewWeekCount}>{`${planReadyPerWeek} workouts`}</Text>
+                  <View style={[styles.planReadyOverviewWeekChevron, expanded && styles.planReadyOverviewWeekChevronOpen]}>
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <Path d="M9 6l6 6-6 6" stroke={ONBOARDING_TEXT_SOFT} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </View>
+                </Pressable>
+
+                {expanded ? (
+                  <View style={styles.planReadyOverviewDayList}>
+                    {projectedSessions.map((session, index) => (
+                      <Pressable
+                        key={session.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Week ${row.week}, day ${index + 1}, ${session.name}`}
+                        onPress={() => {
+                          void haptics.select();
+                          setPlanReadyWorkoutPage(index);
+                          setPlanReadyView('day');
+                        }}
+                        style={styles.planReadyOverviewDayRow}
+                      >
+                        <View style={styles.planReadyOverviewDayBadge}>
+                          <Text style={styles.planReadyOverviewDayBadgeText}>{String.fromCharCode(65 + index)}</Text>
+                        </View>
+                        <View style={styles.planReadyOverviewDayCopy}>
+                          <Text style={styles.planReadyOverviewDayTitle}>{`Day ${index + 1}`}</Text>
+                          <Text style={styles.planReadyOverviewDaySubtitle} numberOfLines={1}>
+                            {session.name}
+                          </Text>
+                        </View>
+                        <Text style={styles.planReadyOverviewDayCta}>View</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
               </View>
-              <View style={styles.planReadyOverviewWeekCopy}>
-                <Text style={styles.planReadyOverviewWeekTitle}>{`Week ${row.week}`}</Text>
-                <Text style={styles.planReadyOverviewWeekSubtitle} numberOfLines={1}>
-                  {row.subtitle}
-                </Text>
-              </View>
-              <Text style={styles.planReadyOverviewWeekCount}>{`${planReadyPerWeek} workouts`}</Text>
-            </View>
-          ))}
+            );
+          })}
         </View>
       </Animated.View>
     );
@@ -4354,15 +4403,15 @@ export function OnboardingScreen({
     stage === 'review' && busy
       ? 'Saving plan...'
       : stage === 'review'
-      ? planReadyView === 'day'
-        ? 'Save plan & start'
-        : 'See day 1'
+      ? 'Save plan & start'
       : stage === 'about' && bodyweightSetupStep === 'outcome'
       ? 'Build my plan'
       : stage === 'about'
       ? 'Continue'
       : 'Continue';
-  const footerVisible = !(stage === 'review' && planReadyView === 'account');
+  // The plan-ready overview has no footer CTA — entry into the plan happens by
+  // expanding a week and tapping a day. The footer returns only in the day view.
+  const footerVisible = !(stage === 'review' && (planReadyView === 'account' || planReadyView === 'overview'));
   const scrollLockedStage =
     stage === 'profile' ||
     stage === 'planning' ||
@@ -4464,11 +4513,6 @@ export function OnboardingScreen({
 
                 if (stage === 'review') {
                   void haptics.success();
-                  if (planReadyView === 'overview') {
-                    setPlanReadyWorkoutPage(0);
-                    setPlanReadyView('day');
-                    return;
-                  }
                   setPlanReadyView('account');
                   return;
                 }
@@ -7855,7 +7899,7 @@ const styles = StyleSheet.create({
   planReadyOverviewMeta: {
     marginTop: 6,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: ONBOARDING_TEXT_SOFT,
   },
   planReadyOverviewCover: {
@@ -7866,15 +7910,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     position: 'relative',
   },
-  planReadyOverviewCoverGlow: {
-    position: 'absolute',
-    top: -50,
-    right: -30,
-    width: 160,
-    height: 160,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.10)',
-  },
   planReadyOverviewCoverKicker: {
     fontSize: 11,
     fontWeight: '800',
@@ -7883,10 +7918,12 @@ const styles = StyleSheet.create({
   },
   planReadyOverviewStatRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     marginTop: 14,
-    gap: 18,
+    gap: 12,
   },
   planReadyOverviewStat: {
+    flex: 1,
     minWidth: 0,
   },
   planReadyOverviewStatValue: {
@@ -7904,14 +7941,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
     gap: 9,
   },
-  planReadyOverviewWeekRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
+  planReadyOverviewWeekCard: {
     backgroundColor: ONBOARDING_CARD,
     borderWidth: 1,
     borderColor: ONBOARDING_BORDER,
     borderRadius: 14,
+    overflow: 'hidden',
+  },
+  planReadyOverviewWeekRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
     paddingHorizontal: 16,
     paddingVertical: 13,
   },
@@ -7939,13 +7979,69 @@ const styles = StyleSheet.create({
   planReadyOverviewWeekSubtitle: {
     marginTop: 1,
     fontSize: 12.5,
-    fontWeight: '600',
+    fontWeight: '700',
     color: ONBOARDING_TEXT_SOFT,
   },
   planReadyOverviewWeekCount: {
     fontSize: 12.5,
     fontWeight: '700',
     color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyOverviewWeekChevron: {
+    marginLeft: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planReadyOverviewWeekChevronOpen: {
+    transform: [{ rotate: '90deg' }],
+  },
+  planReadyOverviewDayList: {
+    borderTopWidth: 1,
+    borderTopColor: ONBOARDING_BORDER,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 6,
+  },
+  planReadyOverviewDayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 12,
+    backgroundColor: ONBOARDING_PANEL,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  planReadyOverviewDayBadge: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planReadyOverviewDayBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#5B21B6',
+  },
+  planReadyOverviewDayCopy: {
+    flex: 1,
+  },
+  planReadyOverviewDayTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: ONBOARDING_TEXT,
+  },
+  planReadyOverviewDaySubtitle: {
+    marginTop: 1,
+    fontSize: 12,
+    fontWeight: '700',
+    color: ONBOARDING_TEXT_SOFT,
+  },
+  planReadyOverviewDayCta: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: ONBOARDING_PRIMARY,
   },
   planReadyDayStage: {
     paddingBottom: spacing.lg,

@@ -20,14 +20,16 @@ module.exports = [
       assert.match(appSource, /statusBarStyleOverride=\{[^}]*onboardingScreenActive \? 'dark' : welcomeActive \? 'dark' : undefined\}/);
       assert.doesNotMatch(appSource, /#1D1C35/);
 
-      // Plan-ready views animate on one shared card and gate on the account view.
-      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'account'\)/);
+      // Plan-ready views animate on one shared card; footer hides on the account
+      // gate AND the overview (which enters the plan via expandable day rows).
+      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && \(planReadyView === 'account' \|\| planReadyView === 'overview'\)\)/);
       assert.match(onboardingSource, /Animated\.timing\(planReadyCardTranslateX/);
       assert.match(onboardingSource, /planReadyCardOpacity/);
 
-      // CTA labels are sentence case in the light redesign.
+      // CTA labels are sentence case in the light redesign. "See day 1" is gone —
+      // the overview enters the plan by tapping a day, not a footer button.
       assert.match(onboardingSource, /\? 'Save plan & start'/);
-      assert.match(onboardingSource, /: 'See day 1'/);
+      assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
       assert.match(onboardingSource, /\? 'Build my plan'/);
       assert.match(onboardingSource, /'Saving plan\.\.\.'/);
       assert.doesNotMatch(onboardingSource, /'SAVE PLAN & START'/);

@@ -72,11 +72,13 @@ module.exports = [
       assert.match(accountBody, /Use email instead/);
       assert.match(accountBody, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
 
-      // Footer drives the flow and hides on the account gate.
-      assert.match(onboardingSource, /if \(planReadyView === 'overview'\) \{[\s\S]*setPlanReadyView\('day'\)/);
+      // Plan-ready overview has no footer CTA: tapping a day row (inside an
+      // expanded week) enters the day view; the footer returns only there.
+      assert.match(onboardingSource, /setPlanReadyWorkoutPage\(index\);\s*setPlanReadyView\('day'\)/);
       assert.match(onboardingSource, /setPlanReadyView\('account'\)/);
-      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'account'\)/);
-      assert.match(onboardingSource, /\? 'Save plan & start'\s*: 'See day 1'/);
+      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && \(planReadyView === 'account' \|\| planReadyView === 'overview'\)\)/);
+      assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
+      assert.match(onboardingSource, /stage === 'review'\s*\? 'Save plan & start'/);
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
@@ -376,9 +378,12 @@ module.exports = [
       // The old black plan-ready stage is gone.
       assert.doesNotMatch(onboardingSource, /planReadyStage:\s*\{\s*backgroundColor: '#050505'/);
       assert.doesNotMatch(onboardingSource, /planReadyHeader:/);
-      // Week rows are white cards; cover stats stay readable on the purple cover.
-      assert.match(onboardingSource, /planReadyOverviewWeekRow:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      // Week rows are expandable white cards; cover stats stay readable on the purple cover.
+      assert.match(onboardingSource, /planReadyOverviewWeekCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      assert.match(onboardingSource, /planReadyOverviewStatRow:\s*\{[\s\S]*justifyContent: 'space-between'/);
       assert.match(onboardingSource, /planReadyOverviewStatValue:\s*\{[\s\S]*color: '#FFFFFF'/);
+      // Decorative cover orb removed.
+      assert.doesNotMatch(onboardingSource, /planReadyOverviewCoverGlow/);
       assert.match(onboardingSource, /planReadyOverviewKicker:\s*\{[\s\S]*color: ONBOARDING_PRIMARY/);
     },
   },
@@ -419,8 +424,10 @@ module.exports = [
       assert.match(reviewBody, /planReadyPayload\.programDaysPerWeek[\s\S]*projectedDaysPerWeek[\s\S]*planReadyPayload\.requestedDaysPerWeek/);
       assert.match(reviewBody, /const planReadyTotalWorkouts = planReadyWeeks \* planReadyPerWeek/);
 
-      // Meta line: goal / location / level / cadence, dot separated.
-      assert.match(reviewBody, /\[goalLabel, locationLabel, levelLabel, `\$\{planReadyPerWeek\} days \/ week`\]/);
+      // Meta line trimmed to the two most meaningful facts (goal / location),
+      // dot separated — weeks/cadence already live in the stat card.
+      assert.match(reviewBody, /\[goalLabel, locationLabel\]/);
+      assert.doesNotMatch(reviewBody, /\[goalLabel, locationLabel, levelLabel, `\$\{planReadyPerWeek\} days \/ week`\]/);
 
       // Week rows strip the "Week N:" prefix from progression labels.
       assert.match(reviewBody, /phase\.label\.replace/);
