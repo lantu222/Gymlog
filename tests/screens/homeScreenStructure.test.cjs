@@ -65,6 +65,16 @@ module.exports = [
       assert.match(homeScreenSource, /homeCalendarItem/);
       assert.match(homeScreenSource, /homeCalendarDayLabel/);
       assert.match(homeScreenSource, /homeCalendarDayLabel:\s*\{[\s\S]*fontSize: 12/);
+      // The week strip is pressable and expands into a Monday-first month grid
+      // with training/recovery dots and a today highlight (2026-07-08).
+      assert.match(homeScreenSource, /const \[calendarExpanded, setCalendarExpanded\] = useState\(false\)/);
+      assert.match(homeScreenSource, /setCalendarExpanded\(\(expanded\) => !expanded\)/);
+      assert.match(homeScreenSource, /const monthCalendar = calendarExpanded \? getHomeMonthCalendar\(\) : null/);
+      assert.match(homeScreenSource, /monthCalendar\.monthLabel/);
+      assert.match(homeScreenSource, /monthCalendarCard/);
+      assert.match(homeScreenSource, /monthCalendarDayCellToday/);
+      assert.match(homeScreenSource, /monthCalendarLegendRow/);
+      assert.match(homeScreenSource, /homeCalendarChevron/);
       // The weekly status row ("N of M sessions this week" + streak pill) was
       // removed: the session count was often untrue and the streak pill was
       // noise (user feedback 2026-07-08).

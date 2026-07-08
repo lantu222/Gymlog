@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GymlogIcon } from '../components/GymlogIcon';
-import { getHomeMiniCalendarDays, HomeDaySessionSummary } from '../lib/homeCalendar';
+import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import { spacing } from '../theme';
 
 const HOME_BACKGROUND = '#F7F3FF';
@@ -80,8 +80,10 @@ export function HomeScreen({
   onBrowseReadyPlans,
 }: HomeScreenProps) {
   const [premiumVisible, setPremiumVisible] = useState(false);
+  const [calendarExpanded, setCalendarExpanded] = useState(false);
   const savedRoutineCount = customTemplates.length;
   const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
+  const monthCalendar = calendarExpanded ? getHomeMonthCalendar() : null;
   const trainingDayIndexes = activePlan ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2)) : [0, 3];
   const nextPlanSession = activePlan?.nextSession ?? null;
   // Hero card leads with the plan's own name; the session ("Strength A") is
@@ -116,7 +118,12 @@ export function HomeScreen({
           </Pressable>
         </View>
 
-        <View style={styles.homeCalendarStrip}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={calendarExpanded ? 'Collapse month calendar' : 'Expand month calendar'}
+          onPress={() => setCalendarExpanded((expanded) => !expanded)}
+          style={styles.homeCalendarStrip}
+        >
           {topCalendarDays.map((day) => {
             const isTrainingDay = trainingDayIndexes.includes(day.weekdayIndex);
             const dayLabel = day.isToday ? day.dateLabel : day.weekdayLabel;
@@ -128,7 +135,60 @@ export function HomeScreen({
               </View>
             );
           })}
-        </View>
+          <View style={[styles.homeCalendarChevron, calendarExpanded && styles.homeCalendarChevronOpen]}>
+            <GymlogIcon name="chevronRight" color={HOME_TEXT_MUTED} size={18} />
+          </View>
+        </Pressable>
+
+        {monthCalendar ? (
+          <View style={styles.monthCalendarCard}>
+            <Text style={styles.monthCalendarTitle}>{monthCalendar.monthLabel}</Text>
+            <View style={styles.monthCalendarWeekdayRow}>
+              {monthCalendar.weekdayLabels.map((label) => (
+                <Text key={label} style={styles.monthCalendarWeekdayLabel}>
+                  {label}
+                </Text>
+              ))}
+            </View>
+            {monthCalendar.weeks.map((week) => (
+              <View key={week[0].dayStart} style={styles.monthCalendarWeekRow}>
+                {week.map((day) => {
+                  const isTrainingDay = day.inMonth && trainingDayIndexes.includes(day.weekdayIndex);
+
+                  return (
+                    <View key={day.dayStart} style={[styles.monthCalendarDayCell, day.isToday && styles.monthCalendarDayCellToday]}>
+                      <Text
+                        style={[
+                          styles.monthCalendarDayNumber,
+                          !day.inMonth && styles.monthCalendarDayNumberOutside,
+                          day.isToday && styles.monthCalendarDayNumberToday,
+                        ]}
+                      >
+                        {day.dayOfMonth}
+                      </Text>
+                      <View
+                        style={[
+                          styles.monthCalendarDayDot,
+                          isTrainingDay ? styles.monthCalendarDayDotTraining : day.inMonth ? styles.monthCalendarDayDotRecovery : null,
+                        ]}
+                      />
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
+            <View style={styles.monthCalendarLegendRow}>
+              <View style={styles.monthCalendarLegendItem}>
+                <View style={[styles.monthCalendarDayDot, styles.monthCalendarDayDotTraining]} />
+                <Text style={styles.monthCalendarLegendText}>Training</Text>
+              </View>
+              <View style={styles.monthCalendarLegendItem}>
+                <View style={[styles.monthCalendarDayDot, styles.monthCalendarDayDotRecovery]} />
+                <Text style={styles.monthCalendarLegendText}>Recovery</Text>
+              </View>
+            </View>
+          </View>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -430,6 +490,100 @@ const styles = StyleSheet.create({
   },
   homeCalendarDayLabelToday: {
     color: HOME_TEXT,
+  },
+  homeCalendarChevron: {
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ rotate: '90deg' }],
+  },
+  homeCalendarChevronOpen: {
+    transform: [{ rotate: '-90deg' }],
+  },
+  monthCalendarCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(228,216,255,0.62)',
+    backgroundColor: 'rgba(255,255,255,0.42)',
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    gap: 4,
+  },
+  monthCalendarTitle: {
+    color: HOME_TEXT,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800',
+    marginBottom: 4,
+    paddingHorizontal: 4,
+  },
+  monthCalendarWeekdayRow: {
+    flexDirection: 'row',
+    marginBottom: 2,
+  },
+  monthCalendarWeekdayLabel: {
+    flex: 1,
+    textAlign: 'center',
+    color: HOME_TEXT_MUTED,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  monthCalendarWeekRow: {
+    flexDirection: 'row',
+  },
+  monthCalendarDayCell: {
+    flex: 1,
+    minHeight: 42,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  monthCalendarDayCellToday: {
+    backgroundColor: HOME_PURPLE_LIGHT,
+  },
+  monthCalendarDayNumber: {
+    color: HOME_TEXT,
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  monthCalendarDayNumberOutside: {
+    color: 'rgba(102,112,133,0.4)',
+  },
+  monthCalendarDayNumberToday: {
+    color: HOME_PURPLE_DARK,
+    fontWeight: '900',
+  },
+  monthCalendarDayDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 999,
+  },
+  monthCalendarDayDotTraining: {
+    backgroundColor: HOME_PURPLE,
+  },
+  monthCalendarDayDotRecovery: {
+    backgroundColor: HOME_GREEN,
+  },
+  monthCalendarLegendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 6,
+  },
+  monthCalendarLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  monthCalendarLegendText: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
   },
   continuePlanCard: {
     minHeight: 288,

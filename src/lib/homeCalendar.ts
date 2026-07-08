@@ -1,5 +1,21 @@
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const MONTH_LABELS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+// Month grid runs Monday-first to match weekdayIndex (0 = Monday) elsewhere.
+const MONTH_WEEKDAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 
 function toDayStart(dateInput: Date) {
   const date = new Date(dateInput);
@@ -72,6 +88,50 @@ export function getHomeCarouselCalendarDays(
       isToday,
     };
   });
+}
+
+export interface HomeMonthCalendarDay {
+  dayStart: number;
+  dayOfMonth: number;
+  weekdayIndex: number;
+  inMonth: boolean;
+  isToday: boolean;
+}
+
+export interface HomeMonthCalendar {
+  monthLabel: string;
+  weekdayLabels: string[];
+  weeks: HomeMonthCalendarDay[][];
+}
+
+export function getHomeMonthCalendar(now = new Date()): HomeMonthCalendar {
+  const todayStart = toDayStart(now);
+  const year = todayStart.getFullYear();
+  const month = todayStart.getMonth();
+  const monthStart = new Date(year, month, 1);
+  // Offset from the Monday that starts the grid to the 1st of the month.
+  const gridStartOffset = monthStart.getDay() === 0 ? 6 : monthStart.getDay() - 1;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const weekCount = Math.ceil((gridStartOffset + daysInMonth) / 7);
+
+  return {
+    monthLabel: `${MONTH_LABELS[month]} ${year}`,
+    weekdayLabels: [...MONTH_WEEKDAY_LABELS],
+    weeks: Array.from({ length: weekCount }, (_, weekIndex) =>
+      Array.from({ length: 7 }, (_, weekdayIndex) => {
+        // Calendar-arithmetic construction keeps day starts DST-safe.
+        const date = new Date(year, month, 1 - gridStartOffset + weekIndex * 7 + weekdayIndex);
+
+        return {
+          dayStart: date.getTime(),
+          dayOfMonth: date.getDate(),
+          weekdayIndex,
+          inMonth: date.getMonth() === month,
+          isToday: date.getTime() === todayStart.getTime(),
+        };
+      }),
+    ),
+  };
 }
 
 export function getHomeDayView(
