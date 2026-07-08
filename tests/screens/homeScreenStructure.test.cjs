@@ -49,6 +49,16 @@ module.exports = [
       assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 14/);
       assert.match(homeScreenSource, /PRO/);
       assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: HOME_GREEN/);
+      // PRO pill is bigger and pressable; it opens a placeholder premium
+      // subscription card (generic model, content finalized later).
+      assert.match(homeScreenSource, /proBadge:\s*\{\s*minHeight: 30/);
+      assert.match(homeScreenSource, /onPress=\{\(\) => setPremiumVisible\(true\)\}/);
+      assert.match(homeScreenSource, /const \[premiumVisible, setPremiumVisible\] = useState\(false\)/);
+      assert.match(homeScreenSource, /Premium subscription/);
+      assert.match(homeScreenSource, /PREMIUM_FEATURES\.map/);
+      assert.match(homeScreenSource, /Coming soon/);
+      assert.match(homeScreenSource, /Not now/);
+      assert.match(homeScreenSource, /onRequestClose=\{\(\) => setPremiumVisible\(false\)\}/);
       assert.match(homeScreenSource, /topCalendarDays/);
       assert.match(homeScreenSource, /homeCalendarStrip/);
       assert.match(homeScreenSource, /homeCalendarStrip:\s*\{[\s\S]*minHeight: 58/);

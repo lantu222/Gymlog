@@ -1,5 +1,5 @@
-import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GymlogIcon } from '../components/GymlogIcon';
 import { getHomeMiniCalendarDays, HomeDaySessionSummary } from '../lib/homeCalendar';
@@ -15,6 +15,15 @@ const HOME_PURPLE = '#7C3AED';
 const HOME_PURPLE_DARK = '#5B21B6';
 const HOME_PURPLE_LIGHT = '#EFE7FF';
 const HOME_GREEN = '#16A34A';
+
+// Placeholder premium pitch — copy and purchase flow to be finalized later.
+const PREMIUM_FEATURES = [
+  'AI Coach with unlimited conversations',
+  'Advanced progress analytics',
+  'Unlimited custom plans & templates',
+  'Early access to new features',
+];
+
 interface HomeTemplateItem {
   id: string;
   name: string;
@@ -70,6 +79,7 @@ export function HomeScreen({
   onCreateWorkoutFromExercises,
   onBrowseReadyPlans,
 }: HomeScreenProps) {
+  const [premiumVisible, setPremiumVisible] = useState(false);
   const savedRoutineCount = customTemplates.length;
   const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
   const trainingDayIndexes = activePlan ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2)) : [0, 3];
@@ -95,9 +105,15 @@ export function HomeScreen({
             <Text style={styles.greetingTitle}>Welcome back</Text>
             <Text style={styles.greetingSubtitle}>Let's get after it today.</Text>
           </View>
-          <View style={styles.proBadge}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Open premium subscription"
+            onPress={() => setPremiumVisible(true)}
+            hitSlop={8}
+            style={styles.proBadge}
+          >
             <Text style={styles.proBadgeText}>PRO</Text>
-          </View>
+          </Pressable>
         </View>
 
         <View style={styles.homeCalendarStrip}>
@@ -188,6 +204,35 @@ export function HomeScreen({
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
+
+      <Modal visible={premiumVisible} transparent animationType="fade" onRequestClose={() => setPremiumVisible(false)}>
+        <View style={styles.premiumOverlay}>
+          <View style={styles.premiumCard}>
+            <View style={styles.premiumBadge}>
+              <Text style={styles.premiumBadgeText}>GAINER PRO</Text>
+            </View>
+            <Text style={styles.premiumTitle}>Premium subscription</Text>
+            <Text style={styles.premiumSubtitle}>Unlock everything Gainer has to offer.</Text>
+            {PREMIUM_FEATURES.map((feature) => (
+              <View key={feature} style={styles.premiumFeatureRow}>
+                <View style={styles.premiumFeatureDot} />
+                <Text style={styles.premiumFeatureText}>{feature}</Text>
+              </View>
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Premium coming soon"
+              onPress={() => setPremiumVisible(false)}
+              style={styles.premiumPrimaryButton}
+            >
+              <Text style={styles.premiumPrimaryButtonText}>Coming soon</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setPremiumVisible(false)} hitSlop={8} style={styles.premiumDismiss}>
+              <Text style={styles.premiumDismissText}>Not now</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -235,8 +280,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   proBadge: {
-    minHeight: 22,
-    paddingHorizontal: 11,
+    minHeight: 30,
+    paddingHorizontal: 16,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
@@ -244,9 +289,103 @@ const styles = StyleSheet.create({
   },
   proBadgeText: {
     color: HOME_SURFACE,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  premiumOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(16, 24, 40, 0.45)',
+  },
+  premiumCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HOME_BORDER,
+    backgroundColor: HOME_SURFACE,
+    padding: 24,
+    gap: 10,
+    shadowColor: HOME_SHADOW,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  premiumBadge: {
+    alignSelf: 'flex-start',
+    minHeight: 24,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    justifyContent: 'center',
+    backgroundColor: HOME_PURPLE_LIGHT,
+  },
+  premiumBadgeText: {
+    color: HOME_PURPLE_DARK,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  premiumTitle: {
+    color: HOME_TEXT,
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  premiumSubtitle: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  premiumFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  premiumFeatureDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: HOME_PURPLE,
+  },
+  premiumFeatureText: {
+    flex: 1,
+    color: HOME_TEXT,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  premiumPrimaryButton: {
+    minHeight: 52,
+    borderRadius: 14,
+    backgroundColor: HOME_PURPLE,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+  },
+  premiumPrimaryButtonText: {
+    color: HOME_SURFACE,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  premiumDismiss: {
+    alignSelf: 'center',
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+  },
+  premiumDismissText: {
+    color: HOME_TEXT_MUTED,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   homeCalendarStrip: {
     minHeight: 58,
