@@ -2882,7 +2882,6 @@ function GymlogApp() {
     content = (
       <HomeScreen
         activePlan={homeActivePlanCard}
-        streak={homeSummary.streak}
         customTemplates={customWorkouts}
         readyTemplateCount={readyTemplateCount}
         onStartActivePlanSession={(sessionId) => {

@@ -55,12 +55,14 @@ module.exports = [
       assert.match(homeScreenSource, /homeCalendarItem/);
       assert.match(homeScreenSource, /homeCalendarDayLabel/);
       assert.match(homeScreenSource, /homeCalendarDayLabel:\s*\{[\s\S]*fontSize: 12/);
-      assert.match(homeScreenSource, /weeklyStatusRow/);
-      assert.match(homeScreenSource, /sessions this week/);
-      assert.match(homeScreenSource, /day streak/);
-      assert.match(homeScreenSource, /streakPill/);
-      assert.match(homeScreenSource, /streakPill:\s*\{[\s\S]*minHeight: 32/);
-      assert.match(homeScreenSource, /streakPillText:\s*\{[\s\S]*fontSize: 13/);
+      // The weekly status row ("N of M sessions this week" + streak pill) was
+      // removed: the session count was often untrue and the streak pill was
+      // noise (user feedback 2026-07-08).
+      assert.doesNotMatch(homeScreenSource, /weeklyStatusRow/);
+      assert.doesNotMatch(homeScreenSource, /sessions this week/);
+      assert.doesNotMatch(homeScreenSource, /day streak/);
+      assert.doesNotMatch(homeScreenSource, /streakPill/);
+      assert.doesNotMatch(homeScreenSource, /HomeStreakSummary/);
       assert.match(dashboardSource, /totalDurationMinutes: number/);
       assert.match(dashboardSource, /getCanonicalCompletedSessions\(database\)\.reduce/);
 
@@ -212,12 +214,8 @@ module.exports = [
         'header should render before calendar',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.homeCalendarStrip') < homeScreenSource.indexOf('styles.weeklyStatusRow'),
-        'calendar should render before weekly status',
-      );
-      assert.ok(
-        homeScreenSource.indexOf('styles.weeklyStatusRow') < homeScreenSource.indexOf('styles.continuePlanCard'),
-        'weekly status should render before continue plan',
+        homeScreenSource.indexOf('styles.homeCalendarStrip') < homeScreenSource.indexOf('styles.continuePlanCard'),
+        'calendar should render before continue plan',
       );
       assert.ok(
         homeScreenSource.indexOf('styles.continuePlanCard') < homeScreenSource.indexOf('styles.sectionHeaderRow'),

@@ -2,7 +2,6 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { GymlogIcon } from '../components/GymlogIcon';
-import { HomeStreakSummary } from '../lib/dashboard';
 import { getHomeMiniCalendarDays, HomeDaySessionSummary } from '../lib/homeCalendar';
 import { spacing } from '../theme';
 
@@ -54,7 +53,6 @@ interface HomePlanCard {
 
 interface HomeScreenProps {
   activePlan?: HomePlanCard | null;
-  streak: HomeStreakSummary;
   customTemplates?: HomeTemplateItem[];
   readyTemplateCount?: number;
   onStartActivePlanSession?: (sessionId: string) => void;
@@ -65,7 +63,6 @@ interface HomeScreenProps {
 
 export function HomeScreen({
   activePlan = null,
-  streak,
   customTemplates = [],
   readyTemplateCount = 0,
   onStartActivePlanSession,
@@ -76,7 +73,6 @@ export function HomeScreen({
   const savedRoutineCount = customTemplates.length;
   const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
   const trainingDayIndexes = activePlan ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2)) : [0, 3];
-  const weeklyTarget = Number.parseInt(activePlan?.sessionsPerWeek ?? '', 10) || trainingDayIndexes.length || 2;
   const nextPlanSession = activePlan?.nextSession ?? null;
   const nextPlanTitle = nextPlanSession?.title ?? 'Day 1 - Full Body';
   const nextPlanExerciseLine =
@@ -113,16 +109,6 @@ export function HomeScreen({
               </View>
             );
           })}
-        </View>
-
-        <View style={styles.weeklyStatusRow}>
-          <Text style={styles.weeklySessionText}>
-            {Math.min(streak.sessionsThisWeek, weeklyTarget)} of {weeklyTarget} sessions this week
-          </Text>
-          <View style={styles.streakPill}>
-            <View style={styles.streakDot} />
-            <Text style={styles.streakPillText}>{streak.value} day streak</Text>
-          </View>
         </View>
 
         <Pressable
@@ -300,43 +286,6 @@ const styles = StyleSheet.create({
   },
   homeCalendarDayLabelToday: {
     color: HOME_TEXT,
-  },
-  weeklyStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    marginTop: 2,
-  },
-  weeklySessionText: {
-    flex: 1,
-    color: HOME_TEXT_MUTED,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  streakPill: {
-    minHeight: 32,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: HOME_BORDER,
-    backgroundColor: 'rgba(255,255,255,0.62)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 13,
-  },
-  streakDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: HOME_GREEN,
-  },
-  streakPillText: {
-    color: HOME_TEXT,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '800',
   },
   continuePlanCard: {
     minHeight: 203,
