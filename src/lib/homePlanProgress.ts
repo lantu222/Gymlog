@@ -9,6 +9,8 @@ export interface HomePlanProgressInput {
 export interface HomePlanProgress {
   weekLabel: string;
   progressPercent: number;
+  weekProgressLabel: string;
+  weekProgressPercent: number;
 }
 
 export function buildHomePlanProgress({
@@ -23,9 +25,16 @@ export function buildHomePlanProgress({
   const currentWeek = Math.min(safeTotalWeeks, Math.floor(completedCount / safeSessionsPerWeek) + 1);
   const rawProgressPercent = Math.round((completedCount / totalPlannedSessions) * 100);
   const progressPercent = Math.min(100, Math.max(1, rawProgressPercent));
+  // Sessions done within the current week; a fully completed plan shows the
+  // final week as full rather than rolling over to 0.
+  const doneThisWeek =
+    completedCount >= totalPlannedSessions ? safeSessionsPerWeek : completedCount % safeSessionsPerWeek;
+  const weekProgressPercent = Math.round((doneThisWeek / safeSessionsPerWeek) * 100);
 
   return {
     weekLabel: `Week ${currentWeek} of ${safeTotalWeeks}`,
     progressPercent,
+    weekProgressLabel: `Week ${currentWeek} · ${doneThisWeek} of ${safeSessionsPerWeek} done`,
+    weekProgressPercent,
   };
 }

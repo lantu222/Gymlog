@@ -8,7 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { getHomeSummary } from './src/lib/dashboard';
-import { formatDurationMinutes, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
+import { formatDurationMinutes, formatRepRange, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import {
   buildFirstRunCustomProgramName,
@@ -741,6 +741,8 @@ function GymlogApp() {
       await Font.loadAsync({
         Inter: require('./assets/fonts/Inter.ttf'),
         Manrope: require('./assets/fonts/Manrope.ttf'),
+        // Sets × reps numerals on the Home agenda list (design: JetBrains Mono).
+        JetBrainsMono: require('./assets/fonts/JetBrainsMono.ttf'),
       }).catch(() => {
         // Keep the app usable if font loading fails in a dev host.
       });
@@ -1935,6 +1937,7 @@ function GymlogApp() {
           exercises: session.exercises.slice(0, 5).map((exercise) => ({
             name: exercise.name,
             setsLabel: `${exercise.targetSets} sets`,
+            schemeLabel: `${exercise.targetSets} × ${formatRepRange(exercise.repMin, exercise.repMax)}`,
           })),
           hiddenExerciseCount: Math.max(exerciseCount - 5, 0),
         };
@@ -1958,6 +1961,8 @@ function GymlogApp() {
           subtitle: `${sortedEntries.length} workouts in rotation.`,
           weekLabel: planProgress.weekLabel,
           progressPercent: planProgress.progressPercent,
+          weekProgressLabel: planProgress.weekProgressLabel,
+          weekProgressPercent: planProgress.weekProgressPercent,
           sessionsPerWeek: `${sortedEntries.length}`,
           weeklyMinutes: `~${estimatedDuration * sortedEntries.length} min`,
           sessions: homeSessions,
@@ -1989,6 +1994,7 @@ function GymlogApp() {
       exercises: session.exercises.map((exercise) => ({
         name: exercise.exerciseName,
         setsLabel: `${exercise.sets} sets`,
+        schemeLabel: `${exercise.sets} × ${formatRepRange(exercise.repsMin, exercise.repsMax)}`,
       })),
       hiddenExerciseCount: Math.max(session.exercises.length - 5, 0),
     }));
@@ -2003,6 +2009,8 @@ function GymlogApp() {
       subtitle: recommendedReadyContent?.summary ?? 'Your recommended plan is ready to run.',
       weekLabel: planProgress.weekLabel,
       progressPercent: planProgress.progressPercent,
+      weekProgressLabel: planProgress.weekProgressLabel,
+      weekProgressPercent: planProgress.weekProgressPercent,
       sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
       weeklyMinutes: `~${weeklyMinutes} min`,
       sessions: homeSessions,

@@ -26,3 +26,27 @@ export const HG = {
 } as const;
 
 export type HGToken = keyof typeof HG;
+
+/**
+ * Home v3 palette (GAINER Home v3 mock, 2026-07). The Home screen and bottom
+ * bar moved to this slightly cooler, higher-contrast take on the light theme;
+ * other Phase 6 screens still use HG above until they are migrated.
+ */
+export const HG3 = {
+  bg: '#EFEAF9',
+  surface: '#FFFFFF',
+  ink: '#17131F',
+  muted: '#6C6580',
+  faint: '#A29BB4',
+  purple: '#6D28D9',
+  purpleBright: '#7C3AED',
+  purpleSoft: '#EEE7FC',
+  border: '#E7DEF7',
+  green: '#16A34A',
+  gold: '#E4B14C',
+  // Pro sheet gradient stops (dark violet).
+  proSheetTop: '#241A3E',
+  proSheetBottom: '#150E28',
+} as const;
+
+export type HG3Token = keyof typeof HG3;

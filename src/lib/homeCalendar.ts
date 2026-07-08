@@ -47,6 +47,8 @@ export interface HomeDaySessionSummary {
   exercises: Array<{
     name: string;
     setsLabel: string;
+    /** Sets-by-reps scheme, e.g. "4 × 6–8" (Home v3 agenda list). */
+    schemeLabel?: string;
   }>;
   hiddenExerciseCount: number;
 }
