@@ -74,6 +74,9 @@ export function HomeScreen({
   const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
   const trainingDayIndexes = activePlan ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2)) : [0, 3];
   const nextPlanSession = activePlan?.nextSession ?? null;
+  // Hero card leads with the plan's own name; the session ("Strength A") is
+  // demoted to the "Next:" line below it.
+  const planCardTitle = activePlan?.title ?? 'Workout plan';
   const nextPlanTitle = nextPlanSession?.title ?? 'Day 1 - Full Body';
   const nextPlanExerciseLine =
     nextPlanSession?.exercises
@@ -123,10 +126,12 @@ export function HomeScreen({
           }}
           style={[styles.continuePlanCard, styles.fullBleedCard]}
         >
-          <View style={styles.continuePlanGlow} />
           <Text style={styles.continuePlanEyebrow}>CONTINUE PLAN</Text>
-          <Text style={styles.continuePlanTitle} numberOfLines={1} adjustsFontSizeToFit>
-            {nextPlanTitle}
+          <Text style={styles.continuePlanTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {planCardTitle}
+          </Text>
+          <Text style={styles.continuePlanNextSession} numberOfLines={1}>
+            Next: {nextPlanTitle}
           </Text>
           <Text style={styles.continuePlanExercises} numberOfLines={1}>
             {nextPlanExerciseLine}
@@ -288,71 +293,69 @@ const styles = StyleSheet.create({
     color: HOME_TEXT,
   },
   continuePlanCard: {
-    minHeight: 203,
+    minHeight: 288,
     borderRadius: 18,
-    backgroundColor: HOME_PURPLE,
+    backgroundColor: HOME_PURPLE_DARK,
     overflow: 'hidden',
-    paddingHorizontal: 18,
-    paddingVertical: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 24,
     justifyContent: 'center',
-    shadowColor: HOME_PURPLE,
+    shadowColor: HOME_PURPLE_DARK,
     shadowOffset: { width: 0, height: 22 },
     shadowOpacity: 0.24,
     shadowRadius: 30,
     elevation: 12,
   },
-  continuePlanGlow: {
-    position: 'absolute',
-    top: -70,
-    right: -58,
-    width: 190,
-    height: 190,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
   continuePlanEyebrow: {
-    color: 'rgba(255,255,255,0.74)',
-    fontSize: 12,
-    lineHeight: 15,
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 13,
+    lineHeight: 16,
     fontWeight: '800',
     letterSpacing: 2,
-    marginBottom: 13,
+    marginBottom: 12,
   },
   continuePlanTitle: {
     color: HOME_SURFACE,
-    fontSize: 25,
-    lineHeight: 30,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '900',
+    letterSpacing: -0.3,
+  },
+  continuePlanNextSession: {
+    color: HOME_SURFACE,
+    fontSize: 17,
+    lineHeight: 22,
     fontWeight: '800',
-    letterSpacing: 0,
+    marginTop: 12,
   },
   continuePlanExercises: {
-    color: 'rgba(255,255,255,0.84)',
-    fontSize: 13,
-    lineHeight: 17,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '700',
-    marginTop: 9,
+    marginTop: 6,
   },
   continuePlanMeta: {
-    color: 'rgba(255,255,255,0.84)',
-    fontSize: 13,
-    lineHeight: 17,
+    color: 'rgba(255,255,255,0.88)',
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '800',
-    marginTop: 4,
+    marginTop: 5,
   },
   continuePlanButton: {
-    minHeight: 48,
-    borderRadius: 13,
+    minHeight: 54,
+    borderRadius: 14,
     backgroundColor: HOME_SURFACE,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 10,
-    marginTop: 17,
+    marginTop: 20,
   },
   continuePlanButtonText: {
     color: HOME_PURPLE_DARK,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 17,
+    lineHeight: 21,
     fontWeight: '800',
   },
   sectionHeaderRow: {
@@ -360,7 +363,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: spacing.md,
-    marginTop: 0,
+    // Breathing room below the (now much taller) continue-plan hero.
+    marginTop: 10,
   },
   sectionTitle: {
     color: '#050505',

@@ -76,6 +76,15 @@ module.exports = [
       assert.match(homeScreenSource, /nextPlanSession/);
       assert.match(homeScreenSource, /onStartActivePlanSession\(nextPlanSession\.id\)/);
       assert.match(homeScreenSource, /Start workout/);
+      // Hero rework (2026-07-08): darker card with no decorative glow circle,
+      // plan name as the headline, session demoted to a "Next:" line, larger type.
+      assert.match(homeScreenSource, /continuePlanCard:\s*\{[\s\S]*backgroundColor: HOME_PURPLE_DARK/);
+      assert.match(homeScreenSource, /continuePlanCard:\s*\{\s*minHeight: 288/);
+      assert.doesNotMatch(homeScreenSource, /continuePlanGlow/);
+      assert.match(homeScreenSource, /const planCardTitle = activePlan\?\.title \?\? 'Workout plan'/);
+      assert.match(homeScreenSource, /Next: \{nextPlanTitle\}/);
+      assert.match(homeScreenSource, /continuePlanTitle:\s*\{[\s\S]*fontSize: 30/);
+      assert.match(homeScreenSource, /continuePlanNextSession/);
       assert.match(homeScreenSource, /Empty workout/);
       assert.match(homeScreenSource, /Log freestyle/);
       assert.match(homeScreenSource, /emptyWorkoutRow/);
