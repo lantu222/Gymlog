@@ -1,27 +1,90 @@
-import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { GymlogIcon } from '../components/GymlogIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
-import { spacing } from '../theme';
+import { HG3 } from '../lightTheme';
 
-const HOME_BACKGROUND = '#F7F3FF';
-const HOME_SURFACE = '#FFFFFF';
-const HOME_TEXT = '#101828';
-const HOME_TEXT_MUTED = '#667085';
-const HOME_BORDER = '#E4D8FF';
-const HOME_SHADOW = '#D8C7FF';
-const HOME_PURPLE = '#7C3AED';
-const HOME_PURPLE_DARK = '#5B21B6';
-const HOME_PURPLE_LIGHT = '#EFE7FF';
-const HOME_GREEN = '#16A34A';
+// Dark Pro-sheet-only shades (GAINER Home v3 mock). The sheet lives on the
+// HG3.proSheetTop -> proSheetBottom gradient, so these do not belong in the
+// shared light palette.
+const PRO_SHEET_INK = '#F5F2FC';
+const PRO_SHEET_MUTED = '#A79FC4';
+const PRO_SHEET_FAINT = '#7C739E';
+const PRO_SHEET_CARD = 'rgba(255,255,255,0.06)';
+const PRO_SHEET_BORDER = 'rgba(255,255,255,0.12)';
 
-// Placeholder premium pitch — copy and purchase flow to be finalized later.
-const PREMIUM_FEATURES = [
-  'AI Coach with unlimited conversations',
-  'Advanced progress analytics',
-  'Unlimited custom plans & templates',
-  'Early access to new features',
+// Mock marketing copy + prices. Real prices must come from RevenueCat
+// (see "GAINER Premium - build notes.md"); these are placeholders until the
+// purchase flow is wired up.
+const PRO_STATS: Array<{ value: string; suffix: string; label: string }> = [
+  { value: '2.3', suffix: '×', label: 'more consistent training' },
+  { value: '+34', suffix: '%', label: 'avg. strength in 12 wks' },
+  { value: '∞', suffix: '', label: 'AI coach questions' },
+];
+
+const PRO_COMPARISON: Array<{ label: string; free: boolean }> = [
+  { label: 'Log workouts & plans', free: true },
+  { label: 'AI Coach conversations', free: false },
+  { label: 'Advanced progress analytics', free: false },
+  { label: 'Unlimited plans & templates', free: false },
+  { label: 'Early access to new features', free: false },
+];
+
+const PRO_PRICING = {
+  annual: {
+    title: 'Annual',
+    price: '€4.99',
+    per: '/mo',
+    note: '€59.99 billed yearly',
+    badge: 'SAVE 40%',
+    finePrint: '7 days free, then €59.99/year. Cancel anytime.',
+  },
+  monthly: {
+    title: 'Monthly',
+    price: '€8.99',
+    per: '/mo',
+    note: 'billed monthly',
+    badge: null,
+    finePrint: '7 days free, then €8.99/month. Cancel anytime.',
+  },
+} as const;
+
+type ProPlanKey = keyof typeof PRO_PRICING;
+
+// Entrance stagger (Home v3 "rise"): translateY 16 -> 0 + fade, 500ms,
+// cubic-bezier(.22,1,.36,1). Indices name each animated section.
+const RISE_DELAYS_MS = [40, 100, 160, 200, 240, 280, 340, 400, 460, 520, 580, 620, 720] as const;
+const RISE_HEADER = 0;
+const RISE_WEEK = 1;
+const RISE_PLAN_EYEBROW = 2;
+const RISE_PLAN_TITLE = 3;
+const RISE_PLAN_SUB = 4;
+const RISE_PLAN_PROGRESS = 5;
+const RISE_PLAN_ROW_BASE = 6; // rows use 6, 7, 8
+const RISE_PLAN_FOOTER = 9;
+const RISE_START = 10;
+const RISE_DIVIDER = 11;
+const RISE_ROUTINES = 12;
+
+const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
+
+// Shown only when no active plan exists (Start falls back to an empty workout).
+const FALLBACK_AGENDA_EXERCISES: Array<{ name: string; setsLabel: string; schemeLabel: string }> = [
+  { name: 'Squat', setsLabel: '3 sets', schemeLabel: '3 × 8' },
+  { name: 'Push-Up', setsLabel: '3 sets', schemeLabel: '3 × 10' },
+  { name: 'Row', setsLabel: '3 sets', schemeLabel: '3 × 8' },
 ];
 
 interface HomeTemplateItem {
@@ -52,6 +115,8 @@ interface HomePlanCard {
   subtitle: string;
   weekLabel: string;
   progressPercent: number;
+  weekProgressLabel: string;
+  weekProgressPercent: number;
   sessionsPerWeek: string;
   weeklyMinutes: string;
   sessions: HomeDaySessionSummary[];
@@ -79,97 +144,217 @@ export function HomeScreen({
   onCreateWorkoutFromExercises,
   onBrowseReadyPlans,
 }: HomeScreenProps) {
-  const [premiumVisible, setPremiumVisible] = useState(false);
+  const [proSheetVisible, setProSheetVisible] = useState(false);
+  const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+
   const savedRoutineCount = customTemplates.length;
   const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
-  const monthCalendar = calendarExpanded ? getHomeMonthCalendar() : null;
-  const trainingDayIndexes = activePlan ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2)) : [0, 3];
+  const monthCalendar = useMemo(() => getHomeMonthCalendar(), []);
+  const trainingDayIndexes = activePlan
+    ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2))
+    : [0, 3];
+
   const nextPlanSession = activePlan?.nextSession ?? null;
-  // Hero card leads with the plan's own name; the session ("Strength A") is
-  // demoted to the "Next:" line below it.
-  const planCardTitle = activePlan?.title ?? 'Workout plan';
-  const nextPlanTitle = nextPlanSession?.title ?? 'Day 1 - Full Body';
-  const nextPlanExerciseLine =
-    nextPlanSession?.exercises
-      .slice(0, 3)
-      .map((exercise) => exercise.name)
-      .join(' - ') || 'Squat - Push-Up - Row';
-  const nextPlanMeta = `${nextPlanSession?.duration ?? '~45 min'} - ${nextPlanSession?.exercises.length ?? 4} ${
-    (nextPlanSession?.exercises.length ?? 4) === 1 ? 'exercise' : 'exercises'
-  }`;
+  const planSessions = activePlan?.sessions ?? [];
+  const nextSessionIndex = nextPlanSession
+    ? Math.max(0, planSessions.findIndex((session) => session.id === nextPlanSession.id))
+    : 0;
+  const planDayCount = planSessions.length || Number.parseInt(activePlan?.sessionsPerWeek ?? '', 10) || 3;
+  const planEyebrow = `CONTINUE PLAN · DAY ${nextSessionIndex + 1} OF ${planDayCount}`;
+  const planTitle = nextPlanSession?.title ?? 'Day 1 - Full Body';
+  const planSubtitle = activePlan?.title ?? 'Workout plan';
+  const weekProgressLabel = activePlan?.weekProgressLabel ?? 'Week 1 · 0 of 3 done';
+  const weekProgressPercent = activePlan?.weekProgressPercent ?? 0;
+  const agendaSource = nextPlanSession?.exercises ?? FALLBACK_AGENDA_EXERCISES;
+  const agendaExercises = agendaSource.slice(0, 3);
+  const totalExerciseCount = (nextPlanSession?.exercises.length ?? agendaSource.length) + (nextPlanSession?.hiddenExerciseCount ?? 0);
+  const agendaExtraCount = Math.max(0, totalExerciseCount - agendaExercises.length);
+  const planDuration = nextPlanSession?.duration ?? '~45 min';
+  const agendaFooterLabel =
+    agendaExtraCount > 0 ? `+ ${agendaExtraCount} more · ${planDuration} total` : `${planDuration} total`;
+
+  // --- Animations -----------------------------------------------------------
+
+  const riseValues = useRef(RISE_DELAYS_MS.map(() => new Animated.Value(0))).current;
+  const progressFillAnim = useRef(new Animated.Value(0)).current;
+  const calendarAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (mounted) {
+          setReduceMotion(Boolean(enabled));
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setReduceMotion(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion === null) {
+      return;
+    }
+    if (reduceMotion) {
+      // Reduced motion: skip straight to the final visible state.
+      riseValues.forEach((value) => value.setValue(1));
+      progressFillAnim.setValue(weekProgressPercent);
+      return;
+    }
+    Animated.parallel(
+      riseValues.map((value, index) =>
+        Animated.timing(value, {
+          toValue: 1,
+          duration: 500,
+          delay: RISE_DELAYS_MS[index],
+          easing: RISE_EASING,
+          useNativeDriver: true,
+        }),
+      ),
+    ).start();
+    Animated.timing(progressFillAnim, {
+      toValue: weekProgressPercent,
+      duration: 700,
+      delay: RISE_DELAYS_MS[RISE_PLAN_PROGRESS],
+      easing: RISE_EASING,
+      useNativeDriver: false,
+    }).start();
+  }, [progressFillAnim, reduceMotion, riseValues, weekProgressPercent]);
+
+  const rise = (index: number) => ({
+    opacity: riseValues[index],
+    transform: [
+      {
+        translateY: riseValues[index].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }),
+      },
+    ],
+  });
+
+  const toggleCalendar = () => {
+    const next = !calendarExpanded;
+    setCalendarExpanded(next);
+    if (reduceMotion) {
+      calendarAnim.setValue(next ? 1 : 0);
+      return;
+    }
+    Animated.timing(calendarAnim, {
+      toValue: next ? 1 : 0,
+      duration: 320,
+      easing: RISE_EASING,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const startTodaysSession = () => {
+    if (nextPlanSession && onStartActivePlanSession) {
+      onStartActivePlanSession(nextPlanSession.id);
+      return;
+    }
+    onCreateWorkoutFromExercises();
+  };
+
+  const activePricing = PRO_PRICING[proPlan];
 
   return (
     <View style={styles.screenBackground}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerRow}>
+        <Animated.View style={[styles.headerRow, rise(RISE_HEADER)]}>
           <View style={styles.headerCopy}>
             <Text style={styles.greetingTitle}>Welcome back</Text>
             <Text style={styles.greetingSubtitle}>Let's get after it today.</Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open premium subscription"
-            onPress={() => setPremiumVisible(true)}
+            accessibilityLabel="Open GAINER Pro"
+            onPress={() => setProSheetVisible(true)}
             hitSlop={8}
-            style={styles.proBadge}
+            style={({ pressed }) => [styles.proBadge, pressed && styles.pressed]}
           >
             <Text style={styles.proBadgeText}>PRO</Text>
           </Pressable>
-        </View>
+        </Animated.View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={calendarExpanded ? 'Collapse month calendar' : 'Expand month calendar'}
-          onPress={() => setCalendarExpanded((expanded) => !expanded)}
-          style={styles.homeCalendarStrip}
-        >
-          {topCalendarDays.map((day) => {
-            const isTrainingDay = trainingDayIndexes.includes(day.weekdayIndex);
-            const dayLabel = day.isToday ? day.dateLabel : day.weekdayLabel;
+        <Animated.View style={[styles.weekCard, rise(RISE_WEEK)]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={calendarExpanded ? 'Collapse month calendar' : 'Expand month calendar'}
+            onPress={toggleCalendar}
+            style={({ pressed }) => [styles.weekStripRow, pressed && styles.pressed]}
+          >
+            {topCalendarDays.map((day) => {
+              const isTrainingDay = trainingDayIndexes.includes(day.weekdayIndex);
+              const dayLabel = day.isToday ? day.dateLabel : day.weekdayLabel;
 
-            return (
-              <View key={day.dayStart} style={[styles.homeCalendarItem, day.isToday && styles.homeCalendarItemToday]}>
-                <View style={[styles.homeCalendarDot, isTrainingDay ? styles.homeCalendarDotStrength : styles.homeCalendarDotRecovery]} />
-                <Text style={[styles.homeCalendarDayLabel, day.isToday && styles.homeCalendarDayLabelToday]}>{dayLabel}</Text>
-              </View>
-            );
-          })}
-          <View style={[styles.homeCalendarChevron, calendarExpanded && styles.homeCalendarChevronOpen]}>
-            <GymlogIcon name="chevronRight" color={HOME_TEXT_MUTED} size={18} />
-          </View>
-        </Pressable>
+              return (
+                <View key={day.dayStart} style={[styles.weekStripItem, day.isToday && styles.weekStripItemToday]}>
+                  <View style={[styles.weekStripDot, isTrainingDay ? styles.weekStripDotTraining : styles.weekStripDotRecovery]} />
+                  <Text style={[styles.weekStripDayLabel, day.isToday && styles.weekStripDayLabelToday]}>{dayLabel}</Text>
+                </View>
+              );
+            })}
+            <Animated.View
+              style={[
+                styles.weekStripChevron,
+                {
+                  transform: [
+                    {
+                      rotate: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }),
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path d="M6 9l6 6 6-6" stroke={HG3.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </Animated.View>
+          </Pressable>
 
-        {monthCalendar ? (
-          <View style={styles.monthCalendarCard}>
-            <Text style={styles.monthCalendarTitle}>{monthCalendar.monthLabel}</Text>
-            <View style={styles.monthCalendarWeekdayRow}>
+          <Animated.View
+            style={[
+              styles.monthPanel,
+              {
+                opacity: calendarAnim,
+                maxHeight: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 480] }),
+              },
+            ]}
+          >
+            <Text style={styles.monthTitle}>{monthCalendar.monthLabel}</Text>
+            <View style={styles.monthWeekdayRow}>
               {monthCalendar.weekdayLabels.map((label) => (
-                <Text key={label} style={styles.monthCalendarWeekdayLabel}>
+                <Text key={label} style={styles.monthWeekdayLabel}>
                   {label}
                 </Text>
               ))}
             </View>
             {monthCalendar.weeks.map((week) => (
-              <View key={week[0].dayStart} style={styles.monthCalendarWeekRow}>
+              <View key={week[0].dayStart} style={styles.monthWeekRow}>
                 {week.map((day) => {
                   const isTrainingDay = day.inMonth && trainingDayIndexes.includes(day.weekdayIndex);
 
                   return (
-                    <View key={day.dayStart} style={[styles.monthCalendarDayCell, day.isToday && styles.monthCalendarDayCellToday]}>
+                    <View key={day.dayStart} style={[styles.monthDayCell, day.isToday && styles.monthDayCellToday]}>
                       <Text
                         style={[
-                          styles.monthCalendarDayNumber,
-                          !day.inMonth && styles.monthCalendarDayNumberOutside,
-                          day.isToday && styles.monthCalendarDayNumberToday,
+                          styles.monthDayNumber,
+                          !day.inMonth && styles.monthDayNumberOutside,
+                          day.isToday && styles.monthDayNumberToday,
                         ]}
                       >
                         {day.dayOfMonth}
                       </Text>
                       <View
                         style={[
-                          styles.monthCalendarDayDot,
-                          isTrainingDay ? styles.monthCalendarDayDotTraining : day.inMonth ? styles.monthCalendarDayDotRecovery : null,
+                          styles.monthDayDot,
+                          isTrainingDay ? styles.monthDayDotTraining : day.inMonth ? styles.monthDayDotRecovery : null,
                         ]}
                       />
                     </View>
@@ -177,119 +362,250 @@ export function HomeScreen({
                 })}
               </View>
             ))}
-            <View style={styles.monthCalendarLegendRow}>
-              <View style={styles.monthCalendarLegendItem}>
-                <View style={[styles.monthCalendarDayDot, styles.monthCalendarDayDotTraining]} />
-                <Text style={styles.monthCalendarLegendText}>Training</Text>
+            <View style={styles.monthLegendRow}>
+              <View style={styles.monthLegendItem}>
+                <View style={[styles.monthDayDot, styles.monthDayDotTraining]} />
+                <Text style={styles.monthLegendText}>Training</Text>
               </View>
-              <View style={styles.monthCalendarLegendItem}>
-                <View style={[styles.monthCalendarDayDot, styles.monthCalendarDayDotRecovery]} />
-                <Text style={styles.monthCalendarLegendText}>Recovery</Text>
+              <View style={styles.monthLegendItem}>
+                <View style={[styles.monthDayDot, styles.monthDayDotRecovery]} />
+                <Text style={styles.monthLegendText}>Recovery</Text>
               </View>
             </View>
-          </View>
-        ) : null}
+          </Animated.View>
+        </Animated.View>
 
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Start next plan workout"
-          onPress={() => {
-            if (nextPlanSession && onStartActivePlanSession) {
-              onStartActivePlanSession(nextPlanSession.id);
-              return;
-            }
-            onCreateWorkoutFromExercises();
-          }}
-          style={[styles.continuePlanCard, styles.fullBleedCard]}
-        >
-          <Text style={styles.continuePlanEyebrow}>CONTINUE PLAN</Text>
-          <Text style={styles.continuePlanTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {planCardTitle}
+        {/* Continue plan — boxless agenda (Home v3) */}
+        <Animated.View style={rise(RISE_PLAN_EYEBROW)}>
+          <Text style={styles.planEyebrow}>{planEyebrow}</Text>
+        </Animated.View>
+        <Animated.View style={rise(RISE_PLAN_TITLE)}>
+          <Text style={styles.planTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+            {planTitle}
           </Text>
-          <Text style={styles.continuePlanNextSession} numberOfLines={1}>
-            Next: {nextPlanTitle}
+        </Animated.View>
+        <Animated.View style={rise(RISE_PLAN_SUB)}>
+          <Text style={styles.planSubtitle} numberOfLines={1}>
+            {planSubtitle}
           </Text>
-          <Text style={styles.continuePlanExercises} numberOfLines={1}>
-            {nextPlanExerciseLine}
-          </Text>
-          <Text style={styles.continuePlanMeta}>{nextPlanMeta}</Text>
-          <View style={styles.continuePlanButton}>
-            <Text style={styles.continuePlanButtonText}>Start workout</Text>
-            <GymlogIcon name="chevronRight" color={HOME_PURPLE_DARK} size={24} />
-          </View>
-        </Pressable>
+        </Animated.View>
 
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Routines</Text>
-          <Pressable onPress={onOpenTemplatesHub} hitSlop={8}>
-            <Text style={styles.seeAllText}>See all</Text>
-          </Pressable>
+        <Animated.View style={[styles.planProgressRow, rise(RISE_PLAN_PROGRESS)]}>
+          <View style={styles.planProgressTrack}>
+            <Animated.View
+              style={[
+                styles.planProgressFill,
+                {
+                  width: progressFillAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.planProgressLabel}>{weekProgressLabel}</Text>
+        </Animated.View>
+
+        <View style={styles.planExerciseList}>
+          {agendaExercises.map((exercise, index) => (
+            <Animated.View key={`${exercise.name}-${index}`} style={[styles.planExerciseRow, rise(RISE_PLAN_ROW_BASE + index)]}>
+              <View style={styles.planExerciseNumberChip}>
+                <Text style={styles.planExerciseNumberText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.planExerciseName} numberOfLines={1}>
+                {exercise.name}
+              </Text>
+              <Text style={styles.planExerciseScheme}>{exercise.schemeLabel ?? exercise.setsLabel ?? ''}</Text>
+            </Animated.View>
+          ))}
+          <Animated.View style={[styles.planListFooterRow, rise(RISE_PLAN_FOOTER)]}>
+            <Text style={styles.planListFooterText}>{agendaFooterLabel}</Text>
+          </Animated.View>
         </View>
 
-        <View style={styles.routineShortcutRow}>
-          <Pressable onPress={onOpenTemplatesHub} style={styles.routineShortcutCard}>
-            <View style={styles.routineShortcutIcon}>
-              <GymlogIcon name="file" color={HOME_PURPLE} size={21} />
-            </View>
-            <View style={styles.routineShortcutCopy}>
-              <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
-                Templates
-              </Text>
-              <Text style={styles.routineShortcutSubtitle}>{savedRoutineCount} saved</Text>
-            </View>
+        <Animated.View style={rise(RISE_START)}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start today's workout"
+            onPress={startTodaysSession}
+            style={({ pressed }) => [styles.startButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.startButtonText}>Start workout</Text>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG3.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
           </Pressable>
+        </Animated.View>
 
-          <Pressable onPress={onBrowseReadyPlans} style={styles.routineShortcutCard}>
-            <View style={styles.routineShortcutIcon}>
-              <GymlogIcon name="progress" color={HOME_PURPLE} size={21} />
-            </View>
-            <View style={styles.routineShortcutCopy}>
-              <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
-                Explore
-              </Text>
-              <Text style={styles.routineShortcutSubtitle}>
-                {readyTemplateCount > 0 ? `${readyTemplateCount} plans` : 'Find new plans'}
-              </Text>
-            </View>
-          </Pressable>
-        </View>
+        <Animated.View style={[styles.sectionDivider, rise(RISE_DIVIDER)]} />
 
-        <Pressable accessibilityRole="button" accessibilityLabel="Start empty workout" onPress={onCreateWorkoutFromExercises} style={styles.emptyWorkoutRow}>
-          <View style={styles.emptyWorkoutIcon}>
-            <GymlogIcon name="plus" color={HOME_PURPLE} size={20} />
+        <Animated.View style={rise(RISE_ROUTINES)}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Routines</Text>
+            <Pressable onPress={onOpenTemplatesHub} hitSlop={8}>
+              <Text style={styles.seeAllText}>See all</Text>
+            </Pressable>
           </View>
-          <Text style={styles.emptyWorkoutTitle}>Empty workout</Text>
-          <Text style={styles.emptyWorkoutMeta}>Log freestyle</Text>
-        </Pressable>
+
+          <View style={styles.routineShortcutRow}>
+            <Pressable onPress={onOpenTemplatesHub} style={({ pressed }) => [styles.routineShortcutCard, pressed && styles.pressed]}>
+              <View style={styles.routineShortcutIcon}>
+                <GymlogIcon name="file" color={HG3.purple} size={21} />
+              </View>
+              <View style={styles.routineShortcutCopy}>
+                <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
+                  Templates
+                </Text>
+                <Text style={styles.routineShortcutSubtitle}>{savedRoutineCount} saved</Text>
+              </View>
+            </Pressable>
+
+            <Pressable onPress={onBrowseReadyPlans} style={({ pressed }) => [styles.routineShortcutCard, pressed && styles.pressed]}>
+              <View style={styles.routineShortcutIcon}>
+                <GymlogIcon name="progress" color={HG3.purple} size={21} />
+              </View>
+              <View style={styles.routineShortcutCopy}>
+                <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
+                  Explore
+                </Text>
+                <Text style={styles.routineShortcutSubtitle}>
+                  {readyTemplateCount > 0 ? `${readyTemplateCount} plans` : 'Find new plans'}
+                </Text>
+              </View>
+            </Pressable>
+          </View>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Start empty workout"
+            onPress={onCreateWorkoutFromExercises}
+            style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
+          >
+            <View style={styles.emptyWorkoutIcon}>
+              <GymlogIcon name="plus" color={HG3.purple} size={20} />
+            </View>
+            <Text style={styles.emptyWorkoutTitle}>Empty workout</Text>
+            <Text style={styles.emptyWorkoutMeta}>Log freestyle</Text>
+          </Pressable>
+        </Animated.View>
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
-      <Modal visible={premiumVisible} transparent animationType="fade" onRequestClose={() => setPremiumVisible(false)}>
-        <View style={styles.premiumOverlay}>
-          <View style={styles.premiumCard}>
-            <View style={styles.premiumBadge}>
-              <Text style={styles.premiumBadgeText}>GAINER PRO</Text>
-            </View>
-            <Text style={styles.premiumTitle}>Premium subscription</Text>
-            <Text style={styles.premiumSubtitle}>Unlock everything Gainer has to offer.</Text>
-            {PREMIUM_FEATURES.map((feature) => (
-              <View key={feature} style={styles.premiumFeatureRow}>
-                <View style={styles.premiumFeatureDot} />
-                <Text style={styles.premiumFeatureText}>{feature}</Text>
+      <Modal
+        visible={proSheetVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        onRequestClose={() => setProSheetVisible(false)}
+      >
+        <View style={styles.proSheetOverlay}>
+          <Pressable style={styles.proSheetScrim} onPress={() => setProSheetVisible(false)} />
+          <View style={styles.proSheet}>
+            <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
+              <Defs>
+                <SvgLinearGradient id="proSheetGradient" x1="0" y1="0" x2="0" y2="1">
+                  <Stop offset="0" stopColor={HG3.proSheetTop} />
+                  <Stop offset="1" stopColor={HG3.proSheetBottom} />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect width="100%" height="100%" fill="url(#proSheetGradient)" />
+            </Svg>
+            <ScrollView contentContainerStyle={styles.proSheetContent} showsVerticalScrollIndicator={false}>
+              <View style={styles.proSheetGrip} />
+              <View style={styles.proSheetBadge}>
+                <Text style={styles.proSheetBadgeText}>✦ GAINER PRO</Text>
               </View>
-            ))}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Premium coming soon"
-              onPress={() => setPremiumVisible(false)}
-              style={styles.premiumPrimaryButton}
-            >
-              <Text style={styles.premiumPrimaryButtonText}>Coming soon</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={() => setPremiumVisible(false)} hitSlop={8} style={styles.premiumDismiss}>
-              <Text style={styles.premiumDismissText}>Not now</Text>
-            </Pressable>
+              <Text style={styles.proSheetHeadline}>Train like it's personal.</Text>
+              <Text style={styles.proSheetSubline}>
+                Your plan adapts every session — with a coach that actually knows your numbers.
+              </Text>
+
+              <View style={styles.proStatRow}>
+                {PRO_STATS.map((stat) => (
+                  <View key={stat.label} style={styles.proStatCard}>
+                    <Text style={styles.proStatValue}>
+                      {stat.value}
+                      {stat.suffix ? <Text style={styles.proStatSuffix}>{stat.suffix}</Text> : null}
+                    </Text>
+                    <Text style={styles.proStatLabel}>{stat.label}</Text>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.proTable}>
+                <View style={styles.proTableHeaderRow}>
+                  <Text style={styles.proTableHeaderLabel}>What you get</Text>
+                  <Text style={styles.proTableHeaderFree}>FREE</Text>
+                  <Text style={styles.proTableHeaderPro}>PRO</Text>
+                </View>
+                {PRO_COMPARISON.map((row) => (
+                  <View key={row.label} style={styles.proTableRow}>
+                    <Text style={styles.proTableRowLabel}>{row.label}</Text>
+                    <View style={styles.proTableCell}>
+                      {row.free ? (
+                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                          <Path d="M5 12l5 5L19 7" stroke={HG3.gold} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+                        </Svg>
+                      ) : (
+                        <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                          <Path d="M6 6l12 12M18 6L6 18" stroke={PRO_SHEET_FAINT} strokeWidth={2.4} strokeLinecap="round" />
+                        </Svg>
+                      )}
+                    </View>
+                    <View style={styles.proTableCell}>
+                      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                        <Path d="M5 12l5 5L19 7" stroke={HG3.gold} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.proPricingRow}>
+                {(Object.keys(PRO_PRICING) as ProPlanKey[]).map((key) => {
+                  const pricing = PRO_PRICING[key];
+                  const selected = proPlan === key;
+
+                  return (
+                    <Pressable
+                      key={key}
+                      accessibilityRole="button"
+                      accessibilityLabel={`Choose ${pricing.title} plan`}
+                      onPress={() => setProPlan(key)}
+                      style={({ pressed }) => [styles.proPricingCard, selected && styles.proPricingCardSelected, pressed && styles.pressed]}
+                    >
+                      {pricing.badge ? (
+                        <View style={styles.proPricingBadge}>
+                          <Text style={styles.proPricingBadgeText}>{pricing.badge}</Text>
+                        </View>
+                      ) : null}
+                      <Text style={styles.proPricingTitle}>{pricing.title}</Text>
+                      <Text style={styles.proPricingPrice}>
+                        {pricing.price}
+                        <Text style={styles.proPricingPer}>{pricing.per}</Text>
+                      </Text>
+                      <Text style={styles.proPricingNote}>{pricing.note}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Start 7-day free trial"
+                onPress={() => setProSheetVisible(false)}
+                style={({ pressed }) => [styles.proCta, pressed && styles.pressed]}
+              >
+                <Text style={styles.proCtaText}>Start 7-day free trial</Text>
+              </Pressable>
+              <Text style={styles.proFinePrint}>{activePricing.finePrint}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setProSheetVisible(false)}
+                hitSlop={8}
+                style={styles.proDismiss}
+              >
+                <Text style={styles.proDismissText}>Not now</Text>
+              </Pressable>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -300,240 +616,137 @@ export function HomeScreen({
 const styles = StyleSheet.create({
   screenBackground: {
     flex: 1,
-    backgroundColor: HOME_BACKGROUND,
+    backgroundColor: HG3.bg,
   },
   scrollView: {
     flex: 1,
     backgroundColor: 'transparent',
   },
   content: {
-    paddingHorizontal: 15,
+    paddingHorizontal: 20,
     paddingTop: 24,
     paddingBottom: 132,
-    gap: 10,
   },
-  fullBleedCard: {
-    marginHorizontal: -1,
+  pressed: {
+    transform: [{ scale: 0.95 }],
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.lg,
-    marginTop: 2,
+    gap: 16,
   },
   headerCopy: {
     flex: 1,
-    gap: 4,
+    gap: 3,
   },
   greetingTitle: {
-    color: HOME_TEXT,
-    fontSize: 24,
-    lineHeight: 29,
+    color: HG3.ink,
+    fontSize: 26,
+    lineHeight: 31,
     fontWeight: '800',
-    letterSpacing: 0,
+    letterSpacing: -0.5,
   },
   greetingSubtitle: {
-    color: HOME_TEXT_MUTED,
-    fontSize: 14,
+    color: HG3.muted,
+    fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '600',
   },
   proBadge: {
-    minHeight: 30,
-    paddingHorizontal: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HOME_GREEN,
+    backgroundColor: HG3.green,
   },
   proBadgeText: {
-    color: HOME_SURFACE,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  premiumOverlay: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    backgroundColor: 'rgba(16, 24, 40, 0.45)',
-  },
-  premiumCard: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: HOME_BORDER,
-    backgroundColor: HOME_SURFACE,
-    padding: 24,
-    gap: 10,
-    shadowColor: HOME_SHADOW,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.5,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  premiumBadge: {
-    alignSelf: 'flex-start',
-    minHeight: 24,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    justifyContent: 'center',
-    backgroundColor: HOME_PURPLE_LIGHT,
-  },
-  premiumBadgeText: {
-    color: HOME_PURPLE_DARK,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-  },
-  premiumTitle: {
-    color: HOME_TEXT,
-    fontSize: 24,
-    lineHeight: 29,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  premiumSubtitle: {
-    color: HOME_TEXT_MUTED,
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  premiumFeatureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  premiumFeatureDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: HOME_PURPLE,
-  },
-  premiumFeatureText: {
-    flex: 1,
-    color: HOME_TEXT,
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: '700',
-  },
-  premiumPrimaryButton: {
-    minHeight: 52,
-    borderRadius: 14,
-    backgroundColor: HOME_PURPLE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  premiumPrimaryButtonText: {
-    color: HOME_SURFACE,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  premiumDismiss: {
-    alignSelf: 'center',
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  premiumDismissText: {
-    color: HOME_TEXT_MUTED,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  homeCalendarStrip: {
-    minHeight: 58,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.42)',
-    borderWidth: 1,
-    borderColor: 'rgba(228,216,255,0.62)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 11,
-    paddingVertical: 8,
-  },
-  homeCalendarItem: {
-    minWidth: 39,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-  },
-  homeCalendarItemToday: {
-    minHeight: 36,
-    borderRadius: 11,
-  },
-  homeCalendarDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-  },
-  homeCalendarDotRecovery: {
-    borderColor: HOME_GREEN,
-    backgroundColor: HOME_GREEN,
-  },
-  homeCalendarDotStrength: {
-    borderColor: HOME_PURPLE,
-    backgroundColor: HOME_PURPLE,
-  },
-  homeCalendarDayLabel: {
-    color: HOME_TEXT_MUTED,
+    color: HG3.surface,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  homeCalendarDayLabelToday: {
-    color: HOME_TEXT,
+  weekCard: {
+    marginTop: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: HG3.border,
+    backgroundColor: HG3.surface,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  homeCalendarChevron: {
-    width: 20,
-    height: 20,
+  weekStripRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weekStripItem: {
+    minWidth: 42,
     alignItems: 'center',
     justifyContent: 'center',
-    transform: [{ rotate: '90deg' }],
+    gap: 5,
+    borderRadius: 12,
+    paddingVertical: 7,
   },
-  homeCalendarChevronOpen: {
-    transform: [{ rotate: '-90deg' }],
+  weekStripItemToday: {
+    backgroundColor: HG3.purpleSoft,
   },
-  monthCalendarCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(228,216,255,0.62)',
-    backgroundColor: 'rgba(255,255,255,0.42)',
-    paddingHorizontal: 12,
-    paddingVertical: 14,
-    gap: 4,
+  weekStripDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 999,
   },
-  monthCalendarTitle: {
-    color: HOME_TEXT,
+  weekStripDotTraining: {
+    backgroundColor: HG3.purpleBright,
+  },
+  weekStripDotRecovery: {
+    backgroundColor: HG3.green,
+  },
+  weekStripDayLabel: {
+    color: HG3.muted,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
+  weekStripDayLabelToday: {
+    color: HG3.ink,
+  },
+  weekStripChevron: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthPanel: {
+    overflow: 'hidden',
+  },
+  monthTitle: {
+    color: HG3.ink,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',
-    marginBottom: 4,
+    marginTop: 12,
+    marginBottom: 6,
     paddingHorizontal: 4,
   },
-  monthCalendarWeekdayRow: {
+  monthWeekdayRow: {
     flexDirection: 'row',
     marginBottom: 2,
   },
-  monthCalendarWeekdayLabel: {
+  monthWeekdayLabel: {
     flex: 1,
     textAlign: 'center',
-    color: HOME_TEXT_MUTED,
+    color: HG3.faint,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '800',
   },
-  monthCalendarWeekRow: {
+  monthWeekRow: {
     flexDirection: 'row',
   },
-  monthCalendarDayCell: {
+  monthDayCell: {
     flex: 1,
     minHeight: 42,
     borderRadius: 10,
@@ -541,152 +754,210 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 3,
   },
-  monthCalendarDayCellToday: {
-    backgroundColor: HOME_PURPLE_LIGHT,
+  monthDayCellToday: {
+    backgroundColor: HG3.purpleSoft,
   },
-  monthCalendarDayNumber: {
-    color: HOME_TEXT,
+  monthDayNumber: {
+    color: HG3.ink,
     fontSize: 13,
     lineHeight: 16,
     fontWeight: '700',
   },
-  monthCalendarDayNumberOutside: {
-    color: 'rgba(102,112,133,0.4)',
+  monthDayNumberOutside: {
+    color: 'rgba(162,155,180,0.55)',
   },
-  monthCalendarDayNumberToday: {
-    color: HOME_PURPLE_DARK,
+  monthDayNumberToday: {
+    color: HG3.purple,
     fontWeight: '900',
   },
-  monthCalendarDayDot: {
+  monthDayDot: {
     width: 5,
     height: 5,
     borderRadius: 999,
   },
-  monthCalendarDayDotTraining: {
-    backgroundColor: HOME_PURPLE,
+  monthDayDotTraining: {
+    backgroundColor: HG3.purpleBright,
   },
-  monthCalendarDayDotRecovery: {
-    backgroundColor: HOME_GREEN,
+  monthDayDotRecovery: {
+    backgroundColor: HG3.green,
   },
-  monthCalendarLegendRow: {
+  monthLegendRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 16,
-    marginTop: 6,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  monthCalendarLegendItem: {
+  monthLegendItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  monthCalendarLegendText: {
-    color: HOME_TEXT_MUTED,
+  monthLegendText: {
+    color: HG3.muted,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '700',
   },
-  continuePlanCard: {
-    minHeight: 288,
-    borderRadius: 18,
-    backgroundColor: HOME_PURPLE_DARK,
-    overflow: 'hidden',
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    justifyContent: 'center',
-    shadowColor: HOME_PURPLE_DARK,
-    shadowOffset: { width: 0, height: 22 },
-    shadowOpacity: 0.24,
-    shadowRadius: 30,
-    elevation: 12,
-  },
-  continuePlanEyebrow: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 13,
-    lineHeight: 16,
+  planEyebrow: {
+    marginTop: 24,
+    color: HG3.purple,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
-    letterSpacing: 2,
-    marginBottom: 12,
+    letterSpacing: 1.76,
   },
-  continuePlanTitle: {
-    color: HOME_SURFACE,
-    fontSize: 30,
-    lineHeight: 36,
-    fontWeight: '900',
-    letterSpacing: -0.3,
-  },
-  continuePlanNextSession: {
-    color: HOME_SURFACE,
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '800',
-    marginTop: 12,
-  },
-  continuePlanExercises: {
-    color: 'rgba(255,255,255,0.88)',
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '700',
+  planTitle: {
     marginTop: 6,
-  },
-  continuePlanMeta: {
-    color: 'rgba(255,255,255,0.88)',
-    fontSize: 15,
-    lineHeight: 20,
+    color: HG3.ink,
+    fontSize: 31,
+    lineHeight: 37,
     fontWeight: '800',
-    marginTop: 5,
+    letterSpacing: -0.6,
   },
-  continuePlanButton: {
-    minHeight: 54,
-    borderRadius: 14,
-    backgroundColor: HOME_SURFACE,
+  planSubtitle: {
+    marginTop: 3,
+    color: HG3.muted,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  planProgressRow: {
+    marginTop: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  planProgressTrack: {
+    flex: 1,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: HG3.border,
+    overflow: 'hidden',
+  },
+  planProgressFill: {
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: HG3.purple,
+  },
+  planProgressLabel: {
+    color: HG3.muted,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  planExerciseList: {
+    marginTop: 14,
+  },
+  planExerciseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+    borderTopWidth: 1,
+    borderTopColor: HG3.border,
+  },
+  planExerciseNumberChip: {
+    width: 25,
+    height: 25,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HG3.purpleSoft,
+  },
+  planExerciseNumberText: {
+    color: HG3.purple,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
+  planExerciseName: {
+    flex: 1,
+    color: HG3.ink,
+    fontSize: 14.5,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  planExerciseScheme: {
+    color: HG3.muted,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontFamily: 'JetBrainsMono',
+  },
+  planListFooterRow: {
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: HG3.border,
+  },
+  planListFooterText: {
+    color: HG3.faint,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  startButton: {
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: HG3.purple,
+    backgroundColor: HG3.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    marginTop: 20,
+    gap: 9,
+    marginTop: 6,
+    shadowColor: HG3.purpleBright,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  continuePlanButtonText: {
-    color: HOME_PURPLE_DARK,
-    fontSize: 17,
+  startButtonText: {
+    color: HG3.purple,
+    fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: HG3.border,
+    marginTop: 18,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.md,
-    // Breathing room below the (now much taller) continue-plan hero.
-    marginTop: 10,
+    gap: 12,
+    marginTop: 15,
   },
   sectionTitle: {
-    color: '#050505',
+    color: HG3.ink,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',
   },
   seeAllText: {
-    color: HOME_PURPLE,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '600',
+    color: HG3.purple,
+    fontSize: 13.5,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   routineShortcutRow: {
     flexDirection: 'row',
-    gap: 9,
-    marginTop: -6,
+    gap: 10,
+    marginTop: 10,
   },
   routineShortcutCard: {
     flex: 1,
-    minHeight: 96,
-    borderRadius: 14,
+    minHeight: 92,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: HOME_BORDER,
-    backgroundColor: 'rgba(255,255,255,0.58)',
+    borderColor: HG3.border,
+    backgroundColor: HG3.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-    paddingHorizontal: 8,
+    gap: 8,
+    paddingHorizontal: 10,
   },
   routineShortcutIcon: {
     width: 34,
@@ -694,7 +965,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HOME_PURPLE_LIGHT,
+    backgroundColor: HG3.purpleSoft,
   },
   routineShortcutCopy: {
     flex: 1,
@@ -702,27 +973,28 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   routineShortcutTitle: {
-    color: HOME_TEXT,
-    fontSize: 18,
-    lineHeight: 22,
+    color: HG3.ink,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '800',
   },
   routineShortcutSubtitle: {
-    color: HOME_TEXT_MUTED,
+    color: HG3.muted,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '600',
   },
   emptyWorkoutRow: {
-    minHeight: 42,
-    borderRadius: 12,
+    minHeight: 46,
+    borderRadius: 13,
     borderWidth: 1,
-    borderColor: HOME_BORDER,
-    backgroundColor: 'rgba(255,255,255,0.58)',
+    borderColor: HG3.border,
+    backgroundColor: HG3.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 15,
+    marginTop: 10,
   },
   emptyWorkoutIcon: {
     width: 23,
@@ -732,18 +1004,263 @@ const styles = StyleSheet.create({
   },
   emptyWorkoutTitle: {
     flex: 1,
-    color: HOME_TEXT,
+    color: HG3.ink,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '800',
   },
   emptyWorkoutMeta: {
-    color: HOME_TEXT_MUTED,
+    color: HG3.muted,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
   },
   bottomSafeFade: {
     height: 16,
+  },
+  proSheetOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(16, 10, 32, 0.5)',
+  },
+  proSheetScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  proSheet: {
+    maxHeight: '92%',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    overflow: 'hidden',
+    backgroundColor: HG3.proSheetBottom,
+  },
+  proSheetContent: {
+    paddingHorizontal: 22,
+    paddingTop: 10,
+    paddingBottom: 26,
+  },
+  proSheetGrip: {
+    alignSelf: 'center',
+    width: 40,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    marginBottom: 18,
+  },
+  proSheetBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: HG3.gold,
+    paddingVertical: 6,
+    paddingHorizontal: 13,
+  },
+  proSheetBadgeText: {
+    color: HG3.gold,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  proSheetHeadline: {
+    marginTop: 14,
+    color: PRO_SHEET_INK,
+    fontSize: 27,
+    lineHeight: 33,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  proSheetSubline: {
+    marginTop: 8,
+    color: PRO_SHEET_MUTED,
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  proStatRow: {
+    flexDirection: 'row',
+    gap: 9,
+    marginTop: 18,
+  },
+  proStatCard: {
+    flex: 1,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: PRO_SHEET_BORDER,
+    backgroundColor: PRO_SHEET_CARD,
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 6,
+    gap: 4,
+  },
+  proStatValue: {
+    color: PRO_SHEET_INK,
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '800',
+  },
+  proStatSuffix: {
+    color: HG3.gold,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  proStatLabel: {
+    color: PRO_SHEET_MUTED,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  proTable: {
+    marginTop: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: PRO_SHEET_BORDER,
+    backgroundColor: PRO_SHEET_CARD,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  proTableHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  proTableHeaderLabel: {
+    flex: 1,
+    color: PRO_SHEET_INK,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  proTableHeaderFree: {
+    width: 48,
+    textAlign: 'center',
+    color: PRO_SHEET_FAINT,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  proTableHeaderPro: {
+    width: 48,
+    textAlign: 'center',
+    color: HG3.gold,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 0.8,
+  },
+  proTableRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  proTableRowLabel: {
+    flex: 1,
+    color: PRO_SHEET_MUTED,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  proTableCell: {
+    width: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proPricingRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 16,
+  },
+  proPricingCard: {
+    flex: 1,
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: PRO_SHEET_BORDER,
+    backgroundColor: PRO_SHEET_CARD,
+    paddingVertical: 15,
+    paddingHorizontal: 14,
+    gap: 2,
+  },
+  proPricingCardSelected: {
+    borderColor: HG3.gold,
+    backgroundColor: 'rgba(228,177,76,0.08)',
+  },
+  proPricingBadge: {
+    position: 'absolute',
+    top: -10,
+    left: 12,
+    borderRadius: 999,
+    backgroundColor: HG3.gold,
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+  },
+  proPricingBadgeText: {
+    color: HG3.proSheetBottom,
+    fontSize: 9.5,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  proPricingTitle: {
+    color: PRO_SHEET_MUTED,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  proPricingPrice: {
+    color: PRO_SHEET_INK,
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '800',
+  },
+  proPricingPer: {
+    color: PRO_SHEET_MUTED,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  proPricingNote: {
+    color: PRO_SHEET_FAINT,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  proCta: {
+    marginTop: 18,
+    height: 54,
+    borderRadius: 15,
+    backgroundColor: HG3.gold,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proCtaText: {
+    color: HG3.proSheetBottom,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  proFinePrint: {
+    marginTop: 10,
+    textAlign: 'center',
+    color: PRO_SHEET_FAINT,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  proDismiss: {
+    alignSelf: 'center',
+    minHeight: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    marginTop: 6,
+  },
+  proDismissText: {
+    color: PRO_SHEET_MUTED,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
   },
 });

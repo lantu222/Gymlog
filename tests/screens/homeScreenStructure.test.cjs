@@ -37,47 +37,42 @@ module.exports = [
   {
     name: 'home screen uses light routine dashboard with purple workout actions',
     run() {
-      assert.match(homeScreenSource, /const HOME_BACKGROUND = '#F7F3FF'/);
-      assert.match(homeScreenSource, /const HOME_PURPLE = '#7C3AED'/);
-      assert.match(homeScreenSource, /const HOME_PURPLE_DARK = '#5B21B6'/);
-      assert.match(homeScreenSource, /const HOME_GREEN = '#16A34A'/);
+      // Home v3 (GAINER Home v3 mock): palette comes from the shared HG3 token
+      // set in lightTheme.ts — no local hex constants for tokenized colors.
+      assert.match(homeScreenSource, /import \{ HG3 \} from '\.\.\/lightTheme'/);
+      assert.doesNotMatch(homeScreenSource, /const HOME_BACKGROUND =/);
+      assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: HG3\.bg/);
 
       assert.match(homeScreenSource, /Welcome back/);
       assert.match(homeScreenSource, /Let's get after it today\./);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
-      assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 24/);
-      assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 14/);
+      assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 26/);
+      assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 13\.5/);
       assert.match(homeScreenSource, /PRO/);
-      assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: HOME_GREEN/);
-      // PRO pill is bigger and pressable; it opens a placeholder premium
-      // subscription card (generic model, content finalized later).
-      assert.match(homeScreenSource, /proBadge:\s*\{\s*minHeight: 30/);
-      assert.match(homeScreenSource, /onPress=\{\(\) => setPremiumVisible\(true\)\}/);
-      assert.match(homeScreenSource, /const \[premiumVisible, setPremiumVisible\] = useState\(false\)/);
-      assert.match(homeScreenSource, /Premium subscription/);
-      assert.match(homeScreenSource, /PREMIUM_FEATURES\.map/);
-      assert.match(homeScreenSource, /Coming soon/);
-      assert.match(homeScreenSource, /Not now/);
-      assert.match(homeScreenSource, /onRequestClose=\{\(\) => setPremiumVisible\(false\)\}/);
+      assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: HG3\.green/);
+      assert.match(homeScreenSource, /proBadge:\s*\{\s*paddingVertical: 7,\s*paddingHorizontal: 13/);
+      // PRO pill opens the dark Pro bottom sheet.
+      assert.match(homeScreenSource, /onPress=\{\(\) => setProSheetVisible\(true\)\}/);
+      assert.match(homeScreenSource, /const \[proSheetVisible, setProSheetVisible\] = useState\(false\)/);
+      // Week strip lives on a white card and expands into a Monday-first month
+      // grid; the chevron rotates 180° and the panel height animates.
       assert.match(homeScreenSource, /topCalendarDays/);
-      assert.match(homeScreenSource, /homeCalendarStrip/);
-      assert.match(homeScreenSource, /homeCalendarStrip:\s*\{[\s\S]*minHeight: 58/);
-      assert.match(homeScreenSource, /homeCalendarItem/);
-      assert.match(homeScreenSource, /homeCalendarDayLabel/);
-      assert.match(homeScreenSource, /homeCalendarDayLabel:\s*\{[\s\S]*fontSize: 12/);
-      // The week strip is pressable and expands into a Monday-first month grid
-      // with training/recovery dots and a today highlight (2026-07-08).
+      assert.match(homeScreenSource, /weekCard:\s*\{[\s\S]*borderRadius: 18/);
+      assert.match(homeScreenSource, /weekStripItemToday:\s*\{[\s\S]*backgroundColor: HG3\.purpleSoft/);
       assert.match(homeScreenSource, /const \[calendarExpanded, setCalendarExpanded\] = useState\(false\)/);
-      assert.match(homeScreenSource, /setCalendarExpanded\(\(expanded\) => !expanded\)/);
-      assert.match(homeScreenSource, /const monthCalendar = calendarExpanded \? getHomeMonthCalendar\(\) : null/);
+      assert.match(homeScreenSource, /const monthCalendar = useMemo\(\(\) => getHomeMonthCalendar\(\), \[\]\)/);
       assert.match(homeScreenSource, /monthCalendar\.monthLabel/);
-      assert.match(homeScreenSource, /monthCalendarCard/);
-      assert.match(homeScreenSource, /monthCalendarDayCellToday/);
-      assert.match(homeScreenSource, /monthCalendarLegendRow/);
-      assert.match(homeScreenSource, /homeCalendarChevron/);
-      // The weekly status row ("N of M sessions this week" + streak pill) was
-      // removed: the session count was often untrue and the streak pill was
-      // noise (user feedback 2026-07-08).
+      assert.match(homeScreenSource, /monthDayCellToday/);
+      assert.match(homeScreenSource, /monthLegendRow/);
+      assert.match(homeScreenSource, /outputRange: \['0deg', '180deg'\]/);
+      assert.match(homeScreenSource, /calendarAnim\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 480\] \}\)/);
+      // Entrance animations: staggered "rise" + progress fill, all skipped when
+      // the user has reduced motion enabled (content must never stay hidden).
+      assert.match(homeScreenSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+      assert.match(homeScreenSource, /riseValues\.forEach\(\(value\) => value\.setValue\(1\)\)/);
+      assert.match(homeScreenSource, /Easing\.bezier\(0\.22, 1, 0\.36, 1\)/);
+      assert.match(homeScreenSource, /outputRange: \[16, 0\]/);
+      // The weekly status row + streak pill stay removed.
       assert.doesNotMatch(homeScreenSource, /weeklyStatusRow/);
       assert.doesNotMatch(homeScreenSource, /sessions this week/);
       assert.doesNotMatch(homeScreenSource, /day streak/);
@@ -91,25 +86,49 @@ module.exports = [
       assert.match(gymlogIconSource, /case 'dumbbell':/);
       assert.match(gymlogIconSource, /case 'chevronRight':/);
 
-      assert.match(homeScreenSource, /CONTINUE PLAN/);
-      assert.match(homeScreenSource, /continuePlanCard/);
+      // Continue plan is a boxless agenda (Home v3): purple eyebrow with the
+      // day counter, session name as the headline, plan name as the sub, thin
+      // animated progress bar, then a numbered exercise list with real
+      // sets-by-reps schemes in JetBrains Mono.
+      assert.match(homeScreenSource, /CONTINUE PLAN · DAY \$\{nextSessionIndex \+ 1\} OF \$\{planDayCount\}/);
+      assert.doesNotMatch(homeScreenSource, /continuePlanCard/);
       assert.match(homeScreenSource, /nextPlanSession/);
       assert.match(homeScreenSource, /onStartActivePlanSession\(nextPlanSession\.id\)/);
+      assert.match(homeScreenSource, /const planTitle = nextPlanSession\?\.title/);
+      assert.match(homeScreenSource, /const planSubtitle = activePlan\?\.title \?\? 'Workout plan'/);
+      assert.match(homeScreenSource, /planTitle:\s*\{[\s\S]*fontSize: 31/);
+      assert.match(homeScreenSource, /planEyebrow:\s*\{[\s\S]*color: HG3\.purple/);
+      assert.match(homeScreenSource, /weekProgressLabel/);
+      assert.match(homeScreenSource, /planProgressTrack:\s*\{[\s\S]*height: 6/);
+      assert.match(homeScreenSource, /planProgressFill:\s*\{[\s\S]*backgroundColor: HG3\.purple/);
+      assert.match(homeScreenSource, /progressFillAnim\.interpolate\(\{ inputRange: \[0, 100\], outputRange: \['0%', '100%'\] \}\)/);
+      assert.match(homeScreenSource, /planExerciseNumberChip:\s*\{\s*width: 25,\s*height: 25/);
+      assert.match(homeScreenSource, /planExerciseScheme:\s*\{[\s\S]*fontFamily: 'JetBrainsMono'/);
+      assert.match(homeScreenSource, /exercise\.schemeLabel \?\? exercise\.setsLabel/);
+      assert.match(homeScreenSource, /agendaExtraCount > 0 \? `\+ \$\{agendaExtraCount\} more · \$\{planDuration\} total` : `\$\{planDuration\} total`/);
+      // Ghost start button: white surface, 1.5px purple border, purple label.
       assert.match(homeScreenSource, /Start workout/);
-      // Hero rework (2026-07-08): darker card with no decorative glow circle,
-      // plan name as the headline, session demoted to a "Next:" line, larger type.
-      assert.match(homeScreenSource, /continuePlanCard:\s*\{[\s\S]*backgroundColor: HOME_PURPLE_DARK/);
-      assert.match(homeScreenSource, /continuePlanCard:\s*\{\s*minHeight: 288/);
-      assert.doesNotMatch(homeScreenSource, /continuePlanGlow/);
-      assert.match(homeScreenSource, /const planCardTitle = activePlan\?\.title \?\? 'Workout plan'/);
-      assert.match(homeScreenSource, /Next: \{nextPlanTitle\}/);
-      assert.match(homeScreenSource, /continuePlanTitle:\s*\{[\s\S]*fontSize: 30/);
-      assert.match(homeScreenSource, /continuePlanNextSession/);
+      assert.match(homeScreenSource, /startButton:\s*\{\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: HG3\.purple/);
+      assert.match(homeScreenSource, /startButtonText:\s*\{[\s\S]*fontSize: 16\.5/);
+      // Pro sheet: dark gradient bottom sheet with stats, comparison table,
+      // pricing toggle, gold CTA, and dismiss.
+      assert.match(homeScreenSource, /Train like it's personal\./);
+      assert.match(homeScreenSource, /✦ GAINER PRO/);
+      assert.match(homeScreenSource, /proSheetGradient/);
+      assert.match(homeScreenSource, /stopColor=\{HG3\.proSheetTop\}/);
+      assert.match(homeScreenSource, /PRO_STATS/);
+      assert.match(homeScreenSource, /PRO_COMPARISON\.map/);
+      assert.match(homeScreenSource, /setProPlan\(key\)/);
+      assert.match(homeScreenSource, /proPricingCardSelected/);
+      assert.match(homeScreenSource, /\{activePricing\.finePrint\}/);
+      assert.match(homeScreenSource, /Start 7-day free trial/);
+      assert.match(homeScreenSource, /Not now/);
+      assert.match(homeScreenSource, /onRequestClose=\{\(\) => setProSheetVisible\(false\)\}/);
       assert.match(homeScreenSource, /Empty workout/);
       assert.match(homeScreenSource, /Log freestyle/);
       assert.match(homeScreenSource, /emptyWorkoutRow/);
-      assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: 'rgba\(255,255,255,0\.58\)'/);
-      assert.match(homeScreenSource, /name="plus" color=\{HOME_PURPLE\} size=\{20\}/);
+      assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: HG3\.surface/);
+      assert.match(homeScreenSource, /name="plus" color=\{HG3\.purple\} size=\{20\}/);
       assert.doesNotMatch(homeScreenSource, /Jump into an empty workout/);
       assert.doesNotMatch(homeScreenSource, /startWorkoutHero/);
       assert.match(homeScreenSource, /onPress=\{onCreateWorkoutFromExercises\}/);
@@ -118,8 +137,8 @@ module.exports = [
       assert.match(homeScreenSource, /Templates/);
       assert.doesNotMatch(homeScreenSource, /My Routines/);
       assert.match(homeScreenSource, /Explore/);
-      assert.match(homeScreenSource, /routineShortcutCard:\s*\{[\s\S]*minHeight: 96/);
-      assert.match(homeScreenSource, /routineShortcutTitle:\s*\{[\s\S]*fontSize: 18/);
+      assert.match(homeScreenSource, /routineShortcutCard:\s*\{[\s\S]*minHeight: 92/);
+      assert.match(homeScreenSource, /routineShortcutTitle:\s*\{[\s\S]*fontSize: 16/);
       assert.match(homeScreenSource, /routineShortcutSubtitle:\s*\{[\s\S]*fontSize: 12/);
       assert.match(homeScreenSource, /readyTemplateCount > 0 \? `\$\{readyTemplateCount\} plans` : 'Find new plans'/);
       assert.doesNotMatch(homeScreenSource, /Find new routines/);
@@ -189,15 +208,14 @@ module.exports = [
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
       assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);
-      assert.doesNotMatch(homeScreenSource, /planTitle/);
       assert.doesNotMatch(homeScreenSource, /planWeekLabel/);
-      assert.doesNotMatch(homeScreenSource, /planProgressPercent/);
       assert.doesNotMatch(homeScreenSource, /activePlan\?\.weekLabel/);
-      assert.doesNotMatch(homeScreenSource, /activePlan\?\.progressPercent/);
       assert.doesNotMatch(homeScreenSource, /activePlan \? 'Week 3 of 8'/);
       assert.doesNotMatch(homeScreenSource, /activePlan \? 42/);
       assert.match(appSource, /weekLabel: planProgress\.weekLabel/);
       assert.match(appSource, /progressPercent: planProgress\.progressPercent/);
+      assert.match(appSource, /weekProgressLabel: planProgress\.weekProgressLabel/);
+      assert.match(appSource, /weekProgressPercent: planProgress\.weekProgressPercent/);
       assert.doesNotMatch(homeScreenSource, /planChartBars/);
       assert.doesNotMatch(homeScreenSource, /View plan/);
       assert.doesNotMatch(homeScreenSource, /VIEW PLAN/);
@@ -206,9 +224,11 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /yourPlanProgressFill/);
       assert.doesNotMatch(homeScreenSource, /yourPlanChartBar/);
       assert.doesNotMatch(homeScreenSource, /viewPlanButton/);
-      assert.match(homeScreenSource, /fullBleedCard/);
-      assert.match(homeScreenSource, /style=\{\[styles\.continuePlanCard, styles\.fullBleedCard\]\}/);
-      assert.match(homeScreenSource, /style=\{styles\.emptyWorkoutRow\}/);
+      // v3 is boxless: no full-bleed hero card; interactive rows get the
+      // shared pressed-scale feedback.
+      assert.doesNotMatch(homeScreenSource, /fullBleedCard/);
+      assert.match(homeScreenSource, /pressed:\s*\{\s*transform: \[\{ scale: 0\.95 \}\]/);
+      assert.match(homeScreenSource, /style=\{\(\{ pressed \}\) => \[styles\.emptyWorkoutRow, pressed && styles\.pressed\]\}/);
       assert.doesNotMatch(homeScreenSource, /onOpenActivePlan/);
       assert.doesNotMatch(homeScreenSource, /<Text style=\{styles\.myRoutineLabel\}>My Routine<\/Text>/);
       assert.doesNotMatch(homeScreenSource, /style=\{styles\.myRoutineCard\}/);
@@ -239,16 +259,20 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /ImageBackground/);
 
       assert.ok(
-        homeScreenSource.indexOf('styles.headerRow') < homeScreenSource.indexOf('styles.homeCalendarStrip'),
-        'header should render before calendar',
+        homeScreenSource.indexOf('styles.headerRow') < homeScreenSource.indexOf('styles.weekCard'),
+        'header should render before the week card',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.homeCalendarStrip') < homeScreenSource.indexOf('styles.continuePlanCard'),
-        'calendar should render before continue plan',
+        homeScreenSource.indexOf('styles.weekCard') < homeScreenSource.indexOf('styles.planEyebrow'),
+        'week card should render before the continue-plan agenda',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.continuePlanCard') < homeScreenSource.indexOf('styles.sectionHeaderRow'),
-        'continue plan should render before routines',
+        homeScreenSource.indexOf('styles.planEyebrow') < homeScreenSource.indexOf('styles.startButton'),
+        'continue-plan agenda should render before the start button',
+      );
+      assert.ok(
+        homeScreenSource.indexOf('styles.startButton') < homeScreenSource.indexOf('styles.sectionHeaderRow'),
+        'start button should render before routines',
       );
       assert.ok(
         homeScreenSource.indexOf('styles.routineShortcutRow') < homeScreenSource.indexOf('styles.emptyWorkoutRow'),
