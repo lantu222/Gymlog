@@ -326,13 +326,23 @@ module.exports = [
       assert.match(progressScreenSource, /useEffect\(\(\) => \{[\s\S]*setProgressSection\(initialSection\);[\s\S]*\}, \[initialSection\]\)/);
       assert.match(appSource, /initialSection=\{route\.screen === 'list' \? route\.section : undefined\}/);
 
-      assert.match(bottomTabBarSource, /backgroundColor: '#FFFFFF'/);
+      // Bottom bar (Home v3): HG3 tokens, 11pt labels, and a floating circular
+      // Start button with a glowy purple halo that pops in (reduced-motion aware).
+      assert.match(bottomTabBarSource, /shell:\s*\{\s*backgroundColor: HG3\.surface/);
       assert.match(bottomTabBarSource, /activeTab: RootTabKey \| null/);
       assert.match(bottomTabBarSource, /activeTab !== null && activeTab === tab\.key/);
       assert.match(appSource, /activeTab=\{route\.tab === 'workout' && route\.screen === 'plans' \? null : route\.tab\}/);
-      assert.match(bottomTabBarSource, /const stroke = active \? '#7C3AED'/);
-      assert.match(bottomTabBarSource, /const fill = active \? '#7C3AED'/);
-      assert.match(bottomTabBarSource, /centerButtonActive:\s*\{[\s\S]*backgroundColor: '#7C3AED'/);
+      assert.match(bottomTabBarSource, /const stroke = active \? HG3\.purple/);
+      assert.match(bottomTabBarSource, /const fill = active \? HG3\.purple/);
+      assert.match(bottomTabBarSource, /sideLabel:\s*\{[\s\S]*fontSize: 11/);
+      assert.match(bottomTabBarSource, /centerButton:\s*\{[\s\S]*shadowColor: HG3\.purpleBright/);
+      assert.match(bottomTabBarSource, /shadowOpacity: 0\.45/);
+      assert.match(bottomTabBarSource, /centerButtonActive:\s*\{[\s\S]*backgroundColor: HG3\.purple/);
+      assert.match(bottomTabBarSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+      assert.match(bottomTabBarSource, /fabPop\.setValue\(1\)/);
+      assert.match(bottomTabBarSource, /Easing\.bezier\(0\.3, 1\.3, 0\.5, 1\)/);
+      assert.match(bottomTabBarSource, /delay: 500/);
+      assert.match(bottomTabBarSource, /delay: 240/);
     },
   },
 ];

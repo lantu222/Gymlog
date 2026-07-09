@@ -1,10 +1,11 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
 import { RootTabKey } from '../navigation/routes';
-import { radii, spacing } from '../theme';
+import { HG3 } from '../lightTheme';
+import { spacing } from '../theme';
 
 interface BottomTabBarProps {
   activeTab: RootTabKey | null;
@@ -21,8 +22,8 @@ const sideTabs: { key: RootTabKey; label: string }[] = [
 ];
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
-  const stroke = active ? '#7C3AED' : '#667085';
-  const fill = active ? '#7C3AED' : 'none';
+  const stroke = active ? HG3.purple : HG3.muted;
+  const fill = active ? HG3.purple : 'none';
   const size = 22;
 
   if (tab === 'home') {
@@ -89,7 +90,7 @@ function SideTab({
   onPress: () => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={styles.sideTab}>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.sideTab, pressed && styles.pressed]}>
       <TabIcon tab={tab.key} active={active} />
       <Text style={[styles.sideLabel, active && styles.sideLabelActive]}>{tab.label}</Text>
     </Pressable>
@@ -101,8 +102,66 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   const leftTabs = sideTabs.slice(0, 2);
   const rightTabs = sideTabs.slice(2);
 
+  const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+  // Home v3 entrance: the bar rises in at .24s and the FAB pops (scale .3 -> 1
+  // with overshoot) at .5s. Reduced motion skips straight to the final state.
+  const barRise = useRef(new Animated.Value(0)).current;
+  const fabPop = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    let mounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (mounted) {
+          setReduceMotion(Boolean(enabled));
+        }
+      })
+      .catch(() => {
+        if (mounted) {
+          setReduceMotion(false);
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion === null) {
+      return;
+    }
+    if (reduceMotion) {
+      barRise.setValue(1);
+      fabPop.setValue(1);
+      return;
+    }
+    Animated.timing(barRise, {
+      toValue: 1,
+      duration: 500,
+      delay: 240,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+      useNativeDriver: true,
+    }).start();
+    Animated.timing(fabPop, {
+      toValue: 1,
+      duration: 420,
+      delay: 500,
+      easing: Easing.bezier(0.3, 1.3, 0.5, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [barRise, fabPop, reduceMotion]);
+
   return (
-    <View style={[styles.shell, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+    <Animated.View
+      style={[
+        styles.shell,
+        { paddingBottom: Math.max(insets.bottom, 8) },
+        {
+          opacity: barRise,
+          transform: [{ translateY: barRise.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+        },
+      ]}
+    >
       <View style={styles.row}>
         <View style={styles.sideGroup}>
           {leftTabs.map((tab) => (
@@ -115,8 +174,17 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
           ))}
         </View>
 
-        <Pressable onPress={onAiPress} style={[styles.centerButton, aiActive && styles.centerButtonActive]}>
-          <Text style={[styles.centerPlus, aiActive && styles.centerLabelActive]}>+</Text>
+        <Pressable onPress={onAiPress} style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}>
+          <Animated.View style={[styles.centerButton, aiActive && styles.centerButtonActive, { transform: [{ scale: fabPop }] }]}>
+            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 5v14M5 12h14"
+                stroke={aiActive ? HG3.surface : HG3.purple}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Animated.View>
           <Text style={[styles.centerLabel, aiActive && styles.centerLabelActive]}>Start</Text>
         </Pressable>
 
@@ -131,15 +199,15 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
           ))}
         </View>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   shell: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: HG3.surface,
     borderTopWidth: 1,
-    borderColor: '#E4D8FF',
+    borderColor: HG3.border,
     paddingTop: 10,
     paddingHorizontal: spacing.md,
   },
@@ -155,6 +223,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'flex-end',
   },
+  pressed: {
+    transform: [{ scale: 0.95 }],
+  },
   sideTab: {
     minWidth: 62,
     minHeight: 54,
@@ -164,47 +235,46 @@ const styles = StyleSheet.create({
     paddingBottom: 2,
   },
   sideLabel: {
-    color: '#667085',
-    fontSize: 12,
-    fontWeight: '700',
+    color: HG3.muted,
+    fontSize: 11,
+    fontWeight: '600',
   },
   sideLabelActive: {
-    color: '#7C3AED',
+    color: HG3.purple,
+    fontWeight: '800',
+  },
+  centerTab: {
+    alignItems: 'center',
+    gap: 4,
+    marginTop: -26,
   },
   centerButton: {
-    width: 58,
-    minHeight: 58,
-    marginTop: -14,
-    borderRadius: radii.pill,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E4D8FF',
+    width: 54,
+    height: 54,
+    borderRadius: 999,
+    backgroundColor: HG3.surface,
+    borderWidth: 1.5,
+    borderColor: HG3.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 2,
-    shadowColor: '#D8C7FF',
+    // Glowy purple halo around the floating Start button (Home v3).
+    shadowColor: HG3.purpleBright,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 6,
+    shadowOpacity: 0.45,
+    shadowRadius: 18,
+    elevation: 12,
   },
   centerButtonActive: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    backgroundColor: HG3.purple,
+    borderColor: HG3.purple,
   },
   centerLabel: {
-    color: '#7C3AED',
+    color: HG3.purple,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
   },
-  centerPlus: {
-    color: '#7C3AED',
-    fontSize: 26,
-    lineHeight: 28,
-    fontWeight: '600',
-  },
   centerLabelActive: {
-    color: '#FFFFFF',
+    color: HG3.purple,
   },
 });
