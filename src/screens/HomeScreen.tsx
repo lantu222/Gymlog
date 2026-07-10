@@ -14,6 +14,13 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from
 
 import { GymlogIcon } from '../components/GymlogIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
+import {
+  getAdaptTrimEstimate,
+  getDefaultCooldown,
+  getDefaultWarmup,
+  getPlanWeekPhase,
+  getSessionFocusTitle,
+} from '../lib/homeSessionHero';
 import { HG3 } from '../lightTheme';
 
 // Dark Pro-sheet-only shades (GAINER Home v3 mock). The sheet lives on the
@@ -63,29 +70,23 @@ const PRO_PRICING = {
 
 type ProPlanKey = keyof typeof PRO_PRICING;
 
-// Entrance stagger (Home v3 "rise"): translateY 16 -> 0 + fade, 500ms,
+// Entrance stagger (Home v4 "rise"): translateY 16 -> 0 + fade, 500ms,
 // cubic-bezier(.22,1,.36,1). Indices name each animated section.
-const RISE_DELAYS_MS = [40, 100, 160, 200, 240, 280, 340, 400, 460, 520, 580, 620, 720] as const;
+const RISE_DELAYS_MS = [40, 100, 160, 300, 360, 420, 460, 480, 520, 560, 600] as const;
 const RISE_HEADER = 0;
 const RISE_WEEK = 1;
-const RISE_PLAN_EYEBROW = 2;
-const RISE_PLAN_TITLE = 3;
-const RISE_PLAN_SUB = 4;
-const RISE_PLAN_PROGRESS = 5;
-const RISE_PLAN_ROW_BASE = 6; // rows use 6, 7, 8
-const RISE_PLAN_FOOTER = 9;
-const RISE_START = 10;
-const RISE_DIVIDER = 11;
-const RISE_ROUTINES = 12;
+const RISE_HERO = 2;
+const RISE_SEC_BASE = 3; // warmup 3, workout 4, cooldown 5
+const RISE_BTNROW = 6;
+const RISE_DIVIDER = 7;
+const RISE_ROUTINES_HEAD = 8;
+const RISE_ROUTINES_CARDS = 9;
+const RISE_EMPTY_ROW = 10;
 
 const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
+const SECTION_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
-// Shown only when no active plan exists (Start falls back to an empty workout).
-const FALLBACK_AGENDA_EXERCISES: Array<{ name: string; setsLabel: string; schemeLabel: string }> = [
-  { name: 'Squat', setsLabel: '3 sets', schemeLabel: '3 × 8' },
-  { name: 'Push-Up', setsLabel: '3 sets', schemeLabel: '3 × 10' },
-  { name: 'Row', setsLabel: '3 sets', schemeLabel: '3 × 8' },
-];
+type SectionKey = 'warmup' | 'workout' | 'cooldown';
 
 interface HomeTemplateItem {
   id: string;
@@ -115,8 +116,12 @@ interface HomePlanCard {
   subtitle: string;
   weekLabel: string;
   progressPercent: number;
-  weekProgressLabel: string;
-  weekProgressPercent: number;
+  sessionsDone: number;
+  sessionsTotal: number;
+  currentWeek: number;
+  planTotalWeeks: number;
+  focusLabel: string;
+  equipmentLabel: string | null;
   sessionsPerWeek: string;
   weeklyMinutes: string;
   sessions: HomeDaySessionSummary[];
@@ -146,7 +151,13 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
+  const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
+    warmup: false,
+    workout: true,
+    cooldown: false,
+  });
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   const savedRoutineCount = customTemplates.length;
@@ -156,30 +167,31 @@ export function HomeScreen({
     ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2))
     : [0, 3];
 
+  // --- Session hero data (Home v4) ---------------------------------------
   const nextPlanSession = activePlan?.nextSession ?? null;
-  const planSessions = activePlan?.sessions ?? [];
-  const nextSessionIndex = nextPlanSession
-    ? Math.max(0, planSessions.findIndex((session) => session.id === nextPlanSession.id))
-    : 0;
-  const planDayCount = planSessions.length || Number.parseInt(activePlan?.sessionsPerWeek ?? '', 10) || 3;
-  const planEyebrow = `CONTINUE PLAN · DAY ${nextSessionIndex + 1} OF ${planDayCount}`;
-  const planTitle = nextPlanSession?.title ?? 'Day 1 - Full Body';
-  const planSubtitle = activePlan?.title ?? 'Workout plan';
-  const weekProgressLabel = activePlan?.weekProgressLabel ?? 'Week 1 · 0 of 3 done';
-  const weekProgressPercent = activePlan?.weekProgressPercent ?? 0;
-  const agendaSource = nextPlanSession?.exercises ?? FALLBACK_AGENDA_EXERCISES;
-  const agendaExercises = agendaSource.slice(0, 3);
-  const totalExerciseCount = (nextPlanSession?.exercises.length ?? agendaSource.length) + (nextPlanSession?.hiddenExerciseCount ?? 0);
-  const agendaExtraCount = Math.max(0, totalExerciseCount - agendaExercises.length);
+  const focusTitle = getSessionFocusTitle(nextPlanSession?.title, activePlan?.title);
+  const sessionsDone = activePlan?.sessionsDone ?? 0;
+  const sessionsTotal = activePlan?.sessionsTotal ?? 0;
+  const sessionsProgressPercent = sessionsTotal > 0 ? Math.round((sessionsDone / sessionsTotal) * 100) : 0;
   const planDuration = nextPlanSession?.duration ?? '~45 min';
-  const agendaFooterLabel =
-    agendaExtraCount > 0 ? `+ ${agendaExtraCount} more · ${planDuration} total` : `${planDuration} total`;
+  const planDurationMinutes = Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45;
+  const totalExerciseCount = (nextPlanSession?.exercises.length ?? 0) + (nextPlanSession?.hiddenExerciseCount ?? 0);
+  const totalSets = nextPlanSession?.totalSets ?? 0;
+  const weekPhase = getPlanWeekPhase(activePlan?.currentWeek ?? 1, activePlan?.planTotalWeeks ?? 1);
+  const warmup = getDefaultWarmup(focusTitle);
+  const cooldown = getDefaultCooldown(focusTitle);
+  const adaptTrim = getAdaptTrimEstimate(totalSets, planDurationMinutes);
 
   // --- Animations -----------------------------------------------------------
 
   const riseValues = useRef(RISE_DELAYS_MS.map(() => new Animated.Value(0))).current;
   const progressFillAnim = useRef(new Animated.Value(0)).current;
   const calendarAnim = useRef(new Animated.Value(0)).current;
+  const sectionAnims = useRef<Record<SectionKey, Animated.Value>>({
+    warmup: new Animated.Value(0),
+    workout: new Animated.Value(1),
+    cooldown: new Animated.Value(0),
+  }).current;
 
   useEffect(() => {
     let mounted = true;
@@ -206,7 +218,7 @@ export function HomeScreen({
     if (reduceMotion) {
       // Reduced motion: skip straight to the final visible state.
       riseValues.forEach((value) => value.setValue(1));
-      progressFillAnim.setValue(weekProgressPercent);
+      progressFillAnim.setValue(sessionsProgressPercent);
       return;
     }
     Animated.parallel(
@@ -221,13 +233,13 @@ export function HomeScreen({
       ),
     ).start();
     Animated.timing(progressFillAnim, {
-      toValue: weekProgressPercent,
-      duration: 700,
-      delay: RISE_DELAYS_MS[RISE_PLAN_PROGRESS],
+      toValue: sessionsProgressPercent,
+      duration: 900,
+      delay: RISE_DELAYS_MS[RISE_HERO],
       easing: RISE_EASING,
       useNativeDriver: false,
     }).start();
-  }, [progressFillAnim, reduceMotion, riseValues, weekProgressPercent]);
+  }, [progressFillAnim, reduceMotion, riseValues, sessionsProgressPercent]);
 
   const rise = (index: number) => ({
     opacity: riseValues[index],
@@ -253,6 +265,21 @@ export function HomeScreen({
     }).start();
   };
 
+  const toggleSection = (key: SectionKey) => {
+    const next = !openSections[key];
+    setOpenSections((current) => ({ ...current, [key]: next }));
+    if (reduceMotion) {
+      sectionAnims[key].setValue(next ? 1 : 0);
+      return;
+    }
+    Animated.timing(sectionAnims[key], {
+      toValue: next ? 1 : 0,
+      duration: 380,
+      easing: SECTION_EASING,
+      useNativeDriver: false,
+    }).start();
+  };
+
   const startTodaysSession = () => {
     if (nextPlanSession && onStartActivePlanSession) {
       onStartActivePlanSession(nextPlanSession.id);
@@ -262,6 +289,70 @@ export function HomeScreen({
   };
 
   const activePricing = PRO_PRICING[proPlan];
+
+  const renderSection = (
+    key: SectionKey,
+    title: string,
+    countLabel: string,
+    rows: Array<{ name: string; schemeLabel: string }>,
+    extraCount = 0,
+  ) => (
+    <Animated.View
+      key={key}
+      style={[styles.secCard, rise(RISE_SEC_BASE + (key === 'warmup' ? 0 : key === 'workout' ? 1 : 2))]}
+    >
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${openSections[key] ? 'Collapse' : 'Expand'} ${title}`}
+        onPress={() => toggleSection(key)}
+        style={styles.secBtn}
+      >
+        <Text style={styles.secTitle}>{title}</Text>
+        <Text style={styles.secCount}>{countLabel}</Text>
+        <Animated.View
+          style={{
+            transform: [
+              {
+                rotate: sectionAnims[key].interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }),
+              },
+            ],
+          }}
+        >
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path d="m6 9 6 6 6-6" stroke="#8B84A0" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+        </Animated.View>
+      </Pressable>
+      <Animated.View
+        style={[
+          styles.secBody,
+          {
+            opacity: sectionAnims[key],
+            maxHeight: sectionAnims[key].interpolate({ inputRange: [0, 1], outputRange: [0, 420] }),
+          },
+        ]}
+      >
+        <View style={styles.secInner}>
+          {rows.map((row, index) => (
+            <View key={`${row.name}-${index}`} style={styles.planExerciseRow}>
+              <View style={styles.planExerciseNumberChip}>
+                <Text style={styles.planExerciseNumberText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.planExerciseName} numberOfLines={1}>
+                {row.name}
+              </Text>
+              <Text style={styles.planExerciseScheme}>{row.schemeLabel}</Text>
+            </View>
+          ))}
+          {extraCount > 0 ? (
+            <View style={styles.planExerciseRow}>
+              <Text style={styles.planListFooterText}>+ {extraCount} more</Text>
+            </View>
+          ) : null}
+        </View>
+      </Animated.View>
+    </Animated.View>
+  );
 
   return (
     <View style={styles.screenBackground}>
@@ -375,53 +466,146 @@ export function HomeScreen({
           </Animated.View>
         </Animated.View>
 
-        {/* Continue plan — boxless agenda (Home v3) */}
-        <Animated.View style={rise(RISE_PLAN_EYEBROW)}>
-          <Text style={styles.planEyebrow}>{planEyebrow}</Text>
-        </Animated.View>
-        <Animated.View style={rise(RISE_PLAN_TITLE)}>
-          <Text style={styles.planTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-            {planTitle}
-          </Text>
-        </Animated.View>
-        <Animated.View style={rise(RISE_PLAN_SUB)}>
-          <Text style={styles.planSubtitle} numberOfLines={1}>
-            {planSubtitle}
-          </Text>
-        </Animated.View>
-
-        <Animated.View style={[styles.planProgressRow, rise(RISE_PLAN_PROGRESS)]}>
-          <View style={styles.planProgressTrack}>
-            <Animated.View
-              style={[
-                styles.planProgressFill,
-                {
-                  width: progressFillAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
-                },
-              ]}
-            />
-          </View>
-          <Text style={styles.planProgressLabel}>{weekProgressLabel}</Text>
-        </Animated.View>
-
-        <View style={styles.planExerciseList}>
-          {agendaExercises.map((exercise, index) => (
-            <Animated.View key={`${exercise.name}-${index}`} style={[styles.planExerciseRow, rise(RISE_PLAN_ROW_BASE + index)]}>
-              <View style={styles.planExerciseNumberChip}>
-                <Text style={styles.planExerciseNumberText}>{index + 1}</Text>
+        {/* Session hero (Home v4) — renders only with an active plan */}
+        {activePlan && nextPlanSession ? (
+          <>
+            <Animated.View style={[styles.hero, rise(RISE_HERO)]}>
+              <View style={styles.heroTop}>
+                <Text style={styles.heroTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {focusTitle}
+                </Text>
+                <View style={styles.heroProg}>
+                  <Text style={styles.heroProgLabel}>
+                    {sessionsDone} of {sessionsTotal} sessions
+                  </Text>
+                  <View style={styles.heroProgTrack}>
+                    <Animated.View
+                      style={[
+                        styles.heroProgFill,
+                        {
+                          width: progressFillAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
               </View>
-              <Text style={styles.planExerciseName} numberOfLines={1}>
-                {exercise.name}
-              </Text>
-              <Text style={styles.planExerciseScheme}>{exercise.schemeLabel ?? exercise.setsLabel ?? ''}</Text>
-            </Animated.View>
-          ))}
-          <Animated.View style={[styles.planListFooterRow, rise(RISE_PLAN_FOOTER)]}>
-            <Text style={styles.planListFooterText}>{agendaFooterLabel}</Text>
-          </Animated.View>
-        </View>
 
-        <Animated.View style={rise(RISE_START)}>
+              <View style={styles.metaGrid}>
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2.5 2.5M9 2h6"
+                        stroke={HG3.purple}
+                        strokeWidth={2.1}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                    <Text style={styles.metaText}>{planDuration}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5z"
+                        stroke={HG3.purple}
+                        strokeWidth={2.1}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                    <Text style={styles.metaText}>
+                      {totalSets} sets <Text style={styles.metaSub}>· {totalExerciseCount} exercises</Text>
+                    </Text>
+                  </View>
+                </View>
+                <View style={styles.metaRow}>
+                  <View style={styles.metaItem}>
+                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M12 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 9v6M8 22l4-7 4 7M7 12h10"
+                        stroke={HG3.purple}
+                        strokeWidth={2.1}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                    <Text style={styles.metaText}>{activePlan.focusLabel}</Text>
+                  </View>
+                  <View style={styles.metaItem}>
+                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"
+                        stroke={HG3.purple}
+                        strokeWidth={2.1}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                    <Text style={styles.metaText}>
+                      Week {activePlan.currentWeek} <Text style={styles.metaSub}>· {weekPhase}</Text>
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {activePlan.equipmentLabel ? (
+                <View style={styles.equipRow}>
+                  <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
+                      stroke={HG3.purple}
+                      strokeWidth={2.1}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <Text style={styles.equipText}>
+                    <Text style={styles.equipBold}>{activePlan.equipmentLabel}</Text> — needed for today's session
+                  </Text>
+                </View>
+              ) : null}
+            </Animated.View>
+
+            <View style={styles.secs}>
+              {renderSection(
+                'warmup',
+                'Warmup',
+                `${warmup.drills.length} drills · ${warmup.minutes} min`,
+                warmup.drills,
+              )}
+              {renderSection(
+                'workout',
+                'Workout',
+                `${totalExerciseCount} exercises · ${totalSets} sets`,
+                nextPlanSession.exercises.map((exercise) => ({
+                  name: exercise.name,
+                  schemeLabel: exercise.schemeLabel ?? exercise.setsLabel,
+                })),
+                nextPlanSession.hiddenExerciseCount,
+              )}
+              {renderSection(
+                'cooldown',
+                'Cooldown',
+                `${cooldown.drills.length} stretches · ${cooldown.minutes} min`,
+                cooldown.drills,
+              )}
+            </View>
+          </>
+        ) : null}
+
+        <Animated.View style={[styles.btnRow, rise(RISE_BTNROW)]}>
+          {activePlan && nextPlanSession ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Adapt today's session"
+              onPress={() => setAdaptSheetVisible(true)}
+              style={({ pressed }) => [styles.adaptButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.adaptButtonText}>Adapt</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Start today's workout"
@@ -437,14 +621,16 @@ export function HomeScreen({
 
         <Animated.View style={[styles.sectionDivider, rise(RISE_DIVIDER)]} />
 
-        <Animated.View style={rise(RISE_ROUTINES)}>
+        <Animated.View style={rise(RISE_ROUTINES_HEAD)}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Routines</Text>
             <Pressable onPress={onOpenTemplatesHub} hitSlop={8}>
               <Text style={styles.seeAllText}>See all</Text>
             </Pressable>
           </View>
+        </Animated.View>
 
+        <Animated.View style={rise(RISE_ROUTINES_CARDS)}>
           <View style={styles.routineShortcutRow}>
             <Pressable onPress={onOpenTemplatesHub} style={({ pressed }) => [styles.routineShortcutCard, pressed && styles.pressed]}>
               <View style={styles.routineShortcutIcon}>
@@ -472,7 +658,9 @@ export function HomeScreen({
               </View>
             </Pressable>
           </View>
+        </Animated.View>
 
+        <Animated.View style={rise(RISE_EMPTY_ROW)}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Start empty workout"
@@ -489,6 +677,80 @@ export function HomeScreen({
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
+
+      {/* Adapt session sheet (Home v4) — options are presentational for now */}
+      <Modal
+        visible={adaptSheetVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        onRequestClose={() => setAdaptSheetVisible(false)}
+      >
+        <View style={styles.adaptOverlay}>
+          <Pressable style={styles.adaptScrim} onPress={() => setAdaptSheetVisible(false)} />
+          <View style={styles.adaptSheet}>
+            <View style={styles.adaptGrip} />
+            <Text style={styles.adaptTitle}>Adapt session</Text>
+            <Text style={styles.adaptSub}>Tweak today's session — your plan stays on track.</Text>
+            <View style={styles.adaptOpts}>
+              {[
+                {
+                  key: 'shorter',
+                  title: 'Shorter session',
+                  sub: `Trim to ~${adaptTrim.trimmedMinutes} min · drops ${adaptTrim.droppedSets} sets`,
+                  icon: 'M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2.5 2.5M9 2h6',
+                },
+                {
+                  key: 'equipment',
+                  title: 'Change equipment',
+                  sub: 'Rack taken? Swap to dumbbells',
+                  icon: 'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10',
+                },
+                {
+                  key: 'swap',
+                  title: 'Swap an exercise',
+                  sub: 'Replace any lift with an alternative',
+                  icon: 'M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3',
+                },
+                {
+                  key: 'energy',
+                  title: 'Feeling low energy',
+                  sub: 'Lighter loads, same movements',
+                  icon: 'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1',
+                },
+              ].map((option) => (
+                <Pressable
+                  key={option.key}
+                  accessibilityRole="button"
+                  accessibilityLabel={option.title}
+                  onPress={() => setAdaptSheetVisible(false)}
+                  style={({ pressed }) => [styles.adaptOpt, pressed && styles.pressed]}
+                >
+                  <View style={styles.adaptOptIcon}>
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <Path d={option.icon} stroke={HG3.purple} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </View>
+                  <View style={styles.adaptOptCopy}>
+                    <Text style={styles.adaptOptTitle}>{option.title}</Text>
+                    <Text style={styles.adaptOptSub}>{option.sub}</Text>
+                  </View>
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="m9 6 6 6-6 6" stroke={HG3.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setAdaptSheetVisible(false)}
+              hitSlop={8}
+              style={styles.adaptCancel}
+            >
+              <Text style={styles.adaptCancelText}>Cancel</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={proSheetVisible}
@@ -799,61 +1061,139 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: '700',
   },
-  planEyebrow: {
+  hero: {
     marginTop: 24,
-    color: HG3.purple,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 1.76,
+    paddingHorizontal: 2,
   },
-  planTitle: {
-    marginTop: 6,
-    color: HG3.ink,
-    fontSize: 31,
-    lineHeight: 37,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-  },
-  planSubtitle: {
-    marginTop: 3,
-    color: HG3.muted,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '600',
-  },
-  planProgressRow: {
-    marginTop: 16,
+  heroTop: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     gap: 12,
   },
-  planProgressTrack: {
+  heroTitle: {
     flex: 1,
+    color: HG3.ink,
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '800',
+    letterSpacing: -1,
+  },
+  heroProg: {
+    alignItems: 'flex-end',
+    paddingTop: 4,
+  },
+  heroProgLabel: {
+    color: HG3.muted,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  heroProgTrack: {
+    width: 88,
     height: 6,
     borderRadius: 999,
     backgroundColor: HG3.border,
     overflow: 'hidden',
+    marginTop: 7,
   },
-  planProgressFill: {
+  heroProgFill: {
     height: 6,
     borderRadius: 999,
     backgroundColor: HG3.purple,
   },
-  planProgressLabel: {
+  metaGrid: {
+    marginTop: 18,
+    gap: 11,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    gap: 14,
+  },
+  metaItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  metaText: {
+    color: HG3.ink,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  metaSub: {
     color: HG3.muted,
+    fontWeight: '600',
+  },
+  equipRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    marginTop: 13,
+    paddingTop: 13,
+    borderTopWidth: 1,
+    borderTopColor: HG3.border,
+  },
+  equipText: {
+    flex: 1,
+    color: HG3.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  equipBold: {
+    color: HG3.ink,
+    fontWeight: '700',
+  },
+  secs: {
+    marginTop: 20,
+    gap: 10,
+  },
+  secCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG3.border,
+    backgroundColor: HG3.surface,
+    overflow: 'hidden',
+    shadowColor: HG3.purpleBright,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  secBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+  },
+  secTitle: {
+    flex: 1,
+    color: HG3.ink,
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  secCount: {
+    color: HG3.faint,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '700',
   },
-  planExerciseList: {
-    marginTop: 14,
+  secBody: {
+    overflow: 'hidden',
+  },
+  secInner: {
+    paddingHorizontal: 16,
+    paddingBottom: 8,
   },
   planExerciseRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
+    gap: 13,
+    paddingVertical: 12,
     borderTopWidth: 1,
     borderTopColor: HG3.border,
   },
@@ -867,8 +1207,8 @@ const styles = StyleSheet.create({
   },
   planExerciseNumberText: {
     color: HG3.purple,
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 12.5,
+    lineHeight: 16,
     fontWeight: '800',
   },
   planExerciseName: {
@@ -884,18 +1224,40 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontFamily: 'JetBrainsMono',
   },
-  planListFooterRow: {
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: HG3.border,
-  },
   planListFooterText: {
     color: HG3.faint,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '600',
   },
+  btnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 20,
+  },
+  adaptButton: {
+    flex: 1,
+    height: 56,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: HG3.border,
+    backgroundColor: HG3.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: HG3.purpleBright,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  adaptButtonText: {
+    color: HG3.ink,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
   startButton: {
+    flex: 1.3,
     height: 56,
     borderRadius: 16,
     borderWidth: 1.5,
@@ -904,24 +1266,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 9,
-    marginTop: 6,
+    gap: 8,
     shadowColor: HG3.purpleBright,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.14,
     shadowRadius: 16,
     elevation: 4,
   },
   startButtonText: {
     color: HG3.purple,
-    fontSize: 16.5,
-    lineHeight: 21,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '800',
   },
   sectionDivider: {
     height: 1,
     backgroundColor: HG3.border,
-    marginTop: 18,
+    marginTop: 22,
   },
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -945,24 +1306,30 @@ const styles = StyleSheet.create({
   routineShortcutRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 10,
+    marginTop: 12,
   },
   routineShortcutCard: {
     flex: 1,
-    minHeight: 92,
-    borderRadius: 16,
+    minHeight: 74,
+    borderRadius: 15,
     borderWidth: 1,
     borderColor: HG3.border,
     backgroundColor: HG3.surface,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
+    gap: 11,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
+    shadowColor: HG3.purpleBright,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    elevation: 2,
   },
   routineShortcutIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
+    width: 37,
+    height: 37,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: HG3.purpleSoft,
@@ -970,17 +1337,17 @@ const styles = StyleSheet.create({
   routineShortcutCopy: {
     flex: 1,
     minWidth: 0,
-    gap: 3,
+    gap: 2,
   },
   routineShortcutTitle: {
     color: HG3.ink,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 14.5,
+    lineHeight: 18,
     fontWeight: '800',
   },
   routineShortcutSubtitle: {
     color: HG3.muted,
-    fontSize: 12,
+    fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '600',
   },
@@ -1017,6 +1384,101 @@ const styles = StyleSheet.create({
   },
   bottomSafeFade: {
     height: 16,
+  },
+  adaptOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(12, 7, 26, 0.5)',
+  },
+  adaptScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  adaptSheet: {
+    maxHeight: '94%',
+    borderTopLeftRadius: 30,
+    borderTopRightRadius: 30,
+    backgroundColor: HG3.surface,
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 26,
+  },
+  adaptGrip: {
+    alignSelf: 'center',
+    width: 42,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: HG3.border,
+    marginBottom: 18,
+  },
+  adaptTitle: {
+    color: HG3.ink,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
+  adaptSub: {
+    marginTop: 6,
+    color: HG3.muted,
+    fontSize: 13.5,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  adaptOpts: {
+    marginTop: 18,
+    gap: 9,
+  },
+  adaptOpt: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: HG3.border,
+    backgroundColor: HG3.bg,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+  },
+  adaptOptIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: HG3.border,
+    backgroundColor: HG3.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  adaptOptCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  adaptOptTitle: {
+    color: HG3.ink,
+    fontSize: 14.5,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  adaptOptSub: {
+    marginTop: 2,
+    color: HG3.muted,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  adaptCancel: {
+    alignSelf: 'center',
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    marginTop: 8,
+  },
+  adaptCancelText: {
+    color: HG3.muted,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   proSheetOverlay: {
     flex: 1,
