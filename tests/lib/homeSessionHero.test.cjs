@@ -5,6 +5,7 @@ const {
   getSessionBodyFocusLabel,
   getPlanWeekPhase,
   buildSessionEquipmentLabel,
+  inferEquipmentFromExerciseName,
   getDefaultWarmup,
   getDefaultCooldown,
   getAdaptTrimEstimate,
@@ -73,6 +74,36 @@ module.exports = [
       assert.equal(buildSessionEquipmentLabel(['Plank'], library), null);
       assert.equal(buildSessionEquipmentLabel(['Mystery Move'], library), null);
       assert.equal(buildSessionEquipmentLabel([], library), null);
+    },
+  },
+  {
+    name: 'equipment inference covers plan names the library does not know verbatim',
+    run() {
+      // The generated library has "Barbell Squat" etc., not "Back Squat" —
+      // name inference must fill the gap so the equipment row stays truthful.
+      assert.equal(inferEquipmentFromExerciseName('Back Squat'), 'barbell');
+      assert.equal(inferEquipmentFromExerciseName('Bench Press'), 'barbell');
+      assert.equal(inferEquipmentFromExerciseName('Romanian Deadlift'), 'barbell');
+      assert.equal(inferEquipmentFromExerciseName('Incline Dumbbell Press'), 'dumbbell');
+      assert.equal(inferEquipmentFromExerciseName('Cable Crunch'), 'cable');
+      assert.equal(inferEquipmentFromExerciseName('Lat Pulldown'), 'cable');
+      assert.equal(inferEquipmentFromExerciseName('Leg Press'), 'machine');
+      assert.equal(inferEquipmentFromExerciseName('Plank'), 'bodyweight');
+      assert.equal(inferEquipmentFromExerciseName('Push-Up'), 'bodyweight');
+      // Ambiguous rows stay unknown rather than guessing.
+      assert.equal(inferEquipmentFromExerciseName('Chest-Supported Row'), null);
+
+      // Full fallback path with an empty library.
+      assert.equal(
+        buildSessionEquipmentLabel(['Back Squat', 'Bench Press', 'Chest-Supported Row', 'Cable Crunch'], []),
+        'Barbell & Cables',
+      );
+      assert.equal(buildSessionEquipmentLabel(['Plank', 'Push-Up'], []), null);
+      // Exact library data still wins over inference.
+      assert.equal(
+        buildSessionEquipmentLabel(['Back Squat'], [{ name: 'Back Squat', equipment: 'machine' }]),
+        'Machines',
+      );
     },
   },
   {

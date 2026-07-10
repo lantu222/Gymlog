@@ -63,9 +63,36 @@ const EQUIPMENT_LABELS: Record<string, string> = {
 };
 
 /**
+ * Infers equipment from an exercise name when the library has no exact match
+ * (plan names like "Back Squat" vs library names like "Barbell Squat").
+ * Explicit equipment words win; classic barbell lifts and bodyweight moves
+ * are recognized by pattern; anything else stays unknown (null).
+ */
+export function inferEquipmentFromExerciseName(name: string): string | null {
+  const normalized = name.trim().toLowerCase();
+  if (/\bdumbbell\b|\bdb\b/.test(normalized)) {
+    return 'dumbbell';
+  }
+  if (/\bcable\b|pulldown|pushdown|face pull/.test(normalized)) {
+    return 'cable';
+  }
+  if (/\bmachine\b|leg press|leg extension|leg curl|pec deck|\bsmith\b/.test(normalized)) {
+    return 'machine';
+  }
+  if (/\bbarbell\b|back squat|front squat|bench press|deadlift|overhead press|military press|power clean|hip thrust/.test(normalized)) {
+    return 'barbell';
+  }
+  if (/\bplank\b|push-?up|pull-?up|chin-?up|\bdip\b|crunch|sit-?up|bodyweight|air squat|\bhang\b/.test(normalized)) {
+    return 'bodyweight';
+  }
+  return null;
+}
+
+/**
  * Builds the bold equipment list ("Barbell, Dumbbells & Cables") from the
- * session's exercises via the exercise library. Returns null when the session
- * is bodyweight-only (or nothing matches) so the row can be hidden.
+ * session's exercises via the exercise library, falling back to name-based
+ * inference for names the library doesn't know verbatim. Returns null when
+ * the session is bodyweight-only (or nothing resolves) so the row can hide.
  */
 export function buildSessionEquipmentLabel(
   exerciseNames: string[],
@@ -74,7 +101,7 @@ export function buildSessionEquipmentLabel(
   const equipmentByName = new Map(library.map((item) => [item.name.trim().toLowerCase(), item.equipment]));
   const found: string[] = [];
   for (const name of exerciseNames) {
-    const equipment = equipmentByName.get(name.trim().toLowerCase());
+    const equipment = equipmentByName.get(name.trim().toLowerCase()) ?? inferEquipmentFromExerciseName(name);
     if (equipment && equipment !== 'bodyweight' && !found.includes(equipment)) {
       found.push(equipment);
     }
