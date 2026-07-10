@@ -17,6 +17,10 @@ module.exports = [
           progressPercent: 1,
           weekProgressLabel: 'Week 1 · 0 of 2 done',
           weekProgressPercent: 0,
+          currentWeek: 1,
+          totalWeeks: 8,
+          sessionsDone: 0,
+          sessionsTotal: 16,
         },
       );
     },
@@ -35,6 +39,10 @@ module.exports = [
           progressPercent: 6,
           weekProgressLabel: 'Week 1 · 1 of 2 done',
           weekProgressPercent: 50,
+          currentWeek: 1,
+          totalWeeks: 8,
+          sessionsDone: 1,
+          sessionsTotal: 16,
         },
       );
 
@@ -49,6 +57,10 @@ module.exports = [
           progressPercent: 13,
           weekProgressLabel: 'Week 2 · 0 of 2 done',
           weekProgressPercent: 0,
+          currentWeek: 2,
+          totalWeeks: 8,
+          sessionsDone: 2,
+          sessionsTotal: 16,
         },
       );
 
@@ -63,6 +75,10 @@ module.exports = [
           progressPercent: 100,
           weekProgressLabel: 'Week 8 · 2 of 2 done',
           weekProgressPercent: 100,
+          currentWeek: 8,
+          totalWeeks: 8,
+          sessionsDone: 16,
+          sessionsTotal: 16,
         },
       );
     },

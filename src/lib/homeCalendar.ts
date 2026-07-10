@@ -44,6 +44,8 @@ export interface HomeDaySessionSummary {
   id: string;
   title: string;
   duration: string;
+  /** Total working sets across every exercise (Home v4 meta grid). */
+  totalSets?: number;
   exercises: Array<{
     name: string;
     setsLabel: string;

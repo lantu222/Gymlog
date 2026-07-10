@@ -40,6 +40,7 @@ import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
+import { buildSessionEquipmentLabel, getSessionBodyFocusLabel } from './src/lib/homeSessionHero';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
@@ -1934,6 +1935,7 @@ function GymlogApp() {
           id: session.id,
           title: formatHomeSessionTitle(session.name, session.exercises),
           duration: `~${estimatedDuration} min`,
+          totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0),
           exercises: session.exercises.slice(0, 5).map((exercise) => ({
             name: exercise.name,
             setsLabel: `${exercise.targetSets} sets`,
@@ -1963,6 +1965,15 @@ function GymlogApp() {
           progressPercent: planProgress.progressPercent,
           weekProgressLabel: planProgress.weekProgressLabel,
           weekProgressPercent: planProgress.weekProgressPercent,
+          sessionsDone: planProgress.sessionsDone,
+          sessionsTotal: planProgress.sessionsTotal,
+          currentWeek: planProgress.currentWeek,
+          planTotalWeeks: planProgress.totalWeeks,
+          focusLabel: getSessionBodyFocusLabel(undefined),
+          equipmentLabel: buildSessionEquipmentLabel(
+            (orderedPlanSessions[0]?.exercises ?? []).map((exercise) => exercise.name),
+            exerciseLibrary,
+          ),
           sessionsPerWeek: `${sortedEntries.length}`,
           weeklyMinutes: `~${estimatedDuration * sortedEntries.length} min`,
           sessions: homeSessions,
@@ -1991,6 +2002,7 @@ function GymlogApp() {
       id: session.id,
       title: formatHomeSessionTitle(session.name, session.exercises),
       duration: `~${recommendedReadyTemplate.estimatedSessionDuration} min`,
+      totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.sets, 0),
       exercises: session.exercises.map((exercise) => ({
         name: exercise.exerciseName,
         setsLabel: `${exercise.sets} sets`,
@@ -2011,6 +2023,15 @@ function GymlogApp() {
       progressPercent: planProgress.progressPercent,
       weekProgressLabel: planProgress.weekProgressLabel,
       weekProgressPercent: planProgress.weekProgressPercent,
+      sessionsDone: planProgress.sessionsDone,
+      sessionsTotal: planProgress.sessionsTotal,
+      currentWeek: planProgress.currentWeek,
+      planTotalWeeks: planProgress.totalWeeks,
+      focusLabel: getSessionBodyFocusLabel(recommendedReadyTemplate.splitType),
+      equipmentLabel: buildSessionEquipmentLabel(
+        (recommendedReadyTemplate.sessions[0]?.exercises ?? []).map((exercise) => exercise.exerciseName),
+        exerciseLibrary,
+      ),
       sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
       weeklyMinutes: `~${weeklyMinutes} min`,
       sessions: homeSessions,
@@ -2019,7 +2040,7 @@ function GymlogApp() {
         label: 'Week 1 · Day 1',
       },
     };
-  }, [database, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
+  }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
   const homeAiPromptSuggestions = useMemo(
     () =>

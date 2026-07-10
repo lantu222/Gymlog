@@ -11,6 +11,10 @@ export interface HomePlanProgress {
   progressPercent: number;
   weekProgressLabel: string;
   weekProgressPercent: number;
+  currentWeek: number;
+  totalWeeks: number;
+  sessionsDone: number;
+  sessionsTotal: number;
 }
 
 export function buildHomePlanProgress({
@@ -36,5 +40,10 @@ export function buildHomePlanProgress({
     progressPercent,
     weekProgressLabel: `Week ${currentWeek} · ${doneThisWeek} of ${safeSessionsPerWeek} done`,
     weekProgressPercent,
+    currentWeek,
+    totalWeeks: safeTotalWeeks,
+    // Plan-wide session counts for the Home v4 hero ("0 of 24 sessions").
+    sessionsDone: Math.min(completedCount, totalPlannedSessions),
+    sessionsTotal: totalPlannedSessions,
   };
 }

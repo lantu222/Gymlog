@@ -1,0 +1,188 @@
+/**
+ * Pure helpers for the Home v4 session hero (design_handoff_home_v4).
+ * Focus title, body-focus label, week phase, equipment line, default
+ * warmup/cooldown blocks, and the Adapt-sheet trim estimate.
+ */
+
+export interface SessionDrill {
+  name: string;
+  schemeLabel: string;
+}
+
+export interface SessionRoutineBlock {
+  drills: SessionDrill[];
+  minutes: number;
+}
+
+/**
+ * "Strength A" -> "Strength", "Push A: Chest Focus" -> "Push".
+ * Falls back to the plan title's focus word when the session has no name.
+ */
+export function getSessionFocusTitle(sessionTitle?: string | null, planTitle?: string | null): string {
+  const base = sessionTitle?.trim() || planTitle?.trim() || 'Workout';
+  const beforeColon = base.split(':')[0].trim();
+  const stripped = beforeColon.replace(/\s+(?:[A-Ca-c]|\d+)$/, '').trim();
+  return stripped || beforeColon || 'Workout';
+}
+
+/** 'full_body' -> 'Full body', 'push_pull_legs' -> 'Push / pull / legs'. */
+export function getSessionBodyFocusLabel(splitType?: string | null): string {
+  if (!splitType) {
+    return 'Full body';
+  }
+  const parts = splitType.split('_').filter(Boolean);
+  if (!parts.length) {
+    return 'Full body';
+  }
+  if (parts.join(' ') === 'full body') {
+    return 'Full body';
+  }
+  const label = parts.join(' / ');
+  return label[0].toUpperCase() + label.slice(1);
+}
+
+/** Early third of the plan is "building", middle "progressing", final "peaking". */
+export function getPlanWeekPhase(currentWeek: number, totalWeeks: number): string {
+  const safeTotal = Math.max(1, totalWeeks);
+  const week = Math.min(Math.max(1, currentWeek), safeTotal);
+  const ratio = week / safeTotal;
+  if (ratio <= 1 / 3) {
+    return 'building';
+  }
+  if (ratio <= 2 / 3) {
+    return 'progressing';
+  }
+  return 'peaking';
+}
+
+const EQUIPMENT_LABELS: Record<string, string> = {
+  barbell: 'Barbell',
+  dumbbell: 'Dumbbells',
+  machine: 'Machines',
+  cable: 'Cables',
+};
+
+/**
+ * Builds the bold equipment list ("Barbell, Dumbbells & Cables") from the
+ * session's exercises via the exercise library. Returns null when the session
+ * is bodyweight-only (or nothing matches) so the row can be hidden.
+ */
+export function buildSessionEquipmentLabel(
+  exerciseNames: string[],
+  library: Array<{ name: string; equipment: string }>,
+): string | null {
+  const equipmentByName = new Map(library.map((item) => [item.name.trim().toLowerCase(), item.equipment]));
+  const found: string[] = [];
+  for (const name of exerciseNames) {
+    const equipment = equipmentByName.get(name.trim().toLowerCase());
+    if (equipment && equipment !== 'bodyweight' && !found.includes(equipment)) {
+      found.push(equipment);
+    }
+  }
+  if (!found.length) {
+    return null;
+  }
+  const labels = found.map((equipment) => EQUIPMENT_LABELS[equipment] ?? equipment);
+  if (labels.length === 1) {
+    return labels[0];
+  }
+  return `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]}`;
+}
+
+type FocusKind = 'lower' | 'push' | 'pull' | 'general';
+
+function classifyFocus(focusTitle: string): FocusKind {
+  const normalized = focusTitle.toLowerCase();
+  if (/(squat|leg|lower|glute|posterior)/.test(normalized)) {
+    return 'lower';
+  }
+  if (/(push|chest|press|shoulder)/.test(normalized)) {
+    return 'push';
+  }
+  if (/(pull|back|row|width)/.test(normalized)) {
+    return 'pull';
+  }
+  return 'general';
+}
+
+/** Deterministic default warmup for a session focus (no warmup data model yet). */
+export function getDefaultWarmup(focusTitle: string): SessionRoutineBlock {
+  switch (classifyFocus(focusTitle)) {
+    case 'lower':
+      return {
+        minutes: 6,
+        drills: [
+          { name: 'Rowing machine', schemeLabel: '3 min' },
+          { name: 'Hip openers', schemeLabel: '2 × 8' },
+          { name: 'Empty-bar squats', schemeLabel: '2 × 10' },
+        ],
+      };
+    case 'push':
+      return {
+        minutes: 6,
+        drills: [
+          { name: 'Rowing machine', schemeLabel: '3 min' },
+          { name: 'Band pull-aparts', schemeLabel: '2 × 12' },
+          { name: 'Push-ups', schemeLabel: '2 × 8' },
+        ],
+      };
+    case 'pull':
+      return {
+        minutes: 6,
+        drills: [
+          { name: 'Rowing machine', schemeLabel: '3 min' },
+          { name: 'Scapular pull-ups', schemeLabel: '2 × 6' },
+          { name: 'Band face pulls', schemeLabel: '2 × 12' },
+        ],
+      };
+    default:
+      return {
+        minutes: 6,
+        drills: [
+          { name: 'Rowing machine', schemeLabel: '3 min' },
+          { name: 'Hip openers', schemeLabel: '2 × 8' },
+          { name: 'Empty-bar squats', schemeLabel: '2 × 10' },
+        ],
+      };
+  }
+}
+
+/** Deterministic default cooldown for a session focus. */
+export function getDefaultCooldown(focusTitle: string): SessionRoutineBlock {
+  switch (classifyFocus(focusTitle)) {
+    case 'push':
+      return {
+        minutes: 4,
+        drills: [
+          { name: 'Chest doorway stretch', schemeLabel: '2 × 45s' },
+          { name: 'Triceps overhead stretch', schemeLabel: '2 × 30s' },
+        ],
+      };
+    case 'pull':
+      return {
+        minutes: 4,
+        drills: [
+          { name: 'Lat stretch on rack', schemeLabel: '2 × 45s' },
+          { name: 'Dead hang', schemeLabel: '2 × 30s' },
+        ],
+      };
+    default:
+      return {
+        minutes: 4,
+        drills: [
+          { name: 'Couch stretch', schemeLabel: '2 × 60s' },
+          { name: 'Chest doorway stretch', schemeLabel: '2 × 45s' },
+        ],
+      };
+  }
+}
+
+/** "Trim to ~35 min · drops 4 sets" numbers for the Adapt sheet. */
+export function getAdaptTrimEstimate(
+  totalSets: number,
+  durationMinutes: number,
+): { trimmedMinutes: number; droppedSets: number } {
+  const droppedSets = Math.max(1, Math.round(totalSets * 0.3));
+  const trimmedMinutes = Math.max(15, Math.round((durationMinutes - droppedSets * 5) / 5) * 5);
+  return { trimmedMinutes, droppedSets };
+}
