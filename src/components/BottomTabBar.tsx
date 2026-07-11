@@ -16,7 +16,9 @@ interface BottomTabBarProps {
 
 const sideTabs: { key: RootTabKey; label: string }[] = [
   { key: 'home', label: 'Home' },
-  { key: 'workout', label: 'Exercises' },
+  // Internal key stays 'workout' (routes/analytics unchanged); only the
+  // user-facing label and icon move to Programs.
+  { key: 'workout', label: 'Programs' },
   { key: 'progress', label: 'Progress' },
   { key: 'profile', label: 'Profile' },
 ];
@@ -41,13 +43,18 @@ function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
   }
 
   if (tab === 'workout') {
+    // Programs = a stacked-layers glyph (matches the active-program card icon).
     return (
       <Svg width={size} height={size} viewBox="0 0 20 20" fill="none">
-        <Rect x="2.3" y="7.4" width="2.2" height="5.2" rx="0.6" fill={stroke} />
-        <Rect x="5.1" y="6.1" width="1.7" height="7.8" rx="0.6" fill={stroke} />
-        <Rect x="13.2" y="6.1" width="1.7" height="7.8" rx="0.6" fill={stroke} />
-        <Rect x="15.5" y="7.4" width="2.2" height="5.2" rx="0.6" fill={stroke} />
-        <Rect x="6.4" y="9.1" width="7.2" height="1.8" rx="0.9" fill={stroke} />
+        <Path
+          d="M10 2.6L17.5 6.4L10 10.2L2.5 6.4Z"
+          stroke={stroke}
+          strokeWidth={1.7}
+          strokeLinejoin="round"
+          fill={fill}
+        />
+        <Path d="M2.9 10L10 13.6L17.1 10" stroke={stroke} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M2.9 13.4L10 17L17.1 13.4" stroke={stroke} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     );
   }
