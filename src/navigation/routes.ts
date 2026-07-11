@@ -25,6 +25,10 @@ export type AppRoute =
     }
   | {
       tab: 'workout';
+      screen: 'programs_home';
+    }
+  | {
+      tab: 'workout';
       screen: 'list';
     }
   | {

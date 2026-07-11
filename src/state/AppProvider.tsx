@@ -162,6 +162,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       lastInsightSessionId: null,
       lastInsightType: null,
       activePlanId: null,
+      programsTabEnabled: false,
     },
   });
   const [hydrated, setHydrated] = useState(false);

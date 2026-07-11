@@ -627,6 +627,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.activePlanId === 'string' || input?.preferences?.activePlanId === null
           ? input.preferences.activePlanId
           : fallback.preferences.activePlanId,
+      programsTabEnabled:
+        typeof input?.preferences?.programsTabEnabled === 'boolean'
+          ? input.preferences.programsTabEnabled
+          : fallback.preferences.programsTabEnabled,
     },
   };
 }
