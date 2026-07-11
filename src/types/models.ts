@@ -272,8 +272,8 @@ export interface AppPreferences {
   activePlanId: string | null;
   /**
    * Feature flag for the Programs-tab redesign: when true the second tab lands
-   * on ProgramsHomeScreen; when false it keeps the legacy exercise list. Default
-   * false so the flag can be rolled out (and rolled back) without data changes.
+   * on ProgramsHomeScreen; when false it keeps the legacy exercise list.
+   * Defaults to true (phase 4); flip to false for a data-free rollback.
    */
   programsTabEnabled: boolean;
 }

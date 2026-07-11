@@ -68,7 +68,7 @@ const DEFAULT_PREFERENCES = {
   trackedExerciseLibraryItemIds: [] as string[],
   dismissedTipIds: [] as string[],
   activePlanId: 'plan_push_pull_legs',
-  programsTabEnabled: false,
+  programsTabEnabled: true,
 };
 
 function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {

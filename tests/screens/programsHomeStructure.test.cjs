@@ -20,9 +20,11 @@ module.exports = [
   {
     name: 'programs tab is gated by a default-off flag and a dedicated route',
     run() {
-      // Feature flag: typed, defaulted false, normalized like the other booleans.
+      // Feature flag: typed, normalized like the other booleans, and defaulted
+      // ON (phase 4) so the Programs tab is the live landing page; flipping the
+      // seed default back to false is the data-free rollback.
       assert.match(modelsSource, /programsTabEnabled: boolean/);
-      assert.match(seedSource, /programsTabEnabled: false/);
+      assert.match(seedSource, /programsTabEnabled: true/);
       assert.match(databaseSource, /programsTabEnabled:\s*\n?\s*typeof input\?\.preferences\?\.programsTabEnabled === 'boolean'/);
       // Dedicated route, not the legacy list.
       assert.match(routesSource, /tab: 'workout';\s*screen: 'programs_home';/);
