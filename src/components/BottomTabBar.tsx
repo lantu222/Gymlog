@@ -181,7 +181,12 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
           ))}
         </View>
 
-        <Pressable onPress={onAiPress} style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}>
+        <Pressable
+          onPress={onAiPress}
+          accessibilityRole="button"
+          accessibilityLabel="Start"
+          style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}
+        >
           <Animated.View style={[styles.centerButton, aiActive && styles.centerButtonActive, { transform: [{ scale: fabPop }] }]}>
             <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
               <Path
@@ -192,7 +197,6 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
               />
             </Svg>
           </Animated.View>
-          <Text style={[styles.centerLabel, aiActive && styles.centerLabelActive]}>Start</Text>
         </Pressable>
 
         <View style={styles.sideGroup}>
@@ -252,8 +256,11 @@ const styles = StyleSheet.create({
   },
   centerTab: {
     alignItems: 'center',
-    gap: 4,
+    justifyContent: 'center',
+    // Floats above the bar. marginBottom keeps the button at the same height it
+    // sat at when a "Start" label still occupied the row below it.
     marginTop: -26,
+    marginBottom: 19,
   },
   centerButton: {
     width: 54,
@@ -274,14 +281,5 @@ const styles = StyleSheet.create({
   centerButtonActive: {
     backgroundColor: HG3.purple,
     borderColor: HG3.purple,
-  },
-  centerLabel: {
-    color: HG3.purple,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
-  centerLabelActive: {
-    color: HG3.purple,
   },
 });
