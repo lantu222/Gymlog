@@ -1,21 +1,45 @@
-import { Text, TextInput } from 'react-native';
-
-import { typography } from './theme';
+import { StyleSheet, Text, TextInput } from 'react-native';
 
 /**
- * Applies the app typeface (Manrope) as the default font family on every Text
- * and TextInput, so screens that never set `fontFamily` explicitly still render
- * in the redesign typeface instead of the platform default (Roboto on Android).
+ * Applies the app typeface (Manrope) as the default font on every Text and
+ * TextInput, and — crucially — maps each `fontWeight` to a real static Manrope
+ * file instead of one variable font.
  *
- * React Native has no font cascade: `typography.fontFamily` only affects styles
- * that reference it directly. Most screens (onboarding, home, profile) set no
- * family at all, which is why they drifted to the system font. Injecting the
- * base family here is the single lever that unifies the whole app.
+ * React Native on Android does not drive a variable font's weight axis: the
+ * bundled variable `Manrope.ttf` has an ExtraLight (200) default master, so
+ * `fontWeight: '800'` rendered as ExtraLight with a synthetic bold — visibly
+ * lighter than the design mocks (which drive the axis via CSS). Bundling the
+ * static weights (see App.tsx Font.loadAsync) and selecting the right family
+ * here makes weights render exactly like the designs on both platforms.
  *
- * The base style is placed FIRST in the style array, so any explicit
- * `fontFamily` in a component's own styles (e.g. the workout logger) still wins.
+ * React Native also has no font cascade — screens that set no family at all
+ * would otherwise fall back to the platform font (Roboto on Android). This
+ * patch is the single lever that unifies the whole app.
+ *
+ * An explicit non-Manrope family (e.g. JetBrains Mono numerals, or an explicit
+ * static `Manrope-SemiBold`) is left untouched. Only the generic `'Manrope'`
+ * family and unfamilied text get remapped by weight.
  */
-const baseFont = { fontFamily: typography.fontFamily } as const;
+const WEIGHT_TO_FAMILY: Record<string, string> = {
+  '100': 'Manrope-Regular',
+  '200': 'Manrope-Regular',
+  '300': 'Manrope-Regular',
+  '400': 'Manrope-Regular',
+  '500': 'Manrope-Medium',
+  '600': 'Manrope-SemiBold',
+  '700': 'Manrope-Bold',
+  '800': 'Manrope-ExtraBold',
+  '900': 'Manrope-ExtraBold',
+  normal: 'Manrope-Regular',
+  bold: 'Manrope-Bold',
+};
+
+function familyForWeight(weight?: string | number | null): string {
+  if (weight === undefined || weight === null) {
+    return 'Manrope-Regular';
+  }
+  return WEIGHT_TO_FAMILY[String(weight)] ?? 'Manrope-Regular';
+}
 
 type RenderableComponent = {
   render?: (...args: unknown[]) => { props?: { style?: unknown } } | null;
@@ -37,11 +61,28 @@ function applyBaseFont(component: RenderableComponent) {
       return element;
     }
 
+    const flat = (StyleSheet.flatten(element.props.style as never) || {}) as {
+      fontFamily?: string;
+      fontWeight?: string | number;
+    };
+
+    // Respect an explicit non-generic family (JetBrains Mono, an explicit
+    // static Manrope weight, etc.). Only the generic 'Manrope' base and
+    // unfamilied text are weight-mapped.
+    if (typeof flat.fontFamily === 'string' && flat.fontFamily !== 'Manrope') {
+      return element;
+    }
+
+    const family = familyForWeight(flat.fontWeight);
+
     return {
       ...element,
       props: {
         ...element.props,
-        style: [baseFont, element.props.style],
+        // Append so the resolved static family wins. The static file already
+        // carries the weight, so force fontWeight normal to avoid Android
+        // synthesizing a second bold on top of it.
+        style: [element.props.style, { fontFamily: family, fontWeight: 'normal' as const }],
       },
     };
   };

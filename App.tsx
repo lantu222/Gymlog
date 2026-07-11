@@ -742,7 +742,16 @@ function GymlogApp() {
     async function loadFonts() {
       await Font.loadAsync({
         Inter: require('./assets/fonts/Inter.ttf'),
+        // Variable Manrope kept as a fallback; the static per-weight families
+        // below are what globalFont.ts maps fontWeight onto, because Android
+        // does not drive a variable font's weight axis (headings rendered at
+        // the ExtraLight default with a synthetic bold otherwise).
         Manrope: require('./assets/fonts/Manrope.ttf'),
+        'Manrope-Regular': require('./assets/fonts/Manrope-Regular.ttf'),
+        'Manrope-Medium': require('./assets/fonts/Manrope-Medium.ttf'),
+        'Manrope-SemiBold': require('./assets/fonts/Manrope-SemiBold.ttf'),
+        'Manrope-Bold': require('./assets/fonts/Manrope-Bold.ttf'),
+        'Manrope-ExtraBold': require('./assets/fonts/Manrope-ExtraBold.ttf'),
         // Sets × reps numerals on the Home agenda list (design: JetBrains Mono).
         JetBrainsMono: require('./assets/fonts/JetBrainsMono.ttf'),
       }).catch(() => {
