@@ -51,6 +51,7 @@ const suites = [
   ...require('./lib/focusAreaPresentation.test.cjs'),
   ...require('./lib/onboardingStructure.test.cjs'),
   ...require('./screens/homeScreenStructure.test.cjs'),
+  ...require('./screens/programsHomeStructure.test.cjs'),
   ...require('./screens/programPlanOverview.test.cjs'),
   ...require('./screens/workoutLoggingScreenStructure.test.cjs'),
   ...require('./screens/onboardingVisualPolish.test.cjs'),

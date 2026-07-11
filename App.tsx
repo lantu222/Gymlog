@@ -77,6 +77,7 @@ import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ProfileSettingsScreen } from './src/screens/ProfileSettingsScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
+import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
@@ -816,6 +817,12 @@ function GymlogApp() {
   }
 
   function navigateToTab(tab: RootTabKey) {
+    // Programs-tab redesign (flagged): the workout tab lands on the Programs
+    // home instead of the legacy exercise list.
+    if (tab === 'workout' && preferences.programsTabEnabled) {
+      resetToRoute({ tab: 'workout', screen: 'programs_home' });
+      return;
+    }
     resetToRoute(ROOT_ROUTES[tab]);
   }
 
@@ -2252,6 +2259,32 @@ function GymlogApp() {
   const readyProgramCtaLabel = 'Browse ready plans';
   const customProgramCount = customWorkouts.length;
   const readyTemplateCount = workout.templates.filter((template) => template.id.startsWith('tpl_gainer_')).length;
+  const programsExploreItems = useMemo<ProgramsExploreItem[]>(
+    () =>
+      workout.templates
+        .filter((template) => template.id.startsWith('tpl_gainer_'))
+        .slice(0, 8)
+        .map((template) => {
+          const summary = getReadyProgramContent(template.id)?.summary ?? '';
+          return {
+            id: template.id,
+            name: formatWorkoutDisplayLabel(template.name),
+            badge: formatGoalLabel(template.goalType),
+            description: summary,
+            metaLabel: `${template.daysPerWeek} days / week · ~${template.estimatedSessionDuration} min`,
+          };
+        }),
+    [workout.templates],
+  );
+  const programsCustomItems = useMemo(
+    () =>
+      customWorkouts.map((template) => ({
+        id: template.id,
+        name: formatWorkoutDisplayLabel(template.name),
+        subtitle: `${template.sessionCount} ${template.sessionCount === 1 ? 'session' : 'sessions'} · ${template.exerciseCount} exercises`,
+      })),
+    [customWorkouts],
+  );
   const customProgramBadgeLabel = customProgramCount > 0 ? 'Browse' : 'Start';
   const customProgramTitle = 'Your workouts';
   const customProgramSubtitle = selectedCustomProgram.workoutId
@@ -2886,6 +2919,56 @@ function GymlogApp() {
     ) : (
       <View />
     );
+  } else if (route.tab === 'workout' && route.screen === 'programs_home') {
+    content = (
+      <ProgramsHomeScreen
+        activeProgram={
+          homeActivePlanCard
+            ? {
+                programId: homeActivePlanCard.programId,
+                programType: homeActivePlanCard.programType,
+                title: homeActivePlanCard.title,
+                goalLabel: homeActivePlanCard.goalLabel,
+                focusLabel: homeActivePlanCard.focusLabel,
+                weekLabel: homeActivePlanCard.weekLabel,
+                currentWeek: homeActivePlanCard.currentWeek,
+                planTotalWeeks: homeActivePlanCard.planTotalWeeks,
+                sessionsPerWeek: homeActivePlanCard.sessionsPerWeek,
+                nextSession: homeActivePlanCard.nextSession,
+              }
+            : null
+        }
+        exploreItems={programsExploreItems}
+        customPrograms={programsCustomItems}
+        exerciseLibraryCount={exerciseBrowserItems.length}
+        onStartActiveSession={(sessionId) => {
+          if (!homeActivePlanCard) {
+            return;
+          }
+          if (homeActivePlanCard.programType === 'custom') {
+            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId);
+            return;
+          }
+          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
+        }}
+        onOpenActivePlan={() => {
+          if (!homeActivePlanCard) {
+            return;
+          }
+          navigate({
+            tab: 'workout',
+            screen: 'program',
+            programType: homeActivePlanCard.programType ?? 'ready',
+            workoutTemplateId: homeActivePlanCard.programId,
+          });
+        }}
+        onOpenExploreProgram={handleOpenReadyProgramDetail}
+        onOpenCustomProgram={handleOpenCustomProgramDetail}
+        onViewAllPrograms={() => navigate(WORKOUT_PLAN_ROUTE)}
+        onCreateProgram={() => navigate({ tab: 'workout', screen: 'template' })}
+        onOpenLibrary={() => navigate({ tab: 'workout', screen: 'list' })}
+      />
+    );
   } else if (route.tab === 'workout') {
     content = (
       <ExercisesScreen
@@ -2944,7 +3027,11 @@ function GymlogApp() {
     onboardingActive ||
     route.tab === 'progress' ||
     (route.tab === 'workout' &&
-      (route.screen === 'list' || route.screen === 'detail' || route.screen === 'summary' || route.screen === 'celebration'))
+      (route.screen === 'programs_home' ||
+        route.screen === 'list' ||
+        route.screen === 'detail' ||
+        route.screen === 'summary' ||
+        route.screen === 'celebration'))
       ? 'home'
       : route.tab;
   const welcomeActive = onboardingActive && entryFlowActive;
@@ -2954,6 +3041,7 @@ function GymlogApp() {
   const workoutLogActive = route.tab === 'workout' && route.screen === 'log';
   const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
   const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
+  const programsHomeActive = route.tab === 'workout' && route.screen === 'programs_home';
   const profileListActive = route.tab === 'profile' && route.screen === 'list';
   const profileSettingsActive = route.tab === 'profile' && route.screen === 'settings';
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
@@ -2976,10 +3064,10 @@ function GymlogApp() {
       safeAreaEdges={
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || aiSetupActive || historyActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={profileSettingsActive || aiSetupActive ? '#FFFFFF' : emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarStyleOverride={programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || aiSetupActive || historyActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
+      statusBarBackgroundColor={profileSettingsActive || aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : profileSettingsActive || aiSetupActive ? '#FFFFFF' : emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : profileSettingsActive || aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
