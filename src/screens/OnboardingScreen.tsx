@@ -1664,22 +1664,6 @@ function BodyweightStepper({
         />
       </View>
 
-      {onUnitChange ? (
-        <View style={styles.bodyweightStepperUnitRow}>
-          {(['kg', 'lb'] as UnitPreference[]).map((option) => {
-            const active = unit === option;
-            return (
-              <Pressable
-                key={option}
-                onPress={() => onUnitChange(option)}
-                style={[styles.bodyweightUnitPill, styles.bodyweightStepperUnitPill, active && styles.bodyweightUnitPillActive]}
-              >
-                <Text style={[styles.bodyweightUnitText, active && styles.bodyweightUnitTextActive]}>{option}</Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      ) : null}
     </View>
   );
 }

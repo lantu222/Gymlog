@@ -28,8 +28,9 @@ function isClose(a: number, b: number) {
   return Math.abs(a - b) < EPSILON;
 }
 
-export function getLoadIncrementKg(unitPreference: UnitPreference) {
-  return unitPreference === 'kg' ? 2.5 : convertWeightToKg(5, 'lb');
+export function getLoadIncrementKg(_unitPreference?: UnitPreference) {
+  // kg-only app: the micro-progression step is always 2.5 kg.
+  return 2.5;
 }
 
 export function getComparableSuccessfulWorkingSets(

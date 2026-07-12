@@ -266,7 +266,8 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         input?.preferences?.appLanguage === 'fi' || input?.preferences?.appLanguage === 'en'
           ? input.preferences.appLanguage
           : fallback.preferences.appLanguage,
-      unitPreference: input?.preferences?.unitPreference === 'lb' ? 'lb' : 'kg',
+      // App is kg-only: any legacy 'lb' preference normalizes to kg on load.
+      unitPreference: 'kg',
       theme: 'dark',
       defaultRestSeconds:
         typeof input?.preferences?.defaultRestSeconds === 'number'

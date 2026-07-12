@@ -1,7 +1,8 @@
 ﻿import { getComparableLogSets } from './exerciseLog';
 import { ExerciseLog, UnitPreference } from '../types/models';
 
-const KG_TO_LB = 2.20462;
+// The app is kg-only. The unit-preference params are kept on these signatures
+// for call-site compatibility, but weights are never converted or shown in lb.
 
 export function formatDate(dateString: string) {
   return new Intl.DateTimeFormat(undefined, {
@@ -41,50 +42,45 @@ export function formatTime(dateString: string) {
   }).format(new Date(dateString));
 }
 
-export function convertWeightFromKg(value: number, unitPreference: UnitPreference) {
-  return unitPreference === 'kg' ? value : value * KG_TO_LB;
+export function convertWeightFromKg(value: number, _unitPreference?: UnitPreference) {
+  return value;
 }
 
-export function convertWeightToKg(value: number, unitPreference: UnitPreference) {
-  return unitPreference === 'kg' ? value : value / KG_TO_LB;
+export function convertWeightToKg(value: number, _unitPreference?: UnitPreference) {
+  return value;
 }
 
-export function formatWeight(value: number | null | undefined, unitPreference: UnitPreference = 'kg') {
+export function formatWeight(value: number | null | undefined, _unitPreference: UnitPreference = 'kg') {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return '-';
   }
 
-  return `${removeTrailingZeros(convertWeightFromKg(value, unitPreference))} ${unitPreference}`;
+  return `${removeTrailingZeros(value)} kg`;
 }
 
-export function formatWeightInputValue(value: number | null | undefined, unitPreference: UnitPreference) {
+export function formatWeightInputValue(value: number | null | undefined, _unitPreference?: UnitPreference) {
   if (value === null || value === undefined || Number.isNaN(value)) {
     return '';
   }
 
-  return removeTrailingZeros(convertWeightFromKg(value, unitPreference));
+  return removeTrailingZeros(value);
 }
 
-export function formatVolume(value: number, unitPreference: UnitPreference = 'kg') {
+export function formatVolume(value: number, _unitPreference: UnitPreference = 'kg') {
   if (!value) {
-    return `0 ${unitPreference}`;
+    return '0 kg';
   }
 
-  return `${removeTrailingZeros(convertWeightFromKg(value, unitPreference))} ${unitPreference}`;
+  return `${removeTrailingZeros(value)} kg`;
 }
 
-/** Compact lifetime/monthly volume: "412 kg", "4.5 t", "12.3k lb". */
-export function formatCompactVolume(totalKg: number, unitPreference: UnitPreference = 'kg') {
-  const value = convertWeightFromKg(totalKg, unitPreference);
-  if (unitPreference === 'kg' && value >= 1000) {
-    const tonnes = value / 1000;
+/** Compact lifetime/monthly volume: "412 kg", "4.5 t". */
+export function formatCompactVolume(totalKg: number, _unitPreference: UnitPreference = 'kg') {
+  if (totalKg >= 1000) {
+    const tonnes = totalKg / 1000;
     return `${removeTrailingZeros(Number(tonnes.toFixed(tonnes >= 100 ? 0 : 1)))} t`;
   }
-  if (unitPreference === 'lb' && value >= 1000) {
-    const thousands = value / 1000;
-    return `${removeTrailingZeros(Number(thousands.toFixed(thousands >= 100 ? 0 : 1)))}k lb`;
-  }
-  return `${removeTrailingZeros(Math.round(value))} ${unitPreference}`;
+  return `${removeTrailingZeros(Math.round(totalKg))} kg`;
 }
 
 export function formatDurationMinutes(totalMinutes: number) {

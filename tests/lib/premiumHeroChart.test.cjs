@@ -48,16 +48,16 @@ module.exports = [
     },
   },
   {
-    name: 'premium hero chart converts working weights and projection to the display unit',
+    name: 'premium hero chart reports working weights and projection in kg',
     run() {
-      const chart = buildPremiumHeroChart([summary('Barbell Squat', [100, 102.5])], 'lb');
+      // kg-only app: weights pass through unchanged and the projection is
+      // latest + the 2.5 kg micro-progression step.
+      const chart = buildPremiumHeroChart([summary('Barbell Squat', [100, 102.5])], 'kg');
 
       assert.ok(chart);
-      // 100 kg -> ~220.46 lb, 102.5 kg -> ~225.97 lb; the coach's lb increment
-      // is exactly 5 lb, so the projection is latest + 5 lb (~230.97 lb).
-      assert.ok(Math.abs(chart.points[0] - 220.46) < 0.1);
-      assert.ok(Math.abs(chart.latest - 225.97) < 0.1);
-      assert.ok(Math.abs(chart.projectedNext - (chart.latest + 5)) < 0.01);
+      assert.ok(Math.abs(chart.points[0] - 100) < 0.01);
+      assert.ok(Math.abs(chart.latest - 102.5) < 0.01);
+      assert.ok(Math.abs(chart.projectedNext - (chart.latest + 2.5)) < 0.01);
     },
   },
 ];

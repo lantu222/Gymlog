@@ -144,18 +144,7 @@ export function ProfileSettingsScreen({
 
         <SectionLabel label="Preferences" />
         <ListGroup>
-          <SettingsRow
-            title="Units"
-            subtitle={preferences.unitPreference === 'kg' ? 'kg / cm' : 'lb / in'}
-          />
-          <ChipGroup<UnitPreference>
-            options={[
-              { key: 'kg', label: 'kg' },
-              { key: 'lb', label: 'lb' },
-            ]}
-            selected={preferences.unitPreference}
-            onSelect={onUnitPreferenceChange}
-          />
+          <SettingsRow title="Units" subtitle="kg / cm" />
           <Divider />
           <SettingsRow title="Theme" subtitle="Light" right={<SoonBadge />} />
           <Divider />
