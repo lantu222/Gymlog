@@ -1334,14 +1334,14 @@ const styles = StyleSheet.create({
   metaStripText: {
     fontFamily: WORKOUT_FONT_FAMILY,
     color: '#101828',
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontSize: 15.5,
+    lineHeight: 20,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
   metaStripDot: {
-    width: 3,
-    height: 3,
+    width: 4,
+    height: 4,
     borderRadius: 999,
     backgroundColor: '#C0B8D4',
   },

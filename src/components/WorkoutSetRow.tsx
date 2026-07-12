@@ -5,7 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { colors, radii, spacing } from '../theme';
 import { UnitPreference } from '../types/models';
 import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/workoutTypes';
-import { canCompleteWorkoutSet, getWorkoutSetValidationMessage } from '../lib/workoutValidation';
+import { getWorkoutSetValidationMessage } from '../lib/workoutValidation';
 
 const LOGGING_PURPLE = '#7C3AED';
 const SUCCESS_GREEN = '#16A34A';
@@ -115,7 +115,6 @@ export function WorkoutSetRow({
 }: WorkoutSetRowProps) {
   const showLoadField = trackingMode !== 'bodyweight';
   const showEditableInputs = active && !completed;
-  const readyToComplete = canCompleteWorkoutSet(trackingMode, weightValue, repsValue);
   const validationMessage = active && !completed
     ? getWorkoutSetValidationMessage(trackingMode, weightValue, repsValue)
     : null;
@@ -201,23 +200,7 @@ export function WorkoutSetRow({
 
       </View>
 
-      {showEditableInputs ? (
-        <>
-          <WeightConsole currentValue={weightValue} onStep={onWeightChange} />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Log set ${setNumber}`}
-            onPress={onComplete}
-            disabled={!readyToComplete}
-            style={[styles.logSetButton, !readyToComplete && styles.logSetButtonDisabled]}
-          >
-            <Text style={styles.logSetText}>Log set</Text>
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path d="M5 12h14M13 6l6 6-6 6" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </Pressable>
-        </>
-      ) : null}
+      {showEditableInputs ? <WeightConsole currentValue={weightValue} onStep={onWeightChange} /> : null}
 
       {validationMessage ? <Text style={styles.validationText}>{validationMessage}</Text> : null}
     </Pressable>
@@ -390,31 +373,6 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
-  },
-  logSetButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    height: 50,
-    borderRadius: 14,
-    backgroundColor: LOGGING_PURPLE,
-    marginTop: 2,
-    marginBottom: 4,
-    shadowColor: LOGGING_PURPLE,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  logSetButtonDisabled: {
-    opacity: 0.5,
-  },
-  logSetText: {
-    fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
   },
   activeHintRow: {
     paddingHorizontal: 2,

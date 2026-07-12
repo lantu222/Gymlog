@@ -126,9 +126,12 @@ function resolveHistoricalSetDraft(
     return { draftLoadText: '', draftRepsText: '', plannedLoadKg: undefined };
   }
 
+  // Prefill the weight from last time so the user usually just adjusts it with
+  // the console and types reps; reps stay empty so entering them is the signal
+  // that logs the set (handoff §5).
   return {
     draftLoadText: formatWeightInputValue(matched.loadKg, unitPreference),
-    draftRepsText: `${matched.reps}`,
+    draftRepsText: '',
     plannedLoadKg: matched.loadKg,
   };
 }

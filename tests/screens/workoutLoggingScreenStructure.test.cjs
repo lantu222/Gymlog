@@ -98,7 +98,11 @@ module.exports = [
       assert.match(setRowSource, /rowCompleted:\s*\{\s*backgroundColor: SUCCESS_GREEN_BG/);
       assert.match(setRowSource, /const WEIGHT_STEPS = \[-2\.5, 1\.25, 2\.5, 5\]/);
       assert.match(setRowSource, /function WeightConsole/);
-      assert.match(setRowSource, /Log set/);
+      // No Log set button: submitting reps completes the set (rest timer + auto
+      // advance handled by the existing reducer).
+      assert.doesNotMatch(setRowSource, /Log set/);
+      assert.doesNotMatch(setRowSource, /logSetButton/);
+      assert.match(screenSource, /onRepsSubmit=\{\(\) => handleRepsSubmit\(exercise, rowIndex\)\}/);
       assert.match(setRowSource, /minHeight:\s*38/);
       assert.match(setRowSource, /marginLeft:\s*5/);
       assert.match(setRowSource, /PREVIOUS_CELL_WIDTH\s*=\s*86/);
