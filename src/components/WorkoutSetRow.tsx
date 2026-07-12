@@ -10,20 +10,10 @@ import { getWorkoutSetValidationMessage } from '../lib/workoutValidation';
 const LOGGING_PURPLE = '#7C3AED';
 const SUCCESS_GREEN = '#16A34A';
 const SUCCESS_GREEN_BG = '#ECF7F0';
-const DANGER_RED = '#D64545';
 const WORKOUT_FONT_FAMILY = 'Manrope';
 const SET_BADGE_SIZE = 32;
 const VALUE_CELL_WIDTH = 76;
 const PREVIOUS_CELL_WIDTH = 86;
-
-// Quick weight adjust chips shown under the active set (handoff §4). Easy to
-// re-tune later.
-const WEIGHT_STEPS = [-2.5, 1.25, 2.5, 5];
-
-function formatStep(step: number) {
-  const abs = Number.isInteger(step) ? String(Math.abs(step)) : String(Math.abs(step));
-  return `${step > 0 ? '+' : '-'}${abs} kg`;
-}
 
 interface WorkoutSetRowProps {
   setNumber: number;
@@ -65,25 +55,6 @@ function CompactValueCell({
       <Text style={[styles.valueText, completed && styles.valueTextCompleted, muted && styles.valueTextMuted]} numberOfLines={1}>
         {value}
       </Text>
-    </View>
-  );
-}
-
-function WeightConsole({ currentValue, onStep }: { currentValue: string; onStep: (next: string) => void }) {
-  const applyStep = (delta: number) => {
-    const parsed = Number.parseFloat(currentValue);
-    const base = Number.isFinite(parsed) ? parsed : 0;
-    const next = Math.max(0, base + delta);
-    onStep(Number.isInteger(next) ? String(next) : String(Number(next.toFixed(2))));
-  };
-
-  return (
-    <View style={styles.consoleWrap}>
-      {WEIGHT_STEPS.map((step) => (
-        <Pressable key={step} onPress={() => applyStep(step)} style={styles.consoleChip} hitSlop={4}>
-          <Text style={[styles.consoleChipText, { color: step < 0 ? DANGER_RED : SUCCESS_GREEN }]}>{formatStep(step)}</Text>
-        </Pressable>
-      ))}
     </View>
   );
 }
@@ -199,8 +170,6 @@ export function WorkoutSetRow({
         </View>
 
       </View>
-
-      {showEditableInputs ? <WeightConsole currentValue={weightValue} onStep={onWeightChange} /> : null}
 
       {validationMessage ? <Text style={styles.validationText}>{validationMessage}</Text> : null}
     </Pressable>
@@ -348,31 +317,6 @@ const styles = StyleSheet.create({
   valueTextMuted: {
     color: '#9B93AD',
     fontWeight: '800',
-  },
-  consoleWrap: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 9,
-    marginBottom: 2,
-    borderRadius: 14,
-    backgroundColor: '#EFE7FF',
-    padding: 8,
-  },
-  consoleChip: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5DEF4',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  consoleChipText: {
-    fontFamily: WORKOUT_FONT_FAMILY,
-    fontSize: 13.5,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
   },
   activeHintRow: {
     paddingHorizontal: 2,

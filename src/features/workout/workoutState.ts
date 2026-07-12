@@ -617,6 +617,15 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       const nextTarget = findNextPendingTarget(session, exerciseIndex, action.payload.setIndex);
       if (nextTarget) {
         updateActiveExercise(session, nextTarget.exerciseIndex, nextTarget.setIndex);
+        // Carry the weight just used forward to the next set in the SAME
+        // exercise (if it has no weight yet), so the user usually only types
+        // reps for the following sets.
+        if (nextTarget.exerciseIndex === exerciseIndex) {
+          const nextSet = exercise.sets.find((item) => item.setIndex === nextTarget.setIndex);
+          if (nextSet && !nextSet.draftLoadText.trim()) {
+            nextSet.draftLoadText = formatWeightInputValue(set.actualLoadKg ?? 0, action.payload.unitPreference);
+          }
+        }
       } else {
         session.ui.activeSlotId = exercise.slotId;
         session.ui.activeSetIndex = action.payload.setIndex;

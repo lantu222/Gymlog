@@ -923,7 +923,6 @@ export function WorkoutLoggingScreen({
                         <Path d="M12 9v5l3 2M9 3h6" stroke={LOGGING_PURPLE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                       </Svg>
                       <Text style={styles.restTimerText}>Rest Timer: {formatRestDurationLabel(selectedRestDurationSeconds)}</Text>
-                      <Text style={styles.restTimerChevron}>{restTimerMenuOpen ? '^' : 'v'}</Text>
                     </Pressable>
 
                     {restTimerMenuOpen ? (
@@ -1484,13 +1483,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   restTimerText: {
-    fontFamily: WORKOUT_FONT_FAMILY,
-    color: LOGGING_PURPLE,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
-  restTimerChevron: {
     fontFamily: WORKOUT_FONT_FAMILY,
     color: LOGGING_PURPLE,
     fontSize: 14,

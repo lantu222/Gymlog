@@ -6,6 +6,7 @@ const screenPath = path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutLo
 const appPath = path.join(__dirname, '..', '..', 'App.tsx');
 const themePath = path.join(__dirname, '..', '..', 'src', 'theme.ts');
 const setRowPath = path.join(__dirname, '..', '..', 'src', 'components', 'WorkoutSetRow.tsx');
+const workoutStatePath = path.join(__dirname, '..', '..', 'src', 'features', 'workout', 'workoutState.ts');
 
 function readSource(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -17,6 +18,7 @@ module.exports = [
     run() {
       const screenSource = readSource(screenPath);
       const setRowSource = readSource(setRowPath);
+      const workoutStateSource = readSource(workoutStatePath);
       const source = [
         readSource(appPath),
         readSource(themePath),
@@ -96,13 +98,20 @@ module.exports = [
       assert.doesNotMatch(screenSource, /setHeaderCheck/);
       assert.match(setRowSource, /const SUCCESS_GREEN = '#16A34A'/);
       assert.match(setRowSource, /rowCompleted:\s*\{\s*backgroundColor: SUCCESS_GREEN_BG/);
-      assert.match(setRowSource, /const WEIGHT_STEPS = \[-2\.5, 1\.25, 2\.5, 5\]/);
-      assert.match(setRowSource, /function WeightConsole/);
-      // No Log set button: submitting reps completes the set (rest timer + auto
-      // advance handled by the existing reducer).
+      // No weight console and no Log set button: the row is just SET/PREVIOUS/
+      // KG/REPS. Submitting reps completes the set (rest timer + auto-advance
+      // via the existing reducer), and the weight carries to the next set.
+      assert.doesNotMatch(setRowSource, /WEIGHT_STEPS/);
+      assert.doesNotMatch(setRowSource, /WeightConsole/);
+      assert.doesNotMatch(setRowSource, /consoleChip/);
       assert.doesNotMatch(setRowSource, /Log set/);
       assert.doesNotMatch(setRowSource, /logSetButton/);
       assert.match(screenSource, /onRepsSubmit=\{\(\) => handleRepsSubmit\(exercise, rowIndex\)\}/);
+      // Rest timer keeps its tap-to-change behaviour but drops the chevron glyph.
+      assert.doesNotMatch(screenSource, /restTimerChevron/);
+      // Weight carries forward to the next set in the same exercise.
+      assert.match(workoutStateSource, /Carry the weight just used forward/);
+      assert.match(workoutStateSource, /nextSet\.draftLoadText = formatWeightInputValue\(set\.actualLoadKg/);
       assert.match(setRowSource, /minHeight:\s*38/);
       assert.match(setRowSource, /marginLeft:\s*5/);
       assert.match(setRowSource, /PREVIOUS_CELL_WIDTH\s*=\s*86/);
