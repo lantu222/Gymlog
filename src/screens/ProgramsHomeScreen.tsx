@@ -211,7 +211,7 @@ export function ProgramsHomeScreen({
               </View>
 
               <View style={styles.activeTitleRow}>
-                <GradientTile stops={ACTIVE_TILE} size={52} radius={15} />
+                <GradientTile stops={ACTIVE_TILE} size={58} radius={16} />
                 <View style={styles.activeTitleCopy}>
                   <Text style={styles.activeTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
                     {activeProgram.title}
@@ -509,7 +509,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   activeTop: {
-    padding: 17,
+    paddingHorizontal: 17,
+    paddingTop: 20,
+    paddingBottom: 18,
   },
   activeHeaderRow: {
     flexDirection: 'row',
@@ -518,15 +520,15 @@ const styles = StyleSheet.create({
   },
   activeEyebrow: {
     color: HG3.purple,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 22,
+    lineHeight: 27,
     fontWeight: '800',
-    letterSpacing: 0.7,
+    letterSpacing: 0.4,
   },
   activeWeekLabel: {
     color: HG3.muted,
-    fontSize: 11.5,
-    lineHeight: 15,
+    fontSize: 13.5,
+    lineHeight: 17,
     fontWeight: '800',
   },
   activeTitleRow: {
@@ -541,16 +543,16 @@ const styles = StyleSheet.create({
   },
   activeTitle: {
     color: HG3.ink,
-    fontSize: 20,
-    lineHeight: 25,
+    fontSize: 24,
+    lineHeight: 29,
     fontWeight: '800',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   activePhase: {
-    marginTop: 2,
+    marginTop: 3,
     color: HG3.purple,
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontSize: 14.5,
+    lineHeight: 19,
     fontWeight: '800',
   },
   segmentRow: {
@@ -583,8 +585,8 @@ const styles = StyleSheet.create({
   },
   chipText: {
     color: HG3.purple,
-    fontSize: 11.5,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: '800',
   },
   nextStrip: {
@@ -594,7 +596,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: HG3.border,
     backgroundColor: HG3.purpleSoft,
-    paddingVertical: 13,
+    paddingVertical: 16,
     paddingHorizontal: 17,
   },
   nextCopy: {
@@ -603,23 +605,23 @@ const styles = StyleSheet.create({
   },
   nextEyebrow: {
     color: HG3.faint,
-    fontSize: 10.5,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.6,
   },
   nextTitle: {
     marginTop: 3,
     color: HG3.ink,
-    fontSize: 15,
-    lineHeight: 19,
+    fontSize: 17.5,
+    lineHeight: 22,
     fontWeight: '800',
   },
   nextMeta: {
     marginTop: 2,
     color: HG3.muted,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13.5,
+    lineHeight: 18,
     fontWeight: '600',
   },
   startButton: {
@@ -654,8 +656,8 @@ const styles = StyleSheet.create({
   manageText: {
     flex: 1,
     color: HG3.ink,
-    fontSize: 13.5,
-    lineHeight: 18,
+    fontSize: 15,
+    lineHeight: 20,
     fontWeight: '800',
   },
   emptyActiveCard: {
@@ -885,7 +887,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: HG3.border,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG3.surface,
     paddingHorizontal: 15,
     paddingVertical: 14,
   },
@@ -893,7 +895,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG3.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

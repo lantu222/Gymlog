@@ -155,7 +155,7 @@ export function HomeScreen({
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     warmup: false,
-    workout: true,
+    workout: false,
     cooldown: false,
   });
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -189,7 +189,7 @@ export function HomeScreen({
   const calendarAnim = useRef(new Animated.Value(0)).current;
   const sectionAnims = useRef<Record<SectionKey, Animated.Value>>({
     warmup: new Animated.Value(0),
-    workout: new Animated.Value(1),
+    workout: new Animated.Value(0),
     cooldown: new Animated.Value(0),
   }).current;
 
@@ -614,7 +614,7 @@ export function HomeScreen({
           >
             <Text style={styles.startButtonText}>Start workout</Text>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG3.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG3.green} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </Pressable>
         </Animated.View>
@@ -1261,20 +1261,20 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: HG3.purple,
+    borderColor: HG3.green,
     backgroundColor: HG3.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: HG3.purpleBright,
+    shadowColor: HG3.green,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
     shadowRadius: 16,
     elevation: 4,
   },
   startButtonText: {
-    color: HG3.purple,
+    color: HG3.green,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',

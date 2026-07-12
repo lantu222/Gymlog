@@ -111,7 +111,8 @@ module.exports = [
       assert.match(homeScreenSource, /— needed for today's session/);
       // Warmup / Workout / Cooldown accordions: workout open by default,
       // animated height + rotating chevron, agenda rows inside.
-      assert.match(homeScreenSource, /warmup: false,\s*workout: true,\s*cooldown: false/);
+      // All three section accordions start collapsed (user preference).
+      assert.match(homeScreenSource, /warmup: false,\s*workout: false,\s*cooldown: false/);
       assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusTitle\)/);
       assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle\)/);
       assert.match(homeScreenSource, /sectionAnims\[key\]\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 420\] \}\)/);
@@ -123,7 +124,9 @@ module.exports = [
       // Inline Adapt + Start row (no floating bar) and the Adapt sheet with
       // four presentational options + computed trim copy.
       assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: HG3\.border/);
-      assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: HG3\.purple/);
+      // Start workout is the green action: green border, label, and arrow.
+      assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: HG3\.green/);
+      assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: HG3\.green/);
       assert.match(homeScreenSource, /Start workout/);
       assert.match(homeScreenSource, /Adapt session/);
       assert.match(homeScreenSource, /Tweak today's session — your plan stays on track\./);

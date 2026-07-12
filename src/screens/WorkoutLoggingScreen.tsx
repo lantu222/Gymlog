@@ -244,58 +244,6 @@ function formatWorkoutListExerciseName(name: string) {
   return name.replace(/\bDumbbell\b/i, 'DB');
 }
 
-function getWorkoutListIcon(name: string) {
-  const normalized = name.toLowerCase();
-  const iconProps = {
-    stroke: '#667085',
-    strokeWidth: 2,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  };
-
-  if (normalized.includes('bench')) {
-    return (
-      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-        <Path d="M5 12h14M8 8v8M16 8v8M3 10v4M21 10v4" {...iconProps} />
-      </Svg>
-    );
-  }
-  if (normalized.includes('overhead')) {
-    return (
-      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-        <Path d="M8 6v12M16 6v12M12 8v8M6 9h12M6 15h12" {...iconProps} />
-      </Svg>
-    );
-  }
-  if (normalized.includes('incline')) {
-    return (
-      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-        <Path d="M5 17h14M7 15l8-8M15 7h3v3" {...iconProps} />
-      </Svg>
-    );
-  }
-  if (normalized.includes('lateral')) {
-    return (
-      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-        <Circle cx={12} cy={6} r={2} {...iconProps} />
-        <Path d="M12 8v6M8 11l4 3 4-3M9 20l3-6 3 6" {...iconProps} />
-      </Svg>
-    );
-  }
-  if (normalized.includes('triceps')) {
-    return (
-      <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-        <Path d="M8 5h8M12 5v14M9 19h6M10 12h4" {...iconProps} />
-      </Svg>
-    );
-  }
-  return (
-    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={4} {...iconProps} />
-    </Svg>
-  );
-}
-
 function formatRestDurationLabel(seconds: number | null) {
   if (!seconds) {
     return 'Off';
@@ -881,9 +829,6 @@ export function WorkoutLoggingScreen({
                   }}
                   style={[styles.exerciseListRow, isOpen && styles.exerciseListRowOpen]}
                 >
-                  <View style={styles.exerciseListIcon}>
-                    {getWorkoutListIcon(exercise.exerciseName)}
-                  </View>
                   <View style={styles.exerciseListCopy}>
                     <Text style={styles.exerciseListTitle} numberOfLines={1}>
                       {formatWorkoutListExerciseName(exercise.exerciseName)}
@@ -1421,16 +1366,6 @@ const styles = StyleSheet.create({
   },
   exerciseListRowOpen: {
     borderBottomWidth: 0,
-  },
-  exerciseListIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: '#FAF8FF',
-    borderWidth: 1,
-    borderColor: '#EFEAF9',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   exerciseListCopy: {
     flex: 1,

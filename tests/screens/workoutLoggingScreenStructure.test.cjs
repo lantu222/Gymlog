@@ -53,8 +53,9 @@ module.exports = [
       assert.match(screenSource, /workoutExerciseRows\s*=\s*activeSession\.exercises/);
       assert.match(screenSource, /exerciseList/);
       assert.match(screenSource, /exerciseListRow/);
-      assert.match(screenSource, /exerciseListIcon/);
-      assert.match(screenSource, /<Svg width=\{24\} height=\{24\}/);
+      // Exercise rows carry no leading icon tile — just the name/meta copy.
+      assert.doesNotMatch(screenSource, /exerciseListIcon/);
+      assert.doesNotMatch(screenSource, /getWorkoutListIcon/);
       assert.match(screenSource, /exerciseListMore/);
       assert.match(screenSource, /fontSize:\s*19/);
       assert.match(screenSource, /letterSpacing:\s*-0\.2/);
@@ -64,7 +65,6 @@ module.exports = [
       assert.match(screenSource, /getExerciseCompletionMeta/);
       assert.match(screenSource, /\$\{completedSets\}\/\$\{totalSets\} done/);
       assert.match(screenSource, /formatWorkoutListExerciseName\(exercise\.exerciseName\)/);
-      assert.match(screenSource, /getWorkoutListIcon\(exercise\.exerciseName\)/);
       assert.match(screenSource, /More actions for \$\{exercise\.exerciseName\}/);
       assert.match(screenSource, />\.\.\.</);
       assert.match(screenSource, /borderBottomWidth:\s*1/);

@@ -52,7 +52,7 @@ module.exports = [
       // segmented block bar, chips, a next-session strip Start, and manage row.
       assert.match(programsHomeSource, /ACTIVE PROGRAM/);
       assert.match(programsHomeSource, /activeProgram\.weekLabel/);
-      assert.match(programsHomeSource, /<GradientTile stops=\{ACTIVE_TILE\} size=\{52\}/);
+      assert.match(programsHomeSource, /<GradientTile stops=\{ACTIVE_TILE\} size=\{58\}/);
       assert.match(programsHomeSource, /Week \{currentWeek\}: \{phaseNote\(currentWeek, totalWeeks\)\}/);
       assert.match(programsHomeSource, /Array\.from\(\{ length: totalWeeks \}/);
       assert.match(programsHomeSource, /index < currentWeek \? styles\.segmentFilled : styles\.segmentEmpty/);

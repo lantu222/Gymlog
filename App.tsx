@@ -1181,7 +1181,6 @@ function GymlogApp() {
     await updatePreferences({ trainingFirstRunDismissed: true });
     workout.discardWorkout();
     setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-    showToast('Workout discarded');
     navigateBack(fallbackRoute);
   }
 
