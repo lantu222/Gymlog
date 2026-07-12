@@ -813,27 +813,14 @@ export function WorkoutLoggingScreen({
   const workoutExerciseRows = activeSession.exercises;
   const elapsedText = formatLoggerClock(activeSession.elapsedSeconds);
   const volumeText = formatVolume(totalVolume, unitPreference);
-  const elapsedIsLong = elapsedText.length >= 7;
-  const volumeIsLong = volumeText.length >= 7;
   const selectedRestDurationSeconds = activeSession.restTimer.durationSeconds || defaultRestSeconds;
   const liveStats = (
-    <View style={styles.liveStatsCard}>
-      <View style={[styles.liveStat, styles.liveStatDuration]}>
-        <Text style={styles.liveStatLabel}>Duration</Text>
-        <Text style={[styles.liveStatValue, styles.liveStatDurationValue, elapsedIsLong && styles.liveStatValueLong]} numberOfLines={1}>
-          {elapsedText}
-        </Text>
-      </View>
-      <View style={[styles.liveStat, styles.liveStatVolume]}>
-        <Text style={styles.liveStatLabel}>Volume</Text>
-        <Text style={[styles.liveStatValue, volumeIsLong && styles.liveStatValueLong]} numberOfLines={1}>
-          {volumeText}
-        </Text>
-      </View>
-      <View style={[styles.liveStat, styles.liveStatSets]}>
-        <Text style={styles.liveStatLabel}>Sets</Text>
-        <Text style={styles.liveStatValue} numberOfLines={1}>{completedSets}</Text>
-      </View>
+    <View style={styles.metaStrip}>
+      <Text style={styles.metaStripText}>{elapsedText}</Text>
+      <View style={styles.metaStripDot} />
+      <Text style={styles.metaStripText}>{completedSets} sets</Text>
+      <View style={styles.metaStripDot} />
+      <Text style={styles.metaStripText}>{volumeText} volume</Text>
     </View>
   );
 
@@ -972,7 +959,6 @@ export function WorkoutLoggingScreen({
                           <Text style={styles.setHeaderCell}>REPS</Text>
                         </View>
                       </View>
-                      <Text style={styles.setHeaderCheck} />
                     </View>
 
                     <View style={styles.setRows}>
@@ -1334,6 +1320,31 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     fontWeight: '800',
   },
+  metaStrip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+    marginBottom: 14,
+    marginHorizontal: 26,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEAF7',
+  },
+  metaStripText: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    color: '#101828',
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  metaStripDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: '#C0B8D4',
+  },
   liveStatsCard: {
     minHeight: 72,
     marginTop: 0,
@@ -1559,7 +1570,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
   },
   setHeaderCell: {
-    width: 66,
+    width: 76,
     fontFamily: WORKOUT_FONT_FAMILY,
     color: '#9B93AD',
     fontSize: 12,
@@ -1567,10 +1578,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.7,
     textAlign: 'center',
-  },
-  setHeaderCheck: {
-    width: 34,
-    marginRight: 10,
   },
   setHeaderMiddleGroup: {
     flex: 1,
@@ -1582,7 +1589,7 @@ const styles = StyleSheet.create({
     paddingRight: 14,
   },
   setHeaderValueGroup: {
-    width: 146,
+    width: 168,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

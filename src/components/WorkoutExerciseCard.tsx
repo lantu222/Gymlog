@@ -250,7 +250,6 @@ export function WorkoutExerciseCard({
             <Text style={styles.tablePreviousHeader}>PREVIOUS</Text>
             <Text style={styles.tableCellHeader}>KG</Text>
             <Text style={styles.tableCellHeader}>REPS</Text>
-            <Text style={styles.tableCheckHeader}>CHECK</Text>
           </View>
 
           <View style={styles.rows}>
@@ -468,22 +467,22 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 2,
+    paddingLeft: 7,
+    paddingRight: 14,
     paddingTop: 4,
   },
   tableSetHeader: {
     fontFamily: typography.fontFamily,
-    width: 24,
+    width: 44,
     color: '#667085',
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 0.4,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   tablePreviousHeader: {
     fontFamily: typography.fontFamily,
-    width: 76,
+    width: 92,
     color: '#8D7FA9',
     fontSize: 10,
     fontWeight: '900',
@@ -492,18 +491,9 @@ const styles = StyleSheet.create({
   },
   tableCellHeader: {
     fontFamily: typography.fontFamily,
-    width: 64,
+    width: 76,
     color: '#667085',
     fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.4,
-    textAlign: 'center',
-  },
-  tableCheckHeader: {
-    fontFamily: typography.fontFamily,
-    width: 44,
-    color: '#667085',
-    fontSize: 9,
     fontWeight: '900',
     letterSpacing: 0.4,
     textAlign: 'center',

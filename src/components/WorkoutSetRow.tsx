@@ -1,5 +1,6 @@
 ﻿import React from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { colors, radii, spacing } from '../theme';
 import { UnitPreference } from '../types/models';
@@ -7,12 +8,22 @@ import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/worko
 import { canCompleteWorkoutSet, getWorkoutSetValidationMessage } from '../lib/workoutValidation';
 
 const LOGGING_PURPLE = '#7C3AED';
+const SUCCESS_GREEN = '#16A34A';
+const SUCCESS_GREEN_BG = '#ECF7F0';
+const DANGER_RED = '#D64545';
 const WORKOUT_FONT_FAMILY = 'Manrope';
 const SET_BADGE_SIZE = 32;
-const VALUE_CELL_FLEX = 0.5;
-const VALUE_CELL_WIDTH = 66;
+const VALUE_CELL_WIDTH = 76;
 const PREVIOUS_CELL_WIDTH = 86;
-const CHECK_BUTTON_SIZE = 34;
+
+// Quick weight adjust chips shown under the active set (handoff §4). Easy to
+// re-tune later.
+const WEIGHT_STEPS = [-2.5, 1.25, 2.5, 5];
+
+function formatStep(step: number) {
+  const abs = Number.isInteger(step) ? String(Math.abs(step)) : String(Math.abs(step));
+  return `${step > 0 ? '+' : '-'}${abs} kg`;
+}
 
 interface WorkoutSetRowProps {
   setNumber: number;
@@ -50,8 +61,29 @@ function CompactValueCell({
   muted?: boolean;
 }) {
   return (
-    <View style={[styles.valueCell, styles.valueCellFlex, completed && styles.valueCellCompletedPurple]}>
-      <Text style={[styles.valueText, muted && styles.valueTextMuted]} numberOfLines={1}>{value}</Text>
+    <View style={[styles.valueCell, styles.valueCellFlex, completed && styles.valueCellCompleted]}>
+      <Text style={[styles.valueText, completed && styles.valueTextCompleted, muted && styles.valueTextMuted]} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+function WeightConsole({ currentValue, onStep }: { currentValue: string; onStep: (next: string) => void }) {
+  const applyStep = (delta: number) => {
+    const parsed = Number.parseFloat(currentValue);
+    const base = Number.isFinite(parsed) ? parsed : 0;
+    const next = Math.max(0, base + delta);
+    onStep(Number.isInteger(next) ? String(next) : String(Number(next.toFixed(2))));
+  };
+
+  return (
+    <View style={styles.consoleWrap}>
+      {WEIGHT_STEPS.map((step) => (
+        <Pressable key={step} onPress={() => applyStep(step)} style={styles.consoleChip} hitSlop={4}>
+          <Text style={[styles.consoleChipText, { color: step < 0 ? DANGER_RED : SUCCESS_GREEN }]}>{formatStep(step)}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -83,12 +115,10 @@ export function WorkoutSetRow({
 }: WorkoutSetRowProps) {
   const showLoadField = trackingMode !== 'bodyweight';
   const showEditableInputs = active && !completed;
-  const showActionButton = true;
   const readyToComplete = canCompleteWorkoutSet(trackingMode, weightValue, repsValue);
   const validationMessage = active && !completed
     ? getWorkoutSetValidationMessage(trackingMode, weightValue, repsValue)
     : null;
-  const effortLabel = effort === 'easy' ? 'Easy' : effort === 'good' ? 'Good' : effort === 'hard' ? 'Hard' : null;
   const loadDisplayValue = weightValue || weightPlaceholder || '0';
   const repsDisplayValue = repsValue || repsPlaceholder || '6-8';
   const loadMuted = !completed && !weightValue;
@@ -100,8 +130,15 @@ export function WorkoutSetRow({
       style={[styles.row, active && styles.rowActive, completed && styles.rowCompleted, future && styles.rowFuture]}
     >
       <View style={styles.mainLine}>
-        <View style={[styles.setBadge, active && styles.setBadgeActive, completed && styles.setBadgeCompletedPurple]}>
-          <Text style={[styles.setBadgeValue, (active || completed) && styles.setBadgeValueOnPurple]}>{setNumber}</Text>
+        <View style={styles.setBadge}>
+          <Text style={[styles.setBadgeValue, active && styles.setBadgeValueActive, completed && styles.setBadgeValueCompleted]}>
+            {setNumber}
+          </Text>
+          {completed ? (
+            <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+              <Path d="M5 12l5 5L19 7" stroke={SUCCESS_GREEN} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          ) : null}
         </View>
 
         <View style={styles.setMiddleGroup}>
@@ -162,27 +199,24 @@ export function WorkoutSetRow({
           </View>
         </View>
 
-        {showActionButton ? (
-          <Pressable
-            hitSlop={6}
-            onPress={onComplete}
-            disabled={!completed && !readyToComplete}
-            style={[
-              styles.doneButton,
-              active && readyToComplete && styles.doneButtonReady,
-              completed && styles.doneButtonCompletedPurple,
-              !completed && !readyToComplete && styles.doneButtonDisabled,
-            ]}
-          >
-            <Text style={[styles.doneText, active && readyToComplete && styles.doneTextReady, completed && styles.doneTextCompleted]}>
-              ✓
-            </Text>
-          </Pressable>
-        ) : null}
       </View>
 
-      {active && !completed ? (
-        null
+      {showEditableInputs ? (
+        <>
+          <WeightConsole currentValue={weightValue} onStep={onWeightChange} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Log set ${setNumber}`}
+            onPress={onComplete}
+            disabled={!readyToComplete}
+            style={[styles.logSetButton, !readyToComplete && styles.logSetButtonDisabled]}
+          >
+            <Text style={styles.logSetText}>Log set</Text>
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path d="M5 12h14M13 6l6 6-6 6" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
+        </>
       ) : null}
 
       {validationMessage ? <Text style={styles.validationText}>{validationMessage}</Text> : null}
@@ -203,7 +237,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   rowCompleted: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: SUCCESS_GREEN_BG,
   },
   rowFuture: {
     opacity: 0.76,
@@ -216,19 +250,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   setBadge: {
-    width: SET_BADGE_SIZE,
+    width: SET_BADGE_SIZE + 12,
     minHeight: SET_BADGE_SIZE,
     marginLeft: 5,
-    borderRadius: 0,
-    backgroundColor: 'transparent',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-  },
-  setBadgeActive: {
-    backgroundColor: 'transparent',
-  },
-  setBadgeCompletedPurple: {
-    backgroundColor: 'transparent',
+    justifyContent: 'flex-start',
+    gap: 5,
   },
   setBadgeValue: {
     fontFamily: WORKOUT_FONT_FAMILY,
@@ -238,8 +266,11 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
-  setBadgeValueOnPurple: {
-    color: '#111827',
+  setBadgeValueActive: {
+    color: LOGGING_PURPLE,
+  },
+  setBadgeValueCompleted: {
+    color: SUCCESS_GREEN,
   },
   previousValue: {
     fontFamily: WORKOUT_FONT_FAMILY,
@@ -262,7 +293,7 @@ const styles = StyleSheet.create({
     paddingRight: 14,
   },
   valueCellsGroup: {
-    width: 146,
+    width: 168,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -311,9 +342,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  valueCellCompletedPurple: {
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F5F5F7',
+  valueCellCompleted: {
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
   },
   valueCellFlex: {
     width: VALUE_CELL_WIDTH,
@@ -328,47 +359,62 @@ const styles = StyleSheet.create({
     width: '100%',
     includeFontPadding: false,
   },
+  valueTextCompleted: {
+    color: '#111827',
+  },
   valueTextMuted: {
     color: '#9B93AD',
     fontWeight: '800',
   },
-  doneButton: {
-    width: CHECK_BUTTON_SIZE,
-    minHeight: CHECK_BUTTON_SIZE,
-    marginRight: 10,
-    borderRadius: 10,
+  consoleWrap: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 9,
+    marginBottom: 2,
+    borderRadius: 14,
+    backgroundColor: '#EFE7FF',
+    padding: 8,
+  },
+  consoleChip: {
+    flex: 1,
+    height: 44,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
+    borderColor: '#E5DEF4',
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 0,
   },
-  doneButtonReady: {
-    borderColor: 'rgba(124, 58, 237, 0.34)',
-    backgroundColor: '#F5F5F7',
-  },
-  doneButtonCompletedPurple: {
-    backgroundColor: LOGGING_PURPLE,
-    borderColor: 'rgba(124, 58, 237, 0.34)',
-  },
-  doneButtonDisabled: {
-    opacity: 0.86,
-  },
-  doneText: {
+  consoleChipText: {
     fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#94A3B8',
-    fontSize: 16,
-    fontWeight: '900',
-    textAlign: 'center',
+    fontSize: 13.5,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
-  doneTextReady: {
-    color: LOGGING_PURPLE,
-    fontSize: 16,
+  logSetButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: LOGGING_PURPLE,
+    marginTop: 2,
+    marginBottom: 4,
+    shadowColor: LOGGING_PURPLE,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 4,
   },
-  doneTextCompleted: {
+  logSetButtonDisabled: {
+    opacity: 0.5,
+  },
+  logSetText: {
+    fontFamily: WORKOUT_FONT_FAMILY,
     color: '#FFFFFF',
-    fontSize: 12,
+    fontSize: 16,
+    fontWeight: '800',
   },
   activeHintRow: {
     paddingHorizontal: 2,

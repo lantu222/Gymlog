@@ -39,16 +39,14 @@ module.exports = [
       assert.doesNotMatch(screenSource, /activeWorkoutCloseButton/);
       assert.doesNotMatch(screenSource, />v</);
 
-      assert.match(screenSource, /liveStatsCard/);
-      assert.match(screenSource, /liveStatDuration/);
-      assert.match(screenSource, /liveStatVolume/);
-      assert.match(screenSource, /liveStatSets/);
-      assert.match(screenSource, />Duration</);
-      assert.match(screenSource, />Volume</);
-      assert.match(screenSource, />Sets</);
-      assert.match(screenSource, /liveStatDurationValue/);
-      assert.match(screenSource, /minHeight:\s*72/);
-      assert.doesNotMatch(screenSource, /liveStatDivider/);
+      // The Duration/Volume/Sets card was replaced by a single meta strip that
+      // carries the clock alongside the counts; "done so far" is gone.
+      assert.match(screenSource, /metaStrip/);
+      assert.match(screenSource, /metaStripText/);
+      assert.match(screenSource, /\{elapsedText\}/);
+      assert.match(screenSource, /\{completedSets\} sets/);
+      assert.match(screenSource, /\{volumeText\} volume/);
+      assert.doesNotMatch(screenSource, /done so far/);
 
       assert.match(screenSource, /workoutExerciseRows\s*=\s*activeSession\.exercises/);
       assert.match(screenSource, /exerciseList/);
@@ -88,12 +86,21 @@ module.exports = [
       assert.match(screenSource, /updateSetDraft\(exercise\.slotId, rowIndex, \{ repsText: value \}\)/);
       assert.match(screenSource, /completeSet\(exercise\.slotId, rowIndex, unitPreference\)/);
       assert.match(setRowSource, /WORKOUT_FONT_FAMILY\s*=\s*'Manrope'/);
-      assert.match(setRowSource, /VALUE_CELL_WIDTH\s*=\s*66/);
-      assert.match(setRowSource, /CHECK_BUTTON_SIZE\s*=\s*34/);
-      assert.doesNotMatch(setRowSource, /CHECK_SPACER_WIDTH/);
+      assert.match(setRowSource, /VALUE_CELL_WIDTH\s*=\s*76/);
+      // Per-row CHECK button removed (handoff §1): no CHECK column/spacer, no
+      // per-row done button. The set is logged via the Log set button / reps
+      // submit; completed rows paint green.
+      assert.doesNotMatch(setRowSource, /CHECK_BUTTON_SIZE/);
+      assert.doesNotMatch(setRowSource, /doneButton/);
+      assert.doesNotMatch(setRowSource, /setHeaderCheck/);
+      assert.doesNotMatch(screenSource, /setHeaderCheck/);
+      assert.match(setRowSource, /const SUCCESS_GREEN = '#16A34A'/);
+      assert.match(setRowSource, /rowCompleted:\s*\{\s*backgroundColor: SUCCESS_GREEN_BG/);
+      assert.match(setRowSource, /const WEIGHT_STEPS = \[-2\.5, 1\.25, 2\.5, 5\]/);
+      assert.match(setRowSource, /function WeightConsole/);
+      assert.match(setRowSource, /Log set/);
       assert.match(setRowSource, /minHeight:\s*38/);
       assert.match(setRowSource, /marginLeft:\s*5/);
-      assert.match(setRowSource, /marginRight:\s*10/);
       assert.match(setRowSource, /PREVIOUS_CELL_WIDTH\s*=\s*86/);
       assert.match(setRowSource, /paddingLeft:\s*10/);
       assert.match(screenSource, /width:\s*86/);
