@@ -43,25 +43,37 @@ module.exports = [
     },
   },
   {
-    name: 'programs home screen composes active program, explore, your programs, and library',
+    name: 'programs home screen composes active hero, designed covers, switch sheet, and library',
     run() {
       assert.match(programsHomeSource, /import \{ HG3 \} from '\.\.\/lightTheme'/);
       assert.match(programsHomeSource, />Programs<\/Text>/);
       assert.match(programsHomeSource, /Your plan, and the programs behind it\./);
-      // Active program card: eyebrow, week label, segmented block bar, tags,
-      // next-session Start, and the view-plan row.
+      // Active program hero: eyebrow, week label, gradient tile, phase note,
+      // segmented block bar, chips, a next-session strip Start, and manage row.
       assert.match(programsHomeSource, /ACTIVE PROGRAM/);
       assert.match(programsHomeSource, /activeProgram\.weekLabel/);
+      assert.match(programsHomeSource, /<GradientTile stops=\{ACTIVE_TILE\} size=\{52\}/);
+      assert.match(programsHomeSource, /Week \{currentWeek\}: \{phaseNote\(currentWeek, totalWeeks\)\}/);
       assert.match(programsHomeSource, /Array\.from\(\{ length: totalWeeks \}/);
       assert.match(programsHomeSource, /index < currentWeek \? styles\.segmentFilled : styles\.segmentEmpty/);
       assert.match(programsHomeSource, /activeProgram\.sessionsPerWeek\} days \/ week/);
       assert.match(programsHomeSource, /NEXT SESSION/);
       assert.match(programsHomeSource, /onStartActiveSession\(nextSession\.id\)/);
       assert.match(programsHomeSource, /View plan, edit days &amp; swap exercises/);
-      // Explore is a horizontal carousel of ready programs.
+      // Explore: designed gradient covers (oklch pre-converted to sRGB), not
+      // photos. Tapping a card opens the switch-program sheet.
       assert.match(programsHomeSource, /EXPLORE PROGRAMS/);
+      assert.match(programsHomeSource, /const COVER_STYLES/);
+      assert.match(programsHomeSource, /function ProgramCover/);
+      assert.match(programsHomeSource, /RadialGradient/);
       assert.match(programsHomeSource, /exploreItems\.map/);
-      assert.match(programsHomeSource, /onOpenExploreProgram\(item\.id\)/);
+      assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
+      assert.match(programsHomeSource, /days\}d \/ wk/);
+      // Switch-program sheet: explainer + Cancel / Switch program; confirm opens
+      // the picked program (existing ready-program detail path).
+      assert.match(programsHomeSource, /Switching starts a fresh block/);
+      assert.match(programsHomeSource, /Switch program/);
+      assert.match(programsHomeSource, /onOpenExploreProgram\(id\)/);
       // Your programs + create + library.
       assert.match(programsHomeSource, /YOUR PROGRAMS/);
       assert.match(programsHomeSource, /customPrograms\.map/);
@@ -79,9 +91,11 @@ module.exports = [
       assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'programs_home'/);
       // Active program reuses the already-computed home plan card.
       assert.match(appSource, /activeProgram=\{\s*homeActivePlanCard/);
-      // Explore comes from the ready templates via getReadyProgramContent.
+      // Explore comes from the ready templates via getReadyProgramContent, each
+      // assigned one of the designed cover styles.
       assert.match(appSource, /const programsExploreItems = useMemo<ProgramsExploreItem\[\]>/);
       assert.match(appSource, /getReadyProgramContent\(template\.id\)\?\.summary/);
+      assert.match(appSource, /coverIndex: index % 5/);
       assert.match(appSource, /const programsCustomItems = useMemo/);
       // Handlers reuse existing navigation, nothing new invented.
       assert.match(appSource, /onOpenExploreProgram=\{handleOpenReadyProgramDetail\}/);
@@ -90,6 +104,15 @@ module.exports = [
       assert.match(appSource, /onOpenLibrary=\{\(\) => navigate\(\{ tab: 'workout', screen: 'list' \}\)\}/);
       // Status-bar/shell treatment matches the other light workout screens.
       assert.match(appSource, /const programsHomeActive = route\.tab === 'workout' && route\.screen === 'programs_home'/);
+    },
+  },
+  {
+    name: 'bottom bar center action is the + FAB with no Start caption',
+    run() {
+      assert.doesNotMatch(bottomTabBarSource, /<Text[^>]*centerLabel[^>]*>Start<\/Text>/);
+      assert.doesNotMatch(bottomTabBarSource, /styles\.centerLabel/);
+      // Accessibility label preserved for screen readers.
+      assert.match(bottomTabBarSource, /accessibilityLabel="Start"/);
     },
   },
 ];

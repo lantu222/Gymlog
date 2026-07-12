@@ -2273,16 +2273,16 @@ function GymlogApp() {
       workout.templates
         .filter((template) => template.id.startsWith('tpl_gainer_'))
         .slice(0, 8)
-        .map((template) => {
-          const summary = getReadyProgramContent(template.id)?.summary ?? '';
-          return {
-            id: template.id,
-            name: formatWorkoutDisplayLabel(template.name),
-            badge: formatGoalLabel(template.goalType),
-            description: summary,
-            metaLabel: `${template.daysPerWeek} days / week · ~${template.estimatedSessionDuration} min`,
-          };
-        }),
+        .map((template, index) => ({
+          id: template.id,
+          name: formatWorkoutDisplayLabel(template.name),
+          goal: formatGoalLabel(template.goalType),
+          blurb: getReadyProgramContent(template.id)?.summary ?? '',
+          days: template.daysPerWeek,
+          minutes: template.estimatedSessionDuration,
+          // Cycles the 5 designed cover styles so each catalog card is distinct.
+          coverIndex: index % 5,
+        })),
     [workout.templates],
   );
   const programsCustomItems = useMemo(
