@@ -341,8 +341,6 @@ const DEFAULT_HOME_AI_PROMPT_SUGGESTIONS = [
   '30-day run challenge?',
 ];
 
-const WORKOUT_LOGGER_TIP_ID = 'workout_logger_start';
-
 function getBackRoute(route: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
@@ -2410,17 +2408,6 @@ function GymlogApp() {
     return <LaunchScreen />;
   }
 
-  const workoutLoggerInlineTip = dismissedTipIds.includes(WORKOUT_LOGGER_TIP_ID)
-    ? null
-    : {
-        title: 'Log one set at a time',
-        body: 'Enter load and reps, then Done locks the set and moves the workout forward.',
-        accent: 'blue' as const,
-        onDismiss: () => {
-          void handleDismissTip(WORKOUT_LOGGER_TIP_ID);
-        },
-      };
-
   let content: React.ReactNode;
 
   if (onboardingActive) {
@@ -2606,7 +2593,7 @@ function GymlogApp() {
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
         customTemplate={customWorkoutRuntimeMap[route.workoutTemplateId] ?? null}
-        inlineTip={workoutLoggerInlineTip}
+        inlineTip={null}
         dismissedTipIds={dismissedTipIds}
         onDismissTip={handleDismissTip}
         onOpenAdaptiveCoachPremium={handleOpenPremium}
