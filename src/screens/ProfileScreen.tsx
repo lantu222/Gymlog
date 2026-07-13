@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -14,7 +14,7 @@ import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
 import { ExerciseProgressSummary } from '../lib/progression';
 import { HG } from '../lightTheme';
 import { appInfo, layout } from '../theme';
-import { AppLanguage, AppPreferences, ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { AppLanguage, AppPreferences, ExerciseLibraryItem, SignInMethod, UnitPreference } from '../types/models';
 
 interface ProfileScreenProps {
   preferences: AppPreferences;
@@ -25,13 +25,11 @@ interface ProfileScreenProps {
   recommendedProgramName?: string | null;
   recommendedProgramDaysPerWeek?: number | null;
   planNextLabel?: string | null;
-  onUnitPreferenceChange: (nextUnit: UnitPreference) => void;
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
   onManagePlan: () => void;
   onEditTraining: () => void;
   onOpenProgress: () => void;
   onOpenPremium: () => void;
-  onOpenSettings: () => void;
   onResetAllData: () => void;
 }
 
@@ -73,20 +71,6 @@ function ChevronIcon() {
   );
 }
 
-function SettingsGlyph() {
-  return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={3} stroke={HG.purpleDark} strokeWidth={2} />
-      <Path
-        d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"
-        stroke={HG.purpleDark}
-        strokeWidth={2}
-        strokeLinecap="round"
-      />
-    </Svg>
-  );
-}
-
 function DumbbellGlyph() {
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
@@ -109,12 +93,55 @@ function StarGlyph() {
   );
 }
 
-function AccountActionIcon({ path, color }: { path: string; color: string }) {
+function SoonBadge() {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path d={path} stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
+    <View style={styles.soonBadge}>
+      <Text style={styles.soonBadgeText}>Soon</Text>
+    </View>
   );
+}
+
+function signInLabel(method: SignInMethod | null) {
+  switch (method) {
+    case 'apple':
+      return 'Apple';
+    case 'google':
+      return 'Google';
+    case 'email':
+      return 'Email';
+    case 'local':
+      return 'Local';
+    default:
+      return 'Guest';
+  }
+}
+
+function SettingsRow({
+  title,
+  subtitle,
+  right,
+  destructive = false,
+  isLast = false,
+  onPress,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  destructive?: boolean;
+  isLast?: boolean;
+  onPress?: () => void;
+}) {
+  const inner = (
+    <View style={[styles.setRow, isLast && styles.setRowLast]}>
+      <View style={styles.setCopy}>
+        <Text style={[styles.setTitle, destructive && styles.setTitleDanger]}>{title}</Text>
+        {subtitle ? <Text style={styles.setSub}>{subtitle}</Text> : null}
+      </View>
+      {right}
+    </View>
+  );
+
+  return onPress ? <Pressable onPress={onPress}>{inner}</Pressable> : inner;
 }
 
 function SectionLabel({ label, actionLabel, onAction }: { label: string; actionLabel?: string; onAction?: () => void }) {
@@ -172,13 +199,11 @@ export function ProfileScreen({
   recommendedProgramName,
   recommendedProgramDaysPerWeek,
   planNextLabel,
-  onUnitPreferenceChange,
   onPreferencesChange,
   onManagePlan,
   onEditTraining,
   onOpenProgress,
   onOpenPremium,
-  onOpenSettings,
   onResetAllData,
 }: ProfileScreenProps) {
   const [resetVisible, setResetVisible] = useState(false);
@@ -229,9 +254,6 @@ export function ProfileScreen({
           <Text style={styles.headerTitle}>Profile</Text>
           <Text style={styles.headerSubtitle}>Your training identity.</Text>
         </View>
-        <Pressable onPress={onOpenSettings} style={styles.headerButton}>
-          <SettingsGlyph />
-        </Pressable>
       </View>
 
       <ScrollView
@@ -388,14 +410,7 @@ export function ProfileScreen({
               <View style={styles.prefCopy}>
                 <Text style={styles.prefLabel}>Units</Text>
               </View>
-              <Seg
-                options={[
-                  { key: 'kg', label: 'kg' },
-                  { key: 'lb', label: 'lb' },
-                ]}
-                value={unitPreference}
-                onChange={onUnitPreferenceChange}
-              />
+              <Text style={styles.setValue}>kg</Text>
             </View>
             <View style={styles.prefRow}>
               <View style={styles.prefCopy}>
@@ -427,22 +442,49 @@ export function ProfileScreen({
           </View>
         </View>
 
-        {/* ACCOUNT */}
+        {/* ACCOUNT (merged from the old Settings screen) */}
         <View style={styles.section}>
           <SectionLabel label="ACCOUNT" />
           <View style={styles.card}>
-            <Pressable onPress={() => setResetVisible(true)} style={[styles.accountRow, styles.accountRowLast]}>
-              <AccountActionIcon
-                path="M4 7h16M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M6 7l1 13a2 2 0 002 2h6a2 2 0 002-2l1-13"
-                color="#C0392B"
-              />
-              <View style={styles.accountCopy}>
-                <Text style={[styles.accountLabel, styles.accountLabelDanger]}>Reset all data</Text>
-                <Text style={styles.accountSub}>Clear everything on this device.</Text>
-              </View>
-            </Pressable>
+            <SettingsRow
+              title="Account type"
+              subtitle={signInLabel(preferences.selectedSignInMethod)}
+              right={<SoonBadge />}
+            />
+            <SettingsRow title="Name / email / avatar" subtitle="Profile identity" right={<SoonBadge />} />
+            <SettingsRow title="Synchronize workout data" subtitle="Cloud sync" right={<SoonBadge />} isLast />
           </View>
-          <Text style={styles.versionText}>GAINER · v{appInfo.version}</Text>
+        </View>
+
+        {/* MORE */}
+        <View style={styles.section}>
+          <SectionLabel label="MORE" />
+          <View style={styles.card}>
+            <SettingsRow title="Support" subtitle="Get help" right={<SoonBadge />} />
+            <SettingsRow title="About" subtitle="App info" right={<SoonBadge />} />
+            <SettingsRow title="Credits / licenses" subtitle="Material Symbols icons — Apache 2.0" right={<SoonBadge />} />
+            <SettingsRow title="Rate us" subtitle="Share feedback" right={<SoonBadge />} />
+            <SettingsRow title="Account privacy" subtitle="Privacy controls" right={<SoonBadge />} />
+            <SettingsRow title="Import data" subtitle="Bring data in" right={<SoonBadge />} />
+            <SettingsRow title="Export data" subtitle="Export your data" right={<SoonBadge />} isLast />
+          </View>
+        </View>
+
+        {/* DATA */}
+        <View style={styles.section}>
+          <SectionLabel label="DATA" />
+          <View style={styles.card}>
+            <SettingsRow title="Delete account" subtitle="Remove account access" destructive right={<SoonBadge />} />
+            <SettingsRow title="Log out" subtitle="End current session" destructive right={<SoonBadge />} />
+            <SettingsRow title="Version" right={<Text style={styles.setValue}>{appInfo.version}</Text>} />
+            <SettingsRow
+              title="Reset all data"
+              subtitle="Clear everything on this device."
+              destructive
+              isLast
+              onPress={() => setResetVisible(true)}
+            />
+          </View>
         </View>
       </ScrollView>
 
@@ -491,14 +533,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
-  },
-  headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 13,
-    backgroundColor: HG.purpleLight,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   body: {
     paddingHorizontal: 20,
@@ -901,40 +935,55 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
   },
-  accountRow: {
+  setRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
+    gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: HG.border,
   },
-  accountRowLast: {
+  setRowLast: {
     borderBottomWidth: 0,
   },
-  accountCopy: {
+  setCopy: {
     flex: 1,
     minWidth: 0,
   },
-  accountLabel: {
+  setTitle: {
     color: HG.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
-  accountLabelDanger: {
+  setTitleDanger: {
     color: '#C0392B',
   },
-  accountSub: {
+  setSub: {
     color: HG.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
-  versionText: {
-    textAlign: 'center',
-    color: HG.faint,
-    fontSize: 11.5,
-    fontWeight: '600',
-    marginTop: 16,
+  setValue: {
+    color: HG.ink,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  soonBadge: {
+    minHeight: 24,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: '#ECFDF3',
+    borderWidth: 1,
+    borderColor: '#BBF7D0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soonBadgeText: {
+    color: '#15803D',
+    fontSize: 10,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
   },
 });

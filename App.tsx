@@ -75,7 +75,6 @@ import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
-import { ProfileSettingsScreen } from './src/screens/ProfileSettingsScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -384,12 +383,8 @@ function getBackRoute(route: AppRoute): AppRoute | null {
     return ROOT_ROUTES.profile;
   }
 
-  if (route.tab === 'profile' && route.screen === 'settings') {
-    return ROOT_ROUTES.profile;
-  }
-
   if (route.tab === 'profile' && route.screen === 'plan_settings') {
-    return { tab: 'profile', screen: 'settings' };
+    return ROOT_ROUTES.profile;
   }
 
   if (route.tab === 'profile' && route.screen === 'exercise_preferences') {
@@ -689,7 +684,6 @@ function GymlogApp() {
     getWorkoutExercises,
     getWorkoutTemplateSessions,
     getSessionLogs,
-    setUnitPreference,
     updatePreferences,
     completeOnboarding,
     upsertWorkoutTemplate,
@@ -1645,10 +1639,6 @@ function GymlogApp() {
 
   function handleOpenPlanSettings() {
     navigate({ tab: 'profile', screen: 'plan_settings' });
-  }
-
-  function handleOpenProfileSettings() {
-    navigate({ tab: 'profile', screen: 'settings' });
   }
 
   function handleOpenExercisePreferences() {
@@ -2732,36 +2722,12 @@ function GymlogApp() {
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );
-  } else if (route.tab === 'profile' && route.screen === 'settings') {
-    content = (
-      <ProfileSettingsScreen
-        preferences={preferences}
-        onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onUnitPreferenceChange={async (nextUnit) => {
-          await setUnitPreference(nextUnit);
-          showToast(`Units set to ${nextUnit}`);
-        }}
-        onPreferencesChange={async (patch) => {
-          await updatePreferences(patch);
-        }}
-        onSupportPress={undefined}
-        onResetAllData={async () => {
-          await resetAllData();
-          setCompletionSummary(null);
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          workout.clearCompletedWorkout();
-          showToast('All data reset');
-          resetToRoute(ROOT_ROUTES.home);
-        }}
-      />
-    );
   } else if (route.tab === 'profile' && route.screen === 'plan_settings') {
     content = (
       <PlanSettingsScreen
         preferences={preferences}
         recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
-        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onRefineSetup={handleOpenSetupEditor}
         onOpenExercisePreferences={handleOpenExercisePreferences}
         onOpenEquipment={handleOpenEquipment}
@@ -2837,10 +2803,6 @@ function GymlogApp() {
             ? formatWorkoutDisplayLabel(homeSummary.nextWorkout.workout.name)
             : null
         }
-        onUnitPreferenceChange={async (nextUnit) => {
-          await setUnitPreference(nextUnit);
-          showToast(`Units set to ${nextUnit}`);
-        }}
         onPreferencesChange={async (patch) => {
           await updatePreferences(patch);
         }}
@@ -2848,7 +2810,6 @@ function GymlogApp() {
         onEditTraining={handleOpenSetupEditor}
         onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
         onOpenPremium={handleOpenPremium}
-        onOpenSettings={handleOpenProfileSettings}
         onResetAllData={async () => {
           await resetAllData();
           setCompletionSummary(null);
