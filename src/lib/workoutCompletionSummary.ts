@@ -9,6 +9,10 @@ export interface WorkoutCompletionExerciseCard {
   totalSets: number;
   totalVolumeKg: number;
   notes?: string | null;
+  /** Heaviest logged set, e.g. "60 × 8" (Workout Complete recap). */
+  topSetLabel?: string | null;
+  /** True when this exercise produced a PR in the finished session. */
+  isPr?: boolean;
 }
 
 export interface WorkoutCompletionPrCard {

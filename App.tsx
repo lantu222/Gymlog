@@ -41,6 +41,7 @@ import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildSessionEquipmentLabel, getSessionBodyFocusLabel } from './src/lib/homeSessionHero';
+import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
@@ -119,6 +120,8 @@ interface CompletionSummaryState {
   setsCompleted: number;
   totalVolume: number;
   exercisesLogged: number;
+  volumeDeltaKg: number | null;
+  muscles: MuscleFocusRow[];
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
   insight: PostSessionInsight | null;
@@ -167,6 +170,7 @@ function buildCompletionCardsFromAdaptedSession({
       totalSets: Math.max(1, exercise.sets.length),
       totalVolumeKg,
       notes: exercise.notes,
+      topSetLabel: getTopSetLabel(exercise.sets),
     };
   });
 
@@ -228,8 +232,14 @@ function buildCompletionCardsFromAdaptedSession({
     .filter(isWorkoutCompletionPrCard)
     .slice(0, 3);
 
+  // Mark the recap rows whose exercise earned a PR this session.
+  const prSlotIds = new Set(prCards.map((card) => card.id.replace(/^pr:/, '')));
+  const exerciseCardsWithPr = exerciseCards.map((card) =>
+    prSlotIds.has(card.id) ? { ...card, isPr: true } : card,
+  );
+
   return {
-    exerciseCards,
+    exerciseCards: exerciseCardsWithPr,
     prCards,
   };
 }
@@ -1255,6 +1265,16 @@ function GymlogApp() {
         setsCompleted: summary.setsCompleted,
         totalVolume: summary.totalVolume,
         exercisesLogged: summary.exercisesLogged,
+        volumeDeltaKg: getVolumeDeltaVsPrevious(
+          {
+            sessionId: adaptedSession.sessionId,
+            workoutName: adaptedSession.workoutNameSnapshot,
+            performedAt: summary.performedAt,
+            totalVolumeKg: summary.totalVolume,
+          },
+          database.workoutSessions,
+        ),
+        muscles: buildMuscleFocus(adaptedSession.exercises, exerciseLibrary),
         exerciseCards: completionCards.exerciseCards,
         prCards: completionCards.prCards,
         insight,
@@ -2573,6 +2593,20 @@ function GymlogApp() {
           setCompletionSummary({
             sessionId,
             ...summary,
+            // Freestyle sessions have no plan identity: no previous-session
+            // comparison, and muscle focus comes from the logged drafts.
+            volumeDeltaKg: null,
+            muscles: buildMuscleFocus(
+              summary.logs.map((log) => ({
+                exerciseName: log.exerciseNameSnapshot,
+                sets: log.sets.map((set) => ({
+                  status: set.outcome === 'completed' ? 'completed' : 'skipped',
+                  weightKg: set.weight,
+                  reps: set.reps,
+                })),
+              })),
+              exerciseLibrary,
+            ),
             insight: null,
           });
           summaryExitRouteRef.current = ROOT_ROUTES.home;
@@ -2612,10 +2646,10 @@ function GymlogApp() {
         setsCompleted={completionSummary.setsCompleted}
         totalVolume={completionSummary.totalVolume}
         exercisesLogged={completionSummary.exercisesLogged}
+        volumeDeltaKg={completionSummary.volumeDeltaKg}
+        muscles={completionSummary.muscles}
         exerciseCards={completionSummary.exerciseCards}
         prCards={completionSummary.prCards}
-        insight={completionSummary.insight}
-        unitPreference={unitPreference}
         onDone={() => {
           setCompletionSummary(null);
           setWorkoutCelebration(null);
@@ -2623,39 +2657,14 @@ function GymlogApp() {
           workout.clearCompletedWorkout();
           resetToRoute(ROOT_ROUTES.home);
         }}
-        onSaveSummary={async ({ sessionName, notes }) => {
-          setFinishSaveState({
-            status: 'saving',
-            sessionId: completionSummary.sessionId,
-            message: null,
-          });
-          try {
-            await updateCompletedWorkoutSession(completionSummary.sessionId, {
-              workoutNameSnapshot: sessionName.trim() || completionSummary.workoutName,
-              sessionNotes: notes.trim() ? notes.trim() : null,
-            });
-            const nextCelebration = buildWorkoutCelebrationState({
-              completionSummary: {
-                ...completionSummary,
-                workoutName: sessionName.trim() || completionSummary.workoutName,
-              },
-              workoutSessions,
-            });
-            setCompletionSummary(null);
-            setWorkoutCelebration(nextCelebration);
-            setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-            workout.clearCompletedWorkout();
-            replaceRoute({ tab: 'workout', screen: 'celebration' });
-          } catch (error) {
-            console.error('Failed to save workout summary', error);
-            setFinishSaveState({
-              status: 'error',
-              sessionId: completionSummary.sessionId,
-              message: 'Could not save workout details',
-            });
-          }
+        onViewBreakdown={() => {
+          const sessionId = completionSummary.sessionId;
+          setCompletionSummary(null);
+          setWorkoutCelebration(null);
+          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+          workout.clearCompletedWorkout();
+          replaceRoute({ tab: 'home', screen: 'session', sessionId });
         }}
-        isSaving={finishSaveState.status === 'saving' && finishSaveState.sessionId === completionSummary.sessionId}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'celebration' && workoutCelebration) {

@@ -31,6 +31,7 @@ const suites = [
   ...require('./lib/homePrimaryAction.test.cjs'),
   ...require('./lib/homePlanProgress.test.cjs'),
   ...require('./lib/homeSessionHero.test.cjs'),
+  ...require('./lib/workoutCompleteView.test.cjs'),
   ...require('./lib/homeCalendar.test.cjs'),
   ...require('./lib/homeVisuals.test.cjs'),
   ...require('./lib/aiTrainingContext.test.cjs'),
