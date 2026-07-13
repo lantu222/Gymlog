@@ -38,7 +38,6 @@ interface WorkoutCompletionScreenProps {
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
   onDone: () => void;
-  onViewBreakdown: () => void;
 }
 
 function formatWhenLabel(performedAt: string) {
@@ -78,7 +77,6 @@ export function WorkoutCompletionScreen({
   exerciseCards,
   prCards,
   onDone,
-  onViewBreakdown,
 }: WorkoutCompletionScreenProps) {
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const pr = prCards[0] ?? null;
@@ -378,17 +376,6 @@ export function WorkoutCompletionScreen({
               style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
             >
               <Text style={styles.primaryButtonText}>Finish</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="View full breakdown"
-              onPress={onViewBreakdown}
-              style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.secondaryButtonText}>View full breakdown</Text>
-              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                <Path d="M9 6l6 6-6 6" stroke={HG3.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
             </Pressable>
           </Animated.View>
         </View>
@@ -740,20 +727,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16.5,
     lineHeight: 21,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    height: 48,
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-  },
-  secondaryButtonText: {
-    color: HG3.purple,
-    fontSize: 14.5,
-    lineHeight: 18,
     fontWeight: '800',
   },
 });

@@ -79,22 +79,12 @@ const RISE_HERO = 2;
 const RISE_SEC_BASE = 3; // warmup 3, workout 4, cooldown 5
 const RISE_BTNROW = 6;
 const RISE_DIVIDER = 7;
-const RISE_ROUTINES_HEAD = 8;
-const RISE_ROUTINES_CARDS = 9;
 const RISE_EMPTY_ROW = 10;
 
 const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 const SECTION_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
 type SectionKey = 'warmup' | 'workout' | 'cooldown';
-
-interface HomeTemplateItem {
-  id: string;
-  name: string;
-  sessionCount: number;
-  exerciseCount: number;
-  updatedAt: string;
-}
 
 export interface HomeRecentSessionItem {
   id: string;
@@ -132,22 +122,14 @@ interface HomePlanCard {
 
 interface HomeScreenProps {
   activePlan?: HomePlanCard | null;
-  customTemplates?: HomeTemplateItem[];
-  readyTemplateCount?: number;
   onStartActivePlanSession?: (sessionId: string) => void;
-  onOpenTemplatesHub: () => void;
   onCreateWorkoutFromExercises: () => void;
-  onBrowseReadyPlans: () => void;
 }
 
 export function HomeScreen({
   activePlan = null,
-  customTemplates = [],
-  readyTemplateCount = 0,
   onStartActivePlanSession,
-  onOpenTemplatesHub,
   onCreateWorkoutFromExercises,
-  onBrowseReadyPlans,
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
@@ -160,7 +142,6 @@ export function HomeScreen({
   });
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
-  const savedRoutineCount = customTemplates.length;
   const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
   const monthCalendar = useMemo(() => getHomeMonthCalendar(), []);
   const trainingDayIndexes = activePlan
@@ -620,45 +601,6 @@ export function HomeScreen({
         </Animated.View>
 
         <Animated.View style={[styles.sectionDivider, rise(RISE_DIVIDER)]} />
-
-        <Animated.View style={rise(RISE_ROUTINES_HEAD)}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Routines</Text>
-            <Pressable onPress={onOpenTemplatesHub} hitSlop={8}>
-              <Text style={styles.seeAllText}>See all</Text>
-            </Pressable>
-          </View>
-        </Animated.View>
-
-        <Animated.View style={rise(RISE_ROUTINES_CARDS)}>
-          <View style={styles.routineShortcutRow}>
-            <Pressable onPress={onOpenTemplatesHub} style={({ pressed }) => [styles.routineShortcutCard, pressed && styles.pressed]}>
-              <View style={styles.routineShortcutIcon}>
-                <GymlogIcon name="file" color={HG3.purple} size={21} />
-              </View>
-              <View style={styles.routineShortcutCopy}>
-                <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
-                  Templates
-                </Text>
-                <Text style={styles.routineShortcutSubtitle}>{savedRoutineCount} saved</Text>
-              </View>
-            </Pressable>
-
-            <Pressable onPress={onBrowseReadyPlans} style={({ pressed }) => [styles.routineShortcutCard, pressed && styles.pressed]}>
-              <View style={styles.routineShortcutIcon}>
-                <GymlogIcon name="progress" color={HG3.purple} size={21} />
-              </View>
-              <View style={styles.routineShortcutCopy}>
-                <Text style={styles.routineShortcutTitle} numberOfLines={1} adjustsFontSizeToFit>
-                  Explore
-                </Text>
-                <Text style={styles.routineShortcutSubtitle}>
-                  {readyTemplateCount > 0 ? `${readyTemplateCount} plans` : 'Find new plans'}
-                </Text>
-              </View>
-            </Pressable>
-          </View>
-        </Animated.View>
 
         <Animated.View style={rise(RISE_EMPTY_ROW)}>
           <Pressable
@@ -1283,73 +1225,6 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: HG3.border,
     marginTop: 22,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    marginTop: 15,
-  },
-  sectionTitle: {
-    color: HG3.ink,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  seeAllText: {
-    color: HG3.purple,
-    fontSize: 13.5,
-    lineHeight: 17,
-    fontWeight: '700',
-  },
-  routineShortcutRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 12,
-  },
-  routineShortcutCard: {
-    flex: 1,
-    minHeight: 74,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    paddingHorizontal: 14,
-    paddingVertical: 15,
-    shadowColor: HG3.purpleBright,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  routineShortcutIcon: {
-    width: 37,
-    height: 37,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: HG3.purpleSoft,
-  },
-  routineShortcutCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  routineShortcutTitle: {
-    color: HG3.ink,
-    fontSize: 14.5,
-    lineHeight: 18,
-    fontWeight: '800',
-  },
-  routineShortcutSubtitle: {
-    color: HG3.muted,
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '600',
   },
   emptyWorkoutRow: {
     minHeight: 46,

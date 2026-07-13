@@ -162,20 +162,18 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /startWorkoutHero/);
       assert.match(homeScreenSource, /onPress=\{onCreateWorkoutFromExercises\}/);
 
-      assert.match(homeScreenSource, /Routines/);
-      assert.match(homeScreenSource, /Templates/);
+      // Routines section (Templates + Explore shortcut cards) removed from Home —
+      // ready templates / programs live in the Programs tab now. Empty workout stays.
+      assert.doesNotMatch(homeScreenSource, /routineShortcut/);
+      assert.doesNotMatch(homeScreenSource, /onOpenTemplatesHub/);
+      assert.doesNotMatch(homeScreenSource, /onBrowseReadyPlans/);
+      assert.doesNotMatch(homeScreenSource, /readyTemplateCount/);
+      assert.doesNotMatch(homeScreenSource, />Routines</);
       assert.doesNotMatch(homeScreenSource, /My Routines/);
-      assert.match(homeScreenSource, /Explore/);
-      assert.match(homeScreenSource, /routineShortcutCard:\s*\{[\s\S]*minHeight: 74/);
-      assert.match(homeScreenSource, /routineShortcutTitle:\s*\{[\s\S]*fontSize: 14\.5/);
-      assert.match(homeScreenSource, /routineShortcutSubtitle:\s*\{[\s\S]*fontSize: 11\.5/);
-      assert.match(homeScreenSource, /readyTemplateCount > 0 \? `\$\{readyTemplateCount\} plans` : 'Find new plans'/);
-      assert.doesNotMatch(homeScreenSource, /Find new routines/);
       assert.match(workoutsScreenSource, /const \[showReadyLibrary, setShowReadyLibrary\] = useState\(true\)/);
       assert.match(workoutsScreenSource, /const \[showBrowseWorkouts, setShowBrowseWorkouts\] = useState\(true\)/);
       assert.match(workoutsScreenSource, /const \[readyEquipmentFilter, setReadyEquipmentFilter\] = useState<ReadyEquipmentFilter>\('all'\)/);
-      assert.match(appSource, /const readyTemplateCount = workout\.templates\.filter\(\(template\) => template\.id\.startsWith\('tpl_gainer_'\)\)\.length/);
-      assert.match(appSource, /readyTemplateCount=\{readyTemplateCount\}/);
+      assert.doesNotMatch(appSource, /readyTemplateCount/);
       assert.match(workoutsScreenSource, /const gainerProgramItems = filteredReadyItems\.filter/);
       assert.match(workoutsScreenSource, /const allGainerProgramItems = readyDiscoveryItems\.filter/);
       assert.match(workoutsScreenSource, /title="Ready Templates"/);
@@ -311,12 +309,8 @@ module.exports = [
         'section accordions should render before the Adapt/Start row',
       );
       assert.ok(
-        homeScreenSource.indexOf('styles.btnRow') < homeScreenSource.indexOf('styles.sectionHeaderRow'),
-        'Adapt/Start row should render before routines',
-      );
-      assert.ok(
-        homeScreenSource.indexOf('styles.routineShortcutRow') < homeScreenSource.indexOf('styles.emptyWorkoutRow'),
-        'empty workout row should render after routine shortcuts',
+        homeScreenSource.indexOf('styles.btnRow') < homeScreenSource.indexOf('styles.emptyWorkoutRow'),
+        'Adapt/Start row should render before the empty workout row',
       );
       assert.match(appSource, /activePlan=\{homeActivePlanCard\}/);
       assert.match(appSource, /const homeRecentSessions = useMemo/);
@@ -324,10 +318,10 @@ module.exports = [
       assert.match(appSource, /\.slice\(0, 3\)/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
       assert.match(appSource, /<ProgressScreen[\s\S]*recentSessions=\{homeRecentSessions\}/);
-      assert.match(appSource, /customTemplates=\{customWorkouts\}/);
+      assert.doesNotMatch(appSource, /customTemplates=/);
       assert.match(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'empty' \}\)\}/);
       assert.doesNotMatch(appSource, /onCreateWorkoutFromExercises=\{\(\) => navigate\(\{ tab: 'workout', screen: 'editor' \}\)\}/);
-      assert.match(appSource, /onBrowseReadyPlans=\{\(\) => navigate\(WORKOUT_PLAN_ROUTE\)\}/);
+      assert.doesNotMatch(appSource, /onBrowseReadyPlans=/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenProgressOverview=/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenTrackedProgress=/);
       assert.doesNotMatch(appSource, /<HomeScreen[\s\S]*onOpenBodyStats=/);

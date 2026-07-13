@@ -1276,6 +1276,9 @@ function GymlogApp() {
         insight,
       });
       summaryNavigationPendingRef.current = true;
+      // Finish on the completion screen returns Home. Set the exit route so the
+      // summary-dismiss effect can't race onDone's navigation to WORKOUT_PLAN_ROUTE.
+      summaryExitRouteRef.current = ROOT_ROUTES.home;
       workout.clearCompletedWorkout();
       replaceRoute({ tab: 'workout', screen: 'summary' });
       setFinishSaveState({ status: 'idle', sessionId: null, message: null });
@@ -2268,7 +2271,6 @@ function GymlogApp() {
     : 'Browse';
   const readyProgramCtaLabel = 'Browse ready plans';
   const customProgramCount = customWorkouts.length;
-  const readyTemplateCount = workout.templates.filter((template) => template.id.startsWith('tpl_gainer_')).length;
   const programsExploreItems = useMemo<ProgramsExploreItem[]>(
     () =>
       workout.templates
@@ -2640,14 +2642,6 @@ function GymlogApp() {
           workout.clearCompletedWorkout();
           resetToRoute(ROOT_ROUTES.home);
         }}
-        onViewBreakdown={() => {
-          const sessionId = completionSummary.sessionId;
-          setCompletionSummary(null);
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          workout.clearCompletedWorkout();
-          replaceRoute({ tab: 'home', screen: 'session', sessionId });
-        }}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'celebration' && workoutCelebration) {
@@ -2977,8 +2971,6 @@ function GymlogApp() {
     content = (
       <HomeScreen
         activePlan={homeActivePlanCard}
-        customTemplates={customWorkouts}
-        readyTemplateCount={readyTemplateCount}
         onStartActivePlanSession={(sessionId) => {
           if (!homeActivePlanCard) {
             return;
@@ -2991,9 +2983,7 @@ function GymlogApp() {
 
           handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
         }}
-        onOpenTemplatesHub={() => navigate(WORKOUT_PLAN_ROUTE)}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
-        onBrowseReadyPlans={() => navigate(WORKOUT_PLAN_ROUTE)}
       />
     );
   }
