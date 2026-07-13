@@ -44,7 +44,6 @@ interface WorkoutLoggingScreenProps {
   onConfirmFinishWorkout: () => void;
   onDiscardWorkout: () => void;
   isSavingWorkout?: boolean;
-  finishErrorMessage?: string | null;
   dismissedTipIds: string[];
   onDismissTip: (tipId: string) => void | Promise<void>;
   inlineTip?: {
@@ -321,7 +320,6 @@ export function WorkoutLoggingScreen({
   onConfirmFinishWorkout,
   onDiscardWorkout,
   isSavingWorkout = false,
-  finishErrorMessage = null,
   dismissedTipIds,
   onDismissTip,
   inlineTip,
@@ -368,7 +366,7 @@ export function WorkoutLoggingScreen({
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   const [noteSlotId, setNoteSlotId] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState('');
-  const [finishReviewVisible, setFinishReviewVisible] = useState(false);
+  const [discardConfirmVisible, setDiscardConfirmVisible] = useState(false);
   const [restTimerMenuOpen, setRestTimerMenuOpen] = useState(false);
   const [skippedEffortKeys, setSkippedEffortKeys] = useState<string[]>([]);
   const [postEffortTransition, setPostEffortTransition] = useState<PostEffortTransitionState | null>(null);
@@ -466,7 +464,7 @@ export function WorkoutLoggingScreen({
     Boolean(exerciseInfoSlotId) ||
     Boolean(swapSlotId) ||
     Boolean(noteSlotId) ||
-    finishReviewVisible;
+    discardConfirmVisible;
   const showFirstSessionCoach =
     isFirstSession &&
     completedSets === 0 &&
@@ -754,10 +752,6 @@ export function WorkoutLoggingScreen({
       ) ?? null
     : null;
   const hasPersistableWorkoutData = loggedExercises > 0;
-  const durationMinutes = Math.max(
-    1,
-    Math.round((new Date().getTime() - new Date(activeSession.startedAt).getTime()) / 60000) || 1,
-  );
   const workoutExerciseRows = activeSession.exercises;
   const elapsedText = formatLoggerClock(activeSession.elapsedSeconds);
   const volumeText = formatVolume(totalVolume, unitPreference);
@@ -778,11 +772,18 @@ export function WorkoutLoggingScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Finish workout"
+          disabled={isSavingWorkout}
           onPress={() => {
             Keyboard.dismiss();
-            setFinishReviewVisible(true);
+            if (hasPersistableWorkoutData) {
+              // Something is logged: save straight away, no confirm step.
+              onConfirmFinishWorkout();
+            } else {
+              // Nothing logged yet: ask before throwing the session away.
+              setDiscardConfirmVisible(true);
+            }
           }}
-          style={styles.headerFinishButton}
+          style={[styles.headerFinishButton, isSavingWorkout && styles.headerFinishButtonDisabled]}
         >
           <Text style={styles.headerFinishButtonText}>Finish</Text>
         </Pressable>
@@ -1136,67 +1137,28 @@ export function WorkoutLoggingScreen({
         </InlineSheet>
       ) : null}
 
-      {finishReviewVisible ? (
-        <InlineSheet
-          title={hasPersistableWorkoutData ? 'Finish workout' : 'Discard empty workout'}
-          onClose={() => {
-            if (isSavingWorkout) {
-              return;
-            }
-            setFinishReviewVisible(false);
-          }}
-        >
-          <Text style={styles.sheetBodyText}>
-            {hasPersistableWorkoutData
-              ? 'Save this workout now. The completion screen only appears after persistence succeeds.'
-              : 'Nothing has been logged yet. Discard this workout and return to the workout tab.'}
-          </Text>
-
-          {hasPersistableWorkoutData ? (
-            <View style={styles.finishStatsRow}>
-              <View style={styles.finishStatCard}>
-                <Text style={styles.finishStatLabel}>Duration</Text>
-                <Text style={styles.finishStatValue}>{durationMinutes} min</Text>
-              </View>
-              <View style={styles.finishStatCard}>
-                <Text style={styles.finishStatLabel}>Sets</Text>
-                <Text style={styles.finishStatValue}>{completedSets}</Text>
-              </View>
-              <View style={styles.finishStatCard}>
-                <Text style={styles.finishStatLabel}>Exercises</Text>
-                <Text style={styles.finishStatValue}>{loggedExercises}</Text>
-              </View>
-            </View>
-          ) : null}
-
-          {finishErrorMessage ? <Text style={styles.finishErrorText}>{finishErrorMessage}</Text> : null}
-
-          {hasPersistableWorkoutData ? (
+      {discardConfirmVisible ? (
+        <View style={styles.dialogOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setDiscardConfirmVisible(false)} />
+          <View style={styles.dialogCard}>
+            <Text style={styles.dialogTitle}>Discard workout?</Text>
+            <Text style={styles.dialogBody}>
+              Nothing has been logged yet. Are you sure you want to discard this workout?
+            </Text>
             <Pressable
-              onPress={onConfirmFinishWorkout}
-              disabled={isSavingWorkout}
-              style={[styles.sheetButton, isSavingWorkout && styles.sheetButtonDisabled]}
-            >
-              <Text style={styles.sheetButtonText}>{isSavingWorkout ? 'Saving...' : 'Save workout'}</Text>
-            </Pressable>
-          ) : (
-            <Pressable
-              onPress={onDiscardWorkout}
-              disabled={isSavingWorkout}
-              style={[styles.sheetDestructiveButton, isSavingWorkout && styles.sheetButtonDisabled]}
+              onPress={() => {
+                setDiscardConfirmVisible(false);
+                onDiscardWorkout();
+              }}
+              style={styles.sheetDestructiveButton}
             >
               <Text style={styles.sheetDestructiveButtonText}>Discard workout</Text>
             </Pressable>
-          )}
-
-          <Pressable
-            onPress={() => setFinishReviewVisible(false)}
-            disabled={isSavingWorkout}
-            style={styles.sheetRow}
-          >
-            <Text style={styles.sheetRowText}>Keep logging</Text>
-          </Pressable>
-        </InlineSheet>
+            <Pressable onPress={() => setDiscardConfirmVisible(false)} style={styles.sheetRow}>
+              <Text style={styles.sheetRowText}>Keep logging</Text>
+            </Pressable>
+          </View>
+        </View>
       ) : null}
     </View>
   );
@@ -1728,39 +1690,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
   },
-  finishStatsRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
+  headerFinishButtonDisabled: {
+    opacity: 0.6,
   },
-  finishStatCard: {
-    flex: 1,
-    minHeight: 64,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.14)',
-    backgroundColor: '#F8F5FF',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    gap: 3,
+  dialogOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
     justifyContent: 'center',
+    padding: spacing.xl,
+    backgroundColor: 'rgba(17, 24, 39, 0.45)',
   },
-  finishStatLabel: {
-    color: '#667085',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+  dialogCard: {
+    width: '100%',
+    maxWidth: 340,
+    borderRadius: radii.lg,
+    backgroundColor: '#FFFFFF',
+    padding: spacing.xl,
+    gap: spacing.md,
   },
-  finishStatValue: {
+  dialogTitle: {
     color: '#111827',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 18,
+    fontWeight: '800',
+    textAlign: 'center',
   },
-  finishErrorText: {
-    color: '#F3A489',
-    fontSize: 13,
-    lineHeight: 18,
+  dialogBody: {
+    color: '#667085',
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '700',
+    textAlign: 'center',
   },
 });
 

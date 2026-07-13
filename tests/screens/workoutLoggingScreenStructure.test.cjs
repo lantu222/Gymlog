@@ -138,6 +138,20 @@ module.exports = [
       assert.match(screenSource, /onPress=\{onDiscardWorkout\}/);
       assert.match(screenSource, /color:\s*'#DC2626'/);
 
+      // Finish no longer opens a confirm sheet first: with data logged it saves
+      // straight away; with nothing logged it asks "are you sure" in a centered
+      // dialog before discarding. The old bottom "Finish workout" sheet is gone.
+      assert.match(screenSource, /if \(hasPersistableWorkoutData\) \{\s*\n\s*\/\/[^\n]*\n\s*onConfirmFinishWorkout\(\);/);
+      assert.match(screenSource, /setDiscardConfirmVisible\(true\)/);
+      assert.match(screenSource, /dialogOverlay/);
+      assert.match(screenSource, />Discard workout\?</);
+      assert.match(screenSource, /Are you sure you want to discard this workout\?/);
+      assert.doesNotMatch(screenSource, /Save this workout now/);
+      assert.doesNotMatch(screenSource, />Finish workout</);
+      assert.doesNotMatch(screenSource, /finishReviewVisible/);
+      // The resume-workout toast is gone (was the odd dark banner on Start).
+      assert.doesNotMatch(readSource(appPath), /Resume current workout before starting another/);
+
       assert.doesNotMatch(screenSource, /<WorkoutExerciseCard/);
       assert.doesNotMatch(screenSource, /<WorkoutSummaryBar/);
       assert.doesNotMatch(screenSource, /<ScreenHeader/);

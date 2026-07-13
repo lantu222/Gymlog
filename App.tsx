@@ -855,11 +855,7 @@ function GymlogApp() {
       return;
     }
 
-    if (
-      navigateToActiveWorkout(
-        workout.activeSession ? 'Resume current workout before starting another.' : undefined,
-      )
-    ) {
+    if (navigateToActiveWorkout()) {
       return;
     }
 
@@ -1417,13 +1413,7 @@ function GymlogApp() {
       return;
     }
 
-    if (
-      navigateToActiveWorkout(
-        workout.activeSession && workout.activeSession.templateId !== workoutTemplateId
-          ? 'Resume current workout before starting another.'
-          : undefined,
-      )
-    ) {
+    if (navigateToActiveWorkout()) {
       return;
     }
 
@@ -1460,13 +1450,7 @@ function GymlogApp() {
       return;
     }
 
-    if (
-      navigateToActiveWorkout(
-        workout.activeSession && workout.activeSession.templateId !== workoutTemplateId
-          ? 'Resume current workout before starting another.'
-          : undefined,
-      )
-    ) {
+    if (navigateToActiveWorkout()) {
       return;
     }
 
@@ -2634,7 +2618,6 @@ function GymlogApp() {
         onConfirmFinishWorkout={() => void handleConfirmFinishWorkout()}
         onDiscardWorkout={() => void handleDiscardWorkout()}
         isSavingWorkout={finishSaveState.status === 'saving'}
-        finishErrorMessage={finishSaveState.status === 'error' ? finishSaveState.message : null}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {
