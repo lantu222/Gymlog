@@ -107,12 +107,12 @@ module.exports = [
     },
   },
   {
-    name: 'bottom bar center action is the + FAB with no Start caption',
+    name: 'bottom bar center action is the AI button with no text caption',
     run() {
       assert.doesNotMatch(bottomTabBarSource, /<Text[^>]*centerLabel[^>]*>Start<\/Text>/);
       assert.doesNotMatch(bottomTabBarSource, /styles\.centerLabel/);
-      // Accessibility label preserved for screen readers.
-      assert.match(bottomTabBarSource, /accessibilityLabel="Start"/);
+      // The center action is the raised "AI" button; a11y label preserved.
+      assert.match(bottomTabBarSource, /accessibilityLabel="AI session"/);
     },
   },
 ];

@@ -360,18 +360,31 @@ module.exports = [
       assert.match(progressScreenSource, /useEffect\(\(\) => \{[\s\S]*setProgressSection\(initialSection\);[\s\S]*\}, \[initialSection\]\)/);
       assert.match(appSource, /initialSection=\{route\.screen === 'list' \? route\.section : undefined\}/);
 
-      // Bottom bar (Home v3): HG3 tokens, 11pt labels, and a floating circular
-      // Start button with a glowy purple halo that pops in (reduced-motion aware).
-      assert.match(bottomTabBarSource, /shell:\s*\{\s*backgroundColor: HG3\.surface/);
+      // Bottom bar EXPERIMENT (dark floating pill): absolutely positioned so it
+      // floats low over the content (no backdrop strip), a dark pill, purple-on-dark
+      // active tint, a circular highlight that slides between tabs, and a smaller
+      // Start button with a purple halo (motion-aware).
+      assert.match(bottomTabBarSource, /shell:\s*\{\s*[\s\S]*position: 'absolute'/);
+      assert.match(bottomTabBarSource, /pill:\s*\{[\s\S]*backgroundColor: BAR\.pill/);
       assert.match(bottomTabBarSource, /activeTab: RootTabKey \| null/);
-      assert.match(bottomTabBarSource, /activeTab !== null && activeTab === tab\.key/);
+      assert.match(bottomTabBarSource, /activeKey === tab\.key/);
       assert.match(appSource, /activeTab=\{route\.tab === 'workout' && route\.screen === 'plans' \? null : route\.tab\}/);
-      assert.match(bottomTabBarSource, /const stroke = active \? HG3\.purple/);
-      assert.match(bottomTabBarSource, /const fill = active \? HG3\.purple/);
-      assert.match(bottomTabBarSource, /sideLabel:\s*\{[\s\S]*fontSize: 11/);
-      assert.match(bottomTabBarSource, /centerButton:\s*\{[\s\S]*shadowColor: HG3\.purpleBright/);
-      assert.match(bottomTabBarSource, /shadowOpacity: 0\.45/);
-      assert.match(bottomTabBarSource, /centerButtonActive:\s*\{[\s\S]*backgroundColor: HG3\.purple/);
+      assert.match(bottomTabBarSource, /const stroke = active \? BAR\.active/);
+      assert.match(bottomTabBarSource, /const fill = active \? BAR\.active/);
+      assert.match(bottomTabBarSource, /indicator:\s*\{[\s\S]*backgroundColor: BAR\.highlight/);
+      assert.match(bottomTabBarSource, /borderRadius: HIGHLIGHT \/ 2/);
+      assert.match(bottomTabBarSource, /Animated\.spring\(indicatorX/);
+      // Icon-only tabs (labels removed), larger icons, a11y label preserved.
+      assert.doesNotMatch(bottomTabBarSource, /sideLabel/);
+      assert.match(bottomTabBarSource, /const size = 26/);
+      assert.match(bottomTabBarSource, /accessibilityLabel=\{tab\.label\}/);
+      // Center "AI" button (design_handoff_ai_button): near-white radial fill + "AI"
+      // label + purple halo/glow. Sized down from the 48px spec.
+      assert.match(bottomTabBarSource, /const AI_SIZE = 46/);
+      assert.match(bottomTabBarSource, />AI<\/Text>/);
+      assert.match(bottomTabBarSource, /url\(#aiFill\)/);
+      assert.match(bottomTabBarSource, /centerGlow:\s*\{[\s\S]*shadowColor: HG3\.purpleBright/);
+      assert.match(bottomTabBarSource, /aiCircle:\s*\{[\s\S]*width: AI_SIZE/);
       assert.match(bottomTabBarSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
       assert.match(bottomTabBarSource, /fabPop\.setValue\(1\)/);
       assert.match(bottomTabBarSource, /Easing\.bezier\(0\.3, 1\.3, 0\.5, 1\)/);

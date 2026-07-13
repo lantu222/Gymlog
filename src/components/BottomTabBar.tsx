@@ -1,11 +1,37 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  AccessibilityInfo,
+  Animated,
+  Easing,
+  LayoutChangeEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { RootTabKey } from '../navigation/routes';
 import { HG3 } from '../lightTheme';
-import { spacing } from '../theme';
+
+// EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
+// positioned so it floats low over the (light) app content — no light backdrop
+// strip. The active tab gets a circular purple highlight that slides between
+// tabs. Kept isolated in this file + its own commit so it reverts cleanly.
+const BAR = {
+  pill: '#1E1B2C',
+  pillBorder: 'rgba(255,255,255,0.09)',
+  active: '#A78BFA',
+  inactive: '#8B84A6',
+  highlight: 'rgba(167, 139, 250, 0.22)',
+};
+
+// Diameter of the sliding circular highlight behind the active tab's icon.
+const HIGHLIGHT = 44;
+// Center "AI" button (design_handoff_ai_button): spec is 48px; sized down a touch.
+const AI_SIZE = 46;
+const AI_HALO = 58;
 
 interface BottomTabBarProps {
   activeTab: RootTabKey | null;
@@ -24,9 +50,9 @@ const sideTabs: { key: RootTabKey; label: string }[] = [
 ];
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
-  const stroke = active ? HG3.purple : HG3.muted;
-  const fill = active ? HG3.purple : 'none';
-  const size = 22;
+  const stroke = active ? BAR.active : BAR.inactive;
+  const fill = active ? BAR.active : 'none';
+  const size = 26;
 
   if (tab === 'home') {
     return (
@@ -91,29 +117,43 @@ function SideTab({
   tab,
   active,
   onPress,
+  onMeasure,
 }: {
   tab: { key: RootTabKey; label: string };
   active: boolean;
   onPress: () => void;
+  onMeasure: (key: RootTabKey, event: LayoutChangeEvent) => void;
 }) {
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.sideTab, pressed && styles.pressed]}>
+    <Pressable
+      onPress={onPress}
+      onLayout={(event) => onMeasure(tab.key, event)}
+      accessibilityRole="button"
+      accessibilityLabel={tab.label}
+      accessibilityState={{ selected: active }}
+      style={styles.sideTab}
+    >
       <TabIcon tab={tab.key} active={active} />
-      <Text style={[styles.sideLabel, active && styles.sideLabelActive]}>{tab.label}</Text>
     </Pressable>
   );
 }
 
 export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPress }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const leftTabs = sideTabs.slice(0, 2);
-  const rightTabs = sideTabs.slice(2);
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
-  // Home v3 entrance: the bar rises in at .24s and the FAB pops (scale .3 -> 1
-  // with overshoot) at .5s. Reduced motion skips straight to the final state.
+  // Entrance: the bar rises in at .24s and the FAB pops (scale .3 -> 1 with
+  // overshoot) at .5s. Reduced motion skips straight to the final state.
   const barRise = useRef(new Animated.Value(0)).current;
   const fabPop = useRef(new Animated.Value(0.3)).current;
+
+  // Sliding circular highlight: we measure each side tab's centre and animate a
+  // single circle's translateX to the active tab (spring => it "slides" in).
+  const activeKey = !aiActive && activeTab !== null && sideTabs.some((tab) => tab.key === activeTab) ? activeTab : null;
+  const indicatorX = useRef(new Animated.Value(0)).current;
+  const indicatorOpacity = useRef(new Animated.Value(0)).current;
+  const centers = useRef<Partial<Record<RootTabKey, number>>>({});
+  const positioned = useRef(false);
 
   useEffect(() => {
     let mounted = true;
@@ -158,54 +198,104 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
     }).start();
   }, [barRise, fabPop, reduceMotion]);
 
+  function positionIndicator(animate: boolean) {
+    if (activeKey === null) {
+      Animated.timing(indicatorOpacity, { toValue: 0, duration: 140, useNativeDriver: true }).start();
+      return;
+    }
+    const center = centers.current[activeKey];
+    if (center === undefined) {
+      return;
+    }
+    const target = center - HIGHLIGHT / 2;
+    if (animate && positioned.current && reduceMotion !== true) {
+      Animated.parallel([
+        Animated.spring(indicatorX, { toValue: target, useNativeDriver: true, speed: 13, bounciness: 7 }),
+        Animated.timing(indicatorOpacity, { toValue: 1, duration: 140, useNativeDriver: true }),
+      ]).start();
+    } else {
+      indicatorX.setValue(target);
+      indicatorOpacity.setValue(1);
+      positioned.current = true;
+    }
+  }
+
+  useEffect(() => {
+    positionIndicator(true);
+    // positionIndicator reads the latest refs/props on each render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeKey, reduceMotion]);
+
+  function handleMeasure(key: RootTabKey, event: LayoutChangeEvent) {
+    const { x, width } = event.nativeEvent.layout;
+    centers.current[key] = x + width / 2;
+    if (key === activeKey && !positioned.current) {
+      positionIndicator(false);
+    }
+  }
+
   return (
     <Animated.View
+      pointerEvents="box-none"
       style={[
         styles.shell,
-        { paddingBottom: Math.max(insets.bottom, 8) },
+        { paddingBottom: 4 + Math.min(insets.bottom, 4) },
         {
           opacity: barRise,
           transform: [{ translateY: barRise.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
         },
       ]}
     >
-      <View style={styles.row}>
-        <View style={styles.sideGroup}>
-          {leftTabs.map((tab) => (
+      <View style={styles.pill}>
+        <View style={styles.row}>
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.indicator,
+              { opacity: indicatorOpacity, transform: [{ translateX: indicatorX }] },
+            ]}
+          />
+
+          {sideTabs.slice(0, 2).map((tab) => (
             <SideTab
               key={tab.key}
               tab={tab}
-              active={!aiActive && activeTab !== null && activeTab === tab.key}
+              active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
+              onMeasure={handleMeasure}
             />
           ))}
-        </View>
 
-        <Pressable
-          onPress={onAiPress}
-          accessibilityRole="button"
-          accessibilityLabel="Start"
-          style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}
-        >
-          <Animated.View style={[styles.centerButton, aiActive && styles.centerButtonActive, { transform: [{ scale: fabPop }] }]}>
-            <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-              <Path
-                d="M12 5v14M5 12h14"
-                stroke={aiActive ? HG3.surface : HG3.purple}
-                strokeWidth={2.4}
-                strokeLinecap="round"
-              />
-            </Svg>
-          </Animated.View>
-        </Pressable>
+          <Pressable
+            onPress={onAiPress}
+            accessibilityRole="button"
+            accessibilityLabel="AI session"
+            style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}
+          >
+            <Animated.View style={[styles.centerGlow, aiActive && styles.centerGlowActive, { transform: [{ scale: fabPop }] }]}>
+              <View style={styles.aiCircle}>
+                <Svg style={StyleSheet.absoluteFill} width={AI_SIZE} height={AI_SIZE}>
+                  <Defs>
+                    <RadialGradient id="aiFill" cx="50%" cy="38%" r="65%">
+                      <Stop offset="0" stopColor="#FFFFFF" />
+                      <Stop offset="0.62" stopColor="#F2ECFF" />
+                      <Stop offset="1" stopColor="#E3D4FF" />
+                    </RadialGradient>
+                  </Defs>
+                  <Rect width={AI_SIZE} height={AI_SIZE} fill="url(#aiFill)" />
+                </Svg>
+                <Text style={styles.aiText}>AI</Text>
+              </View>
+            </Animated.View>
+          </Pressable>
 
-        <View style={styles.sideGroup}>
-          {rightTabs.map((tab) => (
+          {sideTabs.slice(2).map((tab) => (
             <SideTab
               key={tab.key}
               tab={tab}
-              active={!aiActive && activeTab !== null && activeTab === tab.key}
+              active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
+              onMeasure={handleMeasure}
             />
           ))}
         </View>
@@ -215,71 +305,89 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
 }
 
 const styles = StyleSheet.create({
+  // Absolutely positioned so it floats low over the content (no backdrop strip).
   shell: {
-    backgroundColor: HG3.surface,
-    borderTopWidth: 1,
-    borderColor: HG3.border,
-    paddingTop: 10,
-    paddingHorizontal: spacing.md,
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 16,
+    paddingHorizontal: 18,
+  },
+  pill: {
+    backgroundColor: BAR.pill,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: BAR.pillBorder,
+    paddingHorizontal: 6,
+    shadowColor: '#0B0714',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.32,
+    shadowRadius: 22,
+    elevation: 12,
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  sideGroup: {
-    flex: 1,
-    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-around',
-    alignItems: 'flex-end',
+  },
+  // The single sliding highlight. left:0 + translateX centres it on a tab; top is
+  // set so the circle sits centred on the icon (icon-only tabs, height 64).
+  indicator: {
+    position: 'absolute',
+    top: 10,
+    left: 0,
+    width: HIGHLIGHT,
+    height: HIGHLIGHT,
+    borderRadius: HIGHLIGHT / 2,
+    backgroundColor: BAR.highlight,
   },
   pressed: {
     transform: [{ scale: 0.95 }],
   },
   sideTab: {
-    minWidth: 62,
-    minHeight: 54,
+    minWidth: 58,
+    height: 64,
     alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 5,
-    paddingBottom: 2,
+    justifyContent: 'center',
   },
-  sideLabel: {
-    color: HG3.muted,
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  sideLabelActive: {
-    color: HG3.purple,
-    fontWeight: '800',
-  },
+  // The AI button now sits INSIDE the pill, centred like the other tabs (no lift).
   centerTab: {
     alignItems: 'center',
     justifyContent: 'center',
-    // Floats above the bar. marginBottom keeps the button at the same height it
-    // sat at when a "Start" label still occupied the row below it.
-    marginTop: -26,
-    marginBottom: 19,
   },
-  centerButton: {
-    width: 54,
-    height: 54,
-    borderRadius: 999,
-    backgroundColor: HG3.surface,
-    borderWidth: 1.5,
-    borderColor: HG3.purple,
+  // Soft purple halo ring + downward/ambient glow around the AI button.
+  centerGlow: {
+    width: AI_HALO,
+    height: AI_HALO,
+    borderRadius: AI_HALO / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    // Glowy purple halo around the floating Start button (Home v3).
+    backgroundColor: 'rgba(124, 58, 237, 0.16)',
     shadowColor: HG3.purpleBright,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 18,
-    elevation: 12,
+    shadowOpacity: 0.62,
+    shadowRadius: 22,
+    elevation: 14,
   },
-  centerButtonActive: {
-    backgroundColor: HG3.purple,
-    borderColor: HG3.purple,
+  centerGlowActive: {
+    backgroundColor: 'rgba(124, 58, 237, 0.26)',
+    shadowOpacity: 0.82,
+    shadowRadius: 26,
+  },
+  aiCircle: {
+    width: AI_SIZE,
+    height: AI_SIZE,
+    borderRadius: AI_SIZE / 2,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  aiText: {
+    color: '#6D28D9',
+    fontSize: 17,
+    fontWeight: '800',
+    letterSpacing: -0.2,
   },
 });
