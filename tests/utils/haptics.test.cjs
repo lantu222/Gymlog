@@ -31,7 +31,7 @@ module.exports = [
       assert.match(onboardingSource, /void haptics\.select\(\);[\s\S]*toggleFocusArea\(option\.area\)/);
       assert.match(onboardingSource, /void haptics\.select\(\);[\s\S]*setLevel\(option\.level\)/);
       assert.match(onboardingSource, /void haptics\.select\(\);[\s\S]*setDaysPerWeek\(option\)/);
-      assert.match(onboardingSource, /void haptics\.select\(\);[\s\S]*onPress\(\);/);
+      assert.match(onboardingSource, /void haptics\.select\(\);[\s\S]*setCautionFlags/);
       assert.match(onboardingSource, /if \(stage === 'planning'\) \{[\s\S]*void haptics\.impactMedium\(\);/);
       assert.match(onboardingSource, /void haptics\.success\(\);[\s\S]*setIsBuildingPlan\(false\)/);
     },

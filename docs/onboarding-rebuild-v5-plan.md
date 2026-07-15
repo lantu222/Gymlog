@@ -1,5 +1,12 @@
 # Onboarding full rebuild (V5) — implementation plan
 
+**STATUS: COMPLETE (2026-07-15).** All phases P1–P8 landed on `onboarding-update-v5`:
+P1 stage skeleton (0ae183c) · P2 equipment chips (84452af, polish 6de67aa) ·
+P3b level slider + flames (2bb9d12) · P3a SetupLevel rename (fdb4d1c) ·
+P4 days chips + week row (dd66237) · P5 avoid caution flags (a0f26f3) ·
+P6 caution-aware focus list (072975c) · P7 progression toggle, account gate removed (a3bd88c) ·
+P8 dead-code sweep (~2700 lines) + automated end-to-end emulator walks of both paths.
+
 Branch: `onboarding-update-v5`. Backup: commit `d565de2` = branch `backup/pre-onb-full-rebuild`
 (both pushed to origin). Restore with `git reset --hard backup/pre-onb-full-rebuild`.
 

@@ -314,11 +314,6 @@ module.exports = [
       assert.match(onboardingSource, /setDaysPerWeek\(next\.length as SetupDaysPerWeek\)/);
       assert.match(onboardingSource, /setScheduleMode\('self_managed'\)/);
       assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 150/);
-      assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderWidth: 2/);
-      assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
-      assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE[\s\S]*backgroundColor: ONBOARDING_CARD_ACTIVE/);
-      assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 17[\s\S]*lineHeight: 21/);
-      assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 12[\s\S]*lineHeight: 15/);
     },
   },
   {
@@ -384,7 +379,7 @@ module.exports = [
     run() {
       const locationChoiceBody = onboardingSource.slice(
         onboardingSource.indexOf('function LocationChoiceCard'),
-        onboardingSource.indexOf('function PhotoSelectionCard'),
+        onboardingSource.indexOf('function SetupOptionCard'),
       );
 
       // Selection highlight is a subtle scale (max 1.5%), never a layout jump.
@@ -400,7 +395,6 @@ module.exports = [
       assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.34\) \+ 34\)/);
       assert.match(onboardingSource, /styles\.locationTopPane, \{ height: fixedTopPaneHeight \}, topPaneStyle/);
       assert.match(onboardingSource, /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
-      assert.match(onboardingSource, /bodyweightTopPane:\s*\{[\s\S]*height: 214/);
       assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 206/);
       assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
@@ -425,13 +419,11 @@ module.exports = [
       // The old black plan-ready stage is gone.
       assert.doesNotMatch(onboardingSource, /planReadyStage:\s*\{\s*backgroundColor: '#050505'/);
       assert.doesNotMatch(onboardingSource, /planReadyHeader:/);
-      // Week rows are expandable white cards; cover stats stay readable on the purple cover.
-      assert.match(onboardingSource, /planReadyOverviewWeekCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
+      // Cover stats stay readable on the purple cover.
       assert.match(onboardingSource, /planReadyOverviewStatRow:\s*\{[\s\S]*justifyContent: 'space-between'/);
       assert.match(onboardingSource, /planReadyOverviewStatValue:\s*\{[\s\S]*color: '#FFFFFF'/);
       // Decorative cover orb removed.
       assert.doesNotMatch(onboardingSource, /planReadyOverviewCoverGlow/);
-      assert.match(onboardingSource, /planReadyOverviewKicker:\s*\{[\s\S]*color: ONBOARDING_PRIMARY/);
     },
   },
   {
