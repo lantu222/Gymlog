@@ -239,6 +239,7 @@ export interface AppPreferences {
   setupDaysPerWeek: SetupDaysPerWeek | null;
   setupEquipment: SetupEquipment | null;
   setupTrainingEnvironment: SetupTrainingEnvironment | null;
+  setupEquipmentItems: string[];
   setupSecondaryOutcomes: SetupSecondaryOutcome[];
   setupFocusAreas: SetupFocusArea[];
   setupGuidanceMode: SetupGuidanceMode | null;

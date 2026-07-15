@@ -131,6 +131,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupDaysPerWeek: null,
       setupEquipment: null,
       setupTrainingEnvironment: null,
+      setupEquipmentItems: [],
       setupSecondaryOutcomes: [],
       setupFocusAreas: [],
       setupGuidanceMode: null,

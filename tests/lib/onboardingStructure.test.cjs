@@ -143,6 +143,33 @@ module.exports = [
     },
   },
   {
+    name: 'onboarding step 1 asks what you can train with using equipment chips',
+    run() {
+      const locationBody = getFunctionBody('renderLocation');
+
+      assert.match(locationBody, /titleLines: \['What can you', 'train with\?'\]/);
+      assert.doesNotMatch(locationBody, /Where do you train\?/);
+      // Selected setup expands into toggle chips with a live count; the other
+      // setups collapse into compact rows under OR CHOOSE ANOTHER.
+      assert.match(locationBody, /EQUIPMENT_CHIP_CATALOG\[selectedSetup\.id\]/);
+      assert.match(locationBody, /\$\{equipmentItems\.length\} selected/);
+      assert.match(locationBody, /OR CHOOSE ANOTHER/);
+      assert.match(locationBody, /toggleEquipmentItem\(selectedSetup, item\)/);
+      assert.match(locationBody, /compact/);
+      assert.match(onboardingSource, /const EQUIPMENT_CHIP_CATALOG/);
+      assert.match(onboardingSource, /const EQUIPMENT_DEFAULT_ITEMS/);
+      // Three setups only; heavy home gear decides home_gym vs minimal_equipment.
+      assert.doesNotMatch(onboardingSource, /id: 'minimal_equipment'/);
+      assert.doesNotMatch(onboardingSource, /id: 'running_hybrid'/);
+      assert.match(onboardingSource, /setTrainingEnvironment\(hasHeavy \? 'home_gym' : 'minimal_equipment'\)/);
+      // Chip labels persist into the setup selection and preferences.
+      assert.match(onboardingSource, /const \[equipmentItems, setEquipmentItems\] = useState<string\[\]>\(setupSeed\.equipmentItems \?\? \[\]\)/);
+      assert.match(appSource, /setupEquipmentItems: selection\.equipmentItems \?\? \[\]/);
+      // No "why it's great" expansion anywhere.
+      assert.doesNotMatch(onboardingSource, /WHY IT'S GREAT/);
+    },
+  },
+  {
     name: 'onboarding no longer asks gender or goal weight mid-questionnaire',
     run() {
       // Name/gender/age/height/weight arrive from the About-you screen (01e)

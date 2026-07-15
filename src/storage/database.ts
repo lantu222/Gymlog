@@ -428,6 +428,12 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
                 value === 'strength',
             )
           : fallback.preferences.setupSecondaryOutcomes,
+      setupEquipmentItems:
+        Array.isArray(input?.preferences?.setupEquipmentItems)
+          ? input.preferences.setupEquipmentItems
+              .filter((value: unknown): value is string => typeof value === 'string' && value.trim().length > 0)
+              .slice(0, 24)
+          : fallback.preferences.setupEquipmentItems,
       setupFocusAreas:
         Array.isArray(input?.preferences?.setupFocusAreas)
           ? input.preferences.setupFocusAreas.filter(

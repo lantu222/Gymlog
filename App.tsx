@@ -454,6 +454,7 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
     equipment: preferences.setupEquipment,
     trainingEnvironment:
       preferences.setupTrainingEnvironment ?? getDefaultTrainingEnvironment(preferences.setupEquipment),
+    equipmentItems: preferences.setupEquipmentItems,
     secondaryOutcomes:
       preferences.setupSecondaryOutcomes.length > 0
         ? preferences.setupSecondaryOutcomes
@@ -490,6 +491,7 @@ function buildSetupPreferencePatch(
     setupDaysPerWeek: selection.daysPerWeek,
     setupEquipment: selection.equipment,
     setupTrainingEnvironment: selection.trainingEnvironment,
+    setupEquipmentItems: selection.equipmentItems ?? [],
     setupSecondaryOutcomes: selection.secondaryOutcomes,
     setupFocusAreas: selection.focusAreas,
     setupGuidanceMode: selection.guidanceMode,

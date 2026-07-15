@@ -40,6 +40,8 @@ export interface FirstRunSetupSelection {
   daysPerWeek: SetupDaysPerWeek;
   equipment: SetupEquipment;
   trainingEnvironment: SetupTrainingEnvironment;
+  /** Equipment the user actually has, as toggled on the setup step (labels). */
+  equipmentItems?: string[];
   secondaryOutcomes: SetupSecondaryOutcome[];
   focusAreas: SetupFocusArea[];
   guidanceMode: SetupGuidanceMode;
@@ -112,6 +114,7 @@ export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
   daysPerWeek: 3,
   equipment: 'gym',
   trainingEnvironment: 'full_gym',
+  equipmentItems: [],
   secondaryOutcomes: [],
   focusAreas: [],
   guidanceMode: 'guided_editable',

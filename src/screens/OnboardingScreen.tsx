@@ -293,15 +293,23 @@ function getDefaultLocationOptionId(
   equipment: SetupEquipment,
   trainingEnvironment?: SetupTrainingEnvironment | null,
 ): LocationSelectionOptionId {
+  // The setup step offers three cards; legacy environments map to the closest
+  // card (minimal home setups fall under Home equipment, running under gym).
   if (trainingEnvironment) {
-    return trainingEnvironment;
+    switch (trainingEnvironment) {
+      case 'minimal_equipment':
+        return 'home_gym';
+      case 'running_hybrid':
+        return 'full_gym';
+      default:
+        return trainingEnvironment;
+    }
   }
 
   switch (equipment) {
     case 'home':
-      return 'home_gym';
     case 'minimal':
-      return 'minimal_equipment';
+      return 'home_gym';
     case 'gym':
     default:
       return 'full_gym';
@@ -606,41 +614,38 @@ const LOCATION_SELECTION_OPTIONS: Array<{
     id: 'home_gym',
     equipment: 'home',
     trainingEnvironment: 'home_gym',
-    label: 'Home Gym',
-    subtitle: 'Train at home with your own equipment.',
+    label: 'Home equipment',
+    subtitle: 'Train at home with the gear you have.',
     icon: 'home',
-  },
-  {
-    id: 'minimal_equipment',
-    equipment: 'minimal',
-    trainingEnvironment: 'minimal_equipment',
-    label: 'Minimal Equipment',
-    subtitle: 'Limited equipment like bands, dumbbells or a bench.',
-    icon: 'run',
-    focusLabel: 'EFFICIENT',
-    focusTone: 'green',
   },
   {
     id: 'bodyweight_only',
     equipment: 'minimal',
     trainingEnvironment: 'bodyweight_only',
-    label: 'Bodyweight Only',
+    label: 'Bodyweight only',
     subtitle: 'No equipment needed. Train anywhere.',
     icon: 'bodyweight',
     focusLabel: 'BEGINNER FRIENDLY',
     focusTone: 'blue',
   },
-  {
-    id: 'running_hybrid',
-    equipment: 'minimal',
-    trainingEnvironment: 'running_hybrid',
-    label: 'Running / Hybrid',
-    subtitle: 'Running-focused or mix of running and strength training.',
-    icon: 'running_shoe',
-    focusLabel: 'CARDIO FOCUSED',
-    focusTone: 'purple',
-  },
 ];
+
+// Equipment chips per setup. The selected card expands into these toggles and
+// the chosen labels persist to setupEquipmentItems for later exercise filtering.
+const EQUIPMENT_CHIP_CATALOG: Partial<Record<LocationSelectionOptionId, string[]>> = {
+  full_gym: ['Barbells', 'Dumbbells', 'Machines', 'Cables', 'Squat rack', 'Bench', 'Kettlebells', 'Cardio machines'],
+  home_gym: ['Dumbbells', 'Barbell & plates', 'Squat rack', 'Bench', 'Resistance bands', 'Kettlebells', 'Pull-up bar'],
+  bodyweight_only: ['Pull-up bar', 'Resistance bands', 'Yoga mat'],
+};
+
+const EQUIPMENT_DEFAULT_ITEMS: Partial<Record<LocationSelectionOptionId, string[]>> = {
+  full_gym: ['Barbells', 'Dumbbells', 'Machines', 'Cables', 'Squat rack', 'Bench', 'Kettlebells', 'Cardio machines'],
+  home_gym: ['Dumbbells', 'Bench', 'Resistance bands'],
+  bodyweight_only: [],
+};
+
+// Heavy home gear upgrades the derived environment from minimal_equipment to home_gym.
+const HOME_HEAVY_EQUIPMENT_ITEMS = ['Barbell & plates', 'Squat rack'];
 
 const LOCATION_SELECTION_BENEFITS: Record<LocationSelectionOptionId, LocationBenefit[]> = {
   full_gym: [
@@ -2192,6 +2197,7 @@ export function OnboardingScreen({
       ? getDefaultLocationOptionId(setupSeed.equipment, setupSeed.trainingEnvironment)
       : null,
   );
+  const [equipmentItems, setEquipmentItems] = useState<string[]>(setupSeed.equipmentItems ?? []);
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
   );
@@ -2250,6 +2256,7 @@ export function OnboardingScreen({
       daysPerWeek,
       equipment,
       trainingEnvironment,
+      equipmentItems,
       secondaryOutcomes,
       focusAreas,
       guidanceMode,
@@ -2267,6 +2274,7 @@ export function OnboardingScreen({
       currentWeightValue,
       daysPerWeek,
       equipment,
+      equipmentItems,
       focusAreas,
       gender,
       goal,
@@ -2893,33 +2901,114 @@ export function OnboardingScreen({
     );
   }
 
+  function applyEquipmentEnvironment(option: (typeof LOCATION_SELECTION_OPTIONS)[number], items: string[]) {
+    if (option.id === 'home_gym') {
+      const hasHeavy = items.some((item) => HOME_HEAVY_EQUIPMENT_ITEMS.includes(item));
+      setEquipment(hasHeavy ? 'home' : 'minimal');
+      setTrainingEnvironment(hasHeavy ? 'home_gym' : 'minimal_equipment');
+      return;
+    }
+    setEquipment(option.equipment);
+    setTrainingEnvironment(option.trainingEnvironment);
+  }
+
+  function selectEquipmentSetup(option: (typeof LOCATION_SELECTION_OPTIONS)[number]) {
+    void haptics.select();
+    const defaults = EQUIPMENT_DEFAULT_ITEMS[option.id] ?? [];
+    setSelectedLocationOptionId(option.id);
+    setEquipmentItems(defaults);
+    applyEquipmentEnvironment(option, defaults);
+  }
+
+  function toggleEquipmentItem(option: (typeof LOCATION_SELECTION_OPTIONS)[number], item: string) {
+    void haptics.select();
+    setEquipmentItems((current) => {
+      const next = current.includes(item) ? current.filter((value) => value !== item) : [...current, item];
+      applyEquipmentEnvironment(option, next);
+      return next;
+    });
+  }
+
   function renderLocation() {
-    return renderSplitSelectionStage({
+    const selectedSetup = LOCATION_SELECTION_OPTIONS.find((option) => option.id === selectedLocationOptionId) ?? null;
+    const otherSetups = LOCATION_SELECTION_OPTIONS.filter((option) => option.id !== selectedLocationOptionId);
+    const selectedChips = selectedSetup ? EQUIPMENT_CHIP_CATALOG[selectedSetup.id] ?? [] : [];
+
+    return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('location'),
-      titleLines: ['Where do you train?'],
-      options: LOCATION_SELECTION_OPTIONS.map((option) => ({
-        id: option.id,
-        label: option.label,
-        subtitle: option.subtitle,
-        icon: option.icon,
-        active: selectedLocationOptionId === option.id,
-        onPress: () => {
-          void haptics.select();
-          if (selectedLocationOptionId === option.id) {
-            setSelectedLocationOptionId(null);
-            return;
-          }
-          setSelectedLocationOptionId(option.id);
-          setEquipment(option.equipment);
-          setTrainingEnvironment(option.trainingEnvironment);
-        },
-        focusLabel: option.focusLabel,
-        focusTone: option.focusTone,
-      })),
-      optionsContainerStyle: styles.locationStepOneOptionsShift,
-      topPaneStyleOverride: styles.locationEquipmentTopPane,
+      titleLines: ['What can you', 'train with?'],
+      topPaneStyle: styles.locationEquipmentTopPane,
       topCopyStyle: styles.locationEquipmentTopCopy,
-      titleStyleOverride: styles.locationEquipmentHeadline,
+      titleStyle: styles.locationEquipmentHeadline,
+      children: selectedSetup ? (
+        <View style={[styles.locationCardList, styles.locationStepOneOptionsShift]}>
+          <View style={styles.equipmentExpandedCard}>
+            <View style={styles.equipmentExpandedHeader}>
+              <OnboardingOptionIcon name={selectedSetup.icon} />
+              <View style={styles.equipmentExpandedCopy}>
+                <Text style={styles.equipmentExpandedTitle}>{selectedSetup.label}</Text>
+                <Text style={styles.equipmentExpandedCount}>
+                  {selectedChips.length > 0 ? `${equipmentItems.length} selected` : selectedSetup.subtitle}
+                </Text>
+              </View>
+              <View style={styles.equipmentExpandedCheck}>
+                <GymlogIcon name="check" size={13} color="#FFFFFF" />
+              </View>
+            </View>
+            {selectedChips.length > 0 ? (
+              <>
+                <Text style={styles.equipmentChipsPrompt}>Toggle what you actually have:</Text>
+                <View style={styles.equipmentChipsWrap}>
+                  {selectedChips.map((item) => {
+                    const active = equipmentItems.includes(item);
+
+                    return (
+                      <Pressable
+                        key={item}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
+                        accessibilityLabel={`${item}${active ? ', selected' : ''}`}
+                        onPress={() => toggleEquipmentItem(selectedSetup, item)}
+                        style={[styles.equipmentChip, active && styles.equipmentChipActive]}
+                      >
+                        <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{item}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </>
+            ) : null}
+          </View>
+
+          <Text style={styles.equipmentOrChooseLabel}>OR CHOOSE ANOTHER</Text>
+          {otherSetups.map((option) => (
+            <LocationChoiceCard
+              key={option.id}
+              label={option.label}
+              subtitle={option.subtitle}
+              icon={option.icon}
+              active={false}
+              compact
+              onPress={() => selectEquipmentSetup(option)}
+            />
+          ))}
+        </View>
+      ) : (
+        <View style={[styles.locationCardList, styles.locationStepOneOptionsShift]}>
+          {LOCATION_SELECTION_OPTIONS.map((option) => (
+            <LocationChoiceCard
+              key={option.id}
+              label={option.label}
+              subtitle={option.subtitle}
+              icon={option.icon}
+              focusLabel={option.focusLabel}
+              focusTone={option.focusTone}
+              active={false}
+              onPress={() => selectEquipmentSetup(option)}
+            />
+          ))}
+        </View>
+      ),
     });
   }
 
@@ -4366,6 +4455,88 @@ const styles = StyleSheet.create({
   },
   locationCardListCompact: {
     gap: 8,
+  },
+  equipmentExpandedCard: {
+    backgroundColor: ONBOARDING_CARD,
+    borderWidth: 2,
+    borderColor: ONBOARDING_BORDER_ACTIVE,
+    borderRadius: 18,
+    padding: 16,
+  },
+  equipmentExpandedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  equipmentExpandedCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  equipmentExpandedTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '800',
+  },
+  equipmentExpandedCount: {
+    color: ONBOARDING_PRIMARY,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
+  equipmentExpandedCheck: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: ONBOARDING_PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  equipmentChipsPrompt: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  equipmentChipsWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  equipmentChip: {
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+  },
+  equipmentChipActive: {
+    borderColor: ONBOARDING_BORDER_ACTIVE,
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+  },
+  equipmentChipText: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  equipmentChipTextActive: {
+    color: '#5B21B6',
+    fontWeight: '800',
+  },
+  equipmentOrChooseLabel: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 10,
+    marginBottom: 2,
+    paddingHorizontal: 2,
   },
   locationStepOneOptionsShift: {
     transform: [{ translateY: -36 }],
