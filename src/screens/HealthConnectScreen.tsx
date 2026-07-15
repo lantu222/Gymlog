@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -18,20 +18,6 @@ const HEALTH_RED = '#FF2D55';
 interface HealthConnectScreenProps {
   onConnected: (basics: HealthBasics) => void;
   onSkip: () => void;
-}
-
-function DumbbellGlyph() {
-  return (
-    <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-        stroke="#FFFFFF"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
 }
 
 function HealthHeart() {
@@ -161,7 +147,11 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
       <View style={styles.content}>
         <View style={styles.tileRow}>
           <View style={[styles.appTile, styles.appTileGainer]}>
-            <DumbbellGlyph />
+            <Image
+              source={require('../../assets/branding/gainer-app-icon.png')}
+              style={styles.appTileLogoImage}
+              resizeMode="cover"
+            />
           </View>
           <ConnectorWave />
           <View style={[styles.appTile, styles.appTileHealth]}>
@@ -241,14 +231,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   appTileGainer: {
-    backgroundColor: PURPLE,
+    backgroundColor: '#0B0B0E',
     borderWidth: 2,
-    borderColor: '#5B21B6',
+    borderColor: '#C9B6FF',
+    overflow: 'hidden',
     shadowColor: PURPLE,
     shadowOpacity: 0.32,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 10 },
     elevation: 8,
+  },
+  // The exported icon has a small white margin around its rounded square;
+  // rendering it slightly oversized inside the clipped tile crops that away.
+  appTileLogoImage: {
+    width: 88,
+    height: 88,
   },
   appTileHealth: {
     backgroundColor: SURFACE,
