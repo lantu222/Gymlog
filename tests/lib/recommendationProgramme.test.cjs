@@ -11,7 +11,7 @@ const baseSelection = {
   age: 30,
   ageRange: '26_35',
   goal: 'strength',
-  level: 'intermediate',
+  level: 'advanced',
   daysPerWeek: 3,
   equipment: 'gym',
   trainingEnvironment: 'full_gym',
@@ -89,7 +89,7 @@ module.exports = [
       const payload = buildRecommendationPlanReadyPayload(
         selection({
           goal: 'muscle',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 5,
           equipment: 'gym',
           currentWeightKg: 80,
@@ -131,7 +131,7 @@ module.exports = [
           programId: 'tpl_3_day_strength_base_v1',
           selection: selection({
             goal: 'strength',
-            level: 'intermediate',
+            level: 'advanced',
             daysPerWeek: 3,
             equipment: 'gym',
             trainingEnvironment: 'full_gym',
@@ -143,7 +143,7 @@ module.exports = [
           programId: 'tpl_5_day_hybrid_v1',
           selection: selection({
             goal: 'muscle',
-            level: 'intermediate',
+            level: 'advanced',
             daysPerWeek: 5,
             equipment: 'gym',
             trainingEnvironment: 'full_gym',
@@ -181,7 +181,7 @@ module.exports = [
           programId: 'tpl_4_day_muscle_builder_v1',
           selection: selection({
             goal: 'muscle',
-            level: 'intermediate',
+            level: 'advanced',
             daysPerWeek: 4,
             equipment: 'gym',
             trainingEnvironment: 'full_gym',

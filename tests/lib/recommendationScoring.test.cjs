@@ -35,7 +35,7 @@ module.exports = [
       const result = recommendPrograms(
         buildRecommendationInput({
           goal: 'muscle',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 4,
           equipment: 'gym',
           secondaryOutcomes: ['strength'],
@@ -92,7 +92,7 @@ module.exports = [
       const result = recommendPrograms(
         buildRecommendationInput({
           goal: 'strength',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 4,
           equipment: 'gym',
           secondaryOutcomes: ['muscle'],
@@ -140,7 +140,7 @@ module.exports = [
       const maleResult = recommendPrograms(
         buildRecommendationInput({
           goal: 'muscle',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 5,
           equipment: 'gym',
           secondaryOutcomes: [],
@@ -195,7 +195,7 @@ module.exports = [
       const result = recommendPrograms(
         buildRecommendationInput({
           goal: 'strength',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 5,
           equipment: 'gym',
           secondaryOutcomes: ['consistency'],

@@ -7,7 +7,7 @@ const baseSelection = {
   age: 30,
   ageRange: '26_35',
   goal: 'strength',
-  level: 'intermediate',
+  level: 'advanced',
   daysPerWeek: 3,
   equipment: 'gym',
   secondaryOutcomes: ['consistency'],

@@ -391,9 +391,7 @@ const GOAL_OPTIONS: Array<{
   },
 ];
 
-// Training-level slider (step 04). UI speaks Beginner/Advanced/Pro; until the
-// internal SetupLevel rename lands (P3a) they map onto the legacy values
-// beginner/intermediate/advanced.
+// Training-level slider (step 04): Beginner / Advanced / Pro.
 const LEVEL_SLIDER_OPTIONS: Array<{
   level: SetupLevel;
   label: string;
@@ -405,12 +403,12 @@ const LEVEL_SLIDER_OPTIONS: Array<{
     lines: ['New to lifting or returning after a break.', 'We keep form simple and progress steady.'],
   },
   {
-    level: 'intermediate',
+    level: 'advanced',
     label: 'Advanced',
     lines: ['Trained consistently for a year or more.', 'You know the main lifts and want structure.'],
   },
   {
-    level: 'advanced',
+    level: 'pro',
     label: 'Pro',
     lines: ['Years of serious training behind you.', 'Higher volume and intensity - we push the pace.'],
   },
@@ -440,32 +438,6 @@ const LEVEL_FLAME_LAYOUTS: Array<Array<{ x: number; y: number; size: number; opa
   ],
 ];
 
-const TRAINING_LEVEL_OPTIONS: Array<{
-  level: SetupLevel;
-  title: string;
-  body: string;
-  icon: OnboardingOptionIconName;
-}> = [
-  {
-    level: 'beginner',
-    title: 'Beginner',
-    body: '0-1 years of consistent training',
-    icon: 'star',
-  },
-  {
-    level: 'intermediate',
-    title: 'Intermediate',
-    body: '1-3 years of training',
-    icon: 'trend_up',
-  },
-  {
-    level: 'advanced',
-    title: 'Advanced',
-    body: '3+ years of serious training',
-    icon: 'trophy',
-  },
-];
-
 const TRAINING_FREQUENCY_OPTIONS: Array<{
   value: SetupDaysPerWeek;
   title: string;
@@ -473,8 +445,8 @@ const TRAINING_FREQUENCY_OPTIONS: Array<{
   recommendedFor: SetupLevel[];
 }> = [
   { value: 3, title: '2–3 days / week', body: 'Easiest to stay consistent — a great starting pace', recommendedFor: ['beginner'] },
-  { value: 4, title: '3–4 days / week', body: 'The sweet spot once you have some training behind you', recommendedFor: ['intermediate'] },
-  { value: 5, title: '4+ days / week', body: 'High frequency — for experienced lifters who recover well', recommendedFor: ['advanced'] },
+  { value: 4, title: '3–4 days / week', body: 'The sweet spot once you have some training behind you', recommendedFor: ['advanced'] },
+  { value: 5, title: '4+ days / week', body: 'High frequency — for experienced lifters who recover well', recommendedFor: ['pro'] },
 ];
 
 function getGoalBackgroundSource(goal: SetupGoal) {
@@ -2119,7 +2091,7 @@ function getLevelLabel(level: SetupLevel) {
     return 'Beginner';
   }
 
-  return level === 'advanced' ? 'Advanced' : 'Intermediate';
+  return level === 'pro' ? 'Pro' : 'Advanced';
 }
 
 function getGenderProfileLabel(gender: SetupGender) {
@@ -2136,9 +2108,9 @@ function getGenderProfileLabel(gender: SetupGender) {
 
 function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDaysPerWeek) {
   const duration =
-    level === 'advanced'
+    level === 'pro'
       ? '60-75 min sessions'
-      : level === 'intermediate'
+      : level === 'advanced'
         ? '50-70 min sessions'
         : '45-60 min sessions';
   const structure =
@@ -2150,9 +2122,9 @@ function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDay
           ? 'Split structure'
           : 'High-frequency split';
   const recovery =
-    level === 'advanced'
+    level === 'pro'
       ? 'Workload managed'
-      : level === 'intermediate'
+      : level === 'advanced'
         ? 'Progressive balance'
         : 'Recovery focused';
 

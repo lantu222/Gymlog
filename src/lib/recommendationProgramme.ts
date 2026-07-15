@@ -429,10 +429,10 @@ function getCompactLevelLine(level: FirstRunSetupSelection['level']) {
   switch (level) {
     case 'beginner':
       return 'Beginner base.';
-    case 'intermediate':
-      return 'Intermediate build.';
     case 'advanced':
-      return 'Advanced base.';
+      return 'Advanced build.';
+    case 'pro':
+      return 'Pro base.';
     default:
       return 'Training base.';
   }
@@ -731,7 +731,7 @@ function buildReadinessGuardrail(selection: FirstRunSetupSelection) {
     return 'Beginner guardrail: start conservative, limit complexity, and progress only after clean logged sessions.';
   }
 
-  if (selection.level === 'advanced') {
+  if (selection.level === 'pro') {
     return 'Advanced guardrail: use the strongest catalog match, but avoid inventing workload the template does not support.';
   }
 

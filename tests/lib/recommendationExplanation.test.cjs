@@ -14,7 +14,7 @@ module.exports = [
       const reasons = buildRecommendationReasonLines(
         {
           goal: 'muscle',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 4,
           equipment: 'gym',
           secondaryOutcomes: ['strength'],
@@ -44,7 +44,7 @@ module.exports = [
       const result = recommendPrograms(
         buildRecommendationInput({
           goal: 'muscle',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 4,
           equipment: 'gym',
           secondaryOutcomes: ['strength'],

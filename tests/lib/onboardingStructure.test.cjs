@@ -238,10 +238,9 @@ module.exports = [
       assert.match(levelBody, /selectedLevelOption\.lines\.map/);
       assert.doesNotMatch(levelBody, /GENDER_OPTIONS/);
       assert.doesNotMatch(levelBody, /TRAINING_FREQUENCY_OPTIONS/);
-      // UI speaks Beginner/Advanced/Pro over the legacy internal values until
-      // the SetupLevel rename (P3a) lands.
-      assert.match(onboardingSource, /level: 'intermediate',\s*\r?\n\s*label: 'Advanced'/);
-      assert.match(onboardingSource, /level: 'advanced',\s*\r?\n\s*label: 'Pro'/);
+      // SetupLevel and the UI share the same tier names: beginner/advanced/pro.
+      assert.match(onboardingSource, /level: 'advanced',\s*\r?\n\s*label: 'Advanced'/);
+      assert.match(onboardingSource, /level: 'pro',\s*\r?\n\s*label: 'Pro'/);
       assert.match(onboardingSource, /const LEVEL_FLAME_LAYOUTS/);
       assert.match(onboardingSource, /function FlameGlyph\(/);
 

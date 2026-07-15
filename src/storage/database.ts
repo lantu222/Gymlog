@@ -391,10 +391,14 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
             : fallback.preferences.setupGoals,
       setupLevel:
         input?.preferences?.setupLevel === 'beginner' ||
-        input?.preferences?.setupLevel === 'intermediate' ||
-        input?.preferences?.setupLevel === 'advanced'
+        input?.preferences?.setupLevel === 'advanced' ||
+        input?.preferences?.setupLevel === 'pro'
           ? input.preferences.setupLevel
-          : fallback.preferences.setupLevel,
+          : // Legacy tier name from before the beginner/advanced/pro rename;
+            // the old middle tier maps onto the new middle tier.
+            (input?.preferences?.setupLevel as string | null | undefined) === 'intermediate'
+            ? 'advanced'
+            : fallback.preferences.setupLevel,
       setupDaysPerWeek:
         input?.preferences?.setupDaysPerWeek === 2 ||
         input?.preferences?.setupDaysPerWeek === 3 ||

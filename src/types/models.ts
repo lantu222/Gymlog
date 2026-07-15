@@ -12,7 +12,7 @@ export type SetupGoal =
   | 'run_mobility'
   | 'lean_athletic'
   | 'general_fitness';
-export type SetupLevel = 'beginner' | 'intermediate' | 'advanced';
+export type SetupLevel = 'beginner' | 'advanced' | 'pro';
 export type SetupDaysPerWeek = 2 | 3 | 4 | 5 | 6;
 export type SetupEquipment = 'gym' | 'minimal' | 'home';
 export type SetupTrainingEnvironment =

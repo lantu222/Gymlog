@@ -19,7 +19,7 @@ const HIGH_PRIORITY_BASE_SELECTION = {
   age: 30,
   ageRange: '26_35',
   goal: 'strength',
-  level: 'intermediate',
+  level: 'advanced',
   daysPerWeek: 3,
   equipment: 'gym',
   secondaryOutcomes: ['consistency'],
@@ -124,7 +124,7 @@ module.exports = [
     run() {
       const recommendation = resolveFirstRunRecommendation({
         goal: 'strength',
-        level: 'intermediate',
+        level: 'advanced',
         daysPerWeek: 3,
         equipment: 'gym',
         secondaryOutcomes: ['consistency'],
@@ -238,7 +238,7 @@ module.exports = [
     run() {
       const recommendation = resolveFirstRunRecommendation({
         goal: 'muscle',
-        level: 'intermediate',
+        level: 'advanced',
         daysPerWeek: 4,
         equipment: 'gym',
         secondaryOutcomes: ['strength'],
@@ -257,7 +257,7 @@ module.exports = [
       const recommendation = resolveFirstRunRecommendationWithTailoring(
         {
           goal: 'strength',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 4,
           equipment: 'gym',
           secondaryOutcomes: ['muscle'],
@@ -354,7 +354,7 @@ module.exports = [
       const reasons = buildFirstRunRecommendationReasons(
         {
           goal: 'muscle',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 4,
           equipment: 'gym',
           secondaryOutcomes: ['strength'],
@@ -396,7 +396,7 @@ module.exports = [
         {
           selection: buildHighPrioritySelection({
             goal: 'strength',
-            level: 'intermediate',
+            level: 'advanced',
             daysPerWeek: 3,
             equipment: 'gym',
           }),
@@ -407,7 +407,7 @@ module.exports = [
         {
           selection: buildHighPrioritySelection({
             goal: 'strength',
-            level: 'intermediate',
+            level: 'advanced',
             daysPerWeek: 4,
             equipment: 'gym',
             secondaryOutcomes: ['muscle'],
@@ -419,7 +419,7 @@ module.exports = [
         {
           selection: buildHighPrioritySelection({
             goal: 'strength',
-            level: 'intermediate',
+            level: 'advanced',
             daysPerWeek: 5,
             equipment: 'gym',
           }),
@@ -430,7 +430,7 @@ module.exports = [
         {
           selection: buildHighPrioritySelection({
             goal: 'muscle',
-            level: 'intermediate',
+            level: 'advanced',
             daysPerWeek: 5,
             equipment: 'gym',
             currentWeightKg: 80,
@@ -493,20 +493,20 @@ module.exports = [
     run() {
       const scenarios = [
         buildHighPrioritySelection({ goal: 'strength', level: 'beginner', daysPerWeek: 2, equipment: 'gym' }),
-        buildHighPrioritySelection({ goal: 'strength', level: 'intermediate', daysPerWeek: 3, equipment: 'gym' }),
+        buildHighPrioritySelection({ goal: 'strength', level: 'advanced', daysPerWeek: 3, equipment: 'gym' }),
         buildHighPrioritySelection({
           goal: 'strength',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 4,
           equipment: 'gym',
           secondaryOutcomes: ['muscle'],
         }),
-        buildHighPrioritySelection({ goal: 'strength', level: 'intermediate', daysPerWeek: 5, equipment: 'gym' }),
+        buildHighPrioritySelection({ goal: 'strength', level: 'advanced', daysPerWeek: 5, equipment: 'gym' }),
         buildHighPrioritySelection({ goal: 'muscle', level: 'beginner', daysPerWeek: 3, equipment: 'gym' }),
-        buildHighPrioritySelection({ goal: 'muscle', level: 'intermediate', daysPerWeek: 4, equipment: 'gym' }),
+        buildHighPrioritySelection({ goal: 'muscle', level: 'advanced', daysPerWeek: 4, equipment: 'gym' }),
         buildHighPrioritySelection({
           goal: 'muscle',
-          level: 'intermediate',
+          level: 'advanced',
           daysPerWeek: 5,
           equipment: 'gym',
           currentWeightKg: 80,
@@ -561,7 +561,7 @@ module.exports = [
     run() {
       const selection = buildHighPrioritySelection({
         goal: 'strength',
-        level: 'intermediate',
+        level: 'advanced',
         daysPerWeek: 3,
         equipment: 'gym',
       });
@@ -579,7 +579,7 @@ module.exports = [
     run() {
       const selection = buildHighPrioritySelection({
         goal: 'strength',
-        level: 'intermediate',
+        level: 'advanced',
         daysPerWeek: 4,
         equipment: 'gym',
         secondaryOutcomes: ['muscle'],
@@ -598,7 +598,7 @@ module.exports = [
     run() {
       const selection = buildHighPrioritySelection({
         goal: 'strength',
-        level: 'intermediate',
+        level: 'advanced',
         daysPerWeek: 5,
         equipment: 'gym',
         currentWeightKg: 100,
@@ -620,7 +620,7 @@ module.exports = [
     run() {
       const selection = buildHighPrioritySelection({
         goal: 'muscle',
-        level: 'intermediate',
+        level: 'advanced',
         daysPerWeek: 5,
         equipment: 'gym',
         currentWeightKg: 80,

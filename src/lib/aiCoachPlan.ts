@@ -106,11 +106,11 @@ function mapSetupExperience(preferences: AppPreferences) {
     return preferences.aiPlannerExperience;
   }
 
-  if (preferences.setupLevel === 'advanced') {
+  if (preferences.setupLevel === 'pro') {
     return 'advanced';
   }
 
-  if (preferences.setupLevel === 'intermediate') {
+  if (preferences.setupLevel === 'advanced') {
     return 'intermediate';
   }
 

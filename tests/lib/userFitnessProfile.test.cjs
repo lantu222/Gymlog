@@ -27,7 +27,7 @@ module.exports = [
     run() {
       const { preferences: prefs } = createEmptyDatabase();
 
-      prefs.setupLevel = 'intermediate';
+      prefs.setupLevel = 'advanced';
       prefs.setupGoal = 'muscle';
       prefs.setupGoals = ['muscle', 'strength'];
       prefs.setupDaysPerWeek = 4;
@@ -41,7 +41,7 @@ module.exports = [
 
       const profile = buildUserFitnessProfile(prefs);
 
-      assert.equal(profile.level, 'intermediate');
+      assert.equal(profile.level, 'advanced');
       assert.equal(profile.primaryGoal, 'muscle');
       assert.deepEqual(profile.secondaryGoals, ['strength']);
       assert.equal(profile.daysPerWeek, 4);

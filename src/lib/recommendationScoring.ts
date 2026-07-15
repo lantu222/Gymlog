@@ -98,7 +98,7 @@ function scoreExperienceFit(definition: RecommendationProgramDefinition, input: 
     return 10;
   }
 
-  return input.level === 'beginner' ? 2 : input.level === 'advanced' ? 6 : 5;
+  return input.level === 'beginner' ? 2 : input.level === 'pro' ? 6 : 5;
 }
 
 function scoreGenderFit(definition: RecommendationProgramDefinition, input: RecommendationInput) {

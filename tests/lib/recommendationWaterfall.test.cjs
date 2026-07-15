@@ -6,7 +6,7 @@ const { getRecommendationProgramDefinition } = require('../../.test-dist/lib/rec
 function input(overrides = {}) {
   return {
     goal: 'muscle',
-    level: 'intermediate',
+    level: 'advanced',
     daysPerWeek: 4,
     equipment: 'gym',
     gender: 'male',
@@ -62,7 +62,7 @@ module.exports = [
   {
     name: 'waterfall: experienced women get a women-targeted primary with the goal family as alternative',
     run() {
-      const decision = selectWaterfallDecision(input({ gender: 'female', goal: 'muscle', level: 'intermediate', daysPerWeek: 4 }));
+      const decision = selectWaterfallDecision(input({ gender: 'female', goal: 'muscle', level: 'advanced', daysPerWeek: 4 }));
       assert.equal(decision.rule, 'female_targeted');
       const primary = getRecommendationProgramDefinition(decision.primaryProgramId);
       assert.equal(primary.targetGender, 'female');
@@ -74,7 +74,7 @@ module.exports = [
   {
     name: 'waterfall: fat-loss goal gets conditioning content, not a bare lifting plan',
     run() {
-      const decision = selectWaterfallDecision(input({ goal: 'lean_athletic', level: 'intermediate', daysPerWeek: 3 }));
+      const decision = selectWaterfallDecision(input({ goal: 'lean_athletic', level: 'advanced', daysPerWeek: 3 }));
       assert.equal(decision.rule, 'lean_athletic');
       const primary = getRecommendationProgramDefinition(decision.primaryProgramId);
       assert.ok(primary.styleTags.includes('conditioning'));
@@ -83,7 +83,7 @@ module.exports = [
   {
     name: 'waterfall: focus area sends experienced muscle users to the FOCUS specialisation program',
     run() {
-      const decision = selectWaterfallDecision(input({ goal: 'muscle', level: 'intermediate', focusAreas: ['chest'] }));
+      const decision = selectWaterfallDecision(input({ goal: 'muscle', level: 'advanced', focusAreas: ['chest'] }));
       assert.equal(decision.rule, 'muscle_focus');
       assert.equal(decision.primaryProgramId, 'tpl_focus_chest_program_v1');
       assert.ok(decision.alternativeProgramId);
@@ -111,9 +111,9 @@ module.exports = [
       const variations = [
         input(),
         input({ goal: 'general', level: 'beginner', daysPerWeek: 2 }),
-        input({ goal: 'general_fitness', level: 'advanced', daysPerWeek: 6 }),
+        input({ goal: 'general_fitness', level: 'pro', daysPerWeek: 6 }),
         input({ equipment: 'minimal', goal: 'strength' }),
-        input({ gender: 'female', goal: 'lean_athletic', level: 'advanced', daysPerWeek: 5 }),
+        input({ gender: 'female', goal: 'lean_athletic', level: 'pro', daysPerWeek: 5 }),
       ];
       for (const variation of variations) {
         const decision = selectWaterfallDecision(variation);
