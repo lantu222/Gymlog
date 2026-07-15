@@ -1,6 +1,7 @@
 import {
   AppDatabase,
   ExerciseLibraryItem,
+  SetupCautionFlag,
   SetupFocusArea,
   SetupGoal,
   SetupSecondaryOutcome,
@@ -40,6 +41,7 @@ const DEFAULT_PREFERENCES = {
   setupTrainingEnvironment: null,
   setupSecondaryOutcomes: [] as SetupSecondaryOutcome[],
   setupFocusAreas: [] as SetupFocusArea[],
+  setupCautionFlags: [] as SetupCautionFlag[],
   setupGuidanceMode: null,
   setupScheduleMode: null,
   setupWeeklyMinutes: null,

@@ -36,6 +36,21 @@ export type SetupFocusArea =
   | 'core'
   | 'mobility'
   | 'conditioning';
+export type SetupCautionArea =
+  | 'neck'
+  | 'shoulders'
+  | 'elbows'
+  | 'wrists'
+  | 'lower_back'
+  | 'hips'
+  | 'knees'
+  | 'ankles';
+export type SetupCautionLevel = 'info' | 'careful' | 'avoid';
+export interface SetupCautionFlag {
+  area: SetupCautionArea;
+  level: SetupCautionLevel;
+  refinements: string[];
+}
 export type SetupGuidanceMode = 'done_for_me' | 'guided_editable' | 'self_directed';
 export type SetupScheduleMode = 'app_managed' | 'self_managed';
 export type SetupWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
@@ -242,6 +257,7 @@ export interface AppPreferences {
   setupEquipmentItems: string[];
   setupSecondaryOutcomes: SetupSecondaryOutcome[];
   setupFocusAreas: SetupFocusArea[];
+  setupCautionFlags: SetupCautionFlag[];
   setupGuidanceMode: SetupGuidanceMode | null;
   setupScheduleMode: SetupScheduleMode | null;
   setupWeeklyMinutes: number | null;

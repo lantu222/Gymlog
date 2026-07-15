@@ -74,6 +74,9 @@ import {
   SetupFocusArea,
   SetupLevel,
   SetupScheduleMode,
+  SetupCautionArea,
+  SetupCautionFlag,
+  SetupCautionLevel,
   SetupSecondaryOutcome,
   SetupTrainingEnvironment,
   SetupWeekday,
@@ -114,6 +117,7 @@ type SetupStage =
   | 'goal'
   | 'level'
   | 'days'
+  | 'avoid'
   | 'review'
   | 'planning'
   | 'recommendation';
@@ -128,8 +132,8 @@ type LocationBenefit = { icon: GymlogIconName; label: string; body?: string };
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
 type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
 
-const STAGES: SetupStage[] = ['location', 'goal', 'level', 'days', 'planning', 'review'];
-const ONBOARDING_PROGRESS_STAGES: SetupStage[] = ['location', 'goal', 'level', 'days', 'planning'];
+const STAGES: SetupStage[] = ['location', 'goal', 'level', 'days', 'avoid', 'planning', 'review'];
+const ONBOARDING_PROGRESS_STAGES: SetupStage[] = ['location', 'goal', 'level', 'days', 'avoid', 'planning'];
 
 // STEP n OF m labels follow the progress stages so inserting/removing a stage
 // (e.g. the avoid step in a later phase) renumbers every screen automatically.
@@ -456,6 +460,62 @@ const WEEKDAY_LETTERS: Record<SetupWeekday, string> = {
   sat: 'S',
   sun: 'S',
 };
+
+// Avoid step: flaggable body parts, colour-coded caution levels and optional
+// refinement chips. The flags persist to setupCautionFlags and colour the
+// focus-area list on the next step.
+const AVOID_AREA_OPTIONS: Array<{ area: SetupCautionArea; label: string }> = [
+  { area: 'shoulders', label: 'Shoulders' },
+  { area: 'lower_back', label: 'Lower back' },
+  { area: 'knees', label: 'Knees' },
+  { area: 'elbows', label: 'Elbows' },
+];
+
+const AVOID_EXTRA_AREA_OPTIONS: Array<{ area: SetupCautionArea; label: string }> = [
+  { area: 'wrists', label: 'Wrists' },
+  { area: 'hips', label: 'Hips' },
+  { area: 'neck', label: 'Neck' },
+  { area: 'ankles', label: 'Ankles' },
+];
+
+const CAUTION_LEVEL_OPTIONS: Array<{ level: SetupCautionLevel; label: string; body: string }> = [
+  { level: 'info', label: 'For info only', body: "We'll keep it in mind." },
+  { level: 'careful', label: 'Be careful', body: 'Lighter loads and joint-friendly swaps.' },
+  { level: 'avoid', label: 'Avoid entirely', body: 'We leave this area out of your plan.' },
+];
+
+const CAUTION_LEVEL_COLORS: Record<SetupCautionLevel, { ink: string; soft: string }> = {
+  info: { ink: '#667085', soft: '#F1F0F4' },
+  careful: { ink: '#D97706', soft: '#FEF3C7' },
+  avoid: { ink: '#DC2626', soft: '#FEE2E2' },
+};
+
+const CAUTION_REFINEMENT_FALLBACK = ['Old injury', 'Chronic pain', 'Recent surgery'];
+
+const CAUTION_REFINEMENT_OPTIONS: Partial<Record<SetupCautionArea, string[]>> = {
+  shoulders: ['Old injury', 'Impingement', 'Limited mobility'],
+  lower_back: ['Old injury', 'Lower-back pain', 'Disc issues'],
+  knees: ['Old injury', 'Knee pain', 'Post-surgery'],
+  elbows: ['Old injury', 'Tennis elbow', 'Tendon pain'],
+  wrists: ['Old injury', 'Wrist pain', 'Limited mobility'],
+  hips: ['Old injury', 'Hip pain', 'Limited mobility'],
+  neck: ['Old injury', 'Neck pain', 'Limited mobility'],
+  ankles: ['Old injury', 'Ankle pain', 'Instability'],
+};
+
+function CautionGlyph({ color, size = 18 }: { color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3.5L21.5 20h-19L12 3.5z"
+        stroke={color}
+        strokeWidth={2}
+        strokeLinejoin="round"
+      />
+      <Path d="M12 10v4.4M12 17.2v.4" stroke={color} strokeWidth={2} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 function getGoalBackgroundSource(goal: SetupGoal) {
   switch (goal) {
@@ -2247,6 +2307,13 @@ export function OnboardingScreen({
     setupSeed.secondaryOutcomes,
   );
   const [focusAreas, setFocusAreas] = useState<SetupFocusArea[]>(setupSeed.focusAreas);
+  const [cautionFlags, setCautionFlags] = useState<SetupCautionFlag[]>(setupSeed.cautionFlags ?? []);
+  const [expandedCautionArea, setExpandedCautionArea] = useState<SetupCautionArea | null>(null);
+  const [avoidExtraVisible, setAvoidExtraVisible] = useState(() =>
+    (setupSeed.cautionFlags ?? []).some((flag) =>
+      AVOID_EXTRA_AREA_OPTIONS.some((option) => option.area === flag.area),
+    ),
+  );
   const [guidanceMode, setGuidanceMode] = useState<SetupGuidanceMode>(setupSeed.guidanceMode);
   const [scheduleMode, setScheduleMode] = useState<SetupScheduleMode>(setupSeed.scheduleMode);
   const [weeklyMinutes, setWeeklyMinutes] = useState<number | null>(setupSeed.weeklyMinutes ?? null);
@@ -2304,6 +2371,7 @@ export function OnboardingScreen({
       equipmentItems,
       secondaryOutcomes,
       focusAreas,
+      cautionFlags,
       guidanceMode,
       scheduleMode,
       weeklyMinutes,
@@ -2316,6 +2384,7 @@ export function OnboardingScreen({
       availableDays,
       age,
       ageRange,
+      cautionFlags,
       currentWeightValue,
       daysPerWeek,
       equipment,
@@ -3457,6 +3526,203 @@ export function OnboardingScreen({
     });
   }
 
+  function flagCautionArea(area: SetupCautionArea) {
+    void haptics.select();
+    setCautionFlags((current) =>
+      current.some((flag) => flag.area === area)
+        ? current
+        : [...current, { area, level: 'careful', refinements: [] }],
+    );
+    setExpandedCautionArea(area);
+  }
+
+  function removeCautionFlag(area: SetupCautionArea) {
+    void haptics.select();
+    setCautionFlags((current) => current.filter((flag) => flag.area !== area));
+    setExpandedCautionArea((current) => (current === area ? null : current));
+  }
+
+  function setCautionLevel(area: SetupCautionArea, level: SetupCautionLevel) {
+    void haptics.select();
+    setCautionFlags((current) => current.map((flag) => (flag.area === area ? { ...flag, level } : flag)));
+  }
+
+  function toggleCautionRefinement(area: SetupCautionArea, refinement: string) {
+    void haptics.select();
+    setCautionFlags((current) =>
+      current.map((flag) => {
+        if (flag.area !== area) {
+          return flag;
+        }
+        const refinements = flag.refinements.includes(refinement)
+          ? flag.refinements.filter((item) => item !== refinement)
+          : [...flag.refinements, refinement];
+        return { ...flag, refinements };
+      }),
+    );
+  }
+
+  function renderCautionRow(option: { area: SetupCautionArea; label: string }) {
+    const flag = cautionFlags.find((item) => item.area === option.area) ?? null;
+    const expanded = flag !== null && expandedCautionArea === option.area;
+    const colors = flag ? CAUTION_LEVEL_COLORS[flag.level] : null;
+    const levelLabel = flag
+      ? CAUTION_LEVEL_OPTIONS.find((item) => item.level === flag.level)?.label ?? ''
+      : null;
+    const refinementOptions = CAUTION_REFINEMENT_OPTIONS[option.area] ?? CAUTION_REFINEMENT_FALLBACK;
+
+    return (
+      <View
+        key={option.area}
+        style={[styles.avoidRow, colors ? { borderColor: colors.ink } : null]}
+      >
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`${option.label}${flag ? `, flagged: ${levelLabel}` : ''}`}
+          accessibilityState={{ selected: flag !== null, expanded }}
+          onPress={() => {
+            if (!flag) {
+              flagCautionArea(option.area);
+              return;
+            }
+            setExpandedCautionArea((current) => (current === option.area ? null : option.area));
+          }}
+          style={styles.avoidRowHeader}
+        >
+          <View style={[styles.avoidRowTile, colors ? { backgroundColor: colors.soft } : null]}>
+            <CautionGlyph color={colors ? colors.ink : ONBOARDING_TEXT_MUTED} />
+          </View>
+          <View style={styles.avoidRowCopy}>
+            <Text style={[styles.avoidRowTitle, colors ? { color: colors.ink } : null]}>{option.label}</Text>
+            {flag ? <Text style={[styles.avoidRowLevel, { color: colors!.ink }]}>{levelLabel}</Text> : null}
+          </View>
+          {flag ? (
+            <View style={[styles.avoidRowRadio, { borderColor: colors!.ink, backgroundColor: colors!.ink }]}>
+              <GymlogIcon name="check" size={12} color="#FFFFFF" />
+            </View>
+          ) : (
+            <View style={styles.avoidRowRadio} />
+          )}
+        </Pressable>
+
+        {expanded && flag ? (
+          <View style={styles.avoidRowDetail}>
+            <View style={styles.avoidLevelList}>
+              {CAUTION_LEVEL_OPTIONS.map((levelOption) => {
+                const levelColors = CAUTION_LEVEL_COLORS[levelOption.level];
+                const active = flag.level === levelOption.level;
+
+                return (
+                  <Pressable
+                    key={levelOption.level}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${levelOption.label}: ${levelOption.body}`}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => setCautionLevel(option.area, levelOption.level)}
+                    style={[
+                      styles.avoidLevelRow,
+                      active && { borderColor: levelColors.ink, backgroundColor: levelColors.soft },
+                    ]}
+                  >
+                    <View
+                      style={[
+                        styles.avoidLevelRadio,
+                        active && { borderColor: levelColors.ink, backgroundColor: levelColors.ink },
+                      ]}
+                    >
+                      {active ? <GymlogIcon name="check" size={11} color="#FFFFFF" /> : null}
+                    </View>
+                    <View style={styles.avoidLevelCopy}>
+                      <Text style={[styles.avoidLevelTitle, active && { color: levelColors.ink }]}>
+                        {levelOption.label}
+                      </Text>
+                      <Text style={styles.avoidLevelBody}>{levelOption.body}</Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.avoidRefineLabel}>REFINE</Text>
+            <View style={styles.avoidRefineRow}>
+              {refinementOptions.map((refinement) => {
+                const active = flag.refinements.includes(refinement);
+
+                return (
+                  <Pressable
+                    key={refinement}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={refinement}
+                    onPress={() => toggleCautionRefinement(option.area, refinement)}
+                    style={[styles.avoidRefineChip, active && styles.avoidRefineChipActive]}
+                  >
+                    <Text style={[styles.avoidRefineChipText, active && styles.avoidRefineChipTextActive]}>
+                      {refinement}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${option.label} flag`}
+              onPress={() => removeCautionFlag(option.area)}
+              style={styles.avoidRemoveLink}
+            >
+              <Text style={styles.avoidRemoveText}>Remove</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  function renderAvoid() {
+    return renderOnboardingShell({
+      stepLabel: getQuestionnaireStepLabel('avoid'),
+      titleLines: ['Anything we', 'should avoid?'],
+      subtitle: 'Flag a body part and we train around it. Optional.',
+      topPaneStyle: styles.locationEquipmentTopPane,
+      topCopyStyle: styles.locationEquipmentTopCopy,
+      titleStyle: styles.locationEquipmentHeadline,
+      children: (
+        <View style={styles.avoidList}>
+          {AVOID_AREA_OPTIONS.map((option) => renderCautionRow(option))}
+          {avoidExtraVisible ? AVOID_EXTRA_AREA_OPTIONS.map((option) => renderCautionRow(option)) : null}
+
+          {!avoidExtraVisible ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Add something else"
+              onPress={() => {
+                void haptics.select();
+                setAvoidExtraVisible(true);
+              }}
+              style={styles.avoidGhostRow}
+            >
+              <Text style={styles.avoidGhostText}>+ Add something else</Text>
+            </Pressable>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Nothing to note"
+            onPress={() => {
+              void haptics.select();
+              setCautionFlags([]);
+              setExpandedCautionArea(null);
+            }}
+            style={styles.avoidGhostRow}
+          >
+            <Text style={styles.avoidGhostText}>Nothing to note</Text>
+          </Pressable>
+        </View>
+      ),
+    });
+  }
+
   function renderReview() {
     if (planReadyView === 'account') {
       return renderPlanReadyAccount();
@@ -4203,6 +4469,7 @@ export function OnboardingScreen({
     stage === 'goal' ||
     stage === 'level' ||
     stage === 'days' ||
+    stage === 'avoid' ||
     stage === 'planning';
   const standaloneProgressHidden = locationStageActive || stage === 'review';
   const footerPrimaryLabel =
@@ -4214,6 +4481,10 @@ export function OnboardingScreen({
         : 'Save plan & start'
       : stage === 'planning'
       ? 'Build my plan'
+      : stage === 'avoid'
+      ? cautionFlags.length > 0
+        ? 'Continue'
+        : 'Skip'
       : 'Continue';
   // Overview is the primary "Save plan & start" surface; the day view is a
   // read-only preview whose footer only returns to the plan. Hidden on the
@@ -4266,6 +4537,7 @@ export function OnboardingScreen({
         {stage === 'goal' ? renderGoal() : null}
         {stage === 'level' ? renderLevel() : null}
         {stage === 'days' ? renderDays() : null}
+        {stage === 'avoid' ? renderAvoid() : null}
         {stage === 'planning' ? renderPlanning() : null}
         {stage === 'review' ? renderReview() : null}
       </ScrollView>
@@ -4858,6 +5130,155 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 16,
+  },
+  avoidList: {
+    gap: 8,
+  },
+  avoidRow: {
+    backgroundColor: ONBOARDING_CARD,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    borderRadius: 16,
+  },
+  avoidRowHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 13,
+  },
+  avoidRowTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: '#F1F0F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avoidRowCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 1,
+  },
+  avoidRowTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  avoidRowLevel: {
+    fontSize: 11.5,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
+  avoidRowRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: ONBOARDING_BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avoidRowDetail: {
+    paddingHorizontal: 13,
+    paddingBottom: 13,
+    gap: 10,
+  },
+  avoidLevelList: {
+    gap: 7,
+  },
+  avoidLevelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    borderRadius: 13,
+    paddingVertical: 9,
+    paddingHorizontal: 11,
+  },
+  avoidLevelRadio: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: ONBOARDING_BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avoidLevelCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  avoidLevelTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 13.5,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  avoidLevelBody: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '600',
+  },
+  avoidRefineLabel: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 2,
+  },
+  avoidRefineRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  avoidRefineChip: {
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+  },
+  avoidRefineChipActive: {
+    borderColor: ONBOARDING_BORDER_ACTIVE,
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+  },
+  avoidRefineChipText: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  avoidRefineChipTextActive: {
+    color: '#5B21B6',
+    fontWeight: '800',
+  },
+  avoidRemoveLink: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  avoidRemoveText: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  avoidGhostRow: {
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    borderStyle: 'dashed',
+    borderRadius: 16,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  avoidGhostText: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 13.5,
+    fontWeight: '700',
   },
   locationStepOneOptionsShift: {
     transform: [{ translateY: -36 }],

@@ -124,22 +124,56 @@ module.exports = [
     },
   },
   {
-    name: 'onboarding uses five input steps and builds directly from focus areas',
+    name: 'onboarding uses six input steps and builds directly from focus areas',
     run() {
       const footerStart = onboardingSource.indexOf('const footerPrimaryLabel =');
       assert.notEqual(footerStart, -1, 'footerPrimaryLabel should exist');
       const footerBody = onboardingSource.slice(footerStart, onboardingSource.indexOf('<Modal', footerStart));
 
-      assert.match(onboardingSource, /const STAGES: SetupStage\[\] = \['location', 'goal', 'level', 'days', 'planning', 'review'\]/);
-      assert.match(onboardingSource, /const ONBOARDING_PROGRESS_STAGES: SetupStage\[\] = \['location', 'goal', 'level', 'days', 'planning'\]/);
+      assert.match(onboardingSource, /const STAGES: SetupStage\[\] = \['location', 'goal', 'level', 'days', 'avoid', 'planning', 'review'\]/);
+      assert.match(onboardingSource, /const ONBOARDING_PROGRESS_STAGES: SetupStage\[\] = \['location', 'goal', 'level', 'days', 'avoid', 'planning'\]/);
       assert.match(onboardingSource, /ONBOARDING_PROGRESS_STAGES\.map/);
-      // STEP n OF m labels are computed from the stage array, never hardcoded,
-      // so inserting the avoid stage later renumbers everything automatically.
+      // STEP n OF m labels are computed from the stage array, never hardcoded.
       assert.match(onboardingSource, /function getQuestionnaireStepLabel\(stage: SetupStage\)/);
       assert.doesNotMatch(onboardingSource, /stepLabel: 'STEP \d OF \d'/);
       // Focus areas is the last question; building starts straight from it.
       assert.match(footerBody, /stage === 'planning'[\s\S]*'Build my plan'/);
       assert.match(footerBody, /if \(stage === 'planning'\) \{[\s\S]*setIsBuildingPlan\(true\)/);
+    },
+  },
+  {
+    name: 'onboarding avoid step colour-codes caution levels and writes shared flags',
+    run() {
+      const avoidBody = getFunctionBody('renderAvoid');
+      const rowStart = onboardingSource.indexOf('function renderCautionRow(');
+      assert.notEqual(rowStart, -1, 'renderCautionRow should exist');
+      const rowEnd = onboardingSource.indexOf('\n  function renderAvoid', rowStart);
+      assert.notEqual(rowEnd, -1, 'renderCautionRow should be followed by renderAvoid');
+      const rowBody = onboardingSource.slice(rowStart, rowEnd);
+
+      assert.match(avoidBody, /stepLabel: getQuestionnaireStepLabel\('avoid'\)/);
+      assert.match(avoidBody, /titleLines: \['Anything we', 'should avoid\?'\]/);
+      assert.match(avoidBody, /AVOID_AREA_OPTIONS\.map/);
+      assert.match(avoidBody, /Add something else/);
+      assert.match(avoidBody, /Nothing to note/);
+      assert.match(avoidBody, /setCautionFlags\(\[\]\)/);
+
+      // Three colour-coded levels tint the tile, border, radio and title.
+      assert.match(onboardingSource, /info: \{ ink: '#667085', soft: '#F1F0F4' \}/);
+      assert.match(onboardingSource, /careful: \{ ink: '#D97706', soft: '#FEF3C7' \}/);
+      assert.match(onboardingSource, /avoid: \{ ink: '#DC2626', soft: '#FEE2E2' \}/);
+      assert.match(rowBody, /CAUTION_LEVEL_OPTIONS\.map/);
+      assert.match(rowBody, /setCautionLevel\(option\.area, levelOption\.level\)/);
+      assert.match(rowBody, /toggleCautionRefinement\(option\.area, refinement\)/);
+      assert.match(rowBody, /REFINE/);
+      assert.match(onboardingSource, /For info only/);
+      assert.match(onboardingSource, /Be careful/);
+      assert.match(onboardingSource, /Avoid entirely/);
+
+      // CTA reads Skip until something is flagged; flags persist to prefs.
+      assert.match(onboardingSource, /stage === 'avoid'\s*\r?\n?\s*\? cautionFlags\.length > 0\s*\r?\n?\s*\? 'Continue'\s*\r?\n?\s*: 'Skip'/);
+      assert.match(onboardingSource, /cautionFlags,/);
+      assert.match(appSource, /setupCautionFlags: selection\.cautionFlags \?\? \[\]/);
     },
   },
   {

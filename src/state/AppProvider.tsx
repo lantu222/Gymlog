@@ -134,6 +134,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupEquipmentItems: [],
       setupSecondaryOutcomes: [],
       setupFocusAreas: [],
+      setupCautionFlags: [],
       setupGuidanceMode: null,
       setupScheduleMode: null,
       setupWeeklyMinutes: null,

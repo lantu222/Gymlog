@@ -460,6 +460,7 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
         ? preferences.setupSecondaryOutcomes
         : DEFAULT_FIRST_RUN_SELECTION.secondaryOutcomes,
     focusAreas: preferences.setupFocusAreas.length > 0 ? preferences.setupFocusAreas : DEFAULT_FIRST_RUN_SELECTION.focusAreas,
+    cautionFlags: preferences.setupCautionFlags,
     guidanceMode: preferences.setupGuidanceMode ?? DEFAULT_FIRST_RUN_SELECTION.guidanceMode,
     scheduleMode: preferences.setupScheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode,
     weeklyMinutes: preferences.setupWeeklyMinutes,
@@ -494,6 +495,7 @@ function buildSetupPreferencePatch(
     setupEquipmentItems: selection.equipmentItems ?? [],
     setupSecondaryOutcomes: selection.secondaryOutcomes,
     setupFocusAreas: selection.focusAreas,
+    setupCautionFlags: selection.cautionFlags ?? [],
     setupGuidanceMode: selection.guidanceMode,
     setupScheduleMode: selection.scheduleMode,
     setupWeeklyMinutes: selection.weeklyMinutes ?? null,

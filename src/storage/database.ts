@@ -3,7 +3,53 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createEmptyDatabase, createSeedDatabase } from '../data/seed';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
-import { AppDatabase, ExerciseTemplate, MeasurementEntry, WorkoutTemplate, WorkoutTemplateSessionRecord } from '../types/models';
+import {
+  AppDatabase,
+  ExerciseTemplate,
+  MeasurementEntry,
+  SetupCautionFlag,
+  WorkoutTemplate,
+  WorkoutTemplateSessionRecord,
+} from '../types/models';
+
+const CAUTION_AREAS = ['neck', 'shoulders', 'elbows', 'wrists', 'lower_back', 'hips', 'knees', 'ankles'] as const;
+const CAUTION_LEVELS = ['info', 'careful', 'avoid'] as const;
+
+function normalizeSetupCautionFlags(value: unknown, fallback: SetupCautionFlag[]): SetupCautionFlag[] {
+  if (!Array.isArray(value)) {
+    return fallback;
+  }
+
+  const flags: SetupCautionFlag[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'object' || entry === null) {
+      continue;
+    }
+    const area = (entry as { area?: unknown }).area;
+    const level = (entry as { level?: unknown }).level;
+    if (!CAUTION_AREAS.includes(area as (typeof CAUTION_AREAS)[number])) {
+      continue;
+    }
+    if (!CAUTION_LEVELS.includes(level as (typeof CAUTION_LEVELS)[number])) {
+      continue;
+    }
+    if (flags.some((flag) => flag.area === area)) {
+      continue;
+    }
+    const refinements = (entry as { refinements?: unknown }).refinements;
+    flags.push({
+      area: area as SetupCautionFlag['area'],
+      level: level as SetupCautionFlag['level'],
+      refinements: Array.isArray(refinements)
+        ? refinements
+            .filter((item: unknown): item is string => typeof item === 'string' && item.trim().length > 0)
+            .slice(0, 6)
+        : [],
+    });
+  }
+
+  return flags.slice(0, CAUTION_AREAS.length);
+}
 
 const STORAGE_KEY = '@gymlog/database/v1';
 
@@ -472,6 +518,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
                 value === 'conditioning',
             )
           : fallback.preferences.setupFocusAreas,
+      setupCautionFlags: normalizeSetupCautionFlags(
+        input?.preferences?.setupCautionFlags,
+        fallback.preferences.setupCautionFlags,
+      ),
       setupGuidanceMode:
         input?.preferences?.setupGuidanceMode === 'done_for_me' ||
         input?.preferences?.setupGuidanceMode === 'guided_editable' ||

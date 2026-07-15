@@ -5,6 +5,7 @@ import { getRecommendationProgramDefinition } from './recommendationCatalog';
 import { recommendPrograms } from './recommendationScoring';
 import { buildTailoringRecommendationNote, TailoringPreferencesInput } from './tailoringFit';
 import {
+  SetupCautionFlag,
   SetupDaysPerWeek,
   SetupEquipment,
   SetupAgeRange,
@@ -44,6 +45,8 @@ export interface FirstRunSetupSelection {
   equipmentItems?: string[];
   secondaryOutcomes: SetupSecondaryOutcome[];
   focusAreas: SetupFocusArea[];
+  /** Body parts the user flagged on the avoid step, with a caution level each. */
+  cautionFlags?: SetupCautionFlag[];
   guidanceMode: SetupGuidanceMode;
   scheduleMode: SetupScheduleMode;
   weeklyMinutes?: number | null;
@@ -117,6 +120,7 @@ export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
   equipmentItems: [],
   secondaryOutcomes: [],
   focusAreas: [],
+  cautionFlags: [],
   guidanceMode: 'guided_editable',
   scheduleMode: 'app_managed',
   weeklyMinutes: null,
