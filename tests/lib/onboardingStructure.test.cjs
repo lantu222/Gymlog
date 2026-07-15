@@ -247,19 +247,27 @@ module.exports = [
       assert.match(daysBody, /stepLabel: getQuestionnaireStepLabel\('days'\)/);
       assert.match(daysBody, /titleLines: \['Training days'\]/);
       assert.match(daysBody, /How many days per week can you train\?/);
-      assert.match(daysBody, /TRAINING_FREQUENCY_OPTIONS\.map/);
-      assert.match(daysBody, /setDaysPerWeek\(option\.value\)/);
-      assert.match(daysBody, /option\.recommendedFor\.includes\(level\)/);
+      // Number chips 2-6 on top (recommended flagged by level) and a tappable
+      // Mon-Sun letter row below that drives the count both ways.
+      assert.match(daysBody, /TRAINING_DAY_COUNT_OPTIONS\.map/);
+      assert.match(daysBody, /selectTrainingDaysCount\(option\)/);
+      assert.match(daysBody, /option === recommendedDays/);
       assert.match(daysBody, /Recommended/);
-      assert.doesNotMatch(daysBody, /TRAINING_LEVEL_OPTIONS\.map/);
+      assert.match(daysBody, /WEEKDAY_OPTIONS\.map/);
+      assert.match(daysBody, /toggleTrainingDay\(day\)/);
+      assert.match(daysBody, /WEEKDAY_LETTERS\[day\]/);
+      assert.match(daysBody, /training days · \$\{restCount\} rest/);
+      assert.doesNotMatch(daysBody, /TRAINING_FREQUENCY_OPTIONS/);
 
-      assert.match(onboardingSource, /level: 'advanced'/);
-      // Frequency is a clickable tier list (2–3 / 3–4 / 4+), not day-count chips.
-      assert.match(onboardingSource, /value: 3, title: '2–3 days \/ week'/);
-      assert.match(onboardingSource, /value: 4, title: '3–4 days \/ week'/);
-      assert.match(onboardingSource, /value: 5, title: '4\+ days \/ week'/);
-      assert.match(onboardingSource, /recommendedFor: \['beginner'\]/);
-      assert.doesNotMatch(onboardingSource, /\{ value: 6, title: '6\+', body: 'days' \}/);
+      assert.match(onboardingSource, /const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek\[\] = \[2, 3, 4, 5, 6\]/);
+      assert.match(onboardingSource, /level === 'beginner' \? 3 : level === 'pro' \? 5 : 4/);
+      // Chips reset to the app-managed default rhythm; hand-picked days switch
+      // to self-managed scheduling and clamp to the supported 2-6 range.
+      assert.match(onboardingSource, /setAvailableDays\(DEFAULT_RHYTHM_BY_DAYS\[option\]\)/);
+      assert.match(onboardingSource, /setScheduleMode\('app_managed'\)/);
+      assert.match(onboardingSource, /if \(next\.length < 2 \|\| next\.length > 6\)/);
+      assert.match(onboardingSource, /setDaysPerWeek\(next\.length as SetupDaysPerWeek\)/);
+      assert.match(onboardingSource, /setScheduleMode\('self_managed'\)/);
       assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 150/);
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderWidth: 2/);
       assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);

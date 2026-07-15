@@ -38,6 +38,7 @@ import {
   buildFirstRunPromptSuggestions,
   buildFirstRunAiCoachContext,
   DEFAULT_FIRST_RUN_SELECTION,
+  DEFAULT_RHYTHM_BY_DAYS,
   formatFocusAreaList,
   FirstRunSetupSelection,
   FirstRunStep,
@@ -438,16 +439,23 @@ const LEVEL_FLAME_LAYOUTS: Array<Array<{ x: number; y: number; size: number; opa
   ],
 ];
 
-const TRAINING_FREQUENCY_OPTIONS: Array<{
-  value: SetupDaysPerWeek;
-  title: string;
-  body: string;
-  recommendedFor: SetupLevel[];
-}> = [
-  { value: 3, title: '2–3 days / week', body: 'Easiest to stay consistent — a great starting pace', recommendedFor: ['beginner'] },
-  { value: 4, title: '3–4 days / week', body: 'The sweet spot once you have some training behind you', recommendedFor: ['advanced'] },
-  { value: 5, title: '4+ days / week', body: 'High frequency — for experienced lifters who recover well', recommendedFor: ['pro'] },
-];
+// Training-days step (04b): number chips on top, a tappable week row below.
+const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek[] = [2, 3, 4, 5, 6];
+
+function getRecommendedDaysForLevel(level: SetupLevel): SetupDaysPerWeek {
+  return level === 'beginner' ? 3 : level === 'pro' ? 5 : 4;
+}
+
+// Letters only in the week cells (no icons), Monday first.
+const WEEKDAY_LETTERS: Record<SetupWeekday, string> = {
+  mon: 'M',
+  tue: 'T',
+  wed: 'W',
+  thu: 'T',
+  fri: 'F',
+  sat: 'S',
+  sun: 'S',
+};
 
 function getGoalBackgroundSource(goal: SetupGoal) {
   switch (goal) {
@@ -3355,7 +3363,40 @@ export function OnboardingScreen({
     });
   }
 
+  function selectTrainingDaysCount(option: SetupDaysPerWeek) {
+    void haptics.select();
+    setDaysPerWeek(option);
+    setAvailableDays(DEFAULT_RHYTHM_BY_DAYS[option]);
+    // Chips hand the weekly rhythm back to the app; hand-picked days below
+    // switch to self-managed scheduling instead.
+    setScheduleMode('app_managed');
+    setProfileFrequencySelected(true);
+  }
+
+  function toggleTrainingDay(day: SetupWeekday) {
+    const base = availableDays.length > 0 ? availableDays : DEFAULT_RHYTHM_BY_DAYS[daysPerWeek];
+    const next = (base.includes(day) ? base.filter((item) => item !== day) : [...base, day]).sort(
+      (left, right) => WEEKDAY_OPTIONS.indexOf(left) - WEEKDAY_OPTIONS.indexOf(right),
+    );
+
+    // daysPerWeek only supports 2-6 training days; ignore taps outside that.
+    if (next.length < 2 || next.length > 6) {
+      void haptics.error();
+      return;
+    }
+
+    void haptics.select();
+    setAvailableDays(next);
+    setDaysPerWeek(next.length as SetupDaysPerWeek);
+    setScheduleMode('self_managed');
+    setProfileFrequencySelected(true);
+  }
+
   function renderDays() {
+    const recommendedDays = getRecommendedDaysForLevel(level);
+    const selectedDays = availableDays.length > 0 ? availableDays : DEFAULT_RHYTHM_BY_DAYS[daysPerWeek];
+    const restCount = 7 - selectedDays.length;
+
     return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('days'),
       titleLines: ['Training days'],
@@ -3366,46 +3407,51 @@ export function OnboardingScreen({
       bottomStyle: styles.trainingProfileBottomPane,
       children: (
         <View style={styles.trainingProfileContent}>
-          <View style={styles.trainingProfileSection}>
-            <View style={styles.trainingExperienceList}>
-              {TRAINING_FREQUENCY_OPTIONS.map((option) => {
-                const recommended = option.recommendedFor.includes(level);
-                const active = profileFrequencySelected && daysPerWeek === option.value;
+          <View style={styles.daysChipRow}>
+            {TRAINING_DAY_COUNT_OPTIONS.map((option) => {
+              const active = profileFrequencySelected && daysPerWeek === option;
+              const recommended = option === recommendedDays;
 
-                return (
+              return (
+                <View key={option} style={styles.daysChipColumn}>
                   <Pressable
-                    key={option.value}
                     accessibilityRole="button"
-                    accessibilityLabel={`${option.title}${recommended ? ', recommended for your experience level' : ''}`}
+                    accessibilityLabel={`${option} days per week${recommended ? ', recommended for your level' : ''}`}
                     accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      void haptics.select();
-                      setDaysPerWeek(option.value);
-                      setProfileFrequencySelected(true);
-                    }}
-                    style={[styles.trainingExperienceCard, active && styles.trainingExperienceCardActive]}
+                    onPress={() => selectTrainingDaysCount(option)}
+                    style={[styles.daysChip, active && styles.daysChipActive]}
                   >
-                    <View style={styles.trainingExperienceCopy}>
-                      <View style={styles.trainingFrequencyTitleRow}>
-                        <Text style={[styles.trainingExperienceTitle, active && styles.trainingExperienceTitleActive]}>
-                          {option.title}
-                        </Text>
-                        {recommended ? (
-                          <View style={styles.trainingFrequencyBadge}>
-                            <Text style={styles.trainingFrequencyBadgeText}>Recommended</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                      <Text style={styles.trainingExperienceBody}>{option.body}</Text>
-                    </View>
-                    <View style={[styles.trainingProfileRadio, active && styles.trainingProfileRadioActive]}>
-                      {active ? <GymlogIcon name="check" size={13} color="#FFFFFF" /> : null}
-                    </View>
+                    <Text style={[styles.daysChipText, active && styles.daysChipTextActive]}>{option}</Text>
                   </Pressable>
-                );
-              })}
-            </View>
+                  {recommended ? <Text style={styles.daysChipCaption}>Recommended</Text> : null}
+                </View>
+              );
+            })}
           </View>
+
+          <Text style={styles.daysWeekLabel}>TAP DAYS TO ADJUST</Text>
+          <View style={styles.daysWeekRow}>
+            {WEEKDAY_OPTIONS.map((day) => {
+              const dayActive = selectedDays.includes(day);
+
+              return (
+                <Pressable
+                  key={day}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${getWeekdayShortLabel(day)}${dayActive ? ', training day' : ', rest day'}`}
+                  accessibilityState={{ selected: dayActive }}
+                  onPress={() => toggleTrainingDay(day)}
+                  style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
+                >
+                  <Text style={[styles.daysWeekCellText, dayActive && styles.daysWeekCellTextActive]}>
+                    {WEEKDAY_LETTERS[day]}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Text style={styles.daysSummaryLine}>{`${selectedDays.length} training days · ${restCount} rest`}</Text>
         </View>
       ),
     });
@@ -4726,6 +4772,92 @@ const styles = StyleSheet.create({
     lineHeight: 15,
     fontWeight: '600',
     marginTop: 12,
+  },
+  daysChipRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  daysChipColumn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 5,
+  },
+  daysChip: {
+    alignSelf: 'stretch',
+    height: 50,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  daysChipActive: {
+    borderColor: ONBOARDING_PRIMARY,
+    backgroundColor: ONBOARDING_PRIMARY,
+    shadowColor: ONBOARDING_PRIMARY,
+    shadowOpacity: 0.28,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
+  },
+  daysChipText: {
+    color: ONBOARDING_TEXT,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  daysChipTextActive: {
+    color: '#FFFFFF',
+  },
+  daysChipCaption: {
+    color: ONBOARDING_PRIMARY,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  daysWeekLabel: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+    marginTop: 24,
+    marginBottom: 10,
+  },
+  daysWeekRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  daysWeekCell: {
+    flex: 1,
+    height: 46,
+    borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  daysWeekCellActive: {
+    borderColor: ONBOARDING_PRIMARY,
+    backgroundColor: ONBOARDING_PRIMARY,
+  },
+  daysWeekCellText: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  daysWeekCellTextActive: {
+    color: '#FFFFFF',
+  },
+  daysSummaryLine: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 16,
   },
   locationStepOneOptionsShift: {
     transform: [{ translateY: -36 }],
