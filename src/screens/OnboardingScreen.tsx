@@ -20,7 +20,6 @@ import {
   ViewStyle,
 } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
-import Body, { Slug, ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
@@ -607,75 +606,36 @@ const SCHEDULE_MODE_OPTIONS: Array<{
 
 const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions();
 const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea[] = FOCUS_AREA_OPTIONS.map((option) => option.area);
-type FocusAreaOnboardingOption = (typeof FOCUS_AREA_OPTIONS)[number];
 
-// Focus-area cards render a cropped react-native-body-highlighter figure framed to the
-// target muscle. The asset bakes color:"#3f3f3f" onto every part, so `defaultFill` is
-// ignored — we colour the whole body explicitly (every slug at the rest fill, with the
-// target muscle(s) overridden).
-const FOCUS_BODY_REST_FILL = '#D9D2E6';
-const FOCUS_MUSCLE_FILL = '#B7A9D6';
-const FOCUS_MUSCLE_FILL_ACTIVE = '#7C3AED';
-const FOCUS_BODY_ALL_SLUGS: Slug[] = [
-  'abs', 'adductors', 'ankles', 'biceps', 'calves', 'chest', 'deltoids', 'feet', 'forearm',
-  'gluteal', 'hamstring', 'hands', 'head', 'knees', 'lower-back', 'neck', 'obliques',
-  'quadriceps', 'tibialis', 'trapezius', 'triceps', 'upper-back',
-];
-// Per area: which body side, the highlighted muscle(s), and the crop framing (transform
-// scale + translate) that centres the muscle inside the card's clipped box.
-const FOCUS_AREA_BODY_FRAMING: Partial<
-  Record<SetupFocusArea, { side: 'front' | 'back'; parts: Slug[]; scale: number; tx: number; ty: number }>
-> = {
-  chest: { side: 'front', parts: ['chest'], scale: 2.4, tx: 0, ty: 96 },
-  shoulders: { side: 'front', parts: ['deltoids'], scale: 2.5, tx: 0, ty: 120 },
-  arms: { side: 'front', parts: ['biceps', 'triceps'], scale: 0.8, tx: 0, ty: 30 },
-  core: { side: 'front', parts: ['abs', 'obliques'], scale: 2.2, tx: 0, ty: 22 },
-  quads: { side: 'front', parts: ['quadriceps'], scale: 2.2, tx: 0, ty: -66 },
-  back: { side: 'back', parts: ['upper-back', 'lower-back', 'trapezius'], scale: 1.9, tx: 0, ty: 52 },
-  glutes: { side: 'back', parts: ['gluteal'], scale: 2.3, tx: 0, ty: 6 },
-  hamstrings: { side: 'back', parts: ['hamstring'], scale: 2.3, tx: 0, ty: -78 },
-  calves: { side: 'back', parts: ['calves'], scale: 2.9, tx: 0, ty: -150 },
+// Focus rows read the avoid-step flags: a flagged part tints its row amber
+// (Be careful) or red (Avoid entirely) with a warning triangle; info-level
+// flags stay neutral. Avoid wins when multiple flags touch the same area.
+const CAUTION_TO_FOCUS_AREAS: Record<SetupCautionArea, SetupFocusArea[]> = {
+  neck: ['shoulders'],
+  shoulders: ['shoulders'],
+  elbows: ['arms'],
+  wrists: ['arms'],
+  lower_back: ['back', 'core'],
+  hips: ['glutes'],
+  knees: ['legs', 'quads', 'hamstrings'],
+  ankles: ['calves'],
 };
 
-function FocusAreaBodyCard({
-  option,
-  active,
-  onPress,
-}: {
-  option: FocusAreaOnboardingOption;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const cfg = FOCUS_AREA_BODY_FRAMING[option.area];
-  const muscleColor = active ? FOCUS_MUSCLE_FILL_ACTIVE : FOCUS_MUSCLE_FILL;
-  const targetParts = cfg ? cfg.parts : [];
-  const data: ExtendedBodyPart[] = FOCUS_BODY_ALL_SLUGS.map((slug) => ({
-    slug,
-    color: targetParts.includes(slug) ? muscleColor : FOCUS_BODY_REST_FILL,
-  }));
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={[styles.focusBodyCard, active && styles.focusBodyCardActive]}
-    >
-      <View pointerEvents="none" style={styles.focusBodyCropBox}>
-        {cfg ? (
-          <View style={{ transform: [{ scale: cfg.scale }, { translateX: cfg.tx }, { translateY: cfg.ty }] }}>
-            <Body side={cfg.side} scale={1} border="none" defaultFill={FOCUS_BODY_REST_FILL} data={data} />
-          </View>
-        ) : null}
-      </View>
-      <Text numberOfLines={1} style={[styles.focusBodyTitle, active && styles.focusBodyTitleActive]}>
-        {option.title}
-      </Text>
-      <View style={[styles.focusBodyCheck, active && styles.focusBodyCheckActive]}>
-        {active ? <GymlogIcon name="check" color="#FFFFFF" size={12} /> : null}
-      </View>
-    </Pressable>
-  );
+function getFocusAreaCautionLevel(
+  area: SetupFocusArea,
+  flags: SetupCautionFlag[],
+): 'careful' | 'avoid' | null {
+  let result: 'careful' | null = null;
+  for (const flag of flags) {
+    if (flag.level === 'info' || !(CAUTION_TO_FOCUS_AREAS[flag.area] ?? []).includes(area)) {
+      continue;
+    }
+    if (flag.level === 'avoid') {
+      return 'avoid';
+    }
+    result = 'careful';
+  }
+  return result;
 }
 
 const WEEKDAY_OPTIONS: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -4023,11 +3983,6 @@ export function OnboardingScreen({
 
   function renderPlanning() {
     const visibleFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area !== 'mobility');
-    const focusAreaRows: Array<FocusAreaOnboardingOption[]> = [
-      visibleFocusOptions.slice(0, 3),
-      visibleFocusOptions.slice(3, 6),
-      visibleFocusOptions.slice(6, 9),
-    ];
 
     return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('planning'),
@@ -4038,25 +3993,55 @@ export function OnboardingScreen({
       bottomStyle: styles.focusAreaBottomPane,
       children: (
         <View style={styles.focusAreaContent}>
-          <View style={styles.focusAreaGrid}>
-            {focusAreaRows.map((row, rowIndex) => (
-              <View key={`focus-area-row-${rowIndex}`} style={styles.focusAreaGridRow}>
-                {row.map((option) => {
-                  const active = focusAreas.includes(option.area);
-                  return (
-                    <FocusAreaBodyCard
-                      key={option.area}
-                      option={option}
-                      active={active}
-                      onPress={() => {
-                        void haptics.select();
-                        toggleFocusArea(option.area);
-                      }}
-                    />
-                  );
-                })}
-              </View>
-            ))}
+          <View style={styles.focusListStack}>
+            {visibleFocusOptions.map((option) => {
+              const active = focusAreas.includes(option.area);
+              const caution = getFocusAreaCautionLevel(option.area, cautionFlags);
+              const cautionColors = caution ? CAUTION_LEVEL_COLORS[caution] : null;
+
+              return (
+                <Pressable
+                  key={option.area}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  accessibilityLabel={`${option.title}${
+                    caution === 'avoid'
+                      ? ', flagged avoid entirely'
+                      : caution === 'careful'
+                        ? ', flagged be careful'
+                        : ''
+                  }`}
+                  onPress={() => {
+                    void haptics.select();
+                    toggleFocusArea(option.area);
+                  }}
+                  style={[
+                    styles.focusListRow,
+                    cautionColors && !active
+                      ? { borderColor: cautionColors.ink, backgroundColor: cautionColors.soft }
+                      : null,
+                    active && styles.focusListRowActive,
+                  ]}
+                >
+                  {cautionColors ? (
+                    <CautionGlyph color={active ? '#FFFFFF' : cautionColors.ink} size={16} />
+                  ) : null}
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.focusListLabel,
+                      cautionColors && !active ? { color: cautionColors.ink } : null,
+                      active && styles.focusListLabelActive,
+                    ]}
+                  >
+                    {option.title}
+                  </Text>
+                  <View style={[styles.focusListRadio, active && styles.focusListRadioActive]}>
+                    {active ? <GymlogIcon name="check" size={12} color={ONBOARDING_PRIMARY} /> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
 
           <View style={styles.focusAreaInfoBox}>
@@ -4490,10 +4475,7 @@ export function OnboardingScreen({
   // read-only preview whose footer only returns to the plan. Hidden on the
   // account gate.
   const footerVisible = !(stage === 'review' && planReadyView === 'account');
-  const scrollLockedStage =
-    stage === 'level' ||
-    stage === 'days' ||
-    stage === 'planning';
+  const scrollLockedStage = stage === 'level' || stage === 'days';
   // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
   // wrapped chip row stays reachable above the footer, but they should not
   // rubber-band when the cards already fit the viewport.
@@ -5279,6 +5261,52 @@ const styles = StyleSheet.create({
     color: ONBOARDING_TEXT_SOFT,
     fontSize: 13.5,
     fontWeight: '700',
+  },
+  focusListStack: {
+    gap: 7,
+  },
+  focusListRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: ONBOARDING_CARD,
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  focusListRowActive: {
+    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: ONBOARDING_PRIMARY,
+    shadowColor: ONBOARDING_PRIMARY,
+    shadowOpacity: 0.24,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 4,
+  },
+  focusListLabel: {
+    flex: 1,
+    color: ONBOARDING_TEXT,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  focusListLabelActive: {
+    color: '#FFFFFF',
+  },
+  focusListRadio: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: ONBOARDING_BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  focusListRadioActive: {
+    borderColor: '#FFFFFF',
+    backgroundColor: '#FFFFFF',
   },
   locationStepOneOptionsShift: {
     transform: [{ translateY: -36 }],

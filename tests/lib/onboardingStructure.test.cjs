@@ -311,31 +311,34 @@ module.exports = [
     },
   },
   {
-    name: 'onboarding step 4 uses anatomy-highlight focus cards',
+    name: 'onboarding focus areas is a caution-aware name list',
     run() {
       const planningBody = getFunctionBody('renderPlanning');
 
       assert.match(planningBody, /stepLabel: getQuestionnaireStepLabel\('planning'\)/);
       assert.match(planningBody, /titleLines: \['What do you', 'want to focus on\?'\]/);
       assert.match(planningBody, /FOCUS_AREA_OPTIONS\.filter\(\(option\) => option\.area !== 'mobility'\)/);
-      assert.match(planningBody, /visibleFocusOptions\.slice\(0, 3\)/);
-      assert.match(planningBody, /visibleFocusOptions\.slice\(6, 9\)/);
-      assert.match(planningBody, /<FocusAreaBodyCard/);
+      // Name-only selectable rows, tap-to-fill like the goal step; 1-2 picks.
+      assert.match(planningBody, /visibleFocusOptions\.map/);
+      assert.match(planningBody, /toggleFocusArea\(option\.area\)/);
+      assert.match(planningBody, /styles\.focusListRowActive/);
       assert.match(planningBody, /Why focus areas\?/);
       assert.match(planningBody, /This helps us build a program that prioritizes what matters most to you\./);
       assert.match(planningBody, /Pick 1-2 areas/);
-
-      // Anatomy-highlight cards replace the old photo cards entirely.
-      assert.match(onboardingSource, /function FocusAreaBodyCard\(/);
-      assert.match(onboardingSource, /FOCUS_AREA_BODY_FRAMING\[option\.area\]/);
-      assert.match(onboardingSource, /accessibilityState=\{\{ selected: active \}\}/);
-      assert.doesNotMatch(onboardingSource, /FOCUS_AREA_CARD_ASSETS/);
-      assert.doesNotMatch(planningBody, /focusAreaImageSlot/);
       assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
       assert.match(onboardingSource, /current\.length >= 2/);
-      assert.doesNotMatch(planningBody, /Upper Body/);
-      assert.doesNotMatch(planningBody, /Lower Body/);
-      assert.doesNotMatch(planningBody, /Performance/);
+
+      // Avoid-step flags colour the rows: amber careful / red avoid + triangle.
+      assert.match(planningBody, /getFocusAreaCautionLevel\(option\.area, cautionFlags\)/);
+      assert.match(planningBody, /CAUTION_LEVEL_COLORS\[caution\]/);
+      assert.match(planningBody, /<CautionGlyph/);
+      assert.match(onboardingSource, /const CAUTION_TO_FOCUS_AREAS: Record<SetupCautionArea, SetupFocusArea\[\]>/);
+      assert.match(onboardingSource, /function getFocusAreaCautionLevel\(/);
+
+      // Anatomy-highlight cards are gone.
+      assert.doesNotMatch(onboardingSource, /FocusAreaBodyCard/);
+      assert.doesNotMatch(onboardingSource, /FOCUS_AREA_BODY_FRAMING/);
+      assert.doesNotMatch(onboardingSource, /react-native-body-highlighter/);
     },
   },
   {
