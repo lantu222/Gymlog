@@ -15,12 +15,18 @@ export interface SessionRoutineBlock {
 }
 
 /**
- * "Strength A" -> "Strength", "Push A: Chest Focus" -> "Push".
+ * "Day 2: Back & Biceps" -> "Back & Biceps", "Push A: Chest Focus" -> "Push",
+ * "Strength A" -> "Strength".
  * Falls back to the plan title's focus word when the session has no name.
  */
 export function getSessionFocusTitle(sessionTitle?: string | null, planTitle?: string | null): string {
   const base = sessionTitle?.trim() || planTitle?.trim() || 'Workout';
-  const beforeColon = base.split(':')[0].trim();
+  const [head, ...rest] = base.split(':');
+  const afterColon = rest.join(':').trim();
+  if (/^day\s*\d+$/i.test(head.trim()) && afterColon) {
+    return afterColon;
+  }
+  const beforeColon = head.trim();
   const stripped = beforeColon.replace(/\s+(?:[A-Ca-c]|\d+)$/, '').trim();
   return stripped || beforeColon || 'Workout';
 }

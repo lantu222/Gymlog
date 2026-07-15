@@ -115,72 +115,72 @@ export function getCustomTemplatePresentation(template: CustomTemplatePresentati
 
 const READY_TEMPLATE_PRESENTATION: Record<string, TemplatePresentation> = {
   tpl_2_day_beginner_strength_v1: {
-    title: 'Strength Kickoff',
+    title: 'STRONG Starter',
     subtitle: 'Simple barbell progress with low weekly friction.',
     tags: ['Strength', 'Beginner', '2 Days'],
   },
   tpl_2_day_minimal_full_body_v1: {
-    title: 'Full Body',
+    title: 'HOME Starter',
     subtitle: 'Two efficient sessions that still cover the big patterns.',
     tags: ['Full Body', 'Minimal', '2 Days'],
   },
   tpl_2_day_mobility_reset_v1: {
-    title: 'Mobility Reset',
+    title: 'RESET',
     subtitle: 'Low-stress movement, recovery, and breathing work.',
     tags: ['Recovery', 'Mobility', '2 Days'],
   },
   tpl_2_day_yoga_recovery_v1: {
-    title: 'Yoga Recovery',
+    title: 'RESET Yoga',
     subtitle: 'A calmer reset block for movement quality and breathing.',
     tags: ['Recovery', 'Yoga', '2 Days'],
   },
   tpl_3_day_full_body_v1: {
-    title: 'Full Body Base',
+    title: 'FIT',
     subtitle: 'Frequent practice on the main lifts without overcomplicating the week.',
     tags: ['Full Body', 'Balanced', '3 Days'],
   },
   tpl_3_day_strength_base_v1: {
-    title: 'Strength Base',
+    title: 'STRONG',
     subtitle: 'Heavy enough to progress, simple enough to repeat.',
     tags: ['Strength', 'Heavy', '3 Days'],
   },
   tpl_3_day_upper_lower_lite_v1: {
-    title: 'Upper Lower Lite',
+    title: 'FIT Lite',
     subtitle: 'A softer split that keeps the week moving without long sessions.',
     tags: ['Upper/Lower', 'Balanced', '3 Days'],
   },
   tpl_3_day_push_pull_legs_v1: {
-    title: 'Push Pull Legs',
+    title: 'HUGE',
     subtitle: 'Classic body-part rhythm with cleaner progression rails.',
     tags: ['PPL', 'Mass', '3 Days'],
   },
   tpl_3_day_run_mobility_v1: {
-    title: 'Run + Mobility',
+    title: 'RUN',
     subtitle: 'Conditioning blocks with a built-in reset day.',
     tags: ['Conditioning', 'Recovery', '3 Days'],
   },
   tpl_4_day_upper_lower_v1: {
-    title: 'Upper Lower Mass',
+    title: 'HUGE Pro',
     subtitle: 'A balanced four-day split built around repeatable growth work.',
     tags: ['Upper/Lower', 'Mass', '4 Days'],
   },
   tpl_4_day_muscle_builder_v1: {
-    title: 'Muscle Builder',
+    title: 'HUGE Builder',
     subtitle: 'A more approachable growth split with enough total weekly work.',
     tags: ['Mass', 'Growth', '4 Days'],
   },
   tpl_4_day_powerbuilding_v1: {
-    title: 'Powerbuilding',
+    title: 'POWERBUILD',
     subtitle: 'Strength-first early week, bodybuilding volume later.',
     tags: ['Strength', 'Mass', '4 Days'],
   },
   tpl_4_day_strength_size_v1: {
-    title: 'Strength + Size',
+    title: 'STRONG Pro',
     subtitle: 'Performance days up front, growth days behind them.',
     tags: ['Strength', 'Size', '4 Days'],
   },
   tpl_5_day_hybrid_v1: {
-    title: 'Hybrid Builder',
+    title: 'HUGE Advanced',
     subtitle: 'More weekly frequency for lifters who recover well.',
     tags: ['Hybrid', 'Mass', '5 Days'],
   },

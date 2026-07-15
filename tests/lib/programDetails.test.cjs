@@ -20,14 +20,14 @@ module.exports = [
         sessionStatusById: { full_body_a: 'Last done Mar 24', full_body_b: 'Next up | Not logged yet' },
       });
 
-      assert.equal(detail.title, '3-Day Full Body');
+      assert.equal(detail.title, 'FIT');
       assert.equal(detail.sessions.length, 3);
       assert.ok(detail.badges.includes('Beginner'));
       assert.equal(detail.description.includes('Three full-body sessions'), true);
       assert.equal(detail.infoSections.length, 3);
       assert.equal(detail.infoSections[0].kicker, 'Who it fits');
       assert.equal(detail.highlights[0].label, 'This week');
-      assert.equal(detail.sessions[0].name, 'Full Body A');
+      assert.equal(detail.sessions[0].name, 'Day 1: Full Body');
       assert.ok(detail.sessions[0].preview.includes('Back Squat'));
       assert.ok(detail.sessions[0].focus.includes('Squat + bench'));
       assert.match(detail.sessions[0].guidance.firstAction, /Back Squat.*first work set/i);

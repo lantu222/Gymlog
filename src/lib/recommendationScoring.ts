@@ -1,5 +1,6 @@
 import { rankProgramIdsByTailoring, TailoringPreferencesInput } from './tailoringFit';
 import { RECOMMENDATION_PROGRAMS, getRecommendationProgramDefinition } from './recommendationCatalog';
+import { selectWaterfallDecision } from './recommendationWaterfall';
 import { buildRecommendationTrainingBlock } from './recommendationProgramme';
 import { evaluateWorkoutContentFit } from './workoutContentFit';
 import type {
@@ -364,9 +365,49 @@ export function recommendPrograms(
     };
   });
 
-  const rankedCandidates = applyTailoringOrdering(stableSortCandidates(scoredCandidates), tailoringPreferences);
+  const scoreRankedCandidates = applyTailoringOrdering(stableSortCandidates(scoredCandidates), tailoringPreferences);
+
+  // Onboarding Rules v2: the waterfall decides which family the user lands in;
+  // scoring keeps ranking everything else (alternatives, confidence, tradeoffs).
+  const waterfallDecision = selectWaterfallDecision(input);
+  let waterfallPrimary = scoreRankedCandidates.find((candidate) => candidate.programId === waterfallDecision.primaryProgramId) ?? null;
+  if (waterfallPrimary && hasMeaningfulTailoringPreferences(tailoringPreferences)) {
+    // Tailoring may swap between variants of the same family + weekly rhythm
+    // (e.g. the two 4-day STRONG Pro templates), but never change the cell itself.
+    const primaryDefinition = getRecommendationProgramDefinition(waterfallPrimary.programId);
+    const cellTop = scoreRankedCandidates.find((candidate) => {
+      const definition = getRecommendationProgramDefinition(candidate.programId);
+      return Boolean(
+        definition
+        && primaryDefinition
+        && definition.familyId === primaryDefinition.familyId
+        && definition.daysPerWeek === primaryDefinition.daysPerWeek,
+      );
+    });
+    if (cellTop) {
+      waterfallPrimary = cellTop;
+    }
+  }
+  const waterfallAlternative = waterfallDecision.alternativeProgramId
+    ? scoreRankedCandidates.find((candidate) => candidate.programId === waterfallDecision.alternativeProgramId) ?? null
+    : null;
+  const appliedWaterfall = waterfallPrimary
+    ? { ...waterfallDecision, primaryProgramId: waterfallPrimary.programId }
+    : null;
+  const rankedCandidates = waterfallPrimary
+    ? [
+        waterfallPrimary,
+        ...(waterfallAlternative ? [waterfallAlternative] : []),
+        ...scoreRankedCandidates.filter(
+          (candidate) => candidate !== waterfallPrimary && candidate !== waterfallAlternative,
+        ),
+      ]
+    : scoreRankedCandidates;
+
   const featuredCandidate = rankedCandidates[0] ?? null;
-  const alternativeCandidates = selectAlternativeCandidates(rankedCandidates, input);
+  const alternativeCandidates = waterfallPrimary && waterfallAlternative
+    ? [waterfallAlternative, ...selectAlternativeCandidates(rankedCandidates, input).filter((candidate) => candidate !== waterfallAlternative)].slice(0, 2)
+    : selectAlternativeCandidates(rankedCandidates, input);
   const alternativeProgramIds = alternativeCandidates.map((candidate) => candidate.programId);
 
   if (!featuredCandidate) {
@@ -385,6 +426,7 @@ export function recommendPrograms(
       trainingBlock: buildRecommendationTrainingBlock(fallback.programId),
       primaryFamilyId: fallback.familyId,
       scoredCandidates: [],
+      waterfall: null,
     };
   }
 
@@ -403,5 +445,6 @@ export function recommendPrograms(
     trainingBlock: buildRecommendationTrainingBlock(featuredCandidate.programId),
     primaryFamilyId: featuredCandidate.familyId,
     scoredCandidates: rankedCandidates,
+    waterfall: appliedWaterfall,
   };
 }

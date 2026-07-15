@@ -19,7 +19,13 @@ import {
   SetupTrainingEnvironment,
   UnitPreference,
 } from '../types/models';
-import type { RecommendationCandidate, RecommendationConfidence, RecommendationTrainingBlock, TemplateFamilyId } from '../types/recommendation';
+import type {
+  RecommendationCandidate,
+  RecommendationConfidence,
+  RecommendationTrainingBlock,
+  RecommendationWaterfallDecision,
+  TemplateFamilyId,
+} from '../types/recommendation';
 import { AICoachTrainingContext } from '../types/aiCoach';
 
 export interface FirstRunSetupSelection {
@@ -54,6 +60,7 @@ export interface FirstRunRecommendation {
   trainingBlock: RecommendationTrainingBlock;
   primaryFamilyId: TemplateFamilyId;
   scoredCandidates: RecommendationCandidate[];
+  waterfall: RecommendationWaterfallDecision | null;
   mismatchNote: string | null;
 }
 

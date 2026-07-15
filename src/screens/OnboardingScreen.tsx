@@ -400,12 +400,11 @@ const TRAINING_FREQUENCY_OPTIONS: Array<{
   value: SetupDaysPerWeek;
   title: string;
   body: string;
+  recommendedFor: SetupLevel[];
 }> = [
-  { value: 2, title: '2', body: 'days' },
-  { value: 3, title: '3', body: 'days' },
-  { value: 4, title: '4', body: 'days' },
-  { value: 5, title: '5', body: 'days' },
-  { value: 6, title: '6+', body: 'days' },
+  { value: 3, title: '2–3 days / week', body: 'Easiest to stay consistent — a great starting pace', recommendedFor: ['beginner'] },
+  { value: 4, title: '3–4 days / week', body: 'The sweet spot once you have some training behind you', recommendedFor: ['intermediate'] },
+  { value: 5, title: '4+ days / week', body: 'High frequency — for experienced lifters who recover well', recommendedFor: ['advanced'] },
 ];
 
 function getGoalBackgroundSource(goal: SetupGoal) {
@@ -2210,7 +2209,6 @@ export function OnboardingScreen({
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
   const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'account'>('overview');
-  const [expandedPlanWeek, setExpandedPlanWeek] = useState<number | null>(null);
   const [helperVisible, setHelperVisible] = useState(false);
   const [helperDraft, setHelperDraft] = useState('');
   const [helperState, setHelperState] = useState<HelperState>('idle');
@@ -3301,9 +3299,7 @@ export function OnboardingScreen({
                   <View style={styles.trainingProfileSummaryCheck}>
                     <GymlogIcon name="check" size={13} color="#FFFFFF" />
                   </View>
-                  <Text style={styles.trainingProfileSummaryText}>
-                    {selectedFrequencyOption.title} {selectedFrequencyOption.body}
-                  </Text>
+                  <Text style={styles.trainingProfileSummaryText}>{selectedFrequencyOption.title}</Text>
                   <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
                 </Pressable>
               ) : (
@@ -3312,25 +3308,34 @@ export function OnboardingScreen({
                     <Text style={styles.trainingProfileExperienceTitle}>Training Frequency</Text>
                   </View>
                   <Text style={styles.trainingProfileSectionPrompt}>How many days per week can you train?</Text>
-                  <View style={styles.trainingFrequencyRow}>
+                  <View style={styles.trainingExperienceList}>
                     {TRAINING_FREQUENCY_OPTIONS.map((option) => {
-                      const active = daysPerWeek === option.value;
+                      const recommended = option.recommendedFor.includes(level);
 
                       return (
                         <Pressable
                           key={option.value}
                           accessibilityRole="button"
-                          accessibilityLabel={`${option.title} ${option.body} per week`}
-                          accessibilityState={{ selected: active }}
+                          accessibilityLabel={`${option.title}${recommended ? ', recommended for your experience level' : ''}`}
                           onPress={() => {
                             void haptics.select();
                             setDaysPerWeek(option.value);
                             setProfileFrequencySelected(true);
                           }}
-                          style={[styles.trainingFrequencyTile, active && styles.trainingFrequencyTileActive]}
+                          style={styles.trainingExperienceCard}
                         >
-                          <Text style={styles.trainingFrequencyNumber}>{option.title}</Text>
-                          <Text style={styles.trainingFrequencyLabel}>{option.body}</Text>
+                          <View style={styles.trainingExperienceCopy}>
+                            <View style={styles.trainingFrequencyTitleRow}>
+                              <Text style={styles.trainingExperienceTitle}>{option.title}</Text>
+                              {recommended ? (
+                                <View style={styles.trainingFrequencyBadge}>
+                                  <Text style={styles.trainingFrequencyBadgeText}>Recommended</Text>
+                                </View>
+                              ) : null}
+                            </View>
+                            <Text style={styles.trainingExperienceBody}>{option.body}</Text>
+                          </View>
+                          <View style={styles.trainingProfileRadio} />
                         </Pressable>
                       );
                     })}
@@ -3463,15 +3468,27 @@ export function OnboardingScreen({
     const planReadyMeta = [`${planReadyWeeks}-week plan`, goalLabel, locationLabel]
       .filter((part) => Boolean(part && part.trim()))
       .join('  ·  ');
-    const planReadyWeekRows = planReadyPayload.fourWeekProgression.map((phase, index) => ({
-      week: phase.week > 0 ? phase.week : index + 1,
-      subtitle: phase.label.replace(/^Week\s+\d+:\s*/i, '').trim() || phase.body,
-    }));
     const planReadyStats: Array<[string, string]> = [
       [String(planReadyTotalWorkouts), 'workouts total'],
       [`${planReadyWeeks}`, planReadyWeeks === 1 ? 'week' : 'weeks'],
       [planReadySessionLength, 'per session'],
     ];
+    const planReadyPrimaryTitle = recommendedProgramPresentation?.title ?? planReadyPayload.title;
+    const planReadyWaterfall = recommendation.waterfall;
+    const planReadyWhyPrimary =
+      planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.primaryProgramId
+        ? planReadyWaterfall.whyPrimary
+        : planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.alternativeProgramId
+          ? planReadyWaterfall.whyAlternative
+          : null;
+    const planReadyAlternative = alternativeRecommendationPrograms[0] ?? null;
+    const planReadyWhyAlternative = planReadyAlternative
+      ? planReadyWaterfall && planReadyAlternative.id === planReadyWaterfall.alternativeProgramId
+        ? planReadyWaterfall.whyAlternative
+        : planReadyWaterfall && planReadyAlternative.id === planReadyWaterfall.primaryProgramId
+          ? planReadyWaterfall.whyPrimary
+          : planReadyAlternative.tradeoffNote
+      : null;
 
     return (
       <Animated.View
@@ -3484,10 +3501,10 @@ export function OnboardingScreen({
           },
         ]}
       >
-        <Text style={styles.planReadyOverviewHeading}>Your plan is ready</Text>
+        <Text style={styles.planReadyOverviewHeading}>Your program is ready</Text>
         {planReadyMeta ? <Text style={styles.planReadyOverviewMeta}>{planReadyMeta}</Text> : null}
 
-        <View style={styles.planReadyOverviewCover}>
+        <View style={styles.planReadyPrimaryCard}>
           <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
             <Defs>
               <SvgLinearGradient id="planReadyCoverGradient" x1="0" y1="0" x2="1" y2="1">
@@ -3495,10 +3512,31 @@ export function OnboardingScreen({
                 <Stop offset="1" stopColor={ONBOARDING_PRIMARY} />
               </SvgLinearGradient>
             </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" rx="20" ry="20" fill="url(#planReadyCoverGradient)" />
+            <Rect x="0" y="0" width="100%" height="100%" rx="24" ry="24" fill="url(#planReadyCoverGradient)" />
           </Svg>
-          <Text style={styles.planReadyOverviewCoverHeadline}>{`${planReadyPerWeek} workouts a week`}</Text>
-          <Text style={styles.planReadyOverviewCoverSupport}>Progressive training that builds week over week.</Text>
+          <View style={styles.planReadyPrimaryBadge}>
+            <Text style={styles.planReadyPrimaryBadgeText}>RECOMMENDED</Text>
+          </View>
+          <View style={styles.planReadyPrimaryBody}>
+            <Text style={styles.planReadyPrimaryName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>
+              {planReadyPrimaryTitle}
+            </Text>
+            <Text style={styles.planReadyPrimaryMeta}>{`${planReadyPerWeek} workouts a week`}</Text>
+            {planReadyWhyPrimary || activeRecommendationMismatchNote ? (
+              <Text style={styles.planReadyPrimaryWhy} numberOfLines={3}>
+                {planReadyWhyPrimary ?? activeRecommendationMismatchNote}
+              </Text>
+            ) : null}
+            {recommendedProgramTags.length > 0 ? (
+              <View style={styles.planReadyPrimaryTagRow}>
+                {recommendedProgramTags.map((tag) => (
+                  <View key={tag} style={styles.planReadyPrimaryTag}>
+                    <Text style={styles.planReadyPrimaryTagText}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </View>
           <View style={styles.planReadyOverviewStatRow}>
             {planReadyStats.map(([value, label]) => (
               <View key={label} style={styles.planReadyOverviewStat}>
@@ -3509,67 +3547,49 @@ export function OnboardingScreen({
               </View>
             ))}
           </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="View the first training week"
+            onPress={() => {
+              void haptics.select();
+              setPlanReadyWorkoutPage(0);
+              setPlanReadyView('day');
+            }}
+            style={({ pressed }) => [styles.planReadyPrimaryLink, pressed && { opacity: 0.75 }]}
+          >
+            <Text style={styles.planReadyPrimaryLinkText}>View the week</Text>
+            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+              <Path d="m9 6 6 6-6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Pressable>
         </View>
 
-        <View style={styles.planReadyOverviewWeeks}>
-          {planReadyWeekRows.map((row) => {
-            const expanded = expandedPlanWeek === row.week;
-
-            return (
-              <View key={row.week} style={styles.planReadyOverviewWeekCard}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityState={{ expanded }}
-                  accessibilityLabel={`Week ${row.week}, ${row.subtitle}`}
-                  onPress={() => {
-                    void haptics.select();
-                    setExpandedPlanWeek((current) => (current === row.week ? null : row.week));
-                  }}
-                  style={styles.planReadyOverviewWeekRow}
-                >
-                  <View style={styles.planReadyOverviewWeekCopy}>
-                    <Text style={styles.planReadyOverviewWeekTitle}>{`Week ${row.week}`}</Text>
-                    <Text style={styles.planReadyOverviewWeekSubtitle} numberOfLines={1}>
-                      {row.subtitle}
-                    </Text>
-                  </View>
-                  <Text style={styles.planReadyOverviewWeekCount}>{`${planReadyPerWeek} workouts`}</Text>
-                  <View style={[styles.planReadyOverviewWeekChevron, expanded && styles.planReadyOverviewWeekChevronOpen]}>
-                    <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
-                      <Path d="M9 6l6 6-6 6" stroke={ONBOARDING_TEXT_SOFT} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  </View>
-                </Pressable>
-
-                {expanded ? (
-                  <View style={styles.planReadyOverviewDayList}>
-                    {projectedSessions.map((session, index) => (
-                      <Pressable
-                        key={session.id}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Week ${row.week}, day ${index + 1}, ${session.name}`}
-                        onPress={() => {
-                          void haptics.select();
-                          setPlanReadyWorkoutPage(index);
-                          setPlanReadyView('day');
-                        }}
-                        style={styles.planReadyOverviewDayRow}
-                      >
-                        <View style={styles.planReadyOverviewDayCopy}>
-                          <Text style={styles.planReadyOverviewDayTitle}>{`Day ${index + 1}`}</Text>
-                          <Text style={styles.planReadyOverviewDaySubtitle} numberOfLines={1}>
-                            {session.name}
-                          </Text>
-                        </View>
-                        <Text style={styles.planReadyOverviewDayCta}>View</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-              </View>
-            );
-          })}
-        </View>
+        {planReadyAlternative ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Switch to the alternative program ${planReadyAlternative.presentation.title}`}
+            onPress={() => {
+              void haptics.select();
+              setSelectedRecommendationProgramId(planReadyAlternative.id);
+            }}
+            style={({ pressed }) => [styles.planReadyAltCard, pressed && { opacity: 0.85 }]}
+          >
+            <View style={styles.planReadyAltCopy}>
+              <Text style={styles.planReadyAltEyebrow}>ALTERNATIVE</Text>
+              <Text style={styles.planReadyAltName} numberOfLines={1}>
+                {planReadyAlternative.presentation.title}
+              </Text>
+              {planReadyWhyAlternative ? (
+                <Text style={styles.planReadyAltWhy} numberOfLines={2}>
+                  {planReadyWhyAlternative}
+                </Text>
+              ) : null}
+            </View>
+            <View style={styles.planReadyAltCta}>
+              <Text style={styles.planReadyAltCtaText}>Switch</Text>
+            </View>
+          </Pressable>
+        ) : null}
       </Animated.View>
     );
   }
@@ -4902,38 +4922,25 @@ const styles = StyleSheet.create({
     borderColor: ONBOARDING_PRIMARY,
     backgroundColor: ONBOARDING_PRIMARY,
   },
-  trainingFrequencyRow: {
+  trainingFrequencyTitleRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
-  trainingFrequencyTile: {
-    flex: 1,
-    minHeight: 56,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 1,
-  },
-  trainingFrequencyTileActive: {
-    borderWidth: 2,
-    borderColor: ONBOARDING_BORDER_ACTIVE,
+  trainingFrequencyBadge: {
+    borderRadius: 999,
     backgroundColor: ONBOARDING_CARD_ACTIVE,
+    borderWidth: 1,
+    borderColor: ONBOARDING_BORDER_ACTIVE,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
   },
-  trainingFrequencyNumber: {
-    color: ONBOARDING_TEXT,
-    fontSize: 23,
-    lineHeight: 26,
-    fontWeight: '900',
-    letterSpacing: -0.2,
-  },
-  trainingFrequencyLabel: {
-    color: ONBOARDING_TEXT_SOFT,
+  trainingFrequencyBadgeText: {
+    color: ONBOARDING_PRIMARY,
     fontSize: 10,
-    lineHeight: 12,
-    fontWeight: '700',
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   trainingGenderRow: {
     flexDirection: 'row',
@@ -7812,6 +7819,134 @@ const styles = StyleSheet.create({
   },
   planReadyOverviewStage: {
     paddingBottom: spacing.lg,
+  },
+  planReadyPrimaryCard: {
+    borderRadius: 24,
+    overflow: 'hidden',
+    padding: 20,
+    minHeight: 400,
+    justifyContent: 'flex-end',
+    gap: 14,
+    marginTop: spacing.md,
+  },
+  planReadyPrimaryBadge: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+  },
+  planReadyPrimaryBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+  },
+  planReadyPrimaryBody: {
+    gap: 6,
+  },
+  planReadyPrimaryName: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    lineHeight: 38,
+    fontWeight: '900',
+    letterSpacing: -0.4,
+  },
+  planReadyPrimaryMeta: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+  planReadyPrimaryWhy: {
+    color: 'rgba(255,255,255,0.92)',
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  planReadyPrimaryTagRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+  },
+  planReadyPrimaryTag: {
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  planReadyPrimaryTagText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  planReadyPrimaryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    paddingVertical: 11,
+  },
+  planReadyPrimaryLinkText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  planReadyAltCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: ONBOARDING_BORDER,
+    backgroundColor: ONBOARDING_CARD,
+    padding: 16,
+    marginTop: spacing.md,
+  },
+  planReadyAltCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  planReadyAltEyebrow: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 10.5,
+    lineHeight: 13,
+    fontWeight: '900',
+    letterSpacing: 1,
+  },
+  planReadyAltName: {
+    color: ONBOARDING_TEXT,
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '800',
+  },
+  planReadyAltWhy: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  planReadyAltCta: {
+    borderRadius: 999,
+    backgroundColor: ONBOARDING_CARD_ACTIVE,
+    borderWidth: 1,
+    borderColor: ONBOARDING_BORDER_ACTIVE,
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+  },
+  planReadyAltCtaText: {
+    color: ONBOARDING_PRIMARY,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
   },
   planReadyOverviewKicker: {
     fontSize: 12.5,

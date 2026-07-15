@@ -10,9 +10,9 @@ module.exports = [
       const template = getWorkoutTemplateById('tpl_3_day_full_body_v1');
       const draft = buildCustomDraftFromReadyProgram(template, [], []);
 
-      assert.equal(draft.name, '3-Day Full Body Custom');
+      assert.equal(draft.name, 'FIT Custom');
       assert.equal(draft.sessions.length, 3);
-      assert.equal(draft.sessions[0].name, 'Full Body A');
+      assert.equal(draft.sessions[0].name, 'Day 1: Full Body');
       assert.equal(draft.sessions[0].exercises[0].name, 'Back Squat');
       assert.equal(draft.sessions[0].exercises[0].targetSets, 3);
       assert.equal(draft.sessions[0].exercises[0].repMin, 6);
@@ -24,9 +24,9 @@ module.exports = [
     name: 'ready program duplication generates a unique custom name and accessory tracking defaults',
     run() {
       const template = getWorkoutTemplateById('tpl_3_day_full_body_v1');
-      const draft = buildCustomDraftFromReadyProgram(template, [], ['3-Day Full Body Custom']);
+      const draft = buildCustomDraftFromReadyProgram(template, [], ['FIT Custom']);
 
-      assert.equal(draft.name, '3-Day Full Body Custom 2');
+      assert.equal(draft.name, 'FIT Custom 2');
       const cableCrunch = draft.sessions[0].exercises.find((exercise) => exercise.name === 'Cable Crunch');
       assert.equal(cableCrunch.trackedDefault, false);
     },

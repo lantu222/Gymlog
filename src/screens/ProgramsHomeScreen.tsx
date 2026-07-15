@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, {
+  Circle,
   Defs,
   LinearGradient as SvgLinearGradient,
   Path,
@@ -9,8 +10,32 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
+import { NewProgramSheet } from '../components/NewProgramSheet';
+import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { HG3 } from '../lightTheme';
+import type { WorkoutTemplateDraft } from '../types/models';
+
+// Program accent (design_handoff_programs_redesign, hue 150; oklch approximated in hex).
+const ACCENT = '#16A34A';
+const ACCENT_SOFT = '#EAF7EF';
+const ACCENT_LINE = '#8AD4AC';
+
+const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+// Same spread pattern as ProgramDetailScreen's schedule preview.
+const TRAINING_DAY_SPREAD: Record<number, number[]> = {
+  1: [0],
+  2: [0, 3],
+  3: [0, 2, 4],
+  4: [0, 1, 3, 5],
+  5: [0, 1, 3, 4, 5],
+  6: [0, 1, 2, 3, 4, 5],
+};
+
+function weekdayForSession(index: number, sessionCount: number) {
+  const spread = TRAINING_DAY_SPREAD[Math.min(6, Math.max(1, sessionCount))] ?? [0, 2, 4];
+  return WEEKDAYS[spread[index] ?? Math.min(index, 6)];
+}
 
 // Designed program covers (README "Program Covers"): a per-program hue rendered
 // as a gradient, with a single-stroke signature motif. oklch from the mock is
@@ -24,7 +49,6 @@ const COVER_STYLES: Array<{ cover: [string, string]; tile: [string, string]; mot
   { cover: ['#37B976', '#007322'], tile: ['#55BD82', '#008D44'], motif: 'M13 2L4 14h7l-1 8 9-12h-7z' }, // 156 bolt
   { cover: ['#EB7A52', '#A71000'], tile: ['#E98664', '#BF4306'], motif: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5' }, // 40 house
 ];
-const ACTIVE_TILE: [string, string] = ['#82A1F6', '#4767D3'];
 const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
 
 const COVER_W = 274;
@@ -40,6 +64,7 @@ export interface ProgramsActiveProgram {
   currentWeek: number;
   planTotalWeeks: number;
   sessionsPerWeek: string;
+  sessions: HomeDaySessionSummary[];
   nextSession: HomeDaySessionSummary & { label: string };
 }
 
@@ -66,10 +91,14 @@ interface ProgramsHomeScreenProps {
   exerciseLibraryCount: number;
   onStartActiveSession: (sessionId: string) => void;
   onOpenActivePlan: () => void;
+  onAdjustSchedule: () => void;
   onOpenExploreProgram: (programId: string) => void;
   onOpenCustomProgram: (programId: string) => void;
   onViewAllPrograms: () => void;
   onCreateProgram: () => void;
+  onAiAssisted: () => void;
+  onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
+  exerciseLibraryEntries: CsvLibraryEntry[];
   onOpenLibrary: () => void;
 }
 
@@ -148,6 +177,19 @@ function ProgramCover({ style, goal, days, name }: { style: (typeof COVER_STYLES
       <View style={styles.coverBadge}>
         <Text style={styles.coverBadgeText}>{days}d / wk</Text>
       </View>
+      {/* Marks the slot where a real gym photo will land (shot later at 3:2, cropped 4:5). */}
+      <View style={styles.coverPhotoMark}>
+        <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M4 8a2 2 0 0 1 2-2h1.5l1.4-1.6a1 1 0 0 1 .75-.4h4.7a1 1 0 0 1 .75.4L16.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
+            stroke="#FFFFFF"
+            strokeOpacity={0.85}
+            strokeWidth={2}
+            strokeLinejoin="round"
+          />
+          <Circle cx={12} cy={12.5} r={3.2} stroke="#FFFFFF" strokeOpacity={0.85} strokeWidth={2} />
+        </Svg>
+      </View>
       <Text style={styles.coverName} numberOfLines={2}>
         {name}
       </Text>
@@ -162,141 +204,167 @@ export function ProgramsHomeScreen({
   exerciseLibraryCount,
   onStartActiveSession,
   onOpenActivePlan,
+  onAdjustSchedule,
   onOpenExploreProgram,
   onOpenCustomProgram,
   onViewAllPrograms,
   onCreateProgram,
+  onAiAssisted,
+  onImportProgram,
+  exerciseLibraryEntries,
   onOpenLibrary,
 }: ProgramsHomeScreenProps) {
   const [picked, setPicked] = useState<ProgramsExploreItem | null>(null);
+  const [createOpen, setCreateOpen] = useState(false);
 
   const nextSession = activeProgram?.nextSession ?? null;
-  const nextFocus = nextSession
-    ? nextSession.exercises
-        .slice(0, 3)
-        .map((exercise) => exercise.name)
-        .join(' · ')
-    : '';
+  const weekSessions = activeProgram?.sessions ?? [];
   const totalWeeks = Math.max(1, activeProgram?.planTotalWeeks ?? 1);
   const currentWeek = Math.min(Math.max(1, activeProgram?.currentWeek ?? 1), totalWeeks);
   const pickedStyle = picked ? COVER_STYLES[picked.coverIndex % COVER_STYLES.length] : null;
 
   return (
     <View style={styles.screenBackground}>
-      <View style={styles.headerRow}>
-        <View style={styles.headerCopy}>
-          <Text style={styles.headerTitle}>Programs</Text>
-          <Text style={styles.headerSubtitle}>Your plan, and the programs behind it.</Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Search the exercise library"
-          onPress={onOpenLibrary}
-          hitSlop={8}
-          style={({ pressed }) => [styles.searchButton, pressed && styles.pressed]}
-        >
-          <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-            <Path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM21 21l-4-4" stroke={HG3.purple} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </Pressable>
-      </View>
-
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {activeProgram && nextSession ? (
-          <View style={styles.activeCard}>
-            <View style={styles.activeTop}>
-              <View style={styles.activeHeaderRow}>
-                <Text style={styles.activeEyebrow}>ACTIVE PROGRAM</Text>
-                <Text style={styles.activeWeekLabel}>{activeProgram.weekLabel}</Text>
+        {activeProgram ? (
+          <>
+            {/* Full-bleed hero: photo placeholder + accent scrim (photo lands here later). */}
+            <View style={styles.hero}>
+              <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+                <Defs>
+                  <SvgLinearGradient id="programsHeroScrim" x1="0" y1="0" x2="0" y2="1">
+                    <Stop offset="0" stopColor="#1E5A38" stopOpacity={0.4} />
+                    <Stop offset="0.4" stopColor="#0A0714" stopOpacity={0.2} />
+                    <Stop offset="1" stopColor="#080510" stopOpacity={0.9} />
+                  </SvgLinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width="100%" height="100%" fill="#241A3E" />
+                <Rect x="0" y="0" width="100%" height="100%" fill="url(#programsHeroScrim)" />
+              </Svg>
+              {/* Photo-slot marker (docs/photo-placeholders.md). */}
+              <View style={styles.heroPhotoMark}>
+                <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M4 8a2 2 0 0 1 2-2h1.5l1.4-1.6a1 1 0 0 1 .75-.4h4.7a1 1 0 0 1 .75.4L16.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
+                    stroke="#FFFFFF"
+                    strokeOpacity={0.8}
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                  />
+                  <Circle cx={12} cy={12.5} r={3.2} stroke="#FFFFFF" strokeOpacity={0.8} strokeWidth={2} />
+                </Svg>
               </View>
-
-              <View style={styles.activeTitleRow}>
-                <GradientTile stops={ACTIVE_TILE} size={58} radius={16} />
-                <View style={styles.activeTitleCopy}>
-                  <Text style={styles.activeTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
-                    {activeProgram.title}
-                  </Text>
-                  <Text style={styles.activePhase}>
-                    Week {currentWeek}: {phaseNote(currentWeek, totalWeeks)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.segmentRow}>
-                {Array.from({ length: totalWeeks }, (_, index) => (
-                  <View key={index} style={[styles.segment, index < currentWeek ? styles.segmentFilled : styles.segmentEmpty]} />
-                ))}
-              </View>
-
-              <View style={styles.chipRow}>
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>{activeProgram.sessionsPerWeek} days / week</Text>
-                </View>
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>{activeProgram.goalLabel}</Text>
-                </View>
-                <View style={styles.chip}>
-                  <Text style={styles.chipText}>{activeProgram.focusLabel}</Text>
+              <View style={styles.heroContent}>
+                <Text style={styles.heroKicker}>ACTIVE PROGRAM</Text>
+                <Text style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
+                  {activeProgram.title}
+                </Text>
+                <Text style={styles.heroWeekLine}>
+                  <Text style={styles.heroWeekStrong}>{activeProgram.weekLabel}</Text>
+                  <Text style={styles.heroWeekNote}>{`  ·  ${phaseNote(currentWeek, totalWeeks)}`}</Text>
+                </Text>
+                <View style={styles.heroSegmentRow}>
+                  {Array.from({ length: totalWeeks }, (_, index) => (
+                    <View key={index} style={[styles.heroSegment, index < currentWeek ? styles.heroSegmentFilled : styles.heroSegmentEmpty]} />
+                  ))}
                 </View>
               </View>
             </View>
 
-            <View style={styles.nextStrip}>
-              <View style={styles.nextCopy}>
-                <Text style={styles.nextEyebrow}>NEXT SESSION</Text>
-                <Text style={styles.nextTitle} numberOfLines={1}>
-                  {nextSession.title} · Today
-                </Text>
-                <Text style={styles.nextMeta} numberOfLines={1}>
-                  {nextFocus ? `${nextFocus} · ` : ''}
-                  {nextSession.duration}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Start ${nextSession.title}`}
-                onPress={() => onStartActiveSession(nextSession.id)}
-                style={({ pressed }) => [styles.startButton, pressed && styles.pressed]}
-              >
-                <Text style={styles.startButtonText}>Start</Text>
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG3.surface} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
+            {/* THIS WEEK */}
+            <View style={styles.weekHeaderRow}>
+              <Text style={styles.sectionEyebrow}>{`THIS WEEK · ${activeProgram.sessionsPerWeek} DAYS / WEEK`}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Edit training days" onPress={onOpenActivePlan} hitSlop={8}>
+                <Text style={styles.weekEditLink}>Edit days</Text>
               </Pressable>
+            </View>
+            <View style={styles.weekList}>
+              {weekSessions.map((session, index) => {
+                const isToday = nextSession?.id === session.id;
+                const weekday = weekdayForSession(index, weekSessions.length);
+                const focusLine = session.exercises
+                  .slice(0, 3)
+                  .map((exercise) => exercise.name)
+                  .join(' · ');
+
+                return (
+                  <Pressable
+                    key={session.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${weekday}: ${session.title}${isToday ? ', today' : ''}`}
+                    onPress={onOpenActivePlan}
+                    style={({ pressed }) => [styles.dayRow, isToday && styles.dayRowToday, pressed && styles.pressedRow]}
+                  >
+                    <View style={[styles.dayBadge, isToday && styles.dayBadgeToday]}>
+                      <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekday}</Text>
+                    </View>
+                    <View style={styles.dayCopy}>
+                      <View style={styles.dayTitleRow}>
+                        <Text style={styles.dayTitle} numberOfLines={1}>
+                          {session.title}
+                        </Text>
+                        {isToday ? (
+                          <View style={styles.todayPill}>
+                            <Text style={styles.todayPillText}>TODAY</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.dayFocus} numberOfLines={1}>
+                        {focusLine}
+                      </Text>
+                    </View>
+                    <Text style={styles.dayDuration}>{session.duration}</Text>
+                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                      <Path d="m9 6 6 6-6 6" stroke={HG3.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  </Pressable>
+                );
+              })}
             </View>
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="View plan, edit days and swap exercises"
+              accessibilityLabel="View the full plan"
               onPress={onOpenActivePlan}
-              style={({ pressed }) => [styles.manageRow, pressed && styles.pressedRow]}
+              style={({ pressed }) => [styles.viewPlanButton, pressed && styles.pressed]}
             >
-              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                <Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke={HG3.ink} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-              <Text style={styles.manageText}>View plan, edit days &amp; swap exercises</Text>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="m9 6 6 6-6 6" stroke={HG3.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
+              <Text style={styles.viewPlanButtonText}>View full plan</Text>
             </Pressable>
-          </View>
+
+            <View style={styles.subActionsRow}>
+              <Pressable accessibilityRole="button" accessibilityLabel="Swap exercises" onPress={onOpenActivePlan} hitSlop={6}>
+                <Text style={styles.subAction}>Swap exercises</Text>
+              </Pressable>
+              <View style={styles.metaDot} />
+              <Pressable accessibilityRole="button" accessibilityLabel="Adjust schedule" onPress={onAdjustSchedule} hitSlop={6}>
+                <Text style={styles.subAction}>Adjust schedule</Text>
+              </Pressable>
+            </View>
+          </>
         ) : (
           <View style={styles.emptyActiveCard}>
             <Text style={styles.emptyActiveTitle}>No active program</Text>
             <Text style={styles.emptyActiveSub}>Pick a ready program below or build your own to get a weekly plan.</Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Create a program"
-              onPress={onCreateProgram}
-              style={({ pressed }) => [styles.emptyActiveButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.emptyActiveButtonText}>Create a program</Text>
-            </Pressable>
           </View>
         )}
 
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="New program"
+          onPress={() => setCreateOpen(true)}
+          style={({ pressed }) => [styles.newProgramButton, pressed && styles.pressed]}
+        >
+          <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+            <Path d="M12 5v14M5 12h14" stroke={ACCENT} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+          </Svg>
+          <Text style={styles.newProgramButtonText}>New program</Text>
+        </Pressable>
+
         <View style={styles.sectionHeadRow}>
-          <Text style={styles.sectionEyebrow}>EXPLORE PROGRAMS</Text>
+          <Text style={styles.sectionEyebrow}>SWITCH PROGRAM</Text>
           <Pressable onPress={onViewAllPrograms} hitSlop={8}>
             <Text style={styles.sectionLink}>View all</Text>
           </Pressable>
@@ -438,6 +506,15 @@ export function ProgramsHomeScreen({
           </View>
         </View>
       </Modal>
+
+      <NewProgramSheet
+        visible={createOpen}
+        exerciseLibrary={exerciseLibraryEntries}
+        onClose={() => setCreateOpen(false)}
+        onAiAssisted={onAiAssisted}
+        onBuildYourself={onCreateProgram}
+        onImportProgram={onImportProgram}
+      />
     </View>
   );
 }
@@ -453,8 +530,216 @@ const styles = StyleSheet.create({
   },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 6,
+    paddingTop: 0,
     paddingBottom: 132,
+  },
+  hero: {
+    height: 320,
+    marginHorizontal: -20,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  heroPhotoMark: {
+    position: 'absolute',
+    top: 52,
+    right: 16,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(12,8,26,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroContent: {
+    padding: 20,
+    gap: 7,
+  },
+  heroKicker: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1.7,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 26,
+    lineHeight: 31,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  heroWeekLine: {
+    marginTop: 1,
+  },
+  heroWeekStrong: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  heroWeekNote: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  heroSegmentRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginTop: 6,
+  },
+  heroSegment: {
+    flex: 1,
+    height: 6,
+    borderRadius: 999,
+  },
+  heroSegmentFilled: {
+    backgroundColor: '#FFFFFF',
+  },
+  heroSegmentEmpty: {
+    backgroundColor: 'rgba(255,255,255,0.32)',
+  },
+  weekHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  weekEditLink: {
+    color: ACCENT,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  weekList: {
+    gap: 9,
+  },
+  dayRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG3.border,
+    backgroundColor: HG3.purpleSoft,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  dayRowToday: {
+    backgroundColor: ACCENT_SOFT,
+    borderColor: ACCENT_LINE,
+  },
+  dayBadge: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: HG3.surface,
+    borderWidth: 1,
+    borderColor: HG3.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayBadgeToday: {
+    backgroundColor: ACCENT,
+    borderColor: ACCENT,
+  },
+  dayBadgeText: {
+    color: HG3.faint,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  dayBadgeTextToday: {
+    color: '#FFFFFF',
+  },
+  dayCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  dayTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  dayTitle: {
+    color: HG3.ink,
+    fontSize: 15.5,
+    lineHeight: 20,
+    fontWeight: '800',
+    flexShrink: 1,
+  },
+  todayPill: {
+    borderRadius: 999,
+    backgroundColor: ACCENT,
+    paddingVertical: 3,
+    paddingHorizontal: 7,
+  },
+  todayPillText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    lineHeight: 12,
+    fontWeight: '800',
+  },
+  dayFocus: {
+    color: HG3.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  dayDuration: {
+    color: HG3.faint,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  viewPlanButton: {
+    height: 52,
+    borderRadius: 15,
+    backgroundColor: ACCENT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 14,
+    shadowColor: ACCENT,
+    shadowOpacity: 0.27,
+    shadowRadius: 22,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 8,
+  },
+  viewPlanButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  subActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 11,
+  },
+  subAction: {
+    color: HG3.muted,
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  newProgramButton: {
+    height: 52,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: ACCENT,
+    backgroundColor: HG3.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 20,
+    marginBottom: 6,
+  },
+  newProgramButtonText: {
+    color: ACCENT,
+    fontSize: 15,
+    fontWeight: '800',
   },
   pressed: {
     transform: [{ scale: 0.96 }],
@@ -783,6 +1068,17 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '800',
+  },
+  coverPhotoMark: {
+    position: 'absolute',
+    right: 13,
+    bottom: 13,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(12,8,26,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   coverName: {
     position: 'absolute',

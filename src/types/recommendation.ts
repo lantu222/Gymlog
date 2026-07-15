@@ -163,6 +163,26 @@ export interface RecommendationPlanReadyPayload {
   fallbackReason: string | null;
 }
 
+export type RecommendationWaterfallRule =
+  | 'home_equipment'
+  | 'run_mobility'
+  | 'beginner_first'
+  | 'female_targeted'
+  | 'lean_athletic'
+  | 'muscle_focus'
+  | 'muscle'
+  | 'strength'
+  | 'general'
+  | 'fallback';
+
+export interface RecommendationWaterfallDecision {
+  rule: RecommendationWaterfallRule;
+  primaryProgramId: string;
+  alternativeProgramId: string | null;
+  whyPrimary: string;
+  whyAlternative: string | null;
+}
+
 export interface RecommendationResult {
   featuredProgramId: string;
   secondaryProgramId: string | null;
@@ -173,4 +193,5 @@ export interface RecommendationResult {
   trainingBlock: RecommendationTrainingBlock;
   primaryFamilyId: TemplateFamilyId;
   scoredCandidates: RecommendationCandidate[];
+  waterfall: RecommendationWaterfallDecision | null;
 }

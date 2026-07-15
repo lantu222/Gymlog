@@ -15,6 +15,7 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
     templateIds: [
       'tpl_2_day_minimal_full_body_v1',
       'tpl_2_day_beginner_strength_v1',
+      'tpl_huge_starter_v1',
       'tpl_2_day_mobility_reset_v1',
       'tpl_2_day_yoga_recovery_v1',
       'tpl_3_day_full_body_v1',
@@ -41,6 +42,7 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
     description: 'Higher weekly volume and more specialization without losing progression rails.',
     recommendedFor: 'Hypertrophy-focused lifters who want upper/lower or hybrid splits.',
     templateIds: [
+      'tpl_huge_starter_v1',
       'tpl_3_day_push_pull_legs_v1',
       'tpl_4_day_upper_lower_v1',
       'tpl_4_day_muscle_builder_v1',
@@ -82,11 +84,28 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
     ],
   },
   {
+    key: 'fatloss',
+    label: 'Lose fat',
+    description: 'Programs that keep strength work in place while conditioning finishers drive real energy expenditure.',
+    recommendedFor: 'Anyone whose main goal is dropping fat without losing muscle.',
+    templateIds: [
+      'tpl_shred_v1',
+      'tpl_gainer_lean_shred_v1',
+      'tpl_gainer_fat_burn_hiit_v1',
+      'tpl_3_day_full_body_v1',
+    ],
+  },
+  {
     key: 'focus',
     label: 'Muscle group focus',
-    description: 'Dedicated single-session blocks you can add to any week for extra volume on a specific muscle group.',
+    description: 'Specialisation programs that train one muscle group twice a week, plus single-session blocks you can add to any week.',
     recommendedFor: 'Lifters who want to specialize or add volume beyond their main program.',
     templateIds: [
+      'tpl_focus_chest_program_v1',
+      'tpl_focus_back_program_v1',
+      'tpl_focus_arms_program_v1',
+      'tpl_focus_legs_program_v1',
+      'tpl_focus_glutes_program_v1',
       'tpl_focus_chest_v1',
       'tpl_focus_back_v1',
       'tpl_focus_shoulders_v1',

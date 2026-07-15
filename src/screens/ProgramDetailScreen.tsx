@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { layout, radii, spacing } from '../theme';
@@ -183,6 +184,8 @@ export function ProgramDetailScreen({
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {program.source === 'ready' ? <ProgramPhotoSlot label="Program photo coming soon" aspectRatio={16 / 9} /> : null}
+
         <View style={styles.planCard}>
           <View style={styles.planCardTop}>
             <View style={styles.planCopy}>

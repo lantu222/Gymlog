@@ -30,7 +30,7 @@ module.exports = [
     },
   },
   {
-    name: 'recommendation scoring shifts a 4-day muscle user with strength blend toward powerbuilding',
+    name: 'recommendation scoring keeps a 4-day muscle user on the muscle lane with a strength alternative',
     run() {
       const result = recommendPrograms(
         buildRecommendationInput({
@@ -49,8 +49,8 @@ module.exports = [
         }),
       );
 
-      assert.equal(result.featuredProgramId, 'tpl_4_day_powerbuilding_v1');
-      assert.equal(result.secondaryProgramId, 'tpl_4_day_muscle_builder_v1');
+      assert.equal(result.featuredProgramId, 'tpl_4_day_upper_lower_v1');
+      assert.equal(result.secondaryProgramId, 'tpl_4_day_powerbuilding_v1');
     },
   },
   {
@@ -209,7 +209,7 @@ module.exports = [
         }),
       );
 
-      assert.equal(result.featuredProgramId, 'tpl_4_day_powerbuilding_v1');
+      assert.equal(result.featuredProgramId, 'tpl_4_day_strength_size_v1');
       assert.match(result.fallbackReason, /optional/i);
       assert.equal(result.recommendationConfidence < 1, true);
       assert.equal(result.trainingBlock.blockLengthWeeks, 4);
@@ -219,7 +219,7 @@ module.exports = [
     },
   },
   {
-    name: 'recommendation scoring respects a 6-day general fitness frequency',
+    name: 'recommendation scoring caps a 6-day general fitness beginner at the core 3-day tier',
     run() {
       const result = recommendPrograms(
         buildRecommendationInput({
@@ -238,8 +238,9 @@ module.exports = [
         }),
       );
 
-      assert.equal(result.featuredProgramId, 'tpl_6_day_ppl_v1');
-      assert.equal(result.scoredCandidates[0].breakdown.scheduleFit > 20, true);
+      // Experience first: a beginner asking for 6 days starts at the 3-day core tier.
+      assert.equal(result.featuredProgramId, 'tpl_3_day_full_body_v1');
+      assert.equal(result.waterfall.rule, 'beginner_first');
     },
   },
 ];

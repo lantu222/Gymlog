@@ -42,20 +42,21 @@ module.exports = [
       assert.match(reviewBody, /if \(planReadyView === 'account'\) \{\s*return renderPlanReadyAccount\(\);/);
       assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
 
-      // Overview: "Your plan is ready" is the H1, subtitle line, gradient cover
-      // with a headline + support line + computed stat trio. No week/day badges.
-      assert.match(reviewBody, />Your plan is ready</);
+      // Overview: "Your program is ready" H1 + subtitle, then the 2-card result:
+      // a big RECOMMENDED program card (why-line + stat trio + week link) and a
+      // smaller ALTERNATIVE card that swaps the selection. No week rows.
+      assert.match(reviewBody, />Your program is ready</);
       assert.doesNotMatch(reviewBody, /YOUR PLAN IS READY/);
-      assert.doesNotMatch(reviewBody, /\$\{planReadyWeeks\}-Week Progress Plan/);
       assert.match(reviewBody, /`\$\{planReadyPerWeek\} workouts a week`/);
       assert.doesNotMatch(reviewBody, /BUILD · FOCUS · PROGRESS/);
       assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), 'workouts total'\]/);
       assert.match(reviewBody, /\[planReadySessionLength, 'per session'\]/);
+      assert.match(reviewBody, />RECOMMENDED</);
+      assert.match(reviewBody, />ALTERNATIVE</);
+      assert.match(reviewBody, /setSelectedRecommendationProgramId\(planReadyAlternative\.id\)/);
+      assert.match(reviewBody, /setPlanReadyView\('day'\)/);
+      assert.doesNotMatch(reviewBody, /planReadyWeekRows\.map/);
       assert.doesNotMatch(reviewBody, /planReadyOverviewWeekBadge/);
-      assert.match(reviewBody, /planReadyPayload\.fourWeekProgression\.map/);
-      assert.match(reviewBody, /planReadyWeekRows\.map/);
-      assert.match(reviewBody, /`Week \$\{row\.week\}`/);
-      assert.match(reviewBody, /`\$\{planReadyPerWeek\} workouts`/);
 
       // Day view: read-only preview — day title is the session name (one source
       // of truth), no A-F switcher, no letter badges, numbered exercise list.
@@ -76,11 +77,11 @@ module.exports = [
       assert.match(accountBody, /Use email instead/);
       assert.match(accountBody, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
 
-      // Overview is the primary "Save plan & start" surface; a day row opens the
-      // read-only day preview whose footer only returns to the plan ("Back to
-      // plan"). Footer hides only on the account gate — never leaving the user
-      // stuck without a way back to the overview.
-      assert.match(onboardingSource, /setPlanReadyWorkoutPage\(index\);\s*setPlanReadyView\('day'\)/);
+      // Overview is the primary "Save plan & start" surface; the recommended
+      // card's "View the week" link opens the read-only day preview whose footer
+      // only returns to the plan ("Back to plan"). Footer hides only on the
+      // account gate — never leaving the user stuck without a way back.
+      assert.match(onboardingSource, /setPlanReadyWorkoutPage\(0\);\s*setPlanReadyView\('day'\)/);
       assert.match(onboardingSource, /if \(planReadyView === 'day'\) \{\s*setPlanReadyView\('overview'\);/);
       assert.match(onboardingSource, /setPlanReadyView\('account'\)/);
       assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'account'\)/);
@@ -278,7 +279,12 @@ module.exports = [
       assert.doesNotMatch(profileBody, /Â|Å|â/);
       assert.doesNotMatch(profileBody, /AgeSlider/);
       assert.match(onboardingSource, /level: 'advanced'/);
-      assert.match(onboardingSource, /\{ value: 6, title: '6\+', body: 'days' \}/);
+      // Frequency is a clickable tier list (2–3 / 3–4 / 4+), not day-count chips.
+      assert.match(onboardingSource, /value: 3, title: '2–3 days \/ week'/);
+      assert.match(onboardingSource, /value: 4, title: '3–4 days \/ week'/);
+      assert.match(onboardingSource, /value: 5, title: '4\+ days \/ week'/);
+      assert.match(onboardingSource, /recommendedFor: \['beginner'\]/);
+      assert.doesNotMatch(onboardingSource, /\{ value: 6, title: '6\+', body: 'days' \}/);
       assert.match(onboardingSource, /function getTrainingProfileSetupSummary\(level: SetupLevel, daysPerWeek: SetupDaysPerWeek\)/);
       // Top pane tightened (was 206) so Step 3's title hugs the Experience Level heading.
       assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 150/);
@@ -442,9 +448,10 @@ module.exports = [
       assert.match(reviewBody, /\[`\$\{planReadyWeeks\}-week plan`, goalLabel, locationLabel\]/);
       assert.doesNotMatch(reviewBody, /\[goalLabel, locationLabel, levelLabel, `\$\{planReadyPerWeek\} days \/ week`\]/);
 
-      // Week rows strip the "Week N:" prefix from progression labels.
-      assert.match(reviewBody, /phase\.label\.replace/);
-      assert.match(reviewBody, /planReadyPayload\.fourWeekProgression\.map/);
+      // The recommended/alternative why-lines come from the waterfall decision.
+      assert.match(reviewBody, /recommendation\.waterfall/);
+      assert.match(reviewBody, /planReadyWhyPrimary/);
+      assert.match(reviewBody, /planReadyWhyAlternative/);
 
       // Day view derives its focus and muscle groups from real session content.
       assert.match(dayBody, /const focusOf = \(name: string, index: number\)/);

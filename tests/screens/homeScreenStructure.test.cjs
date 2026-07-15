@@ -174,9 +174,11 @@ module.exports = [
       assert.match(workoutsScreenSource, /const \[showBrowseWorkouts, setShowBrowseWorkouts\] = useState\(true\)/);
       assert.match(workoutsScreenSource, /const \[readyEquipmentFilter, setReadyEquipmentFilter\] = useState<ReadyEquipmentFilter>\('all'\)/);
       assert.doesNotMatch(appSource, /readyTemplateCount/);
-      assert.match(workoutsScreenSource, /const gainerProgramItems = filteredReadyItems\.filter/);
-      assert.match(workoutsScreenSource, /const allGainerProgramItems = readyDiscoveryItems\.filter/);
-      assert.match(workoutsScreenSource, /title="Ready Templates"/);
+      // Family-sectioned browse: every ready template is bucketed into one family section.
+      assert.match(workoutsScreenSource, /const readySectionItems = new Map<string, ReadyDiscoveryItem\[\]>\(\)/);
+      assert.match(workoutsScreenSource, /READY_FAMILY_SECTIONS\.find\(\(candidate\) => candidate\.match\(item\)\)/);
+      assert.doesNotMatch(workoutsScreenSource, /tpl_gainer_'\)\)/);
+      assert.match(workoutsScreenSource, /title="Programs"/);
       assert.match(workoutsScreenSource, /tone="dark"/);
       assert.match(workoutsScreenSource, /Search ready templates/);
       assert.match(workoutsScreenSource, /MagnifyingGlass/);
@@ -204,12 +206,13 @@ module.exports = [
       assert.match(workoutsScreenSource, /READY_LEVEL_FILTERS\.map/);
       assert.match(workoutsScreenSource, /snapToInterval=\{116\}/);
       assert.match(workoutsScreenSource, /readyTemplateFilterChip:\s*\{[\s\S]*minWidth: 104/);
-      assert.match(workoutsScreenSource, /READY_CATEGORY_SECTIONS/);
-      assert.match(workoutsScreenSource, /title: 'Hypertrophy'/);
-      assert.match(workoutsScreenSource, /title: 'General Fitness'/);
+      assert.match(workoutsScreenSource, /READY_FAMILY_SECTIONS/);
+      assert.match(workoutsScreenSource, /title: "Women's programs"/);
+      assert.match(workoutsScreenSource, /title: 'Muscle group focus'/);
       assert.match(workoutsScreenSource, /title: 'Strength'/);
-      assert.match(workoutsScreenSource, /title: 'Fat Loss'/);
-      assert.match(workoutsScreenSource, /itemMatchesReadyCategory/);
+      assert.match(workoutsScreenSource, /title: 'Muscle'/);
+      assert.match(workoutsScreenSource, /title: 'Fat loss'/);
+      assert.match(workoutsScreenSource, /title: 'Home & minimal equipment'/);
       assert.match(workoutsScreenSource, /readyCategorySections/);
       assert.match(workoutsScreenSource, /readyTemplateCategoryList/);
       assert.match(workoutsScreenSource, /readyTemplateCarousel/);
@@ -231,7 +234,6 @@ module.exports = [
       assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);
       assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
       assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#F7F3FF' : [^}]*emptyWorkoutActive[^}]*readyTemplatesActive[^}]*\? '#F7F3FF' : undefined\}/);
-      assert.doesNotMatch(workoutsScreenSource, /title="Programs"/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
       assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);

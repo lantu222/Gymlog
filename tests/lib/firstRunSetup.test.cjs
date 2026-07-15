@@ -134,8 +134,8 @@ module.exports = [
       });
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_strength_base_v1');
-      // Same-cadence secondary now comes from the gainer catalog (3-day 5x5).
-      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_strength_5x5_v1');
+      // Waterfall v2: the alternative crosses the goal axis at the same cadence (HUGE 3-day).
+      assert.equal(recommendation.secondaryProgramId, 'tpl_3_day_push_pull_legs_v1');
     },
   },
   {
@@ -234,7 +234,7 @@ module.exports = [
     },
   },
   {
-    name: 'first-run setup shifts 4-day muscle users toward powerbuilding when strength also matters',
+    name: 'first-run setup keeps 4-day muscle users on the muscle lane with powerbuilding as the strength alternative',
     run() {
       const recommendation = resolveFirstRunRecommendation({
         goal: 'muscle',
@@ -247,8 +247,8 @@ module.exports = [
         unitPreference: 'kg',
       });
 
-      assert.equal(recommendation.featuredProgramId, 'tpl_4_day_powerbuilding_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_4_day_muscle_builder_v1');
+      assert.equal(recommendation.featuredProgramId, 'tpl_4_day_upper_lower_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_4_day_powerbuilding_v1');
     },
   },
   {
@@ -423,7 +423,7 @@ module.exports = [
             daysPerWeek: 5,
             equipment: 'gym',
           }),
-          expectedPrograms: ['tpl_4_day_powerbuilding_v1'],
+          expectedPrograms: ['tpl_4_day_strength_size_v1', 'tpl_4_day_powerbuilding_v1'],
           expectedReason: /closest match.*4 days/i,
           expectedExplanation: /closest match.*4 days/i,
         },
@@ -568,7 +568,7 @@ module.exports = [
       const { recommendation, reasons, projectedDays } = evaluateHighPriorityScenario(selection);
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_strength_base_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_strength_5x5_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_3_day_push_pull_legs_v1');
       assert.deepEqual(projectedDays, ['mon', 'wed', 'fri']);
       assert.match(reasons.join(' '), /3 days for strength/i);
       assert.match(reasons.join(' '), /heavy compounds/i);
@@ -587,7 +587,7 @@ module.exports = [
       const { recommendation, reasons, projectedDays } = evaluateHighPriorityScenario(selection);
 
       assert.equal(recommendation.featuredProgramId, 'tpl_4_day_powerbuilding_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_4_day_strength_size_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_4_day_upper_lower_v1');
       assert.deepEqual(projectedDays, ['mon', 'tue', 'thu', 'sat']);
       assert.match(reasons.join(' '), /4 days for strength/i);
       assert.match(reasons.join(' '), /heavy compounds.*volume|volume.*heavy compounds/i);
@@ -606,7 +606,7 @@ module.exports = [
       });
       const { recommendation, reasons, projectedDays, projectedDaysPerWeek } = evaluateHighPriorityScenario(selection);
 
-      assert.equal(recommendation.featuredProgramId, 'tpl_4_day_powerbuilding_v1');
+      assert.equal(recommendation.featuredProgramId, 'tpl_4_day_strength_size_v1');
       assert.equal(recommendation.secondaryProgramId, 'tpl_5_day_hybrid_v1');
       assert.equal(projectedDaysPerWeek, 4);
       assert.deepEqual(projectedDays, ['mon', 'tue', 'thu', 'sat']);
@@ -629,7 +629,7 @@ module.exports = [
       const { recommendation, reasons, projectedDays } = evaluateHighPriorityScenario(selection);
 
       assert.equal(recommendation.featuredProgramId, 'tpl_5_day_hybrid_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_gainer_dream_body_female_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_4_day_powerbuilding_v1');
       assert.deepEqual(projectedDays, ['mon', 'tue', 'thu', 'fri', 'sat']);
       assert.match(reasons.join(' '), /5 days for muscle gain/i);
       assert.match(reasons.join(' '), /80 kg to 90 kg gain target/i);
@@ -649,7 +649,7 @@ module.exports = [
       const { recommendation, reasons, projectedDays } = evaluateHighPriorityScenario(selection);
 
       assert.equal(recommendation.featuredProgramId, 'tpl_3_day_full_body_v1');
-      assert.equal(recommendation.secondaryProgramId, 'tpl_3_day_upper_lower_lite_v1');
+      assert.equal(recommendation.secondaryProgramId, 'tpl_shred_v1');
       assert.deepEqual(projectedDays, ['mon', 'wed', 'fri']);
       assert.match(reasons.join(' '), /3 days for fat-loss support/i);
       assert.match(reasons.join(' '), /100 kg to 85 kg fat-loss target/i);

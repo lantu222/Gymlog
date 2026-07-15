@@ -17,8 +17,8 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { pluralize } from '../lib/format';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getCustomTemplatePresentation } from '../lib/templatePresentation';
+import { getRecommendationProgramDefinition } from '../lib/recommendationCatalog';
 import {
-  buildReadyProgramSearchText,
   filterAndSortReadyDiscoveryItems,
   ReadyDiscoveryItem,
   ReadyEquipmentFilter,
@@ -68,12 +68,69 @@ const READY_GOAL_FILTERS: Array<{ key: ReadyGoalFilter; label: string }> = [
   { key: 'general', label: 'General Fitness' },
 ];
 
-const READY_CATEGORY_SECTIONS: Array<{ key: Exclude<ReadyGoalFilter, 'all'>; title: string }> = [
-  { key: 'hypertrophy', title: 'Hypertrophy' },
-  { key: 'general', title: 'General Fitness' },
-  { key: 'strength', title: 'Strength' },
-  { key: 'fat_loss', title: 'Fat Loss' },
+// Family-sectioned browse: every ready template lands in exactly one section
+// (first match wins), mirroring the goal-named program families.
+const READY_FAMILY_SECTIONS: Array<{ key: string; title: string; match: (item: ReadyDiscoveryItem) => boolean }> = [
+  {
+    key: 'women',
+    title: "Women's programs",
+    match: (item) => getRecommendationProgramDefinition(item.template.id)?.targetGender === 'female',
+  },
+  {
+    key: 'focus',
+    title: 'Muscle group focus',
+    match: (item) => item.template.id.startsWith('tpl_focus_'),
+  },
+  {
+    key: 'recovery',
+    title: 'Recovery & mobility',
+    match: (item) => getRecommendationProgramDefinition(item.template.id)?.familyId === 'joint_friendly',
+  },
+  {
+    key: 'running',
+    title: 'Running & conditioning',
+    match: (item) => Boolean(getRecommendationProgramDefinition(item.template.id)?.supportedGoals.includes('run_mobility')),
+  },
+  {
+    key: 'fatloss',
+    title: 'Fat loss',
+    match: (item) => {
+      const definition = getRecommendationProgramDefinition(item.template.id);
+      return definition?.familyId === 'athletic_recomp' && definition.styleTags.includes('conditioning');
+    },
+  },
+  {
+    key: 'strength',
+    title: 'Strength',
+    match: (item) => {
+      const definition = getRecommendationProgramDefinition(item.template.id);
+      return definition?.familyId === 'strength_base' || definition?.familyId === 'powerbuilding' || item.template.goalType === 'strength';
+    },
+  },
+  {
+    key: 'muscle',
+    title: 'Muscle',
+    match: (item) =>
+      getRecommendationProgramDefinition(item.template.id)?.familyId === 'mass_hypertrophy'
+      || item.template.goalType === 'hypertrophy',
+  },
+  {
+    key: 'home',
+    title: 'Home & minimal equipment',
+    match: (item) => {
+      const definition = getRecommendationProgramDefinition(item.template.id);
+      return definition?.equipmentTier === 'low_equipment' || definition?.familyId === 'low_equipment';
+    },
+  },
+  { key: 'balanced', title: 'Balanced fitness', match: () => true },
 ];
+
+const READY_FILTER_SECTION_KEYS: Record<Exclude<ReadyGoalFilter, 'all'>, string[]> = {
+  fat_loss: ['fatloss'],
+  strength: ['strength'],
+  hypertrophy: ['muscle', 'focus', 'women'],
+  general: ['balanced', 'home', 'running', 'recovery'],
+};
 
 const READY_TEMPLATE_CARD_IMAGE = require('../../assets/fitness/selected/ready-template-card.jpg');
 
@@ -117,22 +174,6 @@ function ReadyGoalIcon({ filter, active }: { filter: ReadyGoalFilter; active: bo
   }
 
   return null;
-}
-
-function isFatLossReadyItem(item: ReadyDiscoveryItem) {
-  const searchText = buildReadyProgramSearchText(item);
-
-  return ['fat', 'conditioning', 'hiit', 'cardio', 'runner', 'run', 'lean'].some((keyword) =>
-    searchText.includes(keyword),
-  );
-}
-
-function itemMatchesReadyCategory(item: ReadyDiscoveryItem, category: Exclude<ReadyGoalFilter, 'all'>) {
-  if (category === 'fat_loss') {
-    return isFatLossReadyItem(item);
-  }
-
-  return item.template.goalType === category;
 }
 
 function formatGoal(value: string) {
@@ -333,14 +374,19 @@ export function WorkoutsScreen({
         })),
     [compareTemplateIds, templates],
   );
-  const allGainerProgramItems = readyDiscoveryItems.filter((item) => item.template.id.startsWith('tpl_gainer_'));
-  const gainerProgramItems = filteredReadyItems.filter((item) => item.template.id.startsWith('tpl_gainer_'));
-  const readyCategorySections = READY_CATEGORY_SECTIONS
-    .filter((section) => readyGoalFilter === 'all' || readyGoalFilter === section.key)
-    .map((section) => ({
-      ...section,
-      items: gainerProgramItems.filter((item) => itemMatchesReadyCategory(item, section.key)),
-    }))
+  const readySectionItems = new Map<string, ReadyDiscoveryItem[]>();
+  for (const item of filteredReadyItems) {
+    const section = READY_FAMILY_SECTIONS.find((candidate) => candidate.match(item));
+    if (!section) {
+      continue;
+    }
+    const bucket = readySectionItems.get(section.key) ?? [];
+    bucket.push(item);
+    readySectionItems.set(section.key, bucket);
+  }
+  const readyCategorySections = READY_FAMILY_SECTIONS
+    .filter((section) => readyGoalFilter === 'all' || READY_FILTER_SECTION_KEYS[readyGoalFilter].includes(section.key))
+    .map((section) => ({ key: section.key, title: section.title, items: readySectionItems.get(section.key) ?? [] }))
     .filter((section) => section.items.length > 0);
   const visibleCustomWorkouts = showAllCustomWorkouts ? filteredCustomWorkouts : filteredCustomWorkouts.slice(0, 2);
   const hiddenCustomWorkoutCount = Math.max(filteredCustomWorkouts.length - visibleCustomWorkouts.length, 0);
@@ -363,7 +409,7 @@ export function WorkoutsScreen({
 
   return (
     <>
-      <ScreenHeader title="Ready Templates" subtitle={`${allGainerProgramItems.length} templates ready to inspect or start.`} tone="dark" />
+      <ScreenHeader title="Programs" subtitle={`${readyDiscoveryItems.length} programs ready to inspect or start.`} tone="dark" />
       <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
         <View style={styles.readyTemplateSearchCard}>
           <MagnifyingGlass size={18} color="#98A2B3" weight="bold" />
@@ -504,7 +550,7 @@ export function WorkoutsScreen({
                     const { template } = item;
                     const current = template.id === activeTemplateId;
                     const heroStyle =
-                      section.key === 'general' || section.key === 'fat_loss'
+                      section.key === 'balanced' || section.key === 'fatloss'
                         ? styles.readyTemplateHeroGreen
                         : index % 2 === 0
                           ? styles.readyTemplateHeroPurple

@@ -23,7 +23,7 @@ module.exports = [
       const minimal = getWorkoutTemplateById('tpl_2_day_minimal_full_body_v1');
       assert.equal(minimal.daysPerWeek, 2);
       assert.equal(minimal.sessions.length, 2);
-      assert.equal(minimal.sessions[0].name, 'Minimal A');
+      assert.equal(minimal.sessions[0].name, 'Day 1: Full Body');
 
       const muscleBuilder = getWorkoutTemplateById('tpl_4_day_muscle_builder_v1');
       assert.equal(muscleBuilder.sessions.length, 4);
@@ -45,11 +45,24 @@ module.exports = [
     },
   },
   {
-    name: 'renamed ready programs avoid beginner and minimal labels requested for home plan copy',
+    name: 'ready programs use goal-first family names instead of structural day-count names',
     run() {
-      assert.equal(getWorkoutTemplateById('tpl_2_day_minimal_full_body_v1').name, '2-Day Full Body');
-      assert.equal(getWorkoutTemplateById('tpl_2_day_beginner_strength_v1').name, '2-Day Strength');
+      assert.equal(getWorkoutTemplateById('tpl_2_day_minimal_full_body_v1').name, 'HOME Starter');
+      assert.equal(getWorkoutTemplateById('tpl_2_day_beginner_strength_v1').name, 'STRONG Starter');
+      assert.equal(getWorkoutTemplateById('tpl_3_day_strength_base_v1').name, 'STRONG');
+      assert.equal(getWorkoutTemplateById('tpl_3_day_push_pull_legs_v1').name, 'HUGE');
+      assert.equal(getWorkoutTemplateById('tpl_3_day_full_body_v1').name, 'FIT');
       assert.equal(getWorkoutTemplateById('tpl_gainer_beginner_bro_split_v1').name, 'Bro Split');
+      // No template name may contain a structural day-count prefix anymore.
+      WORKOUT_TEMPLATES_V1.forEach((template) => {
+        assert.equal(/\d-Day /.test(template.name), false, `${template.id} still has a day-count name: ${template.name}`);
+      });
+      // Authored A/B session names are gone from the rebranded catalog (gainer set already uses day labels).
+      WORKOUT_TEMPLATES_V1.filter((template) => !template.id.startsWith('tpl_gainer_')).forEach((template) => {
+        template.sessions.forEach((session) => {
+          assert.equal(/\s[AB]$/.test(session.name), false, `${template.id} ${session.id} still has an authored A/B name: ${session.name}`);
+        });
+      });
     },
   },
   {

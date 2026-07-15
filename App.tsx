@@ -66,6 +66,7 @@ import { HistoryScreen } from './src/screens/HistoryScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { StartPathScreen } from './src/screens/StartPathScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { EquipmentPreferencesScreen } from './src/screens/EquipmentPreferencesScreen';
 import { ExercisePreferencesScreen } from './src/screens/ExercisePreferencesScreen';
@@ -1068,6 +1069,9 @@ function GymlogApp() {
 
   const onboardingActive = !preferences.onboardingCompleted;
   const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
+  // Pre-onboarding fork: after Welcome the user picks guided onboarding,
+  // browsing ready programs, or the (locked) AI-built path.
+  const [startPathChosen, setStartPathChosen] = useState(false);
 
   useEffect(() => {
     if (!hydrated || !preferences.onboardingCompleted) {
@@ -1544,7 +1548,7 @@ function GymlogApp() {
     navigate(WORKOUT_PLAN_ROUTE);
   }
 
-  async function handleOnboardingSkip() {
+  async function handleOnboardingSkip(destination: 'home' | 'programs' = 'home') {
     await completeOnboarding({
       onboardingCompleted: true,
       setupCompleted: false,
@@ -1571,6 +1575,14 @@ function GymlogApp() {
         bodyweightGoalKg: null,
         recommendedProgramId: null,
     });
+    if (destination === 'programs') {
+      if (preferences.programsTabEnabled) {
+        resetToRoute({ tab: 'workout', screen: 'programs_home' });
+      } else {
+        resetToRoute(ROOT_ROUTES.workout);
+      }
+      return;
+    }
     navigate(ROOT_ROUTES.home);
   }
 
@@ -2262,10 +2274,23 @@ function GymlogApp() {
   const readyProgramCtaLabel = 'Browse ready plans';
   const customProgramCount = customWorkouts.length;
   const programsExploreItems = useMemo<ProgramsExploreItem[]>(
-    () =>
-      workout.templates
-        .filter((template) => template.id.startsWith('tpl_gainer_'))
-        .slice(0, 8)
+    () => {
+      // Curated Explore row: one card per program family (goal-first naming),
+      // mixing the rebranded catalog with the Gainer identity programs.
+      const exploreIds = [
+        'tpl_3_day_push_pull_legs_v1', // HUGE
+        'tpl_3_day_strength_base_v1', // STRONG
+        'tpl_huge_starter_v1', // HUGE Starter
+        'tpl_focus_chest_program_v1', // FOCUS Chest
+        'tpl_gainer_dream_body_man_v1',
+        'tpl_gainer_hourglass_shape_v1',
+        'tpl_gainer_at_home_beginner_v1',
+        'tpl_3_day_run_mobility_v1', // RUN
+      ];
+      const byId = new Map(workout.templates.map((template) => [template.id, template]));
+      return exploreIds
+        .map((id) => byId.get(id))
+        .filter((template): template is NonNullable<typeof template> => Boolean(template))
         .map((template, index) => ({
           id: template.id,
           name: formatWorkoutDisplayLabel(template.name),
@@ -2275,7 +2300,8 @@ function GymlogApp() {
           minutes: template.estimatedSessionDuration,
           // Cycles the 5 designed cover styles so each catalog card is distinct.
           coverIndex: index % 5,
-        })),
+        }));
+    },
     [workout.templates],
   );
   const programsCustomItems = useMemo(
@@ -2413,6 +2439,14 @@ function GymlogApp() {
           onContinue={() => void handleContinueEntry()}
         />
       );
+    } else if (!startPathChosen) {
+      content = (
+        <StartPathScreen
+          onGuidedOnboarding={() => setStartPathChosen(true)}
+          onBrowsePrograms={() => void handleOnboardingSkip('programs')}
+          onBack={() => void handleBackToEntry()}
+        />
+      );
     } else {
       content = (
         <OnboardingScreen
@@ -2421,8 +2455,8 @@ function GymlogApp() {
           readyProgramCount={workout.templates.length}
           dismissedTipIds={dismissedTipIds}
           onDismissTip={handleDismissTip}
-          onBackToEntry={handleBackToEntry}
-          onSkip={handleOnboardingSkip}
+          onBackToEntry={() => setStartPathChosen(false)}
+          onSkip={() => void handleOnboardingSkip()}
           onCompleteToTraining={handleOnboardingCompleteToTraining}
           onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
           onCompleteToCustom={handleOnboardingCompleteToCustom}
@@ -2816,7 +2850,6 @@ function GymlogApp() {
           setWorkoutCelebration(null);
           setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           workout.clearCompletedWorkout();
-          showToast('All data reset');
           resetToRoute(ROOT_ROUTES.home);
         }}
       />
@@ -2876,6 +2909,7 @@ function GymlogApp() {
                 currentWeek: homeActivePlanCard.currentWeek,
                 planTotalWeeks: homeActivePlanCard.planTotalWeeks,
                 sessionsPerWeek: homeActivePlanCard.sessionsPerWeek,
+                sessions: homeActivePlanCard.sessions,
                 nextSession: homeActivePlanCard.nextSession,
               }
             : null
@@ -2883,6 +2917,13 @@ function GymlogApp() {
         exploreItems={programsExploreItems}
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
+        exerciseLibraryEntries={exerciseBrowserItems}
+        onAdjustSchedule={handleOpenPlanSettings}
+        onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_setup' })}
+        onImportProgram={async (draft) => {
+          const workoutTemplateId = await upsertWorkoutTemplate(draft);
+          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+        }}
         onStartActiveSession={(sessionId) => {
           if (!homeActivePlanCard) {
             return;

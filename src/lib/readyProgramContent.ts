@@ -320,6 +320,89 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
     },
   },
 
+  tpl_shred_v1: {
+    summary: 'Three full-body sessions that pair compound lifting with real conditioning finishers, built for dropping fat while keeping muscle.',
+    audience: 'Best for anyone whose main goal is fat loss and who wants strength work and conditioning inside the same visit.',
+    equipmentProfile: 'Full gym recommended: barbell, machines, kettlebell, and a treadmill or bike for the finishers.',
+    whyItWorks: 'Heavy compounds protect muscle while you are in a calorie deficit, and every session ends with an interval finisher that adds real energy expenditure — the name only works because the conditioning is actually in the plan.',
+    sessionFocusById: {
+      shred_day1: 'Squat and press base with kettlebell swings and a treadmill HIIT finisher.',
+      shred_day2: 'Hinge-led full body with a burpee circuit finisher.',
+      shred_day3: 'Machine-led full body with loaded carries and a bike interval finisher.',
+    },
+  },
+
+  tpl_huge_starter_v1: {
+    summary: 'Two efficient full-body sessions that build muscle with the least possible weekly friction.',
+    audience: 'Best for new lifters who want to grow muscle on two gym days per week without a complicated split.',
+    equipmentProfile: 'Full gym recommended: bench, leg press, cable stations, and dumbbells.',
+    whyItWorks: 'Every big muscle gets trained twice a week through compound patterns, and short sessions keep consistency high — the main driver of beginner growth.',
+    sessionFocusById: {
+      huge_starter_day1: 'Push-biased full body: bench, leg press, and pulldown with delt and triceps finishers.',
+      huge_starter_day2: 'Pull-biased full body: hinge, row, and machine press with arm and core finishers.',
+    },
+  },
+
+  tpl_focus_chest_program_v1: {
+    summary: 'A three-day specialisation block that trains chest twice a week while the rest of the body stays on maintenance volume.',
+    audience: 'Best for intermediate lifters whose chest lags behind and who can commit three days a week to a focused block.',
+    equipmentProfile: 'Full gym required: flat and incline bench, machines, dumbbells, and cables.',
+    whyItWorks: 'Doubling chest frequency with a heavy day and a volume day drives growth, while a single maintenance day keeps back and legs from detraining.',
+    sessionFocusById: {
+      focusp_chest_day1: 'Heavy chest day anchored by flat bench with incline and fly support.',
+      focusp_chest_day2: 'Maintenance day for back and legs so the rest of the body holds its ground.',
+      focusp_chest_day3: 'Volume chest day: incline first, then machine press and flys.',
+    },
+  },
+
+  tpl_focus_back_program_v1: {
+    summary: 'A three-day specialisation block that trains back twice a week while pressing and legs stay on maintenance volume.',
+    audience: 'Best for intermediate lifters who want a wider, thicker back and can train three days per week.',
+    equipmentProfile: 'Full gym required: barbell, pulldown and row stations, and cables.',
+    whyItWorks: 'A heavy row day plus a pulldown-led volume day doubles weekly back stimulus, while one full-body maintenance day protects the rest of your progress.',
+    sessionFocusById: {
+      focusp_back_day1: 'Heavy back day anchored by barbell row with pulldown and row support.',
+      focusp_back_day2: 'Maintenance day for pressing and legs.',
+      focusp_back_day3: 'Volume back day: pulldown first, then cable and chest-supported rows.',
+    },
+  },
+
+  tpl_focus_arms_program_v1: {
+    summary: 'A three-day specialisation block with two direct arm days and one full-body maintenance day.',
+    audience: 'Best for intermediate lifters whose arms lag behind chest and back development.',
+    equipmentProfile: 'Full gym required: barbell, EZ-bar or dumbbells, and cable stations.',
+    whyItWorks: 'Arms recover fast, so hitting biceps and triceps directly twice a week adds real volume without stealing recovery from the rest of the week.',
+    sessionFocusById: {
+      focusp_arms_day1: 'Heavy arm day: close-grip bench and barbell curl as anchors.',
+      focusp_arms_day2: 'Full-body maintenance day for legs, back, and shoulders.',
+      focusp_arms_day3: 'Volume arm day: pushdowns, preacher curls, and isolation finishers.',
+    },
+  },
+
+  tpl_focus_legs_program_v1: {
+    summary: 'A three-day specialisation block that trains legs twice a week — one heavy squat day, one volume day — with a single upper-body maintenance day.',
+    audience: 'Best for intermediate lifters who want serious lower-body growth and can recover from two hard leg days.',
+    equipmentProfile: 'Full gym required: squat rack, hack squat or leg press, leg curl machine, and calf station.',
+    whyItWorks: 'Squat-led heavy work plus machine-led volume work doubles the weekly growth stimulus, and the upper-body day keeps pressing and pulling from sliding backwards.',
+    sessionFocusById: {
+      focusp_legs_day1: 'Heavy leg day anchored by back squat with hinge and press support.',
+      focusp_legs_day2: 'Upper-body maintenance day.',
+      focusp_legs_day3: 'Volume leg day: hack squat, split squats, and hip thrust.',
+    },
+  },
+
+  tpl_focus_glutes_program_v1: {
+    summary: 'A three-day specialisation block with two glute-led lower days and one upper-body maintenance day.',
+    audience: 'Best for lifters who want glute growth as the clear top priority for the next training block.',
+    equipmentProfile: 'Full gym required: hip thrust setup, squat rack or leg press, and leg curl machine.',
+    whyItWorks: 'Hip thrust and hinge patterns load the glutes directly twice a week, with squat and lunge variations adding stimulus from a second angle.',
+    sessionFocusById: {
+      focusp_glutes_day1: 'Heavy glute day anchored by hip thrust with hinge and split squat support.',
+      focusp_glutes_day2: 'Upper-body maintenance day.',
+      focusp_glutes_day3: 'Volume glute day: squat, hip thrust, and lunge patterns back to back.',
+    },
+  },
+
 };
 
 export function getReadyProgramContent(templateId: string): ReadyProgramContent | null {

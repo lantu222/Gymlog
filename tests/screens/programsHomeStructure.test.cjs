@@ -43,26 +43,35 @@ module.exports = [
     },
   },
   {
-    name: 'programs home screen composes active hero, designed covers, switch sheet, and library',
+    name: 'programs home screen composes photo hero, this-week plan, actions, switch rail, and library',
     run() {
       assert.match(programsHomeSource, /import \{ HG3 \} from '\.\.\/lightTheme'/);
-      assert.match(programsHomeSource, />Programs<\/Text>/);
-      assert.match(programsHomeSource, /Your plan, and the programs behind it\./);
-      // Active program hero: eyebrow, week label, gradient tile, phase note,
-      // segmented block bar, chips, a next-session strip Start, and manage row.
+      // Redesign: no screen header — the full-bleed photo-placeholder hero leads.
+      assert.doesNotMatch(programsHomeSource, /Your plan, and the programs behind it\./);
+      assert.match(programsHomeSource, /programsHeroScrim/);
       assert.match(programsHomeSource, /ACTIVE PROGRAM/);
       assert.match(programsHomeSource, /activeProgram\.weekLabel/);
-      assert.match(programsHomeSource, /<GradientTile stops=\{ACTIVE_TILE\} size=\{58\}/);
-      assert.match(programsHomeSource, /Week \{currentWeek\}: \{phaseNote\(currentWeek, totalWeeks\)\}/);
+      assert.match(programsHomeSource, /phaseNote\(currentWeek, totalWeeks\)/);
       assert.match(programsHomeSource, /Array\.from\(\{ length: totalWeeks \}/);
-      assert.match(programsHomeSource, /index < currentWeek \? styles\.segmentFilled : styles\.segmentEmpty/);
-      assert.match(programsHomeSource, /activeProgram\.sessionsPerWeek\} days \/ week/);
-      assert.match(programsHomeSource, /NEXT SESSION/);
-      assert.match(programsHomeSource, /onStartActiveSession\(nextSession\.id\)/);
-      assert.match(programsHomeSource, /View plan, edit days &amp; swap exercises/);
-      // Explore: designed gradient covers (oklch pre-converted to sRGB), not
+      assert.match(programsHomeSource, /index < currentWeek \? styles\.heroSegmentFilled : styles\.heroSegmentEmpty/);
+      // THIS WEEK plan: weekday-spread day rows with a TODAY highlight; the old
+      // next-session Start strip is intentionally gone (starting lives elsewhere).
+      assert.match(programsHomeSource, /THIS WEEK · \$\{activeProgram\.sessionsPerWeek\} DAYS \/ WEEK/);
+      assert.match(programsHomeSource, /weekdayForSession\(index, weekSessions\.length\)/);
+      assert.match(programsHomeSource, /dayRowToday/);
+      assert.match(programsHomeSource, />TODAY<\/Text>/);
+      assert.doesNotMatch(programsHomeSource, /NEXT SESSION/);
+      // Actions: solid-accent View full plan, sub-actions, outlined New program → sheet.
+      assert.match(programsHomeSource, />View full plan<\/Text>/);
+      assert.match(programsHomeSource, />Swap exercises<\/Text>/);
+      assert.match(programsHomeSource, /onPress=\{onAdjustSchedule\}/);
+      assert.match(programsHomeSource, />New program<\/Text>/);
+      assert.match(programsHomeSource, /setCreateOpen\(true\)/);
+      assert.match(programsHomeSource, /<NewProgramSheet/);
+      // Switch rail: designed gradient covers (oklch pre-converted to sRGB), not
       // photos. Tapping a card opens the switch-program sheet.
-      assert.match(programsHomeSource, /EXPLORE PROGRAMS/);
+      assert.match(programsHomeSource, /SWITCH PROGRAM/);
+      assert.doesNotMatch(programsHomeSource, /EXPLORE PROGRAMS/);
       assert.match(programsHomeSource, /const COVER_STYLES/);
       assert.match(programsHomeSource, /function ProgramCover/);
       assert.match(programsHomeSource, /RadialGradient/);
