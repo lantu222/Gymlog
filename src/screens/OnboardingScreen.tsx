@@ -391,6 +391,55 @@ const GOAL_OPTIONS: Array<{
   },
 ];
 
+// Training-level slider (step 04). UI speaks Beginner/Advanced/Pro; until the
+// internal SetupLevel rename lands (P3a) they map onto the legacy values
+// beginner/intermediate/advanced.
+const LEVEL_SLIDER_OPTIONS: Array<{
+  level: SetupLevel;
+  label: string;
+  lines: [string, string];
+}> = [
+  {
+    level: 'beginner',
+    label: 'Beginner',
+    lines: ['New to lifting or returning after a break.', 'We keep form simple and progress steady.'],
+  },
+  {
+    level: 'intermediate',
+    label: 'Advanced',
+    lines: ['Trained consistently for a year or more.', 'You know the main lifts and want structure.'],
+  },
+  {
+    level: 'advanced',
+    label: 'Pro',
+    lines: ['Years of serious training behind you.', 'Higher volume and intensity - we push the pace.'],
+  },
+];
+
+// Flame positions inside the 280x140 logo wrap - count and size grow with the
+// level (few small sparks -> whole-logo blaze).
+const LEVEL_FLAME_LAYOUTS: Array<Array<{ x: number; y: number; size: number; opacity?: number }>> = [
+  [
+    { x: 82, y: 98, size: 16, opacity: 0.9 },
+    { x: 184, y: 100, size: 14, opacity: 0.75 },
+  ],
+  [
+    { x: 44, y: 92, size: 18, opacity: 0.8 },
+    { x: 104, y: 102, size: 24, opacity: 0.95 },
+    { x: 166, y: 100, size: 20, opacity: 0.85 },
+    { x: 222, y: 90, size: 16, opacity: 0.7 },
+  ],
+  [
+    { x: 18, y: 58, size: 22, opacity: 0.75 },
+    { x: 56, y: 92, size: 30, opacity: 0.9 },
+    { x: 106, y: 102, size: 34 },
+    { x: 158, y: 98, size: 30, opacity: 0.95 },
+    { x: 206, y: 88, size: 26, opacity: 0.85 },
+    { x: 244, y: 54, size: 20, opacity: 0.7 },
+    { x: 128, y: 14, size: 18, opacity: 0.65 },
+  ],
+];
+
 const TRAINING_LEVEL_OPTIONS: Array<{
   level: SetupLevel;
   title: string;
@@ -1964,6 +2013,17 @@ function BodyweightTimelineCard({
   );
 }
 
+function FlameGlyph({ size, opacity = 1 }: { size: number; opacity?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" style={{ opacity }}>
+      <Path
+        d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"
+        fill={ONBOARDING_PRIMARY}
+      />
+    </Svg>
+  );
+}
+
 function StepDots({ index, light = false }: { index: number; light?: boolean }) {
   return (
     <View style={styles.pagination}>
@@ -2198,6 +2258,11 @@ export function OnboardingScreen({
       : null,
   );
   const [equipmentItems, setEquipmentItems] = useState<string[]>(setupSeed.equipmentItems ?? []);
+  const [levelTrackWidth, setLevelTrackWidth] = useState(0);
+  const levelThumbAnim = useRef(
+    new Animated.Value(Math.max(0, LEVEL_SLIDER_OPTIONS.findIndex((option) => option.level === setupSeed.level))),
+  ).current;
+  const levelFlamePop = useRef(new Animated.Value(1)).current;
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
   );
@@ -3212,6 +3277,14 @@ export function OnboardingScreen({
   }
 
   function renderLevel() {
+    const selectedLevelIndex = Math.max(
+      0,
+      LEVEL_SLIDER_OPTIONS.findIndex((option) => option.level === level),
+    );
+    const selectedLevelOption = LEVEL_SLIDER_OPTIONS[selectedLevelIndex];
+    const segmentWidth = levelTrackWidth > 0 ? (levelTrackWidth - 8) / LEVEL_SLIDER_OPTIONS.length : 0;
+    const flames = LEVEL_FLAME_LAYOUTS[selectedLevelIndex] ?? [];
+
     return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('level'),
       titleLines: ['Training level'],
@@ -3221,40 +3294,90 @@ export function OnboardingScreen({
       titleStyle: styles.trainingProfileHeadline,
       bottomStyle: styles.trainingProfileBottomPane,
       children: (
-        <View style={styles.trainingProfileContent}>
-          <View style={styles.trainingProfileSection}>
-            <View style={styles.trainingExperienceList}>
-              {TRAINING_LEVEL_OPTIONS.map((option) => {
-                const active = profileLevelSelected && level === option.level;
-
-                return (
-                  <Pressable
-                    key={option.level}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${option.title} experience level`}
-                    accessibilityState={{ selected: active }}
-                    onPress={() => {
-                      void haptics.select();
-                      setLevel(option.level);
-                      setProfileLevelSelected(true);
-                    }}
-                    style={[styles.trainingExperienceCard, active && styles.trainingExperienceCardActive]}
-                  >
-                    <OnboardingOptionIcon name={option.icon} />
-                    <View style={styles.trainingExperienceCopy}>
-                      <Text style={[styles.trainingExperienceTitle, active && styles.trainingExperienceTitleActive]}>
-                        {option.title}
-                      </Text>
-                      <Text style={styles.trainingExperienceBody}>{option.body}</Text>
-                    </View>
-                    <View style={[styles.trainingProfileRadio, active && styles.trainingProfileRadioActive]}>
-                      {active ? <GymlogIcon name="check" size={13} color="#FFFFFF" /> : null}
-                    </View>
-                  </Pressable>
-                );
-              })}
+        <View style={styles.levelStageContent}>
+          <View style={styles.levelLogoWrap}>
+            <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ scale: levelFlamePop }] }]}>
+              {flames.map((flame, index) => (
+                <View key={`${selectedLevelIndex}-${index}`} style={[styles.levelFlame, { left: flame.x, top: flame.y }]}>
+                  <FlameGlyph size={flame.size} opacity={flame.opacity} />
+                </View>
+              ))}
+            </Animated.View>
+            <View style={styles.levelLogoRow}>
+              <Text style={[styles.levelLogoText, styles.levelLogoInk]}>G</Text>
+              <Text style={[styles.levelLogoText, styles.levelLogoPurple]}>AI</Text>
+              <Text style={[styles.levelLogoText, styles.levelLogoInk]}>NER</Text>
             </View>
           </View>
+
+          <View style={styles.levelCopyBlock}>
+            <Text style={styles.levelTitle}>{selectedLevelOption.label}</Text>
+            {selectedLevelOption.lines.map((line) => (
+              <Text key={line} style={styles.levelLine}>
+                {line}
+              </Text>
+            ))}
+          </View>
+
+          <View
+            style={styles.levelSliderTrack}
+            onLayout={(event) => setLevelTrackWidth(event.nativeEvent.layout.width)}
+          >
+            {segmentWidth > 0 ? (
+              <Animated.View
+                style={[
+                  styles.levelSliderThumb,
+                  {
+                    width: segmentWidth,
+                    transform: [
+                      {
+                        translateX: levelThumbAnim.interpolate({
+                          inputRange: [0, LEVEL_SLIDER_OPTIONS.length - 1],
+                          outputRange: [0, segmentWidth * (LEVEL_SLIDER_OPTIONS.length - 1)],
+                        }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            ) : null}
+            {LEVEL_SLIDER_OPTIONS.map((option, index) => {
+              const active = profileLevelSelected && index === selectedLevelIndex;
+
+              return (
+                <Pressable
+                  key={option.level}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${option.label} training level`}
+                  accessibilityState={{ selected: active }}
+                  onPress={() => {
+                    void haptics.select();
+                    setLevel(option.level);
+                    setProfileLevelSelected(true);
+                    Animated.timing(levelThumbAnim, {
+                      toValue: index,
+                      duration: 240,
+                      easing: Easing.out(Easing.cubic),
+                      useNativeDriver: true,
+                    }).start();
+                    levelFlamePop.setValue(0.4);
+                    Animated.spring(levelFlamePop, {
+                      toValue: 1,
+                      friction: 4,
+                      tension: 90,
+                      useNativeDriver: true,
+                    }).start();
+                  }}
+                  style={styles.levelSliderSegment}
+                >
+                  <Text style={[styles.levelSliderLabel, active && styles.levelSliderLabelActive]}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.levelSliderHint}>
+            {profileLevelSelected ? 'You can change this anytime.' : 'Pick the level that sounds like you.'}
+          </Text>
         </View>
       ),
     });
@@ -4536,6 +4659,101 @@ const styles = StyleSheet.create({
     marginTop: 10,
     marginBottom: 2,
     paddingHorizontal: 2,
+  },
+  levelStageContent: {
+    flex: 1,
+    alignItems: 'center',
+    paddingTop: 8,
+  },
+  levelLogoWrap: {
+    width: 280,
+    height: 140,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  levelLogoRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+  },
+  levelLogoText: {
+    fontSize: 46,
+    lineHeight: 50,
+    fontWeight: '800',
+    letterSpacing: -0.92,
+  },
+  levelLogoInk: {
+    color: ONBOARDING_TEXT,
+  },
+  levelLogoPurple: {
+    color: ONBOARDING_PRIMARY,
+  },
+  levelFlame: {
+    position: 'absolute',
+  },
+  levelCopyBlock: {
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
+  levelTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginBottom: 3,
+  },
+  levelLine: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 13.5,
+    lineHeight: 18.5,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  levelSliderTrack: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    backgroundColor: '#EDE6FB',
+    borderRadius: 999,
+    padding: 4,
+    marginTop: 22,
+    position: 'relative',
+  },
+  levelSliderThumb: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    borderRadius: 999,
+    backgroundColor: ONBOARDING_PRIMARY,
+    shadowColor: ONBOARDING_PRIMARY,
+    shadowOpacity: 0.32,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5,
+  },
+  levelSliderSegment: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 999,
+  },
+  levelSliderLabel: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  levelSliderLabelActive: {
+    color: '#FFFFFF',
+  },
+  levelSliderHint: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '600',
+    marginTop: 12,
   },
   locationStepOneOptionsShift: {
     transform: [{ translateY: -36 }],
