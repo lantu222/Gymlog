@@ -61,7 +61,10 @@ import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { AICoachScreen } from './src/screens/AICoachScreen';
 import { AiModeSetupScreen } from './src/screens/AiModeSetupScreen';
+import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { CreateTemplateScreen } from './src/screens/CreateTemplateScreen';
+import { HealthConnectScreen } from './src/screens/HealthConnectScreen';
+import { HealthSyncedScreen } from './src/screens/HealthSyncedScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -90,6 +93,12 @@ import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppData
 import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
 import { WorkoutRuntimeTemplate, WorkoutTemplateExercise } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
+import {
+  getAgeFromDateOfBirth,
+  getHealthProviderLabel,
+  HealthBasics,
+  requestHealthBasics,
+} from './src/integrations/health';
 import { colors } from './src/theme';
 import {
   AppDatabase,
@@ -434,6 +443,7 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
     gender: preferences.setupGender ?? DEFAULT_FIRST_RUN_SELECTION.gender,
     age: preferences.setupAge ?? DEFAULT_FIRST_RUN_SELECTION.age,
     ageRange: preferences.setupAgeRange ?? DEFAULT_FIRST_RUN_SELECTION.ageRange,
+    heightCm: preferences.setupHeightCm,
     goal: preferences.setupGoal,
     goals:
       preferences.setupGoals.length > 0
@@ -473,6 +483,7 @@ function buildSetupPreferencePatch(
     setupGender: selection.gender,
     setupAge: selection.age ?? null,
     setupAgeRange: selection.ageRange ?? null,
+    setupHeightCm: selection.heightCm ?? null,
     setupGoal: selection.goal,
     setupGoals: selection.goals?.length ? selection.goals : [selection.goal],
     setupLevel: selection.level,
@@ -1069,9 +1080,14 @@ function GymlogApp() {
 
   const onboardingActive = !preferences.onboardingCompleted;
   const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
-  // Pre-onboarding fork: after Welcome the user picks guided onboarding,
-  // browsing ready programs, or the (locked) AI-built path.
-  const [startPathChosen, setStartPathChosen] = useState(false);
+  // Pre-questionnaire flow: after Welcome the user picks a path (01b); the
+  // build path then runs Health connect (01c) → synced (01d) → about-you (01e)
+  // before the questionnaire. The ready path exits onboarding to the catalog.
+  const [onboardingStep, setOnboardingStep] = useState<
+    'path' | 'health_connect' | 'health_synced' | 'about' | 'questionnaire'
+  >('path');
+  const [onboardingHealthBasics, setOnboardingHealthBasics] = useState<HealthBasics | null>(null);
+  const [aboutYouValues, setAboutYouValues] = useState<AboutYouValues | null>(null);
 
   useEffect(() => {
     if (!hydrated || !preferences.onboardingCompleted) {
@@ -1599,6 +1615,40 @@ function GymlogApp() {
     await updatePreferences({
       entryFlowCompleted: false,
     });
+  }
+
+  // Profile → CONNECTIONS: same permission flow as the onboarding Health step.
+  // Imported basics only fill setup fields that are still empty.
+  async function handleProfileConnectHealth() {
+    const providerLabel = getHealthProviderLabel();
+    const result = await requestHealthBasics();
+    if (result.status !== 'connected') {
+      showToast(
+        result.status === 'denied'
+          ? `${providerLabel} permission was denied`
+          : `${providerLabel} isn't available on this device`,
+      );
+      return;
+    }
+
+    const patch: Partial<AppPreferences> = {};
+    if (result.basics.sex && !preferences.setupGender) {
+      patch.setupGender = result.basics.sex;
+    }
+    const healthAge = getAgeFromDateOfBirth(result.basics.dateOfBirth);
+    if (healthAge !== null && preferences.setupAge === null) {
+      patch.setupAge = healthAge;
+    }
+    if (result.basics.heightCm !== null && preferences.setupHeightCm === null) {
+      patch.setupHeightCm = result.basics.heightCm;
+    }
+    if (result.basics.weightKg !== null && preferences.setupCurrentWeightKg === null) {
+      patch.setupCurrentWeightKg = result.basics.weightKg;
+    }
+    if (Object.keys(patch).length > 0) {
+      await updatePreferences(patch);
+    }
+    showToast(`Connected to ${providerLabel}`);
   }
 
   function openRecommendedProgramDetail(recommendedProgramId: string) {
@@ -2439,12 +2489,60 @@ function GymlogApp() {
           onContinue={() => void handleContinueEntry()}
         />
       );
-    } else if (!startPathChosen) {
+    } else if (onboardingStep === 'path') {
       content = (
         <StartPathScreen
-          onGuidedOnboarding={() => setStartPathChosen(true)}
+          onGuidedOnboarding={() => setOnboardingStep('health_connect')}
           onBrowsePrograms={() => void handleOnboardingSkip('programs')}
           onBack={() => void handleBackToEntry()}
+        />
+      );
+    } else if (onboardingStep === 'health_connect' || (onboardingStep === 'health_synced' && !onboardingHealthBasics)) {
+      content = (
+        <HealthConnectScreen
+          onConnected={(basics) => {
+            setOnboardingHealthBasics(basics);
+            setOnboardingStep('health_synced');
+          }}
+          onSkip={() => {
+            setOnboardingHealthBasics(null);
+            setOnboardingStep('about');
+          }}
+        />
+      );
+    } else if (onboardingStep === 'health_synced' && onboardingHealthBasics) {
+      content = (
+        <HealthSyncedScreen
+          basics={onboardingHealthBasics}
+          onContinue={() => setOnboardingStep('about')}
+          onBack={() => setOnboardingStep('health_connect')}
+        />
+      );
+    } else if (onboardingStep === 'about') {
+      const healthAge = getAgeFromDateOfBirth(onboardingHealthBasics?.dateOfBirth ?? null);
+      content = (
+        <AboutYouScreen
+          healthConnected={onboardingHealthBasics !== null}
+          initialValues={
+            aboutYouValues ??
+            (onboardingHealthBasics
+              ? {
+                  gender: onboardingHealthBasics.sex,
+                  ...(healthAge !== null ? { age: healthAge } : null),
+                  ...(onboardingHealthBasics.heightCm !== null
+                    ? { heightCm: onboardingHealthBasics.heightCm }
+                    : null),
+                  ...(onboardingHealthBasics.weightKg !== null
+                    ? { weightKg: onboardingHealthBasics.weightKg }
+                    : null),
+                }
+              : null)
+          }
+          onContinue={(values) => {
+            setAboutYouValues(values);
+            setOnboardingStep('questionnaire');
+          }}
+          onBack={() => setOnboardingStep(onboardingHealthBasics ? 'health_synced' : 'path')}
         />
       );
     } else {
@@ -2454,8 +2552,19 @@ function GymlogApp() {
           tailoringPreferences={tailoringPreferences}
           readyProgramCount={workout.templates.length}
           dismissedTipIds={dismissedTipIds}
+          basicsSeed={
+            aboutYouValues
+              ? {
+                  profileName: aboutYouValues.name,
+                  gender: aboutYouValues.gender ?? 'unspecified',
+                  age: aboutYouValues.age,
+                  heightCm: aboutYouValues.heightCm,
+                  currentWeightKg: aboutYouValues.weightKg,
+                }
+              : null
+          }
           onDismissTip={handleDismissTip}
-          onBackToEntry={() => setStartPathChosen(false)}
+          onBackToEntry={() => setOnboardingStep('about')}
           onSkip={() => void handleOnboardingSkip()}
           onCompleteToTraining={handleOnboardingCompleteToTraining}
           onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
@@ -2844,6 +2953,7 @@ function GymlogApp() {
         onEditTraining={handleOpenSetupEditor}
         onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
         onOpenPremium={handleOpenPremium}
+        onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
           await resetAllData();
           setCompletionSummary(null);

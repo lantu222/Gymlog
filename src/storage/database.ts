@@ -346,6 +346,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.setupAge === 'number' && Number.isFinite(input.preferences.setupAge)
           ? Math.max(0, Math.min(100, Math.round(input.preferences.setupAge)))
           : fallback.preferences.setupAge,
+      setupHeightCm:
+        typeof input?.preferences?.setupHeightCm === 'number' && Number.isFinite(input.preferences.setupHeightCm)
+          ? Math.max(0, Math.min(300, Math.round(input.preferences.setupHeightCm)))
+          : fallback.preferences.setupHeightCm,
       setupAgeRange:
         input?.preferences?.setupAgeRange === 'unspecified' ||
         input?.preferences?.setupAgeRange === '18' ||

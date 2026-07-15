@@ -338,8 +338,11 @@ module.exports = [
       // Light welcome: English plan-focused copy on the HG palette.
       assert.match(welcomeSource, /You go to the gym\./);
       assert.match(welcomeSource, /We handle the rest\./);
-      assert.match(welcomeSource, /Start free/);
+      assert.match(welcomeSource, /Continue with Google/);
+      assert.match(welcomeSource, /Continue with Apple/);
+      assert.match(welcomeSource, /Sign up with email/);
       assert.match(welcomeSource, /I already have an account/);
+      assert.doesNotMatch(welcomeSource, /Start free/);
       assert.match(welcomeSource, /const BG = '#F7F3FF'/);
       assert.match(welcomeSource, /const PURPLE = '#7C3AED'/);
       assert.match(welcomeSource, /logoInk/);

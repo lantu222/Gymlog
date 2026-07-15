@@ -232,6 +232,7 @@ export interface AppPreferences {
   setupGender: SetupGender | null;
   setupAge: number | null;
   setupAgeRange: SetupAgeRange | null;
+  setupHeightCm: number | null;
   setupGoal: SetupGoal | null;
   setupGoals: SetupGoal[];
   setupLevel: SetupLevel | null;

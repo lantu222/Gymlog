@@ -45,9 +45,9 @@ module.exports = [
       assert.match(componentSource, /outputRange: \[1, 0\.98\]/);
       assert.match(componentSource, /outputRange: \[1, 0\.92\]/);
 
-      // Redesigned welcome renders its own local flat CTA.
+      // Redesigned welcome renders its own local flat CTA (email sign-up).
       assert.doesNotMatch(welcomeSource, /PrimaryCTAButton/);
-      assert.match(welcomeSource, /Start free/);
+      assert.match(welcomeSource, /Sign up with email/);
       assert.match(welcomeSource, /backgroundColor: PURPLE/);
     },
   },

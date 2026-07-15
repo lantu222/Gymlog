@@ -30,6 +30,7 @@ const DEFAULT_PREFERENCES = {
   setupGender: null,
   setupAge: null,
   setupAgeRange: null,
+  setupHeightCm: null,
   setupGoal: null,
   setupGoals: [] as SetupGoal[],
   setupLevel: null,

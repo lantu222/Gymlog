@@ -33,6 +33,7 @@ export interface FirstRunSetupSelection {
   gender: SetupGender;
   age?: number | null;
   ageRange?: SetupAgeRange;
+  heightCm?: number | null;
   goal: SetupGoal;
   goals?: SetupGoal[];
   level: SetupLevel;
@@ -104,6 +105,7 @@ export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
   gender: 'unspecified',
   age: 25,
   ageRange: '19_25',
+  heightCm: null,
   goal: 'strength',
   goals: ['strength'],
   level: 'beginner',

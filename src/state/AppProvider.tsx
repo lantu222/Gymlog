@@ -124,6 +124,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupGender: null,
       setupAge: null,
       setupAgeRange: null,
+      setupHeightCm: null,
       setupGoal: null,
       setupGoals: [],
       setupLevel: null,

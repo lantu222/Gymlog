@@ -12,6 +12,7 @@ import {
 import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
 import { ExerciseProgressSummary } from '../lib/progression';
+import { getHealthProviderLabel } from '../integrations/health';
 import { HG } from '../lightTheme';
 import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences, ExerciseLibraryItem, SignInMethod, UnitPreference } from '../types/models';
@@ -30,6 +31,7 @@ interface ProfileScreenProps {
   onEditTraining: () => void;
   onOpenProgress: () => void;
   onOpenPremium: () => void;
+  onConnectHealth: () => void;
   onResetAllData: () => void;
 }
 
@@ -81,6 +83,14 @@ function DumbbellGlyph() {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
+    </Svg>
+  );
+}
+
+function HealthHeartGlyph() {
+  return (
+    <Svg width={22} height={22} viewBox="0 0 24 24" fill="#FF2D55">
+      <Path d="M12 21s-8-5-8-10.2C4 7.5 6 5.5 8.5 5.5c1.5 0 2.8.8 3.5 2 .7-1.2 2-2 3.5-2C18 5.5 20 7.5 20 10.8 20 16 12 21 12 21z" />
     </Svg>
   );
 }
@@ -204,6 +214,7 @@ export function ProfileScreen({
   onEditTraining,
   onOpenProgress,
   onOpenPremium,
+  onConnectHealth,
   onResetAllData,
 }: ProfileScreenProps) {
   const [resetVisible, setResetVisible] = useState(false);
@@ -400,6 +411,30 @@ export function ProfileScreen({
               <Text style={styles.premiumCtaText}>See what&apos;s inside</Text>
             </View>
           </Pressable>
+        </View>
+
+        {/* CONNECTIONS */}
+        <View style={styles.section}>
+          <SectionLabel label="CONNECTIONS" />
+          <View style={styles.card}>
+            <View style={styles.connectionRow}>
+              <View style={styles.connectionTile}>
+                <HealthHeartGlyph />
+              </View>
+              <View style={styles.connectionCopy}>
+                <Text style={styles.setTitle}>{getHealthProviderLabel()}</Text>
+                <Text style={styles.setSub}>Sync weight and workouts both ways.</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Connect ${getHealthProviderLabel()}`}
+                onPress={onConnectHealth}
+                style={({ pressed }) => [styles.connectAction, pressed && { opacity: 0.7 }]}
+              >
+                <Text style={styles.connectActionText}>Connect</Text>
+              </Pressable>
+            </View>
+          </View>
         </View>
 
         {/* PREFERENCES */}
@@ -942,6 +977,35 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: HG.border,
+  },
+  connectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+  },
+  connectionTile: {
+    width: 42,
+    height: 42,
+    borderRadius: 13,
+    backgroundColor: HG.surface,
+    borderWidth: 1.5,
+    borderColor: HG.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectionCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  connectAction: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+  },
+  connectActionText: {
+    color: HG.purpleDark,
+    fontSize: 13.5,
+    fontWeight: '800',
   },
   setRowLast: {
     borderBottomWidth: 0,

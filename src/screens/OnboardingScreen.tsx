@@ -88,6 +88,12 @@ interface OnboardingScreenProps {
   onDismissTip: (tipId: string) => void | Promise<void>;
   mode?: 'first_run' | 'edit';
   initialSelection?: FirstRunSetupSelection | null;
+  /**
+   * Seeds the first-run questionnaire with the basics collected on the
+   * About-you screen (name/gender/age/height/weight) WITHOUT marking the
+   * questionnaire steps as already answered the way initialSelection does.
+   */
+  basicsSeed?: Partial<FirstRunSetupSelection> | null;
   initialStage?: SetupStage;
   tailoringPreferences?: TailoringPreferencesInput | null;
   onBackToEntry?: () => void | Promise<void>;
@@ -2118,6 +2124,7 @@ export function OnboardingScreen({
   readyProgramCount,
   mode = 'first_run',
   initialSelection,
+  basicsSeed,
   initialStage,
   tailoringPreferences = null,
   onBackToEntry,
@@ -2128,7 +2135,8 @@ export function OnboardingScreen({
   onCancel,
 }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
-  const setupSeed = initialSelection ?? DEFAULT_FIRST_RUN_SELECTION;
+  const setupSeed =
+    initialSelection ?? (basicsSeed ? { ...DEFAULT_FIRST_RUN_SELECTION, ...basicsSeed } : DEFAULT_FIRST_RUN_SELECTION);
   const editMode = mode === 'edit';
   const BUILDING_PLAN_TOTAL_MS = 10000;
   const previousUnitPreferenceRef = useRef(initialUnitPreference);
@@ -2240,6 +2248,7 @@ export function OnboardingScreen({
       gender,
       age,
       ageRange,
+      heightCm: setupSeed.heightCm ?? null,
       goal,
       goals,
       level,
@@ -2272,6 +2281,7 @@ export function OnboardingScreen({
       profileName,
       scheduleMode,
       secondaryOutcomes,
+      setupSeed.heightCm,
       targetWeightValue,
       trainingEnvironment,
       unitPreference,
