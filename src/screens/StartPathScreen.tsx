@@ -199,7 +199,8 @@ const styles = StyleSheet.create({
   },
   cardSelected: {
     backgroundColor: PURPLE,
-    borderColor: PURPLE,
+    borderWidth: 2,
+    borderColor: PURPLE_DARK,
     shadowColor: PURPLE,
     shadowOpacity: 0.3,
     shadowRadius: 16,
