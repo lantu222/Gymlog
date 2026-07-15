@@ -73,12 +73,15 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 13,
+    borderWidth: 1.5,
+    borderColor: '#C9B6FF',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: TILE_BG,
   },
   containerActive: {
     backgroundColor: TILE_BG_ACTIVE,
+    borderColor: 'rgba(255,255,255,0.7)',
   },
   containerSubdued: {
     opacity: 0.6,

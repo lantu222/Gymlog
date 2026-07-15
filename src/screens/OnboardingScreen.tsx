@@ -147,7 +147,9 @@ const ONBOARDING_CARD_ACTIVE = '#EFE7FF';
 const ONBOARDING_PRIMARY = '#7C3AED';
 const ONBOARDING_PRIMARY_SOFT = 'rgba(124,58,237,0.14)';
 const ONBOARDING_TEXT = '#101828';
-const ONBOARDING_TEXT_SOFT = '#667085';
+// Emphasis treatment (user-approved on Welcome/StartPath/Health): secondary
+// copy runs darker than the old #667085 so it stays legible on dim displays.
+const ONBOARDING_TEXT_SOFT = '#475467';
 const ONBOARDING_TEXT_MUTED = '#9A93AC';
 const ONBOARDING_BORDER = '#E4D8FF';
 const ONBOARDING_BORDER_ACTIVE = '#7C3AED';
@@ -4177,6 +4179,8 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     backgroundColor: ONBOARDING_PRIMARY,
+    borderWidth: 1.5,
+    borderColor: '#5B21B6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4450,7 +4454,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: '#C9B6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4477,7 +4481,7 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: '#C9B6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4593,7 +4597,7 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
     borderWidth: 2,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: '#C9B6FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4708,6 +4712,8 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     backgroundColor: ONBOARDING_PRIMARY,
+    borderWidth: 1.5,
+    borderColor: '#5B21B6',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -4932,7 +4938,7 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 999,
     borderWidth: 2,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: '#C9B6FF',
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
@@ -4941,7 +4947,7 @@ const styles = StyleSheet.create({
   locationChoiceRadioLeading: {
     marginLeft: 0,
     marginRight: 0,
-    borderColor: ONBOARDING_BORDER,
+    borderColor: '#C9B6FF',
   },
   locationChoiceRadioActive: {
     borderColor: '#FFFFFF',

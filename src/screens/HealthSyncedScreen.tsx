@@ -130,6 +130,8 @@ const styles = StyleSheet.create({
     height: 68,
     borderRadius: 999,
     backgroundColor: PURPLE,
+    borderWidth: 2,
+    borderColor: '#5B21B6',
     alignItems: 'center',
     justifyContent: 'center',
     alignSelf: 'center',
@@ -149,10 +151,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    color: MUTED,
+    color: '#475467',
     fontSize: 14.5,
     lineHeight: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
     marginTop: 8,
   },
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: SURFACE,
     borderWidth: 1.5,
-    borderColor: BORDER,
+    borderColor: '#C9B6FF',
     borderRadius: 18,
     paddingHorizontal: 18,
   },
@@ -184,9 +186,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   rowLabel: {
-    color: MUTED,
+    color: '#475467',
     fontSize: 13.5,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   rowValue: {
     color: INK,
