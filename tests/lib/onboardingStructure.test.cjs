@@ -116,119 +116,53 @@ module.exports = [
       assert.notEqual(locationStageActiveStart, -1, 'locationStageActive should exist');
 
       const canContinueBlock = onboardingSource.slice(canContinueStart, locationStageActiveStart);
-      assert.match(canContinueBlock, /stage === 'profile'[\s\S]*profileLevelSelected && profileFrequencySelected && profileGenderSelected/);
+      assert.match(canContinueBlock, /stage === 'level'[\s\S]*profileLevelSelected/);
+      assert.match(canContinueBlock, /stage === 'days'[\s\S]*profileFrequencySelected/);
       assert.match(canContinueBlock, /stage === 'planning'[\s\S]*focusAreas\.length > 0/);
       assert.match(onboardingSource, /if \(!canContinue \|\| busy\)/);
       assert.match(onboardingSource, /disabled=\{!canContinue \|\| busy\}/);
     },
   },
   {
-    name: 'onboarding uses five input steps and builds directly from step 5',
+    name: 'onboarding uses five input steps and builds directly from focus areas',
     run() {
-      const aboutBody = getFunctionBody('renderAbout');
       const footerStart = onboardingSource.indexOf('const footerPrimaryLabel =');
       assert.notEqual(footerStart, -1, 'footerPrimaryLabel should exist');
       const footerBody = onboardingSource.slice(footerStart, onboardingSource.indexOf('<Modal', footerStart));
 
-      assert.match(onboardingSource, /const STAGES: SetupStage\[\] = \['location', 'goal', 'profile', 'planning', 'about', 'review'\]/);
-      assert.match(onboardingSource, /const ONBOARDING_PROGRESS_STAGES: SetupStage\[\] = \['location', 'goal', 'profile', 'planning', 'about'\]/);
+      assert.match(onboardingSource, /const STAGES: SetupStage\[\] = \['location', 'goal', 'level', 'days', 'planning', 'review'\]/);
+      assert.match(onboardingSource, /const ONBOARDING_PROGRESS_STAGES: SetupStage\[\] = \['location', 'goal', 'level', 'days', 'planning'\]/);
       assert.match(onboardingSource, /ONBOARDING_PROGRESS_STAGES\.map/);
-      assert.doesNotMatch(onboardingSource, /const STAGES: SetupStage\[\] = \[[^\]]*'focus'/);
-      assert.doesNotMatch(onboardingSource, /function renderFocus\(/);
-      assert.match(aboutBody, /stepLabel: 'STEP 5 OF 5'/);
-      assert.match(footerBody, /stage === 'about'[\s\S]*'Build my plan'/);
-      assert.match(footerBody, /if \(stage === 'about'\) \{[\s\S]*setIsBuildingPlan\(true\)/);
-      assert.doesNotMatch(footerBody, /stage === 'focus'/);
-      assert.doesNotMatch(onboardingSource, /stage === 'focus'/);
-      assert.doesNotMatch(onboardingSource, /renderFocus\(\)/);
+      // STEP n OF m labels are computed from the stage array, never hardcoded,
+      // so inserting the avoid stage later renumbers everything automatically.
+      assert.match(onboardingSource, /function getQuestionnaireStepLabel\(stage: SetupStage\)/);
+      assert.doesNotMatch(onboardingSource, /stepLabel: 'STEP \d OF \d'/);
+      // Focus areas is the last question; building starts straight from it.
+      assert.match(footerBody, /stage === 'planning'[\s\S]*'Build my plan'/);
+      assert.match(footerBody, /if \(stage === 'planning'\) \{[\s\S]*setIsBuildingPlan\(true\)/);
     },
   },
   {
-    name: 'onboarding bodyweight step adapts target weight by selected goal',
+    name: 'onboarding no longer asks gender or goal weight mid-questionnaire',
     run() {
-      assert.match(onboardingSource, /function getBodyweightGoalMode\(goals: SetupGoal\[\]\)/);
-      assert.match(onboardingSource, /goals\.includes\('lean_athletic'\)/);
-      assert.match(onboardingSource, /return 'required'/);
-      assert.match(onboardingSource, /goals\.includes\('muscle'\)/);
-      assert.match(onboardingSource, /return 'optional'/);
-
-      const aboutBody = getFunctionBody('renderAbout');
-      assert.match(aboutBody, /const bodyweightGoalMode = getBodyweightGoalMode\(\[bodyweightGoal\]\)/);
-
-      // Goal-aware clamping still bounds the target weight.
-      assert.match(onboardingSource, /function getBodyweightTargetLimits\(current: number, unit: UnitPreference, goal: SetupGoal\)/);
-      assert.match(onboardingSource, /function clampTargetBodyweightForGoal\(/);
-      assert.match(onboardingSource, /goal === 'lean_athletic'[\s\S]*max: safeCurrent/);
-      assert.match(onboardingSource, /goal === 'muscle'[\s\S]*min: safeCurrent/);
-      assert.match(aboutBody, /clampTargetBodyweightForGoal\(/);
-      assert.match(aboutBody, /setTargetBodyweight/);
-
-      // Steppers replace the old target slider; the hint copy adapts by goal mode.
-      assert.match(aboutBody, /label=\{`Current Weight \(\$\{unitPreference\.toUpperCase\(\)\}\)`\}/);
-      assert.match(aboutBody, /label=\{`Goal Weight \(\$\{unitPreference\.toUpperCase\(\)\}\)`\}/);
-      assert.match(aboutBody, /bodyweightGoalMode === 'required'/);
-      assert.match(aboutBody, /'Set a target weight to stay on track\.'/);
-      assert.match(aboutBody, /'Only if you have a target in mind\.'/);
-      assert.doesNotMatch(aboutBody, /<BodyweightTargetSlider/);
-      assert.match(onboardingSource, /function BodyweightStepper\(/);
-      assert.match(onboardingSource, /<TextInput[\s\S]*keyboardType="decimal-pad"/);
+      // Name/gender/age/height/weight arrive from the About-you screen (01e)
+      // via basicsSeed; the old Training profile gender block and the whole
+      // bodyweight-goal stage are gone from the stage machine.
+      assert.doesNotMatch(onboardingSource, /stage === 'profile'/);
+      assert.doesNotMatch(onboardingSource, /stage === 'about'/);
+      assert.doesNotMatch(onboardingSource, /function renderProfile\(/);
+      assert.doesNotMatch(onboardingSource, /function renderAbout\(/);
+      assert.doesNotMatch(onboardingSource, /bodyweightSetupStep/);
+      assert.doesNotMatch(onboardingSource, /Program Fit/);
+      assert.doesNotMatch(onboardingSource, /GENDER_OPTIONS\.map/);
+      assert.doesNotMatch(onboardingSource, /profileGenderSelected/);
+      // The seeded values still flow into the selection unchanged.
+      assert.match(onboardingSource, /basicsSeed/);
+      assert.match(onboardingSource, /gender,\r?\n\s*age,/);
+      assert.match(onboardingSource, /currentWeightKg: currentWeightValue === null \? null : convertWeightToKg\(currentWeightValue, unitPreference\)/);
+      assert.match(onboardingSource, /targetWeightKg: targetWeightValue === null \? null : convertWeightToKg\(targetWeightValue, unitPreference\)/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{allowScrollBounce\}/);
-    },
-  },
-  {
-    name: 'onboarding step 5 expected outcome uses compact timeline structure',
-    run() {
-      const aboutBody = getFunctionBody('renderAbout');
-
-      assert.match(aboutBody, /stepLabel: 'STEP 5 OF 5'/);
-      assert.match(aboutBody, /: \['Expected', 'outcome'\]/);
-      assert.match(aboutBody, /<BodyweightGoalOptionCard/);
-      assert.match(aboutBody, /<BodyweightStepper/);
-      assert.match(aboutBody, /<BodyweightSummaryRow/);
-      assert.match(aboutBody, /<BodyweightTimelineCard current=\{bodyweightPickerValue\} target=\{targetBodyweight\} unit=\{unitPreference\}/);
-      assert.doesNotMatch(aboutBody, /<BodyweightExpectationCard/);
-      assert.match(onboardingSource, /const BODYWEIGHT_GOAL_OPTIONS/);
-      assert.match(onboardingSource, /function BodyweightGoalOptionCard\(/);
-      assert.match(onboardingSource, /function BodyweightStepper\(/);
-      assert.match(onboardingSource, /function BodyweightSummaryRow\(/);
-      assert.match(onboardingSource, /function BodyweightTimelineCard\(/);
-      assert.doesNotMatch(onboardingSource, /function BodyweightExpectationCard\(/);
-      assert.match(onboardingSource, /function BodyweightGoalTrendIcon\(/);
-      assert.match(onboardingSource, /import Svg, \{ Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop \} from 'react-native-svg'/);
-      assert.match(onboardingSource, /strokeLinecap="round"/);
-      assert.match(onboardingSource, /strokeLinejoin="round"/);
-      assert.match(onboardingSource, /'M12 15 V4'/);
-      assert.match(onboardingSource, /'M12 3 V14'/);
-      assert.match(onboardingSource, /icon: 'up'/);
-      assert.match(onboardingSource, /accentColor: '#8BDEAE'/);
-      assert.match(onboardingSource, /icon: 'flat'/);
-      assert.match(onboardingSource, /accentColor: '#8FCAFF'/);
-      assert.match(onboardingSource, /icon: 'down'/);
-      assert.match(onboardingSource, /accentColor: '#D9A9FF'/);
-      assert.match(onboardingSource, /bodyweightSliderRow/);
-      assert.match(onboardingSource, /bodyweightSliderCard:\s*\{[\s\S]*minHeight: 50/);
-      assert.match(onboardingSource, /bodyweightSliderTrackWrap:\s*\{[\s\S]*flex: 1/);
-      assert.match(onboardingSource, /bodyweightGoalGrid/);
-      assert.match(onboardingSource, /bodyweightGoalCard:\s*\{[\s\S]*minHeight: 86/);
-      assert.match(onboardingSource, /bodyweightGoalCard:\s*\{[\s\S]*paddingVertical: 10/);
-      assert.match(onboardingSource, /bodyweightSummaryRow:\s*\{[\s\S]*minHeight: 58/);
-      assert.match(onboardingSource, /bodyweightTimelineCard:\s*\{[\s\S]*minHeight: 236/);
-      assert.match(onboardingSource, /Expected timeline/);
-      assert.match(onboardingSource, /Based on a sustainable weekly rate\. You can adjust this later\./);
-      assert.match(onboardingSource, /Today\{"\\n"\}\{formatBodyweightDisplay\(current, unit\)\}/);
-      assert.match(onboardingSource, /Target\{"\\n"\}\{formatBodyweightDisplay\(target, unit\)\}/);
-      assert.match(onboardingSource, /bodyweightStageContent:\s*\{[\s\S]*translateY: -12/);
-
-      const timelineStart = onboardingSource.indexOf('function BodyweightTimelineCard(');
-      const timelineEnd = onboardingSource.indexOf('\nfunction StepDots', timelineStart);
-      assert.notEqual(timelineStart, -1, 'BodyweightTimelineCard should exist');
-      assert.notEqual(timelineEnd, -1, 'BodyweightTimelineCard should be followed by StepDots');
-      const timelineBody = onboardingSource.slice(timelineStart, timelineEnd);
-      assert.match(timelineBody, /const curve = `M18 \$\{startY\} C100 \$\{startY\}, 196 \$\{endY\}, 302 \$\{endY\}`/);
-      assert.match(timelineBody, /stroke=\{ONBOARDING_PRIMARY\}/);
-      assert.doesNotMatch(timelineBody, /bodyweightTimelineIcon/);
-      assert.doesNotMatch(timelineBody, /bodyweightExpectation/);
     },
   },
   {
@@ -236,7 +170,7 @@ module.exports = [
     run() {
       const goalBody = getFunctionBody('renderGoal');
 
-      assert.match(goalBody, /stepLabel: 'STEP 2 OF 5'/);
+      assert.match(goalBody, /stepLabel: getQuestionnaireStepLabel\('goal'\)/);
       assert.match(goalBody, /titleLines: \['What do you', 'want most\?'\]/);
       assert.match(goalBody, /We'll build your training around this\./);
       assert.match(goalBody, /renderSplitSelectionStage\(\{/);
@@ -259,25 +193,30 @@ module.exports = [
     },
   },
   {
-    name: 'onboarding step 3 uses training profile controls',
+    name: 'onboarding splits training level and days into their own steps',
     run() {
-      const profileBody = getFunctionBody('renderProfile');
+      const levelBody = getFunctionBody('renderLevel');
+      const daysBody = getFunctionBody('renderDays');
 
-      assert.match(profileBody, /stepLabel: 'STEP 3 OF 5'/);
-      assert.match(profileBody, /titleLines: \['Training profile'\]/);
-      assert.match(profileBody, /We'll tailor your plan to your experience and availability\./);
-      assert.match(profileBody, /TRAINING_LEVEL_OPTIONS\.map/);
-      assert.match(profileBody, /TRAINING_FREQUENCY_OPTIONS\.map/);
-      assert.match(profileBody, /GENDER_OPTIONS\.map/);
-      assert.match(profileBody, /setLevel\(option\.level\)/);
-      assert.match(profileBody, /setDaysPerWeek\(option\.value\)/);
-      assert.match(profileBody, /setGender\(option\.gender\)/);
-      assert.match(profileBody, /Program Fit/);
-      assert.match(profileBody, /Your plan preview/);
-      assert.match(profileBody, /trainingPlanMetricsRow/);
-      assert.match(profileBody, /setupSummary\.duration\.replace\(' sessions', ''\)/);
-      assert.doesNotMatch(profileBody, /Â|Å|â/);
-      assert.doesNotMatch(profileBody, /AgeSlider/);
+      assert.match(levelBody, /stepLabel: getQuestionnaireStepLabel\('level'\)/);
+      assert.match(levelBody, /titleLines: \['Training level'\]/);
+      assert.match(levelBody, /How much training experience do you have\?/);
+      assert.match(levelBody, /TRAINING_LEVEL_OPTIONS\.map/);
+      assert.match(levelBody, /setLevel\(option\.level\)/);
+      assert.match(levelBody, /styles\.trainingExperienceCardActive/);
+      assert.match(levelBody, /styles\.trainingProfileRadioActive/);
+      assert.doesNotMatch(levelBody, /GENDER_OPTIONS/);
+      assert.doesNotMatch(levelBody, /TRAINING_FREQUENCY_OPTIONS/);
+
+      assert.match(daysBody, /stepLabel: getQuestionnaireStepLabel\('days'\)/);
+      assert.match(daysBody, /titleLines: \['Training days'\]/);
+      assert.match(daysBody, /How many days per week can you train\?/);
+      assert.match(daysBody, /TRAINING_FREQUENCY_OPTIONS\.map/);
+      assert.match(daysBody, /setDaysPerWeek\(option\.value\)/);
+      assert.match(daysBody, /option\.recommendedFor\.includes\(level\)/);
+      assert.match(daysBody, /Recommended/);
+      assert.doesNotMatch(daysBody, /TRAINING_LEVEL_OPTIONS\.map/);
+
       assert.match(onboardingSource, /level: 'advanced'/);
       // Frequency is a clickable tier list (2–3 / 3–4 / 4+), not day-count chips.
       assert.match(onboardingSource, /value: 3, title: '2–3 days \/ week'/);
@@ -285,19 +224,12 @@ module.exports = [
       assert.match(onboardingSource, /value: 5, title: '4\+ days \/ week'/);
       assert.match(onboardingSource, /recommendedFor: \['beginner'\]/);
       assert.doesNotMatch(onboardingSource, /\{ value: 6, title: '6\+', body: 'days' \}/);
-      assert.match(onboardingSource, /function getTrainingProfileSetupSummary\(level: SetupLevel, daysPerWeek: SetupDaysPerWeek\)/);
-      // Top pane tightened (was 206) so Step 3's title hugs the Experience Level heading.
       assert.match(onboardingSource, /trainingProfileTopPane:\s*\{[\s\S]*height: 150/);
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderWidth: 2/);
       assert.match(onboardingSource, /trainingExperienceCard:\s*\{[\s\S]*backgroundColor: ONBOARDING_CARD/);
       assert.match(onboardingSource, /trainingExperienceCardActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE[\s\S]*backgroundColor: ONBOARDING_CARD_ACTIVE/);
-      // Light redesign: experience card title 17/21 (design onb-screens2 = 15.5/800,
-      // within the handoff's 1-2px tolerance), body 12/15. Body weight bumped 600->700
-      // for legibility (spec §4).
       assert.match(onboardingSource, /trainingExperienceTitle:\s*\{[\s\S]*fontSize: 17[\s\S]*lineHeight: 21/);
       assert.match(onboardingSource, /trainingExperienceBody:\s*\{[\s\S]*fontSize: 12[\s\S]*lineHeight: 15/);
-      assert.match(onboardingSource, /trainingGenderTileActive:\s*\{[\s\S]*borderColor: ONBOARDING_BORDER_ACTIVE/);
-      assert.match(onboardingSource, /trainingGenderTitle:\s*\{[\s\S]*fontSize: 14/);
     },
   },
   {
@@ -305,7 +237,7 @@ module.exports = [
     run() {
       const planningBody = getFunctionBody('renderPlanning');
 
-      assert.match(planningBody, /stepLabel: 'STEP 4 OF 5'/);
+      assert.match(planningBody, /stepLabel: getQuestionnaireStepLabel\('planning'\)/);
       assert.match(planningBody, /titleLines: \['What do you', 'want to focus on\?'\]/);
       assert.match(planningBody, /FOCUS_AREA_OPTIONS\.filter\(\(option\) => option\.area !== 'mobility'\)/);
       assert.match(planningBody, /visibleFocusOptions\.slice\(0, 3\)/);

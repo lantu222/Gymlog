@@ -111,10 +111,10 @@ interface OnboardingScreenProps {
 type SetupStage =
   | 'location'
   | 'goal'
-  | 'profile'
+  | 'level'
+  | 'days'
   | 'review'
   | 'planning'
-  | 'about'
   | 'recommendation';
 type HelperState = 'idle' | 'loading' | 'ready' | 'error';
 type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | null;
@@ -127,8 +127,15 @@ type LocationBenefit = { icon: GymlogIconName; label: string; body?: string };
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
 type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
 
-const STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about', 'review'];
-const ONBOARDING_PROGRESS_STAGES: SetupStage[] = ['location', 'goal', 'profile', 'planning', 'about'];
+const STAGES: SetupStage[] = ['location', 'goal', 'level', 'days', 'planning', 'review'];
+const ONBOARDING_PROGRESS_STAGES: SetupStage[] = ['location', 'goal', 'level', 'days', 'planning'];
+
+// STEP n OF m labels follow the progress stages so inserting/removing a stage
+// (e.g. the avoid step in a later phase) renumbers every screen automatically.
+function getQuestionnaireStepLabel(stage: SetupStage) {
+  const index = ONBOARDING_PROGRESS_STAGES.indexOf(stage);
+  return `STEP ${index + 1} OF ${ONBOARDING_PROGRESS_STAGES.length}`;
+}
 const BODYWEIGHT_SETUP_STEPS: BodyweightSetupStep[] = ['goal', 'current', 'target', 'outcome'];
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -2162,9 +2169,6 @@ export function OnboardingScreen({
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
   const planReadyCardTranslateX = useRef(new Animated.Value(0)).current;
   const planReadyCardOpacity = useRef(new Animated.Value(1)).current;
-  const profileFrequencyReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
-  const profileGenderReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
-  const profilePreviewReveal = useRef(new Animated.Value(initialSelection || editMode ? 1 : 0)).current;
   const [profileName] = useState(setupSeed.profileName ?? '');
   const [gender, setGender] = useState<SetupGender>(setupSeed.gender);
   const [age, setAge] = useState(() =>
@@ -2179,7 +2183,6 @@ export function OnboardingScreen({
   const [daysPerWeek, setDaysPerWeek] = useState<SetupDaysPerWeek>(setupSeed.daysPerWeek);
   const [profileLevelSelected, setProfileLevelSelected] = useState(() => Boolean(initialSelection || editMode));
   const [profileFrequencySelected, setProfileFrequencySelected] = useState(() => Boolean(initialSelection || editMode));
-  const [profileGenderSelected, setProfileGenderSelected] = useState(() => Boolean(initialSelection || editMode));
   const [equipment, setEquipment] = useState<SetupEquipment>(setupSeed.equipment);
   const [trainingEnvironment, setTrainingEnvironment] = useState<SetupTrainingEnvironment>(
     setupSeed.trainingEnvironment,
@@ -2204,13 +2207,6 @@ export function OnboardingScreen({
   const [targetWeightDraft, setTargetWeightDraft] = useState(
     formatWeightInputValue(setupSeed.targetWeightKg, initialUnitPreference),
   );
-  const [bodyweightPickerValue, setBodyweightPickerValue] = useState(() => {
-    const seedValue = parseNumberInput(formatWeightInputValue(setupSeed.currentWeightKg, initialUnitPreference));
-    return seedValue ?? getDefaultBodyweightForUnit(initialUnitPreference);
-  });
-  const [bodyweightGoal, setBodyweightGoal] = useState<SetupGoal>(() => getDefaultBodyweightGoal(setupSeed.goal));
-  const [bodyweightSetupStep, setBodyweightSetupStep] = useState<BodyweightSetupStep>('goal');
-  const [bodyweightGoalSelected, setBodyweightGoalSelected] = useState(() => Boolean(initialSelection || editMode));
   const [busy, setBusy] = useState(false);
   const [activeRecommendationRefinement, setActiveRecommendationRefinement] =
     useState<RecommendationRefinementPanel>(null);
@@ -2226,7 +2222,6 @@ export function OnboardingScreen({
   const [helperError, setHelperError] = useState('');
 
   const stage = STAGES[stageIndex];
-  const selectedBodyweightGoalMode = useMemo(() => getBodyweightGoalMode([bodyweightGoal]), [bodyweightGoal]);
   const buildingPlanPhases = useMemo(
     () => ['Analyzing your inputs', 'Building your split', 'Matching exercises', 'Finalizing your plan'],
     [],
@@ -2472,33 +2467,6 @@ export function OnboardingScreen({
   }, [recommendationOptionIds, selectedRecommendationProgramId]);
 
   useEffect(() => {
-    Animated.timing(profileFrequencyReveal, {
-      toValue: profileLevelSelected || profileFrequencySelected ? 1 : 0,
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [profileFrequencyReveal, profileFrequencySelected, profileLevelSelected]);
-
-  useEffect(() => {
-    Animated.timing(profileGenderReveal, {
-      toValue: profileFrequencySelected || profileGenderSelected ? 1 : 0,
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [profileFrequencySelected, profileGenderReveal, profileGenderSelected]);
-
-  useEffect(() => {
-    Animated.timing(profilePreviewReveal, {
-      toValue: profileGenderSelected ? 1 : 0,
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [profileGenderSelected, profilePreviewReveal]);
-
-  useEffect(() => {
     setPlanReadyWorkoutPage(0);
   }, [activeRecommendedProgramId]);
 
@@ -2526,32 +2494,6 @@ export function OnboardingScreen({
     });
     previousUnitPreferenceRef.current = unitPreference;
   }, [unitPreference]);
-
-  useEffect(() => {
-    const parsed = parseNumberInput(currentWeightDraft);
-    if (parsed === null) {
-      setBodyweightPickerValue(getDefaultBodyweightForUnit(unitPreference));
-      return;
-    }
-
-    setBodyweightPickerValue(parsed);
-  }, [currentWeightDraft, unitPreference]);
-
-  useEffect(() => {
-    const nextTarget =
-      targetWeightValue === null
-        ? getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, bodyweightGoal)
-        : clampTargetBodyweightForGoal(targetWeightValue, bodyweightPickerValue, unitPreference, bodyweightGoal);
-
-    if (selectedBodyweightGoalMode === 'required' && targetWeightValue === null) {
-      setTargetBodyweight(nextTarget);
-      return;
-    }
-
-    if (targetWeightValue !== null && nextTarget !== targetWeightValue) {
-      setTargetBodyweight(nextTarget);
-    }
-  }, [bodyweightGoal, selectedBodyweightGoalMode, bodyweightPickerValue, targetWeightValue, unitPreference]);
 
   useEffect(() => {
     requestAnimationFrame(() => {
@@ -2808,18 +2750,6 @@ export function OnboardingScreen({
     setActiveRecommendationRefinement((current) => (current === panel ? null : panel));
   }
 
-  function setCurrentBodyweight(value: number) {
-    const nextValue = Math.max(0, Math.round(value * 10) / 10);
-    setBodyweightPickerValue(nextValue);
-    setCurrentWeightDraft(nextValue.toFixed(1));
-  }
-
-  function setTargetBodyweight(value: number) {
-    const limits = BODYWEIGHT_INTEGER_LIMITS[unitPreference];
-    const nextValue = Math.min(Math.max(Math.round(value * 10) / 10, limits.min), limits.max);
-    setTargetWeightDraft(nextValue.toFixed(1));
-  }
-
   async function askAiCoach() {
     const prompt = helperDraft.trim();
     if (!prompt) {
@@ -2965,7 +2895,7 @@ export function OnboardingScreen({
 
   function renderLocation() {
     return renderSplitSelectionStage({
-      stepLabel: 'STEP 1 OF 5',
+      stepLabel: getQuestionnaireStepLabel('location'),
       titleLines: ['Where do you train?'],
       options: LOCATION_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
@@ -3170,7 +3100,7 @@ export function OnboardingScreen({
 
   function renderGoal() {
     return renderSplitSelectionStage({
-      stepLabel: 'STEP 2 OF 5',
+      stepLabel: getQuestionnaireStepLabel('goal'),
       titleLines: ['What do you', 'want most?'],
       subtitle: "We'll build your training around this.",
       options: GOAL_SELECTION_OPTIONS.map((option) => ({
@@ -3193,50 +3123,11 @@ export function OnboardingScreen({
     });
   }
 
-  function renderProfile() {
-    const setupSummary = getTrainingProfileSetupSummary(level, daysPerWeek);
-    const selectedLevelOption = TRAINING_LEVEL_OPTIONS.find((option) => option.level === level) ?? TRAINING_LEVEL_OPTIONS[0];
-    const selectedFrequencyOption = TRAINING_FREQUENCY_OPTIONS.find((option) => option.value === daysPerWeek) ?? TRAINING_FREQUENCY_OPTIONS[1];
-    const selectedGenderOption = GENDER_OPTIONS.find((option) => option.gender === gender) ?? GENDER_OPTIONS[2];
-    const weekPreviewDays = getTrainingProfileWeekPreview(daysPerWeek);
-    const frequencyRevealStyle = {
-      opacity: profileFrequencyReveal,
-      transform: [
-        {
-          translateY: profileFrequencyReveal.interpolate({
-            inputRange: [0, 1],
-            outputRange: [12, 0],
-          }),
-        },
-      ],
-    };
-    const genderRevealStyle = {
-      opacity: profileGenderReveal,
-      transform: [
-        {
-          translateY: profileGenderReveal.interpolate({
-            inputRange: [0, 1],
-            outputRange: [10, 0],
-          }),
-        },
-      ],
-    };
-    const previewRevealStyle = {
-      opacity: profilePreviewReveal,
-      transform: [
-        {
-          translateY: profilePreviewReveal.interpolate({
-            inputRange: [0, 1],
-            outputRange: [10, 0],
-          }),
-        },
-      ],
-    };
-
+  function renderLevel() {
     return renderOnboardingShell({
-      stepLabel: 'STEP 3 OF 5',
-      titleLines: ['Training profile'],
-      subtitle: "We'll tailor your plan to your experience and availability.",
+      stepLabel: getQuestionnaireStepLabel('level'),
+      titleLines: ['Training level'],
+      subtitle: 'How much training experience do you have?',
       topPaneStyle: styles.trainingProfileTopPane,
       topCopyStyle: styles.trainingProfileTopCopy,
       titleStyle: styles.trainingProfileHeadline,
@@ -3244,215 +3135,94 @@ export function OnboardingScreen({
       children: (
         <View style={styles.trainingProfileContent}>
           <View style={styles.trainingProfileSection}>
-            {profileLevelSelected ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`${selectedLevelOption.title} experience level selected`}
-                accessibilityState={{ selected: true }}
-                onPress={() => {
-                  void haptics.select();
-                  setProfileLevelSelected(false);
-                }}
-                style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
-              >
-                <View style={styles.trainingProfileSummaryCheck}>
-                  <GymlogIcon name="check" size={13} color="#FFFFFF" />
-                </View>
-                <Text style={styles.trainingProfileSummaryText}>{selectedLevelOption.title}</Text>
-                <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
-              </Pressable>
-            ) : (
-              <>
-                <View style={styles.trainingProfileExperienceHeader}>
-                  <Text style={styles.trainingProfileExperienceTitle}>Experience Level</Text>
-                </View>
-                <Text style={styles.trainingProfileSectionPrompt}>How much training experience do you have?</Text>
-                <View style={styles.trainingExperienceList}>
-                  {TRAINING_LEVEL_OPTIONS.map((option) => (
-                    <Pressable
-                      key={option.level}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${option.title} experience level`}
-                      onPress={() => {
-                        void haptics.select();
-                        setLevel(option.level);
-                        setProfileLevelSelected(true);
-                      }}
-                      style={styles.trainingExperienceCard}
-                    >
-                      <OnboardingOptionIcon name={option.icon} />
-                      <View style={styles.trainingExperienceCopy}>
-                        <Text style={styles.trainingExperienceTitle}>{option.title}</Text>
-                        <Text style={styles.trainingExperienceBody}>{option.body}</Text>
-                      </View>
-                      <View style={styles.trainingProfileRadio} />
-                    </Pressable>
-                  ))}
-                </View>
-              </>
-            )}
-          </View>
+            <View style={styles.trainingExperienceList}>
+              {TRAINING_LEVEL_OPTIONS.map((option) => {
+                const active = profileLevelSelected && level === option.level;
 
-          {profileLevelSelected || profileFrequencySelected ? (
-            <Animated.View style={[styles.trainingProfileSection, frequencyRevealStyle]}>
-              {profileFrequencySelected ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${selectedFrequencyOption.title} ${selectedFrequencyOption.body} selected`}
-                  accessibilityState={{ selected: true }}
-                  onPress={() => {
-                    void haptics.select();
-                    setProfileFrequencySelected(false);
-                  }}
-                  style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
-                >
-                  <View style={styles.trainingProfileSummaryCheck}>
-                    <GymlogIcon name="check" size={13} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.trainingProfileSummaryText}>{selectedFrequencyOption.title}</Text>
-                  <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
-                </Pressable>
-              ) : (
-                <>
-                  <View style={styles.trainingProfileExperienceHeader}>
-                    <Text style={styles.trainingProfileExperienceTitle}>Training Frequency</Text>
-                  </View>
-                  <Text style={styles.trainingProfileSectionPrompt}>How many days per week can you train?</Text>
-                  <View style={styles.trainingExperienceList}>
-                    {TRAINING_FREQUENCY_OPTIONS.map((option) => {
-                      const recommended = option.recommendedFor.includes(level);
-
-                      return (
-                        <Pressable
-                          key={option.value}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${option.title}${recommended ? ', recommended for your experience level' : ''}`}
-                          onPress={() => {
-                            void haptics.select();
-                            setDaysPerWeek(option.value);
-                            setProfileFrequencySelected(true);
-                          }}
-                          style={styles.trainingExperienceCard}
-                        >
-                          <View style={styles.trainingExperienceCopy}>
-                            <View style={styles.trainingFrequencyTitleRow}>
-                              <Text style={styles.trainingExperienceTitle}>{option.title}</Text>
-                              {recommended ? (
-                                <View style={styles.trainingFrequencyBadge}>
-                                  <Text style={styles.trainingFrequencyBadgeText}>Recommended</Text>
-                                </View>
-                              ) : null}
-                            </View>
-                            <Text style={styles.trainingExperienceBody}>{option.body}</Text>
-                          </View>
-                          <View style={styles.trainingProfileRadio} />
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-            </Animated.View>
-          ) : null}
-
-          {profileFrequencySelected || profileGenderSelected ? (
-            <Animated.View style={[styles.trainingProfileSection, genderRevealStyle]}>
-              {profileGenderSelected ? (
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`${selectedGenderOption.title} program fit selected`}
-                  accessibilityState={{ selected: true }}
-                  onPress={() => {
-                    void haptics.select();
-                    setProfileGenderSelected(false);
-                  }}
-                  style={[styles.trainingProfileSummaryRow, styles.trainingProfileSummaryRowActive]}
-                >
-                  <View style={styles.trainingProfileSummaryCheck}>
-                    <GymlogIcon name="check" size={13} color="#FFFFFF" />
-                  </View>
-                  <Text style={styles.trainingProfileSummaryText}>{getGenderProfileLabel(gender)}</Text>
-                  <Text style={styles.trainingProfileSummaryEdit}>Edit</Text>
-                </Pressable>
-              ) : (
-                <>
-                  <View style={styles.trainingProfileExperienceHeader}>
-                    <Text style={styles.trainingProfileExperienceTitle}>Program Fit</Text>
-                  </View>
-                  <Text style={styles.trainingProfileSectionPrompt}>Which program style should we prioritize?</Text>
-                  <View style={styles.trainingGenderRow}>
-                    {GENDER_OPTIONS.map((option) => {
-                      const active = gender === option.gender;
-
-                      return (
-                        <Pressable
-                          key={option.gender}
-                          accessibilityRole="button"
-                          accessibilityLabel={`${option.title} program fit`}
-                          accessibilityState={{ selected: active }}
-                          onPress={() => {
-                            void haptics.select();
-                            setGender(option.gender);
-                            setProfileGenderSelected(true);
-                          }}
-                          style={[styles.trainingGenderTile, active && styles.trainingGenderTileActive]}
-                        >
-                          <Text style={styles.trainingGenderTitle}>{option.title}</Text>
-                          <Text style={styles.trainingGenderBody}>{option.body}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </>
-              )}
-            </Animated.View>
-          ) : null}
-
-          {profileLevelSelected && profileFrequencySelected && profileGenderSelected ? (
-            <Animated.View style={[styles.trainingPlanPreviewStrip, previewRevealStyle]}>
-              <View style={styles.trainingPlanPreviewLead}>
-                <GymlogIcon name="lightning" size={14} color="#A98BFF" />
-                <Text style={styles.trainingPlanPreviewTitle}>Your plan preview</Text>
-              </View>
-
-              <View style={styles.trainingWeekRhythmRow}>
-                {weekPreviewDays.map((day) => (
-                  <View key={day.day} style={styles.trainingWeekDay}>
-                    <Text style={styles.trainingWeekDayLabel}>{day.day}</Text>
-                    <View style={[styles.trainingWeekDayIcon, day.training && styles.trainingWeekDayIconActive]}>
-                      <GymlogIcon
-                        name={day.training ? 'strength' : 'moon'}
-                        size={18}
-                        color={day.training ? '#FFFFFF' : 'rgba(255,255,255,0.68)'}
-                      />
+                return (
+                  <Pressable
+                    key={option.level}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${option.title} experience level`}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => {
+                      void haptics.select();
+                      setLevel(option.level);
+                      setProfileLevelSelected(true);
+                    }}
+                    style={[styles.trainingExperienceCard, active && styles.trainingExperienceCardActive]}
+                  >
+                    <OnboardingOptionIcon name={option.icon} />
+                    <View style={styles.trainingExperienceCopy}>
+                      <Text style={[styles.trainingExperienceTitle, active && styles.trainingExperienceTitleActive]}>
+                        {option.title}
+                      </Text>
+                      <Text style={styles.trainingExperienceBody}>{option.body}</Text>
                     </View>
-                  </View>
-                ))}
-              </View>
+                    <View style={[styles.trainingProfileRadio, active && styles.trainingProfileRadioActive]}>
+                      {active ? <GymlogIcon name="check" size={13} color="#FFFFFF" /> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      ),
+    });
+  }
 
-              <View style={styles.trainingPlanPreviewDivider} />
+  function renderDays() {
+    return renderOnboardingShell({
+      stepLabel: getQuestionnaireStepLabel('days'),
+      titleLines: ['Training days'],
+      subtitle: 'How many days per week can you train?',
+      topPaneStyle: styles.trainingProfileTopPane,
+      topCopyStyle: styles.trainingProfileTopCopy,
+      titleStyle: styles.trainingProfileHeadline,
+      bottomStyle: styles.trainingProfileBottomPane,
+      children: (
+        <View style={styles.trainingProfileContent}>
+          <View style={styles.trainingProfileSection}>
+            <View style={styles.trainingExperienceList}>
+              {TRAINING_FREQUENCY_OPTIONS.map((option) => {
+                const recommended = option.recommendedFor.includes(level);
+                const active = profileFrequencySelected && daysPerWeek === option.value;
 
-              <View style={styles.trainingPlanMetricsRow}>
-                <View style={styles.trainingPlanMetric}>
-                  <GymlogIcon name="tempo" size={25} color="#A98BFF" />
-                  <Text style={styles.trainingPlanMetricLabel}>Workouts / week</Text>
-                  <Text style={styles.trainingPlanMetricValue}>{daysPerWeek === 6 ? '6+' : daysPerWeek}</Text>
-                </View>
-                <View style={styles.trainingPlanMetricSeparator} />
-                <View style={styles.trainingPlanMetric}>
-                  <GymlogIcon name="progress" size={25} color="#A98BFF" />
-                  <Text style={styles.trainingPlanMetricLabel}>Session length</Text>
-                  <Text style={styles.trainingPlanMetricValue}>{setupSummary.duration.replace(' sessions', '')}</Text>
-                </View>
-                <View style={styles.trainingPlanMetricSeparator} />
-                <View style={styles.trainingPlanMetric}>
-                  <GymlogIcon name="profile" size={25} color="#A98BFF" />
-                  <Text style={styles.trainingPlanMetricLabel}>Level</Text>
-                  <Text style={styles.trainingPlanMetricValue}>{selectedLevelOption.title}</Text>
-                </View>
-              </View>
-            </Animated.View>
-          ) : null}
+                return (
+                  <Pressable
+                    key={option.value}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${option.title}${recommended ? ', recommended for your experience level' : ''}`}
+                    accessibilityState={{ selected: active }}
+                    onPress={() => {
+                      void haptics.select();
+                      setDaysPerWeek(option.value);
+                      setProfileFrequencySelected(true);
+                    }}
+                    style={[styles.trainingExperienceCard, active && styles.trainingExperienceCardActive]}
+                  >
+                    <View style={styles.trainingExperienceCopy}>
+                      <View style={styles.trainingFrequencyTitleRow}>
+                        <Text style={[styles.trainingExperienceTitle, active && styles.trainingExperienceTitleActive]}>
+                          {option.title}
+                        </Text>
+                        {recommended ? (
+                          <View style={styles.trainingFrequencyBadge}>
+                            <Text style={styles.trainingFrequencyBadgeText}>Recommended</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                      <Text style={styles.trainingExperienceBody}>{option.body}</Text>
+                    </View>
+                    <View style={[styles.trainingProfileRadio, active && styles.trainingProfileRadioActive]}>
+                      {active ? <GymlogIcon name="check" size={13} color="#FFFFFF" /> : null}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         </View>
       ),
     });
@@ -3765,7 +3535,7 @@ export function OnboardingScreen({
     ];
 
     return renderOnboardingShell({
-      stepLabel: 'STEP 4 OF 5',
+      stepLabel: getQuestionnaireStepLabel('planning'),
       titleLines: ['What do you', 'want to focus on?'],
       topPaneStyle: styles.focusAreaTopPane,
       topCopyStyle: styles.focusAreaTopCopy,
@@ -3808,154 +3578,6 @@ export function OnboardingScreen({
               <Text style={styles.focusAreaInfoBadgeText}>Pick 1-2 areas</Text>
             </View>
           </View>
-        </View>
-      ),
-    });
-  }
-
-  function renderAbout() {
-    const bodyweightGoalMode = getBodyweightGoalMode([bodyweightGoal]);
-    const targetLimits = getBodyweightTargetLimits(bodyweightPickerValue, unitPreference, bodyweightGoal);
-    const targetBodyweight = clampTargetBodyweightForGoal(
-      targetWeightValue ?? getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, bodyweightGoal),
-      bodyweightPickerValue,
-      unitPreference,
-      bodyweightGoal,
-    );
-    const selectedGoalOption = BODYWEIGHT_GOAL_OPTIONS.find((option) => option.id === bodyweightGoal) ?? BODYWEIGHT_GOAL_OPTIONS[0];
-    const aboutTitleLines =
-      bodyweightSetupStep === 'goal'
-        ? ["What's your", 'goal?']
-        : bodyweightSetupStep === 'current'
-        ? ["What's your", 'current weight?']
-        : bodyweightSetupStep === 'target'
-        ? ['Set a goal', 'weight']
-        : ['Expected', 'outcome'];
-    const showGoalSummary = bodyweightGoalSelected && bodyweightSetupStep !== 'goal';
-    const currentWeightSummary = (
-      <BodyweightSummaryRow
-        label="Current Weight"
-        value={formatBodyweightSummaryDisplay(bodyweightPickerValue, unitPreference)}
-        onEdit={() => setBodyweightSetupStep('current')}
-      />
-    );
-    const targetWeightSummary = (
-      <BodyweightSummaryRow
-        label="Goal Weight"
-        value={formatBodyweightSummaryDisplay(targetBodyweight, unitPreference)}
-        onEdit={() => setBodyweightSetupStep('target')}
-      />
-    );
-
-    const goalSummary = showGoalSummary ? (
-      <View style={styles.bodyweightSummaryRow}>
-        <View style={styles.bodyweightSummaryCheck}>
-          <GymlogIcon name="check" color="#FFFFFF" size={13} />
-        </View>
-        <View style={styles.bodyweightSummaryCopy}>
-          <Text style={styles.bodyweightSummaryValue}>Goal: {selectedGoalOption.title}</Text>
-        </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Edit bodyweight goal"
-          onPress={() => setBodyweightSetupStep('goal')}
-          style={styles.bodyweightSummaryEdit}
-        >
-          <Text style={styles.bodyweightSummaryEditText}>Edit</Text>
-        </Pressable>
-      </View>
-    ) : null;
-
-    const currentWeightBlock = (
-      <BodyweightStepper
-        label={`Current Weight (${unitPreference.toUpperCase()})`}
-        value={bodyweightPickerValue}
-        unit={unitPreference}
-        onChange={setCurrentBodyweight}
-      />
-    );
-
-    const targetWeightBlock = (
-      <BodyweightStepper
-        label={`Goal Weight (${unitPreference.toUpperCase()})`}
-        hint={bodyweightGoalMode === 'required'
-          ? 'Set a target weight to stay on track.'
-          : 'Only if you have a target in mind.'}
-        value={targetBodyweight}
-        unit={unitPreference}
-        onChange={(nextValue) => {
-          const clampedTarget = clampTargetBodyweightForGoal(nextValue, bodyweightPickerValue, unitPreference, bodyweightGoal);
-          setTargetBodyweight(clampedTarget);
-        }}
-      />
-    );
-
-    const renderBodyweightStepContent = () => {
-      if (bodyweightSetupStep === 'goal') {
-        return (
-          <View style={styles.bodyweightGoalStepList}>
-            {BODYWEIGHT_GOAL_OPTIONS.map((option) => (
-              <BodyweightGoalOptionCard
-                key={option.id}
-                title={option.title}
-                body={option.body}
-                icon={option.icon}
-                accentColor={option.accentColor}
-                active={bodyweightGoalSelected && bodyweightGoal === option.id}
-                wide
-                onPress={() => {
-                  void haptics.select();
-                  setBodyweightGoalSelected(true);
-                  setBodyweightGoal(option.id);
-                  setTargetBodyweight(getDefaultTargetBodyweight(bodyweightPickerValue, unitPreference, option.id));
-                }}
-              />
-            ))}
-          </View>
-        );
-      }
-
-      if (bodyweightSetupStep === 'current') {
-        return (
-          <View style={styles.bodyweightProgressiveStack}>
-            {goalSummary}
-            {currentWeightBlock}
-            <Text style={styles.bodyweightProgressiveHint}>This helps us personalize your plan and calories.</Text>
-          </View>
-        );
-      }
-
-      if (bodyweightSetupStep === 'target') {
-        return (
-          <View style={styles.bodyweightProgressiveStack}>
-            {goalSummary}
-            {currentWeightBlock}
-            {targetWeightBlock}
-          </View>
-        );
-      }
-
-      return (
-        <View style={styles.bodyweightProgressiveStack}>
-          {goalSummary}
-          {currentWeightSummary}
-          {targetWeightSummary}
-          <BodyweightTimelineCard current={bodyweightPickerValue} target={targetBodyweight} unit={unitPreference} />
-        </View>
-      );
-    };
-
-    return renderOnboardingShell({
-      stepLabel: 'STEP 5 OF 5',
-      titleLines: aboutTitleLines,
-      shellStyle: styles.bodyweightStageShell,
-      topPaneStyle: styles.bodyweightTopPane,
-      topCopyStyle: styles.bodyweightTopCopy,
-      titleStyle: styles.bodyweightHeadline,
-      bottomStyle: styles.bodyweightBottomPane,
-      children: (
-        <View style={styles.bodyweightStageContent}>
-          {renderBodyweightStepContent()}
         </View>
       ),
     });
@@ -4340,23 +3962,19 @@ export function OnboardingScreen({
       ? selectedLocationOptionId !== null
       : stage === 'goal'
       ? goals.length > 0
-      : stage === 'profile'
-      ? profileLevelSelected && profileFrequencySelected && profileGenderSelected
+      : stage === 'level'
+      ? profileLevelSelected
+      : stage === 'days'
+      ? profileFrequencySelected
       : stage === 'planning'
       ? focusAreas.length > 0
-      : stage === 'about' && bodyweightSetupStep === 'goal'
-      ? bodyweightGoalSelected
-      : stage === 'about' &&
-        (bodyweightSetupStep === 'target' || bodyweightSetupStep === 'outcome') &&
-        selectedBodyweightGoalMode === 'required'
-      ? targetWeightValue !== null
       : true;
   const locationStageActive =
     stage === 'location' ||
     stage === 'goal' ||
-    stage === 'profile' ||
-    stage === 'planning' ||
-    stage === 'about';
+    stage === 'level' ||
+    stage === 'days' ||
+    stage === 'planning';
   const standaloneProgressHidden = locationStageActive || stage === 'review';
   const footerPrimaryLabel =
     stage === 'review' && busy
@@ -4365,19 +3983,17 @@ export function OnboardingScreen({
       ? planReadyView === 'day'
         ? 'Back to plan'
         : 'Save plan & start'
-      : stage === 'about' && bodyweightSetupStep === 'outcome'
+      : stage === 'planning'
       ? 'Build my plan'
-      : stage === 'about'
-      ? 'Continue'
       : 'Continue';
   // Overview is the primary "Save plan & start" surface; the day view is a
   // read-only preview whose footer only returns to the plan. Hidden on the
   // account gate.
   const footerVisible = !(stage === 'review' && planReadyView === 'account');
   const scrollLockedStage =
-    stage === 'profile' ||
-    stage === 'planning' ||
-    stage === 'about';
+    stage === 'level' ||
+    stage === 'days' ||
+    stage === 'planning';
   // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
   // wrapped chip row stays reachable above the footer, but they should not
   // rubber-band when the cards already fit the viewport.
@@ -4419,9 +4035,9 @@ export function OnboardingScreen({
 
         {stage === 'location' ? renderLocation() : null}
         {stage === 'goal' ? renderGoal() : null}
-        {stage === 'profile' ? renderProfile() : null}
+        {stage === 'level' ? renderLevel() : null}
+        {stage === 'days' ? renderDays() : null}
         {stage === 'planning' ? renderPlanning() : null}
-        {stage === 'about' ? renderAbout() : null}
         {stage === 'review' ? renderReview() : null}
       </ScrollView>
 
@@ -4461,14 +4077,8 @@ export function OnboardingScreen({
                   return;
                 }
 
-                if (stage === 'about') {
+                if (stage === 'planning') {
                   void haptics.impactMedium();
-                  const currentBodyweightStepIndex = BODYWEIGHT_SETUP_STEPS.indexOf(bodyweightSetupStep);
-                  if (currentBodyweightStepIndex < BODYWEIGHT_SETUP_STEPS.length - 1) {
-                    setBodyweightSetupStep(BODYWEIGHT_SETUP_STEPS[currentBodyweightStepIndex + 1]);
-                    return;
-                  }
-
                   setIsBuildingPlan(true);
                   return;
                 }
@@ -4502,14 +4112,6 @@ export function OnboardingScreen({
             ) : (
               <Pressable
                 onPress={() => {
-                  if (stage === 'about') {
-                    const currentBodyweightStepIndex = BODYWEIGHT_SETUP_STEPS.indexOf(bodyweightSetupStep);
-                    if (currentBodyweightStepIndex > 0) {
-                      setBodyweightSetupStep(BODYWEIGHT_SETUP_STEPS[currentBodyweightStepIndex - 1]);
-                      return;
-                    }
-                  }
-
                   setStageIndex((current) => Math.max(0, current - 1));
                 }}
                 disabled={busy}
