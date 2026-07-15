@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
@@ -50,17 +50,65 @@ function CheckGlyph() {
   );
 }
 
-function LockGlyph() {
+// Dots between the app tiles pulse in a travelling wave that ping-pongs
+// left <-> right, hinting at data syncing both ways.
+const CONNECTOR_DOT_COUNT = 7;
+
+function ConnectorWave() {
+  const wave = useRef(new Animated.Value(-0.3)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(wave, {
+          toValue: 1.3,
+          duration: 1300,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(wave, {
+          toValue: -0.3,
+          duration: 1300,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [wave]);
+
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M7 11V8a5 5 0 0110 0v3M6 11h12v9H6v-9z"
-        stroke={MUTED}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
+    <View style={styles.connectorTrack}>
+      {Array.from({ length: CONNECTOR_DOT_COUNT }, (_, index) => {
+        const center = index / (CONNECTOR_DOT_COUNT - 1);
+
+        return (
+          <Animated.View
+            key={index}
+            style={[
+              styles.connectorDot,
+              {
+                opacity: wave.interpolate({
+                  inputRange: [center - 0.3, center, center + 0.3],
+                  outputRange: [0.25, 1, 0.25],
+                  extrapolate: 'clamp',
+                }),
+                transform: [
+                  {
+                    scale: wave.interpolate({
+                      inputRange: [center - 0.3, center, center + 0.3],
+                      outputRange: [0.7, 1.25, 0.7],
+                      extrapolate: 'clamp',
+                    }),
+                  },
+                ],
+              },
+            ]}
+          />
+        );
+      })}
+    </View>
   );
 }
 
@@ -115,11 +163,7 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
           <View style={[styles.appTile, styles.appTileGainer]}>
             <DumbbellGlyph />
           </View>
-          <View style={styles.connectorRow}>
-            <View style={styles.connectorDot} />
-            <View style={styles.connectorDot} />
-            <View style={styles.connectorDot} />
-          </View>
+          <ConnectorWave />
           <View style={[styles.appTile, styles.appTileHealth]}>
             <HealthHeart />
           </View>
@@ -160,11 +204,6 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
           )}
         </Pressable>
 
-        <View style={styles.privacyRow}>
-          <LockGlyph />
-          <Text style={[styles.privacyText, { fontFamily }]}>Data stays on your device. We never share or sell it.</Text>
-        </View>
-
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Maybe later"
@@ -191,8 +230,7 @@ const styles = StyleSheet.create({
   tileRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
+    justifyContent: 'space-between',
     marginBottom: 28,
   },
   appTile: {
@@ -204,6 +242,8 @@ const styles = StyleSheet.create({
   },
   appTileGainer: {
     backgroundColor: PURPLE,
+    borderWidth: 2,
+    borderColor: '#5B21B6',
     shadowColor: PURPLE,
     shadowOpacity: 0.32,
     shadowRadius: 14,
@@ -212,18 +252,21 @@ const styles = StyleSheet.create({
   },
   appTileHealth: {
     backgroundColor: SURFACE,
-    borderWidth: 1.5,
-    borderColor: BORDER,
+    borderWidth: 2,
+    borderColor: '#C9B6FF',
   },
-  connectorRow: {
+  connectorTrack: {
+    flex: 1,
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 16,
   },
   connectorDot: {
-    width: 5,
-    height: 5,
+    width: 7,
+    height: 7,
     borderRadius: 999,
-    backgroundColor: '#C9B6FF',
+    backgroundColor: '#9F7BEF',
   },
   title: {
     color: INK,
@@ -234,10 +277,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitle: {
-    color: MUTED,
+    color: '#475467',
     fontSize: 14.5,
     lineHeight: 20,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
     marginTop: 8,
     paddingHorizontal: 8,
@@ -256,6 +299,8 @@ const styles = StyleSheet.create({
     height: 28,
     borderRadius: 999,
     backgroundColor: '#EFE7FF',
+    borderWidth: 1.5,
+    borderColor: '#C9B6FF',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
@@ -271,10 +316,10 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   bulletBody: {
-    color: MUTED,
-    fontSize: 12.5,
-    lineHeight: 17,
-    fontWeight: '600',
+    color: '#475467',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   errorNote: {
     color: '#B42318',
@@ -309,21 +354,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.17,
   },
-  privacyRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: 12,
-  },
-  privacyText: {
-    color: MUTED,
-    fontSize: 12,
-    fontWeight: '600',
-  },
   skipLink: {
     alignSelf: 'center',
-    marginTop: 6,
+    marginTop: 10,
     paddingVertical: 10,
     paddingHorizontal: 14,
   },
