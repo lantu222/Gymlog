@@ -95,9 +95,18 @@ FocusAreaBodyCard, STEP 4 OF 5 labels, scroll-lock rules) — every phase update
 emulator -avd Pixel_7 · adb reverse tcp:8081 tcp:8081 · npx expo start ·
 app pref debug_http_host=localhost:8081 already set · reset state via Profile → Reset all data.
 
-## Open questions
+## Decisions (user, 2026-07-15)
 
-1. Updated `GAINER Onboarding.html` handoff exists? Drop into Design_handoff → screens built to match it 1:1; otherwise built from the prompt text.
-2. Avoid-screen placement: before Focus (proposed) or after?
-3. Level naming: UI says Beginner/Advanced/Pro — internal SetupLevel is beginner/intermediate/advanced. Map UI Advanced→intermediate, Pro→advanced?
-4. Goal + Goal-weight questions removed ⇒ recommendation engine loses the lose-weight/target-weight signal (bodyweight goal card also disappears from review). OK?
+1. **No newer handoff exists** — build from the prompt text; user can supply screenshots on request.
+2. **Avoid screen goes BEFORE Focus areas** (stage order confirmed:
+   `location → goal → level → days → avoid → planning → review`).
+3. **Rename SetupLevel internally to match the UI**: `'beginner' | 'advanced' | 'pro'`
+   (UI labels Beginner/Advanced/Pro — same words inside and out). Migration in
+   `storage/database.ts` normalization: legacy `'intermediate'` → `'advanced'`;
+   legacy stored `'advanced'` stays `'advanced'` (old top-tier collapses to middle —
+   acceptable pre-release; users reset data constantly). Touches SetupLevel consumers:
+   recommendation scoring/waterfall (beginner cap etc.), firstRunSetup, tests. Do inside P3
+   (or as its own commit P3a if the fan-out is large).
+4. **Goal weight removed entirely.** Keep `targetWeightKg`/`bodyweightGoalKg` fields in the
+   model (data intact, question gone). User may later resurface goal weight inside the app
+   (e.g. Profile) — parked, not planned.
