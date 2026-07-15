@@ -233,6 +233,8 @@ export interface AppPreferences {
   autoFocusNextInput: boolean;
   keepScreenAwakeDuringWorkout: boolean;
   adaptiveCoachPremiumUnlocked: boolean;
+  /** Plan-review toggle: GAINER adjusts weekly load/progression automatically. */
+  automatedProgressionEnabled: boolean;
   aiSetupCompleted: boolean;
   hasOpenedAppBefore: boolean;
   entryFlowCompleted: boolean;

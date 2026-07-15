@@ -49,6 +49,8 @@ export interface FirstRunSetupSelection {
   cautionFlags?: SetupCautionFlag[];
   guidanceMode: SetupGuidanceMode;
   scheduleMode: SetupScheduleMode;
+  /** Plan-review toggle: GAINER manages weekly progression automatically. */
+  automatedProgression?: boolean;
   weeklyMinutes?: number | null;
   availableDays: SetupWeekday[];
   currentWeightKg?: number | null;
@@ -123,6 +125,7 @@ export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {
   cautionFlags: [],
   guidanceMode: 'guided_editable',
   scheduleMode: 'app_managed',
+  automatedProgression: true,
   weeklyMinutes: null,
   availableDays: [],
   currentWeightKg: null,

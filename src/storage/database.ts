@@ -331,6 +331,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked
           : fallback.preferences.adaptiveCoachPremiumUnlocked,
+      automatedProgressionEnabled:
+        typeof input?.preferences?.automatedProgressionEnabled === 'boolean'
+          ? input.preferences.automatedProgressionEnabled
+          : fallback.preferences.automatedProgressionEnabled,
       aiSetupCompleted:
         typeof input?.preferences?.aiSetupCompleted === 'boolean'
           ? input.preferences.aiSetupCompleted

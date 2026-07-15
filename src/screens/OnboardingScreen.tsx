@@ -491,6 +491,13 @@ const CAUTION_LEVEL_COLORS: Record<SetupCautionLevel, { ink: string; soft: strin
 
 const CAUTION_REFINEMENT_FALLBACK = ['Old injury', 'Chronic pain', 'Recent surgery'];
 
+// Plan-review progression card: what GAINER automates when the toggle is on.
+const PROGRESSION_BULLETS = [
+  'Weights progress week to week',
+  'Sets and reps adapt to your logs',
+  'Deloads arrive when recovery dips',
+];
+
 const CAUTION_REFINEMENT_OPTIONS: Partial<Record<SetupCautionArea, string[]>> = {
   shoulders: ['Old injury', 'Impingement', 'Limited mobility'],
   lower_back: ['Old injury', 'Lower-back pain', 'Disc issues'],
@@ -2290,7 +2297,10 @@ export function OnboardingScreen({
     useState<RecommendationRefinementPanel>(null);
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
-  const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'account'>('overview');
+  const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'progression'>('overview');
+  const [automatedProgressionEnabled, setAutomatedProgressionEnabled] = useState(
+    setupSeed.automatedProgression ?? true,
+  );
   const [helperVisible, setHelperVisible] = useState(false);
   const [helperDraft, setHelperDraft] = useState('');
   const [helperState, setHelperState] = useState<HelperState>('idle');
@@ -2334,6 +2344,7 @@ export function OnboardingScreen({
       cautionFlags,
       guidanceMode,
       scheduleMode,
+      automatedProgression: automatedProgressionEnabled,
       weeklyMinutes,
       availableDays,
       currentWeightKg: currentWeightValue === null ? null : convertWeightToKg(currentWeightValue, unitPreference),
@@ -2341,6 +2352,7 @@ export function OnboardingScreen({
       unitPreference,
     }),
     [
+      automatedProgressionEnabled,
       availableDays,
       age,
       ageRange,
@@ -3684,8 +3696,8 @@ export function OnboardingScreen({
   }
 
   function renderReview() {
-    if (planReadyView === 'account') {
-      return renderPlanReadyAccount();
+    if (planReadyView === 'progression') {
+      return renderPlanReadyProgression();
     }
     if (planReadyView === 'day') {
       return renderPlanReadyDay();
@@ -3913,70 +3925,76 @@ export function OnboardingScreen({
     );
   }
 
-  function renderPlanReadyAccount() {
-    const finishOnboarding = () => {
-      void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
-    };
+  function renderPlanReadyProgression() {
     const stageMinHeight = Math.max(
       560,
       Dimensions.get('window').height - insets.top - insets.bottom - spacing.xl,
     );
+    const enabled = automatedProgressionEnabled;
 
     return (
       <Animated.View
         style={[
-          styles.planReadyAccountStage,
+          styles.planReadyProgressionStage,
           {
             minHeight: stageMinHeight,
             paddingTop: insets.top + spacing.xl,
-            paddingBottom: insets.bottom + spacing.lg,
             opacity: planReadyCardOpacity,
             transform: [{ translateX: planReadyCardTranslateX }],
           },
         ]}
       >
-        <View style={styles.planReadyAccountTop}>
-          <View style={styles.planReadyAccountLogoRow}>
-            <Text style={[styles.planReadyAccountLogo, styles.planReadyAccountLogoInk]}>G</Text>
-            <Text style={[styles.planReadyAccountLogo, styles.planReadyAccountLogoAccent]}>AI</Text>
-            <Text style={[styles.planReadyAccountLogo, styles.planReadyAccountLogoInk]}>NER</Text>
+        <Text style={styles.progressionKicker}>ONE LAST THING</Text>
+        <Text style={styles.progressionTitle}>Automated progression</Text>
+        <Text style={styles.progressionSubtitle}>
+          {enabled ? 'On — GAINER adjusts your plan for you.' : "Off — you'll manage these yourself."}
+        </Text>
+
+        <View style={[styles.progressionCard, enabled && styles.progressionCardOn]}>
+          <View style={styles.progressionToggleRow}>
+            <View style={styles.progressionToggleCopy}>
+              <Text style={styles.progressionToggleTitle}>Automated progression</Text>
+              <Text style={styles.progressionToggleBody}>
+                {enabled ? 'GAINER adjusts your plan for you' : "You'll manage these yourself"}
+              </Text>
+            </View>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityLabel="Automated progression"
+              accessibilityState={{ checked: enabled }}
+              onPress={() => {
+                void haptics.select();
+                setAutomatedProgressionEnabled((current) => !current);
+              }}
+              style={[styles.progressionSwitchTrack, enabled && styles.progressionSwitchTrackOn]}
+            >
+              <View style={styles.progressionSwitchThumb} />
+            </Pressable>
           </View>
-          <Text style={styles.planReadyAccountTitle}>Save your plan</Text>
-          <Text style={styles.planReadyAccountSubtitle}>
-            Create your account so your plan and progress are always here. We'll use your name from your account.
-          </Text>
+
+          <View style={styles.progressionDivider} />
+
+          <View style={styles.progressionBulletList}>
+            {PROGRESSION_BULLETS.map((bullet) => (
+              <View key={bullet} style={styles.progressionBulletRow}>
+                {enabled ? (
+                  <View style={styles.progressionBulletCheck}>
+                    <GymlogIcon name="check" size={12} color="#FFFFFF" />
+                  </View>
+                ) : (
+                  <View style={styles.progressionBulletCross}>
+                    <Text style={styles.progressionBulletCrossText}>✕</Text>
+                  </View>
+                )}
+                <Text style={[styles.progressionBulletText, !enabled && styles.progressionBulletTextOff]}>
+                  {bullet}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
 
-        <View style={styles.planReadyAccountProviders}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={finishOnboarding}
-            disabled={busy}
-            style={[styles.planReadyAccountProvider, styles.planReadyAccountProviderPrimary]}
-          >
-            <View style={styles.planReadyAccountGoogleMark}>
-              <Text style={styles.planReadyAccountGoogleMarkText}>G</Text>
-            </View>
-            <Text style={styles.planReadyAccountProviderText}>Continue with Google</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={finishOnboarding}
-            disabled={busy}
-            style={styles.planReadyAccountProvider}
-          >
-            <Text style={styles.planReadyAccountProviderText}>Continue with Apple</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={finishOnboarding}
-            disabled={busy}
-            style={styles.planReadyAccountEmail}
-          >
-            <Text style={styles.planReadyAccountEmailText}>Use email instead</Text>
-          </Pressable>
-          {busy ? <ActivityIndicator color={ONBOARDING_PRIMARY} size="small" style={styles.planReadyAccountSpinner} /> : null}
-        </View>
+        <Text style={styles.progressionNote}>You can change this anytime in Settings.</Text>
       </Animated.View>
     );
   }
@@ -4463,7 +4481,9 @@ export function OnboardingScreen({
       : stage === 'review'
       ? planReadyView === 'day'
         ? 'Back to plan'
-        : 'Save plan & start'
+        : planReadyView === 'progression'
+        ? 'Start training'
+        : 'Continue'
       : stage === 'planning'
       ? 'Build my plan'
       : stage === 'avoid'
@@ -4471,10 +4491,10 @@ export function OnboardingScreen({
         ? 'Continue'
         : 'Skip'
       : 'Continue';
-  // Overview is the primary "Save plan & start" surface; the day view is a
-  // read-only preview whose footer only returns to the plan. Hidden on the
-  // account gate.
-  const footerVisible = !(stage === 'review' && planReadyView === 'account');
+  // The footer stays visible through every plan-ready view: overview continues
+  // to the progression screen, the day view returns to the plan, and the
+  // progression screen's "Start training" completes onboarding.
+  const footerVisible = true;
   const scrollLockedStage = stage === 'level' || stage === 'days';
   // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
   // wrapped chip row stays reachable above the footer, but they should not
@@ -4572,7 +4592,11 @@ export function OnboardingScreen({
                     setPlanReadyView('overview');
                     return;
                   }
-                  setPlanReadyView('account');
+                  if (planReadyView === 'overview') {
+                    setPlanReadyView('progression');
+                    return;
+                  }
+                  void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
                   return;
                 }
 
@@ -4582,7 +4606,13 @@ export function OnboardingScreen({
               style={styles.onboardingPrimaryCTA}
             />
 
-            {stage === 'review' ? null : stage === 'location' ? (
+            {stage === 'review' ? (
+              planReadyView === 'progression' ? (
+                <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                </Pressable>
+              ) : null
+            ) : stage === 'location' ? (
               editMode ? (
                 <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Cancel</Text>
@@ -5307,6 +5337,148 @@ const styles = StyleSheet.create({
   focusListRadioActive: {
     borderColor: '#FFFFFF',
     backgroundColor: '#FFFFFF',
+  },
+  planReadyProgressionStage: {
+    flex: 1,
+    paddingHorizontal: 24,
+    justifyContent: 'center',
+  },
+  progressionKicker: {
+    color: ONBOARDING_PRIMARY,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+  },
+  progressionTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 28,
+    lineHeight: 34,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginTop: 8,
+  },
+  progressionSubtitle: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 14.5,
+    lineHeight: 20,
+    fontWeight: '600',
+    marginTop: 6,
+  },
+  progressionCard: {
+    backgroundColor: ONBOARDING_CARD,
+    borderWidth: 2,
+    borderColor: ONBOARDING_BORDER,
+    borderRadius: 20,
+    padding: 18,
+    marginTop: 22,
+  },
+  progressionCardOn: {
+    borderColor: ONBOARDING_PRIMARY,
+    shadowColor: ONBOARDING_PRIMARY,
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  progressionToggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  progressionToggleCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  progressionToggleTitle: {
+    color: ONBOARDING_TEXT,
+    fontSize: 16,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  progressionToggleBody: {
+    color: ONBOARDING_TEXT_SOFT,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  progressionSwitchTrack: {
+    width: 52,
+    height: 30,
+    borderRadius: 999,
+    backgroundColor: '#E3DAF5',
+    padding: 3,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  progressionSwitchTrackOn: {
+    backgroundColor: ONBOARDING_PRIMARY,
+    alignItems: 'flex-end',
+  },
+  progressionSwitchThumb: {
+    width: 24,
+    height: 24,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#1E1246',
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  progressionDivider: {
+    height: 1,
+    backgroundColor: ONBOARDING_BORDER,
+    marginVertical: 14,
+  },
+  progressionBulletList: {
+    gap: 11,
+  },
+  progressionBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  progressionBulletCheck: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: ONBOARDING_PRIMARY,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressionBulletCross: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#F1F0F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progressionBulletCrossText: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  progressionBulletText: {
+    flex: 1,
+    color: ONBOARDING_TEXT,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  progressionBulletTextOff: {
+    color: ONBOARDING_TEXT_MUTED,
+    textDecorationLine: 'line-through',
+  },
+  progressionNote: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 16,
   },
   locationStepOneOptionsShift: {
     transform: [{ translateY: -36 }],

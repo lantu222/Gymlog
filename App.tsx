@@ -463,6 +463,7 @@ function buildSetupSelectionFromPreferences(preferences: AppPreferences): FirstR
     cautionFlags: preferences.setupCautionFlags,
     guidanceMode: preferences.setupGuidanceMode ?? DEFAULT_FIRST_RUN_SELECTION.guidanceMode,
     scheduleMode: preferences.setupScheduleMode ?? DEFAULT_FIRST_RUN_SELECTION.scheduleMode,
+    automatedProgression: preferences.automatedProgressionEnabled,
     weeklyMinutes: preferences.setupWeeklyMinutes,
     availableDays:
       preferences.setupAvailableDays.length > 0
@@ -498,6 +499,7 @@ function buildSetupPreferencePatch(
     setupCautionFlags: selection.cautionFlags ?? [],
     setupGuidanceMode: selection.guidanceMode,
     setupScheduleMode: selection.scheduleMode,
+    automatedProgressionEnabled: selection.automatedProgression ?? true,
     setupWeeklyMinutes: selection.weeklyMinutes ?? null,
     setupAvailableDays: selection.scheduleMode === 'self_managed' ? selection.availableDays : [],
     setupCurrentWeightKg: selection.currentWeightKg ?? null,

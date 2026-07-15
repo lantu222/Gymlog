@@ -35,11 +35,12 @@ module.exports = [
     run() {
       const reviewBody = getFunctionBody('renderReview');
       const dayBody = getFunctionBody('renderPlanReadyDay');
-      const accountBody = getFunctionBody('renderPlanReadyAccount');
+      const progressionBody = getFunctionBody('renderPlanReadyProgression');
 
-      // Plan-ready is a three-view flow: overview -> day preview -> account gate.
-      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day' \| 'account'>\('overview'\)/);
-      assert.match(reviewBody, /if \(planReadyView === 'account'\) \{\s*return renderPlanReadyAccount\(\);/);
+      // Plan-ready is a three-view flow: overview -> day preview -> plan review
+      // (automated-progression toggle). No account gate — auth lives on Welcome.
+      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day' \| 'progression'>\('overview'\)/);
+      assert.match(reviewBody, /if \(planReadyView === 'progression'\) \{\s*return renderPlanReadyProgression\(\);/);
       assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
 
       // Overview: "Your program is ready" H1 + subtitle, then the 2-card result:
@@ -70,23 +71,33 @@ module.exports = [
       assert.match(dayBody, /exercise\.setsLabel/);
       assert.match(dayBody, /exercise\.repsLabel/);
 
-      // Account gate: save copy + three providers, all completing onboarding.
-      assert.match(accountBody, /Save your plan/);
-      assert.match(accountBody, /Continue with Google/);
-      assert.match(accountBody, /Continue with Apple/);
-      assert.match(accountBody, /Use email instead/);
-      assert.match(accountBody, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
+      // Plan review: automated-progression toggle card (default ON = glow +
+      // purple checks; OFF dims bullets with strike-through), Settings note,
+      // CTA "Start training" completes onboarding. No "Save your plan" copy.
+      assert.match(progressionBody, /Automated progression/);
+      assert.match(progressionBody, /'On — GAINER adjusts your plan for you\.'/);
+      assert.match(progressionBody, /"Off — you'll manage these yourself\."/);
+      assert.match(progressionBody, /accessibilityRole="switch"/);
+      assert.match(progressionBody, /setAutomatedProgressionEnabled\(\(current\) => !current\)/);
+      assert.match(progressionBody, /PROGRESSION_BULLETS\.map/);
+      assert.match(progressionBody, /styles\.progressionCardOn/);
+      assert.match(progressionBody, /styles\.progressionBulletTextOff/);
+      assert.match(progressionBody, /You can change this anytime in Settings\./);
+      assert.match(onboardingSource, /const \[automatedProgressionEnabled, setAutomatedProgressionEnabled\] = useState\(/);
+      assert.match(onboardingSource, /progressionBulletTextOff:\s*\{[\s\S]*textDecorationLine: 'line-through'/);
+      assert.match(onboardingSource, /automatedProgression: automatedProgressionEnabled/);
+      assert.match(appSource, /automatedProgressionEnabled: selection\.automatedProgression \?\? true/);
+      assert.doesNotMatch(onboardingSource, /Save your plan/);
+      assert.doesNotMatch(onboardingSource, /renderPlanReadyAccount/);
 
-      // Overview is the primary "Save plan & start" surface; the recommended
-      // card's "View the week" link opens the read-only day preview whose footer
-      // only returns to the plan ("Back to plan"). Footer hides only on the
-      // account gate — never leaving the user stuck without a way back.
+      // Overview continues to the progression screen; the day view's footer
+      // returns to the plan ("Back to plan"); progression completes onboarding.
       assert.match(onboardingSource, /setPlanReadyWorkoutPage\(0\);\s*setPlanReadyView\('day'\)/);
       assert.match(onboardingSource, /if \(planReadyView === 'day'\) \{\s*setPlanReadyView\('overview'\);/);
-      assert.match(onboardingSource, /setPlanReadyView\('account'\)/);
-      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'account'\)/);
+      assert.match(onboardingSource, /setPlanReadyView\('progression'\)/);
+      assert.match(onboardingSource, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
-      assert.match(onboardingSource, /\? 'Back to plan'\s*: 'Save plan & start'/);
+      assert.match(onboardingSource, /\? 'Back to plan'\s*: planReadyView === 'progression'\s*\? 'Start training'\s*: 'Continue'/);
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).

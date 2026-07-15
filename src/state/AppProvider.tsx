@@ -110,6 +110,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       autoFocusNextInput: true,
       keepScreenAwakeDuringWorkout: false,
       adaptiveCoachPremiumUnlocked: false,
+      automatedProgressionEnabled: true,
       aiSetupCompleted: false,
       hasOpenedAppBefore: false,
       entryFlowCompleted: false,
