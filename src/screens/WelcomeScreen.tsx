@@ -270,9 +270,9 @@ const styles = StyleSheet.create({
   },
   featureBody: {
     color: INK,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
     textAlign: 'center',
   },
   providerButton: {
@@ -305,13 +305,13 @@ const styles = StyleSheet.create({
   },
   dividerLine: {
     flex: 1,
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: BORDER,
+    height: 1,
+    backgroundColor: '#D6C7F2',
   },
   dividerText: {
-    color: MUTED,
+    color: INK,
     fontSize: 12.5,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   cta: {
     height: 56,
