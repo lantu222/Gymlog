@@ -2941,7 +2941,7 @@ export function OnboardingScreen({
       topCopyStyle: styles.locationEquipmentTopCopy,
       titleStyle: styles.locationEquipmentHeadline,
       children: selectedSetup ? (
-        <View style={[styles.locationCardList, styles.locationStepOneOptionsShift]}>
+        <View style={styles.locationCardList}>
           <View style={styles.equipmentExpandedCard}>
             <View style={styles.equipmentExpandedHeader}>
               <OnboardingOptionIcon name={selectedSetup.icon} />
@@ -2994,7 +2994,7 @@ export function OnboardingScreen({
           ))}
         </View>
       ) : (
-        <View style={[styles.locationCardList, styles.locationStepOneOptionsShift]}>
+        <View style={styles.locationCardList}>
           {LOCATION_SELECTION_OPTIONS.map((option) => (
             <LocationChoiceCard
               key={option.id}
@@ -3197,7 +3197,6 @@ export function OnboardingScreen({
         label: option.label,
         subtitle: option.subtitle,
         icon: option.icon,
-        tags: option.tags,
         active: goal === option.id,
         onPress: () => {
           void haptics.select();
@@ -5017,8 +5016,8 @@ const styles = StyleSheet.create({
   },
   locationChoiceSubtitle: {
     color: ONBOARDING_TEXT_SOFT,
-    fontSize: 12.5,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 19,
     fontWeight: '600',
   },
   locationChoiceSubtitleActive: {
