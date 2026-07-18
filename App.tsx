@@ -1949,14 +1949,18 @@ function GymlogApp() {
           return activeTemplateSessions[entry.orderIndex] ?? null;
         })
         .filter((session): session is NonNullable<typeof session> => Boolean(session));
-      const homeSessions = orderedPlanSessions.map((session) => {
+      const homeSessions = orderedPlanSessions.map((session, sessionIndex) => {
         const exerciseCount = session.exercises.length;
         const estimatedDuration = Math.max(20, Math.round(exerciseCount * 10));
+        // Weekday truth (P6): surface the plan's own entry label so week rows
+        // land on the user's chosen days, not a generic spread.
+        const entryLabel = sortedEntries[sessionIndex]?.label ?? null;
 
         return {
           id: session.id,
           title: formatHomeSessionTitle(session.name, session.exercises),
           duration: `~${estimatedDuration} min`,
+          dayLabel: entryLabel,
           totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0),
           exercises: session.exercises.slice(0, 5).map((exercise) => ({
             name: exercise.name,

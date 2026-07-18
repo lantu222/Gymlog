@@ -54,10 +54,12 @@ module.exports = [
       assert.match(programsHomeSource, /phaseNote\(currentWeek, totalWeeks\)/);
       assert.match(programsHomeSource, /Array\.from\(\{ length: totalWeeks \}/);
       assert.match(programsHomeSource, /index < currentWeek \? styles\.heroSegmentFilled : styles\.heroSegmentEmpty/);
-      // THIS WEEK plan: weekday-spread day rows with a TODAY highlight; the old
-      // next-session Start strip is intentionally gone (starting lives elsewhere).
+      // THIS WEEK plan: day rows land on the saved plan's own weekday labels
+      // (weekday truth, P6); the generic spread is only a fallback. TODAY
+      // highlight stays; the old next-session Start strip is intentionally gone.
       assert.match(programsHomeSource, /THIS WEEK · \$\{activeProgram\.sessionsPerWeek\} DAYS \/ WEEK/);
-      assert.match(programsHomeSource, /weekdayForSession\(index, weekSessions\.length\)/);
+      assert.match(programsHomeSource, /resolveSessionWeekday\(session\.dayLabel, index, weekSessions\.length\)/);
+      assert.match(programsHomeSource, /function resolveSessionWeekday\(/);
       assert.match(programsHomeSource, /dayRowToday/);
       assert.match(programsHomeSource, />TODAY<\/Text>/);
       assert.doesNotMatch(programsHomeSource, /NEXT SESSION/);

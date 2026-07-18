@@ -44,6 +44,11 @@ export interface HomeDaySessionSummary {
   id: string;
   title: string;
   duration: string;
+  /**
+   * The plan's actual weekday label for this session (e.g. "Tue"), taken from
+   * the saved plan entries — weekday truth. Null/absent = no fixed weekday.
+   */
+  dayLabel?: string | null;
   /** Total working sets across every exercise (Home v4 meta grid). */
   totalSets?: number;
   exercises: Array<{

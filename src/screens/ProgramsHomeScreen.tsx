@@ -37,6 +37,18 @@ function weekdayForSession(index: number, sessionCount: number) {
   return WEEKDAYS[spread[index] ?? Math.min(index, 6)];
 }
 
+// Weekday truth (P6): the saved plan's own entry label wins; the generic
+// spread is only a fallback for plans without fixed weekdays.
+const WEEKDAY_SET = new Set(WEEKDAYS);
+
+function resolveSessionWeekday(dayLabel: string | null | undefined, index: number, sessionCount: number) {
+  const normalized = dayLabel?.trim().slice(0, 3).toUpperCase() ?? '';
+  if (WEEKDAY_SET.has(normalized)) {
+    return normalized;
+  }
+  return weekdayForSession(index, sessionCount);
+}
+
 // Designed program covers (README "Program Covers"): a per-program hue rendered
 // as a gradient, with a single-stroke signature motif. oklch from the mock is
 // pre-converted to sRGB here (RN has no oklch). Each Explore card cycles a style
@@ -281,7 +293,7 @@ export function ProgramsHomeScreen({
             <View style={styles.weekList}>
               {weekSessions.map((session, index) => {
                 const isToday = nextSession?.id === session.id;
-                const weekday = weekdayForSession(index, weekSessions.length);
+                const weekday = resolveSessionWeekday(session.dayLabel, index, weekSessions.length);
                 const focusLine = session.exercises
                   .slice(0, 3)
                   .map((exercise) => exercise.name)
