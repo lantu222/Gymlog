@@ -2,6 +2,7 @@ import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { buildRecommendationPlanReadyPayload } from './recommendationProgramme';
 import { applyCautionFlagsToExercises, CautionExerciseSwap } from './cautionExerciseFilter';
+import { applyEquipmentToExercises, resolveAvailableEquipment } from './equipmentExerciseFilter';
 import { buildFocusEmphasisAdditions, FocusEmphasisAddition } from './focusEmphasis';
 import type { FirstRunSetupSelection } from './firstRunSetup';
 
@@ -39,6 +40,9 @@ export interface ComposedProgramWeek {
   cautionSwapped: CautionExerciseSwap[];
   /** Focus-area emphasis added to this week (P3 truth surface). */
   focusAdditions: FocusEmphasisAddition[];
+  /** Equipment-driven changes to this week (P4 truth surface). */
+  equipmentRemoved: string[];
+  equipmentSwapped: Array<{ from: string; to: string }>;
 }
 
 function getFallbackTrackingMode(name: string): WorkoutTemplateExercise['trackingMode'] {
@@ -126,12 +130,23 @@ export function composeProgramWeekForSelection(
   // added BEFORE the caution pass so flags can still veto or swap them.
   const emphasis = buildFocusEmphasisAdditions(baseSessions, selection.focusAreas);
 
+  // P4: the chosen equipment chips are the full truth about available gear.
+  const availableEquipment = resolveAvailableEquipment(selection);
+  const equipmentRemoved: string[] = [];
+  const equipmentSwapped: Array<{ from: string; to: string }> = [];
+
   const sessions = baseSessions
     .map((session): ComposedProgramSession => {
       const withEmphasis = [...session.exercises, ...(emphasis.bySessionId.get(session.id) ?? [])];
+      // Order matters: equipment first, caution LAST so bans always win —
+      // an equipment fallback can never resurrect a flagged movement.
+      const equipped = applyEquipmentToExercises(withEmphasis, availableEquipment);
+      equipmentRemoved.push(...equipped.removed);
+      equipmentSwapped.push(...equipped.swapped);
+
       // P2: caution flags change the actual movements — avoid removes,
       // careful swaps (bodyweight-first when the area is also a focus).
-      const adjusted = applyCautionFlagsToExercises(withEmphasis, cautionFlags, selection.focusAreas);
+      const adjusted = applyCautionFlagsToExercises(equipped.exercises, cautionFlags, selection.focusAreas);
       cautionRemoved.push(...adjusted.removed);
       cautionSwapped.push(...adjusted.swapped);
 
@@ -167,5 +182,7 @@ export function composeProgramWeekForSelection(
     cautionRemoved,
     cautionSwapped,
     focusAdditions,
+    equipmentRemoved,
+    equipmentSwapped,
   };
 }
