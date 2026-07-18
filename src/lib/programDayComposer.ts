@@ -1,6 +1,7 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { buildRecommendationPlanReadyPayload } from './recommendationProgramme';
+import { applyCautionFlagsToExercises, CautionExerciseSwap } from './cautionExerciseFilter';
 import type { FirstRunSetupSelection } from './firstRunSetup';
 
 /**
@@ -32,6 +33,9 @@ export interface ComposedProgramWeek {
   sessionMinutes: number;
   /** True when the composed week differs from the template's own day count. */
   composed: boolean;
+  /** Caution-flag effects applied to this week (P2 truth surface). */
+  cautionRemoved: Array<{ name: string; area: string }>;
+  cautionSwapped: CautionExerciseSwap[];
 }
 
 function getFallbackTrackingMode(name: string): WorkoutTemplateExercise['trackingMode'] {
@@ -90,26 +94,39 @@ export function composeProgramWeekForSelection(
     (day) => day.source === 'template' || day.keyLifts.length > 0,
   );
 
-  const sessions = trainingDays.map((day, dayIndex): ComposedProgramSession => {
-    const sourceSession =
-      day.source === 'template' ? template.sessions.find((session) => session.id === day.id) ?? null : null;
-    const sessionId = `onboarding_${programId}_${dayIndex + 1}`;
-    const exercises = sourceSession
-      ? sourceSession.exercises.map((exercise) => ({
-          ...exercise,
-          id: `${sessionId}_${exercise.id}`,
-          slotId: `${exercise.slotId}_${dayIndex + 1}`,
-        }))
-      : day.keyLifts.map((lift, exerciseIndex) => buildComposedFallbackExercise(lift, sessionId, exerciseIndex));
+  const cautionFlags = selection.cautionFlags ?? [];
+  const cautionRemoved: ComposedProgramWeek['cautionRemoved'] = [];
+  const cautionSwapped: CautionExerciseSwap[] = [];
 
-    return {
-      id: sessionId,
-      name: day.name,
-      orderIndex: dayIndex,
-      source: sourceSession ? 'template' : 'suggested',
-      exercises,
-    };
-  });
+  const sessions = trainingDays
+    .map((day, dayIndex): ComposedProgramSession => {
+      const sourceSession =
+        day.source === 'template' ? template.sessions.find((session) => session.id === day.id) ?? null : null;
+      const sessionId = `onboarding_${programId}_${dayIndex + 1}`;
+      const baseExercises = sourceSession
+        ? sourceSession.exercises.map((exercise) => ({
+            ...exercise,
+            id: `${sessionId}_${exercise.id}`,
+            slotId: `${exercise.slotId}_${dayIndex + 1}`,
+          }))
+        : day.keyLifts.map((lift, exerciseIndex) => buildComposedFallbackExercise(lift, sessionId, exerciseIndex));
+
+      // P2: caution flags change the actual movements — avoid removes,
+      // careful swaps (bodyweight-first when the area is also a focus).
+      const adjusted = applyCautionFlagsToExercises(baseExercises, cautionFlags, selection.focusAreas);
+      cautionRemoved.push(...adjusted.removed);
+      cautionSwapped.push(...adjusted.swapped);
+
+      return {
+        id: sessionId,
+        name: day.name,
+        orderIndex: dayIndex,
+        source: sourceSession ? 'template' : 'suggested',
+        exercises: adjusted.exercises,
+      };
+    })
+    .filter((session) => session.exercises.length > 0)
+    .map((session, index) => ({ ...session, orderIndex: index }));
 
   const weeks = payload.blockLengthWeeks > 0 ? payload.blockLengthWeeks : 4;
   const days = sessions.length;
@@ -122,5 +139,7 @@ export function composeProgramWeekForSelection(
     totalWorkouts: weeks * days,
     sessionMinutes: template.estimatedSessionDuration,
     composed: days !== template.daysPerWeek,
+    cautionRemoved,
+    cautionSwapped,
   };
 }

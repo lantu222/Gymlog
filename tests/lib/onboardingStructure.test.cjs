@@ -364,7 +364,7 @@ module.exports = [
       // Flagged areas keep their caution colour when selected, and picking one
       // swaps the hint for the bodyweight-safety note. No info box.
       assert.match(planningBody, /flaggedFocusSelected/);
-      assert.match(planningBody, /bodyweight only to maximize/);
+      assert.match(planningBody, /joint-friendly, bodyweight-first exercises/);
       assert.match(planningBody, /Pick 1–2 areas\./);
       assert.doesNotMatch(planningBody, /Why focus areas\?/);
       assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
@@ -374,7 +374,9 @@ module.exports = [
       assert.match(planningBody, /getFocusAreaCautionLevel\(option\.area, cautionFlags\)/);
       assert.match(planningBody, /CAUTION_LEVEL_COLORS\[caution\]/);
       assert.match(planningBody, /<CautionGlyph/);
-      assert.match(onboardingSource, /const CAUTION_TO_FOCUS_AREAS: Record<SetupCautionArea, SetupFocusArea\[\]>/);
+      // The area mapping is shared with the exercise filter (P2) so UI colour
+      // and actual filtering can never disagree.
+      assert.match(onboardingSource, /import \{ buildCautionSummaryLabel, CAUTION_TO_FOCUS_AREAS \} from '..\/lib\/cautionExerciseFilter'/);
       assert.match(onboardingSource, /function getFocusAreaCautionLevel\(/);
 
       // Anatomy-highlight cards are gone.

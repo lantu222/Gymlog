@@ -67,7 +67,21 @@ exercises — quality pass belongs to P2/P3 composer work.
 Home, Programs THIS WEEK, Plan settings and week preview all show exactly N training days;
 total workouts = weeks × N. Add a matrix test in `tests/lib/`.
 
-### P2 — Caution flags become real (highest honesty debt)
+### P2 — Caution flags become real (highest honesty debt) — ✅ DONE 2026-07-18
+Implemented via `src/lib/cautionExerciseFilter.ts`, applied inside the P1 composer
+so picker split, previews, saved program and logger all inherit it:
+- `avoid` removes every exercise matching the area's stress patterns
+  (name-based, grounded in catalog names); swaps never land on a banned move.
+- `careful` swaps to joint-friendly variants (registry per area), keeps the
+  prescription. Per decision #2 there is no separate load-cap UI.
+- careful area picked as a step-6 FOCUS swaps bodyweight-first (decision #3).
+- Plan overview shows "Trains around: Knees left out · …"; step-6 note copy now
+  matches the implementation ("joint-friendly, bodyweight-first … avoided areas
+  stay out entirely").
+- Caution→focus-area mapping moved into the lib; the onboarding UI imports it.
+E2E: knees=avoid → saved plan's Lower day lost Back Squat (kept Romanian
+Deadlift), Full Body lost Goblet Squat, durations updated, overview line shown.
+Tests: `tests/lib/cautionExerciseFilter.test.cjs` (incl. composed-week ban check).
 1. New pure lib `src/lib/cautionExerciseFilter.ts`: `SetupCautionArea` → exercise-name /
    library-muscle patterns; levels: `info` = no change, `careful` = swap to joint-friendly
    variant + flag for lighter-load guidance, `avoid` = exclude the pattern entirely.

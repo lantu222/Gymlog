@@ -60,6 +60,7 @@ import { buildSessionGuidance } from '../lib/sessionGuidance';
 import { getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
 import { buildProgramFocusSplit, PROGRAM_FOCUS_COLORS, ProgramFocusSegment } from '../lib/programFocusSplit';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
+import { buildCautionSummaryLabel, CAUTION_TO_FOCUS_AREAS } from '../lib/cautionExerciseFilter';
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
@@ -370,6 +371,10 @@ const AVOID_EXTRA_AREA_OPTIONS: Array<{ area: SetupCautionArea; label: string }>
   { area: 'ankles', label: 'Ankles' },
 ];
 
+const CAUTION_AREA_LABELS = Object.fromEntries(
+  [...AVOID_AREA_OPTIONS, ...AVOID_EXTRA_AREA_OPTIONS].map((option) => [option.area, option.label]),
+) as Record<SetupCautionArea, string>;
+
 const CAUTION_LEVEL_OPTIONS: Array<{ level: SetupCautionLevel; label: string; body: string }> = [
   { level: 'info', label: 'For info only', body: "We'll keep it in mind." },
   { level: 'careful', label: 'Be careful', body: 'Lighter loads and joint-friendly swaps.' },
@@ -510,16 +515,8 @@ const REFINEMENT_FOCUS_AREA_OPTIONS: SetupFocusArea[] = FOCUS_AREA_OPTIONS.map((
 // Focus rows read the avoid-step flags: a flagged part tints its row amber
 // (Be careful) or red (Avoid entirely) with a warning triangle; info-level
 // flags stay neutral. Avoid wins when multiple flags touch the same area.
-const CAUTION_TO_FOCUS_AREAS: Record<SetupCautionArea, SetupFocusArea[]> = {
-  neck: ['shoulders'],
-  shoulders: ['shoulders'],
-  elbows: ['arms'],
-  wrists: ['arms'],
-  lower_back: ['back', 'core'],
-  hips: ['glutes'],
-  knees: ['legs', 'quads', 'hamstrings'],
-  ankles: ['calves'],
-};
+// The caution-area → focus-area mapping lives in cautionExerciseFilter so the
+// UI colouring and the actual exercise filtering can never disagree.
 
 function getFocusAreaCautionLevel(
   area: SetupFocusArea,
@@ -3311,6 +3308,8 @@ export function OnboardingScreen({
     const planReadyTags = recommendedProgramTags.map((tag) =>
       /^\d+\s*days?$/i.test(tag.trim()) ? `${planReadyPerWeek} Days` : tag,
     );
+    // P2: show that the caution flags actually shaped the plan.
+    const planReadyCautionLine = buildCautionSummaryLabel(cautionFlags, CAUTION_AREA_LABELS);
     const planReadyWaterfall = recommendation.waterfall;
     const planReadyWhyPrimary =
       planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.primaryProgramId
@@ -3372,6 +3371,9 @@ export function OnboardingScreen({
                   </View>
                 ))}
               </View>
+            ) : null}
+            {planReadyCautionLine ? (
+              <Text style={styles.planReadyCautionLine}>{planReadyCautionLine}</Text>
             ) : null}
           </View>
           <View style={styles.planReadyOverviewStatRow}>
@@ -3672,8 +3674,8 @@ export function OnboardingScreen({
             <View style={styles.focusCautionNote}>
               <CautionGlyph color="#D97706" size={16} />
               <Text style={styles.focusCautionNoteText}>
-                This shapes your training: exercises for flagged areas are done with bodyweight only to maximize
-                safety.
+                This shapes your training: flagged areas swap to joint-friendly, bodyweight-first exercises —
+                avoided areas stay out entirely.
               </Text>
             </View>
           ) : (
@@ -6643,6 +6645,12 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 19,
     fontWeight: '600',
+  },
+  planReadyCautionLine: {
+    color: 'rgba(255,255,255,0.85)',
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   planReadyPrimaryTagRow: {
     flexDirection: 'row',
