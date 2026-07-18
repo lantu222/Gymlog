@@ -1,8 +1,8 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Path } from 'react-native-svg';
 
 import { getAgeFromDateOfBirth, getHealthProviderLabel, HealthBasics } from '../integrations/health';
 
@@ -15,6 +15,12 @@ const FAINT = '#9A93AC';
 const BORDER = '#E4D8FF';
 const PURPLE = '#7C3AED';
 
+// The real Health Connect / HealthKit read is near-instant, so this hold is
+// purely presentational: long enough to register as "work being done",
+// short enough not to annoy on replays.
+const SYNC_HOLD_MS = 1200;
+const ROW_STAGGER_MS = 90;
+
 interface HealthSyncedScreenProps {
   basics: HealthBasics;
   onContinue: () => void;
@@ -22,6 +28,8 @@ interface HealthSyncedScreenProps {
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const PLACEHOLDER_WIDTHS = [64, 52, 46, 110];
 
 function formatDateOfBirth(dateOfBirth: string | null) {
   if (!dateOfBirth) {
@@ -46,6 +54,22 @@ function formatSex(sex: HealthBasics['sex']) {
   return null;
 }
 
+function SpinnerArc() {
+  return (
+    <Svg width={34} height={34} viewBox="0 0 24 24" fill="none">
+      <Circle
+        cx={12}
+        cy={12}
+        r={9}
+        stroke="#FFFFFF"
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeDasharray="40 17"
+      />
+    </Svg>
+  );
+}
+
 export function HealthSyncedScreen({ basics, onContinue, onBack }: HealthSyncedScreenProps) {
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
@@ -68,32 +92,153 @@ export function HealthSyncedScreen({ basics, onContinue, onBack }: HealthSyncedS
     rows.push({ label: 'Date of birth', value: dobValue });
   }
 
+  const [revealed, setRevealed] = useState(false);
+  const pulse = useRef(new Animated.Value(0)).current;
+  const spin = useRef(new Animated.Value(0)).current;
+  const checkPop = useRef(new Animated.Value(0)).current;
+  const textFade = useRef(new Animated.Value(1)).current;
+  const footerFade = useRef(new Animated.Value(0)).current;
+  const rowReveals = useRef(rows.map(() => new Animated.Value(0))).current;
+
+  // Shimmer + spinner loops, only while syncing.
+  useEffect(() => {
+    if (revealed) {
+      return;
+    }
+    const shimmer = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 1, duration: 620, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0, duration: 620, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    const spinner = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: true }),
+    );
+    shimmer.start();
+    spinner.start();
+    return () => {
+      shimmer.stop();
+      spinner.stop();
+    };
+  }, [revealed, pulse, spin]);
+
+  // Hold in the syncing state, then reveal: check pops, copy swaps,
+  // rows cascade in, footer fades up last.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.timing(textFade, { toValue: 0, duration: 140, useNativeDriver: true }).start(() => {
+        setRevealed(true);
+        Animated.parallel([
+          Animated.timing(textFade, { toValue: 1, duration: 220, useNativeDriver: true }),
+          Animated.spring(checkPop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+          Animated.stagger(
+            ROW_STAGGER_MS,
+            rowReveals.map((value) =>
+              Animated.timing(value, { toValue: 1, duration: 240, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+            ),
+          ),
+          Animated.timing(footerFade, { toValue: 1, duration: 260, delay: 280, useNativeDriver: true }),
+        ]).start();
+      });
+    }, SYNC_HOLD_MS);
+    return () => clearTimeout(timer);
+  }, [textFade, checkPop, footerFade, rowReveals]);
+
+  const spinDeg = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 14 }]}>
       <View style={styles.content}>
-        <View style={styles.checkBadge}>
-          <Svg width={34} height={34} viewBox="0 0 24 24" fill="none">
-            <Path d="M5 12l5 5L19 7" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </View>
+        <Animated.View
+          style={[
+            styles.checkBadge,
+            { transform: [{ scale: checkPop.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] },
+          ]}
+        >
+          <Animated.View
+            style={[
+              styles.badgeLayer,
+              {
+                opacity: checkPop.interpolate({ inputRange: [0, 0.35], outputRange: [1, 0], extrapolate: 'clamp' }),
+                transform: [{ rotate: spinDeg }],
+              },
+            ]}
+          >
+            <SpinnerArc />
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.badgeLayer,
+              {
+                opacity: checkPop.interpolate({ inputRange: [0, 0.3], outputRange: [0, 1], extrapolate: 'clamp' }),
+                transform: [{ scale: checkPop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+              },
+            ]}
+          >
+            <Svg width={34} height={34} viewBox="0 0 24 24" fill="none">
+              <Path d="M5 12l5 5L19 7" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Animated.View>
+        </Animated.View>
 
-        <Text style={[styles.title, { fontFamily }]}>{`Synced with ${providerLabel}`}</Text>
-        <Text style={[styles.subtitle, { fontFamily }]}>
-          {"We've pre-filled your details. Change anything that's off."}
+        <Animated.View style={{ opacity: textFade }}>
+          <Text style={[styles.title, { fontFamily }]}>
+            {revealed ? `Synced with ${providerLabel}` : `Syncing with ${providerLabel}…`}
+          </Text>
+          <Text style={[styles.subtitle, { fontFamily }]}>
+            {revealed ? "We've pre-filled your details." : 'Fetching your details securely…'}
+          </Text>
+        </Animated.View>
+
+        <Text style={[styles.importedLabel, { fontFamily }]}>
+          {`${revealed ? 'IMPORTED' : 'IMPORTING'} FROM ${providerLabel.toUpperCase()}`}
         </Text>
-
-        <Text style={[styles.importedLabel, { fontFamily }]}>{`IMPORTED FROM ${providerLabel.toUpperCase()}`}</Text>
         <View style={styles.card}>
-          {rows.map((row, index) => (
-            <View key={row.label} style={[styles.row, index === rows.length - 1 && styles.rowLast]}>
-              <Text style={[styles.rowLabel, { fontFamily }]}>{row.label}</Text>
-              <Text style={[styles.rowValue, { fontFamily }]}>{row.value}</Text>
-            </View>
-          ))}
+          {rows.map((row, index) => {
+            const reveal = rowReveals[index];
+            return (
+              <View key={row.label} style={[styles.row, index === rows.length - 1 && styles.rowLast]}>
+                <Text style={[styles.rowLabel, { fontFamily }]}>{row.label}</Text>
+                <View style={styles.rowValueSlot}>
+                  <Animated.View
+                    style={{
+                      opacity: reveal,
+                      transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+                    }}
+                  >
+                    <Text style={[styles.rowValue, { fontFamily }]}>{row.value}</Text>
+                  </Animated.View>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.rowPlaceholderLayer,
+                      { opacity: reveal.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0], extrapolate: 'clamp' }) },
+                    ]}
+                  >
+                    <Animated.View
+                      style={[
+                        styles.rowPlaceholder,
+                        {
+                          width: PLACEHOLDER_WIDTHS[index] ?? 64,
+                          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }),
+                        },
+                      ]}
+                    />
+                  </Animated.View>
+                </View>
+              </View>
+            );
+          })}
         </View>
+
+        <Animated.View style={{ opacity: footerFade }} pointerEvents="none">
+          <Text style={[styles.editNote, { fontFamily }]}>
+            Something off? You can edit all of these on the next screen.
+          </Text>
+        </Animated.View>
       </View>
 
-      <View style={styles.footer}>
+      <Animated.View style={[styles.footer, { opacity: footerFade }]} pointerEvents={revealed ? 'auto' : 'none'}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Continue"
@@ -110,7 +255,7 @@ export function HealthSyncedScreen({ basics, onContinue, onBack }: HealthSyncedS
         >
           <Text style={[styles.backText, { fontFamily }]}>Back</Text>
         </Pressable>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -142,6 +287,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     elevation: 8,
   },
+  badgeLayer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   title: {
     color: INK,
     fontSize: 26,
@@ -157,6 +307,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
     marginTop: 8,
+    minHeight: 40,
   },
   importedLabel: {
     color: FAINT,
@@ -190,10 +341,33 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     fontWeight: '700',
   },
+  rowValueSlot: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
+  rowPlaceholderLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
+  },
+  rowPlaceholder: {
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: BORDER,
+  },
   rowValue: {
     color: INK,
     fontSize: 14.5,
     fontWeight: '800',
+  },
+  editNote: {
+    color: MUTED,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 14,
+    paddingHorizontal: 12,
   },
   footer: {
     paddingTop: 8,

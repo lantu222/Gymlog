@@ -142,12 +142,33 @@ export function AboutYouScreen({ healthConnected, initialValues, onContinue, onB
         </Text>
 
         <View style={styles.identityCard}>
-          <View style={[styles.avatar, hasName ? styles.avatarFilled : styles.avatarEmpty]}>
-            <Text style={[hasName ? styles.avatarInitials : styles.avatarPlaceholder, { fontFamily }]}>
-              {hasName ? initials : '?'}
-            </Text>
+          <View style={styles.profileTopRow}>
+            <View style={[styles.avatar, hasName ? styles.avatarFilled : styles.avatarEmpty]}>
+              <Text style={[hasName ? styles.avatarInitials : styles.avatarPlaceholder, { fontFamily }]}>
+                {hasName ? initials : '?'}
+              </Text>
+            </View>
+            <View style={styles.profileStatsRow}>
+              {['workouts', 'PRs', 'kg lifted'].map((label) => (
+                <View key={label} style={styles.profileStat}>
+                  <Text style={[styles.profileStatValue, { fontFamily }]}>0</Text>
+                  <Text style={[styles.profileStatLabel, { fontFamily }]}>{label}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <View style={styles.nameField}>
+
+          <Text
+            style={[styles.profileName, !hasName && styles.profileNamePlaceholder, { fontFamily }]}
+            numberOfLines={1}
+          >
+            {name.trim() || 'Your name'}
+          </Text>
+          <Text style={[styles.profileHint, { fontFamily }]}>Fresh profile — your stats start today.</Text>
+
+          <View style={styles.cardDivider} />
+
+          <View>
             <Text style={[styles.fieldLabel, { fontFamily }]}>YOUR NAME</Text>
             <TextInput
               value={name}
@@ -292,15 +313,58 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   identityCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
     backgroundColor: SURFACE,
     borderWidth: 1.5,
     borderColor: BORDER,
     borderRadius: 18,
     padding: 18,
     marginTop: 24,
+  },
+  profileTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  profileStatsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  profileStat: {
+    alignItems: 'center',
+    gap: 1,
+  },
+  profileStatValue: {
+    color: INK,
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  profileStatLabel: {
+    color: FAINT,
+    fontSize: 11.5,
+    fontWeight: '700',
+  },
+  profileName: {
+    color: INK,
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+    marginTop: 14,
+  },
+  profileNamePlaceholder: {
+    color: FAINT,
+  },
+  profileHint: {
+    color: FAINT,
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#F1EAFD',
+    marginVertical: 14,
   },
   avatar: {
     width: 58,
@@ -330,9 +394,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: 0.4,
-  },
-  nameField: {
-    flex: 1,
   },
   fieldLabel: {
     color: FAINT,

@@ -159,7 +159,7 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
           </View>
         </View>
 
-        <Text style={[styles.title, { fontFamily }]}>{`Connect ${providerLabel}`}</Text>
+        <Text style={[styles.title, { fontFamily }]}>{`Link ${providerLabel}`}</Text>
         <Text style={[styles.subtitle, { fontFamily }]}>
           Sync your details so we can build your plan faster — no manual typing.
         </Text>
@@ -183,14 +183,14 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Connect ${providerLabel}`}
+          accessibilityLabel={`Link ${providerLabel}`}
           onPress={() => void handleConnect()}
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
           {busy ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={[styles.ctaLabel, { fontFamily }]}>{`Connect ${providerLabel}`}</Text>
+            <Text style={[styles.ctaLabel, { fontFamily }]}>{`Link ${providerLabel}`}</Text>
           )}
         </Pressable>
 
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 28,
+    marginBottom: 44,
   },
   appTile: {
     width: 74,
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   bullets: {
-    marginTop: 28,
+    marginTop: 44,
     gap: 16,
   },
   bulletRow: {
