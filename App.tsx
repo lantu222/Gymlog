@@ -69,6 +69,7 @@ import { HistoryScreen } from './src/screens/HistoryScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { OnboardingScreen } from './src/screens/OnboardingScreen';
+import { OnboardingReadyCatalogScreen } from './src/screens/OnboardingReadyCatalogScreen';
 import { StartPathScreen } from './src/screens/StartPathScreen';
 import { WelcomeScreen } from './src/screens/WelcomeScreen';
 import { EquipmentPreferencesScreen } from './src/screens/EquipmentPreferencesScreen';
@@ -1034,9 +1035,12 @@ function GymlogApp() {
   // build path then runs Health connect (01c) → synced (01d) → about-you (01e)
   // before the questionnaire. The ready path exits onboarding to the catalog.
   const [onboardingStep, setOnboardingStep] = useState<
-    'path' | 'health_connect' | 'health_synced' | 'about' | 'questionnaire'
+    'path' | 'health_connect' | 'health_synced' | 'about' | 'questionnaire' | 'ready_catalog'
   >('path');
+  // Both start paths share health + about (profile creation); they fork after.
+  const [onboardingPath, setOnboardingPath] = useState<'build' | 'ready'>('build');
   const [onboardingHealthBasics, setOnboardingHealthBasics] = useState<HealthBasics | null>(null);
+  const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
   const [aboutYouValues, setAboutYouValues] = useState<AboutYouValues | null>(null);
 
   useEffect(() => {
@@ -1512,6 +1516,38 @@ function GymlogApp() {
     await deleteWorkoutTemplate(workoutTemplateId);
     showToast('Workout deleted');
     navigate(WORKOUT_PLAN_ROUTE);
+  }
+
+  async function handleOnboardingPickReadyProgram(programId: string) {
+    if (busySavingReadyPick) {
+      return;
+    }
+    setBusySavingReadyPick(true);
+    try {
+      // Profile was created on the About screen; persist its basics alongside
+      // the picked program. No questionnaire ran, so setup stays incomplete.
+      await completeOnboarding({
+        onboardingCompleted: true,
+        setupCompleted: false,
+        trainingFirstRunDismissed: false,
+        profileName: aboutYouValues?.name ?? null,
+        setupGender: aboutYouValues?.gender ?? null,
+        setupHeightCm: aboutYouValues?.heightCm ?? null,
+        setupCurrentWeightKg: aboutYouValues?.weightKg ?? null,
+        recommendedProgramId: programId,
+        activePlanId: null,
+      });
+      if (
+        typeof aboutYouValues?.weightKg === 'number' &&
+        aboutYouValues.weightKg > 0 &&
+        database.bodyweightEntries.length === 0
+      ) {
+        await addBodyweightEntry(aboutYouValues.weightKg);
+      }
+      resetToRoute(ROOT_ROUTES.home);
+    } finally {
+      setBusySavingReadyPick(false);
+    }
   }
 
   async function handleOnboardingSkip(destination: 'home' | 'programs' = 'home') {
@@ -2454,8 +2490,16 @@ function GymlogApp() {
     } else if (onboardingStep === 'path') {
       content = (
         <StartPathScreen
-          onGuidedOnboarding={() => setOnboardingStep('health_connect')}
-          onBrowsePrograms={() => void handleOnboardingSkip('programs')}
+          onGuidedOnboarding={() => {
+            setOnboardingPath('build');
+            setOnboardingStep('health_connect');
+          }}
+          onBrowsePrograms={() => {
+            // The ready path also creates the profile (health + about) before
+            // opening the catalog — same front door, different fork.
+            setOnboardingPath('ready');
+            setOnboardingStep('health_connect');
+          }}
           onBack={() => void handleBackToEntry()}
         />
       );
@@ -2502,9 +2546,17 @@ function GymlogApp() {
           }
           onContinue={(values) => {
             setAboutYouValues(values);
-            setOnboardingStep('questionnaire');
+            setOnboardingStep(onboardingPath === 'ready' ? 'ready_catalog' : 'questionnaire');
           }}
           onBack={() => setOnboardingStep(onboardingHealthBasics ? 'health_synced' : 'path')}
+        />
+      );
+    } else if (onboardingStep === 'ready_catalog') {
+      content = (
+        <OnboardingReadyCatalogScreen
+          busy={busySavingReadyPick}
+          onPick={(programId) => void handleOnboardingPickReadyProgram(programId)}
+          onBack={() => setOnboardingStep('about')}
         />
       );
     } else {

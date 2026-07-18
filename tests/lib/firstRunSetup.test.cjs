@@ -298,24 +298,32 @@ module.exports = [
     },
   },
   {
-    name: 'first-run custom split names carry focus areas when selected',
+    name: 'first-run plan names are short: goal flavor + focus + level tier, no day counts',
     run() {
-      const name = buildFirstRunCustomProgramName({
+      const base = {
         goal: 'muscle',
         level: 'beginner',
         daysPerWeek: 4,
         equipment: 'gym',
         secondaryOutcomes: ['consistency'],
-        focusAreas: ['arms', 'core'],
         guidanceMode: 'self_directed',
         scheduleMode: 'app_managed',
         weeklyMinutes: null,
         availableDays: [],
         unitPreference: 'kg',
-      });
+      };
 
-      assert.match(name, /4-Day Muscle/i);
-      assert.match(name, /Arms & Abs/i);
+      assert.equal(buildFirstRunCustomProgramName({ ...base, focusAreas: ['quads'], level: 'pro' }), 'Massive Quads Pro');
+      assert.equal(buildFirstRunCustomProgramName({ ...base, focusAreas: ['arms'] }), 'Massive Arms Amateur');
+      assert.equal(
+        buildFirstRunCustomProgramName({ ...base, goal: 'lean_athletic', focusAreas: [] }),
+        'Lean Athletic Amateur',
+      );
+      assert.equal(
+        buildFirstRunCustomProgramName({ ...base, goal: 'strength', focusAreas: [], level: 'advanced' }),
+        'Strength Advanced',
+      );
+      assert.doesNotMatch(buildFirstRunCustomProgramName({ ...base, focusAreas: [] }), /\d-Day|Split/);
     },
   },
   {

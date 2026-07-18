@@ -722,26 +722,45 @@ export function buildFirstRunAiCoachContext(
   };
 }
 
+// Short punchy plan names (user decision 2026-07-18): goal flavor + optional
+// focus + level tier — "Massive Quads Pro", "Lean Athletic Amateur". No more
+// "My 4-Day ... Split" mouthfuls; the day count lives in the stats, not the name.
+const PROGRAM_NAME_TIERS: Record<SetupLevel, string> = {
+  beginner: 'Amateur',
+  advanced: 'Advanced',
+  pro: 'Pro',
+};
+
 export function buildFirstRunCustomProgramName(selection: FirstRunSetupSelection) {
-  const goalLabel =
+  const tier = PROGRAM_NAME_TIERS[selection.level] ?? 'Amateur';
+  const focusTitle = selection.focusAreas.length > 0 ? getFocusAreaTitle(selection.focusAreas[0]) : null;
+
+  if (focusTitle) {
+    const flavor =
+      selection.goal === 'muscle'
+        ? 'Massive'
+        : selection.goal === 'strength'
+          ? 'Strong'
+          : selection.goal === 'lean_athletic'
+            ? 'Lean'
+            : selection.goal === 'run_mobility'
+              ? 'Hybrid'
+              : 'Fit';
+    return `${flavor} ${focusTitle} ${tier}`;
+  }
+
+  const goalName =
     selection.goal === 'run_mobility'
       ? 'Run + Mobility'
       : selection.goal === 'lean_athletic'
         ? 'Lean Athletic'
         : selection.goal === 'general' || selection.goal === 'general_fitness'
-        ? 'General'
-        : selection.goal === 'muscle'
-          ? 'Muscle'
-          : 'Strength';
-  const focusLabel =
-    selection.focusAreas.length > 0
-      ? ` + ${selection.focusAreas
-          .slice(0, 2)
-          .map((area) => getFocusAreaTitle(area))
-          .join(' & ')}`
-      : '';
+          ? 'Fit'
+          : selection.goal === 'muscle'
+            ? 'Massive'
+            : 'Strength';
 
-  return `My ${selection.daysPerWeek}-Day ${goalLabel}${focusLabel} Split`;
+  return `${goalName} ${tier}`;
 }
 
 export function getRecommendedProgramName(programId: string | null) {
