@@ -98,7 +98,11 @@ Tests: `tests/lib/cautionExerciseFilter.test.cjs` (incl. composed-week ban check
 patterns; week preview + logger show the swaps; overview lists the tailoring line.
 Matrix test: every area × level produces a program with zero banned patterns.
 
-### P3 — Focus areas add real emphasis
+### P3 — Focus areas add real emphasis — ✅ DONE 2026-07-18
+`src/lib/focusEmphasis.ts`: +1 weekly accessory for small areas, +2 for big
+muscle groups (decision #4), spread round-robin across sessions, no duplicates,
+max two additions per session. Runs before the caution pass so flags veto/swap
+additions; reported additions only include survivors. Split bar shifts live.
 1. Composer step: for each selected focus area, +1 accessory (or accessory swap) targeting
    that area in the sessions where it fits, capped by session time budget.
 2. 08b "WHERE YOUR WEEK GOES" recomputes from the composed program (already wired via
@@ -108,7 +112,12 @@ Matrix test: every area × level produces a program with zero banned patterns.
 **Acceptance:** Chest focus → ≥1 added/emphasized chest accessory vs base template; split
 bar changes; overview shows focus badge.
 
-### P4 — Equipment chips filter exercises
+### P4 — Equipment chips filter exercises — ✅ DONE 2026-07-18
+`src/lib/equipmentExerciseFilter.ts`: chips = the full truth about available
+gear; requirement groups per movement pattern (bench press needs bench AND
+barbell, squats need a rack, cables/machines/kettlebells/pull-up bar gated),
+fallback chain dumbbell → band → bodyweight, drop when nothing honest remains.
+Runs between focus emphasis and the caution pass (bans always win).
 1. `setupEquipmentItems` → allowed-equipment set; compose step swaps/drops exercises whose
    library `equipment` isn't available (reuse `exerciseAlternatives`).
 2. Home-equipment without "Barbell & plates"/"Squat rack" → no barbell lifts anywhere,
@@ -117,14 +126,22 @@ bar changes; overview shows focus badge.
 **Acceptance:** deselect Barbells → composed program + alternatives contain no barbell
 exercises.
 
-### P5 — Automated progression toggle honored
+### P5 — Automated progression toggle honored — ✅ DONE 2026-07-18
+`resolveAdaptiveCoachOffer` in `src/lib/adaptiveCoach.ts`: toggle OFF silences
+the in-logger adaptive coach AND its locked upsell (the choice is respected,
+not monetized). Logger reads `preferences.automatedProgressionEnabled`; Plan
+settings gained an On/Off toggle so the choice stays editable.
 1. Progression stack (`progressionActivePlan`, `adaptiveCoach`, logger prefill) reads
    `preferences.automatedProgressionEnabled`; OFF = prefill last logged values, no load/rep
    bump suggestions, no deload prompts. Toggle also editable in Profile.
 
 **Acceptance:** OFF → next session prefill equals last session exactly; no "+2.5 kg" chips.
 
-### P6 — Weekday rhythm truth
+### P6 — Weekday rhythm truth — ✅ DONE 2026-07-18
+Saved plan entry labels (user's chosen days when self-managed, app-placed
+rhythm otherwise) flow into Programs THIS WEEK rows via
+`HomeDaySessionSummary.dayLabel`; the generic index spread is only a fallback
+for plans without fixed weekdays. Tue/Thu/Sat no longer renders as MON/WED/FRI.
 1. `self_managed` chosen weekdays drive Home "today vs rest day" and Programs THIS WEEK
    letters (today Programs derives letters from session index — `weekdayForSession`).
 2. `app_managed` (rolling sequence) stops pretending: label rows "Next / Then / …" instead
@@ -133,11 +150,19 @@ exercises.
 **Acceptance:** pick Mon/Wed/Fri → Tuesday shows rest state on Home; Programs rows sit on
 M/W/F. Rolling mode shows no weekday letters at all.
 
-### P7 — Copy honesty sweep (close the loop)
-Audit every claim made during onboarding (step subtitles, caution level bodies, focus note,
-plan-ready bullets like "Weights progress week to week") against implemented behaviour.
-Fix behaviour or fix copy — no third option. Pin the surviving claims with structure tests
-so a claim can't outlive its implementation.
+### P7 — Copy honesty sweep (close the loop) — ✅ DONE 2026-07-18
+Audited onboarding claims against implemented behaviour and fixed the liars:
+- Health connect bullet "Workouts log themselves … sync back automatically"
+  (write-back is stubbed) → "Private by design — data stays on your device".
+- Caution `careful` body "Lighter loads and joint-friendly swaps" → swaps only
+  (matches decision #2 and the implementation).
+- Plan-review PROGRESSION_BULLETS ("Weights progress week to week", "Deloads
+  arrive when recovery dips" — neither shipped) → prefill-from-logs, Adaptive
+  Coach attribution, and the new Plan-settings toggle.
+Claims left as-is because they are now TRUE: "get a program that fits your goal
+and week" (P1), "We leave this area out of your plan" (P2), step-6 safety note
+(P2), "Pick 1–2 areas" (cap exists). Welcome-screen marketing copy left
+untouched (user-approved, pinned by tests).
 
 ## Order & effort
 

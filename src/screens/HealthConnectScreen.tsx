@@ -171,8 +171,8 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
             fontFamily={fontFamily}
           />
           <Bullet
-            title="Workouts log themselves"
-            body={`Finished sets sync back to ${providerLabel} automatically.`}
+            title="Private by design"
+            body="Your health data stays on your device — we only read the basics."
             fontFamily={fontFamily}
           />
         </View>

@@ -377,7 +377,7 @@ const CAUTION_AREA_LABELS = Object.fromEntries(
 
 const CAUTION_LEVEL_OPTIONS: Array<{ level: SetupCautionLevel; label: string; body: string }> = [
   { level: 'info', label: 'For info only', body: "We'll keep it in mind." },
-  { level: 'careful', label: 'Be careful', body: 'Lighter loads and joint-friendly swaps.' },
+  { level: 'careful', label: 'Be careful', body: 'Joint-friendly swaps for this area.' },
   { level: 'avoid', label: 'Avoid entirely', body: 'We leave this area out of your plan.' },
 ];
 
@@ -389,11 +389,13 @@ const CAUTION_LEVEL_COLORS: Record<SetupCautionLevel, { ink: string; soft: strin
 
 const CAUTION_REFINEMENT_FALLBACK = ['Old injury', 'Chronic pain', 'Recent surgery'];
 
-// Plan-review progression card: what GAINER automates when the toggle is on.
+// Plan-review progression card. Copy honesty (truth plan P7): every bullet
+// describes something the app actually does today — no promised deloads or
+// auto-progressing weights the engine doesn't ship yet.
 const PROGRESSION_BULLETS = [
-  'Weights progress week to week',
-  'Sets and reps adapt to your logs',
-  'Deloads arrive when recovery dips',
+  'Next sessions start from your logged sets',
+  'Effort feedback tunes rest and the next set with Adaptive Coach',
+  'Change this anytime in Plan settings',
 ];
 
 const CAUTION_REFINEMENT_OPTIONS: Partial<Record<SetupCautionArea, string[]>> = {
