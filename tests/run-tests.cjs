@@ -52,6 +52,8 @@ const suites = [
   ...require('./lib/recommendationWeeklyStructure.test.cjs'),
   ...require('./lib/firstRunSetup.test.cjs'),
   ...require('./lib/focusAreaPresentation.test.cjs'),
+  ...require('./lib/programFocusSplit.test.cjs'),
+  ...require('./lib/programDayComposer.test.cjs'),
   ...require('./lib/onboardingStructure.test.cjs'),
   ...require('./screens/homeScreenStructure.test.cjs'),
   ...require('./screens/programsHomeStructure.test.cjs'),

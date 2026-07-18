@@ -33,7 +33,7 @@ import {
   getAiCoachNextSessionId,
   getAiCoachTemplateId,
 } from './src/lib/aiCoachPlan';
-import { buildRecommendationPlanReadyPayload } from './src/lib/recommendationProgramme';
+import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
@@ -510,76 +510,20 @@ function buildSetupPreferencePatch(
   };
 }
 
-function getOnboardingFallbackTrackingMode(name: string): WorkoutTemplateExercise['trackingMode'] {
-  const normalized = name.toLowerCase();
-  if (
-    normalized.includes('bodyweight') ||
-    normalized.includes('push-up') ||
-    normalized.includes('plank') ||
-    normalized.includes('mountain climber') ||
-    normalized.includes('glute bridge') ||
-    normalized.includes('lunge') ||
-    normalized.includes('inverted row') ||
-    normalized.includes('mobility') ||
-    normalized.includes('run')
-  ) {
-    return 'bodyweight';
-  }
-
-  return 'load_and_reps';
-}
-
-function buildOnboardingFallbackExercise(
-  name: string,
-  sessionId: string,
-  exerciseIndex: number,
-): WorkoutTemplateExercise {
-  const role = exerciseIndex === 0 ? 'primary' : exerciseIndex < 3 ? 'secondary' : 'accessory';
-
-  return {
-    id: `${sessionId}_exercise_${exerciseIndex + 1}`,
-    exerciseName: name,
-    slotId: `${role}_${exerciseIndex + 1}`,
-    role,
-    progressionPriority: exerciseIndex === 0 ? 'high' : exerciseIndex < 3 ? 'medium' : 'low',
-    trackingMode: getOnboardingFallbackTrackingMode(name),
-    sets: exerciseIndex === 0 ? 3 : 2,
-    repsMin: name.toLowerCase().includes('plank') ? 20 : 10,
-    repsMax: name.toLowerCase().includes('plank') ? 40 : 15,
-    restSecondsMin: exerciseIndex === 0 ? 75 : 45,
-    restSecondsMax: exerciseIndex === 0 ? 120 : 75,
-    substitutionGroup: `onboarding_${role}_${exerciseIndex + 1}`,
-  };
-}
-
 function buildSavedOnboardingPlan(
   selection: FirstRunSetupSelection,
   recommendedProgramId: string,
   savedTemplateId?: string,
 ) {
-  const template = getWorkoutTemplateById(recommendedProgramId);
-  const planReadyPayload = buildRecommendationPlanReadyPayload(selection, recommendedProgramId);
-  const trainingDays = planReadyPayload.weeklySchedule.filter((day) => day.source === 'template' || day.keyLifts.length > 0);
-  const sessions = trainingDays.map((day, dayIndex) => {
-    const sourceSession = day.source === 'template'
-      ? template?.sessions.find((session) => session.id === day.id) ?? null
-      : null;
-    const sessionId = `onboarding_${recommendedProgramId}_${dayIndex + 1}`;
-    const exercises = sourceSession
-      ? sourceSession.exercises.map((exercise) => ({
-          ...exercise,
-          id: `${sessionId}_${exercise.id}`,
-          slotId: `${exercise.slotId}_${dayIndex + 1}`,
-        }))
-      : day.keyLifts.map((lift, exerciseIndex) => buildOnboardingFallbackExercise(lift, sessionId, exerciseIndex));
-
-    return {
-      id: sessionId,
-      name: formatWorkoutDisplayLabel(day.name, 'Workout'),
-      orderIndex: dayIndex,
-      exercises,
-    };
-  });
+  // Single source of truth with the onboarding previews (days-per-week truth):
+  // the same composed week the picker and plan overview showed is what saves.
+  const composedWeek = composeProgramWeekForSelection(selection, recommendedProgramId);
+  const sessions = (composedWeek?.sessions ?? []).map((session) => ({
+    id: session.id,
+    name: formatWorkoutDisplayLabel(session.name, 'Workout'),
+    orderIndex: session.orderIndex,
+    exercises: session.exercises,
+  }));
   const draft: WorkoutTemplateDraft = {
     name: buildFirstRunCustomProgramName(selection),
     sessions: sessions.map((session) => ({
@@ -2027,9 +1971,17 @@ function GymlogApp() {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
         const completedSessionCount = completedPlanSessions.filter((session) => planTemplateIds.has(session.workoutTemplateId)).length;
+        // Onboarding-built plans promised a specific block length ("4-week
+        // plan") — the Home hero must count the same total, not the generic
+        // 8-week default.
+        const onboardingBlockWeeks =
+          activeWorkoutPlan.id.startsWith('onboarding_plan_') && setupSelection && preferences.recommendedProgramId
+            ? composeProgramWeekForSelection(setupSelection, preferences.recommendedProgramId)?.weeks
+            : undefined;
         const planProgress = buildHomePlanProgress({
           completedSessions: completedSessionCount,
           sessionsPerWeek: sortedEntries.length,
+          totalWeeks: onboardingBlockWeeks,
         });
 
         return {
@@ -2114,7 +2066,7 @@ function GymlogApp() {
         label: 'Week 1 · Day 1',
       },
     };
-  }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, workoutTemplates]);
+  }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
   const homeAiPromptSuggestions = useMemo(
     () =>

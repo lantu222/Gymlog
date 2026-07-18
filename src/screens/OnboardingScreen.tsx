@@ -58,6 +58,8 @@ import { buildRecommendationOptionIds } from '../lib/recommendationPresentation'
 import { buildRecommendationPlanReadyPayload } from '../lib/recommendationProgramme';
 import { buildSessionGuidance } from '../lib/sessionGuidance';
 import { getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
+import { buildProgramFocusSplit, PROGRAM_FOCUS_COLORS, ProgramFocusSegment } from '../lib/programFocusSplit';
+import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
@@ -286,21 +288,25 @@ const GOAL_OPTIONS: Array<{
 const LEVEL_SLIDER_OPTIONS: Array<{
   level: SetupLevel;
   label: string;
+  years: string;
   lines: [string, string];
 }> = [
   {
     level: 'beginner',
     label: 'Beginner',
+    years: '0–1 years',
     lines: ['New to lifting or returning after a break.', 'We keep form simple and progress steady.'],
   },
   {
     level: 'advanced',
     label: 'Advanced',
+    years: '1–3 years',
     lines: ['Trained consistently for a year or more.', 'You know the main lifts and want structure.'],
   },
   {
     level: 'pro',
     label: 'Pro',
+    years: '3–5+ years',
     lines: ['Years of serious training behind you.', 'Higher volume and intensity - we push the pace.'],
   },
 ];
@@ -745,10 +751,9 @@ function LocationChoiceCard({
       ]}
     >
       {active ? (
-        <View style={styles.locationChoiceRadioCheck}>
-          <View style={styles.locationChoiceRadioCheckShort} />
-          <View style={styles.locationChoiceRadioCheckLong} />
-        </View>
+        <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+          <Path d="M5 12l5 5L19 7" stroke={ONBOARDING_PRIMARY} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+        </Svg>
       ) : null}
     </View>
   );
@@ -806,6 +811,155 @@ function LocationChoiceCard({
             ) : null}
           </View>
           {leadingRadio ? null : radio}
+        </View>
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// Screen 08b "Pick your program" card. Both options render through this same
+// template so the alternative reads as a real choice, not a footnote.
+function ProgramPickCard({
+  title,
+  days,
+  mins,
+  weeks,
+  totalWorkouts,
+  recommended,
+  focus,
+  selected,
+  onPress,
+}: {
+  title: string;
+  days: number;
+  mins: number;
+  weeks: number;
+  totalWorkouts: number;
+  recommended: boolean;
+  focus: ProgramFocusSegment[];
+  selected: boolean;
+  onPress: () => void;
+}) {
+  const progress = useRef(new Animated.Value(selected ? 1 : 0)).current;
+
+  useEffect(() => {
+    Animated.timing(progress, {
+      toValue: selected ? 1 : 0,
+      duration: 200,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
+  }, [progress, selected]);
+
+  // Full words only — no "wks" / "×/wk" abbreviations on the cards.
+  const stats: Array<[string, string]> = [
+    [`${days} days`, 'per week'],
+    [`${mins} min`, 'per session'],
+    [`${weeks} weeks`, `${totalWorkouts} workouts`],
+  ];
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={`${title}${recommended ? ', recommended' : ''}`}
+      onPress={onPress}
+    >
+      <Animated.View
+        style={[
+          styles.progPickCard,
+          selected && styles.progPickCardSelected,
+          { transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.01] }) }] },
+        ]}
+      >
+        {/* Cover image slot — placeholder until each program ships its own asset. */}
+        <View style={[styles.progPickCover, selected && styles.progPickCoverSelected]}>
+          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M4 8a2 2 0 0 1 2-2h1.5l1.4-1.6a1 1 0 0 1 .75-.4h4.7a1 1 0 0 1 .75.4L16.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
+              stroke={selected ? 'rgba(255,255,255,0.75)' : '#B7A8DE'}
+              strokeWidth={2}
+              strokeLinejoin="round"
+            />
+            <Circle cx={12} cy={12.5} r={3.2} stroke={selected ? 'rgba(255,255,255,0.75)' : '#B7A8DE'} strokeWidth={2} />
+          </Svg>
+          <Text style={[styles.progPickCoverCaption, selected && styles.progPickCoverCaptionSelected]}>
+            Program image
+          </Text>
+
+          {recommended ? (
+            <View style={[styles.progPickRecPill, selected && styles.progPickRecPillSelected]}>
+              <Text style={[styles.progPickRecPillText, selected && styles.progPickRecPillTextSelected]}>
+                RECOMMENDED
+              </Text>
+            </View>
+          ) : null}
+
+          <View style={[styles.progPickRadio, selected && styles.progPickRadioSelected]}>
+            {selected ? (
+              <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M5 12l5 5L19 7"
+                  stroke={ONBOARDING_PRIMARY}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.progPickBody}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            style={[styles.progPickName, selected && styles.progPickNameSelected]}
+          >
+            {title}
+          </Text>
+
+          <View style={styles.progPickStatRow}>
+            {stats.map(([value, label]) => (
+              <View key={label} style={styles.progPickStat}>
+                <Text numberOfLines={1} style={[styles.progPickStatValue, selected && styles.progPickNameSelected]}>
+                  {value}
+                </Text>
+                <Text numberOfLines={1} style={[styles.progPickStatLabel, selected && styles.progPickDescSelected]}>
+                  {label}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={[styles.progPickDivider, selected && styles.progPickDividerSelected]} />
+
+          {/* Training-time composition — factual plan split, never an outcome claim. */}
+          <Text style={[styles.progPickFocusLabel, selected && styles.progPickFocusLabelSelected]}>
+            WHERE YOUR WEEK GOES
+          </Text>
+          <View style={styles.progPickFocusBar}>
+            {focus.map((segment) => (
+              <View
+                key={segment.quality}
+                style={[
+                  styles.progPickFocusSegment,
+                  { flex: segment.pct, backgroundColor: PROGRAM_FOCUS_COLORS[segment.quality] },
+                ]}
+              />
+            ))}
+          </View>
+          <View style={styles.progPickLegendRow}>
+            {focus.map((segment) => (
+              <View key={segment.quality} style={styles.progPickLegendItem}>
+                <View style={[styles.progPickLegendSwatch, { backgroundColor: PROGRAM_FOCUS_COLORS[segment.quality] }]} />
+                <Text style={[styles.progPickLegendText, selected && styles.progPickLegendTextSelected]}>
+                  {`${segment.quality} ${segment.pct}%`}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
       </Animated.View>
     </Pressable>
@@ -1328,14 +1482,48 @@ function formatProfileName(value: string) {
   return trimmedStart.replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase());
 }
 
+const FLAME_RED = '#EF4444';
+
 function FlameGlyph({ size, opacity = 1 }: { size: number; opacity?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" style={{ opacity }}>
       <Path
         d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"
-        fill={ONBOARDING_PRIMARY}
+        fill={FLAME_RED}
       />
     </Svg>
+  );
+}
+
+// Each flame flickers on its own rhythm (duration varies with `phase`) so the
+// cluster reads as a live fire instead of a synchronized pulse.
+function AnimatedFlame({ size, opacity = 1, phase = 0 }: { size: number; opacity?: number; phase?: number }) {
+  const flicker = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const duration = 380 + (phase % 4) * 85;
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(flicker, { toValue: 1, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+        Animated.timing(flicker, { toValue: 0, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [flicker, phase]);
+
+  return (
+    <Animated.View
+      style={{
+        opacity: flicker.interpolate({ inputRange: [0, 1], outputRange: [opacity * 0.65, opacity] }),
+        transform: [
+          { translateY: flicker.interpolate({ inputRange: [0, 1], outputRange: [1.5, -1.5] }) },
+          { scale: flicker.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] }) },
+        ],
+      }}
+    >
+      <FlameGlyph size={size} />
+    </Animated.View>
   );
 }
 
@@ -1575,7 +1763,7 @@ export function OnboardingScreen({
     useState<RecommendationRefinementPanel>(null);
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
-  const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'progression'>('overview');
+  const [planReadyView, setPlanReadyView] = useState<'pick' | 'overview' | 'day' | 'progression'>('overview');
   const [automatedProgressionEnabled, setAutomatedProgressionEnabled] = useState(
     setupSeed.automatedProgression ?? true,
   );
@@ -1741,6 +1929,37 @@ export function OnboardingScreen({
     () => recommendedProgramPresentation?.tags.slice(0, 3) ?? [],
     [recommendedProgramPresentation],
   );
+  // Program picker (08b): the recommended program always renders first and the
+  // card list stays stable while the selection moves between the two options.
+  // Stats and the focus split come from the COMPOSED week (the exact thing
+  // that gets saved), never the raw catalog template — days-per-week truth.
+  const programPickOptions = useMemo(() => {
+    const ids = [
+      recommendation.featuredProgramId,
+      ...recommendationOptionIds.filter((programId) => programId !== recommendation.featuredProgramId),
+    ].slice(0, 2);
+
+    return ids
+      .map((programId, index) => {
+        const template = getWorkoutTemplateById(programId);
+        const week = composeProgramWeekForSelection(selection, programId);
+        if (!template || !week) {
+          return null;
+        }
+
+        return {
+          id: programId,
+          presentation: getReadyTemplatePresentation(template),
+          recommended: index === 0,
+          days: week.days,
+          mins: week.sessionMinutes,
+          weeks: week.weeks,
+          totalWorkouts: week.totalWorkouts,
+          focus: buildProgramFocusSplit(week.sessions),
+        };
+      })
+      .filter((option): option is NonNullable<typeof option> => option !== null);
+  }, [recommendation.featuredProgramId, recommendationOptionIds, selection]);
   const helperSuggestions = useMemo(
     () => buildFirstRunPromptSuggestions(selection, getRecommendedProgramName(activeRecommendedProgramId)),
     [activeRecommendedProgramId, selection],
@@ -1748,6 +1967,12 @@ export function OnboardingScreen({
   const helperPrompt = useMemo(
     () => buildFirstRunHelperPrompt(stage as FirstRunStep, selection, recommendedProgram?.name ?? null),
     [recommendedProgram?.name, selection, stage],
+  );
+  // The composed week for the currently selected program — the single truth
+  // for day counts and the week preview (matches what gets saved).
+  const composedActiveWeek = useMemo(
+    () => composeProgramWeekForSelection(selection, activeRecommendedProgramId),
+    [activeRecommendedProgramId, selection],
   );
   const locationLabel = useMemo(() => getLocationLabel(trainingEnvironment, equipment), [equipment, trainingEnvironment]);
   const goalLabel = useMemo(() => formatGoalList(goals), [goals]);
@@ -1760,7 +1985,7 @@ export function OnboardingScreen({
   const focusAreaSummary = useMemo(() => formatFocusAreaList(focusAreas), [focusAreas]);
   const guidanceModeLabel = useMemo(() => getGuidanceModeLabel(guidanceMode), [guidanceMode]);
   const scheduleModeLabel = useMemo(() => getScheduleModeLabel(scheduleMode), [scheduleMode]);
-  const projectedDaysPerWeek = recommendedProgram?.daysPerWeek ?? daysPerWeek;
+  const projectedDaysPerWeek = composedActiveWeek?.days ?? recommendedProgram?.daysPerWeek ?? daysPerWeek;
   const projectedRhythm = useMemo(() => {
     return resolveProjectedTrainingDays(selection, projectedDaysPerWeek).map((day) => getWeekdayShortLabel(day));
   }, [projectedDaysPerWeek, selection]);
@@ -1787,9 +2012,8 @@ export function OnboardingScreen({
   );
   const projectedSessions = useMemo(
     () =>
-      recommendedProgram
-        ? [...recommendedProgram.sessions]
-            .sort((left, right) => left.orderIndex - right.orderIndex)
+      recommendedProgram && composedActiveWeek
+        ? composedActiveWeek.sessions
             .map((session) => ({
               id: session.id,
               name: session.name,
@@ -1997,6 +2221,9 @@ export function OnboardingScreen({
           void haptics.success();
           setIsBuildingPlan(false);
           setShowBuildingPlanThinking(false);
+          // The built plan lands on the program picker (08b) first; "Save plan
+          // & start" advances it to the plan overview.
+          setPlanReadyView('pick');
           setStageIndex(getStageIndex('review'));
         });
       }, BUILDING_PLAN_TOTAL_MS - 420),
@@ -2598,7 +2825,7 @@ export function OnboardingScreen({
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ scale: levelFlamePop }] }]}>
               {flames.map((flame, index) => (
                 <View key={`${selectedLevelIndex}-${index}`} style={[styles.levelFlame, { left: flame.x, top: flame.y }]}>
-                  <FlameGlyph size={flame.size} opacity={flame.opacity} />
+                  <AnimatedFlame size={flame.size} opacity={flame.opacity} phase={index} />
                 </View>
               ))}
             </Animated.View>
@@ -2674,6 +2901,16 @@ export function OnboardingScreen({
               );
             })}
           </View>
+          <View style={styles.levelYearsRow}>
+            {LEVEL_SLIDER_OPTIONS.map((option, index) => {
+              const active = profileLevelSelected && index === selectedLevelIndex;
+              return (
+                <Text key={option.level} style={[styles.levelYearsText, active && styles.levelYearsTextActive]}>
+                  {option.years}
+                </Text>
+              );
+            })}
+          </View>
           <Text style={styles.levelSliderHint}>
             {profileLevelSelected ? 'You can change this anytime.' : 'Pick the level that sounds like you.'}
           </Text>
@@ -2738,11 +2975,19 @@ export function OnboardingScreen({
                     accessibilityLabel={`${option} days per week${recommended ? ', recommended for your level' : ''}`}
                     accessibilityState={{ selected: active }}
                     onPress={() => selectTrainingDaysCount(option)}
-                    style={[styles.daysChip, active && styles.daysChipActive]}
+                    style={[
+                      styles.daysChip,
+                      recommended && !active && styles.daysChipRecommended,
+                      active && styles.daysChipActive,
+                    ]}
                   >
                     <Text style={[styles.daysChipText, active && styles.daysChipTextActive]}>{option}</Text>
                   </Pressable>
-                  {recommended ? <Text style={styles.daysChipCaption}>Recommended</Text> : null}
+                  {recommended ? (
+                    <Text numberOfLines={1} style={styles.daysChipCaption}>
+                      Recommended
+                    </Text>
+                  ) : null}
                 </View>
               );
             })}
@@ -2771,6 +3016,9 @@ export function OnboardingScreen({
           </View>
 
           <Text style={styles.daysSummaryLine}>{`${selectedDays.length} training days · ${restCount} rest`}</Text>
+          {profileFrequencySelected && daysPerWeek !== recommendedDays ? (
+            <Text style={styles.daysRecommendHint}>{`We recommend ${recommendedDays} days for your level.`}</Text>
+          ) : null}
         </View>
       ),
     });
@@ -2930,6 +3178,10 @@ export function OnboardingScreen({
   }
 
   function renderAvoid() {
+    const seriousFlagCount = cautionFlags.filter((flag) => flag.level !== 'info').length;
+    const avoidFlagCount = cautionFlags.filter((flag) => flag.level === 'avoid').length;
+    const showProfessionalAdvisory = seriousFlagCount >= 3 || avoidFlagCount >= 2;
+
     return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('avoid'),
       titleLines: ['Anything we', 'should avoid?'],
@@ -2941,6 +3193,16 @@ export function OnboardingScreen({
         <View style={styles.avoidList}>
           {AVOID_AREA_OPTIONS.map((option) => renderCautionRow(option))}
           {avoidExtraVisible ? AVOID_EXTRA_AREA_OPTIONS.map((option) => renderCautionRow(option)) : null}
+
+          {showProfessionalAdvisory ? (
+            <View style={styles.avoidAdvisoryBox}>
+              <CautionGlyph color="#D97706" size={18} />
+              <Text style={styles.avoidAdvisoryText}>
+                With this many trouble areas, we recommend checking in with a physio or doctor before you start. If
+                you continue, we keep loads light — take it very carefully.
+              </Text>
+            </View>
+          ) : null}
 
           {!avoidExtraVisible ? (
             <Pressable
@@ -2973,7 +3235,47 @@ export function OnboardingScreen({
     });
   }
 
+  function renderProgramPick() {
+    return (
+      <Animated.View
+        style={[
+          styles.programPickStage,
+          {
+            paddingTop: insets.top + spacing.lg,
+            opacity: planReadyCardOpacity,
+            transform: [{ translateX: planReadyCardTranslateX }],
+          },
+        ]}
+      >
+        <Text style={styles.programPickTitle}>Your program is ready</Text>
+
+        <View style={styles.programPickList}>
+          {programPickOptions.map((option) => (
+            <ProgramPickCard
+              key={option.id}
+              title={option.presentation.title}
+              days={option.days}
+              mins={option.mins}
+              weeks={option.weeks}
+              totalWorkouts={option.totalWorkouts}
+              recommended={option.recommended}
+              focus={option.focus}
+              selected={activeRecommendedProgramId === option.id}
+              onPress={() => {
+                void haptics.select();
+                setSelectedRecommendationProgramId(option.id);
+              }}
+            />
+          ))}
+        </View>
+      </Animated.View>
+    );
+  }
+
   function renderReview() {
+    if (planReadyView === 'pick') {
+      return renderProgramPick();
+    }
     if (planReadyView === 'progression') {
       return renderPlanReadyProgression();
     }
@@ -2981,9 +3283,11 @@ export function OnboardingScreen({
       return renderPlanReadyDay();
     }
     const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : 4;
+    // Composed-week day count first — the raw template's own day count must
+    // never leak into the UI (days-per-week truth).
     const planReadyPerWeek =
-      planReadyPayload.programDaysPerWeek
-      || projectedDaysPerWeek
+      projectedDaysPerWeek
+      || planReadyPayload.programDaysPerWeek
       || planReadyPayload.requestedDaysPerWeek
       || 3;
     const planReadyTotalWorkouts = planReadyWeeks * planReadyPerWeek;
@@ -2999,6 +3303,14 @@ export function OnboardingScreen({
       [planReadySessionLength, 'per session'],
     ];
     const planReadyPrimaryTitle = recommendedProgramPresentation?.title ?? planReadyPayload.title;
+    // The badge stays honest: RECOMMENDED only when the shown program is the
+    // engine's recommendation, YOUR PICK when the user chose the alternative.
+    const planReadyIsRecommended = activeRecommendedProgramId === recommendation.featuredProgramId;
+    // Curated tags carry the template's own day count — swap it for the
+    // composed week's count so no surface contradicts the chosen frequency.
+    const planReadyTags = recommendedProgramTags.map((tag) =>
+      /^\d+\s*days?$/i.test(tag.trim()) ? `${planReadyPerWeek} Days` : tag,
+    );
     const planReadyWaterfall = recommendation.waterfall;
     const planReadyWhyPrimary =
       planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.primaryProgramId
@@ -3040,7 +3352,7 @@ export function OnboardingScreen({
             <Rect x="0" y="0" width="100%" height="100%" rx="24" ry="24" fill="url(#planReadyCoverGradient)" />
           </Svg>
           <View style={styles.planReadyPrimaryBadge}>
-            <Text style={styles.planReadyPrimaryBadgeText}>RECOMMENDED</Text>
+            <Text style={styles.planReadyPrimaryBadgeText}>{planReadyIsRecommended ? 'RECOMMENDED' : 'YOUR PICK'}</Text>
           </View>
           <View style={styles.planReadyPrimaryBody}>
             <Text style={styles.planReadyPrimaryName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>
@@ -3052,9 +3364,9 @@ export function OnboardingScreen({
                 {planReadyWhyPrimary ?? activeRecommendationMismatchNote}
               </Text>
             ) : null}
-            {recommendedProgramTags.length > 0 ? (
+            {planReadyTags.length > 0 ? (
               <View style={styles.planReadyPrimaryTagRow}>
-                {recommendedProgramTags.map((tag) => (
+                {planReadyTags.map((tag) => (
                   <View key={tag} style={styles.planReadyPrimaryTag}>
                     <Text style={styles.planReadyPrimaryTagText}>{tag}</Text>
                   </View>
@@ -3100,7 +3412,9 @@ export function OnboardingScreen({
             style={({ pressed }) => [styles.planReadyAltCard, pressed && { opacity: 0.85 }]}
           >
             <View style={styles.planReadyAltCopy}>
-              <Text style={styles.planReadyAltEyebrow}>ALTERNATIVE</Text>
+              <Text style={styles.planReadyAltEyebrow}>
+                {planReadyAlternative.id === recommendation.featuredProgramId ? 'RECOMMENDED' : 'ALTERNATIVE'}
+              </Text>
               <Text style={styles.planReadyAltName} numberOfLines={1}>
                 {planReadyAlternative.presentation.title}
               </Text>
@@ -3279,6 +3593,9 @@ export function OnboardingScreen({
 
   function renderPlanning() {
     const visibleFocusOptions = FOCUS_AREA_OPTIONS.filter((option) => option.area !== 'mobility');
+    const flaggedFocusSelected = visibleFocusOptions.some(
+      (option) => focusAreas.includes(option.area) && getFocusAreaCautionLevel(option.area, cautionFlags) !== null,
+    );
 
     return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('planning'),
@@ -3317,6 +3634,15 @@ export function OnboardingScreen({
                       ? { borderColor: cautionColors.ink, backgroundColor: cautionColors.soft }
                       : null,
                     active && styles.focusListRowActive,
+                    // Flagged areas keep their caution colour when selected —
+                    // purple would hide the warning the previous step set up.
+                    active && cautionColors
+                      ? {
+                          backgroundColor: cautionColors.ink,
+                          borderColor: cautionColors.ink,
+                          shadowColor: cautionColors.ink,
+                        }
+                      : null,
                   ]}
                 >
                   {cautionColors ? (
@@ -3333,27 +3659,26 @@ export function OnboardingScreen({
                     {option.title}
                   </Text>
                   <View style={[styles.focusListRadio, active && styles.focusListRadioActive]}>
-                    {active ? <GymlogIcon name="check" size={12} color={ONBOARDING_PRIMARY} /> : null}
+                    {active ? (
+                      <GymlogIcon name="check" size={12} color={cautionColors ? cautionColors.ink : ONBOARDING_PRIMARY} />
+                    ) : null}
                   </View>
                 </Pressable>
               );
             })}
           </View>
 
-          <View style={styles.focusAreaInfoBox}>
-            <View style={styles.focusAreaInfoIcon}>
-              <GymlogIcon name="lightning" color="#F2B705" size={20} />
-            </View>
-            <View style={styles.focusAreaInfoCopy}>
-              <Text style={styles.focusAreaInfoTitle}>Why focus areas?</Text>
-              <Text style={styles.focusAreaInfoBody}>
-                This helps us build a program that prioritizes what matters most to you.
+          {flaggedFocusSelected ? (
+            <View style={styles.focusCautionNote}>
+              <CautionGlyph color="#D97706" size={16} />
+              <Text style={styles.focusCautionNoteText}>
+                This shapes your training: exercises for flagged areas are done with bodyweight only to maximize
+                safety.
               </Text>
             </View>
-            <View style={styles.focusAreaInfoBadge}>
-              <Text style={styles.focusAreaInfoBadgeText}>Pick 1-2 areas</Text>
-            </View>
-          </View>
+          ) : (
+            <Text style={styles.focusPickHint}>Pick 1–2 areas.</Text>
+          )}
         </View>
       ),
     });
@@ -3757,7 +4082,9 @@ export function OnboardingScreen({
     stage === 'review' && busy
       ? 'Saving plan...'
       : stage === 'review'
-      ? planReadyView === 'day'
+      ? planReadyView === 'pick'
+        ? 'Save plan & start'
+        : planReadyView === 'day'
         ? 'Back to plan'
         : planReadyView === 'progression'
         ? 'Start training'
@@ -3866,6 +4193,12 @@ export function OnboardingScreen({
 
                 if (stage === 'review') {
                   void haptics.success();
+                  if (planReadyView === 'pick') {
+                    // Commits the selected program (selection state already
+                    // follows the cards) and advances to the plan overview.
+                    setPlanReadyView('overview');
+                    return;
+                  }
                   if (planReadyView === 'day') {
                     setPlanReadyView('overview');
                     return;
@@ -3887,6 +4220,14 @@ export function OnboardingScreen({
             {stage === 'review' ? (
               planReadyView === 'progression' ? (
                 <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                </Pressable>
+              ) : planReadyView === 'pick' ? (
+                <Pressable onPress={() => setStageIndex(getStageIndex('planning'))} disabled={busy}>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                </Pressable>
+              ) : planReadyView === 'overview' ? (
+                <Pressable onPress={() => setPlanReadyView('pick')} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
                 </Pressable>
               ) : null
@@ -4324,6 +4665,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 12,
   },
+  levelYearsRow: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    paddingHorizontal: 4,
+    marginTop: 7,
+  },
+  levelYearsText: {
+    flex: 1,
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 11.5,
+    lineHeight: 14,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  levelYearsTextActive: {
+    color: ONBOARDING_PRIMARY,
+    fontWeight: '800',
+  },
   daysChipRow: {
     flexDirection: 'row',
     gap: 8,
@@ -4360,17 +4719,20 @@ const styles = StyleSheet.create({
   daysChipTextActive: {
     color: '#FFFFFF',
   },
+  daysChipRecommended: {
+    borderColor: '#C9B6FF',
+    backgroundColor: ONBOARDING_PRIMARY_SOFT,
+  },
   daysChipCaption: {
     color: ONBOARDING_PRIMARY,
-    fontSize: 10,
+    fontSize: 9.5,
     lineHeight: 12,
     fontWeight: '800',
-    letterSpacing: 0.3,
   },
   daysWeekLabel: {
-    color: ONBOARDING_TEXT_MUTED,
-    fontSize: 11,
-    lineHeight: 14,
+    color: ONBOARDING_TEXT,
+    fontSize: 12.5,
+    lineHeight: 16,
     fontWeight: '800',
     letterSpacing: 1,
     marginTop: 24,
@@ -4410,8 +4772,34 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 16,
   },
+  daysRecommendHint: {
+    color: ONBOARDING_PRIMARY,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
+  },
   avoidList: {
     gap: 8,
+  },
+  avoidAdvisoryBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  avoidAdvisoryText: {
+    flex: 1,
+    color: '#92400E',
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   avoidRow: {
     backgroundColor: ONBOARDING_CARD,
@@ -4560,7 +4948,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   focusListStack: {
-    gap: 7,
+    gap: 6,
   },
   focusListRow: {
     flexDirection: 'row',
@@ -4570,7 +4958,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: ONBOARDING_BORDER,
     borderRadius: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
     paddingHorizontal: 14,
   },
   focusListRowActive: {
@@ -4950,33 +5338,8 @@ const styles = StyleSheet.create({
     borderColor: '#C9B6FF',
   },
   locationChoiceRadioActive: {
-    borderColor: '#FFFFFF',
+    borderColor: '#5B21B6',
     backgroundColor: '#FFFFFF',
-  },
-  locationChoiceRadioCheck: {
-    width: 16,
-    height: 16,
-    position: 'relative',
-  },
-  locationChoiceRadioCheckShort: {
-    position: 'absolute',
-    width: 7,
-    height: 2.4,
-    left: 1,
-    top: 9,
-    borderRadius: 2,
-    backgroundColor: ONBOARDING_PRIMARY,
-    transform: [{ rotate: '45deg' }],
-  },
-  locationChoiceRadioCheckLong: {
-    position: 'absolute',
-    width: 13,
-    height: 2.4,
-    left: 5,
-    top: 6,
-    borderRadius: 2,
-    backgroundColor: ONBOARDING_PRIMARY,
-    transform: [{ rotate: '-45deg' }],
   },
   heroBlock: {
     gap: spacing.xs,
@@ -5194,13 +5557,13 @@ const styles = StyleSheet.create({
     color: '#06080B',
   },
   focusAreaTopPane: {
-    height: 206,
+    height: 186,
     justifyContent: 'flex-start',
     paddingTop: 24,
     paddingBottom: 8,
   },
   focusAreaTopCopy: {
-    paddingTop: 58,
+    paddingTop: 42,
     paddingBottom: 0,
     gap: 3,
   },
@@ -5216,53 +5579,32 @@ const styles = StyleSheet.create({
   focusAreaContent: {
     gap: 6,
   },
-  focusAreaInfoBox: {
-    minHeight: 58,
-    borderRadius: 12,
-    backgroundColor: ONBOARDING_PRIMARY_SOFT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    paddingHorizontal: 11,
-    paddingVertical: 6,
-  },
-  focusAreaInfoIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(127,119,221,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  focusAreaInfoCopy: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  focusAreaInfoTitle: {
-    color: ONBOARDING_TEXT,
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
-    letterSpacing: -0.2,
-  },
-  focusAreaInfoBody: {
+  focusPickHint: {
     color: ONBOARDING_TEXT_SOFT,
-    fontSize: 10.5,
-    lineHeight: 13,
+    fontSize: 12.5,
+    lineHeight: 16,
     fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 4,
   },
-  focusAreaInfoBadge: {
-    borderRadius: 999,
-    backgroundColor: 'rgba(127,119,221,0.24)',
-    paddingHorizontal: 8,
-    paddingVertical: 5,
+  focusCautionNote: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 9,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1.5,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    marginTop: 2,
   },
-  focusAreaInfoBadgeText: {
-    color: ONBOARDING_TEXT,
-    fontSize: 11,
-    lineHeight: 13,
-    fontWeight: '900',
+  focusCautionNoteText: {
+    flex: 1,
+    color: '#92400E',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
   },
   buildingPlanScreen: {
     flex: 1,
@@ -6075,6 +6417,185 @@ const styles = StyleSheet.create({
   },
   planReadyOverviewStage: {
     paddingBottom: spacing.lg,
+  },
+  programPickStage: {
+    paddingBottom: spacing.lg,
+  },
+  programPickTitle: {
+    color: ONBOARDING_PRIMARY,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  programPickList: {
+    marginTop: 16,
+    gap: 14,
+  },
+  progPickCard: {
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: '#C9B6FF',
+    shadowColor: '#1E1246',
+    shadowOpacity: 0.07,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
+  },
+  progPickCardSelected: {
+    backgroundColor: ONBOARDING_PRIMARY,
+    borderColor: '#5B21B6',
+    shadowColor: ONBOARDING_PRIMARY,
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+  progPickCover: {
+    height: 116,
+    backgroundColor: '#F2ECFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  progPickCoverSelected: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  progPickCoverCaption: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  progPickCoverCaptionSelected: {
+    color: 'rgba(255,255,255,0.8)',
+  },
+  progPickRecPill: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    borderRadius: 999,
+    backgroundColor: ONBOARDING_PRIMARY,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  progPickRecPillSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  progPickRecPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1,
+  },
+  progPickRecPillTextSelected: {
+    color: '#5B21B6',
+  },
+  progPickRadio: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.6)',
+    borderWidth: 1.5,
+    borderColor: ONBOARDING_BORDER,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  progPickRadioSelected: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#FFFFFF',
+  },
+  progPickBody: {
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 18,
+  },
+  progPickName: {
+    color: ONBOARDING_TEXT,
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  progPickNameSelected: {
+    color: '#FFFFFF',
+  },
+  progPickDescSelected: {
+    color: 'rgba(255,255,255,0.78)',
+  },
+  progPickStatRow: {
+    flexDirection: 'row',
+    marginTop: 16,
+  },
+  progPickStat: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  progPickStatValue: {
+    color: ONBOARDING_TEXT,
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  progPickStatLabel: {
+    color: '#667085',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progPickDivider: {
+    height: 1.5,
+    backgroundColor: '#E4D8FF',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  progPickDividerSelected: {
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
+  progPickFocusLabel: {
+    color: ONBOARDING_TEXT_MUTED,
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.95,
+  },
+  progPickFocusLabelSelected: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  progPickFocusBar: {
+    flexDirection: 'row',
+    gap: 2,
+    height: 8,
+    marginTop: 8,
+  },
+  progPickFocusSegment: {
+    borderRadius: 4,
+  },
+  progPickLegendRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 7,
+  },
+  progPickLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  progPickLegendSwatch: {
+    width: 8,
+    height: 8,
+    borderRadius: 2,
+  },
+  progPickLegendText: {
+    color: '#667085',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progPickLegendTextSelected: {
+    color: 'rgba(255,255,255,0.85)',
   },
   planReadyPrimaryCard: {
     borderRadius: 24,

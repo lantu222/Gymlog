@@ -37,11 +37,33 @@ module.exports = [
       const dayBody = getFunctionBody('renderPlanReadyDay');
       const progressionBody = getFunctionBody('renderPlanReadyProgression');
 
-      // Plan-ready is a three-view flow: overview -> day preview -> plan review
-      // (automated-progression toggle). No account gate — auth lives on Welcome.
-      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day' \| 'progression'>\('overview'\)/);
+      // Plan-ready is a four-view flow: program pick (08b) -> overview -> day
+      // preview -> plan review (automated-progression toggle). No account gate
+      // — auth lives on Welcome.
+      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'pick' \| 'overview' \| 'day' \| 'progression'>\('overview'\)/);
+      assert.match(reviewBody, /if \(planReadyView === 'pick'\) \{\s*return renderProgramPick\(\);/);
       assert.match(reviewBody, /if \(planReadyView === 'progression'\) \{\s*return renderPlanReadyProgression\(\);/);
       assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
+
+      // The builder lands on the picker first; "Save plan & start" advances it.
+      assert.match(onboardingSource, /setPlanReadyView\('pick'\);\s*\r?\n\s*setStageIndex\(getStageIndex\('review'\)\)/);
+      assert.match(onboardingSource, /'Save plan & start'/);
+
+      // Program pick: one big purple heading, no subline, two equal-template
+      // cards (recommended first, selection follows taps), honest focus split.
+      const pickBody = getFunctionBody('renderProgramPick');
+      assert.match(pickBody, />Your program is ready</);
+      assert.doesNotMatch(pickBody, />Pick your program</);
+      assert.doesNotMatch(pickBody, /-week plan/);
+      assert.match(pickBody, /programPickOptions\.map/);
+      assert.match(pickBody, /setSelectedRecommendationProgramId\(option\.id\)/);
+      assert.match(onboardingSource, /function ProgramPickCard\(/);
+      assert.match(onboardingSource, /WHERE YOUR WEEK GOES/);
+      // Days-per-week truth: picker stats + focus split come from the composed
+      // week (what actually gets saved), never the raw catalog template.
+      assert.match(onboardingSource, /composeProgramWeekForSelection\(selection, programId\)/);
+      assert.match(onboardingSource, /buildProgramFocusSplit\(week\.sessions\)/);
+      assert.doesNotMatch(onboardingSource, /days: template\.daysPerWeek/);
 
       // Overview: "Your program is ready" H1 + subtitle, then the 2-card result:
       // a big RECOMMENDED program card (why-line + stat trio + week link) and a
@@ -52,8 +74,11 @@ module.exports = [
       assert.doesNotMatch(reviewBody, /BUILD · FOCUS · PROGRESS/);
       assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), 'workouts total'\]/);
       assert.match(reviewBody, /\[planReadySessionLength, 'per session'\]/);
-      assert.match(reviewBody, />RECOMMENDED</);
-      assert.match(reviewBody, />ALTERNATIVE</);
+      // Badges are honest about the user's choice: the big card says YOUR PICK
+      // when the selection is not the engine's recommendation, and the
+      // alternative row flips to RECOMMENDED when that's what it holds.
+      assert.match(reviewBody, /planReadyIsRecommended \? 'RECOMMENDED' : 'YOUR PICK'/);
+      assert.match(reviewBody, /=== recommendation\.featuredProgramId \? 'RECOMMENDED' : 'ALTERNATIVE'/);
       assert.match(reviewBody, /setSelectedRecommendationProgramId\(planReadyAlternative\.id\)/);
       assert.match(reviewBody, /setPlanReadyView\('day'\)/);
       assert.doesNotMatch(reviewBody, /planReadyWeekRows\.map/);
@@ -102,7 +127,9 @@ module.exports = [
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
       assert.match(appSource, /function waitForPlanSaveFeedback\(\)[\s\S]*setTimeout\(resolve, 3000\)/);
-      assert.match(appSource, /function buildSavedOnboardingPlan\([\s\S]*buildRecommendationPlanReadyPayload\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)/);
+      // Save path shares the composed week with the onboarding previews
+      // (days-per-week truth): what was shown is exactly what is saved.
+      assert.match(appSource, /function buildSavedOnboardingPlan\([\s\S]*composeProgramWeekForSelection\(selection, recommendedProgramId\)/);
       assert.match(appSource, /handleOnboardingCompleteToTraining[\s\S]*waitForPlanSaveFeedback\(\)[\s\S]*persistSetupSelection\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)[\s\S]*upsertWorkoutPlan\(activePlan\)[\s\S]*updatePreferences\(\{ activePlanId: activePlan\.id \}\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/);
 
       // The removed dark plan-ready must stay gone.
@@ -279,7 +306,7 @@ module.exports = [
       assert.match(levelBody, /setLevel\(option\.level\)/);
       assert.match(levelBody, /levelThumbAnim/);
       assert.match(levelBody, /levelFlamePop/);
-      assert.match(levelBody, /<FlameGlyph/);
+      assert.match(levelBody, /<AnimatedFlame/);
       assert.match(levelBody, /selectedLevelOption\.lines\.map/);
       assert.doesNotMatch(levelBody, /GENDER_OPTIONS/);
       assert.doesNotMatch(levelBody, /TRAINING_FREQUENCY_OPTIONS/);
@@ -288,6 +315,12 @@ module.exports = [
       assert.match(onboardingSource, /level: 'pro',\s*\r?\n\s*label: 'Pro'/);
       assert.match(onboardingSource, /const LEVEL_FLAME_LAYOUTS/);
       assert.match(onboardingSource, /function FlameGlyph\(/);
+      // Flames flicker on their own rhythm and burn red, with year-range
+      // guidance under the slider segments.
+      assert.match(onboardingSource, /function AnimatedFlame\(/);
+      assert.match(onboardingSource, /const FLAME_RED = '#EF4444'/);
+      assert.match(levelBody, /levelYearsRow/);
+      assert.match(onboardingSource, /years: '0–1 years'/);
 
       assert.match(daysBody, /stepLabel: getQuestionnaireStepLabel\('days'\)/);
       assert.match(daysBody, /titleLines: \['Training days'\]/);
@@ -328,9 +361,12 @@ module.exports = [
       assert.match(planningBody, /visibleFocusOptions\.map/);
       assert.match(planningBody, /toggleFocusArea\(option\.area\)/);
       assert.match(planningBody, /styles\.focusListRowActive/);
-      assert.match(planningBody, /Why focus areas\?/);
-      assert.match(planningBody, /This helps us build a program that prioritizes what matters most to you\./);
-      assert.match(planningBody, /Pick 1-2 areas/);
+      // Flagged areas keep their caution colour when selected, and picking one
+      // swaps the hint for the bodyweight-safety note. No info box.
+      assert.match(planningBody, /flaggedFocusSelected/);
+      assert.match(planningBody, /bodyweight only to maximize/);
+      assert.match(planningBody, /Pick 1–2 areas\./);
+      assert.doesNotMatch(planningBody, /Why focus areas\?/);
       assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
       assert.match(onboardingSource, /current\.length >= 2/);
 
@@ -395,7 +431,7 @@ module.exports = [
       assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.34\) \+ 34\)/);
       assert.match(onboardingSource, /styles\.locationTopPane, \{ height: fixedTopPaneHeight \}, topPaneStyle/);
       assert.match(onboardingSource, /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
-      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 206/);
+      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 186/);
       assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{allowScrollBounce\}/);
@@ -460,7 +496,8 @@ module.exports = [
 
       // Weeks / per-week / total workouts come from the payload with safe fallbacks.
       assert.match(reviewBody, /const planReadyWeeks = planReadyPayload\.blockLengthWeeks > 0 \? planReadyPayload\.blockLengthWeeks : 4/);
-      assert.match(reviewBody, /planReadyPayload\.programDaysPerWeek[\s\S]*projectedDaysPerWeek[\s\S]*planReadyPayload\.requestedDaysPerWeek/);
+      // Composed-week day count wins; the raw template count is only a fallback.
+      assert.match(reviewBody, /projectedDaysPerWeek[\s\S]*planReadyPayload\.programDaysPerWeek[\s\S]*planReadyPayload\.requestedDaysPerWeek/);
       assert.match(reviewBody, /const planReadyTotalWorkouts = planReadyWeeks \* planReadyPerWeek/);
 
       // Subtitle line: "{N}-week plan · goal · location", dot separated.
