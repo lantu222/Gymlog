@@ -28,6 +28,43 @@ function buildFallbackReadyProgramContent(templateId: string): ReadyProgramConte
 }
 
 const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
+  tpl_strong_elite_v1: {
+    summary: 'A 12-week Pro strength block: five-set anchor lifts, heavy pressure days, and accessories that protect the next heavy session.',
+    audience: 'Best for experienced lifters who recover well, know the main lifts cold, and want maximal strength as the clear priority.',
+    equipmentProfile: 'Full gym required: barbell, rack, bench, trap bar or deadlift setup, machines and cables.',
+    whyItWorks: 'Each pattern gets one heavy and one pressure exposure per week, so intensity climbs across the block without the week collapsing into fatigue.',
+    sessionFocusById: {
+      strong_elite_upper_heavy: 'Five-set bench anchor with heavy rows and press support.',
+      strong_elite_lower_heavy: 'Squat and trap bar anchors — the heaviest day of the week.',
+      strong_elite_upper_volume: 'Incline pressing and rows add pressure at manageable loads.',
+      strong_elite_lower_volume: 'Front squat and RDL keep quality volume behind the anchors.',
+    },
+  },
+  tpl_fit_elite_v1: {
+    summary: 'A 12-week Pro block that keeps strength anchors moving while conditioning finishers build a real engine four days per week.',
+    audience: 'Best for experienced all-rounders who want strength, conditioning and mobility in one honest weekly structure.',
+    equipmentProfile: 'Full gym recommended: barbell, dumbbells, machines, kettlebell and a cardio machine for finishers.',
+    whyItWorks: 'Power days push the main lifts while volume days add conditioning density, so both strength and engine progress without stealing from each other.',
+    sessionFocusById: {
+      fit_elite_upper_a: 'Bench and row anchors capped with a kettlebell finisher.',
+      fit_elite_lower_a: 'Squat-first lower day with hinge volume and trunk work.',
+      fit_elite_upper_b: 'Incline press and pulldown volume plus a burpee circuit.',
+      fit_elite_lower_b: 'Leg press and hip thrust volume with an interval engine block.',
+    },
+  },
+  tpl_shred_elite_v1: {
+    summary: 'A 12-week Pro fat-loss block: five days that hold strength anchors while HIIT finishers drive the energy expenditure up.',
+    audience: 'Best for experienced lifters cutting fat who refuse to lose their strength base while conditioning volume climbs.',
+    equipmentProfile: 'Full gym recommended: barbell, machines, kettlebell, and treadmill or bike for the interval finishers.',
+    whyItWorks: 'Every session pairs one honest strength slot with a conditioning finisher, so the deficit comes from work you can actually progress, not from junk volume.',
+    sessionFocusById: {
+      shred_elite_day1: 'Squat anchor plus swings and treadmill intervals.',
+      shred_elite_day2: 'Bench anchor with lunges and a burpee circuit.',
+      shred_elite_day3: 'Hinge and press day capped with bike sprints.',
+      shred_elite_day4: 'Full-body machine circuit with climbers to finish.',
+      shred_elite_day5: 'Swing-led engine day with a recovery flow to close the week.',
+    },
+  },
   tpl_3_day_full_body_v1: {
     summary: 'Three full-body sessions built to keep strength practice frequent while overall weekly fatigue stays manageable.',
     audience: 'Best for newer lifters or anyone who wants simple weekly structure with repeated practice on the main lifts.',

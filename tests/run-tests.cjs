@@ -72,6 +72,7 @@ const suites = [
   ...require('./lib/programInsights.test.cjs'),
   ...require('./lib/readyProgramCatalog.test.cjs'),
   ...require('./lib/readyProgramCollections.test.cjs'),
+  ...require('./lib/readyProgramDuration.test.cjs'),
   ...require('./lib/workoutTemplateSessions.test.cjs'),
   ...require('./lib/workoutEditorNaming.test.cjs'),
   ...require('./lib/workoutEditorTable.test.cjs'),

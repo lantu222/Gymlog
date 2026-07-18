@@ -7,6 +7,7 @@ import Svg, { Path } from 'react-native-svg';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 import { READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
+import { getReadyProgramBlockWeeks } from '../lib/readyProgramDuration';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 
 // Light design tokens (HG palette, same as the other onboarding screens).
@@ -158,7 +159,7 @@ export function OnboardingReadyCatalogScreen({ onPick, onBack, busy = false }: O
                       >
                         {`${template.daysPerWeek} days / week · ${template.estimatedSessionDuration} min · ${
                           LEVEL_TIERS.find((tier) => tier.key === template.level)?.label ?? 'All levels'
-                        }`}
+                        } · ${getReadyProgramBlockWeeks(template)} weeks`}
                       </Text>
                     </View>
                     <CheckCircle selected={selected} />

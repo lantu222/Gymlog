@@ -34,6 +34,7 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_3_day_strength_base_v1',
       'tpl_4_day_powerbuilding_v1',
       'tpl_4_day_strength_size_v1',
+      'tpl_strong_elite_v1',
     ],
   },
   {
@@ -67,6 +68,7 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_3_day_run_mobility_v1',
       'tpl_3_day_upper_lower_lite_v1',
       'tpl_4_day_upper_lower_v1',
+      'tpl_fit_elite_v1',
     ],
   },
   {
@@ -81,6 +83,8 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_5_day_hybrid_v1',
       'tpl_6_day_ppl_v1',
       'tpl_6_day_arnold_v1',
+      'tpl_strong_elite_v1',
+      'tpl_fit_elite_v1',
     ],
   },
   {
@@ -92,6 +96,7 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
       'tpl_shred_v1',
       'tpl_gainer_lean_shred_v1',
       'tpl_gainer_fat_burn_hiit_v1',
+      'tpl_shred_elite_v1',
       'tpl_3_day_full_body_v1',
     ],
   },

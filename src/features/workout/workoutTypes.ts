@@ -57,6 +57,12 @@ export interface WorkoutTemplateV1 {
   level: WorkoutLevel;
   splitType: WorkoutSplitType;
   daysPerWeek: number;
+  /**
+   * Program block length. Optional override — when absent the catalog rule
+   * applies: beginner 4 wk, intermediate (UI "Advanced") 8 wk, advanced
+   * (UI "Pro") 12 wk. See src/lib/readyProgramDuration.ts.
+   */
+  blockLengthWeeks?: number;
   estimatedSessionDuration: number;
   progressionModel: WorkoutProgressionModel;
   defaultScheduleMode: DefaultScheduleMode;

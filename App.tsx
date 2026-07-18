@@ -34,6 +34,7 @@ import {
   getAiCoachTemplateId,
 } from './src/lib/aiCoachPlan';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
+import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
@@ -1041,6 +1042,18 @@ function GymlogApp() {
   const [onboardingPath, setOnboardingPath] = useState<'build' | 'ready'>('build');
   const [onboardingHealthBasics, setOnboardingHealthBasics] = useState<HealthBasics | null>(null);
   const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
+
+  // The onboarding flow state lives in memory; when the gate closes (finished)
+  // or the app returns to the Welcome entry (e.g. after a data reset), start
+  // the next run from the path screen — never mid-questionnaire.
+  useEffect(() => {
+    if (preferences.onboardingCompleted || !preferences.entryFlowCompleted) {
+      setOnboardingStep('path');
+      setOnboardingPath('build');
+      setOnboardingHealthBasics(null);
+      setAboutYouValues(null);
+    }
+  }, [preferences.entryFlowCompleted, preferences.onboardingCompleted]);
   const [aboutYouValues, setAboutYouValues] = useState<AboutYouValues | null>(null);
 
   useEffect(() => {
@@ -2065,6 +2078,9 @@ function GymlogApp() {
     const planProgress = buildHomePlanProgress({
       completedSessions: completedSessionCount,
       sessionsPerWeek: recommendedReadyTemplate.daysPerWeek,
+      // Ready programs count their catalog block (4-12 wk by tier), not the
+      // generic 8-week default.
+      totalWeeks: getReadyProgramBlockWeeks(recommendedReadyTemplate),
     });
     const homeSessions = recommendedReadyTemplate.sessions.map((session) => ({
       id: session.id,
