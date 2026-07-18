@@ -24,6 +24,25 @@ interface BuildAdaptiveCoachRecommendationInput {
   previousEntries?: WorkoutSlotHistoryEntry[];
 }
 
+/**
+ * Automated-progression truth gate (onboarding truth plan P5): when the user
+ * turned automated progression OFF, the adaptive coach must neither run nor
+ * upsell — the choice is respected, not monetized.
+ */
+export function resolveAdaptiveCoachOffer({
+  automatedProgressionEnabled,
+  premiumUnlocked,
+}: {
+  automatedProgressionEnabled: boolean;
+  premiumUnlocked: boolean;
+}): { offer: boolean; showLockedUpsell: boolean } {
+  if (!automatedProgressionEnabled) {
+    return { offer: false, showLockedUpsell: false };
+  }
+
+  return { offer: premiumUnlocked, showLockedUpsell: !premiumUnlocked };
+}
+
 function clampRest(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, Math.round(value)));
 }

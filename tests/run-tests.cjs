@@ -15,6 +15,7 @@ const suites = [
   ...require('./lib/exerciseInfo.test.cjs'),
   ...require('./lib/exerciseSuggestions.test.cjs'),
   ...require('./lib/adaptiveCoach.test.cjs'),
+  ...require('./lib/adaptiveCoachOffer.test.cjs'),
   ...require('./lib/routeHistory.test.cjs'),
   ...require('./lib/dashboard.test.cjs'),
   ...require('./lib/progressionActivePlan.test.cjs'),

@@ -6,7 +6,7 @@ import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ExerciseInfoSheet } from '../components/ExerciseInfoSheet';
 import { InlineTip } from '../components/InlineTip';
 import { WorkoutSetRow } from '../components/WorkoutSetRow';
-import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation } from '../lib/adaptiveCoach';
+import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation, resolveAdaptiveCoachOffer } from '../lib/adaptiveCoach';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
 import { buildTailoredSwapOptions, buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { formatWorkoutExerciseQueueMeta } from '../lib/workoutFlow';
@@ -35,6 +35,8 @@ interface WorkoutLoggingScreenProps {
   autoFocusNextInput: boolean;
   defaultRestSeconds: number;
   hasAdaptiveCoachPremium: boolean;
+  /** P5 truth: automated progression OFF silences the adaptive coach entirely. */
+  automatedProgressionEnabled?: boolean;
   tailoringPreferences?: TailoringPreferencesInput | null;
   exerciseLibrary: ExerciseLibraryItem[];
   recentExerciseLibraryItems: ExerciseLibraryItem[];
@@ -311,6 +313,7 @@ export function WorkoutLoggingScreen({
   autoFocusNextInput,
   defaultRestSeconds,
   hasAdaptiveCoachPremium,
+  automatedProgressionEnabled = true,
   tailoringPreferences = null,
   exerciseLibrary,
   recentExerciseLibraryItems,
@@ -684,8 +687,12 @@ export function WorkoutLoggingScreen({
     const nextTransitionExercise =
       activeExercise && getPendingSetNumber(activeExercise) ? activeExercise : nextUpExercise;
     const nextSetNumber = getPendingSetNumber(nextTransitionExercise);
+    const adaptiveOffer = resolveAdaptiveCoachOffer({
+      automatedProgressionEnabled,
+      premiumUnlocked: hasAdaptiveCoachPremium,
+    });
     const adaptiveCoach =
-      hasAdaptiveCoachPremium && completedExercise && completedSet && nextTransitionExercise && nextSetNumber
+      adaptiveOffer.offer && completedExercise && completedSet && nextTransitionExercise && nextSetNumber
         ? buildAdaptiveCoachRecommendation({
             completedExercise,
             completedSet,
@@ -709,7 +716,7 @@ export function WorkoutLoggingScreen({
         nextExercise: nextTransitionExercise,
         nextSetNumber,
         adaptiveCoach,
-        adaptiveCoachLocked: !hasAdaptiveCoachPremium,
+        adaptiveCoachLocked: adaptiveOffer.showLockedUpsell,
       });
     } else {
       setPostEffortTransition(null);

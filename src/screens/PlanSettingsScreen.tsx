@@ -36,6 +36,7 @@ interface PlanSettingsScreenProps {
   onOpenJointSwaps: () => void;
   onOpenPremium: () => void;
   onScheduleModeChange: (mode: SetupScheduleMode) => void;
+  onAutomatedProgressionChange?: (enabled: boolean) => void;
   onOpenWeek?: () => void;
   onOpenProgram?: () => void;
   onAskAiCoach?: () => void;
@@ -208,6 +209,7 @@ export function PlanSettingsScreen({
   onOpenJointSwaps,
   onOpenPremium,
   onScheduleModeChange,
+  onAutomatedProgressionChange,
   onOpenWeek,
   onOpenProgram,
   onAskAiCoach,
@@ -376,6 +378,42 @@ export function PlanSettingsScreen({
               </Text>
             </Pressable>
           </View>
+        </View>
+
+        <SectionLabel label="Automated progression" />
+
+        <View style={styles.scheduleToggleRow}>
+          <Pressable
+            onPress={() => onAutomatedProgressionChange?.(true)}
+            style={[styles.scheduleToggle, preferences.automatedProgressionEnabled && styles.scheduleToggleActive]}
+          >
+            <Text
+              style={[styles.scheduleToggleTitle, preferences.automatedProgressionEnabled && styles.scheduleToggleTitleActive]}
+            >
+              On
+            </Text>
+            <Text
+              style={[styles.scheduleToggleMeta, preferences.automatedProgressionEnabled && styles.scheduleToggleMetaActive]}
+            >
+              GAINER progresses loads and reps.
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => onAutomatedProgressionChange?.(false)}
+            style={[styles.scheduleToggle, !preferences.automatedProgressionEnabled && styles.scheduleToggleActive]}
+          >
+            <Text
+              style={[styles.scheduleToggleTitle, !preferences.automatedProgressionEnabled && styles.scheduleToggleTitleActive]}
+            >
+              Off
+            </Text>
+            <Text
+              style={[styles.scheduleToggleMeta, !preferences.automatedProgressionEnabled && styles.scheduleToggleMetaActive]}
+            >
+              You control every load yourself.
+            </Text>
+          </Pressable>
         </View>
 
         <SectionLabel label="Smarter layers" />

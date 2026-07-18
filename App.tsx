@@ -2699,6 +2699,7 @@ function GymlogApp() {
         autoFocusNextInput={preferences.autoFocusNextInput}
         defaultRestSeconds={preferences.defaultRestSeconds}
         hasAdaptiveCoachPremium={preferences.adaptiveCoachPremiumUnlocked}
+        automatedProgressionEnabled={preferences.automatedProgressionEnabled}
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
@@ -2835,6 +2836,7 @@ function GymlogApp() {
         onOpenJointSwaps={handleOpenJointSwaps}
         onOpenPremium={handleOpenPremium}
         onScheduleModeChange={(mode) => void handleUpdateScheduleMode(mode)}
+        onAutomatedProgressionChange={(enabled) => void updatePreferences({ automatedProgressionEnabled: enabled })}
         onOpenProgram={
           (setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)
             ? () => openRecommendedProgramDetail((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!)
