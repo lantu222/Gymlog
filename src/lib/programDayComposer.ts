@@ -2,6 +2,7 @@ import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { buildRecommendationPlanReadyPayload } from './recommendationProgramme';
 import { applyCautionFlagsToExercises, CautionExerciseSwap } from './cautionExerciseFilter';
+import { buildFocusEmphasisAdditions, FocusEmphasisAddition } from './focusEmphasis';
 import type { FirstRunSetupSelection } from './firstRunSetup';
 
 /**
@@ -36,6 +37,8 @@ export interface ComposedProgramWeek {
   /** Caution-flag effects applied to this week (P2 truth surface). */
   cautionRemoved: Array<{ name: string; area: string }>;
   cautionSwapped: CautionExerciseSwap[];
+  /** Focus-area emphasis added to this week (P3 truth surface). */
+  focusAdditions: FocusEmphasisAddition[];
 }
 
 function getFallbackTrackingMode(name: string): WorkoutTemplateExercise['trackingMode'] {
@@ -98,35 +101,57 @@ export function composeProgramWeekForSelection(
   const cautionRemoved: ComposedProgramWeek['cautionRemoved'] = [];
   const cautionSwapped: CautionExerciseSwap[] = [];
 
-  const sessions = trainingDays
-    .map((day, dayIndex): ComposedProgramSession => {
-      const sourceSession =
-        day.source === 'template' ? template.sessions.find((session) => session.id === day.id) ?? null : null;
-      const sessionId = `onboarding_${programId}_${dayIndex + 1}`;
-      const baseExercises = sourceSession
-        ? sourceSession.exercises.map((exercise) => ({
-            ...exercise,
-            id: `${sessionId}_${exercise.id}`,
-            slotId: `${exercise.slotId}_${dayIndex + 1}`,
-          }))
-        : day.keyLifts.map((lift, exerciseIndex) => buildComposedFallbackExercise(lift, sessionId, exerciseIndex));
+  const baseSessions = trainingDays.map((day, dayIndex): ComposedProgramSession => {
+    const sourceSession =
+      day.source === 'template' ? template.sessions.find((session) => session.id === day.id) ?? null : null;
+    const sessionId = `onboarding_${programId}_${dayIndex + 1}`;
+    const exercises = sourceSession
+      ? sourceSession.exercises.map((exercise) => ({
+          ...exercise,
+          id: `${sessionId}_${exercise.id}`,
+          slotId: `${exercise.slotId}_${dayIndex + 1}`,
+        }))
+      : day.keyLifts.map((lift, exerciseIndex) => buildComposedFallbackExercise(lift, sessionId, exerciseIndex));
 
+    return {
+      id: sessionId,
+      name: day.name,
+      orderIndex: dayIndex,
+      source: sourceSession ? 'template' : 'suggested',
+      exercises,
+    };
+  });
+
+  // P3: focus areas add real weekly emphasis (+1 accessory small / +2 big),
+  // added BEFORE the caution pass so flags can still veto or swap them.
+  const emphasis = buildFocusEmphasisAdditions(baseSessions, selection.focusAreas);
+
+  const sessions = baseSessions
+    .map((session): ComposedProgramSession => {
+      const withEmphasis = [...session.exercises, ...(emphasis.bySessionId.get(session.id) ?? [])];
       // P2: caution flags change the actual movements — avoid removes,
       // careful swaps (bodyweight-first when the area is also a focus).
-      const adjusted = applyCautionFlagsToExercises(baseExercises, cautionFlags, selection.focusAreas);
+      const adjusted = applyCautionFlagsToExercises(withEmphasis, cautionFlags, selection.focusAreas);
       cautionRemoved.push(...adjusted.removed);
       cautionSwapped.push(...adjusted.swapped);
 
-      return {
-        id: sessionId,
-        name: day.name,
-        orderIndex: dayIndex,
-        source: sourceSession ? 'template' : 'suggested',
-        exercises: adjusted.exercises,
-      };
+      return { ...session, exercises: adjusted.exercises };
     })
     .filter((session) => session.exercises.length > 0)
     .map((session, index) => ({ ...session, orderIndex: index }));
+
+  // Report only emphasis that survived the caution pass (as-is or swapped) —
+  // the truth surface must not claim additions the flags vetoed.
+  const focusAdditions = emphasis.additions.filter((addition) => {
+    const session = sessions.find((entry) => entry.id === addition.sessionId);
+    if (!session) {
+      return false;
+    }
+    return (
+      session.exercises.some((exercise) => exercise.exerciseName === addition.exerciseName) ||
+      cautionSwapped.some((swap) => swap.from === addition.exerciseName)
+    );
+  });
 
   const weeks = payload.blockLengthWeeks > 0 ? payload.blockLengthWeeks : 4;
   const days = sessions.length;
@@ -141,5 +166,6 @@ export function composeProgramWeekForSelection(
     composed: days !== template.daysPerWeek,
     cautionRemoved,
     cautionSwapped,
+    focusAdditions,
   };
 }
