@@ -579,6 +579,7 @@ export function GuidedPlayerScreen({
 
   /* ── mode + step position ── */
   const [mode, setMode] = useState<'entry' | 'player'>('entry');
+  const [expandedPhases, setExpandedPhases] = useState<string[]>([]);
   const [stepIndex, setStepIndex] = useState(0);
   const step: GuidedStep = steps[Math.min(stepIndex, steps.length - 1)] ?? { type: 'finish' };
 
@@ -762,7 +763,8 @@ export function GuidedPlayerScreen({
     onEndSession();
   };
 
-  const dark = mode === 'player' && (step.type === 'rest' || step.type === 'finish');
+  // Only the finish celebration goes dark — rest stays on the light theme.
+  const dark = mode === 'player' && step.type === 'finish';
   const nextPreview = mode === 'player' ? getGuidedNextPreview(steps, stepIndex, resolveTarget) : null;
 
   const libraryFor = (name: string) => {
@@ -827,14 +829,18 @@ export function GuidedPlayerScreen({
               </Pressable>
             )}
 
-            <View style={{ gap: 10, marginTop: 18 }}>
+            <ScrollView
+              style={{ flex: 1, marginTop: 18 }}
+              contentContainerStyle={{ gap: 10, paddingBottom: 8 }}
+              showsVerticalScrollIndicator={false}
+            >
               {[
                 warmupDrills.length > 0
                   ? {
                       key: 'warmup',
                       label: 'Warm-up',
                       sub: `${warmupDrills.length} timed drills · ~${Math.max(1, Math.round(warmupSecondsTotal / 60))} min`,
-                      index: findGuidedPhaseStart(steps, 'warmup'),
+                      rows: warmupDrills.map((drill) => ({ left: drill.name, right: formatDrillLength(drill.seconds) })),
                     }
                   : null,
                 workStart !== null
@@ -842,7 +848,10 @@ export function GuidedPlayerScreen({
                       key: 'work',
                       label: 'Workout',
                       sub: `${activeExercises.length} exercises · ${totalSets} sets`,
-                      index: workStart,
+                      rows: activeExercises.map((exercise) => ({
+                        left: exercise.exerciseName,
+                        right: `${exercise.sets.length} × ${formatRepRangeLabel(exercise.sets[0])}`,
+                      })),
                     }
                   : null,
                 cooldownStart !== null
@@ -850,30 +859,58 @@ export function GuidedPlayerScreen({
                       key: 'cooldown',
                       label: 'Cooldown',
                       sub: `${cooldownDrills.length} stretches · ${cooldownSecondsTotal < 90 ? `~${Math.round(cooldownSecondsTotal / 5) * 5} sec` : `~${Math.round(cooldownSecondsTotal / 60)} min`}`,
-                      index: cooldownStart,
+                      rows: cooldownDrills.map((drill) => ({ left: drill.name, right: formatDrillLength(drill.seconds) })),
                     }
                   : null,
               ]
-                .filter((item): item is { key: string; label: string; sub: string; index: number | null } => item !== null)
-                .map((phase) => (
-                  <Pressable
-                    key={phase.key}
-                    style={styles.phaseCard}
-                    onPress={() => phase.index !== null && startAt(phase.index)}
-                  >
-                    <View style={styles.phasePlay}>
-                      <GPIcon name="play" size={16} color={HG.purple} sw={2.4} />
+                .filter(
+                  (item): item is { key: string; label: string; sub: string; rows: Array<{ left: string; right: string }> } =>
+                    item !== null,
+                )
+                .map((phase) => {
+                  const expanded = expandedPhases.includes(phase.key);
+                  return (
+                    <View key={phase.key} style={styles.phaseCard}>
+                      <Pressable
+                        style={styles.phaseHeader}
+                        onPress={() =>
+                          setExpandedPhases((current) =>
+                            current.includes(phase.key)
+                              ? current.filter((key) => key !== phase.key)
+                              : [...current, phase.key],
+                          )
+                        }
+                      >
+                        <View style={styles.phasePlay}>
+                          <GPIcon name="play" size={17} color={HG.purple} sw={2.4} />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ fontSize: 17.5, fontWeight: '800', color: HG.ink }}>{phase.label}</Text>
+                          <Text style={{ fontSize: 13.5, fontWeight: '600', color: HG.muted, marginTop: 3 }}>{phase.sub}</Text>
+                        </View>
+                        <View style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}>
+                          <GPIcon name="chevR" size={18} color={HG.faint} />
+                        </View>
+                      </Pressable>
+                      {expanded && (
+                        <View style={styles.phaseRows}>
+                          {phase.rows.map((row, rowIndex) => (
+                            <View key={rowIndex} style={styles.phaseRow}>
+                              <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: HG.ink }} numberOfLines={1}>
+                                {row.left}
+                              </Text>
+                              <Text style={{ fontSize: 13.5, fontWeight: '600', color: HG.muted, fontVariant: ['tabular-nums'] }}>
+                                {row.right}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      )}
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 15.5, fontWeight: '800', color: HG.ink }}>{phase.label}</Text>
-                      <Text style={{ fontSize: 12.5, fontWeight: '600', color: HG.muted, marginTop: 2 }}>{phase.sub}</Text>
-                    </View>
-                    <GPIcon name="chevR" size={17} color={HG.faint} />
-                  </Pressable>
-                ))}
-            </View>
+                  );
+                })}
+            </ScrollView>
 
-            <View style={{ flex: 1 }} />
             <Pressable style={styles.startCta} onPress={() => startAt(0)}>
               <GPIcon name="play" size={19} color="#fff" sw={2.5} />
               <Text style={{ fontSize: 16.5, fontWeight: '800', color: '#fff' }}>Start session</Text>
@@ -1037,21 +1074,21 @@ export function GuidedPlayerScreen({
             <StepIn stepKey={`rest-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
                 <View style={{ flex: 1.1, alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: GPD.purple }}>REST</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: HG.purple }}>REST</Text>
                   <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
                   {paused ? (
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: GPD.muted, letterSpacing: 1.6 }}>PAUSED</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: HG.muted, letterSpacing: 1.6 }}>PAUSED</Text>
                   ) : null}
                 </View>
                 <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 12 }}>
                   {nextPreview ? (
                     <View style={styles.restNextCard}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: GPD.faint, marginBottom: 6 }}>
+                      <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: HG.faint, marginBottom: 6 }}>
                         UP NEXT
                       </Text>
-                      <Text style={{ fontSize: 17, fontWeight: '800', color: GPD.ink }}>{nextPreview.title}</Text>
+                      <Text style={{ fontSize: 17, fontWeight: '800', color: HG.ink }}>{nextPreview.title}</Text>
                       {nextPreview.sub ? (
-                        <Text style={{ fontSize: 13.5, fontWeight: '600', color: GPD.muted, marginTop: 3 }}>
+                        <Text style={{ fontSize: 13.5, fontWeight: '600', color: HG.muted, marginTop: 3 }}>
                           {nextPreview.sub}
                         </Text>
                       ) : null}
@@ -1060,7 +1097,6 @@ export function GuidedPlayerScreen({
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View style={{ flex: 1 }}>
                       <GhostBtn
-                        dark
                         label="−15s"
                         onPress={() => {
                           remainingRef.current = Math.max(1000, remainingRef.current - 15000);
@@ -1070,7 +1106,6 @@ export function GuidedPlayerScreen({
                     </View>
                     <View style={{ flex: 1 }}>
                       <GhostBtn
-                        dark
                         label="+15s"
                         onPress={() => {
                           remainingRef.current += 15000;
@@ -1079,7 +1114,7 @@ export function GuidedPlayerScreen({
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn dark icon={paused ? 'play' : 'pause'} label={paused ? 'Resume' : 'Pause'} onPress={() => setPaused((value) => !value)} />
+                      <GhostBtn icon={paused ? 'play' : 'pause'} label={paused ? 'Resume' : 'Pause'} onPress={() => setPaused((value) => !value)} />
                     </View>
                   </View>
                   <Pressable style={styles.skipRestBtn} onPress={advance}>
@@ -1090,7 +1125,7 @@ export function GuidedPlayerScreen({
                 <ProgressRail
                   groups={groups}
                   current={step.groupIndex}
-                  dark
+                  dark={false}
                   dotIndex={step.setIndex}
                   dotsDone={exerciseBySlot.get(step.slotId)?.sets.filter((set) => set.status === 'completed').length ?? 0}
                 />
@@ -1185,6 +1220,28 @@ export function GuidedPlayerScreen({
       )}
     </View>
   );
+}
+
+/** "3 min" for whole minutes, otherwise plain seconds ("50s"). */
+function formatDrillLength(seconds: number): string {
+  if (seconds >= 60 && seconds % 60 === 0) {
+    return `${seconds / 60} min`;
+  }
+  if (seconds >= 90) {
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+  return `${seconds}s`;
+}
+
+/** "3–5" from the planned rep range, collapsing equal bounds to "5". */
+function formatRepRangeLabel(set: { plannedRepsMin: number; plannedRepsMax: number } | undefined): string {
+  if (!set) {
+    return '';
+  }
+  if (set.plannedRepsMin === set.plannedRepsMax) {
+    return `${set.plannedRepsMax}`;
+  }
+  return `${set.plannedRepsMin}–${set.plannedRepsMax}`;
 }
 
 function buildCueLine(item: ExerciseLibraryItem | null): string | null {
@@ -1287,9 +1344,14 @@ function SetStepView({
               ) : null}
             </Pressable>
           ) : (
-            <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'stretch' }}>
-              <Stepper label="REPS" value={reps} step={1} min={1} onChange={setReps} />
-              {!bodyweight ? <Stepper label="WEIGHT" value={kg} unit="kg" step={2.5} min={0} onChange={setKg} /> : null}
+            <View style={{ alignSelf: 'stretch', gap: 16 }}>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Stepper label="REPS" value={reps} step={1} min={1} onChange={setReps} />
+                {!bodyweight ? <Stepper label="WEIGHT" value={kg} unit="kg" step={2.5} min={0} onChange={setKg} /> : null}
+              </View>
+              <Pressable onPress={() => setEdit(false)} hitSlop={10} style={{ alignSelf: 'center' }}>
+                <Text style={{ fontSize: 13.5, fontWeight: '800', color: HG.purple }}>‹ Back</Text>
+              </Pressable>
             </View>
           )}
         </View>
@@ -1520,19 +1582,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   phaseCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#E4DBF5',
     borderRadius: 18,
-    paddingVertical: 13,
     paddingHorizontal: 15,
   },
+  phaseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 18,
+  },
+  phaseRows: {
+    borderTopWidth: 1,
+    borderTopColor: '#EFE9FB',
+    paddingVertical: 8,
+    marginBottom: 6,
+  },
+  phaseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 8,
+    paddingLeft: 57,
+    paddingRight: 4,
+  },
   phasePlay: {
-    width: 38,
-    height: 38,
+    width: 44,
+    height: 44,
     borderRadius: 999,
     backgroundColor: HG.purpleLight,
     alignItems: 'center',
@@ -1690,12 +1768,12 @@ const styles = StyleSheet.create({
   },
   stepperBtnText: { fontSize: 20, fontWeight: '800', color: HG.purple },
 
-  /* rest */
-  restCountdown: { fontSize: 120, fontWeight: '800', letterSpacing: -4.5, color: GPD.ink, lineHeight: 126, fontVariant: ['tabular-nums'] },
+  /* rest (light theme like every other in-workout screen) */
+  restCountdown: { fontSize: 120, fontWeight: '800', letterSpacing: -4.5, color: HG.ink, lineHeight: 126, fontVariant: ['tabular-nums'] },
   restNextCard: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: GPD.line,
+    borderColor: '#E4DBF5',
     borderRadius: 20,
     paddingVertical: 15,
     paddingHorizontal: 17,
@@ -1703,12 +1781,12 @@ const styles = StyleSheet.create({
   skipRestBtn: {
     height: 56,
     borderRadius: 17,
-    backgroundColor: GPD.purple,
+    backgroundColor: HG.purple,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: GPD.purple,
+    shadowColor: HG.purple,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 26,
