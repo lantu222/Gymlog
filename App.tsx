@@ -88,6 +88,7 @@ import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
 import { WorkoutLoggingScreen } from './src/screens/WorkoutLoggingScreen';
+import { GuidedPlayerScreen } from './src/screens/GuidedPlayerScreen';
 import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
@@ -381,6 +382,7 @@ function getBackRoute(route: AppRoute): AppRoute | null {
       route.screen === 'template' ||
       route.screen === 'editor' ||
       route.screen === 'log' ||
+      route.screen === 'guided' ||
       route.screen === 'summary' ||
       route.screen === 'celebration')
   ) {
@@ -806,6 +808,13 @@ function GymlogApp() {
     navigate({ tab: 'workout', screen: 'log', workoutTemplateId });
   }
 
+  // Guided player (design_handoff_guided_player) is the default way to run a
+  // session; the table logger stays reachable via "Switch to list view".
+  function navigateToGuidedWorkout(workoutTemplateId: string) {
+    workoutLogNavigationAllowedAtRef.current = Date.now();
+    navigate({ tab: 'workout', screen: 'guided', workoutTemplateId });
+  }
+
   async function openAiMode(preferencesPatch?: Partial<AppPreferences>) {
     const nextPreferences = preferencesPatch ? { ...preferences, ...preferencesPatch } : preferences;
     if (!nextPreferences.aiSetupCompleted) {
@@ -860,7 +869,7 @@ function GymlogApp() {
         buildCustomSessionRuntimeTemplate(runtimeTemplate, nextSessionId),
         nextPreferences.unitPreference,
       );
-      navigateToWorkoutLog(persistedTemplateId);
+      navigateToGuidedWorkout(persistedTemplateId);
       showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
     } catch (error) {
       console.error('Failed to open GAINER AI workout flow', error);
@@ -924,6 +933,21 @@ function GymlogApp() {
 
   useEffect(() => {
     if (route.tab === 'workout' && route.screen === 'log') {
+      const allowedAt = workoutLogNavigationAllowedAtRef.current;
+      workoutLogNavigationAllowedAtRef.current = null;
+
+      if (
+        !workout.activeSession &&
+        finishSaveState.status !== 'saving' &&
+        !summaryNavigationPendingRef.current &&
+        (!allowedAt || Date.now() - allowedAt > 2000)
+      ) {
+        replaceRoute(ROOT_ROUTES.home);
+        return;
+      }
+    }
+
+    if (route.tab === 'workout' && route.screen === 'guided') {
       const allowedAt = workoutLogNavigationAllowedAtRef.current;
       workoutLogNavigationAllowedAtRef.current = null;
 
@@ -1147,7 +1171,7 @@ function GymlogApp() {
     }
 
     workout.resumeWorkout();
-    navigateToWorkoutLog(workout.activeSession.templateId);
+    navigateToGuidedWorkout(workout.activeSession.templateId);
     return true;
   }
 
@@ -1404,7 +1428,7 @@ function GymlogApp() {
     void updatePreferences({ trainingFirstRunDismissed: true });
     const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
     workout.startCustomWorkout(runtimeTemplate, nextUnitPreference);
-    navigateToWorkoutLog(workoutTemplateId);
+    navigateToGuidedWorkout(workoutTemplateId);
   }
 
   function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
@@ -1441,7 +1465,7 @@ function GymlogApp() {
     void updatePreferences({ trainingFirstRunDismissed: true });
     const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
     workout.startCustomWorkout(runtimeTemplate, unitPreference);
-    navigateToWorkoutLog(workoutTemplateId);
+    navigateToGuidedWorkout(workoutTemplateId);
   }
 
   function handleStartCustomProgram(workoutTemplateId: string) {
@@ -2124,6 +2148,43 @@ function GymlogApp() {
     };
   }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
+  // Guided-player context props (entry eyebrow + finish-screen cards).
+  const guidedEntryEyebrow = useMemo(() => {
+    const weekday = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][new Date().getDay()];
+    const week = homeActivePlanCard?.currentWeek;
+    return week ? `${weekday} · WEEK ${week}` : weekday;
+  }, [homeActivePlanCard?.currentWeek]);
+  const guidedWeekProgress = useMemo(() => {
+    if (!progressWeeklyTarget) {
+      return null;
+    }
+    const now = new Date();
+    const weekStart = getStartOfWeek(now);
+    const weekEnd = getEndOfWeek(now);
+    const savedThisWeek = workoutSessions.filter((session) => {
+      const performed = new Date(session.performedAt);
+      return performed >= weekStart && performed < weekEnd;
+    }).length;
+    // The in-flight session counts too — the finish screen shows before save.
+    return {
+      weekLabel: homeActivePlanCard ? `WEEK ${homeActivePlanCard.currentWeek}` : 'THIS WEEK',
+      done: savedThisWeek + 1,
+      target: progressWeeklyTarget,
+    };
+  }, [homeActivePlanCard, progressWeeklyTarget, workoutSessions]);
+  const guidedNextUp = useMemo(() => {
+    const card = homeActivePlanCard;
+    const templateSessionId = workout.activeSession?.templateSessionId;
+    if (!card || !templateSessionId || card.sessions.length < 2) {
+      return null;
+    }
+    const index = card.sessions.findIndex((session) => session.id === templateSessionId);
+    if (index < 0) {
+      return null;
+    }
+    const next = card.sessions[(index + 1) % card.sessions.length];
+    return { name: next.title, weekday: 'dayLabel' in next ? next.dayLabel ?? '' : '' };
+  }, [homeActivePlanCard, workout.activeSession?.templateSessionId]);
   const homeAiPromptSuggestions = useMemo(
     () =>
       setupSelection
@@ -2763,6 +2824,24 @@ function GymlogApp() {
         }}
       />
     );
+  } else if (route.tab === 'workout' && route.screen === 'guided') {
+    content = (
+      <GuidedPlayerScreen
+        unitPreference={unitPreference}
+        exerciseLibrary={exerciseLibrary}
+        entryEyebrow={guidedEntryEyebrow}
+        weekProgress={guidedWeekProgress}
+        nextUp={guidedNextUp}
+        onLeave={() => navigateBack(getWorkoutLoggerFallbackRoute())}
+        onSwitchToListView={() => {
+          workoutLogNavigationAllowedAtRef.current = Date.now();
+          replaceRoute({ tab: 'workout', screen: 'log', workoutTemplateId: route.workoutTemplateId });
+        }}
+        onEndSession={() => void handleDiscardWorkout()}
+        onFinishSession={() => void handleConfirmFinishWorkout()}
+        isSavingWorkout={finishSaveState.status === 'saving'}
+      />
+    );
   } else if (route.tab === 'workout' && route.screen === 'log') {
     content = (
       <WorkoutLoggingScreen
@@ -3139,6 +3218,7 @@ function GymlogApp() {
       (route.screen === 'detail' ||
         route.screen === 'empty' ||
         route.screen === 'log' ||
+        route.screen === 'guided' ||
         route.screen === 'summary' ||
         route.screen === 'celebration')
     );
@@ -3159,7 +3239,7 @@ function GymlogApp() {
   const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
   const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
   const programDetailActive = route.tab === 'workout' && route.screen === 'program';
-  const workoutLogActive = route.tab === 'workout' && route.screen === 'log';
+  const workoutLogActive = route.tab === 'workout' && (route.screen === 'log' || route.screen === 'guided');
   const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
   const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
   const programsHomeActive = route.tab === 'workout' && route.screen === 'programs_home';

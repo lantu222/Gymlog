@@ -132,6 +132,8 @@ export interface WorkoutUiState {
   swapSheetSlotId: string | null;
   expandedSlotIds: string[];
   finishSummaryOpen: boolean;
+  /** Guided-player resume position (index into the built step list). */
+  guidedStepIndex?: number;
 }
 
 export interface WorkoutSessionRuntime {

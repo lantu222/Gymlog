@@ -41,6 +41,7 @@ export type WorkoutAction =
   | { type: 'timer/resume'; payload: { nowMs: number } }
   | { type: 'timer/override'; payload: { durationSeconds: number; nowMs: number } }
   | { type: 'timer/clear' }
+  | { type: 'session/setGuidedStep'; payload: { stepIndex: number } }
   | { type: 'session/openFinishSummary' }
   | { type: 'session/finishWorkout'; payload?: { performedAt?: string } }
   | { type: 'session/discardWorkout' }
@@ -963,6 +964,21 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         activeSession: {
           ...state.activeSession,
           restTimer: createInitialTimer(),
+        },
+      };
+
+    case 'session/setGuidedStep':
+      if (!state.activeSession || state.activeSession.ui.guidedStepIndex === action.payload.stepIndex) {
+        return state;
+      }
+      return {
+        ...state,
+        activeSession: {
+          ...state.activeSession,
+          ui: {
+            ...state.activeSession.ui,
+            guidedStepIndex: action.payload.stepIndex,
+          },
         },
       };
 

@@ -43,6 +43,7 @@ interface WorkoutContextValue {
   skipExercise: (slotId: string, reason?: string) => void;
   swapExercise: (slotId: string, exerciseName: string, substitutionGroup: string) => void;
   updateNotes: (slotId: string, notes: string) => void;
+  setGuidedStep: (stepIndex: number) => void;
   tick: () => void;
 }
 
@@ -203,6 +204,9 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       updateNotes(slotId, notes) {
         dispatch({ type: 'exercise/updateNotes', payload: { slotId, notes } });
+      },
+      setGuidedStep(stepIndex) {
+        dispatch({ type: 'session/setGuidedStep', payload: { stepIndex } });
       },
       tick() {
         dispatch({ type: 'session/tick', payload: { nowMs: Date.now() } });

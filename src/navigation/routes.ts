@@ -69,6 +69,11 @@ export type AppRoute =
     }
   | {
       tab: 'workout';
+      screen: 'guided';
+      workoutTemplateId: string;
+    }
+  | {
+      tab: 'workout';
       screen: 'summary';
     }
   | {
