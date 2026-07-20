@@ -270,6 +270,40 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
             : undefined,
         }))
       : [],
+    cardioSessions: Array.isArray(input?.cardioSessions)
+      ? input.cardioSessions
+          .map((session: any) => {
+            if (typeof session?.id !== 'string' || !session.id) {
+              return null;
+            }
+            const performedAt = typeof session?.performedAt === 'string' ? session.performedAt : null;
+            const durationSec =
+              typeof session?.durationSec === 'number' && Number.isFinite(session.durationSec)
+                ? Math.max(0, Math.round(session.durationSec))
+                : null;
+            if (!performedAt || durationSec === null) {
+              return null;
+            }
+            const activityType = ['run', 'tread-run', 'tread-walk', 'cycle-in', 'cycle-out', 'row'].includes(
+              session?.activityType,
+            )
+              ? session.activityType
+              : 'run';
+            return {
+              id: session.id,
+              activityType,
+              startedAt: typeof session?.startedAt === 'string' ? session.startedAt : performedAt,
+              performedAt,
+              durationSec,
+              distanceKm:
+                typeof session?.distanceKm === 'number' && Number.isFinite(session.distanceKm) && session.distanceKm > 0
+                  ? session.distanceKm
+                  : null,
+              feel: ['easy', 'steady', 'hard', 'max'].includes(session?.feel) ? session.feel : null,
+            };
+          })
+          .filter((session): session is NonNullable<typeof session> => session !== null)
+      : [],
     exerciseLogs: Array.isArray(input?.exerciseLogs)
       ? input.exerciseLogs
           .map((log) => normalizeExerciseLog(log))

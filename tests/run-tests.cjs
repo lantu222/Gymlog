@@ -12,6 +12,7 @@ const suites = [
   ...require('./lib/sessionGuidance.test.cjs'),
   ...require('./lib/workoutLoggingSessionBootstrap.test.cjs'),
   ...require('./lib/guidedPlayer.test.cjs'),
+  ...require('./lib/cardio.test.cjs'),
   ...require('./lib/workoutLoggerNavigation.test.cjs'),
   ...require('./lib/exerciseInfo.test.cjs'),
   ...require('./lib/exerciseSuggestions.test.cjs'),

@@ -22,6 +22,9 @@ import {
   AppDatabase,
   AppPreferences,
   BodyweightEntry,
+  CardioActivityType,
+  CardioFeel,
+  CardioSession,
   ExerciseLogDraft,
   ExerciseTemplate,
   MeasurementEntry,
@@ -43,6 +46,7 @@ interface AppContextValue {
   workoutPlans: AppDatabase['workoutPlans'];
   exerciseLibrary: AppDatabase['exerciseLibrary'];
   workoutSessions: AppDatabase['workoutSessions'];
+  cardioSessions: AppDatabase['cardioSessions'];
   bodyweightEntries: AppDatabase['bodyweightEntries'];
   measurementEntries: AppDatabase['measurementEntries'];
   trackedProgress: ReturnType<typeof getTrackedExerciseProgress>;
@@ -72,6 +76,13 @@ interface AppContextValue {
       sessionNotes?: string | null;
     },
   ) => Promise<void>;
+  saveCardioSession: (input: {
+    activityType: CardioActivityType;
+    startedAt: string;
+    durationSec: number;
+    distanceKm?: number | null;
+    feel?: CardioFeel | null;
+  }) => Promise<CardioSession>;
   addBodyweightEntry: (weightKg: number, recordedAt?: string) => Promise<void>;
   addMeasurementEntry: (kind: MeasurementKind, value: number, unit: MeasurementUnit, recordedAt?: string) => Promise<void>;
   resetAllData: () => Promise<void>;
@@ -99,6 +110,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     workoutPlans: [],
     exerciseLibrary: [],
     workoutSessions: [],
+    cardioSessions: [],
     exerciseLogs: [],
     bodyweightEntries: [],
     measurementEntries: [],
@@ -458,6 +470,31 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  async function saveCardioSession(input: {
+    activityType: CardioActivityType;
+    startedAt: string;
+    durationSec: number;
+    distanceKm?: number | null;
+    feel?: CardioFeel | null;
+  }): Promise<CardioSession> {
+    const current = databaseRef.current;
+    const session: CardioSession = {
+      id: createId('cardio_session'),
+      activityType: input.activityType,
+      startedAt: input.startedAt,
+      performedAt: new Date().toISOString(),
+      durationSec: Math.max(0, Math.round(input.durationSec)),
+      distanceKm: input.distanceKm && input.distanceKm > 0 ? input.distanceKm : null,
+      feel: input.feel ?? null,
+    };
+
+    await commit({
+      ...current,
+      cardioSessions: [session, ...(current.cardioSessions ?? [])],
+    });
+    return session;
+  }
+
   async function resetAllData() {
     const cleared = await resetDatabase();
     databaseRef.current = cleared;
@@ -474,6 +511,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       workoutPlans: workoutPlanRepository.list(database),
       exerciseLibrary: database.exerciseLibrary,
       workoutSessions: workoutSessionRepository.list(database),
+      cardioSessions: database.cardioSessions ?? [],
       bodyweightEntries: bodyweightRepository.list(database),
       measurementEntries: database.measurementEntries,
       trackedProgress: getTrackedExerciseProgress(database),
@@ -510,6 +548,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       saveWorkoutSession,
       saveCompletedWorkoutSession: persistCompletedWorkoutSession,
       updateCompletedWorkoutSession,
+      saveCardioSession,
       addBodyweightEntry,
       addMeasurementEntry,
       resetAllData,

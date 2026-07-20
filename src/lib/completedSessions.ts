@@ -83,11 +83,38 @@ export function getCanonicalCompletedSessions(database: AppDatabase) {
     });
 }
 
+/**
+ * Cardio sessions count toward the activity counters (sessions this week,
+ * streaks, calendars) with equal weight to strength sessions — but they are
+ * NOT canonical workout sessions: plan progress and program insights stay
+ * strength-only.
+ */
+export function getCanonicalCardioSessions(database: AppDatabase) {
+  const seenIds = new Set<string>();
+  return [...(database.cardioSessions ?? [])]
+    .filter((session) => {
+      if (seenIds.has(session.id)) {
+        return false;
+      }
+      seenIds.add(session.id);
+      return true;
+    })
+    .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime());
+}
+
+/** performedAt timestamps of every activity that counts toward streaks. */
+function getAllActivityTimestamps(database: AppDatabase) {
+  return [
+    ...getCanonicalCompletedSessions(database).map((session) => session.performedAt),
+    ...getCanonicalCardioSessions(database).map((session) => session.performedAt),
+  ];
+}
+
 export function getSessionsThisWeek(database: AppDatabase, now = new Date()) {
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
 
-  return getCanonicalCompletedSessions(database).filter(
-    (session) => getCalendarWeekStartTimestamp(session.performedAt) === currentWeekStart,
+  return getAllActivityTimestamps(database).filter(
+    (performedAt) => getCalendarWeekStartTimestamp(performedAt) === currentWeekStart,
   ).length;
 }
 
@@ -95,8 +122,8 @@ export function getSessionsLast30Days(database: AppDatabase, now = new Date()) {
   const nowTimestamp = new Date(now).getTime();
   const windowStart = nowTimestamp - 30 * DAY_MS;
 
-  return getCanonicalCompletedSessions(database).filter((session) => {
-    const performedAt = new Date(session.performedAt).getTime();
+  return getAllActivityTimestamps(database).filter((performedAtIso) => {
+    const performedAt = new Date(performedAtIso).getTime();
     return performedAt >= windowStart && performedAt <= nowTimestamp;
   }).length;
 }
@@ -104,7 +131,7 @@ export function getSessionsLast30Days(database: AppDatabase, now = new Date()) {
 export function getRecentActivityStrip(database: AppDatabase, now = new Date(), days = 16) {
   const todayStart = getCalendarDayStartTimestamp(now);
   const activeDays = new Set(
-    getCanonicalCompletedSessions(database).map((session) => getCalendarDayStartTimestamp(session.performedAt)),
+    getAllActivityTimestamps(database).map((performedAt) => getCalendarDayStartTimestamp(performedAt)),
   );
   const items = [];
 
@@ -127,7 +154,7 @@ export function getRecentActivityStrip(database: AppDatabase, now = new Date(), 
 export function getMonthlyActivityCalendar(database: AppDatabase, now = new Date()) {
   const todayStart = getCalendarDayStartTimestamp(now);
   const activeDays = new Set(
-    getCanonicalCompletedSessions(database).map((session) => getCalendarDayStartTimestamp(session.performedAt)),
+    getAllActivityTimestamps(database).map((performedAt) => getCalendarDayStartTimestamp(performedAt)),
   );
 
   const referenceDate = toDayStart(now);
@@ -171,7 +198,7 @@ export function getMonthlyActivityCalendar(database: AppDatabase, now = new Date
 export function getCurrentWeekStreak(database: AppDatabase, now = new Date()) {
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
   const activeWeeks = new Set(
-    getCanonicalCompletedSessions(database).map((session) => getCalendarWeekStartTimestamp(session.performedAt)),
+    getAllActivityTimestamps(database).map((performedAt) => getCalendarWeekStartTimestamp(performedAt)),
   );
 
   let streak = 0;

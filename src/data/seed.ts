@@ -134,6 +134,7 @@ export function createEmptyDatabase(): AppDatabase {
     workoutPlans: [],
     exerciseLibrary: createSeedExerciseLibrary(),
     workoutSessions: [],
+    cardioSessions: [],
     exerciseLogs: [],
     bodyweightEntries: [],
     measurementEntries: [],
@@ -380,6 +381,7 @@ export function createSeedDatabase(): AppDatabase {
       { id: 'session_push_1', workoutTemplateId: 'workout_push', workoutNameSnapshot: 'Push', performedAt: '2026-03-13T18:12:00+02:00' },
       { id: 'session_upper_3', workoutTemplateId: 'workout_upper', workoutNameSnapshot: 'Yläkroppa', performedAt: '2026-03-15T18:18:00+02:00' },
     ],
+    cardioSessions: [],
     exerciseLogs: [
       { id: 'log_upper_1_bench', sessionId: 'session_upper_1', exerciseTemplateId: 'exercise_upper_bench', exerciseNameSnapshot: 'Penkki', weight: 80, repsPerSet: [8, 8, 7], tracked: true, orderIndex: 0 },
       { id: 'log_upper_1_row', sessionId: 'session_upper_1', exerciseTemplateId: 'exercise_upper_row', exerciseNameSnapshot: 'Kulmasoutu', weight: 70, repsPerSet: [10, 10, 9], tracked: true, orderIndex: 1 },

@@ -20,6 +20,10 @@ export type AppRoute =
     }
   | {
       tab: 'home';
+      screen: 'cardio';
+    }
+  | {
+      tab: 'home';
       screen: 'session';
       sessionId: string;
     }

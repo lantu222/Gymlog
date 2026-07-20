@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useReducer, useRef } from 'react';
 
-import { UnitPreference } from '../../types/models';
+import { CardioActivityType, UnitPreference } from '../../types/models';
+import { ActiveCardioSession } from '../../lib/cardio';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_TEMPLATES_V1, getWorkoutTemplateById, getWorkoutTemplateSessions } from './workoutCatalog';
 import { loadWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
 import { WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
@@ -44,6 +45,11 @@ interface WorkoutContextValue {
   swapExercise: (slotId: string, exerciseName: string, substitutionGroup: string) => void;
   updateNotes: (slotId: string, notes: string) => void;
   setGuidedStep: (stepIndex: number) => void;
+  activeCardio: ActiveCardioSession | null;
+  startCardio: (activityType: CardioActivityType) => void;
+  pauseCardio: () => void;
+  resumeCardio: () => void;
+  clearCardio: () => void;
   tick: () => void;
 }
 
@@ -90,11 +96,15 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       return;
     }
 
-    const bundle: WorkoutPersistenceBundle = { activeSession: state.activeSession, history: state.history };
+    const bundle: WorkoutPersistenceBundle = {
+      activeSession: state.activeSession,
+      history: state.history,
+      activeCardio: state.activeCardio,
+    };
     saveWorkoutBundle(bundle).catch((error) => {
       console.error('Failed to persist workout bundle', error);
     });
-  }, [state.activeSession, state.hydrated, state.history]);
+  }, [state.activeSession, state.activeCardio, state.hydrated, state.history]);
 
   const completionSummary = selectWorkoutSummary(state);
 
@@ -207,6 +217,19 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       setGuidedStep(stepIndex) {
         dispatch({ type: 'session/setGuidedStep', payload: { stepIndex } });
+      },
+      activeCardio: state.activeCardio,
+      startCardio(activityType) {
+        dispatch({ type: 'cardio/start', payload: { activityType, nowMs: Date.now() } });
+      },
+      pauseCardio() {
+        dispatch({ type: 'cardio/pause', payload: { nowMs: Date.now() } });
+      },
+      resumeCardio() {
+        dispatch({ type: 'cardio/resume', payload: { nowMs: Date.now() } });
+      },
+      clearCardio() {
+        dispatch({ type: 'cardio/clear' });
       },
       tick() {
         dispatch({ type: 'session/tick', payload: { nowMs: Date.now() } });

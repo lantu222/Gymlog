@@ -298,12 +298,33 @@ export interface AppPreferences {
   programsTabEnabled: boolean;
 }
 
+export type CardioActivityType = 'run' | 'tread-run' | 'tread-walk' | 'cycle-in' | 'cycle-out' | 'row';
+
+export type CardioFeel = 'easy' | 'steady' | 'hard' | 'max';
+
+/**
+ * A completed cardio session (Cardio v1). Timer-based, no GPS — distance is
+ * optional manual entry at finish. Avg pace is always DERIVED
+ * (durationSec/distanceKm), never stored.
+ */
+export interface CardioSession {
+  id: string;
+  activityType: CardioActivityType;
+  startedAt: string;
+  /** Completion timestamp — the week/streak counters key off this. */
+  performedAt: string;
+  durationSec: number;
+  distanceKm?: number | null;
+  feel?: CardioFeel | null;
+}
+
 export interface AppDatabase {
   workoutTemplates: WorkoutTemplate[];
   exerciseTemplates: ExerciseTemplate[];
   workoutPlans: WorkoutPlan[];
   exerciseLibrary: ExerciseLibraryItem[];
   workoutSessions: WorkoutSession[];
+  cardioSessions: CardioSession[];
   exerciseLogs: ExerciseLog[];
   bodyweightEntries: BodyweightEntry[];
   measurementEntries: MeasurementEntry[];

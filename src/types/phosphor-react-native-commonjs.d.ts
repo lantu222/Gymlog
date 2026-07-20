@@ -54,6 +54,14 @@ declare module 'phosphor-react-native/lib/commonjs/icons/PersonSimpleRun' {
   export { PersonSimpleRun, PersonSimpleRunIcon } from 'phosphor-react-native';
 }
 
+declare module 'phosphor-react-native/lib/commonjs/icons/PersonSimpleWalk' {
+  export { PersonSimpleWalk, PersonSimpleWalkIcon } from 'phosphor-react-native';
+}
+
+declare module 'phosphor-react-native/lib/commonjs/icons/PersonSimpleBike' {
+  export { PersonSimpleBike, PersonSimpleBikeIcon } from 'phosphor-react-native';
+}
+
 declare module 'phosphor-react-native/lib/commonjs/icons/PersonArmsSpread' {
   export { PersonArmsSpread, PersonArmsSpreadIcon } from 'phosphor-react-native';
 }

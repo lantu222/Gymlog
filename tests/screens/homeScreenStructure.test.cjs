@@ -96,19 +96,20 @@ module.exports = [
       assert.match(homeScreenSource, /nextPlanSession/);
       assert.match(homeScreenSource, /onStartActivePlanSession\(nextPlanSession\.id\)/);
       assert.match(homeScreenSource, /const focusTitle = getSessionFocusTitle\(nextPlanSession\?\.title, activePlan\?\.title\)/);
-      assert.match(homeScreenSource, /heroTitle:\s*\{[\s\S]*fontSize: 34/);
+      // Home simplification round (2026-07-20): hero title bumped to 38.
+      assert.match(homeScreenSource, /heroTitle:\s*\{[\s\S]*fontSize: 38/);
       assert.match(homeScreenSource, /\{sessionsDone\} of \{sessionsTotal\} sessions/);
       assert.match(homeScreenSource, /heroProgTrack:\s*\{\s*width: 88,\s*height: 6/);
       assert.match(homeScreenSource, /heroProgFill:\s*\{[\s\S]*backgroundColor: HG3\.purple/);
       assert.match(homeScreenSource, /progressFillAnim\.interpolate\(\{ inputRange: \[0, 100\], outputRange: \['0%', '100%'\] \}\)/);
-      assert.match(homeScreenSource, /metaGrid/);
-      assert.match(homeScreenSource, /\{totalSets\} sets <Text style=\{styles\.metaSub\}>· \{totalExerciseCount\} exercises<\/Text>/);
-      assert.match(homeScreenSource, /\{activePlan\.focusLabel\}/);
-      assert.match(homeScreenSource, /Week \{activePlan\.currentWeek\} <Text style=\{styles\.metaSub\}>· \{weekPhase\}<\/Text>/);
-      assert.match(homeScreenSource, /getPlanWeekPhase\(activePlan\?\.currentWeek \?\? 1, activePlan\?\.planTotalWeeks \?\? 1\)/);
-      // Equipment line hides for bodyweight-only sessions.
-      assert.match(homeScreenSource, /\{activePlan\.equipmentLabel \? \(/);
-      assert.match(homeScreenSource, /— needed for today's session/);
+      // Home simplification round (2026-07-20): the hero shows ONLY the focus
+      // title + plan progress — no meta grid, no equipment line.
+      assert.doesNotMatch(homeScreenSource, /styles\.metaGrid/);
+      assert.doesNotMatch(homeScreenSource, /— needed for today's session/);
+      // History section at the bottom: strength + cardio merged, See all link.
+      assert.match(homeScreenSource, /historyItems\.map\(/);
+      assert.match(homeScreenSource, /See all/);
+      assert.match(homeScreenSource, /item\.kind === 'cardio' && item\.cardioIcon \? \(/);
       // Warmup / Workout / Cooldown accordions: workout open by default,
       // animated height + rotating chevron, agenda rows inside.
       // All three section accordions start collapsed (user preference).
@@ -117,7 +118,7 @@ module.exports = [
       assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle\)/);
       assert.match(homeScreenSource, /sectionAnims\[key\]\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 420\] \}\)/);
       assert.match(homeScreenSource, /duration: 380/);
-      assert.match(homeScreenSource, /secTitle:\s*\{[\s\S]*fontSize: 18/);
+      assert.match(homeScreenSource, /secTitle:\s*\{[\s\S]*fontSize: 20/);
       assert.match(homeScreenSource, /planExerciseNumberChip:\s*\{\s*width: 25,\s*height: 25/);
       assert.match(homeScreenSource, /planExerciseScheme:\s*\{[\s\S]*fontFamily: 'JetBrainsMono'/);
       assert.match(homeScreenSource, /exercise\.schemeLabel \?\? exercise\.setsLabel/);

@@ -1,5 +1,12 @@
 import { createId } from '../../lib/ids';
 import { convertWeightToKg, formatWeightInputValue, parseNumberInput } from '../../lib/format';
+import {
+  ActiveCardioSession,
+  pauseCardioSession,
+  resumeCardioSession,
+  startCardioSession,
+} from '../../lib/cardio';
+import { CardioActivityType } from '../../types/models';
 import { WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 
@@ -9,6 +16,7 @@ export interface WorkoutFeatureState {
   nowMs: number;
   history: WorkoutHistoryStore;
   activeSession: WorkoutSessionRuntime | null;
+  activeCardio: ActiveCardioSession | null;
   completionSummary: WorkoutSessionSummary | null;
 }
 
@@ -42,6 +50,10 @@ export type WorkoutAction =
   | { type: 'timer/override'; payload: { durationSeconds: number; nowMs: number } }
   | { type: 'timer/clear' }
   | { type: 'session/setGuidedStep'; payload: { stepIndex: number } }
+  | { type: 'cardio/start'; payload: { activityType: CardioActivityType; nowMs: number } }
+  | { type: 'cardio/pause'; payload: { nowMs: number } }
+  | { type: 'cardio/resume'; payload: { nowMs: number } }
+  | { type: 'cardio/clear' }
   | { type: 'session/openFinishSummary' }
   | { type: 'session/finishWorkout'; payload?: { performedAt?: string } }
   | { type: 'session/discardWorkout' }
@@ -397,6 +409,7 @@ export const workoutInitialState: WorkoutFeatureState = {
   nowMs: Date.now(),
   history: { sessions: [], slotHistory: {}, lastSelectedTemplateId: null },
   activeSession: null,
+  activeCardio: null,
   completionSummary: null,
 };
 
@@ -409,6 +422,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         nowMs: Date.now(),
         history: action.payload.history,
         activeSession: action.payload.activeSession,
+        activeCardio: action.payload.activeCardio ?? null,
         completionSummary: null,
       };
 
@@ -981,6 +995,39 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
           },
         },
       };
+
+    case 'cardio/start':
+      return {
+        ...state,
+        activeCardio: startCardioSession(action.payload.activityType, action.payload.nowMs),
+        nowMs: action.payload.nowMs,
+      };
+
+    case 'cardio/pause':
+      if (!state.activeCardio) {
+        return state;
+      }
+      return {
+        ...state,
+        activeCardio: pauseCardioSession(state.activeCardio, action.payload.nowMs),
+        nowMs: action.payload.nowMs,
+      };
+
+    case 'cardio/resume':
+      if (!state.activeCardio) {
+        return state;
+      }
+      return {
+        ...state,
+        activeCardio: resumeCardioSession(state.activeCardio, action.payload.nowMs),
+        nowMs: action.payload.nowMs,
+      };
+
+    case 'cardio/clear':
+      if (!state.activeCardio) {
+        return state;
+      }
+      return { ...state, activeCardio: null };
 
     case 'session/openFinishSummary':
       if (!state.activeSession) {

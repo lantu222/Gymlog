@@ -12,13 +12,14 @@ import {
 } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
+import { CardioIcon } from '../components/CardioIcon';
+import { CardioIconKind } from '../lib/cardio';
 import { GymlogIcon } from '../components/GymlogIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import {
   getAdaptTrimEstimate,
   getDefaultCooldown,
   getDefaultWarmup,
-  getPlanWeekPhase,
   getSessionFocusTitle,
 } from '../lib/homeSessionHero';
 import { HG3 } from '../lightTheme';
@@ -86,6 +87,14 @@ const SECTION_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
 type SectionKey = 'warmup' | 'workout' | 'cooldown';
 
+export interface HomeHistoryItem {
+  id: string;
+  kind: 'strength' | 'cardio';
+  title: string;
+  meta: string;
+  cardioIcon?: CardioIconKind;
+}
+
 export interface HomeRecentSessionItem {
   id: string;
   title: string;
@@ -124,12 +133,20 @@ interface HomeScreenProps {
   activePlan?: HomePlanCard | null;
   onStartActivePlanSession?: (sessionId: string) => void;
   onCreateWorkoutFromExercises: () => void;
+  onOpenCardio?: () => void;
+  historyItems?: HomeHistoryItem[];
+  onOpenHistory?: () => void;
+  onSelectHistorySession?: (sessionId: string) => void;
 }
 
 export function HomeScreen({
   activePlan = null,
   onStartActivePlanSession,
   onCreateWorkoutFromExercises,
+  onOpenCardio,
+  historyItems = [],
+  onOpenHistory,
+  onSelectHistorySession,
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
@@ -158,7 +175,6 @@ export function HomeScreen({
   const planDurationMinutes = Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45;
   const totalExerciseCount = (nextPlanSession?.exercises.length ?? 0) + (nextPlanSession?.hiddenExerciseCount ?? 0);
   const totalSets = nextPlanSession?.totalSets ?? 0;
-  const weekPhase = getPlanWeekPhase(activePlan?.currentWeek ?? 1, activePlan?.planTotalWeeks ?? 1);
   const warmup = getDefaultWarmup(focusTitle);
   const cooldown = getDefaultCooldown(focusTitle);
   const adaptTrim = getAdaptTrimEstimate(totalSets, planDurationMinutes);
@@ -472,81 +488,6 @@ export function HomeScreen({
                 </View>
               </View>
 
-              <View style={styles.metaGrid}>
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2.5 2.5M9 2h6"
-                        stroke={HG3.purple}
-                        strokeWidth={2.1}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    <Text style={styles.metaText}>{planDuration}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M13 2 4.5 13.5H11L9.5 22 19 10h-6.5z"
-                        stroke={HG3.purple}
-                        strokeWidth={2.1}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    <Text style={styles.metaText}>
-                      {totalSets} sets <Text style={styles.metaSub}>· {totalExerciseCount} exercises</Text>
-                    </Text>
-                  </View>
-                </View>
-                <View style={styles.metaRow}>
-                  <View style={styles.metaItem}>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M12 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM12 9v6M8 22l4-7 4 7M7 12h10"
-                        stroke={HG3.purple}
-                        strokeWidth={2.1}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    <Text style={styles.metaText}>{activePlan.focusLabel}</Text>
-                  </View>
-                  <View style={styles.metaItem}>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M4 19V5M4 19h16M8 16l3-4 3 2 4-6"
-                        stroke={HG3.purple}
-                        strokeWidth={2.1}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                    <Text style={styles.metaText}>
-                      Week {activePlan.currentWeek} <Text style={styles.metaSub}>· {weekPhase}</Text>
-                    </Text>
-                  </View>
-                </View>
-              </View>
-
-              {activePlan.equipmentLabel ? (
-                <View style={styles.equipRow}>
-                  <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-                      stroke={HG3.purple}
-                      strokeWidth={2.1}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.equipText}>
-                    <Text style={styles.equipBold}>{activePlan.equipmentLabel}</Text> — needed for today's session
-                  </Text>
-                </View>
-              ) : null}
             </Animated.View>
 
             <View style={styles.secs}>
@@ -615,7 +556,85 @@ export function HomeScreen({
             <Text style={styles.emptyWorkoutTitle}>Empty workout</Text>
             <Text style={styles.emptyWorkoutMeta}>Log freestyle</Text>
           </Pressable>
+          {onOpenCardio ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Open cardio workouts"
+              onPress={onOpenCardio}
+              style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
+            >
+              <View style={styles.emptyWorkoutIcon}>
+                <Svg width={20} height={20} viewBox="0 0 256 256">
+                  <Path
+                    d="M152 88a28 28 0 1 0-28-28 28 28 0 0 0 28 28Zm-56.4 68.7-20.6 41.1a12 12 0 0 0 21.5 10.7l20.5-41.1 26.4 19.8V232a12 12 0 0 0 24 0v-48a12 12 0 0 0-4.8-9.6l-25.5-19.1 14.3-35.8 8.5 12.8a12 12 0 0 0 8 5.1l40 8a12 12 0 1 0 4.7-23.6l-35-7-21.9-32.8a12 12 0 0 0-15.5-4l-48 24a12 12 0 0 0-5.4 5.3l-16 32a12 12 0 0 0 21.5 10.7l14.2-28.4 18.9-9.5-13.6 34Z"
+                    fill={HG3.purple}
+                  />
+                </Svg>
+              </View>
+              <Text style={styles.emptyWorkoutTitle}>Cardio</Text>
+              <Text style={styles.emptyWorkoutMeta}>Runs, cycles & walks</Text>
+            </Pressable>
+          ) : null}
         </Animated.View>
+
+        {historyItems.length > 0 ? (
+          <Animated.View style={rise(RISE_EMPTY_ROW)}>
+            <View style={styles.historyHeaderRow}>
+              <Text style={styles.historySectionTitle}>History</Text>
+              {onOpenHistory ? (
+                <Pressable onPress={onOpenHistory} hitSlop={8}>
+                  <Text style={styles.historySeeAll}>See all</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            <View style={styles.historyCard}>
+              {historyItems.map((item, index) => (
+                <Pressable
+                  key={item.id}
+                  onPress={
+                    item.kind === 'strength' && onSelectHistorySession
+                      ? () => onSelectHistorySession(item.id)
+                      : undefined
+                  }
+                  style={({ pressed }) => [
+                    styles.historyRow,
+                    index > 0 && styles.historyRowDivider,
+                    pressed && item.kind === 'strength' && styles.pressed,
+                  ]}
+                >
+                  <View style={styles.historyIconTile}>
+                    {item.kind === 'cardio' && item.cardioIcon ? (
+                      <CardioIcon kind={item.cardioIcon} size={19} color={HG3.purple} />
+                    ) : (
+                      <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+                        <Path
+                          d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
+                          stroke={HG3.purple}
+                          strokeWidth={2.1}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </Svg>
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.historyRowTitle} numberOfLines={1}>
+                      {item.title}
+                    </Text>
+                    <Text style={styles.historyRowMeta} numberOfLines={1}>
+                      {item.meta}
+                    </Text>
+                  </View>
+                  {item.kind === 'strength' ? (
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path d="M9 6l6 6-6 6" stroke={HG3.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                    </Svg>
+                  ) : null}
+                </Pressable>
+              ))}
+            </View>
+          </Animated.View>
+        ) : null}
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
@@ -1016,8 +1035,8 @@ const styles = StyleSheet.create({
   heroTitle: {
     flex: 1,
     color: HG3.ink,
-    fontSize: 34,
-    lineHeight: 38,
+    fontSize: 38,
+    lineHeight: 43,
     fontWeight: '800',
     letterSpacing: -1,
   },
@@ -1027,8 +1046,8 @@ const styles = StyleSheet.create({
   },
   heroProgLabel: {
     color: HG3.muted,
-    fontSize: 11.5,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 17,
     fontWeight: '700',
   },
   heroProgTrack: {
@@ -1043,50 +1062,6 @@ const styles = StyleSheet.create({
     height: 6,
     borderRadius: 999,
     backgroundColor: HG3.purple,
-  },
-  metaGrid: {
-    marginTop: 18,
-    gap: 11,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    gap: 14,
-  },
-  metaItem: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-  metaText: {
-    color: HG3.ink,
-    fontSize: 13.5,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  metaSub: {
-    color: HG3.muted,
-    fontWeight: '600',
-  },
-  equipRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 9,
-    marginTop: 13,
-    paddingTop: 13,
-    borderTopWidth: 1,
-    borderTopColor: HG3.border,
-  },
-  equipText: {
-    flex: 1,
-    color: HG3.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '600',
-  },
-  equipBold: {
-    color: HG3.ink,
-    fontWeight: '700',
   },
   secs: {
     marginTop: 20,
@@ -1113,15 +1088,15 @@ const styles = StyleSheet.create({
   secTitle: {
     flex: 1,
     color: HG3.ink,
-    fontSize: 18,
-    lineHeight: 22,
+    fontSize: 20,
+    lineHeight: 25,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   secCount: {
     color: HG3.faint,
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 13.5,
+    lineHeight: 17,
     fontWeight: '700',
   },
   secBody: {
@@ -1194,8 +1169,8 @@ const styles = StyleSheet.create({
   },
   adaptButtonText: {
     color: HG3.ink,
-    fontSize: 15,
-    lineHeight: 19,
+    fontSize: 16,
+    lineHeight: 20,
     fontWeight: '800',
   },
   startButton: {
@@ -1217,8 +1192,8 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: HG3.green,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 17.5,
+    lineHeight: 22,
     fontWeight: '800',
   },
   sectionDivider: {
@@ -1227,7 +1202,7 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   emptyWorkoutRow: {
-    minHeight: 46,
+    minHeight: 54,
     borderRadius: 13,
     borderWidth: 1,
     borderColor: HG3.border,
@@ -1247,15 +1222,74 @@ const styles = StyleSheet.create({
   emptyWorkoutTitle: {
     flex: 1,
     color: HG3.ink,
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 15.5,
+    lineHeight: 20,
     fontWeight: '800',
   },
   emptyWorkoutMeta: {
     color: HG3.muted,
-    fontSize: 12,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  historyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 26,
+    marginBottom: 12,
+  },
+  historySectionTitle: {
+    color: HG3.ink,
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  historySeeAll: {
+    color: HG3.purple,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  historyCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: HG3.border,
+    backgroundColor: HG3.surface,
+    paddingHorizontal: 15,
+  },
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+  },
+  historyRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: HG3.border,
+  },
+  historyIconTile: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: HG3.purpleSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  historyRowTitle: {
+    color: HG3.ink,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  historyRowMeta: {
+    color: HG3.muted,
+    fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '600',
+    marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   bottomSafeFade: {
     height: 16,

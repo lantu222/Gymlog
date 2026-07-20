@@ -1,4 +1,5 @@
 import { UnitPreference } from '../../types/models';
+import { ActiveCardioSession } from '../../lib/cardio';
 
 export type WorkoutGoalType = 'strength' | 'hypertrophy' | 'general';
 export type WorkoutLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -197,6 +198,8 @@ export interface WorkoutHistoryStore {
 export interface WorkoutPersistenceBundle {
   activeSession: WorkoutSessionRuntime | null;
   history: WorkoutHistoryStore;
+  /** Live cardio session (Cardio v1) — same offline persistence as strength. */
+  activeCardio?: ActiveCardioSession | null;
 }
 
 export interface WorkoutSetDraftInput {

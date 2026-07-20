@@ -1,7 +1,7 @@
 import './src/globalFont';
 
 import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
-import { BackHandler, StyleSheet, View } from 'react-native';
+import { Alert, BackHandler, StyleSheet, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -22,6 +22,7 @@ import {
 import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
 import { getExerciseProgressForName } from './src/lib/progression';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
+import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
@@ -89,6 +90,7 @@ import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
 import { WorkoutLoggingScreen } from './src/screens/WorkoutLoggingScreen';
 import { GuidedPlayerScreen } from './src/screens/GuidedPlayerScreen';
+import { CardioScreen } from './src/screens/CardioScreen';
 import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
@@ -366,7 +368,11 @@ const DEFAULT_HOME_AI_PROMPT_SUGGESTIONS = [
 function getBackRoute(route: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
-    (route.screen === 'ai' || route.screen === 'ai_setup' || route.screen === 'history' || route.screen === 'session')
+    (route.screen === 'ai' ||
+      route.screen === 'ai_setup' ||
+      route.screen === 'history' ||
+      route.screen === 'session' ||
+      route.screen === 'cardio')
   ) {
     return ROOT_ROUTES.home;
   }
@@ -644,6 +650,7 @@ function GymlogApp() {
     workoutTemplates,
     exerciseLibrary,
     workoutSessions,
+    cardioSessions,
     trackedProgress,
     bodyweightProgress,
     measurementEntries,
@@ -660,6 +667,7 @@ function GymlogApp() {
     addMeasurementEntry,
     saveCompletedWorkoutSession,
     updateCompletedWorkoutSession,
+    saveCardioSession,
   } = useAppContext();
   const workout = useWorkoutContext();
 
@@ -675,6 +683,7 @@ function GymlogApp() {
     sessionId: null,
     message: null,
   });
+  const [cardioSaving, setCardioSaving] = useState(false);
   const [minimumSplashElapsed, setMinimumSplashElapsed] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -865,12 +874,15 @@ function GymlogApp() {
         completedSessionCount,
       );
 
-      workout.startCustomWorkout(
-        buildCustomSessionRuntimeTemplate(runtimeTemplate, nextSessionId),
-        nextPreferences.unitPreference,
-      );
-      navigateToGuidedWorkout(persistedTemplateId);
-      showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
+      const aiRuntimeTemplate = runtimeTemplate;
+      guardStrengthStartOverCardio(() => {
+        workout.startCustomWorkout(
+          buildCustomSessionRuntimeTemplate(aiRuntimeTemplate, nextSessionId),
+          nextPreferences.unitPreference,
+        );
+        navigateToGuidedWorkout(persistedTemplateId);
+        showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
+      });
     } catch (error) {
       console.error('Failed to open GAINER AI workout flow', error);
       showToast('Could not build the GAINER AI workout');
@@ -1411,6 +1423,28 @@ function GymlogApp() {
     navigate(WORKOUT_PLAN_ROUTE);
   }
 
+  // Cardio v1 conflict rule: never two live sessions, never a silent discard.
+  // Mirrors the sheet the cardio list shows when a strength session is live.
+  function guardStrengthStartOverCardio(proceed: () => void) {
+    if (!workout.activeCardio) {
+      proceed();
+      return;
+    }
+
+    Alert.alert('You have a workout in progress', 'A cardio session is still running.', [
+      { text: 'Resume it', onPress: () => navigate({ tab: 'home', screen: 'cardio' }) },
+      {
+        text: 'Discard and start',
+        style: 'destructive',
+        onPress: () => {
+          workout.clearCardio();
+          proceed();
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  }
+
   function startReadyProgramSessionWithUnit(
     workoutTemplateId: string,
     sessionId: string,
@@ -1425,10 +1459,12 @@ function GymlogApp() {
       return;
     }
 
-    void updatePreferences({ trainingFirstRunDismissed: true });
-    const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
-    workout.startCustomWorkout(runtimeTemplate, nextUnitPreference);
-    navigateToGuidedWorkout(workoutTemplateId);
+    guardStrengthStartOverCardio(() => {
+      void updatePreferences({ trainingFirstRunDismissed: true });
+      const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
+      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference);
+      navigateToGuidedWorkout(workoutTemplateId);
+    });
   }
 
   function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
@@ -1462,10 +1498,12 @@ function GymlogApp() {
       return;
     }
 
-    void updatePreferences({ trainingFirstRunDismissed: true });
-    const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
-    workout.startCustomWorkout(runtimeTemplate, unitPreference);
-    navigateToGuidedWorkout(workoutTemplateId);
+    guardStrengthStartOverCardio(() => {
+      void updatePreferences({ trainingFirstRunDismissed: true });
+      const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
+      workout.startCustomWorkout(runtimeTemplate, unitPreference);
+      navigateToGuidedWorkout(workoutTemplateId);
+    });
   }
 
   function handleStartCustomProgram(workoutTemplateId: string) {
@@ -2172,6 +2210,37 @@ function GymlogApp() {
       target: progressWeeklyTarget,
     };
   }, [homeActivePlanCard, progressWeeklyTarget, workoutSessions]);
+  // Home history section: strength + cardio merged, newest first.
+  const homeHistoryItems = useMemo(() => {
+    const strength = workoutSessions.map((session) => ({
+      id: session.id,
+      kind: 'strength' as const,
+      title: formatWorkoutDisplayLabel(session.workoutNameSnapshot, 'Workout'),
+      meta: [
+        formatShortDate(session.performedAt),
+        session.durationMinutes ? formatDurationMinutes(session.durationMinutes) : null,
+        session.totalVolumeKg ? formatVolume(session.totalVolumeKg, unitPreference) : null,
+      ]
+        .filter(Boolean)
+        .join(' · '),
+      performedAt: session.performedAt,
+    }));
+    const cardio = cardioSessions.map((session) => {
+      const activity = getCardioActivity(session.activityType);
+      return {
+        id: session.id,
+        kind: 'cardio' as const,
+        title: activity.name,
+        cardioIcon: activity.icon,
+        meta: `${formatShortDate(session.performedAt)} · ${buildCardioStatsLine(session.durationSec, session.distanceKm)}`,
+        performedAt: session.performedAt,
+      };
+    });
+    return [...strength, ...cardio]
+      .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
+      .slice(0, 5);
+  }, [workoutSessions, cardioSessions, unitPreference]);
+
   const guidedNextUp = useMemo(() => {
     const card = homeActivePlanCard;
     const templateSessionId = workout.activeSession?.templateSessionId;
@@ -2824,6 +2893,35 @@ function GymlogApp() {
         }}
       />
     );
+  } else if (route.tab === 'home' && route.screen === 'cardio') {
+    content = (
+      <CardioScreen
+        cardioSessions={cardioSessions}
+        hasActiveStrengthSession={Boolean(workout.activeSession)}
+        isSaving={cardioSaving}
+        onResumeStrengthSession={() => {
+          navigateToActiveWorkout();
+        }}
+        onDiscardStrengthSession={() => {
+          workout.discardWorkout();
+          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+        }}
+        onSaveCardioSession={async (input) => {
+          setCardioSaving(true);
+          try {
+            await saveCardioSession(input);
+            showToast('Cardio session saved');
+          } catch (error) {
+            console.error('Failed to save cardio session', error);
+            showToast('Could not save cardio session');
+            throw error;
+          } finally {
+            setCardioSaving(false);
+          }
+        }}
+        onLeave={() => navigateBack(ROOT_ROUTES.home)}
+      />
+    );
   } else if (route.tab === 'workout' && route.screen === 'guided') {
     content = (
       <GuidedPlayerScreen
@@ -2968,6 +3066,7 @@ function GymlogApp() {
     content = (
       <HistoryScreen
         sessions={workoutSessions}
+        cardioSessions={cardioSessions}
         unitPreference={unitPreference}
         selectedSessionId={route.screen === 'session' ? route.sessionId : undefined}
         getSessionLogs={getSessionLogs}
@@ -3207,6 +3306,10 @@ function GymlogApp() {
           handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
         }}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
+        onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
+        historyItems={homeHistoryItems}
+        onOpenHistory={() => navigate({ tab: 'home', screen: 'history' })}
+        onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );
   }
@@ -3221,7 +3324,8 @@ function GymlogApp() {
         route.screen === 'guided' ||
         route.screen === 'summary' ||
         route.screen === 'celebration')
-    );
+    ) &&
+    !(route.tab === 'home' && route.screen === 'cardio');
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const shellTone =
@@ -3252,7 +3356,7 @@ function GymlogApp() {
   const jointSwapsActive = route.tab === 'profile' && route.screen === 'joint_swaps';
   const aiCoachActive = route.tab === 'home' && route.screen === 'ai';
   const aiSetupActive = route.tab === 'home' && route.screen === 'ai_setup';
-  const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session');
+  const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');
   const progressActive = route.tab === 'progress';
 
   return (

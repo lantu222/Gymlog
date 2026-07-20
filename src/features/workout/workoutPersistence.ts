@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutSessionRuntime, WorkoutSessionSummary } from './workoutTypes';
 
@@ -112,25 +113,27 @@ export function normalizeWorkoutBundle(input: unknown): WorkoutPersistenceBundle
     return {
       activeSession: null,
       history: createEmptyWorkoutHistory(),
+      activeCardio: null,
     };
   }
 
   return {
     activeSession: normalizeActiveSession(input.activeSession),
     history: normalizeHistory(input.history),
+    activeCardio: normalizeActiveCardioSession(input.activeCardio),
   };
 }
 
 export async function loadWorkoutBundle() {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
   if (!raw) {
-    return { activeSession: null, history: createEmptyWorkoutHistory() } satisfies WorkoutPersistenceBundle;
+    return { activeSession: null, history: createEmptyWorkoutHistory(), activeCardio: null } satisfies WorkoutPersistenceBundle;
   }
 
   try {
     return normalizeWorkoutBundle(JSON.parse(raw));
   } catch {
-    return { activeSession: null, history: createEmptyWorkoutHistory() } satisfies WorkoutPersistenceBundle;
+    return { activeSession: null, history: createEmptyWorkoutHistory(), activeCardio: null } satisfies WorkoutPersistenceBundle;
   }
 }
 

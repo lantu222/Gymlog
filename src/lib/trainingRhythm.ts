@@ -1,6 +1,7 @@
 import { AppDatabase } from '../types/models';
 import {
   getCalendarWeekStartTimestamp,
+  getCanonicalCardioSessions,
   getCanonicalCompletedSessions,
   getCurrentWeekStreak,
 } from './completedSessions';
@@ -31,8 +32,13 @@ export function getTrainingRhythm(
 
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
   const counts = new Map<number, number>();
-  for (const session of getCanonicalCompletedSessions(database)) {
-    const weekStart = getCalendarWeekStartTimestamp(session.performedAt);
+  // Cardio counts with equal weight (Cardio v1) — same rule as the streak.
+  const activityTimestamps = [
+    ...getCanonicalCompletedSessions(database).map((session) => session.performedAt),
+    ...getCanonicalCardioSessions(database).map((session) => session.performedAt),
+  ];
+  for (const performedAt of activityTimestamps) {
+    const weekStart = getCalendarWeekStartTimestamp(performedAt);
     counts.set(weekStart, (counts.get(weekStart) ?? 0) + 1);
   }
 

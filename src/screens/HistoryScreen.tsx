@@ -22,11 +22,14 @@ import {
   pluralize,
 } from '../lib/format';
 import { AppDatabase, UnitPreference } from '../types/models';
+import { CardioIcon } from '../components/CardioIcon';
+import { buildCardioStatsLine, getCardioActivity } from '../lib/cardio';
 import { HG } from '../lightTheme';
 import { layout, radii, spacing } from '../theme';
 
 interface HistoryScreenProps {
   sessions: AppDatabase['workoutSessions'];
+  cardioSessions?: AppDatabase['cardioSessions'];
   unitPreference: UnitPreference;
   selectedSessionId?: string;
   getSessionLogs: (sessionId: string) => AppDatabase['exerciseLogs'];
@@ -167,6 +170,7 @@ function getSessionHighlight(session: HistorySessionViewModel, unitPreference: U
 
 export function HistoryScreen({
   sessions,
+  cardioSessions = [],
   unitPreference,
   selectedSessionId,
   getSessionLogs,
@@ -436,6 +440,29 @@ export function HistoryScreen({
                 description="Try a broader search or switch the history filter."
               />
             )}
+
+            {cardioSessions.length > 0 && historyFilter === 'all' && !searchQuery.trim() ? (
+              <View style={styles.logList}>
+                <SectionLabel label="Cardio" />
+                {cardioSessions.map((session) => {
+                  const activity = getCardioActivity(session.activityType);
+                  return (
+                    <View key={session.id} style={styles.cardioRow}>
+                      <View style={styles.cardioRowIcon}>
+                        <CardioIcon kind={activity.icon} size={20} color={HG.purple} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.cardioRowName}>{activity.name}</Text>
+                        <Text style={styles.cardioRowMeta}>
+                          {formatShortDate(session.performedAt)} {'·'}{' '}
+                          {buildCardioStatsLine(session.durationSec, session.distanceKm)}
+                        </Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -612,6 +639,37 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '600',
     textAlign: 'right',
+  },
+  cardioRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: radii.md,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  cardioRowIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: HG.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cardioRowName: {
+    color: HG.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  cardioRowMeta: {
+    color: HG.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 3,
+    fontVariant: ['tabular-nums'],
   },
   discoveryCard: {
     borderRadius: 16,
