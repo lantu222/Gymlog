@@ -49,6 +49,8 @@ import {
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
+import { Exercise3DTile } from '../components/exercise3d/Exercise3DTile';
+import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { removeTrailingZeros } from '../lib/format';
 import { haptics } from '../utils/haptics';
 import { HG } from '../lightTheme';
@@ -177,7 +179,17 @@ function PopIn({ children, popKey }: { children: React.ReactNode; popKey: string
 }
 
 /* ── media zone: photo when the library has one, brand-panel initials otherwise ── */
-function MediaZone({ name, library, height }: { name: string; library: ExerciseLibraryItem[]; height: number }) {
+function MediaZone({
+  name,
+  library,
+  height,
+  mode = 'drill',
+}: {
+  name: string;
+  library: ExerciseLibraryItem[];
+  height: number;
+  mode?: 'drill' | 'position' | 'set';
+}) {
   const match = useMemo(() => {
     const index = findGuidedLibraryIndex(name, library.map((item) => item.name));
     return index === null ? null : library[index];
@@ -187,6 +199,14 @@ function MediaZone({ name, library, height }: { name: string; library: ExerciseL
 
   const imageUrl = match?.imageUrls?.[0] ?? null;
   const muscle = match?.primaryMuscles?.[0] ?? null;
+
+  // 3D tier (top of the media-tier model): the animated rig for exercises that
+  // have a pose function. Warmup drills never match, so they keep photo/initials.
+  // The 3D tile needs more height than a flat photo to show the full movement,
+  // so it uses a taller media zone (closer to the handoff's square).
+  if (mode !== 'drill' && hasExercise3D(name)) {
+    return <Exercise3DTile name={name} height={Math.max(height, 300)} muscle={muscle} autoPlay={mode === 'set'} />;
+  }
 
   if (imageUrl && !imageFailed) {
     return (
@@ -967,7 +987,7 @@ export function GuidedPlayerScreen({
           {step.type === 'drill' && (
             <StepIn stepKey={`drill-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
-                <MediaZone name={step.drillName} library={exerciseLibrary} height={230} />
+                <MediaZone name={step.drillName} library={exerciseLibrary} height={230} mode="drill" />
                 <View style={{ height: 20 }} />
                 <NameBlock
                   name={step.drillName}
@@ -1020,7 +1040,7 @@ export function GuidedPlayerScreen({
           {step.type === 'position' && (
             <StepIn stepKey={`position-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
-                <MediaZone name={step.exerciseName} library={exerciseLibrary} height={200} />
+                <MediaZone name={step.exerciseName} library={exerciseLibrary} height={200} mode="position" />
                 <View style={{ height: 16 }} />
                 <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: HG.purple, textAlign: 'center' }}>
                   GET INTO POSITION
@@ -1306,7 +1326,7 @@ function SetStepView({
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
       <View style={{ flex: 1, minHeight: 0 }}>
-        <MediaZone name={step.exerciseName} library={library} height={190} />
+        <MediaZone name={step.exerciseName} library={library} height={190} mode="set" />
         <View style={{ height: 14 }} />
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 1.6, color: HG.purple }}>
