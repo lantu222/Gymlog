@@ -44,7 +44,7 @@ import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
-import { buildSessionEquipmentLabel, getSessionBodyFocusLabel } from './src/lib/homeSessionHero';
+import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTitle } from './src/lib/homeSessionHero';
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -84,6 +84,7 @@ import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { SettingsScreen } from './src/screens/SettingsScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -2197,6 +2198,42 @@ function GymlogApp() {
     };
   }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
+  // Profile "TRAINING PLAN" card. Reuses the same composed plan Home renders so
+  // the two screens can never disagree about what the user is running.
+  const profilePlanSummary = useMemo(() => {
+    if (!homeActivePlanCard) {
+      return { name: null, daysPerWeek: null, exerciseCount: null, focusCaption: null };
+    }
+
+    const exerciseNames = new Set<string>();
+    for (const session of homeActivePlanCard.sessions) {
+      for (const exercise of session.exercises) {
+        exerciseNames.add(exercise.name.trim().toLowerCase());
+      }
+    }
+
+    // Distinct focuses only — a 2-day Full Body plan should read "Full Body",
+    // not "Full Body · Full Body".
+    const focusTitles: string[] = [];
+    for (const session of homeActivePlanCard.sessions) {
+      const focus = getSessionFocusTitle(session.title, homeActivePlanCard.title);
+      if (focus && !focusTitles.includes(focus)) {
+        focusTitles.push(focus);
+      }
+    }
+    const focusCaption = focusTitles.slice(0, 3).join(' · ');
+
+    return {
+      name: homeActivePlanCard.title,
+      daysPerWeek: Number.parseInt(homeActivePlanCard.sessionsPerWeek, 10) || homeActivePlanCard.sessions.length || null,
+      // Hidden exercises are counted too — the card claims the plan's size, not
+      // the size of the Home preview.
+      exerciseCount:
+        exerciseNames.size +
+        homeActivePlanCard.sessions.reduce((sum, session) => sum + (session.hiddenExerciseCount ?? 0), 0),
+      focusCaption: focusCaption.length > 0 ? focusCaption : null,
+    };
+  }, [homeActivePlanCard]);
   // Guided-player context props (entry eyebrow + finish-screen cards).
   const guidedEntryEyebrow = useMemo(() => {
     const weekday = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][new Date().getDay()];
@@ -3154,27 +3191,16 @@ function GymlogApp() {
         }
       />
     );
-  } else if (route.tab === 'profile') {
+  } else if (route.tab === 'profile' && route.screen === 'settings') {
     content = (
-      <ProfileScreen
+      <SettingsScreen
         preferences={preferences}
-        lifetime={lifetimeSummary}
-        trackedProgress={trackedProgress}
-        exerciseLibrary={exerciseLibrary}
-        unitPreference={unitPreference}
-        recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
-        recommendedProgramDaysPerWeek={currentFitReadyTemplate?.daysPerWeek ?? recommendedReadyTemplate?.daysPerWeek ?? null}
-        planNextLabel={
-          homeSummary.nextWorkout?.workout
-            ? formatWorkoutDisplayLabel(homeSummary.nextWorkout.workout.name)
-            : null
-        }
+        onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onPreferencesChange={async (patch) => {
           await updatePreferences(patch);
         }}
         onManagePlan={handleOpenPlanSettings}
         onEditTraining={handleOpenSetupEditor}
-        onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
         onOpenPremium={handleOpenPremium}
         onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
@@ -3185,6 +3211,24 @@ function GymlogApp() {
           workout.clearCompletedWorkout();
           resetToRoute(ROOT_ROUTES.home);
         }}
+      />
+    );
+  } else if (route.tab === 'profile') {
+    content = (
+      <ProfileScreen
+        preferences={preferences}
+        lifetime={lifetimeSummary}
+        trackedProgress={trackedProgress}
+        exerciseLibrary={exerciseLibrary}
+        unitPreference={unitPreference}
+        planName={profilePlanSummary.name}
+        planDaysPerWeek={profilePlanSummary.daysPerWeek}
+        planExerciseCount={profilePlanSummary.exerciseCount}
+        planFocusCaption={profilePlanSummary.focusCaption}
+        onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
+        onEditProfile={handleOpenSetupEditor}
+        onManagePlan={handleOpenPlanSettings}
+        onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'plans') {
@@ -3383,9 +3427,9 @@ function GymlogApp() {
         welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
       }
       statusBarStyleOverride={programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || aiSetupActive || historyActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={profileSettingsActive || aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarBackgroundColor={aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : profileSettingsActive || aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar
