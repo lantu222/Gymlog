@@ -8,13 +8,13 @@
  * backgrounded), so the 3D costs nothing during normal training.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Modal, PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppState, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { HG } from '../../lightTheme';
 import { ExerciseScene } from './ExerciseScene';
-import { getExercisePoseFn } from './exercisePose';
+import { getExercisePose } from './exercisePose';
 
 // In-memory per-exercise scrub position, so reopening resumes the same frame.
 const T_MEMORY = new Map<string, number>();
@@ -22,12 +22,14 @@ const T_MEMORY = new Map<string, number>();
 interface Exercise3DSheetProps {
   name: string;
   muscle?: string | null;
+  /** Step-by-step cues shown under the animation (the how-to lives here now). */
+  instructions?: string[];
   visible: boolean;
   onClose: () => void;
 }
 
-export function Exercise3DSheet({ name, muscle, visible, onClose }: Exercise3DSheetProps) {
-  const poseFn = useMemo(() => getExercisePoseFn(name), [name]);
+export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }: Exercise3DSheetProps) {
+  const pose = useMemo(() => getExercisePose(name), [name]);
   const memoryKey = name.trim().toLowerCase();
 
   const tRef = useRef(T_MEMORY.get(memoryKey) ?? 0);
@@ -78,7 +80,7 @@ export function Exercise3DSheet({ name, muscle, visible, onClose }: Exercise3DSh
     [],
   );
 
-  if (!poseFn) {
+  if (!pose) {
     return null;
   }
 
@@ -100,48 +102,65 @@ export function Exercise3DSheet({ name, muscle, visible, onClose }: Exercise3DSh
           </Pressable>
         </View>
 
-        <View style={styles.stage}>
-          <ExerciseScene
-            tRef={tRef}
-            playingRef={playingRef}
-            poseFn={poseFn}
-            paused={bgPaused || !visible}
-            onFrameT={(t) => setPct(Math.round(t * 100))}
-          />
-        </View>
-
-        <View style={styles.scrubCard}>
-          <Pressable style={styles.playBtn} onPress={() => setPlayingBoth(!playing)} hitSlop={6}>
-            <Svg width={16} height={16} viewBox="0 0 16 16">
-              {playing ? (
-                <Path d="M2.5 1.5h3.6v13H2.5zM9.9 1.5h3.6v13H9.9z" fill="#fff" />
-              ) : (
-                <Path d="M3 1.5 14 8 3 14.5z" fill="#fff" />
-              )}
-            </Svg>
-          </Pressable>
-
-          <View style={{ flex: 1 }}>
-            <View style={styles.labelRow}>
-              <Text style={styles.label}>TOP</Text>
-              <Text style={styles.label}>BOTTOM</Text>
-            </View>
-            <View
-              style={styles.track}
-              onLayout={(e) => {
-                trackWidth.current = e.nativeEvent.layout.width;
-              }}
-              {...pan.panHandlers}
-            >
-              <View style={[styles.trackFill, { width: `${pct}%` }]} />
-              <View style={[styles.thumb, { left: `${pct}%` }]} />
-            </View>
+        <ScrollView contentContainerStyle={{ paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+          <View style={styles.stage}>
+            <ExerciseScene
+              tRef={tRef}
+              playingRef={playingRef}
+              poseFn={pose.poseFn}
+              showImplement={pose.showImplement}
+              paused={bgPaused || !visible}
+              onFrameT={(t) => setPct(Math.round(t * 100))}
+            />
           </View>
 
-          <Text style={styles.pct}>{pct}%</Text>
-        </View>
+          <View style={styles.scrubCard}>
+            <Pressable style={styles.playBtn} onPress={() => setPlayingBoth(!playing)} hitSlop={6}>
+              <Svg width={16} height={16} viewBox="0 0 16 16">
+                {playing ? (
+                  <Path d="M2.5 1.5h3.6v13H2.5zM9.9 1.5h3.6v13H9.9z" fill="#fff" />
+                ) : (
+                  <Path d="M3 1.5 14 8 3 14.5z" fill="#fff" />
+                )}
+              </Svg>
+            </Pressable>
 
-        <Text style={styles.hint}>Drag the slider to inspect any point of the lift.</Text>
+            <View style={{ flex: 1 }}>
+              <View style={styles.labelRow}>
+                <Text style={styles.label}>TOP</Text>
+                <Text style={styles.label}>BOTTOM</Text>
+              </View>
+              <View
+                style={styles.track}
+                onLayout={(e) => {
+                  trackWidth.current = e.nativeEvent.layout.width;
+                }}
+                {...pan.panHandlers}
+              >
+                <View style={[styles.trackFill, { width: `${pct}%` }]} />
+                <View style={[styles.thumb, { left: `${pct}%` }]} />
+              </View>
+            </View>
+
+            <Text style={styles.pct}>{pct}%</Text>
+          </View>
+
+          <Text style={styles.hint}>Drag the slider to inspect any point of the lift.</Text>
+
+          {instructions?.length ? (
+            <View style={styles.howTo}>
+              <Text style={styles.howToLabel}>HOW TO</Text>
+              {instructions.map((step, index) => (
+                <View key={index} style={styles.howToRow}>
+                  <View style={styles.howToNumber}>
+                    <Text style={styles.howToNumberText}>{index + 1}</Text>
+                  </View>
+                  <Text style={styles.howToText}>{step}</Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+        </ScrollView>
       </SafeAreaView>
     </Modal>
   );
@@ -166,7 +185,7 @@ const styles = StyleSheet.create({
     borderColor: '#E4DBF5',
   },
   stage: {
-    flex: 1,
+    height: 400,
     marginHorizontal: 20,
     borderRadius: 26,
     overflow: 'hidden',
@@ -204,4 +223,17 @@ const styles = StyleSheet.create({
   },
   pct: { fontSize: 17, fontWeight: '800', color: HG.ink, fontVariant: ['tabular-nums'], minWidth: 46, textAlign: 'right' },
   hint: { textAlign: 'center', fontSize: 12.5, fontWeight: '600', color: HG.faint, marginTop: 12, marginBottom: 8 },
+  howTo: { marginHorizontal: 20, marginTop: 18, gap: 13 },
+  howToLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: HG.purple, marginBottom: 2 },
+  howToRow: { flexDirection: 'row', gap: 13, alignItems: 'flex-start' },
+  howToNumber: {
+    width: 26,
+    height: 26,
+    borderRadius: 999,
+    backgroundColor: HG.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  howToNumberText: { fontSize: 13, fontWeight: '800', color: HG.purpleDark },
+  howToText: { flex: 1, fontSize: 15, fontWeight: '600', color: HG.ink, lineHeight: 22 },
 });

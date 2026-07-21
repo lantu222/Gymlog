@@ -1,28 +1,46 @@
 /**
  * Exercise → 3D pose gate (3D exercise media).
  *
- * Maps an exercise name to a render-independent pose function. v1 ships only the
- * Back Squat rig, so everything else returns null and the media zone falls back
- * to the existing photo/initials tier. Phase 4 registers the remaining lifts
- * here — each a `(t) => RigSkeleton` sharing the same body + implement renderer.
+ * Maps an exercise name to a render-independent pose function plus how the rig
+ * should be dressed. v1 ships the squat in two variants — loaded (bar + rack)
+ * and bodyweight (arms forward, no implement). Anything unregistered returns
+ * null and the media zone stays photo-only. Phase 4 registers the other lifts.
  */
 import { computeSquatSkeleton } from '../../lib/exerciseRig/squat';
 import { RigSkeleton } from '../../lib/exerciseRig/types';
 
 export type PoseFn = (t: number) => RigSkeleton;
 
-// Keyed by normalized (lowercased, trimmed) exercise name.
-const POSE_REGISTRY: Record<string, PoseFn> = {
-  squat: computeSquatSkeleton,
-  'back squat': computeSquatSkeleton,
-  'barbell squat': computeSquatSkeleton,
-  'barbell back squat': computeSquatSkeleton,
+export interface ExercisePose {
+  poseFn: PoseFn;
+  /** False hides the barbell + rack (bodyweight variants). */
+  showImplement: boolean;
+}
+
+const barbellSquat: ExercisePose = {
+  poseFn: (t) => computeSquatSkeleton(t, 'barbell'),
+  showImplement: true,
 };
 
-export function getExercisePoseFn(name: string): PoseFn | null {
+const bodyweightSquat: ExercisePose = {
+  poseFn: (t) => computeSquatSkeleton(t, 'bodyweight'),
+  showImplement: false,
+};
+
+// Keyed by normalized (lowercased, trimmed) exercise name.
+const POSE_REGISTRY: Record<string, ExercisePose> = {
+  squat: barbellSquat,
+  'back squat': barbellSquat,
+  'barbell squat': barbellSquat,
+  'barbell back squat': barbellSquat,
+  'bodyweight squat': bodyweightSquat,
+  'air squat': bodyweightSquat,
+};
+
+export function getExercisePose(name: string): ExercisePose | null {
   return POSE_REGISTRY[name.trim().toLowerCase()] ?? null;
 }
 
 export function hasExercise3D(name: string): boolean {
-  return getExercisePoseFn(name) !== null;
+  return getExercisePose(name) !== null;
 }

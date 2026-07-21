@@ -51,7 +51,12 @@ export interface SquatRig {
 
 const Y_AXIS = new THREE.Vector3(0, 1, 0);
 
-export function buildSquatRig(): SquatRig {
+export interface SquatRigOptions {
+  /** Bodyweight variants hide the loaded bar and the rack it came off. */
+  showImplement?: boolean;
+}
+
+export function buildSquatRig({ showImplement = true }: SquatRigOptions = {}): SquatRig {
   const materials = createRigMaterials();
   const root = new THREE.Group();
   root.name = 'squat-scene';
@@ -66,6 +71,7 @@ export function buildSquatRig(): SquatRig {
 
   // ── rack (static) ──
   const rack = new THREE.Group();
+  rack.visible = showImplement;
   root.add(rack);
   mesh(new THREE.BoxGeometry(1.9, 0.02, 1.5), materials.rubber, rack).position.set(0, 0.011, 0);
   for (const sx of [-1, 1] as const) {
@@ -81,6 +87,7 @@ export function buildSquatRig(): SquatRig {
 
   // ── barbell (follows the shoulders) ──
   const bar = new THREE.Group();
+  bar.visible = showImplement;
   root.add(bar);
   const shaft = mesh(new THREE.CylinderGeometry(0.014, 0.014, 2.2, 24), materials.chrome, bar);
   shaft.rotation.z = Math.PI / 2;

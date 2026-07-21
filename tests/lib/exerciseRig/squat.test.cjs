@@ -64,6 +64,25 @@ module.exports = [
     },
   },
   {
+    name: 'bodyweight variant reaches the arms forward instead of holding a bar',
+    run() {
+      const loaded = computeSquatSkeleton(0.5, 'barbell');
+      const body = computeSquatSkeleton(0.5, 'bodyweight');
+      // Legs and torso are identical — only the upper body differs.
+      assert.deepEqual(body.kneeL, loaded.kneeL);
+      assert.deepEqual(body.hipL, loaded.hipL);
+      assert.deepEqual(body.chest, loaded.chest);
+      // Bodyweight: hands reach forward (+z) well ahead of the chest.
+      assert.ok(body.handL.z > body.chest.z + 0.3, 'bodyweight hands not reaching forward');
+      // Loaded: hands stay back on the bar, behind the chest.
+      assert.ok(loaded.handL.z < loaded.chest.z, 'barbell hands not behind the chest');
+      // Hands stay near shoulder width rather than out on the sleeves.
+      assert.ok(Math.abs(body.handL.x) < Math.abs(loaded.handL.x), 'bodyweight grip not narrower');
+      // Default stays the loaded variant (back-compat for existing callers).
+      assert.deepEqual(computeSquatSkeleton(0.5), loaded);
+    },
+  },
+  {
     name: 'left/right symmetry: mirrored on x, identical y and z',
     run() {
       const s = computeSquatSkeleton(0.6);

@@ -26,6 +26,8 @@ interface ExerciseSceneProps {
   tRef: React.MutableRefObject<number>;
   playingRef: React.MutableRefObject<boolean>;
   poseFn?: PoseFn;
+  /** False hides the barbell + rack (bodyweight variants). */
+  showImplement?: boolean;
   paused?: boolean;
   onFrameT?: (t: number) => void;
   style?: StyleProp<ViewStyle>;
@@ -33,9 +35,10 @@ interface ExerciseSceneProps {
 
 // Lifts the athlete so its mid-torso sits near the origin the camera aims at.
 const SCENE_Y_OFFSET = -0.85;
-// Pulled back + narrow fov so the whole athlete fits even in a short, wide media
-// tile (the set screen is only ~190 px tall). Tuned for the worst-case height.
-const CAMERA_POSITION: [number, number, number] = [3.3, 0.75, 4.3];
+// Framing: the loaded variant has to fit the rack too, so it sits further back.
+// Bodyweight variants are just the athlete — move in so the figure reads big.
+const CAMERA_WITH_IMPLEMENT: [number, number, number] = [3.3, 0.75, 4.3];
+const CAMERA_BODYWEIGHT: [number, number, number] = [2.05, 0.5, 2.65];
 const CAMERA_FOV = 34;
 // Tempo: ~2.8 s per full rep (matches the prototype), advanced by real dt.
 const TEMPO = Math.PI / 1.4;
@@ -46,14 +49,16 @@ function SceneContent({
   tRef,
   playingRef,
   poseFn,
+  showImplement,
   onFrameT,
 }: {
   tRef: React.MutableRefObject<number>;
   playingRef: React.MutableRefObject<boolean>;
   poseFn: PoseFn;
+  showImplement: boolean;
   onFrameT?: (t: number) => void;
 }) {
-  const squat = useMemo(() => buildSquatRig(), []);
+  const squat = useMemo(() => buildSquatRig({ showImplement }), [showImplement]);
   const camera = useThree((state) => state.camera);
   const phase = useRef(Math.acos(1 - 2 * clamp01(tRef.current)));
   const wasPlaying = useRef(false);
@@ -92,6 +97,7 @@ export function ExerciseScene({
   tRef,
   playingRef,
   poseFn = computeSquatSkeleton,
+  showImplement = true,
   paused = false,
   onFrameT,
   style,
@@ -99,7 +105,7 @@ export function ExerciseScene({
   return (
     <View style={[{ flex: 1 }, style]}>
       <Canvas
-        camera={{ position: CAMERA_POSITION, fov: CAMERA_FOV }}
+        camera={{ position: showImplement ? CAMERA_WITH_IMPLEMENT : CAMERA_BODYWEIGHT, fov: CAMERA_FOV }}
         frameloop={paused ? 'never' : 'always'}
         gl={{ antialias: true }}
       >
@@ -107,7 +113,13 @@ export function ExerciseScene({
         <ambientLight intensity={0.7} />
         <directionalLight position={[4, 6, 3]} intensity={1.1} />
         <directionalLight position={[-3, 2, -2]} intensity={0.4} />
-        <SceneContent tRef={tRef} playingRef={playingRef} poseFn={poseFn} onFrameT={onFrameT} />
+        <SceneContent
+          tRef={tRef}
+          playingRef={playingRef}
+          poseFn={poseFn}
+          showImplement={showImplement}
+          onFrameT={onFrameT}
+        />
       </Canvas>
     </View>
   );

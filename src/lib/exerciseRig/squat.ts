@@ -27,6 +27,13 @@ export interface SquatAngles {
   torsoLeanDeg: number;
 }
 
+/**
+ * Same leg/torso kinematics, different upper body: 'barbell' racks a bar on the
+ * shoulders, 'bodyweight' reaches the arms forward as a counterbalance (and the
+ * renderer hides the bar + rack).
+ */
+export type SquatVariant = 'barbell' | 'bodyweight';
+
 // Peak angles at the bottom of the squat (t = 1). Tuned by eye in the prototype.
 const SHIN_LEAN_MAX_DEG = 32;
 const HIP_FLEX_MAX_DEG = 100;
@@ -58,7 +65,7 @@ export function squatAngles(t: number): SquatAngles {
  * Full skeleton at scrub position t via forward kinematics from the driver
  * angles + fixed segment lengths. Pure — returns plain Vec3s, no three.js.
  */
-export function computeSquatSkeleton(t: number): RigSkeleton {
+export function computeSquatSkeleton(t: number, variant: SquatVariant = 'barbell'): RigSkeleton {
   const { shinLeanDeg, hipFlexDeg, torsoLeanDeg } = squatAngles(t);
   const shin = shinLeanDeg * DEG;
   const hip = hipFlexDeg * DEG;
@@ -92,6 +99,12 @@ export function computeSquatSkeleton(t: number): RigSkeleton {
 
   const arm = (sx: -1 | 1) => {
     const shoulder = vec3(0.21 * sx, chest.y, chest.z);
+    if (variant === 'bodyweight') {
+      // Arms reach forward as a counterbalance (no bar to hold).
+      const elbow = vec3(0.23 * sx, chest.y - 0.06, chest.z + 0.26);
+      const hand = vec3(0.21 * sx, chest.y - 0.1, chest.z + 0.52);
+      return { shoulder, hand, elbow };
+    }
     const hand = vec3(0.4 * sx, barCenter.y, barCenter.z);
     const elbow = vec3(0.25 * sx, barCenter.y - 0.17, barCenter.z + 0.01);
     return { shoulder, hand, elbow };

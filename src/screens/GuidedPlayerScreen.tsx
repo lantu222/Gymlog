@@ -214,17 +214,23 @@ function MediaZone({
         <>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Show how ${name} is done in 3D`}
+            accessibilityLabel={`Watch how ${name} is done`}
             onPress={() => setSheetOpen(true)}
             style={styles.media3dButton}
             hitSlop={8}
           >
-            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={HG.ink} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <Path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" />
-              <Path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" />
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={HG.ink} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M3 7.5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+              <Path d="M15 10.5 20 7.5v9l-5-3z" />
             </Svg>
           </Pressable>
-          <Exercise3DSheet name={name} muscle={muscle} visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+          <Exercise3DSheet
+            name={name}
+            muscle={muscle}
+            instructions={match?.instructions ?? undefined}
+            visible={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+          />
         </>
       ) : null}
     </>
@@ -261,6 +267,41 @@ function MediaZone({
       </View>
       <Text style={styles.mediaInitials}>{initials}</Text>
       {overlays}
+    </View>
+  );
+}
+
+/**
+ * Always-turning clock hand next to the set target — a strength set has no
+ * countdown, so without a moving element the screen can read as frozen.
+ */
+function SpinningClock({ size = 17, color = HG.muted }: { size?: number; color?: string }) {
+  const spin = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(spin, { toValue: 1, duration: 2400, easing: Easing.linear, useNativeDriver: true }),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [spin]);
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+        <Circle cx="12" cy="12" r="9" />
+      </Svg>
+      <Animated.View
+        style={{
+          position: 'absolute',
+          width: size,
+          height: size,
+          transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
+        }}
+      >
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round">
+          <Path d="M12 12V6.6" />
+        </Svg>
+      </Animated.View>
     </View>
   );
 }
@@ -1009,7 +1050,7 @@ export function GuidedPlayerScreen({
           {step.type === 'drill' && (
             <StepIn stepKey={`drill-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
-                <MediaZone name={step.drillName} library={exerciseLibrary} height={230} mode="drill" />
+                <MediaZone name={step.drillName} library={exerciseLibrary} height={270} mode="drill" />
                 <View style={{ height: 20 }} />
                 <NameBlock
                   name={step.drillName}
@@ -1062,7 +1103,7 @@ export function GuidedPlayerScreen({
           {step.type === 'position' && (
             <StepIn stepKey={`position-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
-                <MediaZone name={step.exerciseName} library={exerciseLibrary} height={200} mode="position" />
+                <MediaZone name={step.exerciseName} library={exerciseLibrary} height={300} mode="position" />
                 <View style={{ height: 16 }} />
                 <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: HG.purple, textAlign: 'center' }}>
                   GET INTO POSITION
@@ -1071,7 +1112,10 @@ export function GuidedPlayerScreen({
                 <NameBlock
                   name={step.exerciseName}
                   cue={buildCueLine(libraryFor(step.exerciseName))}
-                  hasHowTo={Boolean(libraryFor(step.exerciseName)?.instructions?.length)}
+                  // Exercises with a 3D rig teach the movement inside that sheet.
+                  hasHowTo={
+                    Boolean(libraryFor(step.exerciseName)?.instructions?.length) && !hasExercise3D(step.exerciseName)
+                  }
                   onHow={() => setHowtoOpen(true)}
                 />
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
@@ -1348,7 +1392,7 @@ function SetStepView({
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
       <View style={{ flex: 1, minHeight: 0 }}>
-        <MediaZone name={step.exerciseName} library={library} height={190} mode="set" />
+        <MediaZone name={step.exerciseName} library={library} height={290} mode="set" />
         <View style={{ height: 14 }} />
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 1.6, color: HG.purple }}>
@@ -1364,27 +1408,34 @@ function SetStepView({
         <NameBlock
           name={step.exerciseName}
           cue={buildCueLine(libraryItem)}
-          hasHowTo={Boolean(libraryItem?.instructions?.length)}
+          // Exercises with a 3D rig teach the movement inside that sheet.
+          hasHowTo={Boolean(libraryItem?.instructions?.length) && !hasExercise3D(step.exerciseName)}
           onHow={onHow}
         />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 0, paddingHorizontal: 22 }}>
           {!edit ? (
-            <Pressable onPress={() => setEdit(true)} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
-              <View style={styles.targetUnderline}>
-                <Text style={styles.targetNumber}>
-                  {reps}
-                  <Text style={{ fontSize: 26, color: HG.muted }}>×</Text>
-                </Text>
+            <>
+              <View style={styles.doRow}>
+                <SpinningClock />
+                <Text style={styles.doLabel}>DO</Text>
               </View>
-              {!bodyweight ? (
+              <Pressable onPress={() => setEdit(true)} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
                 <View style={styles.targetUnderline}>
                   <Text style={styles.targetNumber}>
-                    {removeTrailingZeros(kg)}
-                    <Text style={{ fontSize: 22, color: HG.muted }}> kg</Text>
+                    {reps}
+                    <Text style={{ fontSize: 26, color: HG.muted }}>×</Text>
                   </Text>
                 </View>
-              ) : null}
-            </Pressable>
+                {!bodyweight ? (
+                  <View style={styles.targetUnderline}>
+                    <Text style={styles.targetNumber}>
+                      {removeTrailingZeros(kg)}
+                      <Text style={{ fontSize: 22, color: HG.muted }}> kg</Text>
+                    </Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            </>
           ) : (
             <View style={{ alignSelf: 'stretch', gap: 16 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -1718,8 +1769,9 @@ const styles = StyleSheet.create({
   /* media */
   mediaZone: {
     height: 250,
-    marginTop: 14,
-    marginHorizontal: 20,
+    marginTop: 12,
+    // Wider than the rest of the content so the exercise photo reads bigger.
+    marginHorizontal: 10,
     borderRadius: 26,
     overflow: 'hidden',
     alignItems: 'center',
@@ -1784,6 +1836,8 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
+  doRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  doLabel: { fontSize: 14, fontWeight: '800', letterSpacing: 2.2, color: HG.muted },
   targetUnderline: { borderBottomWidth: 3, borderStyle: 'dashed', borderColor: '#E4DBF5', paddingBottom: 4 },
   targetNumber: { fontSize: 64, fontWeight: '800', letterSpacing: -2.5, color: HG.ink, lineHeight: 70, fontVariant: ['tabular-nums'] },
   positionTarget: { fontSize: 44, fontWeight: '800', letterSpacing: -1.3, color: HG.ink, fontVariant: ['tabular-nums'] },
