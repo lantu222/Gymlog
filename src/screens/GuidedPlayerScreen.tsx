@@ -49,7 +49,7 @@ import {
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
-import { Exercise3DTile } from '../components/exercise3d/Exercise3DTile';
+import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { removeTrailingZeros } from '../lib/format';
 import { haptics } from '../utils/haptics';
@@ -200,13 +200,35 @@ function MediaZone({
   const imageUrl = match?.imageUrls?.[0] ?? null;
   const muscle = match?.primaryMuscles?.[0] ?? null;
 
-  // 3D tier (top of the media-tier model): the animated rig for exercises that
-  // have a pose function. Warmup drills never match, so they keep photo/initials.
-  // The 3D tile needs more height than a flat photo to show the full movement,
-  // so it uses a taller media zone (closer to the handoff's square).
-  if (mode !== 'drill' && hasExercise3D(name)) {
-    return <Exercise3DTile name={name} height={Math.max(height, 300)} muscle={muscle} autoPlay={mode === 'set'} />;
-  }
+  // The media zone always shows the flat photo (or initials). Exercises that
+  // have a 3D rig get a button in the top-right corner that opens the animated
+  // "how it's done" sheet — so the 3D only renders on demand, never during
+  // normal training. Warmup drills never have a rig.
+  const has3D = mode !== 'drill' && hasExercise3D(name);
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const overlays = (
+    <>
+      {muscle ? <MuscleChip label={muscle} /> : null}
+      {has3D ? (
+        <>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Show how ${name} is done in 3D`}
+            onPress={() => setSheetOpen(true)}
+            style={styles.media3dButton}
+            hitSlop={8}
+          >
+            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={HG.ink} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M3.5 7.5 12 3l8.5 4.5v9L12 21l-8.5-4.5z" />
+              <Path d="M3.5 7.5 12 12l8.5-4.5M12 12v9" />
+            </Svg>
+          </Pressable>
+          <Exercise3DSheet name={name} muscle={muscle} visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+        </>
+      ) : null}
+    </>
+  );
 
   if (imageUrl && !imageFailed) {
     return (
@@ -217,7 +239,7 @@ function MediaZone({
           style={{ width: '100%', height: '100%' }}
           onError={() => setImageFailed(true)}
         />
-        {muscle ? <MuscleChip label={muscle} /> : null}
+        {overlays}
       </View>
     );
   }
@@ -238,7 +260,7 @@ function MediaZone({
         </Svg>
       </View>
       <Text style={styles.mediaInitials}>{initials}</Text>
-      {muscle ? <MuscleChip label={muscle} /> : null}
+      {overlays}
     </View>
   );
 }
@@ -1715,6 +1737,20 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   muscleChipText: { fontSize: 11, fontWeight: '800', letterSpacing: 1.3, color: HG.purpleDark },
+  // Top-right affordance that opens the animated 3D how-to for this exercise.
+  media3dButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderWidth: 1,
+    borderColor: '#E6DAF8',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 
   /* splash / ready */
   splashRoot: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 32 },
