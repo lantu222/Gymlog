@@ -53,6 +53,7 @@ import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { removeTrailingZeros } from '../lib/format';
 import { haptics } from '../utils/haptics';
+import { sound, type CueSound } from '../utils/sound';
 import { HG } from '../lightTheme';
 import { ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
@@ -697,17 +698,20 @@ export function GuidedPlayerScreen({
 
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
-  const cue = useCallback((kind: 'tick' | 'go' | 'done') => {
-    if (mutedRef.current) {
-      return;
-    }
+  const cue = useCallback((kind: CueSound) => {
+    // Haptics always fire — the speaker toggle silences audio only, and a buzz
+    // is the discreet channel anyway.
     if (kind === 'tick') {
       void haptics.select();
-    } else if (kind === 'go') {
+    } else if (kind === 'go' || kind === 'rest') {
       void haptics.impactMedium();
     } else {
       void haptics.success();
     }
+    if (mutedRef.current) {
+      return;
+    }
+    sound[kind]();
   }, []);
 
   const goTo = useCallback(
@@ -725,6 +729,8 @@ export function GuidedPlayerScreen({
       workout.setGuidedStep(clamped);
       if (target.type === 'drill') {
         cue('go');
+      } else if (target.type === 'finish') {
+        cue('finish');
       }
     },
     [steps, workout, cue],
@@ -770,6 +776,10 @@ export function GuidedPlayerScreen({
         if (!firedRef.current) {
           firedRef.current = true;
           clearInterval(interval);
+          // Rest running out is the one transition the user may not be looking at.
+          if (step.type === 'rest') {
+            cue('rest');
+          }
           advanceRef.current();
         }
         return;
