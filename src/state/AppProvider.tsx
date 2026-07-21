@@ -121,6 +121,8 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       defaultRestSeconds: 120,
       autoFocusNextInput: true,
       keepScreenAwakeDuringWorkout: false,
+      soundCuesEnabled: true,
+      hapticsEnabled: true,
       adaptiveCoachPremiumUnlocked: false,
       automatedProgressionEnabled: true,
       aiSetupCompleted: false,

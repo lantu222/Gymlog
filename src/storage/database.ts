@@ -361,6 +361,14 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.keepScreenAwakeDuringWorkout === 'boolean'
           ? input.preferences.keepScreenAwakeDuringWorkout
           : fallback.preferences.keepScreenAwakeDuringWorkout,
+      soundCuesEnabled:
+        typeof input?.preferences?.soundCuesEnabled === 'boolean'
+          ? input.preferences.soundCuesEnabled
+          : fallback.preferences.soundCuesEnabled,
+      hapticsEnabled:
+        typeof input?.preferences?.hapticsEnabled === 'boolean'
+          ? input.preferences.hapticsEnabled
+          : fallback.preferences.hapticsEnabled,
       adaptiveCoachPremiumUnlocked:
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked

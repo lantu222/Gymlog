@@ -15,6 +15,8 @@ import { getWorkoutLoggingSessionBootstrapResult } from '../lib/workoutLoggingSe
 import { formatVolume, formatWeight, formatWeightInputValue } from '../lib/format';
 import { canCompleteWorkoutSet } from '../lib/workoutValidation';
 import { radii, spacing, typography } from '../theme';
+import { haptics } from '../utils/haptics';
+import { sound } from '../utils/sound';
 import { SurfaceAccent } from '../components/MainScreenPrimitives';
 import { ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_SUBSTITUTION_GROUPS, getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -404,6 +406,47 @@ export function WorkoutLoggingScreen({
   const activeExercise = selectActiveExercise(activeSession);
   const activeSlotId = activeSession?.ui.activeSlotId ?? activeExercise?.slotId ?? activeSession?.exercises[0]?.slotId ?? null;
   const restTimerStatus = activeSession?.restTimer.status ?? 'idle';
+
+  // ── cues ──────────────────────────────────────────────────────────────
+  // List view has no full-screen player, so these two moments are the only
+  // feedback that something happened when the phone isn't being watched.
+
+  const completedSetCount = useMemo(
+    () =>
+      activeSession?.exercises.reduce(
+        (sum, exercise) => sum + exercise.sets.filter((set) => set.status === 'completed').length,
+        0,
+      ) ?? 0,
+    [activeSession],
+  );
+  // Counting completions (rather than cueing at the call site) means an
+  // invalid entry that the reducer rejects stays silent, and undo never cues.
+  const previousCompletedCount = useRef(completedSetCount);
+  useEffect(() => {
+    if (completedSetCount > previousCompletedCount.current) {
+      void haptics.success();
+      sound.done();
+    }
+    previousCompletedCount.current = completedSetCount;
+  }, [completedSetCount]);
+
+  const restEndsAtMs = activeSession?.restTimer.endsAtMs ?? null;
+  const previousRest = useRef({ status: restTimerStatus, endsAtMs: restEndsAtMs });
+  useEffect(() => {
+    const previous = previousRest.current;
+    // Only when a running timer actually ran out — skipping or undoing a rest
+    // also clears it, and those shouldn't buzz.
+    const ranOut =
+      previous.status === 'running' &&
+      restTimerStatus === 'idle' &&
+      previous.endsAtMs !== null &&
+      Date.now() >= previous.endsAtMs - 1000;
+    if (ranOut) {
+      void haptics.impactMedium();
+      sound.rest();
+    }
+    previousRest.current = { status: restTimerStatus, endsAtMs: restEndsAtMs };
+  }, [restTimerStatus, restEndsAtMs]);
 
   const libraryIdByName = useMemo(
     () => new Map(exerciseLibrary.map((item) => [normalizeName(item.name), item.id] as const)),

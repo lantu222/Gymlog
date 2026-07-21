@@ -16,6 +16,8 @@ const DEFAULT_PREFERENCES = {
   defaultRestSeconds: 120,
   autoFocusNextInput: true,
   keepScreenAwakeDuringWorkout: false,
+  soundCuesEnabled: true,
+  hapticsEnabled: true,
   adaptiveCoachPremiumUnlocked: false,
   automatedProgressionEnabled: true,
   aiSetupCompleted: false,

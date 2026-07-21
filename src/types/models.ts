@@ -232,6 +232,10 @@ export interface AppPreferences {
   defaultRestSeconds: number;
   autoFocusNextInput: boolean;
   keepScreenAwakeDuringWorkout: boolean;
+  /** Workout cue sounds (countdown ticks, set logged, rest over, session done). */
+  soundCuesEnabled: boolean;
+  /** Vibration feedback for the same moments. */
+  hapticsEnabled: boolean;
   adaptiveCoachPremiumUnlocked: boolean;
   /** Plan-review toggle: GAINER adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;

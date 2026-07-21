@@ -154,6 +154,21 @@ function SettingsRow({
   return onPress ? <Pressable onPress={onPress}>{inner}</Pressable> : inner;
 }
 
+function ToggleSwitch({ value, onChange, label }: { value: boolean; onChange: (next: boolean) => void; label: string }) {
+  return (
+    <Pressable
+      accessibilityRole="switch"
+      accessibilityState={{ checked: value }}
+      accessibilityLabel={label}
+      onPress={() => onChange(!value)}
+      style={[styles.toggleTrack, value && styles.toggleTrackOn]}
+      hitSlop={8}
+    >
+      <View style={[styles.toggleKnob, value && styles.toggleKnobOn]} />
+    </Pressable>
+  );
+}
+
 function SectionLabel({ label, actionLabel, onAction }: { label: string; actionLabel?: string; onAction?: () => void }) {
   return (
     <View style={styles.sectionHead}>
@@ -474,6 +489,36 @@ export function ProfileScreen({
                 </View>
               </View>
             </View>
+          </View>
+        </View>
+
+        {/* WORKOUT FEEDBACK */}
+        <View style={styles.section}>
+          <SectionLabel label="WORKOUT FEEDBACK" />
+          <View style={styles.card}>
+            <SettingsRow
+              title="Cue sounds"
+              subtitle="Countdown, set logged, rest over"
+              right={
+                <ToggleSwitch
+                  label="Cue sounds"
+                  value={preferences.soundCuesEnabled}
+                  onChange={(next) => onPreferencesChange({ soundCuesEnabled: next })}
+                />
+              }
+            />
+            <SettingsRow
+              title="Haptics"
+              subtitle="Vibration for the same moments"
+              isLast
+              right={
+                <ToggleSwitch
+                  label="Haptics"
+                  value={preferences.hapticsEnabled}
+                  onChange={(next) => onPreferencesChange({ hapticsEnabled: next })}
+                />
+              }
+            />
           </View>
         </View>
 
@@ -1027,6 +1072,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
+  },
+  toggleTrack: {
+    width: 46,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: '#E4DBF5',
+    padding: 3,
+    justifyContent: 'center',
+  },
+  toggleTrackOn: {
+    backgroundColor: HG.purple,
+  },
+  toggleKnob: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+  },
+  toggleKnobOn: {
+    alignSelf: 'flex-end',
   },
   setValue: {
     color: HG.ink,

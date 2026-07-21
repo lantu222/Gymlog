@@ -23,6 +23,8 @@ import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './sr
 import { getExerciseProgressForName } from './src/lib/progression';
 import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
+import { setSoundCuesEnabled } from './src/utils/sound';
+import { setHapticsEnabled } from './src/utils/haptics';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
@@ -687,6 +689,15 @@ function GymlogApp() {
   const [minimumSplashElapsed, setMinimumSplashElapsed] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
+
+  // Keep the cue utilities in sync with the user's preferences, so every call
+  // site across the app is gated by one switch.
+  useEffect(() => {
+    setSoundCuesEnabled(preferences.soundCuesEnabled);
+  }, [preferences.soundCuesEnabled]);
+  useEffect(() => {
+    setHapticsEnabled(preferences.hapticsEnabled);
+  }, [preferences.hapticsEnabled]);
 
   const exerciseBrowserItems = useMemo(
     () => exerciseLibrary.filter((item) => !item.id.startsWith('lib_')),
@@ -2927,6 +2938,8 @@ function GymlogApp() {
       <GuidedPlayerScreen
         unitPreference={unitPreference}
         exerciseLibrary={exerciseLibrary}
+        soundCuesEnabled={preferences.soundCuesEnabled}
+        onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
         entryEyebrow={guidedEntryEyebrow}
         weekProgress={guidedWeekProgress}
         nextUp={guidedNextUp}

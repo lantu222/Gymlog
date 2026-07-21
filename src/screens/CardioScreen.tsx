@@ -38,6 +38,7 @@ import {
   parseCardioDistanceKm,
 } from '../lib/cardio';
 import { haptics } from '../utils/haptics';
+import { sound } from '../utils/sound';
 import { HG } from '../lightTheme';
 import { CardioActivityType, CardioFeel, CardioSession } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
@@ -90,6 +91,7 @@ export function CardioScreen({
       return;
     }
     void haptics.impactMedium();
+    sound.go();
     workout.startCardio(activityType);
   };
 
@@ -152,6 +154,7 @@ export function CardioScreen({
               return;
             }
             void haptics.success();
+            sound.finish();
             workout.clearCardio();
             onLeave();
           }}

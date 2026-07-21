@@ -24,6 +24,13 @@ const SOURCES: Record<CueSound, number> = {
 const players = new Map<CueSound, AudioPlayer>();
 let audioModeReady = false;
 
+// Mirrors the user's "Cue sounds" preference; AppProvider keeps this in sync.
+let enabled = true;
+
+export function setSoundCuesEnabled(next: boolean) {
+  enabled = next;
+}
+
 function ensureAudioMode() {
   if (audioModeReady) {
     return;
@@ -56,7 +63,7 @@ function getPlayer(cue: CueSound): AudioPlayer | null {
 }
 
 function play(cue: CueSound) {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' || !enabled) {
     return;
   }
   try {

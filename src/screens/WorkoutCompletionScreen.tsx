@@ -11,6 +11,8 @@ import { formatTime, removeTrailingZeros } from '../lib/format';
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
 import { HG3 } from '../lightTheme';
+import { haptics } from '../utils/haptics';
+import { sound } from '../utils/sound';
 
 // Workout Complete palette extensions (design_handoff_workout_complete).
 const GOLD = '#B7791F';
@@ -81,6 +83,12 @@ export function WorkoutCompletionScreen({
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const pr = prCards[0] ?? null;
   const maxMuscleVolume = Math.max(1, ...muscles.map((muscle) => muscle.volumeKg));
+
+  // The workout is saved by the time this screen mounts — mark the moment.
+  useEffect(() => {
+    void haptics.success();
+    sound.finish();
+  }, []);
 
   const riseValues = useRef(RISE_DELAYS_MS.map(() => new Animated.Value(0))).current;
   const badgePop = useRef(new Animated.Value(0)).current;

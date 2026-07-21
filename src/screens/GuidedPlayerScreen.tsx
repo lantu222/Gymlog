@@ -89,6 +89,8 @@ export interface GuidedNextUp {
 interface GuidedPlayerScreenProps {
   unitPreference: UnitPreference;
   exerciseLibrary: ExerciseLibraryItem[];
+  soundCuesEnabled: boolean;
+  onToggleSoundCues: (next: boolean) => void;
   entryEyebrow: string;
   weekProgress: GuidedWeekProgress | null;
   nextUp: GuidedNextUp | null;
@@ -591,6 +593,8 @@ function GPSheet({ onClose, children }: { onClose: () => void; children: React.R
 export function GuidedPlayerScreen({
   unitPreference,
   exerciseLibrary,
+  soundCuesEnabled,
+  onToggleSoundCues,
   entryEyebrow,
   weekProgress,
   nextUp,
@@ -675,7 +679,6 @@ export function GuidedPlayerScreen({
   const lastBeepSecondRef = useRef<number | null>(null);
 
   const [paused, setPaused] = useState(false);
-  const [muted, setMuted] = useState(false);
   const [howtoOpen, setHowtoOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
@@ -696,6 +699,9 @@ export function GuidedPlayerScreen({
     }
   };
 
+  // The speaker button drives the persistent "Cue sounds" preference, so the
+  // in-workout shortcut and the settings toggle stay one source of truth.
+  const muted = !soundCuesEnabled;
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
   const cue = useCallback((kind: CueSound) => {
@@ -1018,7 +1024,7 @@ export function GuidedPlayerScreen({
             dark={dark}
             label={getGuidedPhaseLabel(step)}
             muted={muted}
-            onMute={() => setMuted((value) => !value)}
+            onMute={() => onToggleSoundCues(!soundCuesEnabled)}
             onExit={() => setExitOpen(true)}
           />
 

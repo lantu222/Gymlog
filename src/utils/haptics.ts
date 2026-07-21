@@ -1,8 +1,16 @@
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
+// Mirrors the user's "Haptics" preference; AppProvider keeps this in sync so
+// every call site is gated centrally instead of threading a flag everywhere.
+let enabled = true;
+
+export function setHapticsEnabled(next: boolean) {
+  enabled = next;
+}
+
 async function runSafely(action: () => Promise<void>) {
-  if (Platform.OS === 'web') {
+  if (Platform.OS === 'web' || !enabled) {
     return;
   }
 
