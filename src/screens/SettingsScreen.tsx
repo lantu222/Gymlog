@@ -21,6 +21,7 @@ interface SettingsScreenProps {
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
   onManagePlan: () => void;
   onEditTraining: () => void;
+  onOpenMyData: () => void;
   onOpenPremium: () => void;
   onConnectHealth: () => void;
   onResetAllData: () => void;
@@ -67,6 +68,7 @@ export function SettingsScreen({
   onPreferencesChange,
   onManagePlan,
   onEditTraining,
+  onOpenMyData,
   onOpenPremium,
   onConnectHealth,
   onResetAllData,
@@ -143,8 +145,14 @@ export function SettingsScreen({
             <SettingsRow
               title="Training profile"
               subtitle="Goal, experience, focus areas"
-              isLast
               onPress={onEditTraining}
+              right={<ChevronIcon />}
+            />
+            <SettingsRow
+              title="My data"
+              subtitle="Basics, preferences, limitations"
+              isLast
+              onPress={onOpenMyData}
               right={<ChevronIcon />}
             />
           </View>

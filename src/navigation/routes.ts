@@ -108,6 +108,10 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
+      screen: 'my_data';
+    }
+  | {
+      tab: 'profile';
       screen: 'plan_settings';
     }
   | {

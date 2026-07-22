@@ -85,6 +85,7 @@ import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
+import { MyDataScreen } from './src/screens/MyDataScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -3191,6 +3192,14 @@ function GymlogApp() {
         }
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'my_data') {
+    content = (
+      <MyDataScreen
+        preferences={preferences}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onEditSetup={handleOpenSetupEditor}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'settings') {
     content = (
       <SettingsScreen
@@ -3201,6 +3210,7 @@ function GymlogApp() {
         }}
         onManagePlan={handleOpenPlanSettings}
         onEditTraining={handleOpenSetupEditor}
+        onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
         onOpenPremium={handleOpenPremium}
         onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
@@ -3405,7 +3415,8 @@ function GymlogApp() {
   const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
   const programsHomeActive = route.tab === 'workout' && route.screen === 'programs_home';
   const profileListActive = route.tab === 'profile' && route.screen === 'list';
-  const profileSettingsActive = route.tab === 'profile' && route.screen === 'settings';
+  const profileSettingsActive =
+    route.tab === 'profile' && (route.screen === 'settings' || route.screen === 'my_data');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
   const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';
