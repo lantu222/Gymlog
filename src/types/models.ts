@@ -236,6 +236,11 @@ export interface AppPreferences {
   soundCuesEnabled: boolean;
   /** Vibration feedback for the same moments. */
   hapticsEnabled: boolean;
+  /**
+   * "Your cards" pins on Home. null = never customized (defaults apply);
+   * [] = the user removed every card and that choice sticks.
+   */
+  homeStatCardKeys: string[] | null;
   adaptiveCoachPremiumUnlocked: boolean;
   /** Plan-review toggle: GAINER adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;

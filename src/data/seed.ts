@@ -18,6 +18,7 @@ const DEFAULT_PREFERENCES = {
   keepScreenAwakeDuringWorkout: false,
   soundCuesEnabled: true,
   hapticsEnabled: true,
+  homeStatCardKeys: null as string[] | null,
   adaptiveCoachPremiumUnlocked: false,
   automatedProgressionEnabled: true,
   aiSetupCompleted: false,

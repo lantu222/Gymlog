@@ -13,7 +13,9 @@ import {
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { CardioIcon } from '../components/CardioIcon';
+import { HomeStatCardsSection } from '../components/HomeStatCardsSection';
 import { CardioIconKind } from '../lib/cardio';
+import { HomeStatCard } from '../lib/homeStatCards';
 import { GymlogIcon } from '../components/GymlogIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import {
@@ -137,6 +139,11 @@ interface HomeScreenProps {
   historyItems?: HomeHistoryItem[];
   onOpenHistory?: () => void;
   onSelectHistorySession?: (sessionId: string) => void;
+  /** "Your cards": one computed card per catalog item, Add-sheet order. */
+  statCatalogCards?: HomeStatCard[];
+  pinnedStatCardKeys?: string[];
+  onChangePinnedStatCardKeys?: (next: string[]) => void;
+  onOpenStatCard?: (key: string) => void;
 }
 
 export function HomeScreen({
@@ -147,6 +154,10 @@ export function HomeScreen({
   historyItems = [],
   onOpenHistory,
   onSelectHistorySession,
+  statCatalogCards = [],
+  pinnedStatCardKeys = [],
+  onChangePinnedStatCardKeys,
+  onOpenStatCard,
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
@@ -577,6 +588,18 @@ export function HomeScreen({
           ) : null}
         </Animated.View>
 
+        {onChangePinnedStatCardKeys ? (
+          <Animated.View style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
+            <HomeStatCardsSection
+              catalogCards={statCatalogCards}
+              pinnedKeys={pinnedStatCardKeys}
+              onChangePinnedKeys={onChangePinnedStatCardKeys}
+              onOpenCard={(key) => onOpenStatCard?.(key)}
+              reduceMotion={reduceMotion === true}
+            />
+          </Animated.View>
+        ) : null}
+
         {historyItems.length > 0 ? (
           <Animated.View style={rise(RISE_EMPTY_ROW)}>
             <View style={styles.historyHeaderRow}>
@@ -587,7 +610,8 @@ export function HomeScreen({
                 </Pressable>
               ) : null}
             </View>
-            <View style={styles.historyCard}>
+            {/* Full-bleed rows — no card container around History. */}
+            <View>
               {historyItems.map((item, index) => (
                 <Pressable
                   key={item.id}
@@ -1239,6 +1263,9 @@ const styles = StyleSheet.create({
     marginTop: 26,
     marginBottom: 12,
   },
+  statCardsSection: {
+    marginTop: 26,
+  },
   historySectionTitle: {
     color: HG3.ink,
     fontSize: 20,
@@ -1251,13 +1278,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '800',
-  },
-  historyCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
-    paddingHorizontal: 15,
   },
   historyRow: {
     flexDirection: 'row',

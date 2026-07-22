@@ -123,6 +123,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       keepScreenAwakeDuringWorkout: false,
       soundCuesEnabled: true,
       hapticsEnabled: true,
+      homeStatCardKeys: null,
       adaptiveCoachPremiumUnlocked: false,
       automatedProgressionEnabled: true,
       aiSetupCompleted: false,

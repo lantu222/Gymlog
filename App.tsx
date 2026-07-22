@@ -44,6 +44,7 @@ import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
+import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTitle } from './src/lib/homeSessionHero';
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
@@ -2199,6 +2200,27 @@ function GymlogApp() {
     };
   }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
+  // "Your cards" on Home: full catalog computed once, pins resolved from prefs.
+  const homeStatCardSources = useMemo(
+    () => ({
+      bodyweightEntries: database.bodyweightEntries,
+      measurementEntries: database.measurementEntries,
+      trackedProgress,
+    }),
+    [database.bodyweightEntries, database.measurementEntries, trackedProgress],
+  );
+  const homeStatCatalogCards = useMemo(
+    () =>
+      buildHomeStatCards(
+        buildHomeStatCardCatalog(homeStatCardSources).map((item) => item.key),
+        homeStatCardSources,
+      ),
+    [homeStatCardSources],
+  );
+  const homePinnedStatCardKeys = useMemo(
+    () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
+    [preferences.homeStatCardKeys],
+  );
   // Profile "TRAINING PLAN" card. Reuses the same composed plan Home renders so
   // the two screens can never disagree about what the user is running.
   const profilePlanSummary = useMemo(() => {
@@ -3360,6 +3382,23 @@ function GymlogApp() {
     content = (
       <HomeScreen
         activePlan={homeActivePlanCard}
+        statCatalogCards={homeStatCatalogCards}
+        pinnedStatCardKeys={homePinnedStatCardKeys}
+        onChangePinnedStatCardKeys={(next) => void updatePreferences({ homeStatCardKeys: next })}
+        onOpenStatCard={(key) => {
+          // Each card opens the surface where its data is tracked and logged.
+          if (key === 'bodyweight') {
+            navigate({ tab: 'progress', screen: 'bodyweight' });
+            return;
+          }
+          if (key === 'bodyfat' || key === 'waist') {
+            navigate({ tab: 'progress', screen: 'list', section: 'measures' });
+            return;
+          }
+          if (key.startsWith('lift:')) {
+            navigate({ tab: 'progress', screen: 'detail', exerciseKey: key.slice('lift:'.length) });
+          }
+        }}
         onStartActivePlanSession={(sessionId) => {
           if (!homeActivePlanCard) {
             return;

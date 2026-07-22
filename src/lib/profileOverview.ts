@@ -1,4 +1,4 @@
-import { getComparableLogSets } from './exerciseLog';
+﻿import { getComparableLogSets } from './exerciseLog';
 import { ExerciseLogWithSession, ExerciseProgressSummary } from './progression';
 
 /**
@@ -21,7 +21,7 @@ export interface ProfilePersonalRecord {
   achievedAt: string;
 }
 
-function getTopSet(log: Pick<ExerciseLogWithSession, 'weight' | 'repsPerSet' | 'sets' | 'skipped'>) {
+export function getTopComparableSet(log: Pick<ExerciseLogWithSession, 'weight' | 'repsPerSet' | 'sets' | 'skipped'>) {
   const sets = getComparableLogSets(log);
   if (sets.length === 0) {
     return null;
@@ -57,7 +57,7 @@ export function countPersonalRecords(trackedProgress: ExerciseProgressSummary[])
     let best: number | null = null;
 
     for (const log of sortLogsOldestFirst(summary.logs)) {
-      const topSet = getTopSet(log);
+      const topSet = getTopComparableSet(log);
       if (topSet === null) {
         continue;
       }
@@ -90,7 +90,7 @@ export function buildProfilePersonalRecords(
     let record: ProfilePersonalRecord | null = null;
 
     for (const log of sortLogsOldestFirst(summary.logs)) {
-      const topSet = getTopSet(log);
+      const topSet = getTopComparableSet(log);
       if (topSet === null || topSet.weight <= 0) {
         continue;
       }

@@ -369,6 +369,12 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.hapticsEnabled === 'boolean'
           ? input.preferences.hapticsEnabled
           : fallback.preferences.hapticsEnabled,
+      // null and [] are distinct: null = never customized, [] = cleared by the user.
+      homeStatCardKeys: Array.isArray(input?.preferences?.homeStatCardKeys)
+        ? input.preferences.homeStatCardKeys.filter(
+            (key: unknown): key is string => typeof key === 'string' && key.length > 0,
+          )
+        : fallback.preferences.homeStatCardKeys,
       adaptiveCoachPremiumUnlocked:
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked

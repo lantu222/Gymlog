@@ -11,9 +11,11 @@ export const HG = {
   surface: '#FFFFFF',
   surfaceSoft: '#F2ECFF',
   ink: '#101828',
-  muted: '#667085',
-  faint: '#9A93AC',
-  border: '#E4D8FF',
+  // muted/faint/border darkened 2026-07-22 (user: hairlines and secondary text
+  // read too washed-out on device).
+  muted: '#5B6472',
+  faint: '#867E9C',
+  border: '#D6C6F5',
   shadow: '#D8C7FF',
   purple: '#7C3AED',
   purpleDark: '#5B21B6',
@@ -36,12 +38,14 @@ export const HG3 = {
   bg: '#EFEAF9',
   surface: '#FFFFFF',
   ink: '#17131F',
-  muted: '#6C6580',
-  faint: '#A29BB4',
+  // muted/faint/border darkened 2026-07-22 (user: hairlines and secondary text
+  // read too washed-out on device).
+  muted: '#5E5670',
+  faint: '#8A82A0',
   purple: '#6D28D9',
   purpleBright: '#7C3AED',
   purpleSoft: '#EEE7FC',
-  border: '#E7DEF7',
+  border: '#D8CBEE',
   green: '#16A34A',
   gold: '#E4B14C',
   // Pro sheet gradient stops (dark violet).
