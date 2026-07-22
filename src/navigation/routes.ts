@@ -112,6 +112,10 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
+      screen: 'edit_profile';
+    }
+  | {
+      tab: 'profile';
       screen: 'training_plan';
     }
   | {

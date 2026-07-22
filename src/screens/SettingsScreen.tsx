@@ -17,14 +17,40 @@ import { AppPreferences } from '../types/models';
 
 interface SettingsScreenProps {
   preferences: AppPreferences;
+  /** ISO timestamp of the first completed session — the honest "member since". */
+  firstSessionAt: string | null;
   onBack: () => void;
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
   onManagePlan: () => void;
   onEditTraining: () => void;
   onOpenMyData: () => void;
+  onOpenEditProfile: () => void;
   onOpenPremium: () => void;
   onConnectHealth: () => void;
   onResetAllData: () => void;
+}
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function memberSinceLabel(firstSessionAt: string | null) {
+  if (!firstSessionAt) {
+    return 'New here';
+  }
+  const date = new Date(firstSessionAt);
+  if (Number.isNaN(date.getTime())) {
+    return 'New here';
+  }
+  return `Training since ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+function getInitials(name: string | null) {
+  if (!name?.trim()) {
+    return 'G';
+  }
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const first = parts[0]?.charAt(0) ?? 'G';
+  const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
+  return (first + second).toUpperCase();
 }
 
 function HealthHeartGlyph() {
@@ -64,16 +90,19 @@ function StarGlyph() {
  */
 export function SettingsScreen({
   preferences,
+  firstSessionAt,
   onBack,
   onPreferencesChange,
   onManagePlan,
   onEditTraining,
   onOpenMyData,
+  onOpenEditProfile,
   onOpenPremium,
   onConnectHealth,
   onResetAllData,
 }: SettingsScreenProps) {
   const [resetVisible, setResetVisible] = useState(false);
+  const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : 'Guest athlete';
 
   return (
     <View style={styles.screen}>
@@ -96,6 +125,32 @@ export function SettingsScreen({
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+        {/* PROFILE CHIP → Edit profile */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Edit profile"
+          onPress={onOpenEditProfile}
+          style={({ pressed }) => [styles.profileChip, pressed && { opacity: 0.8 }]}
+        >
+          <View style={styles.profileChipAvatar}>
+            <Text style={styles.profileChipInitials}>{getInitials(preferences.profileName)}</Text>
+          </View>
+          <View style={styles.profileChipCopy}>
+            <View style={styles.profileChipNameRow}>
+              <Text numberOfLines={1} style={styles.profileChipName}>
+                {displayName}
+              </Text>
+              {preferences.adaptiveCoachPremiumUnlocked ? (
+                <View style={styles.proBadge}>
+                  <Text style={styles.proBadgeText}>PRO</Text>
+                </View>
+              ) : null}
+            </View>
+            <Text style={styles.profileChipMeta}>{memberSinceLabel(firstSessionAt)}</Text>
+          </View>
+          <ChevronIcon />
+        </Pressable>
+
         {/* WORKOUT FEEDBACK */}
         <View style={settingsStyles.section}>
           <SectionLabel label="WORKOUT FEEDBACK" />
@@ -130,18 +185,8 @@ export function SettingsScreen({
         <View style={settingsStyles.section}>
           <SectionLabel label="TRAINING" />
           <View style={settingsStyles.card}>
-            <SettingsRow
-              title="Automated progression"
-              subtitle="GAINER adjusts your weekly load."
-              right={
-                <ToggleSwitch
-                  label="Automated progression"
-                  value={preferences.automatedProgressionEnabled}
-                  onChange={(next) => onPreferencesChange({ automatedProgressionEnabled: next })}
-                />
-              }
-            />
-            <SettingsRow title="Plan settings" subtitle="Schedule, equipment, swaps" onPress={onManagePlan} right={<ChevronIcon />} />
+            {/* Automated progression lives in Plan settings — one write surface. */}
+            <SettingsRow title="Plan settings" subtitle="Schedule, equipment, progression" onPress={onManagePlan} right={<ChevronIcon />} />
             <SettingsRow
               title="Training profile"
               subtitle="Goal, experience, focus areas"
@@ -246,6 +291,64 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: HG.bg,
+  },
+  profileChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 8,
+  },
+  profileChipAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: '#3B2670',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  profileChipInitials: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  profileChipCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  profileChipNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  profileChipName: {
+    flexShrink: 1,
+    color: HG.ink,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  proBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: HG.purpleLight,
+  },
+  proBadgeText: {
+    color: HG.purpleDark,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  profileChipMeta: {
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginTop: 2,
   },
   header: {
     height: 56,

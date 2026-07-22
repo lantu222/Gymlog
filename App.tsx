@@ -87,6 +87,7 @@ import { PremiumScreen } from './src/screens/PremiumScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { MyDataScreen } from './src/screens/MyDataScreen';
+import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { TrainingPlanScreen } from './src/screens/TrainingPlanScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
@@ -3263,6 +3264,14 @@ function GymlogApp() {
         }}
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'edit_profile') {
+    content = (
+      <EditProfileScreen
+        initialName={preferences.profileName}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onSave={(name) => void updatePreferences({ profileName: name })}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'my_data') {
     content = (
       <MyDataScreen
@@ -3275,6 +3284,8 @@ function GymlogApp() {
     content = (
       <SettingsScreen
         preferences={preferences}
+        firstSessionAt={lifetimeSummary.firstSessionAt}
+        onOpenEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onPreferencesChange={async (patch) => {
           await updatePreferences(patch);
@@ -3505,7 +3516,7 @@ function GymlogApp() {
   const profileListActive = route.tab === 'profile' && route.screen === 'list';
   const profileSettingsActive =
     route.tab === 'profile' &&
-    (route.screen === 'settings' || route.screen === 'my_data' || route.screen === 'training_plan');
+    (route.screen === 'settings' || route.screen === 'my_data' || route.screen === 'edit_profile' || route.screen === 'training_plan');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
   const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';
