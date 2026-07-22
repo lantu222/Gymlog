@@ -2719,6 +2719,7 @@ function GymlogApp() {
       content = (
         <WelcomeScreen
           language={preferences.appLanguage}
+          onChangeLanguage={(nextLanguage) => void updatePreferences({ appLanguage: nextLanguage })}
           onContinue={() => void handleContinueEntry()}
         />
       );

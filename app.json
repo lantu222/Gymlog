@@ -7,8 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/splash-gainer.png",
-      "resizeMode": "cover",
+      "image": "./assets/branding/gainer-splash-icon.png",
+      "resizeMode": "contain",
       "backgroundColor": "#F7F3FF"
     },
     "ios": {

@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { SUPPORTED_LANGUAGES, t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette from the redesign handoff).
@@ -17,26 +18,15 @@ const PURPLE_DARK = '#5B21B6';
 
 interface WelcomeScreenProps {
   language: AppLanguage;
+  onChangeLanguage?: (language: AppLanguage) => void;
   onContinue: () => void;
   onSignIn?: () => void;
 }
 
 const FEATURES = [
-  {
-    icon: 'dumbbell',
-    title: 'AI-built plans',
-    body: 'Smart programs built for you.',
-  },
-  {
-    icon: 'trend',
-    title: 'Adaptive',
-    body: 'We adjust as you improve.',
-  },
-  {
-    icon: 'heart',
-    title: 'Recovery aware',
-    body: 'Optimized training & rest.',
-  },
+  { icon: 'dumbbell', titleKey: 'welcome.feature.plans.title', bodyKey: 'welcome.feature.plans.body' },
+  { icon: 'trend', titleKey: 'welcome.feature.adaptive.title', bodyKey: 'welcome.feature.adaptive.body' },
+  { icon: 'heart', titleKey: 'welcome.feature.recovery.title', bodyKey: 'welcome.feature.recovery.body' },
 ] as const;
 
 function GoogleMark() {
@@ -92,7 +82,7 @@ function FeatureIcon({ name }: { name: (typeof FEATURES)[number]['icon'] }) {
   );
 }
 
-export function WelcomeScreen({ onContinue, onSignIn }: WelcomeScreenProps) {
+export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn }: WelcomeScreenProps) {
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -134,70 +124,91 @@ export function WelcomeScreen({ onContinue, onSignIn }: WelcomeScreenProps) {
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 22 }]}>
+      {onChangeLanguage ? (
+        <View style={styles.langRow}>
+          {SUPPORTED_LANGUAGES.map((option) => {
+            const active = option.key === language;
+            return (
+              <Pressable
+                key={option.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`Language ${option.label}`}
+                onPress={() => onChangeLanguage(option.key)}
+                style={[styles.langChip, active && styles.langChipActive]}
+              >
+                <Text style={styles.langFlag}>{option.flag}</Text>
+                <Text style={[styles.langLabel, active && styles.langLabelActive, { fontFamily }]}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      ) : null}
+
       <View style={styles.hero}>
         <View style={styles.logoRow}>
           <Text style={[styles.logoText, styles.logoInk, { fontFamily }]}>G</Text>
           <Text style={[styles.logoText, styles.logoPurple, { fontFamily }]}>AI</Text>
           <Text style={[styles.logoText, styles.logoInk, { fontFamily }]}>NER</Text>
         </View>
-        <Text style={[styles.tagline, { fontFamily }]}>{'You go to the gym.\nWe handle the rest.'}</Text>
+        <Text style={[styles.tagline, { fontFamily }]}>{t(language, 'welcome.tagline')}</Text>
       </View>
 
       <Animated.View style={{ opacity: actionOpacity, transform: [{ translateY: actionTranslateY }] }}>
         <View style={styles.featureRow}>
           {FEATURES.map((feature) => (
-            <View key={feature.title} style={styles.featureItem}>
+            <View key={feature.titleKey} style={styles.featureItem}>
               <View style={styles.featureIconRing}>
                 <FeatureIcon name={feature.icon} />
               </View>
-              <Text style={[styles.featureTitle, { fontFamily }]}>{feature.title}</Text>
-              <Text style={[styles.featureBody, { fontFamily }]}>{feature.body}</Text>
+              <Text style={[styles.featureTitle, { fontFamily }]}>{t(language, feature.titleKey)}</Text>
+              <Text style={[styles.featureBody, { fontFamily }]}>{t(language, feature.bodyKey)}</Text>
             </View>
           ))}
         </View>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Continue with Google"
+          accessibilityLabel={t(language, 'welcome.continueGoogle')}
           onPress={onContinue}
           style={({ pressed }) => [styles.providerButton, pressed && styles.providerButtonPressed]}
         >
           <GoogleMark />
-          <Text style={[styles.providerLabel, { fontFamily }]}>Continue with Google</Text>
+          <Text style={[styles.providerLabel, { fontFamily }]}>{t(language, 'welcome.continueGoogle')}</Text>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Continue with Apple"
+          accessibilityLabel={t(language, 'welcome.continueApple')}
           onPress={onContinue}
           style={({ pressed }) => [styles.providerButton, pressed && styles.providerButtonPressed]}
         >
           <AppleMark />
-          <Text style={[styles.providerLabel, { fontFamily }]}>Continue with Apple</Text>
+          <Text style={[styles.providerLabel, { fontFamily }]}>{t(language, 'welcome.continueApple')}</Text>
         </Pressable>
 
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={[styles.dividerText, { fontFamily }]}>or</Text>
+          <Text style={[styles.dividerText, { fontFamily }]}>{t(language, 'welcome.or')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Sign up with email"
+          accessibilityLabel={t(language, 'welcome.signUpEmail')}
           onPress={onContinue}
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
-          <Text style={[styles.ctaLabel, { fontFamily }]}>Sign up with email</Text>
+          <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'welcome.signUpEmail')}</Text>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="I already have an account"
+          accessibilityLabel={t(language, 'welcome.haveAccount')}
           onPress={onSignIn ?? onContinue}
           style={({ pressed }) => [styles.signInLink, pressed && styles.signInLinkPressed]}
         >
-          <Text style={[styles.signInText, { fontFamily }]}>I already have an account</Text>
+          <Text style={[styles.signInText, { fontFamily }]}>{t(language, 'welcome.haveAccount')}</Text>
         </Pressable>
       </Animated.View>
     </View>
@@ -205,6 +216,39 @@ export function WelcomeScreen({ onContinue, onSignIn }: WelcomeScreenProps) {
 }
 
 const styles = StyleSheet.create({
+  langRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  langChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: '#E4D8FF',
+    backgroundColor: '#FFFFFF',
+  },
+  langChipActive: {
+    borderColor: '#7C3AED',
+    backgroundColor: '#EFE7FF',
+  },
+  langFlag: {
+    fontSize: 14,
+  },
+  langLabel: {
+    color: '#9A93AC',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  langLabelActive: {
+    color: '#5B21B6',
+  },
   screen: {
     flex: 1,
     backgroundColor: BG,

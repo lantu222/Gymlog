@@ -27,6 +27,7 @@ const suites = [
   ...require('./lib/lifetimeSummary.test.cjs'),
   ...require('./lib/profileOverview.test.cjs'),
   ...require('./lib/homeStatCards.test.cjs'),
+  ...require('./lib/i18n.test.cjs'),
   ...require('./lib/premiumHeroChart.test.cjs'),
   ...require('./lib/trainingRhythm.test.cjs'),
   ...require('./lib/progressionAnalyzer.test.cjs'),

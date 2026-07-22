@@ -392,20 +392,27 @@ module.exports = [
       assert.match(appSource, /if \(!minimumSplashElapsed\) \{\s*return;\s*\}/);
       assert.doesNotMatch(appSource, /firstAppOpen/);
 
-      // Light welcome: English plan-focused copy on the HG palette.
-      assert.match(welcomeSource, /You go to the gym\./);
-      assert.match(welcomeSource, /We handle the rest\./);
-      assert.match(welcomeSource, /Continue with Google/);
-      assert.match(welcomeSource, /Continue with Apple/);
-      assert.match(welcomeSource, /Sign up with email/);
-      assert.match(welcomeSource, /I already have an account/);
-      assert.doesNotMatch(welcomeSource, /Start free/);
+      // Light welcome: plan-focused copy now lives in the i18n dictionary and
+      // the screen renders every string through t(language, …).
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
+      assert.match(i18nSource, /You go to the gym\./);
+      assert.match(i18nSource, /We handle the rest\./);
+      assert.match(i18nSource, /Continue with Google/);
+      assert.match(i18nSource, /Continue with Apple/);
+      assert.match(i18nSource, /Sign up with email/);
+      assert.match(i18nSource, /I already have an account/);
+      assert.doesNotMatch(i18nSource, /Start free/);
+      assert.match(welcomeSource, /t\(language, 'welcome\.tagline'\)/);
+      assert.match(welcomeSource, /t\(language, 'welcome\.continueGoogle'\)/);
+      assert.match(welcomeSource, /SUPPORTED_LANGUAGES/);
       assert.match(welcomeSource, /const BG = '#F7F3FF'/);
       assert.match(welcomeSource, /const PURPLE = '#7C3AED'/);
       assert.match(welcomeSource, /logoInk/);
       assert.match(welcomeSource, /logoPurple/);
-      assert.match(welcomeSource, /AI-built plans/);
-      assert.match(welcomeSource, /Recovery aware/);
+      assert.match(i18nSource, /AI-built plans/);
+      assert.match(i18nSource, /Recovery aware/);
       assert.doesNotMatch(welcomeSource, /Sinä menet salille/);
       assert.doesNotMatch(welcomeSource, /Aloita ilmaiseksi/);
       assert.doesNotMatch(welcomeSource, /GYMLOG/);

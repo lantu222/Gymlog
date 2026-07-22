@@ -254,10 +254,30 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label="APP" />
           <View style={styles.card}>
+            {/* Theme choice is a Pro perk (user decision 2026-07-22). Without
+                Pro the control routes to the promo screen; with Pro the toggle
+                is live (visual-only until the theme engine exists). */}
             <Row
               icon="moon"
               title="Dark theme"
-              control={<ToggleSwitch label="Dark theme" value={darkTheme} onChange={setDarkTheme} />}
+              sub={preferences.adaptiveCoachPremiumUnlocked ? undefined : 'Unlocks with Pro.'}
+              control={
+                preferences.adaptiveCoachPremiumUnlocked ? (
+                  <ToggleSwitch label="Dark theme" value={darkTheme} onChange={setDarkTheme} />
+                ) : (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Unlock dark theme with Pro"
+                    onPress={onOpenPromo}
+                    style={({ pressed }) => [styles.proPill, pressed && styles.pressed]}
+                  >
+                    <Svg width={11} height={11} viewBox="0 0 24 24">
+                      <Path d={IC_PATHS.spark} fill={HG.purpleDark} />
+                    </Svg>
+                    <Text style={styles.proPillText}>PRO</Text>
+                  </Pressable>
+                )
+              }
             />
             <Row
               icon="bell"
@@ -576,6 +596,21 @@ const styles = StyleSheet.create({
   },
   segTextActive: {
     color: HG.purpleDark,
+  },
+  proPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 7,
+    paddingHorizontal: 13,
+    borderRadius: 999,
+    backgroundColor: HG.purpleLight,
+  },
+  proPillText: {
+    color: HG.purpleDark,
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   connectPill: {
     paddingVertical: 7,
