@@ -189,7 +189,11 @@ module.exports = [
       assert.match(appSource, /summaryNavigationPendingRef/);
       assert.match(appSource, /route\.screen === 'log'[\s\S]*!workout\.activeSession[\s\S]*finishSaveState\.status !== 'saving'[\s\S]*!summaryNavigationPendingRef\.current/);
       assert.match(appSource, /route\.screen === 'summary'[\s\S]*!completionSummary[\s\S]*finishSaveState\.status !== 'saving'[\s\S]*!summaryNavigationPendingRef\.current/);
-      assert.match(appSource, /workout\.finishWorkout\(adaptedSession\.performedAt\);[\s\S]*const summary = await saveCompletedWorkoutSession/);
+      // Save truthfulness: the session may only be finished AFTER the database
+      // save resolves — finishing first stranded the logged sets when a save
+      // failed (they were gone on the next launch).
+      assert.match(appSource, /const summary = await saveCompletedWorkoutSession[\s\S]*workout\.finishWorkout\(adaptedSession\.performedAt\);/);
+      assert.doesNotMatch(appSource, /workout\.finishWorkout\(adaptedSession\.performedAt\);[\s\S]*const summary = await saveCompletedWorkoutSession/);
       assert.match(appSource, /setCompletionSummary\([\s\S]*summaryNavigationPendingRef\.current = true;[\s\S]*workout\.clearCompletedWorkout\(\);[\s\S]*replaceRoute\(\{ tab: 'workout', screen: 'summary' \}\)/);
     },
   },
