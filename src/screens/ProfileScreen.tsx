@@ -222,9 +222,12 @@ export function ProfileScreen({
 
   const handleInvite = async () => {
     // OS share sheet only — the user picks the target and can edit the text.
-    // No referral rewards exist, so the copy promises none.
+    // The link is the app's store page (live once GAINER is published).
     try {
-      await Share.share({ message: 'Training with GAINER — an honest strength-training companion. Try it out.' });
+      await Share.share({
+        message:
+          'Join me on GAINER — an honest strength-training companion.\nhttps://play.google.com/store/apps/details?id=com.lantu66.gymlog',
+      });
     } catch {
       // Sharing is optional; a dismissed or failed sheet is not an error worth
       // interrupting the user for.

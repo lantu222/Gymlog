@@ -23,20 +23,6 @@ function getInitials(name: string) {
   return (first + second).toUpperCase();
 }
 
-function LockIcon() {
-  return (
-    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M7 11V8a5 5 0 0 1 10 0v3M6 11h12v9H6v-9z"
-        stroke={HG.faint}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </Svg>
-  );
-}
-
 /**
  * Screen 5 of the profile suite — deliberately minimal. Display name is the
  * only editable field: no username, bio, city, gym, socials or privacy
@@ -118,15 +104,6 @@ export function EditProfileScreen({ initialName, onBack, onSave }: EditProfileSc
             autoCapitalize="words"
             style={styles.input}
           />
-          <Text style={styles.fieldCaption}>This is the only name GAINER shows.</Text>
-        </View>
-
-        <View style={styles.footerRow}>
-          <LockIcon />
-          <Text style={styles.footerText}>
-            Your profile is private and yours alone — no handle, no followers, nothing public. Body basics and
-            preferences live in My data.
-          </Text>
         </View>
       </ScrollView>
     </View>
@@ -225,26 +202,5 @@ const styles = StyleSheet.create({
     color: HG.ink,
     fontSize: 15.5,
     fontWeight: '700',
-  },
-  fieldCaption: {
-    color: HG.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    marginTop: 8,
-    paddingHorizontal: 2,
-  },
-  footerRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    marginTop: 26,
-    paddingHorizontal: 4,
-  },
-  footerText: {
-    flex: 1,
-    color: HG.faint,
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 18,
   },
 });

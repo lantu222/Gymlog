@@ -120,6 +120,30 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
+      screen: 'notifications';
+    }
+  | {
+      tab: 'profile';
+      screen: 'training_break';
+    }
+  | {
+      tab: 'profile';
+      screen: 'promo';
+    }
+  | {
+      tab: 'profile';
+      screen: 'subscription';
+    }
+  | {
+      tab: 'profile';
+      screen: 'support';
+    }
+  | {
+      tab: 'profile';
+      screen: 'features';
+    }
+  | {
+      tab: 'profile';
       screen: 'plan_settings';
     }
   | {

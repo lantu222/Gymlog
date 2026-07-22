@@ -89,6 +89,12 @@ import { SettingsScreen } from './src/screens/SettingsScreen';
 import { MyDataScreen } from './src/screens/MyDataScreen';
 import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { TrainingPlanScreen } from './src/screens/TrainingPlanScreen';
+import { NotificationsScreen } from './src/screens/NotificationsScreen';
+import { TrainingBreakScreen } from './src/screens/TrainingBreakScreen';
+import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
+import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
+import { SupportScreen } from './src/screens/SupportScreen';
+import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -3265,6 +3271,65 @@ function GymlogApp() {
         }}
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'notifications') {
+    content = (
+      <NotificationsScreen
+        prefs={preferences.notificationPrefs}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onChange={(patch) =>
+          void updatePreferences({ notificationPrefs: { ...preferences.notificationPrefs, ...patch } })
+        }
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'training_break') {
+    content = (
+      <TrainingBreakScreen
+        trainingBreak={preferences.trainingBreak}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onStartBreak={(reason, note) =>
+          void updatePreferences({ trainingBreak: { reason, note, startedAt: new Date().toISOString() } })
+        }
+        onEndBreak={() => void updatePreferences({ trainingBreak: null })}
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'promo') {
+    content = (
+      <PromoCodeScreen
+        promoProUntil={preferences.promoProUntil}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onRedeemed={(proUntilIso) =>
+          void updatePreferences({ promoProUntil: proUntilIso, adaptiveCoachPremiumUnlocked: true })
+        }
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'subscription') {
+    content = (
+      <SubscriptionScreen
+        promoProUntil={preferences.promoProUntil}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'support') {
+    content = (
+      <SupportScreen
+        profileName={preferences.profileName}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'features') {
+    content = (
+      <FeatureRequestsScreen
+        votedIds={preferences.featureVotedIds}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onToggleVote={(id) =>
+          void updatePreferences({
+            featureVotedIds: preferences.featureVotedIds.includes(id)
+              ? preferences.featureVotedIds.filter((votedId) => votedId !== id)
+              : [...preferences.featureVotedIds, id],
+          })
+        }
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'edit_profile') {
     content = (
       <EditProfileScreen
@@ -3292,6 +3357,12 @@ function GymlogApp() {
           await updatePreferences(patch);
         }}
         onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
+        onOpenNotifications={() => navigate({ tab: 'profile', screen: 'notifications' })}
+        onOpenTrainingBreak={() => navigate({ tab: 'profile', screen: 'training_break' })}
+        onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
+        onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
+        onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
+        onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
         onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
           await resetAllData();
@@ -3513,7 +3584,16 @@ function GymlogApp() {
   const profileListActive = route.tab === 'profile' && route.screen === 'list';
   const profileSettingsActive =
     route.tab === 'profile' &&
-    (route.screen === 'settings' || route.screen === 'my_data' || route.screen === 'edit_profile' || route.screen === 'training_plan');
+    (route.screen === 'settings' ||
+      route.screen === 'my_data' ||
+      route.screen === 'edit_profile' ||
+      route.screen === 'training_plan' ||
+      route.screen === 'notifications' ||
+      route.screen === 'training_break' ||
+      route.screen === 'promo' ||
+      route.screen === 'subscription' ||
+      route.screen === 'support' ||
+      route.screen === 'features');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
   const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';

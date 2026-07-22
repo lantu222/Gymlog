@@ -46,6 +46,25 @@ export type SetupCautionArea =
   | 'knees'
   | 'ankles';
 export type SetupCautionLevel = 'info' | 'careful' | 'avoid';
+export type NotificationLevel = 'quiet' | 'normal' | 'motivating';
+
+export interface NotificationPrefs {
+  pushEnabled: boolean;
+  level: NotificationLevel;
+  personalRecords: boolean;
+  weeklySummary: boolean;
+  comebackNudge: boolean;
+  sessionReminders: boolean;
+}
+
+export type TrainingBreakReason = 'injury' | 'holiday' | 'other';
+
+export interface TrainingBreak {
+  reason: TrainingBreakReason;
+  note: string | null;
+  startedAt: string;
+}
+
 export interface SetupCautionFlag {
   area: SetupCautionArea;
   level: SetupCautionLevel;
@@ -241,6 +260,17 @@ export interface AppPreferences {
    * [] = the user removed every card and that choice sticks.
    */
   homeStatCardKeys: string[] | null;
+  /**
+   * Notification settings. Stored ahead of the delivery engine — nothing is
+   * sent yet; the master defaults to off per product principle.
+   */
+  notificationPrefs: NotificationPrefs;
+  /** Active training break, or null when training normally. */
+  trainingBreak: TrainingBreak | null;
+  /** ISO date until which a redeemed promo keeps Pro unlocked; null = none. */
+  promoProUntil: string | null;
+  /** Feature-request ids this device has upvoted (local demo board). */
+  featureVotedIds: string[];
   adaptiveCoachPremiumUnlocked: boolean;
   /** Plan-review toggle: GAINER adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;

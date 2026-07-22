@@ -375,6 +375,51 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
             (key: unknown): key is string => typeof key === 'string' && key.length > 0,
           )
         : fallback.preferences.homeStatCardKeys,
+      notificationPrefs: {
+        pushEnabled:
+          typeof input?.preferences?.notificationPrefs?.pushEnabled === 'boolean'
+            ? input.preferences.notificationPrefs.pushEnabled
+            : fallback.preferences.notificationPrefs.pushEnabled,
+        level: ['quiet', 'normal', 'motivating'].includes(input?.preferences?.notificationPrefs?.level as string)
+          ? (input!.preferences!.notificationPrefs!.level as 'quiet' | 'normal' | 'motivating')
+          : fallback.preferences.notificationPrefs.level,
+        personalRecords:
+          typeof input?.preferences?.notificationPrefs?.personalRecords === 'boolean'
+            ? input.preferences.notificationPrefs.personalRecords
+            : fallback.preferences.notificationPrefs.personalRecords,
+        weeklySummary:
+          typeof input?.preferences?.notificationPrefs?.weeklySummary === 'boolean'
+            ? input.preferences.notificationPrefs.weeklySummary
+            : fallback.preferences.notificationPrefs.weeklySummary,
+        comebackNudge:
+          typeof input?.preferences?.notificationPrefs?.comebackNudge === 'boolean'
+            ? input.preferences.notificationPrefs.comebackNudge
+            : fallback.preferences.notificationPrefs.comebackNudge,
+        sessionReminders:
+          typeof input?.preferences?.notificationPrefs?.sessionReminders === 'boolean'
+            ? input.preferences.notificationPrefs.sessionReminders
+            : fallback.preferences.notificationPrefs.sessionReminders,
+      },
+      trainingBreak:
+        input?.preferences?.trainingBreak &&
+        ['injury', 'holiday', 'other'].includes(input.preferences.trainingBreak.reason as string) &&
+        typeof input.preferences.trainingBreak.startedAt === 'string'
+          ? {
+              reason: input.preferences.trainingBreak.reason as 'injury' | 'holiday' | 'other',
+              note:
+                typeof input.preferences.trainingBreak.note === 'string' ? input.preferences.trainingBreak.note : null,
+              startedAt: input.preferences.trainingBreak.startedAt,
+            }
+          : fallback.preferences.trainingBreak,
+      promoProUntil:
+        typeof input?.preferences?.promoProUntil === 'string'
+          ? input.preferences.promoProUntil
+          : fallback.preferences.promoProUntil,
+      featureVotedIds: Array.isArray(input?.preferences?.featureVotedIds)
+        ? input.preferences.featureVotedIds.filter(
+            (id: unknown): id is string => typeof id === 'string' && id.length > 0,
+          )
+        : fallback.preferences.featureVotedIds,
       adaptiveCoachPremiumUnlocked:
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked

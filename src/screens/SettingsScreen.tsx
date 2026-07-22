@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
@@ -17,6 +17,12 @@ interface SettingsScreenProps {
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
   onOpenMyData: () => void;
   onOpenEditProfile: () => void;
+  onOpenNotifications: () => void;
+  onOpenTrainingBreak: () => void;
+  onOpenPromo: () => void;
+  onOpenSubscription: () => void;
+  onOpenSupport: () => void;
+  onOpenFeatures: () => void;
   onConnectHealth: () => void;
   onResetAllData: () => void;
 }
@@ -172,6 +178,12 @@ export function SettingsScreen({
   onPreferencesChange,
   onOpenMyData,
   onOpenEditProfile,
+  onOpenNotifications,
+  onOpenTrainingBreak,
+  onOpenPromo,
+  onOpenSubscription,
+  onOpenSupport,
+  onOpenFeatures,
   onConnectHealth,
   onResetAllData,
 }: SettingsScreenProps) {
@@ -193,7 +205,11 @@ export function SettingsScreen({
         >
           <Ic n="back" c={HG.ink} s={20} sw={2.4} />
         </Pressable>
-        <Text style={styles.headerTitle}>Settings</Text>
+        {/* pointerEvents none — the absolute title must not eat the back
+            button's taps (the prototype does the same with pointer-events). */}
+        <Text style={styles.headerTitle} pointerEvents="none">
+          Settings
+        </Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -233,11 +249,6 @@ export function SettingsScreen({
           </View>
           <Ic n="chevron" c={HG.faint} s={18} sw={2.2} />
         </Pressable>
-
-        {/* referral */}
-        <View style={[styles.card, styles.referralCard]}>
-          <Row icon="gift" title="Share GAINER with a friend" sub="Both of you earn a free month of Pro." chevron last />
-        </View>
 
         <View style={styles.section}>
           <SectionLabel label="APP" />
@@ -280,18 +291,7 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label="TRAINING" />
           <View style={styles.card}>
-            <Row
-              icon="spark"
-              title="Smart progression"
-              sub="AI adjusts your working weights."
-              control={
-                <ToggleSwitch
-                  label="Smart progression"
-                  value={preferences.automatedProgressionEnabled}
-                  onChange={(next) => onPreferencesChange({ automatedProgressionEnabled: next })}
-                />
-              }
-            />
+            {/* Smart progression removed — returns later as a Pro feature. */}
             <Row
               icon="heart"
               iconColor="#FF2D55"
@@ -308,34 +308,34 @@ export function SettingsScreen({
                 </Pressable>
               }
             />
-            <Row icon="pause" title="Training break" sub="Log an injury or holiday." chevron last />
+            <Row icon="pause" title="Training break" sub="Log an injury or holiday." chevron last onPress={onOpenTrainingBreak} />
           </View>
         </View>
 
         <View style={styles.section}>
           <SectionLabel label="ACCOUNT" />
           <View style={styles.card}>
-            <Row icon="bell" title="Notifications" sub="Push and reminders." chevron />
-            <Row icon="person" title="Edit profile" chevron onPress={onOpenEditProfile} />
+            {/* Edit profile row dropped — the profile chip above is the entry. */}
+            <Row icon="bell" title="Notifications" sub="Push and reminders." chevron onPress={onOpenNotifications} />
             <Row icon="body" title="My data" sub="Basics & training preferences." chevron onPress={onOpenMyData} />
-            <Row icon="tag" title="Promo code" chevron />
-            <Row icon="card" title="Manage subscription" chevron last />
+            <Row icon="tag" title="Promo code" chevron onPress={onOpenPromo} />
+            <Row icon="card" title="Manage subscription" chevron last onPress={onOpenSubscription} />
           </View>
         </View>
 
         <View style={styles.section}>
           <SectionLabel label="YOUR DATA" />
           <View style={styles.card}>
-            <Row icon="upload" title="Import routine (CSV)" sub="From Sheets, Excel or another app." chevron />
-            <Row icon="download" title="Export routine (CSV)" sub="Download a local copy." chevron last />
+            <Row icon="upload" title="Import plan (CSV)" sub="From Sheets, Excel or another app." chevron />
+            <Row icon="download" title="Export plan (CSV)" sub="Download a local copy." chevron last />
           </View>
         </View>
 
         <View style={styles.section}>
           <SectionLabel label="SUPPORT" />
           <View style={styles.card}>
-            <Row icon="chat" title="Contact us" sub="Usually answered right away." chevron />
-            <Row icon="spark" title="Feature requests" sub="Vote on what we build next." chevron last />
+            <Row icon="chat" title="Contact us" sub="Usually answered right away." chevron onPress={onOpenSupport} />
+            <Row icon="spark" title="Feature requests" sub="Vote on what we build next." chevron last onPress={onOpenFeatures} />
           </View>
         </View>
 
@@ -415,6 +415,8 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     textAlign: 'center',
+    pointerEvents: 'none',
+    zIndex: -1,
     color: HG.ink,
     fontSize: 17,
     fontWeight: '800',
@@ -492,9 +494,6 @@ const styles = StyleSheet.create({
     color: HG.purpleDark,
     fontSize: 11.5,
     fontWeight: '800',
-  },
-  referralCard: {
-    marginTop: 12,
   },
   section: {
     marginTop: 22,
