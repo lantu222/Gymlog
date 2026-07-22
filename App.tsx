@@ -87,6 +87,7 @@ import { PremiumScreen } from './src/screens/PremiumScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { MyDataScreen } from './src/screens/MyDataScreen';
+import { TrainingPlanScreen } from './src/screens/TrainingPlanScreen';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -2221,6 +2222,12 @@ function GymlogApp() {
     () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
     [preferences.homeStatCardKeys],
   );
+  // Week-strip training dots from the days the user actually picked
+  // (Monday-first indexes). Empty = unknown → no dots, no invented rhythm.
+  const homeTrainingDayIndexes = useMemo(() => {
+    const order: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
+    return preferences.setupAvailableDays.map((day) => order[day]).filter((index) => index !== undefined);
+  }, [preferences.setupAvailableDays]);
   // Profile "TRAINING PLAN" card. Reuses the same composed plan Home renders so
   // the two screens can never disagree about what the user is running.
   const profilePlanSummary = useMemo(() => {
@@ -3214,6 +3221,48 @@ function GymlogApp() {
         }
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'training_plan') {
+    content = (
+      <TrainingPlanScreen
+        planName={profilePlanSummary.name}
+        planType={homeActivePlanCard?.programType ?? null}
+        planDaysPerWeek={profilePlanSummary.daysPerWeek}
+        planExerciseCount={profilePlanSummary.exerciseCount}
+        planFocusCaption={profilePlanSummary.focusCaption}
+        sessions={(homeActivePlanCard?.sessions ?? []).map((session) => ({
+          id: session.id,
+          title: formatWorkoutDisplayLabel(session.title),
+          exerciseCount: session.exercises.length + (session.hiddenExerciseCount ?? 0),
+          totalSets: session.totalSets ?? 0,
+          isNext: session.id === homeActivePlanCard?.nextSession.id,
+        }))}
+        trainingDays={preferences.setupAvailableDays}
+        exerciseLibrary={exerciseBrowserItems}
+        onBack={() => navigateBack(ROOT_ROUTES.profile)}
+        onChangeTrainingDays={(days) => {
+          // Same invariants as the onboarding day question: picking specific
+          // days makes the schedule self-managed and the count follows, 2–6.
+          const clamped = Math.min(6, Math.max(2, days.length)) as 2 | 3 | 4 | 5 | 6;
+          void updatePreferences({
+            setupAvailableDays: days,
+            setupDaysPerWeek: clamped,
+            setupScheduleMode: 'self_managed',
+          });
+        }}
+        onEditCustomPlan={
+          homeActivePlanCard?.programType === 'custom'
+            ? () =>
+                navigate({ tab: 'workout', screen: 'template', workoutTemplateId: homeActivePlanCard.programId })
+            : undefined
+        }
+        onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_setup' })}
+        onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
+        onImportProgram={async (draft) => {
+          const workoutTemplateId = await upsertWorkoutTemplate(draft);
+          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+        }}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'my_data') {
     content = (
       <MyDataScreen
@@ -3258,7 +3307,7 @@ function GymlogApp() {
         planExerciseCount={profilePlanSummary.exerciseCount}
         planFocusCaption={profilePlanSummary.focusCaption}
         onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
-        onManagePlan={handleOpenPlanSettings}
+        onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
         onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
       />
     );
@@ -3381,6 +3430,7 @@ function GymlogApp() {
     content = (
       <HomeScreen
         activePlan={homeActivePlanCard}
+        trainingDayIndexes={homeTrainingDayIndexes}
         statCatalogCards={homeStatCatalogCards}
         pinnedStatCardKeys={homePinnedStatCardKeys}
         onChangePinnedStatCardKeys={(next) => void updatePreferences({ homeStatCardKeys: next })}
@@ -3454,7 +3504,8 @@ function GymlogApp() {
   const programsHomeActive = route.tab === 'workout' && route.screen === 'programs_home';
   const profileListActive = route.tab === 'profile' && route.screen === 'list';
   const profileSettingsActive =
-    route.tab === 'profile' && (route.screen === 'settings' || route.screen === 'my_data');
+    route.tab === 'profile' &&
+    (route.screen === 'settings' || route.screen === 'my_data' || route.screen === 'training_plan');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
   const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';

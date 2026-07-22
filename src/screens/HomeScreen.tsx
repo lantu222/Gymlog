@@ -144,6 +144,12 @@ interface HomeScreenProps {
   pinnedStatCardKeys?: string[];
   onChangePinnedStatCardKeys?: (next: string[]) => void;
   onOpenStatCard?: (key: string) => void;
+  /**
+   * Monday-first weekday indexes (0 = Mon … 6 = Sun) of the user's training
+   * days, from setupAvailableDays. Empty = unknown → the strip shows no
+   * training dots rather than an invented rhythm.
+   */
+  trainingDayIndexes?: number[];
 }
 
 export function HomeScreen({
@@ -158,6 +164,7 @@ export function HomeScreen({
   pinnedStatCardKeys = [],
   onChangePinnedStatCardKeys,
   onOpenStatCard,
+  trainingDayIndexes = [],
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
@@ -172,9 +179,6 @@ export function HomeScreen({
 
   const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
   const monthCalendar = useMemo(() => getHomeMonthCalendar(), []);
-  const trainingDayIndexes = activePlan
-    ? [0, 3].slice(0, Math.min(Number.parseInt(activePlan.sessionsPerWeek, 10) || 2, 2))
-    : [0, 3];
 
   // --- Session hero data (Home v4) ---------------------------------------
   const nextPlanSession = activePlan?.nextSession ?? null;
@@ -394,7 +398,13 @@ export function HomeScreen({
 
               return (
                 <View key={day.dayStart} style={[styles.weekStripItem, day.isToday && styles.weekStripItemToday]}>
-                  <View style={[styles.weekStripDot, isTrainingDay ? styles.weekStripDotTraining : styles.weekStripDotRecovery]} />
+                  {/* Dots only when training days are actually known — with no
+                      schedule, "recovery" would be as invented as "training". */}
+                  {trainingDayIndexes.length > 0 ? (
+                    <View style={[styles.weekStripDot, isTrainingDay ? styles.weekStripDotTraining : styles.weekStripDotRecovery]} />
+                  ) : (
+                    <View style={[styles.weekStripDot, styles.weekStripDotUnknown]} />
+                  )}
                   <Text style={[styles.weekStripDayLabel, day.isToday && styles.weekStripDayLabelToday]}>{dayLabel}</Text>
                 </View>
               );
@@ -453,7 +463,13 @@ export function HomeScreen({
                       <View
                         style={[
                           styles.monthDayDot,
-                          isTrainingDay ? styles.monthDayDotTraining : day.inMonth ? styles.monthDayDotRecovery : null,
+                          trainingDayIndexes.length > 0
+                            ? isTrainingDay
+                              ? styles.monthDayDotTraining
+                              : day.inMonth
+                                ? styles.monthDayDotRecovery
+                                : null
+                            : null,
                         ]}
                       />
                     </View>
@@ -461,16 +477,18 @@ export function HomeScreen({
                 })}
               </View>
             ))}
-            <View style={styles.monthLegendRow}>
-              <View style={styles.monthLegendItem}>
-                <View style={[styles.monthDayDot, styles.monthDayDotTraining]} />
-                <Text style={styles.monthLegendText}>Training</Text>
+            {trainingDayIndexes.length > 0 ? (
+              <View style={styles.monthLegendRow}>
+                <View style={styles.monthLegendItem}>
+                  <View style={[styles.monthDayDot, styles.monthDayDotTraining]} />
+                  <Text style={styles.monthLegendText}>Training</Text>
+                </View>
+                <View style={styles.monthLegendItem}>
+                  <View style={[styles.monthDayDot, styles.monthDayDotRecovery]} />
+                  <Text style={styles.monthLegendText}>Recovery</Text>
+                </View>
               </View>
-              <View style={styles.monthLegendItem}>
-                <View style={[styles.monthDayDot, styles.monthDayDotRecovery]} />
-                <Text style={styles.monthLegendText}>Recovery</Text>
-              </View>
-            </View>
+            ) : null}
           </Animated.View>
         </Animated.View>
 
@@ -947,6 +965,9 @@ const styles = StyleSheet.create({
   },
   weekStripDotTraining: {
     backgroundColor: HG3.purpleBright,
+  },
+  weekStripDotUnknown: {
+    backgroundColor: 'transparent',
   },
   weekStripDotRecovery: {
     backgroundColor: HG3.green,
