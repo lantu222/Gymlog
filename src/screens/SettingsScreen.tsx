@@ -71,6 +71,7 @@ const IC_PATHS: Record<string, string> = {
   shield: 'M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6z',
   doc: 'M7 3h7l4 4v14H7zM14 3v4h4',
   analytics: 'M4 20V4M4 20h16M8 16l3-4 3 2 4-6',
+  sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19',
   logout: 'M9 21H5V3h4M16 16l5-4-5-4M21 12H9',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   back: 'M15 5l-7 7 7 7',
@@ -267,6 +268,18 @@ export function SettingsScreen({
                   label="Sound and haptics"
                   value={soundAndHaptics}
                   onChange={(next) => onPreferencesChange({ soundCuesEnabled: next, hapticsEnabled: next })}
+                />
+              }
+            />
+            <Row
+              icon="sun"
+              title="Keep screen awake"
+              sub="While a workout is running."
+              control={
+                <ToggleSwitch
+                  label="Keep screen awake"
+                  value={preferences.keepScreenAwakeDuringWorkout}
+                  onChange={(next) => onPreferencesChange({ keepScreenAwakeDuringWorkout: next })}
                 />
               }
             />

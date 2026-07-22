@@ -21,6 +21,7 @@ import { SurfaceAccent } from '../components/MainScreenPrimitives';
 import { ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_SUBSTITUTION_GROUPS, getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
+import { useKeepScreenAwake } from '../utils/keepAwake';
 import {
   WorkoutExerciseInstance,
   WorkoutRuntimeTemplate,
@@ -35,6 +36,8 @@ interface WorkoutLoggingScreenProps {
   sessionKey: string;
   unitPreference: UnitPreference;
   autoFocusNextInput: boolean;
+  /** Keep the display on while the logger is open. */
+  keepScreenAwake?: boolean;
   defaultRestSeconds: number;
   hasAdaptiveCoachPremium: boolean;
   /** P5 truth: automated progression OFF silences the adaptive coach entirely. */
@@ -313,6 +316,7 @@ export function WorkoutLoggingScreen({
   sessionKey,
   unitPreference,
   autoFocusNextInput,
+  keepScreenAwake = false,
   defaultRestSeconds,
   hasAdaptiveCoachPremium,
   automatedProgressionEnabled = true,
@@ -329,6 +333,7 @@ export function WorkoutLoggingScreen({
   onDismissTip,
   inlineTip,
 }: WorkoutLoggingScreenProps) {
+  useKeepScreenAwake(keepScreenAwake, 'workout-logger');
   const {
     hydrated,
     isRestoring,

@@ -22,6 +22,7 @@
     "expo-font": "~55.0.4",
     "expo-gl": "~55.0.16",
     "expo-haptics": "~55.0.14",
+    "expo-keep-awake": "~55.0.8",
     "expo-splash-screen": "~55.0.19",
     "expo-status-bar": "~55.0.4",
     "phosphor-react-native": "^3.0.4",

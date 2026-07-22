@@ -42,8 +42,11 @@ import { sound } from '../utils/sound';
 import { HG } from '../lightTheme';
 import { CardioActivityType, CardioFeel, CardioSession } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
+import { useKeepScreenAwake } from '../utils/keepAwake';
 
 interface CardioScreenProps {
+  /** Keep the display on while the cardio player runs. */
+  keepScreenAwake?: boolean;
   cardioSessions: CardioSession[];
   hasActiveStrengthSession: boolean;
   isSaving: boolean;
@@ -60,6 +63,7 @@ interface CardioScreenProps {
 }
 
 export function CardioScreen({
+  keepScreenAwake = false,
   cardioSessions,
   hasActiveStrengthSession,
   isSaving,
@@ -70,6 +74,8 @@ export function CardioScreen({
 }: CardioScreenProps) {
   const workout = useWorkoutContext();
   const activeCardio = workout.activeCardio;
+  // Only hold the screen while a cardio session is actually running.
+  useKeepScreenAwake(keepScreenAwake && activeCardio !== null, 'cardio-player');
 
   const [finishing, setFinishing] = useState(false);
   const [conflictFor, setConflictFor] = useState<CardioActivityType | null>(null);

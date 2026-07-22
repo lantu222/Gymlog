@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+﻿import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createEmptyDatabase } from '../data/seed';
 import { createId } from '../lib/ids';
@@ -120,7 +120,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       theme: 'dark',
       defaultRestSeconds: 120,
       autoFocusNextInput: true,
-      keepScreenAwakeDuringWorkout: false,
+      keepScreenAwakeDuringWorkout: true,
       soundCuesEnabled: true,
       hapticsEnabled: true,
       homeStatCardKeys: null,

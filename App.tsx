@@ -1253,7 +1253,6 @@ function GymlogApp() {
         ...adaptedSession,
         performedAt: adaptedSession.performedAt,
       });
-
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
       }
@@ -2981,6 +2980,7 @@ function GymlogApp() {
   } else if (route.tab === 'home' && route.screen === 'cardio') {
     content = (
       <CardioScreen
+        keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         cardioSessions={cardioSessions}
         hasActiveStrengthSession={Boolean(workout.activeSession)}
         isSaving={cardioSaving}
@@ -3010,6 +3010,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'guided') {
     content = (
       <GuidedPlayerScreen
+        keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         unitPreference={unitPreference}
         exerciseLibrary={exerciseLibrary}
         soundCuesEnabled={preferences.soundCuesEnabled}
@@ -3030,6 +3031,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'log') {
     content = (
       <WorkoutLoggingScreen
+        keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         sessionKey={route.workoutTemplateId}
         unitPreference={unitPreference}
         autoFocusNextInput={preferences.autoFocusNextInput}

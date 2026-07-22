@@ -57,6 +57,7 @@ import { sound, type CueSound } from '../utils/sound';
 import { HG } from '../lightTheme';
 import { ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
+import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
 import { WorkoutExerciseInstance } from '../features/workout/workoutTypes';
 
@@ -90,6 +91,8 @@ interface GuidedPlayerScreenProps {
   unitPreference: UnitPreference;
   exerciseLibrary: ExerciseLibraryItem[];
   soundCuesEnabled: boolean;
+  /** Keep the display on for the whole guided session. */
+  keepScreenAwake?: boolean;
   onToggleSoundCues: (next: boolean) => void;
   entryEyebrow: string;
   weekProgress: GuidedWeekProgress | null;
@@ -594,6 +597,7 @@ export function GuidedPlayerScreen({
   unitPreference,
   exerciseLibrary,
   soundCuesEnabled,
+  keepScreenAwake = false,
   onToggleSoundCues,
   entryEyebrow,
   weekProgress,
@@ -606,6 +610,7 @@ export function GuidedPlayerScreen({
 }: GuidedPlayerScreenProps) {
   const workout = useWorkoutContext();
   const session = workout.activeSession;
+  useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
   const sessionTitle = getGuidedSessionTitle(session?.templateName ?? 'Workout');
 

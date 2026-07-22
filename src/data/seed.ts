@@ -1,4 +1,4 @@
-import {
+﻿import {
   AppDatabase,
   ExerciseLibraryItem,
   SetupCautionFlag,
@@ -15,7 +15,7 @@ const DEFAULT_PREFERENCES = {
   theme: 'dark' as const,
   defaultRestSeconds: 120,
   autoFocusNextInput: true,
-  keepScreenAwakeDuringWorkout: false,
+  keepScreenAwakeDuringWorkout: true,
   soundCuesEnabled: true,
   hapticsEnabled: true,
   homeStatCardKeys: null as string[] | null,
