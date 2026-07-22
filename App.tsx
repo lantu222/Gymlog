@@ -3258,7 +3258,6 @@ function GymlogApp() {
         planExerciseCount={profilePlanSummary.exerciseCount}
         planFocusCaption={profilePlanSummary.focusCaption}
         onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
-        onEditProfile={handleOpenSetupEditor}
         onManagePlan={handleOpenPlanSettings}
         onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
       />

@@ -14,7 +14,17 @@ import {
 import { ExerciseProgressSummary } from '../lib/progression';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { AppPreferences, ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { AppPreferences, ExerciseLibraryItem, SetupWeekday, UnitPreference } from '../types/models';
+
+const WEEKDAY_CHIPS: Array<{ day: SetupWeekday; label: string }> = [
+  { day: 'mon', label: 'Mo' },
+  { day: 'tue', label: 'Tu' },
+  { day: 'wed', label: 'We' },
+  { day: 'thu', label: 'Th' },
+  { day: 'fri', label: 'Fr' },
+  { day: 'sat', label: 'Sa' },
+  { day: 'sun', label: 'Su' },
+];
 
 interface ProfileScreenProps {
   preferences: AppPreferences;
@@ -28,7 +38,6 @@ interface ProfileScreenProps {
   planFocusCaption?: string | null;
   planIsAiBuilt?: boolean;
   onOpenSettings: () => void;
-  onEditProfile: () => void;
   onManagePlan: () => void;
   onOpenProgress: () => void;
 }
@@ -65,22 +74,13 @@ function GearIcon() {
   );
 }
 
-function PersonIcon() {
-  return (
-    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={8} r={3.6} stroke="#FFFFFF" strokeWidth={2} />
-      <Path d="M5 20c0-3.6 3.1-6 7-6s7 2.4 7 6" stroke="#FFFFFF" strokeWidth={2} strokeLinecap="round" />
-    </Svg>
-  );
-}
-
-function ShareIcon() {
+function GiftIcon() {
   return (
     <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 15V4m0 0L8.5 7.5M12 4l3.5 3.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"
+        d="M4 12v8h16v-8M2 7h20v5H2V7zM12 7v13M12 7c-1.5 0-4.5-.6-4.5-2.7C7.5 2.6 9 2 10 2c1.8 0 2 2.6 2 5zM12 7c1.5 0 4.5-.6 4.5-2.7C16.5 2.6 15 2 14 2c-1.8 0-2 2.6-2 5z"
         stroke={HG.ink}
-        strokeWidth={2}
+        strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -195,7 +195,6 @@ export function ProfileScreen({
   planFocusCaption,
   planIsAiBuilt = false,
   onOpenSettings,
-  onEditProfile,
   onManagePlan,
   onOpenProgress,
 }: ProfileScreenProps) {
@@ -227,15 +226,11 @@ export function ProfileScreen({
 
   const resolvedPlanName = planName?.trim() ? planName.trim() : null;
 
-  const handleShare = async () => {
+  const handleInvite = async () => {
     // OS share sheet only — the user picks the target and can edit the text.
-    // Every number here comes from their own logged history.
-    const line = lifetime.sessionCount > 0
-      ? `${lifetime.sessionCount} sessions logged in GAINER, across ${lifetime.weeksActive} training weeks.`
-      : 'Tracking my training with GAINER.';
-
+    // No referral rewards exist, so the copy promises none.
     try {
-      await Share.share({ message: line });
+      await Share.share({ message: 'Training with GAINER — an honest strength-training companion. Try it out.' });
     } catch {
       // Sharing is optional; a dismissed or failed sheet is not an error worth
       // interrupting the user for.
@@ -271,25 +266,15 @@ export function ProfileScreen({
         </View>
         <Text style={styles.identityName}>{identityName ?? 'Guest athlete'}</Text>
 
-        {/* ACTIONS */}
-        <View style={styles.actionRow}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onEditProfile}
-            style={({ pressed }) => [styles.actionPrimary, pressed && styles.pressed]}
-          >
-            <PersonIcon />
-            <Text style={styles.actionPrimaryText}>Edit profile</Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => void handleShare()}
-            style={({ pressed }) => [styles.actionSecondary, pressed && styles.pressed]}
-          >
-            <ShareIcon />
-            <Text style={styles.actionSecondaryText}>Share</Text>
-          </Pressable>
-        </View>
+        {/* INVITE */}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => void handleInvite()}
+          style={({ pressed }) => [styles.inviteButton, pressed && styles.pressed]}
+        >
+          <GiftIcon />
+          <Text style={styles.inviteButtonText}>Invite a friend to GAINER</Text>
+        </Pressable>
 
         {/* TRAINING PLAN */}
         <View style={settingsStyles.section}>
@@ -308,6 +293,22 @@ export function ProfileScreen({
                   {planDaysPerWeek ? <Badge icon={<CalendarIcon />} label={`${planDaysPerWeek}× / week`} /> : null}
                   {planExerciseCount ? <Badge icon={<DumbbellIcon />} label={`${planExerciseCount} exercises`} /> : null}
                 </View>
+                {/* Weekday chips only when the questionnaire actually captured
+                    training days — no invented rhythm. */}
+                {preferences.setupAvailableDays.length > 0 ? (
+                  <View style={styles.weekdayRow}>
+                    {WEEKDAY_CHIPS.map((chip) => {
+                      const active = preferences.setupAvailableDays.includes(chip.day);
+                      return (
+                        <View key={chip.day} style={[styles.weekdayChip, active && styles.weekdayChipActive]}>
+                          <Text style={[styles.weekdayChipText, active && styles.weekdayChipTextActive]}>
+                            {chip.label}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                ) : null}
                 {planFocusCaption ? (
                   <Text numberOfLines={1} style={styles.planCaption}>
                     {planFocusCaption}
@@ -459,29 +460,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     marginTop: 14,
   },
-  actionRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
-  },
-  actionPrimary: {
-    flex: 1,
-    height: 46,
-    borderRadius: 14,
-    backgroundColor: HG.ink,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  actionPrimaryText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
-  actionSecondary: {
-    flex: 1,
-    height: 46,
+  inviteButton: {
+    height: 48,
     borderRadius: 14,
     backgroundColor: HG.surface,
     borderWidth: 1,
@@ -489,12 +469,37 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 9,
+    marginTop: 14,
   },
-  actionSecondaryText: {
+  inviteButtonText: {
     color: HG.ink,
     fontSize: 14.5,
     fontWeight: '800',
+  },
+  weekdayRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 12,
+  },
+  weekdayChip: {
+    flex: 1,
+    height: 30,
+    borderRadius: 9,
+    backgroundColor: '#F1EDFA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayChipActive: {
+    backgroundColor: HG.purpleLight,
+  },
+  weekdayChipText: {
+    color: HG.faint,
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  weekdayChipTextActive: {
+    color: HG.purpleDark,
   },
   planCard: {
     paddingVertical: 15,
