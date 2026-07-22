@@ -44,6 +44,8 @@ interface TrainingPlanScreenProps {
   onChangeTrainingDays: (days: SetupWeekday[]) => void;
   /** Present only for custom plans — ready programs are immutable. */
   onEditCustomPlan?: () => void;
+  /** Equipment, swaps and progression live one level deeper. */
+  onOpenPlanSettings: () => void;
   onAiAssisted: () => void;
   onBuildYourself: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
@@ -76,6 +78,7 @@ export function TrainingPlanScreen({
   onBack,
   onChangeTrainingDays,
   onEditCustomPlan,
+  onOpenPlanSettings,
   onAiAssisted,
   onBuildYourself,
   onImportProgram,
@@ -255,6 +258,22 @@ export function TrainingPlanScreen({
                   Ready program sessions are fixed. Build a custom plan to edit sessions freely.
                 </Text>
               ) : null}
+            </View>
+
+            {/* The one entry into equipment / swaps / progression — keeps every
+                plan-related surface behind this single screen. */}
+            <View style={settingsStyles.section}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onOpenPlanSettings}
+                style={({ pressed }) => [settingsStyles.card, styles.planSettingsRow, pressed && { opacity: 0.75 }]}
+              >
+                <View style={styles.planSettingsCopy}>
+                  <Text style={styles.planSettingsTitle}>Plan settings</Text>
+                  <Text style={styles.planSettingsSub}>Equipment, swaps & progression.</Text>
+                </View>
+                <ChevronIcon />
+              </Pressable>
             </View>
           </>
         ) : (
@@ -521,6 +540,27 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     paddingHorizontal: 20,
+  },
+  planSettingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+  },
+  planSettingsCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  planSettingsTitle: {
+    color: HG.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  planSettingsSub: {
+    color: HG.muted,
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
   },
   createButton: {
     height: 50,

@@ -96,6 +96,11 @@ export function SettingsRow({
   );
 }
 
+/** The suite's card shadow (mock: 0 6px 18px rgba(120,80,200,.06)). */
+export const CARD_SHADOW = {
+  boxShadow: '0 6px 18px rgba(120, 80, 200, 0.06)',
+} as const;
+
 export const settingsStyles = StyleSheet.create({
   section: {
     marginTop: 22,
@@ -107,6 +112,7 @@ export const settingsStyles = StyleSheet.create({
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 4,
+    ...CARD_SHADOW,
   },
   value: {
     color: HG.ink,
@@ -125,9 +131,9 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     color: HG.faint,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '800',
-    letterSpacing: 1,
+    letterSpacing: 1.15,
   },
   sectionAction: {
     color: HG.purple,
@@ -167,7 +173,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   toggleTrack: {
-    width: 46,
+    width: 48,
     height: 28,
     borderRadius: 999,
     backgroundColor: '#E4DBF5',

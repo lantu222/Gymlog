@@ -3240,6 +3240,7 @@ function GymlogApp() {
         trainingDays={preferences.setupAvailableDays}
         exerciseLibrary={exerciseBrowserItems}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
+        onOpenPlanSettings={handleOpenPlanSettings}
         onChangeTrainingDays={(days) => {
           // Same invariants as the onboarding day question: picking specific
           // days makes the schedule self-managed and the count follows, 2–6.
@@ -3290,10 +3291,7 @@ function GymlogApp() {
         onPreferencesChange={async (patch) => {
           await updatePreferences(patch);
         }}
-        onManagePlan={handleOpenPlanSettings}
-        onEditTraining={handleOpenSetupEditor}
         onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
-        onOpenPremium={handleOpenPremium}
         onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
           await resetAllData();
@@ -3319,7 +3317,6 @@ function GymlogApp() {
         planFocusCaption={profilePlanSummary.focusCaption}
         onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
         onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
-        onOpenProgress={() => navigate(ROOT_ROUTES.progress)}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'plans') {

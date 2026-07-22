@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
-import {
-  ChevronIcon,
-  SectionLabel,
-  SettingsRow,
-  ToggleSwitch,
-  settingsStyles,
-} from '../components/SettingsUi';
+import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { getHealthProviderLabel } from '../integrations/health';
 import { HG } from '../lightTheme';
 import { appInfo, layout } from '../theme';
-import { AppPreferences } from '../types/models';
+import { AppLanguage, AppPreferences } from '../types/models';
 
 interface SettingsScreenProps {
   preferences: AppPreferences;
@@ -21,14 +15,14 @@ interface SettingsScreenProps {
   firstSessionAt: string | null;
   onBack: () => void;
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
-  onManagePlan: () => void;
-  onEditTraining: () => void;
   onOpenMyData: () => void;
   onOpenEditProfile: () => void;
-  onOpenPremium: () => void;
   onConnectHealth: () => void;
   onResetAllData: () => void;
 }
+
+const RED = '#C0392B';
+const RED_SOFT = '#FBEAE7';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -53,222 +47,330 @@ function getInitials(name: string | null) {
   return (first + second).toUpperCase();
 }
 
-function HealthHeartGlyph() {
+/* Prototype icon set (psuite-shared.jsx `Ic`): 24x24 strokes, 20px in the tile. */
+const IC_PATHS: Record<string, string> = {
+  gift: 'M4 11h16v9H4zM4 8h16v3H4zM12 8v12M12 8S9 3 6.5 5 8 8 12 8zM12 8s3-5 5.5-3S16 8 12 8',
+  moon: 'M20 14a8 8 0 01-10-10 8 8 0 1010 10z',
+  bell: 'M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6M10 20a2 2 0 004 0',
+  chat: 'M4 5h16v11H9l-4 4V5z',
+  spark: 'M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z',
+  heart: 'M12 20S4 14 4 9a4 4 0 017.5-2A4 4 0 0120 9c0 5-8 11-8 11z',
+  pause: 'M4 12a8 8 0 1116 0M8 9v6M16 9v6',
+  person: 'M12 12a4 4 0 100-8 4 4 0 000 8zM4 20c0-3.5 3.6-5.5 8-5.5s8 2 8 5.5',
+  body: 'M12 4a1.6 1.6 0 100 .1M5 8h14M9 8v4l-1.5 8M15 8v4l1.5 8',
+  tag: 'M4 4h7l9 9-7 7-9-9zM8 8h.01',
+  card: 'M3 6h18v12H3zM3 10h18',
+  upload: 'M12 16V4M7 9l5-5 5 5M4 20h16',
+  download: 'M12 4v12M7 11l5 5 5-5M4 20h16',
+  shield: 'M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6z',
+  doc: 'M7 3h7l4 4v14H7zM14 3v4h4',
+  analytics: 'M4 20V4M4 20h16M8 16l3-4 3 2 4-6',
+  logout: 'M9 21H5V3h4M16 16l5-4-5-4M21 12H9',
+  trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
+  back: 'M15 5l-7 7 7 7',
+  chevron: 'M9 6l6 6-6 6',
+};
+
+function Ic({ n, c = HG.purpleDark, s = 20, sw = 2 }: { n: string; c?: string; s?: number; sw?: number }) {
   return (
-    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 20s-7-4.35-7-9a4 4 0 0 1 7-2.65A4 4 0 0 1 19 11c0 4.65-7 9-7 9z"
-        stroke="#FF2D55"
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
+      <Path d={IC_PATHS[n] ?? ''} stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
-function StarGlyph() {
+/** Prototype Seg: track #EEE8FA r12 pad3, active pill white r9, 13/800. */
+function Seg<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: Array<{ key: T; label: string }>;
+  value: T;
+  onChange: (next: T) => void;
+}) {
   return (
-    <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 3l2.4 5.1 5.6.8-4 4 .9 5.6-4.9-2.7-4.9 2.7.9-5.6-4-4 5.6-.8L12 3z"
-        stroke="#C9B6FF"
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
-    </Svg>
+    <View style={styles.seg}>
+      {options.map((option) => {
+        const active = option.key === value;
+        return (
+          <Pressable
+            key={option.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active }}
+            onPress={() => onChange(option.key)}
+            style={[styles.segItem, active && styles.segItemActive]}
+          >
+            <Text style={[styles.segText, active && styles.segTextActive]}>{option.label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** Prototype Row: 13px/15px padding, 36 tile r11, hairline divider inside a Card. */
+function Row({
+  icon,
+  iconColor,
+  title,
+  sub,
+  value,
+  control,
+  chevron = false,
+  danger = false,
+  last = false,
+  onPress,
+}: {
+  icon: string;
+  iconColor?: string;
+  title: string;
+  sub?: string;
+  value?: string;
+  control?: React.ReactNode;
+  chevron?: boolean;
+  danger?: boolean;
+  last?: boolean;
+  onPress?: () => void;
+}) {
+  const inner = (
+    <View style={[styles.row, !last && styles.rowDivider]}>
+      <View style={[styles.rowTile, danger && { backgroundColor: RED_SOFT }]}>
+        <Ic n={icon} c={danger ? RED : iconColor ?? HG.purpleDark} />
+      </View>
+      <View style={styles.rowCopy}>
+        <Text style={[styles.rowTitle, danger && { color: RED }]}>{title}</Text>
+        {sub ? <Text style={styles.rowSub}>{sub}</Text> : null}
+      </View>
+      {value !== undefined ? <Text style={styles.rowValue}>{value}</Text> : null}
+      {control}
+      {chevron ? <Ic n="chevron" c={HG.faint} s={18} sw={2.2} /> : null}
+    </View>
+  );
+
+  return onPress ? (
+    <Pressable accessibilityRole="button" onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
+      {inner}
+    </Pressable>
+  ) : (
+    inner
   );
 }
 
 /**
- * Settings, pushed from the Profile gear.
- *
- * Everything on this screen is wired to something real. Rows for features that
- * do not exist yet (accounts, sync, notifications, subscriptions, language,
- * dark theme) are deliberately absent rather than shown as dead toggles or
- * "Soon" badges — mvp-launch-scope.md §7.4.
+ * Settings, pushed from the Profile gear. Mirrors psuite-screens1.jsx
+ * SettingsMenu; rows whose engines are still unbuilt (dark theme, language,
+ * notifications, promo, subscription, CSV import/export, support, feature
+ * requests, sign out / delete account) render per design ahead of their
+ * wiring — an explicit product decision (2026-07-22) for this pre-release
+ * phase. Before store submission each must be wired or hidden.
  */
 export function SettingsScreen({
   preferences,
   firstSessionAt,
   onBack,
   onPreferencesChange,
-  onManagePlan,
-  onEditTraining,
   onOpenMyData,
   onOpenEditProfile,
-  onOpenPremium,
   onConnectHealth,
   onResetAllData,
 }: SettingsScreenProps) {
   const [resetVisible, setResetVisible] = useState(false);
+  // Visual-only until their engines exist.
+  const [darkTheme, setDarkTheme] = useState(false);
+  const [analytics, setAnalytics] = useState(true);
   const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : 'Guest athlete';
+  const soundAndHaptics = preferences.soundCuesEnabled || preferences.hapticsEnabled;
 
   return (
     <View style={styles.screen}>
-      {/* Pushed-screen header per the profile-suite spec: 40x40 back button on
-          the left, title centred. Own header rather than ScreenHeader — that
-          one's default tone paints light text for dark backgrounds. */}
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Back"
           onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
+          <Ic n="back" c={HG.ink} s={20} sw={2.4} />
         </Pressable>
         <Text style={styles.headerTitle}>Settings</Text>
         <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        {/* PROFILE CHIP → Edit profile */}
+        {/* profile chip */}
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Edit profile"
           onPress={onOpenEditProfile}
-          style={({ pressed }) => [styles.profileChip, pressed && { opacity: 0.8 }]}
+          style={({ pressed }) => [styles.profileChip, pressed && styles.pressed]}
         >
           <View style={styles.profileChipAvatar}>
+            <Svg width={52} height={52} viewBox="0 0 52 52" style={StyleSheet.absoluteFill as object}>
+              <Defs>
+                <LinearGradient id="chipAv" x1="0" y1="0" x2="0.6" y2="1">
+                  <Stop offset="0" stopColor="#2A1B4E" />
+                  <Stop offset="1" stopColor="#5B21B6" />
+                </LinearGradient>
+              </Defs>
+              <Circle cx={26} cy={26} r={26} fill="url(#chipAv)" />
+            </Svg>
             <Text style={styles.profileChipInitials}>{getInitials(preferences.profileName)}</Text>
           </View>
           <View style={styles.profileChipCopy}>
-            <View style={styles.profileChipNameRow}>
-              <Text numberOfLines={1} style={styles.profileChipName}>
-                {displayName}
-              </Text>
-              {preferences.adaptiveCoachPremiumUnlocked ? (
-                <View style={styles.proBadge}>
-                  <Text style={styles.proBadgeText}>PRO</Text>
-                </View>
-              ) : null}
-            </View>
+            <Text numberOfLines={1} style={styles.profileChipName}>
+              {displayName}
+            </Text>
             <Text style={styles.profileChipMeta}>{memberSinceLabel(firstSessionAt)}</Text>
+            {preferences.adaptiveCoachPremiumUnlocked ? (
+              <View style={styles.proBadge}>
+                <Svg width={12} height={12} viewBox="0 0 24 24">
+                  <Path d={IC_PATHS.spark} fill={HG.purpleDark} />
+                </Svg>
+                <Text style={styles.proBadgeText}>PRO</Text>
+              </View>
+            ) : null}
           </View>
-          <ChevronIcon />
+          <Ic n="chevron" c={HG.faint} s={18} sw={2.2} />
         </Pressable>
 
-        {/* WORKOUT FEEDBACK */}
-        <View style={settingsStyles.section}>
-          <SectionLabel label="WORKOUT FEEDBACK" />
-          <View style={settingsStyles.card}>
-            <SettingsRow
-              title="Cue sounds"
-              subtitle="Countdown, set logged, rest over"
-              right={
+        {/* referral */}
+        <View style={[styles.card, styles.referralCard]}>
+          <Row icon="gift" title="Share GAINER with a friend" sub="Both of you earn a free month of Pro." chevron last />
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label="APP" />
+          <View style={styles.card}>
+            <Row
+              icon="moon"
+              title="Dark theme"
+              control={<ToggleSwitch label="Dark theme" value={darkTheme} onChange={setDarkTheme} />}
+            />
+            <Row
+              icon="bell"
+              title="Sound & haptics"
+              sub="Taps and rest-timer feedback."
+              control={
                 <ToggleSwitch
-                  label="Cue sounds"
-                  value={preferences.soundCuesEnabled}
-                  onChange={(next) => onPreferencesChange({ soundCuesEnabled: next })}
+                  label="Sound and haptics"
+                  value={soundAndHaptics}
+                  onChange={(next) => onPreferencesChange({ soundCuesEnabled: next, hapticsEnabled: next })}
                 />
               }
             />
-            <SettingsRow
-              title="Haptics"
-              subtitle="Vibration for the same moments"
-              isLast
-              right={
-                <ToggleSwitch
-                  label="Haptics"
-                  value={preferences.hapticsEnabled}
-                  onChange={(next) => onPreferencesChange({ hapticsEnabled: next })}
+            <Row
+              icon="chat"
+              title="Language"
+              last
+              control={
+                <Seg
+                  options={[
+                    { key: 'fi', label: 'FIN' },
+                    { key: 'en', label: 'ENG' },
+                  ]}
+                  value={preferences.appLanguage}
+                  onChange={(next: AppLanguage) => onPreferencesChange({ appLanguage: next })}
                 />
               }
             />
           </View>
         </View>
 
-        {/* TRAINING */}
-        <View style={settingsStyles.section}>
+        <View style={styles.section}>
           <SectionLabel label="TRAINING" />
-          <View style={settingsStyles.card}>
-            {/* Automated progression lives in Plan settings — one write surface. */}
-            <SettingsRow title="Plan settings" subtitle="Schedule, equipment, progression" onPress={onManagePlan} right={<ChevronIcon />} />
-            <SettingsRow
-              title="Training profile"
-              subtitle="Goal, experience, focus areas"
-              onPress={onEditTraining}
-              right={<ChevronIcon />}
+          <View style={styles.card}>
+            <Row
+              icon="spark"
+              title="Smart progression"
+              sub="AI adjusts your working weights."
+              control={
+                <ToggleSwitch
+                  label="Smart progression"
+                  value={preferences.automatedProgressionEnabled}
+                  onChange={(next) => onPreferencesChange({ automatedProgressionEnabled: next })}
+                />
+              }
             />
-            <SettingsRow
-              title="My data"
-              subtitle="Basics, preferences, limitations"
-              isLast
-              onPress={onOpenMyData}
-              right={<ChevronIcon />}
+            <Row
+              icon="heart"
+              iconColor="#FF2D55"
+              title={getHealthProviderLabel()}
+              sub="Sync bodyweight automatically."
+              control={
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Connect ${getHealthProviderLabel()}`}
+                  onPress={onConnectHealth}
+                  style={({ pressed }) => [styles.connectPill, pressed && styles.pressed]}
+                >
+                  <Text style={styles.connectPillText}>Connect</Text>
+                </Pressable>
+              }
+            />
+            <Row icon="pause" title="Training break" sub="Log an injury or holiday." chevron last />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label="ACCOUNT" />
+          <View style={styles.card}>
+            <Row icon="bell" title="Notifications" sub="Push and reminders." chevron />
+            <Row icon="person" title="Edit profile" chevron onPress={onOpenEditProfile} />
+            <Row icon="body" title="My data" sub="Basics & training preferences." chevron onPress={onOpenMyData} />
+            <Row icon="tag" title="Promo code" chevron />
+            <Row icon="card" title="Manage subscription" chevron last />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label="YOUR DATA" />
+          <View style={styles.card}>
+            <Row icon="upload" title="Import routine (CSV)" sub="From Sheets, Excel or another app." chevron />
+            <Row icon="download" title="Export routine (CSV)" sub="Download a local copy." chevron last />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label="SUPPORT" />
+          <View style={styles.card}>
+            <Row icon="chat" title="Contact us" sub="Usually answered right away." chevron />
+            <Row icon="spark" title="Feature requests" sub="Vote on what we build next." chevron last />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label="ABOUT" />
+          <View style={styles.card}>
+            <Row icon="shield" title="Privacy policy" chevron />
+            <Row icon="doc" title="Terms of service" chevron />
+            <Row
+              icon="analytics"
+              title="Analytics"
+              sub="Helps us improve the app."
+              last
+              control={<ToggleSwitch label="Analytics" value={analytics} onChange={setAnalytics} />}
             />
           </View>
         </View>
 
-        {/* UNITS */}
-        <View style={settingsStyles.section}>
-          <SectionLabel label="UNITS" />
-          <View style={settingsStyles.card}>
-            <SettingsRow title="Weight" subtitle="Used everywhere you log" isLast right={<Text style={settingsStyles.value}>kg</Text>} />
-          </View>
-        </View>
-
-        {/* CONNECTIONS */}
-        <View style={settingsStyles.section}>
-          <SectionLabel label="CONNECTIONS" />
-          <View style={settingsStyles.card}>
-            <View style={styles.connectionRow}>
-              <View style={styles.connectionTile}>
-                <HealthHeartGlyph />
-              </View>
-              <View style={styles.connectionCopy}>
-                <Text style={styles.connectionTitle}>{getHealthProviderLabel()}</Text>
-                <Text style={styles.connectionSub}>Sync weight and workouts both ways.</Text>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Connect ${getHealthProviderLabel()}`}
-                onPress={onConnectHealth}
-                style={({ pressed }) => [styles.connectAction, pressed && { opacity: 0.7 }]}
-              >
-                <Text style={styles.connectActionText}>Connect</Text>
-              </Pressable>
-            </View>
-          </View>
-        </View>
-
-        {/* PREMIUM */}
-        <View style={settingsStyles.section}>
-          <Pressable onPress={onOpenPremium} style={styles.premiumCard}>
-            <View style={styles.premiumKicker}>
-              <StarGlyph />
-              <Text style={styles.premiumKickerText}>GAINER PREMIUM</Text>
-            </View>
-            <Text style={styles.premiumTitle}>Adaptive Coach</Text>
-            <Text style={styles.premiumBody}>
-              Reads your fatigue and progress, then adjusts each week&apos;s load for you. The longer you train, the sharper
-              it gets.
-            </Text>
-            <View style={styles.premiumCta}>
-              <Text style={styles.premiumCtaText}>See what&apos;s inside</Text>
-            </View>
-          </Pressable>
-        </View>
-
-        {/* DATA */}
-        <View style={settingsStyles.section}>
-          <SectionLabel label="DATA" />
-          <View style={settingsStyles.card}>
-            <SettingsRow title="Version" isLast={false} right={<Text style={settingsStyles.value}>{appInfo.version}</Text>} />
-            <SettingsRow
+        <View style={styles.section}>
+          <SectionLabel label="DANGER ZONE" />
+          <View style={styles.card}>
+            <Row icon="logout" title="Sign out" danger chevron />
+            <Row icon="trash" title="Delete account" danger chevron />
+            <Row
+              icon="trash"
               title="Reset all data"
-              subtitle="Clear everything on this device."
-              destructive
-              isLast
+              sub="Clear everything on this device."
+              danger
+              last
               onPress={() => setResetVisible(true)}
             />
           </View>
         </View>
 
-        <Text style={styles.footer}>GAINER · {appInfo.version}</Text>
+        <Text style={styles.footer}>GAINER · v{appInfo.version}</Text>
       </ScrollView>
 
       <ConfirmDialog
@@ -292,69 +394,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: HG.bg,
   },
-  profileChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    backgroundColor: HG.surface,
-    borderWidth: 1,
-    borderColor: HG.border,
-    borderRadius: 18,
-    padding: 14,
-    marginTop: 8,
-  },
-  profileChipAvatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#3B2670',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  profileChipInitials: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  profileChipCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  profileChipNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  profileChipName: {
-    flexShrink: 1,
-    color: HG.ink,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  proBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: HG.purpleLight,
-  },
-  proBadgeText: {
-    color: HG.purpleDark,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
-  profileChipMeta: {
-    color: HG.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    marginTop: 2,
-  },
   header: {
     height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 12,
   },
   backButton: {
     width: 40,
@@ -367,7 +411,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerTitle: {
-    flex: 1,
+    position: 'absolute',
+    left: 0,
+    right: 0,
     textAlign: 'center',
     color: HG.ink,
     fontSize: 17,
@@ -376,91 +422,158 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 40,
   },
+  pressed: {
+    opacity: 0.75,
+  },
   body: {
-    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingHorizontal: 18,
     paddingBottom: layout.bottomTabBarReserve,
   },
-  connectionRow: {
+  card: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    ...CARD_SHADOW,
+  },
+  profileChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 13,
-  },
-  connectionTile: {
-    width: 42,
-    height: 42,
-    borderRadius: 13,
+    gap: 14,
     backgroundColor: HG.surface,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: HG.border,
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 4,
+    ...CARD_SHADOW,
+  },
+  profileChipAvatar: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
   },
-  connectionCopy: {
+  profileChipInitials: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '800',
+  },
+  profileChipCopy: {
     flex: 1,
     minWidth: 0,
   },
-  connectionTitle: {
+  profileChipName: {
+    color: HG.ink,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  profileChipMeta: {
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: HG.purpleLight,
+    marginTop: 6,
+  },
+  proBadgeText: {
+    color: HG.purpleDark,
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  referralCard: {
+    marginTop: 12,
+  },
+  section: {
+    marginTop: 22,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    paddingVertical: 13,
+    paddingHorizontal: 15,
+  },
+  rowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: HG.border,
+  },
+  rowTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
+    backgroundColor: HG.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rowTitle: {
     color: HG.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
-  connectionSub: {
+  rowSub: {
     color: HG.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
+    lineHeight: 17,
   },
-  connectAction: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  connectActionText: {
-    color: HG.purpleDark,
-    fontSize: 13.5,
+  rowValue: {
+    color: HG.ink,
+    fontSize: 14,
     fontWeight: '800',
   },
-  premiumCard: {
-    borderRadius: 18,
-    padding: 18,
-    backgroundColor: '#33206B',
-  },
-  premiumKicker: {
+  seg: {
     flexDirection: 'row',
+    backgroundColor: '#EEE8FA',
+    borderRadius: 12,
+    padding: 3,
+    gap: 2,
+  },
+  segItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 9,
     alignItems: 'center',
-    gap: 8,
-  },
-  premiumKickerText: {
-    color: '#C9B6FF',
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 1,
-  },
-  premiumTitle: {
-    color: '#FFFFFF',
-    fontSize: 19,
-    fontWeight: '800',
-    marginTop: 10,
-  },
-  premiumBody: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 13.5,
-    fontWeight: '600',
-    lineHeight: 20,
-    marginTop: 6,
-  },
-  premiumCta: {
-    alignSelf: 'flex-start',
-    height: 44,
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    borderRadius: 13,
-    backgroundColor: '#FFFFFF',
-    marginTop: 16,
   },
-  premiumCtaText: {
-    color: '#33206B',
-    fontSize: 14.5,
+  segItemActive: {
+    backgroundColor: '#FFFFFF',
+    boxShadow: '0 1px 4px rgba(80, 40, 160, 0.14)',
+  },
+  segText: {
+    color: HG.muted,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  segTextActive: {
+    color: HG.purpleDark,
+  },
+  connectPill: {
+    paddingVertical: 7,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: HG.purpleLight,
+  },
+  connectPillText: {
+    color: HG.purpleDark,
+    fontSize: 13,
     fontWeight: '800',
   },
   footer: {
@@ -468,6 +581,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '600',
     textAlign: 'center',
-    marginTop: 26,
+    marginTop: 20,
   },
 });

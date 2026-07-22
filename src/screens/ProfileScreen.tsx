@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
-import { SectionLabel, settingsStyles } from '../components/SettingsUi';
+import { CARD_SHADOW, SectionLabel, settingsStyles } from '../components/SettingsUi';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
@@ -39,7 +39,6 @@ interface ProfileScreenProps {
   planIsAiBuilt?: boolean;
   onOpenSettings: () => void;
   onManagePlan: () => void;
-  onOpenProgress: () => void;
 }
 
 function getInitials(name: string | null | undefined) {
@@ -60,15 +59,15 @@ function capitalize(value: string) {
 }
 
 function GearIcon() {
+  // The prototype's ray-style cog (psuite-screens1.jsx top bar).
   return (
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={3.2} stroke={HG.ink} strokeWidth={2} />
+      <Circle cx={12} cy={12} r={3} stroke={HG.ink} strokeWidth={2} />
       <Path
-        d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.4a1.7 1.7 0 0 0-1.88.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.33-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6h.08A1.7 1.7 0 0 0 10 3V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.51 1.7 1.7 0 0 0 1.88-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9v.08a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"
+        d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"
         stroke={HG.ink}
-        strokeWidth={1.7}
+        strokeWidth={2}
         strokeLinecap="round"
-        strokeLinejoin="round"
       />
     </Svg>
   );
@@ -98,11 +97,11 @@ function ChevronIcon() {
 
 function TrophyIcon() {
   return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4.5a2.5 2.5 0 0 0 2.5 4M17 6h2.5a2.5 2.5 0 0 1-2.5 4M9.5 20h5M12 14v6"
+        d="M7 4h10v4a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M9 15h6M8 20h8M12 15v5"
         stroke={HG.purpleDark}
-        strokeWidth={2}
+        strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -111,14 +110,10 @@ function TrophyIcon() {
 }
 
 function SparkIcon() {
+  // Filled spark, prototype's AI badge glyph.
   return (
-    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9L12 3z"
-        stroke={HG.purpleDark}
-        strokeWidth={2}
-        strokeLinejoin="round"
-      />
+    <Svg width={13} height={13} viewBox="0 0 24 24">
+      <Path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" fill={HG.purpleDark} />
     </Svg>
   );
 }
@@ -127,8 +122,8 @@ function CalendarIcon() {
   return (
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M8 3v3M16 3v3M4 8h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
-        stroke={HG.purpleDark}
+        d="M4 6h16v15H4zM4 10h16M8 3v4M16 3v4"
+        stroke={HG.muted}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -142,7 +137,7 @@ function DumbbellIcon() {
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-        stroke={HG.purpleDark}
+        stroke={HG.muted}
         strokeWidth={2}
         strokeLinecap="round"
       />
@@ -174,11 +169,11 @@ function Avatar({ initials }: { initials: string }) {
   );
 }
 
-function Badge({ icon, label }: { icon: React.ReactNode; label: string }) {
+function Badge({ icon, label, accent = false }: { icon: React.ReactNode; label: string; accent?: boolean }) {
   return (
-    <View style={styles.badge}>
+    <View style={[styles.badge, accent && styles.badgeAccent]}>
       {icon}
-      <Text style={styles.badgeText}>{label}</Text>
+      <Text style={[styles.badgeText, accent && styles.badgeTextAccent]}>{label}</Text>
     </View>
   );
 }
@@ -196,7 +191,6 @@ export function ProfileScreen({
   planIsAiBuilt = false,
   onOpenSettings,
   onManagePlan,
-  onOpenProgress,
 }: ProfileScreenProps) {
   const identityName = preferences.profileName?.trim() ? preferences.profileName.trim() : null;
 
@@ -289,7 +283,9 @@ export function ProfileScreen({
             {resolvedPlanName ? (
               <>
                 <View style={styles.badgeRow}>
-                  {planIsAiBuilt ? <Badge icon={<SparkIcon />} label="AI" /> : null}
+                  {/* Mock parity: AI badge always on — engine wiring comes later.
+                      Only the AI badge is purple; the meta badges are grey. */}
+                  <Badge accent icon={<SparkIcon />} label="AI" />
                   {planDaysPerWeek ? <Badge icon={<CalendarIcon />} label={`${planDaysPerWeek}× / week`} /> : null}
                   {planExerciseCount ? <Badge icon={<DumbbellIcon />} label={`${planExerciseCount} exercises`} /> : null}
                 </View>
@@ -323,7 +319,7 @@ export function ProfileScreen({
 
         {/* PERSONAL RECORDS */}
         <View style={settingsStyles.section}>
-          <SectionLabel label="PERSONAL RECORDS" actionLabel="Progress" onAction={onOpenProgress} />
+          <SectionLabel label="PERSONAL RECORDS" />
           <View style={settingsStyles.card}>
             {personalRecords.length > 0 ? (
               personalRecords.map((record, index) => {
@@ -417,7 +413,7 @@ const styles = StyleSheet.create({
   identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 18,
   },
   avatarWrap: {
     width: 82,
@@ -452,7 +448,7 @@ const styles = StyleSheet.create({
     color: HG.muted,
     fontSize: 12,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 1,
   },
   identityName: {
     color: HG.ink,
@@ -469,8 +465,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 9,
-    marginTop: 14,
+    gap: 8,
+    marginTop: 16,
+    ...CARD_SHADOW,
   },
   inviteButtonText: {
     color: HG.ink,
@@ -480,22 +477,25 @@ const styles = StyleSheet.create({
   weekdayRow: {
     flexDirection: 'row',
     gap: 6,
-    marginTop: 12,
+    marginTop: 14,
   },
   weekdayChip: {
     flex: 1,
-    height: 30,
+    paddingVertical: 7,
     borderRadius: 9,
     backgroundColor: '#F1EDFA',
+    borderWidth: 1,
+    borderColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
   },
   weekdayChipActive: {
     backgroundColor: HG.purpleLight,
+    borderColor: HG.border,
   },
   weekdayChipText: {
     color: HG.faint,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '800',
   },
   weekdayChipTextActive: {
@@ -518,27 +518,33 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
+    gap: 7,
+    marginTop: 10,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    height: 28,
+    gap: 5,
+    paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
+    backgroundColor: '#F1EDFA',
+  },
+  badgeAccent: {
     backgroundColor: HG.purpleLight,
   },
   badgeText: {
-    color: HG.purpleDark,
-    fontSize: 12,
+    color: HG.muted,
+    fontSize: 11.5,
     fontWeight: '800',
+  },
+  badgeTextAccent: {
+    color: HG.purpleDark,
   },
   planCaption: {
     color: HG.muted,
     fontSize: 12.5,
-    fontWeight: '600',
+    fontWeight: '700',
     marginTop: 12,
   },
   recordRow: {
@@ -553,9 +559,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
   },
   recordTile: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
     backgroundColor: HG.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -572,22 +578,22 @@ const styles = StyleSheet.create({
   recordBodyPart: {
     color: HG.muted,
     fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
+    fontWeight: '700',
+    marginTop: 1,
   },
   recordValueBlock: {
     alignItems: 'flex-end',
   },
   recordValue: {
     color: HG.ink,
-    fontSize: 15,
+    fontSize: 15.5,
     fontWeight: '800',
   },
   recordMetaText: {
     color: HG.muted,
     fontSize: 11.5,
     fontWeight: '700',
-    marginTop: 2,
+    marginTop: 1,
   },
   emptyBlock: {
     paddingVertical: 18,
@@ -616,23 +622,24 @@ const styles = StyleSheet.create({
     borderColor: HG.border,
     borderRadius: 18,
     padding: 14,
+    ...CARD_SHADOW,
   },
   statLabel: {
     color: HG.faint,
     fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.8,
+    letterSpacing: 0.44,
   },
   statValue: {
     color: HG.ink,
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
-    marginTop: 6,
+    marginTop: 5,
   },
   statMeta: {
     color: HG.muted,
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
     marginTop: 2,
   },

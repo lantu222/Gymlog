@@ -11,11 +11,12 @@ export const HG = {
   surface: '#FFFFFF',
   surfaceSoft: '#F2ECFF',
   ink: '#101828',
-  // muted/faint/border darkened 2026-07-22 (user: hairlines and secondary text
-  // read too washed-out on device).
+  // muted/faint darkened 2026-07-22 (user: secondary text read too washed-out
+  // on device). border returned to the mock value once cards gained the soft
+  // shadow — the shadow provides the separation the darker hairline was doing.
   muted: '#5B6472',
   faint: '#867E9C',
-  border: '#D6C6F5',
+  border: '#E4D8FF',
   shadow: '#D8C7FF',
   purple: '#7C3AED',
   purpleDark: '#5B21B6',
