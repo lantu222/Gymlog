@@ -1,4 +1,5 @@
 import { WorkoutRole, WorkoutRuntimeTemplate, WorkoutTemplateSession, WorkoutTemplateV1 } from '../features/workout/workoutTypes';
+import { ComposedProgramWeek } from './programDayComposer';
 import { ProgramInsightSummary } from './programInsights';
 import { getRecommendationProgrammeSummary } from './recommendationProgramme';
 import { getReadyProgramContent, ReadyProgramContentSection } from './readyProgramContent';
@@ -97,24 +98,40 @@ export function buildReadyProgramDetail(
   insights?: ProgramInsightSummary,
   fitExplanation?: string | null,
   tailoringBadges: string[] = [],
+  /**
+   * The user's composed week for this program, when it is their active plan.
+   * The detail must describe the plan they actually run — composed day count
+   * and composed sessions — not the raw catalog template (truth-plan rule).
+   */
+  composedWeek?: ComposedProgramWeek | null,
 ): ProgramDetailViewModel {
   const goal = titleCase(template.goalType);
   const level = titleCase(template.level);
   const content = getReadyProgramContent(template.id);
   const programmeSummary = getRecommendationProgrammeSummary(template.id);
+  const composed = composedWeek && composedWeek.sessions.length > 0 ? composedWeek : null;
+  const daysPerWeek = composed ? composed.days : template.daysPerWeek;
+  const detailSessions: WorkoutTemplateSession[] = composed
+    ? composed.sessions.map((session) => ({
+        id: session.id,
+        name: session.name,
+        orderIndex: session.orderIndex,
+        exercises: session.exercises,
+      }))
+    : template.sessions;
 
   return {
     id: template.id,
     source: 'ready',
     title: template.name,
-    subtitle: `${goal} | ${level} | ${template.daysPerWeek} ${pluralize(template.daysPerWeek, 'day')} / week`,
+    subtitle: `${goal} | ${level} | ${daysPerWeek} ${pluralize(daysPerWeek, 'day')} / week`,
     description:
       content?.summary ??
       `${titleCase(template.splitType)} program with ${template.sessions.length} sessions and repeatable progression rules for consistent logging.`,
     badges: [
       goal,
       level,
-      `${template.daysPerWeek} ${pluralize(template.daysPerWeek, 'day')}`,
+      `${daysPerWeek} ${pluralize(daysPerWeek, 'day')}`,
       `${template.estimatedSessionDuration} min`,
     ],
     tailoringBadges,
@@ -132,7 +149,7 @@ export function buildReadyProgramDetail(
     progressionSummary: [programmeSummary, template.progressionRules.primary].filter(Boolean).join(' '),
     primaryActionLabel: 'Start first session',
     sessionActionLabel: 'Start session',
-    sessions: buildSessionItems(template.sessions, content?.sessionFocusById, insights?.sessionStatusById, template),
+    sessions: buildSessionItems(detailSessions, content?.sessionFocusById, insights?.sessionStatusById, template),
   };
 }
 

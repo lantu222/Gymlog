@@ -2853,6 +2853,11 @@ function GymlogApp() {
             programInsightsByTemplateId[route.workoutTemplateId],
             readyProgramFitExplanation,
             readyProgramTailoringBadges,
+            // Truth rule: when this is the user's active program, the detail
+            // shows the composed week they actually run, not the raw catalog.
+            preferences.recommendedProgramId === route.workoutTemplateId && setupSelection
+              ? composeProgramWeekForSelection(setupSelection, route.workoutTemplateId)
+              : null,
           )
       : customTemplate
         ? buildCustomProgramDetail(customTemplate, programInsightsByTemplateId[route.workoutTemplateId])

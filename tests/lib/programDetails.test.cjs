@@ -51,6 +51,68 @@ module.exports = [
     },
   },
   {
+    name: 'ready program detail shows the composed week when one is provided',
+    run() {
+      const template = getWorkoutTemplateById('tpl_3_day_full_body_v1');
+      const composedWeek = {
+        programId: template.id,
+        days: 2,
+        weeks: 4,
+        totalWorkouts: 8,
+        sessionMinutes: 45,
+        composed: true,
+        cautionRemoved: [],
+        cautionSwapped: [],
+        focusAdditions: [],
+        equipmentRemoved: [],
+        equipmentSwapped: [],
+        sessions: [
+          {
+            id: 'composed_day_1',
+            name: 'Day 1: Full Body',
+            orderIndex: 0,
+            source: 'template',
+            exercises: [
+              {
+                id: 'ex_1',
+                exerciseName: 'Goblet Squat',
+                slotId: 'slot_1',
+                role: 'primary',
+                progressionPriority: 'high',
+                trackingMode: 'weight_reps',
+                sets: 3,
+                repsMin: 8,
+                repsMax: 10,
+              },
+            ],
+          },
+          {
+            id: 'composed_day_2',
+            name: 'Day 2: Full Body',
+            orderIndex: 1,
+            source: 'template',
+            exercises: [],
+          },
+        ],
+      };
+
+      const detail = buildReadyProgramDetail(template, undefined, null, [], composedWeek);
+
+      // The detail describes the plan the user runs: 2 composed days, not the
+      // raw 3-day catalog template.
+      assert.match(detail.subtitle, /2 days \/ week/);
+      assert.ok(detail.badges.includes('2 days'));
+      assert.equal(detail.sessions.length, 2);
+      assert.equal(detail.sessions[0].id, 'composed_day_1');
+      assert.ok(detail.sessions[0].preview.includes('Goblet Squat'));
+
+      // Without a composed week the raw template still renders.
+      const rawDetail = buildReadyProgramDetail(template);
+      assert.equal(rawDetail.sessions.length, 3);
+      assert.match(rawDetail.subtitle, /3 days \/ week/);
+    },
+  },
+  {
     name: 'custom program detail exposes custom metadata',
     run() {
       const detail = buildCustomProgramDetail({
