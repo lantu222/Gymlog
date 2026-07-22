@@ -1246,7 +1246,6 @@ function GymlogApp() {
       sessionId: adaptedSession.sessionId,
       message: null,
     });
-    workout.finishWorkout(adaptedSession.performedAt);
 
     try {
       const summary = await saveCompletedWorkoutSession({
@@ -1256,6 +1255,12 @@ function GymlogApp() {
       if (!summary.sessionId || !summary.performedAt) {
         throw new Error('Workout save did not produce a valid summary');
       }
+
+      // Only after the database save is verified: finishing flips the session
+      // to 'completed' and stamps slot history. Doing it before the save meant
+      // a failed save stranded the session in a state resume would not pick up
+      // — the logged sets were gone on the next launch (launch-scope Risk 1).
+      workout.finishWorkout(adaptedSession.performedAt);
 
       const sessionExerciseLogs = buildExerciseLogsForCompletedSession(adaptedSession.sessionId, adaptedSession.logs);
       const insight = computePostSessionInsight(
