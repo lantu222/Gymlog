@@ -165,6 +165,12 @@ export type AppRoute =
   | {
       tab: 'profile';
       screen: 'setup';
+      /**
+       * Questionnaire entry point: 'avoid' jumps straight to the limitations
+       * step (My data), 'location' re-runs the whole flow for a fresh plan.
+       * Absent = edit mode's default (review overview).
+       */
+      stage?: 'location' | 'avoid';
     };
 
 export const ROOT_ROUTES: Record<RootTabKey, AppRoute> = {

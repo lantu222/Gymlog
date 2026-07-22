@@ -2820,10 +2820,10 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'setup') {
     content = (
       <OnboardingScreen
-        key={`setup:${preferences.recommendedProgramId ?? 'none'}:${preferences.setupCompleted ? 'complete' : 'pending'}`}
+        key={`setup:${preferences.recommendedProgramId ?? 'none'}:${preferences.setupCompleted ? 'complete' : 'pending'}:${route.stage ?? 'default'}`}
         mode="edit"
         initialSelection={setupSelection ?? DEFAULT_FIRST_RUN_SELECTION}
-        initialStage={setupSelection ? 'review' : 'location'}
+        initialStage={route.stage ?? (setupSelection ? 'review' : 'location')}
         initialUnitPreference={unitPreference}
         tailoringPreferences={tailoringPreferences}
         readyProgramCount={workout.templates.length}
@@ -3343,7 +3343,9 @@ function GymlogApp() {
       <MyDataScreen
         preferences={preferences}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onEditSetup={handleOpenSetupEditor}
+        onSaveBasics={(patch) => void updatePreferences(patch)}
+        onEditLimitations={() => navigate({ tab: 'profile', screen: 'setup', stage: 'avoid' })}
+        onCreateNewPlan={() => navigate({ tab: 'profile', screen: 'setup', stage: 'location' })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'settings') {
@@ -3559,7 +3561,10 @@ function GymlogApp() {
         route.screen === 'summary' ||
         route.screen === 'celebration')
     ) &&
-    !(route.tab === 'home' && route.screen === 'cardio');
+    !(route.tab === 'home' && route.screen === 'cardio') &&
+    // The setup editor is a full-screen flow — the floating bar was covering
+    // its footer Cancel/Back controls.
+    !(route.tab === 'profile' && route.screen === 'setup');
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const shellTone =
