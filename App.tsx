@@ -101,6 +101,7 @@ import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsH
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
+import { EmptyWorkoutScreen } from './src/screens/EmptyWorkoutScreen';
 import { WorkoutLoggingScreen } from './src/screens/WorkoutLoggingScreen';
 import { GuidedPlayerScreen } from './src/screens/GuidedPlayerScreen';
 import { CardioScreen } from './src/screens/CardioScreen';
@@ -2712,6 +2713,43 @@ function GymlogApp() {
     return <LaunchScreen />;
   }
 
+  // Shared finish path for logged one-off sessions (freestyle + editor):
+  // template first, then the completed session, and only then the summary
+  // screen — a failed save must leave the logger open with its sets intact.
+  const finishLoggedWorkoutSave = async (draft: WorkoutTemplateDraft, summary: WorkoutEditorFinishSummary) => {
+    const workoutTemplateId = await upsertWorkoutTemplate(draft);
+    const sessionId = createId('session');
+    await saveCompletedWorkoutSession({
+      sessionId,
+      workoutTemplateId,
+      workoutNameSnapshot: summary.workoutName,
+      logs: summary.logs,
+      startedAt: summary.startedAt,
+      performedAt: summary.performedAt,
+    });
+    setCompletionSummary({
+      sessionId,
+      ...summary,
+      // Freestyle sessions have no plan identity: no previous-session
+      // comparison, and muscle focus comes from the logged drafts.
+      volumeDeltaKg: null,
+      muscles: buildMuscleFocus(
+        summary.logs.map((log) => ({
+          exerciseName: log.exerciseNameSnapshot,
+          sets: log.sets.map((set) => ({
+            status: set.outcome === 'completed' ? ('completed' as const) : ('skipped' as const),
+            weightKg: set.weight,
+            reps: set.reps,
+          })),
+        })),
+        exerciseLibrary,
+      ),
+      insight: null,
+    });
+    summaryExitRouteRef.current = ROOT_ROUTES.home;
+    replaceRoute({ tab: 'workout', screen: 'summary' });
+  };
+
   let content: React.ReactNode;
 
   if (onboardingActive) {
@@ -2934,11 +2972,30 @@ function GymlogApp() {
         }}
       />
     );
-  } else if (route.tab === 'workout' && (route.screen === 'editor' || route.screen === 'empty')) {
+  } else if (route.tab === 'workout' && route.screen === 'empty') {
+    content = (
+      <EmptyWorkoutScreen
+        exerciseLibrary={exerciseBrowserItems}
+        recentExerciseLibraryItems={recentExerciseBrowserItems}
+        defaultRestSeconds={preferences.defaultRestSeconds}
+        keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
+        exercisePrLookup={exercisePrLookup}
+        onBack={() => navigateBack(ROOT_ROUTES.home)}
+        onSave={async (draft, summary) => {
+          try {
+            await finishLoggedWorkoutSave(draft, summary);
+          } catch (error) {
+            console.error('Failed to save freestyle workout', error);
+            showToast('Could not save workout');
+            throw error;
+          }
+        }}
+      />
+    );
+  } else if (route.tab === 'workout' && route.screen === 'editor') {
     content = (
       <WorkoutEditorScreen
-        key={`${route.screen}:${route.screen === 'editor' ? route.workoutTemplateId ?? 'new' : 'empty'}:${route.screen === 'editor' ? route.prefillName ?? '' : ''}:${route.screen === 'editor' ? route.prefillExerciseLibraryId ?? '' : ''}`}
-        presentation={route.screen === 'empty' ? 'emptyWorkout' : 'editor'}
+        key={`editor:${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}:${route.prefillExerciseLibraryId ?? ''}`}
         initialDraft={editorDraft}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
@@ -2947,44 +3004,20 @@ function GymlogApp() {
         exerciseHistoryLookup={editorExerciseHistoryLookup}
         exercisePrLookup={exercisePrLookup}
         inlineTip={null}
-        onBack={() => navigateBack(route.screen === 'empty' ? ROOT_ROUTES.home : WORKOUT_PLAN_ROUTE)}
+        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
         onUseTemplate={() => navigate(WORKOUT_PLAN_ROUTE)}
         onSave={async (draft, summary: WorkoutEditorFinishSummary) => {
           const isNew = !draft.id;
-          const workoutTemplateId = await upsertWorkoutTemplate(draft);
-          const sessionId = createId('session');
-          await saveCompletedWorkoutSession({
-            sessionId,
-            workoutTemplateId,
-            workoutNameSnapshot: summary.workoutName,
-            logs: summary.logs,
-            startedAt: summary.startedAt,
-            performedAt: summary.performedAt,
-          });
-          if (isNew && route.screen !== 'empty') {
+          try {
+            await finishLoggedWorkoutSave(draft, summary);
+          } catch (error) {
+            console.error('Failed to save workout', error);
+            showToast('Could not save workout');
+            throw error;
+          }
+          if (isNew) {
             showToast('Workout created');
           }
-          setCompletionSummary({
-            sessionId,
-            ...summary,
-            // Freestyle sessions have no plan identity: no previous-session
-            // comparison, and muscle focus comes from the logged drafts.
-            volumeDeltaKg: null,
-            muscles: buildMuscleFocus(
-              summary.logs.map((log) => ({
-                exerciseName: log.exerciseNameSnapshot,
-                sets: log.sets.map((set) => ({
-                  status: set.outcome === 'completed' ? 'completed' : 'skipped',
-                  weightKg: set.weight,
-                  reps: set.reps,
-                })),
-              })),
-              exerciseLibrary,
-            ),
-            insight: null,
-          });
-          summaryExitRouteRef.current = ROOT_ROUTES.home;
-          replaceRoute({ tab: 'workout', screen: 'summary' });
         }}
       />
     );

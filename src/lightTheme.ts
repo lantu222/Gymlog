@@ -31,6 +31,22 @@ export const HG = {
 export type HGToken = keyof typeof HG;
 
 /**
+ * Active Workout v3 palette additions ("AW3" tokens, aw3-shared.jsx). Field
+ * and hairline colors for the shared logging surfaces: the freestyle Empty
+ * Workout screen now, the Active Workout v3 rebuild later.
+ */
+export const AW3 = {
+  hair: '#EEEAF7',
+  ghost: '#C0B8D4',
+  field: '#FAF8FF',
+  fieldBorder: '#E5DEF4',
+  ink2: '#3B3550',
+  danger: '#D64545',
+} as const;
+
+export type AW3Token = keyof typeof AW3;
+
+/**
  * Home v3 palette (GAINER Home v3 mock, 2026-07). The Home screen and bottom
  * bar moved to this slightly cooler, higher-contrast take on the light theme;
  * other Phase 6 screens still use HG above until they are migrated.

@@ -26,6 +26,10 @@ const workoutEditorScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutEditorScreen.tsx'),
   'utf8',
 );
+const emptyWorkoutScreenSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'screens', 'EmptyWorkoutScreen.tsx'),
+  'utf8',
+);
 const workoutsScreenSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'WorkoutsScreen.tsx'),
   'utf8',
@@ -333,22 +337,35 @@ module.exports = [
       assert.doesNotMatch(appSource, /onOpenAICoach=\{handleOpenAICoach\}/);
 
       assert.match(routesSource, /screen: 'empty'/);
-      assert.match(appSource, /route\.tab === 'workout' && \(route\.screen === 'editor' \|\| route\.screen === 'empty'\)/);
-      assert.match(appSource, /presentation=\{route\.screen === 'empty' \? 'emptyWorkout' : 'editor'\}/);
-      assert.match(appSource, /route\.screen === 'empty'/);
+      // workout/empty renders the dedicated HG freestyle screen; the editor
+      // keeps its own branch and no longer has an emptyWorkout presentation.
+      assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'empty'/);
+      assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'editor'/);
+      assert.match(appSource, /<EmptyWorkoutScreen/);
+      assert.doesNotMatch(appSource, /presentation=/);
       assert.match(appSource, /inlineTip=\{null\}/);
       assert.doesNotMatch(appSource, /Start with the main lift first/);
       assert.doesNotMatch(appSource, /WORKOUT_EDITOR_TIP_ID/);
-      assert.match(workoutEditorScreenSource, /presentation\?: 'editor' \| 'emptyWorkout'/);
-      assert.match(workoutEditorScreenSource, /Empty Workout/);
-      assert.match(workoutEditorScreenSource, /No exercises added yet/);
-      assert.match(workoutEditorScreenSource, /Recent Exercises/);
-      assert.match(workoutEditorScreenSource, /Popular Exercises/);
-      assert.match(workoutEditorScreenSource, /getPopularExerciseLibraryItems/);
-      assert.match(workoutEditorScreenSource, /emptyWorkoutHasRecentExercises/);
-      assert.match(workoutEditorScreenSource, /Finish Workout/);
-      assert.match(workoutEditorScreenSource, /emptyWorkoutBottomBar/);
-      assert.match(workoutEditorScreenSource, /getExerciseListIcon/);
+      assert.doesNotMatch(workoutEditorScreenSource, /emptyWorkout/);
+      assert.doesNotMatch(workoutEditorScreenSource, /presentation\?:/);
+      // The freestyle screen speaks the HG/AW3 language: empty state, add
+      // sheet, shared set table with plate readout and the floating rest bar.
+      assert.match(emptyWorkoutScreenSource, /Nothing logged yet/);
+      assert.match(emptyWorkoutScreenSource, /freestyle session/);
+      assert.match(emptyWorkoutScreenSource, /Recent exercises/);
+      assert.match(emptyWorkoutScreenSource, /Popular exercises/);
+      assert.match(emptyWorkoutScreenSource, /getPopularExerciseLibraryItems/);
+      assert.match(emptyWorkoutScreenSource, /<RestBar/);
+      assert.match(emptyWorkoutScreenSource, /<PlatePop/);
+      assert.match(emptyWorkoutScreenSource, /buildFreestyleFinish/);
+      assert.match(emptyWorkoutScreenSource, /useKeepScreenAwake\(keepScreenAwake, 'empty-workout'\)/);
+      assert.match(emptyWorkoutScreenSource, /Finish workout/);
+      // Save-truthfulness: the finish handler awaits App's onSave and resets
+      // the saving flag on failure instead of showing success early.
+      assert.match(emptyWorkoutScreenSource, /await onSave\(draft, summary\);/);
+      assert.match(emptyWorkoutScreenSource, /setIsSaving\(false\);/);
+      // App-side: template + session persist before the summary route swap.
+      assert.match(appSource, /const workoutTemplateId = await upsertWorkoutTemplate\(draft\);[\s\S]*await saveCompletedWorkoutSession\(\{[\s\S]*summaryExitRouteRef\.current = ROOT_ROUTES\.home;[\s\S]*replaceRoute\(\{ tab: 'workout', screen: 'summary' \}\);/);
 
       assert.match(routesSource, /section\?: 'overview' \| 'tracked' \| 'measures'/);
       assert.match(progressScreenSource, /initialSection\?: ProgressSection/);

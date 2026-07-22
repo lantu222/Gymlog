@@ -1,0 +1,56 @@
+const assert = require('node:assert/strict');
+
+const {
+  BAR_WEIGHT_KG,
+  PLATE_COLORS,
+  PLATE_SIZES_KG,
+  platesPerSide,
+} = require('../../.test-dist/lib/plateMath.js');
+
+module.exports = [
+  {
+    name: 'platesPerSide breaks the load into greedy per-side plates',
+    run() {
+      // 100 kg total = 40 kg per side = 25 + 15.
+      assert.deepEqual(platesPerSide(100), [25, 15]);
+      // 60 kg = 20 per side.
+      assert.deepEqual(platesPerSide(60), [20]);
+      // 142.5 kg = 61.25 per side = 25 + 25 + 10 + 1.25.
+      assert.deepEqual(platesPerSide(142.5), [25, 25, 10, 1.25]);
+    },
+  },
+  {
+    name: 'platesPerSide handles bar-only, sub-bar, and invalid loads',
+    run() {
+      assert.deepEqual(platesPerSide(BAR_WEIGHT_KG), []);
+      assert.deepEqual(platesPerSide(15), []);
+      assert.deepEqual(platesPerSide(0), []);
+      assert.deepEqual(platesPerSide(Number.NaN), []);
+    },
+  },
+  {
+    name: 'platesPerSide survives float drift on repeated small plates',
+    run() {
+      // 27.5 kg = 3.75 per side = 2.5 + 1.25; naive float math would miss the
+      // 1.25 without the epsilon.
+      assert.deepEqual(platesPerSide(27.5), [2.5, 1.25]);
+      // Non-standard remainder is left off, not rounded up: 21 kg = 0.5/side.
+      assert.deepEqual(platesPerSide(21), []);
+    },
+  },
+  {
+    name: 'platesPerSide respects a custom bar weight',
+    run() {
+      // 60 kg on a 15 kg bar = 22.5 per side = 20 + 2.5.
+      assert.deepEqual(platesPerSide(60, 15), [20, 2.5]);
+    },
+  },
+  {
+    name: 'every plate size has a color for the readout chips',
+    run() {
+      for (const plate of PLATE_SIZES_KG) {
+        assert.match(PLATE_COLORS[plate], /^#[0-9A-Fa-f]{6}$/);
+      }
+    },
+  },
+];

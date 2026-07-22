@@ -82,6 +82,8 @@ const suites = [
   ...require('./lib/workoutTemplateSessions.test.cjs'),
   ...require('./lib/workoutEditorNaming.test.cjs'),
   ...require('./lib/workoutEditorTable.test.cjs'),
+  ...require('./lib/plateMath.test.cjs'),
+  ...require('./lib/emptyWorkoutSession.test.cjs'),
   ...require('./lib/userFitnessProfile.test.cjs'),
 ];
 
