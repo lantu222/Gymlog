@@ -6,6 +6,7 @@ import { CARD_SHADOW, SectionLabel, settingsStyles } from '../components/Setting
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
+import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import {
   buildProfilePersonalRecords,
   countPersonalRecords,
@@ -16,14 +17,14 @@ import { HG } from '../lightTheme';
 import { layout } from '../theme';
 import { AppPreferences, ExerciseLibraryItem, SetupWeekday, UnitPreference } from '../types/models';
 
-const WEEKDAY_CHIPS: Array<{ day: SetupWeekday; label: string }> = [
-  { day: 'mon', label: 'Mo' },
-  { day: 'tue', label: 'Tu' },
-  { day: 'wed', label: 'We' },
-  { day: 'thu', label: 'Th' },
-  { day: 'fri', label: 'Fr' },
-  { day: 'sat', label: 'Sa' },
-  { day: 'sun', label: 'Su' },
+const WEEKDAY_CHIPS: Array<{ day: SetupWeekday; labelKey: I18nKey }> = [
+  { day: 'mon', labelKey: 'weekday.mon' },
+  { day: 'tue', labelKey: 'weekday.tue' },
+  { day: 'wed', labelKey: 'weekday.wed' },
+  { day: 'thu', labelKey: 'weekday.thu' },
+  { day: 'fri', labelKey: 'weekday.fri' },
+  { day: 'sat', labelKey: 'weekday.sat' },
+  { day: 'sun', labelKey: 'weekday.sun' },
 ];
 
 interface ProfileScreenProps {
@@ -52,10 +53,6 @@ function getInitials(name: string | null | undefined) {
   const first = parts[0].charAt(0);
   const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
   return (first + second).toUpperCase();
-}
-
-function capitalize(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function GearIcon() {
@@ -193,6 +190,7 @@ export function ProfileScreen({
   onManagePlan,
 }: ProfileScreenProps) {
   const identityName = preferences.profileName?.trim() ? preferences.profileName.trim() : null;
+  const language = preferences.appLanguage;
 
   const bodyPartByName = useMemo(() => {
     const map = new Map<string, string>();
@@ -206,16 +204,40 @@ export function ProfileScreen({
   const prCount = useMemo(() => countPersonalRecords(trackedProgress), [trackedProgress]);
 
   const identityStats = [
-    { key: 'sessions', value: `${lifetime.sessionCount}`, label: lifetime.sessionCount === 1 ? 'session' : 'sessions' },
-    { key: 'weeks', value: `${lifetime.weeksActive}`, label: lifetime.weeksActive === 1 ? 'week' : 'weeks' },
-    { key: 'prs', value: `${prCount}`, label: prCount === 1 ? 'PR' : 'PRs' },
+    {
+      key: 'sessions',
+      value: `${lifetime.sessionCount}`,
+      label: t(language, lifetime.sessionCount === 1 ? 'profile.stat.session' : 'profile.stat.sessions'),
+    },
+    {
+      key: 'weeks',
+      value: `${lifetime.weeksActive}`,
+      label: t(language, lifetime.weeksActive === 1 ? 'profile.stat.week' : 'profile.stat.weeks'),
+    },
+    { key: 'prs', value: `${prCount}`, label: t(language, prCount === 1 ? 'profile.stat.pr' : 'profile.stat.prs') },
   ];
 
   const lifetimeStats = [
-    { label: 'Sessions', value: `${lifetime.sessionCount}`, meta: 'logged' },
-    { label: 'Weeks active', value: `${lifetime.weeksActive}`, meta: `of ${lifetime.weeksSinceStart}` },
-    { label: 'Total volume', value: formatCompactVolume(lifetime.totalVolumeKg, unitPreference), meta: 'lifted' },
-    { label: 'Best rhythm', value: `${lifetime.bestWeekStreak} wk`, meta: 'in a row' },
+    {
+      label: t(language, 'profile.lifetime.sessions'),
+      value: `${lifetime.sessionCount}`,
+      meta: t(language, 'profile.lifetime.sessionsMeta'),
+    },
+    {
+      label: t(language, 'profile.lifetime.weeksActive'),
+      value: `${lifetime.weeksActive}`,
+      meta: t(language, 'profile.lifetime.weeksActiveMeta', { total: lifetime.weeksSinceStart }),
+    },
+    {
+      label: t(language, 'profile.lifetime.totalVolume'),
+      value: formatCompactVolume(lifetime.totalVolumeKg, unitPreference),
+      meta: t(language, 'profile.lifetime.totalVolumeMeta'),
+    },
+    {
+      label: t(language, 'profile.lifetime.bestRhythm'),
+      value: t(language, 'profile.lifetime.bestRhythmValue', { count: lifetime.bestWeekStreak }),
+      meta: t(language, 'profile.lifetime.bestRhythmMeta'),
+    },
   ];
 
   const resolvedPlanName = planName?.trim() ? planName.trim() : null;
@@ -225,8 +247,7 @@ export function ProfileScreen({
     // The link is the app's store page (live once GAINER is published).
     try {
       await Share.share({
-        message:
-          'Join me on GAINER — an honest strength-training companion.\nhttps://play.google.com/store/apps/details?id=com.lantu66.gymlog',
+        message: t(language, 'profile.inviteMessage'),
       });
     } catch {
       // Sharing is optional; a dismissed or failed sheet is not an error worth
@@ -237,10 +258,10 @@ export function ProfileScreen({
   return (
     <View style={styles.screen}>
       <View style={styles.topBar}>
-        <Text style={styles.topTitle}>Profile</Text>
+        <Text style={styles.topTitle}>{t(language, 'profile.title')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Settings"
+          accessibilityLabel={t(language, 'profile.a11y.settings')}
           onPress={onOpenSettings}
           style={({ pressed }) => [styles.gearButton, pressed && styles.pressed]}
         >
@@ -261,7 +282,7 @@ export function ProfileScreen({
             ))}
           </View>
         </View>
-        <Text style={styles.identityName}>{identityName ?? 'Guest athlete'}</Text>
+        <Text style={styles.identityName}>{identityName ?? t(language, 'profile.guestName')}</Text>
 
         {/* INVITE */}
         <Pressable
@@ -270,16 +291,20 @@ export function ProfileScreen({
           style={({ pressed }) => [styles.inviteButton, pressed && styles.pressed]}
         >
           <GiftIcon />
-          <Text style={styles.inviteButtonText}>Invite a friend to GAINER</Text>
+          <Text style={styles.inviteButtonText}>{t(language, 'profile.invite')}</Text>
         </Pressable>
 
         {/* TRAINING PLAN */}
         <View style={settingsStyles.section}>
-          <SectionLabel label="TRAINING PLAN" actionLabel={resolvedPlanName ? 'Manage' : undefined} onAction={onManagePlan} />
+          <SectionLabel
+            label={t(language, 'profile.section.trainingPlan')}
+            actionLabel={resolvedPlanName ? t(language, 'profile.manage') : undefined}
+            onAction={onManagePlan}
+          />
           <Pressable onPress={onManagePlan} style={({ pressed }) => [settingsStyles.card, styles.planCard, pressed && styles.pressed]}>
             <View style={styles.planTop}>
               <Text numberOfLines={1} style={styles.planName}>
-                {resolvedPlanName ?? 'No plan selected'}
+                {resolvedPlanName ?? t(language, 'profile.noPlan')}
               </Text>
               <ChevronIcon />
             </View>
@@ -289,8 +314,12 @@ export function ProfileScreen({
                   {/* Mock parity: AI badge always on — engine wiring comes later.
                       Only the AI badge is purple; the meta badges are grey. */}
                   <Badge accent icon={<SparkIcon />} label="AI" />
-                  {planDaysPerWeek ? <Badge icon={<CalendarIcon />} label={`${planDaysPerWeek}× / week`} /> : null}
-                  {planExerciseCount ? <Badge icon={<DumbbellIcon />} label={`${planExerciseCount} exercises`} /> : null}
+                  {planDaysPerWeek ? (
+                    <Badge icon={<CalendarIcon />} label={t(language, 'profile.badge.perWeek', { count: planDaysPerWeek })} />
+                  ) : null}
+                  {planExerciseCount ? (
+                    <Badge icon={<DumbbellIcon />} label={t(language, 'profile.badge.exercises', { count: planExerciseCount })} />
+                  ) : null}
                 </View>
                 {/* Weekday chips only when the questionnaire actually captured
                     training days — no invented rhythm. */}
@@ -301,7 +330,7 @@ export function ProfileScreen({
                       return (
                         <View key={chip.day} style={[styles.weekdayChip, active && styles.weekdayChipActive]}>
                           <Text style={[styles.weekdayChipText, active && styles.weekdayChipTextActive]}>
-                            {chip.label}
+                            {t(language, chip.labelKey)}
                           </Text>
                         </View>
                       );
@@ -315,14 +344,14 @@ export function ProfileScreen({
                 ) : null}
               </>
             ) : (
-              <Text style={styles.planCaption}>Pick a plan to guide your week.</Text>
+              <Text style={styles.planCaption}>{t(language, 'profile.noPlanCaption')}</Text>
             )}
           </Pressable>
         </View>
 
         {/* PERSONAL RECORDS */}
         <View style={settingsStyles.section}>
-          <SectionLabel label="PERSONAL RECORDS" />
+          <SectionLabel label={t(language, 'profile.section.records')} />
           <View style={settingsStyles.card}>
             {personalRecords.length > 0 ? (
               personalRecords.map((record, index) => {
@@ -339,12 +368,12 @@ export function ProfileScreen({
                       <Text numberOfLines={1} style={styles.recordName}>
                         {formatLiftDisplayLabel(record.name)}
                       </Text>
-                      {bodyPart ? <Text style={styles.recordBodyPart}>{capitalize(bodyPart)}</Text> : null}
+                      {bodyPart ? <Text style={styles.recordBodyPart}>{bodyPartLabel(language, bodyPart)}</Text> : null}
                     </View>
                     <View style={styles.recordValueBlock}>
                       <Text style={styles.recordValue}>{formatWeight(record.weightKg, unitPreference)}</Text>
                       <Text style={styles.recordMetaText}>
-                        × {record.reps} · {formatRecordWhenLabel(record.achievedAt)}
+                        × {record.reps} · {formatRecordWhenLabel(record.achievedAt, new Date(), language)}
                       </Text>
                     </View>
                   </View>
@@ -352,8 +381,8 @@ export function ProfileScreen({
               })
             ) : (
               <View style={styles.emptyBlock}>
-                <Text style={styles.emptyTitle}>No records yet</Text>
-                <Text style={styles.emptyText}>Log a few sets and your best lifts show up here.</Text>
+                <Text style={styles.emptyTitle}>{t(language, 'profile.records.emptyTitle')}</Text>
+                <Text style={styles.emptyText}>{t(language, 'profile.records.emptyBody')}</Text>
               </View>
             )}
           </View>
@@ -361,7 +390,7 @@ export function ProfileScreen({
 
         {/* LIFETIME */}
         <View style={settingsStyles.section}>
-          <SectionLabel label="LIFETIME" />
+          <SectionLabel label={t(language, 'profile.section.lifetime')} />
           <View style={styles.statGrid}>
             {lifetimeStats.map((stat) => (
               <View key={stat.label} style={styles.statCard}>

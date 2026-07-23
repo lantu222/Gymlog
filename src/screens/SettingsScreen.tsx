@@ -5,6 +5,7 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg'
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { getHealthProviderLabel } from '../integrations/health';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
@@ -32,15 +33,17 @@ const RED_SOFT = '#FBEAE7';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-function memberSinceLabel(firstSessionAt: string | null) {
+function memberSinceLabel(firstSessionAt: string | null, language: AppLanguage) {
   if (!firstSessionAt) {
-    return 'New here';
+    return t(language, 'settings.newHere');
   }
   const date = new Date(firstSessionAt);
   if (Number.isNaN(date.getTime())) {
-    return 'New here';
+    return t(language, 'settings.newHere');
   }
-  return `Training since ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  const dateLabel =
+    language === 'fi' ? `${date.getMonth() + 1}/${date.getFullYear()}` : `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+  return t(language, 'settings.memberSince', { date: dateLabel });
 }
 
 function getInitials(name: string | null) {
@@ -192,7 +195,8 @@ export function SettingsScreen({
   // Visual-only until their engines exist.
   const [darkTheme, setDarkTheme] = useState(false);
   const [analytics, setAnalytics] = useState(true);
-  const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : 'Guest athlete';
+  const language = preferences.appLanguage;
+  const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : t(language, 'profile.guestName');
   const soundAndHaptics = preferences.soundCuesEnabled || preferences.hapticsEnabled;
 
   return (
@@ -200,7 +204,7 @@ export function SettingsScreen({
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'settings.a11y.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
@@ -209,7 +213,7 @@ export function SettingsScreen({
         {/* pointerEvents none — the absolute title must not eat the back
             button's taps (the prototype does the same with pointer-events). */}
         <Text style={styles.headerTitle} pointerEvents="none">
-          Settings
+          {t(language, 'settings.title')}
         </Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -218,7 +222,7 @@ export function SettingsScreen({
         {/* profile chip */}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Edit profile"
+          accessibilityLabel={t(language, 'settings.a11y.editProfile')}
           onPress={onOpenEditProfile}
           style={({ pressed }) => [styles.profileChip, pressed && styles.pressed]}
         >
@@ -238,7 +242,7 @@ export function SettingsScreen({
             <Text numberOfLines={1} style={styles.profileChipName}>
               {displayName}
             </Text>
-            <Text style={styles.profileChipMeta}>{memberSinceLabel(firstSessionAt)}</Text>
+            <Text style={styles.profileChipMeta}>{memberSinceLabel(firstSessionAt, language)}</Text>
             {preferences.adaptiveCoachPremiumUnlocked ? (
               <View style={styles.proBadge}>
                 <Svg width={12} height={12} viewBox="0 0 24 24">
@@ -252,22 +256,22 @@ export function SettingsScreen({
         </Pressable>
 
         <View style={styles.section}>
-          <SectionLabel label="APP" />
+          <SectionLabel label={t(language, 'settings.section.app')} />
           <View style={styles.card}>
             {/* Theme choice is a Pro perk (user decision 2026-07-22). Without
                 Pro the control routes to the promo screen; with Pro the toggle
                 is live (visual-only until the theme engine exists). */}
             <Row
               icon="moon"
-              title="Dark theme"
-              sub={preferences.adaptiveCoachPremiumUnlocked ? undefined : 'Unlocks with Pro.'}
+              title={t(language, 'settings.darkTheme')}
+              sub={preferences.adaptiveCoachPremiumUnlocked ? undefined : t(language, 'settings.darkTheme.sub')}
               control={
                 preferences.adaptiveCoachPremiumUnlocked ? (
-                  <ToggleSwitch label="Dark theme" value={darkTheme} onChange={setDarkTheme} />
+                  <ToggleSwitch label={t(language, 'settings.darkTheme')} value={darkTheme} onChange={setDarkTheme} />
                 ) : (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Unlock dark theme with Pro"
+                    accessibilityLabel={t(language, 'settings.a11y.unlockDarkTheme')}
                     onPress={onOpenPromo}
                     style={({ pressed }) => [styles.proPill, pressed && styles.pressed]}
                   >
@@ -281,11 +285,11 @@ export function SettingsScreen({
             />
             <Row
               icon="bell"
-              title="Sound & haptics"
-              sub="Taps and rest-timer feedback."
+              title={t(language, 'settings.soundHaptics')}
+              sub={t(language, 'settings.soundHaptics.sub')}
               control={
                 <ToggleSwitch
-                  label="Sound and haptics"
+                  label={t(language, 'settings.soundHaptics')}
                   value={soundAndHaptics}
                   onChange={(next) => onPreferencesChange({ soundCuesEnabled: next, hapticsEnabled: next })}
                 />
@@ -293,11 +297,11 @@ export function SettingsScreen({
             />
             <Row
               icon="sun"
-              title="Keep screen awake"
-              sub="While a workout is running."
+              title={t(language, 'settings.keepAwake')}
+              sub={t(language, 'settings.keepAwake.sub')}
               control={
                 <ToggleSwitch
-                  label="Keep screen awake"
+                  label={t(language, 'settings.keepAwake')}
                   value={preferences.keepScreenAwakeDuringWorkout}
                   onChange={(next) => onPreferencesChange({ keepScreenAwakeDuringWorkout: next })}
                 />
@@ -305,7 +309,7 @@ export function SettingsScreen({
             />
             <Row
               icon="chat"
-              title="Language"
+              title={t(language, 'settings.language')}
               last
               control={
                 <Seg
@@ -322,80 +326,100 @@ export function SettingsScreen({
         </View>
 
         <View style={styles.section}>
-          <SectionLabel label="TRAINING" />
+          <SectionLabel label={t(language, 'settings.section.training')} />
           <View style={styles.card}>
             {/* Smart progression removed — returns later as a Pro feature. */}
             <Row
               icon="heart"
               iconColor="#FF2D55"
               title={getHealthProviderLabel()}
-              sub="Sync bodyweight automatically."
+              sub={t(language, 'settings.health.sub')}
               control={
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Connect ${getHealthProviderLabel()}`}
+                  accessibilityLabel={t(language, 'settings.a11y.connectHealth', { provider: getHealthProviderLabel() })}
                   onPress={onConnectHealth}
                   style={({ pressed }) => [styles.connectPill, pressed && styles.pressed]}
                 >
-                  <Text style={styles.connectPillText}>Connect</Text>
+                  <Text style={styles.connectPillText}>{t(language, 'settings.health.connect')}</Text>
                 </Pressable>
               }
             />
-            <Row icon="pause" title="Training break" sub="Log an injury or holiday." chevron last onPress={onOpenTrainingBreak} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionLabel label="ACCOUNT" />
-          <View style={styles.card}>
-            {/* Edit profile row dropped — the profile chip above is the entry. */}
-            <Row icon="bell" title="Notifications" sub="Push and reminders." chevron onPress={onOpenNotifications} />
-            <Row icon="body" title="My data" sub="Basics & training preferences." chevron onPress={onOpenMyData} />
-            <Row icon="tag" title="Promo code" chevron onPress={onOpenPromo} />
-            <Row icon="card" title="Manage subscription" chevron last onPress={onOpenSubscription} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionLabel label="YOUR DATA" />
-          <View style={styles.card}>
-            <Row icon="upload" title="Import plan (CSV)" sub="From Sheets, Excel or another app." chevron />
-            <Row icon="download" title="Export plan (CSV)" sub="Download a local copy." chevron last />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionLabel label="SUPPORT" />
-          <View style={styles.card}>
-            <Row icon="chat" title="Contact us" sub="Usually answered right away." chevron onPress={onOpenSupport} />
-            <Row icon="spark" title="Feature requests" sub="Vote on what we build next." chevron last onPress={onOpenFeatures} />
-          </View>
-        </View>
-
-        <View style={styles.section}>
-          <SectionLabel label="ABOUT" />
-          <View style={styles.card}>
-            <Row icon="shield" title="Privacy policy" chevron />
-            <Row icon="doc" title="Terms of service" chevron />
             <Row
-              icon="analytics"
-              title="Analytics"
-              sub="Helps us improve the app."
+              icon="pause"
+              title={t(language, 'settings.trainingBreak')}
+              sub={t(language, 'settings.trainingBreak.sub')}
+              chevron
               last
-              control={<ToggleSwitch label="Analytics" value={analytics} onChange={setAnalytics} />}
+              onPress={onOpenTrainingBreak}
             />
           </View>
         </View>
 
         <View style={styles.section}>
-          <SectionLabel label="DANGER ZONE" />
+          <SectionLabel label={t(language, 'settings.section.account')} />
           <View style={styles.card}>
-            <Row icon="logout" title="Sign out" danger chevron />
-            <Row icon="trash" title="Delete account" danger chevron />
+            {/* Edit profile row dropped — the profile chip above is the entry. */}
+            <Row
+              icon="bell"
+              title={t(language, 'settings.notifications')}
+              sub={t(language, 'settings.notifications.sub')}
+              chevron
+              onPress={onOpenNotifications}
+            />
+            <Row icon="body" title={t(language, 'settings.myData')} sub={t(language, 'settings.myData.sub')} chevron onPress={onOpenMyData} />
+            <Row icon="tag" title={t(language, 'settings.promo')} chevron onPress={onOpenPromo} />
+            <Row icon="card" title={t(language, 'settings.subscription')} chevron last onPress={onOpenSubscription} />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label={t(language, 'settings.section.yourData')} />
+          <View style={styles.card}>
+            <Row icon="upload" title={t(language, 'settings.importCsv')} sub={t(language, 'settings.importCsv.sub')} chevron />
+            <Row icon="download" title={t(language, 'settings.exportCsv')} sub={t(language, 'settings.exportCsv.sub')} chevron last />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label={t(language, 'settings.section.support')} />
+          <View style={styles.card}>
+            <Row icon="chat" title={t(language, 'settings.contact')} sub={t(language, 'settings.contact.sub')} chevron onPress={onOpenSupport} />
+            <Row
+              icon="spark"
+              title={t(language, 'settings.features')}
+              sub={t(language, 'settings.features.sub')}
+              chevron
+              last
+              onPress={onOpenFeatures}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label={t(language, 'settings.section.about')} />
+          <View style={styles.card}>
+            <Row icon="shield" title={t(language, 'settings.privacy')} chevron />
+            <Row icon="doc" title={t(language, 'settings.terms')} chevron />
+            <Row
+              icon="analytics"
+              title={t(language, 'settings.analytics')}
+              sub={t(language, 'settings.analytics.sub')}
+              last
+              control={<ToggleSwitch label={t(language, 'settings.analytics')} value={analytics} onChange={setAnalytics} />}
+            />
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <SectionLabel label={t(language, 'settings.section.dangerZone')} />
+          <View style={styles.card}>
+            <Row icon="logout" title={t(language, 'settings.signOut')} danger chevron />
+            <Row icon="trash" title={t(language, 'settings.deleteAccount')} danger chevron />
             <Row
               icon="trash"
-              title="Reset all data"
-              sub="Clear everything on this device."
+              title={t(language, 'settings.resetData')}
+              sub={t(language, 'settings.resetData.sub')}
               danger
               last
               onPress={() => setResetVisible(true)}
@@ -408,9 +432,10 @@ export function SettingsScreen({
 
       <ConfirmDialog
         visible={resetVisible}
-        title="Reset all data"
-        message="This clears workouts, sessions, bodyweight, progress, measurements, and saved preferences on this device."
-        confirmLabel="Reset"
+        title={t(language, 'settings.resetData')}
+        message={t(language, 'settings.resetDialog.message')}
+        confirmLabel={t(language, 'settings.resetDialog.confirm')}
+        cancelLabel={t(language, 'common.cancel')}
         destructive
         onCancel={() => setResetVisible(false)}
         onConfirm={() => {
