@@ -361,16 +361,19 @@ module.exports = [
       assert.doesNotMatch(workoutEditorScreenSource, /presentation\?:/);
       // The freestyle screen speaks the HG/AW3 language: empty state, add
       // sheet, shared set table with plate readout and the floating rest bar.
-      assert.match(emptyWorkoutScreenSource, /Nothing logged yet/);
-      assert.match(emptyWorkoutScreenSource, /freestyle session/);
-      assert.match(emptyWorkoutScreenSource, /Recent exercises/);
-      assert.match(emptyWorkoutScreenSource, /Popular exercises/);
+      assert.match(emptyWorkoutScreenSource, /emptyWorkout\.empty\.title/);
+      assert.match(emptyWorkoutScreenSource, /emptyWorkout\.stat\.tag/);
+      assert.match(emptyWorkoutScreenSource, /emptyWorkout\.recent/);
+      assert.match(emptyWorkoutScreenSource, /emptyWorkout\.popular/);
+      assert.match(i18nSource, /'emptyWorkout\.empty\.title': 'Nothing logged yet'/);
+      assert.match(i18nSource, /'emptyWorkout\.stat\.tag': 'freestyle session'/);
       assert.match(emptyWorkoutScreenSource, /getPopularExerciseLibraryItems/);
       assert.match(emptyWorkoutScreenSource, /<RestBar/);
       assert.match(emptyWorkoutScreenSource, /<PlatePop/);
       assert.match(emptyWorkoutScreenSource, /buildFreestyleFinish/);
       assert.match(emptyWorkoutScreenSource, /useKeepScreenAwake\(keepScreenAwake, 'empty-workout'\)/);
-      assert.match(emptyWorkoutScreenSource, /Finish workout/);
+      assert.match(emptyWorkoutScreenSource, /emptyWorkout\.finishWorkout/);
+      assert.match(i18nSource, /'emptyWorkout\.finishWorkout': 'Finish workout'/);
       // Save-truthfulness: the finish handler awaits App's onSave and resets
       // the saving flag on failure instead of showing success early.
       assert.match(emptyWorkoutScreenSource, /await onSave\(draft, summary\);/);

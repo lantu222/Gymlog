@@ -2976,6 +2976,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'empty') {
     content = (
       <EmptyWorkoutScreen
+        language={preferences.appLanguage}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
         defaultRestSeconds={preferences.defaultRestSeconds}
@@ -3100,6 +3101,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {
     content = (
       <WorkoutCompletionScreen
+        language={preferences.appLanguage}
         workoutName={completionSummary.workoutName}
         performedAt={completionSummary.performedAt}
         durationMinutes={completionSummary.durationMinutes}

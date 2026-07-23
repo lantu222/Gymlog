@@ -8,9 +8,11 @@ const HERO_GRADIENT_WIDTH = Dimensions.get('window').width;
 const HERO_GRADIENT_HEIGHT = 360;
 
 import { formatTime, removeTrailingZeros } from '../lib/format';
+import { bodyPartLabel, t } from '../lib/i18n';
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
 import { HG3 } from '../lightTheme';
+import { AppLanguage } from '../types/models';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
 
@@ -39,10 +41,11 @@ interface WorkoutCompletionScreenProps {
   muscles: MuscleFocusRow[];
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
+  language?: AppLanguage;
   onDone: () => void;
 }
 
-function formatWhenLabel(performedAt: string) {
+function formatWhenLabel(performedAt: string, language: AppLanguage) {
   const performed = new Date(performedAt);
   const now = new Date();
   const sameDay =
@@ -50,8 +53,10 @@ function formatWhenLabel(performedAt: string) {
     performed.getMonth() === now.getMonth() &&
     performed.getDate() === now.getDate();
   const day = sameDay
-    ? 'Today'
-    : new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(performed);
+    ? t(language, 'common.today')
+    : language === 'fi'
+      ? `${performed.getDate()}.${performed.getMonth() + 1}.`
+      : new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(performed);
   return `${day} · ${formatTime(performedAt)}`;
 }
 
@@ -59,12 +64,12 @@ function formatPrTitle(pr: WorkoutCompletionPrCard) {
   return `${pr.exerciseName} · ${removeTrailingZeros(pr.performedWeightKg)} kg × ${pr.performedReps}`;
 }
 
-function formatPrNote(pr: WorkoutCompletionPrCard) {
+function formatPrNote(pr: WorkoutCompletionPrCard, language: AppLanguage) {
   if (pr.previousBestOneRepMaxKg === null) {
-    return 'Your first logged best for this lift.';
+    return t(language, 'complete.pr.first');
   }
   const delta = pr.estimatedOneRepMaxKg - pr.previousBestOneRepMaxKg;
-  return `Est. 1RM +${removeTrailingZeros(Number(delta.toFixed(1)))} kg over your previous best`;
+  return t(language, 'complete.pr.delta', { delta: removeTrailingZeros(Number(delta.toFixed(1))) });
 }
 
 export function WorkoutCompletionScreen({
@@ -78,6 +83,7 @@ export function WorkoutCompletionScreen({
   muscles,
   exerciseCards,
   prCards,
+  language = 'en',
   onDone,
 }: WorkoutCompletionScreenProps) {
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -237,11 +243,11 @@ export function WorkoutCompletionScreen({
             </Animated.View>
           </View>
 
-          <Animated.Text style={[styles.heroTitle, rise(0)]}>Workout complete</Animated.Text>
+          <Animated.Text style={[styles.heroTitle, rise(0)]}>{t(language, 'complete.title')}</Animated.Text>
           <Animated.View style={[styles.heroSubRow, rise(1)]}>
             <Text style={styles.heroSubName}>{workoutName}</Text>
             <View style={styles.heroSubDot} />
-            <Text style={styles.heroSubWhen}>{formatWhenLabel(performedAt)}</Text>
+            <Text style={styles.heroSubWhen}>{formatWhenLabel(performedAt, language)}</Text>
           </Animated.View>
         </View>
 
@@ -254,12 +260,12 @@ export function WorkoutCompletionScreen({
                 </Svg>
               </View>
               <View style={styles.noteCopy}>
-                <Text style={styles.prEyebrow}>NEW PERSONAL RECORD</Text>
+                <Text style={styles.prEyebrow}>{t(language, 'complete.pr.eyebrow')}</Text>
                 <Text style={styles.noteTitle} numberOfLines={1}>
                   {formatPrTitle(pr)}
                 </Text>
                 <Text style={styles.noteSub} numberOfLines={2}>
-                  {formatPrNote(pr)}
+                  {formatPrNote(pr, language)}
                 </Text>
               </View>
             </Animated.View>
@@ -271,8 +277,8 @@ export function WorkoutCompletionScreen({
                 </Svg>
               </View>
               <View style={styles.noteCopy}>
-                <Text style={styles.noteTitle}>Solid session logged</Text>
-                <Text style={styles.noteSub}>Nothing stood out this time — and that's fine. Consistency is the win.</Text>
+                <Text style={styles.noteTitle}>{t(language, 'complete.solid.title')}</Text>
+                <Text style={styles.noteSub}>{t(language, 'complete.solid.sub')}</Text>
               </View>
             </Animated.View>
           )}
@@ -283,7 +289,7 @@ export function WorkoutCompletionScreen({
                 {durationMinutes}
                 <Text style={styles.statUnit}> min</Text>
               </Text>
-              <Text style={styles.statLabel}>DURATION</Text>
+              <Text style={styles.statLabel}>{t(language, 'complete.stat.duration')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCell}>
@@ -291,7 +297,7 @@ export function WorkoutCompletionScreen({
                 {Math.round(totalVolume).toLocaleString('en-US')}
                 <Text style={styles.statUnit}> kg</Text>
               </Text>
-              <Text style={styles.statLabel}>VOLUME</Text>
+              <Text style={styles.statLabel}>{t(language, 'complete.stat.volume')}</Text>
               {volumeDeltaKg !== null && volumeDeltaKg !== 0 ? (
                 <Text style={[styles.statDelta, volumeDeltaKg > 0 ? styles.statDeltaUp : styles.statDeltaDown]}>
                   {volumeDeltaKg > 0 ? '▲' : '▼'} {Math.abs(volumeDeltaKg).toLocaleString('en-US')} kg
@@ -301,25 +307,25 @@ export function WorkoutCompletionScreen({
             <View style={styles.statDivider} />
             <View style={styles.statCell}>
               <Text style={styles.statValue}>{setsCompleted}</Text>
-              <Text style={styles.statLabel}>SETS</Text>
+              <Text style={styles.statLabel}>{t(language, 'complete.stat.sets')}</Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCell}>
               <Text style={styles.statValue}>{exercisesLogged}</Text>
-              <Text style={styles.statLabel}>EXERCISES</Text>
+              <Text style={styles.statLabel}>{t(language, 'complete.stat.exercises')}</Text>
             </View>
           </Animated.View>
 
           {muscles.length > 0 ? (
             <Animated.View style={rise(4)}>
-              <Text style={styles.sectionLabel}>MUSCLE FOCUS</Text>
+              <Text style={styles.sectionLabel}>{t(language, 'complete.muscleFocus')}</Text>
               <View style={styles.sectionCard}>
                 {muscles.map((muscle, index) => (
                   <View key={muscle.name} style={[styles.muscleRow, index > 0 && styles.muscleRowSpaced]}>
                     <View style={styles.muscleTopRow}>
-                      <Text style={styles.muscleName}>{muscle.name}</Text>
+                      <Text style={styles.muscleName}>{bodyPartLabel(language, muscle.name)}</Text>
                       <Text style={styles.muscleMeta}>
-                        {muscle.sets} sets · {muscle.volumeKg.toLocaleString('en-US')} kg
+                        {t(language, 'complete.muscleMeta', { sets: muscle.sets, volume: muscle.volumeKg.toLocaleString('en-US') })}
                       </Text>
                     </View>
                     <View style={styles.muscleTrack}>
@@ -343,7 +349,7 @@ export function WorkoutCompletionScreen({
           ) : null}
 
           <Animated.View style={rise(5)}>
-            <Text style={styles.sectionLabel}>EXERCISES</Text>
+            <Text style={styles.sectionLabel}>{t(language, 'complete.stat.exercises')}</Text>
             <View style={[styles.sectionCard, styles.exercisesCard]}>
               {exerciseCards.map((exercise, index) => (
                 <View key={exercise.id} style={[styles.exerciseRow, index > 0 && styles.exerciseRowDivided]}>
@@ -363,12 +369,12 @@ export function WorkoutCompletionScreen({
                         </View>
                       ) : null}
                     </View>
-                    <Text style={styles.exerciseSets}>{exercise.completedSets} sets</Text>
+                    <Text style={styles.exerciseSets}>{t(language, 'complete.exerciseSets', { count: exercise.completedSets })}</Text>
                   </View>
                   {exercise.topSetLabel ? (
                     <View style={styles.exerciseTopSet}>
                       <Text style={styles.exerciseTopSetValue}>{exercise.topSetLabel}</Text>
-                      <Text style={styles.exerciseTopSetLabel}>TOP SET</Text>
+                      <Text style={styles.exerciseTopSetLabel}>{t(language, 'complete.topSet')}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -379,11 +385,11 @@ export function WorkoutCompletionScreen({
           <Animated.View style={rise(6)}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Finish"
+              accessibilityLabel={t(language, 'complete.finish')}
               onPress={onDone}
               style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}
             >
-              <Text style={styles.primaryButtonText}>Finish</Text>
+              <Text style={styles.primaryButtonText}>{t(language, 'complete.finish')}</Text>
             </Pressable>
           </Animated.View>
         </View>

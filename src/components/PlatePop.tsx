@@ -2,13 +2,16 @@ import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { parseNumberInput } from '../lib/format';
+import { t } from '../lib/i18n';
 import { BAR_WEIGHT_KG, PLATE_COLORS, platesPerSide } from '../lib/plateMath';
 import { HG } from '../lightTheme';
+import { AppLanguage } from '../types/models';
 
 interface PlatePopProps {
   /** Raw kg input for the active set — may be empty or partial while typing. */
   kg: string;
   barKg?: number;
+  language?: AppLanguage;
 }
 
 function formatPlate(plate: number) {
@@ -19,18 +22,18 @@ function formatPlate(plate: number) {
  * Compact per-side plate readout under the active set (AW3 design language).
  * Shared by the freestyle logger; Active Workout v3 will reuse it.
  */
-export function PlatePop({ kg, barKg = BAR_WEIGHT_KG }: PlatePopProps) {
+export function PlatePop({ kg, barKg = BAR_WEIGHT_KG, language = 'en' }: PlatePopProps) {
   const total = parseNumberInput(kg);
   const valid = total !== null && total > 0;
   const plates = valid ? platesPerSide(total, barKg) : [];
 
   return (
     <View>
-      <Text style={styles.eyebrow}>PLATES · PER SIDE · {barKg}KG BAR</Text>
+      <Text style={styles.eyebrow}>{t(language, 'plates.eyebrow', { bar: barKg })}</Text>
       {!valid ? (
-        <Text style={styles.hint}>Enter a weight to see plates.</Text>
+        <Text style={styles.hint}>{t(language, 'plates.enterWeight')}</Text>
       ) : plates.length === 0 ? (
-        <Text style={styles.barOnly}>Just the bar ({barKg} kg).</Text>
+        <Text style={styles.barOnly}>{t(language, 'plates.justBar', { bar: barKg })}</Text>
       ) : (
         <View style={styles.chipRow}>
           {plates.map((plate, index) => (

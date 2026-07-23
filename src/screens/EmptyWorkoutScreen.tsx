@@ -27,10 +27,11 @@ import {
   matchesMuscleFilter,
 } from '../lib/emptyWorkoutSession';
 import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems } from '../lib/exerciseSuggestions';
+import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
 import { AW3, HG } from '../lightTheme';
-import { ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
 import { haptics } from '../utils/haptics';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { sound } from '../utils/sound';
@@ -55,20 +56,22 @@ interface EmptyWorkoutScreenProps {
   defaultRestSeconds: number;
   keepScreenAwake?: boolean;
   exercisePrLookup: ExercisePrLookup;
+  language?: AppLanguage;
   onBack: () => void;
   onSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<void> | void;
 }
 
-function toLabel(value: string) {
-  return value
-    .split(' ')
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
-}
+const TAG_KEYS: Record<string, I18nKey> = {
+  compound: 'exerciseTag.compound',
+  isolation: 'exerciseTag.isolation',
+  cardio: 'exerciseTag.cardio',
+  core: 'exerciseTag.core',
+};
 
-function buildMetaLabel(item: ExerciseLibraryItem) {
-  const muscle = toLabel(item.bodyPart);
-  const tag = item.equipment === 'bodyweight' ? 'Bodyweight' : toLabel(item.category);
+function buildMetaLabel(item: ExerciseLibraryItem, language: AppLanguage) {
+  const muscle = bodyPartLabel(language, item.bodyPart);
+  const tagKey = item.equipment === 'bodyweight' ? 'exerciseTag.bodyweight' : TAG_KEYS[item.category];
+  const tag = tagKey ? t(language, tagKey) : item.category;
   // Core exercises would otherwise read "Core · Core".
   return tag.toLowerCase() === muscle.toLowerCase() ? muscle : `${muscle} · ${tag}`;
 }
@@ -77,7 +80,11 @@ function createSet() {
   return { localKey: createId('set'), kg: '', reps: '', done: false };
 }
 
-function buildExerciseState(item: ExerciseLibraryItem, defaultRestSeconds: number): FreestyleExerciseState {
+function buildExerciseState(
+  item: ExerciseLibraryItem,
+  defaultRestSeconds: number,
+  language: AppLanguage,
+): FreestyleExerciseState {
   const defaults = getExerciseTemplateDefaults(item, defaultRestSeconds);
   const displayName = formatLiftDisplayLabel(item.name, 'Exercise');
 
@@ -93,7 +100,7 @@ function buildExerciseState(item: ExerciseLibraryItem, defaultRestSeconds: numbe
     sets: [createSet()],
     displayName,
     initials: exerciseInitials(displayName),
-    metaLabel: buildMetaLabel(item),
+    metaLabel: buildMetaLabel(item, language),
     isBarbell: item.equipment === 'barbell',
   };
 }
@@ -163,7 +170,7 @@ function FadeInView({ style, children }: { style?: object; children: React.React
 }
 
 /** Check button with the aw3Pop squash when a set flips to done. */
-function SetCheckButton({ done, onPress }: { done: boolean; onPress: () => void }) {
+function SetCheckButton({ done, label, onPress }: { done: boolean; label: string; onPress: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
   const wasDone = useRef(done);
 
@@ -178,7 +185,7 @@ function SetCheckButton({ done, onPress }: { done: boolean; onPress: () => void 
   }, [done, scale]);
 
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={done ? 'Mark set not done' : 'Mark set done'} onPress={onPress}>
+    <Pressable accessibilityRole="button" accessibilityLabel={label} onPress={onPress}>
       <Animated.View style={[styles.setCheck, done && styles.setCheckDone, { transform: [{ scale }] }]}>
         <CheckIcon size={18} color={done ? '#FFFFFF' : AW3.ghost} />
       </Animated.View>
@@ -191,9 +198,20 @@ function SetCheckButton({ done, onPress }: { done: boolean; onPress: () => void 
 interface AddSheetProps {
   visible: boolean;
   items: ExerciseLibraryItem[];
+  language: AppLanguage;
   onClose: () => void;
   onAdd: (items: ExerciseLibraryItem[]) => void;
 }
+
+const FILTER_LABEL_KEYS: Record<EmptyWorkoutMuscleFilter, I18nKey> = {
+  All: 'emptyWorkout.filter.all',
+  Chest: 'bodyPart.chest',
+  Back: 'bodyPart.back',
+  Shoulders: 'bodyPart.shoulders',
+  Legs: 'bodyPart.legs',
+  Arms: 'emptyWorkout.filter.arms',
+  Core: 'bodyPart.core',
+};
 
 function SelectTogglePill({ selected }: { selected: boolean }) {
   return (
@@ -203,7 +221,7 @@ function SelectTogglePill({ selected }: { selected: boolean }) {
   );
 }
 
-function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
+function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddSheetProps) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<EmptyWorkoutMuscleFilter>('All');
   const [query, setQuery] = useState('');
@@ -260,7 +278,9 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
           const active = option === filter;
           return (
             <Pressable key={option} onPress={() => setFilter(option)} style={[styles.sheetChip, active && styles.sheetChipActive]}>
-              <Text style={[styles.sheetChipText, active && styles.sheetChipTextActive]}>{option}</Text>
+              <Text style={[styles.sheetChipText, active && styles.sheetChipTextActive]}>
+                {t(language, FILTER_LABEL_KEYS[option])}
+              </Text>
             </Pressable>
           );
         })}
@@ -269,8 +289,8 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
       {popularItems.length > 0 ? (
         <>
           <View style={styles.sheetSectionHeader}>
-            <Text style={styles.sheetSectionTitle}>Popular to start</Text>
-            <Text style={styles.sheetSectionSubtitle}>Common first picks for a new workout.</Text>
+            <Text style={styles.sheetSectionTitle}>{t(language, 'emptyWorkout.sheet.popularTitle')}</Text>
+            <Text style={styles.sheetSectionSubtitle}>{t(language, 'emptyWorkout.sheet.popularSub')}</Text>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.popularRow}>
             {popularItems.map((item) => {
@@ -293,7 +313,7 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
                     {formatLiftDisplayLabel(item.name, 'Exercise')}
                   </Text>
                   <Text numberOfLines={1} style={styles.popularMeta}>
-                    {buildMetaLabel(item)}
+                    {buildMetaLabel(item, language)}
                   </Text>
                 </Pressable>
               );
@@ -303,8 +323,8 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
       ) : null}
 
       <View style={styles.sheetSectionHeaderAll}>
-        <Text style={styles.sheetSectionTitle}>All exercises</Text>
-        <Text style={styles.sheetSectionSubtitle}>{listItems.length} available</Text>
+        <Text style={styles.sheetSectionTitle}>{t(language, 'emptyWorkout.sheet.allTitle')}</Text>
+        <Text style={styles.sheetSectionSubtitle}>{t(language, 'emptyWorkout.sheet.available', { count: listItems.length })}</Text>
       </View>
     </>
   );
@@ -320,11 +340,11 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
           <View style={styles.sheetHead}>
             <View style={styles.sheetHeadRow}>
               <View style={styles.sheetHeadCopy}>
-                <Text style={styles.sheetTitle}>Add exercise</Text>
-                <Text style={styles.sheetSubtitle}>Add the next lift to this workout.</Text>
+                <Text style={styles.sheetTitle}>{t(language, 'emptyWorkout.addExercise')}</Text>
+                <Text style={styles.sheetSubtitle}>{t(language, 'emptyWorkout.sheet.subtitle')}</Text>
               </View>
-              <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={onClose} hitSlop={8}>
-                <Text style={styles.sheetClose}>Close</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.sheet.close')} onPress={onClose} hitSlop={8}>
+                <Text style={styles.sheetClose}>{t(language, 'emptyWorkout.sheet.close')}</Text>
               </Pressable>
             </View>
             <View style={styles.searchField}>
@@ -335,7 +355,7 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
               <TextInput
                 value={query}
                 onChangeText={setQuery}
-                placeholder="Search exercises"
+                placeholder={t(language, 'emptyWorkout.sheet.search')}
                 placeholderTextColor={AW3.ghost}
                 selectionColor={HG.purple}
                 style={styles.searchInput}
@@ -355,7 +375,7 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
             ListHeaderComponent={listHeader}
             ListEmptyComponent={
               popularItems.length === 0 ? (
-                <Text style={styles.sheetEmptyText}>No exercises match “{query}”.</Text>
+                <Text style={styles.sheetEmptyText}>{t(language, 'emptyWorkout.sheet.noMatch', { query })}</Text>
               ) : null
             }
             renderItem={({ item }) => {
@@ -368,7 +388,7 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
                       {formatLiftDisplayLabel(item.name, 'Exercise')}
                     </Text>
                     <Text numberOfLines={1} style={styles.sheetRowMeta}>
-                      {buildMetaLabel(item)}
+                      {buildMetaLabel(item, language)}
                     </Text>
                   </View>
                   <SelectTogglePill selected={selected} />
@@ -380,15 +400,17 @@ function AddExerciseSheetHG({ visible, items, onClose, onAdd }: AddSheetProps) {
           <View style={styles.sheetFooter}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add selected exercises"
+              accessibilityLabel={t(language, 'emptyWorkout.a11y.addSelected')}
               onPress={confirm}
               disabled={selectedIds.length === 0}
               style={[styles.sheetConfirm, selectedIds.length === 0 && styles.sheetConfirmDisabled]}
             >
               <Text style={[styles.sheetConfirmText, selectedIds.length === 0 && styles.sheetConfirmTextDisabled]}>
-                {selectedIds.length
-                  ? `Add ${selectedIds.length} ${selectedIds.length === 1 ? 'exercise' : 'exercises'}`
-                  : 'Select one or more exercises'}
+                {selectedIds.length === 0
+                  ? t(language, 'emptyWorkout.sheet.selectPrompt')
+                  : selectedIds.length === 1
+                    ? t(language, 'emptyWorkout.sheet.addOne')
+                    : t(language, 'emptyWorkout.sheet.addMany', { count: selectedIds.length })}
               </Text>
             </Pressable>
           </View>
@@ -406,6 +428,7 @@ export function EmptyWorkoutScreen({
   defaultRestSeconds,
   keepScreenAwake = false,
   exercisePrLookup,
+  language = 'en',
   onBack,
   onSave,
 }: EmptyWorkoutScreenProps) {
@@ -448,13 +471,13 @@ export function EmptyWorkoutScreen({
     const source = recentExerciseLibraryItems.length > 0 ? recentExerciseLibraryItems : getPopularExerciseLibraryItems(exerciseLibrary, 8);
     return source.slice(0, 4);
   }, [exerciseLibrary, recentExerciseLibraryItems]);
-  const quickListTitle = recentExerciseLibraryItems.length > 0 ? 'Recent exercises' : 'Popular exercises';
+  const quickListTitle = t(language, recentExerciseLibraryItems.length > 0 ? 'emptyWorkout.recent' : 'emptyWorkout.popular');
 
   const addExercises = (items: ExerciseLibraryItem[]) => {
     if (!items.length) {
       return;
     }
-    setExercises((current) => [...current, ...items.map((item) => buildExerciseState(item, defaultRestSeconds))]);
+    setExercises((current) => [...current, ...items.map((item) => buildExerciseState(item, defaultRestSeconds, language))]);
     setStartedAtMs((current) => current ?? Date.now());
     setNowMs(Date.now());
     setSheetVisible(false);
@@ -532,7 +555,7 @@ export function EmptyWorkoutScreen({
     try {
       const { draft, summary } = buildFreestyleFinish({
         exercises,
-        workoutName: 'Empty workout',
+        workoutName: t(language, 'emptyWorkout.title'),
         startedAtIso: new Date(startedAtMs ?? Date.now()).toISOString(),
         performedAtIso: new Date().toISOString(),
         elapsedSeconds,
@@ -550,33 +573,39 @@ export function EmptyWorkoutScreen({
     <View style={styles.screen}>
       {/* header */}
       <View style={styles.header}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={onBack} hitSlop={10} style={styles.headerBack}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.a11y.back')} onPress={onBack} hitSlop={10} style={styles.headerBack}>
           <Svg viewBox="0 0 24 24" width={24} height={24}>
             <Path d="M15 6l-6 6 6 6" stroke={HG.ink} strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Empty workout</Text>
+          <Text style={styles.headerTitle}>{t(language, 'emptyWorkout.title')}</Text>
           <Text style={styles.headerClock}>{formatSessionClock(elapsedSeconds)}</Text>
         </View>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Finish workout"
+          accessibilityLabel={t(language, 'emptyWorkout.finishWorkout')}
           onPress={handleFinish}
           disabled={!canFinish}
           hitSlop={10}
           style={styles.headerFinish}
         >
-          <Text style={[styles.headerFinishText, !canFinish && styles.headerFinishTextDisabled]}>Finish</Text>
+          <Text style={[styles.headerFinishText, !canFinish && styles.headerFinishTextDisabled]}>
+            {t(language, 'emptyWorkout.finish')}
+          </Text>
         </Pressable>
       </View>
 
       {/* stat strip */}
       <View style={styles.statStrip}>
-        <Text style={[styles.statText, !hasExercises && styles.statTextFaint]}>{doneSetCount} sets</Text>
+        <Text style={[styles.statText, !hasExercises && styles.statTextFaint]}>
+          {t(language, 'emptyWorkout.stat.sets', { count: doneSetCount })}
+        </Text>
         <View style={styles.statDot} />
-        <Text style={[styles.statText, !hasExercises && styles.statTextFaint]}>{formatVolumeLabel(volumeKg)} kg volume</Text>
-        <Text style={styles.statTag}>freestyle session</Text>
+        <Text style={[styles.statText, !hasExercises && styles.statTextFaint]}>
+          {t(language, 'emptyWorkout.stat.volume', { volume: formatVolumeLabel(volumeKg) })}
+        </Text>
+        <Text style={styles.statTag}>{t(language, 'emptyWorkout.stat.tag')}</Text>
       </View>
 
       {!hasExercises ? (
@@ -595,16 +624,16 @@ export function EmptyWorkoutScreen({
                 />
               </Svg>
             </View>
-            <Text style={styles.emptyTitle}>Nothing logged yet</Text>
-            <Text style={styles.emptySubtitle}>Add your first exercise and log sets as you go — no plan required.</Text>
+            <Text style={styles.emptyTitle}>{t(language, 'emptyWorkout.empty.title')}</Text>
+            <Text style={styles.emptySubtitle}>{t(language, 'emptyWorkout.empty.sub')}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add exercise"
+              accessibilityLabel={t(language, 'emptyWorkout.addExercise')}
               onPress={() => setSheetVisible(true)}
               style={styles.emptyCta}
             >
               <PlusIcon size={20} color="#FFFFFF" />
-              <Text style={styles.emptyCtaText}>Add exercise</Text>
+              <Text style={styles.emptyCtaText}>{t(language, 'emptyWorkout.addExercise')}</Text>
             </Pressable>
           </View>
 
@@ -612,8 +641,8 @@ export function EmptyWorkoutScreen({
             <View style={styles.quickSection}>
               <View style={styles.quickHeader}>
                 <Text style={styles.quickTitle}>{quickListTitle}</Text>
-                <Pressable accessibilityRole="button" accessibilityLabel="See all exercises" onPress={() => setSheetVisible(true)} hitSlop={8}>
-                  <Text style={styles.quickSeeAll}>See all</Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.seeAll')} onPress={() => setSheetVisible(true)} hitSlop={8}>
+                  <Text style={styles.quickSeeAll}>{t(language, 'emptyWorkout.seeAll')}</Text>
                 </Pressable>
               </View>
               <View style={styles.quickList}>
@@ -625,7 +654,7 @@ export function EmptyWorkoutScreen({
                         {formatLiftDisplayLabel(item.name, 'Exercise')}
                       </Text>
                       <Text numberOfLines={1} style={styles.quickRowMeta}>
-                        {toLabel(item.bodyPart)}
+                        {bodyPartLabel(language, item.bodyPart)}
                       </Text>
                     </View>
                     <View style={styles.quickRowPlus}>
@@ -661,7 +690,7 @@ export function EmptyWorkoutScreen({
                   </View>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Remove ${exercise.displayName}`}
+                    accessibilityLabel={t(language, 'emptyWorkout.a11y.remove', { name: exercise.displayName })}
                     onPress={() => removeExercise(exercise.localKey)}
                     style={styles.exerciseRemove}
                   >
@@ -674,7 +703,9 @@ export function EmptyWorkoutScreen({
                 <View style={styles.setGridHeader}>
                   <Text style={[styles.setGridHeaderText, styles.setColIndex]}>#</Text>
                   <Text style={[styles.setGridHeaderText, styles.setColField, styles.setGridHeaderCenter]}>KG</Text>
-                  <Text style={[styles.setGridHeaderText, styles.setColField, styles.setGridHeaderCenter]}>REPS</Text>
+                  <Text style={[styles.setGridHeaderText, styles.setColField, styles.setGridHeaderCenter]}>
+                    {t(language, 'emptyWorkout.col.reps')}
+                  </Text>
                   <View style={styles.setColCheck} />
                 </View>
 
@@ -704,12 +735,16 @@ export function EmptyWorkoutScreen({
                           style={[styles.setInput, styles.setColField]}
                         />
                         <View style={[styles.setColCheck, styles.setCheckCell]}>
-                          <SetCheckButton done={set.done} onPress={() => toggleSetDone(exercise.localKey, set.localKey)} />
+                          <SetCheckButton
+                            done={set.done}
+                            label={t(language, set.done ? 'emptyWorkout.a11y.setNotDone' : 'emptyWorkout.a11y.setDone')}
+                            onPress={() => toggleSetDone(exercise.localKey, set.localKey)}
+                          />
                         </View>
                       </View>
                       {exercise.isBarbell && setIndex === activeIndex ? (
                         <FadeInView style={styles.plateStrip}>
-                          <PlatePop kg={set.kg} />
+                          <PlatePop kg={set.kg} language={language} />
                         </FadeInView>
                       ) : null}
                     </View>
@@ -718,12 +753,12 @@ export function EmptyWorkoutScreen({
 
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Add set to ${exercise.displayName}`}
+                  accessibilityLabel={t(language, 'emptyWorkout.a11y.addSetTo', { name: exercise.displayName })}
                   onPress={() => addSet(exercise.localKey)}
                   style={styles.addSetButton}
                 >
                   <PlusIcon size={15} color={HG.purpleDark} strokeWidth={2.6} />
-                  <Text style={styles.addSetText}>Add set</Text>
+                  <Text style={styles.addSetText}>{t(language, 'emptyWorkout.addSet')}</Text>
                 </Pressable>
               </View>
             );
@@ -732,32 +767,46 @@ export function EmptyWorkoutScreen({
           <View style={styles.loggingFooter}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add exercise"
+              accessibilityLabel={t(language, 'emptyWorkout.addExercise')}
               onPress={() => setSheetVisible(true)}
               style={styles.addExerciseDashed}
             >
               <PlusIcon size={17} color={HG.purpleDark} strokeWidth={2.6} />
-              <Text style={styles.addExerciseDashedText}>Add exercise</Text>
+              <Text style={styles.addExerciseDashedText}>{t(language, 'emptyWorkout.addExercise')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Finish workout"
+              accessibilityLabel={t(language, 'emptyWorkout.finishWorkout')}
               onPress={handleFinish}
               disabled={!canFinish}
               style={[styles.finishButton, isSaving && styles.finishButtonSaving]}
             >
               <CheckIcon size={19} color="#FFFFFF" />
-              <Text style={styles.finishButtonText}>{isSaving ? 'Saving…' : 'Finish workout'}</Text>
+              <Text style={styles.finishButtonText}>
+                {isSaving ? t(language, 'emptyWorkout.saving') : t(language, 'emptyWorkout.finishWorkout')}
+              </Text>
             </Pressable>
           </View>
         </ScrollView>
       )}
 
       {rest && restRemaining !== null && restRemaining > 0 && !sheetVisible ? (
-        <RestBar totalSeconds={rest.totalSeconds} remainingSeconds={restRemaining} onAdjust={adjustRest} onSkip={() => setRest(null)} />
+        <RestBar
+          totalSeconds={rest.totalSeconds}
+          remainingSeconds={restRemaining}
+          onAdjust={adjustRest}
+          onSkip={() => setRest(null)}
+          language={language}
+        />
       ) : null}
 
-      <AddExerciseSheetHG visible={sheetVisible} items={exerciseLibrary} onClose={() => setSheetVisible(false)} onAdd={addExercises} />
+      <AddExerciseSheetHG
+        visible={sheetVisible}
+        items={exerciseLibrary}
+        language={language}
+        onClose={() => setSheetVisible(false)}
+        onAdd={addExercises}
+      />
     </View>
   );
 }

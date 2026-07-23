@@ -2,13 +2,16 @@ import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
+import { AppLanguage } from '../types/models';
 
 interface RestBarProps {
   totalSeconds: number;
   remainingSeconds: number;
   onAdjust: (deltaSeconds: number) => void;
   onSkip: () => void;
+  language?: AppLanguage;
 }
 
 function formatClock(seconds: number) {
@@ -22,7 +25,7 @@ function formatClock(seconds: number) {
  * progress line. Shared by the freestyle logger; Active Workout v3 will
  * reuse it.
  */
-export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip }: RestBarProps) {
+export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, language = 'en' }: RestBarProps) {
   const slideIn = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -63,18 +66,18 @@ export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip }: Re
           />
         </Svg>
         <View style={styles.copy}>
-          <Text style={styles.eyebrow}>REST</Text>
+          <Text style={styles.eyebrow}>{t(language, 'rest.eyebrow')}</Text>
           <Text style={styles.time}>{formatClock(remainingSeconds)}</Text>
         </View>
         <View style={styles.pillRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Shorten rest by 15 seconds" onPress={() => onAdjust(-15)} style={styles.pill}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.shorten')} onPress={() => onAdjust(-15)} style={styles.pill}>
             <Text style={styles.pillText}>−15s</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Extend rest by 15 seconds" onPress={() => onAdjust(15)} style={styles.pill}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.extend')} onPress={() => onAdjust(15)} style={styles.pill}>
             <Text style={styles.pillText}>+15s</Text>
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel="Skip rest" onPress={onSkip} style={[styles.pill, styles.pillSolid]}>
-            <Text style={[styles.pillText, styles.pillTextSolid]}>Skip</Text>
+          <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.skip')} onPress={onSkip} style={[styles.pill, styles.pillSolid]}>
+            <Text style={[styles.pillText, styles.pillTextSolid]}>{t(language, 'rest.skip')}</Text>
           </Pressable>
         </View>
       </View>
