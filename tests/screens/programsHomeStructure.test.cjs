@@ -36,7 +36,7 @@ module.exports = [
   {
     name: 'programs tab is labelled Programs with a layers icon (internal key unchanged)',
     run() {
-      assert.match(bottomTabBarSource, /\{ key: 'workout', label: 'Programs' \}/);
+      assert.match(bottomTabBarSource, /\{ key: 'workout', labelKey: 'tabs\.programs' \}/);
       assert.doesNotMatch(bottomTabBarSource, /label: 'Exercises'/);
       // Layers glyph replaces the dumbbell rects for the workout tab.
       assert.match(bottomTabBarSource, /Programs = a stacked-layers glyph/);
@@ -123,7 +123,7 @@ module.exports = [
       assert.doesNotMatch(bottomTabBarSource, /<Text[^>]*centerLabel[^>]*>Start<\/Text>/);
       assert.doesNotMatch(bottomTabBarSource, /styles\.centerLabel/);
       // The center action is the raised "AI" button; a11y label preserved.
-      assert.match(bottomTabBarSource, /accessibilityLabel="AI session"/);
+      assert.match(bottomTabBarSource, /accessibilityLabel=\{t\(language, 'tabs\.aiSession'\)\}/);
     },
   },
 ];

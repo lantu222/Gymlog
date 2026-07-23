@@ -1,21 +1,46 @@
+import { AppLanguage } from '../types/models';
+
 const DAY_MS = 24 * 60 * 60 * 1000;
-const WEEKDAY_LABELS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-const MONTH_LABELS = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+// Sunday-first, matching Date#getDay().
+const WEEKDAY_LABELS: Record<AppLanguage, string[]> = {
+  en: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
+  fi: ['SU', 'MA', 'TI', 'KE', 'TO', 'PE', 'LA'],
+};
+const MONTH_LABELS: Record<AppLanguage, string[]> = {
+  en: [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ],
+  fi: [
+    'Tammikuu',
+    'Helmikuu',
+    'Maaliskuu',
+    'Huhtikuu',
+    'Toukokuu',
+    'Kesäkuu',
+    'Heinäkuu',
+    'Elokuu',
+    'Syyskuu',
+    'Lokakuu',
+    'Marraskuu',
+    'Joulukuu',
+  ],
+};
 // Month grid runs Monday-first to match weekdayIndex (0 = Monday) elsewhere.
-const MONTH_WEEKDAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const MONTH_WEEKDAY_LABELS: Record<AppLanguage, string[]> = {
+  en: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
+  fi: ['MA', 'TI', 'KE', 'TO', 'PE', 'LA', 'SU'],
+};
 
 function toDayStart(dateInput: Date) {
   const date = new Date(dateInput);
@@ -70,13 +95,17 @@ export interface HomeDayView {
   session: HomeDaySessionSummary | null;
 }
 
-export function getHomeMiniCalendarDays(now = new Date()): HomeMiniCalendarDay[] {
-  return getHomeCarouselCalendarDays(now, { daysBefore: 2, daysAfter: 4 });
+export function getHomeMiniCalendarDays(now = new Date(), language: AppLanguage = 'en'): HomeMiniCalendarDay[] {
+  return getHomeCarouselCalendarDays(now, { daysBefore: 2, daysAfter: 4, language });
 }
 
 export function getHomeCarouselCalendarDays(
   now = new Date(),
-  { daysBefore = 7, daysAfter = 14 }: { daysBefore?: number; daysAfter?: number } = {},
+  {
+    daysBefore = 7,
+    daysAfter = 14,
+    language = 'en',
+  }: { daysBefore?: number; daysAfter?: number; language?: AppLanguage } = {},
 ): HomeMiniCalendarDay[] {
   const todayStart = toDayStart(now);
   const todayTimestamp = todayStart.getTime();
@@ -85,7 +114,7 @@ export function getHomeCarouselCalendarDays(
   return Array.from({ length: totalDays }, (_, index) => {
     const offset = index - daysBefore;
     const date = new Date(todayTimestamp + offset * DAY_MS);
-    const weekdayLabel = WEEKDAY_LABELS[date.getDay()] ?? '';
+    const weekdayLabel = WEEKDAY_LABELS[language][date.getDay()] ?? '';
     const isToday = date.getTime() === todayTimestamp;
 
     return {
@@ -113,7 +142,7 @@ export interface HomeMonthCalendar {
   weeks: HomeMonthCalendarDay[][];
 }
 
-export function getHomeMonthCalendar(now = new Date()): HomeMonthCalendar {
+export function getHomeMonthCalendar(now = new Date(), language: AppLanguage = 'en'): HomeMonthCalendar {
   const todayStart = toDayStart(now);
   const year = todayStart.getFullYear();
   const month = todayStart.getMonth();
@@ -124,8 +153,8 @@ export function getHomeMonthCalendar(now = new Date()): HomeMonthCalendar {
   const weekCount = Math.ceil((gridStartOffset + daysInMonth) / 7);
 
   return {
-    monthLabel: `${MONTH_LABELS[month]} ${year}`,
-    weekdayLabels: [...MONTH_WEEKDAY_LABELS],
+    monthLabel: `${MONTH_LABELS[language][month]} ${year}`,
+    weekdayLabels: [...MONTH_WEEKDAY_LABELS[language]],
     weeks: Array.from({ length: weekCount }, (_, weekIndex) =>
       Array.from({ length: 7 }, (_, weekdayIndex) => {
         // Calendar-arithmetic construction keeps day starts DST-safe.

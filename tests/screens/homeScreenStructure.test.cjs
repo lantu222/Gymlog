@@ -35,6 +35,7 @@ const workoutsScreenSource = fs.readFileSync(
   'utf8',
 );
 const routesSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'navigation', 'routes.ts'), 'utf8');
+const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
 
 module.exports = [
@@ -47,8 +48,12 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /const HOME_BACKGROUND =/);
       assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: HG3\.bg/);
 
-      assert.match(homeScreenSource, /Welcome back/);
-      assert.match(homeScreenSource, /Let's get after it today\./);
+      // Greeting copy lives in i18n.ts; the screen renders it via t(language, …).
+      assert.match(homeScreenSource, /t\(language, 'home\.greeting\.title'\)/);
+      assert.match(homeScreenSource, /t\(language, 'home\.greeting\.subtitle'\)/);
+      assert.match(i18nSource, /'home\.greeting\.title': 'Welcome back'/);
+      assert.match(i18nSource, /'home\.greeting\.subtitle': "Let's get after it today\."/);
+      assert.match(i18nSource, /'home\.greeting\.title': 'Tervetuloa takaisin'/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
       assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 26/);
       assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 13\.5/);
@@ -64,7 +69,7 @@ module.exports = [
       assert.match(homeScreenSource, /weekCard:\s*\{[\s\S]*borderRadius: 18/);
       assert.match(homeScreenSource, /weekStripItemToday:\s*\{[\s\S]*backgroundColor: HG3\.purpleSoft/);
       assert.match(homeScreenSource, /const \[calendarExpanded, setCalendarExpanded\] = useState\(false\)/);
-      assert.match(homeScreenSource, /const monthCalendar = useMemo\(\(\) => getHomeMonthCalendar\(\), \[\]\)/);
+      assert.match(homeScreenSource, /const monthCalendar = useMemo\(\(\) => getHomeMonthCalendar\(new Date\(\), language\), \[language\]\)/);
       assert.match(homeScreenSource, /monthCalendar\.monthLabel/);
       assert.match(homeScreenSource, /monthDayCellToday/);
       assert.match(homeScreenSource, /monthLegendRow/);
@@ -102,7 +107,8 @@ module.exports = [
       assert.match(homeScreenSource, /const focusTitle = getSessionFocusTitle\(nextPlanSession\?\.title, activePlan\?\.title\)/);
       // Home simplification round (2026-07-20): hero title bumped to 38.
       assert.match(homeScreenSource, /heroTitle:\s*\{[\s\S]*fontSize: 38/);
-      assert.match(homeScreenSource, /\{sessionsDone\} of \{sessionsTotal\} sessions/);
+      assert.match(homeScreenSource, /t\(language, 'home\.hero\.sessionsProgress', \{ done: sessionsDone, total: sessionsTotal \}\)/);
+      assert.match(i18nSource, /'home\.hero\.sessionsProgress': '\{done\} of \{total\} sessions'/);
       assert.match(homeScreenSource, /heroProgTrack:\s*\{\s*width: 88,\s*height: 6/);
       assert.match(homeScreenSource, /heroProgFill:\s*\{[\s\S]*backgroundColor: HG3\.purple/);
       assert.match(homeScreenSource, /progressFillAnim\.interpolate\(\{ inputRange: \[0, 100\], outputRange: \['0%', '100%'\] \}\)/);
@@ -112,14 +118,15 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /— needed for today's session/);
       // History section at the bottom: strength + cardio merged, See all link.
       assert.match(homeScreenSource, /historyItems\.map\(/);
-      assert.match(homeScreenSource, /See all/);
+      assert.match(homeScreenSource, /t\(language, 'home\.history\.seeAll'\)/);
+      assert.match(i18nSource, /'home\.history\.seeAll': 'See all'/);
       assert.match(homeScreenSource, /item\.kind === 'cardio' && item\.cardioIcon \? \(/);
       // Warmup / Workout / Cooldown accordions: workout open by default,
       // animated height + rotating chevron, agenda rows inside.
       // All three section accordions start collapsed (user preference).
       assert.match(homeScreenSource, /warmup: false,\s*workout: false,\s*cooldown: false/);
-      assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusTitle\)/);
-      assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle\)/);
+      assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusTitle, language\)/);
+      assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle, language\)/);
       assert.match(homeScreenSource, /sectionAnims\[key\]\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 420\] \}\)/);
       assert.match(homeScreenSource, /duration: 380/);
       assert.match(homeScreenSource, /secTitle:\s*\{[\s\S]*fontSize: 20/);
@@ -132,34 +139,38 @@ module.exports = [
       // Start workout is the green action: green border, label, and arrow.
       assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: HG3\.green/);
       assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: HG3\.green/);
-      assert.match(homeScreenSource, /Start workout/);
-      assert.match(homeScreenSource, /Adapt session/);
-      assert.match(homeScreenSource, /Tweak today's session — your plan stays on track\./);
-      assert.match(homeScreenSource, /Shorter session/);
-      assert.match(homeScreenSource, /Trim to ~\$\{adaptTrim\.trimmedMinutes\} min · drops \$\{adaptTrim\.droppedSets\} sets/);
-      assert.match(homeScreenSource, /Change equipment/);
-      assert.match(homeScreenSource, /Swap an exercise/);
-      assert.match(homeScreenSource, /Feeling low energy/);
+      assert.match(homeScreenSource, /t\(language, 'home\.startWorkout'\)/);
+      assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
+      assert.match(i18nSource, /'home\.adaptSheet\.title': 'Adapt session'/);
+      assert.match(i18nSource, /'home\.adaptSheet\.subtitle': "Tweak today's session — your plan stays on track\."/);
+      assert.match(i18nSource, /'home\.adaptSheet\.shorter\.title': 'Shorter session'/);
+      assert.match(i18nSource, /'home\.adaptSheet\.shorter\.sub': 'Trim to ~\{min\} min · drops \{sets\} sets'/);
+      assert.match(homeScreenSource, /t\(language, 'home\.adaptSheet\.shorter\.sub', \{[\s\S]*min: adaptTrim\.trimmedMinutes,[\s\S]*sets: adaptTrim\.droppedSets,/);
+      assert.match(i18nSource, /'home\.adaptSheet\.equipment\.title': 'Change equipment'/);
+      assert.match(i18nSource, /'home\.adaptSheet\.swap\.title': 'Swap an exercise'/);
+      assert.match(i18nSource, /'home\.adaptSheet\.energy\.title': 'Feeling low energy'/);
       assert.match(homeScreenSource, /adaptCancel/);
       assert.match(homeScreenSource, /onRequestClose=\{\(\) => setAdaptSheetVisible\(false\)\}/);
       // Hero + accordions render only with an active plan.
       assert.match(homeScreenSource, /\{activePlan && nextPlanSession \? \(/);
       // Pro sheet: dark gradient bottom sheet with stats, comparison table,
       // pricing toggle, gold CTA, and dismiss.
-      assert.match(homeScreenSource, /Train like it's personal\./);
-      assert.match(homeScreenSource, /✦ GAINER PRO/);
+      assert.match(i18nSource, /'home\.proSheet\.headline': "Train like it's personal\."/);
+      assert.match(i18nSource, /'home\.proSheet\.badge': '✦ GAINER PRO'/);
       assert.match(homeScreenSource, /proSheetGradient/);
       assert.match(homeScreenSource, /stopColor=\{HG3\.proSheetTop\}/);
       assert.match(homeScreenSource, /PRO_STATS/);
       assert.match(homeScreenSource, /PRO_COMPARISON\.map/);
       assert.match(homeScreenSource, /setProPlan\(key\)/);
       assert.match(homeScreenSource, /proPricingCardSelected/);
-      assert.match(homeScreenSource, /\{activePricing\.finePrint\}/);
-      assert.match(homeScreenSource, /Start 7-day free trial/);
-      assert.match(homeScreenSource, /Not now/);
+      assert.match(homeScreenSource, /t\(language, activePricing\.finePrintKey\)/);
+      assert.match(i18nSource, /'home\.proSheet\.cta': 'Start 7-day free trial'/);
+      assert.match(i18nSource, /'home\.proSheet\.notNow': 'Not now'/);
       assert.match(homeScreenSource, /onRequestClose=\{\(\) => setProSheetVisible\(false\)\}/);
-      assert.match(homeScreenSource, /Empty workout/);
-      assert.match(homeScreenSource, /Log freestyle/);
+      assert.match(homeScreenSource, /t\(language, 'home\.emptyWorkout\.title'\)/);
+      assert.match(homeScreenSource, /t\(language, 'home\.emptyWorkout\.meta'\)/);
+      assert.match(i18nSource, /'home\.emptyWorkout\.title': 'Empty workout'/);
+      assert.match(i18nSource, /'home\.emptyWorkout\.meta': 'Log freestyle'/);
       assert.match(homeScreenSource, /emptyWorkoutRow/);
       assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: HG3\.surface/);
       assert.match(homeScreenSource, /name="plus" color=\{HG3\.purple\} size=\{20\}/);
@@ -273,7 +284,7 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /onOpenActivePlan/);
       assert.doesNotMatch(homeScreenSource, /<Text style=\{styles\.myRoutineLabel\}>My Routine<\/Text>/);
       assert.doesNotMatch(homeScreenSource, /style=\{styles\.myRoutineCard\}/);
-      assert.match(homeScreenSource, /Empty workout/);
+      assert.match(homeScreenSource, /home\.emptyWorkout\.title/);
       assert.doesNotMatch(homeScreenSource, /Quick Access/);
       assert.doesNotMatch(homeScreenSource, /Recent Sessions/);
       assert.doesNotMatch(homeScreenSource, /recentSessions/);
@@ -397,7 +408,7 @@ module.exports = [
       // Icon-only tabs (labels removed), larger icons, a11y label preserved.
       assert.doesNotMatch(bottomTabBarSource, /sideLabel/);
       assert.match(bottomTabBarSource, /const size = 26/);
-      assert.match(bottomTabBarSource, /accessibilityLabel=\{tab\.label\}/);
+      assert.match(bottomTabBarSource, /accessibilityLabel=\{label\}/);
       // Center "AI" button (design_handoff_ai_button): near-white radial fill + "AI"
       // label + purple halo/glow. Sized down from the 48px spec.
       assert.match(bottomTabBarSource, /const AI_SIZE = 46/);

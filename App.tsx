@@ -2227,8 +2227,9 @@ function GymlogApp() {
       buildHomeStatCards(
         buildHomeStatCardCatalog(homeStatCardSources).map((item) => item.key),
         homeStatCardSources,
+        preferences.appLanguage,
       ),
-    [homeStatCardSources],
+    [homeStatCardSources, preferences.appLanguage],
   );
   const homePinnedStatCardKeys = useMemo(
     () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
@@ -3556,6 +3557,7 @@ function GymlogApp() {
   } else {
     content = (
       <HomeScreen
+        language={preferences.appLanguage}
         activePlan={homeActivePlanCard}
         trainingDayIndexes={homeTrainingDayIndexes}
         statCatalogCards={homeStatCatalogCards}
@@ -3672,6 +3674,7 @@ function GymlogApp() {
       tabBar={
         showTabBar ? (
           <BottomTabBar
+            language={preferences.appLanguage}
             activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
             aiActive={route.tab === 'home' && (route.screen === 'ai' || route.screen === 'ai_setup')}
             onTabPress={navigateToTab}

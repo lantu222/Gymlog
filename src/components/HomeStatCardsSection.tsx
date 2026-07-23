@@ -3,7 +3,9 @@ import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View 
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
 import { formatHomeStatValue, HomeStatCard, HomeStatCardIcon } from '../lib/homeStatCards';
+import { t } from '../lib/i18n';
 import { HG3 } from '../lightTheme';
+import { AppLanguage } from '../types/models';
 
 /**
  * "Your cards" — pinned stat cards on Home. The user picks which stats appear;
@@ -24,6 +26,7 @@ interface HomeStatCardsSectionProps {
   /** Tap on a card outside edit mode — opens the card's tracking surface. */
   onOpenCard: (key: string) => void;
   reduceMotion: boolean;
+  language?: AppLanguage;
 }
 
 function StatIcon({ icon, size = 20, color = HG3.purple }: { icon: HomeStatCardIcon; size?: number; color?: string }) {
@@ -123,6 +126,7 @@ export function HomeStatCardsSection({
   onChangePinnedKeys,
   onOpenCard,
   reduceMotion,
+  language = 'en',
 }: HomeStatCardsSectionProps) {
   const [editing, setEditing] = useState(false);
   const [addSheetVisible, setAddSheetVisible] = useState(false);
@@ -163,7 +167,7 @@ export function HomeStatCardsSection({
 
   const addSheetSub = (card: HomeStatCard) => {
     if (card.value === null) {
-      return 'No data yet';
+      return t(language, 'cards.noData');
     }
     return `${formatHomeStatValue(card.value)} ${card.unit}`;
   };
@@ -171,9 +175,9 @@ export function HomeStatCardsSection({
   return (
     <View>
       <View style={styles.sectionHead}>
-        <Text style={styles.sectionTitle}>Your cards</Text>
+        <Text style={styles.sectionTitle}>{t(language, 'cards.title')}</Text>
         <Pressable hitSlop={8} onPress={() => setEditing((current) => !current)}>
-          <Text style={styles.sectionAction}>{editing ? 'Done' : 'Edit'}</Text>
+          <Text style={styles.sectionAction}>{editing ? t(language, 'cards.done') : t(language, 'cards.edit')}</Text>
         </Pressable>
       </View>
 
@@ -188,7 +192,7 @@ export function HomeStatCardsSection({
           >
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Open ${card.label}`}
+              accessibilityLabel={t(language, 'cards.a11y.open', { label: card.label })}
               onPress={editing ? undefined : () => onOpenCard(card.key)}
               style={({ pressed }) => [styles.card, pressed && !editing && { opacity: 0.8 }]}
             >
@@ -206,13 +210,13 @@ export function HomeStatCardsSection({
                   </View>
                   <Text numberOfLines={1} style={styles.previousText}>
                     {card.previous !== null
-                      ? `Previous ${formatHomeStatValue(card.previous)} ${card.unit}`
-                      : 'First entry'}
+                      ? t(language, 'cards.previous', { value: formatHomeStatValue(card.previous), unit: card.unit })
+                      : t(language, 'cards.firstEntry')}
                   </Text>
                 </>
               ) : (
                 <View style={styles.valueRow}>
-                  <Text style={styles.noDataText}>No data yet</Text>
+                  <Text style={styles.noDataText}>{t(language, 'cards.noData')}</Text>
                 </View>
               )}
               <Sparkline series={card.series} />
@@ -220,7 +224,7 @@ export function HomeStatCardsSection({
             {editing ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Remove ${card.label}`}
+                accessibilityLabel={t(language, 'cards.a11y.remove', { label: card.label })}
                 onPress={() => removeCard(card.key)}
                 hitSlop={8}
                 style={styles.removeBadge}
@@ -236,14 +240,14 @@ export function HomeStatCardsSection({
         <View style={styles.cardCell}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Add card"
+            accessibilityLabel={t(language, 'cards.addCard')}
             onPress={() => setAddSheetVisible(true)}
             style={({ pressed }) => [styles.addCard, pressed && { borderColor: HG3.purpleBright }]}
           >
             <Svg width={23} height={23} viewBox="0 0 24 24" fill="none">
               <Path d="M12 5v14M5 12h14" stroke={HG3.purpleBright} strokeWidth={2.4} strokeLinecap="round" />
             </Svg>
-            <Text style={styles.addCardText}>Add card</Text>
+            <Text style={styles.addCardText}>{t(language, 'cards.addCard')}</Text>
           </Pressable>
         </View>
       </View>
@@ -258,10 +262,8 @@ export function HomeStatCardsSection({
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddSheetVisible(false)} />
           <View style={styles.sheet}>
             <View style={styles.sheetGrip} />
-            <Text style={styles.sheetTitle}>Add a card</Text>
-            <Text style={styles.sheetSubtitle}>
-              Pin the stats you care about to your home screen. Remove any anytime.
-            </Text>
+            <Text style={styles.sheetTitle}>{t(language, 'cards.addSheet.title')}</Text>
+            <Text style={styles.sheetSubtitle}>{t(language, 'cards.addSheet.subtitle')}</Text>
             <ScrollView style={styles.sheetList} showsVerticalScrollIndicator={false}>
               {availableCards.length > 0 ? (
                 availableCards.map((card, index) => (
@@ -279,7 +281,7 @@ export function HomeStatCardsSection({
                     </View>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Add ${card.label}`}
+                      accessibilityLabel={t(language, 'cards.a11y.add', { label: card.label })}
                       onPress={() => addCard(card.key)}
                       hitSlop={6}
                       style={({ pressed }) => [styles.sheetAddButton, pressed && { opacity: 0.7 }]}
@@ -291,7 +293,7 @@ export function HomeStatCardsSection({
                   </View>
                 ))
               ) : (
-                <Text style={styles.sheetEmpty}>All cards added. Remove one to swap it out.</Text>
+                <Text style={styles.sheetEmpty}>{t(language, 'cards.addSheet.empty')}</Text>
               )}
             </ScrollView>
             <Pressable
@@ -299,7 +301,7 @@ export function HomeStatCardsSection({
               onPress={() => setAddSheetVisible(false)}
               style={({ pressed }) => [styles.sheetDone, pressed && { opacity: 0.7 }]}
             >
-              <Text style={styles.sheetDoneText}>Done</Text>
+              <Text style={styles.sheetDoneText}>{t(language, 'cards.done')}</Text>
             </Pressable>
           </View>
         </View>

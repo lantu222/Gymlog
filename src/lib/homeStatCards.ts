@@ -1,6 +1,7 @@
+import { t } from './i18n';
 import { getTopComparableSet } from './profileOverview';
 import { ExerciseProgressSummary } from './progression';
-import { BodyweightEntry, MeasurementEntry } from '../types/models';
+import { AppLanguage, BodyweightEntry, MeasurementEntry } from '../types/models';
 
 /**
  * "Your cards" — user-pinned stat cards at the bottom of Home.
@@ -55,7 +56,10 @@ function liftCardKey(progressKey: string) {
  * lifts. Lift labels come from the user's logged names, so a Finnish
  * "Takakyykky" is offered as-is instead of failing an English name match.
  */
-export function buildHomeStatCardCatalog(sources: HomeStatCardSources): HomeStatCardCatalogItem[] {
+export function buildHomeStatCardCatalog(
+  sources: HomeStatCardSources,
+  language: AppLanguage = 'en',
+): HomeStatCardCatalogItem[] {
   const lifts = sources.trackedProgress
     .filter((summary) => summary.bestWeight !== null && summary.bestWeight > 0)
     .sort((left, right) => (right.bestWeight ?? 0) - (left.bestWeight ?? 0))
@@ -68,9 +72,9 @@ export function buildHomeStatCardCatalog(sources: HomeStatCardSources): HomeStat
     }));
 
   return [
-    { key: 'bodyweight', label: 'Body weight', unit: 'kg', icon: 'scale' },
-    { key: 'bodyfat', label: 'Body fat', unit: '%', icon: 'drop' },
-    { key: 'waist', label: 'Waist', unit: 'cm', icon: 'tape' },
+    { key: 'bodyweight', label: t(language, 'cards.bodyweight'), unit: 'kg', icon: 'scale' },
+    { key: 'bodyfat', label: t(language, 'cards.bodyfat'), unit: '%', icon: 'drop' },
+    { key: 'waist', label: t(language, 'cards.waist'), unit: 'cm', icon: 'tape' },
     ...lifts,
   ];
 }
@@ -114,8 +118,12 @@ function liftSeries(summary: ExerciseProgressSummary): { series: number[]; reps:
  * lift whose logs were reset) are dropped silently — the pin list is a
  * preference, not data.
  */
-export function buildHomeStatCards(pinnedKeys: string[], sources: HomeStatCardSources): HomeStatCard[] {
-  const catalog = new Map(buildHomeStatCardCatalog(sources).map((item) => [item.key, item]));
+export function buildHomeStatCards(
+  pinnedKeys: string[],
+  sources: HomeStatCardSources,
+  language: AppLanguage = 'en',
+): HomeStatCard[] {
+  const catalog = new Map(buildHomeStatCardCatalog(sources, language).map((item) => [item.key, item]));
   const cards: HomeStatCard[] = [];
 
   for (const key of pinnedKeys) {

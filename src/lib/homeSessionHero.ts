@@ -3,6 +3,8 @@
  * Focus title, body-focus label, week phase, equipment line, default
  * warmup/cooldown blocks, and the Adapt-sheet trim estimate.
  */
+import { t } from './i18n';
+import { AppLanguage } from '../types/models';
 
 export interface SessionDrill {
   name: string;
@@ -139,72 +141,72 @@ function classifyFocus(focusTitle: string): FocusKind {
 }
 
 /** Deterministic default warmup for a session focus (no warmup data model yet). */
-export function getDefaultWarmup(focusTitle: string): SessionRoutineBlock {
+export function getDefaultWarmup(focusTitle: string, language: AppLanguage = 'en'): SessionRoutineBlock {
   switch (classifyFocus(focusTitle)) {
     case 'lower':
       return {
         minutes: 6,
         drills: [
-          { name: 'Rowing machine', schemeLabel: '3 min' },
-          { name: 'Hip openers', schemeLabel: '2 × 8' },
-          { name: 'Empty-bar squats', schemeLabel: '2 × 10' },
+          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
+          { name: t(language, 'home.drill.hipOpeners'), schemeLabel: '2 × 8' },
+          { name: t(language, 'home.drill.emptyBarSquats'), schemeLabel: '2 × 10' },
         ],
       };
     case 'push':
       return {
         minutes: 6,
         drills: [
-          { name: 'Rowing machine', schemeLabel: '3 min' },
-          { name: 'Band pull-aparts', schemeLabel: '2 × 12' },
-          { name: 'Push-ups', schemeLabel: '2 × 8' },
+          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
+          { name: t(language, 'home.drill.bandPullAparts'), schemeLabel: '2 × 12' },
+          { name: t(language, 'home.drill.pushUps'), schemeLabel: '2 × 8' },
         ],
       };
     case 'pull':
       return {
         minutes: 6,
         drills: [
-          { name: 'Rowing machine', schemeLabel: '3 min' },
-          { name: 'Scapular pull-ups', schemeLabel: '2 × 6' },
-          { name: 'Band face pulls', schemeLabel: '2 × 12' },
+          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
+          { name: t(language, 'home.drill.scapularPullUps'), schemeLabel: '2 × 6' },
+          { name: t(language, 'home.drill.bandFacePulls'), schemeLabel: '2 × 12' },
         ],
       };
     default:
       return {
         minutes: 6,
         drills: [
-          { name: 'Rowing machine', schemeLabel: '3 min' },
-          { name: 'Hip openers', schemeLabel: '2 × 8' },
-          { name: 'Empty-bar squats', schemeLabel: '2 × 10' },
+          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
+          { name: t(language, 'home.drill.hipOpeners'), schemeLabel: '2 × 8' },
+          { name: t(language, 'home.drill.emptyBarSquats'), schemeLabel: '2 × 10' },
         ],
       };
   }
 }
 
 /** Deterministic default cooldown for a session focus. */
-export function getDefaultCooldown(focusTitle: string): SessionRoutineBlock {
+export function getDefaultCooldown(focusTitle: string, language: AppLanguage = 'en'): SessionRoutineBlock {
   switch (classifyFocus(focusTitle)) {
     case 'push':
       return {
         minutes: 4,
         drills: [
-          { name: 'Chest doorway stretch', schemeLabel: '2 × 45s' },
-          { name: 'Triceps overhead stretch', schemeLabel: '2 × 30s' },
+          { name: t(language, 'home.drill.chestDoorwayStretch'), schemeLabel: '2 × 45s' },
+          { name: t(language, 'home.drill.tricepsOverheadStretch'), schemeLabel: '2 × 30s' },
         ],
       };
     case 'pull':
       return {
         minutes: 4,
         drills: [
-          { name: 'Lat stretch on rack', schemeLabel: '2 × 45s' },
-          { name: 'Dead hang', schemeLabel: '2 × 30s' },
+          { name: t(language, 'home.drill.latStretchOnRack'), schemeLabel: '2 × 45s' },
+          { name: t(language, 'home.drill.deadHang'), schemeLabel: '2 × 30s' },
         ],
       };
     default:
       return {
         minutes: 4,
         drills: [
-          { name: 'Couch stretch', schemeLabel: '2 × 60s' },
-          { name: 'Chest doorway stretch', schemeLabel: '2 × 45s' },
+          { name: t(language, 'home.drill.couchStretch'), schemeLabel: '2 × 60s' },
+          { name: t(language, 'home.drill.chestDoorwayStretch'), schemeLabel: '2 × 45s' },
         ],
       };
   }

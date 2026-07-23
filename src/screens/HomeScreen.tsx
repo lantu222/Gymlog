@@ -24,7 +24,9 @@ import {
   getDefaultWarmup,
   getSessionFocusTitle,
 } from '../lib/homeSessionHero';
+import { I18nKey, t } from '../lib/i18n';
 import { HG3 } from '../lightTheme';
+import { AppLanguage } from '../types/models';
 
 // Dark Pro-sheet-only shades (GAINER Home v3 mock). The sheet lives on the
 // HG3.proSheetTop -> proSheetBottom gradient, so these do not belong in the
@@ -37,39 +39,46 @@ const PRO_SHEET_BORDER = 'rgba(255,255,255,0.12)';
 
 // Mock marketing copy + prices. Real prices must come from RevenueCat
 // (see "GAINER Premium - build notes.md"); these are placeholders until the
-// purchase flow is wired up.
-const PRO_STATS: Array<{ value: string; suffix: string; label: string }> = [
-  { value: '2.3', suffix: '×', label: 'more consistent training' },
-  { value: '+34', suffix: '%', label: 'avg. strength in 12 wks' },
-  { value: '∞', suffix: '', label: 'AI coach questions' },
+// purchase flow is wired up. Copy lives in i18n.ts as keys.
+const PRO_STATS: Array<{ value: string; suffix: string; labelKey: I18nKey }> = [
+  { value: '2.3', suffix: '×', labelKey: 'home.proSheet.stat.consistency' },
+  { value: '+34', suffix: '%', labelKey: 'home.proSheet.stat.strength' },
+  { value: '∞', suffix: '', labelKey: 'home.proSheet.stat.aiQuestions' },
 ];
 
-const PRO_COMPARISON: Array<{ label: string; free: boolean }> = [
-  { label: 'Log workouts & plans', free: true },
-  { label: 'AI Coach conversations', free: false },
-  { label: 'Advanced progress analytics', free: false },
-  { label: 'Unlimited plans & templates', free: false },
-  { label: 'Early access to new features', free: false },
+const PRO_COMPARISON: Array<{ labelKey: I18nKey; free: boolean }> = [
+  { labelKey: 'home.proSheet.row.log', free: true },
+  { labelKey: 'home.proSheet.row.coach', free: false },
+  { labelKey: 'home.proSheet.row.analytics', free: false },
+  { labelKey: 'home.proSheet.row.plans', free: false },
+  { labelKey: 'home.proSheet.row.earlyAccess', free: false },
 ];
 
-const PRO_PRICING = {
+const PRO_PRICING: Record<
+  'annual' | 'monthly',
+  {
+    titleKey: I18nKey;
+    price: string;
+    noteKey: I18nKey;
+    badgeKey: I18nKey | null;
+    finePrintKey: I18nKey;
+  }
+> = {
   annual: {
-    title: 'Annual',
+    titleKey: 'home.proSheet.annual',
     price: '€4.99',
-    per: '/mo',
-    note: '€59.99 billed yearly',
-    badge: 'SAVE 40%',
-    finePrint: '7 days free, then €59.99/year. Cancel anytime.',
+    noteKey: 'home.proSheet.annualNote',
+    badgeKey: 'home.proSheet.saveBadge',
+    finePrintKey: 'home.proSheet.annualFinePrint',
   },
   monthly: {
-    title: 'Monthly',
+    titleKey: 'home.proSheet.monthly',
     price: '€8.99',
-    per: '/mo',
-    note: 'billed monthly',
-    badge: null,
-    finePrint: '7 days free, then €8.99/month. Cancel anytime.',
+    noteKey: 'home.proSheet.monthlyNote',
+    badgeKey: null,
+    finePrintKey: 'home.proSheet.monthlyFinePrint',
   },
-} as const;
+};
 
 type ProPlanKey = keyof typeof PRO_PRICING;
 
@@ -150,6 +159,7 @@ interface HomeScreenProps {
    * training dots rather than an invented rhythm.
    */
   trainingDayIndexes?: number[];
+  language?: AppLanguage;
 }
 
 export function HomeScreen({
@@ -165,6 +175,7 @@ export function HomeScreen({
   onChangePinnedStatCardKeys,
   onOpenStatCard,
   trainingDayIndexes = [],
+  language = 'en',
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
@@ -177,8 +188,8 @@ export function HomeScreen({
   });
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
-  const topCalendarDays = getHomeMiniCalendarDays().slice(0, 6);
-  const monthCalendar = useMemo(() => getHomeMonthCalendar(), []);
+  const topCalendarDays = getHomeMiniCalendarDays(new Date(), language).slice(0, 6);
+  const monthCalendar = useMemo(() => getHomeMonthCalendar(new Date(), language), [language]);
 
   // --- Session hero data (Home v4) ---------------------------------------
   const nextPlanSession = activePlan?.nextSession ?? null;
@@ -190,8 +201,8 @@ export function HomeScreen({
   const planDurationMinutes = Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45;
   const totalExerciseCount = (nextPlanSession?.exercises.length ?? 0) + (nextPlanSession?.hiddenExerciseCount ?? 0);
   const totalSets = nextPlanSession?.totalSets ?? 0;
-  const warmup = getDefaultWarmup(focusTitle);
-  const cooldown = getDefaultCooldown(focusTitle);
+  const warmup = getDefaultWarmup(focusTitle, language);
+  const cooldown = getDefaultCooldown(focusTitle, language);
   const adaptTrim = getAdaptTrimEstimate(totalSets, planDurationMinutes);
 
   // --- Animations -----------------------------------------------------------
@@ -315,7 +326,7 @@ export function HomeScreen({
     >
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${openSections[key] ? 'Collapse' : 'Expand'} ${title}`}
+        accessibilityLabel={t(language, openSections[key] ? 'home.a11y.collapseSection' : 'home.a11y.expandSection', { title })}
         onPress={() => toggleSection(key)}
         style={styles.secBtn}
       >
@@ -358,7 +369,7 @@ export function HomeScreen({
           ))}
           {extraCount > 0 ? (
             <View style={styles.planExerciseRow}>
-              <Text style={styles.planListFooterText}>+ {extraCount} more</Text>
+              <Text style={styles.planListFooterText}>{t(language, 'home.section.more', { count: extraCount })}</Text>
             </View>
           ) : null}
         </View>
@@ -371,12 +382,12 @@ export function HomeScreen({
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.headerRow, rise(RISE_HEADER)]}>
           <View style={styles.headerCopy}>
-            <Text style={styles.greetingTitle}>Welcome back</Text>
-            <Text style={styles.greetingSubtitle}>Let's get after it today.</Text>
+            <Text style={styles.greetingTitle}>{t(language, 'home.greeting.title')}</Text>
+            <Text style={styles.greetingSubtitle}>{t(language, 'home.greeting.subtitle')}</Text>
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Open GAINER Pro"
+            accessibilityLabel={t(language, 'home.a11y.openPro')}
             onPress={() => setProSheetVisible(true)}
             hitSlop={8}
             style={({ pressed }) => [styles.proBadge, pressed && styles.pressed]}
@@ -388,7 +399,7 @@ export function HomeScreen({
         <Animated.View style={[styles.weekCard, rise(RISE_WEEK)]}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={calendarExpanded ? 'Collapse month calendar' : 'Expand month calendar'}
+            accessibilityLabel={t(language, calendarExpanded ? 'home.a11y.collapseCalendar' : 'home.a11y.expandCalendar')}
             onPress={toggleCalendar}
             style={({ pressed }) => [styles.weekStripRow, pressed && styles.pressed]}
           >
@@ -481,11 +492,11 @@ export function HomeScreen({
               <View style={styles.monthLegendRow}>
                 <View style={styles.monthLegendItem}>
                   <View style={[styles.monthDayDot, styles.monthDayDotTraining]} />
-                  <Text style={styles.monthLegendText}>Training</Text>
+                  <Text style={styles.monthLegendText}>{t(language, 'home.calendar.training')}</Text>
                 </View>
                 <View style={styles.monthLegendItem}>
                   <View style={[styles.monthDayDot, styles.monthDayDotRecovery]} />
-                  <Text style={styles.monthLegendText}>Recovery</Text>
+                  <Text style={styles.monthLegendText}>{t(language, 'home.calendar.recovery')}</Text>
                 </View>
               </View>
             ) : null}
@@ -502,7 +513,7 @@ export function HomeScreen({
                 </Text>
                 <View style={styles.heroProg}>
                   <Text style={styles.heroProgLabel}>
-                    {sessionsDone} of {sessionsTotal} sessions
+                    {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}
                   </Text>
                   <View style={styles.heroProgTrack}>
                     <Animated.View
@@ -522,14 +533,14 @@ export function HomeScreen({
             <View style={styles.secs}>
               {renderSection(
                 'warmup',
-                'Warmup',
-                `${warmup.drills.length} drills · ${warmup.minutes} min`,
+                t(language, 'home.section.warmup'),
+                t(language, 'home.section.warmupMeta', { count: warmup.drills.length, min: warmup.minutes }),
                 warmup.drills,
               )}
               {renderSection(
                 'workout',
-                'Workout',
-                `${totalExerciseCount} exercises · ${totalSets} sets`,
+                t(language, 'home.section.workout'),
+                t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets }),
                 nextPlanSession.exercises.map((exercise) => ({
                   name: exercise.name,
                   schemeLabel: exercise.schemeLabel ?? exercise.setsLabel,
@@ -538,8 +549,8 @@ export function HomeScreen({
               )}
               {renderSection(
                 'cooldown',
-                'Cooldown',
-                `${cooldown.drills.length} stretches · ${cooldown.minutes} min`,
+                t(language, 'home.section.cooldown'),
+                t(language, 'home.section.cooldownMeta', { count: cooldown.drills.length, min: cooldown.minutes }),
                 cooldown.drills,
               )}
             </View>
@@ -550,20 +561,20 @@ export function HomeScreen({
           {activePlan && nextPlanSession ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Adapt today's session"
+              accessibilityLabel={t(language, 'home.a11y.adaptSession')}
               onPress={() => setAdaptSheetVisible(true)}
               style={({ pressed }) => [styles.adaptButton, pressed && styles.pressed]}
             >
-              <Text style={styles.adaptButtonText}>Adapt</Text>
+              <Text style={styles.adaptButtonText}>{t(language, 'home.adapt')}</Text>
             </Pressable>
           ) : null}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Start today's workout"
+            accessibilityLabel={t(language, 'home.a11y.startSession')}
             onPress={startTodaysSession}
             style={({ pressed }) => [styles.startButton, pressed && styles.pressed]}
           >
-            <Text style={styles.startButtonText}>Start workout</Text>
+            <Text style={styles.startButtonText}>{t(language, 'home.startWorkout')}</Text>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
               <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG3.green} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
@@ -575,20 +586,20 @@ export function HomeScreen({
         <Animated.View style={rise(RISE_EMPTY_ROW)}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Start empty workout"
+            accessibilityLabel={t(language, 'home.a11y.startEmptyWorkout')}
             onPress={onCreateWorkoutFromExercises}
             style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
           >
             <View style={styles.emptyWorkoutIcon}>
               <GymlogIcon name="plus" color={HG3.purple} size={20} />
             </View>
-            <Text style={styles.emptyWorkoutTitle}>Empty workout</Text>
-            <Text style={styles.emptyWorkoutMeta}>Log freestyle</Text>
+            <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.emptyWorkout.title')}</Text>
+            <Text style={styles.emptyWorkoutMeta}>{t(language, 'home.emptyWorkout.meta')}</Text>
           </Pressable>
           {onOpenCardio ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Open cardio workouts"
+              accessibilityLabel={t(language, 'home.a11y.openCardio')}
               onPress={onOpenCardio}
               style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
             >
@@ -600,8 +611,8 @@ export function HomeScreen({
                   />
                 </Svg>
               </View>
-              <Text style={styles.emptyWorkoutTitle}>Cardio</Text>
-              <Text style={styles.emptyWorkoutMeta}>Runs, cycles & walks</Text>
+              <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.cardio.title')}</Text>
+              <Text style={styles.emptyWorkoutMeta}>{t(language, 'home.cardio.meta')}</Text>
             </Pressable>
           ) : null}
         </Animated.View>
@@ -614,6 +625,7 @@ export function HomeScreen({
               onChangePinnedKeys={onChangePinnedStatCardKeys}
               onOpenCard={(key) => onOpenStatCard?.(key)}
               reduceMotion={reduceMotion === true}
+              language={language}
             />
           </Animated.View>
         ) : null}
@@ -621,10 +633,10 @@ export function HomeScreen({
         {historyItems.length > 0 ? (
           <Animated.View style={rise(RISE_EMPTY_ROW)}>
             <View style={styles.historyHeaderRow}>
-              <Text style={styles.historySectionTitle}>History</Text>
+              <Text style={styles.historySectionTitle}>{t(language, 'home.history.title')}</Text>
               {onOpenHistory ? (
                 <Pressable onPress={onOpenHistory} hitSlop={8}>
-                  <Text style={styles.historySeeAll}>See all</Text>
+                  <Text style={styles.historySeeAll}>{t(language, 'home.history.seeAll')}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -692,32 +704,35 @@ export function HomeScreen({
           <Pressable style={styles.adaptScrim} onPress={() => setAdaptSheetVisible(false)} />
           <View style={styles.adaptSheet}>
             <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>Adapt session</Text>
-            <Text style={styles.adaptSub}>Tweak today's session — your plan stays on track.</Text>
+            <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.title')}</Text>
+            <Text style={styles.adaptSub}>{t(language, 'home.adaptSheet.subtitle')}</Text>
             <View style={styles.adaptOpts}>
               {[
                 {
                   key: 'shorter',
-                  title: 'Shorter session',
-                  sub: `Trim to ~${adaptTrim.trimmedMinutes} min · drops ${adaptTrim.droppedSets} sets`,
+                  title: t(language, 'home.adaptSheet.shorter.title'),
+                  sub: t(language, 'home.adaptSheet.shorter.sub', {
+                    min: adaptTrim.trimmedMinutes,
+                    sets: adaptTrim.droppedSets,
+                  }),
                   icon: 'M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2.5 2.5M9 2h6',
                 },
                 {
                   key: 'equipment',
-                  title: 'Change equipment',
-                  sub: 'Rack taken? Swap to dumbbells',
+                  title: t(language, 'home.adaptSheet.equipment.title'),
+                  sub: t(language, 'home.adaptSheet.equipment.sub'),
                   icon: 'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10',
                 },
                 {
                   key: 'swap',
-                  title: 'Swap an exercise',
-                  sub: 'Replace any lift with an alternative',
+                  title: t(language, 'home.adaptSheet.swap.title'),
+                  sub: t(language, 'home.adaptSheet.swap.sub'),
                   icon: 'M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3',
                 },
                 {
                   key: 'energy',
-                  title: 'Feeling low energy',
-                  sub: 'Lighter loads, same movements',
+                  title: t(language, 'home.adaptSheet.energy.title'),
+                  sub: t(language, 'home.adaptSheet.energy.sub'),
                   icon: 'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1',
                 },
               ].map((option) => (
@@ -749,7 +764,7 @@ export function HomeScreen({
               hitSlop={8}
               style={styles.adaptCancel}
             >
-              <Text style={styles.adaptCancelText}>Cancel</Text>
+              <Text style={styles.adaptCancelText}>{t(language, 'home.adaptSheet.cancel')}</Text>
             </Pressable>
           </View>
         </View>
@@ -776,34 +791,32 @@ export function HomeScreen({
             <ScrollView contentContainerStyle={styles.proSheetContent} showsVerticalScrollIndicator={false}>
               <View style={styles.proSheetGrip} />
               <View style={styles.proSheetBadge}>
-                <Text style={styles.proSheetBadgeText}>✦ GAINER PRO</Text>
+                <Text style={styles.proSheetBadgeText}>{t(language, 'home.proSheet.badge')}</Text>
               </View>
-              <Text style={styles.proSheetHeadline}>Train like it's personal.</Text>
-              <Text style={styles.proSheetSubline}>
-                Your plan adapts every session — with a coach that actually knows your numbers.
-              </Text>
+              <Text style={styles.proSheetHeadline}>{t(language, 'home.proSheet.headline')}</Text>
+              <Text style={styles.proSheetSubline}>{t(language, 'home.proSheet.subline')}</Text>
 
               <View style={styles.proStatRow}>
                 {PRO_STATS.map((stat) => (
-                  <View key={stat.label} style={styles.proStatCard}>
+                  <View key={stat.labelKey} style={styles.proStatCard}>
                     <Text style={styles.proStatValue}>
                       {stat.value}
                       {stat.suffix ? <Text style={styles.proStatSuffix}>{stat.suffix}</Text> : null}
                     </Text>
-                    <Text style={styles.proStatLabel}>{stat.label}</Text>
+                    <Text style={styles.proStatLabel}>{t(language, stat.labelKey)}</Text>
                   </View>
                 ))}
               </View>
 
               <View style={styles.proTable}>
                 <View style={styles.proTableHeaderRow}>
-                  <Text style={styles.proTableHeaderLabel}>What you get</Text>
-                  <Text style={styles.proTableHeaderFree}>FREE</Text>
-                  <Text style={styles.proTableHeaderPro}>PRO</Text>
+                  <Text style={styles.proTableHeaderLabel}>{t(language, 'home.proSheet.whatYouGet')}</Text>
+                  <Text style={styles.proTableHeaderFree}>{t(language, 'home.proSheet.free')}</Text>
+                  <Text style={styles.proTableHeaderPro}>{t(language, 'home.proSheet.pro')}</Text>
                 </View>
                 {PRO_COMPARISON.map((row) => (
-                  <View key={row.label} style={styles.proTableRow}>
-                    <Text style={styles.proTableRowLabel}>{row.label}</Text>
+                  <View key={row.labelKey} style={styles.proTableRow}>
+                    <Text style={styles.proTableRowLabel}>{t(language, row.labelKey)}</Text>
                     <View style={styles.proTableCell}>
                       {row.free ? (
                         <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -833,21 +846,21 @@ export function HomeScreen({
                     <Pressable
                       key={key}
                       accessibilityRole="button"
-                      accessibilityLabel={`Choose ${pricing.title} plan`}
+                      accessibilityLabel={t(language, 'home.proSheet.a11y.choosePlan', { title: t(language, pricing.titleKey) })}
                       onPress={() => setProPlan(key)}
                       style={({ pressed }) => [styles.proPricingCard, selected && styles.proPricingCardSelected, pressed && styles.pressed]}
                     >
-                      {pricing.badge ? (
+                      {pricing.badgeKey ? (
                         <View style={styles.proPricingBadge}>
-                          <Text style={styles.proPricingBadgeText}>{pricing.badge}</Text>
+                          <Text style={styles.proPricingBadgeText}>{t(language, pricing.badgeKey)}</Text>
                         </View>
                       ) : null}
-                      <Text style={styles.proPricingTitle}>{pricing.title}</Text>
+                      <Text style={styles.proPricingTitle}>{t(language, pricing.titleKey)}</Text>
                       <Text style={styles.proPricingPrice}>
                         {pricing.price}
-                        <Text style={styles.proPricingPer}>{pricing.per}</Text>
+                        <Text style={styles.proPricingPer}>{t(language, 'home.proSheet.perMonth')}</Text>
                       </Text>
-                      <Text style={styles.proPricingNote}>{pricing.note}</Text>
+                      <Text style={styles.proPricingNote}>{t(language, pricing.noteKey)}</Text>
                     </Pressable>
                   );
                 })}
@@ -855,20 +868,20 @@ export function HomeScreen({
 
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Start 7-day free trial"
+                accessibilityLabel={t(language, 'home.proSheet.cta')}
                 onPress={() => setProSheetVisible(false)}
                 style={({ pressed }) => [styles.proCta, pressed && styles.pressed]}
               >
-                <Text style={styles.proCtaText}>Start 7-day free trial</Text>
+                <Text style={styles.proCtaText}>{t(language, 'home.proSheet.cta')}</Text>
               </Pressable>
-              <Text style={styles.proFinePrint}>{activePricing.finePrint}</Text>
+              <Text style={styles.proFinePrint}>{t(language, activePricing.finePrintKey)}</Text>
               <Pressable
                 accessibilityRole="button"
                 onPress={() => setProSheetVisible(false)}
                 hitSlop={8}
                 style={styles.proDismiss}
               >
-                <Text style={styles.proDismissText}>Not now</Text>
+                <Text style={styles.proDismissText}>{t(language, 'home.proSheet.notNow')}</Text>
               </Pressable>
             </ScrollView>
           </View>

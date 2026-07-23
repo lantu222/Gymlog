@@ -13,7 +13,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { RootTabKey } from '../navigation/routes';
+import { I18nKey, t } from '../lib/i18n';
 import { HG3 } from '../lightTheme';
+import { AppLanguage } from '../types/models';
 
 // EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
 // positioned so it floats low over the (light) app content — no light backdrop
@@ -38,15 +40,16 @@ interface BottomTabBarProps {
   aiActive?: boolean;
   onTabPress: (tab: RootTabKey) => void;
   onAiPress: () => void;
+  language?: AppLanguage;
 }
 
-const sideTabs: { key: RootTabKey; label: string }[] = [
-  { key: 'home', label: 'Home' },
+const sideTabs: { key: RootTabKey; labelKey: I18nKey }[] = [
+  { key: 'home', labelKey: 'tabs.home' },
   // Internal key stays 'workout' (routes/analytics unchanged); only the
   // user-facing label and icon move to Programs.
-  { key: 'workout', label: 'Programs' },
-  { key: 'progress', label: 'Progress' },
-  { key: 'profile', label: 'Profile' },
+  { key: 'workout', labelKey: 'tabs.programs' },
+  { key: 'progress', labelKey: 'tabs.progress' },
+  { key: 'profile', labelKey: 'tabs.profile' },
 ];
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
@@ -116,11 +119,13 @@ function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
 function SideTab({
   tab,
   active,
+  label,
   onPress,
   onMeasure,
 }: {
-  tab: { key: RootTabKey; label: string };
+  tab: { key: RootTabKey; labelKey: I18nKey };
   active: boolean;
+  label: string;
   onPress: () => void;
   onMeasure: (key: RootTabKey, event: LayoutChangeEvent) => void;
 }) {
@@ -129,7 +134,7 @@ function SideTab({
       onPress={onPress}
       onLayout={(event) => onMeasure(tab.key, event)}
       accessibilityRole="button"
-      accessibilityLabel={tab.label}
+      accessibilityLabel={label}
       accessibilityState={{ selected: active }}
       style={styles.sideTab}
     >
@@ -138,7 +143,7 @@ function SideTab({
   );
 }
 
-export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPress }: BottomTabBarProps) {
+export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPress, language = 'en' }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -260,6 +265,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
             <SideTab
               key={tab.key}
               tab={tab}
+              label={t(language, tab.labelKey)}
               active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
               onMeasure={handleMeasure}
@@ -269,7 +275,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
           <Pressable
             onPress={onAiPress}
             accessibilityRole="button"
-            accessibilityLabel="AI session"
+            accessibilityLabel={t(language, 'tabs.aiSession')}
             style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}
           >
             <Animated.View style={[styles.centerGlow, aiActive && styles.centerGlowActive, { transform: [{ scale: fabPop }] }]}>
@@ -293,6 +299,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
             <SideTab
               key={tab.key}
               tab={tab}
+              label={t(language, tab.labelKey)}
               active={activeKey === tab.key}
               onPress={() => onTabPress(tab.key)}
               onMeasure={handleMeasure}
