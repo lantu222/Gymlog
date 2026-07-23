@@ -1,4 +1,6 @@
+import { t } from './i18n';
 import { WorkoutTrackingMode } from '../features/workout/workoutTypes';
+import { AppLanguage } from '../types/models';
 
 function hasTextValue(value: string) {
   return value.trim().length > 0;
@@ -20,12 +22,13 @@ export function getWorkoutSetValidationMessage(
   trackingMode: WorkoutTrackingMode,
   loadValue: string,
   repsValue: string,
+  language: AppLanguage = 'en',
 ): string | null {
   const hasLoad = hasTextValue(loadValue);
   const hasReps = hasTextValue(repsValue);
 
   if (trackingMode === 'bodyweight') {
-    return hasReps ? null : 'Add reps to complete this set.';
+    return hasReps ? null : t(language, 'logger.validation.addReps');
   }
 
   if (!hasLoad && !hasReps) {
@@ -33,11 +36,11 @@ export function getWorkoutSetValidationMessage(
   }
 
   if (!hasLoad) {
-    return 'Add load to complete this set.';
+    return t(language, 'logger.validation.addLoad');
   }
 
   if (!hasReps) {
-    return 'Add reps to complete this set.';
+    return t(language, 'logger.validation.addReps');
   }
 
   return null;

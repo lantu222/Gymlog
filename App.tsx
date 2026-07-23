@@ -3026,6 +3026,7 @@ function GymlogApp() {
   } else if (route.tab === 'home' && route.screen === 'cardio') {
     content = (
       <CardioScreen
+        language={preferences.appLanguage}
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         cardioSessions={cardioSessions}
         hasActiveStrengthSession={Boolean(workout.activeSession)}
@@ -3080,6 +3081,7 @@ function GymlogApp() {
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         sessionKey={route.workoutTemplateId}
         unitPreference={unitPreference}
+        language={preferences.appLanguage}
         autoFocusNextInput={preferences.autoFocusNextInput}
         defaultRestSeconds={preferences.defaultRestSeconds}
         hasAdaptiveCoachPremium={preferences.adaptiveCoachPremiumUnlocked}

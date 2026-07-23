@@ -18,7 +18,8 @@ import { radii, spacing, typography } from '../theme';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
 import { SurfaceAccent } from '../components/MainScreenPrimitives';
-import { ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { I18nKey, t } from '../lib/i18n';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_SUBSTITUTION_GROUPS, getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
@@ -35,6 +36,7 @@ import { getHistoryEntriesForExercise, selectActiveExercise, selectNextExercise 
 interface WorkoutLoggingScreenProps {
   sessionKey: string;
   unitPreference: UnitPreference;
+  language?: AppLanguage;
   autoFocusNextInput: boolean;
   /** Keep the display on while the logger is open. */
   keepScreenAwake?: boolean;
@@ -239,20 +241,20 @@ function formatExercisePrescription(exercise: WorkoutExerciseInstance) {
   return `${setCount} x ${firstSet.plannedRepsMin}-${firstSet.plannedRepsMax}`;
 }
 
-function getExerciseCompletionMeta(exercise: WorkoutExerciseInstance) {
+function getExerciseCompletionMeta(exercise: WorkoutExerciseInstance, language: AppLanguage) {
   const completedSets = exercise.sets.filter((set) => set.status === 'completed').length;
   const totalSets = Math.max(1, exercise.sets.length);
 
-  return `${completedSets}/${totalSets} done`;
+  return t(language, 'logger.exerciseDone', { done: completedSets, total: totalSets });
 }
 
 function formatWorkoutListExerciseName(name: string) {
   return name.replace(/\bDumbbell\b/i, 'DB');
 }
 
-function formatRestDurationLabel(seconds: number | null) {
+function formatRestDurationLabel(seconds: number | null, language: AppLanguage) {
   if (!seconds) {
-    return 'Off';
+    return t(language, 'logger.rest.off');
   }
 
   if (seconds < 60) {
@@ -315,6 +317,7 @@ function getPreviousSetLabel(previousEntries: WorkoutSlotHistoryEntry[], rowInde
 export function WorkoutLoggingScreen({
   sessionKey,
   unitPreference,
+  language = 'en',
   autoFocusNextInput,
   keepScreenAwake = false,
   defaultRestSeconds,
@@ -637,7 +640,7 @@ export function WorkoutLoggingScreen({
   if (!hydrated || isRestoring || !activeSession) {
     return (
       <View style={styles.loading}>
-        <Text style={styles.loadingText}>Loading workout...</Text>
+        <Text style={styles.loadingText}>{t(language, 'logger.loading')}</Text>
       </View>
     );
   }
@@ -815,9 +818,9 @@ export function WorkoutLoggingScreen({
     <View style={styles.metaStrip}>
       <Text style={styles.metaStripText}>{elapsedText}</Text>
       <View style={styles.metaStripDot} />
-      <Text style={styles.metaStripText}>{completedSets} sets</Text>
+      <Text style={styles.metaStripText}>{t(language, 'logger.stat.sets', { count: completedSets })}</Text>
       <View style={styles.metaStripDot} />
-      <Text style={styles.metaStripText}>{volumeText} volume</Text>
+      <Text style={styles.metaStripText}>{t(language, 'logger.stat.volume', { volume: volumeText })}</Text>
     </View>
   );
 
@@ -826,7 +829,7 @@ export function WorkoutLoggingScreen({
       <View style={styles.activeWorkoutHeader}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Finish workout"
+          accessibilityLabel={t(language, 'logger.a11y.finish')}
           disabled={isSavingWorkout}
           onPress={() => {
             Keyboard.dismiss();
@@ -840,7 +843,7 @@ export function WorkoutLoggingScreen({
           }}
           style={[styles.headerFinishButton, isSavingWorkout && styles.headerFinishButtonDisabled]}
         >
-          <Text style={styles.headerFinishButtonText}>Finish</Text>
+          <Text style={styles.headerFinishButtonText}>{t(language, 'logger.finish')}</Text>
         </Pressable>
       </View>
 
@@ -891,14 +894,14 @@ export function WorkoutLoggingScreen({
                     </Text>
                     {!isOpen ? (
                       <Text style={styles.exerciseListMeta}>
-                        {getExerciseCompletionMeta(exercise)}
+                        {getExerciseCompletionMeta(exercise, language)}
                       </Text>
                     ) : null}
                   </View>
                   <Pressable
                     hitSlop={8}
                     accessibilityRole="button"
-                    accessibilityLabel={`More actions for ${exercise.exerciseName}`}
+                    accessibilityLabel={t(language, 'logger.a11y.moreActions', { name: exercise.exerciseName })}
                     onPress={(event) => {
                       event.stopPropagation();
                       Keyboard.dismiss();
@@ -915,7 +918,7 @@ export function WorkoutLoggingScreen({
                   <View style={styles.activeExercisePanel}>
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel="Rest timer"
+                      accessibilityLabel={t(language, 'logger.a11y.restTimer')}
                       onPress={() => setRestTimerMenuOpen((current) => !current)}
                       style={styles.restTimerControl}
                     >
@@ -923,7 +926,9 @@ export function WorkoutLoggingScreen({
                         <Circle cx={12} cy={13} r={8} stroke={LOGGING_PURPLE} strokeWidth={2} />
                         <Path d="M12 9v5l3 2M9 3h6" stroke={LOGGING_PURPLE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
                       </Svg>
-                      <Text style={styles.restTimerText}>Rest Timer: {formatRestDurationLabel(selectedRestDurationSeconds)}</Text>
+                      <Text style={styles.restTimerText}>
+                        {t(language, 'logger.restTimer', { label: formatRestDurationLabel(selectedRestDurationSeconds, language) })}
+                      </Text>
                     </Pressable>
 
                     {restTimerMenuOpen ? (
@@ -941,7 +946,7 @@ export function WorkoutLoggingScreen({
                               style={[styles.restTimerMenuItem, selected && styles.restTimerMenuItemSelected]}
                             >
                               <Text style={[styles.restTimerMenuText, selected && styles.restTimerMenuTextSelected]}>
-                                {option.label}
+                                {option.seconds === null ? t(language, 'logger.rest.off') : option.label}
                               </Text>
                               {selected ? <Text style={styles.restTimerMenuCheck}>✓</Text> : null}
                             </Pressable>
@@ -951,12 +956,12 @@ export function WorkoutLoggingScreen({
                     ) : null}
 
                     <View style={styles.setTableHeader}>
-                      <Text style={styles.setHeaderSet}>SET</Text>
+                      <Text style={styles.setHeaderSet}>{t(language, 'logger.col.set')}</Text>
                       <View style={styles.setHeaderMiddleGroup}>
-                        <Text style={styles.setHeaderPrevious} numberOfLines={1}>PREVIOUS</Text>
+                        <Text style={styles.setHeaderPrevious} numberOfLines={1}>{t(language, 'logger.col.previous')}</Text>
                         <View style={styles.setHeaderValueGroup}>
                           <Text style={styles.setHeaderCell}>KG</Text>
-                          <Text style={styles.setHeaderCell}>REPS</Text>
+                          <Text style={styles.setHeaderCell}>{t(language, 'logger.col.reps')}</Text>
                         </View>
                       </View>
                     </View>
@@ -981,6 +986,7 @@ export function WorkoutLoggingScreen({
                             }
                             repsPlaceholder={`${set.plannedRepsMin}-${set.plannedRepsMax}`}
                             unitPreference={unitPreference}
+                            language={language}
                             active={activeSetIndex === rowIndex && set.status === 'pending'}
                             completed={set.status === 'completed'}
                             future={rowIndex > activeSetIndex && set.status === 'pending'}
@@ -1007,7 +1013,7 @@ export function WorkoutLoggingScreen({
                     </View>
 
                     <Pressable onPress={() => addSet(exercise.slotId)} style={styles.addSetButton}>
-                      <Text style={styles.addSetText}>+ Add set</Text>
+                      <Text style={styles.addSetText}>{t(language, 'logger.addSet')}</Text>
                     </Pressable>
                   </View>
                 ) : null}
@@ -1023,16 +1029,16 @@ export function WorkoutLoggingScreen({
           }}
           style={styles.addExerciseButton}
         >
-          <Text style={styles.addExerciseButtonText}>+ Add exercise</Text>
+          <Text style={styles.addExerciseButtonText}>{t(language, 'logger.addExercise')}</Text>
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Cancel workout"
+          accessibilityLabel={t(language, 'logger.a11y.cancel')}
           onPress={onDiscardWorkout}
           style={styles.cancelWorkoutButton}
         >
-          <Text style={styles.cancelWorkoutText}>Cancel workout</Text>
+          <Text style={styles.cancelWorkoutText}>{t(language, 'logger.cancel')}</Text>
         </Pressable>
       </ScrollView>
 
@@ -1042,15 +1048,19 @@ export function WorkoutLoggingScreen({
         recentItems={recentExerciseLibraryItems}
         currentItemIds={currentItemIds}
         selectedIds={currentItemIds}
-        title="Add Exercise"
-        subtitle={activeExercise ? `Insert after ${activeExercise.exerciseName}` : 'Insert into this session'}
-        actionLabel="Insert"
+        title={t(language, 'logger.sheet.addExercise')}
+        subtitle={
+          activeExercise
+            ? t(language, 'logger.sheet.insertAfter', { name: activeExercise.exerciseName })
+            : t(language, 'logger.sheet.insertInto')
+        }
+        actionLabel={t(language, 'logger.sheet.insert')}
         onClose={() => setShowAddExercise(false)}
         onSelectItem={handleAddExercise}
       />
 
       {showMoreActions && activeExercise ? (
-        <InlineSheet title={activeExercise.exerciseName} onClose={() => setShowMoreActions(false)}>
+        <InlineSheet title={activeExercise.exerciseName} closeLabel={t(language, 'logger.close')} onClose={() => setShowMoreActions(false)}>
           <Pressable
             onPress={() => {
               Keyboard.dismiss();
@@ -1059,7 +1069,7 @@ export function WorkoutLoggingScreen({
             }}
             style={styles.sheetRow}
           >
-            <Text style={styles.sheetRowText}>Exercise info</Text>
+            <Text style={styles.sheetRowText}>{t(language, 'logger.action.info')}</Text>
           </Pressable>
           <Pressable
             onPress={() => {
@@ -1069,7 +1079,7 @@ export function WorkoutLoggingScreen({
             }}
             style={styles.sheetRow}
           >
-            <Text style={styles.sheetRowText}>Add exercise after this</Text>
+            <Text style={styles.sheetRowText}>{t(language, 'logger.action.addAfter')}</Text>
           </Pressable>
           <Pressable
             onPress={() => {
@@ -1080,7 +1090,9 @@ export function WorkoutLoggingScreen({
             }}
             style={styles.sheetRow}
           >
-            <Text style={styles.sheetRowText}>{activeExercise.notes ? 'Edit note' : 'Add note'}</Text>
+            <Text style={styles.sheetRowText}>
+              {t(language, activeExercise.notes ? 'logger.action.editNote' : 'logger.action.addNote')}
+            </Text>
           </Pressable>
           {activeSwapOptions.length > 0 ? (
             <Pressable
@@ -1091,7 +1103,7 @@ export function WorkoutLoggingScreen({
               }}
               style={styles.sheetRow}
             >
-              <Text style={styles.sheetRowText}>Swap exercise</Text>
+              <Text style={styles.sheetRowText}>{t(language, 'logger.action.swap')}</Text>
             </Pressable>
           ) : null}
           <Pressable
@@ -1102,7 +1114,7 @@ export function WorkoutLoggingScreen({
             }}
             style={styles.sheetRow}
           >
-            <Text style={styles.sheetRowText}>Skip exercise</Text>
+            <Text style={styles.sheetRowText}>{t(language, 'logger.action.skip')}</Text>
           </Pressable>
         </InlineSheet>
       ) : null}
@@ -1123,12 +1135,10 @@ export function WorkoutLoggingScreen({
       ) : null}
 
       {swapTarget ? (
-        <InlineSheet title={`Swap ${swapTarget.exerciseName}`} onClose={() => setSwapSlotId(null)}>
+        <InlineSheet title={t(language, 'logger.swap.title', { name: swapTarget.exerciseName })} closeLabel={t(language, 'logger.close')} onClose={() => setSwapSlotId(null)}>
           <View style={styles.swapSheetHeader}>
-            <Text style={styles.swapSheetTitle}>Ranked for your setup</Text>
-            <Text style={styles.swapSheetBody}>
-              GAINER is using your equipment fit and joint-friendly preferences to push the best-matching swaps up first.
-            </Text>
+            <Text style={styles.swapSheetTitle}>{t(language, 'logger.swap.ranked')}</Text>
+            <Text style={styles.swapSheetBody}>{t(language, 'logger.swap.body')}</Text>
             {swapBadgeLabels.length ? (
               <View style={styles.swapSheetBadgeRow}>
                 {swapBadgeLabels.map((label) => (
@@ -1153,24 +1163,24 @@ export function WorkoutLoggingScreen({
                 <Text style={styles.sheetRowText}>{option.exerciseName}</Text>
                 {option.reason ? (
                   <View style={styles.sheetRowMetaBlock}>
-                    <Text style={styles.sheetRowMetaKicker}>Why this fits you</Text>
+                    <Text style={styles.sheetRowMetaKicker}>{t(language, 'logger.swap.whyFits')}</Text>
                     <Text style={styles.sheetRowMeta}>{option.reason}</Text>
                   </View>
                 ) : null}
               </Pressable>
             ))
           ) : (
-            <Text style={styles.sheetEmpty}>No quick swaps for this exercise yet.</Text>
+            <Text style={styles.sheetEmpty}>{t(language, 'logger.swap.empty')}</Text>
           )}
         </InlineSheet>
       ) : null}
 
       {noteTarget ? (
-        <InlineSheet title={`Notes for ${noteTarget.exerciseName}`} onClose={() => setNoteSlotId(null)}>
+        <InlineSheet title={t(language, 'logger.notes.title', { name: noteTarget.exerciseName })} closeLabel={t(language, 'logger.close')} onClose={() => setNoteSlotId(null)}>
           <TextInput
             value={notesDraft}
             onChangeText={setNotesDraft}
-            placeholder="Add a short note"
+            placeholder={t(language, 'logger.notes.placeholder')}
             placeholderTextColor="#9A93AC"
             multiline
             style={styles.notesInput}
@@ -1187,7 +1197,7 @@ export function WorkoutLoggingScreen({
             }}
             style={styles.sheetButton}
           >
-            <Text style={styles.sheetButtonText}>Save note</Text>
+            <Text style={styles.sheetButtonText}>{t(language, 'logger.notes.save')}</Text>
           </Pressable>
         </InlineSheet>
       ) : null}
@@ -1196,10 +1206,8 @@ export function WorkoutLoggingScreen({
         <View style={styles.dialogOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setDiscardConfirmVisible(false)} />
           <View style={styles.dialogCard}>
-            <Text style={styles.dialogTitle}>Discard workout?</Text>
-            <Text style={styles.dialogBody}>
-              Nothing has been logged yet. Are you sure you want to discard this workout?
-            </Text>
+            <Text style={styles.dialogTitle}>{t(language, 'logger.discard.title')}</Text>
+            <Text style={styles.dialogBody}>{t(language, 'logger.discard.body')}</Text>
             <Pressable
               onPress={() => {
                 setDiscardConfirmVisible(false);
@@ -1207,10 +1215,10 @@ export function WorkoutLoggingScreen({
               }}
               style={styles.sheetDestructiveButton}
             >
-              <Text style={styles.sheetDestructiveButtonText}>Discard workout</Text>
+              <Text style={styles.sheetDestructiveButtonText}>{t(language, 'logger.discard.confirm')}</Text>
             </Pressable>
             <Pressable onPress={() => setDiscardConfirmVisible(false)} style={styles.sheetRow}>
-              <Text style={styles.sheetRowText}>Keep logging</Text>
+              <Text style={styles.sheetRowText}>{t(language, 'logger.discard.keep')}</Text>
             </Pressable>
           </View>
         </View>
@@ -1219,7 +1227,17 @@ export function WorkoutLoggingScreen({
   );
 }
 
-function InlineSheet({ title, children, onClose }: { title: string; children: React.ReactNode; onClose: () => void }) {
+function InlineSheet({
+  title,
+  closeLabel,
+  children,
+  onClose,
+}: {
+  title: string;
+  closeLabel: string;
+  children: React.ReactNode;
+  onClose: () => void;
+}) {
   return (
     <View style={styles.sheetOverlay}>
       <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
@@ -1227,7 +1245,7 @@ function InlineSheet({ title, children, onClose }: { title: string; children: Re
         <View style={styles.sheetHeader}>
           <Text style={styles.sheetTitle}>{title}</Text>
           <Pressable onPress={onClose}>
-            <Text style={styles.sheetClose}>Close</Text>
+            <Text style={styles.sheetClose}>{closeLabel}</Text>
           </Pressable>
         </View>
         <View style={styles.sheetContent}>{children}</View>

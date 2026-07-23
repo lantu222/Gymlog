@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { colors, radii, spacing } from '../theme';
-import { UnitPreference } from '../types/models';
+import { AppLanguage, UnitPreference } from '../types/models';
 import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { getWorkoutSetValidationMessage } from '../lib/workoutValidation';
 
@@ -24,6 +24,7 @@ interface WorkoutSetRowProps {
   weightPlaceholder?: string;
   repsPlaceholder?: string;
   unitPreference: UnitPreference;
+  language?: AppLanguage;
   active: boolean;
   completed: boolean;
   future?: boolean;
@@ -68,6 +69,7 @@ export function WorkoutSetRow({
   weightPlaceholder,
   repsPlaceholder,
   unitPreference,
+  language = 'en',
   active,
   completed,
   future = false,
@@ -87,7 +89,7 @@ export function WorkoutSetRow({
   const showLoadField = trackingMode !== 'bodyweight';
   const showEditableInputs = active && !completed;
   const validationMessage = active && !completed
-    ? getWorkoutSetValidationMessage(trackingMode, weightValue, repsValue)
+    ? getWorkoutSetValidationMessage(trackingMode, weightValue, repsValue, language)
     : null;
   const loadDisplayValue = weightValue || weightPlaceholder || '0';
   const repsDisplayValue = repsValue || repsPlaceholder || '6-8';

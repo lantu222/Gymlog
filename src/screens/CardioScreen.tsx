@@ -37,16 +37,26 @@ import {
   getWeekCardioMinutes,
   parseCardioDistanceKm,
 } from '../lib/cardio';
+import { I18nKey, t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
 import { HG } from '../lightTheme';
-import { CardioActivityType, CardioFeel, CardioSession } from '../types/models';
+import { AppLanguage, CardioActivityType, CardioFeel, CardioSession } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
+
+function cardioActivityName(language: AppLanguage, activityType: CardioActivityType) {
+  return t(language, `cardio.activity.${activityType}` as I18nKey);
+}
+
+function cardioEquipmentLabel(language: AppLanguage, equipmentLabel: string) {
+  return t(language, `cardio.equipment.${equipmentLabel}` as I18nKey);
+}
 
 interface CardioScreenProps {
   /** Keep the display on while the cardio player runs. */
   keepScreenAwake?: boolean;
+  language?: AppLanguage;
   cardioSessions: CardioSession[];
   hasActiveStrengthSession: boolean;
   isSaving: boolean;
@@ -64,6 +74,7 @@ interface CardioScreenProps {
 
 export function CardioScreen({
   keepScreenAwake = false,
+  language = 'en',
   cardioSessions,
   hasActiveStrengthSession,
   isSaving,
@@ -122,10 +133,11 @@ export function CardioScreen({
     <View style={{ flex: 1, backgroundColor: HG.bg }}>
       <StatusBar style="dark" backgroundColor={HG.bg} />
 
-      {mode === 'list' && <CardioListView onLeave={onLeave} onStart={startActivity} />}
+      {mode === 'list' && <CardioListView language={language} onLeave={onLeave} onStart={startActivity} />}
 
       {mode === 'player' && activeCardio && (
         <CardioPlayerView
+          language={language}
           session={activeCardio}
           onPause={() => {
             void haptics.select();
@@ -141,6 +153,7 @@ export function CardioScreen({
 
       {mode === 'finish' && activeCardio && (
         <CardioFinishView
+          language={language}
           session={activeCardio}
           cardioSessions={cardioSessions}
           isSaving={isSaving}
@@ -169,10 +182,10 @@ export function CardioScreen({
 
       {endSheetOpen && activeCardio && (
         <CardioSheet onClose={() => setEndSheetOpen(false)}>
-          <Text style={styles.sheetTitle}>End workout?</Text>
+          <Text style={styles.sheetTitle}>{t(language, 'cardio.endTitle')}</Text>
           <View style={{ gap: 10 }}>
             <SheetPrimaryBtn
-              label="Finish"
+              label={t(language, 'cardio.finish')}
               color={HG.green}
               onPress={() => {
                 setEndSheetOpen(false);
@@ -181,23 +194,23 @@ export function CardioScreen({
               }}
             />
             <SheetGhostBtn
-              label="Discard"
+              label={t(language, 'cardio.discard')}
               onPress={() => {
                 setEndSheetOpen(false);
                 workout.clearCardio();
               }}
             />
-            <SheetGhostBtn label="Cancel" onPress={() => setEndSheetOpen(false)} />
+            <SheetGhostBtn label={t(language, 'common.cancel')} onPress={() => setEndSheetOpen(false)} />
           </View>
         </CardioSheet>
       )}
 
       {conflictFor !== null && (
         <CardioSheet onClose={() => setConflictFor(null)}>
-          <Text style={styles.sheetTitle}>You have a workout in progress</Text>
+          <Text style={styles.sheetTitle}>{t(language, 'cardio.conflictTitle')}</Text>
           <View style={{ gap: 10 }}>
             <SheetPrimaryBtn
-              label="Resume it"
+              label={t(language, 'cardio.resumeIt')}
               color={HG.purple}
               onPress={() => {
                 setConflictFor(null);
@@ -205,7 +218,7 @@ export function CardioScreen({
               }}
             />
             <SheetGhostBtn
-              label="Discard and start cardio"
+              label={t(language, 'cardio.discardAndStart')}
               onPress={() => {
                 const activityType = conflictFor;
                 setConflictFor(null);
@@ -216,7 +229,7 @@ export function CardioScreen({
                 })();
               }}
             />
-            <SheetGhostBtn label="Cancel" onPress={() => setConflictFor(null)} />
+            <SheetGhostBtn label={t(language, 'common.cancel')} onPress={() => setConflictFor(null)} />
           </View>
         </CardioSheet>
       )}
@@ -225,7 +238,15 @@ export function CardioScreen({
 }
 
 /* ── 1 · activity list ── */
-function CardioListView({ onLeave, onStart }: { onLeave: () => void; onStart: (activityType: CardioActivityType) => void }) {
+function CardioListView({
+  language,
+  onLeave,
+  onStart,
+}: {
+  language: AppLanguage;
+  onLeave: () => void;
+  onStart: (activityType: CardioActivityType) => void;
+}) {
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -237,8 +258,8 @@ function CardioListView({ onLeave, onStart }: { onLeave: () => void; onStart: (a
           <Path d="M15 6l-6 6 6 6" />
         </Svg>
       </Pressable>
-      <Text style={styles.listTitle}>Cardio workouts</Text>
-      <Text style={styles.listSub}>Build stamina and boost performance.</Text>
+      <Text style={styles.listTitle}>{t(language, 'cardio.list.title')}</Text>
+      <Text style={styles.listSub}>{t(language, 'cardio.list.sub')}</Text>
       <View style={{ gap: 12, marginTop: 20 }}>
         {CARDIO_ACTIVITIES.map((activity) => (
           <Pressable
@@ -250,9 +271,9 @@ function CardioListView({ onLeave, onStart }: { onLeave: () => void; onStart: (a
               <CardioIcon kind={activity.icon} size={24} color={HG.purple} />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.activityName}>{activity.name}</Text>
+              <Text style={styles.activityName}>{cardioActivityName(language, activity.id)}</Text>
               <View style={styles.equipmentChip}>
-                <Text style={styles.equipmentChipText}>{activity.equipmentLabel.toUpperCase()}</Text>
+                <Text style={styles.equipmentChipText}>{cardioEquipmentLabel(language, activity.equipmentLabel).toUpperCase()}</Text>
               </View>
             </View>
             <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
@@ -267,11 +288,13 @@ function CardioListView({ onLeave, onStart }: { onLeave: () => void; onStart: (a
 
 /* ── 2 · in-session player ── */
 function CardioPlayerView({
+  language,
   session,
   onPause,
   onResume,
   onExit,
 }: {
+  language: AppLanguage;
   session: ActiveCardioSession;
   onPause: () => void;
   onResume: () => void;
@@ -317,7 +340,7 @@ function CardioPlayerView({
             <Path d="M6 6l12 12M18 6L6 18" />
           </Svg>
         </Pressable>
-        <Text style={styles.playerTopLabel}>CARDIO</Text>
+        <Text style={styles.playerTopLabel}>{t(language, 'cardio.eyebrow')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -325,11 +348,11 @@ function CardioPlayerView({
         <Animated.View style={[styles.playerIconTile, { transform: [{ scale: pulse }] }]}>
           <CardioIcon kind={activity.icon} size={34} color={HG.purple} />
         </Animated.View>
-        <Text style={styles.playerActivityName}>{activity.name}</Text>
+        <Text style={styles.playerActivityName}>{cardioActivityName(language, session.activityType)}</Text>
         <Text style={[styles.playerTimer, { color: running ? HG.ink : HG.faint }]}>
           {formatCardioDuration(elapsedMs / 1000)}
         </Text>
-        {!running ? <Text style={styles.pausedLabel}>PAUSED</Text> : <View style={{ height: 20 }} />}
+        {!running ? <Text style={styles.pausedLabel}>{t(language, 'cardio.paused')}</Text> : <View style={{ height: 20 }} />}
       </View>
 
       <View style={{ alignItems: 'center', paddingBottom: 36 }}>
@@ -339,7 +362,7 @@ function CardioPlayerView({
           </Svg>
         </Pressable>
         <Text style={{ fontSize: 13, fontWeight: '700', color: HG.muted, marginTop: 10 }}>
-          {running ? 'Pause' : 'Resume'}
+          {t(language, running ? 'cardio.pause' : 'cardio.resume')}
         </Text>
       </View>
     </View>
@@ -348,17 +371,18 @@ function CardioPlayerView({
 
 /* ── 3 · finish (dark summary) ── */
 function CardioFinishView({
+  language,
   session,
   cardioSessions,
   isSaving,
   onComplete,
 }: {
+  language: AppLanguage;
   session: ActiveCardioSession;
   cardioSessions: CardioSession[];
   isSaving: boolean;
   onComplete: (distanceKm: number | null, feel: CardioFeel | null) => Promise<void>;
 }) {
-  const activity = getCardioActivity(session.activityType);
   const durationSec = Math.round(getCardioElapsedMs(session, Date.now()) / 1000);
   const [distanceText, setDistanceText] = useState('');
   const [feel, setFeel] = useState<CardioFeel | null>(null);
@@ -375,28 +399,32 @@ function CardioFinishView({
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.finishTitle}>{activity.name} — done</Text>
+        <Text style={styles.finishTitle}>
+          {t(language, 'cardio.done', { activity: cardioActivityName(language, session.activityType) })}
+        </Text>
 
         <View style={[styles.finishCard, { alignItems: 'center' }]}>
           <Text style={styles.finishHeroStat}>{formatCardioDuration(durationSec)}</Text>
           <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2, color: HG.muted, marginTop: 4 }}>
-            DURATION
+            {t(language, 'cardio.stat.duration')}
           </Text>
         </View>
 
         <View style={styles.finishCard}>
-          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.purple }}>DISTANCE</Text>
+          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.purple }}>
+            {t(language, 'cardio.stat.distance')}
+          </Text>
           <TextInput
             value={distanceText}
             onChangeText={setDistanceText}
-            placeholder="Add distance (km)"
+            placeholder={t(language, 'cardio.addDistance')}
             placeholderTextColor={HG.faint}
             keyboardType="decimal-pad"
             style={styles.distanceInput}
           />
           {pace !== null ? (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-              <Text style={{ fontSize: 12.5, fontWeight: '700', color: HG.muted }}>Avg. pace</Text>
+              <Text style={{ fontSize: 12.5, fontWeight: '700', color: HG.muted }}>{t(language, 'cardio.avgPace')}</Text>
               <Text style={{ fontSize: 15, fontWeight: '800', color: HG.ink, fontVariant: ['tabular-nums'] }}>
                 {formatCardioPace(pace)}
               </Text>
@@ -406,16 +434,17 @@ function CardioFinishView({
 
         <View style={styles.finishCard}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.green }}>THIS WEEK</Text>
+            <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.green }}>{t(language, 'cardio.thisWeek')}</Text>
             <Text style={{ fontSize: 15, fontWeight: '800', color: HG.ink }}>
-              {weekMinutes} min <Text style={{ fontSize: 12, fontWeight: '700', color: HG.muted }}>cardio</Text>
+              {t(language, 'cardio.weekMinutes', { min: weekMinutes })}{' '}
+              <Text style={{ fontSize: 12, fontWeight: '700', color: HG.muted }}>{t(language, 'cardio.weekCardio')}</Text>
             </Text>
           </View>
         </View>
 
         <View style={styles.finishCard}>
           <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.purple }}>
-            HOW DID IT FEEL?
+            {t(language, 'cardio.howFeel')}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 }}>
             {CARDIO_FEEL_OPTIONS.map((option) => {
@@ -426,7 +455,9 @@ function CardioFinishView({
                   onPress={() => setFeel(selected ? null : option.key)}
                   style={[styles.feelPill, selected && styles.feelPillSelected]}
                 >
-                  <Text style={[styles.feelPillText, selected && { color: '#fff' }]}>{option.label}</Text>
+                  <Text style={[styles.feelPillText, selected && { color: '#fff' }]}>
+                    {t(language, `cardio.feel.${option.key}` as I18nKey)}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -440,7 +471,7 @@ function CardioFinishView({
           onPress={isSaving ? undefined : () => void onComplete(distanceKm, feel)}
         >
           <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>
-            {isSaving ? 'Saving…' : 'Complete workout'}
+            {t(language, isSaving ? 'cardio.saving' : 'cardio.complete')}
           </Text>
         </Pressable>
       </View>

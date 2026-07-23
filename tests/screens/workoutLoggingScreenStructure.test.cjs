@@ -7,6 +7,7 @@ const appPath = path.join(__dirname, '..', '..', 'App.tsx');
 const themePath = path.join(__dirname, '..', '..', 'src', 'theme.ts');
 const setRowPath = path.join(__dirname, '..', '..', 'src', 'components', 'WorkoutSetRow.tsx');
 const workoutStatePath = path.join(__dirname, '..', '..', 'src', 'features', 'workout', 'workoutState.ts');
+const i18nPath = path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts');
 
 function readSource(filePath) {
   return fs.readFileSync(filePath, 'utf8');
@@ -18,6 +19,7 @@ module.exports = [
     run() {
       const screenSource = readSource(screenPath);
       const setRowSource = readSource(setRowPath);
+      const i18nSource = readSource(i18nPath);
       const workoutStateSource = readSource(workoutStatePath);
       const source = [
         readSource(appPath),
@@ -37,7 +39,9 @@ module.exports = [
       assert.match(screenSource, /fontFamily:\s*WORKOUT_FONT_FAMILY/);
 
       assert.match(screenSource, /headerFinishButton/);
-      assert.match(screenSource, />Finish</);
+      // Copy moved to i18n.ts; the screen renders it via t(language, …).
+      assert.match(screenSource, /t\(language, 'logger\.finish'\)/);
+      assert.match(i18nSource, /'logger\.finish': 'Finish'/);
       assert.doesNotMatch(screenSource, /activeWorkoutCloseButton/);
       assert.doesNotMatch(screenSource, />v</);
 
@@ -46,8 +50,8 @@ module.exports = [
       assert.match(screenSource, /metaStrip/);
       assert.match(screenSource, /metaStripText/);
       assert.match(screenSource, /\{elapsedText\}/);
-      assert.match(screenSource, /\{completedSets\} sets/);
-      assert.match(screenSource, /\{volumeText\} volume/);
+      assert.match(screenSource, /t\(language, 'logger\.stat\.sets', \{ count: completedSets \}\)/);
+      assert.match(screenSource, /t\(language, 'logger\.stat\.volume', \{ volume: volumeText \}\)/);
       assert.doesNotMatch(screenSource, /done so far/);
 
       assert.match(screenSource, /workoutExerciseRows\s*=\s*activeSession\.exercises/);
@@ -63,9 +67,10 @@ module.exports = [
       assert.match(screenSource, /fontWeight:\s*'700'/);
       assert.match(screenSource, /formatWorkoutListExerciseName/);
       assert.match(screenSource, /getExerciseCompletionMeta/);
-      assert.match(screenSource, /\$\{completedSets\}\/\$\{totalSets\} done/);
+      assert.match(screenSource, /'logger\.exerciseDone', \{ done: completedSets, total: totalSets \}/);
+      assert.match(i18nSource, /'logger\.exerciseDone': '\{done\}\/\{total\} done'/);
       assert.match(screenSource, /formatWorkoutListExerciseName\(exercise\.exerciseName\)/);
-      assert.match(screenSource, /More actions for \$\{exercise\.exerciseName\}/);
+      assert.match(screenSource, /'logger\.a11y\.moreActions', \{ name: exercise\.exerciseName \}/);
       assert.match(screenSource, />\.\.\.</);
       assert.match(screenSource, /borderBottomWidth:\s*1/);
       assert.doesNotMatch(screenSource, /borderTopWidth:\s*1/);
@@ -76,14 +81,16 @@ module.exports = [
       assert.match(screenSource, /activeExercisePanel/);
       assert.match(screenSource, /REST_TIMER_OPTIONS/);
       assert.match(screenSource, /handleSelectRestDuration/);
-      assert.match(screenSource, /Rest Timer:/);
+      assert.match(screenSource, /'logger\.restTimer'/);
+      assert.match(i18nSource, /'logger\.restTimer': 'Rest Timer: \{label\}'/);
       assert.match(screenSource, /restTimerMenu/);
       assert.match(screenSource, /setTableHeader/);
-      assert.match(screenSource, />SET</);
-      assert.match(screenSource, />PREVIOUS</);
+      assert.match(screenSource, /t\(language, 'logger\.col\.set'\)/);
+      assert.match(screenSource, /t\(language, 'logger\.col\.previous'\)/);
       assert.match(screenSource, />KG</);
-      assert.match(screenSource, />REPS</);
-      assert.match(screenSource, />\+ Add set</);
+      assert.match(screenSource, /t\(language, 'logger\.col\.reps'\)/);
+      assert.match(screenSource, /t\(language, 'logger\.addSet'\)/);
+      assert.match(i18nSource, /'logger\.addSet': '\+ Add set'/);
       assert.match(screenSource, /updateSetDraft\(exercise\.slotId, rowIndex, \{ loadText: value \}\)/);
       assert.match(screenSource, /updateSetDraft\(exercise\.slotId, rowIndex, \{ repsText: value \}\)/);
       assert.match(screenSource, /completeSet\(exercise\.slotId, rowIndex, unitPreference\)/);
@@ -128,12 +135,14 @@ module.exports = [
       assert.match(setRowSource, /placeholderTextColor="#9B93AD"/);
       assert.match(setRowSource, /valueTextMuted/);
 
-      assert.match(screenSource, />\+ Add exercise</);
+      assert.match(screenSource, /t\(language, 'logger\.addExercise'\)/);
+      assert.match(i18nSource, /'logger\.addExercise': '\+ Add exercise'/);
       assert.match(screenSource, /addExerciseButton/);
       assert.match(screenSource, /color:\s*'#5B21B6'/);
       assert.match(screenSource, /fontSize:\s*15/);
       assert.match(screenSource, /borderRadius:\s*radii\.pill/);
-      assert.match(screenSource, />Cancel workout</);
+      assert.match(screenSource, /t\(language, 'logger\.cancel'\)/);
+      assert.match(i18nSource, /'logger\.cancel': 'Cancel workout'/);
       assert.match(screenSource, /cancelWorkoutButton/);
       assert.match(screenSource, /onPress=\{onDiscardWorkout\}/);
       assert.match(screenSource, /color:\s*'#DC2626'/);
@@ -144,8 +153,9 @@ module.exports = [
       assert.match(screenSource, /if \(hasPersistableWorkoutData\) \{\s*\n\s*\/\/[^\n]*\n\s*onConfirmFinishWorkout\(\);/);
       assert.match(screenSource, /setDiscardConfirmVisible\(true\)/);
       assert.match(screenSource, /dialogOverlay/);
-      assert.match(screenSource, />Discard workout\?</);
-      assert.match(screenSource, /Are you sure you want to discard this workout\?/);
+      assert.match(screenSource, /t\(language, 'logger\.discard\.title'\)/);
+      assert.match(i18nSource, /'logger\.discard\.title': 'Discard workout\?'/);
+      assert.match(i18nSource, /'logger\.discard\.body': 'Nothing has been logged yet\./);
       assert.doesNotMatch(screenSource, /Save this workout now/);
       assert.doesNotMatch(screenSource, />Finish workout</);
       assert.doesNotMatch(screenSource, /finishReviewVisible/);
