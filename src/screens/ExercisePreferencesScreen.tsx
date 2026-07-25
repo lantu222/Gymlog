@@ -14,12 +14,20 @@ import {
   TRAINING_FEEL_OPTIONS,
   WORKOUT_VARIETY_OPTIONS,
 } from '../lib/tailoring';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout, radii, spacing } from '../theme';
-import { AppPreferences, ExerciseModalityPreference, TrainingFeelPreference, WorkoutVarietyPreference } from '../types/models';
+import {
+  AppLanguage,
+  AppPreferences,
+  ExerciseModalityPreference,
+  TrainingFeelPreference,
+  WorkoutVarietyPreference,
+} from '../types/models';
 
 interface ExercisePreferencesScreenProps {
   preferences: AppPreferences;
+  language?: AppLanguage;
   onBack: () => void;
   onChange: (patch: Partial<AppPreferences>) => void | Promise<void>;
 }
@@ -70,10 +78,12 @@ function QuestionOption({
 function PreferenceRow({
   label,
   value,
+  language,
   onChange,
 }: {
   label: string;
   value: ExerciseModalityPreference;
+  language: AppLanguage;
   onChange: (nextValue: ExerciseModalityPreference) => void;
 }) {
   return (
@@ -89,7 +99,7 @@ function PreferenceRow({
               style={[styles.preferenceSegment, active && styles.preferenceSegmentActive]}
             >
               <Text style={[styles.preferenceSegmentText, active && styles.preferenceSegmentTextActive]}>
-                {getExerciseModalityPreferenceTitle(option)}
+                {getExerciseModalityPreferenceTitle(option, language)}
               </Text>
             </Pressable>
           );
@@ -101,6 +111,7 @@ function PreferenceRow({
 
 export function ExercisePreferencesScreen({
   preferences,
+  language = 'en',
   onBack,
   onChange,
 }: ExercisePreferencesScreenProps) {
@@ -110,46 +121,49 @@ export function ExercisePreferencesScreen({
 
   return (
     <>
-      <ScreenHeader title="Exercise preferences" tone="dark" onBack={onBack} />
+      <ScreenHeader title={t(language, 'planSet.exercisePrefs')} tone="dark" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroPhoto} style={styles.heroSurface}>
           <View style={styles.heroContent}>
-            <Text style={styles.heroKicker}>Tailoring</Text>
+            <Text style={styles.heroKicker}>{t(language, 'swaps.tailoring')}</Text>
 
             <View style={styles.heroBadgeRow}>
-              <HeroPill label={getTrainingFeelTitle(trainingFeel)} />
-              <HeroPill label={getWorkoutVarietyTitle(workoutVariety)} />
+              <HeroPill label={getTrainingFeelTitle(trainingFeel, language)} />
+              <HeroPill label={getWorkoutVarietyTitle(workoutVariety, language)} />
             </View>
 
             <View style={styles.heroCopy}>
-              <Text style={styles.heroTitle}>Set the training tone</Text>
+              <Text style={styles.heroTitle}>{t(language, 'exPref.heroTitle')}</Text>
               <Text style={styles.heroMeta}>
-                {summarizeExercisePreferences({
-                  trainingFeel,
-                  workoutVariety,
-                  freeWeights: preferences.setupFreeWeightsPreference,
-                  bodyweight: preferences.setupBodyweightPreference,
-                  machines: preferences.setupMachinesPreference,
-                })}
+                {summarizeExercisePreferences(
+                  {
+                    trainingFeel,
+                    workoutVariety,
+                    freeWeights: preferences.setupFreeWeightsPreference,
+                    bodyweight: preferences.setupBodyweightPreference,
+                    machines: preferences.setupMachinesPreference,
+                  },
+                  language,
+                )}
               </Text>
             </View>
           </View>
         </FitnessPhotoSurface>
 
-        <SectionLabel label="Question 1" />
+        <SectionLabel label={t(language, 'exPref.question1')} />
 
         <View style={styles.questionCard}>
           <View style={styles.questionHeader}>
-            <Text style={styles.questionTitle}>How hard should training feel?</Text>
-            <Text style={styles.questionBody}>Pick the default feel for the week.</Text>
+            <Text style={styles.questionTitle}>{t(language, 'exPref.q1Title')}</Text>
+            <Text style={styles.questionBody}>{t(language, 'exPref.q1Body')}</Text>
           </View>
 
           <View style={styles.questionGrid}>
             {TRAINING_FEEL_OPTIONS.map((option) => (
               <QuestionOption
                 key={option}
-                label={getTrainingFeelTitle(option)}
-                hint={getTrainingFeelHint(option)}
+                label={getTrainingFeelTitle(option, language)}
+                hint={getTrainingFeelHint(option, language)}
                 active={trainingFeel === option}
                 onPress={() => void onChange({ setupTrainingFeel: option as TrainingFeelPreference })}
               />
@@ -157,20 +171,20 @@ export function ExercisePreferencesScreen({
           </View>
         </View>
 
-        <SectionLabel label="Question 2" />
+        <SectionLabel label={t(language, 'exPref.question2')} />
 
         <View style={styles.questionCard}>
           <View style={styles.questionHeader}>
-            <Text style={styles.questionTitle}>How much variety do you want?</Text>
-            <Text style={styles.questionBody}>Keep the week tighter or let it rotate more.</Text>
+            <Text style={styles.questionTitle}>{t(language, 'exPref.q2Title')}</Text>
+            <Text style={styles.questionBody}>{t(language, 'exPref.q2Body')}</Text>
           </View>
 
           <View style={styles.questionGrid}>
             {WORKOUT_VARIETY_OPTIONS.map((option) => (
               <QuestionOption
                 key={option}
-                label={getWorkoutVarietyTitle(option)}
-                hint={getWorkoutVarietyHint(option)}
+                label={getWorkoutVarietyTitle(option, language)}
+                hint={getWorkoutVarietyHint(option, language)}
                 active={workoutVariety === option}
                 onPress={() => void onChange({ setupWorkoutVariety: option as WorkoutVarietyPreference })}
               />
@@ -178,30 +192,33 @@ export function ExercisePreferencesScreen({
           </View>
         </View>
 
-        <SectionLabel label="Training modes" />
+        <SectionLabel label={t(language, 'equip.trainingModes')} />
 
         <View style={styles.preferenceCard}>
           <PreferenceRow
-            label="Free weights"
+            label={t(language, 'exPref.freeWeights')}
             value={preferences.setupFreeWeightsPreference}
+            language={language}
             onChange={(nextValue) => void onChange({ setupFreeWeightsPreference: nextValue })}
           />
           <PreferenceRow
-            label="Bodyweight"
+            label={t(language, 'exPref.bodyweight')}
             value={preferences.setupBodyweightPreference}
+            language={language}
             onChange={(nextValue) => void onChange({ setupBodyweightPreference: nextValue })}
           />
           <PreferenceRow
-            label="Machines"
+            label={t(language, 'exPref.machines')}
             value={preferences.setupMachinesPreference}
+            language={language}
             onChange={(nextValue) => void onChange({ setupMachinesPreference: nextValue })}
           />
         </View>
 
         <View style={styles.nextCard}>
-          <Text style={styles.nextKicker}>Also in tailoring</Text>
-          <Text style={styles.nextTitle}>Equipment and joint-friendly swaps</Text>
-          <Text style={styles.nextBody}>Tune equipment rules and quick swaps next from Plan settings.</Text>
+          <Text style={styles.nextKicker}>{t(language, 'equip.alsoIn')}</Text>
+          <Text style={styles.nextTitle}>{t(language, 'exPref.alsoInTitle')}</Text>
+          <Text style={styles.nextBody}>{t(language, 'exPref.alsoInBody')}</Text>
         </View>
       </ScrollView>
     </>

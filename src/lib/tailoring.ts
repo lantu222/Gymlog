@@ -1,4 +1,6 @@
+import { t } from './i18n';
 import {
+  AppLanguage,
   ExerciseModalityPreference,
   JointSwapBias,
   JointSwapPreference,
@@ -31,203 +33,222 @@ export const EXERCISE_MODALITY_OPTIONS: ExerciseModalityPreference[] = [
 export const JOINT_SWAP_BIAS_OPTIONS: JointSwapBias[] = ['shoulders', 'elbows', 'knees'];
 export const JOINT_SWAP_PREFERENCE_OPTIONS: JointSwapPreference[] = ['neutral', 'prefer', 'prioritize'];
 
-export function getTrainingFeelTitle(value: TrainingFeelPreference) {
+export function getTrainingFeelTitle(value: TrainingFeelPreference, language: AppLanguage = 'en') {
   switch (value) {
     case 'easy':
-      return 'Easy';
-    case 'steady':
-      return 'Steady';
+      return t(language, 'tailor.feel.easy');
     case 'challenging':
-      return 'Challenging';
+      return t(language, 'tailor.feel.challenging');
     case 'intense':
-      return 'Intense';
+      return t(language, 'tailor.feel.intense');
+    case 'steady':
     default:
-      return 'Steady';
+      return t(language, 'tailor.feel.steady');
   }
 }
 
-export function getTrainingFeelHint(value: TrainingFeelPreference) {
+export function getTrainingFeelHint(value: TrainingFeelPreference, language: AppLanguage = 'en') {
   switch (value) {
     case 'easy':
-      return 'Keep the work lighter.';
+      return t(language, 'tailor.feel.easyHint');
     case 'steady':
-      return 'Push, but stay repeatable.';
+      return t(language, 'tailor.feel.steadyHint');
     case 'challenging':
-      return 'Make the main sets count.';
+      return t(language, 'tailor.feel.challengingHint');
     case 'intense':
-      return 'Let hard work lead.';
+      return t(language, 'tailor.feel.intenseHint');
     default:
-      return 'Stay consistent.';
+      return t(language, 'tailor.feel.defaultHint');
   }
 }
 
-export function getWorkoutVarietyTitle(value: WorkoutVarietyPreference) {
+export function getWorkoutVarietyTitle(value: WorkoutVarietyPreference, language: AppLanguage = 'en') {
   switch (value) {
     case 'stable':
-      return 'Stable';
-    case 'balanced':
-      return 'Balanced';
+      return t(language, 'tailor.variety.stable');
     case 'varied':
-      return 'Varied';
+      return t(language, 'tailor.variety.varied');
     case 'fresh':
-      return 'Fresh';
+      return t(language, 'tailor.variety.fresh');
+    case 'balanced':
     default:
-      return 'Balanced';
+      return t(language, 'tailor.variety.balanced');
   }
 }
 
-export function getWorkoutVarietyHint(value: WorkoutVarietyPreference) {
+export function getWorkoutVarietyHint(value: WorkoutVarietyPreference, language: AppLanguage = 'en') {
   switch (value) {
     case 'stable':
-      return 'Keep the exercise menu tight.';
+      return t(language, 'tailor.variety.stableHint');
     case 'balanced':
-      return 'Repeat the main lifts, rotate the rest.';
+      return t(language, 'tailor.variety.balancedHint');
     case 'varied':
-      return 'Mix the week more often.';
+      return t(language, 'tailor.variety.variedHint');
     case 'fresh':
-      return 'Keep sessions feeling new.';
+      return t(language, 'tailor.variety.freshHint');
     default:
-      return 'Keep the week adaptable.';
+      return t(language, 'tailor.variety.defaultHint');
   }
 }
 
-export function getExerciseModalityPreferenceTitle(value: ExerciseModalityPreference) {
+export function getExerciseModalityPreferenceTitle(
+  value: ExerciseModalityPreference,
+  language: AppLanguage = 'en',
+) {
   switch (value) {
     case 'avoid':
-      return 'Avoid';
-    case 'neutral':
-      return 'Neutral';
+      return t(language, 'tailor.modality.avoid');
     case 'prefer':
-      return 'Prefer';
+      return t(language, 'tailor.modality.prefer');
     case 'love':
-      return 'Love';
+      return t(language, 'tailor.modality.love');
+    case 'neutral':
     default:
-      return 'Neutral';
+      return t(language, 'tailor.modality.neutral');
   }
 }
 
-export function getSetupEquipmentTitle(value: SetupEquipment | null | undefined) {
+export function getSetupEquipmentTitle(
+  value: SetupEquipment | null | undefined,
+  language: AppLanguage = 'en',
+) {
   switch (value) {
     case 'gym':
-      return 'Full gym';
+      return t(language, 'setup.equip.gym');
     case 'home':
-      return 'Home setup';
+      return t(language, 'setup.equip.home');
     case 'minimal':
-      return 'Minimal setup';
+      return t(language, 'setup.equip.minimal');
     default:
-      return 'Equipment';
+      return t(language, 'setup.equip.default');
   }
 }
 
-export function getSetupEquipmentHint(value: SetupEquipment | null | undefined) {
+export function getSetupEquipmentHint(
+  value: SetupEquipment | null | undefined,
+  language: AppLanguage = 'en',
+) {
   switch (value) {
     case 'gym':
-      return 'Assume broad equipment access.';
+      return t(language, 'tailor.equipHint.gym');
     case 'home':
-      return 'Keep it friendlier for a home setup.';
+      return t(language, 'tailor.equipHint.home');
     case 'minimal':
-      return 'Favor lighter, simpler equipment.';
+      return t(language, 'tailor.equipHint.minimal');
     default:
-      return 'Pick the setup GAINER should assume most weeks.';
+      return t(language, 'tailor.equipHint.default');
   }
 }
 
-export function getJointSwapBiasTitle(value: JointSwapBias) {
+export function getJointSwapBiasTitle(value: JointSwapBias, language: AppLanguage = 'en') {
   switch (value) {
     case 'shoulders':
-      return 'Shoulders';
+      return t(language, 'onb.area.shoulders');
     case 'elbows':
-      return 'Elbows';
+      return t(language, 'onb.area.elbows');
     case 'knees':
-      return 'Knees';
+      return t(language, 'onb.area.knees');
     default:
-      return 'Joint';
+      return t(language, 'tailor.joint.default');
   }
 }
 
-export function getJointSwapBiasHint(value: JointSwapBias) {
+export function getJointSwapBiasHint(value: JointSwapBias, language: AppLanguage = 'en') {
   switch (value) {
     case 'shoulders':
-      return 'Bias away from rough pressing angles.';
+      return t(language, 'tailor.jointHint.shoulders');
     case 'elbows':
-      return 'Prefer friendlier curls, pushdowns, and pulls.';
+      return t(language, 'tailor.jointHint.elbows');
     case 'knees':
-      return 'Prefer gentler squat and single-leg options.';
+      return t(language, 'tailor.jointHint.knees');
     default:
-      return 'Bias swaps toward friendlier options.';
+      return t(language, 'tailor.jointHint.default');
   }
 }
 
-export function getJointSwapPreferenceTitle(value: JointSwapPreference) {
+export function getJointSwapPreferenceTitle(value: JointSwapPreference, language: AppLanguage = 'en') {
   switch (value) {
-    case 'neutral':
-      return 'Neutral';
     case 'prefer':
-      return 'Prefer';
+      return t(language, 'tailor.modality.prefer');
     case 'prioritize':
-      return 'Prioritize';
+      return t(language, 'tailor.swap.prioritize');
+    case 'neutral':
     default:
-      return 'Neutral';
+      return t(language, 'tailor.modality.neutral');
   }
 }
 
-export function getJointSwapPreferenceHint(value: JointSwapPreference) {
+export function getJointSwapPreferenceHint(value: JointSwapPreference, language: AppLanguage = 'en') {
   switch (value) {
-    case 'neutral':
-      return 'Keep swaps balanced.';
     case 'prefer':
-      return 'Push friendlier options higher.';
+      return t(language, 'tailor.swapHint.prefer');
     case 'prioritize':
-      return 'Protect this joint first.';
+      return t(language, 'tailor.swapHint.prioritize');
+    case 'neutral':
     default:
-      return 'Keep swaps balanced.';
+      return t(language, 'tailor.swapHint.neutral');
   }
 }
 
-export function summarizeExercisePreferences(options: {
-  trainingFeel: TrainingFeelPreference;
-  workoutVariety: WorkoutVarietyPreference;
-  freeWeights: ExerciseModalityPreference;
-  bodyweight: ExerciseModalityPreference;
-  machines: ExerciseModalityPreference;
-}) {
+export function summarizeExercisePreferences(
+  options: {
+    trainingFeel: TrainingFeelPreference;
+    workoutVariety: WorkoutVarietyPreference;
+    freeWeights: ExerciseModalityPreference;
+    bodyweight: ExerciseModalityPreference;
+    machines: ExerciseModalityPreference;
+  },
+  language: AppLanguage = 'en',
+) {
   const favoredModalities = [
-    options.freeWeights === 'love' || options.freeWeights === 'prefer' ? 'free weights' : null,
-    options.bodyweight === 'love' || options.bodyweight === 'prefer' ? 'bodyweight' : null,
-    options.machines === 'love' || options.machines === 'prefer' ? 'machines' : null,
+    options.freeWeights === 'love' || options.freeWeights === 'prefer'
+      ? t(language, 'tailor.mod.freeWeights')
+      : null,
+    options.bodyweight === 'love' || options.bodyweight === 'prefer'
+      ? t(language, 'tailor.mod.bodyweight')
+      : null,
+    options.machines === 'love' || options.machines === 'prefer'
+      ? t(language, 'tailor.mod.machines')
+      : null,
   ].filter((value): value is string => Boolean(value));
 
   const favoredSummary =
-    favoredModalities.length > 0 ? favoredModalities.slice(0, 2).join(' + ') : 'no strong equipment bias';
+    favoredModalities.length > 0
+      ? favoredModalities.slice(0, 2).join(' + ')
+      : t(language, 'tailor.noBias');
 
-  return `${getTrainingFeelTitle(options.trainingFeel)} work | ${getWorkoutVarietyTitle(options.workoutVariety)} week | ${favoredSummary}`;
+  return t(language, 'tailor.prefSummary', {
+    feel: getTrainingFeelTitle(options.trainingFeel, language),
+    variety: getWorkoutVarietyTitle(options.workoutVariety, language),
+    favored: favoredSummary,
+  });
 }
 
-export function summarizeJointSwapPreferences(options: {
-  shoulders: JointSwapPreference;
-  elbows: JointSwapPreference;
-  knees: JointSwapPreference;
-}) {
+export function summarizeJointSwapPreferences(
+  options: {
+    shoulders: JointSwapPreference;
+    elbows: JointSwapPreference;
+    knees: JointSwapPreference;
+  },
+  language: AppLanguage = 'en',
+) {
   const active = [
     options.shoulders === 'neutral'
       ? null
-      : options.shoulders === 'prioritize'
-        ? 'Shoulder priority'
-        : 'Shoulders prefer',
+      : t(
+          language,
+          options.shoulders === 'prioritize' ? 'tailor.swap.shoulderPriority' : 'tailor.swap.shoulderPrefer',
+        ),
     options.elbows === 'neutral'
       ? null
-      : options.elbows === 'prioritize'
-        ? 'Elbow priority'
-        : 'Elbows prefer',
+      : t(language, options.elbows === 'prioritize' ? 'tailor.swap.elbowPriority' : 'tailor.swap.elbowPrefer'),
     options.knees === 'neutral'
       ? null
-      : options.knees === 'prioritize'
-        ? 'Knee priority'
-        : 'Knees prefer',
+      : t(language, options.knees === 'prioritize' ? 'tailor.swap.kneePriority' : 'tailor.swap.kneePrefer'),
   ].filter((value): value is string => Boolean(value));
 
   if (active.length === 0) {
-    return 'Neutral swap ranking';
+    return t(language, 'tailor.swap.neutralRanking');
   }
 
   if (active.length === 1) {
@@ -238,5 +259,5 @@ export function summarizeJointSwapPreferences(options: {
     return `${active[0]} | ${active[1]}`;
   }
 
-  return `${active[0]} + ${active.length - 1} more`;
+  return t(language, 'tailor.swap.andMore', { first: active[0], count: active.length - 1 });
 }

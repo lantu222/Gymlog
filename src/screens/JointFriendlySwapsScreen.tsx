@@ -12,12 +12,14 @@ import {
   JOINT_SWAP_PREFERENCE_OPTIONS,
   summarizeJointSwapPreferences,
 } from '../lib/tailoring';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout, radii, spacing } from '../theme';
-import { AppPreferences, JointSwapBias, JointSwapPreference } from '../types/models';
+import { AppLanguage, AppPreferences, JointSwapBias, JointSwapPreference } from '../types/models';
 
 interface JointFriendlySwapsScreenProps {
   preferences: AppPreferences;
+  language?: AppLanguage;
   onBack: () => void;
   onChange: (patch: Partial<AppPreferences>) => void | Promise<void>;
 }
@@ -70,7 +72,7 @@ function HeroPill({ label }: { label: string }) {
   );
 }
 
-function StateBadge({ value }: { value: JointSwapPreference }) {
+function StateBadge({ value, language }: { value: JointSwapPreference; language: AppLanguage }) {
   return (
     <View
       style={[
@@ -86,7 +88,7 @@ function StateBadge({ value }: { value: JointSwapPreference }) {
           value === 'prioritize' && styles.stateBadgeTextPrioritize,
         ]}
       >
-        {getJointSwapPreferenceTitle(value)}
+        {getJointSwapPreferenceTitle(value, language)}
       </Text>
     </View>
   );
@@ -95,20 +97,22 @@ function StateBadge({ value }: { value: JointSwapPreference }) {
 function JointPreferenceRow({
   bias,
   value,
+  language,
   onChange,
 }: {
   bias: JointSwapBias;
   value: JointSwapPreference;
+  language: AppLanguage;
   onChange: (nextValue: JointSwapPreference) => void;
 }) {
   return (
     <View style={styles.preferenceRow}>
       <View style={styles.preferenceRowHeader}>
         <View style={styles.preferenceRowCopy}>
-          <Text style={styles.preferenceRowTitle}>{getJointSwapBiasTitle(bias)}</Text>
-          <Text style={styles.preferenceRowBody}>{getJointSwapBiasHint(bias)}</Text>
+          <Text style={styles.preferenceRowTitle}>{getJointSwapBiasTitle(bias, language)}</Text>
+          <Text style={styles.preferenceRowBody}>{getJointSwapBiasHint(bias, language)}</Text>
         </View>
-        <StateBadge value={value} />
+        <StateBadge value={value} language={language} />
       </View>
 
       <View style={styles.preferenceSegmentRow}>
@@ -121,10 +125,10 @@ function JointPreferenceRow({
               style={[styles.preferenceSegment, active && styles.preferenceSegmentActive]}
             >
               <Text style={[styles.preferenceSegmentText, active && styles.preferenceSegmentTextActive]}>
-                {getJointSwapPreferenceTitle(option)}
+                {getJointSwapPreferenceTitle(option, language)}
               </Text>
               <Text style={[styles.preferenceSegmentHint, active && styles.preferenceSegmentHintActive]}>
-                {getJointSwapPreferenceHint(option)}
+                {getJointSwapPreferenceHint(option, language)}
               </Text>
             </Pressable>
           );
@@ -136,45 +140,49 @@ function JointPreferenceRow({
 
 export function JointFriendlySwapsScreen({
   preferences,
+  language = 'en',
   onBack,
   onChange,
 }: JointFriendlySwapsScreenProps) {
-  const summary = summarizeJointSwapPreferences({
-    shoulders: preferences.setupShoulderFriendlySwaps,
-    elbows: preferences.setupElbowFriendlySwaps,
-    knees: preferences.setupKneeFriendlySwaps,
-  });
+  const summary = summarizeJointSwapPreferences(
+    {
+      shoulders: preferences.setupShoulderFriendlySwaps,
+      elbows: preferences.setupElbowFriendlySwaps,
+      knees: preferences.setupKneeFriendlySwaps,
+    },
+    language,
+  );
 
   return (
     <>
       <ScreenHeader
-        title="Joint-friendly swaps"
-        subtitle="Bias quick swaps toward joints that need more protection."
+        title={t(language, 'planSet.jointSwaps')}
+        subtitle={t(language, 'swaps.subtitle')}
         tone="dark"
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={getHeroPhotoKey(preferences)} style={styles.heroSurface}>
           <View style={styles.heroContent}>
-            <Text style={styles.heroKicker}>Tailoring</Text>
+            <Text style={styles.heroKicker}>{t(language, 'swaps.tailoring')}</Text>
 
             <View style={styles.heroBadgeRow}>
               <HeroPill label={summary} />
             </View>
 
             <View style={styles.heroCopy}>
-              <Text style={styles.heroTitle}>Protect the joints that matter</Text>
-              <Text style={styles.heroMeta}>Shift quick swaps toward shoulder, elbow, or knee-friendlier paths.</Text>
+              <Text style={styles.heroTitle}>{t(language, 'swaps.heroTitle')}</Text>
+              <Text style={styles.heroMeta}>{t(language, 'swaps.heroMeta')}</Text>
             </View>
           </View>
         </FitnessPhotoSurface>
 
-        <SectionLabel label="Quick swap bias" />
+        <SectionLabel label={t(language, 'swaps.bias')} />
 
         <View style={styles.preferenceCard}>
           <View style={styles.questionHeader}>
-            <Text style={styles.questionTitle}>How strongly should swaps protect each joint?</Text>
-            <Text style={styles.questionBody}>Keep this light by default or push friendlier options higher.</Text>
+            <Text style={styles.questionTitle}>{t(language, 'swaps.questionTitle')}</Text>
+            <Text style={styles.questionBody}>{t(language, 'swaps.questionBody')}</Text>
           </View>
 
           {JOINT_SWAP_BIAS_OPTIONS.map((bias) => (
@@ -182,17 +190,16 @@ export function JointFriendlySwapsScreen({
               key={bias}
               bias={bias}
               value={readPreference(preferences, bias)}
+              language={language}
               onChange={(nextValue) => void onChange(buildPatch(bias, nextValue))}
             />
           ))}
         </View>
 
         <View style={styles.explainCard}>
-          <Text style={styles.explainKicker}>What changes</Text>
-          <Text style={styles.explainTitle}>Recommendation, discovery, and quick swaps all listen now</Text>
-          <Text style={styles.explainBody}>
-            Higher protection moves friendlier options up sooner when the movement pattern and your equipment still fit.
-          </Text>
+          <Text style={styles.explainKicker}>{t(language, 'swaps.whatChanges')}</Text>
+          <Text style={styles.explainTitle}>{t(language, 'swaps.whatChangesTitle')}</Text>
+          <Text style={styles.explainBody}>{t(language, 'swaps.whatChangesBody')}</Text>
         </View>
       </ScrollView>
     </>

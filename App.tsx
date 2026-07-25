@@ -3244,6 +3244,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'plan_settings') {
     content = (
       <PlanSettingsScreen
+        language={preferences.appLanguage}
         preferences={preferences}
         recommendedProgramName={currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? null}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
@@ -3273,6 +3274,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'exercise_preferences') {
     content = (
       <ExercisePreferencesScreen
+        language={preferences.appLanguage}
         preferences={preferences}
         onBack={() => navigateBack({ tab: 'profile', screen: 'plan_settings' })}
         onChange={(patch) => void handleTailoringPreferenceChange(patch)}
@@ -3281,6 +3283,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'equipment') {
     content = (
       <EquipmentPreferencesScreen
+        language={preferences.appLanguage}
         preferences={preferences}
         onBack={() => navigateBack({ tab: 'profile', screen: 'plan_settings' })}
         onChange={(patch) => void handleTailoringPreferenceChange(patch)}
@@ -3289,6 +3292,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'joint_swaps') {
     content = (
       <JointFriendlySwapsScreen
+        language={preferences.appLanguage}
         preferences={preferences}
         onBack={() => navigateBack({ tab: 'profile', screen: 'plan_settings' })}
         onChange={(patch) => void handleTailoringPreferenceChange(patch)}
@@ -3312,6 +3316,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {
     content = (
       <TrainingPlanScreen
+        language={preferences.appLanguage}
         planName={profilePlanSummary.name}
         planType={homeActivePlanCard?.programType ?? null}
         planDaysPerWeek={profilePlanSummary.daysPerWeek}

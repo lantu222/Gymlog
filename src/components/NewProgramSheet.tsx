@@ -3,7 +3,8 @@ import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleShee
 import Svg, { Path } from 'react-native-svg';
 
 import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../lib/csvProgramImport';
-import type { WorkoutTemplateDraft } from '../types/models';
+import { I18nKey, t } from '../lib/i18n';
+import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 import { HG3 } from '../lightTheme';
 
 // Program accent (design_handoff_programs_redesign, hue 150). The handoff
@@ -26,6 +27,7 @@ const SAMPLE_CSV = [
 
 interface NewProgramSheetProps {
   visible: boolean;
+  language?: AppLanguage;
   exerciseLibrary: CsvLibraryEntry[];
   onClose: () => void;
   onAiAssisted: () => void;
@@ -65,6 +67,7 @@ function Chevron() {
 
 export function NewProgramSheet({
   visible,
+  language = 'en',
   exerciseLibrary,
   onClose,
   onAiAssisted,
@@ -73,7 +76,8 @@ export function NewProgramSheet({
 }: NewProgramSheetProps) {
   const [view, setView] = useState<'menu' | 'csv'>('menu');
   const [csvText, setCsvText] = useState('');
-  const [programName, setProgramName] = useState('Imported program');
+  const defaultProgramName = t(language, 'csv.defaultName');
+  const [programName, setProgramName] = useState(defaultProgramName);
   const [importing, setImporting] = useState(false);
 
   const preview = useMemo(
@@ -84,7 +88,7 @@ export function NewProgramSheet({
   function reset() {
     setView('menu');
     setCsvText('');
-    setProgramName('Imported program');
+    setProgramName(defaultProgramName);
     setImporting(false);
   }
 
@@ -99,7 +103,7 @@ export function NewProgramSheet({
     }
     setImporting(true);
     try {
-      await onImportProgram(buildDraftFromCsvPreview(preview, programName.trim() || 'Imported program'));
+      await onImportProgram(buildDraftFromCsvPreview(preview, programName.trim() || defaultProgramName));
       handleClose();
     } finally {
       setImporting(false);
@@ -114,7 +118,13 @@ export function NewProgramSheet({
           <View style={styles.grabHandle} />
           <View style={styles.headerRow}>
             {view !== 'menu' ? (
-              <Pressable accessibilityRole="button" accessibilityLabel="Back" onPress={() => setView('menu')} hitSlop={8} style={styles.roundButton}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'common.back')}
+                onPress={() => setView('menu')}
+                hitSlop={8}
+                style={styles.roundButton}
+              >
                 <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                   <Path d="M15 6l-6 6 6 6" stroke={HG3.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
@@ -122,8 +132,14 @@ export function NewProgramSheet({
             ) : (
               <View style={styles.roundButtonSpacer} />
             )}
-            <Text style={styles.headerTitle}>{view === 'csv' ? 'Import CSV' : 'New program'}</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close" onPress={handleClose} hitSlop={8} style={styles.roundButton}>
+            <Text style={styles.headerTitle}>{t(language, view === 'csv' ? 'csv.title' : 'csv.newProgram')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'common.close')}
+              onPress={handleClose}
+              hitSlop={8}
+              style={styles.roundButton}
+            >
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                 <Path d="M6 6l12 12M18 6L6 18" stroke={HG3.ink} strokeWidth={2.2} strokeLinecap="round" />
               </Svg>
@@ -132,10 +148,10 @@ export function NewProgramSheet({
 
           {view === 'menu' ? (
             <View style={styles.menu}>
-              <Text style={styles.subtitle}>Pick how you want to build it.</Text>
+              <Text style={styles.subtitle}>{t(language, 'csv.pickHow')}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="AI-assisted: answer a few questions and GAINER AI builds the split"
+                accessibilityLabel={t(language, 'csv.aiA11y')}
                 onPress={() => {
                   handleClose();
                   onAiAssisted();
@@ -146,14 +162,14 @@ export function NewProgramSheet({
                   <OptionIcon name="spark" />
                 </View>
                 <View style={styles.optionCopy}>
-                  <Text style={styles.optionTitle}>AI-assisted</Text>
-                  <Text style={styles.optionBody}>Answer a few questions — GAINER AI builds the split for you.</Text>
+                  <Text style={styles.optionTitle}>{t(language, 'csv.ai')}</Text>
+                  <Text style={styles.optionBody}>{t(language, 'csv.aiBody')}</Text>
                 </View>
                 <Chevron />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Build it yourself: browse the library and pick your own lifts"
+                accessibilityLabel={t(language, 'csv.buildA11y')}
                 onPress={() => {
                   handleClose();
                   onBuildYourself();
@@ -164,14 +180,14 @@ export function NewProgramSheet({
                   <OptionIcon name="build" />
                 </View>
                 <View style={styles.optionCopy}>
-                  <Text style={styles.optionTitle}>Build it yourself</Text>
-                  <Text style={styles.optionBody}>Browse the library and pick your own lifts, day by day.</Text>
+                  <Text style={styles.optionTitle}>{t(language, 'csv.build')}</Text>
+                  <Text style={styles.optionBody}>{t(language, 'csv.buildBody')}</Text>
                 </View>
                 <Chevron />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Import CSV: bring a plan in from a spreadsheet or another app"
+                accessibilityLabel={t(language, 'csv.importA11y')}
                 onPress={() => setView('csv')}
                 style={({ pressed }) => [styles.optionCard, pressed && styles.pressed]}
               >
@@ -179,17 +195,15 @@ export function NewProgramSheet({
                   <OptionIcon name="table" />
                 </View>
                 <View style={styles.optionCopy}>
-                  <Text style={styles.optionTitle}>Import CSV</Text>
-                  <Text style={styles.optionBody}>Bring a plan in from a spreadsheet or another app.</Text>
+                  <Text style={styles.optionTitle}>{t(language, 'csv.title')}</Text>
+                  <Text style={styles.optionBody}>{t(language, 'csv.importBody')}</Text>
                 </View>
                 <Chevron />
               </Pressable>
             </View>
           ) : (
             <ScrollView contentContainerStyle={styles.csvContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <Text style={styles.subtitle}>
-                Paste rows with the columns Day, Exercise, Sets, Reps. Unmatched names get flagged so you can fix or skip them.
-              </Text>
+              <Text style={styles.subtitle}>{t(language, 'csv.pasteHint')}</Text>
 
               <TextInput
                 value={csvText}
@@ -202,7 +216,7 @@ export function NewProgramSheet({
                 autoCorrect={false}
               />
               <Pressable accessibilityRole="button" onPress={() => setCsvText(SAMPLE_CSV)} hitSlop={6}>
-                <Text style={styles.sampleLink}>Load a sample</Text>
+                <Text style={styles.sampleLink}>{t(language, 'csv.loadSample')}</Text>
               </Pressable>
 
               {preview ? (
@@ -210,8 +224,15 @@ export function NewProgramSheet({
                   <View style={[styles.resultBanner, preview.unmatchedCount === 0 && preview.rows.length > 0 ? styles.resultBannerOk : styles.resultBannerWarn]}>
                     <Text style={styles.resultBannerText}>
                       {preview.rows.length === 0
-                        ? preview.errors[0] ?? 'No rows found.'
-                        : `${preview.rows.length} rows · ${preview.matchedCount} matched${preview.unmatchedCount ? ` · ${preview.unmatchedCount} unmatched` : ', all matched'}`}
+                        ? preview.errors[0] ?? t(language, 'csv.noRows')
+                        : `${t(language, 'csv.rowSummary', {
+                            rows: preview.rows.length,
+                            matched: preview.matchedCount,
+                          })}${
+                            preview.unmatchedCount
+                              ? t(language, 'csv.unmatchedSuffix', { count: preview.unmatchedCount })
+                              : t(language, 'csv.allMatchedSuffix')
+                          }`}
                     </Text>
                   </View>
 
@@ -222,10 +243,12 @@ export function NewProgramSheet({
                   {preview.rows.length > 0 ? (
                     <View style={styles.previewTable}>
                       <View style={styles.previewHeader}>
-                        <Text style={[styles.previewHeaderCell, styles.previewDay]}>DAY</Text>
-                        <Text style={[styles.previewHeaderCell, styles.previewName]}>EXERCISE</Text>
-                        <Text style={[styles.previewHeaderCell, styles.previewSets]}>SETS</Text>
-                        <Text style={[styles.previewHeaderCell, styles.previewReps]}>REPS</Text>
+                        <Text style={[styles.previewHeaderCell, styles.previewDay]}>{t(language, 'csv.col.day')}</Text>
+                        <Text style={[styles.previewHeaderCell, styles.previewName]}>
+                          {t(language, 'csv.col.exercise')}
+                        </Text>
+                        <Text style={[styles.previewHeaderCell, styles.previewSets]}>{t(language, 'csv.col.sets')}</Text>
+                        <Text style={[styles.previewHeaderCell, styles.previewReps]}>{t(language, 'csv.col.reps')}</Text>
                       </View>
                       {preview.rows.map((row, index) => (
                         <View key={`${row.day}-${row.exerciseName}-${index}`} style={[styles.previewRow, !row.matchedName && styles.previewRowUnmatched]}>
@@ -238,7 +261,9 @@ export function NewProgramSheet({
                             </Text>
                             {!row.matchedName ? (
                               <Text style={styles.previewCellHint} numberOfLines={1}>
-                                {row.suggestion ? `No match — did you mean ${row.suggestion}?` : 'No match — will be skipped'}
+                                {row.suggestion
+                                  ? t(language, 'csv.didYouMean', { name: row.suggestion })
+                                  : t(language, 'csv.willSkip')}
                               </Text>
                             ) : null}
                           </View>
@@ -253,17 +278,17 @@ export function NewProgramSheet({
 
                   {preview.matchedCount > 0 ? (
                     <>
-                      <Text style={styles.nameLabel}>PROGRAM NAME</Text>
+                      <Text style={styles.nameLabel}>{t(language, 'csv.programName')}</Text>
                       <TextInput
                         value={programName}
                         onChangeText={setProgramName}
                         style={styles.nameInput}
-                        placeholder="Imported program"
+                        placeholder={defaultProgramName}
                         placeholderTextColor={HG3.faint}
                       />
                       <Pressable
                         accessibilityRole="button"
-                        accessibilityLabel={`Import ${preview.matchedCount} exercises`}
+                        accessibilityLabel={t(language, 'csv.importCount', { count: preview.matchedCount })}
                         onPress={() => void handleImport()}
                         disabled={importing}
                         style={({ pressed }) => [styles.importButton, (pressed || importing) && styles.pressed]}
@@ -272,7 +297,13 @@ export function NewProgramSheet({
                           <Path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
                         </Svg>
                         <Text style={styles.importButtonText}>
-                          {importing ? 'Importing…' : `Import ${preview.matchedCount} ${preview.matchedCount === 1 ? 'exercise' : 'exercises'}`}
+                          {importing
+                            ? t(language, 'csv.importing')
+                            : t(
+                                language,
+                                preview.matchedCount === 1 ? 'csv.importOne' : 'csv.importCount',
+                                { count: preview.matchedCount },
+                              )}
                         </Text>
                       </Pressable>
                     </>
@@ -280,16 +311,19 @@ export function NewProgramSheet({
                 </>
               ) : (
                 <View style={styles.columnsCard}>
-                  <Text style={styles.columnsTitle}>Expected columns</Text>
-                  {[
-                    ['Day', 'Which session — Day 1, Push, Legs…'],
-                    ['Exercise', 'Must match a library name'],
-                    ['Sets', 'A number, e.g. 4'],
-                    ['Reps', 'Range or number, e.g. 6–10'],
-                  ].map(([key, help]) => (
+                  <Text style={styles.columnsTitle}>{t(language, 'csv.expectedColumns')}</Text>
+                  {/* The header names stay English — the parser matches on them. */}
+                  {(
+                    [
+                      ['Day', 'csv.help.day'],
+                      ['Exercise', 'csv.help.exercise'],
+                      ['Sets', 'csv.help.sets'],
+                      ['Reps', 'csv.help.reps'],
+                    ] as Array<[string, I18nKey]>
+                  ).map(([key, helpKey]) => (
                     <View key={key} style={styles.columnsRow}>
                       <Text style={styles.columnsKey}>{key}</Text>
-                      <Text style={styles.columnsHelp}>{help}</Text>
+                      <Text style={styles.columnsHelp}>{t(language, helpKey)}</Text>
                     </View>
                   ))}
                 </View>

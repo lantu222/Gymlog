@@ -5,18 +5,19 @@ import Svg, { Path } from 'react-native-svg';
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { ChevronIcon, SectionLabel, settingsStyles } from '../components/SettingsUi';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
+import { I18nKey, t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import type { SetupWeekday, WorkoutTemplateDraft } from '../types/models';
+import type { AppLanguage, SetupWeekday, WorkoutTemplateDraft } from '../types/models';
 
-const WEEKDAY_CHIPS: Array<{ day: SetupWeekday; label: string }> = [
-  { day: 'mon', label: 'Mo' },
-  { day: 'tue', label: 'Tu' },
-  { day: 'wed', label: 'We' },
-  { day: 'thu', label: 'Th' },
-  { day: 'fri', label: 'Fr' },
-  { day: 'sat', label: 'Sa' },
-  { day: 'sun', label: 'Su' },
+const WEEKDAY_CHIPS: Array<{ day: SetupWeekday; labelKey: I18nKey }> = [
+  { day: 'mon', labelKey: 'weekday.mon' },
+  { day: 'tue', labelKey: 'weekday.tue' },
+  { day: 'wed', labelKey: 'weekday.wed' },
+  { day: 'thu', labelKey: 'weekday.thu' },
+  { day: 'fri', labelKey: 'weekday.fri' },
+  { day: 'sat', labelKey: 'weekday.sat' },
+  { day: 'sun', labelKey: 'weekday.sun' },
 ];
 
 /** Same bounds the onboarding day question enforces. */
@@ -40,6 +41,7 @@ interface TrainingPlanScreenProps {
   sessions: TrainingPlanSessionItem[];
   trainingDays: SetupWeekday[];
   exerciseLibrary: CsvLibraryEntry[];
+  language?: AppLanguage;
   onBack: () => void;
   onChangeTrainingDays: (days: SetupWeekday[]) => void;
   /** Present only for custom plans — ready programs are immutable. */
@@ -75,6 +77,7 @@ export function TrainingPlanScreen({
   sessions,
   trainingDays,
   exerciseLibrary,
+  language = 'en',
   onBack,
   onChangeTrainingDays,
   onEditCustomPlan,
@@ -112,20 +115,23 @@ export function TrainingPlanScreen({
     );
   };
 
+  const dayCountCaption = (count: number) =>
+    t(language, 'plan.dayCount', { days: count, rest: 7 - count });
+
   const scheduleCaption = editingSchedule
     ? draftValid || draftDays.length === 0
-      ? `${draftDays.length} training days · ${7 - draftDays.length} rest`
-      : `Pick ${MIN_TRAINING_DAYS}–${MAX_TRAINING_DAYS} training days`
+      ? dayCountCaption(draftDays.length)
+      : t(language, 'plan.pickDays', { min: MIN_TRAINING_DAYS, max: MAX_TRAINING_DAYS })
     : trainingDays.length > 0
-      ? `${trainingDays.length} training days · ${7 - trainingDays.length} rest`
-      : 'No training days set — tap Edit to pick them.';
+      ? dayCountCaption(trainingDays.length)
+      : t(language, 'plan.noDays');
 
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
         >
@@ -133,7 +139,7 @@ export function TrainingPlanScreen({
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>Training plan</Text>
+        <Text style={styles.headerTitle}>{t(language, 'plan.title')}</Text>
         <View style={styles.headerSpacer} />
       </View>
 
@@ -145,19 +151,27 @@ export function TrainingPlanScreen({
               <View style={styles.activeTopRow}>
                 <View style={styles.activePill}>
                   <View style={styles.activeDot} />
-                  <Text style={styles.activePillText}>ACTIVE</Text>
+                  <Text style={styles.activePillText}>{t(language, 'plan.active')}</Text>
                 </View>
-                {planDaysPerWeek ? <Text style={styles.activeMeta}>{planDaysPerWeek}× / week</Text> : null}
+                {planDaysPerWeek ? (
+                  <Text style={styles.activeMeta}>
+                    {t(language, 'plan.perWeek', { count: planDaysPerWeek })}
+                  </Text>
+                ) : null}
               </View>
               <Text style={styles.activeName}>{planName}</Text>
               {planFocusCaption ? <Text style={styles.activeCaption}>{planFocusCaption}</Text> : null}
               {planExerciseCount ? (
                 <View style={styles.badgeRow}>
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{planExerciseCount} exercises</Text>
+                    <Text style={styles.badgeText}>
+                      {t(language, 'plan.exerciseCount', { count: planExerciseCount })}
+                    </Text>
                   </View>
                   <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{planType === 'ready' ? 'Ready program' : 'Custom plan'}</Text>
+                    <Text style={styles.badgeText}>
+                      {t(language, planType === 'ready' ? 'plan.readyProgram' : 'plan.customPlan')}
+                    </Text>
                   </View>
                 </View>
               ) : null}
@@ -166,8 +180,14 @@ export function TrainingPlanScreen({
             {/* SCHEDULE */}
             <View style={settingsStyles.section}>
               <SectionLabel
-                label="SCHEDULE"
-                actionLabel={editingSchedule ? (draftDirty && !draftValid ? undefined : 'Done') : 'Edit'}
+                label={t(language, 'plan.schedule')}
+                actionLabel={
+                  editingSchedule
+                    ? draftDirty && !draftValid
+                      ? undefined
+                      : t(language, 'plan.done')
+                    : t(language, 'plan.edit')
+                }
                 onAction={editingSchedule ? finishEditingSchedule : startEditingSchedule}
               />
               <View style={[settingsStyles.card, styles.scheduleCard]}>
@@ -183,7 +203,7 @@ export function TrainingPlanScreen({
                         ]}
                       >
                         <Text style={[styles.weekdayChipText, active && styles.weekdayChipTextActive]}>
-                          {chip.label}
+                          {t(language, chip.labelKey)}
                         </Text>
                       </View>
                     );
@@ -193,7 +213,9 @@ export function TrainingPlanScreen({
                         key={chip.day}
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
-                        accessibilityLabel={`Training day ${chip.label}`}
+                        accessibilityLabel={t(language, 'plan.trainingDay', {
+                          day: t(language, chip.labelKey),
+                        })}
                         onPress={() => toggleDraftDay(chip.day)}
                         style={styles.weekdayCell}
                       >
@@ -212,7 +234,7 @@ export function TrainingPlanScreen({
 
             {/* SESSIONS */}
             <View style={settingsStyles.section}>
-              <SectionLabel label="SESSIONS" />
+              <SectionLabel label={t(language, 'plan.sessions')} />
               <View style={settingsStyles.card}>
                 {sessions.map((session, index) => {
                   const row = (
@@ -227,12 +249,15 @@ export function TrainingPlanScreen({
                           </Text>
                           {session.isNext ? (
                             <View style={styles.nextBadge}>
-                              <Text style={styles.nextBadgeText}>UP NEXT</Text>
+                              <Text style={styles.nextBadgeText}>{t(language, 'plan.upNext')}</Text>
                             </View>
                           ) : null}
                         </View>
                         <Text style={styles.sessionMeta}>
-                          {session.exerciseCount} exercises · {session.totalSets} sets
+                          {t(language, 'plan.sessionMeta', {
+                            exercises: session.exerciseCount,
+                            sets: session.totalSets,
+                          })}
                         </Text>
                       </View>
                       {onEditCustomPlan ? <ChevronIcon /> : null}
@@ -254,9 +279,7 @@ export function TrainingPlanScreen({
                 })}
               </View>
               {!onEditCustomPlan ? (
-                <Text style={styles.readOnlyNote}>
-                  Ready program sessions are fixed. Build a custom plan to edit sessions freely.
-                </Text>
+                <Text style={styles.readOnlyNote}>{t(language, 'plan.readOnlyNote')}</Text>
               ) : null}
             </View>
 
@@ -269,8 +292,8 @@ export function TrainingPlanScreen({
                 style={({ pressed }) => [settingsStyles.card, styles.planSettingsRow, pressed && { opacity: 0.75 }]}
               >
                 <View style={styles.planSettingsCopy}>
-                  <Text style={styles.planSettingsTitle}>Plan settings</Text>
-                  <Text style={styles.planSettingsSub}>Equipment, swaps & progression.</Text>
+                  <Text style={styles.planSettingsTitle}>{t(language, 'plan.settings')}</Text>
+                  <Text style={styles.planSettingsSub}>{t(language, 'plan.settingsSub')}</Text>
                 </View>
                 <ChevronIcon />
               </Pressable>
@@ -278,8 +301,8 @@ export function TrainingPlanScreen({
           </>
         ) : (
           <View style={styles.emptyBlock}>
-            <Text style={styles.emptyTitle}>No active plan</Text>
-            <Text style={styles.emptyText}>Create a plan and it shows up here with its schedule and sessions.</Text>
+            <Text style={styles.emptyTitle}>{t(language, 'plan.emptyTitle')}</Text>
+            <Text style={styles.emptyText}>{t(language, 'plan.emptyBody')}</Text>
           </View>
         )}
 
@@ -289,12 +312,13 @@ export function TrainingPlanScreen({
           onPress={() => setCreateOpen(true)}
           style={({ pressed }) => [styles.createButton, pressed && { opacity: 0.85 }]}
         >
-          <Text style={styles.createButtonText}>Create new plan</Text>
+          <Text style={styles.createButtonText}>{t(language, 'plan.createNew')}</Text>
         </Pressable>
-        <Text style={styles.footNote}>One active plan at a time. Edits apply from your next session.</Text>
+        <Text style={styles.footNote}>{t(language, 'plan.footNote')}</Text>
       </ScrollView>
 
       <NewProgramSheet
+        language={language}
         visible={createOpen}
         exerciseLibrary={exerciseLibrary}
         onClose={() => setCreateOpen(false)}

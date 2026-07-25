@@ -22,13 +22,15 @@ import {
   summarizeExercisePreferences,
   summarizeJointSwapPreferences,
 } from '../lib/tailoring';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout, radii, spacing } from '../theme';
-import { AppPreferences, SetupScheduleMode } from '../types/models';
+import { AppLanguage, AppPreferences, SetupScheduleMode } from '../types/models';
 
 interface PlanSettingsScreenProps {
   preferences: AppPreferences;
   recommendedProgramName?: string | null;
+  language?: AppLanguage;
   onBack: () => void;
   onRefineSetup: () => void;
   onOpenExercisePreferences: () => void;
@@ -42,14 +44,14 @@ interface PlanSettingsScreenProps {
   onAskAiCoach?: () => void;
 }
 
-function compactOutcomes(preferences: AppPreferences) {
+function compactOutcomes(preferences: AppPreferences, language: AppLanguage) {
   if (preferences.setupSecondaryOutcomes.length === 0) {
-    return 'No extra outcomes';
+    return t(language, 'planSet.noExtras');
   }
 
   return preferences.setupSecondaryOutcomes
     .slice(0, 2)
-    .map((outcome) => getSecondaryOutcomeTitle(outcome))
+    .map((outcome) => getSecondaryOutcomeTitle(outcome, language))
     .join(' | ');
 }
 
@@ -202,6 +204,7 @@ function TailoringEntry({
 export function PlanSettingsScreen({
   preferences,
   recommendedProgramName = null,
+  language = 'en',
   onBack,
   onRefineSetup,
   onOpenExercisePreferences,
@@ -224,46 +227,57 @@ export function PlanSettingsScreen({
 
   const heroTokens = setupComplete
     ? [
-        getSetupGoalTitle(preferences.setupGoal!),
-        `${preferences.setupDaysPerWeek} days`,
-        getSetupEquipmentTitle(preferences.setupEquipment!),
+        getSetupGoalTitle(preferences.setupGoal!, language),
+        t(language, 'planSet.days', { count: preferences.setupDaysPerWeek ?? 0 }),
+        getSetupEquipmentTitle(preferences.setupEquipment!, language),
       ]
-    : ['Setup', 'Not finished'];
+    : [t(language, 'planSet.setup'), t(language, 'planSet.notFinished')];
 
   const scheduleMode = preferences.setupScheduleMode ?? 'app_managed';
   const weekdaySummary =
     scheduleMode === 'self_managed' && preferences.setupAvailableDays.length > 0
-      ? formatWeekdayList(preferences.setupAvailableDays)
-      : 'GAINER places the week';
-  const exercisePreferenceSummary = summarizeExercisePreferences({
-    trainingFeel: preferences.setupTrainingFeel,
-    workoutVariety: preferences.setupWorkoutVariety,
-    freeWeights: preferences.setupFreeWeightsPreference,
-    bodyweight: preferences.setupBodyweightPreference,
-    machines: preferences.setupMachinesPreference,
-  });
-  const jointSwapSummary = summarizeJointSwapPreferences({
-    shoulders: preferences.setupShoulderFriendlySwaps,
-    elbows: preferences.setupElbowFriendlySwaps,
-    knees: preferences.setupKneeFriendlySwaps,
-  });
+      ? formatWeekdayList(preferences.setupAvailableDays, language)
+      : t(language, 'planSet.gainerPlaces');
+  const exercisePreferenceSummary = summarizeExercisePreferences(
+    {
+      trainingFeel: preferences.setupTrainingFeel,
+      workoutVariety: preferences.setupWorkoutVariety,
+      freeWeights: preferences.setupFreeWeightsPreference,
+      bodyweight: preferences.setupBodyweightPreference,
+      machines: preferences.setupMachinesPreference,
+    },
+    language,
+  );
+  const jointSwapSummary = summarizeJointSwapPreferences(
+    {
+      shoulders: preferences.setupShoulderFriendlySwaps,
+      elbows: preferences.setupElbowFriendlySwaps,
+      knees: preferences.setupKneeFriendlySwaps,
+    },
+    language,
+  );
   const heroPhoto = getFitnessPhotoVariant({
     title: recommendedProgramName,
     goal: preferences.setupGoal ?? undefined,
   });
   const quickSignals = [
-    { label: 'Schedule', value: getScheduleModeLabel(scheduleMode) },
-    { label: 'Tone', value: getTrainingFeelTitle(preferences.setupTrainingFeel) },
-    { label: 'Variety', value: getWorkoutVarietyTitle(preferences.setupWorkoutVariety) },
+    { label: t(language, 'planSet.scheduleLabel'), value: getScheduleModeLabel(scheduleMode, language) },
+    { label: t(language, 'planSet.tone'), value: getTrainingFeelTitle(preferences.setupTrainingFeel, language) },
+    {
+      label: t(language, 'planSet.variety'),
+      value: getWorkoutVarietyTitle(preferences.setupWorkoutVariety, language),
+    },
   ];
 
   return (
     <>
-      <ScreenHeader title="Plan settings" tone="dark" onBack={onBack} />
+      <ScreenHeader title={t(language, 'plan.settings')} tone="dark" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroPhoto} style={styles.heroSurface}>
           <View style={styles.heroContent}>
-            <Text style={styles.heroKicker}>{setupComplete ? 'Control center' : 'Finish setup'}</Text>
+            <Text style={styles.heroKicker}>
+              {t(language, setupComplete ? 'planSet.controlCenter' : 'planSet.finishSetup')}
+            </Text>
 
             <View style={styles.heroTokenRow}>
               {heroTokens.map((token) => (
@@ -272,7 +286,7 @@ export function PlanSettingsScreen({
             </View>
 
             <View style={styles.heroCopy}>
-              <Text style={styles.heroTitle}>{recommendedProgramName ?? 'No plan locked in yet'}</Text>
+              <Text style={styles.heroTitle}>{recommendedProgramName ?? t(language, 'planSet.noPlan')}</Text>
               <Text style={styles.heroMeta}>{exercisePreferenceSummary}</Text>
             </View>
           </View>
@@ -287,70 +301,86 @@ export function PlanSettingsScreen({
           ))}
         </View>
 
-        <SectionLabel label="Shape the plan" />
+        <SectionLabel label={t(language, 'planSet.shape')} />
 
         <View style={styles.entryGrid}>
           <TailoringEntry
-            kicker="Plan fit"
-            title={setupComplete ? 'Review setup' : 'Finish setup'}
+            kicker={t(language, 'planSet.planFit')}
+            title={t(language, setupComplete ? 'planSet.reviewSetup' : 'planSet.finishSetup')}
             body={
               setupComplete
-                ? `${getGuidanceModeLabel(preferences.setupGuidanceMode!)} | ${compactOutcomes(preferences)}`
-                : 'Lock in goal and schedule'
+                ? `${getGuidanceModeLabel(preferences.setupGuidanceMode!, language)} | ${compactOutcomes(preferences, language)}`
+                : t(language, 'planSet.lockIn')
             }
-            badgeLabel={setupComplete ? 'Core' : 'Required'}
+            badgeLabel={t(language, setupComplete ? 'planSet.core' : 'planSet.required')}
             glyph={<PlanGlyph />}
             onPress={onRefineSetup}
           />
 
           <TailoringEntry
-            kicker="Exercise preferences"
-            title={`${getTrainingFeelTitle(preferences.setupTrainingFeel)} | ${getWorkoutVarietyTitle(preferences.setupWorkoutVariety)}`}
-            body={`FW ${getExerciseModalityPreferenceTitle(preferences.setupFreeWeightsPreference).toLowerCase()} | BW ${getExerciseModalityPreferenceTitle(preferences.setupBodyweightPreference).toLowerCase()} | Machines ${getExerciseModalityPreferenceTitle(preferences.setupMachinesPreference).toLowerCase()}`}
-            badgeLabel="Tone"
+            kicker={t(language, 'planSet.exercisePrefs')}
+            title={`${getTrainingFeelTitle(preferences.setupTrainingFeel, language)} | ${getWorkoutVarietyTitle(preferences.setupWorkoutVariety, language)}`}
+            body={t(language, 'planSet.modalitySummary', {
+              freeWeights: getExerciseModalityPreferenceTitle(
+                preferences.setupFreeWeightsPreference,
+                language,
+              ).toLowerCase(),
+              bodyweight: getExerciseModalityPreferenceTitle(
+                preferences.setupBodyweightPreference,
+                language,
+              ).toLowerCase(),
+              machines: getExerciseModalityPreferenceTitle(
+                preferences.setupMachinesPreference,
+                language,
+              ).toLowerCase(),
+            })}
+            badgeLabel={t(language, 'planSet.tone')}
             glyph={<SlidersGlyph />}
             onPress={onOpenExercisePreferences}
           />
         </View>
 
-        <SectionLabel label="Equipment and swaps" />
+        <SectionLabel label={t(language, 'planSet.equipSwaps')} />
 
         <View style={styles.entryGrid}>
           <TailoringEntry
-            kicker="Equipment"
-            title={getTailoringSetupEquipmentTitle(preferences.setupEquipment)}
-            body={getSetupEquipmentHint(preferences.setupEquipment)}
-            badgeLabel="Live"
+            kicker={t(language, 'myData.equipment')}
+            title={getTailoringSetupEquipmentTitle(preferences.setupEquipment, language)}
+            body={getSetupEquipmentHint(preferences.setupEquipment, language)}
+            badgeLabel={t(language, 'planSet.liveBadge')}
             glyph={<DumbbellGlyph />}
             onPress={onOpenEquipment}
           />
 
           <TailoringEntry
-            kicker="Joint-friendly swaps"
+            kicker={t(language, 'planSet.jointSwaps')}
             title={jointSwapSummary}
-            body="Quick swaps protect shoulders, elbows, or knees."
-            badgeLabel={
+            body={t(language, 'planSet.jointSwapsBody')}
+            badgeLabel={t(
+              language,
               preferences.setupShoulderFriendlySwaps !== 'neutral' ||
-              preferences.setupElbowFriendlySwaps !== 'neutral' ||
-              preferences.setupKneeFriendlySwaps !== 'neutral'
-                ? 'Active'
-                : 'Default'
-            }
+                preferences.setupElbowFriendlySwaps !== 'neutral' ||
+                preferences.setupKneeFriendlySwaps !== 'neutral'
+                ? 'planSet.activeBadge'
+                : 'planSet.defaultBadge',
+            )}
             glyph={<ShieldGlyph />}
             onPress={onOpenJointSwaps}
           />
         </View>
 
-        <SectionLabel label="Who manages the week?" />
+        <SectionLabel label={t(language, 'planSet.whoManages')} />
 
         <View style={styles.scheduleCard}>
           <View style={styles.scheduleHeader}>
             <View style={styles.scheduleCopy}>
-              <Text style={styles.scheduleKicker}>Schedule</Text>
-              <Text style={styles.scheduleTitle}>{getScheduleModeLabel(scheduleMode)}</Text>
+              <Text style={styles.scheduleKicker}>{t(language, 'planSet.scheduleLabel')}</Text>
+              <Text style={styles.scheduleTitle}>{getScheduleModeLabel(scheduleMode, language)}</Text>
               <Text style={styles.scheduleBody}>{weekdaySummary}</Text>
             </View>
-            <EntryBadge label={scheduleMode === 'app_managed' ? 'Managed' : 'Self-managed'} />
+            <EntryBadge
+              label={t(language, scheduleMode === 'app_managed' ? 'planSet.managed' : 'planSet.selfManaged')}
+            />
           </View>
 
           <View style={styles.scheduleToggleRow}>
@@ -359,10 +389,10 @@ export function PlanSettingsScreen({
               style={[styles.scheduleToggle, scheduleMode === 'app_managed' && styles.scheduleToggleActive]}
             >
               <Text style={[styles.scheduleToggleTitle, scheduleMode === 'app_managed' && styles.scheduleToggleTitleActive]}>
-                GAINER manages this
+                {t(language, 'planSet.gainerManages')}
               </Text>
               <Text style={[styles.scheduleToggleMeta, scheduleMode === 'app_managed' && styles.scheduleToggleMetaActive]}>
-                App places the week.
+                {t(language, 'planSet.appPlaces')}
               </Text>
             </Pressable>
 
@@ -371,16 +401,16 @@ export function PlanSettingsScreen({
               style={[styles.scheduleToggle, scheduleMode === 'self_managed' && styles.scheduleToggleActive]}
             >
               <Text style={[styles.scheduleToggleTitle, scheduleMode === 'self_managed' && styles.scheduleToggleTitleActive]}>
-                I manage this
+                {t(language, 'planSet.iManage')}
               </Text>
               <Text style={[styles.scheduleToggleMeta, scheduleMode === 'self_managed' && styles.scheduleToggleMetaActive]}>
-                You choose the days.
+                {t(language, 'planSet.youChoose')}
               </Text>
             </Pressable>
           </View>
         </View>
 
-        <SectionLabel label="Automated progression" />
+        <SectionLabel label={t(language, 'planSet.autoProgression')} />
 
         <View style={styles.scheduleToggleRow}>
           <Pressable
@@ -390,12 +420,12 @@ export function PlanSettingsScreen({
             <Text
               style={[styles.scheduleToggleTitle, preferences.automatedProgressionEnabled && styles.scheduleToggleTitleActive]}
             >
-              On
+              {t(language, 'planSet.on')}
             </Text>
             <Text
               style={[styles.scheduleToggleMeta, preferences.automatedProgressionEnabled && styles.scheduleToggleMetaActive]}
             >
-              GAINER progresses loads and reps.
+              {t(language, 'planSet.autoOn')}
             </Text>
           </Pressable>
 
@@ -406,62 +436,65 @@ export function PlanSettingsScreen({
             <Text
               style={[styles.scheduleToggleTitle, !preferences.automatedProgressionEnabled && styles.scheduleToggleTitleActive]}
             >
-              Off
+              {t(language, 'planSet.off')}
             </Text>
             <Text
               style={[styles.scheduleToggleMeta, !preferences.automatedProgressionEnabled && styles.scheduleToggleMetaActive]}
             >
-              You control every load yourself.
+              {t(language, 'planSet.autoOff')}
             </Text>
           </Pressable>
         </View>
 
-        <SectionLabel label="Smarter layers" />
+        <SectionLabel label={t(language, 'planSet.smarterLayers')} />
 
         <View style={styles.entryGrid}>
           <TailoringEntry
-            kicker="Adaptive progression"
-            title={preferences.adaptiveCoachPremiumUnlocked ? 'Premium preview is on' : 'Premium'}
-            body="Effort changes the next set, rest, and session direction."
-            badgeLabel={preferences.adaptiveCoachPremiumUnlocked ? 'Live now' : 'Locked'}
+            kicker={t(language, 'planSet.adaptive')}
+            title={t(language, preferences.adaptiveCoachPremiumUnlocked ? 'planSet.previewOn' : 'planSet.premium')}
+            body={t(language, 'planSet.adaptiveBody')}
+            badgeLabel={t(
+              language,
+              preferences.adaptiveCoachPremiumUnlocked ? 'planSet.liveNow' : 'planSet.locked',
+            )}
             glyph={<SparkGlyph />}
             onPress={onOpenPremium}
           />
 
           <TailoringEntry
-            kicker="Recovery / readiness"
-            title="Recovery / readiness"
-            body="Readiness checks and recovery-driven adjustments belong here next."
-            badgeLabel="Soon"
+            kicker={t(language, 'planSet.recovery')}
+            title={t(language, 'planSet.recovery')}
+            body={t(language, 'planSet.recoveryBody')}
+            badgeLabel={t(language, 'premium.soonCell')}
             glyph={<MoonGlyph />}
             onPress={onOpenPremium}
           />
         </View>
 
-        <SectionLabel label="Use this plan" />
+        <SectionLabel label={t(language, 'planSet.useThisPlan')} />
 
         <View style={styles.actionGrid}>
           {onOpenWeek ? (
             <Pressable onPress={onOpenWeek} style={styles.actionCard}>
-              <Text style={styles.actionKicker}>Week</Text>
-              <Text style={styles.actionTitle}>See updated week</Text>
-              <Text style={styles.actionBody}>Open the live handoff.</Text>
+              <Text style={styles.actionKicker}>{t(language, 'planSet.week')}</Text>
+              <Text style={styles.actionTitle}>{t(language, 'planSet.seeWeek')}</Text>
+              <Text style={styles.actionBody}>{t(language, 'planSet.seeWeekBody')}</Text>
             </Pressable>
           ) : null}
 
           {onOpenProgram ? (
             <Pressable onPress={onOpenProgram} style={styles.actionCard}>
-              <Text style={styles.actionKicker}>Program</Text>
-              <Text style={styles.actionTitle}>Full plan</Text>
-              <Text style={styles.actionBody}>Check sessions and launch.</Text>
+              <Text style={styles.actionKicker}>{t(language, 'planSet.program')}</Text>
+              <Text style={styles.actionTitle}>{t(language, 'planSet.fullPlan')}</Text>
+              <Text style={styles.actionBody}>{t(language, 'planSet.fullPlanBody')}</Text>
             </Pressable>
           ) : null}
 
           {onAskAiCoach ? (
             <Pressable onPress={onAskAiCoach} style={styles.actionCard}>
               <Text style={styles.actionKicker}>GAINER AI</Text>
-              <Text style={styles.actionTitle}>Ask why</Text>
-              <Text style={styles.actionBody}>Open the plan context directly.</Text>
+              <Text style={styles.actionTitle}>{t(language, 'planSet.askWhy')}</Text>
+              <Text style={styles.actionBody}>{t(language, 'planSet.askWhyBody')}</Text>
             </Pressable>
           ) : null}
         </View>

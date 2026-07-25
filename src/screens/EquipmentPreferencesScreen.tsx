@@ -8,12 +8,14 @@ import {
   getSetupEquipmentTitle,
   summarizeExercisePreferences,
 } from '../lib/tailoring';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout, radii, spacing } from '../theme';
-import { AppPreferences, SetupEquipment } from '../types/models';
+import { AppLanguage, AppPreferences, SetupEquipment } from '../types/models';
 
 interface EquipmentPreferencesScreenProps {
   preferences: AppPreferences;
+  language?: AppLanguage;
   onBack: () => void;
   onChange: (patch: Partial<AppPreferences>) => void | Promise<void>;
 }
@@ -47,62 +49,70 @@ function HeroPill({ label }: { label: string }) {
 function EquipmentOption({
   value,
   active,
+  language,
   onPress,
 }: {
   value: SetupEquipment;
   active: boolean;
+  language: AppLanguage;
   onPress: () => void;
 }) {
   return (
     <Pressable onPress={onPress} style={[styles.optionCard, active && styles.optionCardActive]}>
-      <Text style={[styles.optionTitle, active && styles.optionTitleActive]}>{getSetupEquipmentTitle(value)}</Text>
-      <Text style={[styles.optionBody, active && styles.optionBodyActive]}>{getSetupEquipmentHint(value)}</Text>
+      <Text style={[styles.optionTitle, active && styles.optionTitleActive]}>
+        {getSetupEquipmentTitle(value, language)}
+      </Text>
+      <Text style={[styles.optionBody, active && styles.optionBodyActive]}>
+        {getSetupEquipmentHint(value, language)}
+      </Text>
     </Pressable>
   );
 }
 
 export function EquipmentPreferencesScreen({
   preferences,
+  language = 'en',
   onBack,
   onChange,
 }: EquipmentPreferencesScreenProps) {
   const equipment = preferences.setupEquipment ?? 'gym';
-  const exerciseSummary = summarizeExercisePreferences({
-    trainingFeel: preferences.setupTrainingFeel,
-    workoutVariety: preferences.setupWorkoutVariety,
-    freeWeights: preferences.setupFreeWeightsPreference,
-    bodyweight: preferences.setupBodyweightPreference,
-    machines: preferences.setupMachinesPreference,
-  });
+  const exerciseSummary = summarizeExercisePreferences(
+    {
+      trainingFeel: preferences.setupTrainingFeel,
+      workoutVariety: preferences.setupWorkoutVariety,
+      freeWeights: preferences.setupFreeWeightsPreference,
+      bodyweight: preferences.setupBodyweightPreference,
+      machines: preferences.setupMachinesPreference,
+    },
+    language,
+  );
 
   return (
     <>
-      <ScreenHeader title="Equipment" tone="dark" onBack={onBack} />
+      <ScreenHeader title={t(language, 'myData.equipment')} tone="dark" onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={getHeroPhotoKey(equipment)} style={styles.heroSurface}>
           <View style={styles.heroContent}>
-            <Text style={styles.heroKicker}>Equipment</Text>
+            <Text style={styles.heroKicker}>{t(language, 'myData.equipment')}</Text>
 
             <View style={styles.heroBadgeRow}>
-              <HeroPill label={getSetupEquipmentTitle(equipment)} />
-              <HeroPill label="Discovery aware" />
+              <HeroPill label={getSetupEquipmentTitle(equipment, language)} />
+              <HeroPill label={t(language, 'equip.discoveryAware')} />
             </View>
 
             <View style={styles.heroCopy}>
-              <Text style={styles.heroTitle}>Pick the weekly setup</Text>
-              <Text style={styles.heroMeta}>
-                {getSetupEquipmentHint(equipment)}
-              </Text>
+              <Text style={styles.heroTitle}>{t(language, 'equip.pickSetup')}</Text>
+              <Text style={styles.heroMeta}>{getSetupEquipmentHint(equipment, language)}</Text>
             </View>
           </View>
         </FitnessPhotoSurface>
 
-        <SectionLabel label="Question" />
+        <SectionLabel label={t(language, 'equip.question')} />
         <View style={styles.optionGrid}>
           <View style={styles.questionCard}>
             <View style={styles.questionHeader}>
-              <Text style={styles.questionTitle}>What setup should GAINER assume most weeks?</Text>
-              <Text style={styles.questionBody}>This steers recommendation, discovery, and quick swaps.</Text>
+              <Text style={styles.questionTitle}>{t(language, 'equip.questionTitle')}</Text>
+              <Text style={styles.questionBody}>{t(language, 'equip.questionBody')}</Text>
             </View>
 
             <View style={styles.optionGrid}>
@@ -111,6 +121,7 @@ export function EquipmentPreferencesScreen({
                   key={option}
                   value={option}
                   active={equipment === option}
+                  language={language}
                   onPress={() => void onChange({ setupEquipment: option })}
                 />
               ))}
@@ -118,19 +129,19 @@ export function EquipmentPreferencesScreen({
           </View>
         </View>
 
-        <SectionLabel label="Current mode bias" />
+        <SectionLabel label={t(language, 'equip.currentBias')} />
 
         <View style={styles.signalCard}>
-          <Text style={styles.signalLabel}>Training modes</Text>
+          <Text style={styles.signalLabel}>{t(language, 'equip.trainingModes')}</Text>
           <Text style={styles.signalValue}>
             {exerciseSummary}
           </Text>
         </View>
 
         <View style={styles.nextCard}>
-          <Text style={styles.nextKicker}>Also in tailoring</Text>
-          <Text style={styles.nextTitle}>Exercise feel and joint-friendly swaps</Text>
-          <Text style={styles.nextBody}>Tune the tone first, then decide how protective quick swaps should be.</Text>
+          <Text style={styles.nextKicker}>{t(language, 'equip.alsoIn')}</Text>
+          <Text style={styles.nextTitle}>{t(language, 'equip.alsoInTitle')}</Text>
+          <Text style={styles.nextBody}>{t(language, 'equip.alsoInBody')}</Text>
         </View>
       </ScrollView>
     </>

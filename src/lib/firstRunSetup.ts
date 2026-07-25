@@ -218,33 +218,33 @@ export function getSecondaryOutcomeLabel(outcome: SetupSecondaryOutcome) {
   }
 }
 
-export function getSecondaryOutcomeTitle(outcome: SetupSecondaryOutcome) {
+export function getSecondaryOutcomeTitle(outcome: SetupSecondaryOutcome, language: AppLanguage = 'en') {
   switch (outcome) {
     case 'consistency':
-      return 'Stay consistent';
+      return t(language, 'setup.outcome.consistency');
     case 'mobility':
-      return 'Move better';
+      return t(language, 'setup.outcome.mobility');
     case 'conditioning':
-      return 'Keep conditioning up';
+      return t(language, 'setup.outcome.conditioning');
     case 'muscle':
-      return 'Add muscle';
+      return t(language, 'setup.outcome.muscle');
     case 'strength':
-      return 'Keep strength moving';
+      return t(language, 'setup.outcome.strength');
     default:
-      return 'Keep progressing';
+      return t(language, 'setup.outcome.default');
   }
 }
 
-export function getGuidanceModeLabel(mode: SetupGuidanceMode) {
+export function getGuidanceModeLabel(mode: SetupGuidanceMode, language: AppLanguage = 'en') {
   switch (mode) {
     case 'done_for_me':
-      return 'Keep it simple';
+      return t(language, 'setup.guidance.simple');
     case 'guided_editable':
-      return 'Recommend, then edit';
+      return t(language, 'setup.guidance.recommend');
     case 'self_directed':
-      return 'Build my own';
+      return t(language, 'setup.guidance.own');
     default:
-      return 'Guided';
+      return t(language, 'setup.guidance.default');
   }
 }
 
@@ -261,14 +261,14 @@ export function getGuidanceModeDescription(mode: SetupGuidanceMode) {
   }
 }
 
-export function getScheduleModeLabel(mode: SetupScheduleMode) {
+export function getScheduleModeLabel(mode: SetupScheduleMode, language: AppLanguage = 'en') {
   switch (mode) {
     case 'app_managed':
-      return 'Plan it for me';
+      return t(language, 'setup.schedule.app');
     case 'self_managed':
-      return "I'll manage the days";
+      return t(language, 'setup.schedule.self');
     default:
-      return 'Manage the schedule';
+      return t(language, 'setup.schedule.default');
   }
 }
 
@@ -283,29 +283,29 @@ export function getScheduleModeDescription(mode: SetupScheduleMode) {
   }
 }
 
-export function getWeekdayShortLabel(day: SetupWeekday) {
+export function getWeekdayShortLabel(day: SetupWeekday, language: AppLanguage = 'en') {
   switch (day) {
     case 'mon':
-      return 'Mon';
+      return t(language, 'setup.day.mon');
     case 'tue':
-      return 'Tue';
+      return t(language, 'setup.day.tue');
     case 'wed':
-      return 'Wed';
+      return t(language, 'setup.day.wed');
     case 'thu':
-      return 'Thu';
+      return t(language, 'setup.day.thu');
     case 'fri':
-      return 'Fri';
+      return t(language, 'setup.day.fri');
     case 'sat':
-      return 'Sat';
+      return t(language, 'setup.day.sat');
     case 'sun':
-      return 'Sun';
+      return t(language, 'setup.day.sun');
     default:
-      return 'Day';
+      return t(language, 'setup.day.default');
   }
 }
 
-export function formatWeekdayList(days: SetupWeekday[]) {
-  return formatList(days.map((day) => getWeekdayShortLabel(day)));
+export function formatWeekdayList(days: SetupWeekday[], language: AppLanguage = 'en') {
+  return formatList(days.map((day) => getWeekdayShortLabel(day, language)));
 }
 
 export function getFocusAreaTitle(area: SetupFocusArea) {
