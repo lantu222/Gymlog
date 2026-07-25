@@ -4,8 +4,8 @@ import { AppLanguage, ExerciseLog, UnitPreference } from '../types/models';
 // The app is kg-only. The unit-preference params are kept on these signatures
 // for call-site compatibility, but weights are never converted or shown in lb.
 
-export function formatDate(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, {
+export function formatDate(dateString: string, language?: AppLanguage) {
+  return new Intl.DateTimeFormat(localeFor(language), {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -18,7 +18,7 @@ export function formatDate(dateString: string) {
  * omitting it keeps the device locale, which is what the untranslated screens
  * still do.
  */
-function localeFor(language?: AppLanguage) {
+export function localeFor(language?: AppLanguage) {
   if (language === 'fi') {
     return 'fi-FI';
   }

@@ -49,6 +49,7 @@ import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTi
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
+import { localizeSessionName } from './src/lib/sessionNameLabel';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import {
@@ -2317,12 +2318,16 @@ function GymlogApp() {
   }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget, workoutSessions]);
   // Home history section: strength + cardio merged, newest first.
   const homeHistoryItems = useMemo(() => {
+    const language = preferences.appLanguage;
     const strength = workoutSessions.map((session) => ({
       id: session.id,
       kind: 'strength' as const,
-      title: formatWorkoutDisplayLabel(session.workoutNameSnapshot, 'Workout'),
+      title: localizeSessionName(
+        formatWorkoutDisplayLabel(session.workoutNameSnapshot, t(language, 'history.workoutFallback')),
+        language,
+      ),
       meta: [
-        formatShortDate(session.performedAt),
+        formatShortDate(session.performedAt, language),
         session.durationMinutes ? formatDurationMinutes(session.durationMinutes) : null,
         session.totalVolumeKg ? formatVolume(session.totalVolumeKg, unitPreference) : null,
       ]
@@ -2337,14 +2342,14 @@ function GymlogApp() {
         kind: 'cardio' as const,
         title: activity.name,
         cardioIcon: activity.icon,
-        meta: `${formatShortDate(session.performedAt)} · ${buildCardioStatsLine(session.durationSec, session.distanceKm)}`,
+        meta: `${formatShortDate(session.performedAt, language)} · ${buildCardioStatsLine(session.durationSec, session.distanceKm)}`,
         performedAt: session.performedAt,
       };
     });
     return [...strength, ...cardio]
       .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
       .slice(0, 5);
-  }, [workoutSessions, cardioSessions, unitPreference]);
+  }, [workoutSessions, cardioSessions, unitPreference, preferences.appLanguage]);
 
   const guidedNextUp = useMemo(() => {
     const card = homeActivePlanCard;
@@ -3178,6 +3183,7 @@ function GymlogApp() {
           rhythm={progressTrainingRhythm}
           weeklyTargetSessions={progressWeeklyTarget}
           unitPreference={unitPreference}
+          language={preferences.appLanguage}
           selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
         initialSection={route.screen === 'list' ? route.section : undefined}
         showBodyweightDetail={route.screen === 'bodyweight'}

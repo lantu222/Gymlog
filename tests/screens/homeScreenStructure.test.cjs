@@ -392,7 +392,10 @@ module.exports = [
       assert.match(progressScreenSource, /recentSessions\?: HomeRecentSessionItem\[\]/);
       assert.match(progressScreenSource, /onOpenSessionHistory\?: \(\) => void/);
       assert.match(progressScreenSource, /onOpenRecentSession\?: \(sessionId: string\) => void/);
-      assert.match(progressScreenSource, /<Text style=\{styles\.referenceCardTitle\}>History<\/Text>/);
+      assert.match(
+        progressScreenSource,
+        /<Text style=\{styles\.referenceCardTitle\}>\{t\(language, 'progress\.history'\)\}<\/Text>/,
+      );
       assert.match(progressScreenSource, /recentSessions\.slice\(0, 3\)\.map/);
       assert.match(progressScreenSource, /progressHistoryCard/);
       assert.match(progressScreenSource, /onOpenRecentSession\?\.\(session\.id\)/);

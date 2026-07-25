@@ -17,9 +17,12 @@ import {
   formatTime,
   formatVolume,
   formatWeight,
+  localeFor,
   parseNumberInput,
   removeTrailingZeros,
 } from '../lib/format';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { I18nKey, t } from '../lib/i18n';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
 import {
   BodyweightProgressSummary,
@@ -29,7 +32,14 @@ import {
 import { TrainingRhythmSummary } from '../lib/trainingRhythm';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { MeasurementEntry, MeasurementKind, MeasurementUnit, UnitPreference, WorkoutSession } from '../types/models';
+import {
+  AppLanguage,
+  MeasurementEntry,
+  MeasurementKind,
+  MeasurementUnit,
+  UnitPreference,
+  WorkoutSession,
+} from '../types/models';
 
 type ProgressSection = 'overview' | 'tracked' | 'measures';
 type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
@@ -40,6 +50,7 @@ type MeasureRange = '3m' | '1y' | 'all';
 type MeasureIconName = 'scale' | 'drop' | 'tape';
 
 interface ProgressScreenProps {
+  language?: AppLanguage;
   summaries: ExerciseProgressSummary[];
   bodyweightProgress: BodyweightProgressSummary;
   measurementEntries: MeasurementEntry[];
@@ -70,53 +81,67 @@ interface ProgressScreenProps {
   onOpenRecentSession?: (sessionId: string) => void;
 }
 
-const PROGRESS_SECTIONS: Array<{ key: ProgressSection; label: string }> = [
-  { key: 'overview', label: 'Overview' },
-  { key: 'tracked', label: 'Tracked' },
-  { key: 'measures', label: 'Measures' },
+// The activity grid is Monday-first, so these are the one-letter chips in that
+// order — Finnish and English disagree on more of them than you would expect.
+const PROGRESS_WEEKDAY_KEYS: I18nKey[] = [
+  'onb.weekday.mon',
+  'onb.weekday.tue',
+  'onb.weekday.wed',
+  'onb.weekday.thu',
+  'onb.weekday.fri',
+  'onb.weekday.sat',
+  'onb.weekday.sun',
 ];
 
-const PROGRESS_FILTERS: Array<{ key: ProgressFilter; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'new_best', label: 'New' },
-  { key: 'moving_up', label: 'Up' },
-  { key: 'building', label: 'Building' },
-  { key: 'below_last', label: 'Below' },
+const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey }> = [
+  { key: 'overview', labelKey: 'progress.section.overview' },
+  { key: 'tracked', labelKey: 'progress.section.tracked' },
+  { key: 'measures', labelKey: 'progress.section.measures' },
 ];
 
-const OVERVIEW_METRICS: Array<{ key: OverviewMetric; label: string }> = [
-  { key: 'volume', label: 'Volume' },
-  { key: 'duration', label: 'Duration' },
-  { key: 'bodyweight', label: 'Bodyweight' },
+const PROGRESS_FILTERS: Array<{ key: ProgressFilter; labelKey: I18nKey }> = [
+  { key: 'all', labelKey: 'progress.filter.all' },
+  { key: 'new_best', labelKey: 'progress.filter.new' },
+  { key: 'moving_up', labelKey: 'progress.filter.up' },
+  { key: 'building', labelKey: 'progress.filter.building' },
+  { key: 'below_last', labelKey: 'progress.filter.below' },
 ];
 
-const OVERVIEW_RANGES: Array<{ key: OverviewRange; label: string }> = [
+const OVERVIEW_METRICS: Array<{ key: OverviewMetric; labelKey: I18nKey }> = [
+  { key: 'volume', labelKey: 'progress.metric.volume' },
+  { key: 'duration', labelKey: 'progress.metric.duration' },
+  { key: 'bodyweight', labelKey: 'progress.metric.bodyweight' },
+];
+
+// Range chips are numerals with a unit letter — the same in both languages
+// except "All", which resolves through the dictionary at render.
+const OVERVIEW_RANGES: Array<{ key: OverviewRange; label: string | null }> = [
   { key: '1m', label: '1M' },
   { key: '3m', label: '3M' },
   { key: '6m', label: '6M' },
-  { key: 'all', label: 'All' },
+  { key: 'all', label: null },
 ];
 
-const MEASURE_RANGES: Array<{ key: MeasureRange; label: string }> = [
+const MEASURE_RANGES: Array<{ key: MeasureRange; label: string | null }> = [
   { key: '3m', label: '3M' },
   { key: '1y', label: '1Y' },
-  { key: 'all', label: 'All' },
+  { key: 'all', label: null },
 ];
 
 const MEASURE_CONFIG: Array<{
   key: MeasureKey;
-  label: string;
+  labelKey: I18nKey;
   icon: MeasureIconName;
   kind: MeasurementKind | null;
   lowerIsBetter: boolean;
 }> = [
-  { key: 'bodyweight', label: 'Body weight', icon: 'scale', kind: null, lowerIsBetter: false },
-  { key: 'bodyfat', label: 'Body fat', icon: 'drop', kind: 'bodyfat', lowerIsBetter: true },
-  { key: 'shoulders', label: 'Shoulders', icon: 'tape', kind: 'shoulders', lowerIsBetter: false },
-  { key: 'chest', label: 'Chest', icon: 'tape', kind: 'chest', lowerIsBetter: false },
-  { key: 'waist', label: 'Waist', icon: 'tape', kind: 'waist', lowerIsBetter: true },
-  { key: 'hips', label: 'Hips', icon: 'tape', kind: 'hips', lowerIsBetter: false },
-  { key: 'thighs', label: 'Thighs', icon: 'tape', kind: 'thighs', lowerIsBetter: false },
+  { key: 'bodyweight', labelKey: 'progress.measure.bodyweight', icon: 'scale', kind: null, lowerIsBetter: false },
+  { key: 'bodyfat', labelKey: 'progress.measure.bodyfat', icon: 'drop', kind: 'bodyfat', lowerIsBetter: true },
+  { key: 'shoulders', labelKey: 'progress.measure.shoulders', icon: 'tape', kind: 'shoulders', lowerIsBetter: false },
+  { key: 'chest', labelKey: 'progress.measure.chest', icon: 'tape', kind: 'chest', lowerIsBetter: false },
+  { key: 'waist', labelKey: 'progress.measure.waist', icon: 'tape', kind: 'waist', lowerIsBetter: true },
+  { key: 'hips', labelKey: 'progress.measure.hips', icon: 'tape', kind: 'hips', lowerIsBetter: false },
+  { key: 'thighs', labelKey: 'progress.measure.thighs', icon: 'tape', kind: 'thighs', lowerIsBetter: false },
 ];
 
 // Honest signal palette (light) keyed by getExerciseProgressSignal kinds.
@@ -232,40 +257,46 @@ function bucketOverviewPointsByRange(
     .map(({ label, value }) => ({ label, value }));
 }
 
-function formatDayMonthLabel(dateString: string) {
+function formatDayMonthLabel(dateString: string, language: AppLanguage) {
   const date = new Date(dateString);
-  const month = new Intl.DateTimeFormat(undefined, { month: 'short' }).format(date);
+  const month = new Intl.DateTimeFormat(localeFor(language), { month: 'short' }).format(date);
   return `${date.getDate()} ${month}`;
 }
 
-function formatMonthLabel(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short' }).format(new Date(dateString));
+function formatMonthLabel(dateString: string, language: AppLanguage) {
+  return new Intl.DateTimeFormat(localeFor(language), { month: 'short' }).format(new Date(dateString));
 }
 
-function formatMonthYearLabel(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, { month: 'short', year: '2-digit' }).format(new Date(dateString));
+function formatMonthYearLabel(dateString: string, language: AppLanguage) {
+  return new Intl.DateTimeFormat(localeFor(language), { month: 'short', year: '2-digit' }).format(
+    new Date(dateString),
+  );
 }
 
-function formatOverviewChartLabel(dateString: string, range: OverviewRange) {
+function formatOverviewChartLabel(dateString: string, range: OverviewRange, language: AppLanguage) {
   switch (range) {
     case '1m':
     case '3m':
-      return formatDayMonthLabel(dateString);
+      return formatDayMonthLabel(dateString, language);
     case '6m':
-      return formatMonthLabel(dateString);
+      return formatMonthLabel(dateString, language);
     case 'all':
     default:
-      return formatMonthYearLabel(dateString);
+      return formatMonthYearLabel(dateString, language);
   }
 }
 
-function getOverviewFooterLabels(points: Array<{ label: string; value: number }>, range: OverviewRange) {
+function getOverviewFooterLabels(
+  points: Array<{ label: string; value: number }>,
+  range: OverviewRange,
+  language: AppLanguage,
+) {
   if (!points.length) {
     return [];
   }
 
   if (points.length === 1) {
-    return [formatOverviewChartLabel(points[0].label, range)];
+    return [formatOverviewChartLabel(points[0].label, range, language)];
   }
 
   const middleIndex = Math.floor((points.length - 1) / 2);
@@ -277,7 +308,7 @@ function getOverviewFooterLabels(points: Array<{ label: string; value: number }>
 
   labels.push(points[points.length - 1].label);
 
-  return [...new Set(labels)].map((label) => formatOverviewChartLabel(label, range));
+  return [...new Set(labels)].map((label) => formatOverviewChartLabel(label, range, language));
 }
 
 function getOverviewDurationTicks(maxValue: number) {
@@ -557,6 +588,7 @@ export function ProgressScreen({
   rhythm,
   weeklyTargetSessions = null,
   unitPreference,
+  language = 'en',
   initialSection,
   selectedExerciseKey,
   showBodyweightDetail,
@@ -672,20 +704,20 @@ export function ProgressScreen({
       );
 
       return {
-        valueLabel: points.length ? formatWeight(bodyweightProgress.latest?.weight, unitPreference) : 'No entries',
+        valueLabel: points.length ? formatWeight(bodyweightProgress.latest?.weight, unitPreference) : t(language, 'progress.noEntries'),
         unitLabel: unitPreference,
         points,
-        footerLabels: getOverviewFooterLabels(points, overviewRange),
+        footerLabels: getOverviewFooterLabels(points, overviewRange, language),
         yTickValues: getOverviewBodyweightTicks(points.map((point) => point.value), unitPreference),
         formatValueLabel: (value: number, unitLabel: string) => formatOverviewBodyweightTick(value, unitLabel),
         tooltipFormatter: (point: { label: string; value: number }) => ({
-          title: formatDate(point.label),
+          title: formatDate(point.label, language),
           value: `${formatTime(point.label)} · ${formatWeight(
             unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
             unitPreference,
           )}`,
         }),
-        emptyLabel: 'No bodyweight entries yet',
+        emptyLabel: t(language, 'progress.noBodyweight'),
       };
     }
 
@@ -726,14 +758,14 @@ export function ProgressScreen({
         valueLabel: formatDurationMinutes(totalDuration),
         unitLabel: 'min',
         points,
-        footerLabels: getOverviewFooterLabels(points, overviewRange),
+        footerLabels: getOverviewFooterLabels(points, overviewRange, language),
         yTickValues: getOverviewDurationTicks(Math.max(...points.map((point) => point.value), 0)),
         formatValueLabel: (value: number) => formatDurationTick(value),
         tooltipFormatter: (point: { label: string; value: number }) => ({
-          title: formatDate(point.label),
+          title: formatDate(point.label, language),
           value: formatDurationMinutes(point.value),
         }),
-        emptyLabel: 'No workout durations yet',
+        emptyLabel: t(language, 'progress.noDurations'),
       };
     }
 
@@ -749,17 +781,17 @@ export function ProgressScreen({
       valueLabel: formatCompactVolume(rows.reduce((sum, row) => sum + row.volume, 0), unitPreference),
       unitLabel: unitPreference,
       points,
-      footerLabels: getOverviewFooterLabels(points, overviewRange),
+      footerLabels: getOverviewFooterLabels(points, overviewRange, language),
       yTickValues: undefined,
       formatValueLabel: undefined,
       tooltipFormatter: (point: { label: string; value: number }) => ({
-        title: formatDate(point.label),
+        title: formatDate(point.label, language),
         value: formatVolume(
           unitPreference === 'lb' ? convertWeightToKg(point.value, 'lb') : point.value,
           unitPreference,
         ),
       }),
-      emptyLabel: 'No volume data yet',
+      emptyLabel: t(language, 'progress.noVolume'),
     };
   }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, overviewRange, unitPreference, workoutSessions]);
 
@@ -780,9 +812,16 @@ export function ProgressScreen({
         return true;
       }
 
-      return formatLiftDisplayLabel(summary.name).toLowerCase().includes(normalizedQuery);
+      // Search both spellings: a Finnish user may type "kyykky", but the stored
+      // name is still the English one the library and the logs are keyed on.
+      return (
+        formatLiftDisplayLabel(exerciseNameLabel(language, summary.name))
+          .toLowerCase()
+          .includes(normalizedQuery) ||
+        formatLiftDisplayLabel(summary.name).toLowerCase().includes(normalizedQuery)
+      );
     });
-  }, [prioritizedSummaries, progressFilter, progressQuery]);
+  }, [language, prioritizedSummaries, progressFilter, progressQuery]);
 
   // ── measures data ──
 
@@ -871,7 +910,8 @@ export function ProgressScreen({
             <View style={styles.heroCard}>
               <View style={styles.heroHead}>
                 <Text numberOfLines={1} style={styles.heroLabel}>
-                  Working weight · {formatLiftDisplayLabel(heroSummary.name)}
+                  {t(language, 'progress.workingWeight')} ·{' '}
+                  {formatLiftDisplayLabel(exerciseNameLabel(language, heroSummary.name))}
                 </Text>
                 <SignalBadge summary={heroSummary} />
               </View>
@@ -889,7 +929,7 @@ export function ProgressScreen({
                   {removeTrailingZeros(heroLatest ?? 0)} {unitPreference}
                 </Text>
               ) : (
-                <Text style={styles.heroSinceMuted}>One more log and the trend starts here.</Text>
+                <Text style={styles.heroSinceMuted}>{t(language, 'progress.trendStarts')}</Text>
               )}
             </View>
             <SimpleLineChart
@@ -907,22 +947,27 @@ export function ProgressScreen({
           </View>
         ) : (
           <View style={styles.emptyHeroCard}>
-            <Text style={styles.emptyTitle}>No tracked lifts yet</Text>
-            <Text style={styles.emptyText}>Star a lift or track it while logging and your progress starts here.</Text>
+            <Text style={styles.emptyTitle}>{t(language, 'progress.noTracked.title')}</Text>
+            <Text style={styles.emptyText}>{t(language, 'progress.noTracked.body')}</Text>
           </View>
         )}
 
-        <SectionLabel label="TRAINING RHYTHM" />
+        <SectionLabel label={t(language, 'progress.section.rhythm')} />
         <View style={styles.card}>
           <View style={styles.rhythmHead}>
             <View style={styles.rhythmHeadLeft}>
               <Text style={styles.rhythmBig}>{rhythm.weeksInRow}</Text>
-              <Text style={styles.rhythmBigLabel}>{rhythm.weeksInRow === 1 ? 'week in a row' : 'weeks in a row'}</Text>
+              <Text style={styles.rhythmBigLabel}>
+                {t(language, rhythm.weeksInRow === 1 ? 'progress.weekInRowOne' : 'progress.weekInRowMany')}
+              </Text>
             </View>
             <Text style={styles.rhythmThisWeek}>
               {weeklyTargetSessions
-                ? `${rhythm.currentWeekSessions}/${weeklyTargetSessions} this week`
-                : `${rhythm.currentWeekSessions} this week`}
+                ? t(language, 'progress.weekCount', {
+                    count: rhythm.currentWeekSessions,
+                    target: weeklyTargetSessions,
+                  })
+                : t(language, 'progress.weekCountNoTarget', { count: rhythm.currentWeekSessions })}
             </Text>
           </View>
           <View style={styles.rhythmBars}>
@@ -943,40 +988,48 @@ export function ProgressScreen({
             })}
           </View>
           <View style={styles.rhythmFootRow}>
-            <Text style={styles.rhythmFootText}>{rhythm.sessionsPerWeek.length} weeks ago</Text>
-            <Text style={styles.rhythmFootText}>This week</Text>
+            <Text style={styles.rhythmFootText}>
+              {t(language, 'progress.weeksAgo', { count: rhythm.sessionsPerWeek.length })}
+            </Text>
+            <Text style={styles.rhythmFootText}>{t(language, 'progress.thisWeek')}</Text>
           </View>
           <Text style={styles.rhythmCaption}>
             {rhythm.weeksInRow > 0
-              ? `At least one session every week for ${rhythm.weeksInRow} ${rhythm.weeksInRow === 1 ? 'week' : 'weeks'}. Bars show sessions per week.`
-              : 'Bars show sessions per week. Log a session to start the run.'}
+              ? t(language, rhythm.weeksInRow === 1 ? 'progress.rhythmOne' : 'progress.rhythmMany', {
+                  count: rhythm.weeksInRow,
+                })
+              : t(language, 'progress.rhythmNone')}
           </Text>
         </View>
 
-        <SectionLabel label="THIS MONTH" />
+        <SectionLabel label={t(language, 'progress.section.thisMonth')} />
         <View style={styles.monthGrid}>
           <View style={styles.monthCard}>
-            <Text style={styles.monthLabel}>SESSIONS</Text>
+            <Text style={styles.monthLabel}>{t(language, 'progress.stat.sessions')}</Text>
             <Text style={styles.monthValue}>{monthStats.sessions}</Text>
-            <Text style={styles.monthMeta}>this month</Text>
+            <Text style={styles.monthMeta}>{t(language, 'progress.meta.thisMonth')}</Text>
           </View>
           <View style={styles.monthCard}>
-            <Text style={styles.monthLabel}>VOLUME</Text>
+            <Text style={styles.monthLabel}>{t(language, 'progress.stat.volume')}</Text>
             <Text style={styles.monthValue}>{formatCompactVolume(monthStats.volumeKg, unitPreference)}</Text>
-            <Text style={styles.monthMeta}>lifted</Text>
+            <Text style={styles.monthMeta}>{t(language, 'progress.meta.lifted')}</Text>
           </View>
           <View style={styles.monthCard}>
-            <Text style={styles.monthLabel}>AVG TIME</Text>
+            <Text style={styles.monthLabel}>{t(language, 'progress.stat.avgTime')}</Text>
             <Text style={styles.monthValue}>{monthStats.averageDuration} min</Text>
-            <Text style={styles.monthMeta}>per session</Text>
+            <Text style={styles.monthMeta}>{t(language, 'progress.meta.perSession')}</Text>
           </View>
         </View>
 
-        <SectionLabel label="TREND" />
+        <SectionLabel label={t(language, 'progress.section.trend')} />
         <View style={styles.trendBlock}>
           <View style={styles.trendHead}>
             <Text style={styles.trendValue}>{overviewChart.valueLabel}</Text>
-            <Seg options={OVERVIEW_METRICS} value={overviewMetric} onChange={setOverviewMetric} />
+            <Seg
+              options={OVERVIEW_METRICS.map((option) => ({ key: option.key, label: t(language, option.labelKey) }))}
+              value={overviewMetric}
+              onChange={setOverviewMetric}
+            />
           </View>
           <SimpleLineChart
             points={overviewChart.points}
@@ -989,16 +1042,23 @@ export function ProgressScreen({
             emptyLabel={overviewChart.emptyLabel}
           />
           <View style={styles.trendRangeRow}>
-            <Seg options={OVERVIEW_RANGES} value={overviewRange} onChange={setOverviewRange} />
+            <Seg
+              options={OVERVIEW_RANGES.map((option) => ({
+                key: option.key,
+                label: option.label ?? t(language, 'progress.range.all'),
+              }))}
+              value={overviewRange}
+              onChange={setOverviewRange}
+            />
           </View>
         </View>
 
-        <SectionLabel label="ACTIVITY" right={calendarMonthLabel} />
+        <SectionLabel label={t(language, 'progress.section.activity')} right={calendarMonthLabel} />
         <View style={styles.card}>
           <View style={styles.calendarWeekdayRow}>
-            {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, index) => (
-              <Text key={`${label}:${index}`} style={styles.calendarWeekday}>
-                {label}
+            {PROGRESS_WEEKDAY_KEYS.map((weekdayKey, index) => (
+              <Text key={`${weekdayKey}:${index}`} style={styles.calendarWeekday}>
+                {t(language, weekdayKey)}
               </Text>
             ))}
           </View>
@@ -1036,10 +1096,10 @@ export function ProgressScreen({
 
         <View style={styles.progressHistoryCard}>
           <View style={styles.historyHeadRow}>
-            <Text style={styles.referenceCardTitle}>History</Text>
+            <Text style={styles.referenceCardTitle}>{t(language, 'progress.history')}</Text>
             {onOpenSessionHistory ? (
               <Pressable onPress={onOpenSessionHistory} hitSlop={8}>
-                <Text style={styles.historySeeAll}>See all</Text>
+                <Text style={styles.historySeeAll}>{t(language, 'progress.seeAll')}</Text>
               </Pressable>
             ) : null}
           </View>
@@ -1069,8 +1129,8 @@ export function ProgressScreen({
             </View>
           ) : (
             <View style={styles.historyEmpty}>
-              <Text style={styles.emptyTitle}>No sessions yet</Text>
-              <Text style={styles.emptyText}>Finish a workout and it will show up here.</Text>
+              <Text style={styles.emptyTitle}>{t(language, 'progress.noSessions.title')}</Text>
+              <Text style={styles.emptyText}>{t(language, 'progress.noSessions.body')}</Text>
             </View>
           )}
         </View>
@@ -1086,7 +1146,7 @@ export function ProgressScreen({
           <TextInput
             value={progressQuery}
             onChangeText={setProgressQuery}
-            placeholder="Search tracked lifts..."
+            placeholder={t(language, 'progress.searchTracked')}
             placeholderTextColor={HG.faint}
             style={styles.searchInput}
           />
@@ -1106,7 +1166,9 @@ export function ProgressScreen({
                 onPress={() => setProgressFilter(filter.key)}
                 style={[styles.filterChip, active && styles.filterChipActive]}
               >
-                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  {t(language, filter.labelKey)}
+                </Text>
               </Pressable>
             );
           })}
@@ -1114,13 +1176,13 @@ export function ProgressScreen({
 
         {summaries.length === 0 ? (
           <View style={styles.emptyBlock}>
-            <Text style={styles.emptyTitle}>No tracked lifts yet</Text>
-            <Text style={styles.emptyText}>Star one exercise or track it while logging and it shows up here.</Text>
+            <Text style={styles.emptyTitle}>{t(language, 'progress.noTracked.title')}</Text>
+            <Text style={styles.emptyText}>{t(language, 'progress.noTrackedFilter.body')}</Text>
           </View>
         ) : filteredSummaries.length === 0 ? (
           <View style={styles.emptyBlock}>
-            <Text style={styles.emptyTitle}>Nothing here</Text>
-            <Text style={styles.emptyText}>No lifts match this filter.</Text>
+            <Text style={styles.emptyTitle}>{t(language, 'progress.noMatch.title')}</Text>
+            <Text style={styles.emptyText}>{t(language, 'progress.noMatch.body')}</Text>
           </View>
         ) : (
           <View style={styles.trackedList}>
@@ -1136,14 +1198,14 @@ export function ProgressScreen({
                   <Pressable onPress={() => setExpandedKey(isOpen ? null : summary.key)} style={styles.trackedHead}>
                     <View style={styles.trackedCopy}>
                       <Text numberOfLines={1} style={styles.trackedName}>
-                        {formatLiftDisplayLabel(summary.name)}
+                        {formatLiftDisplayLabel(exerciseNameLabel(language, summary.name))}
                       </Text>
                       <View style={styles.trackedMetaRow}>
                         <SignalBadge summary={summary} />
                         <Text numberOfLines={1} style={styles.trackedMeta}>
                           {formatWeight(summary.latestWeight, unitPreference)}
                           {summary.latestReps && summary.latestReps !== '-' ? ` × ${summary.latestReps.split(',')[0]}` : ''}
-                          {summary.latestLog ? ` · ${formatShortDate(summary.latestLog.performedAt)}` : ''}
+                          {summary.latestLog ? ` · ${formatShortDate(summary.latestLog.performedAt, language)}` : ''}
                         </Text>
                       </View>
                     </View>
@@ -1159,7 +1221,7 @@ export function ProgressScreen({
                           {removeTrailingZeros(latest ?? 0)} {unitPreference}
                         </Text>
                       ) : (
-                        <Text style={styles.trackedDeltaMuted}>One more log and the trend starts here.</Text>
+                        <Text style={styles.trackedDeltaMuted}>{t(language, 'progress.trendStarts')}</Text>
                       )}
                       <SimpleLineChart
                         points={points}
@@ -1207,7 +1269,7 @@ export function ProgressScreen({
         <View style={styles.measureDetailBlock}>
           <View style={styles.card}>
             <View style={styles.measureDetailHead}>
-              <Text style={styles.measureDetailLabel}>{model.label}</Text>
+              <Text style={styles.measureDetailLabel}>{t(language, model.labelKey)}</Text>
               {selectedMeasureDelta !== null && selectedMeasureDelta !== 0 ? (
                 <DeltaPill delta={selectedMeasureDelta} unit={model.unit} lowerIsBetter={model.lowerIsBetter} />
               ) : null}
@@ -1220,8 +1282,8 @@ export function ProgressScreen({
             </View>
             <Text style={styles.measureCaption}>
               {model.values.length
-                ? 'Tracked against your own baseline.'
-                : 'No entries yet — add your first below.'}
+                ? t(language, 'progress.ownBaseline')
+                : t(language, 'progress.addFirst')}
             </Text>
 
             <View style={styles.measureEntryRow}>
@@ -1244,7 +1306,7 @@ export function ProgressScreen({
                 />
               ) : null}
               <Pressable onPress={() => void handleSaveMeasure()} style={styles.measureSaveButton}>
-                <Text style={styles.measureSaveText}>Save</Text>
+                <Text style={styles.measureSaveText}>{t(language, 'progress.save')}</Text>
               </Pressable>
             </View>
           </View>
@@ -1253,18 +1315,25 @@ export function ProgressScreen({
             points={selectedMeasureRangePoints}
             unitLabel={model.unit}
             accent={HG.purple}
-            emptyLabel="No entries in this range yet"
+            emptyLabel={t(language, 'progress.noEntriesRange')}
             tooltipFormatter={(point) => ({
               title: point.label,
               value: `${removeTrailingZeros(Number(point.value.toFixed(1)))} ${model.unit}`,
             })}
           />
           <View style={styles.trendRangeRow}>
-            <Seg options={MEASURE_RANGES} value={measureRange} onChange={setMeasureRange} />
+            <Seg
+              options={MEASURE_RANGES.map((option) => ({
+                key: option.key,
+                label: option.label ?? t(language, 'progress.range.all'),
+              }))}
+              value={measureRange}
+              onChange={setMeasureRange}
+            />
           </View>
         </View>
 
-        <SectionLabel label="ALL MEASURES" />
+        <SectionLabel label={t(language, 'progress.section.allMeasures')} />
         <View style={styles.measureList}>
           {measureModels.map((item) => {
             const active = item.key === selectedMeasure;
@@ -1281,9 +1350,9 @@ export function ProgressScreen({
                   <MeasureIcon name={item.icon} />
                 </View>
                 <View style={styles.measureRowCopy}>
-                  <Text style={styles.measureRowTitle}>{item.label}</Text>
+                  <Text style={styles.measureRowTitle}>{t(language, item.labelKey)}</Text>
                   <Text style={styles.measureRowMeta}>
-                    {latest !== null ? `${removeTrailingZeros(Number(latest.toFixed(1)))} ${item.unit}` : 'No entries yet'}
+                    {latest !== null ? `${removeTrailingZeros(Number(latest.toFixed(1)))} ${item.unit}` : t(language, 'progress.noEntriesYet')}
                   </Text>
                 </View>
                 <Sparkline
@@ -1305,8 +1374,8 @@ export function ProgressScreen({
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Progress</Text>
-        <Text style={styles.headerSubtitle}>The training you&apos;ve built — honest and yours.</Text>
+        <Text style={styles.headerTitle}>{t(language, 'progress.title')}</Text>
+        <Text style={styles.headerSubtitle}>{t(language, 'progress.subtitle')}</Text>
         <View style={styles.tabsRow}>
           {PROGRESS_SECTIONS.map((section) => {
             const active = section.key === progressSection;
@@ -1316,7 +1385,9 @@ export function ProgressScreen({
                 onPress={() => switchSection(section.key)}
                 style={[styles.tab, active && styles.tabActive]}
               >
-                <Text style={[styles.tabText, active && styles.tabTextActive]}>{section.label}</Text>
+                <Text style={[styles.tabText, active && styles.tabTextActive]}>
+                  {t(language, section.labelKey)}
+                </Text>
               </Pressable>
             );
           })}
