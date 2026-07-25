@@ -388,6 +388,29 @@ export function getGuidedNextPreview(
 }
 
 /**
+ * Bare name of the next drill/exercise/block after `index` — the set screen's
+ * "Next ·" line names what is coming without repeating its target.
+ */
+export function getGuidedNextName(steps: GuidedStep[], index: number): string | null {
+  for (let cursor = index + 1; cursor < steps.length; cursor += 1) {
+    const step = steps[cursor];
+    if (step.type === 'drill') {
+      return step.drillName;
+    }
+    if (step.type === 'set') {
+      return step.exerciseName;
+    }
+    if (step.type === 'splash') {
+      return step.title;
+    }
+    if (step.type === 'finish') {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
  * Default target the set screen opens with. Weight: the draft prefill (last
  * time / carry-forward) wins, then the planned load, then the previous
  * completed set. Reps: previous completed set's actual, else the planned max.

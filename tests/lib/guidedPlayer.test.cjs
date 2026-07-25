@@ -8,6 +8,7 @@ const {
   getGuidedPhaseLabel,
   getGuidedStepLabel,
   getGuidedNextPreview,
+  getGuidedNextName,
   resolveGuidedSetTarget,
   resolveGuidedResumeIndex,
   getGuidedSkipTargetIndex,
@@ -166,6 +167,20 @@ module.exports = [
       // Final drill previews the finish.
       assert.equal(getGuidedNextPreview(steps, 19, resolve).line, 'Finish');
       assert.equal(getGuidedNextPreview(steps, 20, resolve), null);
+    },
+  },
+  {
+    name: 'next name reports the bare drill/exercise/block ahead (set screen v4)',
+    run() {
+      const { steps } = buildPlan();
+      // Warmup splash → first drill; last warmup drill → the Workout block.
+      assert.equal(getGuidedNextName(steps, 0), 'Rowing machine');
+      assert.equal(getGuidedNextName(steps, 4), 'Workout');
+      // From a set's rest → the next set's exercise, with no target appended.
+      assert.equal(getGuidedNextName(steps, 8), 'Bench Press');
+      // Nothing but the finish step remains.
+      assert.equal(getGuidedNextName(steps, 19), null);
+      assert.equal(getGuidedNextName(steps, 20), null);
     },
   },
   {

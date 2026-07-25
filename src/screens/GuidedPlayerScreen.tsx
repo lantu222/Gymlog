@@ -40,6 +40,7 @@ import {
   formatGuidedTarget,
   getGuidedBackTargetIndex,
   getGuidedInitials,
+  getGuidedNextName,
   getGuidedNextPreview,
   getGuidedPhaseLabel,
   getGuidedSessionTitle,
@@ -130,6 +131,18 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
     ),
     plus: <Path d="M12 5v14M5 12h14" />,
     list: <Path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
+    video: (
+      <>
+        <Rect x="3" y="6.5" width="12.5" height="11" rx="3" />
+        <Path d="M15.5 10.5l5-2.6v8.2l-5-2.6z" />
+      </>
+    ),
+    clock: (
+      <>
+        <Circle cx="12" cy="12" r="8.5" />
+        <Path d="M12 7.5V12l3 2" />
+      </>
+    ),
   };
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
@@ -192,11 +205,17 @@ function MediaZone({
   library,
   height,
   mode = 'drill',
+  showActions = true,
+  fit = 'contain',
 }: {
   name: string;
   library: ExerciseLibraryItem[];
   height: number;
   mode?: 'drill' | 'position' | 'set';
+  /** Set screen v4 moves the how-it's-done button into the top bar. */
+  showActions?: boolean;
+  /** v4 fills the set card edge to edge; other steps keep the whole frame. */
+  fit?: 'contain' | 'cover';
 }) {
   const match = useMemo(() => {
     const index = findGuidedLibraryIndex(name, library.map((item) => item.name));
@@ -211,13 +230,13 @@ function MediaZone({
   // The media zone always shows the flat photo (or initials). Exercises that
   // have a 3D rig get a button in the top-right corner that opens the animated
   // "how it's done" sheet — so the 3D only renders on demand, never during
-  // normal training. Warmup drills never have a rig.
-  const has3D = mode !== 'drill' && hasExercise3D(name);
+  // normal training. Warmup drills never have a rig. The muscle chip was
+  // dropped in the v4 pass (user: the label added nothing on any exercise).
+  const has3D = showActions && mode !== 'drill' && hasExercise3D(name);
   const [sheetOpen, setSheetOpen] = useState(false);
 
   const overlays = (
     <>
-      {muscle ? <MuscleChip label={muscle} /> : null}
       {has3D ? (
         <>
           <Pressable
@@ -249,7 +268,7 @@ function MediaZone({
       <View style={[styles.mediaZone, { height, backgroundColor: '#FFFFFF', borderColor: '#E6DAF8' }]}>
         <Image
           source={{ uri: imageUrl }}
-          resizeMode="contain"
+          resizeMode={fit}
           style={{ width: '100%', height: '100%' }}
           onError={() => setImageFailed(true)}
         />
@@ -279,49 +298,6 @@ function MediaZone({
   );
 }
 
-/**
- * Always-turning clock hand next to the set target — a strength set has no
- * countdown, so without a moving element the screen can read as frozen.
- */
-function SpinningClock({ size = 17, color = HG.muted }: { size?: number; color?: string }) {
-  const spin = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(spin, { toValue: 1, duration: 2400, easing: Easing.linear, useNativeDriver: true }),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [spin]);
-
-  return (
-    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-      <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
-        <Circle cx="12" cy="12" r="9" />
-      </Svg>
-      <Animated.View
-        style={{
-          position: 'absolute',
-          width: size,
-          height: size,
-          transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }],
-        }}
-      >
-        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round">
-          <Path d="M12 12V6.6" />
-        </Svg>
-      </Animated.View>
-    </View>
-  );
-}
-
-function MuscleChip({ label }: { label: string }) {
-  return (
-    <View style={styles.muscleChip}>
-      <Text style={styles.muscleChipText}>{label.toUpperCase()}</Text>
-    </View>
-  );
-}
-
 /* ── shared small components ── */
 function TopBar({
   dark,
@@ -329,12 +305,18 @@ function TopBar({
   muted,
   onMute,
   onExit,
+  video,
 }: {
   dark: boolean;
   label: string;
   muted: boolean;
   onMute: () => void;
   onExit: () => void;
+  /**
+   * Set screen v4: the right slot shows the how-it's-done camera instead of
+   * mute, and mute moves down beside pause.
+   */
+  video?: { label: string; onPress: () => void } | null;
 }) {
   const iconColor = dark ? GPD.ink : HG.ink;
   const buttonStyle = [styles.topBtn, dark ? styles.topBtnDark : null];
@@ -346,9 +328,15 @@ function TopBar({
       <Text style={[styles.topLabel, { color: dark ? GPD.muted : HG.muted }]} numberOfLines={1}>
         {label}
       </Text>
-      <Pressable onPress={onMute} style={buttonStyle} hitSlop={8}>
-        <GPIcon name={muted ? 'mute' : 'sound'} size={19} color={muted ? (dark ? GPD.faint : HG.faint) : iconColor} />
-      </Pressable>
+      {video ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={video.label} onPress={video.onPress} style={buttonStyle} hitSlop={8}>
+          <GPIcon name="video" size={20} color={iconColor} sw={2.1} />
+        </Pressable>
+      ) : (
+        <Pressable onPress={onMute} style={buttonStyle} hitSlop={8}>
+          <GPIcon name={muted ? 'mute' : 'sound'} size={19} color={muted ? (dark ? GPD.faint : HG.faint) : iconColor} />
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -446,13 +434,11 @@ function NextLine({ text, dark, language }: { text: string | null; dark: boolean
 
 function NameBlock({
   name,
-  cue,
   hasHowTo,
   language,
   onHow,
 }: {
   name: string;
-  cue: string | null;
   hasHowTo: boolean;
   language: AppLanguage;
   onHow: () => void;
@@ -462,16 +448,11 @@ function NameBlock({
       <Text style={styles.exerciseName} numberOfLines={2}>
         {name}
       </Text>
-      {(cue || hasHowTo) && (
-        <Pressable onPress={hasHowTo ? onHow : undefined} style={styles.cueRow}>
-          {cue ? (
-            <Text style={styles.cueText} numberOfLines={1}>
-              {cue}
-            </Text>
-          ) : null}
-          {hasHowTo ? <Text style={styles.howToLink}>{t(language, 'guided.howTo')}</Text> : null}
+      {hasHowTo ? (
+        <Pressable onPress={onHow} style={styles.cueRow}>
+          <Text style={styles.howToLink}>{t(language, 'guided.howTo')}</Text>
         </Pressable>
-      )}
+      ) : null}
     </View>
   );
 }
@@ -694,6 +675,9 @@ export function GuidedPlayerScreen({
 
   const [paused, setPaused] = useState(false);
   const [howtoOpen, setHowtoOpen] = useState(false);
+  // v4 set screen: the top-bar camera opens the 3D rig from screen level, so
+  // the media zone no longer carries its own button.
+  const [setVideoOpen, setSetVideoOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
   const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen;
@@ -1052,6 +1036,16 @@ export function GuidedPlayerScreen({
             muted={muted}
             onMute={() => onToggleSoundCues(!soundCuesEnabled)}
             onExit={() => setExitOpen(true)}
+            // v4: on a set the right slot teaches the movement; mute moves down.
+            video={
+              step.type === 'set'
+                ? {
+                    label: t(language, 'guided.a11y.watchHowTo', { name: step.exerciseName }),
+                    onPress: () =>
+                      hasExercise3D(step.exerciseName) ? setSetVideoOpen(true) : setHowtoOpen(true),
+                  }
+                : null
+            }
           />
 
           {step.type === 'splash' && (
@@ -1100,7 +1094,6 @@ export function GuidedPlayerScreen({
                 <View style={{ height: 20 }} />
                 <NameBlock
                   name={step.drillName}
-                  cue={null}
                   hasHowTo={Boolean(libraryFor(step.drillName)?.instructions?.length)}
                   language={language}
                   onHow={() => setHowtoOpen(true)}
@@ -1158,7 +1151,6 @@ export function GuidedPlayerScreen({
                 <View style={{ height: 6 }} />
                 <NameBlock
                   name={step.exerciseName}
-                  cue={buildCueLine(libraryFor(step.exerciseName))}
                   // Exercises with a 3D rig teach the movement inside that sheet.
                   hasHowTo={
                     Boolean(libraryFor(step.exerciseName)?.instructions?.length) && !hasExercise3D(step.exerciseName)
@@ -1192,11 +1184,13 @@ export function GuidedPlayerScreen({
               step={step}
               exercise={exerciseBySlot.get(step.slotId) ?? null}
               library={exerciseLibrary}
-              libraryItem={libraryFor(step.exerciseName)}
               language={language}
+              elapsedSeconds={session.elapsedSeconds}
+              muted={muted}
+              paused={paused}
               resolveTarget={resolveTarget}
-              nextLine={nextPreview?.line ?? null}
-              onHow={() => setHowtoOpen(true)}
+              nextName={getGuidedNextName(steps, stepIndex)}
+              onToggleMute={() => onToggleSoundCues(!soundCuesEnabled)}
               onPause={() => {
                 setPaused(true);
                 setPauseSheetOpen(true);
@@ -1306,6 +1300,16 @@ export function GuidedPlayerScreen({
         />
       )}
 
+      {step.type === 'set' ? (
+        <Exercise3DSheet
+          name={step.exerciseName}
+          muscle={libraryFor(step.exerciseName)?.primaryMuscles?.[0] ?? null}
+          instructions={libraryFor(step.exerciseName)?.instructions ?? undefined}
+          visible={setVideoOpen}
+          onClose={() => setSetVideoOpen(false)}
+        />
+      ) : null}
+
       {howtoOpen && (
         <HowToSheetView
           libraryItem={
@@ -1388,29 +1392,60 @@ function formatRepRangeLabel(set: { plannedRepsMin: number; plannedRepsMax: numb
   return `${set.plannedRepsMin}–${set.plannedRepsMax}`;
 }
 
-function buildCueLine(item: ExerciseLibraryItem | null): string | null {
-  if (!item) {
-    return null;
+/**
+ * Session clock for the set screen's top-right readout: m:ss, growing to
+ * h:mm:ss so a session left running overnight stays readable.
+ */
+function formatSessionClock(totalSeconds: number): string {
+  const safe = Math.max(0, Math.floor(totalSeconds));
+  const seconds = String(safe % 60).padStart(2, '0');
+  const minutes = Math.floor(safe / 60);
+  if (minutes < 60) {
+    return `${minutes}:${seconds}`;
   }
-  const muscle = item.primaryMuscles?.[0];
-  const equipment = item.equipment;
-  const parts = [muscle, equipment && equipment !== 'bodyweight' ? equipment : null]
-    .filter((part): part is string => Boolean(part))
-    .map((part) => part[0].toUpperCase() + part.slice(1));
-  return parts.length ? parts.join(' · ') : null;
+  return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${seconds}`;
 }
 
-/* ── strength set step (owns the reps/kg steppers) ── */
+/**
+ * One number + its unit in the v4 target block: an oversized light italic
+ * figure with a small bold unit riding next to it.
+ */
+function TargetNumber({ value, unit, size, light = true }: { value: string | number; unit: string; size: number; light?: boolean }) {
+  return (
+    <Text
+      style={{
+        fontSize: size,
+        fontWeight: light ? '200' : '700',
+        fontStyle: light ? 'italic' : 'normal',
+        letterSpacing: -size * 0.045,
+        color: HG.ink,
+        lineHeight: size * 1.02,
+        fontVariant: ['tabular-nums'],
+      }}
+    >
+      {value}
+      {unit ? (
+        <Text style={{ fontSize: size * 0.34, fontWeight: '800', fontStyle: 'normal', color: HG.faint, letterSpacing: 0 }}>
+          {unit}
+        </Text>
+      ) : null}
+    </Text>
+  );
+}
+
+/* ── strength set step v4 (owns the reps/kg steppers) ── */
 function SetStepView({
   stepIndex,
   step,
   exercise,
   library,
-  libraryItem,
   language,
+  elapsedSeconds,
+  muted,
+  paused,
   resolveTarget,
-  nextLine,
-  onHow,
+  nextName,
+  onToggleMute,
   onPause,
   onConfirm,
 }: {
@@ -1418,11 +1453,13 @@ function SetStepView({
   step: Extract<GuidedStep, { type: 'set' }>;
   exercise: WorkoutExerciseInstance | null;
   library: ExerciseLibraryItem[];
-  libraryItem: ExerciseLibraryItem | null;
   language: AppLanguage;
+  elapsedSeconds: number;
+  muted: boolean;
+  paused: boolean;
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
-  nextLine: string | null;
-  onHow: () => void;
+  nextName: string | null;
+  onToggleMute: () => void;
   onPause: () => void;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
 }) {
@@ -1440,69 +1477,70 @@ function SetStepView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIndex]);
 
-  const previous =
-    step.setIndex > 0
-      ? exercise?.sets.find((set) => set.setIndex === step.setIndex - 1 && set.status === 'completed') ?? null
-      : null;
-
-  const confirmLabel = bodyweight
-    ? t(language, 'guided.logSetReps', { reps })
-    : t(language, 'guided.logSetWeight', { reps, kg: removeTrailingZeros(kg) });
+  // Reps carry the big figure; weight only appears when the lift is loaded.
+  const repsSize = bodyweight || kg <= 0 ? 98 : 84;
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
       <View style={{ flex: 1, minHeight: 0 }}>
-        <MediaZone name={step.exerciseName} library={library} height={290} mode="set" />
-        <View style={{ height: 14 }} />
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 1.6, color: HG.purple }}>
-            {t(language, 'guided.setOfCount', { index: step.setIndex + 1, count: step.setCount })}
-          </Text>
-          {previous ? (
-            <Text style={{ fontSize: 12, fontWeight: '800', color: HG.green, marginTop: 4 }}>
-              {t(language, 'guided.previousSet', {
-                reps: previous.actualReps ?? 0,
-                kg: removeTrailingZeros(previous.actualLoadKg ?? 0),
-              })}
+        <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" />
+
+        {/* set counter + dots on the left, session clock on the right */}
+        <View style={styles.setMetaRow}>
+          <View style={styles.setMetaLeft}>
+            <Text style={styles.setCounter}>
+              {t(language, 'guided.setOfCount', { index: step.setIndex + 1, count: step.setCount })}
             </Text>
-          ) : null}
-        </View>
-        <View style={{ height: 6 }} />
-        <NameBlock
-          name={step.exerciseName}
-          cue={buildCueLine(libraryItem)}
-          // Exercises with a 3D rig teach the movement inside that sheet.
-          hasHowTo={Boolean(libraryItem?.instructions?.length) && !hasExercise3D(step.exerciseName)}
-          language={language}
-          onHow={onHow}
-        />
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 0, paddingHorizontal: 22 }}>
-          {!edit ? (
-            <>
-              <View style={styles.doRow}>
-                <SpinningClock />
-                <Text style={styles.doLabel}>{t(language, 'guided.do')}</Text>
-              </View>
-              <Pressable onPress={() => setEdit(true)} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
-                <View style={styles.targetUnderline}>
-                  <Text style={styles.targetNumber}>
-                    {reps}
-                    <Text style={{ fontSize: 26, color: HG.muted }}>×</Text>
-                  </Text>
-                </View>
-                {!bodyweight ? (
-                  <View style={styles.targetUnderline}>
-                    <Text style={styles.targetNumber}>
-                      {removeTrailingZeros(kg)}
-                      <Text style={{ fontSize: 22, color: HG.muted }}> kg</Text>
-                    </Text>
+            <View style={styles.setDots}>
+              {Array.from({ length: step.setCount }).map((_, index) => {
+                const done = index < step.setIndex;
+                const current = index === step.setIndex;
+                return (
+                  <View
+                    key={index}
+                    style={[
+                      styles.setDot,
+                      { borderColor: done || current ? HG.purple : HG.faint },
+                      done && { backgroundColor: HG.purple },
+                    ]}
+                  >
+                    {done ? <GPIcon name="check" size={12} color="#FFFFFF" sw={3} /> : null}
                   </View>
-                ) : null}
-              </Pressable>
-            </>
+                );
+              })}
+            </View>
+          </View>
+          <View style={styles.setClock}>
+            <GPIcon name="clock" size={19} color={HG.muted} sw={2} />
+            <Text style={styles.setClockText}>{formatSessionClock(elapsedSeconds)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.setNameRow}>
+          <Text style={styles.setName} numberOfLines={2}>
+            {step.exerciseName}
+          </Text>
+        </View>
+
+        <View style={styles.setTargetArea}>
+          {!edit ? (
+            <Pressable onPress={() => setEdit(true)} style={styles.setTargetStack}>
+              <View style={styles.setTargetRow}>
+                <TargetNumber value={step.setIndex + 1} unit="" size={42} light={false} />
+                <Text style={styles.setTargetLabel}>{t(language, 'guided.numLabel.set')}</Text>
+                <TargetNumber value={reps} unit="×" size={repsSize} />
+                <Text style={styles.setTargetLabel}>{t(language, 'guided.reps')}</Text>
+              </View>
+              {!bodyweight && kg > 0 ? (
+                <View style={styles.setTargetRow}>
+                  <TargetNumber value={removeTrailingZeros(kg)} unit="kg" size={58} />
+                  <Text style={styles.setTargetLabel}>{t(language, 'guided.weight')}</Text>
+                </View>
+              ) : null}
+            </Pressable>
           ) : (
             <View style={{ alignSelf: 'stretch', gap: 16 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 10 }}>
                 <Stepper label={t(language, 'guided.reps')} value={reps} step={1} min={1} onChange={setReps} />
                 {!bodyweight ? (
                   <Stepper label={t(language, 'guided.weight')} value={kg} unit="kg" step={2.5} min={0} onChange={setKg} />
@@ -1514,18 +1552,39 @@ function SetStepView({
             </View>
           )}
         </View>
-        <View style={{ paddingHorizontal: 22, paddingBottom: 10, gap: 9 }}>
-          <BigBtn label={confirmLabel} onPress={() => onConfirm(step.slotId, step.setIndex, reps, bodyweight ? null : kg)} />
-          {!edit ? (
-            <Text style={{ textAlign: 'center', fontSize: 12.5, fontWeight: '700', color: HG.faint }}>
-              {t(language, 'guided.tapNumbers')}
-            </Text>
-          ) : null}
+
+        <View style={{ paddingHorizontal: 22 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'guided.logSet')}
+            onPress={() => onConfirm(step.slotId, step.setIndex, reps, bodyweight ? null : kg)}
+            style={({ pressed }) => [styles.setLogButton, pressed && { opacity: 0.9 }]}
+          >
+            <Text style={styles.setLogButtonText}>{t(language, 'guided.logSet')}</Text>
+          </Pressable>
         </View>
-        <View style={{ alignItems: 'center', paddingBottom: 8 }}>
-          <CtrlBtn icon="pause" label={t(language, 'guided.pause')} onPress={onPause} />
+
+        {/* pause + mute sit together under the CTA (v4) */}
+        <View style={styles.setControls}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, paused ? 'guided.resume' : 'guided.pause')}
+            onPress={onPause}
+            style={styles.setRoundBtn}
+          >
+            <GPIcon name={paused ? 'play' : 'pause'} size={24} color={HG.ink} sw={2.2} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'guided.a11y.sound')}
+            onPress={onToggleMute}
+            style={styles.setRoundBtn}
+          >
+            <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? HG.faint : HG.ink} sw={2.2} />
+          </Pressable>
         </View>
-        <NextLine text={nextLine} dark={false} language={language} />
+
+        <NextLine text={nextName} dark={false} language={language} />
       </View>
     </StepIn>
   );
@@ -1853,16 +1912,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   mediaInitials: { fontSize: 118, fontWeight: '800', letterSpacing: -5, color: 'rgba(124,58,237,0.22)' },
-  muscleChip: {
-    position: 'absolute',
-    left: 16,
-    bottom: 14,
-    backgroundColor: 'rgba(255,255,255,0.75)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-  },
-  muscleChipText: { fontSize: 11, fontWeight: '800', letterSpacing: 1.3, color: HG.purpleDark },
   // Top-right affordance that opens the animated 3D how-to for this exercise.
   media3dButton: {
     position: 'absolute',
@@ -1894,7 +1943,6 @@ const styles = StyleSheet.create({
   /* drill / set */
   exerciseName: { fontSize: 27, fontWeight: '800', letterSpacing: -0.5, color: HG.ink, lineHeight: 31, textAlign: 'center' },
   cueRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginTop: 7, maxWidth: '100%' },
-  cueText: { fontSize: 14, fontWeight: '600', color: HG.muted, flexShrink: 1 },
   howToLink: { fontSize: 13, fontWeight: '800', color: HG.purple },
   drillCountdown: { fontSize: 104, fontWeight: '800', letterSpacing: -4, lineHeight: 110, fontVariant: ['tabular-nums'] },
   ctrlCircle: {
@@ -1910,10 +1958,62 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
-  doRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  doLabel: { fontSize: 14, fontWeight: '800', letterSpacing: 2.2, color: HG.muted },
-  targetUnderline: { borderBottomWidth: 3, borderStyle: 'dashed', borderColor: '#E4DBF5', paddingBottom: 4 },
-  targetNumber: { fontSize: 64, fontWeight: '800', letterSpacing: -2.5, color: HG.ink, lineHeight: 70, fontVariant: ['tabular-nums'] },
+  /* set screen v4 */
+  setMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 18,
+    paddingHorizontal: 24,
+  },
+  setMetaLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  setCounter: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, color: HG.purple, fontVariant: ['tabular-nums'] },
+  setDots: { flexDirection: 'row', gap: 5 },
+  setDot: {
+    width: 19,
+    height: 19,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setClock: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  setClockText: { fontSize: 19, fontWeight: '800', color: HG.muted, letterSpacing: -0.2, fontVariant: ['tabular-nums'] },
+  setNameRow: { paddingTop: 6, paddingHorizontal: 24 },
+  setName: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: HG.ink, lineHeight: 24 },
+  setTargetArea: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
+  setTargetStack: { alignItems: 'center', gap: 4, maxWidth: '100%' },
+  setTargetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  setTargetLabel: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: HG.ink, lineHeight: 23 },
+  setLogButton: {
+    height: 64,
+    borderRadius: 20,
+    backgroundColor: HG.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: HG.purple,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.32,
+    shadowRadius: 26,
+    elevation: 10,
+  },
+  setLogButtonText: { fontSize: 19, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.19 },
+  setControls: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingTop: 16, paddingBottom: 4 },
+  setRoundBtn: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: HG.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#28185A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 2,
+  },
   positionTarget: { fontSize: 44, fontWeight: '800', letterSpacing: -1.3, color: HG.ink, fontVariant: ['tabular-nums'] },
   bigBtn: {
     height: 60,
