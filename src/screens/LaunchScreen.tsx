@@ -1,18 +1,47 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
 import { HG } from '../lightTheme';
 
+/**
+ * The first frame the app owns: the GAINER wordmark alone on the light
+ * background, breathing in while storage hydrates. Deliberately nothing else —
+ * the system splash before this one is only a colour, so the wordmark should
+ * feel like it fades up onto that same surface.
+ */
 export function LaunchScreen() {
+  const enter = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(enter, {
+      toValue: 1,
+      duration: 620,
+      easing: Easing.bezier(0.22, 1, 0.36, 1),
+      useNativeDriver: true,
+    }).start();
+  }, [enter]);
+
   return (
     <View style={styles.screen}>
-      <View pointerEvents="none" style={styles.backgroundLogo}>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.backgroundLogo,
+          {
+            opacity: enter,
+            transform: [
+              { translateY: -48 },
+              { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
+            ],
+          },
+        ]}
+      >
         <Text style={styles.gainerText}>
           <Text style={styles.gainerTextInk}>G</Text>
           <Text style={styles.gainerTextPurple}>AI</Text>
           <Text style={styles.gainerTextInk}>NER</Text>
         </Text>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -28,7 +57,6 @@ const styles = StyleSheet.create({
     right: 0,
     top: '50%',
     alignItems: 'center',
-    transform: [{ translateY: -48 }],
   },
   gainerText: {
     fontSize: 74,

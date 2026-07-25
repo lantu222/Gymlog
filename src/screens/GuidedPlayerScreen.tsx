@@ -11,6 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Animated,
+  AppState,
   BackHandler,
   Easing,
   Image,
@@ -725,7 +726,14 @@ export function GuidedPlayerScreen({
   /* ── timers ── */
   const [remainingMs, setRemainingMs] = useState(0);
   const remainingRef = useRef(0);
-  const lastTickRef = useRef(0);
+  /**
+   * Wall-clock deadline for the running step. Android throttles (and with the
+   * screen off, stops) JS timers in the background, so the remaining time is
+   * derived from the clock instead of accumulated ticks — a rest keeps running
+   * while the phone is pocketed and is correct the moment we come back.
+   * Null while paused or on an untimed step.
+   */
+  const endsAtRef = useRef<number | null>(null);
   const firedRef = useRef(false);
   const lastBeepSecondRef = useRef<number | null>(null);
 
@@ -796,6 +804,16 @@ export function GuidedPlayerScreen({
     [steps, workout, cue],
   );
 
+  /** ±15s / +10s: shift both the leftover time and the wall-clock deadline. */
+  const adjustRemaining = useCallback((deltaMs: number, floorMs = 0) => {
+    const next = Math.max(floorMs, remainingRef.current + deltaMs);
+    remainingRef.current = next;
+    if (endsAtRef.current !== null) {
+      endsAtRef.current = Date.now() + next;
+    }
+    setRemainingMs(next);
+  }, []);
+
   const goToRef = useRef(goTo);
   goToRef.current = goTo;
   const advance = useCallback(() => {
@@ -806,20 +824,25 @@ export function GuidedPlayerScreen({
 
   useEffect(() => {
     if (mode !== 'player' || frozen) {
+      // Pausing freezes the leftover time; the deadline is re-derived on resume.
+      endsAtRef.current = null;
       return;
     }
     const timed = step.type === 'ready' || step.type === 'drill' || step.type === 'rest' || step.type === 'position' || step.type === 'splash';
     if (!timed) {
+      endsAtRef.current = null;
       return;
     }
 
-    lastTickRef.current = Date.now();
-    const interval = setInterval(() => {
-      const now = Date.now();
-      const delta = now - lastTickRef.current;
-      lastTickRef.current = now;
+    endsAtRef.current = Date.now() + Math.max(0, remainingRef.current);
+
+    const settle = () => {
+      const endsAt = endsAtRef.current;
+      if (endsAt === null) {
+        return;
+      }
       const previous = remainingRef.current;
-      const next = previous - delta;
+      const next = endsAt - Date.now();
       remainingRef.current = next;
 
       // 3·2·1 ticks on drills/rests/ready.
@@ -836,8 +859,10 @@ export function GuidedPlayerScreen({
         if (!firedRef.current) {
           firedRef.current = true;
           clearInterval(interval);
-          // Rest running out is the one transition the user may not be looking at.
-          if (step.type === 'rest') {
+          // Rest running out is the one transition the user may not be looking
+          // at — but a cue fired minutes late (we were backgrounded when it
+          // expired) is noise, so only sound it if we caught the moment.
+          if (step.type === 'rest' && next > -1500) {
             cue('rest');
           }
           advanceRef.current();
@@ -845,9 +870,21 @@ export function GuidedPlayerScreen({
         return;
       }
       setRemainingMs(next);
-    }, 100);
+    };
 
-    return () => clearInterval(interval);
+    const interval = setInterval(settle, 100);
+    // Coming back from background: reconcile with the clock immediately rather
+    // than waiting for the next tick.
+    const appStateSub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        settle();
+      }
+    });
+
+    return () => {
+      clearInterval(interval);
+      appStateSub.remove();
+    };
   }, [mode, frozen, stepIndex, step.type, cue]);
 
   /* ── hardware back: exit sheet in player, plain leave on entry ── */
@@ -1171,10 +1208,7 @@ export function GuidedPlayerScreen({
                   <CtrlBtn
                     icon="plus"
                     label="+10s"
-                    onPress={() => {
-                      remainingRef.current += 10000;
-                      setRemainingMs(remainingRef.current);
-                    }}
+                    onPress={() => adjustRemaining(10000)}
                   />
                   <CtrlBtn
                     icon={paused ? 'play' : 'pause'}
@@ -1272,22 +1306,10 @@ export function GuidedPlayerScreen({
                 <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn
-                        label="−15s"
-                        onPress={() => {
-                          remainingRef.current = Math.max(1000, remainingRef.current - 15000);
-                          setRemainingMs(remainingRef.current);
-                        }}
-                      />
+                      <GhostBtn label="−15s" onPress={() => adjustRemaining(-15000, 1000)} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn
-                        label="+15s"
-                        onPress={() => {
-                          remainingRef.current += 15000;
-                          setRemainingMs(remainingRef.current);
-                        }}
-                      />
+                      <GhostBtn label="+15s" onPress={() => adjustRemaining(15000)} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <GhostBtn
@@ -2094,14 +2116,14 @@ const styles = StyleSheet.create({
   stepperBtnText: { fontSize: 20, fontWeight: '800', color: HG.purple },
 
   /* rest (light theme like every other in-workout screen) */
-  // Inside the ring the number carries the accent and the label stays ink —
-  // the reverse of the pre-ring layout, where purple marked the small label.
+  // The ring itself carries the purple; label and figure stay ink so the
+  // countdown reads like every other number in the player.
   restRingLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: HG.ink },
   restCountdown: {
     fontSize: 76,
     fontWeight: '800',
     letterSpacing: -2.9,
-    color: HG.purple,
+    color: HG.ink,
     lineHeight: 80,
     fontVariant: ['tabular-nums'],
   },
