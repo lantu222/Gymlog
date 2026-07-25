@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { getAgeFromDateOfBirth, getHealthProviderLabel, HealthBasics } from '../integrations/health';
+import { t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
 const BG = '#F7F3FF';
@@ -23,6 +25,7 @@ const ROW_STAGGER_MS = 90;
 
 interface HealthSyncedScreenProps {
   basics: HealthBasics;
+  language?: AppLanguage;
   onContinue: () => void;
   onBack: () => void;
 }
@@ -31,7 +34,7 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 
 const PLACEHOLDER_WIDTHS = [64, 52, 46, 110];
 
-function formatDateOfBirth(dateOfBirth: string | null) {
+function formatDateOfBirth(dateOfBirth: string | null, language: AppLanguage) {
   if (!dateOfBirth) {
     return null;
   }
@@ -40,16 +43,19 @@ function formatDateOfBirth(dateOfBirth: string | null) {
     return null;
   }
   const age = getAgeFromDateOfBirth(dateOfBirth);
-  const formatted = `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
+  const formatted =
+    language === 'fi'
+      ? `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`
+      : `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
   return age === null ? formatted : `${formatted} (${age})`;
 }
 
-function formatSex(sex: HealthBasics['sex']) {
+function formatSex(sex: HealthBasics['sex'], language: AppLanguage) {
   if (sex === 'male') {
-    return 'Male';
+    return t(language, 'aboutYou.gender.male');
   }
   if (sex === 'female') {
-    return 'Female';
+    return t(language, 'aboutYou.gender.female');
   }
   return null;
 }
@@ -70,7 +76,7 @@ function SpinnerArc() {
   );
 }
 
-export function HealthSyncedScreen({ basics, onContinue, onBack }: HealthSyncedScreenProps) {
+export function HealthSyncedScreen({ basics, language = 'en', onContinue, onBack }: HealthSyncedScreenProps) {
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -78,18 +84,18 @@ export function HealthSyncedScreen({ basics, onContinue, onBack }: HealthSyncedS
 
   const rows: Array<{ label: string; value: string }> = [];
   if (typeof basics.weightKg === 'number' && Number.isFinite(basics.weightKg)) {
-    rows.push({ label: 'Weight', value: `${basics.weightKg} kg` });
+    rows.push({ label: t(language, 'health.synced.row.weight'), value: `${basics.weightKg} kg` });
   }
   if (typeof basics.heightCm === 'number' && Number.isFinite(basics.heightCm)) {
-    rows.push({ label: 'Height', value: `${basics.heightCm} cm` });
+    rows.push({ label: t(language, 'health.synced.row.height'), value: `${basics.heightCm} cm` });
   }
-  const sexValue = formatSex(basics.sex);
+  const sexValue = formatSex(basics.sex, language);
   if (sexValue) {
-    rows.push({ label: 'Sex', value: sexValue });
+    rows.push({ label: t(language, 'health.synced.row.sex'), value: sexValue });
   }
-  const dobValue = formatDateOfBirth(basics.dateOfBirth);
+  const dobValue = formatDateOfBirth(basics.dateOfBirth, language);
   if (dobValue) {
-    rows.push({ label: 'Date of birth', value: dobValue });
+    rows.push({ label: t(language, 'health.synced.row.dob'), value: dobValue });
   }
 
   const [revealed, setRevealed] = useState(false);
@@ -183,15 +189,17 @@ export function HealthSyncedScreen({ basics, onContinue, onBack }: HealthSyncedS
 
         <Animated.View style={{ opacity: textFade }}>
           <Text style={[styles.title, { fontFamily }]}>
-            {revealed ? `Synced with ${providerLabel}` : `Syncing with ${providerLabel}…`}
+            {t(language, revealed ? 'health.synced.titleDone' : 'health.synced.titleBusy', { provider: providerLabel })}
           </Text>
           <Text style={[styles.subtitle, { fontFamily }]}>
-            {revealed ? "We've pre-filled your details." : 'Fetching your details securely…'}
+            {t(language, revealed ? 'health.synced.subDone' : 'health.synced.subBusy')}
           </Text>
         </Animated.View>
 
         <Text style={[styles.importedLabel, { fontFamily }]}>
-          {`${revealed ? 'IMPORTED' : 'IMPORTING'} FROM ${providerLabel.toUpperCase()}`}
+          {t(language, revealed ? 'health.synced.importedFrom' : 'health.synced.importingFrom', {
+            provider: providerLabel.toUpperCase(),
+          })}
         </Text>
         <View style={styles.card}>
           {rows.map((row, index) => {
@@ -232,28 +240,26 @@ export function HealthSyncedScreen({ basics, onContinue, onBack }: HealthSyncedS
         </View>
 
         <Animated.View style={{ opacity: footerFade }} pointerEvents="none">
-          <Text style={[styles.editNote, { fontFamily }]}>
-            Something off? You can edit all of these on the next screen.
-          </Text>
+          <Text style={[styles.editNote, { fontFamily }]}>{t(language, 'health.synced.editNote')}</Text>
         </Animated.View>
       </View>
 
       <Animated.View style={[styles.footer, { opacity: footerFade }]} pointerEvents={revealed ? 'auto' : 'none'}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Continue"
+          accessibilityLabel={t(language, 'common.continue')}
           onPress={onContinue}
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
-          <Text style={[styles.ctaLabel, { fontFamily }]}>Continue</Text>
+          <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'common.continue')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
         >
-          <Text style={[styles.backText, { fontFamily }]}>Back</Text>
+          <Text style={[styles.backText, { fontFamily }]}>{t(language, 'common.back')}</Text>
         </Pressable>
       </Animated.View>
     </View>

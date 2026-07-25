@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { getHealthProviderLabel, HealthBasics, requestHealthBasics } from '../integrations/health';
+import { t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
 const BG = '#F7F3FF';
@@ -16,6 +18,7 @@ const PURPLE = '#7C3AED';
 const HEALTH_RED = '#FF2D55';
 
 interface HealthConnectScreenProps {
+  language?: AppLanguage;
   onConnected: (basics: HealthBasics) => void;
   onSkip: () => void;
 }
@@ -112,7 +115,7 @@ function Bullet({ title, body, fontFamily }: { title: string; body: string; font
   );
 }
 
-export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreenProps) {
+export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: HealthConnectScreenProps) {
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -134,8 +137,8 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
       }
       setErrorNote(
         result.status === 'denied'
-          ? `Permission was denied. You can enter your details manually instead.`
-          : `${providerLabel} isn't available on this device. You can enter your details manually instead.`,
+          ? t(language, 'health.link.denied')
+          : t(language, 'health.link.unavailable', { provider: providerLabel }),
       );
     } finally {
       setBusy(false);
@@ -159,20 +162,18 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
           </View>
         </View>
 
-        <Text style={[styles.title, { fontFamily }]}>{`Link ${providerLabel}`}</Text>
-        <Text style={[styles.subtitle, { fontFamily }]}>
-          Sync your details so we can build your plan faster — no manual typing.
-        </Text>
+        <Text style={[styles.title, { fontFamily }]}>{t(language, 'health.link.title', { provider: providerLabel })}</Text>
+        <Text style={[styles.subtitle, { fontFamily }]}>{t(language, 'health.link.sub')}</Text>
 
         <View style={styles.bullets}>
           <Bullet
-            title="We pre-fill what we know"
-            body="Weight, height, age and sex flow straight into your setup."
+            title={t(language, 'health.link.prefill.title')}
+            body={t(language, 'health.link.prefill.body')}
             fontFamily={fontFamily}
           />
           <Bullet
-            title="Private by design"
-            body="Your health data stays on your device — we only read the basics."
+            title={t(language, 'health.link.private.title')}
+            body={t(language, 'health.link.private.body')}
             fontFamily={fontFamily}
           />
         </View>
@@ -183,24 +184,26 @@ export function HealthConnectScreen({ onConnected, onSkip }: HealthConnectScreen
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Link ${providerLabel}`}
+          accessibilityLabel={t(language, 'health.link.title', { provider: providerLabel })}
           onPress={() => void handleConnect()}
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
           {busy ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
-            <Text style={[styles.ctaLabel, { fontFamily }]}>{`Link ${providerLabel}`}</Text>
+            <Text style={[styles.ctaLabel, { fontFamily }]}>
+              {t(language, 'health.link.title', { provider: providerLabel })}
+            </Text>
           )}
         </Pressable>
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Maybe later"
+          accessibilityLabel={t(language, 'health.link.skip')}
           onPress={onSkip}
           style={({ pressed }) => [styles.skipLink, pressed && { opacity: 0.7 }]}
         >
-          <Text style={[styles.skipText, { fontFamily }]}>Maybe later</Text>
+          <Text style={[styles.skipText, { fontFamily }]}>{t(language, 'health.link.skip')}</Text>
         </Pressable>
       </View>
     </View>

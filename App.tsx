@@ -2772,6 +2772,7 @@ function GymlogApp() {
     } else if (onboardingStep === 'path') {
       content = (
         <StartPathScreen
+          language={preferences.appLanguage}
           onGuidedOnboarding={() => {
             setOnboardingPath('build');
             setOnboardingStep('health_connect');
@@ -2788,6 +2789,7 @@ function GymlogApp() {
     } else if (onboardingStep === 'health_connect' || (onboardingStep === 'health_synced' && !onboardingHealthBasics)) {
       content = (
         <HealthConnectScreen
+          language={preferences.appLanguage}
           onConnected={(basics) => {
             setOnboardingHealthBasics(basics);
             setOnboardingStep('health_synced');
@@ -2802,6 +2804,7 @@ function GymlogApp() {
       content = (
         <HealthSyncedScreen
           basics={onboardingHealthBasics}
+          language={preferences.appLanguage}
           onContinue={() => setOnboardingStep('about')}
           onBack={() => setOnboardingStep('health_connect')}
         />
@@ -2811,6 +2814,7 @@ function GymlogApp() {
       content = (
         <AboutYouScreen
           healthConnected={onboardingHealthBasics !== null}
+          language={preferences.appLanguage}
           initialValues={
             aboutYouValues ??
             (onboardingHealthBasics

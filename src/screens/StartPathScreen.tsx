@@ -4,6 +4,9 @@ import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
+
 // Light design tokens (HG palette, same as WelcomeScreen).
 const BG = '#F7F3FF';
 const SURFACE = '#FFFFFF';
@@ -17,6 +20,7 @@ const PURPLE_SOFT = '#EEE7FC';
 type StartPath = 'build' | 'ready';
 
 interface StartPathScreenProps {
+  language?: AppLanguage;
   onGuidedOnboarding: () => void;
   onBrowsePrograms: () => void;
   onBack: () => void;
@@ -62,14 +66,14 @@ interface PathCardProps {
   icon: 'sparkle' | 'grid';
   title: string;
   body: string;
-  recommended?: boolean;
+  recommendedLabel?: string | null;
   selected: boolean;
   fontFamily?: string;
   accessibilityLabel: string;
   onPress: () => void;
 }
 
-function PathCard({ icon, title, body, recommended, selected, fontFamily, accessibilityLabel, onPress }: PathCardProps) {
+function PathCard({ icon, title, body, recommendedLabel, selected, fontFamily, accessibilityLabel, onPress }: PathCardProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -84,12 +88,12 @@ function PathCard({ icon, title, body, recommended, selected, fontFamily, access
       <View style={styles.cardCopy}>
         <View style={styles.cardTitleRow}>
           <Text style={[styles.cardTitle, selected && styles.cardTitleSelected, { fontFamily }]}>{title}</Text>
-          {recommended ? (
+          {recommendedLabel ? (
             <View style={[styles.recommendedPill, selected && styles.recommendedPillSelected]}>
               <Text
                 style={[styles.recommendedPillText, selected && styles.recommendedPillTextSelected, { fontFamily }]}
               >
-                RECOMMENDED
+                {recommendedLabel}
               </Text>
             </View>
           ) : null}
@@ -101,7 +105,12 @@ function PathCard({ icon, title, body, recommended, selected, fontFamily, access
   );
 }
 
-export function StartPathScreen({ onGuidedOnboarding, onBrowsePrograms, onBack }: StartPathScreenProps) {
+export function StartPathScreen({
+  language = 'en',
+  onGuidedOnboarding,
+  onBrowsePrograms,
+  onBack,
+}: StartPathScreenProps) {
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -109,27 +118,27 @@ export function StartPathScreen({ onGuidedOnboarding, onBrowsePrograms, onBack }
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 14 }]}>
-      <Text style={[styles.heading, { fontFamily }]}>How do you want to start?</Text>
-      <Text style={[styles.subheading, { fontFamily }]}>You can always change your mind later.</Text>
+      <Text style={[styles.heading, { fontFamily }]}>{t(language, 'startPath.heading')}</Text>
+      <Text style={[styles.subheading, { fontFamily }]}>{t(language, 'startPath.sub')}</Text>
 
       <View style={styles.cardStack}>
         <PathCard
           icon="sparkle"
-          title="Build my plan"
-          body="Answer a few quick questions and get a program that fits your goal and week."
-          recommended
+          title={t(language, 'startPath.build.title')}
+          body={t(language, 'startPath.build.body')}
+          recommendedLabel={t(language, 'common.recommended')}
           selected={selected === 'build'}
           fontFamily={fontFamily}
-          accessibilityLabel="Build my plan, recommended: answer a few quick questions and get a program"
+          accessibilityLabel={t(language, 'startPath.build.a11y')}
           onPress={() => setSelected('build')}
         />
         <PathCard
           icon="grid"
-          title="Pick a ready program"
-          body="Browse the catalog and choose the program you want yourself."
+          title={t(language, 'startPath.ready.title')}
+          body={t(language, 'startPath.ready.body')}
           selected={selected === 'ready'}
           fontFamily={fontFamily}
-          accessibilityLabel="Pick a ready program yourself from the catalog"
+          accessibilityLabel={t(language, 'startPath.ready.a11y')}
           onPress={() => setSelected('ready')}
         />
       </View>
@@ -137,7 +146,7 @@ export function StartPathScreen({ onGuidedOnboarding, onBrowsePrograms, onBack }
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Continue"
+          accessibilityLabel={t(language, 'common.continue')}
           onPress={() => {
             if (selected === 'build') {
               onGuidedOnboarding();
@@ -147,15 +156,15 @@ export function StartPathScreen({ onGuidedOnboarding, onBrowsePrograms, onBack }
           }}
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
-          <Text style={[styles.ctaLabel, { fontFamily }]}>Continue</Text>
+          <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'common.continue')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
         >
-          <Text style={[styles.backText, { fontFamily }]}>Back</Text>
+          <Text style={[styles.backText, { fontFamily }]}>{t(language, 'common.back')}</Text>
         </Pressable>
       </View>
     </View>

@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { getHealthProviderLabel } from '../integrations/health';
+import { t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
 const BG = '#F7F3FF';
@@ -28,6 +30,7 @@ export interface AboutYouValues {
 
 interface AboutYouScreenProps {
   healthConnected: boolean;
+  language?: AppLanguage;
   initialValues?: Partial<AboutYouValues> | null;
   onContinue: (values: AboutYouValues) => void;
   onBack: () => void;
@@ -102,7 +105,13 @@ function Stepper({
   );
 }
 
-export function AboutYouScreen({ healthConnected, initialValues, onContinue, onBack }: AboutYouScreenProps) {
+export function AboutYouScreen({
+  healthConnected,
+  language = 'en',
+  initialValues,
+  onContinue,
+  onBack,
+}: AboutYouScreenProps) {
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -136,10 +145,8 @@ export function AboutYouScreen({ healthConnected, initialValues, onContinue, onB
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.title, { fontFamily }]}>{"Let's start with you"}</Text>
-        <Text style={[styles.subtitle, { fontFamily }]}>
-          Add your details so we can tailor your plan. You can change everything later.
-        </Text>
+        <Text style={[styles.title, { fontFamily }]}>{t(language, 'aboutYou.title')}</Text>
+        <Text style={[styles.subtitle, { fontFamily }]}>{t(language, 'aboutYou.sub')}</Text>
 
         <View style={styles.identityCard}>
           <View style={styles.profileTopRow}>
@@ -149,10 +156,10 @@ export function AboutYouScreen({ healthConnected, initialValues, onContinue, onB
               </Text>
             </View>
             <View style={styles.profileStatsRow}>
-              {['workouts', 'PRs', 'kg lifted'].map((label) => (
-                <View key={label} style={styles.profileStat}>
+              {(['aboutYou.stat.workouts', 'aboutYou.stat.prs', 'aboutYou.stat.lifted'] as const).map((key) => (
+                <View key={key} style={styles.profileStat}>
                   <Text style={[styles.profileStatValue, { fontFamily }]}>0</Text>
-                  <Text style={[styles.profileStatLabel, { fontFamily }]}>{label}</Text>
+                  <Text style={[styles.profileStatLabel, { fontFamily }]}>{t(language, key)}</Text>
                 </View>
               ))}
             </View>
@@ -162,24 +169,24 @@ export function AboutYouScreen({ healthConnected, initialValues, onContinue, onB
             style={[styles.profileName, !hasName && styles.profileNamePlaceholder, { fontFamily }]}
             numberOfLines={1}
           >
-            {name.trim() || 'Your name'}
+            {name.trim() || t(language, 'aboutYou.namePlaceholder')}
           </Text>
-          <Text style={[styles.profileHint, { fontFamily }]}>Fresh profile — your stats start today.</Text>
+          <Text style={[styles.profileHint, { fontFamily }]}>{t(language, 'aboutYou.freshProfile')}</Text>
 
           <View style={styles.cardDivider} />
 
           <View>
-            <Text style={[styles.fieldLabel, { fontFamily }]}>YOUR NAME</Text>
+            <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.name')}</Text>
             <TextInput
               value={name}
               onChangeText={setName}
-              placeholder="Your name"
+              placeholder={t(language, 'aboutYou.namePlaceholder')}
               placeholderTextColor={FAINT}
               maxLength={32}
               autoCapitalize="words"
               autoCorrect={false}
               style={[styles.nameInput, { fontFamily }]}
-              accessibilityLabel="Your name"
+              accessibilityLabel={t(language, 'aboutYou.namePlaceholder')}
             />
           </View>
         </View>
@@ -190,22 +197,23 @@ export function AboutYouScreen({ healthConnected, initialValues, onContinue, onB
               <CheckGlyph />
             </View>
             <Text style={[styles.healthBannerText, { fontFamily }]}>
-              {`We got these from ${providerLabel} — check they're correct.`}
+              {t(language, 'aboutYou.healthImport', { provider: providerLabel })}
             </Text>
           </View>
         ) : null}
 
         <View style={styles.fieldCard}>
-          <Text style={[styles.fieldLabel, { fontFamily }]}>GENDER</Text>
+          <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.gender')}</Text>
           <View style={styles.genderRow}>
             {(['male', 'female'] as const).map((option) => {
               const selected = gender === option;
+              const label = t(language, option === 'male' ? 'aboutYou.gender.male' : 'aboutYou.gender.female');
               return (
                 <Pressable
                   key={option}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  accessibilityLabel={option === 'male' ? 'Male' : 'Female'}
+                  accessibilityLabel={label}
                   onPress={() => setGender(option)}
                   style={({ pressed }) => [
                     styles.genderTile,
@@ -214,7 +222,7 @@ export function AboutYouScreen({ healthConnected, initialValues, onContinue, onB
                   ]}
                 >
                   <Text style={[styles.genderTileText, selected && styles.genderTileTextSelected, { fontFamily }]}>
-                    {option === 'male' ? 'Male' : 'Female'}
+                    {label}
                   </Text>
                 </Pressable>
               );
@@ -223,63 +231,63 @@ export function AboutYouScreen({ healthConnected, initialValues, onContinue, onB
         </View>
 
         <View style={styles.fieldCard}>
-          <Text style={[styles.fieldLabel, { fontFamily }]}>AGE</Text>
+          <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.age')}</Text>
           <Stepper
             value={age}
-            unit="years"
+            unit={t(language, 'aboutYou.unit.years')}
             fontFamily={fontFamily}
-            decrementLabel="Decrease age"
-            incrementLabel="Increase age"
+            decrementLabel={t(language, 'aboutYou.a11y.decreaseAge')}
+            incrementLabel={t(language, 'aboutYou.a11y.increaseAge')}
             onDecrement={() => setAge((current) => clamp(current - 1, AGE_LIMITS))}
             onIncrement={() => setAge((current) => clamp(current + 1, AGE_LIMITS))}
           />
         </View>
 
         <View style={styles.fieldCard}>
-          <Text style={[styles.fieldLabel, { fontFamily }]}>HEIGHT</Text>
+          <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.height')}</Text>
           <Stepper
             value={heightCm}
             unit="cm"
             fontFamily={fontFamily}
-            decrementLabel="Decrease height"
-            incrementLabel="Increase height"
+            decrementLabel={t(language, 'aboutYou.a11y.decreaseHeight')}
+            incrementLabel={t(language, 'aboutYou.a11y.increaseHeight')}
             onDecrement={() => setHeightCm((current) => clamp(current - 1, HEIGHT_LIMITS))}
             onIncrement={() => setHeightCm((current) => clamp(current + 1, HEIGHT_LIMITS))}
           />
         </View>
 
         <View style={styles.fieldCard}>
-          <Text style={[styles.fieldLabel, { fontFamily }]}>WEIGHT</Text>
+          <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.weight')}</Text>
           <Stepper
             value={weightKg}
             unit="kg"
             fontFamily={fontFamily}
-            decrementLabel="Decrease weight"
-            incrementLabel="Increase weight"
+            decrementLabel={t(language, 'aboutYou.a11y.decreaseWeight')}
+            incrementLabel={t(language, 'aboutYou.a11y.increaseWeight')}
             onDecrement={() => setWeightKg((current) => clamp(current - 1, WEIGHT_LIMITS))}
             onIncrement={() => setWeightKg((current) => clamp(current + 1, WEIGHT_LIMITS))}
           />
         </View>
 
-        <Text style={[styles.footNote, { fontFamily }]}>You can update these later in your profile.</Text>
+        <Text style={[styles.footNote, { fontFamily }]}>{t(language, 'aboutYou.footNote')}</Text>
       </ScrollView>
 
       <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Continue"
+          accessibilityLabel={t(language, 'common.continue')}
           onPress={handleContinue}
           style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
         >
-          <Text style={[styles.ctaLabel, { fontFamily }]}>Continue</Text>
+          <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'common.continue')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
         >
-          <Text style={[styles.backText, { fontFamily }]}>Back</Text>
+          <Text style={[styles.backText, { fontFamily }]}>{t(language, 'common.back')}</Text>
         </Pressable>
       </View>
     </View>
