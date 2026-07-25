@@ -298,6 +298,62 @@ function MediaZone({
   );
 }
 
+/**
+ * Rest countdown drawn as a draining ring. `plannedSeconds` sets the full
+ * circle; ±15s can push the remaining time past it, so the ring grows to the
+ * largest value it has seen for this rest instead of overflowing.
+ */
+function RestRing({
+  stepKey,
+  leftSeconds,
+  plannedSeconds,
+  size = 244,
+  children,
+}: {
+  stepKey: number;
+  leftSeconds: number;
+  plannedSeconds: number;
+  size?: number;
+  children: React.ReactNode;
+}) {
+  const [total, setTotal] = useState(Math.max(1, plannedSeconds));
+
+  useEffect(() => {
+    setTotal(Math.max(1, plannedSeconds));
+  }, [stepKey, plannedSeconds]);
+
+  useEffect(() => {
+    setTotal((current) => (leftSeconds > current ? leftSeconds : current));
+  }, [leftSeconds]);
+
+  const strokeWidth = 10;
+  const radius = (size - strokeWidth * 1.6) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const fraction = Math.max(0, Math.min(1, leftSeconds / total));
+
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
+        <Circle cx={size / 2} cy={size / 2} r={radius} stroke="#E9E1FA" strokeWidth={strokeWidth} fill="none" />
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={HG.purple}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={circumference * (1 - fraction)}
+          // Start the arc at 12 o'clock and drain clockwise.
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
+      {children}
+    </View>
+  );
+}
+
 /* ── shared small components ── */
 function TopBar({
   dark,
@@ -1202,31 +1258,18 @@ export function GuidedPlayerScreen({
           {step.type === 'rest' && (
             <StepIn stepKey={`rest-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
-                <View style={{ flex: 1.1, alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: HG.purple }}>
-                    {t(language, 'guided.rest')}
-                  </Text>
-                  <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
-                  {paused ? (
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: HG.muted, letterSpacing: 1.6 }}>
-                      {t(language, 'guided.paused')}
-                    </Text>
-                  ) : null}
-                </View>
-                <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 12 }}>
-                  {nextPreview ? (
-                    <View style={styles.restNextCard}>
-                      <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: HG.faint, marginBottom: 6 }}>
-                        {t(language, 'guided.upNext')}
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                  <RestRing stepKey={stepIndex} leftSeconds={secondsLeft} plannedSeconds={step.seconds}>
+                    <Text style={styles.restRingLabel}>{t(language, 'guided.rest')}</Text>
+                    <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
+                    {paused ? (
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: HG.muted, letterSpacing: 1.6 }}>
+                        {t(language, 'guided.paused')}
                       </Text>
-                      <Text style={{ fontSize: 17, fontWeight: '800', color: HG.ink }}>{nextPreview.title}</Text>
-                      {nextPreview.sub ? (
-                        <Text style={{ fontSize: 13.5, fontWeight: '600', color: HG.muted, marginTop: 3 }}>
-                          {nextPreview.sub}
-                        </Text>
-                      ) : null}
-                    </View>
-                  ) : null}
+                    ) : null}
+                  </RestRing>
+                </View>
+                <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View style={{ flex: 1 }}>
                       <GhostBtn
@@ -2051,14 +2094,16 @@ const styles = StyleSheet.create({
   stepperBtnText: { fontSize: 20, fontWeight: '800', color: HG.purple },
 
   /* rest (light theme like every other in-workout screen) */
-  restCountdown: { fontSize: 120, fontWeight: '800', letterSpacing: -4.5, color: HG.ink, lineHeight: 126, fontVariant: ['tabular-nums'] },
-  restNextCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E4DBF5',
-    borderRadius: 20,
-    paddingVertical: 15,
-    paddingHorizontal: 17,
+  // Inside the ring the number carries the accent and the label stays ink —
+  // the reverse of the pre-ring layout, where purple marked the small label.
+  restRingLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: HG.ink },
+  restCountdown: {
+    fontSize: 76,
+    fontWeight: '800',
+    letterSpacing: -2.9,
+    color: HG.purple,
+    lineHeight: 80,
+    fontVariant: ['tabular-nums'],
   },
   skipRestBtn: {
     height: 56,
