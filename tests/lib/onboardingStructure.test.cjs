@@ -51,12 +51,13 @@ module.exports = [
 
       // The builder lands on the picker first; "Save plan & start" advances it.
       assert.match(onboardingSource, /setPlanReadyView\('pick'\);\s*\r?\n\s*setStageIndex\(getStageIndex\('review'\)\)/);
-      assert.match(onboardingSource, /'Save plan & start'/);
+      assert.match(onboardingSource, /t\(language, 'onb\.cta\.savePlan'\)/);
+      assert.match(i18nSource, /'onb\.cta\.savePlan': 'Save plan & start'/);
 
       // Program pick: one big purple heading, no subline, two equal-template
       // cards (recommended first, selection follows taps), honest focus split.
       const pickBody = getFunctionBody('renderProgramPick');
-      assert.match(pickBody, />Your program is ready</);
+      assert.match(pickBody, />\{t\(language, 'onb\.planReady\.title'\)\}</);
       assert.doesNotMatch(pickBody, />Pick your program</);
       assert.doesNotMatch(pickBody, /-week plan/);
       assert.match(pickBody, /programPickOptions\.map/);
@@ -72,7 +73,7 @@ module.exports = [
       // Overview: "Your program is ready" H1 + subtitle, then the 2-card result:
       // a big RECOMMENDED program card (why-line + stat trio + week link) and a
       // smaller ALTERNATIVE card that swaps the selection. No week rows.
-      assert.match(reviewBody, />Your program is ready</);
+      assert.match(reviewBody, />\{t\(language, 'onb\.planReady\.title'\)\}</);
       assert.doesNotMatch(reviewBody, /YOUR PLAN IS READY/);
       assert.match(reviewBody, /`\$\{planReadyPerWeek\} workouts a week`/);
       assert.doesNotMatch(reviewBody, /BUILD · FOCUS · PROGRESS/);
@@ -103,7 +104,7 @@ module.exports = [
       // Plan review: automated-progression toggle card (default ON = glow +
       // purple checks; OFF dims bullets with strike-through), Settings note,
       // CTA "Start training" completes onboarding. No "Save your plan" copy.
-      assert.match(progressionBody, /Automated progression/);
+      assert.match(progressionBody, /t\(language, 'onb\.progression\.title'\)/);
       assert.match(progressionBody, /'On — GAINER adjusts your plan for you\.'/);
       assert.match(progressionBody, /"Off — you'll manage these yourself\."/);
       assert.match(progressionBody, /accessibilityRole="switch"/);
@@ -111,7 +112,7 @@ module.exports = [
       assert.match(progressionBody, /PROGRESSION_BULLET_KEYS\.map/);
       assert.match(progressionBody, /styles\.progressionCardOn/);
       assert.match(progressionBody, /styles\.progressionBulletTextOff/);
-      assert.match(progressionBody, /You can change this anytime in Settings\./);
+      assert.match(progressionBody, /t\(language, 'onb\.progression\.note'\)/);
       assert.match(onboardingSource, /const \[automatedProgressionEnabled, setAutomatedProgressionEnabled\] = useState\(/);
       assert.match(onboardingSource, /progressionBulletTextOff:\s*\{[\s\S]*textDecorationLine: 'line-through'/);
       assert.match(onboardingSource, /automatedProgression: automatedProgressionEnabled/);
@@ -126,7 +127,11 @@ module.exports = [
       assert.match(onboardingSource, /setPlanReadyView\('progression'\)/);
       assert.match(onboardingSource, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
-      assert.match(onboardingSource, /\? 'Back to plan'\s*: planReadyView === 'progression'\s*\? 'Start training'\s*: 'Continue'/);
+      assert.match(
+        onboardingSource,
+        /\? t\(language, 'onb\.cta\.backToPlan'\)\s*: planReadyView === 'progression'\s*\? t\(language, 'onb\.cta\.startTraining'\)\s*: t\(language, 'common\.continue'\)/,
+      );
+      assert.match(i18nSource, /'onb\.cta\.startTraining': 'Start training'/);
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
@@ -180,7 +185,8 @@ module.exports = [
       assert.match(i18nSource, /'onb\.stepLabel': 'STEP \{index\} OF \{count\}'/);
       assert.doesNotMatch(onboardingSource, /stepLabel: 'STEP \d OF \d'/);
       // Focus areas is the last question; building starts straight from it.
-      assert.match(footerBody, /stage === 'planning'[\s\S]*'Build my plan'/);
+      assert.match(footerBody, /stage === 'planning'[\s\S]*t\(language, 'onb\.cta\.buildPlan'\)/);
+      assert.match(i18nSource, /'onb\.cta\.buildPlan': 'Build my plan'/);
       assert.match(footerBody, /if \(stage === 'planning'\) \{[\s\S]*setIsBuildingPlan\(true\)/);
     },
   },
@@ -198,7 +204,7 @@ module.exports = [
       assert.match(avoidBody, /titleLines: \[t\(language, 'onb\.stage\.avoid\.title1'\), t\(language, 'onb\.stage\.avoid\.title2'\)\]/);
       assert.match(avoidBody, /AVOID_AREA_OPTIONS\.map/);
       assert.match(avoidBody, /Add something else/);
-      assert.match(avoidBody, /Nothing to note/);
+      assert.match(avoidBody, /t\(language, 'onb\.avoid\.nothingToNote'\)/);
       assert.match(avoidBody, /setCautionFlags\(\[\]\)/);
 
       // Three colour-coded levels tint the tile, border, radio and title.
@@ -218,7 +224,10 @@ module.exports = [
       assert.match(i18nSource, /'onb\.caution\.avoid\.label': 'Avoid entirely'/);
 
       // CTA reads Skip until something is flagged; flags persist to prefs.
-      assert.match(onboardingSource, /stage === 'avoid'\s*\r?\n?\s*\? cautionFlags\.length > 0\s*\r?\n?\s*\? 'Continue'\s*\r?\n?\s*: 'Skip'/);
+      assert.match(
+        onboardingSource,
+        /stage === 'avoid'\s*\r?\n?\s*\? cautionFlags\.length > 0\s*\r?\n?\s*\? t\(language, 'common\.continue'\)\s*\r?\n?\s*: t\(language, 'onb\.cta\.skip'\)/,
+      );
       assert.match(onboardingSource, /cautionFlags,/);
       assert.match(appSource, /setupCautionFlags: selection\.cautionFlags \?\? \[\]/);
     },
@@ -347,8 +356,9 @@ module.exports = [
       assert.match(daysBody, /Recommended/);
       assert.match(daysBody, /WEEKDAY_OPTIONS\.map/);
       assert.match(daysBody, /toggleTrainingDay\(day\)/);
-      assert.match(daysBody, /WEEKDAY_LETTERS\[day\]/);
-      assert.match(daysBody, /training days · \$\{restCount\} rest/);
+      assert.match(daysBody, /t\(language, WEEKDAY_LETTER_KEYS\[day\]\)/);
+      assert.match(daysBody, /t\(language, 'onb\.days\.summary', \{ days: selectedDays\.length, rest: restCount \}\)/);
+      assert.match(i18nSource, /'onb\.days\.summary': '\{days\} training days · \{rest\} rest'/);
       assert.doesNotMatch(daysBody, /TRAINING_FREQUENCY_OPTIONS/);
 
       assert.match(onboardingSource, /const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek\[\] = \[2, 3, 4, 5, 6\]/);

@@ -8,6 +8,7 @@ const onboardingSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'OnboardingScreen.tsx'),
   'utf8',
 );
+const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 
 module.exports = [
   {
@@ -28,10 +29,13 @@ module.exports = [
 
       // CTA labels are sentence case in the light redesign. "See day 1" is gone —
       // the day view is a read-only preview whose footer returns "Back to plan".
-      assert.match(onboardingSource, /\? 'Start training'/);
+      assert.match(onboardingSource, /\? t\(language, 'onb\.cta\.startTraining'\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
-      assert.match(onboardingSource, /\? 'Build my plan'/);
-      assert.match(onboardingSource, /'Saving plan\.\.\.'/);
+      assert.match(onboardingSource, /\? t\(language, 'onb\.cta\.buildPlan'\)/);
+      assert.match(onboardingSource, /t\(language, 'onb\.cta\.saving'\)/);
+      assert.match(i18nSource, /'onb\.cta\.startTraining': 'Start training'/);
+      assert.match(i18nSource, /'onb\.cta\.buildPlan': 'Build my plan'/);
+      assert.match(i18nSource, /'onb\.cta\.saving': 'Saving plan\.\.\.'/);
       assert.doesNotMatch(onboardingSource, /'SAVE PLAN & START'/);
       assert.doesNotMatch(onboardingSource, /'BUILD MY PLAN'/);
 

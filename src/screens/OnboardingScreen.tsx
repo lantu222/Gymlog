@@ -349,14 +349,14 @@ function getRecommendedDaysForLevel(level: SetupLevel): SetupDaysPerWeek {
 }
 
 // Letters only in the week cells (no icons), Monday first.
-const WEEKDAY_LETTERS: Record<SetupWeekday, string> = {
-  mon: 'M',
-  tue: 'T',
-  wed: 'W',
-  thu: 'T',
-  fri: 'F',
-  sat: 'S',
-  sun: 'S',
+const WEEKDAY_LETTER_KEYS: Record<SetupWeekday, I18nKey> = {
+  mon: 'onb.weekday.mon',
+  tue: 'onb.weekday.tue',
+  wed: 'onb.weekday.wed',
+  thu: 'onb.weekday.thu',
+  fri: 'onb.weekday.fri',
+  sat: 'onb.weekday.sat',
+  sun: 'onb.weekday.sun',
 };
 
 // Avoid step: flaggable body parts, colour-coded caution levels and optional
@@ -1370,64 +1370,6 @@ function getAgeRangeFromAge(age: number): SetupAgeRange {
   return '41_plus';
 }
 
-function AgeSlider({
-  value,
-  onChange,
-}: {
-  value: number;
-  onChange: (value: number) => void;
-}) {
-  const trackWidthRef = useRef(1);
-  const ageMarks = [0, 25, 50, 75, 100];
-  const progress = clampSetupAge(value);
-
-  function updateFromTrackPosition(locationX: number) {
-    const trackWidth = Math.max(1, trackWidthRef.current);
-    onChange(clampSetupAge((locationX / trackWidth) * 100));
-  }
-
-  const panResponder = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (event) => updateFromTrackPosition(event.nativeEvent.locationX),
-      onPanResponderMove: (event) => updateFromTrackPosition(event.nativeEvent.locationX),
-    }),
-  ).current;
-
-  return (
-    <View style={styles.ageSliderCard}>
-      <View style={styles.ageSliderHeader}>
-        <Text style={styles.ageSliderEyebrow}>Selected age</Text>
-        <Text style={styles.ageSliderValue}>{value}</Text>
-      </View>
-
-      <View
-        style={styles.ageSliderTrackArea}
-        onLayout={(event) => {
-          trackWidthRef.current = Math.max(1, event.nativeEvent.layout.width);
-        }}
-        {...panResponder.panHandlers}
-      >
-        <View style={styles.ageSliderTrack} />
-        <View style={[styles.ageSliderTrackFill, { width: `${progress}%` }]} />
-        <View style={[styles.ageSliderThumb, { left: `${progress}%` }]} />
-      </View>
-
-      <View style={styles.ageSliderLabelRow}>
-        {ageMarks.map((ageMark) => {
-          const active = value === ageMark;
-          return (
-            <Pressable key={ageMark} onPress={() => onChange(ageMark)} style={styles.ageSliderLabelPress}>
-              <Text style={[styles.ageSliderLabel, active && styles.ageSliderLabelActive]}>{ageMark}</Text>
-            </Pressable>
-          );
-        })}
-      </View>
-    </View>
-  );
-}
-
 function PreviewGlyph({ dayCount }: { dayCount: number }) {
   const bars = dayCount >= 4 ? [20, 30, 24, 30] : dayCount === 2 ? [18, 28, 0, 22] : [18, 28, 18, 26];
   return (
@@ -2405,7 +2347,7 @@ export function OnboardingScreen({
       <SurfaceCard accent="neutral" emphasis="standard" style={styles.previewCard}>
         <View style={styles.previewHeader}>
           <View style={styles.previewHeaderCopy}>
-            <Text style={styles.previewKicker}>Start with</Text>
+            <Text style={styles.previewKicker}>{t(language, 'onb.preview.startWith')}</Text>
             <Text style={styles.previewTitle}>{previewTitle}</Text>
             {previewDuration ? <Text style={styles.previewBody}>Time {previewDuration}</Text> : null}
           </View>
@@ -2477,7 +2419,7 @@ export function OnboardingScreen({
         ) : null}
 
         <View style={styles.previewSectionBlock}>
-          <Text style={styles.previewSectionLabel}>This week</Text>
+          <Text style={styles.previewSectionLabel}>{t(language, 'onb.preview.thisWeek')}</Text>
           <View style={styles.previewRhythmRow}>
             {projectedRhythm.map((day) => (
               <View key={day} style={styles.previewDayPill}>
@@ -2489,7 +2431,7 @@ export function OnboardingScreen({
 
         {projectedSessions.length ? (
           <View style={styles.previewSectionBlock}>
-            <Text style={styles.previewSectionLabel}>Coming up</Text>
+            <Text style={styles.previewSectionLabel}>{t(language, 'onb.preview.comingUp')}</Text>
             <View style={styles.previewSessionList}>
               {projectedSessions.map((session) => (
                 <View key={session.id} style={styles.previewSessionRow}>
@@ -3005,7 +2947,7 @@ export function OnboardingScreen({
                   </Pressable>
                   {recommended ? (
                     <Text numberOfLines={1} style={styles.daysChipCaption}>
-                      Recommended
+                      {t(language, 'onb.days.recommended')}
                     </Text>
                   ) : null}
                 </View>
@@ -3013,7 +2955,7 @@ export function OnboardingScreen({
             })}
           </View>
 
-          <Text style={styles.daysWeekLabel}>TAP DAYS TO ADJUST</Text>
+          <Text style={styles.daysWeekLabel}>{t(language, 'onb.days.tapToAdjust')}</Text>
           <View style={styles.daysWeekRow}>
             {WEEKDAY_OPTIONS.map((day) => {
               const dayActive = selectedDays.includes(day);
@@ -3028,16 +2970,20 @@ export function OnboardingScreen({
                   style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
                 >
                   <Text style={[styles.daysWeekCellText, dayActive && styles.daysWeekCellTextActive]}>
-                    {WEEKDAY_LETTERS[day]}
+                    {t(language, WEEKDAY_LETTER_KEYS[day])}
                   </Text>
                 </Pressable>
               );
             })}
           </View>
 
-          <Text style={styles.daysSummaryLine}>{`${selectedDays.length} training days · ${restCount} rest`}</Text>
+          <Text style={styles.daysSummaryLine}>
+            {t(language, 'onb.days.summary', { days: selectedDays.length, rest: restCount })}
+          </Text>
           {profileFrequencySelected && daysPerWeek !== recommendedDays ? (
-            <Text style={styles.daysRecommendHint}>{`We recommend ${recommendedDays} days for your level.`}</Text>
+            <Text style={styles.daysRecommendHint}>
+              {t(language, 'onb.days.recommendHint', { days: recommendedDays })}
+            </Text>
           ) : null}
         </View>
       ),
@@ -3254,7 +3200,7 @@ export function OnboardingScreen({
             }}
             style={styles.avoidGhostRow}
           >
-            <Text style={styles.avoidGhostText}>Nothing to note</Text>
+            <Text style={styles.avoidGhostText}>{t(language, 'onb.avoid.nothingToNote')}</Text>
           </Pressable>
         </View>
       ),
@@ -3273,7 +3219,7 @@ export function OnboardingScreen({
           },
         ]}
       >
-        <Text style={styles.programPickTitle}>Your program is ready</Text>
+        <Text style={styles.programPickTitle}>{t(language, 'onb.planReady.title')}</Text>
 
         <View style={styles.programPickList}>
           {programPickOptions.map((option) => (
@@ -3366,7 +3312,7 @@ export function OnboardingScreen({
           },
         ]}
       >
-        <Text style={styles.planReadyOverviewHeading}>Your program is ready</Text>
+        <Text style={styles.planReadyOverviewHeading}>{t(language, 'onb.planReady.title')}</Text>
         {planReadyMeta ? <Text style={styles.planReadyOverviewMeta}>{planReadyMeta}</Text> : null}
 
         <View style={styles.planReadyPrimaryCard}>
@@ -3425,7 +3371,7 @@ export function OnboardingScreen({
             }}
             style={({ pressed }) => [styles.planReadyPrimaryLink, pressed && { opacity: 0.75 }]}
           >
-            <Text style={styles.planReadyPrimaryLinkText}>View the week</Text>
+            <Text style={styles.planReadyPrimaryLinkText}>{t(language, 'onb.planReady.viewWeek')}</Text>
             <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
               <Path d="m9 6 6 6-6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
@@ -3456,7 +3402,7 @@ export function OnboardingScreen({
               ) : null}
             </View>
             <View style={styles.planReadyAltCta}>
-              <Text style={styles.planReadyAltCtaText}>Switch</Text>
+              <Text style={styles.planReadyAltCtaText}>{t(language, 'onb.planReady.switch')}</Text>
             </View>
           </Pressable>
         ) : null}
@@ -3567,8 +3513,8 @@ export function OnboardingScreen({
           },
         ]}
       >
-        <Text style={styles.progressionKicker}>ONE LAST THING</Text>
-        <Text style={styles.progressionTitle}>Automated progression</Text>
+        <Text style={styles.progressionKicker}>{t(language, 'onb.progression.kicker')}</Text>
+        <Text style={styles.progressionTitle}>{t(language, 'onb.progression.title')}</Text>
         <Text style={styles.progressionSubtitle}>
           {enabled ? 'On — GAINER adjusts your plan for you.' : "Off — you'll manage these yourself."}
         </Text>
@@ -3576,7 +3522,7 @@ export function OnboardingScreen({
         <View style={[styles.progressionCard, enabled && styles.progressionCardOn]}>
           <View style={styles.progressionToggleRow}>
             <View style={styles.progressionToggleCopy}>
-              <Text style={styles.progressionToggleTitle}>Automated progression</Text>
+              <Text style={styles.progressionToggleTitle}>{t(language, 'onb.progression.title')}</Text>
               <Text style={styles.progressionToggleBody}>
                 {enabled ? 'GAINER adjusts your plan for you' : "You'll manage these yourself"}
               </Text>
@@ -3617,7 +3563,7 @@ export function OnboardingScreen({
           </View>
         </View>
 
-        <Text style={styles.progressionNote}>You can change this anytime in Settings.</Text>
+        <Text style={styles.progressionNote}>{t(language, 'onb.progression.note')}</Text>
       </Animated.View>
     );
   }
@@ -3748,15 +3694,15 @@ export function OnboardingScreen({
           <View style={styles.refinementPanel}>
             <View style={styles.scheduleHeaderRow}>
               <View style={styles.scheduleHeaderCopy}>
-                <Text style={styles.scheduleTitle}>Week setup</Text>
-                <Text style={styles.scheduleBody}>Only if needed.</Text>
+                <Text style={styles.scheduleTitle}>{t(language, 'onb.schedule.title')}</Text>
+                <Text style={styles.scheduleBody}>{t(language, 'onb.schedule.body')}</Text>
               </View>
               <PreviewGlyph dayCount={projectedDaysPerWeek} />
             </View>
 
             <View style={styles.scheduleMiniRow}>
               <View style={styles.scheduleMiniCard}>
-                <Text style={styles.scheduleMiniLabel}>Current rhythm</Text>
+                <Text style={styles.scheduleMiniLabel}>{t(language, 'onb.schedule.currentRhythm')}</Text>
                 <View style={styles.recommendationRhythmRow}>
                   {projectedRhythm.map((day) => (
                     <View key={day} style={styles.recommendationDayPill}>
@@ -3766,14 +3712,14 @@ export function OnboardingScreen({
                 </View>
               </View>
               <View style={styles.scheduleMiniCard}>
-                <Text style={styles.scheduleMiniLabel}>Time</Text>
+                <Text style={styles.scheduleMiniLabel}>{t(language, 'onb.schedule.time')}</Text>
                 <Text style={styles.scheduleMiniValue}>~{effectiveWeeklyMinutes} min</Text>
                 <Text style={styles.scheduleMiniMeta}>{scheduleModeLabel}</Text>
               </View>
             </View>
 
             <View style={styles.optionBlock}>
-              <Text style={styles.optionLabel}>Schedule style</Text>
+              <Text style={styles.optionLabel}>{t(language, 'onb.schedule.style')}</Text>
               <View style={styles.choiceRow}>
                 {SCHEDULE_MODE_OPTIONS.map((option) => (
                   <ChoiceChip
@@ -3792,7 +3738,7 @@ export function OnboardingScreen({
             </View>
 
             <View style={styles.optionBlock}>
-              <Text style={styles.optionLabel}>Weekly time</Text>
+              <Text style={styles.optionLabel}>{t(language, 'onb.schedule.weeklyTime')}</Text>
               <View style={styles.choiceRow}>
                 {weeklyMinuteOptions.map((minutes) => (
                   <ChoiceChip
@@ -3807,7 +3753,7 @@ export function OnboardingScreen({
 
             {scheduleMode === 'self_managed' ? (
               <View style={styles.optionBlock}>
-                <Text style={styles.optionLabel}>Which days work?</Text>
+                <Text style={styles.optionLabel}>{t(language, 'onb.schedule.whichDays')}</Text>
                 <View style={styles.choiceRow}>
                   {WEEKDAY_OPTIONS.map((day) => (
                     <ChoiceChip
@@ -3829,8 +3775,8 @@ export function OnboardingScreen({
       if (activeRecommendationRefinement === 'focus') {
         return (
           <View style={styles.refinementPanel}>
-            <Text style={styles.personalizationTitle}>Extra focus</Text>
-            <Text style={styles.personalizationBody}>Pick what matters most.</Text>
+            <Text style={styles.personalizationTitle}>{t(language, 'onb.extra.title')}</Text>
+            <Text style={styles.personalizationBody}>{t(language, 'onb.extra.body')}</Text>
             <View style={styles.personalizationGrid}>
               {REFINEMENT_FOCUS_AREA_OPTIONS.map((area) => {
                 const active = focusAreas.includes(area);
@@ -3866,7 +3812,7 @@ export function OnboardingScreen({
       if (activeRecommendationRefinement === 'custom') {
         return (
           <View style={styles.refinementPanel}>
-            <Text style={styles.buildOwnKicker}>Custom</Text>
+            <Text style={styles.buildOwnKicker}>{t(language, 'onb.custom.kicker')}</Text>
             <Text style={styles.buildOwnTitle}>{guidanceMode === 'self_directed' ? 'Use this as your base?' : 'Build your own?'}</Text>
             <Text style={styles.buildOwnBody}>{guidanceMode === 'self_directed' ? 'Open this as your base.' : 'Open a custom version.'}</Text>
             <Pressable
@@ -3881,7 +3827,7 @@ export function OnboardingScreen({
               }
               style={styles.secondaryButton}
             >
-              <Text style={styles.secondaryButtonText}>Build my own</Text>
+              <Text style={styles.secondaryButtonText}>{t(language, 'onb.custom.cta')}</Text>
             </Pressable>
           </View>
         );
@@ -3890,13 +3836,13 @@ export function OnboardingScreen({
       if (activeRecommendationRefinement === 'ai') {
         return (
           <View style={styles.refinementPanel}>
-            <Text style={styles.personalizationTitle}>Ask GAINER AI</Text>
-            <Text style={styles.personalizationBody}>Ask about this exact fit.</Text>
+            <Text style={styles.personalizationTitle}>{t(language, 'onb.ai.ask')}</Text>
+            <Text style={styles.personalizationBody}>{t(language, 'onb.ai.askBody')}</Text>
             <Pressable
               onPress={() => openHelper(helperSuggestions[1] ?? helperSuggestions[0] ?? helperPrompt)}
               style={styles.secondaryButton}
             >
-              <Text style={styles.secondaryButtonText}>Open AI</Text>
+              <Text style={styles.secondaryButtonText}>{t(language, 'onb.ai.open')}</Text>
             </Pressable>
           </View>
         );
@@ -3909,8 +3855,8 @@ export function OnboardingScreen({
       <View style={styles.stageBody}>
         <View style={styles.heroBlock}>
           <Text style={styles.kicker}>{editMode ? 'Setup' : 'Ready'}</Text>
-          <Text style={styles.title}>Start with this week</Text>
-          <Text style={styles.body}>Train first. Tweak later.</Text>
+          <Text style={styles.title}>{t(language, 'onb.startWeek.title')}</Text>
+          <Text style={styles.body}>{t(language, 'onb.startWeek.body')}</Text>
         </View>
 
         {recommendedProgram ? (
@@ -3954,7 +3900,7 @@ export function OnboardingScreen({
 
             {recommendationFlowItems.length ? (
               <View style={styles.recommendationFlowBlock}>
-                <Text style={styles.recommendationSectionLabel}>Coming up</Text>
+                <Text style={styles.recommendationSectionLabel}>{t(language, 'onb.preview.comingUp')}</Text>
                 <View style={styles.recommendationSessionGrid}>
                   {recommendationFlowItems.map((session, index) => (
                     <React.Fragment key={session.id}>
@@ -3977,9 +3923,9 @@ export function OnboardingScreen({
         ) : null}
 
         <SurfaceCard accent="neutral" emphasis="flat" style={styles.personalizationCard}>
-          <Text style={styles.personalizationKicker}>Tune</Text>
-          <Text style={styles.personalizationTitle}>Change only what needs it</Text>
-          <Text style={styles.personalizationBody}>Leave closed if this fits.</Text>
+          <Text style={styles.personalizationKicker}>{t(language, 'onb.tune.kicker')}</Text>
+          <Text style={styles.personalizationTitle}>{t(language, 'onb.tune.title')}</Text>
+          <Text style={styles.personalizationBody}>{t(language, 'onb.tune.body')}</Text>
           <View style={styles.choiceRow}>
             <ChoiceChip
               label="Week"
@@ -4006,7 +3952,7 @@ export function OnboardingScreen({
         </SurfaceCard>
 
         <Pressable onPress={() => setStageIndex((current) => Math.max(0, current - 1))} style={styles.recommendationBackButton}>
-          <Text style={styles.secondaryText}>Back to setup</Text>
+          <Text style={styles.secondaryText}>{t(language, 'onb.backToSetup')}</Text>
         </Pressable>
       </View>
     );
@@ -4111,22 +4057,22 @@ export function OnboardingScreen({
   const standaloneProgressHidden = locationStageActive || stage === 'review';
   const footerPrimaryLabel =
     stage === 'review' && busy
-      ? 'Saving plan...'
+      ? t(language, 'onb.cta.saving')
       : stage === 'review'
       ? planReadyView === 'pick'
-        ? 'Save plan & start'
+        ? t(language, 'onb.cta.savePlan')
         : planReadyView === 'day'
-        ? 'Back to plan'
+        ? t(language, 'onb.cta.backToPlan')
         : planReadyView === 'progression'
-        ? 'Start training'
-        : 'Continue'
+        ? t(language, 'onb.cta.startTraining')
+        : t(language, 'common.continue')
       : stage === 'planning'
-      ? 'Build my plan'
+      ? t(language, 'onb.cta.buildPlan')
       : stage === 'avoid'
       ? cautionFlags.length > 0
-        ? 'Continue'
-        : 'Skip'
-      : 'Continue';
+        ? t(language, 'common.continue')
+        : t(language, 'onb.cta.skip')
+      : t(language, 'common.continue');
   // The footer stays visible through every plan-ready view: overview continues
   // to the progression screen, the day view returns to the plan, and the
   // progression screen's "Start training" completes onboarding.
@@ -4251,25 +4197,25 @@ export function OnboardingScreen({
             {stage === 'review' ? (
               planReadyView === 'progression' ? (
                 <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>
               ) : planReadyView === 'pick' ? (
                 <Pressable onPress={() => setStageIndex(getStageIndex('planning'))} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>
               ) : planReadyView === 'overview' ? (
                 <Pressable onPress={() => setPlanReadyView('pick')} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>
               ) : null
             ) : stage === 'location' ? (
               editMode ? (
                 <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Cancel</Text>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.cancel')}</Text>
                 </Pressable>
               ) : (
                 <Pressable onPress={() => runAction(onBackToEntry ?? onSkip)} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>
               )
             ) : (
@@ -4279,7 +4225,7 @@ export function OnboardingScreen({
                 }}
                 disabled={busy}
               >
-                <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>Back</Text>
+                <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
               </Pressable>
             )}
           </>
@@ -4295,20 +4241,20 @@ export function OnboardingScreen({
           <View style={styles.sheet}>
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderCopy}>
-                <Text style={styles.sheetKicker}>GAINER AI</Text>
-        <Text style={styles.sheetTitle}>Ask GAINER AI</Text>
+                <Text style={styles.sheetKicker}>{t(language, 'onb.ai.brand')}</Text>
+        <Text style={styles.sheetTitle}>{t(language, 'onb.ai.ask')}</Text>
               </View>
               <Pressable onPress={() => setHelperVisible(false)}>
-                <Text style={styles.sheetClose}>Close</Text>
+                <Text style={styles.sheetClose}>{t(language, 'onb.ai.close')}</Text>
               </Pressable>
             </View>
 
-            <Text style={styles.sheetBody}>Ask one clear question.</Text>
+            <Text style={styles.sheetBody}>{t(language, 'onb.ai.prompt')}</Text>
 
             <TextInput
               value={helperDraft}
               onChangeText={setHelperDraft}
-              placeholder="Best first plan?"
+              placeholder={t(language, 'onb.ai.placeholder')}
               placeholderTextColor={colors.textMuted}
               selectionColor="#F3F7FF"
               multiline
@@ -4325,13 +4271,13 @@ export function OnboardingScreen({
             </View>
 
             <Pressable onPress={askAiCoach} style={[styles.primaryButton, !helperDraft.trim() && styles.buttonDisabled]}>
-          <Text style={styles.primaryButtonText}>Ask AI</Text>
+          <Text style={styles.primaryButtonText}>{t(language, 'onb.ai.send')}</Text>
             </Pressable>
 
             {helperState === 'loading' ? (
               <View style={styles.helperStatusBlock}>
                 <ActivityIndicator color="#F3F7FF" size="small" />
-                <Text style={styles.helperStatusText}>GAINER GAINER AI is answering.</Text>
+                <Text style={styles.helperStatusText}>{t(language, 'onb.ai.answering')}</Text>
               </View>
             ) : null}
 
@@ -4340,23 +4286,23 @@ export function OnboardingScreen({
             {helperState === 'ready' && helperAnswer ? (
               <ScrollView style={styles.answerScroll} contentContainerStyle={styles.answerContent} showsVerticalScrollIndicator={false}>
                 <View style={styles.answerHeaderRow}>
-                  <Text style={styles.answerSection}>Answer</Text>
-                  <BadgePill label={helperSource === 'live' ? 'Live' : 'Preview'} accent="neutral" />
+                  <Text style={styles.answerSection}>{t(language, 'onb.ai.answer')}</Text>
+                  <BadgePill label={t(language, helperSource === 'live' ? 'onb.ai.live' : 'onb.ai.preview')} accent="neutral" />
                 </View>
                 {helperNote ? <Text style={styles.answerNote}>{helperNote}</Text> : null}
 
                 <View style={styles.answerBlock}>
-                  <Text style={styles.answerTitle}>Answer</Text>
+                  <Text style={styles.answerTitle}>{t(language, 'onb.ai.answer')}</Text>
                   <Text style={styles.answerText}>{helperAnswer.takeaway}</Text>
                 </View>
                 <View style={styles.answerBlock}>
-                  <Text style={styles.answerTitle}>Why</Text>
+                  <Text style={styles.answerTitle}>{t(language, 'onb.ai.why')}</Text>
                   {helperAnswer.why.map((item) => (
                     <Text key={item} style={styles.answerBullet}>- {item}</Text>
                   ))}
                 </View>
                 <View style={styles.answerBlock}>
-                  <Text style={styles.answerTitle}>Do next</Text>
+                  <Text style={styles.answerTitle}>{t(language, 'onb.ai.doNext')}</Text>
                   {helperAnswer.nextSteps.map((item) => (
                     <Text key={item} style={styles.answerBullet}>- {item}</Text>
                   ))}
