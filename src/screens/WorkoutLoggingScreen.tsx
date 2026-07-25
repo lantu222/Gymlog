@@ -8,6 +8,7 @@ import { InlineTip } from '../components/InlineTip';
 import { WorkoutSetRow } from '../components/WorkoutSetRow';
 import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation, resolveAdaptiveCoachOffer } from '../lib/adaptiveCoach';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getGuidedSessionTitle } from '../lib/guidedPlayer';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { buildTailoredSwapOptions, buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -912,7 +913,7 @@ export function WorkoutLoggingScreen({
                 >
                   <View style={styles.exerciseListCopy}>
                     <Text style={styles.exerciseListTitle} numberOfLines={1}>
-                      {formatWorkoutListExerciseName(exercise.exerciseName)}
+                      {formatWorkoutListExerciseName(exerciseNameLabel(language, exercise.exerciseName))}
                     </Text>
                     {!isOpen ? (
                       <Text style={styles.exerciseListMeta}>

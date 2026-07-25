@@ -24,6 +24,8 @@ import {
   getDefaultWarmup,
   getSessionFocusTitle,
 } from '../lib/homeSessionHero';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { HG3 } from '../lightTheme';
 import { AppLanguage } from '../types/models';
@@ -509,7 +511,7 @@ export function HomeScreen({
             <Animated.View style={[styles.hero, rise(RISE_HERO)]}>
               <View style={styles.heroTop}>
                 <Text style={styles.heroTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                  {focusTitle}
+                  {localizeWorkoutFocus(focusTitle, language)}
                 </Text>
                 <View style={styles.heroProg}>
                   <Text style={styles.heroProgLabel}>
@@ -542,7 +544,7 @@ export function HomeScreen({
                 t(language, 'home.section.workout'),
                 t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets }),
                 nextPlanSession.exercises.map((exercise) => ({
-                  name: exercise.name,
+                  name: exerciseNameLabel(language, exercise.name),
                   schemeLabel: exercise.schemeLabel ?? exercise.setsLabel,
                 })),
                 nextPlanSession.hiddenExerciseCount,

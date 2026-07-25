@@ -30,6 +30,7 @@ import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { convertWeightToKg, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { cautionRefinementLabel, equipmentItemLabel, I18nKey, t } from '../lib/i18n';
 import {
   buildScheduleFitNote,
@@ -3480,7 +3481,7 @@ export function OnboardingScreen({
             <View key={exercise.id} style={styles.planReadyDayExerciseRow}>
               <Text style={styles.planReadyDayExerciseNumber}>{String(index + 1).padStart(2, '0')}</Text>
               <View style={styles.planReadyDayExerciseCopy}>
-                <Text style={styles.planReadyDayExerciseName} numberOfLines={1}>{exercise.name}</Text>
+                <Text style={styles.planReadyDayExerciseName} numberOfLines={1}>{exerciseNameLabel(language, exercise.name)}</Text>
                 <Text style={styles.planReadyDayExerciseGroup}>{groupOf(exercise.name)}</Text>
               </View>
               <View style={styles.planReadyDayExerciseRight}>

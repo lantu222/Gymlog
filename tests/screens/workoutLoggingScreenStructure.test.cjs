@@ -69,7 +69,7 @@ module.exports = [
       assert.match(screenSource, /getExerciseCompletionMeta/);
       assert.match(screenSource, /'logger\.exerciseDone', \{ done: completedSets, total: totalSets \}/);
       assert.match(i18nSource, /'logger\.exerciseDone': '\{done\}\/\{total\} done'/);
-      assert.match(screenSource, /formatWorkoutListExerciseName\(exercise\.exerciseName\)/);
+      assert.match(screenSource, /formatWorkoutListExerciseName\(exerciseNameLabel\(language, exercise\.exerciseName\)\)/);
       assert.match(screenSource, /'logger\.a11y\.moreActions', \{ name: exercise\.exerciseName \}/);
       assert.match(screenSource, />\.\.\.</);
       assert.match(screenSource, /borderBottomWidth:\s*1/);

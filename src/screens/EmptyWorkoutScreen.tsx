@@ -15,6 +15,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { PlatePop } from '../components/PlatePop';
 import { RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { parseNumberInput } from '../lib/format';
 import {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
@@ -88,7 +89,7 @@ function buildExerciseState(
   language: AppLanguage,
 ): FreestyleExerciseState {
   const defaults = getExerciseTemplateDefaults(item, defaultRestSeconds);
-  const displayName = formatLiftDisplayLabel(item.name, 'Exercise');
+  const displayName = exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'));
 
   return {
     localKey: createId('draft'),
@@ -305,14 +306,14 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddShe
                 >
                   <View>
                     <View style={styles.popularTile}>
-                      <Text style={styles.popularTileText}>{exerciseInitials(formatLiftDisplayLabel(item.name, 'Exercise'))}</Text>
+                      <Text style={styles.popularTileText}>{exerciseInitials(exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise')))}</Text>
                     </View>
                     <View style={styles.popularToggle}>
                       <SelectTogglePill selected={selected} />
                     </View>
                   </View>
                   <Text numberOfLines={2} style={styles.popularName}>
-                    {formatLiftDisplayLabel(item.name, 'Exercise')}
+                    {exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                   </Text>
                   <Text numberOfLines={1} style={styles.popularMeta}>
                     {buildMetaLabel(item, language)}
@@ -384,10 +385,10 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddShe
               const selected = selectedIds.includes(item.id);
               return (
                 <Pressable onPress={() => toggle(item.id)} style={[styles.sheetRow, selected && styles.sheetRowSelected]}>
-                  <Tile initials={exerciseInitials(formatLiftDisplayLabel(item.name, 'Exercise'))} size={46} />
+                  <Tile initials={exerciseInitials(exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise')))} size={46} />
                   <View style={styles.sheetRowCopy}>
                     <Text numberOfLines={1} style={styles.sheetRowName}>
-                      {formatLiftDisplayLabel(item.name, 'Exercise')}
+                      {exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                     </Text>
                     <Text numberOfLines={1} style={styles.sheetRowMeta}>
                       {buildMetaLabel(item, language)}
@@ -659,10 +660,10 @@ export function EmptyWorkoutScreen({
               <View style={styles.quickList}>
                 {quickItems.map((item) => (
                   <Pressable key={item.id} onPress={() => addExercises([item])} style={styles.quickRow}>
-                    <Tile initials={exerciseInitials(formatLiftDisplayLabel(item.name, 'Exercise'))} size={44} />
+                    <Tile initials={exerciseInitials(exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise')))} size={44} />
                     <View style={styles.quickRowCopy}>
                       <Text numberOfLines={1} style={styles.quickRowName}>
-                        {formatLiftDisplayLabel(item.name, 'Exercise')}
+                        {exerciseNameLabel(language, formatLiftDisplayLabel(item.name, 'Exercise'))}
                       </Text>
                       <Text numberOfLines={1} style={styles.quickRowMeta}>
                         {bodyPartLabel(language, item.bodyPart)}
@@ -693,7 +694,7 @@ export function EmptyWorkoutScreen({
                   <Tile initials={exercise.initials} size={40} radius={11} />
                   <View style={styles.exerciseHeadCopy}>
                     <Text numberOfLines={1} style={styles.exerciseName}>
-                      {exercise.displayName}
+                      {exerciseNameLabel(language, exercise.displayName)}
                     </Text>
                     <Text numberOfLines={1} style={styles.exerciseMeta}>
                       {exercise.metaLabel}

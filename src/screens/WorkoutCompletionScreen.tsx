@@ -10,6 +10,7 @@ const HERO_GRADIENT_HEIGHT = 360;
 
 import { formatTime, removeTrailingZeros } from '../lib/format';
 import { bodyPartLabel, t } from '../lib/i18n';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
@@ -382,7 +383,7 @@ export function WorkoutCompletionScreen({
                   <View style={styles.exerciseCopy}>
                     <View style={styles.exerciseNameRow}>
                       <Text style={styles.exerciseName} numberOfLines={1}>
-                        {exercise.name}
+                        {exerciseNameLabel(language, exercise.name)}
                       </Text>
                       {exercise.isPr ? (
                         <View style={styles.prBadge}>

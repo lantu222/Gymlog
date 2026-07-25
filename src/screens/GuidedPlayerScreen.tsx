@@ -51,6 +51,8 @@ import {
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import { getDrillLibraryName } from '../lib/drillMedia';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
@@ -508,7 +510,7 @@ function NameBlock({
   return (
     <View style={{ paddingHorizontal: 26, alignItems: 'center' }}>
       <Text style={styles.exerciseName} numberOfLines={2}>
-        {name}
+        {exerciseNameLabel(language, name)}
       </Text>
       {hasHowTo ? (
         <Pressable onPress={onHow} style={styles.cueRow}>
@@ -660,7 +662,9 @@ export function GuidedPlayerScreen({
   const session = workout.activeSession;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
-  const sessionTitle = getGuidedSessionTitle(session?.templateName ?? '', language);
+  // The catalog names sessions in English; the focus half of the name reads in
+  // the user's language, the plan brand in front of it does not.
+  const sessionTitle = localizeWorkoutFocus(getGuidedSessionTitle(session?.templateName ?? '', language), language);
 
   const warmupDrills = useMemo<GuidedDrill[]>(
     () => buildGuidedDrillsFromBlock(getDefaultWarmup(sessionTitle, language)),
@@ -822,7 +826,7 @@ export function GuidedPlayerScreen({
     if (endsAtRef.current !== null) {
       endsAtRef.current = Date.now() + next;
       if (step.type === 'rest') {
-        void syncRestNotification(endsAtRef.current, getGuidedNextName(steps, stepIndex));
+        void syncRestNotification(endsAtRef.current, exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? ''));
       }
     }
     setRemainingMs(next);
@@ -854,7 +858,7 @@ export function GuidedPlayerScreen({
     // deadline also goes to the OS — that alert is what reaches the user when
     // Android has suspended us.
     if (step.type === 'rest') {
-      void syncRestNotification(endsAtRef.current, getGuidedNextName(steps, stepIndex));
+      void syncRestNotification(endsAtRef.current, exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? ''));
     }
 
     const settle = () => {
@@ -1302,7 +1306,7 @@ export function GuidedPlayerScreen({
               muted={muted}
               paused={paused}
               resolveTarget={resolveTarget}
-              nextName={getGuidedNextName(steps, stepIndex)}
+              nextName={exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? '')}
               onToggleMute={() => onToggleSoundCues(!soundCuesEnabled)}
               onPause={() => {
                 setPaused(true);
@@ -1607,7 +1611,7 @@ function SetStepView({
 
         <View style={styles.setNameRow}>
           <Text style={styles.setName} numberOfLines={2}>
-            {step.exerciseName}
+            {exerciseNameLabel(language, step.exerciseName)}
           </Text>
         </View>
 
