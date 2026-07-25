@@ -1407,27 +1407,25 @@ function formatSessionClock(totalSeconds: number): string {
 }
 
 /**
- * One number + its unit in the v4 target block: an oversized light italic
- * figure with a small bold unit riding next to it.
+ * One number + its unit in the v4 target block. Same hand as every other
+ * figure in the player (ExtraBold, tabular, tight tracking) so the set screen
+ * doesn't read as a different typeface from the countdowns and labels.
  */
-function TargetNumber({ value, unit, size, light = true }: { value: string | number; unit: string; size: number; light?: boolean }) {
+function TargetNumber({ value, unit, size }: { value: string | number; unit: string; size: number }) {
   return (
     <Text
       style={{
         fontSize: size,
-        fontWeight: light ? '200' : '700',
-        fontStyle: light ? 'italic' : 'normal',
-        letterSpacing: -size * 0.045,
+        fontWeight: '800',
+        letterSpacing: -size * 0.038,
         color: HG.ink,
-        lineHeight: size * 1.02,
+        lineHeight: size * 1.05,
         fontVariant: ['tabular-nums'],
       }}
     >
       {value}
       {unit ? (
-        <Text style={{ fontSize: size * 0.34, fontWeight: '800', fontStyle: 'normal', color: HG.faint, letterSpacing: 0 }}>
-          {unit}
-        </Text>
+        <Text style={{ fontSize: size * 0.34, fontWeight: '800', color: HG.faint, letterSpacing: 0 }}>{unit}</Text>
       ) : null}
     </Text>
   );
@@ -1526,7 +1524,7 @@ function SetStepView({
           {!edit ? (
             <Pressable onPress={() => setEdit(true)} style={styles.setTargetStack}>
               <View style={styles.setTargetRow}>
-                <TargetNumber value={step.setIndex + 1} unit="" size={42} light={false} />
+                <TargetNumber value={step.setIndex + 1} unit="" size={42} />
                 <Text style={styles.setTargetLabel}>{t(language, 'guided.numLabel.set')}</Text>
                 <TargetNumber value={reps} unit="×" size={repsSize} />
                 <Text style={styles.setTargetLabel}>{t(language, 'guided.reps')}</Text>
