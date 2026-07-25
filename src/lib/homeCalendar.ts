@@ -142,10 +142,22 @@ export interface HomeMonthCalendar {
   weeks: HomeMonthCalendarDay[][];
 }
 
-export function getHomeMonthCalendar(now = new Date(), language: AppLanguage = 'en'): HomeMonthCalendar {
+/**
+ * @param monthOffset months away from the one containing `now` — negative goes
+ *   back, positive forward. Only `isToday` is anchored to the real date, so a
+ *   paged month never claims a day is today.
+ */
+export function getHomeMonthCalendar(
+  now = new Date(),
+  language: AppLanguage = 'en',
+  monthOffset = 0,
+): HomeMonthCalendar {
   const todayStart = toDayStart(now);
-  const year = todayStart.getFullYear();
-  const month = todayStart.getMonth();
+  // Normalising through day 1 avoids the month-end overflow that would turn
+  // 31 January + 1 month into 3 March.
+  const shifted = new Date(todayStart.getFullYear(), todayStart.getMonth() + monthOffset, 1);
+  const year = shifted.getFullYear();
+  const month = shifted.getMonth();
   const monthStart = new Date(year, month, 1);
   // Offset from the Monday that starts the grid to the 1st of the month.
   const gridStartOffset = monthStart.getDay() === 0 ? 6 : monthStart.getDay() - 1;

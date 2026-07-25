@@ -183,6 +183,8 @@ export function HomeScreen({
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
   const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
+  // Months away from today. Reset on close so reopening always lands on now.
+  const [monthOffset, setMonthOffset] = useState(0);
   const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
     warmup: false,
     workout: false,
@@ -191,7 +193,10 @@ export function HomeScreen({
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   const topCalendarDays = getHomeMiniCalendarDays(new Date(), language).slice(0, 6);
-  const monthCalendar = useMemo(() => getHomeMonthCalendar(new Date(), language), [language]);
+  const monthCalendar = useMemo(
+    () => getHomeMonthCalendar(new Date(), language, monthOffset),
+    [language, monthOffset],
+  );
 
   // --- Session hero data (Home v4) ---------------------------------------
   const nextPlanSession = activePlan?.nextSession ?? null;
@@ -278,6 +283,9 @@ export function HomeScreen({
   const toggleCalendar = () => {
     const next = !calendarExpanded;
     setCalendarExpanded(next);
+    if (!next) {
+      setMonthOffset(0);
+    }
     if (reduceMotion) {
       calendarAnim.setValue(next ? 1 : 0);
       return;
@@ -449,7 +457,56 @@ export function HomeScreen({
               },
             ]}
           >
-            <Text style={styles.monthTitle}>{monthCalendar.monthLabel}</Text>
+            <View style={styles.monthTitleRow}>
+              <Text style={styles.monthTitle}>{monthCalendar.monthLabel}</Text>
+              <View style={styles.monthNavRow}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.calendar.previousMonth')}
+                  onPress={() => setMonthOffset((current) => current - 1)}
+                  hitSlop={10}
+                  style={({ pressed }) => [styles.monthNavButton, pressed && styles.pressed]}
+                >
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M15 6l-6 6 6 6"
+                      stroke={HG3.ink}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.calendar.nextMonth')}
+                  onPress={() => setMonthOffset((current) => current + 1)}
+                  hitSlop={10}
+                  style={({ pressed }) => [styles.monthNavButton, pressed && styles.pressed]}
+                >
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M9 6l6 6-6 6"
+                      stroke={HG3.ink}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </Pressable>
+              </View>
+            </View>
+            {/* Paged away from now: one tap back, the way a desktop calendar does it. */}
+            {monthOffset !== 0 ? (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setMonthOffset(0)}
+                hitSlop={8}
+                style={({ pressed }) => [styles.monthTodayLink, pressed && styles.pressed]}
+              >
+                <Text style={styles.monthTodayLinkText}>{t(language, 'home.calendar.today')}</Text>
+              </Pressable>
+            ) : null}
             <View style={styles.monthWeekdayRow}>
               {monthCalendar.weekdayLabels.map((label) => (
                 <Text key={label} style={styles.monthWeekdayLabel}>
@@ -1005,14 +1062,44 @@ const styles = StyleSheet.create({
   monthPanel: {
     overflow: 'hidden',
   },
+  monthTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    marginBottom: 6,
+    paddingHorizontal: 4,
+  },
   monthTitle: {
+    flex: 1,
     color: HG3.ink,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',
-    marginTop: 12,
-    marginBottom: 6,
+  },
+  monthNavRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  monthNavButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: HG3.purpleSoft,
+  },
+  monthTodayLink: {
+    alignSelf: 'flex-start',
     paddingHorizontal: 4,
+    paddingBottom: 6,
+  },
+  monthTodayLinkText: {
+    color: HG3.purple,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
   },
   monthWeekdayRow: {
     flexDirection: 'row',

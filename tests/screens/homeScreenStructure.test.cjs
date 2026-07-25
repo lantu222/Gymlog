@@ -69,7 +69,13 @@ module.exports = [
       assert.match(homeScreenSource, /weekCard:\s*\{[\s\S]*borderRadius: 18/);
       assert.match(homeScreenSource, /weekStripItemToday:\s*\{[\s\S]*backgroundColor: HG3\.purpleSoft/);
       assert.match(homeScreenSource, /const \[calendarExpanded, setCalendarExpanded\] = useState\(false\)/);
-      assert.match(homeScreenSource, /const monthCalendar = useMemo\(\(\) => getHomeMonthCalendar\(new Date\(\), language\), \[language\]\)/);
+      // The month grid pages, so the offset is part of what it memoises on.
+      assert.match(
+        homeScreenSource,
+        /getHomeMonthCalendar\(new Date\(\), language, monthOffset\),\s*\r?\n?\s*\[language, monthOffset\]/,
+      );
+      assert.match(homeScreenSource, /setMonthOffset\(\(current\) => current - 1\)/);
+      assert.match(homeScreenSource, /setMonthOffset\(\(current\) => current \+ 1\)/);
       assert.match(homeScreenSource, /monthCalendar\.monthLabel/);
       assert.match(homeScreenSource, /monthDayCellToday/);
       assert.match(homeScreenSource, /monthLegendRow/);
