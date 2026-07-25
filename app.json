@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/branding/gainer-splash-icon.png",
+      "image": "./assets/branding/gainer-splash-blank.png",
       "resizeMode": "contain",
       "backgroundColor": "#F7F3FF"
     },
@@ -15,6 +15,7 @@
       "supportsTablet": true
     },
     "android": {
+      "backgroundColor": "#F7F3FF",
       "adaptiveIcon": {
         "backgroundColor": "#0B0D10",
         "foregroundImage": "./assets/android-icon-foreground.png",
