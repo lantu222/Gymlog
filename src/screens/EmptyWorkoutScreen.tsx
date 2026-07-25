@@ -32,6 +32,7 @@ import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
 import { AW3, HG } from '../lightTheme';
 import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
+import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { haptics } from '../utils/haptics';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { sound } from '../utils/sound';
@@ -463,6 +464,15 @@ export function EmptyWorkoutScreen({
       sound.rest();
     }
   }, [rest, restRemaining]);
+
+  // The in-app cue cannot play while Android has our JS suspended, so the
+  // deadline also goes to the OS as a scheduled alert. Clearing the bar —
+  // expiry, skip or leaving the screen — retires it.
+  const syncRestAlert = useRestEndAlert(language);
+  const restEndsAtMs = rest?.endsAtMs ?? null;
+  useEffect(() => {
+    void syncRestAlert(restEndsAtMs);
+  }, [restEndsAtMs, syncRestAlert]);
 
   const doneSetCount = freestyleDoneSetCount(exercises);
   const volumeKg = freestyleVolumeKg(exercises);

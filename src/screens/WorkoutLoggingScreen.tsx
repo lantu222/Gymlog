@@ -15,6 +15,7 @@ import { getWorkoutLoggingSessionBootstrapResult } from '../lib/workoutLoggingSe
 import { formatVolume, formatWeight, formatWeightInputValue } from '../lib/format';
 import { canCompleteWorkoutSet } from '../lib/workoutValidation';
 import { radii, spacing, typography } from '../theme';
+import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
 import { SurfaceAccent } from '../components/MainScreenPrimitives';
@@ -455,6 +456,15 @@ export function WorkoutLoggingScreen({
     }
     previousRest.current = { status: restTimerStatus, endsAtMs: restEndsAtMs };
   }, [restTimerStatus, restEndsAtMs]);
+
+  // Those cues need our JS to be alive; Android suspends it with the screen
+  // off. A running rest hands its deadline to the OS as well, so the alert
+  // still lands. Pausing, skipping or finishing the rest retires it.
+  const syncRestAlert = useRestEndAlert(language);
+  const pendingRestEndsAtMs = restTimerStatus === 'running' ? restEndsAtMs : null;
+  useEffect(() => {
+    void syncRestAlert(pendingRestEndsAtMs);
+  }, [pendingRestEndsAtMs, syncRestAlert]);
 
   const libraryIdByName = useMemo(
     () => new Map(exerciseLibrary.map((item) => [normalizeName(item.name), item.id] as const)),

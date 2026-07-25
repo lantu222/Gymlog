@@ -56,12 +56,7 @@ import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { removeTrailingZeros } from '../lib/format';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
-import {
-  cancelRestEndNotification,
-  clearDeliveredRestNotifications,
-  ensureRestNotifications,
-  scheduleRestEndNotification,
-} from '../utils/restNotifications';
+import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { sound, type CueSound } from '../utils/sound';
 import { HG } from '../lightTheme';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
@@ -661,14 +656,6 @@ export function GuidedPlayerScreen({
   const session = workout.activeSession;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
-  // Ask for the notification permission on the entry screen rather than the
-  // first rest — a system dialog mid-set is the worst possible moment. Any
-  // alert left over from a session that died mid-rest goes at the same time.
-  useEffect(() => {
-    void ensureRestNotifications();
-    void clearDeliveredRestNotifications();
-  }, []);
-
   const sessionTitle = getGuidedSessionTitle(session?.templateName ?? '', language);
 
   const warmupDrills = useMemo<GuidedDrill[]>(
@@ -751,13 +738,11 @@ export function GuidedPlayerScreen({
   const firedRef = useRef(false);
   const lastBeepSecondRef = useRef<number | null>(null);
   /**
-   * Pending OS alert for the running rest. The in-app timer cannot fire while
-   * Android has our JS suspended, so the deadline is also handed to the system
-   * as a scheduled notification; this holds its id so we can drop it the
-   * moment the rest is skipped, paused, adjusted or finished in-app.
+   * The in-app timer cannot fire while Android has our JS suspended, so a rest
+   * deadline is handed to the system as a scheduled notification too. Dropped
+   * the moment the rest is skipped, paused, adjusted or finished in-app.
    */
-  const restNotificationIdRef = useRef<string | null>(null);
-  const restScheduleTokenRef = useRef(0);
+  const syncRestNotification = useRestEndAlert(language);
 
   const [paused, setPaused] = useState(false);
   const [howtoOpen, setHowtoOpen] = useState(false);
@@ -803,40 +788,6 @@ export function GuidedPlayerScreen({
     }
     sound[kind]();
   }, []);
-
-  /**
-   * Hands the rest deadline to the OS (or drops a pending one when passed
-   * null). The token guards against an older async schedule landing after a
-   * newer one and leaking an orphan alert.
-   */
-  const syncRestNotification = useCallback(
-    async (endsAtMs: number | null, nextName: string | null) => {
-      const token = (restScheduleTokenRef.current += 1);
-      const previousId = restNotificationIdRef.current;
-      restNotificationIdRef.current = null;
-      void cancelRestEndNotification(previousId);
-
-      if (endsAtMs === null) {
-        return;
-      }
-
-      const id = await scheduleRestEndNotification({
-        endsAtMs,
-        title: t(language, 'guided.notify.restOver'),
-        body: nextName
-          ? t(language, 'guided.notify.restOverNext', { name: nextName })
-          : t(language, 'guided.notify.restOverPlain'),
-      });
-
-      if (token !== restScheduleTokenRef.current) {
-        // Superseded while we awaited the schedule — don't keep this one.
-        void cancelRestEndNotification(id);
-        return;
-      }
-      restNotificationIdRef.current = id;
-    },
-    [language],
-  );
 
   const goTo = useCallback(
     (index: number) => {

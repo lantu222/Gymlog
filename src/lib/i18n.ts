@@ -259,6 +259,10 @@ const EN = {
   'rest.a11y.shorten': 'Shorten rest by 15 seconds',
   'rest.a11y.extend': 'Extend rest by 15 seconds',
   'rest.a11y.skip': 'Skip rest',
+  // Shown by the OS when a rest ends while the app is backgrounded.
+  'rest.notify.over': 'Rest over',
+  'rest.notify.next': 'Next up: {name}',
+  'rest.notify.plain': 'Back to work.',
 
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'PLATES · PER SIDE · {bar}KG BAR',
@@ -468,9 +472,6 @@ const EN = {
   'guided.logSet': 'Log set',
   'guided.a11y.watchHowTo': 'Watch how {name} is done',
   'guided.a11y.sound': 'Sound cues',
-  'guided.notify.restOver': 'Rest over',
-  'guided.notify.restOverNext': 'Next up: {name}',
-  'guided.notify.restOverPlain': 'Back to work.',
   'guided.exit.title': 'Leave guided mode?',
   'guided.exit.keep': 'Keep training',
   'guided.exit.list': 'Switch to list view',
@@ -751,6 +752,9 @@ const FI: Record<I18nKey, string> = {
   'rest.a11y.shorten': 'Lyhennä lepoa 15 sekuntia',
   'rest.a11y.extend': 'Pidennä lepoa 15 sekuntia',
   'rest.a11y.skip': 'Ohita lepo',
+  'rest.notify.over': 'Lepo ohi',
+  'rest.notify.next': 'Seuraavaksi: {name}',
+  'rest.notify.plain': 'Takaisin töihin.',
 
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'LEVYT · PER PUOLI · {bar}KG TANKO',
@@ -957,9 +961,6 @@ const FI: Record<I18nKey, string> = {
   'guided.logSet': 'Kirjaa sarja',
   'guided.a11y.watchHowTo': 'Katso miten {name} tehdään',
   'guided.a11y.sound': 'Äänivihjeet',
-  'guided.notify.restOver': 'Lepo ohi',
-  'guided.notify.restOverNext': 'Seuraavaksi: {name}',
-  'guided.notify.restOverPlain': 'Takaisin töihin.',
   'guided.exit.title': 'Poistutaanko ohjatusta tilasta?',
   'guided.exit.keep': 'Jatka treeniä',
   'guided.exit.list': 'Vaihda listanäkymään',
