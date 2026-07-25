@@ -1,17 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
-import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
-import { ScreenHeader } from '../components/ScreenHeader';
+import { CardioIcon } from '../components/CardioIcon';
+import { buildCardioStatsLine, getCardioActivity } from '../lib/cardio';
 import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getLogSetStatusCounts } from '../lib/exerciseLog';
-import {
-  buildHistorySessionViewModel,
-  filterHistorySessionViewModels,
-  HistoryFilter,
-  HistorySessionViewModel,
-} from '../lib/historyView';
 import {
   formatDurationMinutes,
   formatLogResult,
@@ -20,13 +16,33 @@ import {
   formatVolume,
   formatWeight,
 } from '../lib/format';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import {
+  buildHistorySessionViewModel,
+  filterHistorySessionViewModels,
+  HistoryFilter,
+  HistorySessionViewModel,
+} from '../lib/historyView';
 import { I18nKey, t } from '../lib/i18n';
+import { localizeSessionName } from '../lib/sessionNameLabel';
+import { HG3 } from '../lightTheme';
+import { layout, spacing } from '../theme';
 import { AppDatabase, AppLanguage, UnitPreference } from '../types/models';
-import { CardioIcon } from '../components/CardioIcon';
-import { buildCardioStatsLine, getCardioActivity } from '../lib/cardio';
-import { HG } from '../lightTheme';
-import { layout, radii, spacing } from '../theme';
+
+/**
+ * Rebuilt in the light HG3 language (2026-07-25). The old screen still wore the
+ * dark ScreenHeader and stock photo heroes from an earlier phase, which left it
+ * looking like a different app than the one that saved the session.
+ *
+ * The detail view is deliberately Workout Complete revisited — same purple
+ * hero, same stat card, same lift rows — because that is what it is.
+ */
+const HAIRLINE = '#EEEAF7';
+const HERO_STOPS = ['#8B5CF6', '#7C3AED', '#6D28D9'] as const;
+// The gradient is drawn at a fixed size and clipped by the hero's overflow.
+// A percentage-height Svg does not stretch to a dynamic parent on Android — it
+// paints a partial rect and leaves white text sitting on the light background.
+const HERO_GRADIENT_WIDTH = Dimensions.get('window').width;
+const HERO_GRADIENT_HEIGHT = 320;
 
 interface HistoryScreenProps {
   sessions: AppDatabase['workoutSessions'];
@@ -50,84 +66,16 @@ function countLabel(language: AppLanguage, count: number, one: I18nKey, many: I1
   return count === 1 ? t(language, one) : t(language, many, { count });
 }
 
-function SectionLabel({ label }: { label: string }) {
-  return <Text style={styles.sectionLabel}>{label}</Text>;
+function sessionTitle(name: string, language: AppLanguage) {
+  return localizeSessionName(formatWorkoutDisplayLabel(name, t(language, 'history.workoutFallback')), language);
 }
 
-function HeroPill({ label }: { label: string }) {
-  return (
-    <View style={styles.heroPill}>
-      <Text style={styles.heroPillText}>{label}</Text>
-    </View>
-  );
-}
-
-function LightBadge({ label }: { label: string }) {
-  return (
-    <View style={styles.lightBadge}>
-      <Text style={styles.lightBadgeText}>{label}</Text>
-    </View>
-  );
-}
-
-function LightEmptyState({ title, description }: { title: string; description: string }) {
-  return (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyStateTitle}>{title}</Text>
-      <Text style={styles.emptyStateDescription}>{description}</Text>
-    </View>
-  );
-}
-
-function SessionRow({
-  workoutName,
-  performedAt,
-  exerciseCount,
-  summaryText,
-  highlightText,
-  badgeText,
-  language,
-  onPress,
-}: {
-  workoutName: string;
-  performedAt: string;
-  exerciseCount: number;
-  summaryText?: string;
-  highlightText?: string;
-  badgeText?: string;
-  language: AppLanguage;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={styles.sessionRow}>
-      <View style={styles.sessionRowLeft}>
-        <Text style={styles.sessionRowKicker}>{t(language, 'history.savedSession')}</Text>
-        <Text style={styles.sessionRowName}>{workoutName}</Text>
-        <Text style={styles.sessionRowMeta}>
-          {formatShortDate(performedAt, language)} {'·'} {countLabel(language, exerciseCount, 'history.exerciseOne', 'history.exerciseMany')}
-        </Text>
-        {summaryText ? <Text style={styles.sessionRowSummary}>{summaryText}</Text> : null}
-      </View>
-      <View style={styles.sessionRowRight}>
-        {badgeText ? <LightBadge label={badgeText} /> : null}
-        {highlightText ? (
-          <Text style={styles.sessionRowHighlight} numberOfLines={2}>
-            {highlightText}
-          </Text>
-        ) : null}
-      </View>
-    </Pressable>
-  );
-}
-
-function SignalCard({ label, value, meta }: { label: string; value: string; meta?: string | null }) {
-  return (
-    <View style={styles.signalCard}>
-      <Text style={styles.signalLabel}>{label}</Text>
-      <Text style={styles.signalValue}>{value}</Text>
-      {meta ? <Text style={styles.signalMeta}>{meta}</Text> : null}
-    </View>
-  );
+function formatTopLift(session: HistorySessionViewModel, unitPreference: UnitPreference, language: AppLanguage) {
+  if (!session.topLiftName || session.topLiftWeightKg === null) {
+    return null;
+  }
+  const name = exerciseNameLabel(language, formatLiftDisplayLabel(session.topLiftName));
+  return `${name} ${formatWeight(session.topLiftWeightKg, unitPreference)}`;
 }
 
 function getReviewLabel(session: HistorySessionViewModel, language: AppLanguage) {
@@ -143,62 +91,86 @@ function getReviewLabel(session: HistorySessionViewModel, language: AppLanguage)
   return undefined;
 }
 
-function formatTopLift(session: HistorySessionViewModel, unitPreference: UnitPreference, language: AppLanguage) {
-  if (!session.topLiftName || session.topLiftWeightKg === null) {
-    return null;
-  }
-  const name = exerciseNameLabel(language, formatLiftDisplayLabel(session.topLiftName));
-  return `${name} ${formatWeight(session.topLiftWeightKg, unitPreference)}`;
+function SectionLabel({ label }: { label: string }) {
+  return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
-function getHistoryHeroMeta(
-  session: HistorySessionViewModel,
-  unitPreference: UnitPreference,
-  language: AppLanguage,
-) {
-  const parts = [
-    session.durationMinutes ? formatDurationMinutes(session.durationMinutes) : null,
-    formatTopLift(session, unitPreference, language),
-    formatShortDate(session.performedAt, language),
-  ].filter(Boolean);
-
-  return parts.join(' · ');
+function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'purple' | 'warn' }) {
+  return (
+    <View style={[styles.badge, tone === 'purple' && styles.badgePurple, tone === 'warn' && styles.badgeWarn]}>
+      <Text
+        style={[
+          styles.badgeText,
+          tone === 'purple' && styles.badgeTextPurple,
+          tone === 'warn' && styles.badgeTextWarn,
+        ]}
+      >
+        {label}
+      </Text>
+    </View>
+  );
 }
 
-function getSessionHighlight(
-  session: HistorySessionViewModel,
-  unitPreference: UnitPreference,
-  language: AppLanguage,
-) {
-  const flags = [
-    session.swappedExercises > 0
-      ? countLabel(language, session.swappedExercises, 'history.swapOne', 'history.swapMany')
-      : null,
-    session.noteCount > 0 ? countLabel(language, session.noteCount, 'history.noteOne', 'history.noteMany') : null,
-    session.partialExercises > 0
-      ? countLabel(language, session.partialExercises, 'history.partialOne', 'history.partialMany')
-      : null,
-  ].filter(Boolean);
+function StatCell({ value, label }: { value: string; label: string }) {
+  return (
+    <View style={styles.statCell}>
+      <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
+        {value}
+      </Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
 
-  if (flags.length) {
-    return flags.join(' · ');
-  }
+function EmptyState({ title, body }: { title: string; body: string }) {
+  return (
+    <View style={styles.emptyState}>
+      <Text style={styles.emptyTitle}>{title}</Text>
+      <Text style={styles.emptyBody}>{body}</Text>
+    </View>
+  );
+}
 
+function SessionRow({
+  session,
+  unitPreference,
+  language,
+  onPress,
+}: {
+  session: HistorySessionViewModel;
+  unitPreference: UnitPreference;
+  language: AppLanguage;
+  onPress: () => void;
+}) {
+  const badge = getReviewLabel(session, language);
   const topLift = formatTopLift(session, unitPreference, language);
-  if (topLift) {
-    return topLift;
-  }
+  const meta = [
+    formatShortDate(session.performedAt, language),
+    countLabel(language, session.exerciseCount, 'history.exerciseOne', 'history.exerciseMany'),
+    session.durationMinutes ? formatDurationMinutes(session.durationMinutes) : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
-  if (session.skippedExercises > 0) {
-    return countLabel(
-      language,
-      session.skippedExercises,
-      'history.skippedExerciseOne',
-      'history.skippedExerciseMany',
-    );
-  }
-
-  return t(language, 'history.savedSession');
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.sessionCard, pressed && styles.pressed]}>
+      <View style={styles.sessionCardTop}>
+        <Text style={styles.sessionCardTitle} numberOfLines={1}>
+          {sessionTitle(session.workoutName, language)}
+        </Text>
+        {badge ? <Badge label={badge} tone={session.legacyMismatchCount > 0 ? 'warn' : 'purple'} /> : null}
+      </View>
+      <Text style={styles.sessionCardMeta}>{meta}</Text>
+      <View style={styles.sessionCardFooter}>
+        <Text style={styles.sessionCardVolume}>{formatVolume(session.totalVolume, unitPreference)}</Text>
+        {topLift ? (
+          <Text style={styles.sessionCardLift} numberOfLines={1}>
+            {topLift}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
+  );
 }
 
 export function HistoryScreen({
@@ -211,9 +183,11 @@ export function HistoryScreen({
   onSelectSession,
   onBack,
 }: HistoryScreenProps) {
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const selectedSession = sessions.find((session) => session.id === selectedSessionId);
+
   const sessionViewModels = useMemo(
     () =>
       sessions
@@ -225,690 +199,685 @@ export function HistoryScreen({
     () => filterHistorySessionViewModels(sessionViewModels, { query: searchQuery, filter: historyFilter }),
     [historyFilter, searchQuery, sessionViewModels],
   );
-  const latestSession = sessionViewModels[0] ?? null;
+  const filtersActive = historyFilter !== 'all' || searchQuery.trim().length > 0;
 
+  /* ── session detail ─────────────────────────────────────────────────── */
   if (selectedSession) {
     const logs = [...getSessionLogs(selectedSession.id)].sort((left, right) => left.orderIndex - right.orderIndex);
-    const sessionView = buildHistorySessionViewModel(selectedSession, logs);
-    const heroVariant = getFitnessPhotoVariant({
-      title: sessionView.topLiftName ?? selectedSession.workoutNameSnapshot,
-      goal: selectedSession.workoutNameSnapshot,
-    });
+    const view = buildHistorySessionViewModel(selectedSession, logs);
+    const topLift = formatTopLift(view, unitPreference, language);
 
     return (
-      <>
-        <ScreenHeader
-          title={formatWorkoutDisplayLabel(selectedSession.workoutNameSnapshot, t(language, 'history.workoutFallback'))}
-          subtitle={t(language, 'history.sessionSubtitle')}
-          tone="dark"
-          onBack={onBack}
-        />
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <FitnessPhotoSurface variant={heroVariant} style={styles.heroSurface}>
-            <View style={styles.heroContent}>
-              <Text style={styles.heroKicker}>{t(language, 'history.savedSession')}</Text>
+      <View style={styles.screen}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={[styles.detailContent, { paddingBottom: layout.bottomTabBarReserve }]}
+        >
+          <View style={[styles.hero, { paddingTop: insets.top + 14 }]}>
+            <Svg
+              style={StyleSheet.absoluteFill}
+              width={HERO_GRADIENT_WIDTH}
+              height={HERO_GRADIENT_HEIGHT}
+              viewBox={`0 0 ${HERO_GRADIENT_WIDTH} ${HERO_GRADIENT_HEIGHT}`}
+            >
+              <Defs>
+                <SvgLinearGradient id="historyHero" x1="0" y1="0" x2="0.55" y2="1">
+                  <Stop offset="0" stopColor={HERO_STOPS[0]} />
+                  <Stop offset="0.46" stopColor={HERO_STOPS[1]} />
+                  <Stop offset="1" stopColor={HERO_STOPS[2]} />
+                </SvgLinearGradient>
+              </Defs>
+              <Rect
+                width={HERO_GRADIENT_WIDTH}
+                height={HERO_GRADIENT_HEIGHT}
+                fill="url(#historyHero)"
+              />
+            </Svg>
 
-              <View style={styles.heroBadgeRow}>
-                <HeroPill label={formatShortDate(selectedSession.performedAt, language)} />
-                {sessionView.durationMinutes ? (
-                  <HeroPill label={formatDurationMinutes(sessionView.durationMinutes)} />
-                ) : null}
-                <HeroPill label={countLabel(language, sessionView.exerciseCount, 'history.exerciseOne', 'history.exerciseMany')} />
-              </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'common.back')}
+              onPress={onBack}
+              hitSlop={10}
+              style={({ pressed }) => [styles.heroBack, pressed && styles.pressed]}
+            >
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M15 5l-7 7 7 7"
+                  stroke="#FFFFFF"
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </Pressable>
 
-              <View style={styles.heroCopy}>
-                <Text style={styles.heroTitle}>
-                  {formatWorkoutDisplayLabel(selectedSession.workoutNameSnapshot, t(language, 'history.workoutFallback'))}
-                </Text>
-                <Text style={styles.heroMeta}>
-                  {formatTopLift(sessionView, unitPreference, language)
-                    ? t(language, 'history.topLift', {
-                        lift: exerciseNameLabel(language, formatLiftDisplayLabel(sessionView.topLiftName ?? '')),
-                        weight: formatWeight(sessionView.topLiftWeightKg ?? 0, unitPreference),
-                      })
-                    : formatSessionDate(selectedSession.performedAt, language)}
-                </Text>
-              </View>
-            </View>
-          </FitnessPhotoSurface>
-
-          <View style={styles.signalRow}>
-            <SignalCard
-              label={t(language, 'history.signal.sets')}
-              value={`${sessionView.setsCompleted}`}
-              meta={countLabel(language, sessionView.exerciseCount, 'history.loggedExerciseOne', 'history.loggedExerciseMany')}
-            />
-            <SignalCard
-              label={t(language, 'history.signal.volume')}
-              value={formatVolume(sessionView.totalVolume, unitPreference)}
-              meta={
-                sessionView.trackedExercises > 0
-                  ? t(language, 'history.trackedLifts', { count: sessionView.trackedExercises })
-                  : t(language, 'history.noTrackedLift')
-              }
-            />
-            <SignalCard
-              label={t(language, 'history.signal.review')}
-              value={
-                sessionView.swappedExercises > 0 || sessionView.noteCount > 0 || sessionView.partialExercises > 0
-                  ? [
-                      sessionView.swappedExercises > 0
-                        ? t(language, 'history.swaps', { count: sessionView.swappedExercises })
-                        : null,
-                      sessionView.noteCount > 0 ? t(language, 'history.notes', { count: sessionView.noteCount }) : null,
-                      sessionView.partialExercises > 0
-                        ? t(language, 'history.partial', { count: sessionView.partialExercises })
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-                  : t(language, 'history.cleanSession')
-              }
-              meta={getReviewLabel(sessionView, language) ?? t(language, 'history.saved')}
-            />
+            <Text style={styles.heroEyebrow}>{t(language, 'history.savedSession')}</Text>
+            <Text style={styles.heroTitle} numberOfLines={2}>
+              {sessionTitle(selectedSession.workoutNameSnapshot, language)}
+            </Text>
+            <Text style={styles.heroMeta}>{formatSessionDate(selectedSession.performedAt, language)}</Text>
           </View>
 
-          {sessionView.topLiftName && sessionView.topLiftWeightKg !== null ? (
-            <View style={styles.contextCard}>
-              <Text style={styles.contextKicker}>{t(language, 'history.worthNoting')}</Text>
-              <Text style={styles.contextTitle}>
-                {exerciseNameLabel(language, formatLiftDisplayLabel(sessionView.topLiftName))}{' '}
-                {formatWeight(sessionView.topLiftWeightKg, unitPreference)}
-              </Text>
-              <Text style={styles.contextBody}>{t(language, 'history.heaviestLift')}</Text>
+          <View style={styles.body}>
+            <View style={styles.statsCard}>
+              <StatCell value={`${view.setsCompleted}`} label={t(language, 'history.signal.sets')} />
+              <View style={styles.statDivider} />
+              <StatCell
+                value={formatVolume(view.totalVolume, unitPreference)}
+                label={t(language, 'history.signal.volume')}
+              />
+              <View style={styles.statDivider} />
+              <StatCell value={`${view.exerciseCount}`} label={t(language, 'complete.stat.exercises')} />
+              {view.durationMinutes ? (
+                <>
+                  <View style={styles.statDivider} />
+                  <StatCell
+                    value={formatDurationMinutes(view.durationMinutes)}
+                    label={t(language, 'complete.stat.duration')}
+                  />
+                </>
+              ) : null}
             </View>
-          ) : null}
 
-          <View style={styles.logList}>
-            <SectionLabel label={t(language, 'history.loggedLifts')} />
-            {logs.map((log) => {
-              const statusCounts = getLogSetStatusCounts(log);
-              const logFlags = [
-                log.skipped ? t(language, 'history.badge.skipped') : null,
-                log.swappedFrom ? t(language, 'history.badge.swapped') : null,
-                log.status === 'active' ? t(language, 'history.badge.partial') : null,
-                log.sessionInserted ? t(language, 'history.badge.added') : null,
-                log.tracked ? t(language, 'history.badge.tracked') : null,
-              ].filter(Boolean);
-
-              const statusSummary = [
-                statusCounts.completed > 0
-                  ? countLabel(language, statusCounts.completed, 'history.completedSetOne', 'history.completedSetMany')
-                  : null,
-                statusCounts.skipped > 0
-                  ? countLabel(language, statusCounts.skipped, 'history.skippedSetOne', 'history.skippedSetMany')
-                  : null,
-                statusCounts.pending > 0
-                  ? countLabel(language, statusCounts.pending, 'history.pendingSetOne', 'history.pendingSetMany')
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' · ');
-
-              return (
-                <View key={log.id} style={styles.logCard}>
-                  <View style={styles.logCardHeader}>
-                    <View style={styles.logCardCopy}>
-                      <Text style={styles.logName}>{exerciseNameLabel(language, formatLiftDisplayLabel(log.exerciseNameSnapshot))}</Text>
-                      <Text style={styles.logMeta}>{formatLogResult(log, unitPreference)}</Text>
-                    </View>
-                    {logFlags.length ? (
-                      <View style={styles.logBadgeRow}>
-                        {logFlags.slice(0, 2).map((flag) => (
-                          <LightBadge key={`${log.id}:${flag}`} label={flag ?? ''} />
-                        ))}
-                      </View>
-                    ) : null}
-                  </View>
-
-                  {statusSummary ? <Text style={styles.logSupport}>{statusSummary}</Text> : null}
-                  {log.swappedFrom ? (
-                    <Text style={styles.logSupport}>{t(language, 'history.swappedFrom', { name: exerciseNameLabel(language, formatLiftDisplayLabel(log.swappedFrom)) })}</Text>
-                  ) : null}
-                  {log.notes ? <Text style={styles.logNote}>{log.notes}</Text> : null}
+            {topLift ? (
+              <View style={styles.noteCard}>
+                <View style={styles.noteIconTile}>
+                  <Svg width={22} height={22} viewBox="0 0 24 24">
+                    <Path
+                      d="M12 2l2.5 5 5.5.8-4 3.9.95 5.5L12 20.5 7.05 17.2 8 11.7l-4-3.9L9.5 7z"
+                      fill={HG3.gold}
+                    />
+                  </Svg>
                 </View>
-              );
-            })}
+                <View style={styles.noteCopy}>
+                  <Text style={styles.noteEyebrow}>{t(language, 'history.worthNoting')}</Text>
+                  <Text style={styles.noteTitle} numberOfLines={1}>
+                    {topLift}
+                  </Text>
+                  <Text style={styles.noteBody}>{t(language, 'history.heaviestLift')}</Text>
+                </View>
+              </View>
+            ) : null}
+
+            <SectionLabel label={t(language, 'history.loggedLifts')} />
+            <View style={styles.liftCard}>
+              {logs.map((log, index) => {
+                const counts = getLogSetStatusCounts(log);
+                const flags = [
+                  log.skipped ? t(language, 'history.badge.skipped') : null,
+                  log.swappedFrom ? t(language, 'history.badge.swapped') : null,
+                  log.status === 'active' ? t(language, 'history.badge.partial') : null,
+                  log.sessionInserted ? t(language, 'history.badge.added') : null,
+                ].filter((flag): flag is string => Boolean(flag));
+
+                const statusSummary = [
+                  counts.completed > 0
+                    ? countLabel(language, counts.completed, 'history.completedSetOne', 'history.completedSetMany')
+                    : null,
+                  counts.skipped > 0
+                    ? countLabel(language, counts.skipped, 'history.skippedSetOne', 'history.skippedSetMany')
+                    : null,
+                  counts.pending > 0
+                    ? countLabel(language, counts.pending, 'history.pendingSetOne', 'history.pendingSetMany')
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+
+                return (
+                  <View key={log.id} style={[styles.liftRow, index > 0 && styles.liftRowDivided]}>
+                    <View style={styles.liftCopy}>
+                      <View style={styles.liftNameRow}>
+                        <Text style={styles.liftName} numberOfLines={1}>
+                          {exerciseNameLabel(language, formatLiftDisplayLabel(log.exerciseNameSnapshot))}
+                        </Text>
+                        {log.tracked ? <Badge label={t(language, 'history.badge.tracked')} tone="purple" /> : null}
+                      </View>
+                      <Text style={styles.liftResult}>{formatLogResult(log, unitPreference)}</Text>
+                      {statusSummary ? <Text style={styles.liftMeta}>{statusSummary}</Text> : null}
+                      {log.swappedFrom ? (
+                        <Text style={styles.liftMeta}>
+                          {t(language, 'history.swappedFrom', {
+                            name: exerciseNameLabel(language, formatLiftDisplayLabel(log.swappedFrom)),
+                          })}
+                        </Text>
+                      ) : null}
+                      {log.notes ? <Text style={styles.liftNote}>{log.notes}</Text> : null}
+                      {flags.length ? (
+                        <View style={styles.liftFlagRow}>
+                          {flags.map((flag) => (
+                            <Badge key={`${log.id}:${flag}`} label={flag} />
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
           </View>
         </ScrollView>
-      </>
+      </View>
     );
   }
 
+  /* ── session list ───────────────────────────────────────────────────── */
+  const reviewCount = sessionViewModels.filter(
+    (session) => session.skippedExercises > 0 || session.partialExercises > 0,
+  ).length;
+
   return (
-    <>
-      <ScreenHeader title={t(language, 'history.title')} subtitle={t(language, 'history.subtitle')} tone="dark" />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+    <View style={styles.screen}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.listContent, { paddingBottom: layout.bottomTabBarReserve }]}
+      >
+        <Text style={styles.pageTitle}>{t(language, 'history.title')}</Text>
+        <Text style={styles.pageSubtitle}>{t(language, 'history.subtitle')}</Text>
+
         {sessions.length === 0 ? (
-          <LightEmptyState
-            title={t(language, 'history.empty.title')}
-            description={t(language, 'history.empty.body')}
-          />
+          <EmptyState title={t(language, 'history.empty.title')} body={t(language, 'history.empty.body')} />
         ) : (
           <>
-            {latestSession ? (
-              <FitnessPhotoSurface
-                variant={getFitnessPhotoVariant({
-                  title: latestSession.topLiftName ?? latestSession.workoutName,
-                  goal: latestSession.workoutName,
-                })}
-                style={styles.heroSurface}
-              >
-                <View style={styles.heroContent}>
-                  <Text style={styles.heroKicker}>{t(language, 'history.latestSave')}</Text>
-
-                  <View style={styles.heroBadgeRow}>
-                    <HeroPill label={t(language, 'history.sessionCount', { count: sessionViewModels.length })} />
-                    {latestSession.durationMinutes ? (
-                      <HeroPill label={formatDurationMinutes(latestSession.durationMinutes)} />
-                    ) : null}
-                    {getReviewLabel(latestSession, language) ? (
-                      <HeroPill label={getReviewLabel(latestSession, language)!} />
-                    ) : null}
-                  </View>
-
-                  <View style={styles.heroCopy}>
-                    <Text style={styles.heroTitle}>
-                      {formatWorkoutDisplayLabel(latestSession.workoutName, t(language, 'history.workoutFallback'))}
-                    </Text>
-                    <Text style={styles.heroMeta}>{getHistoryHeroMeta(latestSession, unitPreference, language)}</Text>
-                  </View>
-
-                  <View style={styles.heroActionRow}>
-                    <Pressable
-                      onPress={() => onSelectSession(latestSession.sessionId)}
-                      style={styles.heroPrimaryButton}
-                    >
-                      <Text style={styles.heroPrimaryButtonText}>{t(language, 'history.openSession')}</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </FitnessPhotoSurface>
-            ) : null}
-
-            <View style={styles.discoveryCard}>
-              <View style={styles.discoveryHeaderRow}>
-                <View style={styles.discoveryCopy}>
-                  <Text style={styles.discoveryLabel}>{t(language, 'history.browse.label')}</Text>
-                  <Text style={styles.discoveryTitle}>{t(language, 'history.browse.title')}</Text>
-                </View>
-              </View>
-
+            <View style={styles.browseCard}>
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder={t(language, 'history.searchPlaceholder')}
-                placeholderTextColor={HG.faint}
-                selectionColor={HG.purple}
+                placeholderTextColor={HG3.faint}
+                selectionColor={HG3.purple}
                 style={styles.searchInput}
               />
-              <Text style={styles.discoveryMeta}>
-                {t(language, 'history.browse.meta', {
-                  sessions: filteredSessions.length,
-                  review: sessionViewModels.filter(
-                    (session) => session.skippedExercises > 0 || session.partialExercises > 0,
-                  ).length,
-                })}
-              </Text>
               <View style={styles.filterRow}>
                 {HISTORY_FILTERS.map((filter) => {
                   const active = filter.key === historyFilter;
                   return (
                     <Pressable
                       key={filter.key}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
                       onPress={() => setHistoryFilter(filter.key)}
                       style={[styles.filterChip, active && styles.filterChipActive]}
                     >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{t(language, filter.labelKey)}</Text>
+                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                        {t(language, filter.labelKey)}
+                      </Text>
                     </Pressable>
                   );
                 })}
               </View>
+              <Text style={styles.browseMeta}>
+                {t(language, 'history.browse.meta', {
+                  sessions: filteredSessions.length,
+                  review: reviewCount,
+                })}
+              </Text>
             </View>
 
             {filteredSessions.length ? (
-              <View style={styles.logList}>
-                <SectionLabel label={t(language, 'history.recentSessions')} />
+              <View style={styles.sessionList}>
                 {filteredSessions.map((session) => (
                   <SessionRow
                     key={session.sessionId}
-                    workoutName={formatWorkoutDisplayLabel(session.workoutName, t(language, 'history.workoutFallback'))}
-                    performedAt={session.performedAt}
-                    exerciseCount={session.exerciseCount}
-                    summaryText={
-                      `${session.durationMinutes ? `${formatDurationMinutes(session.durationMinutes)} · ` : ''}${formatVolume(
-                        session.totalVolume,
-                        unitPreference,
-                      )}`
-                    }
-                    highlightText={getSessionHighlight(session, unitPreference, language)}
-                    badgeText={getReviewLabel(session, language)}
+                    session={session}
+                    unitPreference={unitPreference}
                     language={language}
                     onPress={() => onSelectSession(session.sessionId)}
                   />
                 ))}
               </View>
             ) : (
-              <LightEmptyState
+              <EmptyState
                 title={t(language, 'history.emptyFiltered.title')}
-                description={t(language, 'history.emptyFiltered.body')}
+                body={t(language, 'history.emptyFiltered.body')}
               />
             )}
 
-            {cardioSessions.length > 0 && historyFilter === 'all' && !searchQuery.trim() ? (
-              <View style={styles.logList}>
+            {cardioSessions.length > 0 && !filtersActive ? (
+              <>
                 <SectionLabel label={t(language, 'history.cardio')} />
-                {cardioSessions.map((session) => {
-                  const activity = getCardioActivity(session.activityType);
-                  return (
-                    <View key={session.id} style={styles.cardioRow}>
-                      <View style={styles.cardioRowIcon}>
-                        <CardioIcon kind={activity.icon} size={20} color={HG.purple} />
+                <View style={styles.liftCard}>
+                  {cardioSessions.map((session, index) => {
+                    const activity = getCardioActivity(session.activityType);
+                    return (
+                      <View key={session.id} style={[styles.cardioRow, index > 0 && styles.liftRowDivided]}>
+                        <View style={styles.cardioIcon}>
+                          <CardioIcon kind={activity.icon} size={19} color={HG3.purple} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.liftName} numberOfLines={1}>
+                            {activity.name}
+                          </Text>
+                          <Text style={styles.liftMeta}>
+                            {formatShortDate(session.performedAt, language)} {'·'}{' '}
+                            {buildCardioStatsLine(session.durationSec, session.distanceKm)}
+                          </Text>
+                        </View>
                       </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.cardioRowName}>{activity.name}</Text>
-                        <Text style={styles.cardioRowMeta}>
-                          {formatShortDate(session.performedAt, language)} {'·'}{' '}
-                          {buildCardioStatsLine(session.durationSec, session.distanceKm)}
-                        </Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
+                    );
+                  })}
+                </View>
+              </>
             ) : null}
           </>
         )}
       </ScrollView>
-    </>
+    </View>
   );
 }
 
+const CARD_SHADOW = {
+  shadowColor: '#281C5A',
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.07,
+  shadowRadius: 26,
+  elevation: 2,
+} as const;
+
 const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.lg,
-  },
-  sectionLabel: {
-    color: HG.faint,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  heroSurface: {
-    minHeight: 276,
-  },
-  heroContent: {
+  screen: {
     flex: 1,
-    justifyContent: 'space-between',
-    padding: spacing.lg,
-    gap: spacing.md,
+    backgroundColor: HG3.bg,
   },
-  heroKicker: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.9,
+  pressed: {
+    opacity: 0.9,
+    transform: [{ scale: 0.995 }],
   },
-  heroBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
+
+  /* list */
+  listContent: {
+    paddingHorizontal: 18,
+    paddingTop: spacing.lg,
+    gap: 14,
   },
-  heroPill: {
-    minHeight: 28,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
+  pageTitle: {
+    color: HG3.ink,
+    fontSize: 30,
+    lineHeight: 36,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  pageSubtitle: {
+    marginTop: -8,
+    color: HG3.muted,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  browseCard: {
+    backgroundColor: HG3.surface,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.30)',
+    borderColor: HAIRLINE,
+    padding: 14,
+    gap: 12,
+    ...CARD_SHADOW,
+  },
+  searchInput: {
+    height: 44,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    backgroundColor: HG3.bg,
+    color: HG3.ink,
+    fontSize: 14.5,
+    fontWeight: '700',
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  filterChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    backgroundColor: HG3.bg,
+  },
+  filterChipActive: {
+    backgroundColor: HG3.purpleSoft,
+    borderColor: HG3.purple,
+  },
+  filterChipText: {
+    color: HG3.muted,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  filterChipTextActive: {
+    color: HG3.purple,
+  },
+  browseMeta: {
+    color: HG3.faint,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  sessionList: {
+    gap: 10,
+  },
+  sessionCard: {
+    backgroundColor: HG3.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    ...CARD_SHADOW,
+  },
+  sessionCardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sessionCardTitle: {
+    flex: 1,
+    color: HG3.ink,
+    fontSize: 16.5,
+    lineHeight: 21,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  sessionCardMeta: {
+    marginTop: 3,
+    color: HG3.muted,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  sessionCardFooter: {
+    marginTop: 9,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+  },
+  sessionCardVolume: {
+    color: HG3.ink,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  sessionCardLift: {
+    flex: 1,
+    color: HG3.faint,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
+  },
+
+  /* detail */
+  detailContent: {
+    paddingBottom: spacing.lg,
+  },
+  hero: {
+    overflow: 'hidden',
+    paddingHorizontal: 20,
+    paddingBottom: 26,
+  },
+  heroBack: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: -8,
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
-  heroPillText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '900',
+  heroEyebrow: {
+    marginTop: 16,
+    color: 'rgba(255,255,255,0.78)',
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  heroCopy: {
-    gap: spacing.xs,
   },
   heroTitle: {
+    marginTop: 6,
     color: '#FFFFFF',
-    fontSize: 32,
-    lineHeight: 34,
-    fontWeight: '900',
-    letterSpacing: -1,
-    maxWidth: '84%',
+    fontSize: 27,
+    lineHeight: 33,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   heroMeta: {
-    color: 'rgba(255,255,255,0.74)',
-    fontSize: 14,
-    lineHeight: 20,
+    marginTop: 6,
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: '700',
-    maxWidth: '88%',
   },
-  heroActionRow: {
+  body: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    gap: 14,
+  },
+  statsCard: {
     flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  heroPrimaryButton: {
-    flex: 1,
-    minHeight: 52,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: HG.purple,
-  },
-  heroPrimaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '900',
-  },
-  lightBadge: {
-    minHeight: 24,
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: HG.purpleLight,
-  },
-  lightBadgeText: {
-    color: HG.purpleDark,
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-  },
-  emptyState: {
-    borderRadius: radii.lg,
+    alignItems: 'flex-start',
+    gap: 4,
+    backgroundColor: HG3.surface,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
-    padding: spacing.xl,
-    gap: spacing.sm,
+    borderColor: HAIRLINE,
+    paddingVertical: 17,
+    paddingHorizontal: 6,
+    ...CARD_SHADOW,
   },
-  emptyStateTitle: {
-    color: HG.ink,
-    fontSize: 22,
+  statCell: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    color: HG3.ink,
+    fontSize: 19,
+    lineHeight: 24,
     fontWeight: '800',
     letterSpacing: -0.4,
+    fontVariant: ['tabular-nums'],
   },
-  emptyStateDescription: {
-    color: HG.muted,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  sessionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
-    padding: spacing.lg,
-  },
-  sessionRowLeft: {
-    gap: spacing.xs,
-    flex: 1,
-  },
-  sessionRowKicker: {
-    color: HG.faint,
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  sessionRowRight: {
-    maxWidth: 150,
-    alignItems: 'flex-end',
-    gap: spacing.xs,
-  },
-  sessionRowName: {
-    color: HG.ink,
-    fontSize: 20,
+  statLabel: {
+    marginTop: 5,
+    color: HG3.faint,
+    fontSize: 9.5,
+    lineHeight: 13,
     fontWeight: '800',
-    letterSpacing: -0.3,
+    letterSpacing: 0.7,
+    textAlign: 'center',
+    textTransform: 'uppercase',
   },
-  sessionRowMeta: {
-    color: HG.muted,
-    fontSize: 12,
-    fontWeight: '600',
+  statDivider: {
+    width: 1,
+    height: 40,
+    marginTop: 1,
+    backgroundColor: HAIRLINE,
   },
-  sessionRowSummary: {
-    color: HG.faint,
-    fontSize: 12,
-    fontWeight: '600',
+  noteCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 13,
+    backgroundColor: HG3.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    paddingVertical: 14,
+    paddingHorizontal: 15,
+    ...CARD_SHADOW,
+  },
+  noteIconTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FBF1DA',
+  },
+  noteCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  noteEyebrow: {
+    color: HG3.gold,
+    fontSize: 10.5,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  noteTitle: {
+    marginTop: 2,
+    color: HG3.ink,
+    fontSize: 16.5,
+    lineHeight: 21,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  noteBody: {
+    marginTop: 2,
+    color: HG3.muted,
+    fontSize: 12.5,
     lineHeight: 17,
+    fontWeight: '600',
   },
-  sessionRowHighlight: {
-    color: HG.muted,
+  sectionLabel: {
+    marginTop: 4,
+    color: HG3.faint,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  liftCard: {
+    backgroundColor: HG3.surface,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: HAIRLINE,
+    paddingHorizontal: 16,
+    ...CARD_SHADOW,
+  },
+  liftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 13,
+  },
+  liftRowDivided: {
+    borderTopWidth: 1,
+    borderTopColor: HAIRLINE,
+  },
+  liftCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  liftNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liftName: {
+    flexShrink: 1,
+    color: HG3.ink,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  liftResult: {
+    marginTop: 2,
+    color: HG3.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+  liftMeta: {
+    marginTop: 2,
+    color: HG3.faint,
     fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
+  liftNote: {
+    marginTop: 4,
+    color: HG3.muted,
+    fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
-    textAlign: 'right',
+    fontStyle: 'italic',
+  },
+  liftFlagRow: {
+    marginTop: 7,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
   },
   cardioRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: HG.surface,
-    borderWidth: 1,
-    borderColor: HG.border,
-    borderRadius: radii.md,
     paddingVertical: 13,
-    paddingHorizontal: 14,
   },
-  cardioRowIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: HG.purpleLight,
+  cardioIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: HG3.purpleSoft,
   },
-  cardioRowName: {
-    color: HG.ink,
-    fontSize: 14.5,
+
+  /* shared bits */
+  badge: {
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    backgroundColor: HG3.bg,
+  },
+  badgePurple: {
+    backgroundColor: HG3.purpleSoft,
+  },
+  badgeWarn: {
+    backgroundColor: '#FEF3C7',
+  },
+  badgeText: {
+    color: HG3.muted,
+    fontSize: 10.5,
+    lineHeight: 14,
     fontWeight: '800',
-  },
-  cardioRowMeta: {
-    color: HG.muted,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 3,
-    fontVariant: ['tabular-nums'],
-  },
-  discoveryCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  discoveryHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  discoveryCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  discoveryLabel: {
-    color: HG.faint,
-    fontSize: 11,
-    fontWeight: '900',
+    letterSpacing: 0.4,
     textTransform: 'uppercase',
-    letterSpacing: 0.9,
   },
-  discoveryTitle: {
-    color: HG.ink,
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  badgeTextPurple: {
+    color: HG3.purple,
   },
-  discoveryMeta: {
-    color: HG.faint,
-    fontSize: 12,
-    fontWeight: '600',
+  badgeTextWarn: {
+    color: '#B45309',
   },
-  searchInput: {
-    minHeight: 48,
-    borderRadius: radii.md,
+  emptyState: {
+    backgroundColor: HG3.surface,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
-    paddingHorizontal: spacing.md,
-    color: HG.ink,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  filterChip: {
-    minHeight: 34,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
+    borderColor: HAIRLINE,
+    paddingVertical: 26,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: HG.surfaceSoft,
-    borderWidth: 1,
-    borderColor: HG.border,
+    ...CARD_SHADOW,
   },
-  filterChipActive: {
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.purple,
-  },
-  filterChipText: {
-    color: HG.muted,
-    fontSize: 12,
+  emptyTitle: {
+    color: HG3.ink,
+    fontSize: 16.5,
+    lineHeight: 21,
     fontWeight: '800',
   },
-  filterChipTextActive: {
-    color: HG.purpleDark,
-  },
-  signalRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  signalCard: {
-    flex: 1,
-    minHeight: 92,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    justifyContent: 'center',
-    gap: 3,
-  },
-  signalLabel: {
-    color: HG.faint,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  signalValue: {
-    color: HG.ink,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  signalMeta: {
-    color: HG.muted,
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '600',
-  },
-  contextCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
-    padding: spacing.md,
-    gap: spacing.xs,
-  },
-  contextKicker: {
-    color: HG.faint,
-    fontSize: 11,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  contextTitle: {
-    color: HG.ink,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  contextBody: {
-    color: HG.muted,
+  emptyBody: {
+    marginTop: 5,
+    color: HG3.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
-  },
-  logList: {
-    gap: spacing.md,
-  },
-  logCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  logCardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  logCardCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  logName: {
-    color: HG.ink,
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  logMeta: {
-    color: HG.muted,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  logBadgeRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    justifyContent: 'flex-end',
-    maxWidth: '44%',
-  },
-  logSupport: {
-    color: HG.faint,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
-  },
-  logNote: {
-    color: HG.ink,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
+    textAlign: 'center',
   },
 });

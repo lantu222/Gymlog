@@ -3685,6 +3685,9 @@ function GymlogApp() {
   const aiCoachActive = route.tab === 'home' && route.screen === 'ai';
   const aiSetupActive = route.tab === 'home' && route.screen === 'ai_setup';
   const historyActive = route.tab === 'home' && (route.screen === 'history' || route.screen === 'session' || route.screen === 'cardio');
+  // The saved-session view opens on the same purple hero as Workout Complete,
+  // so the status bar joins it instead of sitting above it as a light strip.
+  const historySessionActive = route.tab === 'home' && route.screen === 'session';
   const progressActive = route.tab === 'progress';
 
   return (
@@ -3695,15 +3698,15 @@ function GymlogApp() {
         !welcomeActive && route.tab !== 'home' && route.tab !== 'workout' && route.tab !== 'progress' && route.tab !== 'profile'
       }
       safeAreaEdges={
-        welcomeActive || workoutSummaryActive
+        welcomeActive || workoutSummaryActive || historySessionActive
           ? ['left', 'right']
           : onboardingActive
             ? ['top', 'left', 'right']
             : ['top', 'left', 'right', 'bottom']
       }
       statusBarStyleOverride={programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || aiSetupActive || historyActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={workoutSummaryActive ? 'transparent' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
-      statusBarTranslucent={welcomeActive || workoutSummaryActive}
+      statusBarBackgroundColor={workoutSummaryActive || historySessionActive ? 'transparent' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarTranslucent={welcomeActive || workoutSummaryActive || historySessionActive}
       shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (

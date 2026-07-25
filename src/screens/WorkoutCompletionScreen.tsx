@@ -84,8 +84,9 @@ function formatWhenLabel(performedAt: string, language: AppLanguage) {
   return `${day} · ${formatTime(performedAt)}`;
 }
 
-function formatPrTitle(pr: WorkoutCompletionPrCard) {
-  return `${pr.exerciseName} · ${removeTrailingZeros(pr.performedWeightKg)} kg × ${pr.performedReps}`;
+function formatPrTitle(pr: WorkoutCompletionPrCard, language: AppLanguage) {
+  const name = exerciseNameLabel(language, pr.exerciseName);
+  return `${name} · ${removeTrailingZeros(pr.performedWeightKg)} kg × ${pr.performedReps}`;
 }
 
 function formatPrNote(pr: WorkoutCompletionPrCard, language: AppLanguage) {
@@ -288,7 +289,7 @@ export function WorkoutCompletionScreen({
               <View style={styles.noteCopy}>
                 <Text style={styles.prEyebrow}>{t(language, 'complete.pr.eyebrow')}</Text>
                 <Text style={styles.noteTitle} numberOfLines={1}>
-                  {formatPrTitle(pr)}
+                  {formatPrTitle(pr, language)}
                 </Text>
                 <Text style={styles.noteSub} numberOfLines={2}>
                   {formatPrNote(pr, language)}
