@@ -16,10 +16,12 @@ import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { HG3 } from '../lightTheme';
 import type { WorkoutTemplateDraft } from '../types/models';
 
-// Program accent (design_handoff_programs_redesign, hue 150; oklch approximated in hex).
-const ACCENT = '#16A34A';
-const ACCENT_SOFT = '#EAF7EF';
-const ACCENT_LINE = '#8AD4AC';
+// The redesign gave Programs its own green accent, which left it as the only
+// tab not wearing the app's purple. It now uses the shared HG3 purple so the
+// CTAs read as the same product as everywhere else.
+const ACCENT = HG3.purple;
+const ACCENT_SOFT = HG3.purpleSoft;
+const ACCENT_LINE = '#C9B6FF';
 
 const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 // Same spread pattern as ProgramDetailScreen's schedule preview.

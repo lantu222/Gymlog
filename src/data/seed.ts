@@ -159,6 +159,13 @@ export function createEmptyDatabase(): AppDatabase {
   };
 }
 
+/**
+ * Demo fixture — invented sessions, logs and bodyweight entries.
+ *
+ * NEVER hand this to a real install. It exists for tests and for demoing a
+ * populated app; loadDatabase() starts a first launch from
+ * createEmptyDatabase() so nobody sees records they did not lift.
+ */
 export function createSeedDatabase(): AppDatabase {
   const upperSessionId = 'workout_upper_session_1';
   const lowerSessionId = 'workout_lower_session_1';

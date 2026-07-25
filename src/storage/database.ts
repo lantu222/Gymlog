@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { createEmptyDatabase, createSeedDatabase } from '../data/seed';
+import { createEmptyDatabase } from '../data/seed';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
@@ -120,7 +120,10 @@ function mergeExerciseLibrary(
 }
 
 function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppDatabase {
-  const fallback = createSeedDatabase();
+  // Defaults for missing fields only. The empty database is the right source:
+  // the demo seed's fabricated plan id would otherwise become the fallback for
+  // a stored database that had no activePlanId of its own.
+  const fallback = createEmptyDatabase();
 
   const rawExerciseTemplates: ExerciseTemplate[] = Array.isArray(input?.exerciseTemplates)
     ? input.exerciseTemplates.map((exercise: any) => ({
@@ -797,21 +800,32 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
   };
 }
 
+/**
+ * A first launch starts empty.
+ *
+ * This used to write createSeedDatabase(), which carries six invented sessions,
+ * their logs, and a bodyweight trend. A brand-new user opened the app to
+ * personal records they had never lifted and a history they had never trained —
+ * the app lied about the one thing it exists to record. The seed stays as a
+ * fixture for tests and demos; it must never reach a real install.
+ */
 export async function loadDatabase() {
   const raw = await AsyncStorage.getItem(STORAGE_KEY);
 
   if (!raw) {
-    const seeded = normalizeDatabase(createSeedDatabase());
-    await saveDatabase(seeded);
-    return seeded;
+    const empty = normalizeDatabase(createEmptyDatabase());
+    await saveDatabase(empty);
+    return empty;
   }
 
   try {
     return normalizeDatabase(JSON.parse(raw) as Partial<AppDatabase>);
   } catch {
-    const seeded = normalizeDatabase(createSeedDatabase());
-    await saveDatabase(seeded);
-    return seeded;
+    // Unreadable storage is a corrupt install, not a new one — but inventing
+    // history to paper over it would be the same lie.
+    const empty = normalizeDatabase(createEmptyDatabase());
+    await saveDatabase(empty);
+    return empty;
   }
 }
 

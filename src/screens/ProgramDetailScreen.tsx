@@ -15,8 +15,9 @@ const PLAN_TEXT_MUTED = '#667085';
 const PLAN_BORDER = '#E4D8FF';
 const PLAN_PURPLE = '#7C3AED';
 const PLAN_PURPLE_DARK = '#5B21B6';
+const PLAN_PURPLE_SOFT = '#F1EAFF';
+// Green now means one thing only on this screen: a recovery day.
 const PLAN_GREEN = '#16A34A';
-const PLAN_GREEN_SOFT = '#EAF8EF';
 
 interface ProgramDetailScreenProps {
   program: ProgramDetailViewModel;
@@ -603,10 +604,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: radii.pill,
     justifyContent: 'center',
-    backgroundColor: PLAN_GREEN_SOFT,
+    // Actions wear the app purple; green here stays for recovery days only.
+    backgroundColor: PLAN_PURPLE_SOFT,
   },
   workoutActionText: {
-    color: PLAN_GREEN,
+    color: PLAN_PURPLE,
     fontSize: 13,
     fontWeight: '900',
   },

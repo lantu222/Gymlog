@@ -8,7 +8,8 @@ import { HG3 } from '../lightTheme';
 
 // Program accent (design_handoff_programs_redesign, hue 150). The handoff
 // specifies oklch values; RN has no oklch support, so these are the closest hex.
-const ACCENT = '#16A34A';
+// Matches the Programs tab, which no longer carries its own green accent.
+const ACCENT = '#7C3AED';
 const ACCENT_SOFT = '#EAF7EF';
 const ACCENT_LINE = '#8AD4AC';
 

@@ -87,6 +87,7 @@ const suites = [
   ...require('./lib/sessionNameLabel.test.cjs'),
   ...require('./lib/readyProgramContentFi.test.cjs'),
   ...require('./lib/exerciseNameLabel.test.cjs'),
+  ...require('./storage/firstLaunchIsEmpty.test.cjs'),
   ...require('./lib/drillMedia.test.cjs'),
   ...require('./lib/userFitnessProfile.test.cjs'),
 ];
