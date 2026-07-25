@@ -105,7 +105,7 @@ module.exports = [
       // Explore comes from the ready templates via getReadyProgramContent, each
       // assigned one of the designed cover styles.
       assert.match(appSource, /const programsExploreItems = useMemo<ProgramsExploreItem\[\]>/);
-      assert.match(appSource, /getReadyProgramContent\(template\.id\)\?\.summary/);
+      assert.match(appSource, /getReadyProgramContent\(template\.id, preferences\.appLanguage\)\?\.summary/);
       assert.match(appSource, /coverIndex: index % 5/);
       assert.match(appSource, /const programsCustomItems = useMemo/);
       // Handlers reuse existing navigation, nothing new invented.

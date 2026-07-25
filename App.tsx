@@ -2072,7 +2072,7 @@ function GymlogApp() {
     [preferences.recommendedProgramId],
   );
   const recommendedReadyContent = useMemo(
-    () => (recommendedReadyTemplate ? getReadyProgramContent(recommendedReadyTemplate.id) : null),
+    () => (recommendedReadyTemplate ? getReadyProgramContent(recommendedReadyTemplate.id, preferences.appLanguage) : null),
     [recommendedReadyTemplate],
   );
   const homeActivePlanCard = useMemo(() => {
@@ -2587,7 +2587,7 @@ function GymlogApp() {
           id: template.id,
           name: formatWorkoutDisplayLabel(template.name),
           goal: formatGoalLabel(template.goalType),
-          blurb: getReadyProgramContent(template.id)?.summary ?? '',
+          blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
           days: template.daysPerWeek,
           minutes: template.estimatedSessionDuration,
           // Cycles the 5 designed cover styles so each catalog card is distinct.
@@ -2840,6 +2840,7 @@ function GymlogApp() {
     } else if (onboardingStep === 'ready_catalog') {
       content = (
         <OnboardingReadyCatalogScreen
+          language={preferences.appLanguage}
           busy={busySavingReadyPick}
           onPick={(programId) => void handleOnboardingPickReadyProgram(programId)}
           onBack={() => setOnboardingStep('about')}

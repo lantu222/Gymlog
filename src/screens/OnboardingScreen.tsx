@@ -1831,7 +1831,7 @@ export function OnboardingScreen({
     [activeRecommendedProgramId],
   );
   const recommendedProgramPresentation = useMemo(
-    () => (recommendedProgram ? getReadyTemplatePresentation(recommendedProgram) : null),
+    () => (recommendedProgram ? getReadyTemplatePresentation(recommendedProgram, language) : null),
     [recommendedProgram],
   );
   const activeRecommendationCandidate = useMemo(
@@ -1852,7 +1852,7 @@ export function OnboardingScreen({
           return {
             id: programId,
             template,
-            presentation: getReadyTemplatePresentation(template),
+            presentation: getReadyTemplatePresentation(template, language),
             tradeoffNote:
               activeRecommendationCandidate && candidate
                 ? buildRecommendationTradeoffLabel(activeRecommendationCandidate, candidate)
@@ -1905,7 +1905,7 @@ export function OnboardingScreen({
 
         return {
           id: programId,
-          presentation: getReadyTemplatePresentation(template),
+          presentation: getReadyTemplatePresentation(template, language),
           recommended: index === 0,
           days: week.days,
           mins: week.sessionMinutes,

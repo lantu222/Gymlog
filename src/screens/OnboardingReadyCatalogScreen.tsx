@@ -7,7 +7,9 @@ import Svg, { Defs, Path, Pattern as SvgPattern, Rect } from 'react-native-svg';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { WorkoutTemplateV1 } from '../features/workout/workoutTypes';
-import { READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
+import { I18nKey, t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
+import { getReadyProgramCollectionCopy, READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 
 // Light design tokens (HG palette, same as the other onboarding screens).
@@ -24,15 +26,15 @@ const STRIPE_LIGHT = '#F3EDFE';
 const STRIPE_DARK = '#ECE3FC';
 
 // Template difficulty -> the same tier wording the questionnaire uses.
-const LEVEL_TIERS: Array<{ key: WorkoutTemplateV1['level'] | 'all'; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'beginner', label: 'Beginner' },
-  { key: 'intermediate', label: 'Advanced' },
-  { key: 'advanced', label: 'Pro' },
+const LEVEL_TIERS: Array<{ key: WorkoutTemplateV1['level'] | 'all'; labelKey: I18nKey }> = [
+  { key: 'all', labelKey: 'catalog.level.all' },
+  { key: 'beginner', labelKey: 'catalog.level.beginner' },
+  { key: 'intermediate', labelKey: 'catalog.level.intermediate' },
+  { key: 'advanced', labelKey: 'catalog.level.advanced' },
 ];
 
-const DAY_FILTERS: Array<{ key: number | 'all'; label: string }> = [
-  { key: 'all', label: 'Any' },
+const DAY_FILTERS: Array<{ key: number | 'all'; label: string | null }> = [
+  { key: 'all', label: null },
   { key: 2, label: '2' },
   { key: 3, label: '3' },
   { key: 4, label: '4' },
@@ -40,11 +42,13 @@ const DAY_FILTERS: Array<{ key: number | 'all'; label: string }> = [
   { key: 6, label: '6' },
 ];
 
-function tierLabelFor(level: WorkoutTemplateV1['level']) {
-  return LEVEL_TIERS.find((tier) => tier.key === level)?.label ?? 'All';
+function tierLabelFor(level: WorkoutTemplateV1['level'], language: AppLanguage) {
+  const tier = LEVEL_TIERS.find((entry) => entry.key === level);
+  return t(language, tier?.labelKey ?? 'catalog.level.all');
 }
 
 interface OnboardingReadyCatalogScreenProps {
+  language?: AppLanguage;
   onPick: (programId: string) => void;
   onBack: () => void;
   busy?: boolean;
@@ -89,6 +93,7 @@ function SelectionCircle({ selected }: { selected: boolean }) {
 }
 
 export function OnboardingReadyCatalogScreen({
+  language = 'en',
   onPick,
   onBack,
   busy = false,
@@ -118,7 +123,7 @@ export function OnboardingReadyCatalogScreen({
         .filter((template) => (levelFilter === 'all' ? true : template.level === levelFilter))
         .map((template) => {
           seen.add(template.id);
-          return { template, presentation: getReadyTemplatePresentation(template) };
+          return { template, presentation: getReadyTemplatePresentation(template, language) };
         });
 
       return { collection, programs };
@@ -130,17 +135,17 @@ export function OnboardingReadyCatalogScreen({
     ? sections.flatMap((section) => section.programs).find((entry) => entry.template.id === selectedId) ?? null
     : null;
   const ctaTitle = busy
-    ? 'Saving…'
+    ? t(language, 'catalog.saving')
     : selectedProgram
-      ? `Save plan & start · ${selectedProgram.presentation.title.toUpperCase()}`
-      : 'Save plan & start';
+      ? t(language, 'catalog.ctaWith', { program: selectedProgram.presentation.title.toUpperCase() })
+      : t(language, 'catalog.cta');
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 14, paddingBottom: insets.bottom + 14 }]}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           disabled={busy}
           hitSlop={10}
@@ -149,21 +154,24 @@ export function OnboardingReadyCatalogScreen({
           <BackChevron />
         </Pressable>
 
-        <Text style={[styles.title, { fontFamily }]}>Pick a ready program</Text>
-        <Text style={[styles.subtitle, { fontFamily }]}>
-          Browse in peace — you can switch programs any time.
-        </Text>
+        <Text style={[styles.title, { fontFamily }]}>{t(language, 'catalog.title')}</Text>
+        <Text style={[styles.subtitle, { fontFamily }]}>{t(language, 'catalog.sub')}</Text>
 
-        <Text style={[styles.overline, { fontFamily }]}>DAYS / WEEK</Text>
+        <Text style={[styles.overline, { fontFamily }]}>{t(language, 'catalog.daysPerWeek')}</Text>
         <View style={styles.chipRow}>
           {DAY_FILTERS.map((filter) => {
             const active = dayFilter === filter.key;
+            const label = filter.label ?? t(language, 'catalog.days.any');
             return (
               <Pressable
                 key={String(filter.key)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={filter.key === 'all' ? 'Any days per week' : `${filter.label} days per week`}
+                accessibilityLabel={
+                  filter.key === 'all'
+                    ? t(language, 'catalog.a11y.anyDays')
+                    : t(language, 'catalog.a11y.days', { count: label })
+                }
                 onPress={() => setDayFilter(filter.key)}
                 style={[
                   styles.chip,
@@ -171,28 +179,27 @@ export function OnboardingReadyCatalogScreen({
                   active && styles.chipActive,
                 ]}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive, { fontFamily }]}>{filter.label}</Text>
+                <Text style={[styles.chipText, active && styles.chipTextActive, { fontFamily }]}>{label}</Text>
               </Pressable>
             );
           })}
         </View>
 
-        <Text style={[styles.overline, { fontFamily }]}>LEVEL</Text>
+        <Text style={[styles.overline, { fontFamily }]}>{t(language, 'catalog.level')}</Text>
         <View style={styles.segmentTrack}>
           {LEVEL_TIERS.map((tier) => {
             const active = levelFilter === tier.key;
+            const label = t(language, tier.labelKey);
             return (
               <Pressable
                 key={String(tier.key)}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={`${tier.label} level`}
+                accessibilityLabel={t(language, 'catalog.a11y.level', { label })}
                 onPress={() => setLevelFilter(tier.key)}
                 style={[styles.segment, active && styles.segmentActive]}
               >
-                <Text style={[styles.segmentText, active && styles.segmentTextActive, { fontFamily }]}>
-                  {tier.label}
-                </Text>
+                <Text style={[styles.segmentText, active && styles.segmentTextActive, { fontFamily }]}>{label}</Text>
               </Pressable>
             );
           })}
@@ -200,26 +207,30 @@ export function OnboardingReadyCatalogScreen({
 
         <View style={styles.resultRow}>
           <Text style={[styles.resultCount, { fontFamily }]}>
-            {`${resultCount} ${resultCount === 1 ? 'program' : 'programs'}`}
+            {resultCount === 1
+              ? t(language, 'catalog.countOne')
+              : t(language, 'catalog.countMany', { count: resultCount })}
           </Text>
           {filtersActive ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Clear filters"
+              accessibilityLabel={t(language, 'catalog.clearFilters')}
               onPress={() => {
                 setDayFilter('all');
                 setLevelFilter('all');
               }}
               hitSlop={8}
             >
-              <Text style={[styles.clearFilters, { fontFamily }]}>Clear filters</Text>
+              <Text style={[styles.clearFilters, { fontFamily }]}>{t(language, 'catalog.clearFilters')}</Text>
             </Pressable>
           ) : null}
         </View>
 
         {sections.map(({ collection, programs }) => (
           <View key={collection.key} style={styles.section}>
-            <Text style={[styles.sectionLabel, { fontFamily }]}>{collection.label.toUpperCase()}</Text>
+            <Text style={[styles.sectionLabel, { fontFamily }]}>
+              {getReadyProgramCollectionCopy(collection.key, language).label.toUpperCase()}
+            </Text>
             <View style={styles.cardGrid}>
               {programs.map(({ template, presentation }) => {
                 const selected = selectedId === template.id;
@@ -231,7 +242,12 @@ export function OnboardingReadyCatalogScreen({
                     key={template.id}
                     accessibilityRole="button"
                     accessibilityState={{ selected }}
-                    accessibilityLabel={`${presentation.title}, ${template.daysPerWeek} days per week, ${template.estimatedSessionDuration} minutes, ${tierLabelFor(template.level)}`}
+                    accessibilityLabel={t(language, 'catalog.a11y.card', {
+                      program: presentation.title,
+                      days: template.daysPerWeek,
+                      minutes: template.estimatedSessionDuration,
+                      level: tierLabelFor(template.level, language),
+                    })}
                     onPress={() => setSelectedId((current) => (current === template.id ? null : template.id))}
                     style={[styles.card, selected && styles.cardSelected]}
                   >
@@ -244,12 +260,12 @@ export function OnboardingReadyCatalogScreen({
                           <Text numberOfLines={1} style={[styles.coverWord, { fontFamily }]}>
                             {coverWord}
                           </Text>
-                          <Text style={styles.coverCaption}>program cover</Text>
+                          <Text style={styles.coverCaption}>{t(language, 'catalog.coverCaption')}</Text>
                         </>
                       )}
                       <View style={styles.levelBadge}>
                         <Text style={[styles.levelBadgeText, { fontFamily }]}>
-                          {tierLabelFor(template.level).toUpperCase()}
+                          {tierLabelFor(template.level, language).toUpperCase()}
                         </Text>
                       </View>
                       <View style={styles.selectSlot}>
@@ -261,7 +277,10 @@ export function OnboardingReadyCatalogScreen({
                         {presentation.title}
                       </Text>
                       <Text numberOfLines={1} style={[styles.cardMeta, { fontFamily }]}>
-                        {`${template.daysPerWeek} days / week · ${template.estimatedSessionDuration} min`}
+                        {t(language, 'catalog.cardMeta', {
+                          days: template.daysPerWeek,
+                          minutes: template.estimatedSessionDuration,
+                        })}
                       </Text>
                     </View>
                   </Pressable>
@@ -273,8 +292,8 @@ export function OnboardingReadyCatalogScreen({
 
         {sections.length === 0 ? (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyTitle, { fontFamily }]}>No programs match</Text>
-            <Text style={[styles.emptyBody, { fontFamily }]}>Try loosening the filters.</Text>
+            <Text style={[styles.emptyTitle, { fontFamily }]}>{t(language, 'catalog.empty.title')}</Text>
+            <Text style={[styles.emptyBody, { fontFamily }]}>{t(language, 'catalog.empty.body')}</Text>
           </View>
         ) : null}
       </ScrollView>

@@ -1,3 +1,6 @@
+import { AppLanguage } from '../types/models';
+import { FALLBACK_READY_PROGRAM_CONTENT_FI, READY_PROGRAM_CONTENT_FI } from './readyProgramContentFi';
+
 export interface ReadyProgramContentSection {
   kicker: string;
   body: string;
@@ -442,6 +445,29 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
 
 };
 
-export function getReadyProgramContent(templateId: string): ReadyProgramContent | null {
+/**
+ * English is the source of truth. A Finnish entry replaces it when one exists;
+ * a program the Finnish mirror has not caught up with still reads in English
+ * rather than showing a hole.
+ */
+export function getReadyProgramContent(
+  templateId: string,
+  language: AppLanguage = 'en',
+): ReadyProgramContent | null {
+  if (language === 'fi') {
+    const finnish = READY_PROGRAM_CONTENT_FI[templateId];
+    if (finnish) {
+      return finnish;
+    }
+    if (!READY_PROGRAM_CONTENT[templateId] && templateId.startsWith('tpl_gainer_')) {
+      return {
+        ...FALLBACK_READY_PROGRAM_CONTENT_FI,
+        sessionFocusById: {
+          [templateId]: 'Rakenteinen Gainer-treenijakso kohdennetuilla viikkotreeneillä.',
+        },
+      };
+    }
+  }
+
   return READY_PROGRAM_CONTENT[templateId] ?? buildFallbackReadyProgramContent(templateId);
 }

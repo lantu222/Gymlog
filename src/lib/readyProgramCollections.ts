@@ -1,9 +1,21 @@
+import { AppLanguage } from '../types/models';
+import { I18nKey, t } from './i18n';
+
 export interface ReadyProgramCollection {
   key: string;
   label: string;
   description: string;
   recommendedFor: string;
   templateIds: string[];
+}
+
+/** Copy for a collection, resolved in the reader's language. */
+export function getReadyProgramCollectionCopy(collectionKey: string, language: AppLanguage = 'en') {
+  return {
+    label: t(language, `catalog.collection.${collectionKey}.label` as I18nKey),
+    description: t(language, `catalog.collection.${collectionKey}.description` as I18nKey),
+    recommendedFor: t(language, `catalog.collection.${collectionKey}.recommendedFor` as I18nKey),
+  };
 }
 
 export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
