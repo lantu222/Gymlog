@@ -3,24 +3,57 @@ import { Animated, Image, Pressable, ScrollView, StyleSheet, Text, View } from '
 import Svg, { Path } from 'react-native-svg';
 
 import { SimpleLineChart } from '../components/SimpleLineChart';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
+import { I18nKey, t } from '../lib/i18n';
 import { ExerciseProgressSummary } from '../lib/progression';
 import { HG } from '../lightTheme';
-import { ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
+
+// Muscle and facet names are stored English and used for matching, so only
+// the label translates. Anything unmapped falls through to title case.
+const DETAIL_LABEL_KEYS: Record<string, I18nKey> = {
+  chest: 'facet.chest',
+  back: 'facet.back',
+  shoulders: 'facet.shoulders',
+  legs: 'facet.legs',
+  biceps: 'facet.biceps',
+  triceps: 'facet.triceps',
+  core: 'facet.core',
+  glutes: 'facet.glutes',
+  'full body': 'facet.fullBody',
+  barbell: 'facet.barbell',
+  dumbbell: 'facet.dumbbell',
+  machine: 'facet.machine',
+  cable: 'facet.cable',
+  bodyweight: 'facet.bodyweight',
+  compound: 'facet.compound',
+  isolation: 'facet.isolation',
+  cardio: 'facet.cardio',
+  beginner: 'myData.level.beginner',
+  advanced: 'myData.level.advanced',
+  expert: 'myData.level.pro',
+};
 
 interface ExerciseDetailScreenProps {
   item: ExerciseLibraryItem;
   history?: ExerciseProgressSummary | null;
   tracked?: boolean;
   unitPreference?: UnitPreference;
+  language?: AppLanguage;
   onBack: () => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
   onAddToWorkout?: (item: ExerciseLibraryItem) => void;
 }
 
-function toLabel(value?: string | null) {
+function toLabel(value: string | null | undefined, language: AppLanguage) {
   if (!value) {
     return '';
+  }
+
+  const key = DETAIL_LABEL_KEYS[value.trim().toLowerCase()];
+  if (key) {
+    return t(language, key);
   }
 
   return value
@@ -30,21 +63,21 @@ function toLabel(value?: string | null) {
     .join(' ');
 }
 
-function formatLastDone(iso: string) {
+function formatLastDone(iso: string, language: AppLanguage) {
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
   if (days <= 0) {
-    return 'Today';
+    return t(language, 'common.today');
   }
   if (days === 1) {
-    return 'Yesterday';
+    return t(language, 'common.yesterday');
   }
   if (days < 7) {
-    return `${days} days ago`;
+    return t(language, 'common.daysAgo', { count: days });
   }
   if (days < 14) {
-    return 'Last week';
+    return t(language, 'exDetail.lastWeek');
   }
-  return formatShortDate(iso);
+  return formatShortDate(iso, language);
 }
 
 function ChevronLeftIcon() {
@@ -164,6 +197,7 @@ export function ExerciseDetailScreen({
   history = null,
   tracked = false,
   unitPreference = 'kg',
+  language = 'en',
   onBack,
   onToggleTracked,
   onAddToWorkout,
@@ -192,18 +226,21 @@ export function ExerciseDetailScreen({
     if (!onToggleTracked) {
       return;
     }
-    flash(tracked ? 'Removed from tracked lifts' : 'Added to tracked lifts');
+    flash(t(language, tracked ? 'exDetail.untracked' : 'exDetail.tracked'));
     onToggleTracked(item);
   };
 
-  const bodyPartLabel = toLabel(item.bodyPart) || 'Full body';
-  const equipmentLabel = toLabel(item.sourceEquipment ?? item.equipment) || 'Bodyweight';
-  const mechanicLabel = toLabel(item.sourceMechanic ?? item.category) || 'Compound';
-  const levelLabel = toLabel(item.sourceLevel ?? 'beginner') || 'Beginner';
+  const bodyPartLabel = toLabel(item.bodyPart, language) || t(language, 'facet.fullBody');
+  const equipmentLabel =
+    toLabel(item.sourceEquipment ?? item.equipment, language) || t(language, 'facet.bodyweight');
+  const mechanicLabel = toLabel(item.sourceMechanic ?? item.category, language) || t(language, 'facet.compound');
+  const levelLabel = toLabel(item.sourceLevel ?? 'beginner', language) || t(language, 'myData.level.beginner');
 
   const primaryMuscles = (item.primaryMuscles ?? []).filter(Boolean);
   const secondaryMuscles = (item.secondaryMuscles ?? []).filter(Boolean);
-  const primaryChips = primaryMuscles.length ? primaryMuscles.map(toLabel) : [bodyPartLabel];
+  const primaryChips = primaryMuscles.length
+    ? primaryMuscles.map((muscle) => toLabel(muscle, language))
+    : [bodyPartLabel];
 
   const instructions = (item.instructions ?? []).filter(Boolean);
 
@@ -213,10 +250,10 @@ export function ExerciseDetailScreen({
   const chartPoints = useMemo(
     () =>
       [...logs].reverse().map((log) => ({
-        label: formatShortDate(log.performedAt),
+        label: formatShortDate(log.performedAt, language),
         value: convertWeightFromKg(log.weight, unitPreference),
       })),
-    [logs, unitPreference],
+    [language, logs, unitPreference],
   );
 
   const trendDelta = useMemo(() => {
@@ -237,7 +274,7 @@ export function ExerciseDetailScreen({
         <Pressable onPress={onBack} hitSlop={8} style={styles.iconButton}>
           <ChevronLeftIcon />
         </Pressable>
-        <Text style={styles.topBarTitle}>EXERCISE</Text>
+        <Text style={styles.topBarTitle}>{t(language, 'exDetail.title')}</Text>
         <Pressable
           onPress={handleToggleTracked}
           disabled={!onToggleTracked}
@@ -256,7 +293,7 @@ export function ExerciseDetailScreen({
         <HeroImage uri={item.imageUrls?.[0] ?? null} />
 
         <View style={styles.titleBlock}>
-          <Text style={styles.title}>{item.name}</Text>
+          <Text style={styles.title}>{exerciseNameLabel(language, item.name)}</Text>
           <View style={styles.chipRow}>
             <Chip label={bodyPartLabel} filled />
             <Chip label={equipmentLabel} />
@@ -266,24 +303,32 @@ export function ExerciseDetailScreen({
         </View>
 
         <View style={styles.section}>
-          <SectionLabel>YOUR HISTORY</SectionLabel>
+          <SectionLabel>{t(language, 'exDetail.yourHistory')}</SectionLabel>
           {hasHistory ? (
             <>
               <View style={styles.statGrid}>
-                <StatCard label="PERSONAL BEST" value={personalBest} meta="top working set" />
                 <StatCard
-                  label="LAST DONE"
-                  value={history?.latestLog ? formatLastDone(history.latestLog.performedAt) : '—'}
+                  label={t(language, 'exDetail.personalBest')}
+                  value={personalBest}
+                  meta={t(language, 'exDetail.topSet')}
+                />
+                <StatCard
+                  label={t(language, 'exDetail.lastDone')}
+                  value={history?.latestLog ? formatLastDone(history.latestLog.performedAt, language) : '—'}
                   meta={history?.latestLog?.workoutNameSnapshot ?? undefined}
                 />
-                <StatCard label="SESSIONS" value={`${logs.length}`} meta="logged" />
+                <StatCard
+                  label={t(language, 'detail.sessions').toUpperCase()}
+                  value={`${logs.length}`}
+                  meta={t(language, 'exDetail.logged')}
+                />
               </View>
               <View style={styles.workingWeightHeader}>
-                <Text style={styles.workingWeightLabel}>Working weight</Text>
+                <Text style={styles.workingWeightLabel}>{t(language, 'progress.workingWeight')}</Text>
                 {trendDelta != null ? (
                   <Text style={[styles.workingWeightDelta, trendDelta < 0 && styles.workingWeightDeltaDown]}>
                     {trendDelta >= 0 ? '+' : ''}
-                    {removeTrailingZeros(trendDelta)} {unitPreference} since start
+                    {removeTrailingZeros(trendDelta)} {unitPreference} {t(language, 'exDetail.sinceStart')}
                   </Text>
                 ) : null}
               </View>
@@ -292,18 +337,16 @@ export function ExerciseDetailScreen({
           ) : (
             <View style={styles.emptyHistoryCard}>
               <DumbbellIcon color={HG.faint} size={28} />
-              <Text style={styles.emptyHistoryTitle}>No history yet</Text>
-              <Text style={styles.emptyHistoryBody}>
-                Log this lift and your working-weight trend will appear here.
-              </Text>
+              <Text style={styles.emptyHistoryTitle}>{t(language, 'exDetail.noHistory')}</Text>
+              <Text style={styles.emptyHistoryBody}>{t(language, 'exDetail.noHistoryBody')}</Text>
             </View>
           )}
         </View>
 
         <View style={styles.section}>
-          <SectionLabel>TARGET MUSCLES</SectionLabel>
+          <SectionLabel>{t(language, 'exDetail.targetMuscles')}</SectionLabel>
           <View style={styles.musclesCard}>
-            <Text style={styles.musclesGroupLabel}>PRIMARY</Text>
+            <Text style={styles.musclesGroupLabel}>{t(language, 'exDetail.primary')}</Text>
             <View style={styles.chipRow}>
               {primaryChips.map((muscle) => (
                 <Chip key={`p-${muscle}`} label={muscle} filled />
@@ -311,10 +354,12 @@ export function ExerciseDetailScreen({
             </View>
             {secondaryMuscles.length ? (
               <>
-                <Text style={[styles.musclesGroupLabel, styles.musclesGroupLabelSpaced]}>SECONDARY</Text>
+                <Text style={[styles.musclesGroupLabel, styles.musclesGroupLabelSpaced]}>
+                  {t(language, 'exDetail.secondary')}
+                </Text>
                 <View style={styles.chipRow}>
                   {secondaryMuscles.map((muscle) => (
-                    <Chip key={`s-${muscle}`} label={toLabel(muscle)} />
+                    <Chip key={`s-${muscle}`} label={toLabel(muscle, language)} />
                   ))}
                 </View>
               </>
@@ -323,7 +368,7 @@ export function ExerciseDetailScreen({
         </View>
 
         <View style={styles.section}>
-          <SectionLabel>HOW TO PERFORM</SectionLabel>
+          <SectionLabel>{t(language, 'exDetail.howTo')}</SectionLabel>
           <View style={styles.howToCard}>
             {instructions.length ? (
               instructions.map((step, index) => (
@@ -339,15 +384,13 @@ export function ExerciseDetailScreen({
               ))
             ) : (
               <View style={[styles.howToStep, styles.howToStepLast]}>
-                <Text style={styles.stepTextMuted}>
-                  Step-by-step cues aren&apos;t in the library for this exercise yet.
-                </Text>
+                <Text style={styles.stepTextMuted}>{t(language, 'exDetail.noSteps')}</Text>
               </View>
             )}
           </View>
         </View>
 
-        <Text style={styles.footnote}>Form cues are general guidance — adjust to how your body moves.</Text>
+        <Text style={styles.footnote}>{t(language, 'exDetail.footnote')}</Text>
       </ScrollView>
 
       {toast ? (
@@ -363,7 +406,7 @@ export function ExerciseDetailScreen({
           style={styles.ctaButton}
         >
           <ActionIcon added={false} />
-          <Text style={styles.ctaText}>Add to workout</Text>
+          <Text style={styles.ctaText}>{t(language, 'exDetail.addToWorkout')}</Text>
         </Pressable>
       </View>
     </View>

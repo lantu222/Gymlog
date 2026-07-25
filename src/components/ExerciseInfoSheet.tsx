@@ -4,7 +4,8 @@ import Svg, { Circle, Line, Path, Polyline, Rect } from 'react-native-svg';
 
 import { WorkoutExerciseInstance, WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { buildExerciseInfoSnapshot, ExerciseInfoTheme } from '../lib/exerciseInfo';
-import { ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { t } from '../lib/i18n';
+import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { colors, radii, spacing } from '../theme';
 
 interface ExerciseInfoSheetProps {
@@ -13,6 +14,7 @@ interface ExerciseInfoSheetProps {
   libraryItem?: ExerciseLibraryItem | null;
   unitPreference: UnitPreference;
   activeSetIndex: number;
+  language?: AppLanguage;
   onClose: () => void;
 }
 
@@ -246,6 +248,7 @@ export function ExerciseInfoSheet({
   libraryItem = null,
   unitPreference,
   activeSetIndex,
+  language = 'en',
   onClose,
 }: ExerciseInfoSheetProps) {
   const snapshot = useMemo(
@@ -271,7 +274,7 @@ export function ExerciseInfoSheet({
 
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.kicker}>Exercise info</Text>
+            <Text style={styles.kicker}>{t(language, 'infoSheet.kicker')}</Text>
             <Text style={styles.title}>{exercise.exerciseName}</Text>
           </View>
           <Pressable onPress={onClose} hitSlop={8} style={styles.closeButton}>
@@ -294,7 +297,7 @@ export function ExerciseInfoSheet({
                 </View>
               </View>
               <Text style={styles.heroTitle}>Today</Text>
-              <Text style={styles.heroBody}>Keep the next set clean. The essentials stay visible here.</Text>
+              <Text style={styles.heroBody}>{t(language, 'infoSheet.heroBody')}</Text>
               {snapshot.noteLabel ? (
                 <View style={styles.notePill}>
                   <Text style={styles.notePillText}>{snapshot.noteLabel}</Text>
@@ -329,10 +332,10 @@ export function ExerciseInfoSheet({
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Exercise impact</Text>
+            <Text style={styles.sectionTitle}>{t(language, 'infoSheet.impact')}</Text>
             <View style={styles.impactGrid}>
               <ImpactCard
-                title="Muscles"
+                title={t(language, 'infoSheet.muscles')}
                 body={
                   <View style={styles.chipWrap}>
                     {snapshot.muscles.map((item) => (
@@ -347,7 +350,7 @@ export function ExerciseInfoSheet({
               </ImpactCard>
 
               <ImpactCard
-                title="Joints"
+                title={t(language, 'infoSheet.joints')}
                 body={
                   <View style={styles.chipWrap}>
                     {snapshot.joints.map((item) => (
@@ -362,7 +365,7 @@ export function ExerciseInfoSheet({
               </ImpactCard>
 
               <ImpactCard
-                title="Pattern"
+                title={t(language, 'infoSheet.pattern')}
                 body={
                   <View style={styles.patternCopy}>
                     <Text style={styles.patternTitle}>{snapshot.movementLabel}</Text>
@@ -393,7 +396,7 @@ export function ExerciseInfoSheet({
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent trend</Text>
+            <Text style={styles.sectionTitle}>{t(language, 'infoSheet.recentTrend')}</Text>
             <View style={styles.trendCard}>
               <View style={styles.trendHeader}>
                 <View style={styles.trendCopy}>
@@ -414,7 +417,7 @@ export function ExerciseInfoSheet({
 
               {snapshot.trend.empty ? (
                 <View style={styles.emptyTrendState}>
-                  <Text style={styles.emptyTrendText}>No trend yet. Finish a few clean sets and this will start to move.</Text>
+                  <Text style={styles.emptyTrendText}>{t(language, 'infoSheet.noTrend')}</Text>
                 </View>
               ) : (
                 <View style={styles.trendChartWrap}>
@@ -433,7 +436,7 @@ export function ExerciseInfoSheet({
 
         <View style={styles.footer}>
           <Pressable onPress={onClose} style={styles.footerButton}>
-            <Text style={styles.footerButtonText}>Back to set</Text>
+            <Text style={styles.footerButtonText}>{t(language, 'infoSheet.backToSet')}</Text>
           </Pressable>
         </View>
       </View>

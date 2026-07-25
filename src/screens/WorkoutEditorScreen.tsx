@@ -6,7 +6,9 @@ import { InlineTip } from '../components/InlineTip';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { SurfaceAccent } from '../components/MainScreenPrimitives';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { parseNumberInput } from '../lib/format';
+import { t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import {
   ExercisePrLookup,
@@ -23,7 +25,17 @@ import {
   parseDraftRepRangeInput,
 } from '../lib/workoutEditorTable';
 import { radii, spacing } from '../theme';
-import { ExerciseLibraryItem, ExerciseLogDraft, UnitPreference, WorkoutTemplateDraft } from '../types/models';
+import {
+  AppLanguage,
+  ExerciseLibraryItem,
+  ExerciseLogDraft,
+  UnitPreference,
+  WorkoutTemplateDraft,
+} from '../types/models';
+
+// Saved as the session's name when the draft has none. Stored data, not UI
+// copy, so it stays in one language like the rest of the persisted plan.
+const FREESTYLE_SESSION_NAME = 'Empty workout';
 
 interface EditorSetState {
   localKey: string;
@@ -83,6 +95,7 @@ interface WorkoutEditorScreenProps {
   unitPreference: UnitPreference;
   exerciseHistoryLookup: EditorExerciseHistoryLookup;
   exercisePrLookup: ExercisePrLookup;
+  language?: AppLanguage;
   onBack: () => void;
   onSave: (draft: WorkoutTemplateDraft, summary: WorkoutEditorFinishSummary) => Promise<void> | void;
   onUseTemplate?: () => void;
@@ -198,8 +211,8 @@ function mapDraftToState(draft: WorkoutTemplateDraft): EditorSessionState {
   };
 }
 
-function shortenExerciseName(value: string) {
-  const label = formatLiftDisplayLabel(value, 'Exercise');
+function shortenExerciseName(value: string, language: AppLanguage) {
+  const label = formatLiftDisplayLabel(exerciseNameLabel(language, value), t(language, 'editor.exercise'));
   return label.length > 34 ? `${label.slice(0, 31).trimEnd()}...` : label;
 }
 
@@ -220,6 +233,7 @@ export function WorkoutEditorScreen({
   exerciseLibrary,
   recentExerciseLibraryItems,
   defaultRestSeconds,
+  language = 'en',
   onBack,
   onSave,
   inlineTip,
@@ -380,7 +394,7 @@ export function WorkoutEditorScreen({
     }
 
     const exercisesToSave = session.exercises.filter((exercise) => exercise.name.trim().length > 0);
-    const workoutName = initialDraft.name?.trim() || 'Empty workout';
+    const workoutName = initialDraft.name?.trim() || FREESTYLE_SESSION_NAME;
     const performedAt = new Date().toISOString();
     const setsCompleted = exercisesToSave.reduce(
       (total, exercise) => total + exercise.setEntries.filter((entry) => entry.done).length,
@@ -538,11 +552,11 @@ export function WorkoutEditorScreen({
     );
   }
 
-  const sheetTitle = sheetTarget?.mode === 'fill-row' ? 'Pick exercise' : 'Add exercise';
+  const sheetTitle = t(language, sheetTarget?.mode === 'fill-row' ? 'editor.pickExercise' : 'editor.addExercise');
   const sheetSubtitle =
     sheetTarget?.mode === 'fill-row'
-      ? 'Use the library to replace the selected lift.'
-      : 'Add the next lift to this workout.';
+      ? t(language, 'editor.pickExerciseSub')
+      : t(language, 'editor.addExerciseSub');
   const completedSetsCount = session.exercises.reduce(
     (total, exercise) => total + exercise.setEntries.filter((entry) => entry.done).length,
     0,
@@ -572,8 +586,10 @@ export function WorkoutEditorScreen({
         <View style={styles.instructionsModal}>
           <View style={styles.instructionsHeader}>
             <View style={styles.instructionsHeaderCopy}>
-              <Text style={styles.instructionsTitle}>{instructionItem?.name ?? 'Instructions'}</Text>
-              <Text style={styles.instructionsSubtitle}>How to perform the lift.</Text>
+              <Text style={styles.instructionsTitle}>
+                {instructionItem ? exerciseNameLabel(language, instructionItem.name) : t(language, 'editor.instructions')}
+              </Text>
+              <Text style={styles.instructionsSubtitle}>{t(language, 'editor.instructionsSub')}</Text>
             </View>
             <Pressable onPress={() => setInstructionItemId(null)} style={styles.instructionsCloseButton}>
               <Text style={styles.instructionsCloseButtonText}>X</Text>
@@ -590,7 +606,7 @@ export function WorkoutEditorScreen({
               ))}
             </View>
           ) : (
-            <Text style={styles.instructionsEmptyText}>No instructions available yet for this exercise.</Text>
+            <Text style={styles.instructionsEmptyText}>{t(language, 'editor.noInstructions')}</Text>
           )}
         </View>
       </View>
@@ -608,8 +624,10 @@ export function WorkoutEditorScreen({
         <View style={styles.notesModal}>
           <View style={styles.instructionsHeader}>
             <View style={styles.instructionsHeaderCopy}>
-              <Text style={styles.instructionsTitle}>{notesExercise?.name ?? 'Notes'}</Text>
-              <Text style={styles.instructionsSubtitle}>Keep a short note for this exercise.</Text>
+              <Text style={styles.instructionsTitle}>
+                {notesExercise ? exerciseNameLabel(language, notesExercise.name) : t(language, 'editor.notes')}
+              </Text>
+              <Text style={styles.instructionsSubtitle}>{t(language, 'editor.notesSub')}</Text>
             </View>
             <Pressable onPress={() => setNotesExerciseKey(null)} style={styles.instructionsCloseButton}>
               <Text style={styles.instructionsCloseButtonText}>X</Text>
@@ -623,7 +641,7 @@ export function WorkoutEditorScreen({
                 updateExercise(notesExercise.localKey, { notes: value });
               }
             }}
-            placeholder="Notes..."
+            placeholder={t(language, 'editor.notesPlaceholder')}
             placeholderTextColor="#9CA3AF"
             selectionColor="#111111"
             multiline
@@ -638,9 +656,9 @@ export function WorkoutEditorScreen({
     <View style={styles.screen}>
       <ScreenHeader
         title=""
-        subtitle={hasExercises ? undefined : 'Start simple. Add the first lift, then build the rest as you go.'}
+        subtitle={hasExercises ? undefined : t(language, 'editor.startSubtitle')}
         onBack={onBack}
-        rightActionLabel={hasExercises ? 'Finish' : undefined}
+        rightActionLabel={hasExercises ? t(language, 'editor.finish') : undefined}
         onRightActionPress={handleSave}
         tone="dark"
       />
@@ -657,20 +675,18 @@ export function WorkoutEditorScreen({
 
         {!hasExercises ? (
           <View style={styles.startCard}>
-            <Text style={styles.startKicker}>Quick start</Text>
-            <Text style={styles.startTitle}>Add your first exercise</Text>
-            <Text style={styles.startBody}>
-              Pick one or more lifts. The full workout builder opens after you add them.
-            </Text>
+            <Text style={styles.startKicker}>{t(language, 'editor.quickStart')}</Text>
+            <Text style={styles.startTitle}>{t(language, 'editor.addFirst')}</Text>
+            <Text style={styles.startBody}>{t(language, 'editor.addFirstBody')}</Text>
 
             <Pressable onPress={openLibraryForAppend} style={styles.primaryAction}>
-              <Text style={styles.primaryActionText}>Add exercise</Text>
+              <Text style={styles.primaryActionText}>{t(language, 'editor.addExercise')}</Text>
             </Pressable>
           </View>
         ) : (
           <>
             <View style={styles.sessionStatsCard}>
-              <Text style={styles.sessionStatLabel}>Duration</Text>
+              <Text style={styles.sessionStatLabel}>{t(language, 'editor.duration')}</Text>
               <Text style={styles.sessionStatValue}>{formatElapsedTime(elapsedSeconds)}</Text>
             </View>
 
@@ -679,7 +695,10 @@ export function WorkoutEditorScreen({
                 const libraryItem = exercise.libraryItemId ? exerciseLibraryMap.get(exercise.libraryItemId) ?? null : null;
                 const previewImage = libraryItem?.imageUrls?.[0] ?? null;
                 const doneCount = exercise.setEntries.filter((entry) => entry.done).length;
-                const doneLabel = `${doneCount}/${Math.max(1, exercise.setEntries.length)} Done`;
+                const doneLabel = t(language, 'editor.doneCount', {
+                  done: doneCount,
+                  total: Math.max(1, exercise.setEntries.length),
+                });
                 const isExpanded = expandedExerciseKey === exercise.localKey;
 
                 return (
@@ -707,7 +726,9 @@ export function WorkoutEditorScreen({
 
                         <View style={styles.exerciseNameCell}>
                           {exercise.libraryItemId ? (
-                            <Text style={styles.exerciseNameText}>{shortenExerciseName(exercise.name)}</Text>
+                            <Text style={styles.exerciseNameText}>
+                              {shortenExerciseName(exercise.name, language)}
+                            </Text>
                           ) : (
                             <TextInput
                               value={exercise.name}
@@ -717,7 +738,7 @@ export function WorkoutEditorScreen({
                                   libraryItemId: null,
                                 })
                               }
-                              placeholder="Write exercise"
+                              placeholder={t(language, 'editor.writeExercise')}
                               placeholderTextColor="#9CA3AF"
                               selectionColor="#111111"
                               style={styles.exerciseInput}
@@ -742,10 +763,10 @@ export function WorkoutEditorScreen({
                         {activeRowMenuKey === exercise.localKey ? (
                           <View style={styles.rowMenu}>
                             <Pressable onPress={() => openReplaceExercise(exercise.localKey)} style={styles.rowMenuItem}>
-                              <Text style={styles.rowMenuItemText}>Replace exercise</Text>
+                              <Text style={styles.rowMenuItemText}>{t(language, 'editor.replace')}</Text>
                             </Pressable>
                             <Pressable onPress={() => openInstructions(exercise.libraryItemId)} style={styles.rowMenuItem}>
-                              <Text style={styles.rowMenuItemText}>Instructions</Text>
+                              <Text style={styles.rowMenuItemText}>{t(language, 'editor.instructions')}</Text>
                             </Pressable>
                             <Pressable
                               onPress={() => {
@@ -754,7 +775,7 @@ export function WorkoutEditorScreen({
                               }}
                               style={styles.rowMenuItem}
                             >
-                              <Text style={styles.rowMenuItemText}>Notes</Text>
+                              <Text style={styles.rowMenuItemText}>{t(language, 'editor.notes')}</Text>
                             </Pressable>
                             <Pressable
                               onPress={() => {
@@ -763,7 +784,7 @@ export function WorkoutEditorScreen({
                               }}
                               style={styles.rowMenuItem}
                             >
-                              <Text style={styles.rowMenuItemDanger}>Delete exercise</Text>
+                              <Text style={styles.rowMenuItemDanger}>{t(language, 'editor.delete')}</Text>
                             </Pressable>
                           </View>
                         ) : null}
@@ -773,7 +794,7 @@ export function WorkoutEditorScreen({
                     {isExpanded ? (
                       <View style={styles.expandedExercise}>
                         <View style={styles.restRow}>
-                          <Text style={styles.restLabel}>Rest timer</Text>
+                          <Text style={styles.restLabel}>{t(language, 'editor.restTimer')}</Text>
                           <TextInput
                             value={exercise.restSeconds}
                             onChangeText={(value) => updateExercise(exercise.localKey, { restSeconds: value })}
@@ -783,14 +804,14 @@ export function WorkoutEditorScreen({
                             keyboardType="number-pad"
                             style={styles.restInput}
                           />
-                          <Text style={styles.restSuffix}>sec</Text>
+                          <Text style={styles.restSuffix}>{t(language, 'editor.sec')}</Text>
                         </View>
 
                         <View style={styles.setHeaderRow}>
-                          <Text style={styles.setHeaderCell}>Set</Text>
+                          <Text style={styles.setHeaderCell}>{t(language, 'editor.set')}</Text>
                           <Text style={styles.setHeaderCell}>Kg</Text>
-                          <Text style={styles.setHeaderCell}>Reps</Text>
-                          <Text style={styles.setHeaderCell}>Check</Text>
+                          <Text style={styles.setHeaderCell}>{t(language, 'editor.reps')}</Text>
+                          <Text style={styles.setHeaderCell}>{t(language, 'editor.check')}</Text>
                         </View>
 
                         {exercise.setEntries.map((entry, setIndex) => (
@@ -824,7 +845,7 @@ export function WorkoutEditorScreen({
                         ))}
 
                         <Pressable onPress={() => addSetEntry(exercise.localKey)} style={styles.addSetButton}>
-                          <Text style={styles.addSetButtonText}>+ Add set</Text>
+                          <Text style={styles.addSetButtonText}>{t(language, 'editor.addSet')}</Text>
                         </Pressable>
                       </View>
                     ) : null}
@@ -834,7 +855,7 @@ export function WorkoutEditorScreen({
             </View>
 
             <Pressable onPress={openLibraryForAppend} style={styles.addExercisesButton}>
-              <Text style={styles.addExercisesButtonText}>Add exercises</Text>
+              <Text style={styles.addExercisesButtonText}>{t(language, 'editor.addExercises')}</Text>
             </Pressable>
           </>
         )}
@@ -848,7 +869,8 @@ export function WorkoutEditorScreen({
         selectedIds={[]}
         title={sheetTitle}
         subtitle={sheetSubtitle}
-        actionLabel="Add"
+        actionLabel={t(language, 'editor.add')}
+        language={language}
         autoFocusSearch
         multiSelect={sheetTarget?.mode === 'append'}
         onClose={() => {

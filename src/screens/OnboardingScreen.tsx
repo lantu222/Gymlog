@@ -3180,7 +3180,7 @@ export function OnboardingScreen({
           {!avoidExtraVisible ? (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Add something else"
+              accessibilityLabel={t(language, 'onb.addSomethingElse')}
               onPress={() => {
                 void haptics.select();
                 setAvoidExtraVisible(true);
@@ -3193,7 +3193,7 @@ export function OnboardingScreen({
 
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Nothing to note"
+            accessibilityLabel={t(language, 'onb.nothingToNote')}
             onPress={() => {
               void haptics.select();
               setCautionFlags([]);
@@ -3364,7 +3364,7 @@ export function OnboardingScreen({
           </View>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="View the first training week"
+            accessibilityLabel={t(language, 'onb.viewFirstWeek')}
             onPress={() => {
               void haptics.select();
               setPlanReadyWorkoutPage(0);
@@ -3530,7 +3530,7 @@ export function OnboardingScreen({
             </View>
             <Pressable
               accessibilityRole="switch"
-              accessibilityLabel="Automated progression"
+              accessibilityLabel={t(language, 'planSet.autoProgression')}
               accessibilityState={{ checked: enabled }}
               onPress={() => {
                 void haptics.select();
@@ -3655,7 +3655,7 @@ export function OnboardingScreen({
               </Text>
             </View>
           ) : (
-            <Text style={styles.focusPickHint}>Pick 1–2 areas.</Text>
+            <Text style={styles.focusPickHint}>{t(language, 'onb.pickAreas')}</Text>
           )}
         </View>
       ),
@@ -3929,17 +3929,17 @@ export function OnboardingScreen({
           <Text style={styles.personalizationBody}>{t(language, 'onb.tune.body')}</Text>
           <View style={styles.choiceRow}>
             <ChoiceChip
-              label="Week"
+              label={t(language, 'planSet.week')}
               active={activeRecommendationRefinement === 'schedule'}
               onPress={() => toggleRecommendationRefinement('schedule')}
             />
             <ChoiceChip
-              label="Focus"
+              label={t(language, 'onb.focusLabel')}
               active={activeRecommendationRefinement === 'focus'}
               onPress={() => toggleRecommendationRefinement('focus')}
             />
             <ChoiceChip
-              label="Build my own"
+              label={t(language, 'setup.guidance.own')}
               active={activeRecommendationRefinement === 'custom'}
               onPress={() => toggleRecommendationRefinement('custom')}
             />

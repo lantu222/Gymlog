@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { ScreenHeader } from '../components/ScreenHeader';
+import { t } from '../lib/i18n';
 import { radii, spacing } from '../theme';
 import {
   AiPlannerDaysPerWeek,
@@ -9,11 +10,13 @@ import {
   AiPlannerExperience,
   AiPlannerGoal,
   AiPlannerRecovery,
+  AppLanguage,
   AppPreferences,
 } from '../types/models';
 
 interface AiModeSetupScreenProps {
   preferences: AppPreferences;
+  language?: AppLanguage;
   onBack: () => void;
   onSave: (patch: Partial<AppPreferences>) => void | Promise<void>;
 }
@@ -68,7 +71,7 @@ function splitCsv(value: string) {
     .filter(Boolean);
 }
 
-export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupScreenProps) {
+export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave }: AiModeSetupScreenProps) {
   const [goal, setGoal] = useState<AiPlannerGoal | null>(preferences.aiPlannerGoal);
   const [daysPerWeek, setDaysPerWeek] = useState<AiPlannerDaysPerWeek | null>(preferences.aiPlannerDaysPerWeek);
   const [experience, setExperience] = useState<AiPlannerExperience | null>(preferences.aiPlannerExperience);
@@ -86,52 +89,57 @@ export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupSc
 
   return (
     <>
-      <ScreenHeader title="GAINER AI setup" subtitle="Answer once. Reuse every workout." onBack={onBack} tone="dark" />
+      <ScreenHeader
+        title={t(language, 'aiSetup.title')}
+        subtitle={t(language, 'aiSetup.subtitle')}
+        onBack={onBack}
+        tone="dark"
+      />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.noteCard}>
-          <Text style={styles.noteTitle}>Paid GAINER AI replies</Text>
+          <Text style={styles.noteTitle}>{t(language, 'aiSetup.paidTitle')}</Text>
           <Text style={styles.noteBody}>
             Keep the app free. Charge only the AI layer. This setup is saved once, then the center AI button can open the next workout flow directly.
           </Text>
-          <Text style={styles.noteMeta}>Suggested later: low per-reply pricing or credit bundles.</Text>
+          <Text style={styles.noteMeta}>{t(language, 'aiSetup.paidMeta')}</Text>
         </View>
 
-        <SectionLabel label="Primary goal" />
+        <SectionLabel label={t(language, 'aiSetup.primaryGoal')} />
         <OptionRow<AiPlannerGoal>
           options={[
-            { key: 'strength', label: 'Strength' },
-            { key: 'muscle', label: 'Build muscle' },
-            { key: 'fat_loss', label: 'Fat loss' },
-            { key: 'fitness', label: 'Fitness' },
+            { key: 'strength', label: t(language, 'ready.goal.strength') },
+            { key: 'muscle', label: t(language, 'setup.goal.muscle') },
+            { key: 'fat_loss', label: t(language, 'ready.goal.fatLoss') },
+            { key: 'fitness', label: t(language, 'aiSetup.fitness') },
           ]}
           selected={goal}
           onSelect={setGoal}
         />
 
-        <SectionLabel label="Days per week" />
+        <SectionLabel label={t(language, 'tpl.daysPerWeek')} />
         <OptionRow<AiPlannerDaysPerWeek>
           options={[
-            { key: 1, label: '1 day' },
-            { key: 2, label: '2 days' },
-            { key: 3, label: '3 days' },
-            { key: 4, label: '4 days' },
+            { key: 1, label: t(language, 'aiSetup.dayOne') },
+            { key: 2, label: t(language, 'planSet.days', { count: 2 }) },
+            { key: 3, label: t(language, 'planSet.days', { count: 3 }) },
+            { key: 4, label: t(language, 'planSet.days', { count: 4 }) },
           ]}
           selected={daysPerWeek}
           onSelect={setDaysPerWeek}
         />
 
-        <SectionLabel label="Experience" />
+        <SectionLabel label={t(language, 'myData.experience')} />
         <OptionRow<AiPlannerExperience>
           options={[
-            { key: 'beginner', label: 'Beginner' },
-            { key: 'intermediate', label: 'Intermediate' },
-            { key: 'advanced', label: 'Advanced' },
+            { key: 'beginner', label: t(language, 'myData.level.beginner') },
+            { key: 'intermediate', label: t(language, 'ready.level.intermediate') },
+            { key: 'advanced', label: t(language, 'myData.level.advanced') },
           ]}
           selected={experience}
           onSelect={setExperience}
         />
 
-        <SectionLabel label="Session length" />
+        <SectionLabel label={t(language, 'aiSetup.sessionLength')} />
         <OptionRow<number>
           options={[
             { key: 30, label: '30 min' },
@@ -144,52 +152,52 @@ export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupSc
           onSelect={setSessionMinutes}
         />
 
-        <SectionLabel label="Equipment" />
+        <SectionLabel label={t(language, 'myData.equipment')} />
         <OptionRow<AiPlannerEquipment>
           options={[
-            { key: 'full_gym', label: 'Full gym' },
-            { key: 'home_gym', label: 'Home gym' },
-            { key: 'minimal', label: 'Minimal' },
-            { key: 'bodyweight', label: 'Bodyweight' },
+            { key: 'full_gym', label: t(language, 'setup.equip.gym') },
+            { key: 'home_gym', label: t(language, 'aiSetup.homeGym') },
+            { key: 'minimal', label: t(language, 'aiSetup.minimal') },
+            { key: 'bodyweight', label: t(language, 'facet.bodyweight') },
           ]}
           selected={equipment}
           onSelect={setEquipment}
         />
 
-        <SectionLabel label="Recovery" />
+        <SectionLabel label={t(language, 'aiSetup.recovery')} />
         <OptionRow<AiPlannerRecovery>
           options={[
-            { key: 'low', label: 'Low' },
-            { key: 'moderate', label: 'Moderate' },
-            { key: 'high', label: 'High' },
+            { key: 'low', label: t(language, 'aiSetup.low') },
+            { key: 'moderate', label: t(language, 'aiSetup.moderate') },
+            { key: 'high', label: t(language, 'aiSetup.high') },
           ]}
           selected={recovery}
           onSelect={setRecovery}
         />
 
-        <SectionLabel label="Must include lifts" />
+        <SectionLabel label={t(language, 'aiSetup.mustInclude')} />
         <TextInput
           value={mustInclude}
           onChangeText={setMustInclude}
-          placeholder="Bench, squat, pull-ups"
+          placeholder={t(language, 'aiSetup.mustIncludeHint')}
           placeholderTextColor="#9CA3AF"
           style={styles.input}
         />
 
-        <SectionLabel label="Avoid lifts" />
+        <SectionLabel label={t(language, 'aiSetup.avoid')} />
         <TextInput
           value={avoid}
           onChangeText={setAvoid}
-          placeholder="Behind-the-neck press, heavy deadlifts"
+          placeholder={t(language, 'aiSetup.avoidHint')}
           placeholderTextColor="#9CA3AF"
           style={styles.input}
         />
 
-        <SectionLabel label="Limitations / notes" />
+        <SectionLabel label={t(language, 'aiSetup.limitations')} />
         <TextInput
           value={limitations}
           onChangeText={setLimitations}
-          placeholder="Knee pain, poor sleep, short gym visits"
+          placeholder={t(language, 'aiSetup.limitationsHint')}
           placeholderTextColor="#9CA3AF"
           style={[styles.input, styles.multilineInput]}
           multiline
@@ -197,12 +205,12 @@ export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupSc
         />
 
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryTitle}>What GAINER AI will use</Text>
-          <Text style={styles.summaryBody}>
-            Existing onboarding data, workout history, tracked lifts, bodyweight, measurements, and this GAINER AI setup.
-          </Text>
+          <Text style={styles.summaryTitle}>{t(language, 'aiSetup.summaryTitle')}</Text>
+          <Text style={styles.summaryBody}>{t(language, 'aiSetup.summaryBody')}</Text>
           <Text style={styles.summaryMeta}>
-            Includes: {splitCsv(mustInclude).slice(0, 3).join(' / ') || 'no required lifts yet'}
+            {t(language, 'aiSetup.includes', {
+              list: splitCsv(mustInclude).slice(0, 3).join(' / ') || t(language, 'aiSetup.noRequired'),
+            })}
           </Text>
         </View>
 
@@ -224,7 +232,7 @@ export function AiModeSetupScreen({ preferences, onBack, onSave }: AiModeSetupSc
           }
           style={[styles.primaryButton, !readyToSave && styles.primaryButtonDisabled]}
         >
-          <Text style={styles.primaryButtonText}>Save GAINER AI setup</Text>
+          <Text style={styles.primaryButtonText}>{t(language, 'aiSetup.save')}</Text>
         </Pressable>
       </ScrollView>
     </>

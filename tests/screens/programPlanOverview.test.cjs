@@ -7,6 +7,7 @@ const programDetailSource = fs.readFileSync(
   'utf8',
 );
 const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 
 module.exports = [
   {
@@ -15,18 +16,22 @@ module.exports = [
       assert.match(programDetailSource, /PLAN_BACKGROUND = '#F7F3FF'/);
       assert.match(programDetailSource, /PLAN_PURPLE = '#7C3AED'/);
       assert.match(programDetailSource, /PLAN_GREEN = '#16A34A'/);
-      assert.match(programDetailSource, /Plan Overview/);
-      assert.match(programDetailSource, /headerTitle[\s\S]*Plan Overview/);
-      assert.match(programDetailSource, /Your Plan/);
-      assert.match(programDetailSource, /This week/);
-      assert.match(programDetailSource, /Workouts/);
-      assert.match(programDetailSource, /Start next workout/);
+      // The copy moved into the key table; the screen is checked by key and
+      // the English wording is checked where it now lives.
+      assert.match(programDetailSource, /t\(language, 'detail\.planOverview'\)/);
+      assert.match(programDetailSource, /headerTitle[\s\S]*detail\.planOverview/);
+      assert.match(i18nSource, /'detail\.planOverview': 'Plan Overview'/);
+      assert.match(programDetailSource, /t\(language, 'detail\.yourPlan'\)/);
+      assert.match(programDetailSource, /t\(language, 'progress\.thisWeek'\)/);
+      assert.match(programDetailSource, /t\(language, 'detail\.workouts'\)/);
+      assert.match(programDetailSource, /t\(language, 'detail\.startNext'\)/);
+      assert.match(i18nSource, /'detail\.startNext': 'Start next workout'/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);
-      assert.match(programDetailSource, /Day \$\{index \+ 1\}\. Full Body/);
+      assert.match(programDetailSource, /t\(language, 'detail\.day', \{ index: index \+ 1 \}\)/);
       assert.match(programDetailSource, /buildSessionContentSections/);
-      assert.match(programDetailSource, /Warmup/);
-      assert.match(programDetailSource, /Workout/);
-      assert.match(programDetailSource, /Cooldown/);
+      assert.match(programDetailSource, /detail\.warmup/);
+      assert.match(programDetailSource, /ai\.signal\.workout/);
+      assert.match(programDetailSource, /detail\.cooldown/);
       assert.match(programDetailSource, /sessionContentSection/);
       assert.match(programDetailSource, /progressFill/);
       assert.match(programDetailSource, /scheduleDot/);

@@ -3,10 +3,17 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
-import { createId } from '../lib/ids';
+import { I18nKey, t } from '../lib/i18n';
 import { layout, radii, spacing } from '../theme';
-import { ExerciseLibraryItem, ExerciseTemplateDraft, WorkoutTemplateDraft } from '../types/models';
+import {
+  AppLanguage,
+  ExerciseLibraryItem,
+  ExerciseTemplateDraft,
+  WorkoutTemplateDraft,
+} from '../types/models';
+import { createId } from '../lib/ids';
 
 type TemplateDayCount = 1 | 2 | 3 | 4 | 5;
 
@@ -21,10 +28,12 @@ interface TemplateSessionState {
   exercises: TemplateExerciseState[];
 }
 
+// `names` become stored session names, so they stay English like the rest of
+// the persisted plan data. Only the card's label and description translate.
 interface SplitPreset {
   id: string;
-  label: string;
-  description: string;
+  labelKey: I18nKey;
+  descriptionKey: I18nKey;
   names: string[];
   previewKeywords: string[];
 }
@@ -34,25 +43,30 @@ interface CreateTemplateScreenProps {
   exerciseLibrary: ExerciseLibraryItem[];
   recentExerciseLibraryItems: ExerciseLibraryItem[];
   defaultRestSeconds: number;
+  language?: AppLanguage;
   onBack: () => void;
   onSave: (draft: WorkoutTemplateDraft) => Promise<void> | void;
 }
 
 const DAY_OPTIONS: TemplateDayCount[] = [1, 2, 3, 4, 5];
 
+// Stored as the template's name when the user leaves the field blank, so it is
+// data rather than UI copy and stays in one language.
+const DEFAULT_TEMPLATE_NAME = 'New template';
+
 const SPLIT_PRESETS: Record<TemplateDayCount, SplitPreset[]> = {
   1: [
     {
       id: 'single_full_body',
-      label: 'Full body',
-      description: 'One reusable full-body day.',
+      labelKey: 'tpl.fullBody',
+      descriptionKey: 'tpl.fullBodyDesc',
       names: ['Full Body'],
       previewKeywords: ['squat', 'bench', 'row'],
     },
     {
       id: 'single_upper',
-      label: 'Upper focus',
-      description: 'One upper-body day.',
+      labelKey: 'tpl.upperFocus',
+      descriptionKey: 'tpl.upperFocusDesc',
       names: ['Upper Focus'],
       previewKeywords: ['bench', 'pulldown', 'row'],
     },
@@ -60,15 +74,15 @@ const SPLIT_PRESETS: Record<TemplateDayCount, SplitPreset[]> = {
   2: [
     {
       id: 'upper_lower',
-      label: 'Upper / Lower',
-      description: 'Classic two-day split.',
+      labelKey: 'tpl.upperLower',
+      descriptionKey: 'tpl.upperLowerDesc',
       names: ['Upper', 'Lower'],
       previewKeywords: ['bench', 'squat'],
     },
     {
       id: 'push_pull',
-      label: 'Push / Pull',
-      description: 'Push and pull rotation.',
+      labelKey: 'tpl.pushPull',
+      descriptionKey: 'tpl.pushPullDesc',
       names: ['Push', 'Pull'],
       previewKeywords: ['press', 'row', 'pulldown'],
     },
@@ -76,15 +90,15 @@ const SPLIT_PRESETS: Record<TemplateDayCount, SplitPreset[]> = {
   3: [
     {
       id: 'push_pull_legs',
-      label: 'Push / Pull / Legs',
-      description: 'Three-day balanced split.',
+      labelKey: 'tpl.ppl',
+      descriptionKey: 'tpl.pplDesc',
       names: ['Push', 'Pull', 'Legs'],
       previewKeywords: ['bench', 'row', 'leg'],
     },
     {
       id: 'full_body_abc',
-      label: 'Full body A/B/C',
-      description: 'Three full-body sessions.',
+      labelKey: 'tpl.fullBodyAbc',
+      descriptionKey: 'tpl.fullBodyAbcDesc',
       names: ['Full Body A', 'Full Body B', 'Full Body C'],
       previewKeywords: ['squat', 'bench', 'deadlift'],
     },
@@ -92,15 +106,15 @@ const SPLIT_PRESETS: Record<TemplateDayCount, SplitPreset[]> = {
   4: [
     {
       id: 'upper_lower_heavy_pump',
-      label: 'Upper / Lower x2',
-      description: 'Heavy and pump rotation.',
+      labelKey: 'tpl.upperLowerX2',
+      descriptionKey: 'tpl.upperLowerX2Desc',
       names: ['Upper Heavy', 'Lower Heavy', 'Upper Pump', 'Lower Pump'],
       previewKeywords: ['bench', 'squat', 'curl', 'lunge'],
     },
     {
       id: 'body_part_4',
-      label: 'Body-part split',
-      description: 'Four focused muscle days.',
+      labelKey: 'tpl.bodyPartSplit',
+      descriptionKey: 'tpl.bodyPartSplitFour',
       names: ['Chest / Triceps', 'Back / Biceps', 'Legs / Glutes', 'Shoulders / Arms'],
       previewKeywords: ['chest', 'back', 'leg', 'shoulder'],
     },
@@ -108,15 +122,15 @@ const SPLIT_PRESETS: Record<TemplateDayCount, SplitPreset[]> = {
   5: [
     {
       id: 'body_part_5',
-      label: 'Body-part split',
-      description: 'Five focused sessions.',
+      labelKey: 'tpl.bodyPartSplit',
+      descriptionKey: 'tpl.bodyPartSplitFive',
       names: ['Chest', 'Back', 'Legs', 'Shoulders', 'Arms'],
       previewKeywords: ['chest', 'back', 'leg', 'shoulder', 'curl'],
     },
     {
       id: 'strength_5',
-      label: 'Strength mix',
-      description: 'Upper / lower plus volume days.',
+      labelKey: 'tpl.strengthMix',
+      descriptionKey: 'tpl.strengthMixDesc',
       names: ['Upper Strength', 'Lower Strength', 'Push Volume', 'Pull Volume', 'Legs Volume'],
       previewKeywords: ['bench', 'squat', 'press', 'row'],
     },
@@ -182,7 +196,7 @@ function buildTemplateDraft(
 ): WorkoutTemplateDraft {
   return {
     id: initialDraft.id,
-    name: name.trim() || 'New template',
+    name: name.trim() || DEFAULT_TEMPLATE_NAME,
     sessions: sessions.map((session, index) => ({
       id: session.id,
       name: session.name.trim() || `Day ${index + 1}`,
@@ -221,6 +235,7 @@ export function CreateTemplateScreen({
   exerciseLibrary,
   recentExerciseLibraryItems,
   defaultRestSeconds,
+  language = 'en',
   onBack,
   onSave,
 }: CreateTemplateScreenProps) {
@@ -354,10 +369,10 @@ export function CreateTemplateScreen({
   return (
     <View style={styles.screen}>
       <ScreenHeader
-        title={initialDraft.id ? 'Edit template' : 'Create template'}
-        subtitle="Build a reusable weekly split. Add exercises now or keep the structure editable for later."
+        title={t(language, initialDraft.id ? 'tpl.editTitle' : 'tpl.createTitle')}
+        subtitle={t(language, 'tpl.subtitle')}
         onBack={onBack}
-        rightActionLabel="Save"
+        rightActionLabel={t(language, 'common.save')}
         onRightActionPress={() => {
           void handleSave();
         }}
@@ -366,22 +381,25 @@ export function CreateTemplateScreen({
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={[styles.card, styles.topCompactCard]}>
-          <Text style={styles.cardKicker}>Template name</Text>
+          <Text style={styles.cardKicker}>{t(language, 'tpl.name')}</Text>
           <TextInput
             value={templateName}
             onChangeText={setTemplateName}
-            placeholder="Weekly split"
+            placeholder={t(language, 'tpl.namePlaceholder')}
             placeholderTextColor="#9CA3AF"
             selectionColor="#111111"
             style={styles.nameInput}
           />
           <Text style={styles.supportingTextCompact}>
-            {sessions.length} {sessions.length === 1 ? 'day' : 'days'} · {totalExercises} exercises
+            {t(language, sessions.length === 1 ? 'tpl.summaryOne' : 'tpl.summaryMany', {
+              days: sessions.length,
+              exercises: totalExercises,
+            })}
           </Text>
         </View>
 
         <View style={[styles.card, styles.topCompactCard, styles.daysCompactCard]}>
-          <Text style={styles.cardKicker}>Days per week</Text>
+          <Text style={styles.cardKicker}>{t(language, 'tpl.daysPerWeek')}</Text>
           <View style={styles.dayRow}>
             {DAY_OPTIONS.map((option) => {
               const active = option === sessions.length;
@@ -399,7 +417,7 @@ export function CreateTemplateScreen({
         </View>
 
         <View style={[styles.card, styles.quickLayoutsCard]}>
-          <Text style={styles.cardKicker}>Quick layouts</Text>
+          <Text style={styles.cardKicker}>{t(language, 'tpl.quickLayouts')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.presetRow}>
             {presets.map((preset) => {
               const previewImage = presetPreviewImages[preset.id];
@@ -411,18 +429,22 @@ export function CreateTemplateScreen({
                       <Image source={{ uri: previewImage }} style={styles.presetMediaImage} resizeMode="cover" />
                     ) : (
                       <View style={styles.presetMediaFallback}>
-                        <Text style={styles.presetMediaFallbackText}>{preset.label.slice(0, 1).toUpperCase()}</Text>
+                        <Text style={styles.presetMediaFallbackText}>
+                          {t(language, preset.labelKey).slice(0, 1).toUpperCase()}
+                        </Text>
                       </View>
                     )}
                     <View style={styles.presetMediaOverlay} />
                     <View style={styles.presetBadge}>
-                      <Text style={styles.presetBadgeText}>{preset.names.length} days</Text>
+                      <Text style={styles.presetBadgeText}>
+                        {t(language, 'tpl.dayCount', { count: preset.names.length })}
+                      </Text>
                     </View>
                   </View>
 
                   <View style={styles.presetCopy}>
-                    <Text style={styles.presetTitle}>{preset.label}</Text>
-                    <Text style={styles.presetBody}>{preset.description}</Text>
+                    <Text style={styles.presetTitle}>{t(language, preset.labelKey)}</Text>
+                    <Text style={styles.presetBody}>{t(language, preset.descriptionKey)}</Text>
                     <Text numberOfLines={1} style={styles.presetMeta}>
                       {preset.names.join(' · ')}
                     </Text>
@@ -438,15 +460,19 @@ export function CreateTemplateScreen({
             <View key={session.localKey} style={styles.sessionCard}>
               <View style={styles.sessionHeader}>
                 <View style={styles.sessionHeaderCopy}>
-                  <Text style={styles.cardKicker}>Day {index + 1}</Text>
+                  <Text style={styles.cardKicker}>{t(language, 'tpl.day', { index: index + 1 })}</Text>
                   <Text style={styles.sessionCountText}>
-                    {session.exercises.length} {session.exercises.length === 1 ? 'exercise' : 'exercises'}
+                    {t(
+                      language,
+                      session.exercises.length === 1 ? 'tpl.exerciseOne' : 'tpl.exerciseMany',
+                      { count: session.exercises.length },
+                    )}
                   </Text>
                 </View>
 
                 {sessions.length > 1 ? (
                   <Pressable onPress={() => removeSession(session.localKey)} style={styles.sessionRemoveButton}>
-                    <Text style={styles.sessionRemoveButtonText}>Remove</Text>
+                    <Text style={styles.sessionRemoveButtonText}>{t(language, 'tpl.remove')}</Text>
                   </Pressable>
                 ) : null}
               </View>
@@ -454,7 +480,7 @@ export function CreateTemplateScreen({
               <TextInput
                 value={session.name}
                 onChangeText={(value) => updateSessionName(session.localKey, value)}
-                placeholder={`Day ${index + 1}`}
+                placeholder={t(language, 'tpl.day', { index: index + 1 })}
                 placeholderTextColor="#9CA3AF"
                 selectionColor="#111111"
                 style={styles.sessionNameInput}
@@ -483,12 +509,16 @@ export function CreateTemplateScreen({
 
                           <View style={styles.exerciseCopy}>
                             <Text numberOfLines={2} style={styles.exerciseName}>
-                              {exercise.name}
+                              {exerciseNameLabel(language, exercise.name)}
                             </Text>
                             <Text numberOfLines={1} style={styles.exerciseMeta}>
                               {libraryItem
                                 ? `${toTitleCase(libraryItem.bodyPart)} · ${toTitleCase(libraryItem.equipment)}`
-                                : `${exercise.targetSets} sets · ${exercise.repMin}-${exercise.repMax} reps`}
+                                : t(language, 'tpl.setsReps', {
+                                    sets: exercise.targetSets,
+                                    repMin: exercise.repMin,
+                                    repMax: exercise.repMax,
+                                  })}
                             </Text>
                           </View>
                         </View>
@@ -505,13 +535,13 @@ export function CreateTemplateScreen({
                 </View>
               ) : (
                 <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateTitle}>No exercises yet</Text>
-                  <Text style={styles.emptyStateBody}>Build the split first, then add the lifts you want this day to run.</Text>
+                  <Text style={styles.emptyStateTitle}>{t(language, 'tpl.noExercises')}</Text>
+                  <Text style={styles.emptyStateBody}>{t(language, 'tpl.noExercisesBody')}</Text>
                 </View>
               )}
 
               <Pressable onPress={() => openAddExercise(session.localKey)} style={styles.addExerciseButton}>
-                <Text style={styles.addExerciseButtonText}>Add exercises</Text>
+                <Text style={styles.addExerciseButtonText}>{t(language, 'editor.addExercises')}</Text>
               </Pressable>
             </View>
           ))}
@@ -524,7 +554,7 @@ export function CreateTemplateScreen({
           disabled={!canSave}
           style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
         >
-          <Text style={styles.saveButtonText}>Save template</Text>
+          <Text style={styles.saveButtonText}>{t(language, 'tpl.save')}</Text>
         </Pressable>
       </ScrollView>
 
@@ -534,8 +564,9 @@ export function CreateTemplateScreen({
         recentItems={recentExerciseLibraryItems}
         currentItemIds={activeSessionLibraryIds}
         selectedIds={[]}
-        title="Add exercises"
-        subtitle="Pick one or more lifts for this day."
+        language={language}
+        title={t(language, 'editor.addExercises')}
+        subtitle={t(language, 'tpl.pickForDay')}
         multiSelect
         autoFocusSearch
         onClose={() => setActiveSessionKey(null)}

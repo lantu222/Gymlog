@@ -389,7 +389,8 @@ module.exports = [
       // swaps the hint for the bodyweight-safety note. No info box.
       assert.match(planningBody, /flaggedFocusSelected/);
       assert.match(planningBody, /joint-friendly, bodyweight-first exercises/);
-      assert.match(planningBody, /Pick 1–2 areas\./);
+      assert.match(planningBody, /t\(language, 'onb\.pickAreas'\)/);
+      assert.match(i18nSource, /'onb\.pickAreas': 'Pick 1–2 areas\.'/);
       assert.doesNotMatch(planningBody, /Why focus areas\?/);
       assert.match(onboardingSource, /const FOCUS_AREA_OPTIONS = getOnboardingFocusAreaPresentationOptions\(\)/);
       assert.match(onboardingSource, /current\.length >= 2/);
@@ -424,7 +425,9 @@ module.exports = [
       assert.match(i18nSource, /Continue with Apple/);
       assert.match(i18nSource, /Sign up with email/);
       assert.match(i18nSource, /I already have an account/);
-      assert.doesNotMatch(i18nSource, /Start free/);
+      // The old Welcome CTA is gone. Scoped to a welcome.* value on purpose:
+      // "Start free" is legitimate prose on the access-choice screen.
+      assert.doesNotMatch(i18nSource, /'welcome\.[^']*': '[^']*Start free/);
       assert.match(welcomeSource, /t\(language, 'welcome\.tagline'\)/);
       assert.match(welcomeSource, /t\(language, 'welcome\.continueGoogle'\)/);
       assert.match(welcomeSource, /SUPPORTED_LANGUAGES/);

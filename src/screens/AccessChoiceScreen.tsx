@@ -4,6 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { BadgePill, SurfaceCard } from '../components/MainScreenPrimitives';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 import { layout, spacing } from '../theme';
 
@@ -14,42 +15,9 @@ interface AccessChoiceScreenProps {
   onChoosePremium: () => void;
 }
 
-const copy = {
-  en: {
-    title: 'Choose your start',
-    subtitle: 'Start free or unlock the full coaching layer from day one.',
-    premiumKicker: 'Premium',
-    premiumTitle: 'Let GAINER coach the whole block',
-    premiumBody: 'A more personalized start with smarter progression, rest, and coaching from the first workout.',
-    premiumBullet1: 'A plan that fits you',
-    premiumBullet2: 'Always know what to do',
-    premiumBullet3: 'Progressive tracking',
-    premiumBullet4: 'Recovery-aware',
-    premiumAction: 'Start Premium',
-    freeKicker: 'Free',
-    freeTitle: 'Keep the basics clean',
-    freeBody: 'Plans, logging, progress, and setup. Add Premium later if you want the adaptive layer.',
-    freeAction: 'Continue Free',
-    note: 'Both continue to the same setup. You can switch later.',
-  },
-  fi: {
-    title: 'Valitse aloitus',
-    subtitle: 'Aloita ilmaiseksi tai avaa koko valmennuskerros heti alusta.',
-    premiumKicker: 'Premium',
-    premiumTitle: 'Anna GAINERin ohjata koko blokkia',
-    premiumBody: 'Henkilokohtaisempi alku, fiksumpi progressio, palautukset ja valmennus heti ensimmaisesta treenista.',
-    premiumBullet1: 'Sinulle sopiva suunnitelma',
-    premiumBullet2: 'Tiedat mita tehda',
-    premiumBullet3: 'Tarkka seuranta',
-    premiumBullet4: 'Palautuminen huomioidaan',
-    premiumAction: 'Aloita Premium',
-    freeKicker: 'Free',
-    freeTitle: 'Pidä perusta siistina',
-    freeBody: 'Suunnitelmat, loggaus, progress ja setup. Voit lisata Premiumin myohemmin.',
-    freeAction: 'Jatka Free',
-    note: 'Molemmat jatkuvat samaan setupiin. Voit vaihtaa myohemmin.',
-  },
-} as const;
+// This screen used to carry its own copy map, which drifted: the Finnish had
+// lost every umlaut. It now reads from the shared key table like everything
+// else, so there is one place for translators to look.
 
 export function AccessChoiceScreen({
   language,
@@ -57,7 +25,23 @@ export function AccessChoiceScreen({
   onChooseFree,
   onChoosePremium,
 }: AccessChoiceScreenProps) {
-  const content = copy[language];
+  const content = {
+    title: t(language, 'access.title'),
+    subtitle: t(language, 'access.subtitle'),
+    premiumKicker: t(language, 'access.premiumKicker'),
+    premiumTitle: t(language, 'access.premiumTitle'),
+    premiumBody: t(language, 'access.premiumBody'),
+    premiumBullet1: t(language, 'access.premiumBullet1'),
+    premiumBullet2: t(language, 'access.premiumBullet2'),
+    premiumBullet3: t(language, 'access.premiumBullet3'),
+    premiumBullet4: t(language, 'access.premiumBullet4'),
+    premiumAction: t(language, 'access.premiumAction'),
+    freeKicker: t(language, 'access.freeKicker'),
+    freeTitle: t(language, 'access.freeTitle'),
+    freeBody: t(language, 'access.freeBody'),
+    freeAction: t(language, 'access.freeAction'),
+    note: t(language, 'access.note'),
+  };
 
   return (
     <>
@@ -80,7 +64,7 @@ export function AccessChoiceScreen({
               <Text style={styles.optionTitle}>{content.premiumTitle}</Text>
               <Text style={styles.optionBody}>{content.premiumBody}</Text>
             </View>
-            <BadgePill accent="neutral" label="Live" />
+            <BadgePill accent="neutral" label={t(language, 'planSet.liveBadge')} />
           </View>
 
           <View style={styles.tokenRow}>

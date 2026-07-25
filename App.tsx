@@ -2936,6 +2936,7 @@ function GymlogApp() {
 
     content = program ? (
       <ProgramDetailScreen
+        language={preferences.appLanguage}
         program={program}
         activePlanSummary={
           homeActivePlanCard?.programId === route.workoutTemplateId && homeActivePlanCard.programType === route.programType
@@ -2985,6 +2986,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'template') {
     content = (
       <CreateTemplateScreen
+        language={preferences.appLanguage}
         key={route.workoutTemplateId ?? 'new_template'}
         initialDraft={templateBuilderDraft}
         exerciseLibrary={exerciseBrowserItems}
@@ -3023,6 +3025,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'editor') {
     content = (
       <WorkoutEditorScreen
+        language={preferences.appLanguage}
         key={`editor:${route.workoutTemplateId ?? 'new'}:${route.prefillName ?? ''}:${route.prefillExerciseLibraryId ?? ''}`}
         initialDraft={editorDraft}
         exerciseLibrary={exerciseBrowserItems}
@@ -3153,6 +3156,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'celebration' && workoutCelebration) {
     content = (
       <WorkoutCelebrationScreen
+        language={preferences.appLanguage}
         workoutName={workoutCelebration.workoutName}
         heroImageUrl={workoutCelebration.heroImageUrl}
         workoutsThisWeek={workoutCelebration.workoutsThisWeek}
@@ -3203,6 +3207,7 @@ function GymlogApp() {
   } else if (route.tab === 'home' && route.screen === 'ai') {
     content = (
       <AICoachScreen
+        language={preferences.appLanguage}
         initialPrompt={route.prompt}
         suggestions={homeAiPromptSuggestions}
         trainingContext={aiCoachTrainingContext}
@@ -3214,6 +3219,7 @@ function GymlogApp() {
   } else if (route.tab === 'home' && route.screen === 'ai_setup') {
     content = (
       <AiModeSetupScreen
+        language={preferences.appLanguage}
         preferences={preferences}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
         onSave={async (patch) => {
@@ -3489,6 +3495,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'plans') {
     content = (
       <WorkoutsScreen
+        language={preferences.appLanguage}
         customWorkouts={customWorkouts}
         programInsightsByTemplateId={programInsightsByTemplateId}
         recommendedReadyProgramId={recommendedReadyTemplate?.id ?? null}
@@ -3508,6 +3515,7 @@ function GymlogApp() {
     const exercise = exerciseBrowserItems.find((item) => item.id === route.exerciseId) ?? null;
     content = exercise ? (
       <ExerciseDetailScreen
+        language={preferences.appLanguage}
         item={exercise}
         history={getExerciseProgressForName(database, exercise.name)}
         unitPreference={unitPreference}
@@ -3529,6 +3537,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout' && route.screen === 'programs_home') {
     content = (
       <ProgramsHomeScreen
+        language={preferences.appLanguage}
         activeProgram={
           homeActivePlanCard
             ? {
@@ -3587,6 +3596,7 @@ function GymlogApp() {
   } else if (route.tab === 'workout') {
     content = (
       <ExercisesScreen
+        language={preferences.appLanguage}
         items={exerciseBrowserItems}
         trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}

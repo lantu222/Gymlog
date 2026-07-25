@@ -13,8 +13,9 @@ import Svg, {
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { HomeDaySessionSummary } from '../lib/homeCalendar';
+import { I18nKey, t } from '../lib/i18n';
 import { HG3 } from '../lightTheme';
-import type { WorkoutTemplateDraft } from '../types/models';
+import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 
 // The redesign gave Programs its own green accent, which left it as the only
 // tab not wearing the app's purple. It now uses the shared HG3 purple so the
@@ -113,18 +114,24 @@ interface ProgramsHomeScreenProps {
   onAiAssisted: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
   exerciseLibraryEntries: CsvLibraryEntry[];
+  language?: AppLanguage;
   onOpenLibrary: () => void;
 }
 
-const WEEK_PHASE_NOTE = ['Lay the base', 'Build the rhythm', 'Push the volume', 'Peak & test'];
+const WEEK_PHASE_KEYS: I18nKey[] = [
+  'programs.phase.base',
+  'programs.phase.rhythm',
+  'programs.phase.volume',
+  'programs.phase.peak',
+];
 
-function phaseNote(currentWeek: number, totalWeeks: number): string {
+function phaseNote(currentWeek: number, totalWeeks: number, language: AppLanguage): string {
   if (totalWeeks <= 1) {
-    return WEEK_PHASE_NOTE[0];
+    return t(language, WEEK_PHASE_KEYS[0]);
   }
   const ratio = (currentWeek - 1) / Math.max(1, totalWeeks - 1);
-  const index = Math.min(WEEK_PHASE_NOTE.length - 1, Math.max(0, Math.round(ratio * (WEEK_PHASE_NOTE.length - 1))));
-  return WEEK_PHASE_NOTE[index];
+  const index = Math.min(WEEK_PHASE_KEYS.length - 1, Math.max(0, Math.round(ratio * (WEEK_PHASE_KEYS.length - 1))));
+  return t(language, WEEK_PHASE_KEYS[index]);
 }
 
 function GradientTile({ stops, size, radius }: { stops: [string, string]; size: number; radius: number }) {
@@ -226,6 +233,7 @@ export function ProgramsHomeScreen({
   onAiAssisted,
   onImportProgram,
   exerciseLibraryEntries,
+  language = 'en',
   onOpenLibrary,
 }: ProgramsHomeScreenProps) {
   const [picked, setPicked] = useState<ProgramsExploreItem | null>(null);
@@ -269,13 +277,13 @@ export function ProgramsHomeScreen({
                 </Svg>
               </View>
               <View style={styles.heroContent}>
-                <Text style={styles.heroKicker}>ACTIVE PROGRAM</Text>
+                <Text style={styles.heroKicker}>{t(language, 'programs.activeProgram')}</Text>
                 <Text style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
                   {activeProgram.title}
                 </Text>
                 <Text style={styles.heroWeekLine}>
                   <Text style={styles.heroWeekStrong}>{activeProgram.weekLabel}</Text>
-                  <Text style={styles.heroWeekNote}>{`  ·  ${phaseNote(currentWeek, totalWeeks)}`}</Text>
+                  <Text style={styles.heroWeekNote}>{`  ·  ${phaseNote(currentWeek, totalWeeks, language)}`}</Text>
                 </Text>
                 <View style={styles.heroSegmentRow}>
                   {Array.from({ length: totalWeeks }, (_, index) => (
@@ -287,9 +295,16 @@ export function ProgramsHomeScreen({
 
             {/* THIS WEEK */}
             <View style={styles.weekHeaderRow}>
-              <Text style={styles.sectionEyebrow}>{`THIS WEEK · ${activeProgram.sessionsPerWeek} DAYS / WEEK`}</Text>
-              <Pressable accessibilityRole="button" accessibilityLabel="Edit training days" onPress={onOpenActivePlan} hitSlop={8}>
-                <Text style={styles.weekEditLink}>Edit days</Text>
+              <Text style={styles.sectionEyebrow}>
+                {t(language, 'programs.thisWeek', { count: activeProgram.sessionsPerWeek })}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'programs.editDaysA11y')}
+                onPress={onOpenActivePlan}
+                hitSlop={8}
+              >
+                <Text style={styles.weekEditLink}>{t(language, 'programs.editDays')}</Text>
               </Pressable>
             </View>
             <View style={styles.weekList}>
@@ -305,7 +320,7 @@ export function ProgramsHomeScreen({
                   <Pressable
                     key={session.id}
                     accessibilityRole="button"
-                    accessibilityLabel={`${weekday}: ${session.title}${isToday ? ', today' : ''}`}
+                    accessibilityLabel={`${weekday}: ${session.title}${isToday ? `, ${t(language, 'programs.todayA11y')}` : ''}`}
                     onPress={onOpenActivePlan}
                     style={({ pressed }) => [styles.dayRow, isToday && styles.dayRowToday, pressed && styles.pressedRow]}
                   >
@@ -319,7 +334,7 @@ export function ProgramsHomeScreen({
                         </Text>
                         {isToday ? (
                           <View style={styles.todayPill}>
-                            <Text style={styles.todayPillText}>TODAY</Text>
+                            <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
                           </View>
                         ) : null}
                       </View>
@@ -338,49 +353,59 @@ export function ProgramsHomeScreen({
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="View the full plan"
+              accessibilityLabel={t(language, 'programs.viewPlan')}
               onPress={onOpenActivePlan}
               style={({ pressed }) => [styles.viewPlanButton, pressed && styles.pressed]}
             >
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
-              <Text style={styles.viewPlanButtonText}>View full plan</Text>
+              <Text style={styles.viewPlanButtonText}>{t(language, 'programs.viewPlan')}</Text>
             </Pressable>
 
             <View style={styles.subActionsRow}>
-              <Pressable accessibilityRole="button" accessibilityLabel="Swap exercises" onPress={onOpenActivePlan} hitSlop={6}>
-                <Text style={styles.subAction}>Swap exercises</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'programs.swapExercises')}
+                onPress={onOpenActivePlan}
+                hitSlop={6}
+              >
+                <Text style={styles.subAction}>{t(language, 'programs.swapExercises')}</Text>
               </Pressable>
               <View style={styles.metaDot} />
-              <Pressable accessibilityRole="button" accessibilityLabel="Adjust schedule" onPress={onAdjustSchedule} hitSlop={6}>
-                <Text style={styles.subAction}>Adjust schedule</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'programs.adjustSchedule')}
+                onPress={onAdjustSchedule}
+                hitSlop={6}
+              >
+                <Text style={styles.subAction}>{t(language, 'programs.adjustSchedule')}</Text>
               </Pressable>
             </View>
           </>
         ) : (
           <View style={styles.emptyActiveCard}>
-            <Text style={styles.emptyActiveTitle}>No active program</Text>
-            <Text style={styles.emptyActiveSub}>Pick a ready program below or build your own to get a weekly plan.</Text>
+            <Text style={styles.emptyActiveTitle}>{t(language, 'programs.noActive')}</Text>
+            <Text style={styles.emptyActiveSub}>{t(language, 'programs.noActiveSub')}</Text>
           </View>
         )}
 
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="New program"
+          accessibilityLabel={t(language, 'csv.newProgram')}
           onPress={() => setCreateOpen(true)}
           style={({ pressed }) => [styles.newProgramButton, pressed && styles.pressed]}
         >
           <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
             <Path d="M12 5v14M5 12h14" stroke={ACCENT} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text style={styles.newProgramButtonText}>New program</Text>
+          <Text style={styles.newProgramButtonText}>{t(language, 'csv.newProgram')}</Text>
         </Pressable>
 
         <View style={styles.sectionHeadRow}>
-          <Text style={styles.sectionEyebrow}>SWITCH PROGRAM</Text>
+          <Text style={styles.sectionEyebrow}>{t(language, 'programs.switchProgram')}</Text>
           <Pressable onPress={onViewAllPrograms} hitSlop={8}>
-            <Text style={styles.sectionLink}>View all</Text>
+            <Text style={styles.sectionLink}>{t(language, 'programs.viewAll')}</Text>
           </Pressable>
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exploreRow} style={styles.exploreScroll}>
@@ -390,7 +415,7 @@ export function ProgramsHomeScreen({
               <Pressable
                 key={item.id}
                 accessibilityRole="button"
-                accessibilityLabel={`Switch to ${item.name}`}
+                accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
                 onPress={() => setPicked(item)}
                 style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
               >
@@ -410,12 +435,12 @@ export function ProgramsHomeScreen({
           })}
         </ScrollView>
 
-        <Text style={styles.sectionEyebrowStandalone}>YOUR PROGRAMS</Text>
+        <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.yourPrograms')}</Text>
         {customPrograms.map((program) => (
           <Pressable
             key={program.id}
             accessibilityRole="button"
-            accessibilityLabel={`Open ${program.name}`}
+            accessibilityLabel={t(language, 'programs.open', { name: program.name })}
             onPress={() => onOpenCustomProgram(program.id)}
             style={({ pressed }) => [styles.customRow, pressed && styles.pressedRow]}
           >
@@ -428,25 +453,25 @@ export function ProgramsHomeScreen({
                 {program.subtitle}
               </Text>
             </View>
-            <Text style={styles.customAction}>Open</Text>
+            <Text style={styles.customAction}>{t(language, 'programs.openShort')}</Text>
           </Pressable>
         ))}
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Create a program"
+          accessibilityLabel={t(language, 'programs.create')}
           onPress={onCreateProgram}
           style={({ pressed }) => [styles.createRow, pressed && styles.pressedRow]}
         >
           <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
             <Path d="M12 5v14M5 12h14" stroke={HG3.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
-          <Text style={styles.createText}>Create a program</Text>
+          <Text style={styles.createText}>{t(language, 'programs.create')}</Text>
         </Pressable>
 
-        <Text style={styles.sectionEyebrowStandalone}>LIBRARY</Text>
+        <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.library')}</Text>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Open the exercise library"
+          accessibilityLabel={t(language, 'programs.openLibrary')}
           onPress={onOpenLibrary}
           style={({ pressed }) => [styles.libraryRow, pressed && styles.pressedRow]}
         >
@@ -456,7 +481,7 @@ export function ProgramsHomeScreen({
             </Svg>
           </View>
           <View style={styles.libraryCopy}>
-            <Text style={styles.libraryTitle}>Exercise library</Text>
+            <Text style={styles.libraryTitle}>{t(language, 'programs.exerciseLibrary')}</Text>
             <Text style={styles.librarySubtitle} numberOfLines={1}>
               {exerciseLibraryCount} exercises · browse &amp; swap into your plan
             </Text>
@@ -466,7 +491,7 @@ export function ProgramsHomeScreen({
           </Svg>
         </Pressable>
 
-        <Text style={styles.footerNote}>One program at a time. Finish a block, then repeat, edit, or switch.</Text>
+        <Text style={styles.footerNote}>{t(language, 'programs.footNote')}</Text>
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
@@ -496,15 +521,15 @@ export function ProgramsHomeScreen({
                 <View style={styles.sheetButtonRow}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel="Cancel"
+                    accessibilityLabel={t(language, 'common.cancel')}
                     onPress={() => setPicked(null)}
                     style={({ pressed }) => [styles.sheetCancel, pressed && styles.pressed]}
                   >
-                    <Text style={styles.sheetCancelText}>Cancel</Text>
+                    <Text style={styles.sheetCancelText}>{t(language, 'common.cancel')}</Text>
                   </Pressable>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Switch to ${picked.name}`}
+                    accessibilityLabel={t(language, 'programs.switchTo', { name: picked.name })}
                     onPress={() => {
                       const id = picked.id;
                       setPicked(null);
@@ -512,7 +537,7 @@ export function ProgramsHomeScreen({
                     }}
                     style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
                   >
-                    <Text style={styles.sheetConfirmText}>Switch program</Text>
+                    <Text style={styles.sheetConfirmText}>{t(language, 'programs.switchConfirm')}</Text>
                   </Pressable>
                 </View>
               </>
@@ -522,6 +547,7 @@ export function ProgramsHomeScreen({
       </Modal>
 
       <NewProgramSheet
+        language={language}
         visible={createOpen}
         exerciseLibrary={exerciseLibraryEntries}
         onClose={() => setCreateOpen(false)}

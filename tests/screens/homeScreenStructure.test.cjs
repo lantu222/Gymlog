@@ -200,9 +200,9 @@ module.exports = [
       assert.match(workoutsScreenSource, /const readySectionItems = new Map<string, ReadyDiscoveryItem\[\]>\(\)/);
       assert.match(workoutsScreenSource, /READY_FAMILY_SECTIONS\.find\(\(candidate\) => candidate\.match\(item\)\)/);
       assert.doesNotMatch(workoutsScreenSource, /tpl_gainer_'\)\)/);
-      assert.match(workoutsScreenSource, /title="Programs"/);
+      assert.match(workoutsScreenSource, /title=\{t\(language, 'tabs\.programs'\)\}/);
       assert.match(workoutsScreenSource, /tone="dark"/);
-      assert.match(workoutsScreenSource, /Search ready templates/);
+      assert.match(workoutsScreenSource, /t\(language, 'ready\.searchPlaceholder'\)/);
       assert.match(workoutsScreenSource, /MagnifyingGlass/);
       assert.match(workoutsScreenSource, /SlidersHorizontal/);
       assert.match(workoutsScreenSource, /showAdvancedReadyFilters/);
@@ -212,29 +212,34 @@ module.exports = [
         workoutsScreenSource.indexOf('const READY_TIME_FILTERS'),
       );
       assert.ok(
-        readyGoalFilterBlock.indexOf("label: 'All'") < readyGoalFilterBlock.indexOf("label: 'Fat Loss'"),
+        readyGoalFilterBlock.indexOf("labelKey: 'facet.all'") <
+          readyGoalFilterBlock.indexOf("labelKey: 'ready.goal.fatLoss'"),
         'all should be the first visible goal filter',
       );
       assert.ok(
-        readyGoalFilterBlock.indexOf("label: 'Fat Loss'") < readyGoalFilterBlock.indexOf("label: 'Strength'"),
+        readyGoalFilterBlock.indexOf("labelKey: 'ready.goal.fatLoss'") <
+          readyGoalFilterBlock.indexOf("labelKey: 'ready.goal.strength'"),
         'fat loss should sit before strength in the ready-template goal carousel',
       );
-      assert.match(workoutsScreenSource, /Filter templates/);
-      assert.match(workoutsScreenSource, /Duration/);
-      assert.match(workoutsScreenSource, /Equipment/);
-      assert.match(workoutsScreenSource, /Experience/);
+      assert.match(workoutsScreenSource, /t\(language, 'ready\.filterTemplates'\)/);
+      assert.match(workoutsScreenSource, /t\(language, 'progress\.metric\.duration'\)/);
+      assert.match(workoutsScreenSource, /t\(language, 'myData\.equipment'\)/);
+      assert.match(workoutsScreenSource, /t\(language, 'myData\.experience'\)/);
+      assert.match(i18nSource, /'ready\.filterTemplates': 'Filter templates'/);
       assert.match(workoutsScreenSource, /READY_TIME_FILTERS\.map/);
       assert.match(workoutsScreenSource, /READY_EQUIPMENT_FILTERS\.map/);
       assert.match(workoutsScreenSource, /READY_LEVEL_FILTERS\.map/);
       assert.match(workoutsScreenSource, /snapToInterval=\{116\}/);
       assert.match(workoutsScreenSource, /readyTemplateFilterChip:\s*\{[\s\S]*minWidth: 104/);
       assert.match(workoutsScreenSource, /READY_FAMILY_SECTIONS/);
-      assert.match(workoutsScreenSource, /title: "Women's programs"/);
-      assert.match(workoutsScreenSource, /title: 'Muscle group focus'/);
-      assert.match(workoutsScreenSource, /title: 'Strength'/);
-      assert.match(workoutsScreenSource, /title: 'Muscle'/);
-      assert.match(workoutsScreenSource, /title: 'Fat loss'/);
-      assert.match(workoutsScreenSource, /title: 'Home & minimal equipment'/);
+      assert.match(workoutsScreenSource, /titleKey: 'ready\.section\.women'/);
+      assert.match(workoutsScreenSource, /titleKey: 'ready\.section\.focus'/);
+      assert.match(workoutsScreenSource, /titleKey: 'ready\.goal\.strength'/);
+      assert.match(workoutsScreenSource, /titleKey: 'ready\.section\.muscle'/);
+      assert.match(workoutsScreenSource, /titleKey: 'ready\.goal\.fatLoss'/);
+      assert.match(workoutsScreenSource, /titleKey: 'ready\.section\.home'/);
+      assert.match(i18nSource, /'ready\.section\.women': "Women's programs"/);
+      assert.match(i18nSource, /'ready\.section\.home': 'Home & minimal equipment'/);
       assert.match(workoutsScreenSource, /readyCategorySections/);
       assert.match(workoutsScreenSource, /readyTemplateCategoryList/);
       assert.match(workoutsScreenSource, /readyTemplateCarousel/);
@@ -250,7 +255,8 @@ module.exports = [
       assert.match(workoutsScreenSource, /Lightning/);
       assert.match(workoutsScreenSource, /CalendarBlank/);
       assert.match(workoutsScreenSource, /Clock/);
-      assert.match(workoutsScreenSource, /Start Plan/);
+      assert.match(workoutsScreenSource, /ready\.startPlan/);
+      assert.match(i18nSource, /'ready\.startPlan': 'Start Plan'/);
       assert.doesNotMatch(workoutsScreenSource, /readyTemplateSummary/);
       assert.doesNotMatch(workoutsScreenSource, /formatTemplateSubtitle/);
       assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);

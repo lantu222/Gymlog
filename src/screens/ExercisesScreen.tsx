@@ -3,11 +3,12 @@ import { StyleSheet, View } from 'react-native';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
 import { HG } from '../lightTheme';
-import { ExerciseLibraryItem } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
   items: ExerciseLibraryItem[];
   trackedIds?: string[];
+  language?: AppLanguage;
   onBack?: () => void;
   onOpenExercise?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
@@ -17,6 +18,7 @@ interface ExercisesScreenProps {
 export function ExercisesScreen({
   items,
   trackedIds,
+  language = 'en',
   onOpenExercise,
   onToggleTracked,
   onAddToWorkout,
@@ -26,6 +28,7 @@ export function ExercisesScreen({
       <ExerciseLibraryBrowser
         items={items}
         trackedIds={trackedIds}
+        language={language}
         onOpenItem={onOpenExercise}
         onToggleTracked={onToggleTracked}
         onAddToWorkout={onAddToWorkout}

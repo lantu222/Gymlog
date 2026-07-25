@@ -7,14 +7,18 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { buildAiCoachActions } from '../lib/aiCoachActions';
 import { formatLiftDisplayLabel, formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { t } from '../lib/i18n';
 import { AICoachAction, AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
 import { HG } from '../lightTheme';
 import { layout, radii, spacing } from '../theme';
+import { AppLanguage } from '../types/models';
 
 interface AICoachScreenProps {
   initialPrompt?: string;
   suggestions?: string[];
   trainingContext: AICoachTrainingContext;
+  language?: AppLanguage;
   onBack: () => void;
   onSubmitPrompt: (prompt: string) => void;
   onSelectAction: (action: AICoachAction, prompt: string) => void;
@@ -91,6 +95,7 @@ export function AICoachScreen({
   initialPrompt,
   suggestions,
   trainingContext,
+  language = 'en',
   onBack,
   onSubmitPrompt,
   onSelectAction,
@@ -132,7 +137,7 @@ export function AICoachScreen({
     if (request.prompt.trim().length < 6) {
       setState('error');
       setAnswer(null);
-      setErrorMessage('Ask about the saved plan.');
+      setErrorMessage(t(language, 'ai.errAskPlan'));
       return;
     }
 
@@ -168,7 +173,7 @@ export function AICoachScreen({
 
         setState('error');
         setAnswer(null);
-        setErrorMessage('Try one short question.');
+        setErrorMessage(t(language, 'ai.errShort'));
       });
 
     return () => {
@@ -202,53 +207,67 @@ export function AICoachScreen({
     const tokens: string[] = [];
 
     if (trainingContext.activeSession) {
-      tokens.push('Workout active');
+      tokens.push(t(language, 'ai.token.active'));
     }
 
     if (trainingContext.recommendedProgramTitle) {
-      tokens.push('Plan ready');
+      tokens.push(t(language, 'ai.token.planReady'));
     }
 
     if (trainingContext.sessionsThisWeek > 0) {
-      tokens.push(`${trainingContext.sessionsThisWeek} this week`);
+      tokens.push(t(language, 'ai.token.thisWeek', { count: trainingContext.sessionsThisWeek }));
     }
 
     return tokens.slice(0, 3);
-  }, [trainingContext.activeSession, trainingContext.recommendedProgramTitle, trainingContext.sessionsThisWeek]);
+  }, [
+    language,
+    trainingContext.activeSession,
+    trainingContext.recommendedProgramTitle,
+    trainingContext.sessionsThisWeek,
+  ]);
 
   const promptSignals = useMemo(() => {
     const signals = [];
 
     if (trainingContext.activeSession) {
       signals.push({
-        label: 'Workout',
-        value: formatWorkoutDisplayLabel(trainingContext.activeSession.title, 'Workout'),
+        label: t(language, 'ai.signal.workout'),
+        value: formatWorkoutDisplayLabel(trainingContext.activeSession.title, t(language, 'ai.signal.workout')),
       });
     }
 
     if (trainingContext.trackedLifts[0]) {
       signals.push({
-        label: 'Lift',
-        value: formatLiftDisplayLabel(trainingContext.trackedLifts[0].name),
+        label: t(language, 'ai.signal.lift'),
+        value: formatLiftDisplayLabel(exerciseNameLabel(language, trainingContext.trackedLifts[0].name)),
       });
     }
 
     if (trainingContext.recommendedProgramTitle) {
       signals.push({
-        label: 'Plan',
-        value: formatWorkoutDisplayLabel(trainingContext.recommendedProgramTitle, 'Plan'),
+        label: t(language, 'ai.signal.plan'),
+        value: formatWorkoutDisplayLabel(
+          trainingContext.recommendedProgramTitle,
+          t(language, 'ai.signal.plan'),
+        ),
       });
     } else if (trainingContext.sessionsThisWeek > 0) {
       signals.push({
-        label: 'This week',
-        value: `${trainingContext.sessionsThisWeek} sessions`,
+        label: t(language, 'progress.thisWeek'),
+        value: t(language, 'ai.sessionCount', { count: trainingContext.sessionsThisWeek }),
       });
     }
 
     return signals.slice(0, 3);
-  }, [trainingContext.activeSession, trainingContext.recommendedProgramTitle, trainingContext.sessionsThisWeek, trainingContext.trackedLifts]);
+  }, [
+    language,
+    trainingContext.activeSession,
+    trainingContext.recommendedProgramTitle,
+    trainingContext.sessionsThisWeek,
+    trainingContext.trackedLifts,
+  ]);
 
-  const heroMeta = 'Uses saved training context only.';
+  const heroMeta = t(language, 'ai.heroMeta');
 
   function submitPrompt(nextPrompt: string) {
     const trimmed = nextPrompt.trim();
@@ -270,13 +289,18 @@ export function AICoachScreen({
 
   return (
     <>
-      <ScreenHeader title="GAINER AI" subtitle="Preview guidance. Not for live workout decisions." tone="dark" onBack={onBack} />
+      <ScreenHeader
+        title="GAINER AI"
+        subtitle={t(language, 'ai.subtitle')}
+        tone="dark"
+        onBack={onBack}
+      />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroVariant} style={[styles.heroSurface, hasAnswer && styles.heroSurfaceCompact]}>
           <View style={styles.heroContent}>
             <View style={styles.heroTopRow}>
               <Text style={styles.heroKicker}>GAINER AI</Text>
-              <HeroPill label="Preview" />
+              <HeroPill label={t(language, 'ai.preview')} />
             </View>
 
             <View style={styles.heroTokenRow}>
@@ -285,7 +309,7 @@ export function AICoachScreen({
               ))}
             </View>
 
-            <Text style={styles.heroTitle}>Review your plan</Text>
+            <Text style={styles.heroTitle}>{t(language, 'ai.heroTitle')}</Text>
             <Text style={styles.heroMeta}>{heroMeta}</Text>
           </View>
         </FitnessPhotoSurface>
@@ -300,7 +324,7 @@ export function AICoachScreen({
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder="Ask about your saved plan"
+            placeholder={t(language, 'ai.placeholder')}
             placeholderTextColor={HG.faint}
             selectionColor={HG.purple}
             multiline
@@ -319,7 +343,7 @@ export function AICoachScreen({
           ) : null}
 
           <Pressable onPress={() => submitPrompt(draft)} style={[styles.button, !draft.trim() && styles.buttonDisabled]}>
-            <Text style={styles.buttonText}>Review</Text>
+            <Text style={styles.buttonText}>{t(language, 'ai.review')}</Text>
           </Pressable>
         </View>
 
@@ -327,10 +351,8 @@ export function AICoachScreen({
           <View style={styles.feedbackCard}>
             <ActivityIndicator color={HG.purple} size="small" />
             <View style={styles.feedbackCopy}>
-              <Text style={styles.feedbackTitle}>Getting an answer</Text>
-              <Text style={styles.feedbackBody}>
-                Using saved plan and training history.
-              </Text>
+              <Text style={styles.feedbackTitle}>{t(language, 'ai.loading')}</Text>
+              <Text style={styles.feedbackBody}>{t(language, 'ai.loadingBody')}</Text>
             </View>
           </View>
         ) : null}
@@ -338,11 +360,11 @@ export function AICoachScreen({
         {state === 'error' ? (
           <View style={styles.feedbackCard}>
             <View style={styles.feedbackCopy}>
-              <Text style={styles.feedbackTitle}>Try a saved-plan question</Text>
+              <Text style={styles.feedbackTitle}>{t(language, 'ai.errTitle')}</Text>
               <Text style={styles.feedbackBody}>{errorMessage}</Text>
             </View>
             <Pressable onPress={retryPrompt} style={styles.retryButton}>
-              <Text style={styles.retryButtonText}>Try again</Text>
+              <Text style={styles.retryButtonText}>{t(language, 'ai.retry')}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -350,8 +372,8 @@ export function AICoachScreen({
         {state === 'ready' && answer ? (
           <View style={styles.answerSurface}>
             <View style={styles.answerTopRow}>
-              <SectionLabel label="Answer" />
-              <SourceBadge label={answerSource === 'live' ? 'Live' : 'Preview'} />
+              <SectionLabel label={t(language, 'ai.answer')} />
+              <SourceBadge label={t(language, answerSource === 'live' ? 'ai.live' : 'ai.preview')} />
             </View>
 
             <Text style={styles.questionText}>{submittedPrompt}</Text>
@@ -375,13 +397,13 @@ export function AICoachScreen({
               </View>
             ) : null}
 
-            <InfoList title="Why it fits" items={compactItems(answer.why)} />
-            <InfoList title="Do next" items={compactItems(answer.nextSteps)} />
-            <InfoList title="Quick plan" items={compactItems(answer.plan)} />
+            <InfoList title={t(language, 'ai.whyItFits')} items={compactItems(answer.why)} />
+            <InfoList title={t(language, 'ai.doNext')} items={compactItems(answer.nextSteps)} />
+            <InfoList title={t(language, 'ai.quickPlan')} items={compactItems(answer.plan)} />
 
             {answer.assumptions.length > 0 ? (
               <Text style={styles.assumptionText}>
-                Assumes {compactItems(answer.assumptions).join(' | ')}
+                {t(language, 'ai.assumes', { list: compactItems(answer.assumptions).join(' | ') })}
               </Text>
             ) : null}
           </View>

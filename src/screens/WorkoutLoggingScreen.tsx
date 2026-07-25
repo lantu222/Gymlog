@@ -1153,6 +1153,7 @@ export function WorkoutLoggingScreen({
           previousEntries={previousEntriesBySlot[exerciseInfoTarget.slotId] ?? []}
           libraryItem={exerciseInfoLibraryItem}
           unitPreference={unitPreference}
+          language={language}
           activeSetIndex={
             exerciseInfoTarget.slotId === activeSlotId
               ? activeSession.ui.activeSetIndex

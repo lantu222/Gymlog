@@ -16,7 +16,10 @@ import {
   getPopularExerciseLibraryOrder,
   getSuggestedExerciseLibraryItems,
 } from '../lib/exerciseSuggestions';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { I18nKey, t } from '../lib/i18n';
 import {
+  AppLanguage,
   ExerciseBodyPart,
   ExerciseCategory,
   ExerciseEquipment,
@@ -26,6 +29,7 @@ import { colors, radii, spacing } from '../theme';
 
 interface AddExerciseSheetProps {
   visible: boolean;
+  language?: AppLanguage;
   items: ExerciseLibraryItem[];
   recentItems: ExerciseLibraryItem[];
   currentItemIds?: string[];
@@ -39,6 +43,10 @@ interface AddExerciseSheetProps {
   onClose: () => void;
   onSelectItem: (item: ExerciseLibraryItem) => void;
   onConfirmSelection?: (items: ExerciseLibraryItem[]) => void;
+}
+
+function sortName(item: ExerciseLibraryItem, language: AppLanguage) {
+  return exerciseNameLabel(language, item.name);
 }
 
 const categoryOptions: Array<'all' | ExerciseCategory> = ['all', 'compound', 'isolation', 'cardio', 'core'];
@@ -63,36 +71,63 @@ const equipmentOptions: Array<'all' | ExerciseEquipment> = [
   'bodyweight',
 ];
 
-function toLabel(value: string) {
+// The library's category / body-part / equipment values are stored English and
+// used for filtering, so only the label is translated.
+const FACET_KEYS: Record<string, I18nKey> = {
+  all: 'facet.all',
+  compound: 'facet.compound',
+  isolation: 'facet.isolation',
+  cardio: 'facet.cardio',
+  core: 'facet.core',
+  chest: 'facet.chest',
+  back: 'facet.back',
+  shoulders: 'facet.shoulders',
+  legs: 'facet.legs',
+  biceps: 'facet.biceps',
+  triceps: 'facet.triceps',
+  glutes: 'facet.glutes',
+  'full body': 'facet.fullBody',
+  barbell: 'facet.barbell',
+  dumbbell: 'facet.dumbbell',
+  machine: 'facet.machine',
+  cable: 'facet.cable',
+  bodyweight: 'facet.bodyweight',
+};
+
+function toLabel(value: string, language: AppLanguage) {
+  const key = FACET_KEYS[value];
+  if (key) {
+    return t(language, key);
+  }
+
   return value
     .split(' ')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
 
-function toBodyPartQuickLabel(value: 'all' | ExerciseBodyPart) {
-  switch (value) {
-    case 'all':
-      return 'All';
-    case 'full body':
-      return 'Full body';
-    default:
-      return toLabel(value);
-  }
-}
-
-function buildSearchHaystack(item: ExerciseLibraryItem) {
-  return [item.name, item.category, item.bodyPart, item.equipment].join(' ').toLowerCase();
+function buildSearchHaystack(item: ExerciseLibraryItem, language: AppLanguage) {
+  // Both spellings, so a Finnish search term and an English one both land.
+  return [item.name, exerciseNameLabel(language, item.name), item.category, item.bodyPart, item.equipment]
+    .join(' ')
+    .toLowerCase();
 }
 
 interface FilterPillGroupProps<T extends string> {
   title: string;
   options: T[];
   selected: T;
+  language: AppLanguage;
   onSelect: (value: T) => void;
 }
 
-function FilterPillGroup<T extends string>({ title, options, selected, onSelect }: FilterPillGroupProps<T>) {
+function FilterPillGroup<T extends string>({
+  title,
+  options,
+  selected,
+  language,
+  onSelect,
+}: FilterPillGroupProps<T>) {
   return (
     <View style={styles.filterGroup}>
       <Text style={styles.filterTitle}>{title}</Text>
@@ -105,7 +140,9 @@ function FilterPillGroup<T extends string>({ title, options, selected, onSelect 
               onPress={() => onSelect(option)}
               style={[styles.filterPill, active && styles.filterPillActive]}
             >
-              <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>{toLabel(option)}</Text>
+              <Text style={[styles.filterPillText, active && styles.filterPillTextActive]}>
+                {toLabel(option, language)}
+              </Text>
             </Pressable>
           );
         })}
@@ -116,13 +153,14 @@ function FilterPillGroup<T extends string>({ title, options, selected, onSelect 
 
 export function AddExerciseSheet({
   visible,
+  language = 'en',
   items,
   recentItems,
   currentItemIds = [],
   selectedIds = [],
-  title = 'Add exercise',
+  title,
   subtitle,
-  actionLabel = 'Add',
+  actionLabel,
   confirmActionLabel,
   autoFocusSearch = false,
   multiSelect = false,
@@ -130,6 +168,8 @@ export function AddExerciseSheet({
   onSelectItem,
   onConfirmSelection,
 }: AddExerciseSheetProps) {
+  const sheetTitle = title ?? t(language, 'editor.addExercise');
+  const addLabel = actionLabel ?? t(language, 'editor.add');
   const searchRef = useRef<TextInput | null>(null);
   const wasVisibleRef = useRef(false);
   const [search, setSearch] = useState('');
@@ -199,7 +239,7 @@ export function AddExerciseSheet({
     const query = search.trim().toLowerCase();
 
     return items.filter((item) => {
-      if (query && !buildSearchHaystack(item).includes(query)) {
+      if (query && !buildSearchHaystack(item, language).includes(query)) {
         return false;
       }
       if (category !== 'all' && item.category !== category) {
@@ -213,7 +253,7 @@ export function AddExerciseSheet({
       }
       return true;
     });
-  }, [bodyPart, category, equipment, items, search]);
+  }, [bodyPart, category, equipment, items, language, search]);
 
   const suggestedItems = useMemo(
     () =>
@@ -235,7 +275,7 @@ export function AddExerciseSheet({
     const base = [...filteredItems];
 
     if (!showSuggestedOrdering) {
-      return base.sort((left, right) => left.name.localeCompare(right.name));
+      return base.sort((left, right) => sortName(left, language).localeCompare(sortName(right, language)));
     }
 
     const recentOrder = new Map(
@@ -284,9 +324,10 @@ export function AddExerciseSheet({
         return 1;
       }
 
-      return left.name.localeCompare(right.name);
+      return sortName(left, language).localeCompare(sortName(right, language));
     });
   }, [
+    language,
     commonStarterItems,
     commonStarterOrder,
     currentItemIds.length,
@@ -297,15 +338,11 @@ export function AddExerciseSheet({
   ]);
 
   const listTitle = showSuggestedOrdering
-    ? currentItemIds.length === 0
-      ? 'Popular to start'
-      : 'Suggested for today'
-    : 'All exercises';
+    ? t(language, currentItemIds.length === 0 ? 'sheet.popular' : 'sheet.suggested')
+    : t(language, 'sheet.allExercises');
   const listSubtitle = showSuggestedOrdering
-    ? currentItemIds.length === 0
-      ? 'Common first picks for a new workout.'
-      : 'Based on what is already in this workout.'
-    : `${orderedItems.length} available`;
+    ? t(language, currentItemIds.length === 0 ? 'sheet.popularSub' : 'sheet.suggestedSub')
+    : t(language, 'sheet.available', { count: orderedItems.length });
 
   const popularItems = useMemo(() => {
     if (!showSuggestedOrdering) {
@@ -326,20 +363,20 @@ export function AddExerciseSheet({
   const listHeader = (
     <>
       <View style={styles.searchCard}>
-        <Text style={styles.searchLabel}>Search</Text>
+        <Text style={styles.searchLabel}>{t(language, 'sheet.search')}</Text>
         <View style={styles.searchRow}>
           <TextInput
             ref={searchRef}
             value={search}
             onChangeText={setSearch}
-            placeholder="Search exercises"
+            placeholder={t(language, 'sheet.searchPlaceholder')}
             placeholderTextColor={colors.textMuted}
             style={styles.searchInput}
             selectionColor={colors.accent}
           />
           {search.length > 0 ? (
             <Pressable onPress={() => setSearch('')} style={styles.clearButton}>
-              <Text style={styles.clearButtonText}>Clear</Text>
+              <Text style={styles.clearButtonText}>{t(language, 'sheet.clear')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -347,7 +384,7 @@ export function AddExerciseSheet({
 
       {multiSelect ? (
         <View style={styles.quickBodyPartGroup}>
-          <Text style={styles.filterTitle}>Body part</Text>
+          <Text style={styles.filterTitle}>{t(language, 'sheet.bodyPart')}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickBodyPartRow}>
             {quickBodyPartOptions.map((option) => {
               const active = option === bodyPart;
@@ -358,7 +395,7 @@ export function AddExerciseSheet({
                   style={[styles.quickBodyPartChip, active && styles.quickBodyPartChipActive]}
                 >
                   <Text style={[styles.quickBodyPartChipText, active && styles.quickBodyPartChipTextActive]}>
-                    {toBodyPartQuickLabel(option)}
+                    {toLabel(option, language)}
                   </Text>
                 </Pressable>
               );
@@ -367,9 +404,27 @@ export function AddExerciseSheet({
         </View>
       ) : (
         <>
-          <FilterPillGroup title="Category" options={categoryOptions} selected={category} onSelect={setCategory} />
-          <FilterPillGroup title="Body part" options={bodyPartOptions} selected={bodyPart} onSelect={setBodyPart} />
-          <FilterPillGroup title="Equipment" options={equipmentOptions} selected={equipment} onSelect={setEquipment} />
+          <FilterPillGroup
+            title={t(language, 'sheet.category')}
+            options={categoryOptions}
+            selected={category}
+            language={language}
+            onSelect={setCategory}
+          />
+          <FilterPillGroup
+            title={t(language, 'sheet.bodyPart')}
+            options={bodyPartOptions}
+            selected={bodyPart}
+            language={language}
+            onSelect={setBodyPart}
+          />
+          <FilterPillGroup
+            title={t(language, 'sheet.equipment')}
+            options={equipmentOptions}
+            selected={equipment}
+            language={language}
+            onSelect={setEquipment}
+          />
         </>
       )}
     </>
@@ -383,11 +438,11 @@ export function AddExerciseSheet({
           <View style={styles.handle} />
           <View style={styles.header}>
             <View style={styles.headerCopy}>
-              <Text style={styles.headerTitle}>{title}</Text>
+              <Text style={styles.headerTitle}>{sheetTitle}</Text>
               {subtitle ? <Text style={styles.headerSubtitle}>{subtitle}</Text> : null}
             </View>
             <Pressable onPress={onClose} style={styles.closeButton}>
-              <Text style={styles.closeButtonText}>Close</Text>
+              <Text style={styles.closeButtonText}>{t(language, 'common.close')}</Text>
             </Pressable>
           </View>
 
@@ -408,8 +463,8 @@ export function AddExerciseSheet({
                 {popularItems.length > 0 ? (
                   <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                      <Text style={styles.sectionTitle}>Popular to start</Text>
-                      <Text style={styles.sectionSubtitle}>Common first picks for a new workout.</Text>
+                      <Text style={styles.sectionTitle}>{t(language, 'sheet.popular')}</Text>
+                      <Text style={styles.sectionSubtitle}>{t(language, 'sheet.popularSub')}</Text>
                     </View>
                     <View style={styles.featuredGrid}>
                       {popularItems.map((item) => {
@@ -441,15 +496,19 @@ export function AddExerciseSheet({
                             </View>
 
                             <View style={styles.gridCardCopy}>
-                              <Text numberOfLines={2} style={styles.gridCardTitle}>{item.name}</Text>
-                              <Text numberOfLines={1} style={styles.gridCardBodyPart}>{toLabel(item.bodyPart)}</Text>
+                              <Text numberOfLines={2} style={styles.gridCardTitle}>
+                                {exerciseNameLabel(language, item.name)}
+                              </Text>
+                              <Text numberOfLines={1} style={styles.gridCardBodyPart}>
+                                {toLabel(item.bodyPart, language)}
+                              </Text>
                               <Text numberOfLines={2} style={styles.gridCardMeta}>
-                                {toLabel(item.category)} · {toLabel(item.equipment)}
+                                {toLabel(item.category, language)} · {toLabel(item.equipment, language)}
                               </Text>
                               {!multiSelect ? (
                                 <View style={[styles.gridActionPill, selected && styles.gridActionPillSelected]}>
                                   <Text style={[styles.gridActionText, selected && styles.gridActionTextSelected]}>
-                                    {selected ? 'Added' : actionLabel}
+                                    {selected ? t(language, 'sheet.added') : addLabel}
                                   </Text>
                                 </View>
                               ) : null}
@@ -463,9 +522,13 @@ export function AddExerciseSheet({
 
                 <View style={styles.section}>
                   <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>{showSuggestedOrdering ? 'All exercises' : listTitle}</Text>
+                    <Text style={styles.sectionTitle}>
+                      {showSuggestedOrdering ? t(language, 'sheet.allExercises') : listTitle}
+                    </Text>
                     <Text style={styles.sectionSubtitle}>
-                      {showSuggestedOrdering ? `${mainItems.length} available` : listSubtitle}
+                      {showSuggestedOrdering
+                        ? t(language, 'sheet.available', { count: mainItems.length })
+                        : listSubtitle}
                     </Text>
                   </View>
                 </View>
@@ -473,8 +536,8 @@ export function AddExerciseSheet({
             }
             ListEmptyComponent={
               <View style={styles.emptyCard}>
-                <Text style={styles.emptyTitle}>No matches</Text>
-                <Text style={styles.emptyText}>Adjust the search or filters to widen the results.</Text>
+                <Text style={styles.emptyTitle}>{t(language, 'sheet.noMatches')}</Text>
+                <Text style={styles.emptyText}>{t(language, 'sheet.noMatchesBody')}</Text>
               </View>
             }
             renderItem={({ item }) => {
@@ -502,15 +565,19 @@ export function AddExerciseSheet({
                   </View>
 
                   <View style={styles.gridCardCopy}>
-                    <Text numberOfLines={2} style={styles.gridCardTitle}>{item.name}</Text>
-                    <Text numberOfLines={1} style={styles.gridCardBodyPart}>{toLabel(item.bodyPart)}</Text>
+                    <Text numberOfLines={2} style={styles.gridCardTitle}>
+                                {exerciseNameLabel(language, item.name)}
+                              </Text>
+                    <Text numberOfLines={1} style={styles.gridCardBodyPart}>
+                                {toLabel(item.bodyPart, language)}
+                              </Text>
                     <Text numberOfLines={2} style={styles.gridCardMeta}>
-                      {toLabel(item.category)} · {toLabel(item.equipment)}
+                      {toLabel(item.category, language)} · {toLabel(item.equipment, language)}
                     </Text>
                     {!multiSelect ? (
                       <View style={[styles.gridActionPill, selected && styles.gridActionPillSelected]}>
                         <Text style={[styles.gridActionText, selected && styles.gridActionTextSelected]}>
-                          {selected ? 'Added' : actionLabel}
+                          {selected ? t(language, 'sheet.added') : addLabel}
                         </Text>
                       </View>
                     ) : null}
@@ -524,8 +591,8 @@ export function AddExerciseSheet({
             <View style={styles.footer}>
               <Text style={styles.footerSelectionText}>
                 {pendingSelectedIds.length === 0
-                  ? 'Select one or more exercises'
-                  : `${pendingSelectedIds.length} selected`}
+                  ? t(language, 'sheet.selectSome')
+                  : t(language, 'sheet.selectedCount', { count: pendingSelectedIds.length })}
               </Text>
               <Pressable
                 onPress={handleConfirmSelection}
@@ -534,7 +601,11 @@ export function AddExerciseSheet({
               >
                 <Text style={styles.confirmButtonText}>
                   {confirmActionLabel ??
-                    `Add ${pendingSelectedIds.length} exercise${pendingSelectedIds.length === 1 ? '' : 's'}`}
+                    t(
+                      language,
+                      pendingSelectedIds.length === 1 ? 'sheet.addOne' : 'sheet.addCount',
+                      { count: pendingSelectedIds.length },
+                    )}
                 </Text>
               </Pressable>
             </View>

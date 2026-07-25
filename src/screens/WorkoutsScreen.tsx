@@ -15,6 +15,7 @@ import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { WorkoutExerciseInstance, WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { pluralize } from '../lib/format';
+import { I18nKey, t } from '../lib/i18n';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getCustomTemplatePresentation } from '../lib/templatePresentation';
 import { getRecommendationProgramDefinition } from '../lib/recommendationCatalog';
@@ -27,6 +28,7 @@ import {
 } from '../lib/workoutDiscovery';
 import { ProgramInsightSummary } from '../lib/programInsights';
 import { TailoringPreferencesInput } from '../lib/tailoringFit';
+import type { AppLanguage } from '../types/models';
 import { layout, spacing } from '../theme';
 
 interface CustomWorkoutListItem {
@@ -51,6 +53,7 @@ interface WorkoutsScreenProps {
   onCreateWorkout: () => void;
   recommendedReadyProgramId?: string | null;
   tailoringPreferences?: TailoringPreferencesInput | null;
+  language?: AppLanguage;
 }
 
 type ReadyGoalFilter = 'all' | 'fat_loss' | 'strength' | 'hypertrophy' | 'general';
@@ -60,40 +63,40 @@ type TodayFlowItem = {
   meta: string;
 };
 
-const READY_GOAL_FILTERS: Array<{ key: ReadyGoalFilter; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'fat_loss', label: 'Fat Loss' },
-  { key: 'strength', label: 'Strength' },
-  { key: 'hypertrophy', label: 'Hypertrophy' },
-  { key: 'general', label: 'General Fitness' },
+const READY_GOAL_FILTERS: Array<{ key: ReadyGoalFilter; labelKey: I18nKey }> = [
+  { key: 'all', labelKey: 'facet.all' },
+  { key: 'fat_loss', labelKey: 'ready.goal.fatLoss' },
+  { key: 'strength', labelKey: 'ready.goal.strength' },
+  { key: 'hypertrophy', labelKey: 'ready.goal.hypertrophy' },
+  { key: 'general', labelKey: 'ready.goal.general' },
 ];
 
 // Family-sectioned browse: every ready template lands in exactly one section
 // (first match wins), mirroring the goal-named program families.
-const READY_FAMILY_SECTIONS: Array<{ key: string; title: string; match: (item: ReadyDiscoveryItem) => boolean }> = [
+const READY_FAMILY_SECTIONS: Array<{ key: string; titleKey: I18nKey; match: (item: ReadyDiscoveryItem) => boolean }> = [
   {
     key: 'women',
-    title: "Women's programs",
+    titleKey: 'ready.section.women',
     match: (item) => getRecommendationProgramDefinition(item.template.id)?.targetGender === 'female',
   },
   {
     key: 'focus',
-    title: 'Muscle group focus',
+    titleKey: 'ready.section.focus',
     match: (item) => item.template.id.startsWith('tpl_focus_'),
   },
   {
     key: 'recovery',
-    title: 'Recovery & mobility',
+    titleKey: 'ready.section.recovery',
     match: (item) => getRecommendationProgramDefinition(item.template.id)?.familyId === 'joint_friendly',
   },
   {
     key: 'running',
-    title: 'Running & conditioning',
+    titleKey: 'ready.section.running',
     match: (item) => Boolean(getRecommendationProgramDefinition(item.template.id)?.supportedGoals.includes('run_mobility')),
   },
   {
     key: 'fatloss',
-    title: 'Fat loss',
+    titleKey: 'ready.goal.fatLoss',
     match: (item) => {
       const definition = getRecommendationProgramDefinition(item.template.id);
       return definition?.familyId === 'athletic_recomp' && definition.styleTags.includes('conditioning');
@@ -101,7 +104,7 @@ const READY_FAMILY_SECTIONS: Array<{ key: string; title: string; match: (item: R
   },
   {
     key: 'strength',
-    title: 'Strength',
+    titleKey: 'ready.goal.strength',
     match: (item) => {
       const definition = getRecommendationProgramDefinition(item.template.id);
       return definition?.familyId === 'strength_base' || definition?.familyId === 'powerbuilding' || item.template.goalType === 'strength';
@@ -109,20 +112,20 @@ const READY_FAMILY_SECTIONS: Array<{ key: string; title: string; match: (item: R
   },
   {
     key: 'muscle',
-    title: 'Muscle',
+    titleKey: 'ready.section.muscle',
     match: (item) =>
       getRecommendationProgramDefinition(item.template.id)?.familyId === 'mass_hypertrophy'
       || item.template.goalType === 'hypertrophy',
   },
   {
     key: 'home',
-    title: 'Home & minimal equipment',
+    titleKey: 'ready.section.home',
     match: (item) => {
       const definition = getRecommendationProgramDefinition(item.template.id);
       return definition?.equipmentTier === 'low_equipment' || definition?.familyId === 'low_equipment';
     },
   },
-  { key: 'balanced', title: 'Balanced fitness', match: () => true },
+  { key: 'balanced', titleKey: 'ready.section.balanced', match: () => true },
 ];
 
 const READY_FILTER_SECTION_KEYS: Record<Exclude<ReadyGoalFilter, 'all'>, string[]> = {
@@ -134,23 +137,23 @@ const READY_FILTER_SECTION_KEYS: Record<Exclude<ReadyGoalFilter, 'all'>, string[
 
 const READY_TEMPLATE_CARD_IMAGE = require('../../assets/fitness/selected/ready-template-card.jpg');
 
-const READY_TIME_FILTERS: Array<{ key: ReadyTimeFilter; label: string }> = [
-  { key: 'all', label: 'Any time' },
-  { key: 'short', label: '45 min or less' },
-  { key: 'balanced', label: '46-60 min' },
-  { key: 'long', label: '60+ min' },
+const READY_TIME_FILTERS: Array<{ key: ReadyTimeFilter; labelKey: I18nKey }> = [
+  { key: 'all', labelKey: 'ready.time.any' },
+  { key: 'short', labelKey: 'ready.time.short' },
+  { key: 'balanced', labelKey: 'ready.time.balanced' },
+  { key: 'long', labelKey: 'ready.time.long' },
 ];
 
-const READY_EQUIPMENT_FILTERS: Array<{ key: ReadyEquipmentFilter; label: string }> = [
-  { key: 'all', label: 'Any equipment' },
-  { key: 'full_gym', label: 'Full gym' },
-  { key: 'low_equipment', label: 'Low equipment' },
+const READY_EQUIPMENT_FILTERS: Array<{ key: ReadyEquipmentFilter; labelKey: I18nKey }> = [
+  { key: 'all', labelKey: 'ready.equip.any' },
+  { key: 'full_gym', labelKey: 'setup.equip.gym' },
+  { key: 'low_equipment', labelKey: 'ready.equip.low' },
 ];
 
-const READY_LEVEL_FILTERS: Array<{ key: ReadyLevelFilter; label: string }> = [
-  { key: 'all', label: 'Any level' },
-  { key: 'beginner', label: 'Beginner' },
-  { key: 'intermediate', label: 'Intermediate' },
+const READY_LEVEL_FILTERS: Array<{ key: ReadyLevelFilter; labelKey: I18nKey }> = [
+  { key: 'all', labelKey: 'ready.level.any' },
+  { key: 'beginner', labelKey: 'myData.level.beginner' },
+  { key: 'intermediate', labelKey: 'ready.level.intermediate' },
 ];
 
 function ReadyGoalIcon({ filter, active }: { filter: ReadyGoalFilter; active: boolean }) {
@@ -270,6 +273,7 @@ export function WorkoutsScreen({
   onCreateWorkout,
   recommendedReadyProgramId,
   tailoringPreferences = null,
+  language = 'en',
 }: WorkoutsScreenProps) {
   const { activeSession, history, templates } = useWorkoutContext();
   const activeTemplateId = activeSession?.templateId ?? history.lastSelectedTemplateId ?? CORE_WORKOUT_TEMPLATE_ID;
@@ -386,7 +390,11 @@ export function WorkoutsScreen({
   }
   const readyCategorySections = READY_FAMILY_SECTIONS
     .filter((section) => readyGoalFilter === 'all' || READY_FILTER_SECTION_KEYS[readyGoalFilter].includes(section.key))
-    .map((section) => ({ key: section.key, title: section.title, items: readySectionItems.get(section.key) ?? [] }))
+    .map((section) => ({
+      key: section.key,
+      title: t(language, section.titleKey),
+      items: readySectionItems.get(section.key) ?? [],
+    }))
     .filter((section) => section.items.length > 0);
   const visibleCustomWorkouts = showAllCustomWorkouts ? filteredCustomWorkouts : filteredCustomWorkouts.slice(0, 2);
   const hiddenCustomWorkoutCount = Math.max(filteredCustomWorkouts.length - visibleCustomWorkouts.length, 0);
@@ -409,14 +417,18 @@ export function WorkoutsScreen({
 
   return (
     <>
-      <ScreenHeader title="Programs" subtitle={`${readyDiscoveryItems.length} programs ready to inspect or start.`} tone="dark" />
+      <ScreenHeader
+        title={t(language, 'tabs.programs')}
+        subtitle={t(language, 'ready.subtitle', { count: readyDiscoveryItems.length })}
+        tone="dark"
+      />
       <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
         <View style={styles.readyTemplateSearchCard}>
           <MagnifyingGlass size={18} color="#98A2B3" weight="bold" />
           <TextInput
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholder="Search ready templates..."
+            placeholder={t(language, 'ready.searchPlaceholder')}
             placeholderTextColor="#9A93AC"
             selectionColor="#7C3AED"
             style={styles.readyTemplateSearchInput}
@@ -426,14 +438,14 @@ export function WorkoutsScreen({
             hitSlop={10}
             style={[styles.readyTemplateFilterButton, showAdvancedReadyFilters && styles.readyTemplateFilterButtonActive]}
             accessibilityRole="button"
-            accessibilityLabel="Open ready template filters"
+            accessibilityLabel={t(language, 'ready.openFilters')}
           >
             <SlidersHorizontal size={18} color={showAdvancedReadyFilters ? '#FFFFFF' : '#7C3AED'} weight="bold" />
           </Pressable>
         </View>
 
         <View style={styles.readyTemplateFilterBlock}>
-          <Text style={styles.readyTemplateFilterLabel}>Filter templates</Text>
+          <Text style={styles.readyTemplateFilterLabel}>{t(language, 'ready.filterTemplates')}</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -452,7 +464,7 @@ export function WorkoutsScreen({
                 >
                   <ReadyGoalIcon filter={filter.key} active={active} />
                   <Text style={[styles.readyTemplateFilterText, active && styles.readyTemplateFilterTextActive]}>
-                    {filter.label}
+                    {t(language, filter.labelKey)}
                   </Text>
                 </Pressable>
               );
@@ -463,7 +475,7 @@ export function WorkoutsScreen({
         {showAdvancedReadyFilters ? (
         <View style={styles.readyTemplateRefinePanel}>
           <View style={styles.readyTemplateRefineGroup}>
-            <Text style={styles.readyTemplateFilterLabel}>Duration</Text>
+            <Text style={styles.readyTemplateFilterLabel}>{t(language, 'progress.metric.duration')}</Text>
             <View style={styles.readyTemplateMiniChipRow}>
               {READY_TIME_FILTERS.map((filter) => {
                 const active = readyTimeFilter === filter.key;
@@ -475,7 +487,7 @@ export function WorkoutsScreen({
                     style={[styles.readyTemplateMiniChip, active && styles.readyTemplateMiniChipActive]}
                   >
                     <Text style={[styles.readyTemplateMiniChipText, active && styles.readyTemplateMiniChipTextActive]}>
-                      {filter.label}
+                      {t(language, filter.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -484,7 +496,7 @@ export function WorkoutsScreen({
           </View>
 
           <View style={styles.readyTemplateRefineGroup}>
-            <Text style={styles.readyTemplateFilterLabel}>Equipment</Text>
+            <Text style={styles.readyTemplateFilterLabel}>{t(language, 'myData.equipment')}</Text>
             <View style={styles.readyTemplateMiniChipRow}>
               {READY_EQUIPMENT_FILTERS.map((filter) => {
                 const active = readyEquipmentFilter === filter.key;
@@ -496,7 +508,7 @@ export function WorkoutsScreen({
                     style={[styles.readyTemplateMiniChip, active && styles.readyTemplateMiniChipActive]}
                   >
                     <Text style={[styles.readyTemplateMiniChipText, active && styles.readyTemplateMiniChipTextActive]}>
-                      {filter.label}
+                      {t(language, filter.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -505,7 +517,7 @@ export function WorkoutsScreen({
           </View>
 
           <View style={styles.readyTemplateRefineGroup}>
-            <Text style={styles.readyTemplateFilterLabel}>Experience</Text>
+            <Text style={styles.readyTemplateFilterLabel}>{t(language, 'myData.experience')}</Text>
             <View style={styles.readyTemplateMiniChipRow}>
               {READY_LEVEL_FILTERS.map((filter) => {
                 const active = readyLevelFilter === filter.key;
@@ -517,7 +529,7 @@ export function WorkoutsScreen({
                     style={[styles.readyTemplateMiniChip, active && styles.readyTemplateMiniChipActive]}
                   >
                     <Text style={[styles.readyTemplateMiniChipText, active && styles.readyTemplateMiniChipTextActive]}>
-                      {filter.label}
+                      {t(language, filter.labelKey)}
                     </Text>
                   </Pressable>
                 );
@@ -597,7 +609,9 @@ export function WorkoutsScreen({
                           onPress={() => onStartReadyProgram(template.id)}
                           style={[styles.readyTemplateStartButton, current && styles.readyTemplateStartButtonCurrent]}
                         >
-                          <Text style={styles.readyTemplateStartText}>{current ? 'Current' : 'Start Plan'}</Text>
+                          <Text style={styles.readyTemplateStartText}>
+                    {t(language, current ? 'subs.current' : 'ready.startPlan')}
+                  </Text>
                         </Pressable>
                       </View>
                     );
@@ -608,8 +622,8 @@ export function WorkoutsScreen({
           </View>
         ) : (
           <View style={styles.readyTemplateEmptyCard}>
-            <Text style={styles.readyTemplateEmptyTitle}>No ready templates match this search</Text>
-            <Text style={styles.readyTemplateEmptyBody}>Clear the search field or try a shorter keyword.</Text>
+            <Text style={styles.readyTemplateEmptyTitle}>{t(language, 'ready.noMatch')}</Text>
+            <Text style={styles.readyTemplateEmptyBody}>{t(language, 'ready.noMatchBody')}</Text>
           </View>
         )}
       </ScrollView>

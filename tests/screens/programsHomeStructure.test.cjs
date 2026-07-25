@@ -15,6 +15,7 @@ const bottomTabBarSource = fs.readFileSync(
 const modelsSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'types', 'models.ts'), 'utf8');
 const databaseSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'storage', 'database.ts'), 'utf8');
 const seedSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'data', 'seed.ts'), 'utf8');
+const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 
 module.exports = [
   {
@@ -49,30 +50,33 @@ module.exports = [
       // Redesign: no screen header — the full-bleed photo-placeholder hero leads.
       assert.doesNotMatch(programsHomeSource, /Your plan, and the programs behind it\./);
       assert.match(programsHomeSource, /programsHeroScrim/);
-      assert.match(programsHomeSource, /ACTIVE PROGRAM/);
+      assert.match(programsHomeSource, /t\(language, 'programs\.activeProgram'\)/);
+      assert.match(i18nSource, /'programs\.activeProgram': 'ACTIVE PROGRAM'/);
       assert.match(programsHomeSource, /activeProgram\.weekLabel/);
-      assert.match(programsHomeSource, /phaseNote\(currentWeek, totalWeeks\)/);
+      assert.match(programsHomeSource, /phaseNote\(currentWeek, totalWeeks, language\)/);
       assert.match(programsHomeSource, /Array\.from\(\{ length: totalWeeks \}/);
       assert.match(programsHomeSource, /index < currentWeek \? styles\.heroSegmentFilled : styles\.heroSegmentEmpty/);
       // THIS WEEK plan: day rows land on the saved plan's own weekday labels
       // (weekday truth, P6); the generic spread is only a fallback. TODAY
       // highlight stays; the old next-session Start strip is intentionally gone.
-      assert.match(programsHomeSource, /THIS WEEK · \$\{activeProgram\.sessionsPerWeek\} DAYS \/ WEEK/);
+      assert.match(programsHomeSource, /t\(language, 'programs\.thisWeek', \{ count: activeProgram\.sessionsPerWeek \}\)/);
+      assert.match(i18nSource, /'programs\.thisWeek': 'THIS WEEK · \{count\} DAYS \/ WEEK'/);
       assert.match(programsHomeSource, /resolveSessionWeekday\(session\.dayLabel, index, weekSessions\.length\)/);
       assert.match(programsHomeSource, /function resolveSessionWeekday\(/);
       assert.match(programsHomeSource, /dayRowToday/);
-      assert.match(programsHomeSource, />TODAY<\/Text>/);
+      assert.match(programsHomeSource, /t\(language, 'programs\.today'\)/);
       assert.doesNotMatch(programsHomeSource, /NEXT SESSION/);
       // Actions: solid-accent View full plan, sub-actions, outlined New program → sheet.
-      assert.match(programsHomeSource, />View full plan<\/Text>/);
-      assert.match(programsHomeSource, />Swap exercises<\/Text>/);
+      assert.match(programsHomeSource, /t\(language, 'programs\.viewPlan'\)/);
+      assert.match(programsHomeSource, /t\(language, 'programs\.swapExercises'\)/);
+      assert.match(i18nSource, /'programs\.swapExercises': 'Swap exercises'/);
       assert.match(programsHomeSource, /onPress=\{onAdjustSchedule\}/);
-      assert.match(programsHomeSource, />New program<\/Text>/);
+      assert.match(programsHomeSource, /t\(language, 'csv\.newProgram'\)/);
       assert.match(programsHomeSource, /setCreateOpen\(true\)/);
       assert.match(programsHomeSource, /<NewProgramSheet/);
       // Switch rail: designed gradient covers (oklch pre-converted to sRGB), not
       // photos. Tapping a card opens the switch-program sheet.
-      assert.match(programsHomeSource, /SWITCH PROGRAM/);
+      assert.match(programsHomeSource, /programs\.switchProgram/);
       assert.doesNotMatch(programsHomeSource, /EXPLORE PROGRAMS/);
       assert.match(programsHomeSource, /const COVER_STYLES/);
       assert.match(programsHomeSource, /function ProgramCover/);
@@ -83,16 +87,16 @@ module.exports = [
       // Switch-program sheet: explainer + Cancel / Switch program; confirm opens
       // the picked program (existing ready-program detail path).
       assert.match(programsHomeSource, /Switching starts a fresh block/);
-      assert.match(programsHomeSource, /Switch program/);
+      assert.match(programsHomeSource, /programs\.switchConfirm/);
       assert.match(programsHomeSource, /onOpenExploreProgram\(id\)/);
       // Your programs + create + library.
-      assert.match(programsHomeSource, /YOUR PROGRAMS/);
+      assert.match(programsHomeSource, /programs\.yourPrograms/);
       assert.match(programsHomeSource, /customPrograms\.map/);
-      assert.match(programsHomeSource, /Create a program/);
-      assert.match(programsHomeSource, /Exercise library/);
+      assert.match(programsHomeSource, /programs\.create/);
+      assert.match(programsHomeSource, /programs\.exerciseLibrary/);
       assert.match(programsHomeSource, /\{exerciseLibraryCount\} exercises/);
       // Empty state when there is no active program.
-      assert.match(programsHomeSource, /No active program/);
+      assert.match(programsHomeSource, /programs\.noActive/);
     },
   },
   {

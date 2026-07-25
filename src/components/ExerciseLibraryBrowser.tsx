@@ -13,9 +13,10 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { GymlogIcon, GymlogIconName } from './GymlogIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
+import { AppLanguage, ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
 
 // Card is 180 wide with a 1px border → 178 content width for the photo.
 const CARD_IMAGE_WIDTH = 178;
@@ -23,6 +24,7 @@ const CARD_IMAGE_WIDTH = 178;
 interface ExerciseLibraryBrowserProps {
   items: ExerciseLibraryItem[];
   trackedIds?: string[];
+  language?: AppLanguage;
   onOpenItem?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
   onAddToWorkout?: (item: ExerciseLibraryItem) => void;
@@ -313,6 +315,7 @@ function SectionHead({ label, action, onAction }: { label: string; action?: stri
 export function ExerciseLibraryBrowser({
   items,
   trackedIds = [],
+  language = 'en',
   onOpenItem,
   onToggleTracked,
   onAddToWorkout,
@@ -460,7 +463,7 @@ export function ExerciseLibraryBrowser({
             <View style={styles.headerRow}>
               <View style={styles.headerCopy}>
                 <Text style={styles.title}>Exercises</Text>
-                <Text style={styles.subtitle}>Find and add exercises to your workouts.</Text>
+                <Text style={styles.subtitle}>{t(language, 'library.subtitle')}</Text>
               </View>
               <View style={styles.headerActions}>
                 <Pressable onPress={() => searchRef.current?.focus()} style={styles.iconButton}>
@@ -483,7 +486,7 @@ export function ExerciseLibraryBrowser({
                 ref={searchRef}
                 value={search}
                 onChangeText={setSearch}
-                placeholder="Search exercises..."
+                placeholder={t(language, 'sheet.searchPlaceholder')}
                 placeholderTextColor={HG.faint}
                 style={styles.searchInput}
               />
@@ -520,7 +523,7 @@ export function ExerciseLibraryBrowser({
             {filtersOpen ? (
               <View style={styles.filtersShell}>
                 <Text style={styles.filtersTitle}>Filters</Text>
-                <Text style={styles.filtersSubtitle}>Narrow the library by type or equipment.</Text>
+                <Text style={styles.filtersSubtitle}>{t(language, 'library.filtersSubtitle')}</Text>
 
                 <Text style={styles.filterSectionLabel}>TYPE</Text>
                 <View style={styles.filterGrid}>
@@ -563,24 +566,27 @@ export function ExerciseLibraryBrowser({
             {showDashboardSections ? (
               <>
                 <View style={styles.dashboardSection}>
-                  <SectionHead label="POPULAR EXERCISES" action="View all" />
+                  <SectionHead label={t(language, 'library.popular')} action={t(language, 'programs.viewAll')} />
                   {renderRail(popularItems)}
                 </View>
 
                 <View style={styles.dashboardSection}>
-                  <SectionHead label="FAVORITES" action={favoriteItems.length ? 'View all' : undefined} />
+                  <SectionHead
+            label={t(language, 'library.favorites')}
+            action={favoriteItems.length ? t(language, 'programs.viewAll') : undefined}
+          />
                   {favoriteItems.length ? (
                     renderRail(favoriteItems)
                   ) : (
                     <View style={styles.emptyFavoriteCard}>
-                      <Text style={styles.emptyFavoriteTitle}>No favorites yet</Text>
-                      <Text style={styles.emptyFavoriteText}>Tap the star on any exercise to keep it here.</Text>
+                      <Text style={styles.emptyFavoriteTitle}>{t(language, 'library.noFavorites')}</Text>
+                      <Text style={styles.emptyFavoriteText}>{t(language, 'library.noFavoritesBody')}</Text>
                     </View>
                   )}
                 </View>
 
                 <View style={styles.dashboardSection}>
-                  <SectionHead label="SUGGESTED FOR YOUR PLAN" action="View all" />
+                  <SectionHead label={t(language, 'library.suggested')} action={t(language, 'programs.viewAll')} />
                   {renderRail(suggestedItems)}
                 </View>
               </>
@@ -596,8 +602,8 @@ export function ExerciseLibraryBrowser({
         }
         ListEmptyComponent={
           <View style={styles.emptyCard}>
-            <Text style={styles.emptyTitle}>No matches</Text>
-            <Text style={styles.emptyText}>Try a broader search or category.</Text>
+            <Text style={styles.emptyTitle}>{t(language, 'sheet.noMatches')}</Text>
+            <Text style={styles.emptyText}>{t(language, 'library.noMatchesBody')}</Text>
           </View>
         }
         renderItem={({ item }) => (

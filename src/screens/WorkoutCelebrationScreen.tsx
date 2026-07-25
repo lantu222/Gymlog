@@ -2,9 +2,11 @@ import React from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { ScreenHeader } from '../components/ScreenHeader';
-import { formatDurationMinutes, formatVolume, pluralize } from '../lib/format';
+import { formatDurationMinutes, formatVolume } from '../lib/format';
+import { t } from '../lib/i18n';
+import { localizeSessionName } from '../lib/sessionNameLabel';
 import { radii, shadows, spacing } from '../theme';
-import { UnitPreference } from '../types/models';
+import { AppLanguage, UnitPreference } from '../types/models';
 
 interface WorkoutCelebrationScreenProps {
   workoutName: string;
@@ -14,6 +16,7 @@ interface WorkoutCelebrationScreenProps {
   totalDurationMinutesThisWeek: number;
   prCount: number;
   unitPreference: UnitPreference;
+  language?: AppLanguage;
   onDone: () => void;
   onViewProgress: () => void;
 }
@@ -41,12 +44,17 @@ export function WorkoutCelebrationScreen({
   totalDurationMinutesThisWeek,
   prCount,
   unitPreference,
+  language = 'en',
   onDone,
   onViewProgress,
 }: WorkoutCelebrationScreenProps) {
   return (
     <View style={styles.screen}>
-      <ScreenHeader title="Workout saved" subtitle="Your work is logged. Keep the momentum." tone="dark" />
+      <ScreenHeader
+        title={t(language, 'celebrate.title')}
+        subtitle={t(language, 'celebrate.subtitle')}
+        tone="dark"
+      />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.heroCard}>
@@ -57,51 +65,59 @@ export function WorkoutCelebrationScreen({
             </View>
           ) : null}
           <View style={styles.heroCopy}>
-            <Text style={styles.heroEyebrow}>Session complete</Text>
-            <Text style={styles.heroTitle}>{workoutName}</Text>
-            <Text style={styles.heroBody}>You finished the session and saved it to your history.</Text>
+            <Text style={styles.heroEyebrow}>{t(language, 'celebrate.eyebrow')}</Text>
+            <Text style={styles.heroTitle}>{localizeSessionName(workoutName, language)}</Text>
+            <Text style={styles.heroBody}>{t(language, 'celebrate.body')}</Text>
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>This week</Text>
+          <Text style={styles.sectionTitle}>{t(language, 'progress.thisWeek')}</Text>
           <View style={styles.statsGrid}>
             <CelebrationStatCard
-              label="Workouts"
-              value={pluralize(workoutsThisWeek, 'workout')}
+              label={t(language, 'detail.workouts')}
+              value={t(language, workoutsThisWeek === 1 ? 'celebrate.workoutOne' : 'celebrate.workoutMany', {
+                count: workoutsThisWeek,
+              })}
             />
             <CelebrationStatCard
-              label="Total lifted"
+              label={t(language, 'celebrate.totalLifted')}
               value={formatVolume(totalLiftedKgThisWeek, unitPreference)}
             />
             <CelebrationStatCard
-              label="Total time"
+              label={t(language, 'celebrate.totalTime')}
               value={formatDurationMinutes(totalDurationMinutesThisWeek)}
             />
             <CelebrationStatCard
-              label="PRs"
-              value={prCount > 0 ? pluralize(prCount, 'PR') : 'No new PRs'}
+              label={t(language, 'celebrate.prs')}
+              value={
+            prCount > 0
+              ? t(language, prCount === 1 ? 'celebrate.prOne' : 'celebrate.prMany', { count: prCount })
+              : t(language, 'celebrate.noPrs')
+          }
               accent={prCount > 0 ? 'success' : 'default'}
             />
           </View>
         </View>
 
         <View style={styles.messageCard}>
-          <Text style={styles.messageTitle}>What changed</Text>
+          <Text style={styles.messageTitle}>{t(language, 'celebrate.whatChanged')}</Text>
           <Text style={styles.messageBody}>
             {prCount > 0
-              ? `You hit ${pluralize(prCount, 'new PR')} and added another session to this week.`
-              : `You logged another workout and kept this week moving.`}
+              ? t(language, prCount === 1 ? 'celebrate.changedPrOne' : 'celebrate.changedPrMany', {
+                  count: prCount,
+                })
+              : t(language, 'celebrate.changedNoPr')}
           </Text>
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
         <Pressable onPress={onDone} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>Done</Text>
+          <Text style={styles.primaryButtonText}>{t(language, 'plan.done')}</Text>
         </Pressable>
         <Pressable onPress={onViewProgress} style={styles.secondaryButton}>
-          <Text style={styles.secondaryButtonText}>View progress</Text>
+          <Text style={styles.secondaryButtonText}>{t(language, 'celebrate.viewProgress')}</Text>
         </Pressable>
       </View>
     </View>
