@@ -8,6 +8,8 @@ import { InlineTip } from '../components/InlineTip';
 import { WorkoutSetRow } from '../components/WorkoutSetRow';
 import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation, resolveAdaptiveCoachOffer } from '../lib/adaptiveCoach';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
+import { getGuidedSessionTitle } from '../lib/guidedPlayer';
+import { localizeSessionName } from '../lib/sessionNameLabel';
 import { buildTailoredSwapOptions, buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { formatWorkoutExerciseQueueMeta } from '../lib/workoutFlow';
 import { getActiveSetAutoFocusTarget } from '../lib/workoutLoggingFocus';
@@ -302,7 +304,12 @@ function getRepeatPreview(exercise: WorkoutExerciseInstance, rowIndex: number, u
   return `Repeat ${formatWeight(source.actualLoadKg ?? 0, unitPreference)} x ${source.actualReps}`;
 }
 
-function getPreviousSetLabel(previousEntries: WorkoutSlotHistoryEntry[], rowIndex: number, unitPreference: UnitPreference) {
+function getPreviousSetLabel(
+  previousEntries: WorkoutSlotHistoryEntry[],
+  rowIndex: number,
+  unitPreference: UnitPreference,
+  language: AppLanguage,
+) {
   const previousSet = previousEntries[0]?.sets[rowIndex] ?? null;
   if (!previousSet || typeof previousSet.reps !== 'number') {
     return null;
@@ -312,7 +319,7 @@ function getPreviousSetLabel(previousEntries: WorkoutSlotHistoryEntry[], rowInde
     return `${formatWeight(previousSet.loadKg, unitPreference)} x ${previousSet.reps}`;
   }
 
-  return `${previousSet.reps} reps`;
+  return t(language, 'logger.repsValue', { count: previousSet.reps });
 }
 
 export function WorkoutLoggingScreen({
@@ -837,6 +844,11 @@ export function WorkoutLoggingScreen({
   return (
     <View key="active-workout" style={styles.screen}>
       <View style={styles.activeWorkoutHeader}>
+        {/* The row used to be an empty band with a button floating in it —
+            naming the session tells you what you are logging into. */}
+        <Text style={styles.activeWorkoutTitle} numberOfLines={2}>
+          {getGuidedSessionTitle(localizeSessionName(activeSession.templateName, language), language)}
+        </Text>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(language, 'logger.a11y.finish')}
@@ -966,12 +978,12 @@ export function WorkoutLoggingScreen({
                     ) : null}
 
                     <View style={styles.setTableHeader}>
-                      <Text style={styles.setHeaderSet}>{t(language, 'logger.col.set')}</Text>
+                      <Text style={styles.setHeaderSet} numberOfLines={1}>{t(language, 'logger.col.set')}</Text>
                       <View style={styles.setHeaderMiddleGroup}>
                         <Text style={styles.setHeaderPrevious} numberOfLines={1}>{t(language, 'logger.col.previous')}</Text>
                         <View style={styles.setHeaderValueGroup}>
-                          <Text style={styles.setHeaderCell}>KG</Text>
-                          <Text style={styles.setHeaderCell}>{t(language, 'logger.col.reps')}</Text>
+                          <Text style={styles.setHeaderCell} numberOfLines={1}>KG</Text>
+                          <Text style={styles.setHeaderCell} numberOfLines={1}>{t(language, 'logger.col.reps')}</Text>
                         </View>
                       </View>
                     </View>
@@ -981,7 +993,12 @@ export function WorkoutLoggingScreen({
                         const weightValue = getDisplayLoadValue(set, unitPreference);
                         const repsValue = getDisplayRepsValue(set);
                         const repeatPreview = getRepeatPreview(exercise, rowIndex, unitPreference);
-                        const previousValue = getPreviousSetLabel(previousEntriesBySlot[exercise.slotId] ?? [], rowIndex, unitPreference);
+                        const previousValue = getPreviousSetLabel(
+                          previousEntriesBySlot[exercise.slotId] ?? [],
+                          rowIndex,
+                          unitPreference,
+                          language,
+                        );
 
                         return (
                           <WorkoutSetRow
@@ -1284,10 +1301,20 @@ const styles = StyleSheet.create({
   activeWorkoutHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 14,
     paddingHorizontal: 26,
     paddingTop: 42,
     paddingBottom: 18,
+  },
+  activeWorkoutTitle: {
+    flex: 1,
+    fontFamily: WORKOUT_FONT_FAMILY,
+    color: '#101828',
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '800',
+    letterSpacing: -0.3,
   },
   headerFinishButton: {
     minHeight: 38,

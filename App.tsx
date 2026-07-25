@@ -122,6 +122,7 @@ import {
 import { colors } from './src/theme';
 import {
   AppDatabase,
+  AppLanguage,
   AppPreferences,
   ExerciseLibraryItem,
   ExerciseLog,
@@ -167,11 +168,13 @@ function buildCompletionCardsFromAdaptedSession({
   exerciseTemplates,
   exerciseLibrary,
   exercisePrLookup,
+  language,
 }: {
   exercises: AdaptedCompletedWorkoutExercise[];
   exerciseTemplates: ExerciseTemplate[];
   exerciseLibrary: ExerciseLibraryItem[];
   exercisePrLookup: ReturnType<typeof buildExercisePrLookup>;
+  language: AppLanguage;
 }) {
   const templatesById = new Map(exerciseTemplates.map((item) => [item.id, item] as const));
   const libraryById = new Map(exerciseLibrary.map((item) => [item.id, item] as const));
@@ -199,7 +202,7 @@ function buildCompletionCardsFromAdaptedSession({
       totalSets: Math.max(1, exercise.sets.length),
       totalVolumeKg,
       notes: exercise.notes,
-      topSetLabel: getTopSetLabel(exercise.sets),
+      topSetLabel: getTopSetLabel(exercise.sets, language),
     };
   });
 
@@ -1297,6 +1300,7 @@ function GymlogApp() {
         exerciseTemplates: database.exerciseTemplates,
         exerciseLibrary,
         exercisePrLookup,
+        language: preferences.appLanguage,
       });
       setCompletionSummary({
         sessionId: adaptedSession.sessionId,
@@ -3639,6 +3643,9 @@ function GymlogApp() {
   const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
   const programDetailActive = route.tab === 'workout' && route.screen === 'program';
   const workoutLogActive = route.tab === 'workout' && (route.screen === 'log' || route.screen === 'guided');
+  // Workout Complete opens on a full-bleed purple hero — the status bar joins it
+  // rather than sitting above it as a dark strip.
+  const workoutSummaryActive = route.tab === 'workout' && route.screen === 'summary';
   const exerciseDetailActive = route.tab === 'workout' && route.screen === 'detail';
   const exercisesListActive = route.tab === 'workout' && route.screen === 'list';
   const programsHomeActive = route.tab === 'workout' && route.screen === 'programs_home';
@@ -3673,11 +3680,15 @@ function GymlogApp() {
         !welcomeActive && route.tab !== 'home' && route.tab !== 'workout' && route.tab !== 'progress' && route.tab !== 'profile'
       }
       safeAreaEdges={
-        welcomeActive ? ['left', 'right'] : onboardingActive ? ['top', 'left', 'right'] : ['top', 'left', 'right', 'bottom']
+        welcomeActive || workoutSummaryActive
+          ? ['left', 'right']
+          : onboardingActive
+            ? ['top', 'left', 'right']
+            : ['top', 'left', 'right', 'bottom']
       }
       statusBarStyleOverride={programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || aiSetupActive || historyActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
-      statusBarTranslucent={welcomeActive}
+      statusBarBackgroundColor={workoutSummaryActive ? 'transparent' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarTranslucent={welcomeActive || workoutSummaryActive}
       shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : undefined}
       tabBar={
         showTabBar ? (

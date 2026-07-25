@@ -266,7 +266,6 @@ const EN = {
 
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'PLATES · PER SIDE · {bar}KG BAR',
-  'plates.enterWeight': 'Enter a weight to see plates.',
   'plates.justBar': 'Just the bar ({bar} kg).',
 
   // ── Empty Workout (freestyle logger) ───────────────────────────────────
@@ -310,8 +309,6 @@ const EN = {
   'complete.pr.eyebrow': 'NEW PERSONAL RECORD',
   'complete.pr.first': 'Your first logged best for this lift.',
   'complete.pr.delta': 'Est. 1RM +{delta} kg over your previous best',
-  'complete.solid.title': 'Solid session logged',
-  'complete.solid.sub': "Nothing stood out this time — and that's fine. Consistency is the win.",
   'complete.stat.duration': 'DURATION',
   'complete.stat.volume': 'VOLUME',
   'complete.stat.sets': 'SETS',
@@ -368,12 +365,16 @@ const EN = {
   'logger.finish': 'Finish',
   'logger.stat.sets': '{count} sets',
   'logger.stat.volume': '{volume} volume',
+  // Previous column, bodyweight lift: no load to show, just what was done.
+  'logger.repsValue': '{count} reps',
   'logger.exerciseDone': '{done}/{total} done',
   'logger.a11y.moreActions': 'More actions for {name}',
   'logger.a11y.restTimer': 'Rest timer',
   'logger.restTimer': 'Rest Timer: {label}',
   'logger.rest.off': 'Off',
-  'logger.col.set': 'SET',
+  // A number column, headed the same way the freestyle logger heads it. The
+  // word itself does not survive translation into a 32px column.
+  'logger.col.set': '#',
   'logger.col.previous': 'PREVIOUS',
   'logger.col.reps': 'REPS',
   'logger.addSet': '+ Add set',
@@ -475,6 +476,8 @@ const EN = {
   'guided.exit.title': 'Leave guided mode?',
   'guided.exit.keep': 'Keep training',
   'guided.exit.list': 'Switch to list view',
+  // Same action as the exit sheet's, on a button with room for one word.
+  'guided.listShort': 'List',
   'guided.exit.end': 'End session',
   'guided.exit.footnote': 'List view keeps your progress — same session, table layout.',
   'guided.pauseSheet.title': 'Paused',
@@ -758,7 +761,6 @@ const FI: Record<I18nKey, string> = {
 
   // ── Plate readout ──────────────────────────────────────────────────────
   'plates.eyebrow': 'LEVYT · PER PUOLI · {bar}KG TANKO',
-  'plates.enterWeight': 'Syötä paino nähdäksesi levyt.',
   'plates.justBar': 'Pelkkä tanko ({bar} kg).',
 
   // ── Empty Workout ──────────────────────────────────────────────────────
@@ -802,8 +804,6 @@ const FI: Record<I18nKey, string> = {
   'complete.pr.eyebrow': 'UUSI ENNÄTYS',
   'complete.pr.first': 'Ensimmäinen kirjattu ennätyksesi tässä liikkeessä.',
   'complete.pr.delta': 'Arvioitu 1RM +{delta} kg yli edellisen ennätyksesi',
-  'complete.solid.title': 'Vankka treeni kirjattu',
-  'complete.solid.sub': 'Mikään ei erottunut tällä kertaa — ja se on ihan ok. Säännöllisyys ratkaisee.',
   'complete.stat.duration': 'KESTO',
   'complete.stat.volume': 'VOLYYMI',
   'complete.stat.sets': 'SARJAT',
@@ -860,12 +860,13 @@ const FI: Record<I18nKey, string> = {
   'logger.finish': 'Päätä',
   'logger.stat.sets': '{count} sarjaa',
   'logger.stat.volume': '{volume} volyymi',
+  'logger.repsValue': '{count} toistoa',
   'logger.exerciseDone': '{done}/{total} tehty',
   'logger.a11y.moreActions': 'Lisätoiminnot: {name}',
   'logger.a11y.restTimer': 'Lepoajastin',
   'logger.restTimer': 'Lepoajastin: {label}',
   'logger.rest.off': 'Pois',
-  'logger.col.set': 'SARJA',
+  'logger.col.set': '#',
   'logger.col.previous': 'EDELLINEN',
   'logger.col.reps': 'TOISTOT',
   'logger.addSet': '+ Lisää sarja',
@@ -964,6 +965,7 @@ const FI: Record<I18nKey, string> = {
   'guided.exit.title': 'Poistutaanko ohjatusta tilasta?',
   'guided.exit.keep': 'Jatka treeniä',
   'guided.exit.list': 'Vaihda listanäkymään',
+  'guided.listShort': 'Lista',
   'guided.exit.end': 'Lopeta treeni',
   'guided.exit.footnote': 'Listanäkymä säilyttää edistymisesi — sama treeni, taulukkomuoto.',
   'guided.pauseSheet.title': 'Tauolla',

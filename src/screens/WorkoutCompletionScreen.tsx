@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Dimensions, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Gradient is drawn at a fixed size and clipped by the hero (overflow hidden),
 // which is more reliable than a percentage-height Svg against a dynamic parent.
@@ -9,6 +10,7 @@ const HERO_GRADIENT_HEIGHT = 360;
 
 import { formatTime, removeTrailingZeros } from '../lib/format';
 import { bodyPartLabel, t } from '../lib/i18n';
+import { localizeSessionName } from '../lib/sessionNameLabel';
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
 import { HG3 } from '../lightTheme';
@@ -22,7 +24,28 @@ const GOLD_SOFT = '#FBF1DA';
 const GREEN_SOFT = '#E8F7EE';
 const HAIRLINE = '#EEEAF7';
 const HERO_STOPS = ['#8B5CF6', '#7C3AED', '#6D28D9'] as const;
-const BAR_RAMP = ['#7C3AED', '#9061F9', '#B79AFB'] as const;
+
+/**
+ * One colour per muscle group, so the same body part reads the same across
+ * sessions — a rank-based ramp made "Legs" change colour week to week.
+ * buildMuscleFocus emits the English group labels these keys mirror.
+ */
+const MUSCLE_COLORS: Record<string, string> = {
+  Chest: '#7C3AED',
+  Back: '#2563EB',
+  Legs: '#0EA5A5',
+  Glutes: '#0891B2',
+  Shoulders: '#D97706',
+  Biceps: '#DB2777',
+  Triceps: '#E11D48',
+  Core: '#16A34A',
+  'Full body': '#6D28D9',
+};
+const MUSCLE_COLOR_FALLBACK = '#8B7BA8';
+
+function muscleColor(name: string): string {
+  return MUSCLE_COLORS[name] ?? MUSCLE_COLOR_FALLBACK;
+}
 
 const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 // Rise slots: hero title, hero subtitle, PR/quiet, stats, muscle, exercises, actions.
@@ -86,9 +109,9 @@ export function WorkoutCompletionScreen({
   language = 'en',
   onDone,
 }: WorkoutCompletionScreenProps) {
+  const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const pr = prCards[0] ?? null;
-  const maxMuscleVolume = Math.max(1, ...muscles.map((muscle) => muscle.volumeKg));
 
   // The workout is saved by the time this screen mounts — mark the moment.
   useEffect(() => {
@@ -187,8 +210,9 @@ export function WorkoutCompletionScreen({
 
   return (
     <View style={styles.screenBackground}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
-        <View style={styles.hero}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 26 }]}>
+        {/* The hero runs under the status bar, so nothing dark caps the screen. */}
+        <View style={[styles.hero, { paddingTop: insets.top + 26 }]}>
           <Svg
             style={StyleSheet.absoluteFill}
             width={HERO_GRADIENT_WIDTH}
@@ -203,7 +227,6 @@ export function WorkoutCompletionScreen({
               </SvgLinearGradient>
             </Defs>
             <Rect width={HERO_GRADIENT_WIDTH} height={HERO_GRADIENT_HEIGHT} fill="url(#completeHeroGradient)" />
-            <Circle cx={HERO_GRADIENT_WIDTH * 0.88} cy={-24} r={110} fill="#FFFFFF" opacity={0.12} />
           </Svg>
 
           <View style={styles.badgeWrap}>
@@ -245,13 +268,15 @@ export function WorkoutCompletionScreen({
 
           <Animated.Text style={[styles.heroTitle, rise(0)]}>{t(language, 'complete.title')}</Animated.Text>
           <Animated.View style={[styles.heroSubRow, rise(1)]}>
-            <Text style={styles.heroSubName}>{workoutName}</Text>
+            <Text style={styles.heroSubName}>{localizeSessionName(workoutName, language)}</Text>
             <View style={styles.heroSubDot} />
             <Text style={styles.heroSubWhen}>{formatWhenLabel(performedAt, language)}</Text>
           </Animated.View>
         </View>
 
         <View style={styles.body}>
+          {/* Only a PR earns a card here. A session with nothing special in it
+              says nothing — the stats below already report what happened. */}
           {pr ? (
             <Animated.View style={[styles.noteCard, rise(2)]}>
               <View style={[styles.noteIconTile, styles.noteIconTileGold]}>
@@ -269,19 +294,7 @@ export function WorkoutCompletionScreen({
                 </Text>
               </View>
             </Animated.View>
-          ) : (
-            <Animated.View style={[styles.noteCard, rise(2)]}>
-              <View style={[styles.noteIconTile, styles.noteIconTilePurple]}>
-                <Svg width={23} height={23} viewBox="0 0 24 24" fill="none">
-                  <Path d="M5 13l4 4L19 7" stroke={HG3.purpleBright} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-              </View>
-              <View style={styles.noteCopy}>
-                <Text style={styles.noteTitle}>{t(language, 'complete.solid.title')}</Text>
-                <Text style={styles.noteSub}>{t(language, 'complete.solid.sub')}</Text>
-              </View>
-            </Animated.View>
-          )}
+          ) : null}
 
           <Animated.View style={[styles.statsCard, rise(3)]}>
             <View style={styles.statCell}>
@@ -323,20 +336,28 @@ export function WorkoutCompletionScreen({
                 {muscles.map((muscle, index) => (
                   <View key={muscle.name} style={[styles.muscleRow, index > 0 && styles.muscleRowSpaced]}>
                     <View style={styles.muscleTopRow}>
-                      <Text style={styles.muscleName}>{bodyPartLabel(language, muscle.name)}</Text>
-                      <Text style={styles.muscleMeta}>
-                        {t(language, 'complete.muscleMeta', { sets: muscle.sets, volume: muscle.volumeKg.toLocaleString('en-US') })}
-                      </Text>
+                      <View style={styles.muscleNameRow}>
+                        <View style={[styles.muscleSwatch, { backgroundColor: muscleColor(muscle.name) }]} />
+                        <Text style={styles.muscleName}>{bodyPartLabel(language, muscle.name)}</Text>
+                      </View>
+                      <View style={styles.muscleMetaRow}>
+                        <Text style={[styles.musclePercent, { color: muscleColor(muscle.name) }]}>
+                          {muscle.sharePercent} %
+                        </Text>
+                        <Text style={styles.muscleMeta}>
+                          {t(language, 'complete.exerciseSets', { count: muscle.sets })}
+                        </Text>
+                      </View>
                     </View>
                     <View style={styles.muscleTrack}>
                       <Animated.View
                         style={[
                           styles.muscleFill,
                           {
-                            backgroundColor: BAR_RAMP[Math.min(index, BAR_RAMP.length - 1)],
+                            backgroundColor: muscleColor(muscle.name),
                             width: barAnims[index].interpolate({
                               inputRange: [0, 1],
-                              outputRange: ['0%', `${Math.max(6, Math.round((muscle.volumeKg / maxMuscleVolume) * 100))}%`],
+                              outputRange: ['0%', `${Math.max(4, muscle.sharePercent)}%`],
                             }),
                           },
                         ]}
@@ -412,7 +433,6 @@ const styles = StyleSheet.create({
   hero: {
     overflow: 'hidden',
     alignItems: 'center',
-    paddingTop: 26,
     paddingBottom: 30,
     paddingHorizontal: 22,
   },
@@ -625,15 +645,24 @@ const styles = StyleSheet.create({
   },
   muscleTopRow: {
     flexDirection: 'row',
-    alignItems: 'baseline',
+    alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 6,
   },
+  muscleNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
+  muscleSwatch: { width: 9, height: 9, borderRadius: 999 },
   muscleName: {
     color: HG3.ink,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '800',
+  },
+  muscleMetaRow: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  musclePercent: {
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
   },
   muscleMeta: {
     color: HG3.muted,

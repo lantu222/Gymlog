@@ -385,6 +385,8 @@ const styles = StyleSheet.create({
     color: '#F0A286',
     fontSize: 11,
     fontWeight: '700',
-    paddingHorizontal: 2,
+    // Lines up under the columns it is talking about, not the card edge.
+    paddingLeft: SET_BADGE_SIZE + 17,
+    paddingBottom: 4,
   },
 });

@@ -4,6 +4,9 @@
  * previous session of the same workout.
  */
 
+import { AppLanguage } from '../types/models';
+import { t } from './i18n';
+
 export interface CompletedSetLike {
   status: 'completed' | 'skipped' | string;
   weightKg?: number | null;
@@ -19,6 +22,12 @@ export interface MuscleFocusRow {
   name: string;
   sets: number;
   volumeKg: number;
+  /**
+   * Share of the session's completed sets, 0–100. Sets rather than volume:
+   * a bodyweight session has no volume at all, and "0 kg" bars told the user
+   * nothing about where the work went.
+   */
+  sharePercent: number;
 }
 
 const BODY_PART_LABELS: Record<string, string> = {
@@ -34,7 +43,7 @@ const BODY_PART_LABELS: Record<string, string> = {
 };
 
 /** Heaviest completed set as "60 × 8"; bodyweight-only sets as "12 reps". */
-export function getTopSetLabel(sets: CompletedSetLike[]): string | null {
+export function getTopSetLabel(sets: CompletedSetLike[], language: AppLanguage = 'en'): string | null {
   const completed = sets.filter(
     (set) => set.status === 'completed' && typeof set.reps === 'number' && set.reps > 0,
   );
@@ -56,7 +65,7 @@ export function getTopSetLabel(sets: CompletedSetLike[]): string | null {
     const weightLabel = Number.isInteger(weight) ? `${weight}` : `${Number(weight.toFixed(1))}`;
     return `${weightLabel} × ${top.reps}`;
   }
-  return `${top.reps} reps`;
+  return t(language, 'logger.repsValue', { count: top.reps ?? 0 });
 }
 
 /**
@@ -96,8 +105,9 @@ export function inferBodyPartFromExerciseName(name: string): string {
 
 /**
  * Aggregates completed sets/volume per muscle group. Library exact-name match
- * wins; otherwise the name is pattern-inferred. Sorted by volume descending,
- * capped to the top four groups.
+ * wins; otherwise the name is pattern-inferred. Sorted by set count descending,
+ * capped to the top four groups. The share is taken over every group, so a
+ * session with a long tail doesn't inflate the four that made the cut.
  */
 export function buildMuscleFocus(
   exercises: CompletedExerciseLike[],
@@ -125,9 +135,16 @@ export function buildMuscleFocus(
     groups.set(label, entry);
   }
 
+  const totalSets = [...groups.values()].reduce((sum, value) => sum + value.sets, 0);
+
   return [...groups.entries()]
-    .map(([name, value]) => ({ name, sets: value.sets, volumeKg: Math.round(value.volumeKg) }))
-    .sort((left, right) => right.volumeKg - left.volumeKg || right.sets - left.sets)
+    .map(([name, value]) => ({
+      name,
+      sets: value.sets,
+      volumeKg: Math.round(value.volumeKg),
+      sharePercent: totalSets === 0 ? 0 : Math.round((value.sets / totalSets) * 100),
+    }))
+    .sort((left, right) => right.sets - left.sets || right.volumeKg - left.volumeKg)
     .slice(0, 4);
 }
 

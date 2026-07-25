@@ -37,7 +37,7 @@ module.exports = [
     },
   },
   {
-    name: 'muscle focus aggregates sets and volume per group, sorted by volume',
+    name: 'muscle focus aggregates sets and volume per group with a set share',
     run() {
       const library = [{ name: 'Cable Crunch', bodyPart: 'core' }];
       const rows = buildMuscleFocus(
@@ -52,9 +52,26 @@ module.exports = [
       );
 
       assert.deepEqual(rows, [
-        { name: 'Chest', sets: 3, volumeKg: 1200 },
-        { name: 'Shoulders', sets: 1, volumeKg: 320 },
-        { name: 'Core', sets: 1, volumeKg: 300 },
+        { name: 'Chest', sets: 3, volumeKg: 1200, sharePercent: 60 },
+        { name: 'Shoulders', sets: 1, volumeKg: 320, sharePercent: 20 },
+        { name: 'Core', sets: 1, volumeKg: 300, sharePercent: 20 },
+      ]);
+    },
+  },
+  {
+    name: 'a bodyweight session still gets a share to show, even with no volume',
+    run() {
+      const rows = buildMuscleFocus(
+        [
+          { exerciseName: 'Bodyweight Squat', sets: [done(0, 15), done(0, 12)] },
+          { exerciseName: 'Plank', sets: [done(0, 40)] },
+        ],
+        [],
+      );
+
+      assert.deepEqual(rows, [
+        { name: 'Legs', sets: 2, volumeKg: 0, sharePercent: 67 },
+        { name: 'Core', sets: 1, volumeKg: 0, sharePercent: 33 },
       ]);
     },
   },

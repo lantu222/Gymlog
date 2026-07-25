@@ -15,6 +15,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { PlatePop } from '../components/PlatePop';
 import { RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
+import { parseNumberInput } from '../lib/format';
 import {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
   EmptyWorkoutMuscleFilter,
@@ -752,7 +753,9 @@ export function EmptyWorkoutScreen({
                           />
                         </View>
                       </View>
-                      {exercise.isBarbell && setIndex === activeIndex ? (
+                      {/* The strip only exists once there is a weight to break
+                          into plates — an empty panel taught nobody anything. */}
+                      {exercise.isBarbell && setIndex === activeIndex && parseNumberInput(set.kg) ? (
                         <FadeInView style={styles.plateStrip}>
                           <PlatePop kg={set.kg} language={language} />
                         </FadeInView>

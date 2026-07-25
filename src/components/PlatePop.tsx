@@ -27,12 +27,15 @@ export function PlatePop({ kg, barKg = BAR_WEIGHT_KG, language = 'en' }: PlatePo
   const valid = total !== null && total > 0;
   const plates = valid ? platesPerSide(total, barKg) : [];
 
+  // Nothing to load yet: stay out of the way rather than explain yourself.
+  if (!valid) {
+    return null;
+  }
+
   return (
     <View>
       <Text style={styles.eyebrow}>{t(language, 'plates.eyebrow', { bar: barKg })}</Text>
-      {!valid ? (
-        <Text style={styles.hint}>{t(language, 'plates.enterWeight')}</Text>
-      ) : plates.length === 0 ? (
+      {plates.length === 0 ? (
         <Text style={styles.barOnly}>{t(language, 'plates.justBar', { bar: barKg })}</Text>
       ) : (
         <View style={styles.chipRow}>
@@ -53,12 +56,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.84,
     color: HG.faint,
-  },
-  hint: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: HG.faint,
-    marginTop: 7,
   },
   barOnly: {
     fontSize: 13.5,

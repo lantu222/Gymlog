@@ -50,6 +50,7 @@ import {
   resolveGuidedResumeIndex,
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
+import { getDrillLibraryName } from '../lib/drillMedia';
 import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
@@ -220,7 +221,10 @@ function MediaZone({
   fit?: 'contain' | 'cover';
 }) {
   const match = useMemo(() => {
-    const index = findGuidedLibraryIndex(name, library.map((item) => item.name));
+    // Warmup/cooldown drills are generated copy with no library entry of their
+    // own — they borrow a photo from the exercise that shows the same position.
+    const lookupName = getDrillLibraryName(name) ?? name;
+    const index = findGuidedLibraryIndex(lookupName, library.map((item) => item.name));
     return index === null ? null : library[index];
   }, [name, library]);
   const [imageFailed, setImageFailed] = useState(false);
@@ -1304,6 +1308,7 @@ export function GuidedPlayerScreen({
                 setPaused(true);
                 setPauseSheetOpen(true);
               }}
+              onSwitchToList={onSwitchToListView}
               onConfirm={confirmSet}
             />
           )}
@@ -1529,6 +1534,7 @@ function SetStepView({
   nextName,
   onToggleMute,
   onPause,
+  onSwitchToList,
   onConfirm,
 }: {
   stepIndex: number;
@@ -1543,6 +1549,7 @@ function SetStepView({
   nextName: string | null;
   onToggleMute: () => void;
   onPause: () => void;
+  onSwitchToList: () => void;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
 }) {
   const target = resolveTarget(step.slotId, step.setIndex);
@@ -1646,7 +1653,8 @@ function SetStepView({
           </Pressable>
         </View>
 
-        {/* pause + mute sit together under the CTA (v4) */}
+        {/* pause + mute sit together under the CTA (v4); the list view used to
+            hide behind the exit sheet, so it rides along as a labelled pill */}
         <View style={styles.setControls}>
           <Pressable
             accessibilityRole="button"
@@ -1663,6 +1671,15 @@ function SetStepView({
             style={styles.setRoundBtn}
           >
             <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? HG.faint : HG.ink} sw={2.2} />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'guided.exit.list')}
+            onPress={onSwitchToList}
+            style={styles.setListBtn}
+          >
+            <GPIcon name="list" size={20} color={HG.ink} sw={2.2} />
+            <Text style={styles.setListBtnText}>{t(language, 'guided.listShort')}</Text>
           </Pressable>
         </View>
 
@@ -2080,7 +2097,24 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   setLogButtonText: { fontSize: 19, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.19 },
-  setControls: { flexDirection: 'row', justifyContent: 'center', gap: 16, paddingTop: 16, paddingBottom: 4 },
+  setControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, paddingTop: 16, paddingBottom: 4 },
+  setListBtn: {
+    height: 60,
+    borderRadius: 999,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: HG.border,
+    shadowColor: '#28185A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  setListBtnText: { fontSize: 15, fontWeight: '800', color: HG.ink, letterSpacing: -0.15 },
   setRoundBtn: {
     width: 60,
     height: 60,
