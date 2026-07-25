@@ -971,10 +971,16 @@ export function GuidedPlayerScreen({
   const handleEndSession = () => {
     setExitOpen(false);
     if (completedSetCount > 0) {
-      Alert.alert('End session?', `${completedSetCount} logged set${completedSetCount === 1 ? '' : 's'} will be discarded.`, [
-        { text: 'Keep training', style: 'cancel' },
-        { text: 'End session', style: 'destructive', onPress: onEndSession },
-      ]);
+      Alert.alert(
+        t(language, 'guided.endConfirm.title'),
+        t(language, completedSetCount === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany', {
+          count: completedSetCount,
+        }),
+        [
+          { text: t(language, 'guided.exit.keep'), style: 'cancel' },
+          { text: t(language, 'guided.exit.end'), style: 'destructive', onPress: onEndSession },
+        ],
+      );
       return;
     }
     onEndSession();

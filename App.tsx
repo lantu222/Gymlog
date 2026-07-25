@@ -912,7 +912,7 @@ function GymlogApp() {
       });
     } catch (error) {
       console.error('Failed to open GAINER AI workout flow', error);
-      showToast('Could not build the GAINER AI workout');
+      showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
       navigate({
         tab: 'home',
         screen: 'ai',
@@ -1338,7 +1338,7 @@ function GymlogApp() {
         sessionId: adaptedSession.sessionId,
         message: 'Could not save this workout. Try again before leaving the screen.',
       });
-      showToast('Could not save workout');
+      showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
     }
   }
 
@@ -1391,7 +1391,7 @@ function GymlogApp() {
     switch (action.kind) {
       case 'resume_workout':
         if (!navigateToActiveWorkout()) {
-          showToast('No active workout to resume');
+          showToast(t(preferences.appLanguage, 'toast.noActiveWorkout'));
         }
         return;
 
@@ -1463,18 +1463,25 @@ function GymlogApp() {
       return;
     }
 
-    Alert.alert('You have a workout in progress', 'A cardio session is still running.', [
-      { text: 'Resume it', onPress: () => navigate({ tab: 'home', screen: 'cardio' }) },
-      {
-        text: 'Discard and start',
-        style: 'destructive',
-        onPress: () => {
-          workout.clearCardio();
-          proceed();
+    Alert.alert(
+      t(preferences.appLanguage, 'confirm.cardioRunning.title'),
+      t(preferences.appLanguage, 'confirm.cardioRunning.body'),
+      [
+        {
+          text: t(preferences.appLanguage, 'confirm.cardioRunning.resume'),
+          onPress: () => navigate({ tab: 'home', screen: 'cardio' }),
         },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+        {
+          text: t(preferences.appLanguage, 'confirm.cardioRunning.discard'),
+          style: 'destructive',
+          onPress: () => {
+            workout.clearCardio();
+            proceed();
+          },
+        },
+        { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
+      ],
+    );
   }
 
   function startReadyProgramSessionWithUnit(
@@ -1521,7 +1528,7 @@ function GymlogApp() {
 
     const selectedSession = customTemplate.sessions.find((session) => session.id === sessionId) ?? null;
     if (!selectedSession?.exercises.length) {
-      showToast('Add exercises before starting this session');
+      showToast(t(preferences.appLanguage, 'toast.addExercisesSession'));
       navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
       return;
     }
@@ -1542,7 +1549,7 @@ function GymlogApp() {
     const customTemplate = customWorkoutRuntimeMap[workoutTemplateId];
     const firstSessionId = customTemplate?.sessions.find((session) => session.exercises.length > 0)?.id;
     if (!firstSessionId) {
-      showToast('Add exercises before starting this template');
+      showToast(t(preferences.appLanguage, 'toast.addExercisesTemplate'));
       navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
       return;
     }
@@ -1587,12 +1594,12 @@ function GymlogApp() {
 
     Promise.resolve(upsertWorkoutTemplate(draft))
       .then((workoutTemplateId) => {
-        showToast('Program copied to your workouts');
+        showToast(t(preferences.appLanguage, 'toast.programCopied'));
         navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
       })
       .catch((error) => {
         console.error('Failed to duplicate ready program', error);
-        showToast('Could not copy program');
+        showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
       });
   }
 
@@ -1610,18 +1617,18 @@ function GymlogApp() {
 
     Promise.resolve(upsertWorkoutTemplate(draft))
       .then((nextWorkoutTemplateId) => {
-        showToast('Workout duplicated');
+        showToast(t(preferences.appLanguage, 'toast.workoutDuplicated'));
         navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId: nextWorkoutTemplateId });
       })
       .catch((error) => {
         console.error('Failed to duplicate custom program', error);
-        showToast('Could not duplicate workout');
+        showToast(t(preferences.appLanguage, 'toast.workoutDuplicateFailed'));
       });
   }
 
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
-    showToast('Workout deleted');
+    showToast(t(preferences.appLanguage, 'toast.workoutDeleted'));
     navigate(WORKOUT_PLAN_ROUTE);
   }
 
@@ -1864,13 +1871,13 @@ function GymlogApp() {
     );
     await upsertWorkoutPlan(activePlan);
     await updatePreferences({ activePlanId: activePlan.id });
-    showToast('Setup updated');
+    showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
     resetToRoute(ROOT_ROUTES.home);
   }
 
   async function handleSetupOpenProgramDetail(selection: FirstRunSetupSelection, recommendedProgramId: string) {
     await persistSetupSelection(selection, recommendedProgramId);
-    showToast('Setup updated');
+    showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
     const template = getWorkoutTemplateById(recommendedProgramId);
     if (!template) {
       navigate(WORKOUT_PLAN_ROUTE);
@@ -1886,7 +1893,7 @@ function GymlogApp() {
     prefillName: string,
   ) {
     await persistSetupSelection(selection, recommendedProgramId);
-    showToast('Setup updated');
+    showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
     navigate({ tab: 'workout', screen: 'editor', prefillName });
   }
   const customWorkoutRuntimeMap = useMemo(
@@ -3002,7 +3009,7 @@ function GymlogApp() {
             await finishLoggedWorkoutSave(draft, summary);
           } catch (error) {
             console.error('Failed to save freestyle workout', error);
-            showToast('Could not save workout');
+            showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
             throw error;
           }
         }}
@@ -3028,11 +3035,11 @@ function GymlogApp() {
             await finishLoggedWorkoutSave(draft, summary);
           } catch (error) {
             console.error('Failed to save workout', error);
-            showToast('Could not save workout');
+            showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));
             throw error;
           }
           if (isNew) {
-            showToast('Workout created');
+            showToast(t(preferences.appLanguage, 'toast.workoutCreated'));
           }
         }}
       />
@@ -3056,10 +3063,10 @@ function GymlogApp() {
           setCardioSaving(true);
           try {
             await saveCardioSession(input);
-            showToast('Cardio session saved');
+            showToast(t(preferences.appLanguage, 'toast.cardioSaved'));
           } catch (error) {
             console.error('Failed to save cardio session', error);
-            showToast('Could not save cardio session');
+            showToast(t(preferences.appLanguage, 'toast.cardioSaveFailed'));
             throw error;
           } finally {
             setCardioSaving(false);
@@ -3176,11 +3183,11 @@ function GymlogApp() {
         showBodyweightDetail={route.screen === 'bodyweight'}
         onAddBodyweight={async (weightKg) => {
           await addBodyweightEntry(weightKg);
-          showToast('Bodyweight saved');
+          showToast(t(preferences.appLanguage, 'toast.bodyweightSaved'));
         }}
         onAddMeasurement={async (kind, value, unit) => {
           await addMeasurementEntry(kind, value, unit);
-          showToast('Measurement saved');
+          showToast(t(preferences.appLanguage, 'toast.measurementSaved'));
         }}
         recentSessions={homeRecentSessions}
         onOpenSessionHistory={() => navigate({ tab: 'home', screen: 'history' })}
@@ -3210,7 +3217,7 @@ function GymlogApp() {
             aiCoachPlanGeneratedAt: null,
           };
           await updatePreferences(nextPatch);
-          showToast('GAINER AI setup saved');
+          showToast(t(preferences.appLanguage, 'toast.aiSetupSaved'));
           await openAiMode(nextPatch);
         }}
       />
@@ -3221,6 +3228,7 @@ function GymlogApp() {
         sessions={workoutSessions}
         cardioSessions={cardioSessions}
         unitPreference={unitPreference}
+        language={preferences.appLanguage}
         selectedSessionId={route.screen === 'session' ? route.sessionId : undefined}
         getSessionLogs={getSessionLogs}
         onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}

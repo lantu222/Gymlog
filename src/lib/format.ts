@@ -1,5 +1,5 @@
 ﻿import { getComparableLogSets } from './exerciseLog';
-import { ExerciseLog, UnitPreference } from '../types/models';
+import { AppLanguage, ExerciseLog, UnitPreference } from '../types/models';
 
 // The app is kg-only. The unit-preference params are kept on these signatures
 // for call-site compatibility, but weights are never converted or shown in lb.
@@ -12,21 +12,37 @@ export function formatDate(dateString: string) {
   }).format(new Date(dateString));
 }
 
-export function formatShortDate(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, {
+/**
+ * Dates follow the app's language, not the device's. A Finnish user on an
+ * English phone should still read "15.3.", so callers pass the setting through;
+ * omitting it keeps the device locale, which is what the untranslated screens
+ * still do.
+ */
+function localeFor(language?: AppLanguage) {
+  if (language === 'fi') {
+    return 'fi-FI';
+  }
+  if (language === 'en') {
+    return 'en-US';
+  }
+  return undefined;
+}
+
+export function formatShortDate(dateString: string, language?: AppLanguage) {
+  return new Intl.DateTimeFormat(localeFor(language), {
     day: 'numeric',
     month: 'short',
   }).format(new Date(dateString));
 }
 
-export function formatWeekday(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, {
+export function formatWeekday(dateString: string, language?: AppLanguage) {
+  return new Intl.DateTimeFormat(localeFor(language), {
     weekday: 'long',
   }).format(new Date(dateString));
 }
 
-export function formatSessionDate(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, {
+export function formatSessionDate(dateString: string, language?: AppLanguage) {
+  return new Intl.DateTimeFormat(localeFor(language), {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

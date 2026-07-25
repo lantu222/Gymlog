@@ -19,9 +19,10 @@ import {
   formatShortDate,
   formatVolume,
   formatWeight,
-  pluralize,
 } from '../lib/format';
-import { AppDatabase, UnitPreference } from '../types/models';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { I18nKey, t } from '../lib/i18n';
+import { AppDatabase, AppLanguage, UnitPreference } from '../types/models';
 import { CardioIcon } from '../components/CardioIcon';
 import { buildCardioStatsLine, getCardioActivity } from '../lib/cardio';
 import { HG } from '../lightTheme';
@@ -31,17 +32,23 @@ interface HistoryScreenProps {
   sessions: AppDatabase['workoutSessions'];
   cardioSessions?: AppDatabase['cardioSessions'];
   unitPreference: UnitPreference;
+  language?: AppLanguage;
   selectedSessionId?: string;
   getSessionLogs: (sessionId: string) => AppDatabase['exerciseLogs'];
   onSelectSession: (sessionId: string) => void;
   onBack: () => void;
 }
 
-const HISTORY_FILTERS: Array<{ key: HistoryFilter; label: string }> = [
-  { key: 'all', label: 'All' },
-  { key: 'needs_review', label: 'Review' },
-  { key: 'tracked', label: 'Tracked' },
+const HISTORY_FILTERS: Array<{ key: HistoryFilter; labelKey: I18nKey }> = [
+  { key: 'all', labelKey: 'history.filter.all' },
+  { key: 'needs_review', labelKey: 'history.filter.review' },
+  { key: 'tracked', labelKey: 'history.filter.tracked' },
 ];
+
+/** Count-driven copy: Finnish has its own plural, so each case is a key. */
+function countLabel(language: AppLanguage, count: number, one: I18nKey, many: I18nKey) {
+  return count === 1 ? t(language, one) : t(language, many, { count });
+}
 
 function SectionLabel({ label }: { label: string }) {
   return <Text style={styles.sectionLabel}>{label}</Text>;
@@ -79,6 +86,7 @@ function SessionRow({
   summaryText,
   highlightText,
   badgeText,
+  language,
   onPress,
 }: {
   workoutName: string;
@@ -87,15 +95,16 @@ function SessionRow({
   summaryText?: string;
   highlightText?: string;
   badgeText?: string;
+  language: AppLanguage;
   onPress: () => void;
 }) {
   return (
     <Pressable onPress={onPress} style={styles.sessionRow}>
       <View style={styles.sessionRowLeft}>
-        <Text style={styles.sessionRowKicker}>Saved session</Text>
+        <Text style={styles.sessionRowKicker}>{t(language, 'history.savedSession')}</Text>
         <Text style={styles.sessionRowName}>{workoutName}</Text>
         <Text style={styles.sessionRowMeta}>
-          {formatShortDate(performedAt)} {'·'} {pluralize(exerciseCount, 'exercise')}
+          {formatShortDate(performedAt, language)} {'·'} {countLabel(language, exerciseCount, 'history.exerciseOne', 'history.exerciseMany')}
         </Text>
         {summaryText ? <Text style={styles.sessionRowSummary}>{summaryText}</Text> : null}
       </View>
@@ -121,57 +130,82 @@ function SignalCard({ label, value, meta }: { label: string; value: string; meta
   );
 }
 
-function getReviewLabel(session: HistorySessionViewModel) {
+function getReviewLabel(session: HistorySessionViewModel, language: AppLanguage) {
   if (session.legacyMismatchCount > 0) {
-    return 'Legacy save';
+    return t(language, 'history.badge.legacy');
   }
   if (session.skippedExercises > 0 || session.partialExercises > 0) {
-    return 'Needs review';
+    return t(language, 'history.badge.needsReview');
   }
   if (session.trackedExercises > 0) {
-    return 'Tracked';
+    return t(language, 'history.badge.tracked');
   }
   return undefined;
 }
 
-function getHistoryHeroMeta(session: HistorySessionViewModel, unitPreference: UnitPreference) {
+function formatTopLift(session: HistorySessionViewModel, unitPreference: UnitPreference, language: AppLanguage) {
+  if (!session.topLiftName || session.topLiftWeightKg === null) {
+    return null;
+  }
+  const name = exerciseNameLabel(language, formatLiftDisplayLabel(session.topLiftName));
+  return `${name} ${formatWeight(session.topLiftWeightKg, unitPreference)}`;
+}
+
+function getHistoryHeroMeta(
+  session: HistorySessionViewModel,
+  unitPreference: UnitPreference,
+  language: AppLanguage,
+) {
   const parts = [
     session.durationMinutes ? formatDurationMinutes(session.durationMinutes) : null,
-    session.topLiftName && session.topLiftWeightKg !== null
-      ? `${formatLiftDisplayLabel(session.topLiftName)} ${formatWeight(session.topLiftWeightKg, unitPreference)}`
-      : null,
-    formatShortDate(session.performedAt),
+    formatTopLift(session, unitPreference, language),
+    formatShortDate(session.performedAt, language),
   ].filter(Boolean);
 
   return parts.join(' · ');
 }
 
-function getSessionHighlight(session: HistorySessionViewModel, unitPreference: UnitPreference) {
+function getSessionHighlight(
+  session: HistorySessionViewModel,
+  unitPreference: UnitPreference,
+  language: AppLanguage,
+) {
   const flags = [
-    session.swappedExercises > 0 ? `${pluralize(session.swappedExercises, 'swap')}` : null,
-    session.noteCount > 0 ? `${pluralize(session.noteCount, 'note')}` : null,
-    session.partialExercises > 0 ? `${pluralize(session.partialExercises, 'partial')}` : null,
+    session.swappedExercises > 0
+      ? countLabel(language, session.swappedExercises, 'history.swapOne', 'history.swapMany')
+      : null,
+    session.noteCount > 0 ? countLabel(language, session.noteCount, 'history.noteOne', 'history.noteMany') : null,
+    session.partialExercises > 0
+      ? countLabel(language, session.partialExercises, 'history.partialOne', 'history.partialMany')
+      : null,
   ].filter(Boolean);
 
   if (flags.length) {
     return flags.join(' · ');
   }
 
-  if (session.topLiftName && session.topLiftWeightKg !== null) {
-    return `${formatLiftDisplayLabel(session.topLiftName)} ${formatWeight(session.topLiftWeightKg, unitPreference)}`;
+  const topLift = formatTopLift(session, unitPreference, language);
+  if (topLift) {
+    return topLift;
   }
 
   if (session.skippedExercises > 0) {
-    return pluralize(session.skippedExercises, 'skipped exercise');
+    return countLabel(
+      language,
+      session.skippedExercises,
+      'history.skippedExerciseOne',
+      'history.skippedExerciseMany',
+    );
   }
 
-  return 'Saved session';
+  return t(language, 'history.savedSession');
 }
 
 export function HistoryScreen({
   sessions,
   cardioSessions = [],
   unitPreference,
+  language = 'en',
   selectedSessionId,
   getSessionLogs,
   onSelectSession,
@@ -204,35 +238,35 @@ export function HistoryScreen({
     return (
       <>
         <ScreenHeader
-          title={formatWorkoutDisplayLabel(selectedSession.workoutNameSnapshot, 'Workout')}
-          subtitle="What happened in this session."
+          title={formatWorkoutDisplayLabel(selectedSession.workoutNameSnapshot, t(language, 'history.workoutFallback'))}
+          subtitle={t(language, 'history.sessionSubtitle')}
           tone="dark"
           onBack={onBack}
         />
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <FitnessPhotoSurface variant={heroVariant} style={styles.heroSurface}>
             <View style={styles.heroContent}>
-              <Text style={styles.heroKicker}>Saved session</Text>
+              <Text style={styles.heroKicker}>{t(language, 'history.savedSession')}</Text>
 
               <View style={styles.heroBadgeRow}>
-                <HeroPill label={formatShortDate(selectedSession.performedAt)} />
+                <HeroPill label={formatShortDate(selectedSession.performedAt, language)} />
                 {sessionView.durationMinutes ? (
                   <HeroPill label={formatDurationMinutes(sessionView.durationMinutes)} />
                 ) : null}
-                <HeroPill label={pluralize(sessionView.exerciseCount, 'exercise')} />
+                <HeroPill label={countLabel(language, sessionView.exerciseCount, 'history.exerciseOne', 'history.exerciseMany')} />
               </View>
 
               <View style={styles.heroCopy}>
                 <Text style={styles.heroTitle}>
-                  {formatWorkoutDisplayLabel(selectedSession.workoutNameSnapshot, 'Workout')}
+                  {formatWorkoutDisplayLabel(selectedSession.workoutNameSnapshot, t(language, 'history.workoutFallback'))}
                 </Text>
                 <Text style={styles.heroMeta}>
-                  {sessionView.topLiftName && sessionView.topLiftWeightKg !== null
-                    ? `Top lift · ${formatLiftDisplayLabel(sessionView.topLiftName)} ${formatWeight(
-                        sessionView.topLiftWeightKg,
-                        unitPreference,
-                      )}`
-                    : formatSessionDate(selectedSession.performedAt)}
+                  {formatTopLift(sessionView, unitPreference, language)
+                    ? t(language, 'history.topLift', {
+                        lift: exerciseNameLabel(language, formatLiftDisplayLabel(sessionView.topLiftName ?? '')),
+                        weight: formatWeight(sessionView.topLiftWeightKg ?? 0, unitPreference),
+                      })
+                    : formatSessionDate(selectedSession.performedAt, language)}
                 </Text>
               </View>
             </View>
@@ -240,58 +274,73 @@ export function HistoryScreen({
 
           <View style={styles.signalRow}>
             <SignalCard
-              label="Sets"
+              label={t(language, 'history.signal.sets')}
               value={`${sessionView.setsCompleted}`}
-              meta={pluralize(sessionView.exerciseCount, 'logged exercise')}
+              meta={countLabel(language, sessionView.exerciseCount, 'history.loggedExerciseOne', 'history.loggedExerciseMany')}
             />
             <SignalCard
-              label="Volume"
+              label={t(language, 'history.signal.volume')}
               value={formatVolume(sessionView.totalVolume, unitPreference)}
-              meta={sessionView.trackedExercises > 0 ? `${sessionView.trackedExercises} tracked lifts` : 'No tracked lift'}
+              meta={
+                sessionView.trackedExercises > 0
+                  ? t(language, 'history.trackedLifts', { count: sessionView.trackedExercises })
+                  : t(language, 'history.noTrackedLift')
+              }
             />
             <SignalCard
-              label="Review"
+              label={t(language, 'history.signal.review')}
               value={
                 sessionView.swappedExercises > 0 || sessionView.noteCount > 0 || sessionView.partialExercises > 0
                   ? [
-                      sessionView.swappedExercises > 0 ? `${sessionView.swappedExercises} swaps` : null,
-                      sessionView.noteCount > 0 ? `${sessionView.noteCount} notes` : null,
-                      sessionView.partialExercises > 0 ? `${sessionView.partialExercises} partial` : null,
+                      sessionView.swappedExercises > 0
+                        ? t(language, 'history.swaps', { count: sessionView.swappedExercises })
+                        : null,
+                      sessionView.noteCount > 0 ? t(language, 'history.notes', { count: sessionView.noteCount }) : null,
+                      sessionView.partialExercises > 0
+                        ? t(language, 'history.partial', { count: sessionView.partialExercises })
+                        : null,
                     ]
                       .filter(Boolean)
                       .join(' · ')
-                  : 'Clean session'
+                  : t(language, 'history.cleanSession')
               }
-              meta={getReviewLabel(sessionView) ?? 'Saved'}
+              meta={getReviewLabel(sessionView, language) ?? t(language, 'history.saved')}
             />
           </View>
 
           {sessionView.topLiftName && sessionView.topLiftWeightKg !== null ? (
             <View style={styles.contextCard}>
-              <Text style={styles.contextKicker}>Worth noting</Text>
+              <Text style={styles.contextKicker}>{t(language, 'history.worthNoting')}</Text>
               <Text style={styles.contextTitle}>
-                {formatLiftDisplayLabel(sessionView.topLiftName)} {formatWeight(sessionView.topLiftWeightKg, unitPreference)}
+                {exerciseNameLabel(language, formatLiftDisplayLabel(sessionView.topLiftName))}{' '}
+                {formatWeight(sessionView.topLiftWeightKg, unitPreference)}
               </Text>
-              <Text style={styles.contextBody}>Heaviest completed lift from this saved session.</Text>
+              <Text style={styles.contextBody}>{t(language, 'history.heaviestLift')}</Text>
             </View>
           ) : null}
 
           <View style={styles.logList}>
-            <SectionLabel label="Logged lifts" />
+            <SectionLabel label={t(language, 'history.loggedLifts')} />
             {logs.map((log) => {
               const statusCounts = getLogSetStatusCounts(log);
               const logFlags = [
-                log.skipped ? 'Skipped' : null,
-                log.swappedFrom ? 'Swapped' : null,
-                log.status === 'active' ? 'Partial' : null,
-                log.sessionInserted ? 'Added' : null,
-                log.tracked ? 'Tracked' : null,
+                log.skipped ? t(language, 'history.badge.skipped') : null,
+                log.swappedFrom ? t(language, 'history.badge.swapped') : null,
+                log.status === 'active' ? t(language, 'history.badge.partial') : null,
+                log.sessionInserted ? t(language, 'history.badge.added') : null,
+                log.tracked ? t(language, 'history.badge.tracked') : null,
               ].filter(Boolean);
 
               const statusSummary = [
-                statusCounts.completed > 0 ? `${pluralize(statusCounts.completed, 'completed set')}` : null,
-                statusCounts.skipped > 0 ? `${pluralize(statusCounts.skipped, 'skipped set')}` : null,
-                statusCounts.pending > 0 ? `${pluralize(statusCounts.pending, 'pending set')}` : null,
+                statusCounts.completed > 0
+                  ? countLabel(language, statusCounts.completed, 'history.completedSetOne', 'history.completedSetMany')
+                  : null,
+                statusCounts.skipped > 0
+                  ? countLabel(language, statusCounts.skipped, 'history.skippedSetOne', 'history.skippedSetMany')
+                  : null,
+                statusCounts.pending > 0
+                  ? countLabel(language, statusCounts.pending, 'history.pendingSetOne', 'history.pendingSetMany')
+                  : null,
               ]
                 .filter(Boolean)
                 .join(' · ');
@@ -300,7 +349,7 @@ export function HistoryScreen({
                 <View key={log.id} style={styles.logCard}>
                   <View style={styles.logCardHeader}>
                     <View style={styles.logCardCopy}>
-                      <Text style={styles.logName}>{formatLiftDisplayLabel(log.exerciseNameSnapshot)}</Text>
+                      <Text style={styles.logName}>{exerciseNameLabel(language, formatLiftDisplayLabel(log.exerciseNameSnapshot))}</Text>
                       <Text style={styles.logMeta}>{formatLogResult(log, unitPreference)}</Text>
                     </View>
                     {logFlags.length ? (
@@ -314,7 +363,7 @@ export function HistoryScreen({
 
                   {statusSummary ? <Text style={styles.logSupport}>{statusSummary}</Text> : null}
                   {log.swappedFrom ? (
-                    <Text style={styles.logSupport}>Swapped from {formatLiftDisplayLabel(log.swappedFrom)}</Text>
+                    <Text style={styles.logSupport}>{t(language, 'history.swappedFrom', { name: exerciseNameLabel(language, formatLiftDisplayLabel(log.swappedFrom)) })}</Text>
                   ) : null}
                   {log.notes ? <Text style={styles.logNote}>{log.notes}</Text> : null}
                 </View>
@@ -328,12 +377,12 @@ export function HistoryScreen({
 
   return (
     <>
-      <ScreenHeader title="History" subtitle="Open the session worth keeping." tone="dark" />
+      <ScreenHeader title={t(language, 'history.title')} subtitle={t(language, 'history.subtitle')} tone="dark" />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {sessions.length === 0 ? (
           <LightEmptyState
-            title="No sessions yet"
-            description="Once you save a workout, the session appears here."
+            title={t(language, 'history.empty.title')}
+            description={t(language, 'history.empty.body')}
           />
         ) : (
           <>
@@ -346,23 +395,23 @@ export function HistoryScreen({
                 style={styles.heroSurface}
               >
                 <View style={styles.heroContent}>
-                  <Text style={styles.heroKicker}>Latest save</Text>
+                  <Text style={styles.heroKicker}>{t(language, 'history.latestSave')}</Text>
 
                   <View style={styles.heroBadgeRow}>
-                    <HeroPill label={`${sessionViewModels.length} sessions`} />
+                    <HeroPill label={t(language, 'history.sessionCount', { count: sessionViewModels.length })} />
                     {latestSession.durationMinutes ? (
                       <HeroPill label={formatDurationMinutes(latestSession.durationMinutes)} />
                     ) : null}
-                    {getReviewLabel(latestSession) ? (
-                      <HeroPill label={getReviewLabel(latestSession)!} />
+                    {getReviewLabel(latestSession, language) ? (
+                      <HeroPill label={getReviewLabel(latestSession, language)!} />
                     ) : null}
                   </View>
 
                   <View style={styles.heroCopy}>
                     <Text style={styles.heroTitle}>
-                      {formatWorkoutDisplayLabel(latestSession.workoutName, 'Workout')}
+                      {formatWorkoutDisplayLabel(latestSession.workoutName, t(language, 'history.workoutFallback'))}
                     </Text>
-                    <Text style={styles.heroMeta}>{getHistoryHeroMeta(latestSession, unitPreference)}</Text>
+                    <Text style={styles.heroMeta}>{getHistoryHeroMeta(latestSession, unitPreference, language)}</Text>
                   </View>
 
                   <View style={styles.heroActionRow}>
@@ -370,7 +419,7 @@ export function HistoryScreen({
                       onPress={() => onSelectSession(latestSession.sessionId)}
                       style={styles.heroPrimaryButton}
                     >
-                      <Text style={styles.heroPrimaryButtonText}>Open session</Text>
+                      <Text style={styles.heroPrimaryButtonText}>{t(language, 'history.openSession')}</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -380,22 +429,26 @@ export function HistoryScreen({
             <View style={styles.discoveryCard}>
               <View style={styles.discoveryHeaderRow}>
                 <View style={styles.discoveryCopy}>
-                  <Text style={styles.discoveryLabel}>Browse sessions</Text>
-                  <Text style={styles.discoveryTitle}>Find the one worth opening</Text>
+                  <Text style={styles.discoveryLabel}>{t(language, 'history.browse.label')}</Text>
+                  <Text style={styles.discoveryTitle}>{t(language, 'history.browse.title')}</Text>
                 </View>
               </View>
 
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search by workout or top lift"
+                placeholder={t(language, 'history.searchPlaceholder')}
                 placeholderTextColor={HG.faint}
                 selectionColor={HG.purple}
                 style={styles.searchInput}
               />
               <Text style={styles.discoveryMeta}>
-                {filteredSessions.length} sessions ·{' '}
-                {sessionViewModels.filter((session) => session.skippedExercises > 0 || session.partialExercises > 0).length} review
+                {t(language, 'history.browse.meta', {
+                  sessions: filteredSessions.length,
+                  review: sessionViewModels.filter(
+                    (session) => session.skippedExercises > 0 || session.partialExercises > 0,
+                  ).length,
+                })}
               </Text>
               <View style={styles.filterRow}>
                 {HISTORY_FILTERS.map((filter) => {
@@ -406,7 +459,7 @@ export function HistoryScreen({
                       onPress={() => setHistoryFilter(filter.key)}
                       style={[styles.filterChip, active && styles.filterChipActive]}
                     >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{filter.label}</Text>
+                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>{t(language, filter.labelKey)}</Text>
                     </Pressable>
                   );
                 })}
@@ -415,11 +468,11 @@ export function HistoryScreen({
 
             {filteredSessions.length ? (
               <View style={styles.logList}>
-                <SectionLabel label="Recent sessions" />
+                <SectionLabel label={t(language, 'history.recentSessions')} />
                 {filteredSessions.map((session) => (
                   <SessionRow
                     key={session.sessionId}
-                    workoutName={formatWorkoutDisplayLabel(session.workoutName, 'Workout')}
+                    workoutName={formatWorkoutDisplayLabel(session.workoutName, t(language, 'history.workoutFallback'))}
                     performedAt={session.performedAt}
                     exerciseCount={session.exerciseCount}
                     summaryText={
@@ -428,22 +481,23 @@ export function HistoryScreen({
                         unitPreference,
                       )}`
                     }
-                    highlightText={getSessionHighlight(session, unitPreference)}
-                    badgeText={getReviewLabel(session)}
+                    highlightText={getSessionHighlight(session, unitPreference, language)}
+                    badgeText={getReviewLabel(session, language)}
+                    language={language}
                     onPress={() => onSelectSession(session.sessionId)}
                   />
                 ))}
               </View>
             ) : (
               <LightEmptyState
-                title="No sessions match this view"
-                description="Try a broader search or switch the history filter."
+                title={t(language, 'history.emptyFiltered.title')}
+                description={t(language, 'history.emptyFiltered.body')}
               />
             )}
 
             {cardioSessions.length > 0 && historyFilter === 'all' && !searchQuery.trim() ? (
               <View style={styles.logList}>
-                <SectionLabel label="Cardio" />
+                <SectionLabel label={t(language, 'history.cardio')} />
                 {cardioSessions.map((session) => {
                   const activity = getCardioActivity(session.activityType);
                   return (
@@ -454,7 +508,7 @@ export function HistoryScreen({
                       <View style={{ flex: 1 }}>
                         <Text style={styles.cardioRowName}>{activity.name}</Text>
                         <Text style={styles.cardioRowMeta}>
-                          {formatShortDate(session.performedAt)} {'·'}{' '}
+                          {formatShortDate(session.performedAt, language)} {'·'}{' '}
                           {buildCardioStatsLine(session.durationSec, session.distanceKm)}
                         </Text>
                       </View>
