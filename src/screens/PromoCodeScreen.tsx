@@ -3,12 +3,16 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Path } from 'react-native-svg';
 
 import { CARD_SHADOW } from '../components/SettingsUi';
+import { formatDate } from '../lib/format';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
+import { AppLanguage } from '../types/models';
 
 interface PromoCodeScreenProps {
   /** ISO date until which a promo already keeps Pro on; null = none active. */
   promoProUntil: string | null;
+  language?: AppLanguage;
   onBack: () => void;
   /** Called with the expiry date once a valid code is applied. */
   onRedeemed: (proUntilIso: string) => void;
@@ -17,17 +21,7 @@ interface PromoCodeScreenProps {
 /** The demo code — one free month of Pro. */
 const DEMO_CODE = 'gainer_2026';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function formatDate(iso: string) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCodeScreenProps) {
+export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRedeemed }: PromoCodeScreenProps) {
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +37,7 @@ export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCode
       setError(null);
       onRedeemed(until.toISOString());
     } else {
-      setError("That code didn't match anything.");
+      setError(t(language, 'promo.noMatch'));
     }
   };
 
@@ -52,7 +46,7 @@ export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCode
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
@@ -61,7 +55,7 @@ export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCode
           </Svg>
         </Pressable>
         <Text style={styles.headerTitle} pointerEvents="none">
-          Promo code
+          {t(language, 'promo.title')}
         </Text>
       </View>
 
@@ -79,8 +73,8 @@ export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCode
               />
             </Svg>
           </View>
-          <Text style={styles.heroTitle}>Promo code</Text>
-          <Text style={styles.heroSub}>Redeem an offer or gift code.</Text>
+          <Text style={styles.heroTitle}>{t(language, 'promo.title')}</Text>
+          <Text style={styles.heroSub}>{t(language, 'promo.heroSub')}</Text>
         </View>
 
         {promoActive ? (
@@ -90,8 +84,10 @@ export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCode
                 <Path d="M5 12l5 5L19 7" stroke="#157A3A" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </View>
-            <Text style={styles.activeTitle}>Pro is on</Text>
-            <Text style={styles.activeSub}>Your promo keeps GAINER Pro unlocked until {formatDate(promoProUntil!)}.</Text>
+            <Text style={styles.activeTitle}>{t(language, 'promo.proOn')}</Text>
+            <Text style={styles.activeSub}>
+              {t(language, 'promo.proUntil', { date: formatDate(promoProUntil!, language) })}
+            </Text>
           </View>
         ) : (
           <View style={[styles.card, styles.redeemCard]}>
@@ -101,7 +97,7 @@ export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCode
                 setCode(next);
                 setError(null);
               }}
-              placeholder="Promo or gift code"
+              placeholder={t(language, 'promo.placeholder')}
               placeholderTextColor={HG.faint}
               autoCapitalize="none"
               autoCorrect={false}
@@ -117,7 +113,7 @@ export function PromoCodeScreen({ promoProUntil, onBack, onRedeemed }: PromoCode
                 pressed && code.trim().length > 0 && { opacity: 0.85 },
               ]}
             >
-              <Text style={styles.applyButtonText}>Apply</Text>
+              <Text style={styles.applyButtonText}>{t(language, 'promo.apply')}</Text>
             </Pressable>
           </View>
         )}

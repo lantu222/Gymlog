@@ -4,7 +4,9 @@ import { buildRecommendationInput } from './recommendationInput';
 import { getRecommendationProgramDefinition } from './recommendationCatalog';
 import { recommendPrograms } from './recommendationScoring';
 import { buildTailoringRecommendationNote, TailoringPreferencesInput } from './tailoringFit';
+import { t } from './i18n';
 import {
+  AppLanguage,
   SetupCautionFlag,
   SetupDaysPerWeek,
   SetupEquipment,
@@ -152,22 +154,24 @@ function getGoalLabel(goal: SetupGoal) {
   }
 }
 
-export function getSetupGoalTitle(goal: SetupGoal) {
+// Callers that build AI-context prose leave `language` off on purpose: that
+// text goes to the model, not to a screen, and it stays English.
+export function getSetupGoalTitle(goal: SetupGoal, language: AppLanguage = 'en') {
   switch (goal) {
     case 'strength':
-      return 'Get stronger';
+      return t(language, 'setup.goal.strength');
     case 'muscle':
-      return 'Build muscle';
+      return t(language, 'setup.goal.muscle');
     case 'lean_athletic':
-      return 'Lean & athletic';
+      return t(language, 'setup.goal.leanAthletic');
     case 'general_fitness':
-      return 'General fitness';
+      return t(language, 'setup.goal.generalFitness');
     case 'general':
-      return 'Lose weight';
+      return t(language, 'setup.goal.loseWeight');
     case 'run_mobility':
-      return 'Endurance / cardio';
+      return t(language, 'setup.goal.endurance');
     default:
-      return 'Training';
+      return t(language, 'setup.goal.default');
   }
 }
 
@@ -184,16 +188,16 @@ function getEquipmentLabel(equipment: SetupEquipment) {
   }
 }
 
-export function getSetupEquipmentTitle(equipment: SetupEquipment) {
+export function getSetupEquipmentTitle(equipment: SetupEquipment, language: AppLanguage = 'en') {
   switch (equipment) {
     case 'gym':
-      return 'Full gym';
+      return t(language, 'setup.equip.gym');
     case 'home':
-      return 'Home setup';
+      return t(language, 'setup.equip.home');
     case 'minimal':
-      return 'Minimal setup';
+      return t(language, 'setup.equip.minimal');
     default:
-      return 'Equipment';
+      return t(language, 'setup.equip.default');
   }
 }
 

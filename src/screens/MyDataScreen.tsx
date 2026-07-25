@@ -4,12 +4,20 @@ import Svg, { Path } from 'react-native-svg';
 
 import { CARD_SHADOW, ChevronIcon, SectionLabel, settingsStyles } from '../components/SettingsUi';
 import { getSetupEquipmentTitle, getSetupGoalTitle } from '../lib/firstRunSetup';
+import { I18nKey, t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { AppPreferences, SetupCautionArea, SetupCautionFlag, SetupGender } from '../types/models';
+import {
+  AppLanguage,
+  AppPreferences,
+  SetupCautionArea,
+  SetupCautionFlag,
+  SetupGender,
+} from '../types/models';
 
 interface MyDataScreenProps {
   preferences: AppPreferences;
+  language?: AppLanguage;
   onBack: () => void;
   /** Basics edit in place — writes straight to preferences. */
   onSaveBasics: (patch: Partial<AppPreferences>) => void;
@@ -21,69 +29,74 @@ interface MyDataScreenProps {
 
 // Mirrors AVOID_AREA_OPTIONS + AVOID_EXTRA_AREA_OPTIONS in OnboardingScreen —
 // keep in sync if the questionnaire renames a body part.
-const CAUTION_AREA_LABELS: Record<SetupCautionArea, string> = {
-  neck: 'Neck',
-  shoulders: 'Shoulders',
-  elbows: 'Elbows',
-  wrists: 'Wrists',
-  lower_back: 'Lower back',
-  hips: 'Hips',
-  knees: 'Knees',
-  ankles: 'Ankles',
+const CAUTION_AREA_KEYS: Record<SetupCautionArea, I18nKey> = {
+  neck: 'onb.area.neck',
+  shoulders: 'onb.area.shoulders',
+  elbows: 'onb.area.elbows',
+  wrists: 'onb.area.wrists',
+  lower_back: 'onb.area.lower_back',
+  hips: 'onb.area.hips',
+  knees: 'onb.area.knees',
+  ankles: 'onb.area.ankles',
 };
 
-const AGE_RANGE_LABELS: Record<string, string> = {
-  '18': 'Under 19',
-  '19_25': '19–25',
-  '26_30': '26–30',
-  '31_40': '31–40',
-  '41_plus': '41+',
+const AGE_RANGE_KEYS: Record<string, I18nKey> = {
+  '18': 'myData.age.under19',
+  '19_25': 'myData.age.19to25',
+  '26_30': 'myData.age.26to30',
+  '31_40': 'myData.age.31to40',
+  '41_plus': 'myData.age.41plus',
 };
 
 type BasicField = 'gender' | 'age' | 'height' | 'weight';
 
-const BASIC_FIELD_META: Record<Exclude<BasicField, 'gender'>, { title: string; unit: string; min: number; max: number }> = {
-  age: { title: 'Age', unit: 'years', min: 13, max: 100 },
-  height: { title: 'Height', unit: 'cm', min: 120, max: 230 },
-  weight: { title: 'Weight', unit: 'kg', min: 30, max: 300 },
+const BASIC_FIELD_META: Record<
+  Exclude<BasicField, 'gender'>,
+  { titleKey: I18nKey; unitKey: I18nKey; min: number; max: number }
+> = {
+  age: { titleKey: 'myData.ageField', unitKey: 'myData.unit.years', min: 13, max: 100 },
+  height: { titleKey: 'myData.height', unitKey: 'myData.unit.cm', min: 120, max: 230 },
+  weight: { titleKey: 'myData.weight', unitKey: 'myData.unit.kg', min: 30, max: 300 },
 };
 
-function genderLabel(preferences: AppPreferences) {
+function genderLabel(preferences: AppPreferences, language: AppLanguage) {
   switch (preferences.setupGender) {
     case 'male':
-      return 'Male';
+      return t(language, 'myData.gender.male');
     case 'female':
-      return 'Female';
+      return t(language, 'myData.gender.female');
     default:
       return null;
   }
 }
 
-function ageLabel(preferences: AppPreferences) {
+function ageLabel(preferences: AppPreferences, language: AppLanguage) {
   if (preferences.setupAge !== null) {
-    return `${preferences.setupAge} years`;
+    return t(language, 'myData.years', { count: preferences.setupAge });
   }
   if (preferences.setupAgeRange && preferences.setupAgeRange !== 'unspecified') {
-    return AGE_RANGE_LABELS[preferences.setupAgeRange] ?? null;
+    const key = AGE_RANGE_KEYS[preferences.setupAgeRange];
+    return key ? t(language, key) : null;
   }
   return null;
 }
 
-function levelLabel(preferences: AppPreferences) {
+function levelLabel(preferences: AppPreferences, language: AppLanguage) {
   switch (preferences.setupLevel) {
     case 'beginner':
-      return 'Beginner';
+      return t(language, 'myData.level.beginner');
     case 'advanced':
-      return 'Advanced';
+      return t(language, 'myData.level.advanced');
     case 'pro':
-      return 'Pro';
+      return t(language, 'myData.level.pro');
     default:
       return null;
   }
 }
 
-function limitationLabel(flag: SetupCautionFlag) {
-  return `${CAUTION_AREA_LABELS[flag.area]} — ${flag.level === 'avoid' ? 'left out' : 'be careful'}`;
+function limitationLabel(flag: SetupCautionFlag, language: AppLanguage) {
+  const area = t(language, CAUTION_AREA_KEYS[flag.area]);
+  return `${area} — ${t(language, flag.level === 'avoid' ? 'myData.leftOut' : 'myData.beCareful')}`;
 }
 
 function ShieldIcon({ color }: { color: string }) {
@@ -103,11 +116,13 @@ function ShieldIcon({ color }: { color: string }) {
 function DataRow({
   label,
   value,
+  editLabel,
   isLast = false,
   onPress,
 }: {
   label: string;
   value: string;
+  editLabel?: string;
   isLast?: boolean;
   onPress?: () => void;
 }) {
@@ -124,7 +139,7 @@ function DataRow({
   return onPress ? (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Edit ${label}`}
+      accessibilityLabel={editLabel ?? label}
       onPress={onPress}
       style={({ pressed }) => pressed && { opacity: 0.65 }}
     >
@@ -141,36 +156,53 @@ function DataRow({
  * preferences are read-only context for the "create a new plan" action, which
  * re-runs the questionnaire and ends at the two-program picker.
  */
-export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitations, onCreateNewPlan }: MyDataScreenProps) {
+export function MyDataScreen({
+  preferences,
+  language = 'en',
+  onBack,
+  onSaveBasics,
+  onEditLimitations,
+  onCreateNewPlan,
+}: MyDataScreenProps) {
   const [editing, setEditing] = useState<BasicField | null>(null);
   const [draftValue, setDraftValue] = useState('');
   const [draftGender, setDraftGender] = useState<SetupGender>('unspecified');
 
   const basics: Array<{ field: BasicField; label: string; value: string | null }> = [
-    { field: 'gender', label: 'Gender', value: genderLabel(preferences) },
-    { field: 'age', label: 'Age', value: ageLabel(preferences) },
-    { field: 'height', label: 'Height', value: preferences.setupHeightCm !== null ? `${preferences.setupHeightCm} cm` : null },
+    { field: 'gender', label: t(language, 'myData.gender'), value: genderLabel(preferences, language) },
+    { field: 'age', label: t(language, 'myData.ageField'), value: ageLabel(preferences, language) },
+    {
+      field: 'height',
+      label: t(language, 'myData.height'),
+      value: preferences.setupHeightCm !== null ? `${preferences.setupHeightCm} cm` : null,
+    },
     {
       field: 'weight',
-      label: 'Weight',
+      label: t(language, 'myData.weight'),
       value: preferences.setupCurrentWeightKg !== null ? `${preferences.setupCurrentWeightKg} kg` : null,
     },
   ];
 
   const training: Array<{ label: string; value: string | null }> = [
-    { label: 'Goal', value: preferences.setupGoal ? getSetupGoalTitle(preferences.setupGoal) : null },
-    { label: 'Experience', value: levelLabel(preferences) },
     {
-      label: 'Sessions per week',
-      value: preferences.setupDaysPerWeek !== null ? `${preferences.setupDaysPerWeek}× per week` : null,
+      label: t(language, 'myData.goal'),
+      value: preferences.setupGoal ? getSetupGoalTitle(preferences.setupGoal, language) : null,
+    },
+    { label: t(language, 'myData.experience'), value: levelLabel(preferences, language) },
+    {
+      label: t(language, 'myData.sessionsPerWeek'),
+      value:
+        preferences.setupDaysPerWeek !== null
+          ? t(language, 'myData.perWeek', { count: preferences.setupDaysPerWeek })
+          : null,
     },
     {
-      label: 'Weekly time',
+      label: t(language, 'myData.weeklyTime'),
       value: preferences.setupWeeklyMinutes !== null ? `~${preferences.setupWeeklyMinutes} min` : null,
     },
     {
-      label: 'Equipment',
-      value: preferences.setupEquipment ? getSetupEquipmentTitle(preferences.setupEquipment) : null,
+      label: t(language, 'myData.equipment'),
+      value: preferences.setupEquipment ? getSetupEquipmentTitle(preferences.setupEquipment, language) : null,
     },
   ];
 
@@ -225,7 +257,7 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
@@ -233,18 +265,19 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>My data</Text>
+        <Text style={styles.headerTitle}>{t(language, 'myData.title')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
         <View style={settingsStyles.section}>
-          <SectionLabel label="BASICS" />
+          <SectionLabel label={t(language, 'myData.basics')} />
           <View style={styles.card}>
             {basics.map((row, index) => (
               <DataRow
                 key={row.field}
                 label={row.label}
-                value={row.value ?? 'Not set'}
+                value={row.value ?? t(language, 'myData.notSet')}
+                editLabel={t(language, 'myData.edit', { field: row.label })}
                 isLast={index === basics.length - 1}
                 onPress={() => openEditor(row.field)}
               />
@@ -253,10 +286,15 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
         </View>
 
         <View style={settingsStyles.section}>
-          <SectionLabel label="TRAINING PREFERENCES" />
+          <SectionLabel label={t(language, 'myData.trainingPrefs')} />
           <View style={styles.card}>
             {training.map((row, index) => (
-              <DataRow key={row.label} label={row.label} value={row.value ?? 'Not set'} isLast={index === training.length - 1} />
+              <DataRow
+                key={row.label}
+                label={row.label}
+                value={row.value ?? t(language, 'myData.notSet')}
+                isLast={index === training.length - 1}
+              />
             ))}
           </View>
           <Pressable
@@ -264,22 +302,24 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
             onPress={onCreateNewPlan}
             style={({ pressed }) => [styles.newPlanButton, pressed && { opacity: 0.85 }]}
           >
-            <Text style={styles.newPlanButtonText}>Create a new training plan</Text>
+            <Text style={styles.newPlanButtonText}>{t(language, 'myData.createPlan')}</Text>
           </Pressable>
           <Text style={styles.newPlanCaption}>
-            Runs the setup questions again and builds two fresh programs to pick from. You can cancel any time.
+            {t(language, 'myData.createPlanCaption')}
           </Text>
         </View>
 
         <View style={settingsStyles.section}>
-          <SectionLabel label="ADDITIONAL" />
+          <SectionLabel label={t(language, 'myData.additional')} />
           <View style={styles.card}>
             {limitations.length > 0 ? (
               limitations.map((flag, index) => (
                 <Pressable
                   key={flag.area}
                   accessibilityRole="button"
-                  accessibilityLabel={`Edit limitation ${CAUTION_AREA_LABELS[flag.area]}`}
+                  accessibilityLabel={t(language, 'myData.editLimitation', {
+                    area: t(language, CAUTION_AREA_KEYS[flag.area]),
+                  })}
                   onPress={onEditLimitations}
                   style={({ pressed }) => [
                     styles.limitRow,
@@ -291,19 +331,25 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
                     <ShieldIcon color={flag.level === 'avoid' ? '#C0392B' : '#B45309'} />
                   </View>
                   <Text style={[styles.limitText, flag.level === 'avoid' && styles.limitTextAvoid]}>
-                    {limitationLabel(flag)}
+                    {limitationLabel(flag, language)}
                   </Text>
                   <ChevronIcon />
                 </Pressable>
               ))
             ) : (
-              <DataRow label="Limitations" value="Nothing noted" isLast onPress={onEditLimitations} />
+              <DataRow
+                label={t(language, 'myData.limitations')}
+                value={t(language, 'myData.nothingNoted')}
+                editLabel={t(language, 'myData.edit', { field: t(language, 'myData.limitations') })}
+                isLast
+                onPress={onEditLimitations}
+              />
             )}
           </View>
         </View>
 
         <Text style={styles.footerText}>
-          These details help us build the right plan and track your progress. You can change them any time.
+          {t(language, 'myData.footer')}
         </Text>
       </ScrollView>
 
@@ -313,16 +359,20 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
           <Pressable style={StyleSheet.absoluteFill} onPress={() => setEditing(null)} />
           <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>
-              {editing === 'gender' ? 'Gender' : editing !== null ? BASIC_FIELD_META[editing].title : ''}
+              {editing === 'gender'
+                ? t(language, 'myData.gender')
+                : editing !== null
+                  ? t(language, BASIC_FIELD_META[editing].titleKey)
+                  : ''}
             </Text>
 
             {editing === 'gender' ? (
               <View style={styles.genderRow}>
                 {(
                   [
-                    { key: 'male', label: 'Male' },
-                    { key: 'female', label: 'Female' },
-                    { key: 'unspecified', label: 'Rather not say' },
+                    { key: 'male', label: t(language, 'myData.gender.male') },
+                    { key: 'female', label: t(language, 'myData.gender.female') },
+                    { key: 'unspecified', label: t(language, 'myData.gender.unspecified') },
                   ] as Array<{ key: SetupGender; label: string }>
                 ).map((option) => {
                   const active = draftGender === option.key;
@@ -350,19 +400,20 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
                   placeholderTextColor={HG.faint}
                   style={styles.numericInput}
                 />
-                <Text style={styles.numericUnit}>{BASIC_FIELD_META[editing].unit}</Text>
+                <Text style={styles.numericUnit}>{t(language, BASIC_FIELD_META[editing].unitKey)}</Text>
               </View>
             ) : null}
 
             {editing !== null && editing !== 'gender' && draftValue.length > 0 && !numericDraftValid ? (
               <Text style={styles.sheetError}>
-                {BASIC_FIELD_META[editing].min}–{BASIC_FIELD_META[editing].max} {BASIC_FIELD_META[editing].unit}
+                {BASIC_FIELD_META[editing].min}–{BASIC_FIELD_META[editing].max}{' '}
+                {t(language, BASIC_FIELD_META[editing].unitKey)}
               </Text>
             ) : null}
 
             <View style={styles.sheetActions}>
               <Pressable accessibilityRole="button" onPress={() => setEditing(null)} style={styles.sheetCancel}>
-                <Text style={styles.sheetCancelText}>Cancel</Text>
+                <Text style={styles.sheetCancelText}>{t(language, 'common.cancel')}</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -374,7 +425,7 @@ export function MyDataScreen({ preferences, onBack, onSaveBasics, onEditLimitati
                   pressed && numericDraftValid && { opacity: 0.85 },
                 ]}
               >
-                <Text style={styles.sheetSaveText}>Save</Text>
+                <Text style={styles.sheetSaveText}>{t(language, 'common.save')}</Text>
               </Pressable>
             </View>
           </View>

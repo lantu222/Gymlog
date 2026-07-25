@@ -3,56 +3,39 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 
 import { removeTrailingZeros } from '../lib/format';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { I18nKey, t } from '../lib/i18n';
 import { PremiumHeroChart } from '../lib/premiumHeroChart';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { UnitPreference } from '../types/models';
+import { AppLanguage, UnitPreference } from '../types/models';
 
 interface PremiumScreenProps {
   previewUnlocked: boolean;
   heroChart: PremiumHeroChart | null;
   unitPreference: UnitPreference;
+  language?: AppLanguage;
   onBack: () => void;
   onTogglePreview: () => void;
 }
 
 type LaneVariant = 'coach' | 'rest' | 'session' | 'week';
 
-const LANES: Array<{ live: boolean; title: string; body: string; variant: LaneVariant }> = [
-  {
-    live: true,
-    variant: 'coach',
-    title: 'Adaptive set coach',
-    body: 'After each set GAINER reads your effort and sets the next load — up when you are flying, back off when you are not.',
-  },
-  {
-    live: true,
-    variant: 'rest',
-    title: 'Smart rest timing',
-    body: 'Rest shifts with the set instead of a fixed timer every round.',
-  },
-  {
-    live: false,
-    variant: 'session',
-    title: 'Session adjustments',
-    body: 'Bad day? It shortens or softens the session so you still train.',
-  },
-  {
-    live: false,
-    variant: 'week',
-    title: 'Weekly adaptation',
-    body: 'Hard weeks, missed sessions, and good runs reshape the next week.',
-  },
+const LANES: Array<{ live: boolean; titleKey: I18nKey; bodyKey: I18nKey; variant: LaneVariant }> = [
+  { live: true, variant: 'coach', titleKey: 'premium.lane.coach', bodyKey: 'premium.lane.coachBody' },
+  { live: true, variant: 'rest', titleKey: 'premium.lane.rest', bodyKey: 'premium.lane.restBody' },
+  { live: false, variant: 'session', titleKey: 'premium.lane.session', bodyKey: 'premium.lane.sessionBody' },
+  { live: false, variant: 'week', titleKey: 'premium.lane.week', bodyKey: 'premium.lane.weekBody' },
 ];
 
-const COMPARISON_ROWS: Array<{ label: string; free: boolean; premium: 'Live' | 'Soon' }> = [
-  { label: 'Manual logging', free: true, premium: 'Live' },
-  { label: 'Ready-made plans', free: true, premium: 'Live' },
-  { label: 'Progress & measures', free: true, premium: 'Live' },
-  { label: 'Adaptive set coach', free: false, premium: 'Live' },
-  { label: 'Smart rest timing', free: false, premium: 'Live' },
-  { label: 'Session adjustments', free: false, premium: 'Soon' },
-  { label: 'Weekly adaptation', free: false, premium: 'Soon' },
+const COMPARISON_ROWS: Array<{ labelKey: I18nKey; free: boolean; premium: 'Live' | 'Soon' }> = [
+  { labelKey: 'premium.row.logging', free: true, premium: 'Live' },
+  { labelKey: 'premium.row.plans', free: true, premium: 'Live' },
+  { labelKey: 'premium.row.progress', free: true, premium: 'Live' },
+  { labelKey: 'premium.lane.coach', free: false, premium: 'Live' },
+  { labelKey: 'premium.lane.rest', free: false, premium: 'Live' },
+  { labelKey: 'premium.lane.session', free: false, premium: 'Soon' },
+  { labelKey: 'premium.lane.week', free: false, premium: 'Soon' },
 ];
 
 function fmt(value: number) {
@@ -161,6 +144,7 @@ export function PremiumScreen({
   previewUnlocked,
   heroChart,
   unitPreference,
+  language = 'en',
   onBack,
   onTogglePreview,
 }: PremiumScreenProps) {
@@ -181,21 +165,20 @@ export function PremiumScreen({
             <Svg width={16} height={16} viewBox="0 0 24 24">
               <Path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z" fill="#C9B6FF" />
             </Svg>
-            <Text style={styles.heroKicker}>GAINER PREMIUM</Text>
+            <Text style={styles.heroKicker}>{t(language, 'premium.kicker')}</Text>
           </View>
-          <Text style={styles.heroTitle}>Keep progressing —{'\n'}without the guesswork</Text>
-          <Text style={styles.heroBody}>
-            The Adaptive Coach reads every set and sets your next load. The longer you train, the sharper it gets.
-          </Text>
+          <Text style={styles.heroTitle}>{t(language, 'premium.heroTitle')}</Text>
+          <Text style={styles.heroBody}>{t(language, 'premium.heroBody')}</Text>
 
           {heroChart ? (
             <View style={styles.heroDataCard}>
               <View style={styles.heroDataHead}>
                 <Text numberOfLines={1} style={styles.heroDataLabel}>
-                  {heroChart.liftName.toUpperCase()} · WORKING WEIGHT
+                  {exerciseNameLabel(language, heroChart.liftName).toUpperCase()} ·{' '}
+                  {t(language, 'premium.workingWeight')}
                 </Text>
                 <View style={styles.heroDataBadge}>
-                  <Text style={styles.heroDataBadgeText}>Next step</Text>
+                  <Text style={styles.heroDataBadgeText}>{t(language, 'premium.nextStep')}</Text>
                 </View>
               </View>
               <View style={styles.heroChartWrap}>
@@ -204,63 +187,65 @@ export function PremiumScreen({
               <View style={styles.heroDataFootRow}>
                 <View style={styles.heroDashSwatch} />
                 <Text style={styles.heroDataFoot}>
-                  Coach&apos;s next step · {fmt(heroChart.latest)} → {fmt(heroChart.projectedNext)} {unitPreference}
+                  {t(language, 'premium.coachNextStep', {
+                    from: fmt(heroChart.latest),
+                    to: fmt(heroChart.projectedNext),
+                    unit: unitPreference,
+                  })}
                 </Text>
               </View>
             </View>
           ) : (
             <View style={styles.heroEmptyCard}>
-              <Text style={styles.heroEmptyTitle}>Your progression chart builds here</Text>
-              <Text style={styles.heroEmptyText}>
-                Log a few sessions with a tracked lift and the coach starts plotting your climb.
-              </Text>
+              <Text style={styles.heroEmptyTitle}>{t(language, 'premium.emptyTitle')}</Text>
+              <Text style={styles.heroEmptyText}>{t(language, 'premium.emptyBody')}</Text>
             </View>
           )}
         </View>
 
         {/* WHAT PREMIUM ADDS */}
-        <Text style={styles.sectionLabel}>WHAT PREMIUM ADDS</Text>
+        <Text style={styles.sectionLabel}>{t(language, 'premium.whatItAdds')}</Text>
         <View style={styles.laneList}>
           {LANES.map((lane) => (
-            <View key={lane.title} style={styles.laneCard}>
+            <View key={lane.titleKey} style={styles.laneCard}>
               <View style={styles.laneIcon}>
                 <LaneGlyph variant={lane.variant} />
               </View>
               <View style={styles.laneCopy}>
                 <View style={styles.laneHead}>
-                  <Text style={styles.laneTitle}>{lane.title}</Text>
+                  <Text style={styles.laneTitle}>{t(language, lane.titleKey)}</Text>
                   <View style={[styles.tag, lane.live ? styles.tagLive : styles.tagSoon]}>
                     <Text style={[styles.tagText, lane.live ? styles.tagTextLive : styles.tagTextSoon]}>
-                      {lane.live ? 'LIVE' : 'SOON'}
+                      {t(language, lane.live ? 'premium.live' : 'premium.soon')}
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.laneBody}>{lane.body}</Text>
+                <Text style={styles.laneBody}>{t(language, lane.bodyKey)}</Text>
               </View>
             </View>
           ))}
         </View>
 
         {/* FREE VS PREMIUM */}
-        <Text style={styles.sectionLabel}>FREE VS PREMIUM</Text>
+        <Text style={styles.sectionLabel}>{t(language, 'premium.freeVsPremium')}</Text>
         <View style={styles.compareCard}>
           <View style={styles.compareHeadRow}>
             <View style={styles.compareLabelCell} />
-            <Text style={styles.compareHeadFree}>Free</Text>
-            <Text style={styles.compareHeadPremium}>Premium</Text>
+            <Text style={styles.compareHeadFree}>{t(language, 'premium.free')}</Text>
+            <Text style={styles.compareHeadPremium}>{t(language, 'premium.premium')}</Text>
           </View>
           {COMPARISON_ROWS.map((row, index) => (
             <View
-              key={row.label}
+              key={row.labelKey}
               style={[styles.compareRow, index === COMPARISON_ROWS.length - 1 && styles.compareRowLast]}
             >
-              <Text style={styles.compareLabel}>{row.label}</Text>
+              <Text style={styles.compareLabel}>{t(language, row.labelKey)}</Text>
               <View style={styles.compareCell}>
                 {row.free ? <CheckGlyph color={HG.green} /> : <View style={styles.compareDash} />}
               </View>
               <View style={styles.compareCell}>
                 {row.premium === 'Soon' ? (
-                  <Text style={styles.compareSoon}>Soon</Text>
+                  <Text style={styles.compareSoon}>{t(language, 'premium.soonCell')}</Text>
                 ) : (
                   <CheckGlyph color={HG.purple} />
                 )}
@@ -269,27 +254,27 @@ export function PremiumScreen({
           ))}
         </View>
 
-        <Text style={styles.footNote}>
-          Free stays fully usable forever. Your data and logs are always yours.
-        </Text>
+        <Text style={styles.footNote}>{t(language, 'premium.footNote')}</Text>
 
         {/* PREVIEW CTA */}
         <View style={styles.ctaCard}>
           <View style={styles.ctaHeadRow}>
-            <Text style={styles.ctaTitle}>{previewUnlocked ? 'Preview is on' : 'Try the preview'}</Text>
+            <Text style={styles.ctaTitle}>
+              {t(language, previewUnlocked ? 'premium.previewOn' : 'premium.tryPreview')}
+            </Text>
             <View style={[styles.tag, previewUnlocked ? styles.tagLive : styles.tagSoon]}>
               <Text style={[styles.tagText, previewUnlocked ? styles.tagTextLive : styles.tagTextSoon]}>
-                {previewUnlocked ? 'PREVIEW ON' : 'PREVIEW OFF'}
+                {t(language, previewUnlocked ? 'premium.tagOn' : 'premium.tagOff')}
               </Text>
             </View>
           </View>
           <Text style={styles.ctaBody}>
-            {previewUnlocked
-              ? 'Adaptive Coach is active on this device — the logger shows real next-set guidance after each set. Billing is not live yet.'
-              : 'Billing is not live yet. This unlocks the Adaptive Coach preview on this device so you can try the live next-set guidance.'}
+            {t(language, previewUnlocked ? 'premium.ctaBodyOn' : 'premium.ctaBodyOff')}
           </Text>
           <Pressable onPress={onTogglePreview} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>{previewUnlocked ? 'Turn preview off' : 'Try the preview'}</Text>
+            <Text style={styles.primaryButtonText}>
+              {t(language, previewUnlocked ? 'premium.turnOff' : 'premium.tryPreview')}
+            </Text>
           </Pressable>
         </View>
       </ScrollView>

@@ -3297,6 +3297,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'premium') {
     content = (
       <PremiumScreen
+        language={preferences.appLanguage}
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
         heroChart={premiumHeroChart}
         unitPreference={unitPreference}
@@ -3354,6 +3355,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'notifications') {
     content = (
       <NotificationsScreen
+        language={preferences.appLanguage}
         prefs={preferences.notificationPrefs}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onChange={(patch) =>
@@ -3364,6 +3366,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'training_break') {
     content = (
       <TrainingBreakScreen
+        language={preferences.appLanguage}
         trainingBreak={preferences.trainingBreak}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onStartBreak={(reason, note) =>
@@ -3375,6 +3378,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'promo') {
     content = (
       <PromoCodeScreen
+        language={preferences.appLanguage}
         promoProUntil={preferences.promoProUntil}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onRedeemed={(proUntilIso) =>
@@ -3385,6 +3389,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'subscription') {
     content = (
       <SubscriptionScreen
+        language={preferences.appLanguage}
         promoProUntil={preferences.promoProUntil}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
       />
@@ -3392,6 +3397,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'support') {
     content = (
       <SupportScreen
+        language={preferences.appLanguage}
         profileName={preferences.profileName}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
       />
@@ -3399,6 +3405,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'features') {
     content = (
       <FeatureRequestsScreen
+        language={preferences.appLanguage}
         votedIds={preferences.featureVotedIds}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onToggleVote={(id) =>
@@ -3413,6 +3420,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'edit_profile') {
     content = (
       <EditProfileScreen
+        language={preferences.appLanguage}
         initialName={preferences.profileName}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onSave={(name) => void updatePreferences({ profileName: name })}
@@ -3421,6 +3429,7 @@ function GymlogApp() {
   } else if (route.tab === 'profile' && route.screen === 'my_data') {
     content = (
       <MyDataScreen
+        language={preferences.appLanguage}
         preferences={preferences}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onSaveBasics={(patch) => void updatePreferences(patch)}

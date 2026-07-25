@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
+import { AppLanguage } from '../types/models';
 
 const MAX_NAME_LENGTH = 30;
 
 interface EditProfileScreenProps {
   initialName: string | null;
+  language?: AppLanguage;
   onBack: () => void;
   onSave: (name: string | null) => void;
 }
@@ -28,7 +31,7 @@ function getInitials(name: string) {
  * only editable field: no username, bio, city, gym, socials or privacy
  * toggles, and no photo control until image picking actually exists.
  */
-export function EditProfileScreen({ initialName, onBack, onSave }: EditProfileScreenProps) {
+export function EditProfileScreen({ initialName, language = 'en', onBack, onSave }: EditProfileScreenProps) {
   const [name, setName] = useState(initialName ?? '');
 
   const trimmed = name.trim();
@@ -47,7 +50,7 @@ export function EditProfileScreen({ initialName, onBack, onSave }: EditProfileSc
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
         >
@@ -55,7 +58,7 @@ export function EditProfileScreen({ initialName, onBack, onSave }: EditProfileSc
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>Edit profile</Text>
+        <Text style={styles.headerTitle}>{t(language, 'editProfile.title')}</Text>
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ disabled: !dirty }}
@@ -63,7 +66,7 @@ export function EditProfileScreen({ initialName, onBack, onSave }: EditProfileSc
           hitSlop={8}
           style={styles.saveButton}
         >
-          <Text style={[styles.saveText, !dirty && styles.saveTextDisabled]}>Save</Text>
+          <Text style={[styles.saveText, !dirty && styles.saveTextDisabled]}>{t(language, 'editProfile.save')}</Text>
         </Pressable>
       </View>
 
@@ -90,7 +93,7 @@ export function EditProfileScreen({ initialName, onBack, onSave }: EditProfileSc
 
         <View style={styles.fieldBlock}>
           <View style={styles.fieldLabelRow}>
-            <Text style={styles.fieldLabel}>DISPLAY NAME</Text>
+            <Text style={styles.fieldLabel}>{t(language, 'editProfile.displayName')}</Text>
             <Text style={styles.fieldCounter}>
               {name.length}/{MAX_NAME_LENGTH}
             </Text>
@@ -98,7 +101,7 @@ export function EditProfileScreen({ initialName, onBack, onSave }: EditProfileSc
           <TextInput
             value={name}
             onChangeText={(next) => setName(next.slice(0, MAX_NAME_LENGTH))}
-            placeholder="Your name"
+            placeholder={t(language, 'editProfile.namePlaceholder')}
             placeholderTextColor={HG.faint}
             maxLength={MAX_NAME_LENGTH}
             autoCapitalize="words"

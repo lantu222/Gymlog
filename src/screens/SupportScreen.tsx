@@ -3,22 +3,27 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import Svg, { Path } from 'react-native-svg';
 
 import { CARD_SHADOW } from '../components/SettingsUi';
+import { I18nKey, t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
 
 interface SupportScreenProps {
   profileName: string | null;
+  language?: AppLanguage;
   onBack: () => void;
 }
 
 /** Swap for the official support address before store release. */
 const SUPPORT_EMAIL = 'santeriylonen@gmail.com';
 
-const CATEGORIES: Array<{ key: string; title: string; sub: string; icon: string }> = [
-  { key: 'technical', title: 'Technical issue', sub: 'Something broke or looks wrong.', icon: 'gauge' },
-  { key: 'billing', title: 'Subscription & billing', sub: 'Plans, promo codes, payments.', icon: 'card' },
-  { key: 'feedback', title: 'Feedback', sub: 'An idea or something that bugs you.', icon: 'spark' },
-  { key: 'other', title: 'Other', sub: 'Anything else on your mind.', icon: 'chat' },
+// subject stays English on purpose: it lands in a support inbox, and the
+// person reading it should not have to guess what the topic was.
+const CATEGORIES: Array<{ key: string; titleKey: I18nKey; subKey: I18nKey; subject: string; icon: string }> = [
+  { key: 'technical', titleKey: 'support.cat.technical', subKey: 'support.cat.technicalSub', subject: 'Technical issue', icon: 'gauge' },
+  { key: 'billing', titleKey: 'support.cat.billing', subKey: 'support.cat.billingSub', subject: 'Subscription & billing', icon: 'card' },
+  { key: 'feedback', titleKey: 'support.cat.feedback', subKey: 'support.cat.feedbackSub', subject: 'Feedback', icon: 'spark' },
+  { key: 'other', titleKey: 'support.cat.other', subKey: 'support.cat.otherSub', subject: 'Other', icon: 'chat' },
 ];
 
 const ICONS: Record<string, string> = {
@@ -33,8 +38,8 @@ const ICONS: Record<string, string> = {
  * with the subject prefilled. No chat backend; email is the honest channel
  * that actually reaches the founder today.
  */
-export function SupportScreen({ profileName, onBack }: SupportScreenProps) {
-  const greetingName = profileName?.trim() ? profileName.trim().split(/\s+/)[0] : 'there';
+export function SupportScreen({ profileName, language = 'en', onBack }: SupportScreenProps) {
+  const greetingName = profileName?.trim() ? profileName.trim().split(/\s+/)[0] : t(language, 'support.there');
 
   const openMail = (category: string) => {
     const subject = encodeURIComponent(`GAINER support — ${category}`);
@@ -46,7 +51,7 @@ export function SupportScreen({ profileName, onBack }: SupportScreenProps) {
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
@@ -54,19 +59,19 @@ export function SupportScreen({ profileName, onBack }: SupportScreenProps) {
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>Contact us</Text>
+        <Text style={styles.headerTitle}>{t(language, 'support.title')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        <Text style={styles.greeting}>Hi, {greetingName}</Text>
-        <Text style={styles.greetingSub}>How can we help?</Text>
+        <Text style={styles.greeting}>{t(language, 'support.greeting', { name: greetingName })}</Text>
+        <Text style={styles.greetingSub}>{t(language, 'support.help')}</Text>
 
         <View style={[styles.card, styles.listCard]}>
           {CATEGORIES.map((category, index) => (
             <Pressable
               key={category.key}
               accessibilityRole="button"
-              onPress={() => openMail(category.title)}
+              onPress={() => openMail(category.subject)}
               style={({ pressed }) => [
                 styles.row,
                 index !== CATEGORIES.length - 1 && styles.rowDivider,
@@ -85,8 +90,8 @@ export function SupportScreen({ profileName, onBack }: SupportScreenProps) {
                 </Svg>
               </View>
               <View style={styles.rowCopy}>
-                <Text style={styles.rowTitle}>{category.title}</Text>
-                <Text style={styles.rowSub}>{category.sub}</Text>
+                <Text style={styles.rowTitle}>{t(language, category.titleKey)}</Text>
+                <Text style={styles.rowSub}>{t(language, category.subKey)}</Text>
               </View>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Path d="M9 6l6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
@@ -95,10 +100,7 @@ export function SupportScreen({ profileName, onBack }: SupportScreenProps) {
           ))}
         </View>
 
-        <Text style={styles.footer}>
-          Opens your email app with the topic filled in. You usually get an answer right away — the founder jumps in
-          when needed.
-        </Text>
+        <Text style={styles.footer}>{t(language, 'support.footer')}</Text>
       </ScrollView>
     </View>
   );

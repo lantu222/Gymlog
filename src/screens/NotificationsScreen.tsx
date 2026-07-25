@@ -1,33 +1,31 @@
-﻿import React from 'react';
+import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
+import { I18nKey, t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { NotificationLevel, NotificationPrefs } from '../types/models';
+import { AppLanguage, NotificationLevel, NotificationPrefs } from '../types/models';
 
 interface NotificationsScreenProps {
   prefs: NotificationPrefs;
+  language?: AppLanguage;
   onBack: () => void;
   onChange: (patch: Partial<NotificationPrefs>) => void;
 }
 
-const LEVELS: Array<{ key: NotificationLevel; title: string; sub: string }> = [
-  { key: 'quiet', title: 'Quiet', sub: 'Only what matters, max 1 / day' },
-  { key: 'normal', title: 'Normal', sub: 'Balanced, max 2 / day' },
-  { key: 'motivating', title: 'Motivating', sub: 'Everything, max 3 / day' },
+const LEVELS: Array<{ key: NotificationLevel; titleKey: I18nKey; subKey: I18nKey }> = [
+  { key: 'quiet', titleKey: 'notif.level.quiet', subKey: 'notif.level.quietSub' },
+  { key: 'normal', titleKey: 'notif.level.normal', subKey: 'notif.level.normalSub' },
+  { key: 'motivating', titleKey: 'notif.level.motivating', subKey: 'notif.level.motivatingSub' },
 ];
 
-const TRAINING_TOGGLES: Array<{ key: keyof NotificationPrefs; title: string; sub: string }> = [
-  { key: 'personalRecords', title: 'Personal records', sub: 'A note when you set a new best.' },
-  { key: 'weeklySummary', title: 'Weekly summary', sub: 'Sunday recap of your week.' },
-  {
-    key: 'comebackNudge',
-    title: 'Comeback nudge',
-    sub: 'A gentle ping after a longer break — never guilt.',
-  },
-  { key: 'sessionReminders', title: 'Session reminders', sub: 'Off by default.' },
+const TRAINING_TOGGLES: Array<{ key: keyof NotificationPrefs; titleKey: I18nKey; subKey: I18nKey }> = [
+  { key: 'personalRecords', titleKey: 'notif.records', subKey: 'notif.recordsSub' },
+  { key: 'weeklySummary', titleKey: 'notif.weekly', subKey: 'notif.weeklySub' },
+  { key: 'comebackNudge', titleKey: 'notif.comeback', subKey: 'notif.comebackSub' },
+  { key: 'sessionReminders', titleKey: 'notif.reminders', subKey: 'notif.remindersSub' },
 ];
 
 function RadioDot({ on }: { on: boolean }) {
@@ -43,13 +41,13 @@ function RadioDot({ on }: { on: boolean }) {
  * delivery engine comes later — the master defaults to off, and everything
  * below it dims and locks while it stays off.
  */
-export function NotificationsScreen({ prefs, onBack, onChange }: NotificationsScreenProps) {
+export function NotificationsScreen({ prefs, language = 'en', onBack, onChange }: NotificationsScreenProps) {
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
@@ -58,7 +56,7 @@ export function NotificationsScreen({ prefs, onBack, onChange }: NotificationsSc
           </Svg>
         </Pressable>
         <Text style={styles.headerTitle} pointerEvents="none">
-          Notifications
+          {t(language, 'notif.title')}
         </Text>
       </View>
 
@@ -66,13 +64,13 @@ export function NotificationsScreen({ prefs, onBack, onChange }: NotificationsSc
         {/* master */}
         <View style={[styles.card, styles.masterCard]}>
           <View style={styles.masterCopy}>
-            <Text style={styles.masterTitle}>Push notifications</Text>
+            <Text style={styles.masterTitle}>{t(language, 'notif.push')}</Text>
             <Text style={styles.masterSub}>
-              {prefs.pushEnabled ? 'On for this device.' : 'Off — everything below stays quiet.'}
+              {t(language, prefs.pushEnabled ? 'notif.pushOn' : 'notif.pushOff')}
             </Text>
           </View>
           <ToggleSwitch
-            label="Push notifications"
+            label={t(language, 'notif.push')}
             value={prefs.pushEnabled}
             onChange={(next) => onChange({ pushEnabled: next })}
           />
@@ -81,7 +79,7 @@ export function NotificationsScreen({ prefs, onBack, onChange }: NotificationsSc
         <View style={styles.dimmable} pointerEvents={prefs.pushEnabled ? 'auto' : 'none'}>
           <View style={prefs.pushEnabled ? null : styles.dimmed}>
             <View style={styles.section}>
-              <SectionLabel label="HOW MUCH" />
+              <SectionLabel label={t(language, 'notif.howMuch')} />
               <View style={styles.card}>
                 {LEVELS.map((level, index) => (
                   <Pressable
@@ -96,8 +94,8 @@ export function NotificationsScreen({ prefs, onBack, onChange }: NotificationsSc
                     ]}
                   >
                     <View style={styles.rowCopy}>
-                      <Text style={styles.rowTitle}>{level.title}</Text>
-                      <Text style={styles.rowSub}>{level.sub}</Text>
+                      <Text style={styles.rowTitle}>{t(language, level.titleKey)}</Text>
+                      <Text style={styles.rowSub}>{t(language, level.subKey)}</Text>
                     </View>
                     <RadioDot on={prefs.level === level.key} />
                   </Pressable>
@@ -106,16 +104,16 @@ export function NotificationsScreen({ prefs, onBack, onChange }: NotificationsSc
             </View>
 
             <View style={styles.section}>
-              <SectionLabel label="TRAINING" />
+              <SectionLabel label={t(language, 'notif.training')} />
               <View style={styles.card}>
                 {TRAINING_TOGGLES.map((item, index) => (
                   <View key={item.key} style={[styles.row, index !== TRAINING_TOGGLES.length - 1 && styles.rowDivider]}>
                     <View style={styles.rowCopy}>
-                      <Text style={styles.rowTitle}>{item.title}</Text>
-                      <Text style={styles.rowSub}>{item.sub}</Text>
+                      <Text style={styles.rowTitle}>{t(language, item.titleKey)}</Text>
+                      <Text style={styles.rowSub}>{t(language, item.subKey)}</Text>
                     </View>
                     <ToggleSwitch
-                      label={item.title}
+                      label={t(language, item.titleKey)}
                       value={Boolean(prefs[item.key])}
                       onChange={(next) => onChange({ [item.key]: next } as Partial<NotificationPrefs>)}
                     />
@@ -126,9 +124,7 @@ export function NotificationsScreen({ prefs, onBack, onChange }: NotificationsSc
           </View>
         </View>
 
-        <Text style={styles.footer}>
-          GAINER keeps notifications off until you turn them on. No streak pressure, no dark patterns.
-        </Text>
+        <Text style={styles.footer}>{t(language, 'notif.footer')}</Text>
       </ScrollView>
     </View>
   );

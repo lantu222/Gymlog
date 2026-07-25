@@ -3,35 +3,29 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Path } from 'react-native-svg';
 
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
+import { formatDate } from '../lib/format';
+import { I18nKey, t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { TrainingBreak, TrainingBreakReason } from '../types/models';
+import { AppLanguage, TrainingBreak, TrainingBreakReason } from '../types/models';
 
 interface TrainingBreakScreenProps {
   trainingBreak: TrainingBreak | null;
+  language?: AppLanguage;
   onBack: () => void;
   onStartBreak: (reason: TrainingBreakReason, note: string | null) => void;
   onEndBreak: () => void;
 }
 
-const REASONS: Array<{ key: TrainingBreakReason; label: string }> = [
-  { key: 'injury', label: 'Injury' },
-  { key: 'holiday', label: 'Holiday' },
-  { key: 'other', label: 'Other' },
+const REASONS: Array<{ key: TrainingBreakReason; labelKey: I18nKey }> = [
+  { key: 'injury', labelKey: 'break.reason.injury' },
+  { key: 'holiday', labelKey: 'break.reason.holiday' },
+  { key: 'other', labelKey: 'break.reason.other' },
 ];
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function formatDate(iso: string) {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
-
-function reasonLabel(reason: TrainingBreakReason) {
-  return REASONS.find((item) => item.key === reason)?.label ?? 'Break';
+function reasonLabel(reason: TrainingBreakReason, language: AppLanguage) {
+  const match = REASONS.find((item) => item.key === reason);
+  return match ? t(language, match.labelKey) : t(language, 'break.reason.fallback');
 }
 
 /**
@@ -39,7 +33,13 @@ function reasonLabel(reason: TrainingBreakReason) {
  * starting one records the date and reason, ending it clears the state. Plan
  * pausing logic can hook onto this later.
  */
-export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEndBreak }: TrainingBreakScreenProps) {
+export function TrainingBreakScreen({
+  trainingBreak,
+  language = 'en',
+  onBack,
+  onStartBreak,
+  onEndBreak,
+}: TrainingBreakScreenProps) {
   const [reason, setReason] = useState<TrainingBreakReason | null>(null);
   const [note, setNote] = useState('');
 
@@ -48,7 +48,7 @@ export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEnd
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
@@ -57,7 +57,7 @@ export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEnd
           </Svg>
         </Pressable>
         <Text style={styles.headerTitle} pointerEvents="none">
-          Training break
+          {t(language, 'break.title')}
         </Text>
       </View>
 
@@ -67,14 +67,17 @@ export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEnd
             <View style={[styles.card, styles.statusCard]}>
               <View style={styles.statusDotWrap}>
                 <View style={styles.statusDot} />
-                <Text style={styles.statusEyebrow}>ON A BREAK</Text>
+                <Text style={styles.statusEyebrow}>{t(language, 'break.onBreak')}</Text>
               </View>
               <Text style={styles.statusTitle}>
-                {reasonLabel(trainingBreak.reason)} · since {formatDate(trainingBreak.startedAt)}
+                {t(language, 'break.since', {
+                  reason: reasonLabel(trainingBreak.reason, language),
+                  date: formatDate(trainingBreak.startedAt, language),
+                })}
               </Text>
               {trainingBreak.note ? <Text style={styles.statusNote}>{trainingBreak.note}</Text> : null}
               <Text style={styles.statusBody}>
-                Your plan and streak-free stats are exactly where you left them. Come back when you&apos;re ready.
+                {t(language, 'break.statusBody')}
               </Text>
             </View>
             <Pressable
@@ -82,13 +85,13 @@ export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEnd
               onPress={onEndBreak}
               style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.85 }]}
             >
-              <Text style={styles.primaryButtonText}>End break</Text>
+              <Text style={styles.primaryButtonText}>{t(language, 'break.end')}</Text>
             </Pressable>
           </>
         ) : (
           <>
             <View style={styles.section}>
-              <SectionLabel label="REASON" />
+              <SectionLabel label={t(language, 'break.reasonLabel')} />
               <View style={styles.reasonRow}>
                 {REASONS.map((item) => {
                   const active = reason === item.key;
@@ -100,7 +103,7 @@ export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEnd
                       onPress={() => setReason(item.key)}
                       style={[styles.reasonChip, active && styles.reasonChipActive]}
                     >
-                      <Text style={[styles.reasonChipText, active && styles.reasonChipTextActive]}>{item.label}</Text>
+                      <Text style={[styles.reasonChipText, active && styles.reasonChipTextActive]}>{t(language, item.labelKey)}</Text>
                     </Pressable>
                   );
                 })}
@@ -108,11 +111,11 @@ export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEnd
             </View>
 
             <View style={styles.section}>
-              <SectionLabel label="NOTE (OPTIONAL)" />
+              <SectionLabel label={t(language, 'break.noteLabel')} />
               <TextInput
                 value={note}
                 onChangeText={setNote}
-                placeholder="Knee acting up, back in two weeks…"
+                placeholder={t(language, 'break.notePlaceholder')}
                 placeholderTextColor={HG.faint}
                 style={styles.noteInput}
                 multiline
@@ -133,11 +136,11 @@ export function TrainingBreakScreen({ trainingBreak, onBack, onStartBreak, onEnd
                 pressed && reason !== null && { opacity: 0.85 },
               ]}
             >
-              <Text style={styles.primaryButtonText}>Start break</Text>
+              <Text style={styles.primaryButtonText}>{t(language, 'break.start')}</Text>
             </Pressable>
 
             <Text style={styles.footer}>
-              A break just marks the pause honestly — nothing is lost and nothing counts against you.
+              {t(language, 'break.footer')}
             </Text>
           </>
         )}

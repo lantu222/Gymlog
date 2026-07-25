@@ -3,11 +3,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { CARD_SHADOW } from '../components/SettingsUi';
+import { I18nKey, t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
 
 interface FeatureRequestsScreenProps {
   votedIds: string[];
+  language?: AppLanguage;
   onBack: () => void;
   onToggleVote: (id: string) => void;
 }
@@ -16,9 +19,9 @@ type RequestStatus = 'planned' | 'in_progress' | 'done';
 
 interface FeatureRequest {
   id: string;
-  title: string;
-  description: string;
-  category: string;
+  titleKey: I18nKey;
+  descriptionKey: I18nKey;
+  categoryKey: I18nKey;
   status: RequestStatus;
   baseVotes: number;
 }
@@ -30,53 +33,53 @@ interface FeatureRequest {
 const REQUESTS: FeatureRequest[] = [
   {
     id: 'other_activities',
-    title: 'Other activities in the weekly plan',
-    description: 'Count climbing, swimming or a match toward the training week.',
-    category: 'Other',
+    titleKey: 'requests.otherActivities',
+    descriptionKey: 'requests.otherActivitiesDesc',
+    categoryKey: 'requests.cat.other',
     status: 'in_progress',
     baseVotes: 22,
   },
   {
     id: 'shift_scheduling',
-    title: 'Shift-worker scheduling',
-    description: 'Training days that rotate with your shifts instead of fixed weekdays.',
-    category: 'UI',
+    titleKey: 'requests.shiftScheduling',
+    descriptionKey: 'requests.shiftSchedulingDesc',
+    categoryKey: 'requests.cat.ui',
     status: 'done',
     baseVotes: 17,
   },
   {
     id: 'garmin',
-    title: 'Garmin Connect',
-    description: 'Sync sessions and bodyweight with Garmin.',
-    category: 'Integrations',
+    titleKey: 'requests.garmin',
+    descriptionKey: 'requests.garminDesc',
+    categoryKey: 'requests.cat.integrations',
     status: 'in_progress',
     baseVotes: 10,
   },
   {
     id: 'warmup_blocks',
-    title: 'Warm-up & cool-down blocks',
-    description: 'Editable warm-up and cool-down blocks per session.',
-    category: 'Training',
+    titleKey: 'requests.warmupBlocks',
+    descriptionKey: 'requests.warmupBlocksDesc',
+    categoryKey: 'requests.cat.training',
     status: 'planned',
     baseVotes: 8,
   },
   {
     id: 'macro_tracking',
-    title: 'Macro tracking',
-    description: 'Log protein and calories next to your training.',
-    category: 'Nutrition',
+    titleKey: 'requests.macroTracking',
+    descriptionKey: 'requests.macroTrackingDesc',
+    categoryKey: 'requests.cat.nutrition',
     status: 'planned',
     baseVotes: 6,
   },
 ];
 
-const STATUS_STYLES: Record<RequestStatus, { label: string; fg: string; bg: string }> = {
-  planned: { label: 'Planned', fg: HG.purpleDark, bg: HG.purpleLight },
-  in_progress: { label: 'In progress', fg: '#B45309', bg: '#FBF0DD' },
-  done: { label: 'Done', fg: '#157A3A', bg: '#E4F6EA' },
+const STATUS_STYLES: Record<RequestStatus, { labelKey: I18nKey; fg: string; bg: string }> = {
+  planned: { labelKey: 'requests.status.planned', fg: HG.purpleDark, bg: HG.purpleLight },
+  in_progress: { labelKey: 'requests.status.inProgress', fg: '#B45309', bg: '#FBF0DD' },
+  done: { labelKey: 'requests.status.done', fg: '#157A3A', bg: '#E4F6EA' },
 };
 
-export function FeatureRequestsScreen({ votedIds, onBack, onToggleVote }: FeatureRequestsScreenProps) {
+export function FeatureRequestsScreen({ votedIds, language = 'en', onBack, onToggleVote }: FeatureRequestsScreenProps) {
   const items = [...REQUESTS]
     .map((request) => ({
       ...request,
@@ -90,7 +93,7 @@ export function FeatureRequestsScreen({ votedIds, onBack, onToggleVote }: Featur
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
@@ -98,32 +101,32 @@ export function FeatureRequestsScreen({ votedIds, onBack, onToggleVote }: Featur
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>Feature requests</Text>
+        <Text style={styles.headerTitle}>{t(language, 'requests.title')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        <Text style={styles.intro}>Vote on what we build next. Votes are stored on this device for now.</Text>
+        <Text style={styles.intro}>{t(language, 'requests.intro')}</Text>
 
         {items.map((request) => {
           const status = STATUS_STYLES[request.status];
           return (
             <View key={request.id} style={[styles.card, styles.requestCard]}>
               <View style={styles.requestCopy}>
-                <Text style={styles.requestTitle}>{request.title}</Text>
-                <Text style={styles.requestDesc}>{request.description}</Text>
+                <Text style={styles.requestTitle}>{t(language, request.titleKey)}</Text>
+                <Text style={styles.requestDesc}>{t(language, request.descriptionKey)}</Text>
                 <View style={styles.badgeRow}>
                   <View style={styles.categoryBadge}>
-                    <Text style={styles.categoryBadgeText}>{request.category}</Text>
+                    <Text style={styles.categoryBadgeText}>{t(language, request.categoryKey)}</Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
-                    <Text style={[styles.statusBadgeText, { color: status.fg }]}>{status.label}</Text>
+                    <Text style={[styles.statusBadgeText, { color: status.fg }]}>{t(language, status.labelKey)}</Text>
                   </View>
                 </View>
               </View>
               <Pressable
                 accessibilityRole="button"
                 accessibilityState={{ selected: request.voted }}
-                accessibilityLabel={`Vote for ${request.title}`}
+                accessibilityLabel={t(language, 'requests.voteFor', { name: t(language, request.titleKey) })}
                 onPress={() => onToggleVote(request.id)}
                 style={({ pressed }) => [styles.voteButton, request.voted && styles.voteButtonActive, pressed && { opacity: 0.8 }]}
               >

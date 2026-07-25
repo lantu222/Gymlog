@@ -3,12 +3,16 @@ import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-na
 import Svg, { Path } from 'react-native-svg';
 
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
+import { formatDate } from '../lib/format';
+import { t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
+import { AppLanguage } from '../types/models';
 
 interface SubscriptionScreenProps {
   /** ISO date the promo keeps Pro on until; null = no active Pro. */
   promoProUntil: string | null;
+  language?: AppLanguage;
   onBack: () => void;
 }
 
@@ -19,19 +23,13 @@ const RED = '#C0392B';
 const RED_SOFT = '#FBEAE7';
 const RED_BORDER = '#F3CFC9';
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function formatDate(date: Date) {
-  return `${date.getDate()} ${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
-}
-
 /**
  * Manage subscription — demo build. There is no billing integration yet; the
  * status reflects the redeemed promo when one is active, and the plan cards
  * are a preview of the intended pricing. "Manage in Google Play" opens the
  * real store subscriptions page.
  */
-export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreenProps) {
+export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: SubscriptionScreenProps) {
   const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
 
   const promoActive = promoProUntil !== null && new Date(promoProUntil).getTime() > Date.now();
@@ -45,7 +43,7 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
       <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Back"
+          accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
@@ -53,7 +51,7 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>Manage subscription</Text>
+        <Text style={styles.headerTitle}>{t(language, 'subs.title')}</Text>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
@@ -76,11 +74,13 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
                 <Text style={styles.statusName}>GAINER Pro</Text>
                 {promoActive ? (
                   <View style={styles.trialBadge}>
-                    <Text style={styles.trialBadgeText}>Promo</Text>
+                    <Text style={styles.trialBadgeText}>{t(language, 'subs.promo')}</Text>
                   </View>
                 ) : null}
               </View>
-              <Text style={styles.statusSub}>{promoActive ? 'Promo unlock' : 'No active subscription'}</Text>
+              <Text style={styles.statusSub}>
+                {t(language, promoActive ? 'subs.promoUnlock' : 'subs.none')}
+              </Text>
             </View>
             <View style={[styles.statusDot, { backgroundColor: promoActive ? GREEN_DOT : '#D8D2E6' }]} />
           </View>
@@ -89,18 +89,21 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
             <>
               <View style={styles.divider} />
               <View style={styles.metaRow}>
-                <Text style={styles.metaKey}>Activated</Text>
-                <Text style={styles.metaValue}>{formatDate(activatedDate!)}</Text>
+                <Text style={styles.metaKey}>{t(language, 'subs.activated')}</Text>
+                <Text style={styles.metaValue}>{formatDate(activatedDate!.toISOString(), language)}</Text>
               </View>
               <View style={styles.metaRow}>
-                <Text style={styles.metaKey}>Ends</Text>
+                <Text style={styles.metaKey}>{t(language, 'subs.ends')}</Text>
                 <Text style={[styles.metaValue, endingSoon && { color: RED }]}>
-                  {formatDate(endsDate!)} ({daysLeft} d)
+                  {t(language, 'subs.endsValue', {
+                    date: formatDate(endsDate!.toISOString(), language),
+                    days: daysLeft,
+                  })}
                 </Text>
               </View>
               <View style={styles.metaRow}>
-                <Text style={styles.metaKey}>Auto-renew</Text>
-                <Text style={[styles.metaValue, { color: RED }]}>Off</Text>
+                <Text style={styles.metaKey}>{t(language, 'subs.autoRenew')}</Text>
+                <Text style={[styles.metaValue, { color: RED }]}>{t(language, 'subs.off')}</Text>
               </View>
               {endingSoon ? (
                 <View style={styles.warnBanner}>
@@ -113,24 +116,21 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
                       strokeLinejoin="round"
                     />
                   </Svg>
-                  <Text style={styles.warnText}>Pro ends soon — plans arrive with the store release.</Text>
+                  <Text style={styles.warnText}>{t(language, 'subs.endsSoon')}</Text>
                 </View>
               ) : null}
             </>
           ) : (
             <>
               <View style={styles.divider} />
-              <Text style={styles.freeNote}>
-                Everything in GAINER is free right now. Paid plans arrive with the store release — the pricing below is
-                a preview.
-              </Text>
+              <Text style={styles.freeNote}>{t(language, 'subs.freeNote')}</Text>
             </>
           )}
         </View>
 
         {/* change plan */}
         <View style={styles.section}>
-          <SectionLabel label="CHANGE PLAN" />
+          <SectionLabel label={t(language, 'subs.changePlan')} />
           <View style={styles.card}>
             <Pressable
               accessibilityRole="button"
@@ -139,14 +139,14 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
             >
               <View style={styles.planCopy}>
                 <View style={styles.planNameRow}>
-                  <Text style={styles.planName}>Yearly</Text>
+                  <Text style={styles.planName}>{t(language, 'subs.yearly')}</Text>
                   {plan === 'yearly' ? (
                     <View style={styles.currentBadge}>
-                      <Text style={styles.currentBadgeText}>Current</Text>
+                      <Text style={styles.currentBadgeText}>{t(language, 'subs.current')}</Text>
                     </View>
                   ) : null}
                 </View>
-                <Text style={styles.planPrice}>69.99 €/yr · 0.19 €/day</Text>
+                <Text style={styles.planPrice}>{t(language, 'subs.yearlyPrice')}</Text>
               </View>
               {plan === 'yearly' ? (
                 <View style={styles.checkCircle}>
@@ -156,7 +156,7 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
                 </View>
               ) : (
                 <View style={styles.switchPill}>
-                  <Text style={styles.switchPillText}>Switch</Text>
+                  <Text style={styles.switchPillText}>{t(language, 'subs.switch')}</Text>
                 </View>
               )}
             </Pressable>
@@ -167,14 +167,14 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
             >
               <View style={styles.planCopy}>
                 <View style={styles.planNameRow}>
-                  <Text style={styles.planName}>Monthly</Text>
+                  <Text style={styles.planName}>{t(language, 'subs.monthly')}</Text>
                   {plan === 'monthly' ? (
                     <View style={styles.currentBadge}>
-                      <Text style={styles.currentBadgeText}>Current</Text>
+                      <Text style={styles.currentBadgeText}>{t(language, 'subs.current')}</Text>
                     </View>
                   ) : null}
                 </View>
-                <Text style={styles.planPrice}>9.99 €/mo · 0.33 €/day</Text>
+                <Text style={styles.planPrice}>{t(language, 'subs.monthlyPrice')}</Text>
               </View>
               {plan === 'monthly' ? (
                 <View style={styles.checkCircle}>
@@ -184,17 +184,17 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
                 </View>
               ) : (
                 <View style={styles.switchPill}>
-                  <Text style={styles.switchPillText}>Switch</Text>
+                  <Text style={styles.switchPillText}>{t(language, 'subs.switch')}</Text>
                 </View>
               )}
             </Pressable>
           </View>
-          <Text style={styles.caption}>A plan change takes effect at the end of the current period.</Text>
+          <Text style={styles.caption}>{t(language, 'subs.changeCaption')}</Text>
         </View>
 
         {/* manage */}
         <View style={styles.section}>
-          <SectionLabel label="MANAGE" />
+          <SectionLabel label={t(language, 'subs.manage')} />
           <View style={styles.card}>
             <Pressable
               accessibilityRole="button"
@@ -213,8 +213,8 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
                 </Svg>
               </View>
               <View style={styles.manageCopy}>
-                <Text style={styles.manageTitle}>Manage in Google Play</Text>
-                <Text style={styles.manageSub}>Cancel or change the plan.</Text>
+                <Text style={styles.manageTitle}>{t(language, 'subs.googlePlay')}</Text>
+                <Text style={styles.manageSub}>{t(language, 'subs.googlePlaySub')}</Text>
               </View>
             </Pressable>
             <View style={[styles.manageRow, styles.manageRowLast]}>
@@ -230,17 +230,14 @@ export function SubscriptionScreen({ promoProUntil, onBack }: SubscriptionScreen
                 </Svg>
               </View>
               <View style={styles.manageCopy}>
-                <Text style={styles.manageTitle}>Restore purchases</Text>
-                <Text style={styles.manageSub}>If a purchase does not show correctly.</Text>
+                <Text style={styles.manageTitle}>{t(language, 'subs.restore')}</Text>
+                <Text style={styles.manageSub}>{t(language, 'subs.restoreSub')}</Text>
               </View>
             </View>
           </View>
         </View>
 
-        <Text style={styles.footer}>
-          Billing is handled by the App Store or Google Play. Cancellation takes effect at the end of the current
-          period.
-        </Text>
+        <Text style={styles.footer}>{t(language, 'subs.footer')}</Text>
       </ScrollView>
     </View>
   );
