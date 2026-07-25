@@ -49,7 +49,7 @@ import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTi
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
-import { localizeSessionName } from './src/lib/sessionNameLabel';
+import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import {
@@ -2133,7 +2133,7 @@ function GymlogApp() {
           activeWorkoutPlan.id.startsWith('onboarding_plan_') && setupSelection && preferences.recommendedProgramId
             ? composeProgramWeekForSelection(setupSelection, preferences.recommendedProgramId)?.weeks
             : undefined;
-        const planProgress = buildHomePlanProgress({
+        const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
           completedSessions: completedSessionCount,
           sessionsPerWeek: sortedEntries.length,
           totalWeeks: onboardingBlockWeeks,
@@ -2177,7 +2177,7 @@ function GymlogApp() {
     const completedSessionCount = completedPlanSessions.filter(
       (session) => session.workoutTemplateId === recommendedReadyTemplate.id,
     ).length;
-    const planProgress = buildHomePlanProgress({
+    const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
       completedSessions: completedSessionCount,
       sessionsPerWeek: recommendedReadyTemplate.daysPerWeek,
       // Ready programs count their catalog block (4-12 wk by tier), not the
@@ -2273,8 +2273,9 @@ function GymlogApp() {
     const focusTitles: string[] = [];
     for (const session of homeActivePlanCard.sessions) {
       const focus = getSessionFocusTitle(session.title, homeActivePlanCard.title);
-      if (focus && !focusTitles.includes(focus)) {
-        focusTitles.push(focus);
+      const localized = focus ? localizeWorkoutFocus(focus, preferences.appLanguage) : focus;
+      if (localized && !focusTitles.includes(localized)) {
+        focusTitles.push(localized);
       }
     }
     const focusCaption = focusTitles.slice(0, 3).join(' · ');
@@ -2289,7 +2290,7 @@ function GymlogApp() {
         homeActivePlanCard.sessions.reduce((sum, session) => sum + (session.hiddenExerciseCount ?? 0), 0),
       focusCaption: focusCaption.length > 0 ? focusCaption : null,
     };
-  }, [homeActivePlanCard]);
+  }, [homeActivePlanCard, preferences.appLanguage]);
   // Guided-player context props (entry eyebrow + finish-screen cards).
   const guidedEntryEyebrow = useMemo(() => {
     const weekday = t(preferences.appLanguage, `guided.weekday.${new Date().getDay()}` as I18nKey);

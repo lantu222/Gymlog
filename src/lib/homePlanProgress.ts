@@ -1,9 +1,13 @@
+import { t } from './i18n';
+import { AppLanguage } from '../types/models';
+
 const DEFAULT_HOME_PLAN_TOTAL_WEEKS = 8;
 
 export interface HomePlanProgressInput {
   completedSessions: number;
   sessionsPerWeek: number;
   totalWeeks?: number;
+  language?: AppLanguage;
 }
 
 export interface HomePlanProgress {
@@ -21,6 +25,7 @@ export function buildHomePlanProgress({
   completedSessions,
   sessionsPerWeek,
   totalWeeks = DEFAULT_HOME_PLAN_TOTAL_WEEKS,
+  language = 'en',
 }: HomePlanProgressInput): HomePlanProgress {
   const safeSessionsPerWeek = Math.max(1, Math.round(sessionsPerWeek));
   const safeTotalWeeks = Math.max(1, Math.round(totalWeeks));
@@ -36,9 +41,13 @@ export function buildHomePlanProgress({
   const weekProgressPercent = Math.round((doneThisWeek / safeSessionsPerWeek) * 100);
 
   return {
-    weekLabel: `Week ${currentWeek} of ${safeTotalWeeks}`,
+    weekLabel: t(language, 'plan.weekOf', { week: currentWeek, total: safeTotalWeeks }),
     progressPercent,
-    weekProgressLabel: `Week ${currentWeek} · ${doneThisWeek} of ${safeSessionsPerWeek} done`,
+    weekProgressLabel: t(language, 'plan.weekProgress', {
+      week: currentWeek,
+      done: doneThisWeek,
+      total: safeSessionsPerWeek,
+    }),
     weekProgressPercent,
     currentWeek,
     totalWeeks: safeTotalWeeks,

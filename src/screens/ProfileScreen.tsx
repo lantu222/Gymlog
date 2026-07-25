@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-nati
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { CARD_SHADOW, SectionLabel, settingsStyles } from '../components/SettingsUi';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
@@ -366,7 +367,7 @@ export function ProfileScreen({
                     </View>
                     <View style={styles.recordCopy}>
                       <Text numberOfLines={1} style={styles.recordName}>
-                        {formatLiftDisplayLabel(record.name)}
+                        {formatLiftDisplayLabel(exerciseNameLabel(language, record.name))}
                       </Text>
                       {bodyPart ? <Text style={styles.recordBodyPart}>{bodyPartLabel(language, bodyPart)}</Text> : null}
                     </View>

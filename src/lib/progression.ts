@@ -1,5 +1,6 @@
 ﻿import {
   AppDatabase,
+  AppLanguage,
   BodyweightEntry,
   ExerciseLog,
   ExerciseTemplate,
@@ -8,6 +9,7 @@
   WorkoutTemplate,
 } from '../types/models';
 import { getComparableLogSets } from './exerciseLog';
+import { t } from './i18n';
 
 export interface ExerciseLogWithSession extends ExerciseLog {
   performedAt: string;
@@ -297,7 +299,10 @@ export function getBodyweightProgress(database: AppDatabase): BodyweightProgress
   };
 }
 
-export function getExerciseProgressSignal(summary: ExerciseProgressSummary): ExerciseProgressSignal {
+export function getExerciseProgressSignal(
+  summary: ExerciseProgressSummary,
+  language: AppLanguage = 'en',
+): ExerciseProgressSignal {
   if (
     summary.latestWeight !== null &&
     summary.bestWeight !== null &&
@@ -306,7 +311,7 @@ export function getExerciseProgressSignal(summary: ExerciseProgressSummary): Exe
   ) {
     return {
       kind: 'new_best',
-      label: 'New best',
+      label: t(language, 'signal.newBest'),
     };
   }
 
@@ -317,7 +322,7 @@ export function getExerciseProgressSignal(summary: ExerciseProgressSummary): Exe
   ) {
     return {
       kind: 'moving_up',
-      label: 'Moving up',
+      label: t(language, 'signal.movingUp'),
     };
   }
 
@@ -328,20 +333,20 @@ export function getExerciseProgressSignal(summary: ExerciseProgressSummary): Exe
   ) {
     return {
       kind: 'below_last',
-      label: 'Below last',
+      label: t(language, 'signal.belowLast'),
     };
   }
 
   if (summary.logs.length >= 3) {
     return {
       kind: 'building',
-      label: 'Building',
+      label: t(language, 'signal.building'),
     };
   }
 
   return {
     kind: 'starting',
-    label: 'Starting',
+    label: t(language, 'signal.starting'),
   };
 }
 

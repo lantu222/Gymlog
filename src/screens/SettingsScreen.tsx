@@ -474,7 +474,6 @@ const styles = StyleSheet.create({
     right: 0,
     textAlign: 'center',
     pointerEvents: 'none',
-    zIndex: -1,
     color: HG.ink,
     fontSize: 17,
     fontWeight: '800',

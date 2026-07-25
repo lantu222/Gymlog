@@ -12,8 +12,10 @@ import Svg, {
 
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { I18nKey, t } from '../lib/i18n';
+import { localizeSessionName } from '../lib/sessionNameLabel';
 import { HG3 } from '../lightTheme';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 
@@ -43,6 +45,23 @@ function weekdayForSession(index: number, sessionCount: number) {
 // Weekday truth (P6): the saved plan's own entry label wins; the generic
 // spread is only a fallback for plans without fixed weekdays.
 const WEEKDAY_SET = new Set(WEEKDAYS);
+
+// The three-letter codes above are matched against saved plan entries, so they
+// stay English; only what the chip shows is translated.
+const WEEKDAY_DISPLAY_KEYS: Record<string, I18nKey> = {
+  MON: 'setup.day.mon',
+  TUE: 'setup.day.tue',
+  WED: 'setup.day.wed',
+  THU: 'setup.day.thu',
+  FRI: 'setup.day.fri',
+  SAT: 'setup.day.sat',
+  SUN: 'setup.day.sun',
+};
+
+function weekdayLabel(code: string, language: AppLanguage) {
+  const key = WEEKDAY_DISPLAY_KEYS[code];
+  return (key ? t(language, key) : code).toUpperCase();
+}
 
 function resolveSessionWeekday(dayLabel: string | null | undefined, index: number, sessionCount: number) {
   const normalized = dayLabel?.trim().slice(0, 3).toUpperCase() ?? '';
@@ -311,26 +330,28 @@ export function ProgramsHomeScreen({
               {weekSessions.map((session, index) => {
                 const isToday = nextSession?.id === session.id;
                 const weekday = resolveSessionWeekday(session.dayLabel, index, weekSessions.length);
+                const weekdayText = weekdayLabel(weekday, language);
+                const sessionTitle = localizeSessionName(session.title, language);
                 const focusLine = session.exercises
                   .slice(0, 3)
-                  .map((exercise) => exercise.name)
+                  .map((exercise) => exerciseNameLabel(language, exercise.name))
                   .join(' · ');
 
                 return (
                   <Pressable
                     key={session.id}
                     accessibilityRole="button"
-                    accessibilityLabel={`${weekday}: ${session.title}${isToday ? `, ${t(language, 'programs.todayA11y')}` : ''}`}
+                    accessibilityLabel={`${weekdayText}: ${sessionTitle}${isToday ? `, ${t(language, 'programs.todayA11y')}` : ''}`}
                     onPress={onOpenActivePlan}
                     style={({ pressed }) => [styles.dayRow, isToday && styles.dayRowToday, pressed && styles.pressedRow]}
                   >
                     <View style={[styles.dayBadge, isToday && styles.dayBadgeToday]}>
-                      <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekday}</Text>
+                      <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
                     </View>
                     <View style={styles.dayCopy}>
                       <View style={styles.dayTitleRow}>
                         <Text style={styles.dayTitle} numberOfLines={1}>
-                          {session.title}
+                          {sessionTitle}
                         </Text>
                         {isToday ? (
                           <View style={styles.todayPill}>

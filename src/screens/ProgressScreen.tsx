@@ -428,9 +428,13 @@ function compareProgressSummaries(left: ExerciseProgressSummary, right: Exercise
   return rightDate - leftDate;
 }
 
-function getSummaryChartPoints(summary: ExerciseProgressSummary, unitPreference: UnitPreference) {
+function getSummaryChartPoints(
+  summary: ExerciseProgressSummary,
+  unitPreference: UnitPreference,
+  language: AppLanguage,
+) {
   return [...summary.logs].reverse().map((log) => ({
-    label: formatShortDate(log.performedAt),
+    label: formatShortDate(log.performedAt, language),
     value: convertWeightFromKg(log.weight, unitPreference),
   }));
 }
@@ -502,8 +506,8 @@ function SectionLabel({ label, right }: { label: string; right?: string }) {
   );
 }
 
-function SignalBadge({ summary }: { summary: ExerciseProgressSummary }) {
-  const signal = getExerciseProgressSignal(summary);
+function SignalBadge({ summary, language }: { summary: ExerciseProgressSummary; language: AppLanguage }) {
+  const signal = getExerciseProgressSignal(summary, language);
   const palette = SIGNAL_STYLES[signal.kind];
   return (
     <View style={[styles.signalBadge, { backgroundColor: palette.bg }]}>
@@ -642,8 +646,8 @@ export function ProgressScreen({
   const prioritizedSummaries = useMemo(() => [...summaries].sort(compareProgressSummaries), [summaries]);
   const heroSummary = prioritizedSummaries[0] ?? null;
   const heroPoints = useMemo(
-    () => (heroSummary ? getSummaryChartPoints(heroSummary, unitPreference) : []),
-    [heroSummary, unitPreference],
+    () => (heroSummary ? getSummaryChartPoints(heroSummary, unitPreference, language) : []),
+    [heroSummary, language, unitPreference],
   );
   const heroSignalDot = heroSummary ? SIGNAL_STYLES[getExerciseProgressSignal(heroSummary).kind].dot : HG.purple;
   const heroLatest = heroPoints.length ? heroPoints[heroPoints.length - 1].value : null;
@@ -913,7 +917,7 @@ export function ProgressScreen({
                   {t(language, 'progress.workingWeight')} ·{' '}
                   {formatLiftDisplayLabel(exerciseNameLabel(language, heroSummary.name))}
                 </Text>
-                <SignalBadge summary={heroSummary} />
+                <SignalBadge summary={heroSummary} language={language} />
               </View>
               <View style={styles.heroValueRow}>
                 <Text style={styles.heroValue}>{heroLatest !== null ? removeTrailingZeros(heroLatest) : '-'}</Text>
@@ -1189,7 +1193,7 @@ export function ProgressScreen({
             {filteredSummaries.map((summary) => {
               const isOpen = expandedKey === summary.key;
               const signalDot = SIGNAL_STYLES[getExerciseProgressSignal(summary).kind].dot;
-              const points = getSummaryChartPoints(summary, unitPreference);
+              const points = getSummaryChartPoints(summary, unitPreference, language);
               const start = points[0]?.value ?? null;
               const latest = points.length ? points[points.length - 1].value : null;
               const delta = start !== null && latest !== null && points.length > 1 ? latest - start : null;
@@ -1201,7 +1205,7 @@ export function ProgressScreen({
                         {formatLiftDisplayLabel(exerciseNameLabel(language, summary.name))}
                       </Text>
                       <View style={styles.trackedMetaRow}>
-                        <SignalBadge summary={summary} />
+                        <SignalBadge summary={summary} language={language} />
                         <Text numberOfLines={1} style={styles.trackedMeta}>
                           {formatWeight(summary.latestWeight, unitPreference)}
                           {summary.latestReps && summary.latestReps !== '-' ? ` × ${summary.latestReps.split(',')[0]}` : ''}

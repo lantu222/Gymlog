@@ -1772,6 +1772,15 @@ const EN = {
   'onb.viewFirstWeek': 'View the first training week',
   'onb.pickAreas': 'Pick 1–2 areas.',
   'onb.focusLabel': 'Focus',
+  // ── Progress signal badges ────────────────────────────────────────────
+  'signal.newBest': 'New best',
+  'signal.movingUp': 'Moving up',
+  'signal.belowLast': 'Below last',
+  'signal.building': 'Building',
+  'signal.starting': 'Starting',
+  // ── Plan week progress ────────────────────────────────────────────────
+  'plan.weekOf': 'Week {week} of {total}',
+  'plan.weekProgress': 'Week {week} · {done} of {total} done',
 } as const;
 
 export type I18nKey = keyof typeof EN;
@@ -3511,6 +3520,15 @@ const FI: Record<I18nKey, string> = {
   'onb.viewFirstWeek': 'Katso ensimmäinen treeniviikko',
   'onb.pickAreas': 'Valitse 1–2 aluetta.',
   'onb.focusLabel': 'Painotus',
+  // ── Progress signal badges ────────────────────────────────────────────
+  'signal.newBest': 'Uusi ennätys',
+  'signal.movingUp': 'Nousussa',
+  'signal.belowLast': 'Alle edellisen',
+  'signal.building': 'Rakentuu',
+  'signal.starting': 'Alkuvaihe',
+  // ── Plan week progress ────────────────────────────────────────────────
+  'plan.weekOf': 'Viikko {week} / {total}',
+  'plan.weekProgress': 'Viikko {week} · {done}/{total} tehty',
 };
 
 const STRINGS: Record<AppLanguage, Record<I18nKey, string>> = {
