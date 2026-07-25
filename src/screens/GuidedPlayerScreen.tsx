@@ -56,6 +56,12 @@ import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { removeTrailingZeros } from '../lib/format';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
+import {
+  cancelRestEndNotification,
+  clearDeliveredRestNotifications,
+  ensureRestNotifications,
+  scheduleRestEndNotification,
+} from '../utils/restNotifications';
 import { sound, type CueSound } from '../utils/sound';
 import { HG } from '../lightTheme';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
@@ -655,6 +661,14 @@ export function GuidedPlayerScreen({
   const session = workout.activeSession;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
+  // Ask for the notification permission on the entry screen rather than the
+  // first rest — a system dialog mid-set is the worst possible moment. Any
+  // alert left over from a session that died mid-rest goes at the same time.
+  useEffect(() => {
+    void ensureRestNotifications();
+    void clearDeliveredRestNotifications();
+  }, []);
+
   const sessionTitle = getGuidedSessionTitle(session?.templateName ?? '', language);
 
   const warmupDrills = useMemo<GuidedDrill[]>(
@@ -736,6 +750,14 @@ export function GuidedPlayerScreen({
   const endsAtRef = useRef<number | null>(null);
   const firedRef = useRef(false);
   const lastBeepSecondRef = useRef<number | null>(null);
+  /**
+   * Pending OS alert for the running rest. The in-app timer cannot fire while
+   * Android has our JS suspended, so the deadline is also handed to the system
+   * as a scheduled notification; this holds its id so we can drop it the
+   * moment the rest is skipped, paused, adjusted or finished in-app.
+   */
+  const restNotificationIdRef = useRef<string | null>(null);
+  const restScheduleTokenRef = useRef(0);
 
   const [paused, setPaused] = useState(false);
   const [howtoOpen, setHowtoOpen] = useState(false);
@@ -782,6 +804,40 @@ export function GuidedPlayerScreen({
     sound[kind]();
   }, []);
 
+  /**
+   * Hands the rest deadline to the OS (or drops a pending one when passed
+   * null). The token guards against an older async schedule landing after a
+   * newer one and leaking an orphan alert.
+   */
+  const syncRestNotification = useCallback(
+    async (endsAtMs: number | null, nextName: string | null) => {
+      const token = (restScheduleTokenRef.current += 1);
+      const previousId = restNotificationIdRef.current;
+      restNotificationIdRef.current = null;
+      void cancelRestEndNotification(previousId);
+
+      if (endsAtMs === null) {
+        return;
+      }
+
+      const id = await scheduleRestEndNotification({
+        endsAtMs,
+        title: t(language, 'guided.notify.restOver'),
+        body: nextName
+          ? t(language, 'guided.notify.restOverNext', { name: nextName })
+          : t(language, 'guided.notify.restOverPlain'),
+      });
+
+      if (token !== restScheduleTokenRef.current) {
+        // Superseded while we awaited the schedule — don't keep this one.
+        void cancelRestEndNotification(id);
+        return;
+      }
+      restNotificationIdRef.current = id;
+    },
+    [language],
+  );
+
   const goTo = useCallback(
     (index: number) => {
       const clamped = Math.min(Math.max(0, index), steps.length - 1);
@@ -804,15 +860,18 @@ export function GuidedPlayerScreen({
     [steps, workout, cue],
   );
 
-  /** ±15s / +10s: shift both the leftover time and the wall-clock deadline. */
-  const adjustRemaining = useCallback((deltaMs: number, floorMs = 0) => {
+  /** ±15s / +10s: shift the leftover time, the deadline and any pending alert. */
+  const adjustRemaining = (deltaMs: number, floorMs = 0) => {
     const next = Math.max(floorMs, remainingRef.current + deltaMs);
     remainingRef.current = next;
     if (endsAtRef.current !== null) {
       endsAtRef.current = Date.now() + next;
+      if (step.type === 'rest') {
+        void syncRestNotification(endsAtRef.current, getGuidedNextName(steps, stepIndex));
+      }
     }
     setRemainingMs(next);
-  }, []);
+  };
 
   const goToRef = useRef(goTo);
   goToRef.current = goTo;
@@ -835,6 +894,13 @@ export function GuidedPlayerScreen({
     }
 
     endsAtRef.current = Date.now() + Math.max(0, remainingRef.current);
+
+    // A rest is the one wait long enough to put the phone down for, so its
+    // deadline also goes to the OS — that alert is what reaches the user when
+    // Android has suspended us.
+    if (step.type === 'rest') {
+      void syncRestNotification(endsAtRef.current, getGuidedNextName(steps, stepIndex));
+    }
 
     const settle = () => {
       const endsAt = endsAtRef.current;
@@ -884,8 +950,10 @@ export function GuidedPlayerScreen({
     return () => {
       clearInterval(interval);
       appStateSub.remove();
+      // Leaving the rest — by advancing, skipping or pausing — retires its alert.
+      void syncRestNotification(null, null);
     };
-  }, [mode, frozen, stepIndex, step.type, cue]);
+  }, [mode, frozen, stepIndex, step.type, cue, steps, syncRestNotification]);
 
   /* ── hardware back: exit sheet in player, plain leave on entry ── */
   useEffect(() => {
