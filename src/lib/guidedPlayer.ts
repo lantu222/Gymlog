@@ -10,6 +10,8 @@
 
 import { parseNumberInput, removeTrailingZeros } from './format';
 import { SessionRoutineBlock } from './homeSessionHero';
+import { t } from './i18n';
+import { AppLanguage } from '../types/models';
 
 export type GuidedPhase = 'warmup' | 'work' | 'cooldown';
 
@@ -131,11 +133,14 @@ function formatBlockLength(totalSeconds: number): string {
   return `~${Math.round(totalSeconds / 60)} min`;
 }
 
-export function buildGuidedSteps(input: {
-  warmup: GuidedDrill[];
-  exercises: GuidedExerciseInput[];
-  cooldown: GuidedDrill[];
-}): GuidedStepPlan {
+export function buildGuidedSteps(
+  input: {
+    warmup: GuidedDrill[];
+    exercises: GuidedExerciseInput[];
+    cooldown: GuidedDrill[];
+  },
+  language: AppLanguage = 'en',
+): GuidedStepPlan {
   const steps: GuidedStep[] = [];
   const groups: GuidedGroup[] = [];
   const exercises = input.exercises.filter((exercise) => !exercise.skipped && exercise.setCount > 0);
@@ -143,11 +148,15 @@ export function buildGuidedSteps(input: {
 
   if (input.warmup.length > 0) {
     const warmupSeconds = input.warmup.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
+    const drillCount =
+      input.warmup.length === 1
+        ? t(language, 'guided.count.drillOne')
+        : t(language, 'guided.count.drillMany', { count: input.warmup.length });
     steps.push({
       type: 'splash',
       phase: 'warmup',
-      title: 'Warm-up',
-      sub: `${input.warmup.length} drill${input.warmup.length === 1 ? '' : 's'} · ${formatBlockLength(warmupSeconds)}`,
+      title: t(language, 'guided.phase.warmup'),
+      sub: `${drillCount} · ${formatBlockLength(warmupSeconds)}`,
       doneLabel: null,
     });
     input.warmup.forEach((drill, drillIndex) => {
@@ -167,12 +176,16 @@ export function buildGuidedSteps(input: {
   }
 
   if (exercises.length > 0) {
+    const exerciseCount =
+      exercises.length === 1
+        ? t(language, 'guided.count.exerciseOne')
+        : t(language, 'guided.count.exerciseMany', { count: exercises.length });
     steps.push({
       type: 'splash',
       phase: 'work',
-      title: 'Workout',
-      sub: `${exercises.length} exercise${exercises.length === 1 ? '' : 's'} · ${totalSets} sets`,
-      doneLabel: input.warmup.length > 0 ? 'Warm-up complete' : null,
+      title: t(language, 'guided.phase.workout'),
+      sub: `${exerciseCount} · ${t(language, 'guided.count.sets', { count: totalSets })}`,
+      doneLabel: input.warmup.length > 0 ? t(language, 'guided.done.warmup') : null,
     });
     exercises.forEach((exercise, exerciseIndex) => {
       const groupIndex = groups.length;
@@ -217,12 +230,21 @@ export function buildGuidedSteps(input: {
 
   if (input.cooldown.length > 0) {
     const cooldownSeconds = input.cooldown.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
+    const stretchCount =
+      input.cooldown.length === 1
+        ? t(language, 'guided.count.stretchOne')
+        : t(language, 'guided.count.stretchMany', { count: input.cooldown.length });
     steps.push({
       type: 'splash',
       phase: 'cooldown',
-      title: 'Cooldown',
-      sub: `${input.cooldown.length} stretch${input.cooldown.length === 1 ? '' : 'es'} · ${formatBlockLength(cooldownSeconds)}`,
-      doneLabel: exercises.length > 0 ? 'Workout complete' : input.warmup.length > 0 ? 'Warm-up complete' : null,
+      title: t(language, 'guided.phase.cooldown'),
+      sub: `${stretchCount} · ${formatBlockLength(cooldownSeconds)}`,
+      doneLabel:
+        exercises.length > 0
+          ? t(language, 'guided.done.workout')
+          : input.warmup.length > 0
+            ? t(language, 'guided.done.warmup')
+            : null,
     });
     input.cooldown.forEach((drill, drillIndex) => {
       const groupIndex = groups.length;
@@ -251,42 +273,53 @@ export function findGuidedPhaseStart(steps: GuidedStep[], phase: GuidedPhase): n
 }
 
 /** Top-bar label: "WARM-UP · 2 OF 3", "WORKOUT · EXERCISE 1 OF 3", "WORKOUT · REST"… */
-export function getGuidedPhaseLabel(step: GuidedStep): string {
+export function getGuidedPhaseLabel(step: GuidedStep, language: AppLanguage = 'en'): string {
   switch (step.type) {
     case 'finish':
-      return 'DONE';
+      return t(language, 'guided.label.done');
     case 'splash':
-      return step.phase === 'warmup' ? 'WARM-UP' : step.phase === 'work' ? 'WORKOUT' : 'COOLDOWN';
+      return step.phase === 'warmup'
+        ? t(language, 'guided.label.warmup')
+        : step.phase === 'work'
+          ? t(language, 'guided.label.workout')
+          : t(language, 'guided.label.cooldown');
     case 'ready':
-      return step.phase === 'warmup' ? 'WARM-UP' : 'COOLDOWN';
+      return step.phase === 'warmup' ? t(language, 'guided.label.warmup') : t(language, 'guided.label.cooldown');
     case 'drill': {
-      const prefix = step.phase === 'warmup' ? 'WARM-UP' : 'COOLDOWN';
-      return `${prefix} · ${step.drillIndex + 1} OF ${step.drillCount}`;
+      const prefix = step.phase === 'warmup' ? t(language, 'guided.label.warmup') : t(language, 'guided.label.cooldown');
+      return t(language, 'guided.label.ofCount', {
+        label: prefix,
+        index: step.drillIndex + 1,
+        count: step.drillCount,
+      });
     }
     case 'position':
     case 'set':
-      return `WORKOUT · EXERCISE ${step.exerciseIndex + 1} OF ${step.exerciseCount}`;
+      return t(language, 'guided.label.exercise', {
+        index: step.exerciseIndex + 1,
+        count: step.exerciseCount,
+      });
     case 'rest':
-      return 'WORKOUT · REST';
+      return t(language, 'guided.label.rest');
   }
 }
 
 /** Short human label for the resume chip ("Bench Press set 2"). */
-export function getGuidedStepLabel(step: GuidedStep): string {
+export function getGuidedStepLabel(step: GuidedStep, language: AppLanguage = 'en'): string {
   switch (step.type) {
     case 'set':
-      return `${step.exerciseName} set ${step.setIndex + 1}`;
+      return t(language, 'guided.step.set', { name: step.exerciseName, index: step.setIndex + 1 });
     case 'position':
-      return `${step.exerciseName} setup`;
+      return t(language, 'guided.step.setup', { name: step.exerciseName });
     case 'rest':
-      return `Rest · ${step.exerciseName}`;
+      return t(language, 'guided.step.rest', { name: step.exerciseName });
     case 'drill':
     case 'ready':
       return step.drillName;
     case 'splash':
       return step.title;
     case 'finish':
-      return 'Session complete';
+      return t(language, 'guided.step.complete');
   }
 }
 
@@ -305,9 +338,9 @@ function formatKg(value: number): string {
   return removeTrailingZeros(value);
 }
 
-export function formatGuidedTarget(target: GuidedSetTarget): string {
+export function formatGuidedTarget(target: GuidedSetTarget, language: AppLanguage = 'en'): string {
   if (target.loadKg === null) {
-    return `${target.reps} reps`;
+    return t(language, 'guided.target.reps', { reps: target.reps });
   }
   return `${target.reps} × ${formatKg(target.loadKg)} kg`;
 }
@@ -320,6 +353,7 @@ export function getGuidedNextPreview(
   steps: GuidedStep[],
   index: number,
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null,
+  language: AppLanguage = 'en',
 ): GuidedNextPreview | null {
   for (let cursor = index + 1; cursor < steps.length; cursor += 1) {
     const step = steps[cursor];
@@ -332,9 +366,13 @@ export function getGuidedNextPreview(
     }
     if (step.type === 'set') {
       const target = resolveTarget(step.slotId, step.setIndex);
-      const targetLabel = target ? formatGuidedTarget(target) : null;
+      const targetLabel = target ? formatGuidedTarget(target, language) : null;
       return {
-        title: `${step.exerciseName} — Set ${step.setIndex + 1} of ${step.setCount}`,
+        title: t(language, 'guided.next.setTitle', {
+          name: step.exerciseName,
+          index: step.setIndex + 1,
+          count: step.setCount,
+        }),
         sub: targetLabel ?? '',
         line: targetLabel ? `${step.exerciseName} · ${targetLabel}` : step.exerciseName,
       };
@@ -343,7 +381,7 @@ export function getGuidedNextPreview(
       return { title: step.title, sub: step.sub, line: step.title };
     }
     if (step.type === 'finish') {
-      return { title: 'Session complete', sub: '', line: 'Finish' };
+      return { title: t(language, 'guided.step.complete'), sub: '', line: t(language, 'guided.next.finish') };
     }
   }
   return null;
@@ -496,7 +534,7 @@ export function estimateGuidedDurationMinutes(steps: GuidedStep[]): number {
  * "STRONG Elite - Day 1: Upper (Heavy)" → "Upper (Heavy)". Runtime session
  * templates are named `<plan> - <day>`; entry wants just the day focus.
  */
-export function getGuidedSessionTitle(templateName: string): string {
+export function getGuidedSessionTitle(templateName: string, language: AppLanguage = 'en'): string {
   const raw = templateName.trim();
   const separatorIndex = raw.lastIndexOf(' - ');
   const dayPart = separatorIndex >= 0 ? raw.slice(separatorIndex + 3).trim() : raw;
@@ -505,7 +543,7 @@ export function getGuidedSessionTitle(templateName: string): string {
   if (/^day\s*\d+$/i.test(head.trim()) && afterColon) {
     return afterColon;
   }
-  return dayPart || 'Workout';
+  return dayPart || t(language, 'guided.sessionFallback');
 }
 
 export interface GuidedSessionPr {
@@ -552,23 +590,35 @@ export interface GuidedCoachMessage {
 }
 
 /** Deterministic 1–2 line COACH card copy from session data. */
-export function buildGuidedCoachMessage(input: {
-  pr: GuidedSessionPr | null;
-  topSet: { exerciseName: string; loadKg: number; reps: number } | null;
-}): GuidedCoachMessage {
+export function buildGuidedCoachMessage(
+  input: {
+    pr: GuidedSessionPr | null;
+    topSet: { exerciseName: string; loadKg: number; reps: number } | null;
+  },
+  language: AppLanguage = 'en',
+): GuidedCoachMessage {
   if (input.pr) {
     return {
-      message: `Strong work. ${formatKg(input.pr.bestKg)} kg on ${input.pr.exerciseName} is a new best.`,
-      sub: `Next ${input.pr.exerciseName} target: ${formatKg(input.pr.bestKg + 2.5)} kg.`,
+      message: t(language, 'guided.coach.pr', { kg: formatKg(input.pr.bestKg), name: input.pr.exerciseName }),
+      sub: t(language, 'guided.coach.prSub', {
+        name: input.pr.exerciseName,
+        kg: formatKg(input.pr.bestKg + 2.5),
+      }),
     };
   }
   if (input.topSet) {
     return {
-      message: `Solid session. ${input.topSet.exerciseName} at ${formatKg(input.topSet.loadKg)} kg moved well.`,
-      sub: `Aim for ${formatKg(input.topSet.loadKg)} kg × ${input.topSet.reps + 1} next time.`,
+      message: t(language, 'guided.coach.top', {
+        name: input.topSet.exerciseName,
+        kg: formatKg(input.topSet.loadKg),
+      }),
+      sub: t(language, 'guided.coach.topSub', {
+        kg: formatKg(input.topSet.loadKg),
+        reps: input.topSet.reps + 1,
+      }),
     };
   }
-  return { message: 'Session logged. Consistency is the win today.', sub: null };
+  return { message: t(language, 'guided.coach.logged'), sub: null };
 }
 
 /** Heaviest completed set of the session (for the COACH card). */

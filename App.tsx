@@ -48,6 +48,7 @@ import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys }
 import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTitle } from './src/lib/homeSessionHero';
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
+import { I18nKey, t } from './src/lib/i18n';
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import {
@@ -2279,10 +2280,10 @@ function GymlogApp() {
   }, [homeActivePlanCard]);
   // Guided-player context props (entry eyebrow + finish-screen cards).
   const guidedEntryEyebrow = useMemo(() => {
-    const weekday = ['SUNDAY', 'MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY'][new Date().getDay()];
+    const weekday = t(preferences.appLanguage, `guided.weekday.${new Date().getDay()}` as I18nKey);
     const week = homeActivePlanCard?.currentWeek;
-    return week ? `${weekday} · WEEK ${week}` : weekday;
-  }, [homeActivePlanCard?.currentWeek]);
+    return week ? t(preferences.appLanguage, 'guided.entry.eyebrow', { weekday, week }) : weekday;
+  }, [homeActivePlanCard?.currentWeek, preferences.appLanguage]);
   const guidedWeekProgress = useMemo(() => {
     if (!progressWeeklyTarget) {
       return null;
@@ -2296,11 +2297,13 @@ function GymlogApp() {
     }).length;
     // The in-flight session counts too — the finish screen shows before save.
     return {
-      weekLabel: homeActivePlanCard ? `WEEK ${homeActivePlanCard.currentWeek}` : 'THIS WEEK',
+      weekLabel: homeActivePlanCard
+        ? t(preferences.appLanguage, 'guided.finish.week', { week: homeActivePlanCard.currentWeek })
+        : t(preferences.appLanguage, 'guided.finish.thisWeek'),
       done: savedThisWeek + 1,
       target: progressWeeklyTarget,
     };
-  }, [homeActivePlanCard, progressWeeklyTarget, workoutSessions]);
+  }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget, workoutSessions]);
   // Home history section: strength + cardio merged, newest first.
   const homeHistoryItems = useMemo(() => {
     const strength = workoutSessions.map((session) => ({
@@ -3062,6 +3065,7 @@ function GymlogApp() {
         exerciseLibrary={exerciseLibrary}
         soundCuesEnabled={preferences.soundCuesEnabled}
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
+        language={preferences.appLanguage}
         entryEyebrow={guidedEntryEyebrow}
         weekProgress={guidedWeekProgress}
         nextUp={guidedNextUp}

@@ -52,10 +52,11 @@ import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { removeTrailingZeros } from '../lib/format';
+import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { sound, type CueSound } from '../utils/sound';
 import { HG } from '../lightTheme';
-import { ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
@@ -89,6 +90,7 @@ export interface GuidedNextUp {
 
 interface GuidedPlayerScreenProps {
   unitPreference: UnitPreference;
+  language?: AppLanguage;
   exerciseLibrary: ExerciseLibraryItem[];
   soundCuesEnabled: boolean;
   /** Keep the display on for the whole guided session. */
@@ -428,14 +430,14 @@ function ProgressRail({
   );
 }
 
-function NextLine({ text, dark }: { text: string | null; dark: boolean }) {
+function NextLine({ text, dark, language }: { text: string | null; dark: boolean; language: AppLanguage }) {
   if (!text) {
     return <View style={{ height: 20 }} />;
   }
   return (
     <View style={{ alignItems: 'center', paddingHorizontal: 26 }}>
       <Text style={{ fontSize: 13.5, fontWeight: '700', color: dark ? GPD.muted : HG.muted }} numberOfLines={1}>
-        <Text style={{ color: dark ? GPD.faint : HG.faint }}>Next · </Text>
+        <Text style={{ color: dark ? GPD.faint : HG.faint }}>{t(language, 'guided.next.prefix')}</Text>
         {text}
       </Text>
     </View>
@@ -446,11 +448,13 @@ function NameBlock({
   name,
   cue,
   hasHowTo,
+  language,
   onHow,
 }: {
   name: string;
   cue: string | null;
   hasHowTo: boolean;
+  language: AppLanguage;
   onHow: () => void;
 }) {
   return (
@@ -465,7 +469,7 @@ function NameBlock({
               {cue}
             </Text>
           ) : null}
-          {hasHowTo ? <Text style={styles.howToLink}>How to ›</Text> : null}
+          {hasHowTo ? <Text style={styles.howToLink}>{t(language, 'guided.howTo')}</Text> : null}
         </Pressable>
       )}
     </View>
@@ -595,6 +599,7 @@ function GPSheet({ onClose, children }: { onClose: () => void; children: React.R
 
 export function GuidedPlayerScreen({
   unitPreference,
+  language = 'en',
   exerciseLibrary,
   soundCuesEnabled,
   keepScreenAwake = false,
@@ -612,36 +617,40 @@ export function GuidedPlayerScreen({
   const session = workout.activeSession;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
-  const sessionTitle = getGuidedSessionTitle(session?.templateName ?? 'Workout');
+  const sessionTitle = getGuidedSessionTitle(session?.templateName ?? '', language);
 
   const warmupDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultWarmup(sessionTitle)),
-    [sessionTitle],
+    () => buildGuidedDrillsFromBlock(getDefaultWarmup(sessionTitle, language)),
+    [sessionTitle, language],
   );
   const cooldownDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultCooldown(sessionTitle)),
-    [sessionTitle],
+    () => buildGuidedDrillsFromBlock(getDefaultCooldown(sessionTitle, language)),
+    [sessionTitle, language],
   );
 
   const exercises = session?.exercises ?? [];
   const stepPlan = useMemo(
     () =>
-      buildGuidedSteps({
-        warmup: warmupDrills,
-        exercises: exercises.map((exercise) => ({
-          slotId: exercise.slotId,
-          name: exercise.exerciseName,
-          restSeconds: exercise.restSecondsMin,
-          setCount: exercise.sets.length,
-          skipped: exercise.status === 'skipped',
-        })),
-        cooldown: cooldownDrills,
-      }),
+      buildGuidedSteps(
+        {
+          warmup: warmupDrills,
+          exercises: exercises.map((exercise) => ({
+            slotId: exercise.slotId,
+            name: exercise.exerciseName,
+            restSeconds: exercise.restSecondsMin,
+            setCount: exercise.sets.length,
+            skipped: exercise.status === 'skipped',
+          })),
+          cooldown: cooldownDrills,
+        },
+        language,
+      ),
     // Rebuild only when the structural shape changes, not on every set log.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       warmupDrills,
       cooldownDrills,
+      language,
       exercises.map((exercise) => `${exercise.slotId}:${exercise.sets.length}:${exercise.status === 'skipped' ? 's' : ''}`).join('|'),
     ],
   );
@@ -869,7 +878,7 @@ export function GuidedPlayerScreen({
 
   // Only the finish celebration goes dark — rest stays on the light theme.
   const dark = mode === 'player' && step.type === 'finish';
-  const nextPreview = mode === 'player' ? getGuidedNextPreview(steps, stepIndex, resolveTarget) : null;
+  const nextPreview = mode === 'player' ? getGuidedNextPreview(steps, stepIndex, resolveTarget, language) : null;
 
   const libraryFor = (name: string) => {
     const index = findGuidedLibraryIndex(name, exerciseLibrary.map((item) => item.name));
@@ -917,16 +926,24 @@ export function GuidedPlayerScreen({
               {sessionTitle}
             </Text>
             <Text style={styles.entrySub}>
-              {activeExercises.length} exercise{activeExercises.length === 1 ? '' : 's'} · {totalSets} sets · ~{durationMinutes} min
+              {[
+                activeExercises.length === 1
+                  ? t(language, 'guided.count.exerciseOne')
+                  : t(language, 'guided.count.exerciseMany', { count: activeExercises.length }),
+                t(language, 'guided.count.sets', { count: totalSets }),
+                t(language, 'guided.entry.duration', { min: durationMinutes }),
+              ].join(' · ')}
             </Text>
 
             {showResume && (
               <Pressable style={styles.resumeCard} onPress={() => startAt(resumeIndex)}>
                 <GPIcon name="play" size={18} color={HG.purpleDark} sw={2.4} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14.5, fontWeight: '800', color: HG.purpleDark }}>Resume session</Text>
+                  <Text style={{ fontSize: 14.5, fontWeight: '800', color: HG.purpleDark }}>
+                    {t(language, 'guided.entry.resume')}
+                  </Text>
                   <Text style={{ fontSize: 12.5, fontWeight: '600', color: HG.purple, marginTop: 1 }} numberOfLines={1}>
-                    {getGuidedStepLabel(steps[resumeIndex])}
+                    {getGuidedStepLabel(steps[resumeIndex], language)}
                   </Text>
                 </View>
                 <GPIcon name="chevR" size={17} color={HG.purpleDark} />
@@ -942,16 +959,20 @@ export function GuidedPlayerScreen({
                 warmupDrills.length > 0
                   ? {
                       key: 'warmup',
-                      label: 'Warm-up',
-                      sub: `${warmupDrills.length} timed drills · ~${Math.max(1, Math.round(warmupSecondsTotal / 60))} min`,
+                      label: t(language, 'guided.phase.warmup'),
+                      sub: `${t(language, 'guided.count.timedDrills', { count: warmupDrills.length })} · ${t(language, 'guided.entry.duration', { min: Math.max(1, Math.round(warmupSecondsTotal / 60)) })}`,
                       rows: warmupDrills.map((drill) => ({ left: drill.name, right: formatDrillLength(drill.seconds) })),
                     }
                   : null,
                 workStart !== null
                   ? {
                       key: 'work',
-                      label: 'Workout',
-                      sub: `${activeExercises.length} exercises · ${totalSets} sets`,
+                      label: t(language, 'guided.phase.workout'),
+                      sub: `${
+                        activeExercises.length === 1
+                          ? t(language, 'guided.count.exerciseOne')
+                          : t(language, 'guided.count.exerciseMany', { count: activeExercises.length })
+                      } · ${t(language, 'guided.count.sets', { count: totalSets })}`,
                       rows: activeExercises.map((exercise) => ({
                         left: exercise.exerciseName,
                         right: `${exercise.sets.length} × ${formatRepRangeLabel(exercise.sets[0])}`,
@@ -961,8 +982,8 @@ export function GuidedPlayerScreen({
                 cooldownStart !== null
                   ? {
                       key: 'cooldown',
-                      label: 'Cooldown',
-                      sub: `${cooldownDrills.length} stretches · ${cooldownSecondsTotal < 90 ? `~${Math.round(cooldownSecondsTotal / 5) * 5} sec` : `~${Math.round(cooldownSecondsTotal / 60)} min`}`,
+                      label: t(language, 'guided.phase.cooldown'),
+                      sub: `${t(language, 'guided.count.stretchMany', { count: cooldownDrills.length })} · ${cooldownSecondsTotal < 90 ? `~${Math.round(cooldownSecondsTotal / 5) * 5} sec` : t(language, 'guided.entry.duration', { min: Math.round(cooldownSecondsTotal / 60) })}`,
                       rows: cooldownDrills.map((drill) => ({ left: drill.name, right: formatDrillLength(drill.seconds) })),
                     }
                   : null,
@@ -1017,7 +1038,7 @@ export function GuidedPlayerScreen({
 
             <Pressable style={styles.startCta} onPress={() => startAt(0)}>
               <GPIcon name="play" size={19} color="#fff" sw={2.5} />
-              <Text style={{ fontSize: 16.5, fontWeight: '800', color: '#fff' }}>Start session</Text>
+              <Text style={{ fontSize: 16.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.entry.start')}</Text>
             </Pressable>
           </View>
         </StepIn>
@@ -1027,7 +1048,7 @@ export function GuidedPlayerScreen({
         <>
           <TopBar
             dark={dark}
-            label={getGuidedPhaseLabel(step)}
+            label={getGuidedPhaseLabel(step, language)}
             muted={muted}
             onMute={() => onToggleSoundCues(!soundCuesEnabled)}
             onExit={() => setExitOpen(true)}
@@ -1046,7 +1067,9 @@ export function GuidedPlayerScreen({
                     </View>
                   </PopIn>
                 ) : null}
-                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: HG.muted }}>UP NEXT</Text>
+                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: HG.muted }}>
+                  {t(language, 'guided.upNext')}
+                </Text>
                 <Text style={styles.splashTitle}>{step.title}</Text>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: HG.muted }}>{step.sub}</Text>
               </Pressable>
@@ -1056,7 +1079,9 @@ export function GuidedPlayerScreen({
           {step.type === 'ready' && (
             <StepIn stepKey={`ready-${stepIndex}`}>
               <View style={styles.splashRoot}>
-                <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2, color: HG.purple }}>GET READY</Text>
+                <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2, color: HG.purple }}>
+                  {t(language, 'guided.getReady')}
+                </Text>
                 <PopIn popKey={Math.max(1, Math.ceil(secondsLeft))}>
                   <Text style={styles.readyDigit}>{Math.max(1, Math.ceil(secondsLeft))}</Text>
                 </PopIn>
@@ -1077,6 +1102,7 @@ export function GuidedPlayerScreen({
                   name={step.drillName}
                   cue={null}
                   hasHowTo={Boolean(libraryFor(step.drillName)?.instructions?.length)}
+                  language={language}
                   onHow={() => setHowtoOpen(true)}
                 />
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 0 }}>
@@ -1089,7 +1115,7 @@ export function GuidedPlayerScreen({
                     {formatGuidedCountdown(secondsLeft)}
                   </Text>
                   <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: HG.muted, marginTop: 6 }}>
-                    SECONDS LEFT
+                    {t(language, 'guided.secondsLeft')}
                   </Text>
                 </View>
                 <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 22, paddingBottom: 12 }}>
@@ -1103,7 +1129,7 @@ export function GuidedPlayerScreen({
                   />
                   <CtrlBtn
                     icon={paused ? 'play' : 'pause'}
-                    label={paused ? 'Resume' : 'Pause'}
+                    label={t(language, paused ? 'guided.resume' : 'guided.pause')}
                     big
                     onPress={() => {
                       if (paused) {
@@ -1114,9 +1140,9 @@ export function GuidedPlayerScreen({
                       }
                     }}
                   />
-                  <CtrlBtn icon="skip" label="Skip" onPress={skipCurrent} />
+                  <CtrlBtn icon="skip" label={t(language, 'guided.skip')} onPress={skipCurrent} />
                 </View>
-                <NextLine text={nextPreview?.line ?? null} dark={false} />
+                <NextLine text={nextPreview?.line ?? null} dark={false} language={language} />
               </View>
             </StepIn>
           )}
@@ -1127,7 +1153,7 @@ export function GuidedPlayerScreen({
                 <MediaZone name={step.exerciseName} library={exerciseLibrary} height={300} mode="position" />
                 <View style={{ height: 16 }} />
                 <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: HG.purple, textAlign: 'center' }}>
-                  GET INTO POSITION
+                  {t(language, 'guided.getIntoPosition')}
                 </Text>
                 <View style={{ height: 6 }} />
                 <NameBlock
@@ -1137,22 +1163,23 @@ export function GuidedPlayerScreen({
                   hasHowTo={
                     Boolean(libraryFor(step.exerciseName)?.instructions?.length) && !hasExercise3D(step.exerciseName)
                   }
+                  language={language}
                   onHow={() => setHowtoOpen(true)}
                 />
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: HG.muted }}>First set</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: HG.muted }}>{t(language, 'guided.firstSet')}</Text>
                   <Text style={styles.positionTarget}>
                     {(() => {
                       const target = resolveTarget(step.slotId, 0);
-                      return target ? formatGuidedTarget(target) : '';
+                      return target ? formatGuidedTarget(target, language) : '';
                     })()}
                   </Text>
                   <Text style={{ fontSize: 13.5, fontWeight: '700', color: HG.faint, marginTop: 8 }}>
-                    Starting in {formatGuidedCountdown(secondsLeft)}s…
+                    {t(language, 'guided.startingIn', { time: formatGuidedCountdown(secondsLeft) })}
                   </Text>
                 </View>
                 <View style={{ paddingHorizontal: 22, paddingBottom: 14 }}>
-                  <BigBtn label="I'm ready — start set" onPress={advance} />
+                  <BigBtn label={t(language, 'guided.imReady')} onPress={advance} />
                 </View>
               </View>
             </StepIn>
@@ -1166,6 +1193,7 @@ export function GuidedPlayerScreen({
               exercise={exerciseBySlot.get(step.slotId) ?? null}
               library={exerciseLibrary}
               libraryItem={libraryFor(step.exerciseName)}
+              language={language}
               resolveTarget={resolveTarget}
               nextLine={nextPreview?.line ?? null}
               onHow={() => setHowtoOpen(true)}
@@ -1181,17 +1209,21 @@ export function GuidedPlayerScreen({
             <StepIn stepKey={`rest-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
                 <View style={{ flex: 1.1, alignItems: 'center', justifyContent: 'flex-end', gap: 2 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: HG.purple }}>REST</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: HG.purple }}>
+                    {t(language, 'guided.rest')}
+                  </Text>
                   <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
                   {paused ? (
-                    <Text style={{ fontSize: 13, fontWeight: '800', color: HG.muted, letterSpacing: 1.6 }}>PAUSED</Text>
+                    <Text style={{ fontSize: 13, fontWeight: '800', color: HG.muted, letterSpacing: 1.6 }}>
+                      {t(language, 'guided.paused')}
+                    </Text>
                   ) : null}
                 </View>
                 <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: 24, gap: 12 }}>
                   {nextPreview ? (
                     <View style={styles.restNextCard}>
                       <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: HG.faint, marginBottom: 6 }}>
-                        UP NEXT
+                        {t(language, 'guided.upNext')}
                       </Text>
                       <Text style={{ fontSize: 17, fontWeight: '800', color: HG.ink }}>{nextPreview.title}</Text>
                       {nextPreview.sub ? (
@@ -1221,12 +1253,16 @@ export function GuidedPlayerScreen({
                       />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn icon={paused ? 'play' : 'pause'} label={paused ? 'Resume' : 'Pause'} onPress={() => setPaused((value) => !value)} />
+                      <GhostBtn
+                        icon={paused ? 'play' : 'pause'}
+                        label={t(language, paused ? 'guided.resume' : 'guided.pause')}
+                        onPress={() => setPaused((value) => !value)}
+                      />
                     </View>
                   </View>
                   <Pressable style={styles.skipRestBtn} onPress={advance}>
                     <GPIcon name="skip" size={18} color="#fff" />
-                    <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>Skip rest</Text>
+                    <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
                   </Pressable>
                 </View>
                 <ProgressRail
@@ -1265,6 +1301,7 @@ export function GuidedPlayerScreen({
           weekProgress={weekProgress}
           nextUp={nextUp}
           isSaving={isSavingWorkout}
+          language={language}
           onFinish={onFinishSession}
         />
       )}
@@ -1278,7 +1315,7 @@ export function GuidedPlayerScreen({
                 ? libraryFor(step.exerciseName)
                 : null
           }
-          fallbackName={getGuidedStepLabel(step)}
+          fallbackName={getGuidedStepLabel(step, language)}
           onClose={() => {
             setHowtoOpen(false);
           }}
@@ -1287,13 +1324,13 @@ export function GuidedPlayerScreen({
 
       {exitOpen && (
         <GPSheet onClose={() => setExitOpen(false)}>
-          <Text style={styles.sheetTitle}>Leave guided mode?</Text>
+          <Text style={styles.sheetTitle}>{t(language, 'guided.exit.title')}</Text>
           <View style={{ gap: 10 }}>
-            <BigBtn label="Keep training" onPress={() => setExitOpen(false)} />
-            <GhostBtn icon="list" label="Switch to list view" onPress={onSwitchToListView} />
-            <GhostBtn icon="x" label="End session" onPress={handleEndSession} />
+            <BigBtn label={t(language, 'guided.exit.keep')} onPress={() => setExitOpen(false)} />
+            <GhostBtn icon="list" label={t(language, 'guided.exit.list')} onPress={onSwitchToListView} />
+            <GhostBtn icon="x" label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
           </View>
-          <Text style={styles.sheetFootnote}>List view keeps your progress — same session, table layout.</Text>
+          <Text style={styles.sheetFootnote}>{t(language, 'guided.exit.footnote')}</Text>
         </GPSheet>
       )}
 
@@ -1304,10 +1341,10 @@ export function GuidedPlayerScreen({
             setPaused(false);
           }}
         >
-          <Text style={styles.sheetTitle}>Paused</Text>
+          <Text style={styles.sheetTitle}>{t(language, 'guided.pauseSheet.title')}</Text>
           <View style={{ gap: 10 }}>
             <BigBtn
-              label="Resume"
+              label={t(language, 'guided.resume')}
               color={HG.purple}
               onPress={() => {
                 setPauseSheetOpen(false);
@@ -1316,10 +1353,10 @@ export function GuidedPlayerScreen({
             />
             <View style={{ flexDirection: 'row', gap: 10 }}>
               <View style={{ flex: 1 }}>
-                <GhostBtn icon="back" label="Back one" onPress={backOne} />
+                <GhostBtn icon="back" label={t(language, 'guided.pauseSheet.backOne')} onPress={backOne} />
               </View>
               <View style={{ flex: 1 }}>
-                <GhostBtn icon="skip" label="Skip this" onPress={skipCurrent} />
+                <GhostBtn icon="skip" label={t(language, 'guided.pauseSheet.skipThis')} onPress={skipCurrent} />
               </View>
             </View>
           </View>
@@ -1370,6 +1407,7 @@ function SetStepView({
   exercise,
   library,
   libraryItem,
+  language,
   resolveTarget,
   nextLine,
   onHow,
@@ -1381,6 +1419,7 @@ function SetStepView({
   exercise: WorkoutExerciseInstance | null;
   library: ExerciseLibraryItem[];
   libraryItem: ExerciseLibraryItem | null;
+  language: AppLanguage;
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
   nextLine: string | null;
   onHow: () => void;
@@ -1407,8 +1446,8 @@ function SetStepView({
       : null;
 
   const confirmLabel = bodyweight
-    ? `Log set — ${reps} reps`
-    : `Log set — ${reps} × ${removeTrailingZeros(kg)} kg`;
+    ? t(language, 'guided.logSetReps', { reps })
+    : t(language, 'guided.logSetWeight', { reps, kg: removeTrailingZeros(kg) });
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
@@ -1417,11 +1456,14 @@ function SetStepView({
         <View style={{ height: 14 }} />
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 1.6, color: HG.purple }}>
-            SET {step.setIndex + 1} OF {step.setCount}
+            {t(language, 'guided.setOfCount', { index: step.setIndex + 1, count: step.setCount })}
           </Text>
           {previous ? (
             <Text style={{ fontSize: 12, fontWeight: '800', color: HG.green, marginTop: 4 }}>
-              Previous set ✓ {previous.actualReps} × {removeTrailingZeros(previous.actualLoadKg ?? 0)} kg
+              {t(language, 'guided.previousSet', {
+                reps: previous.actualReps ?? 0,
+                kg: removeTrailingZeros(previous.actualLoadKg ?? 0),
+              })}
             </Text>
           ) : null}
         </View>
@@ -1431,6 +1473,7 @@ function SetStepView({
           cue={buildCueLine(libraryItem)}
           // Exercises with a 3D rig teach the movement inside that sheet.
           hasHowTo={Boolean(libraryItem?.instructions?.length) && !hasExercise3D(step.exerciseName)}
+          language={language}
           onHow={onHow}
         />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 14, minHeight: 0, paddingHorizontal: 22 }}>
@@ -1438,7 +1481,7 @@ function SetStepView({
             <>
               <View style={styles.doRow}>
                 <SpinningClock />
-                <Text style={styles.doLabel}>DO</Text>
+                <Text style={styles.doLabel}>{t(language, 'guided.do')}</Text>
               </View>
               <Pressable onPress={() => setEdit(true)} style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12 }}>
                 <View style={styles.targetUnderline}>
@@ -1460,11 +1503,13 @@ function SetStepView({
           ) : (
             <View style={{ alignSelf: 'stretch', gap: 16 }}>
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Stepper label="REPS" value={reps} step={1} min={1} onChange={setReps} />
-                {!bodyweight ? <Stepper label="WEIGHT" value={kg} unit="kg" step={2.5} min={0} onChange={setKg} /> : null}
+                <Stepper label={t(language, 'guided.reps')} value={reps} step={1} min={1} onChange={setReps} />
+                {!bodyweight ? (
+                  <Stepper label={t(language, 'guided.weight')} value={kg} unit="kg" step={2.5} min={0} onChange={setKg} />
+                ) : null}
               </View>
               <Pressable onPress={() => setEdit(false)} hitSlop={10} style={{ alignSelf: 'center' }}>
-                <Text style={{ fontSize: 13.5, fontWeight: '800', color: HG.purple }}>‹ Back</Text>
+                <Text style={{ fontSize: 13.5, fontWeight: '800', color: HG.purple }}>{t(language, 'guided.back')}</Text>
               </Pressable>
             </View>
           )}
@@ -1473,14 +1518,14 @@ function SetStepView({
           <BigBtn label={confirmLabel} onPress={() => onConfirm(step.slotId, step.setIndex, reps, bodyweight ? null : kg)} />
           {!edit ? (
             <Text style={{ textAlign: 'center', fontSize: 12.5, fontWeight: '700', color: HG.faint }}>
-              Tap the numbers to adjust
+              {t(language, 'guided.tapNumbers')}
             </Text>
           ) : null}
         </View>
         <View style={{ alignItems: 'center', paddingBottom: 8 }}>
-          <CtrlBtn icon="pause" label="Pause" onPress={onPause} />
+          <CtrlBtn icon="pause" label={t(language, 'guided.pause')} onPress={onPause} />
         </View>
-        <NextLine text={nextLine} dark={false} />
+        <NextLine text={nextLine} dark={false} language={language} />
       </View>
     </StepIn>
   );
@@ -1495,6 +1540,7 @@ function FinishView({
   weekProgress,
   nextUp,
   isSaving,
+  language,
   onFinish,
 }: {
   sessionTitle: string;
@@ -1504,6 +1550,7 @@ function FinishView({
   weekProgress: GuidedWeekProgress | null;
   nextUp: GuidedNextUp | null;
   isSaving: boolean;
+  language: AppLanguage;
   onFinish: () => void;
 }) {
   const completedSets = exercises.flatMap((exercise) => exercise.sets.filter((set) => set.status === 'completed'));
@@ -1525,7 +1572,7 @@ function FinishView({
     }
     return best > 0 ? best : null;
   });
-  const coach = buildGuidedCoachMessage({ pr, topSet: findGuidedTopSet(exercises) });
+  const coach = buildGuidedCoachMessage({ pr, topSet: findGuidedTopSet(exercises) }, language);
 
   const weekSegments = weekProgress ? Math.max(weekProgress.target, weekProgress.done, 1) : 0;
 
@@ -1561,18 +1608,20 @@ function FinishView({
                 ))}
               </View>
               <Text style={{ fontSize: 13.5, fontWeight: '700', color: GPD.ink, marginTop: 10 }}>
-                {weekProgress.done} session{weekProgress.done === 1 ? '' : 's'} toward this week's goal
+                {weekProgress.done === 1
+                  ? t(language, 'guided.finish.towardGoalOne')
+                  : t(language, 'guided.finish.towardGoalMany', { count: weekProgress.done })}
               </Text>
             </View>
           ) : null}
 
-          <Text style={styles.finishTitle}>{sessionTitle} — done</Text>
+          <Text style={styles.finishTitle}>{t(language, 'guided.finish.title', { title: sessionTitle })}</Text>
 
           {pr ? (
             <View style={[styles.finishCard, { alignItems: 'center' }]}>
               <View style={styles.prPill}>
                 <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.amber }}>
-                  🏆 NEW RECORD
+                  {t(language, 'guided.finish.newRecord')}
                 </Text>
               </View>
               <PopIn popKey="pr">
@@ -1592,9 +1641,9 @@ function FinishView({
 
           <View style={[styles.finishCard, { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 14 }]}>
             {[
-              { value: durationLabel, label: 'DURATION' },
-              { value: `${completedSets.length}`, label: 'SETS' },
-              { value: `${Math.round(volumeKg)} kg`, label: 'VOLUME' },
+              { value: durationLabel, label: t(language, 'guided.finish.duration') },
+              { value: `${completedSets.length}`, label: t(language, 'guided.finish.sets') },
+              { value: `${Math.round(volumeKg)} kg`, label: t(language, 'guided.finish.volume') },
             ].map((stat) => (
               <View key={stat.label} style={{ flex: 1, alignItems: 'center' }}>
                 <Text style={{ fontSize: 19, fontWeight: '800', color: GPD.ink }}>{stat.value}</Text>
@@ -1606,7 +1655,9 @@ function FinishView({
           </View>
 
           <View style={styles.finishCard}>
-            <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.purple }}>COACH</Text>
+            <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.purple }}>
+              {t(language, 'guided.finish.coach')}
+            </Text>
             <Text style={{ fontSize: 14.5, fontWeight: '800', color: GPD.ink, marginTop: 6, lineHeight: 21 }}>
               {coach.message}
             </Text>
@@ -1618,7 +1669,9 @@ function FinishView({
           {nextUp ? (
             <View style={styles.finishCard}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.green }}>NEXT UP</Text>
+                <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.green }}>
+                  {t(language, 'guided.finish.nextUp')}
+                </Text>
                 <Text style={{ fontSize: 11.5, fontWeight: '800', color: GPD.muted }}>{nextUp.weekday.toUpperCase()}</Text>
               </View>
               <Text style={{ fontSize: 15.5, fontWeight: '800', color: GPD.ink, marginTop: 6 }}>{nextUp.name}</Text>
@@ -1628,14 +1681,14 @@ function FinishView({
 
         <View style={styles.finishFooter}>
           <Pressable style={styles.finishGhostBtn} onPress={isSaving ? undefined : onFinish}>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: GPD.ink }}>Done</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: GPD.ink }}>{t(language, 'guided.finish.done')}</Text>
           </Pressable>
           <Pressable
             style={[styles.finishContinueBtn, { opacity: isSaving ? 0.6 : 1 }]}
             onPress={isSaving ? undefined : onFinish}
           >
             <Text style={{ fontSize: 15, fontWeight: '800', color: '#0C2A1C' }}>
-              {isSaving ? 'Saving…' : 'Continue →'}
+              {t(language, isSaving ? 'guided.finish.saving' : 'guided.finish.continue')}
             </Text>
           </Pressable>
         </View>
