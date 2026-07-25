@@ -18,6 +18,10 @@ const iconSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'GymlogIcon.tsx'),
   'utf8',
 );
+const i18nSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'),
+  'utf8',
+);
 
 function getFunctionBody(name) {
   const start = onboardingSource.indexOf(`function ${name}()`);
@@ -104,7 +108,7 @@ module.exports = [
       assert.match(progressionBody, /"Off — you'll manage these yourself\."/);
       assert.match(progressionBody, /accessibilityRole="switch"/);
       assert.match(progressionBody, /setAutomatedProgressionEnabled\(\(current\) => !current\)/);
-      assert.match(progressionBody, /PROGRESSION_BULLETS\.map/);
+      assert.match(progressionBody, /PROGRESSION_BULLET_KEYS\.map/);
       assert.match(progressionBody, /styles\.progressionCardOn/);
       assert.match(progressionBody, /styles\.progressionBulletTextOff/);
       assert.match(progressionBody, /You can change this anytime in Settings\./);
@@ -172,7 +176,8 @@ module.exports = [
       assert.match(onboardingSource, /const ONBOARDING_PROGRESS_STAGES: SetupStage\[\] = \['location', 'goal', 'level', 'days', 'avoid', 'planning'\]/);
       assert.match(onboardingSource, /ONBOARDING_PROGRESS_STAGES\.map/);
       // STEP n OF m labels are computed from the stage array, never hardcoded.
-      assert.match(onboardingSource, /function getQuestionnaireStepLabel\(stage: SetupStage\)/);
+      assert.match(onboardingSource, /function getQuestionnaireStepLabel\(stage: SetupStage, language: AppLanguage\)/);
+      assert.match(i18nSource, /'onb\.stepLabel': 'STEP \{index\} OF \{count\}'/);
       assert.doesNotMatch(onboardingSource, /stepLabel: 'STEP \d OF \d'/);
       // Focus areas is the last question; building starts straight from it.
       assert.match(footerBody, /stage === 'planning'[\s\S]*'Build my plan'/);
@@ -189,8 +194,8 @@ module.exports = [
       assert.notEqual(rowEnd, -1, 'renderCautionRow should be followed by renderAvoid');
       const rowBody = onboardingSource.slice(rowStart, rowEnd);
 
-      assert.match(avoidBody, /stepLabel: getQuestionnaireStepLabel\('avoid'\)/);
-      assert.match(avoidBody, /titleLines: \['Anything we', 'should avoid\?'\]/);
+      assert.match(avoidBody, /stepLabel: getQuestionnaireStepLabel\('avoid', language\)/);
+      assert.match(avoidBody, /titleLines: \[t\(language, 'onb\.stage\.avoid\.title1'\), t\(language, 'onb\.stage\.avoid\.title2'\)\]/);
       assert.match(avoidBody, /AVOID_AREA_OPTIONS\.map/);
       assert.match(avoidBody, /Add something else/);
       assert.match(avoidBody, /Nothing to note/);
@@ -203,10 +208,14 @@ module.exports = [
       assert.match(rowBody, /CAUTION_LEVEL_OPTIONS\.map/);
       assert.match(rowBody, /setCautionLevel\(option\.area, levelOption\.level\)/);
       assert.match(rowBody, /toggleCautionRefinement\(option\.area, refinement\)/);
-      assert.match(rowBody, /REFINE/);
-      assert.match(onboardingSource, /For info only/);
-      assert.match(onboardingSource, /Be careful/);
-      assert.match(onboardingSource, /Avoid entirely/);
+      assert.match(rowBody, /t\(language, 'onb\.avoid\.refine'\)/);
+      // Copy lives in the dictionary; the catalog carries the keys.
+      assert.match(onboardingSource, /labelKey: 'onb\.caution\.info\.label'/);
+      assert.match(onboardingSource, /labelKey: 'onb\.caution\.careful\.label'/);
+      assert.match(onboardingSource, /labelKey: 'onb\.caution\.avoid\.label'/);
+      assert.match(i18nSource, /'onb\.caution\.info\.label': 'For info only'/);
+      assert.match(i18nSource, /'onb\.caution\.careful\.label': 'Be careful'/);
+      assert.match(i18nSource, /'onb\.caution\.avoid\.label': 'Avoid entirely'/);
 
       // CTA reads Skip until something is flagged; flags persist to prefs.
       assert.match(onboardingSource, /stage === 'avoid'\s*\r?\n?\s*\? cautionFlags\.length > 0\s*\r?\n?\s*\? 'Continue'\s*\r?\n?\s*: 'Skip'/);
@@ -219,13 +228,13 @@ module.exports = [
     run() {
       const locationBody = getFunctionBody('renderLocation');
 
-      assert.match(locationBody, /titleLines: \['What can you', 'train with\?'\]/);
+      assert.match(locationBody, /titleLines: \[t\(language, 'onb\.stage\.location\.title1'\), t\(language, 'onb\.stage\.location\.title2'\)\]/);
       assert.doesNotMatch(locationBody, /Where do you train\?/);
       // Selected setup expands into toggle chips with a live count; the other
       // setups collapse into compact rows under OR CHOOSE ANOTHER.
       assert.match(locationBody, /EQUIPMENT_CHIP_CATALOG\[selectedSetup\.id\]/);
-      assert.match(locationBody, /\$\{equipmentItems\.length\} selected/);
-      assert.match(locationBody, /OR CHOOSE ANOTHER/);
+      assert.match(locationBody, /t\(language, 'onb\.equip\.selectedCount', \{ count: equipmentItems\.length \}\)/);
+      assert.match(locationBody, /t\(language, 'onb\.equip\.orChoose'\)/);
       assert.match(locationBody, /toggleEquipmentItem\(selectedSetup, item\)/);
       assert.match(locationBody, /compact/);
       assert.match(onboardingSource, /const EQUIPMENT_CHIP_CATALOG/);
@@ -269,9 +278,10 @@ module.exports = [
     run() {
       const goalBody = getFunctionBody('renderGoal');
 
-      assert.match(goalBody, /stepLabel: getQuestionnaireStepLabel\('goal'\)/);
-      assert.match(goalBody, /titleLines: \['What do you', 'want most\?'\]/);
-      assert.match(goalBody, /We'll build your training around this\./);
+      assert.match(goalBody, /stepLabel: getQuestionnaireStepLabel\('goal', language\)/);
+      assert.match(goalBody, /titleLines: \[t\(language, 'onb\.stage\.goal\.title1'\), t\(language, 'onb\.stage\.goal\.title2'\)\]/);
+      assert.match(goalBody, /subtitle: t\(language, 'onb\.stage\.goal\.sub'\)/);
+      assert.match(i18nSource, /'onb\.stage\.goal\.sub': "We'll build your training around this\."/);
       assert.match(goalBody, /renderSplitSelectionStage\(\{/);
       assert.match(goalBody, /roomyCards: true/);
       assert.doesNotMatch(goalBody, /compactCards: true/);
@@ -280,7 +290,7 @@ module.exports = [
       assert.match(goalBody, /titleStyleOverride: styles\.locationEquipmentHeadline/);
       assert.match(goalBody, /active: goal === option\.id/);
       assert.doesNotMatch(goalBody, /goals\.includes\(option\.id\)/);
-      assert.match(onboardingSource, /title: 'Get stronger'/);
+      assert.match(onboardingSource, /titleKey: 'onb\.goal\.strength\.title'/);
       assert.match(onboardingSource, /goal: 'lean_athletic'/);
       assert.match(onboardingSource, /goal: 'general_fitness'/);
       assert.match(onboardingSource, /getLocationFocusBadgeStyle\(tag\.tone\)/);
@@ -297,9 +307,10 @@ module.exports = [
       const levelBody = getFunctionBody('renderLevel');
       const daysBody = getFunctionBody('renderDays');
 
-      assert.match(levelBody, /stepLabel: getQuestionnaireStepLabel\('level'\)/);
-      assert.match(levelBody, /titleLines: \['Training level'\]/);
-      assert.match(levelBody, /How much training experience do you have\?/);
+      assert.match(levelBody, /stepLabel: getQuestionnaireStepLabel\('level', language\)/);
+      assert.match(levelBody, /titleLines: \[t\(language, 'onb\.stage\.level\.title1'\)\]/);
+      assert.match(levelBody, /subtitle: t\(language, 'onb\.stage\.level\.sub'\)/);
+      assert.match(i18nSource, /'onb\.stage\.level\.sub': 'How much training experience do you have\?'/);
       // Slider with three stops, live descriptor lines, and flames that pop
       // and scale with the chosen level around the GAINER wordmark.
       assert.match(levelBody, /LEVEL_SLIDER_OPTIONS\.map/);
@@ -307,12 +318,14 @@ module.exports = [
       assert.match(levelBody, /levelThumbAnim/);
       assert.match(levelBody, /levelFlamePop/);
       assert.match(levelBody, /<AnimatedFlame/);
-      assert.match(levelBody, /selectedLevelOption\.lines\.map/);
+      assert.match(levelBody, /selectedLevelOption\.lineKeys\.map/);
       assert.doesNotMatch(levelBody, /GENDER_OPTIONS/);
       assert.doesNotMatch(levelBody, /TRAINING_FREQUENCY_OPTIONS/);
       // SetupLevel and the UI share the same tier names: beginner/advanced/pro.
-      assert.match(onboardingSource, /level: 'advanced',\s*\r?\n\s*label: 'Advanced'/);
-      assert.match(onboardingSource, /level: 'pro',\s*\r?\n\s*label: 'Pro'/);
+      assert.match(onboardingSource, /level: 'advanced',\s*\r?\n\s*labelKey: 'onb\.level\.advanced\.label'/);
+      assert.match(onboardingSource, /level: 'pro',\s*\r?\n\s*labelKey: 'onb\.level\.pro\.label'/);
+      assert.match(i18nSource, /'onb\.level\.advanced\.label': 'Advanced'/);
+      assert.match(i18nSource, /'onb\.level\.pro\.label': 'Pro'/);
       assert.match(onboardingSource, /const LEVEL_FLAME_LAYOUTS/);
       assert.match(onboardingSource, /function FlameGlyph\(/);
       // Flames flicker on their own rhythm and burn red, with year-range
@@ -320,11 +333,12 @@ module.exports = [
       assert.match(onboardingSource, /function AnimatedFlame\(/);
       assert.match(onboardingSource, /const FLAME_RED = '#EF4444'/);
       assert.match(levelBody, /levelYearsRow/);
-      assert.match(onboardingSource, /years: '0–1 years'/);
+      assert.match(i18nSource, /'onb\.level\.beginner\.years': '0–1 years'/);
 
-      assert.match(daysBody, /stepLabel: getQuestionnaireStepLabel\('days'\)/);
-      assert.match(daysBody, /titleLines: \['Training days'\]/);
-      assert.match(daysBody, /How many days per week can you train\?/);
+      assert.match(daysBody, /stepLabel: getQuestionnaireStepLabel\('days', language\)/);
+      assert.match(daysBody, /titleLines: \[t\(language, 'onb\.stage\.days\.title1'\)\]/);
+      assert.match(daysBody, /subtitle: t\(language, 'onb\.stage\.days\.sub'\)/);
+      assert.match(i18nSource, /'onb\.stage\.days\.sub': 'How many days per week can you train\?'/);
       // Number chips 2-6 on top (recommended flagged by level) and a tappable
       // Mon-Sun letter row below that drives the count both ways.
       assert.match(daysBody, /TRAINING_DAY_COUNT_OPTIONS\.map/);
@@ -354,8 +368,8 @@ module.exports = [
     run() {
       const planningBody = getFunctionBody('renderPlanning');
 
-      assert.match(planningBody, /stepLabel: getQuestionnaireStepLabel\('planning'\)/);
-      assert.match(planningBody, /titleLines: \['What do you', 'want to focus on\?'\]/);
+      assert.match(planningBody, /stepLabel: getQuestionnaireStepLabel\('planning', language\)/);
+      assert.match(planningBody, /titleLines: \[t\(language, 'onb\.stage\.focus\.title1'\), t\(language, 'onb\.stage\.focus\.title2'\)\]/);
       assert.match(planningBody, /FOCUS_AREA_OPTIONS\.filter\(\(option\) => option\.area !== 'mobility'\)/);
       // Name-only selectable rows, tap-to-fill like the goal step; 1-2 picks.
       assert.match(planningBody, /visibleFocusOptions\.map/);
@@ -394,9 +408,6 @@ module.exports = [
 
       // Light welcome: plan-focused copy now lives in the i18n dictionary and
       // the screen renders every string through t(language, …).
-      const fs = require('node:fs');
-      const path = require('node:path');
-      const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
       assert.match(i18nSource, /You go to the gym\./);
       assert.match(i18nSource, /We handle the rest\./);
       assert.match(i18nSource, /Continue with Google/);

@@ -201,6 +201,149 @@ const EN = {
   'health.synced.row.dob': 'Date of birth',
   'health.synced.editNote': 'Something off? You can edit all of these on the next screen.',
 
+  // ── Setup questionnaire: option catalogs ───────────────────────────────
+  // Equipment items and caution refinements are stored as their English text,
+  // so those keys translate the label only — the stored id never moves.
+  'onb.goal.strength.title': 'Get stronger',
+  'onb.goal.strength.body': 'Focus on heavy lifts and progressive strength.',
+  'onb.goal.strength.tag1': 'Lower reps',
+  'onb.goal.strength.tag2': 'Longer rest',
+  'onb.goal.strength.tag3': 'Strength focus',
+  'onb.goal.muscle.title': 'Build muscle',
+  'onb.goal.muscle.body': 'Higher volume training to build size and definition.',
+  'onb.goal.muscle.tag1': 'Hypertrophy',
+  'onb.goal.muscle.tag2': 'Moderate reps',
+  'onb.goal.muscle.tag3': 'More volume',
+  'onb.goal.lean_athletic.title': 'Lean & athletic',
+  'onb.goal.lean_athletic.body': 'Stay lean while building strength and performance.',
+  'onb.goal.lean_athletic.tag1': 'Hybrid training',
+  'onb.goal.lean_athletic.tag2': 'Conditioning',
+  'onb.goal.lean_athletic.tag3': 'Lower fatigue',
+  'onb.goal.general_fitness.title': 'General fitness',
+  'onb.goal.general_fitness.body': 'Balanced training for overall health and consistency.',
+  'onb.goal.general_fitness.tag1': 'Beginner friendly',
+  'onb.goal.general_fitness.tag2': 'Sustainable',
+  'onb.goal.general_fitness.tag3': 'Flexible',
+
+  'onb.level.beginner.label': 'Beginner',
+  'onb.level.beginner.years': '0–1 years',
+  'onb.level.beginner.line1': 'New to lifting or returning after a break.',
+  'onb.level.beginner.line2': 'We keep form simple and progress steady.',
+  'onb.level.advanced.label': 'Advanced',
+  'onb.level.advanced.years': '1–3 years',
+  'onb.level.advanced.line1': 'Trained consistently for a year or more.',
+  'onb.level.advanced.line2': 'You know the main lifts and want structure.',
+  'onb.level.pro.label': 'Pro',
+  'onb.level.pro.years': '3–5+ years',
+  'onb.level.pro.line1': 'Years of serious training behind you.',
+  'onb.level.pro.line2': 'Higher volume and intensity - we push the pace.',
+
+  'onb.stepLabel': 'STEP {index} OF {count}',
+
+  // Stage headings. Each title is a pair of lines the shell stacks.
+  'onb.stage.location.title1': 'What can you',
+  'onb.stage.location.title2': 'train with?',
+  'onb.stage.goal.title1': 'What do you',
+  'onb.stage.goal.title2': 'want most?',
+  'onb.stage.goal.sub': "We'll build your training around this.",
+  'onb.stage.level.title1': 'Training level',
+  'onb.stage.level.sub': 'How much training experience do you have?',
+  'onb.stage.days.title1': 'Training days',
+  'onb.stage.days.sub': 'How many days per week can you train?',
+  'onb.stage.avoid.title1': 'Anything we',
+  'onb.stage.avoid.title2': 'should avoid?',
+  'onb.stage.avoid.sub': 'Flag a body part and we train around it. Optional.',
+  'onb.stage.focus.title1': 'What do you',
+  'onb.stage.focus.title2': 'want to focus on?',
+
+  'onb.level.a11y': '{label} training level',
+  'onb.level.hintChosen': 'You can change this anytime.',
+  'onb.level.hintPick': 'Pick the level that sounds like you.',
+
+  'onb.area.shoulders': 'Shoulders',
+  'onb.area.lower_back': 'Lower back',
+  'onb.area.knees': 'Knees',
+  'onb.area.elbows': 'Elbows',
+  'onb.area.wrists': 'Wrists',
+  'onb.area.hips': 'Hips',
+  'onb.area.neck': 'Neck',
+  'onb.area.ankles': 'Ankles',
+
+  'onb.caution.summary.line': 'Trains around: {parts}',
+  'onb.caution.summary.leftOut': '{area} left out',
+  'onb.caution.summary.friendly': '{area} joint-friendly',
+
+  'onb.avoid.refine': 'REFINE',
+  'onb.avoid.remove': 'Remove',
+  'onb.avoid.a11y.flagged': '{area}, flagged: {level}',
+  'onb.avoid.a11y.remove': 'Remove {area} flag',
+
+  'onb.caution.info.label': 'For info only',
+  'onb.caution.info.body': "We'll keep it in mind.",
+  'onb.caution.careful.label': 'Be careful',
+  'onb.caution.careful.body': 'Joint-friendly swaps for this area.',
+  'onb.caution.avoid.label': 'Avoid entirely',
+  'onb.caution.avoid.body': 'We leave this area out of your plan.',
+
+  'onb.refine.Old injury': 'Old injury',
+  'onb.refine.Chronic pain': 'Chronic pain',
+  'onb.refine.Recent surgery': 'Recent surgery',
+  'onb.refine.Impingement': 'Impingement',
+  'onb.refine.Limited mobility': 'Limited mobility',
+  'onb.refine.Lower-back pain': 'Lower-back pain',
+  'onb.refine.Disc issues': 'Disc issues',
+  'onb.refine.Knee pain': 'Knee pain',
+  'onb.refine.Post-surgery': 'Post-surgery',
+  'onb.refine.Tennis elbow': 'Tennis elbow',
+  'onb.refine.Tendon pain': 'Tendon pain',
+  'onb.refine.Wrist pain': 'Wrist pain',
+  'onb.refine.Hip pain': 'Hip pain',
+  'onb.refine.Neck pain': 'Neck pain',
+  'onb.refine.Ankle pain': 'Ankle pain',
+  'onb.refine.Instability': 'Instability',
+
+  'onb.guidance.done_for_me.title': 'Keep it simple for me',
+  'onb.guidance.done_for_me.body': 'One ready plan.',
+  'onb.guidance.guided_editable.title': 'Recommend, then edit',
+  'onb.guidance.guided_editable.body': 'Start, then tweak.',
+  'onb.guidance.self_directed.title': 'I want to build it myself',
+  'onb.guidance.self_directed.body': 'Start from a base.',
+
+  'onb.schedule.app_managed.title': 'Plan it for me',
+  'onb.schedule.app_managed.body': 'GAINER places the week.',
+  'onb.schedule.self_managed.title': "I'll manage the days",
+  'onb.schedule.self_managed.body': 'You pick the days.',
+
+  'onb.location.full_gym.label': 'Full Gym',
+  'onb.location.full_gym.subtitle': 'Commercial gym access with machines, barbells and dumbbells.',
+  'onb.location.full_gym.badge': 'MOST FLEXIBLE',
+  'onb.location.home_gym.label': 'Home equipment',
+  'onb.location.home_gym.subtitle': 'Train at home with the gear you have.',
+  'onb.location.bodyweight_only.label': 'Bodyweight only',
+  'onb.location.bodyweight_only.subtitle': 'No equipment needed. Train anywhere.',
+  'onb.location.bodyweight_only.badge': 'BEGINNER FRIENDLY',
+
+  'onb.equip.Barbells': 'Barbells',
+  'onb.equip.Dumbbells': 'Dumbbells',
+  'onb.equip.Machines': 'Machines',
+  'onb.equip.Cables': 'Cables',
+  'onb.equip.Squat rack': 'Squat rack',
+  'onb.equip.Bench': 'Bench',
+  'onb.equip.Kettlebells': 'Kettlebells',
+  'onb.equip.Cardio machines': 'Cardio machines',
+  'onb.equip.Barbell & plates': 'Barbell & plates',
+  'onb.equip.Resistance bands': 'Resistance bands',
+  'onb.equip.Pull-up bar': 'Pull-up bar',
+  'onb.equip.Yoga mat': 'Yoga mat',
+
+  'onb.equip.prompt': 'Toggle what you actually have:',
+  'onb.equip.orChoose': 'OR CHOOSE ANOTHER',
+  'onb.equip.selectedCount': '{count} selected',
+
+  'onb.progression.b1': 'Next sessions start from your logged sets',
+  'onb.progression.b2': 'Effort feedback tunes rest and the next set with Adaptive Coach',
+  'onb.progression.b3': 'Change this anytime in Plan settings',
+
   // ── Body parts (library enum → display label) ──────────────────────────
   'bodyPart.chest': 'Chest',
   'bodyPart.back': 'Back',
@@ -754,6 +897,145 @@ const FI: Record<I18nKey, string> = {
   'health.synced.row.dob': 'Syntymäaika',
   'health.synced.editNote': 'Jokin pielessä? Voit muokata kaikkia näitä seuraavalla ruudulla.',
 
+  'onb.goal.strength.title': 'Tule vahvemmaksi',
+  'onb.goal.strength.body': 'Keskity raskaisiin nostoihin ja voiman kasvuun.',
+  'onb.goal.strength.tag1': 'Vähemmän toistoja',
+  'onb.goal.strength.tag2': 'Pidemmät levot',
+  'onb.goal.strength.tag3': 'Voimapainotus',
+  'onb.goal.muscle.title': 'Kasvata lihasta',
+  'onb.goal.muscle.body': 'Enemmän volyymia koon ja muodon rakentamiseen.',
+  'onb.goal.muscle.tag1': 'Hypertrofia',
+  'onb.goal.muscle.tag2': 'Keskitoistot',
+  'onb.goal.muscle.tag3': 'Enemmän volyymia',
+  'onb.goal.lean_athletic.title': 'Kiinteä & atleettinen',
+  'onb.goal.lean_athletic.body': 'Pysy kiinteänä ja rakenna samalla voimaa ja suorituskykyä.',
+  'onb.goal.lean_athletic.tag1': 'Hybriditreeni',
+  'onb.goal.lean_athletic.tag2': 'Kunto',
+  'onb.goal.lean_athletic.tag3': 'Vähemmän kuormaa',
+  'onb.goal.general_fitness.title': 'Yleiskunto',
+  'onb.goal.general_fitness.body': 'Tasapainoista treeniä terveyden ja säännöllisyyden vuoksi.',
+  'onb.goal.general_fitness.tag1': 'Aloittelijaystävällinen',
+  'onb.goal.general_fitness.tag2': 'Kestävä',
+  'onb.goal.general_fitness.tag3': 'Joustava',
+
+  'onb.level.beginner.label': 'Aloittelija',
+  'onb.level.beginner.years': '0–1 vuotta',
+  'onb.level.beginner.line1': 'Uusi salilla tai palaamassa tauolta.',
+  'onb.level.beginner.line2': 'Pidämme tekniikan yksinkertaisena ja etenemisen tasaisena.',
+  'onb.level.advanced.label': 'Kokenut',
+  'onb.level.advanced.years': '1–3 vuotta',
+  'onb.level.advanced.line1': 'Olet treenannut säännöllisesti vuoden tai enemmän.',
+  'onb.level.advanced.line2': 'Osaat perusliikkeet ja haluat rakenteen.',
+  'onb.level.pro.label': 'Konkari',
+  'onb.level.pro.years': '3–5+ vuotta',
+  'onb.level.pro.line1': 'Takana vuosia tosissaan treenaamista.',
+  'onb.level.pro.line2': 'Enemmän volyymia ja tehoa - painetaan kaasua.',
+
+  'onb.stepLabel': 'VAIHE {index}/{count}',
+
+  'onb.stage.location.title1': 'Millä välineillä',
+  'onb.stage.location.title2': 'treenaat?',
+  'onb.stage.goal.title1': 'Mitä haluat',
+  'onb.stage.goal.title2': 'eniten?',
+  'onb.stage.goal.sub': 'Rakennamme treenisi tämän ympärille.',
+  'onb.stage.level.title1': 'Treenitaso',
+  'onb.stage.level.sub': 'Kuinka paljon sinulla on treenikokemusta?',
+  'onb.stage.days.title1': 'Treenipäivät',
+  'onb.stage.days.sub': 'Kuinka monena päivänä viikossa voit treenata?',
+  'onb.stage.avoid.title1': 'Onko jotain',
+  'onb.stage.avoid.title2': 'mitä vältetään?',
+  'onb.stage.avoid.sub': 'Merkitse kehonosa, niin treenaamme sen ympäri. Vapaaehtoinen.',
+  'onb.stage.focus.title1': 'Mihin haluat',
+  'onb.stage.focus.title2': 'keskittyä?',
+
+  'onb.level.a11y': 'Taso: {label}',
+  'onb.level.hintChosen': 'Voit muuttaa tätä milloin vain.',
+  'onb.level.hintPick': 'Valitse taso, joka kuulostaa sinulta.',
+
+  'onb.area.shoulders': 'Olkapäät',
+  'onb.area.lower_back': 'Alaselkä',
+  'onb.area.knees': 'Polvet',
+  'onb.area.elbows': 'Kyynärpäät',
+  'onb.area.wrists': 'Ranteet',
+  'onb.area.hips': 'Lonkat',
+  'onb.area.neck': 'Niska',
+  'onb.area.ankles': 'Nilkat',
+
+  'onb.caution.summary.line': 'Treenaa huomioiden: {parts}',
+  'onb.caution.summary.leftOut': '{area} pois',
+  'onb.caution.summary.friendly': '{area} nivelystävällisesti',
+
+  'onb.avoid.refine': 'TARKENNA',
+  'onb.avoid.remove': 'Poista',
+  'onb.avoid.a11y.flagged': '{area}, merkitty: {level}',
+  'onb.avoid.a11y.remove': 'Poista merkintä: {area}',
+
+  'onb.caution.info.label': 'Vain tiedoksi',
+  'onb.caution.info.body': 'Pidämme sen mielessä.',
+  'onb.caution.careful.label': 'Ole varovainen',
+  'onb.caution.careful.body': 'Nivelystävälliset vaihdot tälle alueelle.',
+  'onb.caution.avoid.label': 'Vältä kokonaan',
+  'onb.caution.avoid.body': 'Jätämme tämän alueen pois suunnitelmastasi.',
+
+  'onb.refine.Old injury': 'Vanha vamma',
+  'onb.refine.Chronic pain': 'Krooninen kipu',
+  'onb.refine.Recent surgery': 'Tuore leikkaus',
+  'onb.refine.Impingement': 'Pinnetila',
+  'onb.refine.Limited mobility': 'Rajoittunut liikkuvuus',
+  'onb.refine.Lower-back pain': 'Alaselkäkipu',
+  'onb.refine.Disc issues': 'Välilevyongelmat',
+  'onb.refine.Knee pain': 'Polvikipu',
+  'onb.refine.Post-surgery': 'Leikkauksen jälkitila',
+  'onb.refine.Tennis elbow': 'Tenniskyynärpää',
+  'onb.refine.Tendon pain': 'Jännekipu',
+  'onb.refine.Wrist pain': 'Rannekipu',
+  'onb.refine.Hip pain': 'Lonkkakipu',
+  'onb.refine.Neck pain': 'Niskakipu',
+  'onb.refine.Ankle pain': 'Nilkkakipu',
+  'onb.refine.Instability': 'Epävakaus',
+
+  'onb.guidance.done_for_me.title': 'Pidä se yksinkertaisena',
+  'onb.guidance.done_for_me.body': 'Yksi valmis suunnitelma.',
+  'onb.guidance.guided_editable.title': 'Suosittele, sitten muokkaan',
+  'onb.guidance.guided_editable.body': 'Aloita ja säädä.',
+  'onb.guidance.self_directed.title': 'Haluan rakentaa itse',
+  'onb.guidance.self_directed.body': 'Aloita pohjasta.',
+
+  'onb.schedule.app_managed.title': 'Suunnittele puolestani',
+  'onb.schedule.app_managed.body': 'GAINER asettelee viikon.',
+  'onb.schedule.self_managed.title': 'Hoidan päivät itse',
+  'onb.schedule.self_managed.body': 'Valitset päivät itse.',
+
+  'onb.location.full_gym.label': 'Kuntosali',
+  'onb.location.full_gym.subtitle': 'Sali, jossa on laitteet, tangot ja käsipainot.',
+  'onb.location.full_gym.badge': 'JOUSTAVIN',
+  'onb.location.home_gym.label': 'Kotivälineet',
+  'onb.location.home_gym.subtitle': 'Treenaa kotona niillä välineillä, joita sinulla on.',
+  'onb.location.bodyweight_only.label': 'Vain kehonpaino',
+  'onb.location.bodyweight_only.subtitle': 'Ei välineitä. Treenaa missä vain.',
+  'onb.location.bodyweight_only.badge': 'ALOITTELIJAYSTÄVÄLLINEN',
+
+  'onb.equip.Barbells': 'Levytangot',
+  'onb.equip.Dumbbells': 'Käsipainot',
+  'onb.equip.Machines': 'Laitteet',
+  'onb.equip.Cables': 'Taljat',
+  'onb.equip.Squat rack': 'Kyykkyteline',
+  'onb.equip.Bench': 'Penkki',
+  'onb.equip.Kettlebells': 'Kahvakuulat',
+  'onb.equip.Cardio machines': 'Kardiolaitteet',
+  'onb.equip.Barbell & plates': 'Tanko & levyt',
+  'onb.equip.Resistance bands': 'Vastuskuminauhat',
+  'onb.equip.Pull-up bar': 'Leuanvetotanko',
+  'onb.equip.Yoga mat': 'Joogamatto',
+
+  'onb.equip.prompt': 'Valitse mitä sinulla oikeasti on:',
+  'onb.equip.orChoose': 'TAI VALITSE TOINEN',
+  'onb.equip.selectedCount': '{count} valittu',
+
+  'onb.progression.b1': 'Seuraavat treenit alkavat kirjaamistasi sarjoista',
+  'onb.progression.b2': 'Tuntuma-palaute säätää lepoa ja seuraavaa sarjaa Adaptive Coachin kanssa',
+  'onb.progression.b3': 'Voit muuttaa tätä milloin vain suunnitelman asetuksissa',
+
   // ── Body parts ─────────────────────────────────────────────────────────
   'bodyPart.chest': 'Rinta',
   'bodyPart.back': 'Selkä',
@@ -1156,4 +1438,23 @@ export function bodyPartLabel(language: AppLanguage, bodyPart: string): string {
     return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
   }
   return t(language, key);
+}
+
+/**
+ * Setup values that persist as their own English text — equipment items and
+ * caution refinements — are stored, matched and filtered by that text. These
+ * translate the label for display only, and pass anything unrecognised through
+ * so a stored value from an older build still reads as itself.
+ */
+function storedValueLabel(language: AppLanguage, prefix: string, value: string): string {
+  const key = `${prefix}${value.trim()}` as I18nKey;
+  return key in EN ? t(language, key) : value;
+}
+
+export function equipmentItemLabel(language: AppLanguage, item: string): string {
+  return storedValueLabel(language, 'onb.equip.', item);
+}
+
+export function cautionRefinementLabel(language: AppLanguage, refinement: string): string {
+  return storedValueLabel(language, 'onb.refine.', refinement);
 }

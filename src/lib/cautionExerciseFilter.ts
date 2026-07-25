@@ -1,5 +1,6 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
-import { SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
+import { AppLanguage, SetupCautionArea, SetupCautionFlag, SetupFocusArea } from '../types/models';
+import { t } from './i18n';
 
 /**
  * Caution flags become real training changes (onboarding truth plan P2).
@@ -251,9 +252,17 @@ export function applyCautionFlagsToExercises(
 }
 
 /** Short human summary for the plan overview, e.g. "Knees left out · Shoulders swapped". */
-export function buildCautionSummaryLabel(flags: SetupCautionFlag[], areaLabels: Record<SetupCautionArea, string>) {
+export function buildCautionSummaryLabel(
+  flags: SetupCautionFlag[],
+  areaLabels: Record<SetupCautionArea, string>,
+  language: AppLanguage = 'en',
+) {
   const parts = flags
     .filter((flag) => flag.level !== 'info')
-    .map((flag) => `${areaLabels[flag.area]} ${flag.level === 'avoid' ? 'left out' : 'joint-friendly'}`);
-  return parts.length > 0 ? `Trains around: ${parts.join(' · ')}` : null;
+    .map((flag) =>
+      t(language, flag.level === 'avoid' ? 'onb.caution.summary.leftOut' : 'onb.caution.summary.friendly', {
+        area: areaLabels[flag.area],
+      }),
+    );
+  return parts.length > 0 ? t(language, 'onb.caution.summary.line', { parts: parts.join(' · ') }) : null;
 }

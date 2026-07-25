@@ -30,6 +30,7 @@ import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { convertWeightToKg, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
+import { cautionRefinementLabel, equipmentItemLabel, I18nKey, t } from '../lib/i18n';
 import {
   buildScheduleFitNote,
   buildFirstRunCustomProgramName,
@@ -67,6 +68,7 @@ import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { colors, radii, spacing } from '../theme';
 import { haptics } from '../utils/haptics';
 import {
+  AppLanguage,
   SetupDaysPerWeek,
   SetupAgeRange,
   SetupEquipment,
@@ -89,6 +91,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface OnboardingScreenProps {
   initialUnitPreference: UnitPreference;
+  language?: AppLanguage;
   readyProgramCount: number;
   dismissedTipIds: string[];
   onDismissTip: (tipId: string) => void | Promise<void>;
@@ -136,9 +139,9 @@ const ONBOARDING_PROGRESS_STAGES: SetupStage[] = ['location', 'goal', 'level', '
 
 // STEP n OF m labels follow the progress stages so inserting/removing a stage
 // (e.g. the avoid step in a later phase) renumbers every screen automatically.
-function getQuestionnaireStepLabel(stage: SetupStage) {
+function getQuestionnaireStepLabel(stage: SetupStage, language: AppLanguage) {
   const index = ONBOARDING_PROGRESS_STAGES.indexOf(stage);
-  return `STEP ${index + 1} OF ${ONBOARDING_PROGRESS_STAGES.length}`;
+  return t(language, 'onb.stepLabel', { index: index + 1, count: ONBOARDING_PROGRESS_STAGES.length });
 }
 
 // Light redesign palette (HG tokens from the design handoff).
@@ -232,54 +235,56 @@ function getDefaultLocationOptionId(
   }
 }
 
+// Catalogs carry i18n keys rather than copy: the option identity (goal, level,
+// area…) is the stored value, the words around it are resolved at render.
 const GOAL_OPTIONS: Array<{
   goal: SetupGoal;
-  title: string;
-  body: string;
-  tags: Array<{ label: string; tone: FocusBadgeTone }>;
+  titleKey: I18nKey;
+  bodyKey: I18nKey;
+  tags: Array<{ labelKey: I18nKey; tone: FocusBadgeTone }>;
   icon: OnboardingOptionIconName;
 }> = [
   {
     goal: 'strength',
-    title: 'Get stronger',
-    body: 'Focus on heavy lifts and progressive strength.',
+    titleKey: 'onb.goal.strength.title',
+    bodyKey: 'onb.goal.strength.body',
     tags: [
-      { label: 'Lower reps', tone: 'neutral' },
-      { label: 'Longer rest', tone: 'blue' },
-      { label: 'Strength focus', tone: 'green' },
+      { labelKey: 'onb.goal.strength.tag1', tone: 'neutral' },
+      { labelKey: 'onb.goal.strength.tag2', tone: 'blue' },
+      { labelKey: 'onb.goal.strength.tag3', tone: 'green' },
     ],
     icon: 'barbell',
   },
   {
     goal: 'muscle',
-    title: 'Build muscle',
-    body: 'Higher volume training to build size and definition.',
+    titleKey: 'onb.goal.muscle.title',
+    bodyKey: 'onb.goal.muscle.body',
     tags: [
-      { label: 'Hypertrophy', tone: 'green' },
-      { label: 'Moderate reps', tone: 'neutral' },
-      { label: 'More volume', tone: 'purple' },
+      { labelKey: 'onb.goal.muscle.tag1', tone: 'green' },
+      { labelKey: 'onb.goal.muscle.tag2', tone: 'neutral' },
+      { labelKey: 'onb.goal.muscle.tag3', tone: 'purple' },
     ],
     icon: 'trend_up',
   },
   {
     goal: 'lean_athletic',
-    title: 'Lean & athletic',
-    body: 'Stay lean while building strength and performance.',
+    titleKey: 'onb.goal.lean_athletic.title',
+    bodyKey: 'onb.goal.lean_athletic.body',
     tags: [
-      { label: 'Hybrid training', tone: 'purple' },
-      { label: 'Conditioning', tone: 'green' },
-      { label: 'Lower fatigue', tone: 'blue' },
+      { labelKey: 'onb.goal.lean_athletic.tag1', tone: 'purple' },
+      { labelKey: 'onb.goal.lean_athletic.tag2', tone: 'green' },
+      { labelKey: 'onb.goal.lean_athletic.tag3', tone: 'blue' },
     ],
     icon: 'run',
   },
   {
     goal: 'general_fitness',
-    title: 'General fitness',
-    body: 'Balanced training for overall health and consistency.',
+    titleKey: 'onb.goal.general_fitness.title',
+    bodyKey: 'onb.goal.general_fitness.body',
     tags: [
-      { label: 'Beginner friendly', tone: 'blue' },
-      { label: 'Sustainable', tone: 'green' },
-      { label: 'Flexible', tone: 'neutral' },
+      { labelKey: 'onb.goal.general_fitness.tag1', tone: 'blue' },
+      { labelKey: 'onb.goal.general_fitness.tag2', tone: 'green' },
+      { labelKey: 'onb.goal.general_fitness.tag3', tone: 'neutral' },
     ],
     icon: 'heart',
   },
@@ -288,27 +293,27 @@ const GOAL_OPTIONS: Array<{
 // Training-level slider (step 04): Beginner / Advanced / Pro.
 const LEVEL_SLIDER_OPTIONS: Array<{
   level: SetupLevel;
-  label: string;
-  years: string;
-  lines: [string, string];
+  labelKey: I18nKey;
+  yearsKey: I18nKey;
+  lineKeys: [I18nKey, I18nKey];
 }> = [
   {
     level: 'beginner',
-    label: 'Beginner',
-    years: '0–1 years',
-    lines: ['New to lifting or returning after a break.', 'We keep form simple and progress steady.'],
+    labelKey: 'onb.level.beginner.label',
+    yearsKey: 'onb.level.beginner.years',
+    lineKeys: ['onb.level.beginner.line1', 'onb.level.beginner.line2'],
   },
   {
     level: 'advanced',
-    label: 'Advanced',
-    years: '1–3 years',
-    lines: ['Trained consistently for a year or more.', 'You know the main lifts and want structure.'],
+    labelKey: 'onb.level.advanced.label',
+    yearsKey: 'onb.level.advanced.years',
+    lineKeys: ['onb.level.advanced.line1', 'onb.level.advanced.line2'],
   },
   {
     level: 'pro',
-    label: 'Pro',
-    years: '3–5+ years',
-    lines: ['Years of serious training behind you.', 'Higher volume and intensity - we push the pace.'],
+    labelKey: 'onb.level.pro.label',
+    yearsKey: 'onb.level.pro.years',
+    lineKeys: ['onb.level.pro.line1', 'onb.level.pro.line2'],
   },
 ];
 
@@ -357,28 +362,28 @@ const WEEKDAY_LETTERS: Record<SetupWeekday, string> = {
 // Avoid step: flaggable body parts, colour-coded caution levels and optional
 // refinement chips. The flags persist to setupCautionFlags and colour the
 // focus-area list on the next step.
-const AVOID_AREA_OPTIONS: Array<{ area: SetupCautionArea; label: string }> = [
-  { area: 'shoulders', label: 'Shoulders' },
-  { area: 'lower_back', label: 'Lower back' },
-  { area: 'knees', label: 'Knees' },
-  { area: 'elbows', label: 'Elbows' },
+const AVOID_AREA_OPTIONS: Array<{ area: SetupCautionArea; labelKey: I18nKey }> = [
+  { area: 'shoulders', labelKey: 'onb.area.shoulders' },
+  { area: 'lower_back', labelKey: 'onb.area.lower_back' },
+  { area: 'knees', labelKey: 'onb.area.knees' },
+  { area: 'elbows', labelKey: 'onb.area.elbows' },
 ];
 
-const AVOID_EXTRA_AREA_OPTIONS: Array<{ area: SetupCautionArea; label: string }> = [
-  { area: 'wrists', label: 'Wrists' },
-  { area: 'hips', label: 'Hips' },
-  { area: 'neck', label: 'Neck' },
-  { area: 'ankles', label: 'Ankles' },
+const AVOID_EXTRA_AREA_OPTIONS: Array<{ area: SetupCautionArea; labelKey: I18nKey }> = [
+  { area: 'wrists', labelKey: 'onb.area.wrists' },
+  { area: 'hips', labelKey: 'onb.area.hips' },
+  { area: 'neck', labelKey: 'onb.area.neck' },
+  { area: 'ankles', labelKey: 'onb.area.ankles' },
 ];
 
-const CAUTION_AREA_LABELS = Object.fromEntries(
-  [...AVOID_AREA_OPTIONS, ...AVOID_EXTRA_AREA_OPTIONS].map((option) => [option.area, option.label]),
-) as Record<SetupCautionArea, string>;
+const CAUTION_AREA_LABEL_KEYS = Object.fromEntries(
+  [...AVOID_AREA_OPTIONS, ...AVOID_EXTRA_AREA_OPTIONS].map((option) => [option.area, option.labelKey]),
+) as Record<SetupCautionArea, I18nKey>;
 
-const CAUTION_LEVEL_OPTIONS: Array<{ level: SetupCautionLevel; label: string; body: string }> = [
-  { level: 'info', label: 'For info only', body: "We'll keep it in mind." },
-  { level: 'careful', label: 'Be careful', body: 'Joint-friendly swaps for this area.' },
-  { level: 'avoid', label: 'Avoid entirely', body: 'We leave this area out of your plan.' },
+const CAUTION_LEVEL_OPTIONS: Array<{ level: SetupCautionLevel; labelKey: I18nKey; bodyKey: I18nKey }> = [
+  { level: 'info', labelKey: 'onb.caution.info.label', bodyKey: 'onb.caution.info.body' },
+  { level: 'careful', labelKey: 'onb.caution.careful.label', bodyKey: 'onb.caution.careful.body' },
+  { level: 'avoid', labelKey: 'onb.caution.avoid.label', bodyKey: 'onb.caution.avoid.body' },
 ];
 
 const CAUTION_LEVEL_COLORS: Record<SetupCautionLevel, { ink: string; soft: string }> = {
@@ -392,10 +397,10 @@ const CAUTION_REFINEMENT_FALLBACK = ['Old injury', 'Chronic pain', 'Recent surge
 // Plan-review progression card. Copy honesty (truth plan P7): every bullet
 // describes something the app actually does today — no promised deloads or
 // auto-progressing weights the engine doesn't ship yet.
-const PROGRESSION_BULLETS = [
-  'Next sessions start from your logged sets',
-  'Effort feedback tunes rest and the next set with Adaptive Coach',
-  'Change this anytime in Plan settings',
+const PROGRESSION_BULLET_KEYS: I18nKey[] = [
+  'onb.progression.b1',
+  'onb.progression.b2',
+  'onb.progression.b3',
 ];
 
 const CAUTION_REFINEMENT_OPTIONS: Partial<Record<SetupCautionArea, string[]>> = {
@@ -474,40 +479,40 @@ function getPlanReadyHeroKey({
 
 const GUIDANCE_MODE_OPTIONS: Array<{
   mode: SetupGuidanceMode;
-  title: string;
-  body: string;
+  titleKey: I18nKey;
+  bodyKey: I18nKey;
 }> = [
   {
     mode: 'done_for_me',
-    title: 'Keep it simple for me',
-    body: 'One ready plan.',
+    titleKey: 'onb.guidance.done_for_me.title',
+    bodyKey: 'onb.guidance.done_for_me.body',
   },
   {
     mode: 'guided_editable',
-    title: 'Recommend, then edit',
-    body: 'Start, then tweak.',
+    titleKey: 'onb.guidance.guided_editable.title',
+    bodyKey: 'onb.guidance.guided_editable.body',
   },
   {
     mode: 'self_directed',
-    title: 'I want to build it myself',
-    body: 'Start from a base.',
+    titleKey: 'onb.guidance.self_directed.title',
+    bodyKey: 'onb.guidance.self_directed.body',
   },
 ];
 
 const SCHEDULE_MODE_OPTIONS: Array<{
   mode: SetupScheduleMode;
-  title: string;
-  body: string;
+  titleKey: I18nKey;
+  bodyKey: I18nKey;
 }> = [
   {
     mode: 'app_managed',
-    title: 'Plan it for me',
-    body: 'GAINER places the week.',
+    titleKey: 'onb.schedule.app_managed.title',
+    bodyKey: 'onb.schedule.app_managed.body',
   },
   {
     mode: 'self_managed',
-    title: "I'll manage the days",
-    body: 'You pick the days.',
+    titleKey: 'onb.schedule.self_managed.title',
+    bodyKey: 'onb.schedule.self_managed.body',
   },
 ];
 
@@ -542,38 +547,38 @@ const LOCATION_SELECTION_OPTIONS: Array<{
   id: LocationSelectionOptionId;
   equipment: SetupEquipment;
   trainingEnvironment: SetupTrainingEnvironment;
-  label: string;
-  subtitle: string;
+  labelKey: I18nKey;
+  subtitleKey: I18nKey;
   icon: OnboardingOptionIconName;
-  focusLabel?: string;
+  focusLabelKey?: I18nKey;
   focusTone?: FocusBadgeTone;
 }> = [
   {
     id: 'full_gym',
     equipment: 'gym',
     trainingEnvironment: 'full_gym',
-    label: 'Full Gym',
-    subtitle: 'Commercial gym access with machines, barbells and dumbbells.',
+    labelKey: 'onb.location.full_gym.label',
+    subtitleKey: 'onb.location.full_gym.subtitle',
     icon: 'barbell',
-    focusLabel: 'MOST FLEXIBLE',
+    focusLabelKey: 'onb.location.full_gym.badge',
     focusTone: 'neutral',
   },
   {
     id: 'home_gym',
     equipment: 'home',
     trainingEnvironment: 'home_gym',
-    label: 'Home equipment',
-    subtitle: 'Train at home with the gear you have.',
+    labelKey: 'onb.location.home_gym.label',
+    subtitleKey: 'onb.location.home_gym.subtitle',
     icon: 'home',
   },
   {
     id: 'bodyweight_only',
     equipment: 'minimal',
     trainingEnvironment: 'bodyweight_only',
-    label: 'Bodyweight only',
-    subtitle: 'No equipment needed. Train anywhere.',
+    labelKey: 'onb.location.bodyweight_only.label',
+    subtitleKey: 'onb.location.bodyweight_only.subtitle',
     icon: 'bodyweight',
-    focusLabel: 'BEGINNER FRIENDLY',
+    focusLabelKey: 'onb.location.bodyweight_only.badge',
     focusTone: 'blue',
   },
 ];
@@ -597,14 +602,14 @@ const HOME_HEAVY_EQUIPMENT_ITEMS = ['Barbell & plates', 'Squat rack'];
 
 const GOAL_SELECTION_OPTIONS: Array<{
   id: SetupGoal;
-  label: string;
-  subtitle: string;
+  labelKey: I18nKey;
+  subtitleKey: I18nKey;
   icon: OnboardingOptionIconName;
-  tags: Array<{ label: string; tone: FocusBadgeTone }>;
+  tags: Array<{ labelKey: I18nKey; tone: FocusBadgeTone }>;
 }> = GOAL_OPTIONS.map((option) => ({
   id: option.goal,
-  label: option.title,
-  subtitle: option.body,
+  labelKey: option.titleKey,
+  subtitleKey: option.bodyKey,
   icon: option.icon,
   tags: option.tags,
 }));
@@ -1665,6 +1670,7 @@ function TrainingSetupMetric({ icon, label }: { icon: GymlogIconName; label: str
 
 export function OnboardingScreen({
   initialUnitPreference,
+  language = 'en',
   readyProgramCount,
   mode = 'first_run',
   initialSelection,
@@ -1679,6 +1685,15 @@ export function OnboardingScreen({
   onCancel,
 }: OnboardingScreenProps) {
   const insets = useSafeAreaInsets();
+  // Catalog keys resolved once per language for the helpers that want plain
+  // labels (caution summaries, focus rows).
+  const cautionAreaLabels = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(CAUTION_AREA_LABEL_KEYS).map(([area, key]) => [area, t(language, key)]),
+      ) as Record<SetupCautionArea, string>,
+    [language],
+  );
   const setupSeed =
     initialSelection ?? (basicsSeed ? { ...DEFAULT_FIRST_RUN_SELECTION, ...basicsSeed } : DEFAULT_FIRST_RUN_SELECTION);
   const editMode = mode === 'edit';
@@ -2525,8 +2540,8 @@ export function OnboardingScreen({
     const selectedChips = selectedSetup ? EQUIPMENT_CHIP_CATALOG[selectedSetup.id] ?? [] : [];
 
     return renderOnboardingShell({
-      stepLabel: getQuestionnaireStepLabel('location'),
-      titleLines: ['What can you', 'train with?'],
+      stepLabel: getQuestionnaireStepLabel('location', language),
+      titleLines: [t(language, 'onb.stage.location.title1'), t(language, 'onb.stage.location.title2')],
       topPaneStyle: styles.locationEquipmentTopPane,
       topCopyStyle: styles.locationEquipmentTopCopy,
       titleStyle: styles.locationEquipmentHeadline,
@@ -2536,9 +2551,11 @@ export function OnboardingScreen({
             <View style={styles.equipmentExpandedHeader}>
               <OnboardingOptionIcon name={selectedSetup.icon} />
               <View style={styles.equipmentExpandedCopy}>
-                <Text style={styles.equipmentExpandedTitle}>{selectedSetup.label}</Text>
+                <Text style={styles.equipmentExpandedTitle}>{t(language, selectedSetup.labelKey)}</Text>
                 <Text style={styles.equipmentExpandedCount}>
-                  {selectedChips.length > 0 ? `${equipmentItems.length} selected` : selectedSetup.subtitle}
+                  {selectedChips.length > 0
+                    ? t(language, 'onb.equip.selectedCount', { count: equipmentItems.length })
+                    : t(language, selectedSetup.subtitleKey)}
                 </Text>
               </View>
               <View style={styles.equipmentExpandedCheck}>
@@ -2547,21 +2564,23 @@ export function OnboardingScreen({
             </View>
             {selectedChips.length > 0 ? (
               <>
-                <Text style={styles.equipmentChipsPrompt}>Toggle what you actually have:</Text>
+                <Text style={styles.equipmentChipsPrompt}>{t(language, 'onb.equip.prompt')}</Text>
                 <View style={styles.equipmentChipsWrap}>
                   {selectedChips.map((item) => {
                     const active = equipmentItems.includes(item);
+                    // The English item is the stored id; only its label moves.
+                    const label = equipmentItemLabel(language, item);
 
                     return (
                       <Pressable
                         key={item}
                         accessibilityRole="button"
                         accessibilityState={{ selected: active }}
-                        accessibilityLabel={`${item}${active ? ', selected' : ''}`}
+                        accessibilityLabel={label}
                         onPress={() => toggleEquipmentItem(selectedSetup, item)}
                         style={[styles.equipmentChip, active && styles.equipmentChipActive]}
                       >
-                        <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{item}</Text>
+                        <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{label}</Text>
                       </Pressable>
                     );
                   })}
@@ -2570,12 +2589,12 @@ export function OnboardingScreen({
             ) : null}
           </View>
 
-          <Text style={styles.equipmentOrChooseLabel}>OR CHOOSE ANOTHER</Text>
+          <Text style={styles.equipmentOrChooseLabel}>{t(language, 'onb.equip.orChoose')}</Text>
           {otherSetups.map((option) => (
             <LocationChoiceCard
               key={option.id}
-              label={option.label}
-              subtitle={option.subtitle}
+              label={t(language, option.labelKey)}
+              subtitle={t(language, option.subtitleKey)}
               icon={option.icon}
               active={false}
               compact
@@ -2588,10 +2607,10 @@ export function OnboardingScreen({
           {LOCATION_SELECTION_OPTIONS.map((option) => (
             <LocationChoiceCard
               key={option.id}
-              label={option.label}
-              subtitle={option.subtitle}
+              label={t(language, option.labelKey)}
+              subtitle={t(language, option.subtitleKey)}
               icon={option.icon}
-              focusLabel={option.focusLabel}
+              focusLabel={option.focusLabelKey ? t(language, option.focusLabelKey) : undefined}
               focusTone={option.focusTone}
               active={false}
               onPress={() => selectEquipmentSetup(option)}
@@ -2779,13 +2798,13 @@ export function OnboardingScreen({
 
   function renderGoal() {
     return renderSplitSelectionStage({
-      stepLabel: getQuestionnaireStepLabel('goal'),
-      titleLines: ['What do you', 'want most?'],
-      subtitle: "We'll build your training around this.",
+      stepLabel: getQuestionnaireStepLabel('goal', language),
+      titleLines: [t(language, 'onb.stage.goal.title1'), t(language, 'onb.stage.goal.title2')],
+      subtitle: t(language, 'onb.stage.goal.sub'),
       options: GOAL_SELECTION_OPTIONS.map((option) => ({
         id: option.id,
-        label: option.label,
-        subtitle: option.subtitle,
+        label: t(language, option.labelKey),
+        subtitle: t(language, option.subtitleKey),
         icon: option.icon,
         active: goal === option.id,
         onPress: () => {
@@ -2811,9 +2830,9 @@ export function OnboardingScreen({
     const flames = LEVEL_FLAME_LAYOUTS[selectedLevelIndex] ?? [];
 
     return renderOnboardingShell({
-      stepLabel: getQuestionnaireStepLabel('level'),
-      titleLines: ['Training level'],
-      subtitle: 'How much training experience do you have?',
+      stepLabel: getQuestionnaireStepLabel('level', language),
+      titleLines: [t(language, 'onb.stage.level.title1')],
+      subtitle: t(language, 'onb.stage.level.sub'),
       topPaneStyle: styles.trainingProfileTopPane,
       topCopyStyle: styles.trainingProfileTopCopy,
       titleStyle: styles.trainingProfileHeadline,
@@ -2836,10 +2855,10 @@ export function OnboardingScreen({
           </View>
 
           <View style={styles.levelCopyBlock}>
-            <Text style={styles.levelTitle}>{selectedLevelOption.label}</Text>
-            {selectedLevelOption.lines.map((line) => (
-              <Text key={line} style={styles.levelLine}>
-                {line}
+            <Text style={styles.levelTitle}>{t(language, selectedLevelOption.labelKey)}</Text>
+            {selectedLevelOption.lineKeys.map((lineKey) => (
+              <Text key={lineKey} style={styles.levelLine}>
+                {t(language, lineKey)}
               </Text>
             ))}
           </View>
@@ -2873,7 +2892,7 @@ export function OnboardingScreen({
                 <Pressable
                   key={option.level}
                   accessibilityRole="button"
-                  accessibilityLabel={`${option.label} training level`}
+                  accessibilityLabel={t(language, 'onb.level.a11y', { label: t(language, option.labelKey) })}
                   accessibilityState={{ selected: active }}
                   onPress={() => {
                     void haptics.select();
@@ -2895,7 +2914,9 @@ export function OnboardingScreen({
                   }}
                   style={styles.levelSliderSegment}
                 >
-                  <Text style={[styles.levelSliderLabel, active && styles.levelSliderLabelActive]}>{option.label}</Text>
+                  <Text style={[styles.levelSliderLabel, active && styles.levelSliderLabelActive]}>
+                    {t(language, option.labelKey)}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -2905,13 +2926,13 @@ export function OnboardingScreen({
               const active = profileLevelSelected && index === selectedLevelIndex;
               return (
                 <Text key={option.level} style={[styles.levelYearsText, active && styles.levelYearsTextActive]}>
-                  {option.years}
+                  {t(language, option.yearsKey)}
                 </Text>
               );
             })}
           </View>
           <Text style={styles.levelSliderHint}>
-            {profileLevelSelected ? 'You can change this anytime.' : 'Pick the level that sounds like you.'}
+            {t(language, profileLevelSelected ? 'onb.level.hintChosen' : 'onb.level.hintPick')}
           </Text>
         </View>
       ),
@@ -2953,9 +2974,9 @@ export function OnboardingScreen({
     const restCount = 7 - selectedDays.length;
 
     return renderOnboardingShell({
-      stepLabel: getQuestionnaireStepLabel('days'),
-      titleLines: ['Training days'],
-      subtitle: 'How many days per week can you train?',
+      stepLabel: getQuestionnaireStepLabel('days', language),
+      titleLines: [t(language, 'onb.stage.days.title1')],
+      subtitle: t(language, 'onb.stage.days.sub'),
       topPaneStyle: styles.trainingProfileTopPane,
       topCopyStyle: styles.trainingProfileTopCopy,
       titleStyle: styles.trainingProfileHeadline,
@@ -3059,13 +3080,15 @@ export function OnboardingScreen({
     );
   }
 
-  function renderCautionRow(option: { area: SetupCautionArea; label: string }) {
+  function renderCautionRow(option: { area: SetupCautionArea; labelKey: I18nKey }) {
+    const areaLabel = t(language, option.labelKey);
     const flag = cautionFlags.find((item) => item.area === option.area) ?? null;
     const expanded = flag !== null && expandedCautionArea === option.area;
     const colors = flag ? CAUTION_LEVEL_COLORS[flag.level] : null;
-    const levelLabel = flag
-      ? CAUTION_LEVEL_OPTIONS.find((item) => item.level === flag.level)?.label ?? ''
+    const levelLabelKey = flag
+      ? CAUTION_LEVEL_OPTIONS.find((item) => item.level === flag.level)?.labelKey ?? null
       : null;
+    const levelLabel = levelLabelKey ? t(language, levelLabelKey) : null;
     const refinementOptions = CAUTION_REFINEMENT_OPTIONS[option.area] ?? CAUTION_REFINEMENT_FALLBACK;
 
     return (
@@ -3075,7 +3098,9 @@ export function OnboardingScreen({
       >
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`${option.label}${flag ? `, flagged: ${levelLabel}` : ''}`}
+          accessibilityLabel={
+            flag ? t(language, 'onb.avoid.a11y.flagged', { area: areaLabel, level: levelLabel ?? '' }) : areaLabel
+          }
           accessibilityState={{ selected: flag !== null, expanded }}
           onPress={() => {
             if (!flag) {
@@ -3090,7 +3115,7 @@ export function OnboardingScreen({
             <CautionGlyph color={colors ? colors.ink : ONBOARDING_TEXT_MUTED} />
           </View>
           <View style={styles.avoidRowCopy}>
-            <Text style={[styles.avoidRowTitle, colors ? { color: colors.ink } : null]}>{option.label}</Text>
+            <Text style={[styles.avoidRowTitle, colors ? { color: colors.ink } : null]}>{areaLabel}</Text>
             {flag ? <Text style={[styles.avoidRowLevel, { color: colors!.ink }]}>{levelLabel}</Text> : null}
           </View>
           {flag ? (
@@ -3113,7 +3138,7 @@ export function OnboardingScreen({
                   <Pressable
                     key={levelOption.level}
                     accessibilityRole="button"
-                    accessibilityLabel={`${levelOption.label}: ${levelOption.body}`}
+                    accessibilityLabel={`${t(language, levelOption.labelKey)}: ${t(language, levelOption.bodyKey)}`}
                     accessibilityState={{ selected: active }}
                     onPress={() => setCautionLevel(option.area, levelOption.level)}
                     style={[
@@ -3131,31 +3156,33 @@ export function OnboardingScreen({
                     </View>
                     <View style={styles.avoidLevelCopy}>
                       <Text style={[styles.avoidLevelTitle, active && { color: levelColors.ink }]}>
-                        {levelOption.label}
+                        {t(language, levelOption.labelKey)}
                       </Text>
-                      <Text style={styles.avoidLevelBody}>{levelOption.body}</Text>
+                      <Text style={styles.avoidLevelBody}>{t(language, levelOption.bodyKey)}</Text>
                     </View>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={styles.avoidRefineLabel}>REFINE</Text>
+            <Text style={styles.avoidRefineLabel}>{t(language, 'onb.avoid.refine')}</Text>
             <View style={styles.avoidRefineRow}>
               {refinementOptions.map((refinement) => {
                 const active = flag.refinements.includes(refinement);
+                // Stored as its English text; only the chip label translates.
+                const refinementText = cautionRefinementLabel(language, refinement);
 
                 return (
                   <Pressable
                     key={refinement}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    accessibilityLabel={refinement}
+                    accessibilityLabel={refinementText}
                     onPress={() => toggleCautionRefinement(option.area, refinement)}
                     style={[styles.avoidRefineChip, active && styles.avoidRefineChipActive]}
                   >
                     <Text style={[styles.avoidRefineChipText, active && styles.avoidRefineChipTextActive]}>
-                      {refinement}
+                      {refinementText}
                     </Text>
                   </Pressable>
                 );
@@ -3164,11 +3191,11 @@ export function OnboardingScreen({
 
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Remove ${option.label} flag`}
+              accessibilityLabel={t(language, 'onb.avoid.a11y.remove', { area: areaLabel })}
               onPress={() => removeCautionFlag(option.area)}
               style={styles.avoidRemoveLink}
             >
-              <Text style={styles.avoidRemoveText}>Remove</Text>
+              <Text style={styles.avoidRemoveText}>{t(language, 'onb.avoid.remove')}</Text>
             </Pressable>
           </View>
         ) : null}
@@ -3182,9 +3209,9 @@ export function OnboardingScreen({
     const showProfessionalAdvisory = seriousFlagCount >= 3 || avoidFlagCount >= 2;
 
     return renderOnboardingShell({
-      stepLabel: getQuestionnaireStepLabel('avoid'),
-      titleLines: ['Anything we', 'should avoid?'],
-      subtitle: 'Flag a body part and we train around it. Optional.',
+      stepLabel: getQuestionnaireStepLabel('avoid', language),
+      titleLines: [t(language, 'onb.stage.avoid.title1'), t(language, 'onb.stage.avoid.title2')],
+      subtitle: t(language, 'onb.stage.avoid.sub'),
       topPaneStyle: styles.locationEquipmentTopPane,
       topCopyStyle: styles.locationEquipmentTopCopy,
       titleStyle: styles.locationEquipmentHeadline,
@@ -3311,7 +3338,7 @@ export function OnboardingScreen({
       /^\d+\s*days?$/i.test(tag.trim()) ? `${planReadyPerWeek} Days` : tag,
     );
     // P2: show that the caution flags actually shaped the plan.
-    const planReadyCautionLine = buildCautionSummaryLabel(cautionFlags, CAUTION_AREA_LABELS);
+    const planReadyCautionLine = buildCautionSummaryLabel(cautionFlags, cautionAreaLabels, language);
     const planReadyWaterfall = recommendation.waterfall;
     const planReadyWhyPrimary =
       planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.primaryProgramId
@@ -3571,8 +3598,8 @@ export function OnboardingScreen({
           <View style={styles.progressionDivider} />
 
           <View style={styles.progressionBulletList}>
-            {PROGRESSION_BULLETS.map((bullet) => (
-              <View key={bullet} style={styles.progressionBulletRow}>
+            {PROGRESSION_BULLET_KEYS.map((bulletKey) => (
+              <View key={bulletKey} style={styles.progressionBulletRow}>
                 {enabled ? (
                   <View style={styles.progressionBulletCheck}>
                     <GymlogIcon name="check" size={12} color="#FFFFFF" />
@@ -3583,7 +3610,7 @@ export function OnboardingScreen({
                   </View>
                 )}
                 <Text style={[styles.progressionBulletText, !enabled && styles.progressionBulletTextOff]}>
-                  {bullet}
+                  {t(language, bulletKey)}
                 </Text>
               </View>
             ))}
@@ -3602,8 +3629,8 @@ export function OnboardingScreen({
     );
 
     return renderOnboardingShell({
-      stepLabel: getQuestionnaireStepLabel('planning'),
-      titleLines: ['What do you', 'want to focus on?'],
+      stepLabel: getQuestionnaireStepLabel('planning', language),
+      titleLines: [t(language, 'onb.stage.focus.title1'), t(language, 'onb.stage.focus.title2')],
       topPaneStyle: styles.focusAreaTopPane,
       topCopyStyle: styles.focusAreaTopCopy,
       titleStyle: styles.focusAreaHeadline,
@@ -3751,7 +3778,7 @@ export function OnboardingScreen({
                 {SCHEDULE_MODE_OPTIONS.map((option) => (
                   <ChoiceChip
                     key={option.mode}
-                    label={option.title}
+                    label={t(language, option.titleKey)}
                     active={scheduleMode === option.mode}
                     onPress={() => {
                       setScheduleMode(option.mode);

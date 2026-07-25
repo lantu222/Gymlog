@@ -2849,6 +2849,7 @@ function GymlogApp() {
       content = (
         <OnboardingScreen
           initialUnitPreference={unitPreference}
+          language={preferences.appLanguage}
           tailoringPreferences={tailoringPreferences}
           readyProgramCount={workout.templates.length}
           dismissedTipIds={dismissedTipIds}
@@ -2880,6 +2881,7 @@ function GymlogApp() {
         initialSelection={setupSelection ?? DEFAULT_FIRST_RUN_SELECTION}
         initialStage={route.stage ?? (setupSelection ? 'review' : 'location')}
         initialUnitPreference={unitPreference}
+        language={preferences.appLanguage}
         tailoringPreferences={tailoringPreferences}
         readyProgramCount={workout.templates.length}
         dismissedTipIds={dismissedTipIds}
