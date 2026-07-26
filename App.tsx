@@ -2050,6 +2050,9 @@ function GymlogApp() {
         customProgramTitle: selectedCustomProgram.workoutId
           ? formatWorkoutDisplayLabel(selectedCustomProgram.title)
           : null,
+        // Same source the Training plan screen edits, so planned-versus-actual
+        // in the context cannot disagree with the schedule the user set.
+        trainingDays: preferences.setupAvailableDays,
         plannerSetup: preferences.aiSetupCompleted
           ? {
               goal: preferences.aiPlannerGoal,
@@ -2091,6 +2094,7 @@ function GymlogApp() {
       preferences.aiPlannerAvoid,
       preferences.aiPlannerLimitations,
       preferences.recommendedProgramId,
+      preferences.setupAvailableDays,
       workout.templates.length,
       workoutSessions,
       database.exerciseLogs,

@@ -1,7 +1,14 @@
-import { getTotalVolume } from './progression';
 import { I18nKey, t } from './i18n';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { localizeSessionName } from './sessionNameLabel';
+import {
+  buildLiftHistories,
+  normalizedName,
+  previousComparableSession,
+  sessionTime,
+  sessionVolumeKg,
+  topSetOf,
+} from './trainingHistory';
 import { AppLanguage, ExerciseLog, WorkoutSession } from '../types/models';
 
 /**
@@ -13,6 +20,9 @@ import { AppLanguage, ExerciseLog, WorkoutSession } from '../types/models';
  * null and the sheet shows an honest empty state instead. It never falls back
  * to sample numbers — an app that invents a "+8% volume" is lying about the
  * one thing it is for.
+ *
+ * The arithmetic lives in trainingHistory; this file only decides what is
+ * worth saying and how to word it.
  */
 
 /** A sentence plus the exact substrings the sheet renders in gold. */
@@ -67,24 +77,8 @@ export interface CoachModulesInput {
 
 const DEFAULT_RECENT_DAYS = 21;
 
-function timeOf(session: Pick<WorkoutSession, 'performedAt'>) {
-  const time = new Date(session.performedAt).getTime();
-  return Number.isFinite(time) ? time : 0;
-}
-
 function sortNewestFirst(sessions: WorkoutSession[]) {
-  return [...sessions].sort((left, right) => timeOf(right) - timeOf(left));
-}
-
-function sessionVolume(session: WorkoutSession, logs: ExerciseLog[]) {
-  if (typeof session.totalVolumeKg === 'number' && session.totalVolumeKg > 0) {
-    return session.totalVolumeKg;
-  }
-
-  // Older saves predate totalVolumeKg; recompute rather than show nothing.
-  const own = logs.filter((log) => log.sessionId === session.id);
-  const volume = own.reduce((sum, log) => sum + getTotalVolume(log), 0);
-  return volume > 0 ? volume : null;
+  return [...sessions].sort((left, right) => sessionTime(right) - sessionTime(left));
 }
 
 function roundVolume(value: number) {
@@ -96,64 +90,26 @@ function formatSigned(value: number) {
   return rounded > 0 ? `+${rounded}` : `${rounded}`;
 }
 
-/** Heaviest completed set in a log, or null when nothing usable was logged. */
-function topSetOf(log: ExerciseLog) {
-  if (log.skipped || log.weight <= 0) {
-    return null;
-  }
-
-  const reps = (log.repsPerSet ?? []).filter((count) => count > 0);
-  if (reps.length === 0) {
-    return null;
-  }
-
-  return { weight: log.weight, reps: Math.max(...reps) };
-}
-
 function buildFocus(
   sessions: WorkoutSession[],
   logs: ExerciseLog[],
   language: AppLanguage,
 ): CoachFocusModule | null {
-  // Focus needs a lift with at least two logged weights to compare.
-  const byExercise = new Map<string, Array<{ log: ExerciseLog; time: number }>>();
-  const sessionTime = new Map(sessions.map((session) => [session.id, timeOf(session)]));
-
-  for (const log of logs) {
-    const top = topSetOf(log);
-    if (!top) {
-      continue;
-    }
-    const time = sessionTime.get(log.sessionId);
-    if (time === undefined) {
-      continue;
-    }
-    const key = log.exerciseNameSnapshot.trim().toLowerCase();
-    const bucket = byExercise.get(key) ?? [];
-    bucket.push({ log, time });
-    byExercise.set(key, bucket);
-  }
-
+  // Focus needs a lift with at least two logged weights to compare, and a
+  // move upward — there is nothing to celebrate in a lift that went down.
   let best: { name: string; delta: number; latest: number; days: number } | null = null;
 
-  for (const entries of byExercise.values()) {
-    if (entries.length < 2) {
+  for (const lift of buildLiftHistories(sessions, logs)) {
+    if (lift.points.length < 2 || lift.weightChangeKg <= 0) {
       continue;
     }
-    const ordered = [...entries].sort((left, right) => left.time - right.time);
-    const first = ordered[0];
-    const last = ordered[ordered.length - 1];
-    const delta = last.log.weight - first.log.weight;
-    if (delta <= 0) {
-      continue;
-    }
-    const days = Math.max(1, Math.round((last.time - first.time) / 86400000));
-    if (!best || delta > best.delta) {
+    if (!best || lift.weightChangeKg > best.delta) {
       best = {
-        name: last.log.exerciseNameSnapshot,
-        delta,
-        latest: last.log.weight,
-        days,
+        name: lift.name,
+        delta: lift.weightChangeKg,
+        latest: lift.latest.topSetWeightKg,
+        // Two sessions on the same day still span a day's worth of training.
+        days: Math.max(1, lift.spanDays),
       };
     }
   }
@@ -199,15 +155,9 @@ function buildAnalysis(
 
   // Volume compared against the previous session with the same name — that is
   // the honest analogue of "vs your last Push".
-  const sameName = ordered
-    .slice(1)
-    .filter(
-      (session) =>
-        session.workoutNameSnapshot.trim().toLowerCase() ===
-        latest.workoutNameSnapshot.trim().toLowerCase(),
-    );
-  const latestVolume = sessionVolume(latest, logs);
-  const priorVolume = sameName.length > 0 ? sessionVolume(sameName[0], logs) : null;
+  const previous = previousComparableSession(latest, ordered);
+  const latestVolume = sessionVolumeKg(latest, logs);
+  const priorVolume = previous ? sessionVolumeKg(previous, logs) : null;
 
   if (latestVolume !== null && priorVolume !== null && priorVolume > 0) {
     const changePercent = Math.round(((latestVolume - priorVolume) / priorVolume) * 100);
@@ -241,11 +191,10 @@ function buildAnalysis(
   }
 
   if (heaviest) {
-    const key = heaviest.log.exerciseNameSnapshot.trim().toLowerCase();
+    const key = normalizedName(heaviest.log.exerciseNameSnapshot);
     const priorBest = logs
       .filter(
-        (log) =>
-          log.sessionId !== latest.id && log.exerciseNameSnapshot.trim().toLowerCase() === key,
+        (log) => log.sessionId !== latest.id && normalizedName(log.exerciseNameSnapshot) === key,
       )
       .reduce((max, log) => {
         const top = topSetOf(log);
@@ -294,35 +243,16 @@ function buildSuggestion(
 ): CoachSuggestionModule | null {
   // The only suggestion this build can make honestly: a lift whose top set has
   // not moved across three or more logged sessions.
-  const sessionTime = new Map(sessions.map((session) => [session.id, timeOf(session)]));
-  const byExercise = new Map<string, Array<{ weight: number; time: number; name: string }>>();
-
-  for (const log of logs) {
-    const top = topSetOf(log);
-    const time = sessionTime.get(log.sessionId);
-    if (!top || time === undefined) {
-      continue;
-    }
-    const key = log.exerciseNameSnapshot.trim().toLowerCase();
-    const bucket = byExercise.get(key) ?? [];
-    bucket.push({ weight: top.weight, time, name: log.exerciseNameSnapshot });
-    byExercise.set(key, bucket);
-  }
-
-  for (const entries of byExercise.values()) {
-    if (entries.length < 3) {
-      continue;
-    }
-    const ordered = [...entries].sort((left, right) => right.time - left.time).slice(0, 3);
-    const weights = ordered.map((entry) => entry.weight);
-    const stalled = weights.every((weight) => Math.abs(weight - weights[0]) < 0.001);
-    if (!stalled) {
+  for (const lift of buildLiftHistories(sessions, logs)) {
+    if (lift.stalledSessions < 3) {
       continue;
     }
 
-    const liftName = exerciseNameLabel(language, ordered[0].name);
-    const weightText = `${Math.round(weights[0] * 10) / 10} kg`;
-    const countText = `${ordered.length}`;
+    const liftName = exerciseNameLabel(language, lift.name);
+    const weightText = `${Math.round(lift.latest.topSetWeightKg * 10) / 10} kg`;
+    // The real run of flat sessions, not a capped "three" — a lift stuck for
+    // six sessions is a different conversation from one stuck for three.
+    const countText = `${lift.stalledSessions}`;
     return {
       body: {
         text: t(language, 'coach.suggestion.plateau', {
@@ -345,7 +275,7 @@ export function buildCoachModules({
   recentDays = DEFAULT_RECENT_DAYS,
 }: CoachModulesInput): CoachModules {
   const cutoff = Date.now() - recentDays * 86400000;
-  const recent = sessions.filter((session) => timeOf(session) >= cutoff);
+  const recent = sessions.filter((session) => sessionTime(session) >= cutoff);
   // Trends need history, so they read every session; only the analysis module
   // is limited to what is recent enough to still be worth commenting on.
   const focus = buildFocus(sessions, logs, language);

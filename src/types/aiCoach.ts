@@ -1,4 +1,4 @@
-import { UnitPreference } from './models';
+import { SetupWeekday, UnitPreference } from './models';
 import { FatigueSignal } from '../lib/fatigueModel';
 
 export interface AICoachLiftHighlight {
@@ -68,6 +68,68 @@ export interface AICoachPlannerSetupSummary {
   limitations: string[];
 }
 
+export interface AICoachHistorySession {
+  sessionId: string;
+  /** Session name as stored, in English — an identifier, not a label. */
+  name: string;
+  performedAt: string;
+  durationMinutes: number | null;
+  volumeKg: number | null;
+  setCount: number;
+  exerciseCount: number;
+}
+
+export interface AICoachHistoryLift {
+  name: string;
+  sessions: number;
+  firstWeightKg: number;
+  latestWeightKg: number;
+  latestReps: number;
+  bestWeightKg: number;
+  changeKg: number;
+  spanDays: number;
+  /** Consecutive most-recent sessions at the current top-set weight. */
+  stalledSessions: number;
+  /** Top-set weight per logged session, oldest first. */
+  weightSeriesKg: number[];
+}
+
+export interface AICoachHistoryWeek {
+  /** Monday of the week, local YYYY-MM-DD. */
+  weekStart: string;
+  sessions: number;
+  volumeKg: number;
+  /** Null when the plan places the week itself, so nothing was promised. */
+  plannedSessions: number | null;
+}
+
+export interface AICoachHistorySchedule {
+  trainingDays: SetupWeekday[];
+  plannedPerWeek: number;
+  plannedSessions: number;
+  completedSessions: number;
+}
+
+/**
+ * Enough of the training log for a reader to reconstruct the window: every
+ * session with its volume, every lift's trajectory, and week-by-week planned
+ * versus actual. Figures only — the wording is the model's job.
+ */
+export interface AICoachHistory {
+  windowDays: number;
+  /** Sessions inside the window, before the list below was capped. */
+  sessionCount: number;
+  totalVolumeKg: number;
+  /** Newest last. Capped; check `truncated`. */
+  sessions: AICoachHistorySession[];
+  /** Most-trained lift first. Capped. */
+  lifts: AICoachHistoryLift[];
+  weeks: AICoachHistoryWeek[];
+  schedule: AICoachHistorySchedule | null;
+  /** True when older sessions were dropped to keep the payload small. */
+  truncated: boolean;
+}
+
 export interface AICoachTrainingContext {
   unitPreference: UnitPreference;
   activeSession: AICoachActiveSessionSummary | null;
@@ -83,6 +145,7 @@ export interface AICoachTrainingContext {
   customProgramTitle: string | null;
   plateaus: AICoachPlateauSummary[];
   fatigue: AICoachFatigueSummary;
+  history: AICoachHistory;
   plannerSetup?: AICoachPlannerSetupSummary | null;
 }
 

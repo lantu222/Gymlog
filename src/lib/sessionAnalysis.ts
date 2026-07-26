@@ -1,7 +1,15 @@
 import { exerciseNameLabel } from './exerciseNameLabel';
-import { getTotalVolume } from './progression';
 import { I18nKey, t } from './i18n';
 import { localizeSessionName } from './sessionNameLabel';
+import {
+  buildLiftHistories,
+  comparableSessions,
+  completedReps,
+  normalizedName,
+  sessionTime,
+  sessionVolumeKg,
+  topSetOf,
+} from './trainingHistory';
 import { AppLanguage, ExerciseLog, ExerciseLogSetEffort, WorkoutSession } from '../types/models';
 
 /**
@@ -84,42 +92,9 @@ export interface SessionAnalysisInput {
 
 const MAX_VOLUME_BARS = 6;
 
-function timeOf(session: Pick<WorkoutSession, 'performedAt'>) {
-  const time = new Date(session.performedAt).getTime();
-  return Number.isFinite(time) ? time : 0;
-}
-
-function nameKey(value: string) {
-  return value.trim().toLowerCase();
-}
-
 function round(value: number, decimals = 1) {
   const factor = 10 ** decimals;
   return Math.round(value * factor) / factor;
-}
-
-function sessionVolume(session: WorkoutSession, logs: ExerciseLog[]) {
-  if (typeof session.totalVolumeKg === 'number' && session.totalVolumeKg > 0) {
-    return session.totalVolumeKg;
-  }
-  const own = logs.filter((log) => log.sessionId === session.id);
-  const volume = own.reduce((sum, log) => sum + getTotalVolume(log), 0);
-  return volume > 0 ? volume : null;
-}
-
-function completedReps(log: ExerciseLog) {
-  return (log.repsPerSet ?? []).filter((count) => count > 0);
-}
-
-function topSetOf(log: ExerciseLog) {
-  if (log.skipped || log.weight <= 0) {
-    return null;
-  }
-  const reps = completedReps(log);
-  if (reps.length === 0) {
-    return null;
-  }
-  return { weight: log.weight, reps: Math.max(...reps) };
 }
 
 function collectEfforts(logs: ExerciseLog[]) {
@@ -169,7 +144,7 @@ export function buildSessionAnalysis({
 
   // ── meta row ────────────────────────────────────────────────────────────
   const setCount = sessionLogs.reduce((sum, log) => sum + completedReps(log).length, 0);
-  const volume = sessionVolume(session, logs);
+  const volume = sessionVolumeKg(session, logs);
   const metaParts: string[] = [];
 
   if (typeof session.durationMinutes === 'number' && session.durationMinutes > 0) {
@@ -192,15 +167,11 @@ export function buildSessionAnalysis({
   }
 
   // ── volume trend over comparable sessions ───────────────────────────────
-  const comparable = sessions
-    .filter((entry) => nameKey(entry.workoutNameSnapshot) === nameKey(session.workoutNameSnapshot))
-    .filter((entry) => timeOf(entry) <= timeOf(session))
-    .sort((left, right) => timeOf(left) - timeOf(right))
-    .slice(-MAX_VOLUME_BARS);
+  const comparable = comparableSessions(session, sessions).slice(-MAX_VOLUME_BARS);
 
   const volumeBars: AnalysisVolumeBar[] = [];
   for (const entry of comparable) {
-    const entryVolume = sessionVolume(entry, logs);
+    const entryVolume = sessionVolumeKg(entry, logs);
     if (entryVolume === null) {
       continue;
     }
@@ -213,7 +184,7 @@ export function buildSessionAnalysis({
   }
 
   const previous = comparable.filter((entry) => entry.id !== session.id).slice(-1)[0] ?? null;
-  const previousVolume = previous ? sessionVolume(previous, logs) : null;
+  const previousVolume = previous ? sessionVolumeKg(previous, logs) : null;
   const volumeChangePercent =
     volume !== null && previousVolume !== null && previousVolume > 0
       ? Math.round(((volume - previousVolume) / previousVolume) * 100)
@@ -258,9 +229,10 @@ export function buildSessionAnalysis({
   }
 
   // ── per-exercise breakdown ──────────────────────────────────────────────
-  const priorLogs = logs.filter((log) => log.sessionId !== session.id && !log.skipped);
-  const timeBySession = new Map(sessions.map((entry) => [entry.id, timeOf(entry)]));
-  const currentTime = timeOf(session);
+  const currentTime = sessionTime(session);
+  const liftsByKey = new Map(
+    buildLiftHistories(sessions, logs).map((lift) => [lift.key, lift] as const),
+  );
 
   const exercises: AnalysisExerciseRow[] = [];
   for (const log of sessionLogs) {
@@ -273,23 +245,13 @@ export function buildSessionAnalysis({
     const repLabel = reps.every((count) => count === reps[0]) ? `${reps[0]}` : reps.join('/');
     const detail = `${reps.length} × ${repLabel} · ${round(log.weight)} kg`;
 
-    // Compare against the most recent earlier log of the same lift.
-    let best: { weight: number; time: number } | null = null;
-    for (const other of priorLogs) {
-      if (nameKey(other.exerciseNameSnapshot) !== nameKey(log.exerciseNameSnapshot)) {
-        continue;
-      }
-      const otherTop = topSetOf(other);
-      const otherTime = timeBySession.get(other.sessionId) ?? 0;
-      if (!otherTop || otherTime >= currentTime) {
-        continue;
-      }
-      if (!best || otherTime > best.time) {
-        best = { weight: otherTop.weight, time: otherTime };
-      }
-    }
-
-    const delta = best ? round(top.weight - best.weight) : null;
+    // Compare against the most recent earlier session of the same lift.
+    const earlier =
+      liftsByKey
+        .get(normalizedName(log.exerciseNameSnapshot))
+        ?.points.filter((point) => point.time < currentTime) ?? [];
+    const previousTop = earlier.length > 0 ? earlier[earlier.length - 1].topSetWeightKg : null;
+    const delta = previousTop === null ? null : round(top.weight - previousTop);
     exercises.push({
       key: log.id,
       name: exerciseNameLabel(language, log.exerciseNameSnapshot),

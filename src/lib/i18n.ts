@@ -3620,7 +3620,7 @@ const FI: Record<I18nKey, string> = {
   'coach.analysis.volumeFirst': 'Volyymia kirjattu {volume} — seuraava samanlainen treeni antaa minulle vertailukohdan',
   'coach.analysis.topSet': '{lift} raskain sarja {set}',
   'coach.analysis.topSetBest': '{lift} raskain sarja {set} — tasoitti ennätyksesi',
-  'coach.suggestion.plateau': '{lift} on ollut {weight} kolmessa treenissä peräkkäin. Lisää toisto ennen kuin lisäät painoa, tai pudota viiden sarjaan ja rakenna takaisin.',
+  'coach.suggestion.plateau': '{lift} on ollut {weight} {count} treenissä peräkkäin. Lisää toisto ennen kuin lisäät painoa, tai pudota viiden sarjaan ja rakenna takaisin.',
   'coach.title': 'GAINER Coach',
   'coach.subline': 'Lukee sinun lukusi · ei koko internetiä',
   'coach.close': 'Sulje valmentaja',

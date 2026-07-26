@@ -9,15 +9,30 @@ function section(heading: string, lines: string[]) {
   return [`## ${heading}`, ...lines].join('\n');
 }
 
+function kg(value: number) {
+  return `${Math.round(value)} kg`;
+}
+
+function trim(value: number) {
+  return `${Math.round(value * 10) / 10}`;
+}
+
 export function buildAiCoachSystemContext(context: AICoachTrainingContext): string {
   const u = context.unitPreference;
   const blocks: string[] = [];
 
   // Load & fatigue — always present, first so LLM sees it immediately
-  const { signal, acwr, recoveryScore, sessionCount7d } = context.fatigue;
+  const { signal, acwr, recoveryScore, sessionCount7d, confident } = context.fatigue;
   blocks.push(
     section('Load', [
-      line('This week', `${sessionCount7d} session${sessionCount7d === 1 ? '' : 's'} | ACWR ${acwr} (${signal}) | Recovery ${recoveryScore}/100`),
+      // ACWR off four weeks of data is a ratio, not a reading. Stating the
+      // signal as fact is how one logged session becomes "you are overtrained".
+      line(
+        'This week',
+        confident
+          ? `${sessionCount7d} session${sessionCount7d === 1 ? '' : 's'} | ACWR ${acwr} (${signal}) | Recovery ${recoveryScore}/100`
+          : `${sessionCount7d} session${sessionCount7d === 1 ? '' : 's'} | too little history to read load or recovery — do not comment on fatigue`,
+      ),
       line('Last 30 days', `${context.sessionsLast30Days} sessions`),
     ])!,
   );
@@ -28,16 +43,20 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
     blocks.push(section('Active session', [`${context.activeSession.title}${next}`])!);
   }
 
-  // Recent sessions
-  const recentLines = context.recentCompletedSessions.map((s) => {
-    const parts: string[] = [s.title];
-    if (s.durationMinutes) parts.push(`${s.durationMinutes} min`);
-    if (s.setsCompleted) parts.push(`${s.setsCompleted} sets`);
-    parts.push(s.performedAt.slice(0, 10));
-    return `- ${parts.join(' | ')}`;
-  });
-  const recentBlock = section('Recent sessions', recentLines);
-  if (recentBlock) blocks.push(recentBlock);
+  // Recent sessions — only when the history block below is empty, which means
+  // the user is returning after a long break. Otherwise this is the same list
+  // twice, and a model that sees a session in two places may count it twice.
+  if (context.history.sessionCount === 0) {
+    const recentLines = context.recentCompletedSessions.map((s) => {
+      const parts: string[] = [s.title];
+      if (s.durationMinutes) parts.push(`${s.durationMinutes} min`);
+      if (s.setsCompleted) parts.push(`${s.setsCompleted} sets`);
+      parts.push(s.performedAt.slice(0, 10));
+      return `- ${parts.join(' | ')}`;
+    });
+    const recentBlock = section('Recent sessions (before this window)', recentLines);
+    if (recentBlock) blocks.push(recentBlock);
+  }
 
   // Tracked lifts
   const liftLines = context.trackedLifts.map((lift) => {
@@ -47,6 +66,70 @@ export function buildAiCoachSystemContext(context: AICoachTrainingContext): stri
   });
   const liftBlock = section('Tracked lifts', liftLines);
   if (liftBlock) blocks.push(liftBlock);
+
+  // Training history — the block a reader can reconstruct the window from.
+  const history = context.history;
+
+  const weekLines = history.weeks.map((week) => {
+    const done =
+      week.plannedSessions === null
+        ? `${week.sessions} session${week.sessions === 1 ? '' : 's'}`
+        : `${week.sessions}/${week.plannedSessions} planned`;
+    return `- week of ${week.weekStart}: ${done} | ${kg(week.volumeKg)}`;
+  });
+  const weekBlock = section(`Weeks (last ${history.windowDays} days)`, weekLines);
+  if (weekBlock) blocks.push(weekBlock);
+
+  const sessionLines = history.sessions.map((entry) => {
+    const parts: string[] = [entry.performedAt.slice(0, 10), entry.name];
+    if (entry.durationMinutes) parts.push(`${entry.durationMinutes} min`);
+    parts.push(`${entry.setCount} sets across ${entry.exerciseCount} exercises`);
+    if (entry.volumeKg !== null) parts.push(kg(entry.volumeKg));
+    return `- ${parts.join(' | ')}`;
+  });
+  if (sessionLines.length > 0) {
+    const heading = history.truncated
+      ? `Sessions (oldest first, ${sessionLines.length} of ${history.sessionCount} shown)`
+      : 'Sessions (oldest first)';
+    blocks.push(section(heading, sessionLines)!);
+  }
+
+  const trajectoryLines = history.lifts.map((lift) => {
+    const series = lift.weightSeriesKg.map(trim).join(' → ');
+    const flat = `flat at ${trim(lift.latestWeightKg)} kg for ${lift.stalledSessions} session${lift.stalledSessions === 1 ? '' : 's'}`;
+    const moved = `${lift.changeKg > 0 ? '+' : ''}${trim(lift.changeKg)} kg over ${lift.spanDays} day${lift.spanDays === 1 ? '' : 's'}`;
+    // A lift can be up over the window and stuck right now. Reporting only the
+    // window change hides the stall, which is the part worth acting on.
+    const move =
+      lift.changeKg === 0
+        ? flat
+        : lift.stalledSessions >= 3
+          ? `${moved}, but ${flat}`
+          : moved;
+    const best =
+      lift.bestWeightKg > lift.latestWeightKg ? `, best ${trim(lift.bestWeightKg)} kg` : '';
+    return `- ${lift.name}: ${move}${best} | top sets ${series} | latest ${trim(lift.latestWeightKg)} kg x ${lift.latestReps}`;
+  });
+  const liftHistoryBlock = section('Lift trajectories (top set per session)', trajectoryLines);
+  if (liftHistoryBlock) blocks.push(liftHistoryBlock);
+
+  if (history.schedule) {
+    const s = history.schedule;
+    blocks.push(
+      section('Schedule', [
+        line('Planned', `${s.plannedPerWeek}x/week on ${s.trainingDays.join(', ')}`),
+        line('Adherence', `${s.completedSessions} done of ${s.plannedSessions} planned in this window`),
+      ])!,
+    );
+  }
+
+  if (history.sessionCount === 0) {
+    blocks.push(
+      section('Training history', [
+        'No sessions logged in this window. Do not describe trends, volume, or progress.',
+      ])!,
+    );
+  }
 
   // Plateaus — prominent, with actionable phrasing
   const plateauLines = context.plateaus.map((p) => {

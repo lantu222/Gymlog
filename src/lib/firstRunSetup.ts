@@ -30,6 +30,7 @@ import type {
   TemplateFamilyId,
 } from '../types/recommendation';
 import { AICoachTrainingContext } from '../types/aiCoach';
+import { emptyAiCoachHistory } from './aiTrainingContext';
 
 export interface FirstRunSetupSelection {
   profileName?: string | null;
@@ -723,6 +724,7 @@ export function buildFirstRunAiCoachContext(
     plateaus: [],
     // A user who has not trained yet has no load history to read.
     fatigue: { acwr: 0, recoveryScore: 50, signal: 'undertrained', sessionCount7d: 0, confident: false },
+    history: emptyAiCoachHistory(selection.availableDays),
     plannerSetup: null,
   };
 }

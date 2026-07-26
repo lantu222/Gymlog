@@ -1,9 +1,18 @@
 import { HomeSummary } from './dashboard';
 import { ExerciseProgressSummary } from './progression';
-import { ExerciseLog, UnitPreference, WorkoutSession } from '../types/models';
-import { AICoachTrainingContext } from '../types/aiCoach';
+import { ExerciseLog, SetupWeekday, UnitPreference, WorkoutSession } from '../types/models';
+import { AICoachHistory, AICoachTrainingContext } from '../types/aiCoach';
 import { detectPlateaus } from './progressionAnalyzer';
 import { buildFatigueModel } from './fatigueModel';
+import { buildTrainingHistory, DEFAULT_HISTORY_WINDOW_DAYS } from './trainingHistory';
+
+/**
+ * Caps on the history block. Model quality is bounded by what we tell it, but
+ * an unbounded payload is a bill — these keep eight weeks of real training
+ * inside a few kilobytes, and `truncated` says so when older work is dropped.
+ */
+const MAX_HISTORY_SESSIONS = 24;
+const MAX_HISTORY_LIFTS = 10;
 
 export interface BuildAiTrainingContextInput {
   unitPreference: UnitPreference;
@@ -31,7 +40,82 @@ export interface BuildAiTrainingContextInput {
     avoid: string[];
     limitations: string[];
   } | null;
+  /** Weekdays the plan schedules; empty means the plan has no fixed days. */
+  trainingDays?: SetupWeekday[];
+  historyWindowDays?: number;
   includeActiveSessionContext?: boolean;
+}
+
+/**
+ * The history of someone who has not trained yet: no sessions, no lifts, no
+ * weeks — and the schedule they just chose, which is the one thing that is
+ * already true about them.
+ */
+export function emptyAiCoachHistory(trainingDays: SetupWeekday[] = []): AICoachHistory {
+  return {
+    windowDays: DEFAULT_HISTORY_WINDOW_DAYS,
+    sessionCount: 0,
+    totalVolumeKg: 0,
+    sessions: [],
+    lifts: [],
+    weeks: [],
+    schedule:
+      trainingDays.length > 0
+        ? {
+            trainingDays,
+            plannedPerWeek: trainingDays.length,
+            plannedSessions: 0,
+            completedSessions: 0,
+          }
+        : null,
+    truncated: false,
+  };
+}
+
+function buildHistoryBlock(
+  workoutSessions: WorkoutSession[],
+  exerciseLogs: ExerciseLog[],
+  trainingDays: SetupWeekday[],
+  windowDays: number,
+): AICoachHistory {
+  const history = buildTrainingHistory({
+    sessions: workoutSessions,
+    logs: exerciseLogs,
+    trainingDays,
+    windowDays,
+  });
+
+  const sessions = history.sessions.slice(-MAX_HISTORY_SESSIONS).map((entry) => ({
+    sessionId: entry.sessionId,
+    name: entry.name,
+    performedAt: entry.performedAt,
+    durationMinutes: entry.durationMinutes,
+    volumeKg: entry.volumeKg === null ? null : Math.round(entry.volumeKg),
+    setCount: entry.setCount,
+    exerciseCount: entry.exerciseCount,
+  }));
+
+  return {
+    windowDays: history.windowDays,
+    sessionCount: history.sessionCount,
+    totalVolumeKg: history.totalVolumeKg,
+    sessions,
+    lifts: history.lifts.slice(0, MAX_HISTORY_LIFTS).map((lift) => ({
+      name: lift.name,
+      sessions: lift.points.length,
+      firstWeightKg: lift.first.topSetWeightKg,
+      latestWeightKg: lift.latest.topSetWeightKg,
+      latestReps: lift.latest.topSetReps,
+      bestWeightKg: lift.bestWeightKg,
+      changeKg: lift.weightChangeKg,
+      spanDays: lift.spanDays,
+      stalledSessions: lift.stalledSessions,
+      weightSeriesKg: lift.points.map((point) => point.topSetWeightKg),
+    })),
+    weeks: history.weeks,
+    schedule: history.adherence,
+    truncated: history.sessionCount > sessions.length,
+  };
 }
 
 export function buildAiTrainingContext({
@@ -46,6 +130,8 @@ export function buildAiTrainingContext({
   recommendedProgramTitle,
   customProgramTitle,
   plannerSetup,
+  trainingDays = [],
+  historyWindowDays = DEFAULT_HISTORY_WINDOW_DAYS,
   includeActiveSessionContext = false,
 }: BuildAiTrainingContextInput): AICoachTrainingContext {
   const recentCompletedSessions = [...workoutSessions]
@@ -121,6 +207,7 @@ export function buildAiTrainingContext({
     customProgramTitle,
     plateaus,
     fatigue,
+    history: buildHistoryBlock(workoutSessions, exerciseLogs, trainingDays, historyWindowDays),
     ...(plannerSetup !== undefined ? { plannerSetup } : {}),
   };
 }
