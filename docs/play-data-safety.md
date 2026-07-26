@@ -18,7 +18,7 @@ GAINER currently:
 - does not implement camera, microphone, contacts, or location features
 - includes an optional GAINER AI backend path:
   - preview mode when no endpoint is configured
-  - live mode when the app calls your own endpoint and that endpoint calls OpenAI
+  - live mode when the app calls your own endpoint and that endpoint calls Anthropic (Claude)
 - uses bundled local assets for Home artwork instead of loading third-party remote media
 
 Relevant files reviewed:
