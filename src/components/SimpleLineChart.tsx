@@ -84,8 +84,11 @@ export function SimpleLineChart({
   }, [points]);
 
   return (
-    <View style={styles.wrapper} onLayout={handleLayout}>
-      <View style={styles.chartFrame}>
+    <View style={styles.wrapper}>
+      {/* Measured here, not on the wrapper: onLayout reports the border box,
+          so measuring the padded wrapper made the Svg ~2x padding too wide and
+          the last point was drawn past the card and clipped away. */}
+      <View style={styles.chartFrame} onLayout={handleLayout}>
         {width > 0 ? (
           <>
             {points.length ? (
@@ -109,7 +112,10 @@ export function SimpleLineChart({
                       strokeWidth={1}
                     />
                   ))}
-                  {showLine ? (
+                  {/* A line needs two entries to mean anything. With one, a
+                      stroke would imply a trend across a span the user has not
+                      logged, so a single entry stays a lone dot. */}
+                  {showLine && coordinates.length > 1 ? (
                     <Polyline
                       points={coordinates.map((point) => `${point.x},${point.y}`).join(' ')}
                       fill="none"
@@ -119,12 +125,28 @@ export function SimpleLineChart({
                       strokeLinecap="round"
                     />
                   ) : null}
+                  {/* Every logged entry gets its own marker, so the line reads
+                      as the entries it was drawn from rather than a smooth
+                      curve with invented points along the way.
+
+                      Two passes rather than a Fragment per point: react-native-svg
+                      does not render Fragments as children, and wrapping the pair
+                      silently dropped every marker. */}
                   {coordinates.map((point, index) => (
                     <Circle
-                      key={`${point.label}-${point.value}-${index}`}
+                      key={`halo-${point.label}-${point.value}-${index}`}
                       cx={point.x}
                       cy={point.y}
-                      r={showLine ? 4 : 5}
+                      r={7}
+                      fill="#FFFFFF"
+                    />
+                  ))}
+                  {coordinates.map((point, index) => (
+                    <Circle
+                      key={`dot-${point.label}-${point.value}-${index}`}
+                      cx={point.x}
+                      cy={point.y}
+                      r={coordinates.length === 1 ? 6 : 4.5}
                       fill={accent}
                       onPress={() => setSelectedPointIndex((current) => (current === index ? null : index))}
                     />

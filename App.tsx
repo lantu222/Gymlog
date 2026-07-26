@@ -2580,19 +2580,25 @@ function GymlogApp() {
 
           return {
             id: session.id,
-            title: formatWorkoutDisplayLabel(session.workoutNameSnapshot, 'Workout'),
-            dateLabel: formatShortDate(session.performedAt),
+            title: localizeSessionName(
+              formatWorkoutDisplayLabel(session.workoutNameSnapshot, t(preferences.appLanguage, 'ai.signal.workout')),
+              preferences.appLanguage,
+            ),
+            dateLabel: formatShortDate(session.performedAt, preferences.appLanguage),
             durationLabel:
               typeof session.durationMinutes === 'number' && session.durationMinutes > 0
                 ? formatDurationMinutes(session.durationMinutes)
                 : '0 min',
             volumeLabel: formatVolume(session.totalVolumeKg ?? 0, unitPreference),
-            detailLabel: completedSets !== null ? `${completedSets} sets` : `${completedExercises} exercises`,
-            exercisePreview: exercisePreview || 'Workout completed',
+            detailLabel:
+              completedSets !== null
+                ? t(preferences.appLanguage, 'recent.setCount', { count: completedSets })
+                : t(preferences.appLanguage, 'recent.exerciseCount', { count: completedExercises }),
+            exercisePreview: exercisePreview || t(preferences.appLanguage, 'recent.completed'),
             notePreview,
           };
         }),
-    [getSessionLogs, unitPreference, workoutSessions],
+    [getSessionLogs, preferences.appLanguage, unitPreference, workoutSessions],
   );
   const dismissedTipIds = preferences.dismissedTipIds ?? [];
   const readyProgramBadgeLabel = 'Browse';
@@ -3212,6 +3218,10 @@ function GymlogApp() {
           measurementEntries={measurementEntries}
           workoutSessions={workoutSessions}
           activityCalendar={homeSummary.streak.calendar}
+          // Same source the Training plan screen edits, so the calendar cannot
+          // disagree with the schedule the user set. Empty when GAINER places
+          // the week, and then nothing is ever called missed.
+          trainingDays={preferences.setupAvailableDays}
           rhythm={progressTrainingRhythm}
           weeklyTargetSessions={progressWeeklyTarget}
           unitPreference={unitPreference}
@@ -3358,7 +3368,7 @@ function GymlogApp() {
         planFocusCaption={profilePlanSummary.focusCaption}
         sessions={(homeActivePlanCard?.sessions ?? []).map((session) => ({
           id: session.id,
-          title: formatWorkoutDisplayLabel(session.title),
+          title: localizeSessionName(formatWorkoutDisplayLabel(session.title), preferences.appLanguage),
           exerciseCount: session.exercises.length + (session.hiddenExerciseCount ?? 0),
           totalSets: session.totalSets ?? 0,
           isNext: session.id === homeActivePlanCard?.nextSession.id,

@@ -457,3 +457,9 @@ GAINER works best when it feels decisive:
 - fast logging
 
 Every future feature should be judged against that standard.
+
+## Beyond Phase 3
+
+Direction past this roadmap - AI movement analysis, AI rack, own facility - is recorded in `long-term-vision.md`.
+
+That document has no implementation authority and does not modify the MVP boundary in `mvp-launch-scope.md`. It exists so long-range ambition stays documented instead of leaking into launch scope.

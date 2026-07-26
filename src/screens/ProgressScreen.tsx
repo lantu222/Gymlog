@@ -37,6 +37,7 @@ import {
   MeasurementEntry,
   MeasurementKind,
   MeasurementUnit,
+  SetupWeekday,
   UnitPreference,
   WorkoutSession,
 } from '../types/models';
@@ -55,6 +56,8 @@ interface ProgressScreenProps {
   bodyweightProgress: BodyweightProgressSummary;
   measurementEntries: MeasurementEntry[];
   workoutSessions: WorkoutSession[];
+  /** Weekdays the active plan schedules; drives missed vs rest in the calendar. */
+  trainingDays?: SetupWeekday[];
   activityCalendar: {
     monthLabel: string;
     weekdayLabels: string[];
@@ -91,6 +94,21 @@ const PROGRESS_WEEKDAY_KEYS: I18nKey[] = [
   'onb.weekday.fri',
   'onb.weekday.sat',
   'onb.weekday.sun',
+];
+
+const CALENDAR_LEGEND: Array<{ key: string; labelKey: I18nKey; dotStyle: object }> = [
+  { key: 'done', labelKey: 'progress.legend.done', dotStyle: { backgroundColor: HG.purple } },
+  {
+    key: 'missed',
+    labelKey: 'progress.legend.missed',
+    dotStyle: { backgroundColor: '#FBEAE7', borderWidth: 1, borderColor: '#E7C3BC' },
+  },
+  {
+    key: 'upcoming',
+    labelKey: 'progress.legend.upcoming',
+    dotStyle: { borderWidth: 1.5, borderColor: HG.purple },
+  },
+  { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: '#F1ECFB' } },
 ];
 
 const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey }> = [
@@ -589,6 +607,7 @@ export function ProgressScreen({
   measurementEntries,
   workoutSessions,
   activityCalendar,
+  trainingDays,
   rhythm,
   weeklyTargetSessions = null,
   unitPreference,
@@ -800,6 +819,13 @@ export function ProgressScreen({
   }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, overviewRange, unitPreference, workoutSessions]);
 
   const activityCalendarDays = useMemo(() => activityCalendar.weeks.flat(), [activityCalendar.weeks]);
+  // Start of today, so a planned day that has already gone by can be told
+  // apart from one still ahead. Recomputed per render is fine — the calendar
+  // only re-renders on data changes, and a stale midnight would mislabel a day.
+  const todayStartTimestamp = useMemo(() => {
+    const now = new Date();
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  }, [activityCalendar.weeks]);
 
   // ── tracked data ──
 
@@ -928,9 +954,11 @@ export function ProgressScreen({
               </View>
               {heroDelta !== null ? (
                 <Text style={styles.heroSince}>
-                  {heroDelta >= 0 ? '+' : ''}
-                  {fmtDelta(heroDelta)} {unitPreference} since you started · {removeTrailingZeros(heroStart ?? 0)} →{' '}
-                  {removeTrailingZeros(heroLatest ?? 0)} {unitPreference}
+                  {t(language, 'progress.heroSince', {
+                    delta: `${heroDelta >= 0 ? '+' : ''}${fmtDelta(heroDelta)} ${unitPreference}`,
+                    from: removeTrailingZeros(heroStart ?? 0),
+                    to: `${removeTrailingZeros(heroLatest ?? 0)} ${unitPreference}`,
+                  })}
                 </Text>
               ) : (
                 <Text style={styles.heroSinceMuted}>{t(language, 'progress.trendStarts')}</Text>
@@ -956,56 +984,6 @@ export function ProgressScreen({
           </View>
         )}
 
-        <SectionLabel label={t(language, 'progress.section.rhythm')} />
-        <View style={styles.card}>
-          <View style={styles.rhythmHead}>
-            <View style={styles.rhythmHeadLeft}>
-              <Text style={styles.rhythmBig}>{rhythm.weeksInRow}</Text>
-              <Text style={styles.rhythmBigLabel}>
-                {t(language, rhythm.weeksInRow === 1 ? 'progress.weekInRowOne' : 'progress.weekInRowMany')}
-              </Text>
-            </View>
-            <Text style={styles.rhythmThisWeek}>
-              {weeklyTargetSessions
-                ? t(language, 'progress.weekCount', {
-                    count: rhythm.currentWeekSessions,
-                    target: weeklyTargetSessions,
-                  })
-                : t(language, 'progress.weekCountNoTarget', { count: rhythm.currentWeekSessions })}
-            </Text>
-          </View>
-          <View style={styles.rhythmBars}>
-            {rhythm.sessionsPerWeek.map((count, index) => {
-              const isCurrent = index === rhythm.sessionsPerWeek.length - 1;
-              const height = Math.max(8, (count / maxWeekSessions) * 56);
-              return (
-                <View key={index} style={styles.rhythmBarSlot}>
-                  <View
-                    style={[
-                      styles.rhythmBar,
-                      { height },
-                      isCurrent ? styles.rhythmBarCurrent : null,
-                    ]}
-                  />
-                </View>
-              );
-            })}
-          </View>
-          <View style={styles.rhythmFootRow}>
-            <Text style={styles.rhythmFootText}>
-              {t(language, 'progress.weeksAgo', { count: rhythm.sessionsPerWeek.length })}
-            </Text>
-            <Text style={styles.rhythmFootText}>{t(language, 'progress.thisWeek')}</Text>
-          </View>
-          <Text style={styles.rhythmCaption}>
-            {rhythm.weeksInRow > 0
-              ? t(language, rhythm.weeksInRow === 1 ? 'progress.rhythmOne' : 'progress.rhythmMany', {
-                  count: rhythm.weeksInRow,
-                })
-              : t(language, 'progress.rhythmNone')}
-          </Text>
-        </View>
-
         <SectionLabel label={t(language, 'progress.section.thisMonth')} />
         <View style={styles.monthGrid}>
           <View style={styles.monthCard}>
@@ -1025,38 +1003,6 @@ export function ProgressScreen({
           </View>
         </View>
 
-        <SectionLabel label={t(language, 'progress.section.trend')} />
-        <View style={styles.trendBlock}>
-          <View style={styles.trendHead}>
-            <Text style={styles.trendValue}>{overviewChart.valueLabel}</Text>
-            <Seg
-              options={OVERVIEW_METRICS.map((option) => ({ key: option.key, label: t(language, option.labelKey) }))}
-              value={overviewMetric}
-              onChange={setOverviewMetric}
-            />
-          </View>
-          <SimpleLineChart
-            points={overviewChart.points}
-            unitLabel={overviewChart.unitLabel}
-            accent={HG.purple}
-            yTickValues={overviewChart.yTickValues}
-            formatValueLabel={overviewChart.formatValueLabel}
-            footerLabels={overviewChart.footerLabels}
-            tooltipFormatter={overviewChart.tooltipFormatter}
-            emptyLabel={overviewChart.emptyLabel}
-          />
-          <View style={styles.trendRangeRow}>
-            <Seg
-              options={OVERVIEW_RANGES.map((option) => ({
-                key: option.key,
-                label: option.label ?? t(language, 'progress.range.all'),
-              }))}
-              value={overviewRange}
-              onChange={setOverviewRange}
-            />
-          </View>
-        </View>
-
         <SectionLabel label={t(language, 'progress.section.activity')} right={calendarMonthLabel} />
         <View style={styles.card}>
           <View style={styles.calendarWeekdayRow}>
@@ -1068,25 +1014,32 @@ export function ProgressScreen({
           </View>
           <View style={styles.calendarGrid}>
             {activityCalendarDays.map((day) => {
-              const status = getProgressActivityDayStatus(day);
+              const status = getProgressActivityDayStatus(day, {
+                trainingDays,
+                todayStart: todayStartTimestamp,
+              });
               if (status === 'outside') {
                 return <View key={day.dayStart} style={styles.calendarCell} />;
               }
-              const workout = status === 'workout';
+
               return (
                 <View key={day.dayStart} style={styles.calendarCell}>
                   <View
                     style={[
                       styles.calendarBubble,
-                      workout && styles.calendarBubbleWorkout,
-                      !workout && day.isToday && styles.calendarBubbleToday,
+                      status === 'done' && styles.calendarBubbleDone,
+                      status === 'missed' && styles.calendarBubbleMissed,
+                      status === 'upcoming' && styles.calendarBubbleUpcoming,
+                      status !== 'done' && day.isToday && styles.calendarBubbleToday,
                     ]}
                   >
                     <Text
                       style={[
                         styles.calendarBubbleText,
-                        workout && styles.calendarBubbleTextWorkout,
-                        !workout && day.isToday && styles.calendarBubbleTextToday,
+                        status === 'done' && styles.calendarBubbleTextDone,
+                        status === 'missed' && styles.calendarBubbleTextMissed,
+                        status === 'upcoming' && styles.calendarBubbleTextUpcoming,
+                        status !== 'done' && day.isToday && styles.calendarBubbleTextToday,
                       ]}
                     >
                       {day.dayNumber}
@@ -1095,6 +1048,15 @@ export function ProgressScreen({
                 </View>
               );
             })}
+          </View>
+
+          <View style={styles.calendarLegend}>
+            {CALENDAR_LEGEND.map((entry) => (
+              <View key={entry.key} style={styles.legendItem}>
+                <View style={[styles.legendDot, entry.dotStyle]} />
+                <Text style={styles.legendText}>{t(language, entry.labelKey)}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -1764,8 +1726,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#F1ECFB',
   },
-  calendarBubbleWorkout: {
+  calendarBubbleDone: {
     backgroundColor: HG.purple,
+  },
+  // Missed reads as a quiet outline, not an alarm: the point is to show the
+  // shape of the month, not to scold anyone for a skipped Thursday.
+  calendarBubbleMissed: {
+    backgroundColor: '#FBEAE7',
+    borderWidth: 1,
+    borderColor: '#E7C3BC',
+  },
+  calendarBubbleUpcoming: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: HG.purple,
   },
   calendarBubbleToday: {
     backgroundColor: HG.purpleLight,
@@ -1778,8 +1752,50 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
   },
-  calendarBubbleTextWorkout: {
+  calendarBubbleTextDone: {
     color: '#FFFFFF',
+  },
+  calendarBubbleTextMissed: {
+    color: '#B4483A',
+  },
+  calendarBubbleTextUpcoming: {
+    color: HG.purpleDark,
+  },
+  calendarLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+    marginTop: 14,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 11,
+    height: 11,
+    borderRadius: 4,
+  },
+  legendDotDone: {
+    backgroundColor: HG.purple,
+  },
+  legendDotMissed: {
+    backgroundColor: '#FBEAE7',
+    borderWidth: 1,
+    borderColor: '#E7C3BC',
+  },
+  legendDotUpcoming: {
+    borderWidth: 1.5,
+    borderColor: HG.purple,
+  },
+  legendDotRest: {
+    backgroundColor: '#F1ECFB',
+  },
+  legendText: {
+    color: HG.muted,
+    fontSize: 11.5,
+    fontWeight: '700',
   },
   calendarBubbleTextToday: {
     color: HG.purpleDark,

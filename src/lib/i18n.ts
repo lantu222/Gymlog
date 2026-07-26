@@ -1821,6 +1821,17 @@ const EN = {
   'coach.dayOne': '{count} day',
   'coach.dayMany': '{count} days',
   'coach.analysis.topSetNew': '{lift} top set {set} — a new best',
+  // ── Activity calendar legend ──────────────────────────────────────────
+  'progress.legend.done': 'Trained',
+  'progress.legend.missed': 'Missed',
+  'progress.legend.upcoming': 'Planned',
+  'progress.legend.rest': 'Rest',
+  // ── Progress hero delta ───────────────────────────────────────────────
+  'progress.heroSince': '{delta} since you started · {from} → {to}',
+  // ── Recent session rows ───────────────────────────────────────────────
+  'recent.setCount': '{count} sets',
+  'recent.exerciseCount': '{count} exercises',
+  'recent.completed': 'Workout completed',
 } as const;
 
 export type I18nKey = keyof typeof EN;
@@ -3609,6 +3620,17 @@ const FI: Record<I18nKey, string> = {
   'coach.dayOne': '{count} päivässä',
   'coach.dayMany': '{count} päivässä',
   'coach.analysis.topSetNew': '{lift} raskain sarja {set} — uusi ennätys',
+  // ── Activity calendar legend ──────────────────────────────────────────
+  'progress.legend.done': 'Treenattu',
+  'progress.legend.missed': 'Jäi väliin',
+  'progress.legend.upcoming': 'Suunniteltu',
+  'progress.legend.rest': 'Lepo',
+  // ── Progress hero delta ───────────────────────────────────────────────
+  'progress.heroSince': '{delta} aloituksesta · {from} → {to}',
+  // ── Recent session rows ───────────────────────────────────────────────
+  'recent.setCount': '{count} sarjaa',
+  'recent.exerciseCount': '{count} liikettä',
+  'recent.completed': 'Treeni suoritettu',
 };
 
 const STRINGS: Record<AppLanguage, Record<I18nKey, string>> = {
