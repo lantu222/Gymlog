@@ -1,5 +1,5 @@
 import { getTotalVolume } from './progression';
-import { t } from './i18n';
+import { I18nKey, t } from './i18n';
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { localizeSessionName } from './sessionNameLabel';
 import { AppLanguage, ExerciseLog, WorkoutSession } from '../types/models';
@@ -164,8 +164,13 @@ function buildFocus(
 
   const liftName = exerciseNameLabel(language, best.name);
   const deltaText = `${formatSigned(best.delta)} kg`;
-  const weeks = Math.max(1, Math.round(best.days / 7));
-  const periodText = t(language, weeks === 1 ? 'coach.weekOne' : 'coach.weekMany', { count: weeks });
+  // Two sessions a day apart are not "a week" — say the span that happened.
+  const periodText =
+    best.days < 7
+      ? t(language, best.days === 1 ? 'coach.dayOne' : 'coach.dayMany', { count: best.days })
+      : t(language, Math.round(best.days / 7) === 1 ? 'coach.weekOne' : 'coach.weekMany', {
+          count: Math.round(best.days / 7),
+        });
 
   return {
     body: {
@@ -249,15 +254,20 @@ function buildAnalysis(
 
     const liftName = exerciseNameLabel(language, heaviest.log.exerciseNameSnapshot);
     const setText = `${Math.round(heaviest.weight * 10) / 10} kg × ${heaviest.reps}`;
-    const matchedBest = priorBest > 0 && heaviest.weight >= priorBest;
+    // Beating the old best and equalling it are different results; calling a
+    // new PR "matched" undersells what the user actually did.
+    const beatBest = priorBest > 0 && heaviest.weight > priorBest;
+    const matchedBest = priorBest > 0 && heaviest.weight === priorBest;
+    const topSetKey: I18nKey = beatBest
+      ? 'coach.analysis.topSetNew'
+      : matchedBest
+        ? 'coach.analysis.topSetBest'
+        : 'coach.analysis.topSet';
 
     bullets.push({
-      tone: matchedBest ? 'up' : 'flat',
+      tone: beatBest || matchedBest ? 'up' : 'flat',
       body: {
-        text: t(language, matchedBest ? 'coach.analysis.topSetBest' : 'coach.analysis.topSet', {
-          lift: liftName,
-          set: setText,
-        }),
+        text: t(language, topSetKey, { lift: liftName, set: setText }),
         highlights: [setText],
       },
     });

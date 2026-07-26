@@ -1817,6 +1817,10 @@ const EN = {
   'coach.lock.cta': 'Start 7-day free trial',
   'coach.lock.fine': 'Then €59.99/year · cancel anytime',
   'tabs.aiCoach': 'Open GAINER Coach',
+  // ── Coach precision wording ───────────────────────────────────────────
+  'coach.dayOne': '{count} day',
+  'coach.dayMany': '{count} days',
+  'coach.analysis.topSetNew': '{lift} top set {set} — a new best',
 } as const;
 
 export type I18nKey = keyof typeof EN;
@@ -3601,6 +3605,10 @@ const FI: Record<I18nKey, string> = {
   'coach.lock.cta': 'Aloita 7 päivän ilmainen kokeilu',
   'coach.lock.fine': 'Sen jälkeen 59,99 €/v · peru milloin tahansa',
   'tabs.aiCoach': 'Avaa GAINER Coach',
+  // ── Coach precision wording ───────────────────────────────────────────
+  'coach.dayOne': '{count} päivässä',
+  'coach.dayMany': '{count} päivässä',
+  'coach.analysis.topSetNew': '{lift} raskain sarja {set} — uusi ennätys',
 };
 
 const STRINGS: Record<AppLanguage, Record<I18nKey, string>> = {

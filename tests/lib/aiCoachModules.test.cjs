@@ -239,4 +239,64 @@ module.exports = [
       }
     },
   },
+  {
+    name: 'a gain over a few days is reported in days, not rounded up to a week',
+    run() {
+      const modules = buildCoachModules({
+        sessions: [
+          session('s2', 'Day 1', daysAgo(1), 900),
+          session('s1', 'Day 1', daysAgo(2), 900),
+        ],
+        logs: [
+          log('s1', 'Barbell Squat', 100, [5]),
+          log('s2', 'Barbell Squat', 102.5, [5]),
+        ],
+        language: 'en',
+      });
+
+      assert.ok(modules.focus);
+      assert.match(modules.focus.body.text, /1 day/);
+      assert.doesNotMatch(modules.focus.body.text, /week/);
+    },
+  },
+  {
+    name: 'beating the old best reads as a new best, not as matching it',
+    run() {
+      const modules = buildCoachModules({
+        sessions: [
+          session('s2', 'Day 1', daysAgo(1), 900),
+          session('s1', 'Day 1', daysAgo(8), 900),
+        ],
+        logs: [
+          log('s1', 'Bench Press', 80, [5]),
+          log('s2', 'Bench Press', 82.5, [5]),
+        ],
+        language: 'en',
+      });
+
+      const text = modules.analysis.bullets.map((bullet) => bullet.body.text).join(' ');
+      assert.match(text, /a new best/);
+      assert.doesNotMatch(text, /matched your best/);
+    },
+  },
+  {
+    name: 'equalling the old best still reads as matching it',
+    run() {
+      const modules = buildCoachModules({
+        sessions: [
+          session('s2', 'Day 1', daysAgo(1), 900),
+          session('s1', 'Day 1', daysAgo(8), 900),
+        ],
+        logs: [
+          log('s1', 'Bench Press', 80, [5]),
+          log('s2', 'Bench Press', 80, [5]),
+        ],
+        language: 'en',
+      });
+
+      const text = modules.analysis.bullets.map((bullet) => bullet.body.text).join(' ');
+      assert.match(text, /matched your best/);
+      assert.doesNotMatch(text, /a new best/);
+    },
+  },
 ];

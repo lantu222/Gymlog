@@ -684,7 +684,10 @@ const styles = StyleSheet.create({
   message: {
     flexDirection: 'row',
     gap: 9,
-    maxWidth: '92%',
+    // Held short so the two sides read as a conversation: the coach hugs the
+    // left, the user hugs the right, and neither fills the column.
+    maxWidth: '84%',
+    alignSelf: 'flex-start',
   },
   messageMine: {
     alignSelf: 'flex-end',
@@ -708,7 +711,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   bubble: {
-    flex: 1,
+    // Shrink, never grow: flex:1 made every bubble fill the column, which left
+    // the user's messages looking left-aligned no matter which side they sat on.
+    flexShrink: 1,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
     borderColor: COACH.hairline,
