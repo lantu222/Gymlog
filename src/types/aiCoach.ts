@@ -52,6 +52,8 @@ export interface AICoachFatigueSummary {
   recoveryScore: number;
   signal: FatigueSignal;
   sessionCount7d: number;
+  /** False when there is too little history to read the signal as fact. */
+  confident: boolean;
 }
 
 export interface AICoachPlannerSetupSummary {

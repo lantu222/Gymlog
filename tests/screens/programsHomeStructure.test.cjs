@@ -127,7 +127,7 @@ module.exports = [
       assert.doesNotMatch(bottomTabBarSource, /<Text[^>]*centerLabel[^>]*>Start<\/Text>/);
       assert.doesNotMatch(bottomTabBarSource, /styles\.centerLabel/);
       // The center action is the raised "AI" button; a11y label preserved.
-      assert.match(bottomTabBarSource, /accessibilityLabel=\{t\(language, 'tabs\.aiSession'\)\}/);
+      assert.match(bottomTabBarSource, /accessibilityLabel=\{t\(language, 'tabs\.aiCoach'\)\}/);
     },
   },
 ];

@@ -190,4 +190,63 @@ module.exports = [
       assert.ok(scoreHigh < scoreOptimal, 'overreaching score should be below optimal');
     },
   },
+  {
+    name: 'fatigue: one logged session is not enough history to judge load',
+    run() {
+      // 500 acute against 500/4 chronic reads as ACWR 4 — a confident "your
+      // load is well above the safe zone" built from a single workout.
+      const result = buildFatigueModel(
+        { workoutSessions: [makeSession('s1', daysAgo(1), 500)], exerciseLogs: [] },
+        NOW,
+      );
+
+      assert.equal(result.confident, false);
+      assert.ok(result.acwr > 1.5, 'the raw ratio still spikes; the flag is what guards it');
+    },
+  },
+  {
+    name: 'fatigue: four sessions spread over two weeks can be judged',
+    run() {
+      const result = buildFatigueModel(
+        {
+          workoutSessions: [
+            makeSession('s1', daysAgo(20), 500),
+            makeSession('s2', daysAgo(14), 500),
+            makeSession('s3', daysAgo(7), 500),
+            makeSession('s4', daysAgo(1), 500),
+          ],
+          exerciseLogs: [],
+        },
+        NOW,
+      );
+
+      assert.equal(result.confident, true);
+    },
+  },
+  {
+    name: 'fatigue: four sessions crammed into three days are not enough spread',
+    run() {
+      const result = buildFatigueModel(
+        {
+          workoutSessions: [
+            makeSession('s1', daysAgo(3), 500),
+            makeSession('s2', daysAgo(2), 500),
+            makeSession('s3', daysAgo(1), 500),
+            makeSession('s4', daysAgo(0), 500),
+          ],
+          exerciseLogs: [],
+        },
+        NOW,
+      );
+
+      assert.equal(result.confident, false);
+    },
+  },
+  {
+    name: 'fatigue: an empty history is never confident',
+    run() {
+      const result = buildFatigueModel({ workoutSessions: [], exerciseLogs: [] }, NOW);
+      assert.equal(result.confident, false);
+    },
+  },
 ];

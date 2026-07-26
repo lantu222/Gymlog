@@ -275,7 +275,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
           <Pressable
             onPress={onAiPress}
             accessibilityRole="button"
-            accessibilityLabel={t(language, 'tabs.aiSession')}
+            accessibilityLabel={t(language, 'tabs.aiCoach')}
             style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}
           >
             <Animated.View style={[styles.centerGlow, aiActive && styles.centerGlowActive, { transform: [{ scale: fabPop }] }]}>

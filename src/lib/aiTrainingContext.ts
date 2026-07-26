@@ -90,6 +90,7 @@ export function buildAiTrainingContext({
     acwr: fatigueResult.acwr,
     recoveryScore: fatigueResult.recoveryScore,
     signal: fatigueResult.signal,
+    confident: fatigueResult.confident,
     sessionCount7d: fatigueResult.sessionCount7d,
   };
 

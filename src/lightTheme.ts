@@ -71,3 +71,26 @@ export const HG3 = {
 } as const;
 
 export type HG3Token = keyof typeof HG3;
+
+/**
+ * The AI Coach surface (design_handoff_ai_coach). Deliberately dark and gold
+ * against the otherwise light app — the contrast is what marks it as the paid
+ * feature. Shared with the full-analysis screen so the two cannot drift.
+ */
+export const COACH = {
+  bg: '#17122A',
+  surface: '#221A3D',
+  surfaceSoft: '#1C1636',
+  hairline: 'rgba(255,255,255,0.09)',
+  text: '#F4F1FF',
+  muted: '#A79FC4',
+  faint: '#7C739E',
+  gold: '#E4B14C',
+  goldInk: '#2A1B05',
+  purple: '#9B6DFF',
+  good: '#37D08A',
+  warn: '#E0922F',
+  focusTop: '#2A1E4E',
+  focusBottom: '#3A2A16',
+  focusBorder: 'rgba(228,177,76,0.32)',
+} as const;

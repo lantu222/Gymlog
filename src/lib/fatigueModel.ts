@@ -16,7 +16,20 @@ export interface FatigueResult {
   signal: FatigueSignal;
   sessionCount7d: number;
   sessionCount28d: number;
+  /**
+   * False until there is enough history for the ratio to mean anything.
+   *
+   * The chronic load is a 28-day total divided by four, so a user with one
+   * logged session gets acute 500 against chronic 125 — an ACWR of 4 and a
+   * confident "your load is well above the safe zone" built from a single
+   * workout. Callers must not give load advice while this is false.
+   */
+  confident: boolean;
 }
+
+/** Sessions spread over enough of the window for a 4-week average to hold up. */
+const MIN_SESSIONS_FOR_CONFIDENCE = 4;
+const MIN_SPAN_DAYS_FOR_CONFIDENCE = 14;
 
 function resolveSessionVolume(
   session: WorkoutSession,
@@ -83,6 +96,14 @@ export function buildFatigueModel(input: FatigueModelInput, referenceDate?: Date
 
   const acwr = chronicLoadKg > 0 ? acuteLoadKg / chronicLoadKg : 0;
 
+  const times = sessions28d
+    .map((session) => new Date(session.performedAt).getTime())
+    .filter((time) => Number.isFinite(time));
+  const spanDays =
+    times.length > 1 ? (Math.max(...times) - Math.min(...times)) / 86400000 : 0;
+  const confident =
+    sessions28d.length >= MIN_SESSIONS_FOR_CONFIDENCE && spanDays >= MIN_SPAN_DAYS_FOR_CONFIDENCE;
+
   return {
     acuteLoadKg: Math.round(acuteLoadKg),
     chronicLoadKg: Math.round(chronicLoadKg),
@@ -91,5 +112,6 @@ export function buildFatigueModel(input: FatigueModelInput, referenceDate?: Date
     signal: resolveSignal(acwr),
     sessionCount7d: sessions7d.length,
     sessionCount28d: sessions28d.length,
+    confident,
   };
 }

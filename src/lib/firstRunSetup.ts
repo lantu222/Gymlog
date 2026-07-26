@@ -721,7 +721,8 @@ export function buildFirstRunAiCoachContext(
     recommendedProgramTitle: null,
     customProgramTitle: null,
     plateaus: [],
-    fatigue: { acwr: 0, recoveryScore: 50, signal: 'undertrained', sessionCount7d: 0 },
+    // A user who has not trained yet has no load history to read.
+    fatigue: { acwr: 0, recoveryScore: 50, signal: 'undertrained', sessionCount7d: 0, confident: false },
     plannerSetup: null,
   };
 }

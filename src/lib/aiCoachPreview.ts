@@ -144,7 +144,12 @@ export function buildAiCoachPreviewAnswer(prompt: string, context: AICoachTraini
   const topSetLine = formatTopSetLine(context);
   const recentSessionLine = formatRecentSessionLine(context);
 
-  const hasHighFatigue = context.fatigue.signal === 'elevated' || context.fatigue.signal === 'high';
+  // Only call the load high when the window actually supports it; otherwise a
+  // first-ever workout reads as a 4x spike and the coach tells a beginner to
+  // cut volume.
+  const hasHighFatigue =
+    context.fatigue.confident &&
+    (context.fatigue.signal === 'elevated' || context.fatigue.signal === 'high');
   const hasPlateau = context.plateaus.length > 0;
   const primaryPlateau = context.plateaus[0];
 

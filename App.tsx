@@ -49,7 +49,18 @@ import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTi
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
+import { buildCoachModules, CoachModules } from './src/lib/aiCoachModules';
+import { isProUnlocked } from './src/lib/proEntitlement';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
+
+// Stable identity so the memo below does not hand the sheet a fresh object on
+// every render while it is closed.
+const EMPTY_COACH_MODULES: CoachModules = {
+  focus: null,
+  analysis: null,
+  suggestion: null,
+  needsMoreData: true,
+};
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import {
@@ -66,6 +77,7 @@ import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
+import { AICoachSheet } from './src/components/AICoachSheet';
 import { AICoachScreen } from './src/screens/AICoachScreen';
 import { AiModeSetupScreen } from './src/screens/AiModeSetupScreen';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
@@ -695,6 +707,7 @@ function GymlogApp() {
     history: [],
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [coachSheetVisible, setCoachSheetVisible] = useState(false);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
   const [workoutCelebration, setWorkoutCelebration] = useState<WorkoutCelebrationState | null>(null);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
@@ -2001,6 +2014,20 @@ function GymlogApp() {
         exerciseTemplates: database.exerciseTemplates,
       }),
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
+  );
+  const coachProUnlocked = isProUnlocked(preferences);
+  // The sheet only reads data while it is open; building the modules behind a
+  // closed sheet would run on every database change for nothing.
+  const coachModules = useMemo(
+    () =>
+      coachSheetVisible
+        ? buildCoachModules({
+            sessions: workoutSessions,
+            logs: database.exerciseLogs,
+            language: preferences.appLanguage,
+          })
+        : EMPTY_COACH_MODULES,
+    [coachSheetVisible, database.exerciseLogs, preferences.appLanguage, workoutSessions],
   );
   const aiCoachTrainingContext = useMemo(
     () =>
@@ -3744,18 +3771,29 @@ function GymlogApp() {
           <BottomTabBar
             language={preferences.appLanguage}
             activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
-            aiActive={route.tab === 'home' && (route.screen === 'ai' || route.screen === 'ai_setup')}
+            aiActive={
+              coachSheetVisible ||
+              (route.tab === 'home' && (route.screen === 'ai' || route.screen === 'ai_setup'))
+            }
             onTabPress={navigateToTab}
-            onAiPress={() => {
-              if (!navigateToActiveWorkout()) {
-                navigateToTab('workout');
-              }
-            }}
+            onAiPress={() => setCoachSheetVisible(true)}
           />
         ) : undefined
       }
     >
       {content}
+      <AICoachSheet
+        visible={coachSheetVisible}
+        proUnlocked={coachProUnlocked}
+        modules={coachModules}
+        trainingContext={aiCoachTrainingContext}
+        language={preferences.appLanguage}
+        onClose={() => setCoachSheetVisible(false)}
+        onStartTrial={() => {
+          setCoachSheetVisible(false);
+          navigate({ tab: 'profile', screen: 'premium' });
+        }}
+      />
     </AppShell>
   );
 }

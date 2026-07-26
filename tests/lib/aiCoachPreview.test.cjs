@@ -17,7 +17,7 @@ function baseContext(overrides = {}) {
     recommendedProgramTitle: null,
     customProgramTitle: null,
     plateaus: [],
-    fatigue: { acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 3 },
+    fatigue: { acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 3, confident: true },
     ...overrides,
   };
 }
@@ -32,7 +32,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [{ exerciseKey: 'bench press', name: 'Bench Press', stagnantSessions: 4, topWeightKg: 100 }],
-        fatigue: { acwr: 1.0, recoveryScore: 95, signal: 'optimal', sessionCount7d: 3 },
+        fatigue: { acwr: 1.0, recoveryScore: 95, signal: 'optimal', sessionCount7d: 3, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer(GENERIC_PROMPT, ctx);
 
@@ -55,7 +55,7 @@ module.exports = [
           { exerciseKey: 'bench press', name: 'Bench Press', stagnantSessions: 4, topWeightKg: 100 },
           { exerciseKey: 'squat', name: 'Squat', stagnantSessions: 3, topWeightKg: 120 },
         ],
-        fatigue: { acwr: 1.0, recoveryScore: 95, signal: 'optimal', sessionCount7d: 3 },
+        fatigue: { acwr: 1.0, recoveryScore: 95, signal: 'optimal', sessionCount7d: 3, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer(GENERIC_PROMPT, ctx);
       const allText = [answer.takeaway, ...answer.why].join(' ');
@@ -70,7 +70,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [],
-        fatigue: { acwr: 1.7, recoveryScore: 35, signal: 'high', sessionCount7d: 6 },
+        fatigue: { acwr: 1.7, recoveryScore: 35, signal: 'high', sessionCount7d: 6, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer(GENERIC_PROMPT, ctx);
 
@@ -92,7 +92,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [],
-        fatigue: { acwr: 1.4, recoveryScore: 62, signal: 'elevated', sessionCount7d: 5 },
+        fatigue: { acwr: 1.4, recoveryScore: 62, signal: 'elevated', sessionCount7d: 5, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer(GENERIC_PROMPT, ctx);
       const allText = [answer.takeaway, ...answer.why].join(' ');
@@ -108,7 +108,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [{ exerciseKey: 'deadlift', name: 'Deadlift', stagnantSessions: 5, topWeightKg: 150 }],
-        fatigue: { acwr: 1.8, recoveryScore: 28, signal: 'high', sessionCount7d: 7 },
+        fatigue: { acwr: 1.8, recoveryScore: 28, signal: 'high', sessionCount7d: 7, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer(GENERIC_PROMPT, ctx);
 
@@ -127,7 +127,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [{ exerciseKey: 'squat', name: 'Squat', stagnantSessions: 3, topWeightKg: 120 }],
-        fatigue: { acwr: 1.55, recoveryScore: 42, signal: 'high', sessionCount7d: 5 },
+        fatigue: { acwr: 1.55, recoveryScore: 42, signal: 'high', sessionCount7d: 5, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer(GENERIC_PROMPT, ctx);
       const planText = answer.plan.join(' ').toLowerCase();
@@ -146,7 +146,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [],
-        fatigue: { acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 3 },
+        fatigue: { acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 3, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer(GENERIC_PROMPT, ctx);
       const allText = [answer.takeaway, ...answer.why].join(' ');
@@ -159,7 +159,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [],
-        fatigue: { acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 3 },
+        fatigue: { acwr: 1.05, recoveryScore: 98, signal: 'optimal', sessionCount7d: 3, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer('bench painoo ei nouse', ctx);
       assert.ok(
@@ -176,7 +176,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [{ exerciseKey: 'bench press', name: 'Bench Press', stagnantSessions: 3, topWeightKg: 95 }],
-        fatigue: { acwr: 1.0, recoveryScore: 92, signal: 'optimal', sessionCount7d: 3 },
+        fatigue: { acwr: 1.0, recoveryScore: 92, signal: 'optimal', sessionCount7d: 3, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer('bench jumissa', ctx);
       assert.ok(answer.takeaway.includes('Bench Press'), `should name the specific lift, got: "${answer.takeaway}"`);
@@ -187,7 +187,7 @@ module.exports = [
     run() {
       const ctx = baseContext({
         plateaus: [{ exerciseKey: 'bench press', name: 'Bench Press', stagnantSessions: 3, topWeightKg: 95 }],
-        fatigue: { acwr: 1.6, recoveryScore: 45, signal: 'high', sessionCount7d: 6 },
+        fatigue: { acwr: 1.6, recoveryScore: 45, signal: 'high', sessionCount7d: 6, confident: true },
       });
       const answer = buildAiCoachPreviewAnswer('bench jumissa', ctx);
       const allText = [answer.takeaway, ...answer.why].join(' ');
