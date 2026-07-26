@@ -1,47 +1,39 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { SetupFocusArea } from '../types/models';
+import {
+  FOCUS_ACCESSORY_POOL,
+  getCatalogTrackingMode,
+  pickPoolVariant,
+  sessionFocusAffinity,
+} from './catalogExercisePools';
 
 /**
  * Focus areas add real training emphasis (onboarding truth plan P3):
  * +1 weekly accessory for small areas, +2 for big muscle groups. Additions run
  * BEFORE the caution filter in the composer, so a flagged area can still veto
  * or swap what the emphasis added — safety wins over emphasis.
+ *
+ * Emphasis is spread across the week rather than stacked into a single "chest
+ * day", but it lands on the day that already trains the area — a glute
+ * accessory on leg day, not wherever the round-robin happened to reach.
+ * The exercise names come from catalogExercisePools, which is checked against
+ * the library; this file used to name exercises that did not exist.
  */
 
 const BIG_FOCUS_AREAS: SetupFocusArea[] = ['chest', 'back', 'quads', 'glutes', 'hamstrings', 'legs'];
-
-// Accessory pool per area, grounded in catalog exercise names.
-const FOCUS_ACCESSORIES: Record<SetupFocusArea, string[]> = {
-  chest: ['Cable Fly', 'Incline Dumbbell Press'],
-  back: ['Lat Pulldown', 'Seated Cable Row'],
-  shoulders: ['Lateral Raise', 'Rear Delt Fly'],
-  arms: ['Hammer Curl', 'Triceps Pushdown'],
-  core: ['Plank', 'Hanging Knee Raise'],
-  quads: ['Leg Press', 'Bulgarian Split Squat'],
-  glutes: ['Hip Thrust', 'Glute Bridge'],
-  hamstrings: ['Leg Curl', 'Romanian Deadlift'],
-  calves: ['Standing Calf Raise', 'Seated Calf Raise'],
-  legs: ['Leg Press', 'Walking Lunge'],
-  mobility: ['Mobility Flow', 'Recovery Stretch Flow'],
-  conditioning: ['Kettlebell Swing', 'Bike HIIT (45s sprint / 15s rest)'],
-  bodyweight: ['Push-Up Wide', 'Plank'],
-};
-
-const BODYWEIGHT_PATTERNS = ['plank', 'glute bridge', 'push-up', 'bodyweight', 'mobility', 'stretch', 'flow', 'knee raise'];
 
 export function getFocusEmphasisCount(area: SetupFocusArea): number {
   return BIG_FOCUS_AREAS.includes(area) ? 2 : 1;
 }
 
 function buildEmphasisExercise(name: string, sessionId: string, index: number): WorkoutTemplateExercise {
-  const normalized = name.toLowerCase();
   return {
     id: `${sessionId}_focus_${index + 1}`,
     exerciseName: name,
     slotId: `focus_accessory_${index + 1}`,
     role: 'accessory',
     progressionPriority: 'low',
-    trackingMode: BODYWEIGHT_PATTERNS.some((pattern) => normalized.includes(pattern)) ? 'bodyweight' : 'load_and_reps',
+    trackingMode: getCatalogTrackingMode(name),
     sets: 2,
     repsMin: 10,
     repsMax: 15,
@@ -63,13 +55,18 @@ export interface FocusEmphasisAddition {
 }
 
 /**
- * Spreads each focus area's accessories across the week (round-robin over
- * sessions, offset per area) and never duplicates a movement a session
- * already holds. Mutates nothing — returns per-session additions.
+ * Spreads each focus area's accessories across the week and never duplicates a
+ * movement a session already holds. Mutates nothing — returns per-session
+ * additions.
+ *
+ * Placement is by affinity first: the day whose exercises already train the
+ * area wins. The per-area round-robin offset only breaks ties, so two focus
+ * areas still land on different days when nothing else separates them.
  */
 export function buildFocusEmphasisAdditions(
   sessions: FocusEmphasisSessionInput[],
   focusAreas: SetupFocusArea[],
+  availableEquipment: string[] | null = null,
 ): { bySessionId: Map<string, WorkoutTemplateExercise[]>; additions: FocusEmphasisAddition[] } {
   const bySessionId = new Map<string, WorkoutTemplateExercise[]>();
   const additions: FocusEmphasisAddition[] = [];
@@ -78,7 +75,8 @@ export function buildFocusEmphasisAdditions(
   }
 
   focusAreas.forEach((area, areaIndex) => {
-    const pool = FOCUS_ACCESSORIES[area] ?? [];
+    const areaPool = FOCUS_ACCESSORY_POOL[area];
+    const pool = areaPool ? pickPoolVariant(areaPool, availableEquipment) : [];
     const count = Math.min(getFocusEmphasisCount(area), pool.length);
 
     for (let step = 0; step < count; step += 1) {
@@ -86,21 +84,38 @@ export function buildFocusEmphasisAdditions(
       // Offset per area so two focus areas don't stack on the same day.
       const startIndex = (areaIndex + step) % sessions.length;
 
-      for (let probe = 0; probe < sessions.length; probe += 1) {
-        const session = sessions[(startIndex + probe) % sessions.length];
-        const existingNames = [
-          ...session.exercises.map((exercise) => exercise.exerciseName.toLowerCase()),
-          ...(bySessionId.get(session.id) ?? []).map((exercise) => exercise.exerciseName.toLowerCase()),
-        ];
-        const pendingCount = (bySessionId.get(session.id) ?? []).length;
+      const ranked = sessions
+        .map((session, index) => {
+          const pending = bySessionId.get(session.id) ?? [];
+          const names = [
+            ...session.exercises.map((exercise) => exercise.exerciseName),
+            ...pending.map((exercise) => exercise.exerciseName),
+          ];
+          return {
+            session,
+            names,
+            pendingCount: pending.length,
+            affinity: sessionFocusAffinity(names, area),
+            rotation: (index - startIndex + sessions.length) % sessions.length,
+          };
+        })
+        .sort((left, right) => right.affinity - left.affinity || left.rotation - right.rotation);
+
+      for (const candidate of ranked) {
         // Session time budget: at most two added accessories per session.
-        if (existingNames.includes(name.toLowerCase()) || pendingCount >= 2) {
+        if (
+          candidate.pendingCount >= 2 ||
+          candidate.names.some((existing) => existing.toLowerCase() === name.toLowerCase())
+        ) {
           continue;
         }
 
-        const exercise = buildEmphasisExercise(name, session.id, pendingCount);
-        bySessionId.set(session.id, [...(bySessionId.get(session.id) ?? []), exercise]);
-        additions.push({ area, exerciseName: name, sessionId: session.id });
+        const exercise = buildEmphasisExercise(name, candidate.session.id, candidate.pendingCount);
+        bySessionId.set(candidate.session.id, [
+          ...(bySessionId.get(candidate.session.id) ?? []),
+          exercise,
+        ]);
+        additions.push({ area, exerciseName: name, sessionId: candidate.session.id });
         break;
       }
     }

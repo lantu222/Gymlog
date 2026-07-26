@@ -49,12 +49,13 @@ module.exports = [
   {
     name: 'focusEmphasis: never duplicates a movement the session already holds',
     run() {
-      const sessions = [session('a', ['Cable Fly']), session('b', ['Bench Press'])];
+      // The first chest accessory in the pool, already sitting on session a.
+      const sessions = [session('a', ['Incline Dumbbell Press']), session('b', ['Bench Press'])];
       const result = buildFocusEmphasisAdditions(sessions, ['chest']);
 
-      const flyTargets = result.additions.filter((entry) => entry.exerciseName === 'Cable Fly');
-      assert.equal(flyTargets.length, 1);
-      assert.equal(flyTargets[0].sessionId, 'b');
+      const pressTargets = result.additions.filter((entry) => entry.exerciseName === 'Incline Dumbbell Press');
+      assert.equal(pressTargets.length, 1);
+      assert.equal(pressTargets[0].sessionId, 'b');
     },
   },
   {

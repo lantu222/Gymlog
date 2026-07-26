@@ -1,6 +1,8 @@
 import { getRecommendationProgramDefinition } from './recommendationCatalog';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { formatLiftDisplayLabel } from './displayLabel';
+import { pickPoolVariant, SUPPLEMENTAL_DAY_POOL, SupplementalDayKind } from './catalogExercisePools';
+import { resolveAvailableEquipment } from './equipmentExerciseFilter';
 import type { FirstRunSetupSelection } from './firstRunSetup';
 import type {
   RecommendationProgrammeDurationModel,
@@ -587,6 +589,17 @@ function getStructureLabel(familyId: TemplateFamilyId, daysPerWeek: number) {
   return daysPerWeek <= 3 ? 'Full body focus' : 'Split focus';
 }
 
+/**
+ * `keyLifts` is not a summary — the composer turns each entry into a real
+ * exercise on the saved plan. It used to hold category words ("Arms", "Core",
+ * "Easy cardio"), which reached the logger as exercises that exist in no
+ * catalog: no demo, no instructions, nothing to swap, and a weight field on a
+ * day the user had no equipment for. They come from the verified pool now.
+ */
+function supplementalLifts(kind: SupplementalDayKind, selection: FirstRunSetupSelection) {
+  return pickPoolVariant(SUPPLEMENTAL_DAY_POOL[kind], resolveAvailableEquipment(selection));
+}
+
 function buildSupplementalDay(
   selection: FirstRunSetupSelection,
   programId: string,
@@ -596,7 +609,7 @@ function buildSupplementalDay(
     return {
       name: index === 0 ? 'Accessory Strength Day' : 'Recovery Strength Day',
       meta: `${index === 0 ? 30 : 25} min - optional`,
-      keyLifts: index === 0 ? ['Arms', 'Core', 'Upper back'] : ['Mobility', 'Easy carries'],
+      keyLifts: supplementalLifts(index === 0 ? 'accessoryStrength' : 'recoveryStrength', selection),
       source: 'suggested',
       note: index === 0 ? 'Optional accessory work without replacing the strength base.' : 'Keep this easy so the main lifts recover.',
     };
@@ -606,7 +619,7 @@ function buildSupplementalDay(
     return {
       name: index === 0 ? 'Easy Run Add-On' : 'Long Run Add-On',
       meta: `${index === 0 ? 30 : 45} min - optional`,
-      keyLifts: index === 0 ? ['Easy run', 'Strides'] : ['Long run', 'Mobility'],
+      keyLifts: supplementalLifts(index === 0 ? 'easyRun' : 'longRun', selection),
       source: 'suggested',
       note: index === 0 ? 'Keep the pace conversational.' : 'Build distance gradually and keep it easier than tempo day.',
     };
@@ -616,7 +629,7 @@ function buildSupplementalDay(
     return {
       name: index === 0 ? 'Bodyweight Volume Day' : 'Conditioning + Mobility Day',
       meta: '25 min - optional',
-      keyLifts: index === 0 ? ['Push-ups', 'Split squats', 'Core'] : ['Intervals', 'Mobility'],
+      keyLifts: supplementalLifts(index === 0 ? 'bodyweightVolume' : 'conditioningMobility', selection),
       source: 'suggested',
       note: index === 0 ? 'Adds muscle-friendly volume without full-gym equipment.' : 'Keeps the week active without heavy fatigue.',
     };
@@ -625,7 +638,7 @@ function buildSupplementalDay(
   return {
     name: index === 0 ? 'Recovery + Mobility Day' : 'Easy Conditioning Day',
     meta: '25 min - optional',
-    keyLifts: index === 0 ? ['Mobility', 'Core'] : ['Easy cardio', 'Stretching'],
+    keyLifts: supplementalLifts(index === 0 ? 'recoveryMobility' : 'easyConditioning', selection),
     source: 'suggested',
     note: 'Optional day to fill the selected weekly rhythm.',
   };

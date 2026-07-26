@@ -4,6 +4,7 @@ import { buildRecommendationPlanReadyPayload } from './recommendationProgramme';
 import { applyCautionFlagsToExercises, CautionExerciseSwap } from './cautionExerciseFilter';
 import { applyEquipmentToExercises, resolveAvailableEquipment } from './equipmentExerciseFilter';
 import { buildFocusEmphasisAdditions, FocusEmphasisAddition } from './focusEmphasis';
+import { getCatalogTrackingMode } from './catalogExercisePools';
 import type { FirstRunSetupSelection } from './firstRunSetup';
 
 /**
@@ -46,22 +47,8 @@ export interface ComposedProgramWeek {
 }
 
 function getFallbackTrackingMode(name: string): WorkoutTemplateExercise['trackingMode'] {
-  const normalized = name.toLowerCase();
-  if (
-    normalized.includes('bodyweight') ||
-    normalized.includes('push-up') ||
-    normalized.includes('plank') ||
-    normalized.includes('mountain climber') ||
-    normalized.includes('glute bridge') ||
-    normalized.includes('lunge') ||
-    normalized.includes('inverted row') ||
-    normalized.includes('mobility') ||
-    normalized.includes('run')
-  ) {
-    return 'bodyweight';
-  }
-
-  return 'load_and_reps';
+  // The catalog knows what each exercise needs; keyword guessing does not.
+  return getCatalogTrackingMode(name);
 }
 
 export function buildComposedFallbackExercise(
@@ -126,12 +113,14 @@ export function composeProgramWeekForSelection(
     };
   });
 
-  // P3: focus areas add real weekly emphasis (+1 accessory small / +2 big),
-  // added BEFORE the caution pass so flags can still veto or swap them.
-  const emphasis = buildFocusEmphasisAdditions(baseSessions, selection.focusAreas);
-
   // P4: the chosen equipment chips are the full truth about available gear.
   const availableEquipment = resolveAvailableEquipment(selection);
+
+  // P3: focus areas add real weekly emphasis (+1 accessory small / +2 big),
+  // added BEFORE the caution pass so flags can still veto or swap them. The
+  // gear goes in first so a bodyweight setup gets a bodyweight accessory
+  // rather than a barbell one the equipment pass would only have to strip.
+  const emphasis = buildFocusEmphasisAdditions(baseSessions, selection.focusAreas, availableEquipment);
   const equipmentRemoved: string[] = [];
   const equipmentSwapped: Array<{ from: string; to: string }> = [];
 

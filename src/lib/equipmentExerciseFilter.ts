@@ -1,4 +1,5 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
+import { getCatalogTrackingMode } from './catalogExercisePools';
 
 /**
  * Equipment chips filter the actual exercises (onboarding truth plan P4).
@@ -35,6 +36,10 @@ const EQUIPMENT_RULES: EquipmentRule[] = [
   { pattern: 'pulldown', requires: [['Cables', 'Machines']] },
   { pattern: 'pushdown', requires: [['Cables', 'Machines']] },
   { pattern: 'machine', requires: [['Machines']] },
+  // Catalog names for plate-loaded machines that never say "machine".
+  { pattern: 'leverage', requires: [['Machines']] },
+  { pattern: 'glute ham raise', requires: [['Machines']] },
+  { pattern: 'calf press', requires: [['Machines']] },
   { pattern: 'leg press', requires: [['Machines']] },
   { pattern: 'hack squat', requires: [['Machines']] },
   { pattern: 'leg curl', requires: [['Machines']] },
@@ -49,52 +54,63 @@ const EQUIPMENT_RULES: EquipmentRule[] = [
   { pattern: 'rowing machine', requires: [['Cardio machines']] },
   { pattern: 'elliptical', requires: [['Cardio machines']] },
   { pattern: 'pull-up', requires: [['Pull-up bar']] },
+  // The catalog spells it "Pullups", which the hyphenated pattern misses.
+  { pattern: 'pullup', requires: [['Pull-up bar']] },
   { pattern: 'chin-up', requires: [['Pull-up bar']] },
   { pattern: 'hanging', requires: [['Pull-up bar']] },
   { pattern: 'band', requires: [['Resistance bands']] },
   { pattern: 'hip thrust', requires: [['Bench', ...BARBELL, 'Dumbbells']] },
 ];
 
-// Fallbacks tried in order; the first candidate the gear allows wins.
-const EQUIPMENT_FALLBACKS: Array<[string, string[]]> = [
-  ['bench press', ['Machine Chest Press', 'Dumbbell Floor Press', 'Push-Up Wide']],
+/**
+ * Fallbacks tried in order; the first candidate the gear allows wins.
+ *
+ * Every name here must be a real catalog exercise — a swap that lands on a
+ * name the library does not know strips the demo, the instructions and the
+ * substitution options from the exercise it was supposed to rescue. A test
+ * checks the whole table against the library.
+ *
+ * Where no honest substitute exists (a curl with neither weights nor a bar),
+ * the chain ends and the exercise is removed. The composer reports that as
+ * `equipmentRemoved`, which is the truthful outcome.
+ */
+export const EQUIPMENT_FALLBACKS: Array<[string, string[]]> = [
+  ['bench press', ['Leverage Chest Press', 'Dumbbell Floor Press', 'Push-Up Wide']],
   ['back squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['front squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['box squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['hack squat', ['Goblet Squat', 'Bodyweight Squat']],
   ['leg press', ['Goblet Squat', 'Bodyweight Squat']],
-  ['romanian deadlift', ['Dumbbell Romanian Deadlift', 'Glute Bridge']],
-  ['deadlift', ['Dumbbell Romanian Deadlift', 'Glute Bridge']],
-  ['barbell row', ['Chest-Supported Row', 'Inverted Row']],
-  ['seated cable row', ['Chest-Supported Row', 'Inverted Row']],
-  ['lat pulldown', ['Pull-Up', 'Inverted Row']],
+  ['romanian deadlift', ['Stiff-Legged Dumbbell Deadlift', 'Butt Lift (Bridge)']],
+  ['deadlift', ['Stiff-Legged Dumbbell Deadlift', 'Butt Lift (Bridge)']],
+  ['barbell row', ['Bent Over Two-Dumbbell Row', 'Inverted Row']],
+  ['seated cable row', ['Bent Over Two-Dumbbell Row', 'Inverted Row']],
+  ['lat pulldown', ['Pullups', 'Inverted Row']],
   ['overhead press', ['Dumbbell Shoulder Press', 'Incline Push-Up']],
   ['dumbbell shoulder press', ['Incline Push-Up']],
-  ['cable fly', ['Dumbbell Fly', 'Push-Up Wide']],
+  ['cable fly', ['Dumbbell Flyes', 'Push-Up Wide']],
   ['dumbbell fly', ['Push-Up Wide']],
   ['skull crusher', ['Triceps Pushdown', 'Incline Push-Up']],
   ['overhead triceps extension', ['Triceps Pushdown', 'Incline Push-Up']],
-  ['triceps pushdown', ['Incline Push-Up']],
-  ['preacher curl', ['Dumbbell Curl', 'Band Curl']],
-  ['barbell curl', ['Dumbbell Curl', 'Band Curl']],
-  ['dumbbell curl', ['Band Curl']],
-  ['hammer curl', ['Band Curl']],
-  ['lateral raise', ['Band Lateral Raise']],
-  ['rear delt', ['Band Pull-Apart']],
-  ['kettlebell swing', ['Glute Bridge']],
-  ['leg curl', ['Glute Bridge']],
+  ['triceps pushdown', ['Bench Dips']],
+  ['preacher curl', ['Dumbbell Bicep Curl']],
+  ['barbell curl', ['Dumbbell Bicep Curl']],
+  ['dumbbell curl', ['Reverse Plate Curls']],
+  ['hammer curl', ['Dumbbell Bicep Curl', 'Reverse Plate Curls']],
+  ['rear delt', ['Band Pull Apart']],
+  ['kettlebell swing', ['Butt Lift (Bridge)']],
+  ['leg curl', ['Butt Lift (Bridge)']],
   ['leg extension', ['Bodyweight Squat']],
-  ['seated calf raise', ['Standing Calf Raise']],
-  ['treadmill', ['Burpee']],
-  ['bike', ['Burpee']],
-  ['machine chest press', ['Push-Up Wide']],
-  ['hanging knee raise', ['Plank']],
+  ['seated calf raise', ['Donkey Calf Raises']],
+  ['treadmill', ['Trail Running/Walking']],
+  ['bike', ['Mountain Climbers']],
+  ['chest press', ['Push-Up Wide']],
+  ['hanging leg raise', ['Plank']],
   ['pull-up', ['Inverted Row']],
-  ['hip thrust', ['Glute Bridge']],
+  ['pullup', ['Inverted Row']],
+  ['hip thrust', ['Butt Lift (Bridge)']],
   ['cable crunch', ['Plank']],
 ];
-
-const BODYWEIGHT_PATTERNS = ['push-up', 'plank', 'glute bridge', 'bodyweight', 'inverted row', 'burpee', 'mountain climber'];
 
 function normalize(name: string) {
   return name.trim().toLowerCase();
@@ -172,13 +188,12 @@ export function applyEquipmentToExercises(
       }
 
       swapped.push({ from: exercise.exerciseName, to: fallback });
-      const normalized = normalize(fallback);
       return {
         ...exercise,
         exerciseName: fallback,
-        trackingMode: BODYWEIGHT_PATTERNS.some((pattern) => normalized.includes(pattern))
-          ? ('bodyweight' as const)
-          : exercise.trackingMode,
+        // A barbell squat that falls back to a bodyweight squat must stop
+        // asking for kilograms. The catalog knows; keyword matching guessed.
+        trackingMode: getCatalogTrackingMode(fallback),
       };
     })
     .filter((exercise): exercise is WorkoutTemplateExercise => exercise !== null);
