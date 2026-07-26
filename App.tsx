@@ -78,6 +78,8 @@ import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
 import { AICoachSheet } from './src/components/AICoachSheet';
+import { SessionAnalysisScreen } from './src/screens/SessionAnalysisScreen';
+import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AICoachScreen } from './src/screens/AICoachScreen';
 import { AiModeSetupScreen } from './src/screens/AiModeSetupScreen';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
@@ -403,6 +405,7 @@ function getBackRoute(route: AppRoute): AppRoute | null {
       route.screen === 'ai_setup' ||
       route.screen === 'history' ||
       route.screen === 'session' ||
+      route.screen === 'analysis' ||
       route.screen === 'cardio')
   ) {
     return ROOT_ROUTES.home;
@@ -2016,6 +2019,7 @@ function GymlogApp() {
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
   );
   const coachProUnlocked = isProUnlocked(preferences);
+  const analysisSessionId = route.tab === 'home' && route.screen === 'analysis' ? route.sessionId : null;
   // The sheet only reads data while it is open; building the modules behind a
   // closed sheet would run on every database change for nothing.
   const coachModules = useMemo(
@@ -2283,6 +2287,27 @@ function GymlogApp() {
   }, [preferences.setupAvailableDays]);
   // Profile "TRAINING PLAN" card. Reuses the same composed plan Home renders so
   // the two screens can never disagree about what the user is running.
+  // Built only while the analysis route is open; it reads the whole log table.
+  const sessionAnalysis = useMemo(
+    () =>
+      analysisSessionId
+        ? buildSessionAnalysis({
+            sessionId: analysisSessionId,
+            sessions: workoutSessions,
+            logs: database.exerciseLogs,
+            language: preferences.appLanguage,
+            weekNumber: homeActivePlanCard?.currentWeek ?? null,
+          })
+        : null,
+    [
+      analysisSessionId,
+      database.exerciseLogs,
+      homeActivePlanCard?.currentWeek,
+      preferences.appLanguage,
+      workoutSessions,
+    ],
+  );
+
   const profilePlanSummary = useMemo(() => {
     if (!homeActivePlanCard) {
       return { name: null, daysPerWeek: null, exerciseCount: null, focusCaption: null };
@@ -3285,6 +3310,18 @@ function GymlogApp() {
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );
+  } else if (route.tab === 'home' && route.screen === 'analysis') {
+    content = (
+      <SessionAnalysisScreen
+        analysis={sessionAnalysis}
+        language={preferences.appLanguage}
+        onBack={() => navigateBack(ROOT_ROUTES.home)}
+        onAskCoach={() => {
+          navigateBack(ROOT_ROUTES.home);
+          setCoachSheetVisible(true);
+        }}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'plan_settings') {
     content = (
       <PlanSettingsScreen
@@ -3802,6 +3839,10 @@ function GymlogApp() {
         onStartTrial={() => {
           setCoachSheetVisible(false);
           navigate({ tab: 'profile', screen: 'premium' });
+        }}
+        onOpenFullAnalysis={(sessionId) => {
+          setCoachSheetVisible(false);
+          navigate({ tab: 'home', screen: 'analysis', sessionId });
         }}
       />
     </AppShell>

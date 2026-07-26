@@ -25,6 +25,7 @@ This is the navigation hub for all GAINER documentation.
 | Product values and anti-patterns | `product/gainer-philosophy.md` |
 | Onboarding design intent | `product/onboarding-philosophy.md` |
 | What to do before launch (external tasks) | `manual-launch-tasks.md` |
+| **What to do next, in order** | **`execution-plan.md`** |
 | Where the product goes after Phase 3 | `long-term-vision.md` |
 
 ---
@@ -99,6 +100,7 @@ Philosophy, UX principles, branding, roadmap. Informs decisions but does not ove
 | `product-roadmap-phases.md` | Three-phase implementation roadmap |
 | `your-plan-ready-review.md` | Plan-ready screen design intent |
 | `manual-launch-tasks.md` | External launch checklist |
+| `execution-plan.md` | Active ordered plan: ship to store, then the AI coach |
 | `long-term-vision.md` | Post-Phase-3 direction, AI rack, hardware. Not MVP scope. |
 
 ### `archive/`

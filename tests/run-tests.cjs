@@ -36,6 +36,7 @@ const suites = [
   ...require('./lib/postSessionInsight.test.cjs'),
   ...require('./lib/proEntitlement.test.cjs'),
   ...require('./lib/aiCoachModules.test.cjs'),
+  ...require('./lib/sessionAnalysis.test.cjs'),
   ...require('./lib/coachHighlight.test.cjs'),
   ...require('./lib/homeProgramSelection.test.cjs'),
   ...require('./lib/homePrimaryAction.test.cjs'),

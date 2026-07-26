@@ -131,6 +131,8 @@ Known tensions to resolve before acting on anything above:
 | User milestones | 100 -> 500-1000 paying users | `COMPETITIVE-ANALYSIS.md`: models the path to 10,000 paying users in a saturated, low-ARPU category |
 | Differentiation | The AI rack is the eventual moat | `COMPETITIVE-ANALYSIS.md`: the near-term wedge is bilingual Finnish/Nordic plus anti-gamification honesty - and the AI coach differentiator is not shipped yet |
 
+Stages 1 and 2 are no longer exploratory - they are planned in detail in `execution-plan.md`, which supersedes this document for anything actionable.
+
 The practical reading: the phased ordering in this document is sound in shape, but every stage boundary is further away than it looks. Stage 2 in particular is not a feature - it is an infrastructure project.
 
 ---

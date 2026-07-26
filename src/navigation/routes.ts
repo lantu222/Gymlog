@@ -28,6 +28,12 @@ export type AppRoute =
       sessionId: string;
     }
   | {
+      /** The coach's written-out analysis of one logged session. */
+      tab: 'home';
+      screen: 'analysis';
+      sessionId: string;
+    }
+  | {
       tab: 'workout';
       screen: 'programs_home';
     }
