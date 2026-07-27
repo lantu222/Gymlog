@@ -36,6 +36,7 @@ const suites = [
   ...require('./lib/postSessionInsight.test.cjs'),
   ...require('./lib/proEntitlement.test.cjs'),
   ...require('./lib/trainingHistory.test.cjs'),
+  ...require('./lib/serialTaskQueue.test.cjs'),
   ...require('./lib/catalogExercisePools.test.cjs'),
   ...require('./lib/onboardingPlanSweep.test.cjs'),
   ...require('./api/aiCoachEndpoint.test.cjs'),
@@ -101,22 +102,26 @@ const suites = [
   ...require('./lib/userFitnessProfile.test.cjs'),
 ];
 
-let failed = 0;
+(async () => {
+  let failed = 0;
 
-for (const suite of suites) {
-  try {
-    suite.run();
-    console.log(`PASS ${suite.name}`);
-  } catch (error) {
-    failed += 1;
-    console.error(`FAIL ${suite.name}`);
-    console.error(error);
+  for (const suite of suites) {
+    try {
+      // Await so async suites (e.g. serialTaskQueue) can actually fail; sync
+      // suites are unaffected.
+      await suite.run();
+      console.log(`PASS ${suite.name}`);
+    } catch (error) {
+      failed += 1;
+      console.error(`FAIL ${suite.name}`);
+      console.error(error);
+    }
   }
-}
 
-if (failed > 0) {
-  process.exitCode = 1;
-  console.error(`\n${failed} test(s) failed.`);
-} else {
-  console.log(`\n${suites.length} test(s) passed.`);
-}
+  if (failed > 0) {
+    process.exitCode = 1;
+    console.error(`\n${failed} test(s) failed.`);
+  } else {
+    console.log(`\n${suites.length} test(s) passed.`);
+  }
+})();

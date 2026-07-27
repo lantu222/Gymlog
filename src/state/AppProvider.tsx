@@ -2,6 +2,7 @@
 
 import { createEmptyDatabase } from '../data/seed';
 import { createId } from '../lib/ids';
+import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
 import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
 import {
@@ -196,11 +197,14 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     },
   });
   const [hydrated, setHydrated] = useState(false);
+  // The single source of truth for WRITERS. Only commit(), hydrate() and
+  // resetAllData assign it — never an effect. A [database] effect used to sync
+  // it from render state, and that was the onboarding data-loss bug: an
+  // earlier render's effect could run right after commit() had advanced the
+  // ref and shove it back to a stale snapshot, so the next queued write
+  // rebuilt the whole database from a state where the template (or plan) had
+  // never existed.
   const databaseRef = useRef(database);
-
-  useEffect(() => {
-    databaseRef.current = database;
-  }, [database]);
 
   useEffect(() => {
     let cancelled = false;
@@ -244,14 +248,34 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     await saveDatabase(nextDatabase);
   }
 
-  async function updatePreferences(patch: Partial<AppPreferences>) {
-    const current = databaseRef.current;
-    await commit({
-      ...current,
-      preferences: {
-        ...current.preferences,
-        ...patch,
-      },
+  /**
+   * Every mutation below is a read-modify-write of the whole database blob.
+   * Two of them in flight at once both snapshot the same state, and whichever
+   * commits last erases the other's work — the onboarding save chain lost its
+   * freshly created programme exactly this way. The queue makes each
+   * read-modify-write atomic: a mutation only reads databaseRef.current after
+   * the previous mutation has finished writing it.
+   *
+   * Composite helpers (setUnitPreference, completeOnboarding,
+   * saveWorkoutSession) intentionally stay unwrapped: they mutate only through
+   * these primitives, and wrapping them too would deadlock the queue.
+   */
+  const runExclusiveRef = useRef<RunExclusive | null>(null);
+  if (runExclusiveRef.current === null) {
+    runExclusiveRef.current = createSerialTaskQueue();
+  }
+  const runExclusive = runExclusiveRef.current;
+
+  function updatePreferences(patch: Partial<AppPreferences>) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      await commit({
+        ...current,
+        preferences: {
+          ...current.preferences,
+          ...patch,
+        },
+      });
     });
   }
 
@@ -271,7 +295,11 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
-  async function upsertWorkoutTemplate(draft: WorkoutTemplateDraft) {
+  function upsertWorkoutTemplate(draft: WorkoutTemplateDraft) {
+    return runExclusive(() => upsertWorkoutTemplateExclusive(draft));
+  }
+
+  async function upsertWorkoutTemplateExclusive(draft: WorkoutTemplateDraft) {
     const trimmedName = draft.name.trim();
     const nextName = trimmedName || 'Untitled workout';
     const current = databaseRef.current;
@@ -333,80 +361,90 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     return workoutTemplateId;
   }
 
-  async function upsertWorkoutPlan(plan: WorkoutPlan) {
-    const current = databaseRef.current;
-    const currentWithoutActivePlans = {
-      ...current,
-      workoutPlans: current.workoutPlans.map((item) => ({ ...item, isActive: false })),
-    };
+  function upsertWorkoutPlan(plan: WorkoutPlan) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const currentWithoutActivePlans = {
+        ...current,
+        workoutPlans: current.workoutPlans.map((item) => ({ ...item, isActive: false })),
+      };
 
-    await commit(
-      workoutPlanRepository.upsert(currentWithoutActivePlans, {
-        ...plan,
-        isActive: true,
-      }),
-    );
-  }
-
-  async function renameWorkoutTemplate(workoutTemplateId: string, nextName: string) {
-    const current = databaseRef.current;
-    const template = workoutTemplateRepository.findById(current, workoutTemplateId);
-
-    if (!template) {
-      return;
-    }
-
-    const trimmedName = nextName.trim();
-    if (!trimmedName) {
-      return;
-    }
-
-    await commit(
-      workoutTemplateRepository.upsert(current, {
-        ...template,
-        name: trimmedName,
-        updatedAt: new Date().toISOString(),
-      }),
-    );
-  }
-
-  async function deleteWorkoutTemplate(workoutTemplateId: string) {
-    const current = databaseRef.current;
-    const nextDatabase = workoutTemplateRepository.remove(current, workoutTemplateId);
-    const nextActivePlanId = nextDatabase.preferences.activePlanId
-      ? workoutPlanRepository.findById(nextDatabase, nextDatabase.preferences.activePlanId)?.id ?? null
-      : null;
-
-    await commit({
-      ...nextDatabase,
-      preferences: {
-        ...nextDatabase.preferences,
-        activePlanId: nextActivePlanId,
-      },
+      await commit(
+        workoutPlanRepository.upsert(currentWithoutActivePlans, {
+          ...plan,
+          isActive: true,
+        }),
+      );
     });
   }
 
-  async function persistCompletedWorkoutSession(input: PersistCompletedWorkoutInput) {
-    const current = databaseRef.current;
-    const result = persistCompletedWorkoutSessionToDatabase(current, input, createId);
+  function renameWorkoutTemplate(workoutTemplateId: string, nextName: string) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const template = workoutTemplateRepository.findById(current, workoutTemplateId);
 
-    if (result.didPersist) {
-      await commit(result.database);
-    }
+      if (!template) {
+        return;
+      }
 
-    return result.summary;
+      const trimmedName = nextName.trim();
+      if (!trimmedName) {
+        return;
+      }
+
+      await commit(
+        workoutTemplateRepository.upsert(current, {
+          ...template,
+          name: trimmedName,
+          updatedAt: new Date().toISOString(),
+        }),
+      );
+    });
   }
 
-  async function updateCompletedWorkoutSession(
+  function deleteWorkoutTemplate(workoutTemplateId: string) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const nextDatabase = workoutTemplateRepository.remove(current, workoutTemplateId);
+      const nextActivePlanId = nextDatabase.preferences.activePlanId
+        ? workoutPlanRepository.findById(nextDatabase, nextDatabase.preferences.activePlanId)?.id ?? null
+        : null;
+
+      await commit({
+        ...nextDatabase,
+        preferences: {
+          ...nextDatabase.preferences,
+          activePlanId: nextActivePlanId,
+        },
+      });
+    });
+  }
+
+  function persistCompletedWorkoutSession(input: PersistCompletedWorkoutInput) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const result = persistCompletedWorkoutSessionToDatabase(current, input, createId);
+
+      if (result.didPersist) {
+        await commit(result.database);
+      }
+
+      return result.summary;
+    });
+  }
+
+  function updateCompletedWorkoutSession(
     sessionId: string,
     patch: {
       workoutNameSnapshot?: string;
       sessionNotes?: string | null;
     },
   ) {
-    const current = databaseRef.current;
-    const nextDatabase = workoutSessionRepository.update(current, sessionId, patch);
-    await commit(nextDatabase);
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const nextDatabase = workoutSessionRepository.update(current, sessionId, patch);
+      await commit(nextDatabase);
+    });
   }
 
   async function saveWorkoutSession(
@@ -442,77 +480,85 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
-  async function addBodyweightEntry(weightKg: number, recordedAt = new Date().toISOString()) {
-    const current = databaseRef.current;
-    if (weightKg <= 0) {
-      return;
-    }
+  function addBodyweightEntry(weightKg: number, recordedAt = new Date().toISOString()) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      if (weightKg <= 0) {
+        return;
+      }
 
-    const entry: BodyweightEntry = {
-      id: createId('bodyweight'),
-      recordedAt,
-      weight: weightKg,
-    };
+      const entry: BodyweightEntry = {
+        id: createId('bodyweight'),
+        recordedAt,
+        weight: weightKg,
+      };
 
-    await commit(bodyweightRepository.append(current, entry));
+      await commit(bodyweightRepository.append(current, entry));
+    });
   }
 
-  async function addMeasurementEntry(
+  function addMeasurementEntry(
     kind: MeasurementKind,
     value: number,
     unit: MeasurementUnit,
     recordedAt = new Date().toISOString(),
   ) {
-    const current = databaseRef.current;
-    if (value <= 0) {
-      return;
-    }
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      if (value <= 0) {
+        return;
+      }
 
-    const entry: MeasurementEntry = {
-      id: createId('measurement'),
-      kind,
-      recordedAt,
-      value,
-      unit,
-    };
+      const entry: MeasurementEntry = {
+        id: createId('measurement'),
+        kind,
+        recordedAt,
+        value,
+        unit,
+      };
 
-    await commit({
-      ...current,
-      measurementEntries: [...current.measurementEntries, entry].sort(
-        (left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime(),
-      ),
+      await commit({
+        ...current,
+        measurementEntries: [...current.measurementEntries, entry].sort(
+          (left, right) => new Date(left.recordedAt).getTime() - new Date(right.recordedAt).getTime(),
+        ),
+      });
     });
   }
 
-  async function saveCardioSession(input: {
+  function saveCardioSession(input: {
     activityType: CardioActivityType;
     startedAt: string;
     durationSec: number;
     distanceKm?: number | null;
     feel?: CardioFeel | null;
   }): Promise<CardioSession> {
-    const current = databaseRef.current;
-    const session: CardioSession = {
-      id: createId('cardio_session'),
-      activityType: input.activityType,
-      startedAt: input.startedAt,
-      performedAt: new Date().toISOString(),
-      durationSec: Math.max(0, Math.round(input.durationSec)),
-      distanceKm: input.distanceKm && input.distanceKm > 0 ? input.distanceKm : null,
-      feel: input.feel ?? null,
-    };
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      const session: CardioSession = {
+        id: createId('cardio_session'),
+        activityType: input.activityType,
+        startedAt: input.startedAt,
+        performedAt: new Date().toISOString(),
+        durationSec: Math.max(0, Math.round(input.durationSec)),
+        distanceKm: input.distanceKm && input.distanceKm > 0 ? input.distanceKm : null,
+        feel: input.feel ?? null,
+      };
 
-    await commit({
-      ...current,
-      cardioSessions: [session, ...(current.cardioSessions ?? [])],
+      await commit({
+        ...current,
+        cardioSessions: [session, ...(current.cardioSessions ?? [])],
+      });
+      return session;
     });
-    return session;
   }
 
-  async function resetAllData() {
-    const cleared = await resetDatabase();
-    databaseRef.current = cleared;
-    setDatabase(cleared);
+  function resetAllData() {
+    return runExclusive(async () => {
+      const cleared = await resetDatabase();
+      databaseRef.current = cleared;
+      setDatabase(cleared);
+    });
   }
 
   const value = useMemo<AppContextValue>(
