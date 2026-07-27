@@ -27,6 +27,13 @@ const DRILL_LIBRARY_NAME: Record<string, string> = {
   'home.drill.latStretchOnRack': 'Standing Lateral Stretch',
   'home.drill.deadHang': 'Pullups',
   'home.drill.couchStretch': 'Intermediate Hip Flexor and Quad Stretch',
+  // Bodyweight fallbacks for gear-gated drills (equipment-aware warmups).
+  'home.drill.jumpingJacks': 'Star Jump',
+  'home.drill.bodyweightSquats': 'Bodyweight Squat',
+  'home.drill.armCircles': 'Arm Circles',
+  'home.drill.wallSlides': 'Arm Circles',
+  'home.drill.standingLatStretch': 'Standing Lateral Stretch',
+  'home.drill.childsPose': "Child's Pose",
 };
 
 const DRILL_KEYS = Object.keys(DRILL_LIBRARY_NAME) as I18nKey[];

@@ -127,6 +127,42 @@ module.exports = [
     },
   },
   {
+    name: 'drills respect the equipment the user actually has',
+    run() {
+      // A bodyweight-only setup ([] = "I have nothing") must never be told to
+      // warm up on a rowing machine or grab an empty bar / band / pull-up bar.
+      const gated = ['Rowing machine', 'Empty-bar squats', 'Band pull-aparts', 'Scapular pull-ups', 'Band face pulls', 'Lat stretch on rack', 'Dead hang'];
+      for (const focus of ['Strength', 'Push', 'Pull', 'Anything Else']) {
+        const names = [
+          ...getDefaultWarmup(focus, 'en', []).drills,
+          ...getDefaultCooldown(focus, 'en', []).drills,
+        ].map((drill) => drill.name);
+        for (const banned of gated) {
+          assert.ok(!names.includes(banned), `${focus}: "${banned}" offered to a no-equipment user`);
+        }
+      }
+
+      // Fallbacks swap in without shrinking the block.
+      const bodyweightPull = getDefaultWarmup('Pull Day', 'en', []);
+      assert.equal(bodyweightPull.drills.length, getDefaultWarmup('Pull Day', 'en', null).drills.length);
+      assert.deepEqual(
+        bodyweightPull.drills.map((drill) => drill.name),
+        ['Jumping jacks', 'Wall slides', 'Wall slides'].slice(0, bodyweightPull.drills.length),
+      );
+
+      // Partial gear keeps what it can: bands allow band work, no rower still
+      // means no rowing machine.
+      const bandsOnly = getDefaultWarmup('Push', 'en', ['Resistance bands']).drills.map((drill) => drill.name);
+      assert.ok(bandsOnly.includes('Band pull-aparts'));
+      assert.ok(!bandsOnly.includes('Rowing machine'));
+
+      // null = the setup never said → the original full-gym defaults stand.
+      assert.ok(
+        getDefaultWarmup('Strength', 'en', null).drills.some((drill) => drill.name === 'Rowing machine'),
+      );
+    },
+  },
+  {
     name: 'adapt trim estimate matches the mock numbers and clamps low inputs',
     run() {
       // 14 sets / ~55 min -> drops 4 sets, trims to ~35 min (prototype copy).

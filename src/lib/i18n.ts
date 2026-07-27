@@ -137,6 +137,12 @@ const EN = {
   'home.drill.latStretchOnRack': 'Lat stretch on rack',
   'home.drill.deadHang': 'Dead hang',
   'home.drill.couchStretch': 'Couch stretch',
+  'home.drill.jumpingJacks': 'Jumping jacks',
+  'home.drill.bodyweightSquats': 'Bodyweight squats',
+  'home.drill.armCircles': 'Arm circles',
+  'home.drill.wallSlides': 'Wall slides',
+  'home.drill.standingLatStretch': 'Standing lat stretch',
+  'home.drill.childsPose': "Child's pose",
 
   // ── Common ─────────────────────────────────────────────────────────────
   'common.cancel': 'Cancel',
@@ -1997,6 +2003,12 @@ const FI: Record<I18nKey, string> = {
   'home.drill.latStretchOnRack': 'Leveän selän venytys räkissä',
   'home.drill.deadHang': 'Roikunta tangossa',
   'home.drill.couchStretch': 'Lonkankoukistajan venytys',
+  'home.drill.jumpingJacks': 'Haaraperushypyt',
+  'home.drill.bodyweightSquats': 'Kyykyt kehonpainolla',
+  'home.drill.armCircles': 'Käsien pyöritykset',
+  'home.drill.wallSlides': 'Seinäliuku',
+  'home.drill.standingLatStretch': 'Leveän selän venytys seisten',
+  'home.drill.childsPose': 'Lapsen asento',
 
   // ── Common ─────────────────────────────────────────────────────────────
   'common.cancel': 'Peruuta',

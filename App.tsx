@@ -37,6 +37,7 @@ import {
   getAiCoachTemplateId,
 } from './src/lib/aiCoachPlan';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
+import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
@@ -2284,6 +2285,16 @@ function GymlogApp() {
     () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
     [preferences.homeStatCardKeys],
   );
+  // Same equipment truth the composer filters exercises with, for the default
+  // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
+  const availableEquipmentForDrills = useMemo(
+    () =>
+      resolveAvailableEquipment({
+        trainingEnvironment: preferences.setupTrainingEnvironment,
+        equipmentItems: preferences.setupEquipmentItems,
+      }),
+    [preferences.setupTrainingEnvironment, preferences.setupEquipmentItems],
+  );
   // Week-strip training dots from the days the user actually picked
   // (Monday-first indexes). Empty = unknown → no dots, no invented rhythm.
   const homeTrainingDayIndexes = useMemo(() => {
@@ -3154,6 +3165,7 @@ function GymlogApp() {
       <GuidedPlayerScreen
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         unitPreference={unitPreference}
+        availableEquipment={availableEquipmentForDrills}
         exerciseLibrary={exerciseLibrary}
         soundCuesEnabled={preferences.soundCuesEnabled}
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}
@@ -3698,6 +3710,7 @@ function GymlogApp() {
       <HomeScreen
         language={preferences.appLanguage}
         activePlan={homeActivePlanCard}
+        availableEquipment={availableEquipmentForDrills}
         trainingDayIndexes={homeTrainingDayIndexes}
         statCatalogCards={homeStatCatalogCards}
         pinnedStatCardKeys={homePinnedStatCardKeys}

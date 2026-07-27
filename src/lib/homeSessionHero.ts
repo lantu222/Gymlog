@@ -140,76 +140,154 @@ function classifyFocus(focusTitle: string): FocusKind {
   return 'general';
 }
 
-/** Deterministic default warmup for a session focus (no warmup data model yet). */
-export function getDefaultWarmup(focusTitle: string, language: AppLanguage = 'en'): SessionRoutineBlock {
-  switch (classifyFocus(focusTitle)) {
-    case 'lower':
-      return {
-        minutes: 6,
-        drills: [
-          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
-          { name: t(language, 'home.drill.hipOpeners'), schemeLabel: '2 × 8' },
-          { name: t(language, 'home.drill.emptyBarSquats'), schemeLabel: '2 × 10' },
-        ],
-      };
-    case 'push':
-      return {
-        minutes: 6,
-        drills: [
-          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
-          { name: t(language, 'home.drill.bandPullAparts'), schemeLabel: '2 × 12' },
-          { name: t(language, 'home.drill.pushUps'), schemeLabel: '2 × 8' },
-        ],
-      };
-    case 'pull':
-      return {
-        minutes: 6,
-        drills: [
-          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
-          { name: t(language, 'home.drill.scapularPullUps'), schemeLabel: '2 × 6' },
-          { name: t(language, 'home.drill.bandFacePulls'), schemeLabel: '2 × 12' },
-        ],
-      };
-    default:
-      return {
-        minutes: 6,
-        drills: [
-          { name: t(language, 'home.drill.rowingMachine'), schemeLabel: '3 min' },
-          { name: t(language, 'home.drill.hipOpeners'), schemeLabel: '2 × 8' },
-          { name: t(language, 'home.drill.emptyBarSquats'), schemeLabel: '2 × 10' },
-        ],
-      };
+/**
+ * A warmup/cooldown drill with its gear requirement. `requires` uses the same
+ * equipment-chip vocabulary as equipmentExerciseFilter: every group must be
+ * satisfied by at least one available item. Drills with no `requires` are
+ * bodyweight and always allowed; every gated drill carries a bodyweight
+ * fallback so the block never shrinks — a user with no rower warms up with
+ * jumping jacks, not with a machine they told us they don't have.
+ */
+interface DrillSpec {
+  key: Parameters<typeof t>[1];
+  scheme: string;
+  requires?: string[][];
+  fallbackKey?: Parameters<typeof t>[1];
+  fallbackScheme?: string;
+}
+
+const CARDIO_OPENER: DrillSpec = {
+  key: 'home.drill.rowingMachine',
+  scheme: '3 min',
+  requires: [['Cardio machines']],
+  fallbackKey: 'home.drill.jumpingJacks',
+  fallbackScheme: '2 min',
+};
+
+const WARMUP_DRILLS: Record<FocusKind, DrillSpec[]> = {
+  lower: [
+    CARDIO_OPENER,
+    { key: 'home.drill.hipOpeners', scheme: '2 × 8' },
+    {
+      key: 'home.drill.emptyBarSquats',
+      scheme: '2 × 10',
+      requires: [['Barbells', 'Barbell & plates']],
+      fallbackKey: 'home.drill.bodyweightSquats',
+    },
+  ],
+  push: [
+    CARDIO_OPENER,
+    {
+      key: 'home.drill.bandPullAparts',
+      scheme: '2 × 12',
+      requires: [['Resistance bands']],
+      fallbackKey: 'home.drill.armCircles',
+    },
+    { key: 'home.drill.pushUps', scheme: '2 × 8' },
+  ],
+  pull: [
+    CARDIO_OPENER,
+    {
+      key: 'home.drill.scapularPullUps',
+      scheme: '2 × 6',
+      requires: [['Pull-up bar']],
+      fallbackKey: 'home.drill.wallSlides',
+      fallbackScheme: '2 × 8',
+    },
+    {
+      key: 'home.drill.bandFacePulls',
+      scheme: '2 × 12',
+      requires: [['Resistance bands']],
+      fallbackKey: 'home.drill.wallSlides',
+    },
+  ],
+  general: [
+    CARDIO_OPENER,
+    { key: 'home.drill.hipOpeners', scheme: '2 × 8' },
+    {
+      key: 'home.drill.emptyBarSquats',
+      scheme: '2 × 10',
+      requires: [['Barbells', 'Barbell & plates']],
+      fallbackKey: 'home.drill.bodyweightSquats',
+    },
+  ],
+};
+
+const COOLDOWN_DRILLS: Record<FocusKind, DrillSpec[]> = {
+  push: [
+    { key: 'home.drill.chestDoorwayStretch', scheme: '2 × 45s' },
+    { key: 'home.drill.tricepsOverheadStretch', scheme: '2 × 30s' },
+  ],
+  pull: [
+    {
+      key: 'home.drill.latStretchOnRack',
+      scheme: '2 × 45s',
+      requires: [['Squat rack', 'Pull-up bar']],
+      fallbackKey: 'home.drill.standingLatStretch',
+    },
+    {
+      key: 'home.drill.deadHang',
+      scheme: '2 × 30s',
+      requires: [['Pull-up bar']],
+      fallbackKey: 'home.drill.childsPose',
+    },
+  ],
+  lower: [
+    { key: 'home.drill.couchStretch', scheme: '2 × 60s' },
+    { key: 'home.drill.chestDoorwayStretch', scheme: '2 × 45s' },
+  ],
+  general: [
+    { key: 'home.drill.couchStretch', scheme: '2 × 60s' },
+    { key: 'home.drill.chestDoorwayStretch', scheme: '2 × 45s' },
+  ],
+};
+
+function drillAllowed(spec: DrillSpec, available: string[] | null) {
+  // null = the setup never said what gear exists, so nothing is assumed missing.
+  if (available === null || !spec.requires) {
+    return true;
   }
+  return spec.requires.every((group) => group.some((item) => available.includes(item)));
+}
+
+function resolveDrills(
+  specs: DrillSpec[],
+  language: AppLanguage,
+  available: string[] | null,
+): SessionRoutineBlock['drills'] {
+  return specs.map((spec) => {
+    if (drillAllowed(spec, available)) {
+      return { name: t(language, spec.key), schemeLabel: spec.scheme };
+    }
+    return {
+      name: t(language, spec.fallbackKey ?? spec.key),
+      schemeLabel: spec.fallbackScheme ?? spec.scheme,
+    };
+  });
+}
+
+/** Deterministic default warmup for a session focus (no warmup data model yet). */
+export function getDefaultWarmup(
+  focusTitle: string,
+  language: AppLanguage = 'en',
+  availableEquipment: string[] | null = null,
+): SessionRoutineBlock {
+  return {
+    minutes: 6,
+    drills: resolveDrills(WARMUP_DRILLS[classifyFocus(focusTitle)], language, availableEquipment),
+  };
 }
 
 /** Deterministic default cooldown for a session focus. */
-export function getDefaultCooldown(focusTitle: string, language: AppLanguage = 'en'): SessionRoutineBlock {
-  switch (classifyFocus(focusTitle)) {
-    case 'push':
-      return {
-        minutes: 4,
-        drills: [
-          { name: t(language, 'home.drill.chestDoorwayStretch'), schemeLabel: '2 × 45s' },
-          { name: t(language, 'home.drill.tricepsOverheadStretch'), schemeLabel: '2 × 30s' },
-        ],
-      };
-    case 'pull':
-      return {
-        minutes: 4,
-        drills: [
-          { name: t(language, 'home.drill.latStretchOnRack'), schemeLabel: '2 × 45s' },
-          { name: t(language, 'home.drill.deadHang'), schemeLabel: '2 × 30s' },
-        ],
-      };
-    default:
-      return {
-        minutes: 4,
-        drills: [
-          { name: t(language, 'home.drill.couchStretch'), schemeLabel: '2 × 60s' },
-          { name: t(language, 'home.drill.chestDoorwayStretch'), schemeLabel: '2 × 45s' },
-        ],
-      };
-  }
+export function getDefaultCooldown(
+  focusTitle: string,
+  language: AppLanguage = 'en',
+  availableEquipment: string[] | null = null,
+): SessionRoutineBlock {
+  return {
+    minutes: 4,
+    drills: resolveDrills(COOLDOWN_DRILLS[classifyFocus(focusTitle)], language, availableEquipment),
+  };
 }
 
 /** "Trim to ~35 min · drops 4 sets" numbers for the Adapt sheet. */

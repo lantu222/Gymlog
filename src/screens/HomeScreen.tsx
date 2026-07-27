@@ -162,6 +162,11 @@ interface HomeScreenProps {
    */
   trainingDayIndexes?: number[];
   language?: AppLanguage;
+  /**
+   * Equipment chips the user actually has; null when the setup never said.
+   * Keeps the default warmup honest — no rower for a bodyweight-only user.
+   */
+  availableEquipment?: string[] | null;
 }
 
 export function HomeScreen({
@@ -178,6 +183,7 @@ export function HomeScreen({
   onOpenStatCard,
   trainingDayIndexes = [],
   language = 'en',
+  availableEquipment = null,
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
@@ -208,8 +214,8 @@ export function HomeScreen({
   const planDurationMinutes = Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45;
   const totalExerciseCount = (nextPlanSession?.exercises.length ?? 0) + (nextPlanSession?.hiddenExerciseCount ?? 0);
   const totalSets = nextPlanSession?.totalSets ?? 0;
-  const warmup = getDefaultWarmup(focusTitle, language);
-  const cooldown = getDefaultCooldown(focusTitle, language);
+  const warmup = getDefaultWarmup(focusTitle, language, availableEquipment);
+  const cooldown = getDefaultCooldown(focusTitle, language, availableEquipment);
   const adaptTrim = getAdaptTrimEstimate(totalSets, planDurationMinutes);
 
   // --- Animations -----------------------------------------------------------

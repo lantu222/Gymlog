@@ -97,6 +97,8 @@ export interface GuidedNextUp {
 interface GuidedPlayerScreenProps {
   unitPreference: UnitPreference;
   language?: AppLanguage;
+  /** Equipment chips the user actually has; null when the setup never said. */
+  availableEquipment?: string[] | null;
   exerciseLibrary: ExerciseLibraryItem[];
   soundCuesEnabled: boolean;
   /** Keep the display on for the whole guided session. */
@@ -645,6 +647,7 @@ function GPSheet({ onClose, children }: { onClose: () => void; children: React.R
 export function GuidedPlayerScreen({
   unitPreference,
   language = 'en',
+  availableEquipment = null,
   exerciseLibrary,
   soundCuesEnabled,
   keepScreenAwake = false,
@@ -667,12 +670,12 @@ export function GuidedPlayerScreen({
   const sessionTitle = localizeWorkoutFocus(getGuidedSessionTitle(session?.templateName ?? '', language), language);
 
   const warmupDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultWarmup(sessionTitle, language)),
-    [sessionTitle, language],
+    () => buildGuidedDrillsFromBlock(getDefaultWarmup(sessionTitle, language, availableEquipment)),
+    [sessionTitle, language, availableEquipment],
   );
   const cooldownDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultCooldown(sessionTitle, language)),
-    [sessionTitle, language],
+    () => buildGuidedDrillsFromBlock(getDefaultCooldown(sessionTitle, language, availableEquipment)),
+    [sessionTitle, language, availableEquipment],
   );
 
   const exercises = session?.exercises ?? [];

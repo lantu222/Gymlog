@@ -131,8 +131,8 @@ module.exports = [
       // animated height + rotating chevron, agenda rows inside.
       // All three section accordions start collapsed (user preference).
       assert.match(homeScreenSource, /warmup: false,\s*workout: false,\s*cooldown: false/);
-      assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusTitle, language\)/);
-      assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle, language\)/);
+      assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusTitle, language, availableEquipment\)/);
+      assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle, language, availableEquipment\)/);
       assert.match(homeScreenSource, /sectionAnims\[key\]\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 420\] \}\)/);
       assert.match(homeScreenSource, /duration: 380/);
       assert.match(homeScreenSource, /secTitle:\s*\{[\s\S]*fontSize: 20/);
