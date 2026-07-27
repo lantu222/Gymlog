@@ -1,17 +1,17 @@
 import { Platform } from 'react-native';
 
 /**
- * Platform health integration (Apple Health on iOS, Health Connect on Android).
+ * Platform health integration — Health Connect on Android, Apple Health later.
  *
- * The native modules (`react-native-health` / `react-native-health-connect`)
- * are not installed yet — they need a config plugin + native rebuild. Until
- * then this module keeps the exact same surface the screens are wired to:
- * swap `readNativeHealthBasics` for the real permission request + reads and
- * nothing else changes.
+ * This used to fabricate "synced" data in dev builds: every user who tapped
+ * Connect was shown 78 kg / 180 cm / male / 12.4.1998 as their own, imported
+ * from a service the app never talked to. That is gone. The only values this
+ * module ever returns are ones Health Connect actually handed over, and when
+ * it hands over nothing, the caller gets nulls and says so.
  *
- * In dev builds `requestHealthBasics` resolves with preview data (mirroring
- * the AI Coach preview mode) so the connect → synced → about-you flow can be
- * exercised end to end in the emulator.
+ * Health Connect stores no gender or date of birth — those fields exist on
+ * HealthBasics for a future HealthKit path and stay null on Android. The
+ * onboarding copy must not promise them.
  */
 
 export type HealthSex = 'male' | 'female';
@@ -29,14 +29,13 @@ export type HealthConnectResult =
   | { status: 'denied' }
   | { status: 'unavailable' };
 
-const HEALTH_PREVIEW_MODE = __DEV__;
-
-const PREVIEW_BASICS: HealthBasics = {
-  weightKg: 78,
-  heightCm: 180,
-  sex: 'male',
-  dateOfBirth: '1998-04-12',
-};
+/** True when the connection actually delivered at least one value. */
+export function hasAnyHealthBasics(basics: HealthBasics | null): boolean {
+  return (
+    basics !== null &&
+    (basics.weightKg !== null || basics.heightCm !== null || basics.sex !== null || basics.dateOfBirth !== null)
+  );
+}
 
 export function getHealthProviderLabel(): string {
   return Platform.OS === 'android' ? 'Health Connect' : 'Apple Health';
@@ -59,19 +58,79 @@ export function getAgeFromDateOfBirth(dateOfBirth: string | null, now = new Date
   return age >= 0 && age <= 120 ? age : null;
 }
 
-async function readNativeHealthBasics(): Promise<HealthConnectResult> {
-  // Integration point: request HealthKit / Health Connect permissions and
-  // read weight, height, biological sex and date of birth here once the
-  // native module is installed.
-  return { status: 'unavailable' };
+function roundTo(value: number, decimals: number) {
+  const factor = 10 ** decimals;
+  return Math.round(value * factor) / factor;
+}
+
+async function readHealthConnectBasics(): Promise<HealthConnectResult> {
+  // Lazy require: the module only exists in native builds, and the test build
+  // compiles this file for Node where the import would throw at load time.
+  const healthConnect = require('react-native-health-connect') as typeof import('react-native-health-connect');
+  const { getSdkStatus, initialize, readRecords, requestPermission, SdkAvailabilityStatus } = healthConnect;
+
+  const sdkStatus = await getSdkStatus();
+  if (sdkStatus !== SdkAvailabilityStatus.SDK_AVAILABLE) {
+    return { status: 'unavailable' };
+  }
+
+  const initialized = await initialize();
+  if (!initialized) {
+    return { status: 'unavailable' };
+  }
+
+  const granted = await requestPermission([
+    { accessType: 'read', recordType: 'Weight' },
+    { accessType: 'read', recordType: 'Height' },
+  ]);
+  const grantedTypes = new Set(granted.map((permission) => permission.recordType));
+  if (!grantedTypes.has('Weight') && !grantedTypes.has('Height')) {
+    return { status: 'denied' };
+  }
+
+  // Newest record wins; a year is far enough back for "current" body stats.
+  const timeRangeFilter = {
+    operator: 'between' as const,
+    startTime: new Date(Date.now() - 365 * 86400000).toISOString(),
+    endTime: new Date().toISOString(),
+  };
+
+  let weightKg: number | null = null;
+  if (grantedTypes.has('Weight')) {
+    const { records } = await readRecords('Weight', { timeRangeFilter, ascendingOrder: false, pageSize: 1 });
+    const kilograms = records[0]?.weight?.inKilograms;
+    if (typeof kilograms === 'number' && Number.isFinite(kilograms) && kilograms > 0) {
+      weightKg = roundTo(kilograms, 1);
+    }
+  }
+
+  let heightCm: number | null = null;
+  if (grantedTypes.has('Height')) {
+    const { records } = await readRecords('Height', { timeRangeFilter, ascendingOrder: false, pageSize: 1 });
+    const meters = records[0]?.height?.inMeters;
+    if (typeof meters === 'number' && Number.isFinite(meters) && meters > 0) {
+      heightCm = Math.round(meters * 100);
+    }
+  }
+
+  return {
+    status: 'connected',
+    // Health Connect has no gender or birth date; these stay null and the
+    // user fills them in on the next screen.
+    basics: { weightKg, heightCm, sex: null, dateOfBirth: null },
+  };
 }
 
 export async function requestHealthBasics(): Promise<HealthConnectResult> {
-  if (HEALTH_PREVIEW_MODE) {
-    // Small delay so the connect button's busy state is visible in preview.
-    await new Promise((resolve) => setTimeout(resolve, 700));
-    return { status: 'connected', basics: PREVIEW_BASICS };
+  if (Platform.OS !== 'android') {
+    // HealthKit is a later integration; claiming otherwise would be the old lie.
+    return { status: 'unavailable' };
   }
 
-  return readNativeHealthBasics();
+  try {
+    return await readHealthConnectBasics();
+  } catch (error) {
+    console.warn('Health Connect read failed', error);
+    return { status: 'unavailable' };
+  }
 }

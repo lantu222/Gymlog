@@ -192,7 +192,12 @@ export function HealthSyncedScreen({ basics, language = 'en', onContinue, onBack
             {t(language, revealed ? 'health.synced.titleDone' : 'health.synced.titleBusy', { provider: providerLabel })}
           </Text>
           <Text style={[styles.subtitle, { fontFamily }]}>
-            {t(language, revealed ? 'health.synced.subDone' : 'health.synced.subBusy')}
+            {t(
+              language,
+              // "We pre-filled your details" would be a lie when the store had
+              // nothing to read — say the connection worked and move on.
+              revealed ? (rows.length > 0 ? 'health.synced.subDone' : 'health.synced.subDoneEmpty') : 'health.synced.subBusy',
+            )}
           </Text>
         </Animated.View>
 
@@ -202,6 +207,11 @@ export function HealthSyncedScreen({ basics, language = 'en', onContinue, onBack
           })}
         </Text>
         <View style={styles.card}>
+          {rows.length === 0 && revealed ? (
+            <Text style={[styles.emptyNote, { fontFamily }]}>
+              {t(language, 'health.synced.empty', { provider: providerLabel })}
+            </Text>
+          ) : null}
           {rows.map((row, index) => {
             const reveal = rowReveals[index];
             return (
@@ -374,6 +384,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 14,
     paddingHorizontal: 12,
+  },
+  emptyNote: {
+    color: MUTED,
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '700',
+    textAlign: 'center',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
   },
   footer: {
     paddingTop: 8,

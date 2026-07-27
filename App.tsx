@@ -131,6 +131,7 @@ import { AppProvider, useAppContext } from './src/state/AppProvider';
 import {
   getAgeFromDateOfBirth,
   getHealthProviderLabel,
+  hasAnyHealthBasics,
   HealthBasics,
   requestHealthBasics,
 } from './src/integrations/health';
@@ -2888,7 +2889,9 @@ function GymlogApp() {
       const healthAge = getAgeFromDateOfBirth(onboardingHealthBasics?.dateOfBirth ?? null);
       content = (
         <AboutYouScreen
-          healthConnected={onboardingHealthBasics !== null}
+          // "We imported these" only when something was actually imported — a
+          // connection that read nothing must not claim otherwise.
+          healthConnected={hasAnyHealthBasics(onboardingHealthBasics)}
           language={preferences.appLanguage}
           initialValues={
             aboutYouValues ??
