@@ -173,6 +173,53 @@ did the arithmetic; the request is mostly context, and the rules plus the
 history sit in one cached prefix so follow-up questions in a conversation
 re-read it at the cache rate.
 
+### What it actually costs
+
+Measured, not estimated. `scripts/simulate-coach-cost.cjs` builds real
+training histories, serializes them with the same `buildAiCoachSystemContext`
+the endpoint sends, and prices the result through `aiCoachCostModel.ts`:
+
+| Context | Chars | ~Tokens | Share of the 24 000-char cap |
+|---|---|---|---|
+| Brand new, no history | 364 | 104 | 2% |
+| First month, 3×/wk | 2 493 | 713 | 10% |
+| Full 8-week window, 4×/wk | 4 214 | 1 204 | 18% |
+| Heavy logger, 8 wk, 6×/wk, 9 lifts | 5 431 | 1 552 | 23% |
+
+Cost per Pro user per month, full-window context:
+
+| Engagement | Per user / month |
+|---|---|
+| Light — 4 conversations, 1 question each | $0.017 |
+| Typical — 12 conversations, 2 questions | $0.075 |
+| Power user — 40 conversations, 3 questions | $0.33 |
+| At the rate limit every single day, max output | $1.44 |
+
+Three things worth knowing, because they are not what you would guess:
+
+- **The fixed overhead is bigger than most users' history.** The coach rules
+  plus the tool schema are ~791 tokens on every call, against 104–1 204 tokens
+  of training context. Trimming the system prompt is a larger lever than
+  trimming what the user logged.
+- **The prompt cache costs money on single-question conversations.** A cache
+  write is 1.25× input; break-even is 2 questions inside the 5-minute window.
+  Kept anyway, because the surcharge is ~$0.0006 and follow-ups are common —
+  but it is a surcharge, not a saving, for a user who asks once and closes the
+  sheet.
+- **The worst case is survivable.** Even if every subscriber hammered the rate
+  limit daily with maximum-length answers, the model is 18% of revenue at
+  $7.99/month. The tier is not cost-constrained; it is trust-constrained.
+
+Re-run it after any change to the system rules, the context serializer, or the
+model:
+
+```bash
+npx tsc -p tsconfig.test.json && node scripts/simulate-coach-cost.cjs
+```
+
+Prices in `aiCoachCostModel.ts` are a constant, not a fact. Check them against
+anthropic.com/pricing before quoting a figure from this table.
+
 ---
 
 ## What it does not do
@@ -196,6 +243,8 @@ re-read it at the cache rate.
 | `src/lib/aiCoachSystemContext.ts` | Serializes it to the text the model reads |
 | `api/ai-coach.ts` | Endpoint, system rules, forced tool call, budget check |
 | `src/lib/aiCoachBudget.ts` | Spend controls |
+| `src/lib/aiCoachCostModel.ts` | What a call costs, and whether caching pays |
+| `scripts/simulate-coach-cost.cjs` | Measures real contexts and prices them |
 | `src/lib/aiCoachPreview.ts` | Offline answers |
 | `src/lib/aiCoachModules.ts` | Coach sheet's three modules (no model) |
 | `src/lib/sessionAnalysis.ts` | Full analysis screen (no model) |
