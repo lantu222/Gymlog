@@ -22,7 +22,7 @@ import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
 import { SurfaceAccent } from '../components/MainScreenPrimitives';
-import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { AppLanguage, ExerciseLibraryItem, SetupLevel, UnitPreference } from '../types/models';
 import { I18nKey, t } from '../lib/i18n';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_SUBSTITUTION_GROUPS, getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
@@ -46,8 +46,13 @@ interface WorkoutLoggingScreenProps {
   keepScreenAwake?: boolean;
   defaultRestSeconds: number;
   hasAdaptiveCoachPremium: boolean;
-  /** P5 truth: automated progression OFF silences the adaptive coach entirely. */
+  /**
+   * P5 truth: automated progression OFF silences the adaptive coach entirely,
+   * and leaves the next session's prefill at last session's load (ADR-004).
+   */
   automatedProgressionEnabled?: boolean;
+  /** Beginner progresses off one ceiling session; advanced/pro need two. */
+  setupLevel?: SetupLevel | null;
   tailoringPreferences?: TailoringPreferencesInput | null;
   exerciseLibrary: ExerciseLibraryItem[];
   recentExerciseLibraryItems: ExerciseLibraryItem[];
@@ -332,6 +337,7 @@ export function WorkoutLoggingScreen({
   defaultRestSeconds,
   hasAdaptiveCoachPremium,
   automatedProgressionEnabled = true,
+  setupLevel = null,
   tailoringPreferences = null,
   exerciseLibrary,
   recentExerciseLibraryItems,
@@ -411,14 +417,17 @@ export function WorkoutLoggingScreen({
       return;
     }
 
+    // The prefill only climbs when the user asked for automated progression.
+    const progression = { automatedProgressionEnabled, setupLevel };
+
     if (customTemplate) {
-      startCustomWorkout(customTemplate, unitPreference);
+      startCustomWorkout(customTemplate, unitPreference, progression);
       return;
     }
 
     const templateId = getWorkoutTemplateById(sessionKey) ? sessionKey : CORE_WORKOUT_TEMPLATE_ID;
-    startWorkout(templateId, unitPreference);
-  }, [activeSession?.sessionId, activeSession?.status, bootstrapTargetKey, customTemplate, hydrated, sessionKey, startCustomWorkout, startWorkout, unitPreference]);
+    startWorkout(templateId, unitPreference, progression);
+  }, [activeSession?.sessionId, activeSession?.status, automatedProgressionEnabled, bootstrapTargetKey, customTemplate, hydrated, sessionKey, setupLevel, startCustomWorkout, startWorkout, unitPreference]);
 
   const activeExercise = selectActiveExercise(activeSession);
   const activeSlotId = activeSession?.ui.activeSlotId ?? activeExercise?.slotId ?? activeSession?.exercises[0]?.slotId ?? null;

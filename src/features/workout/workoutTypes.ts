@@ -1,4 +1,4 @@
-import { UnitPreference } from '../../types/models';
+import { SetupLevel, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
 
 export type WorkoutGoalType = 'strength' | 'hypertrophy' | 'general';
@@ -226,8 +226,22 @@ export interface WorkoutSwapOption {
   substitutionGroup: string;
 }
 
+/** What the logger needs to decide whether a prefill may move up. */
+export interface WorkoutProgressionOptions {
+  automatedProgressionEnabled: boolean;
+  setupLevel?: SetupLevel | null;
+}
+
 export interface WorkoutSessionMaterializeOptions {
   unitPreference: UnitPreference;
   history: WorkoutHistoryStore;
   sessionOrderIndex: number;
+  /**
+   * When true, an earned rep-ceiling clears the load for the next session
+   * (ADR-004). Off repeats what was logged. Defaults to off so a caller that
+   * has not been updated cannot silently start moving a user's weights.
+   */
+  automatedProgressionEnabled?: boolean;
+  /** Drives the beginner/intermediate progression parameters. */
+  setupLevel?: SetupLevel | null;
 }

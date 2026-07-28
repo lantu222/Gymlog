@@ -769,8 +769,8 @@ const EN = {
   'onb.equip.orChoose': 'OR CHOOSE ANOTHER',
   'onb.equip.selectedCount': '{count} selected',
 
-  'onb.progression.b1': 'Next sessions start from your logged sets',
-  'onb.progression.b2': 'Effort feedback tunes rest and the next set with Adaptive Coach',
+  'onb.progression.b1': 'Load moves up when you hit the top of the rep range on every set',
+  'onb.progression.b2': 'Effort feedback tunes rest and the next set (Pro)',
   'onb.progression.b3': 'Change this anytime in Plan settings',
 
   // ── Body parts (library enum → display label) ──────────────────────────
@@ -2703,8 +2703,8 @@ const FI: Record<I18nKey, string> = {
   'onb.equip.orChoose': 'TAI VALITSE TOINEN',
   'onb.equip.selectedCount': '{count} valittu',
 
-  'onb.progression.b1': 'Seuraavat treenit alkavat kirjaamistasi sarjoista',
-  'onb.progression.b2': 'Tuntuma-palaute säätää lepoa ja seuraavaa sarjaa Adaptive Coachin kanssa',
+  'onb.progression.b1': 'Paino nousee kun osut toistohaarukan yläpäähän joka sarjassa',
+  'onb.progression.b2': 'Tuntuma-palaute säätää lepoa ja seuraavaa sarjaa (Pro)',
   'onb.progression.b3': 'Voit muuttaa tätä milloin vain suunnitelman asetuksissa',
 
   // ── Body parts ─────────────────────────────────────────────────────────

@@ -7,8 +7,9 @@ import {
   startCardioSession,
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
-import { WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
+import { WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
+import { resolveProgressedLoadKg } from '../../lib/progressionGate';
 
 export interface WorkoutFeatureState {
   hydrated: boolean;
@@ -23,10 +24,23 @@ export interface WorkoutFeatureState {
 export type WorkoutAction =
   | { type: 'session/hydrate'; payload: WorkoutPersistenceBundle }
   | { type: 'session/markRestoring'; payload: { value: boolean } }
-  | { type: 'session/startFromTemplate'; payload: { templateId: string; sessionOrderIndex: number; unitPreference: 'kg' | 'lb' } }
+  | {
+      type: 'session/startFromTemplate';
+      payload: {
+        templateId: string;
+        sessionOrderIndex: number;
+        unitPreference: 'kg' | 'lb';
+        progression?: WorkoutProgressionOptions;
+      };
+    }
   | {
       type: 'session/startFromRuntimeTemplate';
-      payload: { template: WorkoutRuntimeTemplate; sessionOrderIndex: number; unitPreference: 'kg' | 'lb' };
+      payload: {
+        template: WorkoutRuntimeTemplate;
+        sessionOrderIndex: number;
+        unitPreference: 'kg' | 'lb';
+        progression?: WorkoutProgressionOptions;
+      };
     }
   | { type: 'session/resume'; payload: { session: WorkoutSessionRuntime } }
   | { type: 'session/pause' }
@@ -131,21 +145,39 @@ function resolveHistoricalSetDraft(
   templateSlotId: string,
   setIndex: number,
   unitPreference: 'kg' | 'lb',
+  exercise: WorkoutTemplateExercise,
+  options: WorkoutSessionMaterializeOptions,
 ) {
-  const latest = getHistoryEntries(history, slotId, templateSlotId)[0];
+  const entries = getHistoryEntries(history, slotId, templateSlotId);
+  const latest = entries[0];
   const matched = latest?.sets.find((item) => item.setIndex === setIndex) ?? latest?.sets[setIndex] ?? null;
 
   if (!matched) {
     return { draftLoadText: '', draftRepsText: '', plannedLoadKg: undefined };
   }
 
-  // Prefill the weight from last time so the user usually just adjusts it with
-  // the console and types reps; reps stay empty so entering them is the signal
-  // that logs the set (handoff §5).
+  // Automated progression (ADR-004): when the last session cleared the rep
+  // ceiling on every working set, the prefill moves up by the level's
+  // increment. Every other outcome repeats last time's load, which is what
+  // this function did unconditionally before the gate existed.
+  const { loadKg } = resolveProgressedLoadKg({
+    history: entries,
+    repsMin: exercise.repsMin,
+    repsMax: exercise.repsMax,
+    targetSets: exercise.sets,
+    level: options.setupLevel,
+    trackingMode: exercise.trackingMode,
+    automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+    fallbackLoadKg: matched.loadKg,
+  });
+
+  // Prefill the weight so the user usually just adjusts it with the console
+  // and types reps; reps stay empty so entering them is the signal that logs
+  // the set (handoff §5).
   return {
-    draftLoadText: formatWeightInputValue(matched.loadKg, unitPreference),
+    draftLoadText: formatWeightInputValue(loadKg, unitPreference),
     draftRepsText: '',
-    plannedLoadKg: matched.loadKg,
+    plannedLoadKg: loadKg,
   };
 }
 
@@ -158,7 +190,15 @@ function materializeExercise(
 ): WorkoutExerciseInstance {
   const scopedSlotId = buildScopedSlotId(templateId, templateSessionId, exercise.slotId);
   const sets: WorkoutSetInstance[] = Array.from({ length: exercise.sets }, (_, setIndex) => {
-    const resolved = resolveHistoricalSetDraft(options.history, scopedSlotId, exercise.slotId, setIndex, options.unitPreference);
+    const resolved = resolveHistoricalSetDraft(
+      options.history,
+      scopedSlotId,
+      exercise.slotId,
+      setIndex,
+      options.unitPreference,
+      exercise,
+      options,
+    );
 
     return {
       setIndex,
@@ -434,6 +474,8 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         history: state.history,
         unitPreference: action.payload.unitPreference,
         sessionOrderIndex: action.payload.sessionOrderIndex,
+        automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
+        setupLevel: action.payload.progression?.setupLevel ?? null,
       });
 
       return {
@@ -453,6 +495,8 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         history: state.history,
         unitPreference: action.payload.unitPreference,
         sessionOrderIndex: action.payload.sessionOrderIndex,
+        automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
+        setupLevel: action.payload.progression?.setupLevel ?? null,
       });
 
       return {

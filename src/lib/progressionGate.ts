@@ -1,0 +1,207 @@
+import { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
+import { SetupLevel } from '../types/models';
+
+/**
+ * Double progression, as specified (ADR-004 + progression-gating-rules.md).
+ *
+ * This is the decision that used to exist only on paper. The rule was written
+ * down, `buildProgressionSuggestion` implemented a rough version of it, and
+ * that function was wired into WorkoutExerciseCard — a component no screen
+ * renders. So the live logger simply repeated last session's weight forever
+ * and the "Automated progression" toggle changed nothing a free user could
+ * see. This is the gate the logger actually calls.
+ *
+ * The load increases only when the rep ceiling is reached on ALL target
+ * working sets. One set at the ceiling is not enough — that is the whole
+ * point of the model, and the thing a naive "did they hit the top rep?"
+ * implementation gets wrong.
+ */
+
+export type ProgressionLevelTier = 'beginner' | 'intermediate';
+
+export interface ProgressionLevelParams {
+  /** Sessions of history needed before the gate says anything at all. */
+  minSessions: number;
+  /** Consecutive progression-ready sessions required before load moves. */
+  requiredConsecutive: number;
+  loadIncrementKg: number;
+}
+
+/** Values owned by progression-gating-rules.md §7. */
+export const PROGRESSION_LEVEL_PARAMS: Record<ProgressionLevelTier, ProgressionLevelParams> = {
+  beginner: { minSessions: 2, requiredConsecutive: 1, loadIncrementKg: 2.5 },
+  intermediate: { minSessions: 3, requiredConsecutive: 2, loadIncrementKg: 1.25 },
+};
+
+export function getProgressionTier(level: SetupLevel | null | undefined): ProgressionLevelTier {
+  // 'advanced' and 'pro' both want the confirmation session; only a true
+  // beginner progresses off a single ceiling session.
+  return level === 'beginner' || level == null ? 'beginner' : 'intermediate';
+}
+
+export type ProgressionHoldReason =
+  | 'fatigue_high'
+  | 'fatigue_elevated'
+  | 'set_skipped'
+  | 'insufficient_sets'
+  | 'low_completion_rate'
+  | 'rep_ceiling_not_reached'
+  | 'gap_return'
+  | 'awaiting_confirmation';
+
+export type ProgressionDecision =
+  | { recommendation: 'silent' }
+  | { recommendation: 'hold'; holdReason: ProgressionHoldReason; loadKg: number }
+  | { recommendation: 'increase'; loadKg: number; fromLoadKg: number; incrementKg: number };
+
+export interface ProgressionGateInput {
+  /** Newest first, as the slot history stores it. */
+  history: WorkoutSlotHistoryEntry[];
+  repsMin: number;
+  repsMax: number;
+  targetSets: number;
+  level?: SetupLevel | null;
+  /** Caller-computed. Undefined counts as clear, per the spec's T11. */
+  fatigueSignal?: 'normal' | 'elevated' | 'high';
+  /** Bodyweight exercises accumulate reps; load never moves. */
+  trackingMode?: string;
+}
+
+const GAP_DAYS = 7;
+const MIN_COMPLETION_RATE = 0.8;
+
+/** The heaviest load actually used in an entry, which is what we progress from. */
+function entryLoadKg(entry: WorkoutSlotHistoryEntry): number {
+  return entry.sets.reduce((max, set) => Math.max(max, set.loadKg), 0);
+}
+
+/**
+ * A session is progression-ready when every completed working set reached the
+ * rep ceiling, enough sets were completed, and nothing was skipped.
+ */
+export function isProgressionReadySession(
+  entry: WorkoutSlotHistoryEntry,
+  repsMax: number,
+  targetSets: number,
+): boolean {
+  if (entry.skipped || entry.sets.length === 0) {
+    return false;
+  }
+  if (entry.sets.length < targetSets) {
+    return false;
+  }
+  return entry.sets.every((set) => set.reps >= repsMax);
+}
+
+function daysBetween(laterIso: string, earlierIso: string): number {
+  const later = Date.parse(laterIso);
+  const earlier = Date.parse(earlierIso);
+  if (!Number.isFinite(later) || !Number.isFinite(earlier)) {
+    return 0;
+  }
+  return Math.abs(later - earlier) / 86400000;
+}
+
+export function evaluateProgression(input: ProgressionGateInput): ProgressionDecision {
+  const { history, repsMin, repsMax, targetSets, fatigueSignal, trackingMode } = input;
+  const params = PROGRESSION_LEVEL_PARAMS[getProgressionTier(input.level)];
+
+  // ── Silence: no target to evaluate against, or not enough baseline ────────
+  if (!(repsMin > 0) || !(repsMax > 0) || !(targetSets > 0)) {
+    return { recommendation: 'silent' };
+  }
+  // Bodyweight progresses by reps and variation, never by load (ADR-004 §What
+  // This Model Does Not Cover).
+  if (trackingMode === 'bodyweight') {
+    return { recommendation: 'silent' };
+  }
+  if (history.length < params.minSessions) {
+    return { recommendation: 'silent' };
+  }
+
+  const latest = history[0];
+  if (!latest || latest.sets.length === 0) {
+    return { recommendation: 'silent' };
+  }
+
+  const currentLoadKg = entryLoadKg(latest);
+  if (!(currentLoadKg > 0)) {
+    return { recommendation: 'silent' };
+  }
+
+  // ── Hold, in the spec's order: fatigue first, it is a hard block ──────────
+  if (fatigueSignal === 'high') {
+    return { recommendation: 'hold', holdReason: 'fatigue_high', loadKg: currentLoadKg };
+  }
+  if (fatigueSignal === 'elevated') {
+    return { recommendation: 'hold', holdReason: 'fatigue_elevated', loadKg: currentLoadKg };
+  }
+
+  if (latest.skipped) {
+    return { recommendation: 'hold', holdReason: 'set_skipped', loadKg: currentLoadKg };
+  }
+  if (latest.sets.length < targetSets) {
+    return { recommendation: 'hold', holdReason: 'insufficient_sets', loadKg: currentLoadKg };
+  }
+  if (latest.sets.length / targetSets < MIN_COMPLETION_RATE) {
+    return { recommendation: 'hold', holdReason: 'low_completion_rate', loadKg: currentLoadKg };
+  }
+
+  // A session that follows a long break is not the moment to add load.
+  const previous = history[1];
+  if (previous && daysBetween(latest.performedAt, previous.performedAt) >= GAP_DAYS) {
+    return { recommendation: 'hold', holdReason: 'gap_return', loadKg: currentLoadKg };
+  }
+
+  if (!isProgressionReadySession(latest, repsMax, targetSets)) {
+    return { recommendation: 'hold', holdReason: 'rep_ceiling_not_reached', loadKg: currentLoadKg };
+  }
+
+  // ── Consecutive-session gate ─────────────────────────────────────────────
+  let consecutive = 0;
+  for (const entry of history) {
+    if (!isProgressionReadySession(entry, repsMax, targetSets)) {
+      break;
+    }
+    // Only sessions at the same load count toward confirmation; a lighter
+    // session that happened to hit the ceiling proves nothing about this load.
+    if (Math.abs(entryLoadKg(entry) - currentLoadKg) > 0.001) {
+      break;
+    }
+    consecutive += 1;
+  }
+
+  if (consecutive < params.requiredConsecutive) {
+    return { recommendation: 'hold', holdReason: 'awaiting_confirmation', loadKg: currentLoadKg };
+  }
+
+  return {
+    recommendation: 'increase',
+    loadKg: currentLoadKg + params.loadIncrementKg,
+    fromLoadKg: currentLoadKg,
+    incrementKg: params.loadIncrementKg,
+  };
+}
+
+/**
+ * What the logger should prefill for a set.
+ *
+ * With automated progression off, this is exactly the old behaviour: repeat
+ * what was logged last time. With it on, an earned progression moves the load
+ * and every other outcome still repeats — so the toggle changes something the
+ * user can actually see, which it previously did not.
+ */
+export function resolveProgressedLoadKg(
+  input: ProgressionGateInput & { automatedProgressionEnabled: boolean; fallbackLoadKg: number },
+): { loadKg: number; progressed: boolean } {
+  if (!input.automatedProgressionEnabled) {
+    return { loadKg: input.fallbackLoadKg, progressed: false };
+  }
+
+  const decision = evaluateProgression(input);
+  if (decision.recommendation === 'increase') {
+    return { loadKg: decision.loadKg, progressed: true };
+  }
+
+  return { loadKg: input.fallbackLoadKg, progressed: false };
+}

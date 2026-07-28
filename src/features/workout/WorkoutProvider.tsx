@@ -4,7 +4,7 @@ import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_TEMPLATES_V1, getWorkoutTemplateById, getWorkoutTemplateSessions } from './workoutCatalog';
 import { loadWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
-import { WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
+import { WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
 import {
   WorkoutFeatureState,
   workoutInitialState,
@@ -21,8 +21,16 @@ interface WorkoutContextValue {
   activeSession: WorkoutSessionRuntime | null;
   history: WorkoutHistoryStore;
   completionSummary: ReturnType<typeof selectWorkoutSummary>;
-  startWorkout: (templateId: string, unitPreference: UnitPreference) => void;
-  startCustomWorkout: (template: WorkoutRuntimeTemplate, unitPreference: UnitPreference) => void;
+  startWorkout: (
+    templateId: string,
+    unitPreference: UnitPreference,
+    progression?: WorkoutProgressionOptions,
+  ) => void;
+  startCustomWorkout: (
+    template: WorkoutRuntimeTemplate,
+    unitPreference: UnitPreference,
+    progression?: WorkoutProgressionOptions,
+  ) => void;
   resumeWorkout: () => void;
   finishWorkout: (performedAt?: string) => void;
   discardWorkout: () => void;
@@ -118,7 +126,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       activeSession: state.activeSession,
       history: state.history,
       completionSummary,
-      startWorkout(templateId, unitPreference) {
+      startWorkout(templateId, unitPreference, progression) {
         const template = getWorkoutTemplateById(templateId);
         if (!template) {
           return;
@@ -130,17 +138,27 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
 
         dispatch({
           type: 'session/startFromTemplate',
-          payload: { templateId: template.id, sessionOrderIndex: state.history.sessions.length + 1, unitPreference },
+          payload: {
+            templateId: template.id,
+            sessionOrderIndex: state.history.sessions.length + 1,
+            unitPreference,
+            progression,
+          },
         });
       },
-      startCustomWorkout(template, unitPreference) {
+      startCustomWorkout(template, unitPreference, progression) {
         if (state.activeSession && state.activeSession.status === 'active') {
           return;
         }
 
         dispatch({
           type: 'session/startFromRuntimeTemplate',
-          payload: { template, sessionOrderIndex: state.history.sessions.length + 1, unitPreference },
+          payload: {
+            template,
+            sessionOrderIndex: state.history.sessions.length + 1,
+            unitPreference,
+            progression,
+          },
         });
       },
       resumeWorkout() {

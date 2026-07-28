@@ -925,6 +925,10 @@ function GymlogApp() {
         workout.startCustomWorkout(
           buildCustomSessionRuntimeTemplate(aiRuntimeTemplate, nextSessionId),
           nextPreferences.unitPreference,
+          {
+            automatedProgressionEnabled: nextPreferences.automatedProgressionEnabled,
+            setupLevel: nextPreferences.setupLevel,
+          },
         );
         navigateToGuidedWorkout(persistedTemplateId);
         showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
@@ -1520,7 +1524,10 @@ function GymlogApp() {
     guardStrengthStartOverCardio(() => {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
-      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference);
+      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
+        automatedProgressionEnabled: preferences.automatedProgressionEnabled,
+        setupLevel: preferences.setupLevel,
+      });
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -1559,7 +1566,10 @@ function GymlogApp() {
     guardStrengthStartOverCardio(() => {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
-      workout.startCustomWorkout(runtimeTemplate, unitPreference);
+      workout.startCustomWorkout(runtimeTemplate, unitPreference, {
+        automatedProgressionEnabled: preferences.automatedProgressionEnabled,
+        setupLevel: preferences.setupLevel,
+      });
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -3209,6 +3219,7 @@ function GymlogApp() {
         defaultRestSeconds={preferences.defaultRestSeconds}
         hasAdaptiveCoachPremium={preferences.adaptiveCoachPremiumUnlocked}
         automatedProgressionEnabled={preferences.automatedProgressionEnabled}
+        setupLevel={preferences.setupLevel}
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
