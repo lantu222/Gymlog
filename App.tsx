@@ -3217,7 +3217,7 @@ function GymlogApp() {
         language={preferences.appLanguage}
         autoFocusNextInput={preferences.autoFocusNextInput}
         defaultRestSeconds={preferences.defaultRestSeconds}
-        hasAdaptiveCoachPremium={preferences.adaptiveCoachPremiumUnlocked}
+        hasAdaptiveCoachPremium={coachProUnlocked}
         automatedProgressionEnabled={preferences.automatedProgressionEnabled}
         setupLevel={preferences.setupLevel}
         tailoringPreferences={tailoringPreferences}
@@ -3429,6 +3429,7 @@ function GymlogApp() {
       <PremiumScreen
         language={preferences.appLanguage}
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
+        proUnlocked={coachProUnlocked}
         heroChart={premiumHeroChart}
         unitPreference={unitPreference}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
@@ -3512,9 +3513,10 @@ function GymlogApp() {
         language={preferences.appLanguage}
         promoProUntil={preferences.promoProUntil}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
-        onRedeemed={(proUntilIso) =>
-          void updatePreferences({ promoProUntil: proUntilIso, adaptiveCoachPremiumUnlocked: true })
-        }
+        // Only the promo date is stored. Flipping the preview switch here too
+        // would make a 30-day code permanent Pro, because nothing ever turns
+        // that switch back off — resolveProEntitlement reads the date itself.
+        onRedeemed={(proUntilIso) => void updatePreferences({ promoProUntil: proUntilIso })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'subscription') {

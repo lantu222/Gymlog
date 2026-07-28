@@ -35,6 +35,7 @@ const suites = [
   ...require('./lib/progressActivity.test.cjs'),
   ...require('./lib/postSessionInsight.test.cjs'),
   ...require('./lib/proEntitlement.test.cjs'),
+  ...require('./lib/proSurfaces.test.cjs'),
   ...require('./lib/trainingHistory.test.cjs'),
   ...require('./lib/serialTaskQueue.test.cjs'),
   ...require('./lib/homeGreeting.test.cjs'),

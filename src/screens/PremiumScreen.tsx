@@ -11,7 +11,10 @@ import { layout } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 
 interface PremiumScreenProps {
+  /** State of the on-device preview switch, which is what the CTA toggles. */
   previewUnlocked: boolean;
+  /** Whether Pro is actually on — the preview switch or a live promo code. */
+  proUnlocked: boolean;
   heroChart: PremiumHeroChart | null;
   unitPreference: UnitPreference;
   language?: AppLanguage;
@@ -19,11 +22,18 @@ interface PremiumScreenProps {
   onTogglePreview: () => void;
 }
 
-type LaneVariant = 'coach' | 'rest' | 'session' | 'week';
+type LaneVariant = 'coach' | 'rest' | 'ai' | 'session' | 'week';
 
+/**
+ * Every lane here is a promise, so `live` has to match the code. The AI lane
+ * was missing until the Pro/Free audit: the coach sheet and the session
+ * analysis screen are both gated on Pro and both work, so a buyer was paying
+ * for the most expensive thing in the app without it appearing on the list.
+ */
 const LANES: Array<{ live: boolean; titleKey: I18nKey; bodyKey: I18nKey; variant: LaneVariant }> = [
   { live: true, variant: 'coach', titleKey: 'premium.lane.coach', bodyKey: 'premium.lane.coachBody' },
   { live: true, variant: 'rest', titleKey: 'premium.lane.rest', bodyKey: 'premium.lane.restBody' },
+  { live: true, variant: 'ai', titleKey: 'premium.lane.ai', bodyKey: 'premium.lane.aiBody' },
   { live: false, variant: 'session', titleKey: 'premium.lane.session', bodyKey: 'premium.lane.sessionBody' },
   { live: false, variant: 'week', titleKey: 'premium.lane.week', bodyKey: 'premium.lane.weekBody' },
 ];
@@ -34,6 +44,7 @@ const COMPARISON_ROWS: Array<{ labelKey: I18nKey; free: boolean; premium: 'Live'
   { labelKey: 'premium.row.progress', free: true, premium: 'Live' },
   { labelKey: 'premium.lane.coach', free: false, premium: 'Live' },
   { labelKey: 'premium.lane.rest', free: false, premium: 'Live' },
+  { labelKey: 'premium.lane.ai', free: false, premium: 'Live' },
   { labelKey: 'premium.lane.session', free: false, premium: 'Soon' },
   { labelKey: 'premium.lane.week', free: false, premium: 'Soon' },
 ];
@@ -57,6 +68,13 @@ function LaneGlyph({ variant }: { variant: LaneVariant }) {
         <Svg width={22} height={22} viewBox="0 0 24 24">
           <Circle cx={12} cy={13} r={8} {...common} />
           <Path d="M12 13V9M9 2h6" {...common} />
+        </Svg>
+      );
+    case 'ai':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Path d="M20 5H4a1 1 0 00-1 1v9a1 1 0 001 1h4l4 4v-4h8a1 1 0 001-1V6a1 1 0 00-1-1z" {...common} />
+          <Path d="M8.5 12.5l1.2-3 1.3 3M14.8 9.5v3" {...common} />
         </Svg>
       );
     case 'session':
@@ -142,6 +160,7 @@ function HeroChart({ chart, unitPreference }: { chart: PremiumHeroChart; unitPre
 
 export function PremiumScreen({
   previewUnlocked,
+  proUnlocked,
   heroChart,
   unitPreference,
   language = 'en',
@@ -256,27 +275,41 @@ export function PremiumScreen({
 
         <Text style={styles.footNote}>{t(language, 'premium.footNote')}</Text>
 
-        {/* PREVIEW CTA */}
-        <View style={styles.ctaCard}>
-          <View style={styles.ctaHeadRow}>
-            <Text style={styles.ctaTitle}>
-              {t(language, previewUnlocked ? 'premium.previewOn' : 'premium.tryPreview')}
-            </Text>
-            <View style={[styles.tag, previewUnlocked ? styles.tagLive : styles.tagSoon]}>
-              <Text style={[styles.tagText, previewUnlocked ? styles.tagTextLive : styles.tagTextSoon]}>
-                {t(language, previewUnlocked ? 'premium.tagOn' : 'premium.tagOff')}
-              </Text>
+        {/* PREVIEW CTA — or, when a promo code is what granted Pro, no CTA at
+            all: the switch would only outlive the code, so offering it here
+            would read as "your Pro needs turning on" when it does not. */}
+        {proUnlocked && !previewUnlocked ? (
+          <View style={styles.ctaCard}>
+            <View style={styles.ctaHeadRow}>
+              <Text style={styles.ctaTitle}>{t(language, 'premium.promoTitle')}</Text>
+              <View style={[styles.tag, styles.tagLive]}>
+                <Text style={[styles.tagText, styles.tagTextLive]}>{t(language, 'premium.live')}</Text>
+              </View>
             </View>
+            <Text style={styles.ctaBody}>{t(language, 'premium.promoBody')}</Text>
           </View>
-          <Text style={styles.ctaBody}>
-            {t(language, previewUnlocked ? 'premium.ctaBodyOn' : 'premium.ctaBodyOff')}
-          </Text>
-          <Pressable onPress={onTogglePreview} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>
-              {t(language, previewUnlocked ? 'premium.turnOff' : 'premium.tryPreview')}
+        ) : (
+          <View style={styles.ctaCard}>
+            <View style={styles.ctaHeadRow}>
+              <Text style={styles.ctaTitle}>
+                {t(language, previewUnlocked ? 'premium.previewOn' : 'premium.tryPreview')}
+              </Text>
+              <View style={[styles.tag, previewUnlocked ? styles.tagLive : styles.tagSoon]}>
+                <Text style={[styles.tagText, previewUnlocked ? styles.tagTextLive : styles.tagTextSoon]}>
+                  {t(language, previewUnlocked ? 'premium.tagOn' : 'premium.tagOff')}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.ctaBody}>
+              {t(language, previewUnlocked ? 'premium.ctaBodyOn' : 'premium.ctaBodyOff')}
             </Text>
-          </Pressable>
-        </View>
+            <Pressable onPress={onTogglePreview} style={styles.primaryButton}>
+              <Text style={styles.primaryButtonText}>
+                {t(language, previewUnlocked ? 'premium.turnOff' : 'premium.tryPreview')}
+              </Text>
+            </Pressable>
+          </View>
+        )}
       </ScrollView>
     </View>
   );

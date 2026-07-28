@@ -23,6 +23,7 @@ import {
   summarizeJointSwapPreferences,
 } from '../lib/tailoring';
 import { t } from '../lib/i18n';
+import { isProUnlocked } from '../lib/proEntitlement';
 import { HG } from '../lightTheme';
 import { layout, radii, spacing } from '../theme';
 import { AppLanguage, AppPreferences, SetupScheduleMode } from '../types/models';
@@ -217,6 +218,8 @@ export function PlanSettingsScreen({
   onOpenProgram,
   onAskAiCoach,
 }: PlanSettingsScreenProps) {
+  // A redeemed promo is Pro too, so this cannot read the preview switch alone.
+  const proUnlocked = isProUnlocked(preferences);
   const setupComplete =
     preferences.setupCompleted &&
     preferences.setupGoal &&
@@ -451,12 +454,9 @@ export function PlanSettingsScreen({
         <View style={styles.entryGrid}>
           <TailoringEntry
             kicker={t(language, 'planSet.adaptive')}
-            title={t(language, preferences.adaptiveCoachPremiumUnlocked ? 'planSet.previewOn' : 'planSet.premium')}
+            title={t(language, proUnlocked ? 'planSet.previewOn' : 'planSet.premium')}
             body={t(language, 'planSet.adaptiveBody')}
-            badgeLabel={t(
-              language,
-              preferences.adaptiveCoachPremiumUnlocked ? 'planSet.liveNow' : 'planSet.locked',
-            )}
+            badgeLabel={t(language, proUnlocked ? 'planSet.liveNow' : 'planSet.locked')}
             glyph={<SparkGlyph />}
             onPress={onOpenPremium}
           />

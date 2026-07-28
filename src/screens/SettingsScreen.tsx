@@ -6,6 +6,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { getHealthProviderLabel } from '../integrations/health';
 import { t } from '../lib/i18n';
+import { isProUnlocked } from '../lib/proEntitlement';
 import { HG } from '../lightTheme';
 import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
@@ -192,10 +193,11 @@ export function SettingsScreen({
   onResetAllData,
 }: SettingsScreenProps) {
   const [resetVisible, setResetVisible] = useState(false);
-  // Visual-only until their engines exist.
-  const [darkTheme, setDarkTheme] = useState(false);
+  // Visual-only until its engine exists.
   const [analytics, setAnalytics] = useState(true);
   const language = preferences.appLanguage;
+  // A redeemed promo is Pro too, so the badge cannot read the preview switch.
+  const proUnlocked = isProUnlocked(preferences);
   const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : t(language, 'profile.guestName');
   const soundAndHaptics = preferences.soundCuesEnabled || preferences.hapticsEnabled;
 
@@ -243,7 +245,7 @@ export function SettingsScreen({
               {displayName}
             </Text>
             <Text style={styles.profileChipMeta}>{memberSinceLabel(firstSessionAt, language)}</Text>
-            {preferences.adaptiveCoachPremiumUnlocked ? (
+            {proUnlocked ? (
               <View style={styles.proBadge}>
                 <Svg width={12} height={12} viewBox="0 0 24 24">
                   <Path d={IC_PATHS.spark} fill={HG.purpleDark} />
@@ -258,29 +260,19 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.app')} />
           <View style={styles.card}>
-            {/* Theme choice is a Pro perk (user decision 2026-07-22). Without
-                Pro the control routes to the promo screen; with Pro the toggle
-                is live (visual-only until the theme engine exists). */}
+            {/* Theme choice is a Pro perk (user decision 2026-07-22), but the
+                theme engine does not exist yet. Until it does this row shows
+                Soon to everyone: a Pro user got a live-looking switch that
+                repainted nothing, and a free user was told it "unlocks with
+                Pro", which would have been a paid-for no-op. */}
             <Row
               icon="moon"
               title={t(language, 'settings.darkTheme')}
-              sub={preferences.adaptiveCoachPremiumUnlocked ? undefined : t(language, 'settings.darkTheme.sub')}
+              sub={t(language, 'settings.darkTheme.sub')}
               control={
-                preferences.adaptiveCoachPremiumUnlocked ? (
-                  <ToggleSwitch label={t(language, 'settings.darkTheme')} value={darkTheme} onChange={setDarkTheme} />
-                ) : (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'settings.a11y.unlockDarkTheme')}
-                    onPress={onOpenPromo}
-                    style={({ pressed }) => [styles.proPill, pressed && styles.pressed]}
-                  >
-                    <Svg width={11} height={11} viewBox="0 0 24 24">
-                      <Path d={IC_PATHS.spark} fill={HG.purpleDark} />
-                    </Svg>
-                    <Text style={styles.proPillText}>PRO</Text>
-                  </Pressable>
-                )
+                <View style={styles.soonPill}>
+                  <Text style={styles.soonPillText}>{t(language, 'premium.soon')}</Text>
+                </View>
               }
             />
             <Row
@@ -551,6 +543,20 @@ const styles = StyleSheet.create({
     color: HG.purpleDark,
     fontSize: 11.5,
     fontWeight: '800',
+  },
+  soonPill: {
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: HG.surfaceSoft,
+    borderWidth: 1,
+    borderColor: HG.border,
+  },
+  soonPillText: {
+    color: HG.muted,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   section: {
     marginTop: 22,
