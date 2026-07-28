@@ -4,6 +4,9 @@
  * factual composition of the plan's exercises — never a promised outcome.
  */
 
+import { I18nKey, t } from './i18n';
+import type { AppLanguage } from '../types/models';
+
 /** Structural subset so both catalog sessions and composed weeks fit. */
 export interface ProgramFocusSessionInput {
   exercises: Array<{ exerciseName: string; sets: number }>;
@@ -22,6 +25,20 @@ export const PROGRAM_FOCUS_COLORS: Record<ProgramFocusQuality, string> = {
   Conditioning: '#38BDF8',
   Mobility: '#34D399',
 };
+
+// The quality is an identifier and stays English; only the label translates.
+const PROGRAM_FOCUS_LABEL_KEYS: Record<ProgramFocusQuality, I18nKey> = {
+  Strength: 'focus.quality.strength',
+  Conditioning: 'focus.quality.conditioning',
+  Mobility: 'focus.quality.mobility',
+};
+
+export function getProgramFocusQualityLabel(
+  quality: ProgramFocusQuality,
+  language: AppLanguage = 'en',
+): string {
+  return t(language, PROGRAM_FOCUS_LABEL_KEYS[quality]);
+}
 
 const PROGRAM_FOCUS_ORDER: ProgramFocusQuality[] = ['Strength', 'Conditioning', 'Mobility'];
 

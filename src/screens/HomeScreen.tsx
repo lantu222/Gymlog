@@ -24,6 +24,7 @@ import {
   getDefaultWarmup,
   getSessionFocusTitle,
 } from '../lib/homeSessionHero';
+import { getGreetingRotation, selectHomeGreeting } from '../lib/homeGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { I18nKey, t } from '../lib/i18n';
@@ -167,6 +168,16 @@ interface HomeScreenProps {
    * Keeps the default warmup honest — no rower for a bodyweight-only user.
    */
   availableEquipment?: string[] | null;
+  /**
+   * What the log actually says, for the greeting. Defaults describe a fresh
+   * account, so an unwired caller gets the first-run line rather than a
+   * "welcome back" nobody earned.
+   */
+  greetingState?: {
+    totalSessions: number;
+    trainedToday: boolean;
+    weekStreak: number;
+  };
 }
 
 export function HomeScreen({
@@ -184,6 +195,7 @@ export function HomeScreen({
   trainingDayIndexes = [],
   language = 'en',
   availableEquipment = null,
+  greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
 }: HomeScreenProps) {
   const [proSheetVisible, setProSheetVisible] = useState(false);
   const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
@@ -214,6 +226,17 @@ export function HomeScreen({
   const planDurationMinutes = Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45;
   const totalExerciseCount = (nextPlanSession?.exercises.length ?? 0) + (nextPlanSession?.hiddenExerciseCount ?? 0);
   const totalSets = nextPlanSession?.totalSets ?? 0;
+  // Rotates once per day, so the line is stable while the screen is open.
+  const greeting = useMemo(
+    () =>
+      selectHomeGreeting({
+        totalSessions: greetingState.totalSessions,
+        trainedToday: greetingState.trainedToday,
+        weekStreak: greetingState.weekStreak,
+        rotation: getGreetingRotation(),
+      }),
+    [greetingState.totalSessions, greetingState.trainedToday, greetingState.weekStreak],
+  );
   const warmup = getDefaultWarmup(focusTitle, language, availableEquipment);
   const cooldown = getDefaultCooldown(focusTitle, language, availableEquipment);
   const adaptTrim = getAdaptTrimEstimate(totalSets, planDurationMinutes);
@@ -398,8 +421,10 @@ export function HomeScreen({
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.headerRow, rise(RISE_HEADER)]}>
           <View style={styles.headerCopy}>
-            <Text style={styles.greetingTitle}>{t(language, 'home.greeting.title')}</Text>
-            <Text style={styles.greetingSubtitle}>{t(language, 'home.greeting.subtitle')}</Text>
+            <Text style={styles.greetingTitle}>
+              {t(language, greeting.titleKey, greeting.titleVars)}
+            </Text>
+            <Text style={styles.greetingSubtitle}>{t(language, greeting.subtitleKey)}</Text>
           </View>
           <Pressable
             accessibilityRole="button"

@@ -59,12 +59,14 @@ module.exports = [
       const loaderBody = onboardingSource.slice(loaderStart, loaderEnd === -1 ? undefined : loaderEnd);
 
       // Four calm phase labels with rotating active subtitles.
-      assert.match(onboardingSource, /const buildingPlanPhases = useMemo\([\s\S]*'Analyzing your inputs'[\s\S]*'Building your split'[\s\S]*'Matching exercises'[\s\S]*'Finalizing your plan'/);
+      // Copy lives in i18n.ts; the screen renders the keys.
+      assert.match(onboardingSource, /const buildingPlanPhases = useMemo\([\s\S]*'onb\.building\.phase1'[\s\S]*'onb\.building\.phase2'[\s\S]*'onb\.building\.phase3'[\s\S]*'onb\.building\.phase4'/);
       assert.match(onboardingSource, /const buildingPlanStepSubtitles = useMemo/);
-      assert.match(onboardingSource, /Creating training structure\.\.\./);
+      assert.match(i18nSource, /'onb\.building\.phase1': 'Analyzing your inputs'/);
+      assert.match(i18nSource, /'onb\.building\.sub2': 'Creating training structure\.\.\.'/);
 
       // Heading flips to the done copy; animated ellipsis while in progress.
-      assert.match(loaderBody, /buildingPlanComplete \? 'Your plan is ready' : `Building your plan\$\{buildingPlanAnimatedEllipsis\}`/);
+      assert.match(loaderBody, /buildingPlanComplete[\s\S]{0,80}'onb\.building\.ready'[\s\S]{0,120}'onb\.building\.title'[\s\S]{0,40}buildingPlanAnimatedEllipsis/);
       assert.match(onboardingSource, /buildingPlanEllipsisStep/);
       assert.match(onboardingSource, /'\.'\.repeat\(buildingPlanEllipsisStep \+ 1\)/);
       assert.match(onboardingSource, /setBuildingPlanComplete\(true\)/);

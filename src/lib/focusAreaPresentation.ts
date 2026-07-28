@@ -1,4 +1,5 @@
-import type { SetupFocusArea } from '../types/models';
+import { I18nKey, t } from './i18n';
+import type { AppLanguage, SetupFocusArea } from '../types/models';
 
 export type FocusAreaAssetKey =
   | 'chest'
@@ -108,6 +109,30 @@ const FOCUS_AREA_PRESENTATION_OPTIONS: FocusAreaPresentationOption[] = [
     group: 'legacy',
   },
 ];
+
+/**
+ * The area is the stored identifier and stays English; `title` above is the
+ * English label. This returns the label in the user's language.
+ */
+const FOCUS_AREA_LABEL_KEYS: Record<SetupFocusArea, I18nKey> = {
+  chest: 'focusArea.chest',
+  back: 'focusArea.back',
+  shoulders: 'focusArea.shoulders',
+  arms: 'focusArea.arms',
+  core: 'focusArea.core',
+  quads: 'focusArea.quads',
+  glutes: 'focusArea.glutes',
+  hamstrings: 'focusArea.hamstrings',
+  calves: 'focusArea.calves',
+  mobility: 'focusArea.mobility',
+  legs: 'focusArea.legs',
+  conditioning: 'focusArea.conditioning',
+  bodyweight: 'focusArea.conditioning',
+};
+
+export function getFocusAreaLabel(area: SetupFocusArea, language: AppLanguage = 'en'): string {
+  return t(language, FOCUS_AREA_LABEL_KEYS[area]);
+}
 
 export function getFocusAreaPresentationOptions() {
   return FOCUS_AREA_PRESENTATION_OPTIONS;

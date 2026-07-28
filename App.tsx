@@ -2285,6 +2285,21 @@ function GymlogApp() {
     () => resolveHomeStatCardKeys(preferences.homeStatCardKeys),
     [preferences.homeStatCardKeys],
   );
+  // What Home's greeting is allowed to claim. Every field is read from the
+  // log — an account with no sessions gets the first-run line, not "welcome
+  // back", and the streak is only named when the weeks are really there.
+  const homeGreetingState = useMemo(() => {
+    const todayStart = new Date().setHours(0, 0, 0, 0);
+    const sessions = getCanonicalCompletedSessions(database);
+    return {
+      totalSessions: sessions.length,
+      trainedToday: sessions.some((session) => {
+        const performed = new Date(session.performedAt).getTime();
+        return Number.isFinite(performed) && performed >= todayStart;
+      }),
+      weekStreak: homeSummary.streak.currentWeekStreak,
+    };
+  }, [database, homeSummary.streak.currentWeekStreak]);
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   const availableEquipmentForDrills = useMemo(
@@ -3711,6 +3726,7 @@ function GymlogApp() {
         language={preferences.appLanguage}
         activePlan={homeActivePlanCard}
         availableEquipment={availableEquipmentForDrills}
+        greetingState={homeGreetingState}
         trainingDayIndexes={homeTrainingDayIndexes}
         statCatalogCards={homeStatCatalogCards}
         pinnedStatCardKeys={homePinnedStatCardKeys}

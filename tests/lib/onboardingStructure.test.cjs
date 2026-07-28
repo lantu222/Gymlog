@@ -63,7 +63,7 @@ module.exports = [
       assert.match(pickBody, /programPickOptions\.map/);
       assert.match(pickBody, /setSelectedRecommendationProgramId\(option\.id\)/);
       assert.match(onboardingSource, /function ProgramPickCard\(/);
-      assert.match(onboardingSource, /WHERE YOUR WEEK GOES/);
+      assert.match(onboardingSource, /t\(language, 'onb\.pick\.whereWeekGoes'\)/);
       // Days-per-week truth: picker stats + focus split come from the composed
       // week (what actually gets saved), never the raw catalog template.
       assert.match(onboardingSource, /composeProgramWeekForSelection\(selection, programId\)/);
@@ -75,15 +75,18 @@ module.exports = [
       // smaller ALTERNATIVE card that swaps the selection. No week rows.
       assert.match(reviewBody, />\{t\(language, 'onb\.planReady\.title'\)\}</);
       assert.doesNotMatch(reviewBody, /YOUR PLAN IS READY/);
-      assert.match(reviewBody, /`\$\{planReadyPerWeek\} workouts a week`/);
+      assert.match(reviewBody, /'onb\.planReady\.perWeekLine', \{ count: planReadyPerWeek \}/);
       assert.doesNotMatch(reviewBody, /BUILD · FOCUS · PROGRESS/);
-      assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), 'workouts total'\]/);
-      assert.match(reviewBody, /\[planReadySessionLength, 'per session'\]/);
+      assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), t\(language, 'onb\.planReady\.workoutsTotal'\)\]/);
+      assert.match(reviewBody, /\[planReadySessionLength, t\(language, 'onb\.pick\.perSession'\)\]/);
       // Badges are honest about the user's choice: the big card says YOUR PICK
       // when the selection is not the engine's recommendation, and the
       // alternative row flips to RECOMMENDED when that's what it holds.
-      assert.match(reviewBody, /planReadyIsRecommended \? 'RECOMMENDED' : 'YOUR PICK'/);
-      assert.match(reviewBody, /=== recommendation\.featuredProgramId \? 'RECOMMENDED' : 'ALTERNATIVE'/);
+      assert.match(reviewBody, /planReadyIsRecommended \? 'onb\.pick\.recommended' : 'onb\.pick\.yourPick'/);
+      assert.match(
+        reviewBody,
+        /=== recommendation\.featuredProgramId[\s\S]{0,60}'onb\.pick\.recommended'[\s\S]{0,40}'onb\.pick\.alternative'/,
+      );
       assert.match(reviewBody, /setSelectedRecommendationProgramId\(planReadyAlternative\.id\)/);
       assert.match(reviewBody, /setPlanReadyView\('day'\)/);
       assert.doesNotMatch(reviewBody, /planReadyWeekRows\.map/);
@@ -105,8 +108,8 @@ module.exports = [
       // purple checks; OFF dims bullets with strike-through), Settings note,
       // CTA "Start training" completes onboarding. No "Save your plan" copy.
       assert.match(progressionBody, /t\(language, 'onb\.progression\.title'\)/);
-      assert.match(progressionBody, /'On — GAINER adjusts your plan for you\.'/);
-      assert.match(progressionBody, /"Off — you'll manage these yourself\."/);
+      assert.match(progressionBody, /'onb\.progression\.subOn' : 'onb\.progression\.subOff'/);
+      assert.match(progressionBody, /'onb\.progression\.bodyOn' : 'onb\.progression\.bodyOff'/);
       assert.match(progressionBody, /accessibilityRole="switch"/);
       assert.match(progressionBody, /setAutomatedProgressionEnabled\(\(current\) => !current\)/);
       assert.match(progressionBody, /PROGRESSION_BULLET_KEYS\.map/);
@@ -203,7 +206,7 @@ module.exports = [
       assert.match(avoidBody, /stepLabel: getQuestionnaireStepLabel\('avoid', language\)/);
       assert.match(avoidBody, /titleLines: \[t\(language, 'onb\.stage\.avoid\.title1'\), t\(language, 'onb\.stage\.avoid\.title2'\)\]/);
       assert.match(avoidBody, /AVOID_AREA_OPTIONS\.map/);
-      assert.match(avoidBody, /Add something else/);
+      assert.match(avoidBody, /t\(language, 'onb\.avoid\.addOther'\)/);
       assert.match(avoidBody, /t\(language, 'onb\.avoid\.nothingToNote'\)/);
       assert.match(avoidBody, /setCautionFlags\(\[\]\)/);
 
@@ -534,7 +537,10 @@ module.exports = [
       assert.match(reviewBody, /const planReadyTotalWorkouts = planReadyWeeks \* planReadyPerWeek/);
 
       // Subtitle line: "{N}-week plan · goal · location", dot separated.
-      assert.match(reviewBody, /\[`\$\{planReadyWeeks\}-week plan`, goalLabel, locationLabel\]/);
+      assert.match(
+        reviewBody,
+        /'onb\.planReady\.weekPlan', \{ count: planReadyWeeks \}[\s\S]{0,60}goalLabel,\s*locationLabel/,
+      );
       assert.doesNotMatch(reviewBody, /\[goalLabel, locationLabel, levelLabel, `\$\{planReadyPerWeek\} days \/ week`\]/);
 
       // The recommended/alternative why-lines come from the waterfall decision.

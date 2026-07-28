@@ -31,6 +31,7 @@ import type {
 } from '../types/recommendation';
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { emptyAiCoachHistory } from './aiTrainingContext';
+import { getFocusAreaLabel } from './focusAreaPresentation';
 
 export interface FirstRunSetupSelection {
   profileName?: string | null;
@@ -309,37 +310,15 @@ export function formatWeekdayList(days: SetupWeekday[], language: AppLanguage = 
   return formatList(days.map((day) => getWeekdayShortLabel(day, language)));
 }
 
-export function getFocusAreaTitle(area: SetupFocusArea) {
-  switch (area) {
-    case 'bodyweight':
-      return 'Bodyweight';
-    case 'arms':
-      return 'Arms';
-    case 'glutes':
-      return 'Glutes';
-    case 'quads':
-      return 'Quads';
-    case 'hamstrings':
-      return 'Hamstrings';
-    case 'calves':
-      return 'Calves';
-    case 'legs':
-      return 'Legs';
-    case 'chest':
-      return 'Pecs';
-    case 'shoulders':
-      return 'Shoulders';
-    case 'back':
-      return 'Back';
-    case 'core':
-      return 'Abs';
-    case 'mobility':
-      return 'Mobility';
-    case 'conditioning':
-      return 'Conditioning';
-    default:
-      return 'Focus';
-  }
+/**
+ * Display label for a focus area.
+ *
+ * Defaults to English because two callers need the English word as data, not
+ * as copy: the saved programme name (`buildFirstRunCustomProgramName`) and the
+ * AI context prose. UI callers pass the user's language.
+ */
+export function getFocusAreaTitle(area: SetupFocusArea, language: AppLanguage = 'en') {
+  return getFocusAreaLabel(area, language);
 }
 
 export function getFocusAreaDescription(area: SetupFocusArea) {

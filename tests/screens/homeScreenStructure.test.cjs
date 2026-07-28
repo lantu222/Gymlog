@@ -48,12 +48,14 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /const HOME_BACKGROUND =/);
       assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: HG3\.bg/);
 
-      // Greeting copy lives in i18n.ts; the screen renders it via t(language, …).
-      assert.match(homeScreenSource, /t\(language, 'home\.greeting\.title'\)/);
-      assert.match(homeScreenSource, /t\(language, 'home\.greeting\.subtitle'\)/);
-      assert.match(i18nSource, /'home\.greeting\.title': 'Welcome back'/);
-      assert.match(i18nSource, /'home\.greeting\.subtitle': "Let's get after it today\."/);
-      assert.match(i18nSource, /'home\.greeting\.title': 'Tervetuloa takaisin'/);
+      // The greeting is chosen by homeGreeting from what the log says, then
+      // rendered through i18n — never a hardcoded "welcome back".
+      assert.match(homeScreenSource, /t\(language, greeting\.titleKey, greeting\.titleVars\)/);
+      assert.match(homeScreenSource, /t\(language, greeting\.subtitleKey\)/);
+      assert.match(homeScreenSource, /selectHomeGreeting\(\{/);
+      assert.doesNotMatch(homeScreenSource, /t\(language, 'home\.greeting\.title'\)/);
+      assert.match(i18nSource, /'home\.greet\.first\.title': 'Welcome to GAINER'/);
+      assert.match(i18nSource, /'home\.greet\.back1\.title': 'Tervetuloa takaisin'/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
       assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 26/);
       assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 13\.5/);

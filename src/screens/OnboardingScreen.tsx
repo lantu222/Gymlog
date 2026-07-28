@@ -59,8 +59,13 @@ import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanati
 import { buildRecommendationOptionIds } from '../lib/recommendationPresentation';
 import { buildRecommendationPlanReadyPayload } from '../lib/recommendationProgramme';
 import { buildSessionGuidance } from '../lib/sessionGuidance';
-import { getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
-import { buildProgramFocusSplit, PROGRAM_FOCUS_COLORS, ProgramFocusSegment } from '../lib/programFocusSplit';
+import { getFocusAreaLabel, getOnboardingFocusAreaPresentationOptions } from '../lib/focusAreaPresentation';
+import {
+  buildProgramFocusSplit,
+  getProgramFocusQualityLabel,
+  PROGRAM_FOCUS_COLORS,
+  ProgramFocusSegment,
+} from '../lib/programFocusSplit';
 import { composeProgramWeekForSelection } from '../lib/programDayComposer';
 import { buildCautionSummaryLabel, CAUTION_TO_FOCUS_AREAS } from '../lib/cautionExerciseFilter';
 import { buildTailoringBadgeLabels, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -826,6 +831,7 @@ function LocationChoiceCard({
 // template so the alternative reads as a real choice, not a footnote.
 function ProgramPickCard({
   title,
+  language,
   days,
   mins,
   weeks,
@@ -836,6 +842,7 @@ function ProgramPickCard({
   onPress,
 }: {
   title: string;
+  language: AppLanguage;
   days: number;
   mins: number;
   weeks: number;
@@ -858,9 +865,12 @@ function ProgramPickCard({
 
   // Full words only — no "wks" / "×/wk" abbreviations on the cards.
   const stats: Array<[string, string]> = [
-    [`${days} days`, 'per week'],
-    [`${mins} min`, 'per session'],
-    [`${weeks} weeks`, `${totalWorkouts} workouts`],
+    [t(language, 'onb.pick.daysValue', { count: days }), t(language, 'onb.pick.perWeek')],
+    [t(language, 'onb.pick.minsValue', { count: mins }), t(language, 'onb.pick.perSession')],
+    [
+      t(language, 'onb.pick.weeksValue', { count: weeks }),
+      t(language, 'onb.pick.workoutsValue', { count: totalWorkouts }),
+    ],
   ];
 
   return (
@@ -895,7 +905,7 @@ function ProgramPickCard({
           {recommended ? (
             <View style={[styles.progPickRecPill, selected && styles.progPickRecPillSelected]}>
               <Text style={[styles.progPickRecPillText, selected && styles.progPickRecPillTextSelected]}>
-                RECOMMENDED
+                {t(language, 'onb.pick.recommended')}
               </Text>
             </View>
           ) : null}
@@ -942,7 +952,7 @@ function ProgramPickCard({
 
           {/* Training-time composition — factual plan split, never an outcome claim. */}
           <Text style={[styles.progPickFocusLabel, selected && styles.progPickFocusLabelSelected]}>
-            WHERE YOUR WEEK GOES
+            {t(language, 'onb.pick.whereWeekGoes')}
           </Text>
           <View style={styles.progPickFocusBar}>
             {focus.map((segment) => (
@@ -960,7 +970,7 @@ function ProgramPickCard({
               <View key={segment.quality} style={styles.progPickLegendItem}>
                 <View style={[styles.progPickLegendSwatch, { backgroundColor: PROGRAM_FOCUS_COLORS[segment.quality] }]} />
                 <Text style={[styles.progPickLegendText, selected && styles.progPickLegendTextSelected]}>
-                  {`${segment.quality} ${segment.pct}%`}
+                  {`${getProgramFocusQualityLabel(segment.quality, language)} ${segment.pct}%`}
                 </Text>
               </View>
             ))}
@@ -1734,17 +1744,22 @@ export function OnboardingScreen({
 
   const stage = STAGES[stageIndex];
   const buildingPlanPhases = useMemo(
-    () => ['Analyzing your inputs', 'Building your split', 'Matching exercises', 'Finalizing your plan'],
-    [],
+    () => [
+      t(language, 'onb.building.phase1'),
+      t(language, 'onb.building.phase2'),
+      t(language, 'onb.building.phase3'),
+      t(language, 'onb.building.phase4'),
+    ],
+    [language],
   );
   const buildingPlanStepSubtitles = useMemo(
     () => [
-      'Reading your setup and goals...',
-      'Creating training structure...',
-      'Pairing lifts to your equipment...',
-      'Polishing the first week...',
+      t(language, 'onb.building.sub1'),
+      t(language, 'onb.building.sub2'),
+      t(language, 'onb.building.sub3'),
+      t(language, 'onb.building.sub4'),
     ],
-    [],
+    [language],
   );
   const currentWeightValue = useMemo(() => parseNumberInput(currentWeightDraft), [currentWeightDraft]);
   const targetWeightValue = useMemo(() => parseNumberInput(targetWeightDraft), [targetWeightDraft]);
@@ -1938,7 +1953,10 @@ export function OnboardingScreen({
     () => secondaryOutcomes.map((outcome) => getSecondaryOutcomeTitle(outcome)),
     [secondaryOutcomes],
   );
-  const focusAreaLabels = useMemo(() => focusAreas.map((area) => getFocusAreaTitle(area)), [focusAreas]);
+  const focusAreaLabels = useMemo(
+    () => focusAreas.map((area) => getFocusAreaTitle(area, language)),
+    [focusAreas, language],
+  );
   const focusAreaSummary = useMemo(() => formatFocusAreaList(focusAreas), [focusAreas]);
   const guidanceModeLabel = useMemo(() => getGuidanceModeLabel(guidanceMode), [guidanceMode]);
   const scheduleModeLabel = useMemo(() => getScheduleModeLabel(scheduleMode), [scheduleMode]);
@@ -2810,7 +2828,10 @@ export function OnboardingScreen({
             style={styles.levelSliderTrack}
             onLayout={(event) => setLevelTrackWidth(event.nativeEvent.layout.width)}
           >
-            {segmentWidth > 0 ? (
+            {/* The filled pill is the selection. Drawing it before the user has
+                chosen shows a level that was never picked while Continue stays
+                disabled — the state that made the button look broken. */}
+            {segmentWidth > 0 && profileLevelSelected ? (
               <Animated.View
                 style={[
                   styles.levelSliderThumb,
@@ -3187,7 +3208,7 @@ export function OnboardingScreen({
               }}
               style={styles.avoidGhostRow}
             >
-              <Text style={styles.avoidGhostText}>+ Add something else</Text>
+              <Text style={styles.avoidGhostText}>{t(language, 'onb.avoid.addOther')}</Text>
             </Pressable>
           ) : null}
 
@@ -3227,6 +3248,7 @@ export function OnboardingScreen({
             <ProgramPickCard
               key={option.id}
               title={option.presentation.title}
+              language={language}
               days={option.days}
               mins={option.mins}
               weeks={option.weeks}
@@ -3267,13 +3289,20 @@ export function OnboardingScreen({
     const planReadySessionLength =
       projectedSessions[0]?.guidance?.estimatedDuration
       ?? getTrainingProfileSetupSummary(level, daysPerWeek).duration.replace(' sessions', '');
-    const planReadyMeta = [`${planReadyWeeks}-week plan`, goalLabel, locationLabel]
+    const planReadyMeta = [
+      t(language, 'onb.planReady.weekPlan', { count: planReadyWeeks }),
+      goalLabel,
+      locationLabel,
+    ]
       .filter((part) => Boolean(part && part.trim()))
       .join('  ·  ');
     const planReadyStats: Array<[string, string]> = [
-      [String(planReadyTotalWorkouts), 'workouts total'],
-      [`${planReadyWeeks}`, planReadyWeeks === 1 ? 'week' : 'weeks'],
-      [planReadySessionLength, 'per session'],
+      [String(planReadyTotalWorkouts), t(language, 'onb.planReady.workoutsTotal')],
+      [
+        `${planReadyWeeks}`,
+        t(language, planReadyWeeks === 1 ? 'onb.planReady.weekOne' : 'onb.planReady.weekMany'),
+      ],
+      [planReadySessionLength, t(language, 'onb.pick.perSession')],
     ];
     const planReadyPrimaryTitle = recommendedProgramPresentation?.title ?? planReadyPayload.title;
     // The badge stays honest: RECOMMENDED only when the shown program is the
@@ -3327,13 +3356,17 @@ export function OnboardingScreen({
             <Rect x="0" y="0" width="100%" height="100%" rx="24" ry="24" fill="url(#planReadyCoverGradient)" />
           </Svg>
           <View style={styles.planReadyPrimaryBadge}>
-            <Text style={styles.planReadyPrimaryBadgeText}>{planReadyIsRecommended ? 'RECOMMENDED' : 'YOUR PICK'}</Text>
+            <Text style={styles.planReadyPrimaryBadgeText}>
+              {t(language, planReadyIsRecommended ? 'onb.pick.recommended' : 'onb.pick.yourPick')}
+            </Text>
           </View>
           <View style={styles.planReadyPrimaryBody}>
             <Text style={styles.planReadyPrimaryName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>
               {planReadyPrimaryTitle}
             </Text>
-            <Text style={styles.planReadyPrimaryMeta}>{`${planReadyPerWeek} workouts a week`}</Text>
+            <Text style={styles.planReadyPrimaryMeta}>
+              {t(language, 'onb.planReady.perWeekLine', { count: planReadyPerWeek })}
+            </Text>
             {planReadyWhyPrimary || activeRecommendationMismatchNote ? (
               <Text style={styles.planReadyPrimaryWhy} numberOfLines={3}>
                 {planReadyWhyPrimary ?? activeRecommendationMismatchNote}
@@ -3391,7 +3424,12 @@ export function OnboardingScreen({
           >
             <View style={styles.planReadyAltCopy}>
               <Text style={styles.planReadyAltEyebrow}>
-                {planReadyAlternative.id === recommendation.featuredProgramId ? 'RECOMMENDED' : 'ALTERNATIVE'}
+                {t(
+                  language,
+                  planReadyAlternative.id === recommendation.featuredProgramId
+                    ? 'onb.pick.recommended'
+                    : 'onb.pick.alternative',
+                )}
               </Text>
               <Text style={styles.planReadyAltName} numberOfLines={1}>
                 {planReadyAlternative.presentation.title}
@@ -3517,7 +3555,7 @@ export function OnboardingScreen({
         <Text style={styles.progressionKicker}>{t(language, 'onb.progression.kicker')}</Text>
         <Text style={styles.progressionTitle}>{t(language, 'onb.progression.title')}</Text>
         <Text style={styles.progressionSubtitle}>
-          {enabled ? 'On — GAINER adjusts your plan for you.' : "Off — you'll manage these yourself."}
+          {t(language, enabled ? 'onb.progression.subOn' : 'onb.progression.subOff')}
         </Text>
 
         <View style={[styles.progressionCard, enabled && styles.progressionCardOn]}>
@@ -3525,7 +3563,7 @@ export function OnboardingScreen({
             <View style={styles.progressionToggleCopy}>
               <Text style={styles.progressionToggleTitle}>{t(language, 'onb.progression.title')}</Text>
               <Text style={styles.progressionToggleBody}>
-                {enabled ? 'GAINER adjusts your plan for you' : "You'll manage these yourself"}
+                {t(language, enabled ? 'onb.progression.bodyOn' : 'onb.progression.bodyOff')}
               </Text>
             </View>
             <Pressable
@@ -3595,7 +3633,7 @@ export function OnboardingScreen({
                   key={option.area}
                   accessibilityRole="button"
                   accessibilityState={{ selected: active }}
-                  accessibilityLabel={`${option.title}${
+                  accessibilityLabel={`${getFocusAreaLabel(option.area, language)}${
                     caution === 'avoid'
                       ? ', flagged avoid entirely'
                       : caution === 'careful'
@@ -3634,7 +3672,7 @@ export function OnboardingScreen({
                       active && styles.focusListLabelActive,
                     ]}
                   >
-                    {option.title}
+                    {getFocusAreaLabel(option.area, language)}
                   </Text>
                   <View style={[styles.focusListRadio, active && styles.focusListRadioActive]}>
                     {active ? (
@@ -3794,7 +3832,7 @@ export function OnboardingScreen({
                     ]}
                   >
                     <Text style={[styles.personalizationOptionTitle, active && styles.personalizationOptionTitleActive]}>
-                      {getFocusAreaTitle(area)}
+                      {getFocusAreaTitle(area, language)}
                     </Text>
                     <Text style={styles.personalizationOptionBody}>{getFocusAreaDescription(area)}</Text>
                   </Pressable>
@@ -3977,7 +4015,9 @@ export function OnboardingScreen({
           <Animated.View style={[styles.buildingPlanThinkingScene, { opacity: buildingPlanThinkingOpacity }]}>
             <View style={styles.buildingPlanThinkingCenter}>
               <Animated.Text style={[styles.buildingPlanThinkingText, { opacity: buildingPlanCaptionOpacity }]}>
-                {buildingPlanComplete ? 'Your plan is ready' : `Building your plan${buildingPlanAnimatedEllipsis}`}
+                {buildingPlanComplete
+                  ? t(language, 'onb.building.ready')
+                  : `${t(language, 'onb.building.title')}${buildingPlanAnimatedEllipsis}`}
               </Animated.Text>
 
               <View style={styles.buildingPlanProgressBlock}>
