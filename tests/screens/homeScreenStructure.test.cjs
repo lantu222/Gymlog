@@ -172,7 +172,9 @@ module.exports = [
       assert.match(homeScreenSource, /setProPlan\(key\)/);
       assert.match(homeScreenSource, /proPricingCardSelected/);
       assert.match(homeScreenSource, /t\(language, activePricing\.finePrintKey\)/);
-      assert.match(i18nSource, /'home\.proSheet\.cta': 'Start 7-day free trial'/);
+      // No trial and no billing exist, so the CTA cannot offer one. See
+      // tests/lib/proSurfaces.test.cjs for the rest of the paywall guards.
+      assert.match(i18nSource, /'home\.proSheet\.cta': 'See what Pro does'/);
       assert.match(i18nSource, /'home\.proSheet\.notNow': 'Not now'/);
       assert.match(homeScreenSource, /onRequestClose=\{\(\) => setProSheetVisible\(false\)\}/);
       assert.match(homeScreenSource, /t\(language, 'home\.emptyWorkout\.title'\)/);

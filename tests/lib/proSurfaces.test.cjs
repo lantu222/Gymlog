@@ -10,6 +10,7 @@ const appSource = read('App.tsx');
 const settingsSource = read('src', 'screens', 'SettingsScreen.tsx');
 const planSettingsSource = read('src', 'screens', 'PlanSettingsScreen.tsx');
 const premiumSource = read('src', 'screens', 'PremiumScreen.tsx');
+const homeSource = read('src', 'screens', 'HomeScreen.tsx');
 
 /**
  * The Pro/Free audit (2026-07-28) found three ways the paid tier lied: a promo
@@ -81,6 +82,54 @@ module.exports = [
       // Nothing without an implementation may claim Live.
       assert.match(lanes[0], /live: false, variant: 'session'/);
       assert.match(lanes[0], /live: false, variant: 'week'/);
+    },
+  },
+  {
+    name: 'the paywall states no efficacy figure nobody measured',
+    run() {
+      const stats = homeSource.match(/const PRO_STATS[\s\S]*?\n\];/);
+      assert.ok(stats, 'PRO_STATS should still be declared');
+
+      // These two shipped as "2.3x more consistent training" and "+34% avg.
+      // strength in 12 wks" on a paywall. There is no study and there are no
+      // users; they were invented. Every figure here must come from the code.
+      assert.doesNotMatch(stats[0], /'2\.3'|'\+34'/);
+      assert.match(stats[0], /GENERATED_EXERCISE_LIBRARY\.length/);
+      assert.match(stats[0], /DEFAULT_HISTORY_WINDOW_DAYS/);
+      // "Unlimited AI coach questions" was false too — the endpoint rate-limits
+      // and holds a token budget.
+      assert.doesNotMatch(stats[0], /'∞'/);
+    },
+  },
+  {
+    name: 'the paywall does not bill free features as Pro',
+    run() {
+      const rows = homeSource.match(/const PRO_COMPARISON[\s\S]*?\n\];/);
+      assert.ok(rows, 'PRO_COMPARISON should still be declared');
+
+      // Ready plans, own templates and the progress tab all work without
+      // paying. Marking them Pro-only sells the free tier short and is the
+      // same lie in the other direction.
+      for (const key of ['log', 'plans', 'analytics']) {
+        assert.match(
+          rows[0],
+          new RegExp(`'home\\.proSheet\\.row\\.${key}', free: true`),
+          `${key} is free in the app and must say so`,
+        );
+      }
+      for (const key of ['adaptive', 'coach']) {
+        assert.match(rows[0], new RegExp(`'home\\.proSheet\\.row\\.${key}', free: false`));
+      }
+      // Nothing implemented an early-access promise.
+      assert.doesNotMatch(rows[0], /earlyAccess/);
+    },
+  },
+  {
+    name: 'the paywall CTA leads somewhere real instead of promising a trial',
+    run() {
+      assert.doesNotMatch(homeSource, /home\.proSheet\.cta.*trial/i);
+      assert.match(homeSource, /onOpenPremium\?\.\(\)/, 'the CTA must open the premium screen');
+      assert.match(appSource, /onOpenPremium=\{\(\) => navigate\(\{ tab: 'profile', screen: 'premium' \}\)\}/);
     },
   },
 ];

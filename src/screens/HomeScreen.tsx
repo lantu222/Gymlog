@@ -29,6 +29,8 @@ import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { I18nKey, t } from '../lib/i18n';
+import { DEFAULT_HISTORY_WINDOW_DAYS } from '../lib/trainingHistory';
+import { GENERATED_EXERCISE_LIBRARY } from '../data/generatedExerciseLibrary';
 import { HG3 } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 
@@ -41,21 +43,34 @@ const PRO_SHEET_FAINT = '#7C739E';
 const PRO_SHEET_CARD = 'rgba(255,255,255,0.06)';
 const PRO_SHEET_BORDER = 'rgba(255,255,255,0.12)';
 
-// Mock marketing copy + prices. Real prices must come from RevenueCat
-// (see "GAINER Premium - build notes.md"); these are placeholders until the
-// purchase flow is wired up. Copy lives in i18n.ts as keys.
+// Prices are placeholders until the purchase flow is wired up; real ones must
+// come from RevenueCat (see "GAINER Premium - build notes.md").
+//
+// The three figures used to be "2.3x more consistent training" and "+34% avg.
+// strength in 12 wks". Nobody measured either — the app has no users and no
+// study, so they were invented efficacy claims on a paywall, which is both the
+// least defensible thing in the app and the kind of statement a regulator
+// treats as a misleading commercial practice. These three are facts about the
+// product that can be checked from the code.
 const PRO_STATS: Array<{ value: string; suffix: string; labelKey: I18nKey }> = [
-  { value: '2.3', suffix: '×', labelKey: 'home.proSheet.stat.consistency' },
-  { value: '+34', suffix: '%', labelKey: 'home.proSheet.stat.strength' },
-  { value: '∞', suffix: '', labelKey: 'home.proSheet.stat.aiQuestions' },
+  { value: String(GENERATED_EXERCISE_LIBRARY.length), suffix: '', labelKey: 'home.proSheet.stat.library' },
+  { value: String(Math.round(DEFAULT_HISTORY_WINDOW_DAYS / 7)), suffix: ' vk', labelKey: 'home.proSheet.stat.window' },
+  { value: '0', suffix: '', labelKey: 'home.proSheet.stat.ads' },
 ];
 
+/**
+ * The same rows as PremiumScreen's comparison table, and they have to stay
+ * that way: two surfaces describing one tier cannot disagree about what free
+ * includes. Three of these were marked Pro-only and are not — ready plans, own
+ * templates and the progress tab all work without paying, and an "early access
+ * to new features" promise had no mechanism behind it at all.
+ */
 const PRO_COMPARISON: Array<{ labelKey: I18nKey; free: boolean }> = [
   { labelKey: 'home.proSheet.row.log', free: true },
+  { labelKey: 'home.proSheet.row.plans', free: true },
+  { labelKey: 'home.proSheet.row.analytics', free: true },
+  { labelKey: 'home.proSheet.row.adaptive', free: false },
   { labelKey: 'home.proSheet.row.coach', free: false },
-  { labelKey: 'home.proSheet.row.analytics', free: false },
-  { labelKey: 'home.proSheet.row.plans', free: false },
-  { labelKey: 'home.proSheet.row.earlyAccess', free: false },
 ];
 
 const PRO_PRICING: Record<
@@ -153,6 +168,8 @@ interface HomeScreenProps {
   onStartActivePlanSession?: (sessionId: string) => void;
   onCreateWorkoutFromExercises: () => void;
   onOpenCardio?: () => void;
+  /** Where the Pro sheet's CTA leads — the screen that states the real state. */
+  onOpenPremium?: () => void;
   historyItems?: HomeHistoryItem[];
   onOpenHistory?: () => void;
   onSelectHistorySession?: (sessionId: string) => void;
@@ -190,6 +207,7 @@ export function HomeScreen({
   onStartActivePlanSession,
   onCreateWorkoutFromExercises,
   onOpenCardio,
+  onOpenPremium,
   historyItems = [],
   onOpenHistory,
   onSelectHistorySession,
@@ -305,14 +323,24 @@ export function HomeScreen({
     }).start();
   }, [progressFillAnim, reduceMotion, riseValues, sessionsProgressPercent]);
 
-  const rise = (index: number) => ({
-    opacity: riseValues[index],
-    transform: [
-      {
-        translateY: riseValues[index].interpolate({ inputRange: [0, 1], outputRange: [16, 0] }),
-      },
-    ],
-  });
+  /**
+   * Built once per mount, not per render.
+   *
+   * This used to call `.interpolate()` inside the function, so every render
+   * minted a fresh native animated node and orphaned the previous one. Home
+   * re-renders on every database change and every sheet open, and under Fabric
+   * that eventually crashed with "disconnectAnimatedNodes: Animated node with
+   * tag (parent) does not exist" — the same failure AnimatedGreeting had, from
+   * the same cause. One interpolation per value, kept for the component's life.
+   */
+  const riseStyles = useRef(
+    riseValues.map((value) => ({
+      opacity: value,
+      transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+    })),
+  ).current;
+
+  const rise = (index: number) => riseStyles[index];
 
   const toggleCalendar = () => {
     const next = !calendarExpanded;
@@ -986,7 +1014,13 @@ export function HomeScreen({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t(language, 'home.proSheet.cta')}
-                onPress={() => setProSheetVisible(false)}
+                // Used to say "Start 7-day free trial" and silently close the
+                // sheet. There is no trial and no billing, so the button now
+                // leads to the screen that says so and shows what Pro runs.
+                onPress={() => {
+                  setProSheetVisible(false);
+                  onOpenPremium?.();
+                }}
                 style={({ pressed }) => [styles.proCta, pressed && styles.pressed]}
               >
                 <Text style={styles.proCtaText}>{t(language, 'home.proSheet.cta')}</Text>

@@ -3783,6 +3783,7 @@ function GymlogApp() {
         }}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
         onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
+        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         historyItems={homeHistoryItems}
         onOpenHistory={() => navigate({ tab: 'home', screen: 'history' })}
         onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
