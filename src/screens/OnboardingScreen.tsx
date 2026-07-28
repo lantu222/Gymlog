@@ -738,20 +738,12 @@ function LocationChoiceCard({
     }).start();
   }, [active, progress]);
 
-  const animatedStyle = {
-    opacity: progress.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.9, 1],
-    }),
-    transform: [
-      {
-        scale: progress.interpolate({
-          inputRange: [0, 1],
-          outputRange: [1, 1.015],
-        }),
-      },
-    ],
-  };
+  // Interpolated once — per-render interpolations leak native animated nodes
+  // (disconnectAnimatedNodes crash under Fabric).
+  const animatedStyle = useRef({
+    opacity: progress.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }),
+    transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.015] }) }],
+  }).current;
   const radio = (
     <View
       style={[
@@ -853,6 +845,9 @@ function ProgramPickCard({
   onPress: () => void;
 }) {
   const progress = useRef(new Animated.Value(selected ? 1 : 0)).current;
+  const progressScale = useRef({
+    transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.01] }) }],
+  }).current;
 
   useEffect(() => {
     Animated.timing(progress, {
@@ -881,11 +876,7 @@ function ProgramPickCard({
       onPress={onPress}
     >
       <Animated.View
-        style={[
-          styles.progPickCard,
-          selected && styles.progPickCardSelected,
-          { transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.01] }) }] },
-        ]}
+        style={[styles.progPickCard, selected && styles.progPickCardSelected, progressScale]}
       >
         {/* Cover image slot — placeholder until each program ships its own asset. */}
         <View style={[styles.progPickCover, selected && styles.progPickCoverSelected]}>
@@ -1017,42 +1008,44 @@ function SetupOptionCard({
     }).start();
   }, [active, activeAnimation]);
 
-  const cardAnimatedStyle = visualCard
-    ? {
-        transform: [
-          {
-            scale: activeAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1, 1.02],
-            }),
-          },
-        ],
-      }
-    : undefined;
-  const thumbAnimatedStyle = iconImage
-    ? {
-        transform: [
-          {
-            scale: activeAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [1, 1.04],
-            }),
-          },
-        ],
-      }
-    : undefined;
-  const copyAnimatedStyle = visualCard
-    ? {
-        transform: [
-          {
-            translateY: activeAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, -2],
-            }),
-          },
-        ],
-      }
-    : undefined;
+  // Interpolated once per mount — per-render interpolations leak native
+  // animated nodes (disconnectAnimatedNodes crash under Fabric).
+  const animatedStyles = useRef({
+    card: {
+      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.02] }) }],
+    },
+    thumb: {
+      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.04] }) }],
+    },
+    copy: {
+      transform: [{ translateY: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0, -2] }) }],
+    },
+    figureImage: {
+      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }),
+      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }],
+    },
+    selectionBadge: {
+      opacity: activeAnimation,
+      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.82, 1] }) }],
+    },
+    iconImageFade: {
+      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.84, 1] }),
+    },
+    iconGlow: {
+      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0, 0.28] }),
+    },
+    iconPaint: {
+      opacity: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0, 0.2] }),
+      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }],
+    },
+    iconRing: {
+      opacity: activeAnimation,
+      transform: [{ scale: activeAnimation.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
+    },
+  }).current;
+  const cardAnimatedStyle = visualCard ? animatedStyles.card : undefined;
+  const thumbAnimatedStyle = iconImage ? animatedStyles.thumb : undefined;
+  const copyAnimatedStyle = visualCard ? animatedStyles.copy : undefined;
 
   return (
     <Pressable
@@ -1076,41 +1069,12 @@ function SetupOptionCard({
             <Animated.Image
               source={focusImageSource}
               resizeMode="cover"
-              style={[
-                styles.setupOptionCardFigureImage,
-                {
-                  opacity: activeAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.9, 1],
-                  }),
-                  transform: [
-                    {
-                      scale: activeAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [1, 1.035],
-                      }),
-                    },
-                  ],
-                },
-              ]}
+              style={[styles.setupOptionCardFigureImage, animatedStyles.figureImage]}
             />
             <View style={styles.setupOptionCardFigureVignette} />
             <Animated.View
               pointerEvents="none"
-              style={[
-                styles.setupOptionCardSelectionBadge,
-                {
-                  opacity: activeAnimation,
-                  transform: [
-                    {
-                      scale: activeAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.82, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
+              style={[styles.setupOptionCardSelectionBadge, animatedStyles.selectionBadge]}
             >
               <View style={styles.setupOptionCardSelectionCheck}>
                 <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkShort]} />
@@ -1134,86 +1098,24 @@ function SetupOptionCard({
             <Animated.Image
               source={backgroundSource}
               resizeMode="cover"
-              style={[
-                styles.setupOptionCardIconImage,
-                thumbAnimatedStyle,
-                {
-                  opacity: activeAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.84, 1],
-                  }),
-                },
-              ]}
+              style={[styles.setupOptionCardIconImage, thumbAnimatedStyle, animatedStyles.iconImageFade]}
             />
             <View style={styles.setupOptionCardIconShade} />
             <Animated.View
               pointerEvents="none"
-              style={[
-                styles.setupOptionCardIconGlow,
-                {
-                  opacity: activeAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 0.28],
-                  }),
-                },
-              ]}
+              style={[styles.setupOptionCardIconGlow, animatedStyles.iconGlow]}
             />
             <Animated.View
               pointerEvents="none"
-              style={[
-                styles.setupOptionCardIconPaint,
-                {
-                  opacity: activeAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 0.2],
-                  }),
-                  transform: [
-                    {
-                      scale: activeAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.96, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
+              style={[styles.setupOptionCardIconPaint, animatedStyles.iconPaint]}
             />
             <Animated.View
               pointerEvents="none"
-              style={[
-                styles.setupOptionCardIconRing,
-                {
-                  opacity: activeAnimation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 1],
-                  }),
-                  transform: [
-                    {
-                      scale: activeAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.92, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
+              style={[styles.setupOptionCardIconRing, animatedStyles.iconRing]}
             />
             <Animated.View
               pointerEvents="none"
-              style={[
-                styles.setupOptionCardSelectionBadge,
-                {
-                  opacity: activeAnimation,
-                  transform: [
-                    {
-                      scale: activeAnimation.interpolate({
-                        inputRange: [0, 1],
-                        outputRange: [0.82, 1],
-                      }),
-                    },
-                  ],
-                },
-              ]}
+              style={[styles.setupOptionCardSelectionBadge, animatedStyles.selectionBadge]}
             >
               <View style={styles.setupOptionCardSelectionCheck}>
                 <View style={[styles.setupOptionCardSelectionCheckMark, styles.setupOptionCardSelectionCheckMarkShort]} />
@@ -1456,6 +1358,15 @@ function FlameGlyph({ size, opacity = 1 }: { size: number; opacity?: number }) {
 // cluster reads as a live fire instead of a synchronized pulse.
 function AnimatedFlame({ size, opacity = 1, phase = 0 }: { size: number; opacity?: number; phase?: number }) {
   const flicker = useRef(new Animated.Value(0)).current;
+  // Interpolated once (disconnectAnimatedNodes rule). `opacity` is a static
+  // prop, so baking it into the ref is safe.
+  const flickerStyle = useRef({
+    opacity: flicker.interpolate({ inputRange: [0, 1], outputRange: [opacity * 0.65, opacity] }),
+    transform: [
+      { translateY: flicker.interpolate({ inputRange: [0, 1], outputRange: [1.5, -1.5] }) },
+      { scale: flicker.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] }) },
+    ],
+  }).current;
 
   useEffect(() => {
     const duration = 380 + (phase % 4) * 85;
@@ -1470,15 +1381,7 @@ function AnimatedFlame({ size, opacity = 1, phase = 0 }: { size: number; opacity
   }, [flicker, phase]);
 
   return (
-    <Animated.View
-      style={{
-        opacity: flicker.interpolate({ inputRange: [0, 1], outputRange: [opacity * 0.65, opacity] }),
-        transform: [
-          { translateY: flicker.interpolate({ inputRange: [0, 1], outputRange: [1.5, -1.5] }) },
-          { scale: flicker.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] }) },
-        ],
-      }}
-    >
+    <Animated.View style={flickerStyle}>
       <FlameGlyph size={size} />
     </Animated.View>
   );
@@ -1671,6 +1574,14 @@ export function OnboardingScreen({
   const buildingPlanThinkingOpacity = useRef(new Animated.Value(0)).current;
   const buildingPlanCaptionOpacity = useRef(new Animated.Value(0)).current;
   const buildingPlanPulse = useRef(new Animated.Value(0)).current;
+  // Interpolated once (disconnectAnimatedNodes rule) — renderBuildingPlan runs
+  // on every percent tick, so inline interpolations there churned nodes fast.
+  const buildingPlanPulseScale = useRef(
+    buildingPlanPulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.045] }),
+  ).current;
+  const buildingPlanPulseOpacity = useRef(
+    buildingPlanPulse.interpolate({ inputRange: [0, 1], outputRange: [0.64, 1] }),
+  ).current;
   const buildingPlanRingSpin = useRef(new Animated.Value(0)).current;
   const planReadyCardTranslateX = useRef(new Animated.Value(0)).current;
   const planReadyCardOpacity = useRef(new Animated.Value(1)).current;
@@ -1702,6 +1613,17 @@ export function OnboardingScreen({
   const levelThumbAnim = useRef(
     new Animated.Value(Math.max(0, LEVEL_SLIDER_OPTIONS.findIndex((option) => option.level === setupSeed.level))),
   ).current;
+  // Interpolation depends on the measured track width, so it is memoized on
+  // that instead of rebuilt per render (disconnectAnimatedNodes rule).
+  const levelThumbSegmentWidth = levelTrackWidth > 0 ? (levelTrackWidth - 8) / LEVEL_SLIDER_OPTIONS.length : 0;
+  const levelThumbTranslate = useMemo(
+    () =>
+      levelThumbAnim.interpolate({
+        inputRange: [0, LEVEL_SLIDER_OPTIONS.length - 1],
+        outputRange: [0, levelThumbSegmentWidth * (LEVEL_SLIDER_OPTIONS.length - 1)],
+      }),
+    [levelThumbAnim, levelThumbSegmentWidth],
+  );
   const levelFlamePop = useRef(new Animated.Value(1)).current;
   const [secondaryOutcomes, setSecondaryOutcomes] = useState<SetupSecondaryOutcome[]>(
     setupSeed.secondaryOutcomes,
@@ -2840,17 +2762,7 @@ export function OnboardingScreen({
               <Animated.View
                 style={[
                   styles.levelSliderThumb,
-                  {
-                    width: segmentWidth,
-                    transform: [
-                      {
-                        translateX: levelThumbAnim.interpolate({
-                          inputRange: [0, LEVEL_SLIDER_OPTIONS.length - 1],
-                          outputRange: [0, segmentWidth * (LEVEL_SLIDER_OPTIONS.length - 1)],
-                        }),
-                      },
-                    ],
-                  },
+                  { width: segmentWidth, transform: [{ translateX: levelThumbTranslate }] },
                 ]}
               />
             ) : null}
@@ -4004,14 +3916,8 @@ export function OnboardingScreen({
 
   function renderBuildingPlan() {
     const activePhaseIndex = Math.min(buildingPlanPhaseIndex, buildingPlanPhases.length - 1);
-    const pulseScale = buildingPlanPulse.interpolate({
-      inputRange: [0, 1],
-      outputRange: [1, 1.045],
-    });
-    const pulseOpacity = buildingPlanPulse.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0.64, 1],
-    });
+    const pulseScale = buildingPlanPulseScale;
+    const pulseOpacity = buildingPlanPulseOpacity;
     const buildingPlanAnimatedEllipsis = '.'.repeat(buildingPlanEllipsisStep + 1);
 
     return (

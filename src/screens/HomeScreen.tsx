@@ -54,7 +54,8 @@ const PRO_SHEET_BORDER = 'rgba(255,255,255,0.12)';
 // product that can be checked from the code.
 const PRO_STATS: Array<{ value: string; suffix: string; labelKey: I18nKey }> = [
   { value: String(GENERATED_EXERCISE_LIBRARY.length), suffix: '', labelKey: 'home.proSheet.stat.library' },
-  { value: String(Math.round(DEFAULT_HISTORY_WINDOW_DAYS / 7)), suffix: ' vk', labelKey: 'home.proSheet.stat.window' },
+  // The unit lives in the label so both languages get their own word for it.
+  { value: String(Math.round(DEFAULT_HISTORY_WINDOW_DAYS / 7)), suffix: '', labelKey: 'home.proSheet.stat.window' },
   { value: '0', suffix: '', labelKey: 'home.proSheet.stat.ads' },
 ];
 
@@ -70,6 +71,7 @@ const PRO_COMPARISON: Array<{ labelKey: I18nKey; free: boolean }> = [
   { labelKey: 'home.proSheet.row.plans', free: true },
   { labelKey: 'home.proSheet.row.analytics', free: true },
   { labelKey: 'home.proSheet.row.adaptive', free: false },
+  { labelKey: 'home.proSheet.row.progression', free: false },
   { labelKey: 'home.proSheet.row.coach', free: false },
 ];
 
@@ -342,6 +344,30 @@ export function HomeScreen({
 
   const rise = (index: number) => riseStyles[index];
 
+  // Same rule for the accordion chevrons/bodies, the calendar, and the hero
+  // progress bar: interpolate once, not per render.
+  const sectionStyles = useRef({
+    warmup: {
+      chevron: { transform: [{ rotate: sectionAnims.warmup.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
+      body: { opacity: sectionAnims.warmup, maxHeight: sectionAnims.warmup.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) },
+    },
+    workout: {
+      chevron: { transform: [{ rotate: sectionAnims.workout.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
+      body: { opacity: sectionAnims.workout, maxHeight: sectionAnims.workout.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) },
+    },
+    cooldown: {
+      chevron: { transform: [{ rotate: sectionAnims.cooldown.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
+      body: { opacity: sectionAnims.cooldown, maxHeight: sectionAnims.cooldown.interpolate({ inputRange: [0, 1], outputRange: [0, 420] }) },
+    },
+  }).current;
+  const calendarStyles = useRef({
+    chevron: { transform: [{ rotate: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }) }] },
+    body: { opacity: calendarAnim, maxHeight: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 480] }) },
+  }).current;
+  const progressFillWidth = useRef(
+    progressFillAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
+  ).current;
+
   const toggleCalendar = () => {
     const next = !calendarExpanded;
     setCalendarExpanded(next);
@@ -404,29 +430,13 @@ export function HomeScreen({
       >
         <Text style={styles.secTitle}>{title}</Text>
         <Text style={styles.secCount}>{countLabel}</Text>
-        <Animated.View
-          style={{
-            transform: [
-              {
-                rotate: sectionAnims[key].interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }),
-              },
-            ],
-          }}
-        >
+        <Animated.View style={sectionStyles[key].chevron}>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
             <Path d="m6 9 6 6 6-6" stroke="#8B84A0" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Animated.View>
       </Pressable>
-      <Animated.View
-        style={[
-          styles.secBody,
-          {
-            opacity: sectionAnims[key],
-            maxHeight: sectionAnims[key].interpolate({ inputRange: [0, 1], outputRange: [0, 420] }),
-          },
-        ]}
-      >
+      <Animated.View style={[styles.secBody, sectionStyles[key].body]}>
         <View style={styles.secInner}>
           {rows.map((row, index) => (
             <View key={`${row.name}-${index}`} style={styles.planExerciseRow}>
@@ -508,33 +518,14 @@ export function HomeScreen({
                 </View>
               );
             })}
-            <Animated.View
-              style={[
-                styles.weekStripChevron,
-                {
-                  transform: [
-                    {
-                      rotate: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '180deg'] }),
-                    },
-                  ],
-                },
-              ]}
-            >
+            <Animated.View style={[styles.weekStripChevron, calendarStyles.chevron]}>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Path d="M6 9l6 6 6-6" stroke={HG3.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </Animated.View>
           </Pressable>
 
-          <Animated.View
-            style={[
-              styles.monthPanel,
-              {
-                opacity: calendarAnim,
-                maxHeight: calendarAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 480] }),
-              },
-            ]}
-          >
+          <Animated.View style={[styles.monthPanel, calendarStyles.body]}>
             <View style={styles.monthTitleRow}>
               <Text style={styles.monthTitle}>{monthCalendar.monthLabel}</Text>
               <View style={styles.monthNavRow}>
@@ -661,14 +652,7 @@ export function HomeScreen({
                     {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}
                   </Text>
                   <View style={styles.heroProgTrack}>
-                    <Animated.View
-                      style={[
-                        styles.heroProgFill,
-                        {
-                          width: progressFillAnim.interpolate({ inputRange: [0, 100], outputRange: ['0%', '100%'] }),
-                        },
-                      ]}
-                    />
+                    <Animated.View style={[styles.heroProgFill, { width: progressFillWidth }]} />
                   </View>
                 </View>
               </View>

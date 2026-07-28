@@ -51,7 +51,7 @@ import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocus
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules, CoachModules } from './src/lib/aiCoachModules';
-import { isProUnlocked } from './src/lib/proEntitlement';
+import { isProUnlocked, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 
 // Stable identity so the memo below does not hand the sheet a fresh object on
@@ -113,6 +113,7 @@ import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { SupportScreen } from './src/screens/SupportScreen';
 import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
 import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
+import { ProOfferScreen } from './src/screens/ProOfferScreen';
 import { isAiCoachLiveConfigured } from './src/lib/aiCoachClient';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
@@ -406,6 +407,7 @@ function getBackRoute(route: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
     (route.screen === 'ai' ||
+      route.screen === 'pro_offer' ||
       route.screen === 'ai_setup' ||
       route.screen === 'history' ||
       route.screen === 'session' ||
@@ -927,10 +929,7 @@ function GymlogApp() {
         workout.startCustomWorkout(
           buildCustomSessionRuntimeTemplate(aiRuntimeTemplate, nextSessionId),
           nextPreferences.unitPreference,
-          {
-            automatedProgressionEnabled: nextPreferences.automatedProgressionEnabled,
-            setupLevel: nextPreferences.setupLevel,
-          },
+          resolveProgressionOptions(nextPreferences),
         );
         navigateToGuidedWorkout(persistedTemplateId);
         showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
@@ -1526,10 +1525,7 @@ function GymlogApp() {
     guardStrengthStartOverCardio(() => {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
-      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
-        automatedProgressionEnabled: preferences.automatedProgressionEnabled,
-        setupLevel: preferences.setupLevel,
-      });
+      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, resolveProgressionOptions(preferences));
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -1568,10 +1564,7 @@ function GymlogApp() {
     guardStrengthStartOverCardio(() => {
       void updatePreferences({ trainingFirstRunDismissed: true });
       const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
-      workout.startCustomWorkout(runtimeTemplate, unitPreference, {
-        automatedProgressionEnabled: preferences.automatedProgressionEnabled,
-        setupLevel: preferences.setupLevel,
-      });
+      workout.startCustomWorkout(runtimeTemplate, unitPreference, resolveProgressionOptions(preferences));
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -1806,7 +1799,11 @@ function GymlogApp() {
     );
     await upsertWorkoutPlan(activePlan);
     await updatePreferences({ activePlanId: activePlan.id });
-    resetToRoute(ROOT_ROUTES.home);
+    // The Pro/Free split, once, on the main plan-ready → Home path (user
+    // decision 2026-07-28). The other completion exits (program detail, the
+    // editor) continue to what the user explicitly chose — a paywall does not
+    // interrupt an intent.
+    resetToRoute({ tab: 'home', screen: 'pro_offer' });
   }
 
   async function handleOnboardingCompleteToProgramDetail(
@@ -3355,6 +3352,14 @@ function GymlogApp() {
         getSessionLogs={getSessionLogs}
         onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
+      />
+    );
+  } else if (route.tab === 'home' && route.screen === 'pro_offer') {
+    content = (
+      <ProOfferScreen
+        language={preferences.appLanguage}
+        onContinueFree={() => resetToRoute(ROOT_ROUTES.home)}
+        onSeePro={() => navigate({ tab: 'profile', screen: 'premium' })}
       />
     );
   } else if (route.tab === 'home' && route.screen === 'analysis') {

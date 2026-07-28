@@ -413,11 +413,21 @@ export function PlanSettingsScreen({
           </View>
         </View>
 
-        <SectionLabel label={t(language, 'planSet.autoProgression')} />
+        {/* Automated progression is Pro (user decision 2026-07-28). Locked,
+            the row still shows the stored choice but "On" routes to the
+            premium screen instead of pretending the toggle does something. */}
+        <View style={styles.autoProgressionHead}>
+          <SectionLabel label={t(language, 'planSet.autoProgression')} />
+          {proUnlocked ? null : (
+            <View style={styles.autoProgressionProPill}>
+              <Text style={styles.autoProgressionProPillText}>PRO</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.scheduleToggleRow}>
           <Pressable
-            onPress={() => onAutomatedProgressionChange?.(true)}
+            onPress={() => (proUnlocked ? onAutomatedProgressionChange?.(true) : onOpenPremium())}
             style={[styles.scheduleToggle, preferences.automatedProgressionEnabled && styles.scheduleToggleActive]}
           >
             <Text
@@ -703,6 +713,24 @@ const styles = StyleSheet.create({
   },
   scheduleToggleRow: {
     gap: spacing.sm,
+  },
+  autoProgressionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  autoProgressionProPill: {
+    paddingVertical: 3,
+    paddingHorizontal: 9,
+    borderRadius: 999,
+    backgroundColor: HG.purpleLight,
+    marginBottom: 8,
+  },
+  autoProgressionProPillText: {
+    color: HG.purpleDark,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   scheduleToggle: {
     borderRadius: radii.md,

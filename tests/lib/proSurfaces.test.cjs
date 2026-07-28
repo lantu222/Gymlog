@@ -11,6 +11,8 @@ const settingsSource = read('src', 'screens', 'SettingsScreen.tsx');
 const planSettingsSource = read('src', 'screens', 'PlanSettingsScreen.tsx');
 const premiumSource = read('src', 'screens', 'PremiumScreen.tsx');
 const homeSource = read('src', 'screens', 'HomeScreen.tsx');
+const loggerSource = read('src', 'screens', 'WorkoutLoggingScreen.tsx');
+const proOfferSource = read('src', 'screens', 'ProOfferScreen.tsx');
 
 /**
  * The Pro/Free audit (2026-07-28) found three ways the paid tier lied: a promo
@@ -130,6 +132,49 @@ module.exports = [
       assert.doesNotMatch(homeSource, /home\.proSheet\.cta.*trial/i);
       assert.match(homeSource, /onOpenPremium\?\.\(\)/, 'the CTA must open the premium screen');
       assert.match(appSource, /onOpenPremium=\{\(\) => navigate\(\{ tab: 'profile', screen: 'premium' \}\)\}/);
+    },
+  },
+  {
+    name: 'automated progression is sold as Pro, so every start path gates it on Pro',
+    run() {
+      // App.tsx: all three start call sites go through the one helper that
+      // combines the toggle with the entitlement.
+      assert.doesNotMatch(
+        appSource,
+        /automatedProgressionEnabled: (preferences|nextPreferences)\.automatedProgressionEnabled/,
+        'a start call passing the raw toggle would hand a free user the paid prefill',
+      );
+      assert.equal(
+        (appSource.match(/resolveProgressionOptions\((preferences|nextPreferences)\)/g) ?? []).length,
+        3,
+        'the ready, custom, and AI start paths must all resolve through the entitlement',
+      );
+
+      // The logger's own bootstrap is the fourth path.
+      assert.match(
+        loggerSource,
+        /automatedProgressionEnabled: automatedProgressionEnabled && hasAdaptiveCoachPremium/,
+      );
+
+      // The raw toggle still drives the adaptive-coach offer, so a free user
+      // with it on sees the locked upsell and one with it off is left alone.
+      assert.match(loggerSource, /resolveAdaptiveCoachOffer\(\{\s*automatedProgressionEnabled,/);
+    },
+  },
+  {
+    name: 'the post-onboarding offer states only counts the code can prove',
+    run() {
+      // The two figures are read from the catalog and the library, never typed.
+      assert.match(proOfferSource, /WORKOUT_TEMPLATES_V1\.length/);
+      assert.match(proOfferSource, /GENERATED_EXERCISE_LIBRARY\.length/);
+      assert.doesNotMatch(proOfferSource, /'\d+ (ready programs|exercises)/);
+
+      // No trial promise, and continuing free is the primary action.
+      assert.doesNotMatch(proOfferSource, /trial|kokeilu/i);
+      assert.match(proOfferSource, /proOffer\.continueFree/);
+
+      // Shown once, on the plan-ready path.
+      assert.match(appSource, /resetToRoute\(\{ tab: 'home', screen: 'pro_offer' \}\)/);
     },
   },
 ];

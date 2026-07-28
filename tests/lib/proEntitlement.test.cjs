@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
 
-const { isProUnlocked, resolveProEntitlement } = require('../../.test-dist/lib/proEntitlement.js');
+const {
+  isProUnlocked,
+  resolveProEntitlement,
+  resolveProgressionOptions,
+} = require('../../.test-dist/lib/proEntitlement.js');
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 
@@ -59,6 +63,47 @@ module.exports = [
         NOW,
       );
       assert.equal(entitlement.source, 'promo');
+    },
+  },
+  {
+    name: 'progression options: the toggle only progresses with Pro, and Pro never overrides OFF',
+    run() {
+      const base = { automatedProgressionEnabled: true, setupLevel: 'beginner' };
+
+      // Free user, toggle on: stored choice respected, prefill must not move.
+      assert.deepEqual(resolveProgressionOptions(prefs(base), NOW), {
+        automatedProgressionEnabled: false,
+        setupLevel: 'beginner',
+      });
+
+      // Pro user, toggle on: the paid feature runs.
+      assert.deepEqual(
+        resolveProgressionOptions(prefs({ ...base, adaptiveCoachPremiumUnlocked: true }), NOW),
+        { automatedProgressionEnabled: true, setupLevel: 'beginner' },
+      );
+
+      // Pro user, toggle off: paying does not force progression on.
+      assert.deepEqual(
+        resolveProgressionOptions(
+          prefs({ ...base, automatedProgressionEnabled: false, adaptiveCoachPremiumUnlocked: true }),
+          NOW,
+        ),
+        { automatedProgressionEnabled: false, setupLevel: 'beginner' },
+      );
+
+      // A promo grant counts as Pro here exactly like everywhere else.
+      assert.equal(
+        resolveProgressionOptions(prefs({ ...base, promoProUntil: '2026-08-24T12:00:00.000Z' }), NOW)
+          .automatedProgressionEnabled,
+        true,
+      );
+
+      // And an expired promo does not.
+      assert.equal(
+        resolveProgressionOptions(prefs({ ...base, promoProUntil: '2026-07-24T12:00:00.000Z' }), NOW)
+          .automatedProgressionEnabled,
+        false,
+      );
     },
   },
 ];

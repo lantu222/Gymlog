@@ -45,6 +45,29 @@ const CONNECTOR_DOT_COUNT = 7;
 
 function ConnectorWave() {
   const wave = useRef(new Animated.Value(-0.3)).current;
+  // One interpolation per dot for the component's life — per-render
+  // interpolations leak native nodes (disconnectAnimatedNodes crash).
+  const dotStyles = useRef(
+    Array.from({ length: CONNECTOR_DOT_COUNT }, (_, index) => {
+      const center = index / (CONNECTOR_DOT_COUNT - 1);
+      return {
+        opacity: wave.interpolate({
+          inputRange: [center - 0.3, center, center + 0.3],
+          outputRange: [0.25, 1, 0.25],
+          extrapolate: 'clamp' as const,
+        }),
+        transform: [
+          {
+            scale: wave.interpolate({
+              inputRange: [center - 0.3, center, center + 0.3],
+              outputRange: [0.7, 1.25, 0.7],
+              extrapolate: 'clamp' as const,
+            }),
+          },
+        ],
+      };
+    }),
+  ).current;
 
   useEffect(() => {
     const loop = Animated.loop(
@@ -69,34 +92,9 @@ function ConnectorWave() {
 
   return (
     <View style={styles.connectorTrack}>
-      {Array.from({ length: CONNECTOR_DOT_COUNT }, (_, index) => {
-        const center = index / (CONNECTOR_DOT_COUNT - 1);
-
-        return (
-          <Animated.View
-            key={index}
-            style={[
-              styles.connectorDot,
-              {
-                opacity: wave.interpolate({
-                  inputRange: [center - 0.3, center, center + 0.3],
-                  outputRange: [0.25, 1, 0.25],
-                  extrapolate: 'clamp',
-                }),
-                transform: [
-                  {
-                    scale: wave.interpolate({
-                      inputRange: [center - 0.3, center, center + 0.3],
-                      outputRange: [0.7, 1.25, 0.7],
-                      extrapolate: 'clamp',
-                    }),
-                  },
-                ],
-              },
-            ]}
-          />
-        );
-      })}
+      {dotStyles.map((dotStyle, index) => (
+        <Animated.View key={index} style={[styles.connectorDot, dotStyle]} />
+      ))}
     </View>
   );
 }

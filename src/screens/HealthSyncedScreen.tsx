@@ -150,37 +150,41 @@ export function HealthSyncedScreen({ basics, language = 'en', onContinue, onBack
     return () => clearTimeout(timer);
   }, [textFade, checkPop, footerFade, rowReveals]);
 
-  const spinDeg = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  // All interpolations built once — rebuilding them per render leaks native
+  // animated nodes (disconnectAnimatedNodes crash under Fabric).
+  const spinDeg = useRef(spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] })).current;
+  const badgeScaleStyle = useRef({
+    transform: [{ scale: checkPop.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }],
+  }).current;
+  const spinnerLayerStyle = useRef({
+    opacity: checkPop.interpolate({ inputRange: [0, 0.35], outputRange: [1, 0], extrapolate: 'clamp' as const }),
+    transform: [{ rotate: spinDeg }],
+  }).current;
+  const checkLayerStyle = useRef({
+    opacity: checkPop.interpolate({ inputRange: [0, 0.3], outputRange: [0, 1], extrapolate: 'clamp' as const }),
+    transform: [{ scale: checkPop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
+  }).current;
+  const pulseOpacity = useRef(pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] })).current;
+  const rowStyles = useRef(
+    rowReveals.map((reveal) => ({
+      value: {
+        opacity: reveal,
+        transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
+      },
+      placeholder: {
+        opacity: reveal.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0], extrapolate: 'clamp' as const }),
+      },
+    })),
+  ).current;
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 14 }]}>
       <View style={styles.content}>
-        <Animated.View
-          style={[
-            styles.checkBadge,
-            { transform: [{ scale: checkPop.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }) }] },
-          ]}
-        >
-          <Animated.View
-            style={[
-              styles.badgeLayer,
-              {
-                opacity: checkPop.interpolate({ inputRange: [0, 0.35], outputRange: [1, 0], extrapolate: 'clamp' }),
-                transform: [{ rotate: spinDeg }],
-              },
-            ]}
-          >
+        <Animated.View style={[styles.checkBadge, badgeScaleStyle]}>
+          <Animated.View style={[styles.badgeLayer, spinnerLayerStyle]}>
             <SpinnerArc />
           </Animated.View>
-          <Animated.View
-            style={[
-              styles.badgeLayer,
-              {
-                opacity: checkPop.interpolate({ inputRange: [0, 0.3], outputRange: [0, 1], extrapolate: 'clamp' }),
-                transform: [{ scale: checkPop.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1] }) }],
-              },
-            ]}
-          >
+          <Animated.View style={[styles.badgeLayer, checkLayerStyle]}>
             <Svg width={34} height={34} viewBox="0 0 24 24" fill="none">
               <Path d="M5 12l5 5L19 7" stroke="#FFFFFF" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
@@ -212,41 +216,27 @@ export function HealthSyncedScreen({ basics, language = 'en', onContinue, onBack
               {t(language, 'health.synced.empty', { provider: providerLabel })}
             </Text>
           ) : null}
-          {rows.map((row, index) => {
-            const reveal = rowReveals[index];
-            return (
-              <View key={row.label} style={[styles.row, index === rows.length - 1 && styles.rowLast]}>
-                <Text style={[styles.rowLabel, { fontFamily }]}>{row.label}</Text>
-                <View style={styles.rowValueSlot}>
+          {rows.map((row, index) => (
+            <View key={row.label} style={[styles.row, index === rows.length - 1 && styles.rowLast]}>
+              <Text style={[styles.rowLabel, { fontFamily }]}>{row.label}</Text>
+              <View style={styles.rowValueSlot}>
+                <Animated.View style={rowStyles[index].value}>
+                  <Text style={[styles.rowValue, { fontFamily }]}>{row.value}</Text>
+                </Animated.View>
+                <Animated.View
+                  pointerEvents="none"
+                  style={[styles.rowPlaceholderLayer, rowStyles[index].placeholder]}
+                >
                   <Animated.View
-                    style={{
-                      opacity: reveal,
-                      transform: [{ translateY: reveal.interpolate({ inputRange: [0, 1], outputRange: [6, 0] }) }],
-                    }}
-                  >
-                    <Text style={[styles.rowValue, { fontFamily }]}>{row.value}</Text>
-                  </Animated.View>
-                  <Animated.View
-                    pointerEvents="none"
                     style={[
-                      styles.rowPlaceholderLayer,
-                      { opacity: reveal.interpolate({ inputRange: [0, 0.6], outputRange: [1, 0], extrapolate: 'clamp' }) },
+                      styles.rowPlaceholder,
+                      { width: PLACEHOLDER_WIDTHS[index] ?? 64, opacity: pulseOpacity },
                     ]}
-                  >
-                    <Animated.View
-                      style={[
-                        styles.rowPlaceholder,
-                        {
-                          width: PLACEHOLDER_WIDTHS[index] ?? 64,
-                          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.45, 1] }),
-                        },
-                      ]}
-                    />
-                  </Animated.View>
-                </View>
+                  />
+                </Animated.View>
               </View>
-            );
-          })}
+            </View>
+          ))}
         </View>
 
         <Animated.View style={{ opacity: footerFade }} pointerEvents="none">

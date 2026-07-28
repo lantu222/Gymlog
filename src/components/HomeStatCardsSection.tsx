@@ -154,8 +154,10 @@ export function HomeStatCardsSection({
     return () => loop.stop();
   }, [editing, jiggle, reduceMotion]);
 
-  const evenRotate = jiggle.interpolate({ inputRange: [0, 1], outputRange: ['-0.55deg', '0.55deg'] });
-  const oddRotate = jiggle.interpolate({ inputRange: [0, 1], outputRange: ['0.55deg', '-0.55deg'] });
+  // Interpolated once — rebuilding these per render leaks native animated
+  // nodes and ends in the Fabric disconnectAnimatedNodes crash.
+  const evenRotate = useRef(jiggle.interpolate({ inputRange: [0, 1], outputRange: ['-0.55deg', '0.55deg'] })).current;
+  const oddRotate = useRef(jiggle.interpolate({ inputRange: [0, 1], outputRange: ['0.55deg', '-0.55deg'] })).current;
 
   const removeCard = (key: string) => {
     onChangePinnedKeys(pinnedKeys.filter((pinned) => pinned !== key));

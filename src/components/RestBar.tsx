@@ -27,6 +27,11 @@ function formatClock(seconds: number) {
  */
 export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, language = 'en' }: RestBarProps) {
   const slideIn = useRef(new Animated.Value(0)).current;
+  // Interpolated once: the bar re-renders every second while the timer runs,
+  // and a per-render interpolate leaks native nodes (disconnectAnimatedNodes).
+  const slideInTranslate = useRef(
+    slideIn.interpolate({ inputRange: [0, 1], outputRange: [120, 0] }),
+  ).current;
 
   useEffect(() => {
     Animated.timing(slideIn, {
@@ -43,14 +48,7 @@ export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, lang
     <Animated.View
       style={[
         styles.bar,
-        {
-          opacity: slideIn,
-          transform: [
-            {
-              translateY: slideIn.interpolate({ inputRange: [0, 1], outputRange: [120, 0] }),
-            },
-          ],
-        },
+        { opacity: slideIn, transform: [{ translateY: slideInTranslate }] },
       ]}
     >
       <View style={styles.row}>

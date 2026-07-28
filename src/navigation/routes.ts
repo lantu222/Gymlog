@@ -7,6 +7,10 @@ export type AppRoute =
     }
   | {
       tab: 'home';
+      screen: 'pro_offer';
+    }
+  | {
+      tab: 'home';
       screen: 'ai';
       prompt?: string;
     }

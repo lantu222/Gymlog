@@ -126,6 +126,30 @@ export function WorkoutCompletionScreen({
   const ringAnim = useRef(new Animated.Value(0)).current;
   const checkDraw = useRef(new Animated.Value(40)).current;
   const barAnims = useRef(muscles.map(() => new Animated.Value(0))).current;
+  // Every interpolation built once — per-render interpolations leak native
+  // animated nodes (Fabric disconnectAnimatedNodes crash).
+  const riseStyles = useRef(
+    riseValues.map((value) => ({
+      opacity: value,
+      transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }],
+    })),
+  ).current;
+  const ringStyle = useRef({
+    opacity: ringAnim.interpolate({ inputRange: [0, 0.05, 1], outputRange: [0, 0.55, 0] }),
+    transform: [{ scale: ringAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.9] }) }],
+  }).current;
+  const badgeStyle = useRef({
+    opacity: badgePop.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
+    transform: [{ scale: badgePop.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.4, 1.12, 1] }) }],
+  }).current;
+  const barFillWidths = useRef(
+    barAnims.map((value, index) =>
+      value.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['0%', `${Math.max(4, muscles[index]?.sharePercent ?? 4)}%`],
+      }),
+    ),
+  ).current;
 
   useEffect(() => {
     let mounted = true;
@@ -201,14 +225,7 @@ export function WorkoutCompletionScreen({
     ]).start();
   }, [badgePop, barAnims, checkDraw, reduceMotion, ringAnim, riseValues]);
 
-  const rise = (index: number) => ({
-    opacity: riseValues[index],
-    transform: [
-      {
-        translateY: riseValues[index].interpolate({ inputRange: [0, 1], outputRange: [14, 0] }),
-      },
-    ],
-  });
+  const rise = (index: number) => riseStyles[index];
 
   return (
     <View style={styles.screenBackground}>
@@ -232,28 +249,8 @@ export function WorkoutCompletionScreen({
           </Svg>
 
           <View style={styles.badgeWrap}>
-            <Animated.View
-              style={[
-                styles.badgeRing,
-                {
-                  opacity: ringAnim.interpolate({ inputRange: [0, 0.05, 1], outputRange: [0, 0.55, 0] }),
-                  transform: [
-                    { scale: ringAnim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1.9] }) },
-                  ],
-                },
-              ]}
-            />
-            <Animated.View
-              style={[
-                styles.badge,
-                {
-                  opacity: badgePop.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
-                  transform: [
-                    { scale: badgePop.interpolate({ inputRange: [0, 0.55, 1], outputRange: [0.4, 1.12, 1] }) },
-                  ],
-                },
-              ]}
-            >
+            <Animated.View style={[styles.badgeRing, ringStyle]} />
+            <Animated.View style={[styles.badge, badgeStyle]}>
               <Svg width={38} height={38} viewBox="0 0 24 24" fill="none">
                 <AnimatedPath
                   d="M5 12.5l4.5 4.5L19 7"
@@ -355,13 +352,7 @@ export function WorkoutCompletionScreen({
                       <Animated.View
                         style={[
                           styles.muscleFill,
-                          {
-                            backgroundColor: muscleColor(muscle.name),
-                            width: barAnims[index].interpolate({
-                              inputRange: [0, 1],
-                              outputRange: ['0%', `${Math.max(4, muscle.sharePercent)}%`],
-                            }),
-                          },
+                          { backgroundColor: muscleColor(muscle.name), width: barFillWidths[index] },
                         ]}
                       />
                     </View>

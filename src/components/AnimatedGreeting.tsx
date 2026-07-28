@@ -116,34 +116,41 @@ export function AnimatedGreeting({
     return () => animation.stop();
   }, [text, animate, staggerMs, words.length, driver]);
 
-  /** The [start, end] slice of the driver that reveals word `index`. */
-  const wordRange = (index: number) => {
+  /**
+   * Interpolations are memoized per (words, stagger), not built during render:
+   * Home re-renders every second on the workout tick, and a fresh
+   * .interpolate() per render mints new native nodes and orphans the old ones
+   * — the exact disconnectAnimatedNodes crash the single driver was added to
+   * kill. The driver itself never changes, so restarting the animation on a
+   * text change reuses these nodes.
+   */
+  const revealStyles = useMemo(() => {
     const total = WORD_DURATION_MS + staggerMs * Math.max(0, words.length - 1);
-    const start = (staggerMs * index) / total;
-    const end = Math.min(1, start + WORD_DURATION_MS / total);
-    // A zero-width range makes interpolate throw; keep it strictly increasing.
-    return [start, end > start ? end : Math.min(1, start + 0.0001)] as const;
-  };
+    return words.map((_, index) => {
+      const start = (staggerMs * index) / total;
+      const rawEnd = Math.min(1, start + WORD_DURATION_MS / total);
+      // A zero-width range makes interpolate throw; keep it strictly increasing.
+      const end = rawEnd > start ? rawEnd : Math.min(1, start + 0.0001);
+      return {
+        opacity: driver.interpolate({
+          inputRange: [start, end],
+          outputRange: [0, 1],
+          extrapolate: 'clamp' as const,
+        }),
+        transform: [
+          {
+            translateY: driver.interpolate({
+              inputRange: [start, end],
+              outputRange: [10, 0],
+              extrapolate: 'clamp' as const,
+            }),
+          },
+        ],
+      };
+    });
+  }, [driver, staggerMs, words]);
 
-  const revealStyle = (index: number) => {
-    const [start, end] = wordRange(index);
-    return {
-      opacity: driver.interpolate({
-        inputRange: [start, end],
-        outputRange: [0, 1],
-        extrapolate: 'clamp' as const,
-      }),
-      transform: [
-        {
-          translateY: driver.interpolate({
-            inputRange: [start, end],
-            outputRange: [10, 0],
-            extrapolate: 'clamp' as const,
-          }),
-        },
-      ],
-    };
-  };
+  const revealStyle = (index: number) => revealStyles[index];
 
   if (mode === 'line') {
     return (

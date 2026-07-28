@@ -417,8 +417,15 @@ export function WorkoutLoggingScreen({
       return;
     }
 
-    // The prefill only climbs when the user asked for automated progression.
-    const progression = { automatedProgressionEnabled, setupLevel };
+    // The prefill only climbs when the user asked for automated progression
+    // AND has Pro — the paywall sells progression as a Pro feature, so the
+    // gate must be real. The raw toggle still drives the adaptive-coach offer
+    // below: a free user with the toggle on sees the locked upsell, one with
+    // it off is left alone (P5 truth).
+    const progression = {
+      automatedProgressionEnabled: automatedProgressionEnabled && hasAdaptiveCoachPremium,
+      setupLevel,
+    };
 
     if (customTemplate) {
       startCustomWorkout(customTemplate, unitPreference, progression);
@@ -427,7 +434,7 @@ export function WorkoutLoggingScreen({
 
     const templateId = getWorkoutTemplateById(sessionKey) ? sessionKey : CORE_WORKOUT_TEMPLATE_ID;
     startWorkout(templateId, unitPreference, progression);
-  }, [activeSession?.sessionId, activeSession?.status, automatedProgressionEnabled, bootstrapTargetKey, customTemplate, hydrated, sessionKey, setupLevel, startCustomWorkout, startWorkout, unitPreference]);
+  }, [activeSession?.sessionId, activeSession?.status, automatedProgressionEnabled, bootstrapTargetKey, customTemplate, hasAdaptiveCoachPremium, hydrated, sessionKey, setupLevel, startCustomWorkout, startWorkout, unitPreference]);
 
   const activeExercise = selectActiveExercise(activeSession);
   const activeSlotId = activeSession?.ui.activeSlotId ?? activeExercise?.slotId ?? activeSession?.exercises[0]?.slotId ?? null;

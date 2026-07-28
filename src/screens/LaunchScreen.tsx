@@ -11,6 +11,7 @@ import { HG } from '../lightTheme';
  */
 export function LaunchScreen() {
   const enter = useRef(new Animated.Value(0)).current;
+  const enterScale = useRef(enter.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] })).current;
 
   useEffect(() => {
     Animated.timing(enter, {
@@ -29,10 +30,7 @@ export function LaunchScreen() {
           styles.backgroundLogo,
           {
             opacity: enter,
-            transform: [
-              { translateY: -48 },
-              { scale: enter.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) },
-            ],
+            transform: [{ translateY: -48 }, { scale: enterScale }],
           },
         ]}
       >

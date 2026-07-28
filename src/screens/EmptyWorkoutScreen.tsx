@@ -152,21 +152,16 @@ function Tile({ initials, size = 46, radius = 12, fontSize }: { initials: string
 /** Mount fade+rise, mirroring the mock's aw3Fade keyframe. */
 function FadeInView({ style, children }: { style?: object; children: React.ReactNode }) {
   const progress = useRef(new Animated.Value(0)).current;
+  // Interpolated once — a per-render interpolate leaks native animated nodes
+  // (disconnectAnimatedNodes crash), and this screen re-renders on the timer.
+  const translateY = useRef(progress.interpolate({ inputRange: [0, 1], outputRange: [10, 0] })).current;
 
   useEffect(() => {
     Animated.timing(progress, { toValue: 1, duration: 240, useNativeDriver: true }).start();
   }, [progress]);
 
   return (
-    <Animated.View
-      style={[
-        style,
-        {
-          opacity: progress,
-          transform: [{ translateY: progress.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-        },
-      ]}
-    >
+    <Animated.View style={[style, { opacity: progress, transform: [{ translateY }] }]}>
       {children}
     </Animated.View>
   );

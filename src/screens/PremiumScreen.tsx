@@ -22,7 +22,7 @@ interface PremiumScreenProps {
   onTogglePreview: () => void;
 }
 
-type LaneVariant = 'coach' | 'rest' | 'ai' | 'session' | 'week';
+type LaneVariant = 'coach' | 'rest' | 'ai' | 'progression' | 'session' | 'week';
 
 /**
  * Every lane here is a promise, so `live` has to match the code. The AI lane
@@ -34,6 +34,9 @@ const LANES: Array<{ live: boolean; titleKey: I18nKey; bodyKey: I18nKey; variant
   { live: true, variant: 'coach', titleKey: 'premium.lane.coach', bodyKey: 'premium.lane.coachBody' },
   { live: true, variant: 'rest', titleKey: 'premium.lane.rest', bodyKey: 'premium.lane.restBody' },
   { live: true, variant: 'ai', titleKey: 'premium.lane.ai', bodyKey: 'premium.lane.aiBody' },
+  // Pro-gated 2026-07-28 (progressionGate.ts + resolveProgressionOptions):
+  // the double-progression prefill runs only with Pro, so it belongs here.
+  { live: true, variant: 'progression', titleKey: 'premium.lane.progression', bodyKey: 'premium.lane.progressionBody' },
   { live: false, variant: 'session', titleKey: 'premium.lane.session', bodyKey: 'premium.lane.sessionBody' },
   { live: false, variant: 'week', titleKey: 'premium.lane.week', bodyKey: 'premium.lane.weekBody' },
 ];
@@ -45,6 +48,7 @@ const COMPARISON_ROWS: Array<{ labelKey: I18nKey; free: boolean; premium: 'Live'
   { labelKey: 'premium.lane.coach', free: false, premium: 'Live' },
   { labelKey: 'premium.lane.rest', free: false, premium: 'Live' },
   { labelKey: 'premium.lane.ai', free: false, premium: 'Live' },
+  { labelKey: 'premium.lane.progression', free: false, premium: 'Live' },
   { labelKey: 'premium.lane.session', free: false, premium: 'Soon' },
   { labelKey: 'premium.lane.week', free: false, premium: 'Soon' },
 ];
@@ -75,6 +79,12 @@ function LaneGlyph({ variant }: { variant: LaneVariant }) {
         <Svg width={22} height={22} viewBox="0 0 24 24">
           <Path d="M20 5H4a1 1 0 00-1 1v9a1 1 0 001 1h4l4 4v-4h8a1 1 0 001-1V6a1 1 0 00-1-1z" {...common} />
           <Path d="M8.5 12.5l1.2-3 1.3 3M14.8 9.5v3" {...common} />
+        </Svg>
+      );
+    case 'progression':
+      return (
+        <Svg width={22} height={22} viewBox="0 0 24 24">
+          <Path d="M4 20h16M6 20v-6h3v6M11 20V9h3v11M16 20V4h3v16" {...common} />
         </Svg>
       );
     case 'session':

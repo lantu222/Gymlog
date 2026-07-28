@@ -38,3 +38,25 @@ export function resolveProEntitlement(
 export function isProUnlocked(preferences: ProPreferences, now: Date = new Date()) {
   return resolveProEntitlement(preferences, now).unlocked;
 }
+
+type ProgressionPreferences = ProPreferences &
+  Pick<AppPreferences, 'automatedProgressionEnabled' | 'setupLevel'>;
+
+/**
+ * Automated progression is a Pro feature (user decision 2026-07-28: the
+ * post-onboarding paywall sells it, so the gate has to be real). This is the
+ * one place that combines the user's toggle with the entitlement — every
+ * startWorkout/startCustomWorkout call site goes through here, so no screen
+ * can accidentally hand a free user a paid prefill or a Pro user a dead
+ * toggle. The toggle itself stays the user's choice: Pro OFF still means OFF.
+ */
+export function resolveProgressionOptions(
+  preferences: ProgressionPreferences,
+  now: Date = new Date(),
+): { automatedProgressionEnabled: boolean; setupLevel: AppPreferences['setupLevel'] } {
+  return {
+    automatedProgressionEnabled:
+      preferences.automatedProgressionEnabled && isProUnlocked(preferences, now),
+    setupLevel: preferences.setupLevel,
+  };
+}

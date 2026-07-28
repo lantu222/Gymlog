@@ -135,7 +135,12 @@ module.exports = [
       assert.match(homeScreenSource, /warmup: false,\s*workout: false,\s*cooldown: false/);
       assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusTitle, language, availableEquipment\)/);
       assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle, language, availableEquipment\)/);
-      assert.match(homeScreenSource, /sectionAnims\[key\]\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 420\] \}\)/);
+      // Accordion interpolations live in a useRef built once per mount — an
+      // inline sectionAnims[key].interpolate() per render leaks native nodes
+      // (Fabric disconnectAnimatedNodes crash).
+      assert.match(homeScreenSource, /const sectionStyles = useRef\(\{/);
+      assert.match(homeScreenSource, /maxHeight: sectionAnims\.workout\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 420\] \}\)/);
+      assert.match(homeScreenSource, /style=\{\[styles\.secBody, sectionStyles\[key\]\.body\]\}/);
       assert.match(homeScreenSource, /duration: 380/);
       assert.match(homeScreenSource, /secTitle:\s*\{[\s\S]*fontSize: 20/);
       assert.match(homeScreenSource, /planExerciseNumberChip:\s*\{\s*width: 25,\s*height: 25/);

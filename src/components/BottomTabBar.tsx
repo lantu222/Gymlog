@@ -151,6 +151,12 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   // overshoot) at .5s. Reduced motion skips straight to the final state.
   const barRise = useRef(new Animated.Value(0)).current;
   const fabPop = useRef(new Animated.Value(0.3)).current;
+  // Interpolated once — the bar is always mounted and re-renders on every
+  // workout tick, so an inline .interpolate() here rebuilds native animated
+  // nodes each second and eventually dies in disconnectAnimatedNodes (Fabric).
+  const barRiseTranslate = useRef(
+    barRise.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }),
+  ).current;
 
   // Sliding circular highlight: we measure each side tab's centre and animate a
   // single circle's translateX to the active tab (spring => it "slides" in).
@@ -247,7 +253,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
         { paddingBottom: 4 + Math.min(insets.bottom, 4) },
         {
           opacity: barRise,
-          transform: [{ translateY: barRise.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }],
+          transform: [{ translateY: barRiseTranslate }],
         },
       ]}
     >

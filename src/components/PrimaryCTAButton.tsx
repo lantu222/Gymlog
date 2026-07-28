@@ -46,14 +46,15 @@ export function PrimaryCTAButton({
     }).start();
   };
 
-  const animatedScale = pressProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.98],
-  });
-  const animatedOpacity = pressProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 0.92],
-  });
+  // Interpolated once — per-render interpolations leak native animated nodes
+  // (Fabric disconnectAnimatedNodes crash), and this button renders on
+  // frequently updating screens.
+  const animatedScale = React.useRef(
+    pressProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.98] }),
+  ).current;
+  const animatedOpacity = React.useRef(
+    pressProgress.interpolate({ inputRange: [0, 1], outputRange: [1, 0.92] }),
+  ).current;
 
   return (
     <Animated.View

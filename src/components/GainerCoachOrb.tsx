@@ -71,11 +71,22 @@ export function GainerCoachOrb({ variant = 'idle', style }: GainerCoachOrbProps)
   }, [flame, spin, variant, win]);
 
   const config = useMemo(() => getOrbConfig(variant), [variant]);
-  const entryScale = entry.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] });
-  const translateY = float.interpolate({ inputRange: [0, 1], outputRange: [0, -4] });
-  const rotate = spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
-  const flameScale = flame.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] });
-  const winScale = win.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] });
+  // One interpolation per value for the component's life. Rebuilding these on
+  // every render mints fresh native animated nodes and orphans the previous
+  // ones, which under Fabric crashes with "disconnectAnimatedNodes: Animated
+  // node with tag (parent) does not exist" — this orb is always mounted and
+  // the app re-renders every second on the workout tick, so it was a prime
+  // source. Same failure AnimatedGreeting and Home's rise() had.
+  const { entryScale, translateY, rotate, flameScale, winScale } = useMemo(
+    () => ({
+      entryScale: entry.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1] }),
+      translateY: float.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }),
+      rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }),
+      flameScale: flame.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1.08] }),
+      winScale: win.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }),
+    }),
+    [entry, flame, float, spin, win],
+  );
 
   return (
     <Animated.View

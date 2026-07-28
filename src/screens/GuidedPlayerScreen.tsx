@@ -161,6 +161,9 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
 /* ── step entrance: fade + 14px rise ── */
 function StepIn({ children, stepKey, style }: { children: React.ReactNode; stepKey: string; style?: object }) {
   const anim = useRef(new Animated.Value(0)).current;
+  // Interpolated once: the player re-renders every second on the timer, and a
+  // per-render interpolate leaks native nodes (disconnectAnimatedNodes crash).
+  const translateY = useRef(anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] })).current;
   useEffect(() => {
     anim.setValue(0);
     Animated.timing(anim, {
@@ -171,12 +174,7 @@ function StepIn({ children, stepKey, style }: { children: React.ReactNode; stepK
     }).start();
   }, [anim, stepKey]);
   return (
-    <Animated.View
-      style={[
-        { flex: 1, opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] },
-        style,
-      ]}
-    >
+    <Animated.View style={[{ flex: 1, opacity: anim, transform: [{ translateY }] }, style]}>
       {children}
     </Animated.View>
   );
@@ -185,6 +183,11 @@ function StepIn({ children, stepKey, style }: { children: React.ReactNode; stepK
 /* ── pop-in for countdown digits / badges ── */
 function PopIn({ children, popKey }: { children: React.ReactNode; popKey: string | number }) {
   const anim = useRef(new Animated.Value(0)).current;
+  // Same rule as StepIn: one interpolation per value, never per render.
+  const popStyle = useRef({
+    opacity: anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
+    transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
+  }).current;
   useEffect(() => {
     anim.setValue(0);
     Animated.timing(anim, {
@@ -194,16 +197,7 @@ function PopIn({ children, popKey }: { children: React.ReactNode; popKey: string
       useNativeDriver: true,
     }).start();
   }, [anim, popKey]);
-  return (
-    <Animated.View
-      style={{
-        opacity: anim.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 1] }),
-        transform: [{ scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }],
-      }}
-    >
-      {children}
-    </Animated.View>
-  );
+  return <Animated.View style={popStyle}>{children}</Animated.View>;
 }
 
 /* ── media zone: photo when the library has one, brand-panel initials otherwise ── */
