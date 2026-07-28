@@ -21,7 +21,18 @@ export interface BuildAiTrainingContextInput {
     nextExercise: string | null;
     meta: string;
   } | null;
-  homeSummary: Pick<HomeSummary, 'streak'>;
+  /**
+   * Only the three fields this actually reads. Demanding the whole
+   * HomeStreakSummary forced every caller to build a full dashboard summary
+   * just to ask the coach a question.
+   */
+  homeSummary: {
+    streak: {
+      sessionsThisWeek: number;
+      sessionsLast30Days: number;
+      activity: { days: HomeSummary['streak']['activity']['days'] };
+    };
+  };
   workoutSessions: WorkoutSession[];
   exerciseLogs: ExerciseLog[];
   trackedProgress: ExerciseProgressSummary[];

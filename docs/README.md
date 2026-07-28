@@ -18,6 +18,7 @@ This is the navigation hub for all GAINER documentation.
 | How post-session coaching insights work | `post-session-single-insight-mvp.md` |
 | When and how load should increase | `progression-gating-rules.md` |
 | When the AI should and should not speak | `ai-trust-system.md` |
+| **What the AI actually does in the app** | **`ai-in-gainer.md`** |
 | What each system may and may not do | `architecture/system-boundaries.md` |
 | Why a major architectural decision was made | `adr/` |
 | What a term means | `glossary.md` |

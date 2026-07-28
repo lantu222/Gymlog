@@ -1,0 +1,217 @@
+import { AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
+import { buildAiCoachSystemContext } from './aiCoachSystemContext';
+
+/**
+ * Scoring for the coach evaluation set (execution-plan A3).
+ *
+ * The point of A3 is a number: change a prompt, learn whether it got better or
+ * worse. Prose judgements cannot do that, so every check here is mechanical
+ * and reproducible — no model grades another model.
+ *
+ * The checks encode the rules the rest of the app already lives by:
+ *
+ * - A figure the coach states must exist in the context it was given. This is
+ *   the anti-fabrication rule, and it is the one that matters most: an app
+ *   whose whole premise is an honest training log cannot invent a kilogram.
+ *   Genuine prescriptions ("add 2.5 kg next session") are not in the history,
+ *   so a case declares those explicitly rather than the checker guessing.
+ * - What the case author says a good coach must mention, and must not claim.
+ * - Silence where the context cannot support speech.
+ *
+ * The expectations are hand-written per case, by a human, on purpose. That is
+ * the slow part of A3 and no amount of tooling replaces it.
+ */
+
+export interface AiCoachEvalCase {
+  id: string;
+  /** What this case is testing, in one line. */
+  intent: string;
+  prompt: string;
+  context: AICoachTrainingContext;
+  /** Figures the answer must contain, as they should appear. */
+  mustCite?: string[];
+  /** Substrings the answer must contain (case-insensitive). */
+  mustMention?: string[];
+  /** Substrings that would be false or unearned for this history. */
+  mustNotSay?: string[];
+  /**
+   * Numbers the coach may introduce that are not in the history — a
+   * prescription, not a claim. Anything else new counts as fabrication.
+   */
+  allowedNewFigures?: string[];
+  /** True when the honest answer is to say little and claim nothing. */
+  expectsAbstention?: boolean;
+}
+
+export interface EvalCheckResult {
+  check: string;
+  passed: boolean;
+  detail: string;
+}
+
+export interface EvalCaseResult {
+  caseId: string;
+  intent: string;
+  checks: EvalCheckResult[];
+  passed: number;
+  total: number;
+  /** 0..1 */
+  score: number;
+}
+
+export interface EvalRunResult {
+  cases: EvalCaseResult[];
+  passedChecks: number;
+  totalChecks: number;
+  /** 0..1 across every check in the run. */
+  score: number;
+  /** Cases where at least one check failed. */
+  failures: EvalCaseResult[];
+}
+
+/** Everything the coach actually wrote, as one searchable string. */
+export function flattenAdvice(advice: AICoachAdvice): string {
+  return [advice.takeaway, ...advice.why, ...advice.nextSteps, ...advice.plan, ...advice.assumptions]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
+ * Numbers as written, normalized so 102,5 and 102.5 compare equal. Years and
+ * dates are skipped: they come from timestamps, not from claims about training.
+ */
+export function extractFigures(text: string): string[] {
+  const matches = text.match(/\d+(?:[.,]\d+)?/g) ?? [];
+  return matches
+    .map((raw) => raw.replace(',', '.'))
+    .filter((value) => {
+      const numeric = Number(value);
+      // 1900-2100 are dates; a real training figure in that range (a 2000 kg
+      // weekly volume) still appears in the context and passes the check below.
+      return !(Number.isInteger(numeric) && numeric >= 1900 && numeric <= 2100);
+    });
+}
+
+function contains(haystack: string, needle: string) {
+  return haystack.toLowerCase().includes(needle.toLowerCase());
+}
+
+/** Wording that asserts a trend — the thing a thin history cannot support. */
+const TREND_CLAIMS = [
+  'trend',
+  'progress',
+  'improv',
+  'increas',
+  'decreas',
+  'consistent',
+  'streak',
+  'average',
+  'trendi',
+  'edisty',
+  'kasva',
+  'laske',
+];
+
+export function scoreCase(evalCase: AiCoachEvalCase, advice: AICoachAdvice): EvalCaseResult {
+  const answer = flattenAdvice(advice);
+  const contextText = buildAiCoachSystemContext(evalCase.context);
+  const contextFigures = new Set(extractFigures(contextText));
+  const allowed = new Set((evalCase.allowedNewFigures ?? []).map((value) => value.replace(',', '.')));
+  const checks: EvalCheckResult[] = [];
+
+  // 1. Grounding — the check the whole app rests on.
+  const unsupported = extractFigures(answer).filter(
+    (figure) => !contextFigures.has(figure) && !allowed.has(figure),
+  );
+  checks.push({
+    check: 'grounded',
+    passed: unsupported.length === 0,
+    detail:
+      unsupported.length === 0
+        ? 'every figure traces to the context'
+        : `figures not in the context: ${[...new Set(unsupported)].join(', ')}`,
+  });
+
+  // 2. The figures a good answer has to reach for.
+  for (const figure of evalCase.mustCite ?? []) {
+    checks.push({
+      check: `cites:${figure}`,
+      passed: contains(answer, figure),
+      detail: contains(answer, figure) ? 'present' : `missing "${figure}"`,
+    });
+  }
+
+  for (const phrase of evalCase.mustMention ?? []) {
+    checks.push({
+      check: `mentions:${phrase}`,
+      passed: contains(answer, phrase),
+      detail: contains(answer, phrase) ? 'present' : `missing "${phrase}"`,
+    });
+  }
+
+  // 3. Claims this history does not license.
+  for (const phrase of evalCase.mustNotSay ?? []) {
+    const said = contains(answer, phrase);
+    checks.push({
+      check: `avoids:${phrase}`,
+      passed: !said,
+      detail: said ? `said "${phrase}"` : 'absent',
+    });
+  }
+
+  // 4. Silence, where silence is the honest answer.
+  if (evalCase.expectsAbstention) {
+    const claimed = TREND_CLAIMS.filter((word) => contains(answer, word));
+    checks.push({
+      check: 'abstains',
+      passed: claimed.length === 0,
+      detail:
+        claimed.length === 0
+          ? 'no trend claimed on a history that cannot support one'
+          : `claimed a trend using: ${claimed.join(', ')}`,
+    });
+  }
+
+  const passed = checks.filter((check) => check.passed).length;
+  return {
+    caseId: evalCase.id,
+    intent: evalCase.intent,
+    checks,
+    passed,
+    total: checks.length,
+    score: checks.length === 0 ? 1 : passed / checks.length,
+  };
+}
+
+export function scoreRun(results: EvalCaseResult[]): EvalRunResult {
+  const passedChecks = results.reduce((sum, result) => sum + result.passed, 0);
+  const totalChecks = results.reduce((sum, result) => sum + result.total, 0);
+
+  return {
+    cases: results,
+    passedChecks,
+    totalChecks,
+    score: totalChecks === 0 ? 1 : passedChecks / totalChecks,
+    failures: results.filter((result) => result.passed < result.total),
+  };
+}
+
+export function formatRunReport(run: EvalRunResult): string {
+  const lines: string[] = [];
+  const pct = (value: number) => `${Math.round(value * 1000) / 10}%`;
+
+  lines.push(`SCORE ${pct(run.score)}  (${run.passedChecks}/${run.totalChecks} checks)`);
+  lines.push('');
+
+  for (const result of run.cases) {
+    const mark = result.passed === result.total ? 'PASS' : 'FAIL';
+    lines.push(`${mark} ${result.caseId} — ${result.intent}  ${result.passed}/${result.total}`);
+    for (const check of result.checks) {
+      if (!check.passed) {
+        lines.push(`       ✗ ${check.check}: ${check.detail}`);
+      }
+    }
+  }
+
+  return lines.join('\n');
+}
