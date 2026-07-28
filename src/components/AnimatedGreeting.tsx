@@ -25,6 +25,17 @@ interface AnimatedGreetingProps {
   staggerMs?: number;
   /** Set false to render instantly (reduced motion, tests). */
   animate?: boolean;
+  /**
+   * 'words' staggers each word; 'line' rises the whole string as one node.
+   *
+   * Use 'line' wherever the text must stay on one line and shrink to fit —
+   * `adjustsFontSizeToFit` measures a single Text, so the word-split version
+   * would size each word on its own and the line would come out ragged.
+   */
+  mode?: 'words' | 'line';
+  numberOfLines?: number;
+  adjustsFontSizeToFit?: boolean;
+  minimumFontScale?: number;
 }
 
 const BRAND = 'GAINER';
@@ -57,9 +68,17 @@ export function AnimatedGreeting({
   accentColor = '#7C3AED',
   staggerMs = 55,
   animate = true,
+  mode = 'words',
+  numberOfLines,
+  adjustsFontSizeToFit,
+  minimumFontScale,
 }: AnimatedGreetingProps) {
   // Split on spaces but keep them, so wrapping and spacing stay natural.
-  const words = useMemo(() => text.split(/(\s+)/).filter((part) => part.length > 0), [text]);
+  // 'line' mode is a single unit, so it gets exactly one driver.
+  const words = useMemo(
+    () => (mode === 'line' ? [text] : text.split(/(\s+)/).filter((part) => part.length > 0)),
+    [text, mode],
+  );
   const progress = useRef<Animated.Value[]>([]).current;
 
   // One driver per word; rebuilt when the greeting changes.
@@ -89,6 +108,26 @@ export function AnimatedGreeting({
     animation.start();
     return () => animation.stop();
   }, [text, animate, staggerMs, progress]);
+
+  if (mode === 'line') {
+    const value = progress[0];
+    return (
+      <Animated.Text
+        style={[
+          style,
+          {
+            opacity: value,
+            transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
+          },
+        ]}
+        numberOfLines={numberOfLines}
+        adjustsFontSizeToFit={adjustsFontSizeToFit}
+        minimumFontScale={minimumFontScale}
+      >
+        {renderBrandWord(text, accentColor, 'line-brand')}
+      </Animated.Text>
+    );
+  }
 
   return (
     <View style={styles.row}>

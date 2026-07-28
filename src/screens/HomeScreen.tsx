@@ -617,9 +617,17 @@ export function HomeScreen({
           <>
             <Animated.View style={[styles.hero, rise(RISE_HERO)]}>
               <View style={styles.heroTop}>
-                <Text style={styles.heroTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                  {localizeWorkoutFocus(focusTitle, language)}
-                </Text>
+                {/* 'line' mode: the anchor must stay on one line and shrink to
+                    fit, which only works while it is a single Text node. */}
+                <AnimatedGreeting
+                  text={localizeWorkoutFocus(focusTitle, language)}
+                  style={styles.heroTitle}
+                  accentColor={HG3.purpleBright}
+                  mode="line"
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}
+                />
                 <View style={styles.heroProg}>
                   <Text style={styles.heroProgLabel}>
                     {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}

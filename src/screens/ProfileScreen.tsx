@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
+import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { CARD_SHADOW, SectionLabel, settingsStyles } from '../components/SettingsUi';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -283,7 +284,11 @@ export function ProfileScreen({
             ))}
           </View>
         </View>
-        <Text style={styles.identityName}>{identityName ?? t(language, 'profile.guestName')}</Text>
+        <AnimatedGreeting
+          text={identityName ?? t(language, 'profile.guestName')}
+          style={styles.identityName}
+          accentColor={HG.purple}
+        />
 
         {/* INVITE */}
         <Pressable
