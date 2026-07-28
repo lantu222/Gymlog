@@ -483,10 +483,15 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginTop: 1,
   },
+  // The screen's anchor. Every tab carries one oversized element (Home's
+  // 38 pt session hero, Progress's 46 pt month figure); this is Profile's —
+  // same scale as Home's hero so the tabs read as one family.
   identityName: {
     color: HG.ink,
-    fontSize: 20,
+    fontSize: 38,
+    lineHeight: 43,
     fontWeight: '800',
+    letterSpacing: -0.5,
     marginTop: 14,
   },
   inviteButton: {
