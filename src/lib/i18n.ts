@@ -1929,9 +1929,12 @@ const EN = {
   'coach.empty.body': 'I read your logged sets, and there is not enough there yet to say anything true. Log a couple of sessions and this fills in on its own.',
   'coach.empty.note': 'No sample numbers here — everything you see is from your own sets.',
   'coach.lock.title': 'Unlock GAINER Coach',
-  'coach.lock.body': 'Post-workout analysis, program edits, recovery and coaching — all on your real numbers.',
-  'coach.lock.cta': 'Start 7-day free trial',
-  'coach.lock.fine': 'Then €59.99/year · cancel anytime',
+  // No "program edits": the coach cannot change a programme. Every coach
+  // action is a navigation link; the only AI write path creates a new template
+  // during setup. And there is no trial to start — billing is not live.
+  'coach.lock.body': 'Post-workout analysis, recovery and coaching — all on your real numbers.',
+  'coach.lock.cta': 'See what Pro does',
+  'coach.lock.fine': 'Planned €59.99/year. Billing is not live yet.',
   'tabs.aiCoach': 'Open GAINER Coach',
   // ── Coach precision wording ───────────────────────────────────────────
   'coach.dayOne': '{count} day',
@@ -3875,9 +3878,9 @@ const FI: Record<I18nKey, string> = {
   'coach.empty.body': 'Luen kirjaamiasi sarjoja, eikä niissä ole vielä tarpeeksi mistä sanoa mitään todenmukaista. Kirjaa pari treeniä, niin tämä täyttyy itsestään.',
   'coach.empty.note': 'Täällä ei ole esimerkkilukuja — kaikki näkemäsi on omista sarjoistasi.',
   'coach.lock.title': 'Avaa GAINER Coach',
-  'coach.lock.body': 'Treenianalyysi, ohjelmamuutokset, palautuminen ja valmennus — kaikki omilla luvuillasi.',
-  'coach.lock.cta': 'Aloita 7 päivän ilmainen kokeilu',
-  'coach.lock.fine': 'Sen jälkeen 59,99 €/v · peru milloin tahansa',
+  'coach.lock.body': 'Treenianalyysi, palautuminen ja valmennus — kaikki omilla luvuillasi.',
+  'coach.lock.cta': 'Katso mitä Pro tekee',
+  'coach.lock.fine': 'Suunniteltu hinta 59,99 €/v. Laskutus ei ole vielä käytössä.',
   'tabs.aiCoach': 'Avaa GAINER Coach',
   // ── Coach precision wording ───────────────────────────────────────────
   'coach.dayOne': '{count} päivässä',
