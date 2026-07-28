@@ -220,6 +220,17 @@ function formatGoalTagKey(template: WorkoutTemplateV1): I18nKey {
 export function getReadyTemplatePresentation(
   template: WorkoutTemplateV1,
   language: AppLanguage = 'en',
+  /**
+   * Days the user actually runs, when the caller knows it.
+   *
+   * The catalog template's own day count is not what gets saved — a 2-day
+   * base composed up to the user's 3 days is a 3-day week. Callers that hold
+   * the composed week pass its count here so the tag agrees with every other
+   * surface. Passing the rendered tag through a regex afterwards only worked
+   * in English, which is how "3 treeniä viikossa" ended up beside a "2 pv"
+   * chip on the same card.
+   */
+  daysPerWeekOverride?: number,
 ): TemplatePresentation {
   const curated = READY_TEMPLATE_PRESENTATION[template.id];
   if (curated) {
@@ -228,21 +239,23 @@ export function getReadyTemplatePresentation(
       subtitle: t(language, `prog.sub.${template.id}` as I18nKey),
       tags: dedupeTags([
         ...curated.tagKeys.map((key) => t(language, key)),
-        t(language, 'prog.tag.days', { count: CURATED_DAYS[template.id] ?? template.daysPerWeek }),
+        t(language, 'prog.tag.days', {
+          count: daysPerWeekOverride ?? CURATED_DAYS[template.id] ?? template.daysPerWeek,
+        }),
       ]),
     };
   }
 
   const content = getReadyProgramContent(template.id, language);
+  const days = daysPerWeekOverride ?? template.daysPerWeek;
 
   return {
     title: formatWorkoutDisplayLabel(template.name, t(language, 'prog.custom.fallbackName')),
-    subtitle:
-      content?.summary ?? t(language, 'prog.sub.fallback', { days: template.daysPerWeek, goal: template.goalType }),
+    subtitle: content?.summary ?? t(language, 'prog.sub.fallback', { days, goal: template.goalType }),
     tags: dedupeTags([
       t(language, formatSplitTagKey(template)),
       t(language, formatGoalTagKey(template)),
-      t(language, 'prog.tag.days', { count: template.daysPerWeek }),
+      t(language, 'prog.tag.days', { count: days }),
     ]),
   };
 }

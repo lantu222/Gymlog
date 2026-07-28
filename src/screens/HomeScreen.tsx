@@ -25,6 +25,7 @@ import {
   getSessionFocusTitle,
 } from '../lib/homeSessionHero';
 import { getGreetingRotation, selectHomeGreeting } from '../lib/homeGreeting';
+import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { I18nKey, t } from '../lib/i18n';
@@ -84,6 +85,10 @@ const PRO_PRICING: Record<
 };
 
 type ProPlanKey = keyof typeof PRO_PRICING;
+
+// PRO pill: half "what you have" ink, half "what Pro adds" orange.
+const PRO_BADGE_INK = '#1C1830';
+const PRO_BADGE_ORANGE = '#F97316';
 
 // Entrance stagger (Home v4 "rise"): translateY 16 -> 0 + fade, 500ms,
 // cubic-bezier(.22,1,.36,1). Indices name each animated section.
@@ -421,10 +426,17 @@ export function HomeScreen({
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Animated.View style={[styles.headerRow, rise(RISE_HEADER)]}>
           <View style={styles.headerCopy}>
-            <Text style={styles.greetingTitle}>
-              {t(language, greeting.titleKey, greeting.titleVars)}
-            </Text>
-            <Text style={styles.greetingSubtitle}>{t(language, greeting.subtitleKey)}</Text>
+            <AnimatedGreeting
+              text={t(language, greeting.titleKey, greeting.titleVars)}
+              style={styles.greetingTitle}
+              accentColor={HG3.purpleBright}
+            />
+            <AnimatedGreeting
+              text={t(language, greeting.subtitleKey)}
+              style={styles.greetingSubtitle}
+              accentColor={HG3.purpleBright}
+              staggerMs={28}
+            />
           </View>
           <Pressable
             accessibilityRole="button"
@@ -433,6 +445,13 @@ export function HomeScreen({
             hitSlop={8}
             style={({ pressed }) => [styles.proBadge, pressed && styles.pressed]}
           >
+            {/* Split down the middle: the dark half is what the user has, the
+                orange half is what Pro adds. The pill shows the trade rather
+                than just shouting a brand colour. */}
+            <View style={styles.proBadgeHalves} pointerEvents="none">
+              <View style={[styles.proBadgeHalf, styles.proBadgeHalfFree]} />
+              <View style={[styles.proBadgeHalf, styles.proBadgeHalfPro]} />
+            </View>
             <Text style={styles.proBadgeText}>PRO</Text>
           </Pressable>
         </Animated.View>
@@ -1027,10 +1046,25 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG3.green,
+    overflow: 'hidden',
+    backgroundColor: PRO_BADGE_INK,
+  },
+  // Two halves behind the label, clipped by the pill's own radius.
+  proBadgeHalves: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+  },
+  proBadgeHalf: {
+    flex: 1,
+  },
+  proBadgeHalfFree: {
+    backgroundColor: PRO_BADGE_INK,
+  },
+  proBadgeHalfPro: {
+    backgroundColor: PRO_BADGE_ORANGE,
   },
   proBadgeText: {
-    color: HG3.surface,
+    color: '#FFFFFF',
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '800',

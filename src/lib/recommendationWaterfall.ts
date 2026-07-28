@@ -1,4 +1,5 @@
 import { RECOMMENDATION_PROGRAMS } from './recommendationCatalog';
+import type { I18nKey } from './i18n';
 import type {
   RecommendationInput,
   RecommendationProgramDefinition,
@@ -95,12 +96,20 @@ function byId(programId: string) {
   return RECOMMENDATION_PROGRAMS.find((definition) => definition.programId === programId) ?? null;
 }
 
+/**
+ * The reasons are i18n keys, not sentences.
+ *
+ * They used to be English prose baked into the decision, which meant a Finnish
+ * user read "Built for your equipment setup — nothing in it needs a gym." on
+ * their plan-ready card. The decision is logic and stays language-free; the
+ * screen translates at render.
+ */
 function decision(
   rule: RecommendationWaterfallDecision['rule'],
   primary: RecommendationProgramDefinition,
   alternative: RecommendationProgramDefinition | null,
-  whyPrimary: string,
-  whyAlternative: string | null,
+  whyPrimary: I18nKey,
+  whyAlternative: I18nKey | null,
 ): RecommendationWaterfallDecision {
   return {
     rule,
@@ -130,8 +139,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'home_equipment',
         primary,
         alternative,
-        'Built for your equipment setup — nothing in it needs a gym.',
-        'A different rhythm with the same low-equipment start.',
+        'wf.home_equipment.primary',
+        'wf.home_equipment.alt',
       );
     }
   }
@@ -145,8 +154,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'run_mobility',
         primary,
         byId(FIT_PROGRAM_ID),
-        'Running comes first, with mobility built in.',
-        'Prefer lifting with your cardio on the side? Start balanced instead.',
+        'wf.run_mobility.primary',
+        'wf.run_mobility.alt',
       );
     }
   }
@@ -167,8 +176,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
           'beginner_first',
           mobilityPrimary,
           pickClosest(programs.filter((definition) => definition.familyId === 'full_body_minimal'), input),
-          'Low-stress movement first — recovery and mobility lead this block.',
-          'A balanced full-body base if you want more lifting in the week.',
+          'wf.mobility_first.primary',
+          'wf.mobility_first.alt',
         );
       }
     }
@@ -196,8 +205,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'beginner_first',
         primary,
         alternative,
-        'Experience first: a start you can repeat beats an ambitious one.',
-        'A balanced full-body alternative if you want the simplest possible week.',
+        'wf.beginner_first.primary',
+        'wf.beginner_first.alt',
       );
     }
   }
@@ -221,8 +230,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'female_targeted',
         primary,
         alternative,
-        'Shaped around glute, leg, and shoulder priorities most women ask for.',
-        'Rather train the classic route? Same week, different emphasis.',
+        'wf.female_targeted.primary',
+        'wf.female_targeted.alt',
       );
     }
   }
@@ -238,8 +247,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'lean_athletic',
         primary,
         byId(FIT_PROGRAM_ID),
-        'Keeps your strength while conditioning finishers drive the fat loss.',
-        'Prefer a calmer week? A balanced base still supports fat loss.',
+        'wf.lean_athletic.primary',
+        'wf.lean_athletic.alt',
       );
     }
   }
@@ -259,8 +268,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'muscle_focus',
         primary,
         alternative,
-        'A specialisation block that trains your focus area twice a week.',
-        'Rather grow everything evenly? Go with the full muscle split.',
+        'wf.muscle_focus.primary',
+        'wf.muscle_focus.alt',
       );
     }
   }
@@ -284,8 +293,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'muscle',
         primary,
         alternative,
-        'Volume-driven muscle building matched to your week.',
-        'Prefer heavier lifting? Same week, strength-first.',
+        'wf.muscle.primary',
+        'wf.muscle.alt',
       );
     }
   }
@@ -315,8 +324,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'strength',
         primary,
         alternative,
-        'Heavy compounds first — the numbers on the bar lead the plan.',
-        'Want more size with your strength? This one leans that way.',
+        'wf.strength.primary',
+        'wf.strength.alt',
       );
     }
   }
@@ -335,8 +344,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
           'general',
           primary,
           pickClosest(programs.filter((definition) => definition.familyId === 'full_body_minimal'), input),
-          'Low-stress movement first — recovery and mobility lead this block.',
-          'A balanced full-body base if you want more lifting in the week.',
+          'wf.mobility_first.primary',
+          'wf.mobility_first.alt',
         );
       }
     }
@@ -358,8 +367,8 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
         'general',
         primary,
         byId(SHRED_PROGRAM_ID),
-        'A balanced week that covers strength, condition, and energy.',
-        'Want fat loss to lead? Add conditioning finishers to the mix.',
+        'wf.general.primary',
+        'wf.general.alt',
       );
     }
   }
@@ -373,7 +382,7 @@ export function selectWaterfallDecision(input: RecommendationInput): Recommendat
     'fallback',
     fallback,
     byId(HOME_STARTER_PROGRAM_ID),
-    'A safe, balanced starting point.',
-    'The lowest-friction alternative if the week gets busy.',
+    'wf.fallback.primary',
+    'wf.fallback.alt',
   );
 }

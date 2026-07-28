@@ -1,5 +1,6 @@
 import type { SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome, SetupEquipment, SetupGender } from './models';
 import type { RecommendationProfile } from '../lib/recommendationProfile';
+import type { I18nKey } from '../lib/i18n';
 
 export type TemplateFamilyId =
   | 'mass_hypertrophy'
@@ -179,8 +180,9 @@ export interface RecommendationWaterfallDecision {
   rule: RecommendationWaterfallRule;
   primaryProgramId: string;
   alternativeProgramId: string | null;
-  whyPrimary: string;
-  whyAlternative: string | null;
+  /** i18n keys, not sentences — the screen translates them at render. */
+  whyPrimary: I18nKey;
+  whyAlternative: I18nKey | null;
 }
 
 export interface RecommendationResult {

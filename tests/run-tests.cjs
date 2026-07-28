@@ -66,6 +66,7 @@ const suites = [
   ...require('./lib/csvProgramImport.test.cjs'),
   ...require('./lib/recommendationScoring.test.cjs'),
   ...require('./lib/recommendationWaterfall.test.cjs'),
+  ...require('./lib/recommendationWaterfallCopy.test.cjs'),
   ...require('./lib/recommendationWeeklyStructure.test.cjs'),
   ...require('./lib/firstRunSetup.test.cjs'),
   ...require('./lib/focusAreaPresentation.test.cjs'),

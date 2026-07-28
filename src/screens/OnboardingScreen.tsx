@@ -1846,10 +1846,6 @@ export function OnboardingScreen({
     () => getWorkoutTemplateById(activeRecommendedProgramId),
     [activeRecommendedProgramId],
   );
-  const recommendedProgramPresentation = useMemo(
-    () => (recommendedProgram ? getReadyTemplatePresentation(recommendedProgram, language) : null),
-    [recommendedProgram],
-  );
   const activeRecommendationCandidate = useMemo(
     () => recommendation.scoredCandidates.find((candidate) => candidate.programId === activeRecommendedProgramId) ?? null,
     [activeRecommendedProgramId, recommendation.scoredCandidates],
@@ -1896,10 +1892,6 @@ export function OnboardingScreen({
         fallbackReason: activeRecommendationMismatchNote ?? recommendation.fallbackReason,
       }),
     [activeRecommendationMismatchNote, activeRecommendedProgramId, recommendation.fallbackReason, selection],
-  );
-  const recommendedProgramTags = useMemo(
-    () => recommendedProgramPresentation?.tags.slice(0, 3) ?? [],
-    [recommendedProgramPresentation],
   );
   // Program picker (08b): the recommended program always renders first and the
   // card list stays stable while the selection moves between the two options.
@@ -1961,6 +1953,19 @@ export function OnboardingScreen({
   const guidanceModeLabel = useMemo(() => getGuidanceModeLabel(guidanceMode), [guidanceMode]);
   const scheduleModeLabel = useMemo(() => getScheduleModeLabel(scheduleMode), [scheduleMode]);
   const projectedDaysPerWeek = composedActiveWeek?.days ?? recommendedProgram?.daysPerWeek ?? daysPerWeek;
+  // Built after the composed week so the day tag carries the week the user
+  // actually runs, not the catalog template's own count.
+  const recommendedProgramPresentation = useMemo(
+    () =>
+      recommendedProgram
+        ? getReadyTemplatePresentation(recommendedProgram, language, projectedDaysPerWeek)
+        : null,
+    [recommendedProgram, language, projectedDaysPerWeek],
+  );
+  const recommendedProgramTags = useMemo(
+    () => recommendedProgramPresentation?.tags.slice(0, 3) ?? [],
+    [recommendedProgramPresentation],
+  );
   const projectedRhythm = useMemo(() => {
     return resolveProjectedTrainingDays(selection, projectedDaysPerWeek).map((day) => getWeekdayShortLabel(day));
   }, [projectedDaysPerWeek, selection]);
@@ -3308,26 +3313,26 @@ export function OnboardingScreen({
     // The badge stays honest: RECOMMENDED only when the shown program is the
     // engine's recommendation, YOUR PICK when the user chose the alternative.
     const planReadyIsRecommended = activeRecommendedProgramId === recommendation.featuredProgramId;
-    // Curated tags carry the template's own day count — swap it for the
-    // composed week's count so no surface contradicts the chosen frequency.
-    const planReadyTags = recommendedProgramTags.map((tag) =>
-      /^\d+\s*days?$/i.test(tag.trim()) ? `${planReadyPerWeek} Days` : tag,
-    );
+    // The day tag is already the composed week's count (see
+    // recommendedProgramPresentation) — no string surgery needed.
+    const planReadyTags = recommendedProgramTags;
     // P2: show that the caution flags actually shaped the plan.
     const planReadyCautionLine = buildCautionSummaryLabel(cautionFlags, cautionAreaLabels, language);
     const planReadyWaterfall = recommendation.waterfall;
+    // The waterfall stores reason KEYS; translate at render.
+    const whyKey = (key: I18nKey | null) => (key ? t(language, key) : null);
     const planReadyWhyPrimary =
       planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.primaryProgramId
-        ? planReadyWaterfall.whyPrimary
+        ? whyKey(planReadyWaterfall.whyPrimary)
         : planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.alternativeProgramId
-          ? planReadyWaterfall.whyAlternative
+          ? whyKey(planReadyWaterfall.whyAlternative)
           : null;
     const planReadyAlternative = alternativeRecommendationPrograms[0] ?? null;
     const planReadyWhyAlternative = planReadyAlternative
       ? planReadyWaterfall && planReadyAlternative.id === planReadyWaterfall.alternativeProgramId
-        ? planReadyWaterfall.whyAlternative
+        ? whyKey(planReadyWaterfall.whyAlternative)
         : planReadyWaterfall && planReadyAlternative.id === planReadyWaterfall.primaryProgramId
-          ? planReadyWaterfall.whyPrimary
+          ? whyKey(planReadyWaterfall.whyPrimary)
           : planReadyAlternative.tradeoffNote
       : null;
 
