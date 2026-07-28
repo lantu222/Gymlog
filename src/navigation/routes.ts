@@ -150,6 +150,10 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
+      screen: 'ai_transparency';
+    }
+  | {
+      tab: 'profile';
       screen: 'plan_settings';
     }
   | {

@@ -112,6 +112,8 @@ import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { SupportScreen } from './src/screens/SupportScreen';
 import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
+import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
+import { isAiCoachLiveConfigured } from './src/lib/aiCoachClient';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
@@ -3550,6 +3552,14 @@ function GymlogApp() {
         }
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'ai_transparency') {
+    content = (
+      <AiTransparencyScreen
+        language={preferences.appLanguage}
+        liveModeConfigured={isAiCoachLiveConfigured()}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'edit_profile') {
     content = (
       <EditProfileScreen
@@ -3587,6 +3597,7 @@ function GymlogApp() {
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
+        onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
         onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
           await resetAllData();
@@ -3830,7 +3841,8 @@ function GymlogApp() {
       route.screen === 'promo' ||
       route.screen === 'subscription' ||
       route.screen === 'support' ||
-      route.screen === 'features');
+      route.screen === 'features' ||
+      route.screen === 'ai_transparency');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
   const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';

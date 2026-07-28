@@ -10,6 +10,16 @@ export interface RequestAiCoachAdviceResult {
   note?: string;
 }
 
+/**
+ * Whether this build can reach a coach server at all. The same check the
+ * request path makes, exported so a screen can state which mode the user is in
+ * rather than guessing — in preview mode nothing they log leaves the device,
+ * and that is worth being able to say out loud.
+ */
+export function isAiCoachLiveConfigured() {
+  return AI_COACH_API_URL.length > 0;
+}
+
 function getAbortSignal(timeoutMs: number, upstreamSignal?: AbortSignal) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);

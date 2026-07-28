@@ -25,6 +25,7 @@ interface SettingsScreenProps {
   onOpenSubscription: () => void;
   onOpenSupport: () => void;
   onOpenFeatures: () => void;
+  onOpenAiInfo: () => void;
   onConnectHealth: () => void;
   onResetAllData: () => void;
 }
@@ -189,6 +190,7 @@ export function SettingsScreen({
   onOpenSubscription,
   onOpenSupport,
   onOpenFeatures,
+  onOpenAiInfo,
   onConnectHealth,
   onResetAllData,
 }: SettingsScreenProps) {
@@ -391,6 +393,13 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.about')} />
           <View style={styles.card}>
+            <Row
+              icon="spark"
+              title={t(language, 'settings.aiInfo')}
+              sub={t(language, 'settings.aiInfo.sub')}
+              chevron
+              onPress={onOpenAiInfo}
+            />
             <Row icon="shield" title={t(language, 'settings.privacy')} chevron />
             <Row icon="doc" title={t(language, 'settings.terms')} chevron />
             <Row
