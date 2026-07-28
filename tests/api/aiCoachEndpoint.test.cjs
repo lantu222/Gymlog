@@ -63,6 +63,31 @@ module.exports = [
     },
   },
   {
+    name: 'the endpoint bounds what one request can cost (execution-plan A2)',
+    run() {
+      // The rate limit counts requests; it says nothing about how expensive
+      // one is. The budget check must run BEFORE the fetch, and must measure
+      // the exact text that gets sent.
+      assert.match(source, /const budget = checkBudget\(/);
+      const budgetAt = source.indexOf('const budget = checkBudget(');
+      const fetchAt = source.indexOf('https://api.anthropic.com/v1/messages');
+      assert.ok(budgetAt !== -1 && budgetAt < fetchAt, 'budget must be checked before the upstream call');
+
+      // One build of the context, used for both the measurement and the send.
+      assert.match(source, /const contextText = /);
+      assert.match(source, /contextChars: contextText\.length \+ COACH_SYSTEM_RULES\.length/);
+      assert.match(source, /text: contextText, cache_control/);
+
+      // Spend is booked before the call: a timeout still burned tokens.
+      const recordAt = source.indexOf('budgetState = recordSpend(');
+      assert.ok(recordAt !== -1 && recordAt < fetchAt, 'spend must be booked before the request goes out');
+
+      // Refusal degrades to preview rather than erroring at the user.
+      assert.match(source, /if \(!budget\.allowed\) \{/);
+      assert.match(source, /budget_exhausted' \? 'RATE_LIMIT' : 'BAD_REQUEST'/);
+    },
+  },
+  {
     name: 'a failed or slow upstream call still answers with the preview fallback',
     run() {
       assert.match(source, /UPSTREAM_TIMEOUT/);

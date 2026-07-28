@@ -1,5 +1,12 @@
 import { buildAiCoachPreviewAnswer } from '../src/lib/aiCoachPreview';
 import { buildAiCoachSystemContext } from '../src/lib/aiCoachSystemContext';
+import {
+  BudgetState,
+  checkBudget,
+  createBudgetState,
+  readBudgetLimitsFromEnv,
+  recordSpend,
+} from '../src/lib/aiCoachBudget';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../src/types/aiCoach';
 
 type ApiRequest = {
@@ -22,8 +29,20 @@ const RATE_LIMIT_WINDOW_MS = Number(process.env.AI_COACH_RATE_LIMIT_WINDOW_MS ??
 const RATE_LIMIT_MAX = Number(process.env.AI_COACH_RATE_LIMIT_MAX ?? 12);
 const CLAUDE_TIMEOUT_MS = Number(process.env.AI_COACH_CLAUDE_TIMEOUT_MS ?? 12000);
 const CLAUDE_MODEL = process.env.AI_COACH_CLAUDE_MODEL ?? 'claude-haiku-4-5-20251001';
-const CLAUDE_MAX_TOKENS = Number(process.env.AI_COACH_CLAUDE_MAX_TOKENS ?? 700);
 const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+/**
+ * Spend ceiling (execution-plan A2).
+ *
+ * The rate limit above counts requests per IP; it does nothing about how
+ * expensive one request is, and both reset on a cold start. The budget below
+ * bounds the size of a single call — the part that is genuinely enforceable
+ * here — and keeps a per-instance token brake on top. The real ceiling is the
+ * Anthropic Console spend limit; see docs/ai-coach-backend.md.
+ */
+const BUDGET_LIMITS = readBudgetLimitsFromEnv(process.env);
+const CLAUDE_MAX_TOKENS = BUDGET_LIMITS.maxOutputTokens;
+let budgetState: BudgetState = createBudgetState(Date.now(), BUDGET_LIMITS);
 
 const ADVICE_TOOL_NAME = 'ai_coach_advice';
 
@@ -221,6 +240,39 @@ async function requestClaude(input: AICoachAdviceRequest) {
     );
   }
 
+  // Build the context once: it is both what gets sent and what gets measured,
+  // so the budget can never be checked against a different payload than the
+  // one that actually goes out.
+  const contextText = `# Training context\n\n${buildAiCoachSystemContext(input.context)}`;
+  const now = Date.now();
+  const budget = checkBudget(
+    { promptChars: input.prompt.length, contextChars: contextText.length + COACH_SYSTEM_RULES.length },
+    budgetState,
+    now,
+    BUDGET_LIMITS,
+  );
+
+  if (!budget.allowed) {
+    const rejection = budget.rejection;
+    console.warn('AI Coach request refused by budget', rejection);
+    return createError(
+      {
+        code: rejection?.reason === 'budget_exhausted' ? 'RATE_LIMIT' : 'BAD_REQUEST',
+        message:
+          rejection?.reason === 'budget_exhausted'
+            ? 'Coach budget for this window is spent.'
+            : 'Request is larger than the coach endpoint accepts.',
+      },
+      buildAiCoachPreviewAnswer(input.prompt, input.context),
+      'Live AI Coach ei ollut käytettävissä juuri nyt. Preview-vastaus palautettiin.',
+    );
+  }
+
+  // Booked before the call, not after: a request that times out still consumed
+  // upstream tokens, and a crash between send and response must not leave the
+  // spend unaccounted.
+  budgetState = recordSpend(budgetState, budget.estimatedTokens, now, BUDGET_LIMITS);
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), CLAUDE_TIMEOUT_MS);
 
@@ -240,11 +292,7 @@ async function requestClaude(input: AICoachAdviceRequest) {
         // the whole prefix, which is most of the request.
         system: [
           { type: 'text', text: COACH_SYSTEM_RULES },
-          {
-            type: 'text',
-            text: `# Training context\n\n${buildAiCoachSystemContext(input.context)}`,
-            cache_control: { type: 'ephemeral' },
-          },
+          { type: 'text', text: contextText, cache_control: { type: 'ephemeral' } },
         ],
         tools: [
           {

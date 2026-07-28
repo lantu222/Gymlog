@@ -305,7 +305,10 @@ Paywall timed to arrive after the first genuinely useful AI insight - value firs
 - no hardware, no lease, no rack (see `long-term-vision.md`)
 - no SQLite migration until data volume actually breaks
 - no in-session AI (`ADR-001`)
-- no new features during Part 1 - Part 1 is subtraction and instrumentation, not addition
+
+> Removed 28 July 2026: *"no new features during Part 1 - Part 1 is subtraction
+> and instrumentation, not addition."* Part 1 work continues, but feature work
+> is no longer barred from running alongside it.
 
 ---
 
