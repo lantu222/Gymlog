@@ -40,6 +40,9 @@ interface AnimatedGreetingProps {
 
 const BRAND = 'GAINER';
 
+/** How long a single word takes to arrive, independent of the stagger. */
+const WORD_DURATION_MS = 420;
+
 /** "GAINER" → G + AI (accented) + NER, so the logo's colour break survives. */
 function renderBrandWord(word: string, accentColor: string, key: string) {
   const at = word.toUpperCase().indexOf(BRAND);
@@ -74,52 +77,78 @@ export function AnimatedGreeting({
   minimumFontScale,
 }: AnimatedGreetingProps) {
   // Split on spaces but keep them, so wrapping and spacing stay natural.
-  // 'line' mode is a single unit, so it gets exactly one driver.
+  // 'line' mode is a single unit and animates as one.
   const words = useMemo(
     () => (mode === 'line' ? [text] : text.split(/(\s+)/).filter((part) => part.length > 0)),
     [text, mode],
   );
-  const progress = useRef<Animated.Value[]>([]).current;
 
-  // One driver per word; rebuilt when the greeting changes.
-  if (progress.length !== words.length) {
-    progress.length = 0;
-    words.forEach(() => progress.push(new Animated.Value(animate ? 0 : 1)));
-  }
+  /**
+   * ONE driver for the whole component, created once and never replaced.
+   *
+   * The first version allocated an Animated.Value per word and rebuilt the
+   * array during render whenever the word count changed. That crashes:
+   * "disconnectAnimatedNodeFromView: Animated node with tag [n] does not
+   * exist" — React can render more than once per commit, so values were
+   * created and thrown away while mounted views still referenced them, and a
+   * changing text swapped the whole array under the live native graph.
+   *
+   * The stagger is interpolation off a single 0→1 driver instead. Words get
+   * their offset from their index, no per-word node is ever created or
+   * destroyed, and changing the text only restarts the one driver.
+   */
+  const driver = useRef(new Animated.Value(animate ? 0 : 1)).current;
 
   useEffect(() => {
     if (!animate) {
-      progress.forEach((value) => value.setValue(1));
+      driver.setValue(1);
       return;
     }
 
-    progress.forEach((value) => value.setValue(0));
-    const animation = Animated.stagger(
-      staggerMs,
-      progress.map((value) =>
-        Animated.timing(value, {
-          toValue: 1,
-          duration: 420,
-          easing: Easing.out(Easing.cubic),
-          useNativeDriver: true,
-        }),
-      ),
-    );
+    driver.setValue(0);
+    const animation = Animated.timing(driver, {
+      toValue: 1,
+      duration: WORD_DURATION_MS + staggerMs * Math.max(0, words.length - 1),
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
     animation.start();
     return () => animation.stop();
-  }, [text, animate, staggerMs, progress]);
+  }, [text, animate, staggerMs, words.length, driver]);
+
+  /** The [start, end] slice of the driver that reveals word `index`. */
+  const wordRange = (index: number) => {
+    const total = WORD_DURATION_MS + staggerMs * Math.max(0, words.length - 1);
+    const start = (staggerMs * index) / total;
+    const end = Math.min(1, start + WORD_DURATION_MS / total);
+    // A zero-width range makes interpolate throw; keep it strictly increasing.
+    return [start, end > start ? end : Math.min(1, start + 0.0001)] as const;
+  };
+
+  const revealStyle = (index: number) => {
+    const [start, end] = wordRange(index);
+    return {
+      opacity: driver.interpolate({
+        inputRange: [start, end],
+        outputRange: [0, 1],
+        extrapolate: 'clamp' as const,
+      }),
+      transform: [
+        {
+          translateY: driver.interpolate({
+            inputRange: [start, end],
+            outputRange: [10, 0],
+            extrapolate: 'clamp' as const,
+          }),
+        },
+      ],
+    };
+  };
 
   if (mode === 'line') {
-    const value = progress[0];
     return (
       <Animated.Text
-        style={[
-          style,
-          {
-            opacity: value,
-            transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
-          },
-        ]}
+        style={[style, revealStyle(0)]}
         numberOfLines={numberOfLines}
         adjustsFontSizeToFit={adjustsFontSizeToFit}
         minimumFontScale={minimumFontScale}
@@ -132,7 +161,6 @@ export function AnimatedGreeting({
   return (
     <View style={styles.row}>
       {words.map((word, index) => {
-        const value = progress[index];
         // Whitespace still needs a node so the stagger indexes line up, but it
         // must not animate on its own or the gaps flicker.
         if (/^\s+$/.test(word)) {
@@ -144,21 +172,10 @@ export function AnimatedGreeting({
         }
 
         return (
-          <Animated.Text
-            key={`${word}-${index}`}
-            style={[
-              style,
-              {
-                opacity: value,
-                transform: [
-                  {
-                    translateY: value.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }),
-                  },
-                ],
-              },
-            ]}
-          >
-            {renderBrandWord(word, accentColor, `${word}-${index}-brand`)}
+          // Key by position, not by content: a content key remounts every word
+          // when the text changes, which tears down live animated nodes.
+          <Animated.Text key={`word-${index}`} style={[style, revealStyle(index)]}>
+            {renderBrandWord(word, accentColor, `word-${index}-brand`)}
           </Animated.Text>
         );
       })}
