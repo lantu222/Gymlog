@@ -38,6 +38,7 @@ const suites = [
   ...require('./lib/proSurfaces.test.cjs'),
   ...require('./lib/proInsights.test.cjs'),
   ...require('./lib/aiCoachQuota.test.cjs'),
+  ...require('./lib/coachChat.test.cjs'),
   ...require('./lib/aiCoachCostModel.test.cjs'),
   ...require('./lib/trainingHistory.test.cjs'),
   ...require('./lib/serialTaskQueue.test.cjs'),

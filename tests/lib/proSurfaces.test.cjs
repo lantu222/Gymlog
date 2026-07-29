@@ -102,12 +102,15 @@ module.exports = [
   {
     name: 'the Pro page table promises are wired, not just printed',
     run() {
-      // "AI Coach — 3 / wk": App resolves the quota and the sheet gates on it.
+      // "AI Coach — 3 / wk": App resolves the quota and the chat gates on it.
       assert.match(appSource, /freeQuestionsRemaining=\{resolveCoachQuota\(preferences\.aiCoachFreeQuota\)\.remaining\}/);
       assert.match(appSource, /recordCoachQuestion\(preferences\.aiCoachFreeQuota\)/);
-      const coachSheet = read('src', 'components', 'AICoachSheet.tsx');
-      assert.match(coachSheet, /const chatUnlocked = proUnlocked \|\| freeQuestionsRemaining > 0;/);
-      assert.match(coachSheet, /editable=\{chatUnlocked\}/);
+      const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
+      assert.match(chat, /const canAsk = proUnlocked \|\| freeQuestionsRemaining > 0;/);
+      // Out of quota the door stays open: the question still sends and the
+      // answer comes back blurred, rather than the chat refusing to talk.
+      assert.match(chat, /if \(!canAsk\) \{/);
+      assert.match(chat, /lockedLines:/);
 
       // "AI program builder — Pro": the generator and both entries gate on Pro.
       assert.match(appSource, /if \(!isProUnlocked\(nextPreferences\)\) \{/);
@@ -122,10 +125,10 @@ module.exports = [
     run() {
       // The free weekly quota buys coach questions; the Pro page's table says
       // the written analysis is Pro. Without this gate a free user reached the
-      // analysis screen through the unlocked sheet and the table was a lie.
-      const coachSheet = read('src', 'components', 'AICoachSheet.tsx');
-      assert.match(coachSheet, /\{onOpenFullAnalysis \? \(\s*\n\s*proUnlocked \? \(/);
-      assert.match(coachSheet, /coach\.analysisLocked/);
+      // analysis screen through the unlocked chat and the table was a lie.
+      const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
+      assert.match(chat, /proUnlocked \? onOpenAnalysis\(lastSession\.id\) : onOpenPremium\(\)/);
+      assert.match(chat, /coach\.analysisLocked/);
     },
   },
   {

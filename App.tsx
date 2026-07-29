@@ -63,18 +63,10 @@ import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTi
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
-import { buildCoachModules, CoachModules } from './src/lib/aiCoachModules';
+import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 
-// Stable identity so the memo below does not hand the sheet a fresh object on
-// every render while it is closed.
-const EMPTY_COACH_MODULES: CoachModules = {
-  focus: null,
-  analysis: null,
-  suggestion: null,
-  needsMoreData: true,
-};
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
 import { buildExerciseHistoryLookup } from './src/lib/workoutEditorTable';
 import {
@@ -90,7 +82,6 @@ import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
 import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/navigation/routes';
-import { AICoachSheet } from './src/components/AICoachSheet';
 import { SessionAnalysisScreen } from './src/screens/SessionAnalysisScreen';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AICoachScreen } from './src/screens/AICoachScreen';
@@ -126,6 +117,8 @@ import { SupportScreen } from './src/screens/SupportScreen';
 import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
 import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
 import { ProOfferScreen } from './src/screens/ProOfferScreen';
+import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
+import { buildCoachContextChips } from './src/lib/coachChat';
 import { isAiCoachLiveConfigured } from './src/lib/aiCoachClient';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
@@ -419,6 +412,7 @@ function getBackRoute(route: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
     (route.screen === 'ai' ||
+      route.screen === 'ai_chat' ||
       route.screen === 'pro_offer' ||
       route.screen === 'ai_setup' ||
       route.screen === 'history' ||
@@ -728,7 +722,6 @@ function GymlogApp() {
     history: [],
   });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [coachSheetVisible, setCoachSheetVisible] = useState(false);
   const [completionSummary, setCompletionSummary] = useState<CompletionSummaryState | null>(null);
   const [workoutCelebration, setWorkoutCelebration] = useState<WorkoutCelebrationState | null>(null);
   const [finishSaveState, setFinishSaveState] = useState<FinishSaveState>({
@@ -2046,19 +2039,21 @@ function GymlogApp() {
   );
   const coachProUnlocked = isProUnlocked(preferences);
   const analysisSessionId = route.tab === 'home' && route.screen === 'analysis' ? route.sessionId : null;
-  // The sheet only reads data while it is open; building the modules behind a
-  // closed sheet would run on every database change for nothing.
-  const coachModules = useMemo(
-    () =>
-      coachSheetVisible
-        ? buildCoachModules({
-            sessions: workoutSessions,
-            logs: database.exerciseLogs,
-            language: preferences.appLanguage,
-          })
-        : EMPTY_COACH_MODULES,
-    [coachSheetVisible, database.exerciseLogs, preferences.appLanguage, workoutSessions],
-  );
+  // The AI tab's written-analysis entry needs the most recent session that has
+  // enough logged sets to analyse. Only built while the chat is open.
+  const coachLastSession = useMemo(() => {
+    if (!(route.tab === 'home' && route.screen === 'ai_chat')) {
+      return null;
+    }
+    const modules = buildCoachModules({
+      sessions: workoutSessions,
+      logs: database.exerciseLogs,
+      language: preferences.appLanguage,
+    });
+    return modules.analysis
+      ? { id: modules.analysis.sessionId, name: modules.analysis.caption }
+      : null;
+  }, [database.exerciseLogs, preferences.appLanguage, route, workoutSessions]);
   const aiCoachTrainingContext = useMemo(
     () =>
       buildAiTrainingContext({
@@ -2286,6 +2281,22 @@ function GymlogApp() {
       },
     };
   }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
+  // The AI tab's opening state. Deterministic, so the most valuable-looking
+  // part of the coach costs nothing to render and works offline.
+  const coachChatIntro = useMemo(
+    () => ({
+      todaySessionTitle: homeActivePlanCard?.nextSession
+        ? localizeSessionName(
+            formatWorkoutDisplayLabel(homeActivePlanCard.nextSession.title),
+            preferences.appLanguage,
+          )
+        : null,
+      sessionsThisWeek: homeSummary.streak.sessionsThisWeek,
+      weeklyRead: proWeeklyRead,
+      fatigue: proFatigue,
+    }),
+    [homeActivePlanCard, homeSummary.streak.sessionsThisWeek, preferences.appLanguage, proFatigue, proWeeklyRead],
+  );
   const progressWeeklyTarget = Number.parseInt(homeActivePlanCard?.sessionsPerWeek ?? '', 10) || null;
   // "Your cards" on Home: full catalog computed once, pins resolved from prefs.
   const homeStatCardSources = useMemo(
@@ -3385,6 +3396,24 @@ function GymlogApp() {
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );
+  } else if (route.tab === 'home' && route.screen === 'ai_chat') {
+    content = (
+      <AICoachChatScreen
+        language={preferences.appLanguage}
+        proUnlocked={coachProUnlocked}
+        freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
+        onFreeQuestionUsed={() =>
+          void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })
+        }
+        trainingContext={aiCoachTrainingContext}
+        intro={coachChatIntro}
+        sessionCount={database.workoutSessions.length}
+        quickAskKeys={['coach.chip.analyze', 'coach.chip.program', 'coach.chip.protein']}
+        lastSession={coachLastSession}
+        onOpenAnalysis={(sessionId) => navigate({ tab: 'home', screen: 'analysis', sessionId })}
+        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
+      />
+    );
   } else if (route.tab === 'home' && route.screen === 'pro_offer') {
     content = (
       <ProOfferScreen
@@ -3399,10 +3428,7 @@ function GymlogApp() {
         analysis={sessionAnalysis}
         language={preferences.appLanguage}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
-        onAskCoach={() => {
-          navigateBack(ROOT_ROUTES.home);
-          setCoachSheetVisible(true);
-        }}
+        onAskCoach={() => navigate({ tab: 'home', screen: 'ai_chat' })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'plan_settings') {
@@ -3922,36 +3948,19 @@ function GymlogApp() {
             language={preferences.appLanguage}
             activeTab={route.tab === 'workout' && route.screen === 'plans' ? null : route.tab}
             aiActive={
-              coachSheetVisible ||
-              (route.tab === 'home' && (route.screen === 'ai' || route.screen === 'ai_setup'))
+              route.tab === 'home' &&
+              (route.screen === 'ai_chat' || route.screen === 'ai' || route.screen === 'ai_setup')
             }
             onTabPress={navigateToTab}
-            onAiPress={() => setCoachSheetVisible(true)}
+            // The design's rule for the middle button: it opens the chat, for
+            // everyone, always. It used to open a paywall-shaped sheet — the
+            // app's most valuable placement spent on an advert.
+            onAiPress={() => navigate({ tab: 'home', screen: 'ai_chat' })}
           />
         ) : undefined
       }
     >
       {content}
-      <AICoachSheet
-        visible={coachSheetVisible}
-        proUnlocked={coachProUnlocked}
-        freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
-        onFreeQuestionUsed={() =>
-          void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })
-        }
-        modules={coachModules}
-        trainingContext={aiCoachTrainingContext}
-        language={preferences.appLanguage}
-        onClose={() => setCoachSheetVisible(false)}
-        onStartTrial={() => {
-          setCoachSheetVisible(false);
-          navigate({ tab: 'profile', screen: 'premium' });
-        }}
-        onOpenFullAnalysis={(sessionId) => {
-          setCoachSheetVisible(false);
-          navigate({ tab: 'home', screen: 'analysis', sessionId });
-        }}
-      />
     </AppShell>
   );
 }

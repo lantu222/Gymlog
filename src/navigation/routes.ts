@@ -10,6 +10,11 @@ export type AppRoute =
       screen: 'pro_offer';
     }
   | {
+      /** The middle AI button. Always the chat — never a paywall. */
+      tab: 'home';
+      screen: 'ai_chat';
+    }
+  | {
       tab: 'home';
       screen: 'ai';
       prompt?: string;
