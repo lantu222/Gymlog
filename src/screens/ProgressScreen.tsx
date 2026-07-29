@@ -1062,6 +1062,7 @@ export function ProgressScreen({
               points={heroPoints}
               unitLabel={unitPreference}
               accent={heroSignalDot}
+              emptyLabel={t(language, 'progress.noEntries')}
               tooltipFormatter={(point) => ({
                 title: point.label,
                 value: formatWeight(
@@ -1077,6 +1078,50 @@ export function ProgressScreen({
             <Text style={styles.emptyText}>{t(language, 'progress.noTracked.body')}</Text>
           </View>
         )}
+
+        {/* The trend chart. overviewChart, OVERVIEW_METRICS and OVERVIEW_RANGES
+            were all built and none of them rendered: the chart was computed
+            into a const nobody read, and the metric/range state had setters
+            nobody called. So three metrics and four ranges existed in code and
+            no user could see any of them. */}
+        <SectionLabel label={t(language, 'progress.section.trend')} />
+        <View style={styles.card}>
+          <View style={styles.trendMetricRow}>
+            <Seg
+              options={OVERVIEW_METRICS.map((option) => ({
+                key: option.key,
+                label: t(language, option.labelKey),
+              }))}
+              value={overviewMetric}
+              onChange={setOverviewMetric}
+            />
+          </View>
+          {/* valueLabel already carries its own unit ("2,2 t", "13 h 21 min"),
+              so printing unitLabel beside it reads as "13 h 21 min min". */}
+          <View style={styles.trendValueRow}>
+            <Text style={styles.trendValue}>{overviewChart.valueLabel}</Text>
+          </View>
+          <SimpleLineChart
+            points={overviewChart.points}
+            unitLabel={overviewChart.unitLabel}
+            accent={HG.purple}
+            emptyLabel={overviewChart.emptyLabel}
+            footerLabels={overviewChart.footerLabels}
+            yTickValues={overviewChart.yTickValues}
+            formatValueLabel={overviewChart.formatValueLabel}
+            tooltipFormatter={overviewChart.tooltipFormatter}
+          />
+          <View style={styles.trendRangeRow}>
+            <Seg
+              options={OVERVIEW_RANGES.map((option) => ({
+                key: option.key,
+                label: option.label ?? t(language, 'progress.range.all'),
+              }))}
+              value={overviewRange}
+              onChange={setOverviewRange}
+            />
+          </View>
+        </View>
 
         <SectionLabel label={t(language, 'progress.section.thisMonth')} />
         <View style={styles.monthGrid}>
@@ -1287,6 +1332,7 @@ export function ProgressScreen({
                         points={points}
                         unitLabel={unitPreference}
                         accent={signalDot}
+                        emptyLabel={t(language, 'progress.noEntries')}
                         tooltipFormatter={(point) => ({
                           title: point.label,
                           value: formatWeight(
@@ -1853,6 +1899,16 @@ const styles = StyleSheet.create({
   },
   trendRangeRow: {
     alignItems: 'center',
+  },
+  trendMetricRow: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  trendValueRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+    marginBottom: 6,
   },
   seg: {
     flexDirection: 'row',

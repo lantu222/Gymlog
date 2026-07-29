@@ -332,7 +332,12 @@ export function ExerciseDetailScreen({
                   </Text>
                 ) : null}
               </View>
-              <SimpleLineChart points={chartPoints} accent={HG.purple} unitLabel={unitPreference} />
+              <SimpleLineChart
+                points={chartPoints}
+                accent={HG.purple}
+                unitLabel={unitPreference}
+                emptyLabel={t(language, 'progress.noEntries')}
+              />
             </>
           ) : (
             <View style={styles.emptyHistoryCard}>

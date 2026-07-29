@@ -705,13 +705,6 @@ export function WorkoutLoggingScreen({
     repsInputRefs.current[`${slotId}:${rowIndex}`] = input;
   }
 
-  function handleOpenExercise(exercise: WorkoutExerciseInstance, setIndex?: number) {
-    Keyboard.dismiss();
-    setPostEffortTransition(null);
-    setCollapsedExerciseSlotIds((current) => current.filter((slotId) => slotId !== exercise.slotId));
-    expandExercise(exercise.slotId);
-    setActiveExercise(exercise.slotId, typeof setIndex === 'number' ? setIndex : findFirstPendingSetIndex(exercise));
-  }
 
   function handleToggleExercise(exercise: WorkoutExerciseInstance) {
     Keyboard.dismiss();

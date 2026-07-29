@@ -118,6 +118,44 @@ module.exports = [
     },
   },
   {
+    name: 'the written session analysis stays behind Pro, quota or not',
+    run() {
+      // The free weekly quota buys coach questions; the Pro page's table says
+      // the written analysis is Pro. Without this gate a free user reached the
+      // analysis screen through the unlocked sheet and the table was a lie.
+      const coachSheet = read('src', 'components', 'AICoachSheet.tsx');
+      assert.match(coachSheet, /\{onOpenFullAnalysis \? \(\s*\n\s*proUnlocked \? \(/);
+      assert.match(coachSheet, /coach\.analysisLocked/);
+    },
+  },
+  {
+    name: 'one yearly price across every surface that quotes one',
+    run() {
+      const i18n = read('src', 'lib', 'i18n.ts');
+      // Three different yearly prices shipped at once (59,99 / 69,99 / 71,99)
+      // across the coach lock, the subscription screen and the Pro page.
+      assert.doesNotMatch(i18n, /59[.,]99/);
+      assert.doesNotMatch(i18n, /69[.,]99/);
+      for (const key of ['pro.page.billedYearly', 'coach.lock.fine', 'subs.yearlyPrice']) {
+        const line = i18n.split('\n').find((row) => row.includes(`'${key}':`));
+        assert.ok(line, `${key} should exist`);
+        assert.match(line, /71[.,]99/, `${key} must quote the one planned yearly price`);
+      }
+    },
+  },
+  {
+    name: 'the Progress trend chart is rendered, not just computed',
+    run() {
+      const progress = read('src', 'screens', 'ProgressScreen.tsx');
+      // overviewChart was assigned to a const nobody read, and the metric and
+      // range setters were never called: three metrics and four ranges existed
+      // in code that no user could reach.
+      assert.match(progress, /points=\{overviewChart\.points\}/);
+      assert.match(progress, /onChange=\{setOverviewMetric\}/);
+      assert.match(progress, /onChange=\{setOverviewRange\}/);
+    },
+  },
+  {
     name: 'the effort question is rendered, because every adaptive feature starts there',
     run() {
       // EFFORT_OPTIONS and handleRecordEffort existed as dead code: declared,

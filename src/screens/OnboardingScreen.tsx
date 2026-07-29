@@ -3769,8 +3769,14 @@ export function OnboardingScreen({
         return (
           <View style={styles.refinementPanel}>
             <Text style={styles.buildOwnKicker}>{t(language, 'onb.custom.kicker')}</Text>
-            <Text style={styles.buildOwnTitle}>{guidanceMode === 'self_directed' ? 'Use this as your base?' : 'Build your own?'}</Text>
-            <Text style={styles.buildOwnBody}>{guidanceMode === 'self_directed' ? 'Open this as your base.' : 'Open a custom version.'}</Text>
+            {/* These four shipped hardcoded in English on the last onboarding
+                step of a Finnish app. */}
+            <Text style={styles.buildOwnTitle}>
+              {t(language, guidanceMode === 'self_directed' ? 'onb.custom.baseTitle' : 'onb.custom.ownTitle')}
+            </Text>
+            <Text style={styles.buildOwnBody}>
+              {t(language, guidanceMode === 'self_directed' ? 'onb.custom.baseBody' : 'onb.custom.ownBody')}
+            </Text>
             <Pressable
               onPress={() =>
                 runAction(() =>

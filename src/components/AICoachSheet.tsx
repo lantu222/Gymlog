@@ -270,7 +270,11 @@ export function AICoachSheet({
                   <View style={styles.module}>
                     <View style={styles.moduleHeadRow}>
                       <Text style={styles.moduleLabel}>{t(language, 'coach.analysisLabel')}</Text>
-                      <Text style={styles.moduleAside}>{modules.analysis.caption}</Text>
+                      {/* The session name can be long; without a shrink and a
+                          clamp it ran under the label instead of truncating. */}
+                      <Text style={styles.moduleAside} numberOfLines={1}>
+                        {modules.analysis.caption}
+                      </Text>
                     </View>
                     <View style={styles.bullets}>
                       {modules.analysis.bullets.map((bullet, index) => (
@@ -285,16 +289,32 @@ export function AICoachSheet({
                         </View>
                       ))}
                     </View>
+                    {/* The Pro page's table says the written session analysis
+                        is Pro. The free weekly quota buys questions, not that
+                        screen — without this gate a free user reached it
+                        through the sheet and the table was a lie. */}
                     {onOpenFullAnalysis ? (
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => onOpenFullAnalysis(modules.analysis!.sessionId)}
-                        style={({ pressed }) => [styles.ghostButton, pressed && styles.pressed]}
-                      >
-                        <Text style={styles.ghostButtonText}>
-                          {t(language, 'coach.seeFullAnalysis')}
-                        </Text>
-                      </Pressable>
+                      proUnlocked ? (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={() => onOpenFullAnalysis(modules.analysis!.sessionId)}
+                          style={({ pressed }) => [styles.ghostButton, pressed && styles.pressed]}
+                        >
+                          <Text style={styles.ghostButtonText}>
+                            {t(language, 'coach.seeFullAnalysis')}
+                          </Text>
+                        </Pressable>
+                      ) : (
+                        <Pressable
+                          accessibilityRole="button"
+                          onPress={onStartTrial}
+                          style={({ pressed }) => [styles.ghostButton, pressed && styles.pressed]}
+                        >
+                          <Text style={styles.ghostButtonText}>
+                            {t(language, 'coach.analysisLocked')}
+                          </Text>
+                        </Pressable>
+                      )
                     ) : null}
                   </View>
                 ) : null}
@@ -629,9 +649,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 10,
     marginBottom: 9,
   },
   moduleAside: {
+    flexShrink: 1,
+    textAlign: 'right',
     color: COACH.faint,
     fontSize: 11.5,
     fontWeight: '700',

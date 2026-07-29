@@ -85,7 +85,6 @@ import {
   WorkoutCompletionPrCard,
 } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
-import { buildCustomDraftFromReadyProgram } from './src/lib/readyProgramDuplication';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/tailoringFit';
@@ -1462,9 +1461,6 @@ function GymlogApp() {
     });
   }
 
-  function handleOpenReadyPrograms() {
-    navigate(WORKOUT_PLAN_ROUTE);
-  }
 
   function handleOpenReadyProgramDetail(workoutTemplateId: string) {
     navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
@@ -1542,9 +1538,6 @@ function GymlogApp() {
     }
   }
 
-  function handleOpenCustomPrograms() {
-    navigate(WORKOUT_PLAN_ROUTE);
-  }
 
   // Cardio v1 conflict rule: never two live sessions, never a silent discard.
   // Mirrors the sheet the cardio list shows when a strength session is live.
@@ -1648,51 +1641,6 @@ function GymlogApp() {
     handleStartCustomProgramSession(workoutTemplateId, firstSessionId);
   }
 
-  function handleResumeWorkout() {
-    navigateToActiveWorkout();
-  }
-
-  function handleOpenPrimaryAction() {
-    if (primaryActionSelection.target.type === 'resume_active') {
-      handleResumeWorkout();
-      return;
-    }
-
-    if (primaryActionSelection.target.type === 'open_program') {
-      navigate({
-        tab: 'workout',
-        screen: 'program',
-        programType: primaryActionSelection.target.source,
-        workoutTemplateId: primaryActionSelection.target.workoutTemplateId,
-      });
-      return;
-    }
-
-    navigate(WORKOUT_PLAN_ROUTE);
-  }
-
-  function handleDuplicateReadyProgram(workoutTemplateId: string) {
-    const template = getWorkoutTemplateById(workoutTemplateId);
-    if (!template) {
-      return;
-    }
-
-    const draft = buildCustomDraftFromReadyProgram(
-      template,
-      exerciseLibrary,
-      workoutTemplates.map((item) => item.name),
-    );
-
-    Promise.resolve(upsertWorkoutTemplate(draft))
-      .then((workoutTemplateId) => {
-        showToast(t(preferences.appLanguage, 'toast.programCopied'));
-        navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-      })
-      .catch((error) => {
-        console.error('Failed to duplicate ready program', error);
-        showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
-      });
-  }
 
   function handleDuplicateCustomProgram(workoutTemplateId: string) {
     const template = workoutTemplates.find((item) => item.id === workoutTemplateId);
