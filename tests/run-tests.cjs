@@ -90,6 +90,7 @@ const suites = [
   ...require('./screens/programPlanOverview.test.cjs'),
   ...require('./screens/workoutLoggingScreenStructure.test.cjs'),
   ...require('./screens/onboardingVisualPolish.test.cjs'),
+  ...require('./screens/headerBackReachable.test.cjs'),
   ...require('./lib/workoutDiscovery.test.cjs'),
   ...require('./lib/historyView.test.cjs'),
   ...require('./lib/programDetails.test.cjs'),

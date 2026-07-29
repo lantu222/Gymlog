@@ -2,11 +2,12 @@ import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { I18nKey, t } from '../lib/i18n';
-import { AppLanguage } from '../types/models';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
+import { AppLanguage } from '../types/models';
 
 interface FeatureRequestsScreenProps {
   votedIds: string[];
@@ -101,7 +102,7 @@ export function FeatureRequestsScreen({ votedIds, language = 'en', onBack, onTog
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>{t(language, 'requests.title')}</Text>
+        <ScreenHeaderTitle title={t(language, 'requests.title')} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
@@ -169,16 +170,6 @@ const styles = StyleSheet.create({
     borderColor: HG.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerTitle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    pointerEvents: 'none',
-    color: HG.ink,
-    fontSize: 17,
-    fontWeight: '800',
   },
   body: {
     paddingTop: 4,

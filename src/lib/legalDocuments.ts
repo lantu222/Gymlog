@@ -25,16 +25,27 @@ import { AppLanguage } from '../types/models';
  * The one place the publisher's identity is defined. Change it here and the
  * app, the exported Markdown and the Play Console listing all agree.
  *
- * Set to the developer's own name because GAINER is published by an individual,
- * not a company. When a company or a real domain exists, this is the only edit
- * needed.
+ * The controller has to be whoever actually controls the data on the day a
+ * user reads this, so it names the individual until Taito Tech Oy is entered
+ * in the trade register (name pending PRH approval; a company that does not
+ * exist yet cannot be the controller). The moment the registration lands,
+ * switch `name` to the company, fill in `businessId`, re-run
+ * `node scripts/export-legal.cjs`, and bump LEGAL_LAST_UPDATED — the change of
+ * controller is exactly the kind users are entitled to see.
  */
 export const LEGAL_ENTITY = {
   name: 'Santeri Ylönen',
+  /** Y-tunnus. Empty until the company is registered; rendered when set. */
+  businessId: '',
   email: 'santeriylonen@gmail.com',
   country: 'Finland',
   countryFi: 'Suomi',
 } as const;
+
+/** "Taito Tech Oy (FI12345678)" once registered, just the name before that. */
+function publisher(): string {
+  return LEGAL_ENTITY.businessId ? `${LEGAL_ENTITY.name} (${LEGAL_ENTITY.businessId})` : LEGAL_ENTITY.name;
+}
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
 export const LEGAL_LAST_UPDATED = '2026-07-29';
@@ -69,7 +80,7 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Who is responsible',
     body: [
-      `${LEGAL_ENTITY.name} (${LEGAL_ENTITY.country}) publishes GAINER and is the data controller for the limited processing described below.`,
+      `${publisher()} (${LEGAL_ENTITY.country}) publishes GAINER and is the data controller for the limited processing described below.`,
       `Questions about this policy or your data: ${LEGAL_ENTITY.email}.`,
     ],
   },
@@ -170,7 +181,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Kuka vastaa',
     body: [
-      `${LEGAL_ENTITY.name} (${LEGAL_ENTITY.countryFi}) julkaisee GAINERin ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.`,
+      `${publisher()} (${LEGAL_ENTITY.countryFi}) julkaisee GAINERin ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.`,
       `Kysymykset tästä selosteesta tai tiedoistasi: ${LEGAL_ENTITY.email}.`,
     ],
   },
@@ -271,7 +282,7 @@ const TERMS_EN: LegalSection[] = [
   {
     heading: 'Who provides the service',
     body: [
-      `GAINER is provided by ${LEGAL_ENTITY.name} (${LEGAL_ENTITY.country}). Contact: ${LEGAL_ENTITY.email}.`,
+      `GAINER is provided by ${publisher()} (${LEGAL_ENTITY.country}). Contact: ${LEGAL_ENTITY.email}.`,
     ],
   },
   {
@@ -367,7 +378,7 @@ const TERMS_FI: LegalSection[] = [
   {
     heading: 'Kuka palvelun tarjoaa',
     body: [
-      `GAINERin tarjoaa ${LEGAL_ENTITY.name} (${LEGAL_ENTITY.countryFi}). Yhteystieto: ${LEGAL_ENTITY.email}.`,
+      `GAINERin tarjoaa ${publisher()} (${LEGAL_ENTITY.countryFi}). Yhteystieto: ${LEGAL_ENTITY.email}.`,
     ],
   },
   {

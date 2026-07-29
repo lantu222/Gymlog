@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, ChevronIcon, SectionLabel, settingsStyles } from '../components/SettingsUi';
 import { getSetupEquipmentTitle, getSetupGoalTitle } from '../lib/firstRunSetup';
 import { I18nKey, t } from '../lib/i18n';
@@ -265,7 +266,7 @@ export function MyDataScreen({
             <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
-        <Text style={styles.headerTitle}>{t(language, 'myData.title')}</Text>
+        <ScreenHeaderTitle title={t(language, 'myData.title')} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
@@ -455,16 +456,6 @@ const styles = StyleSheet.create({
     borderColor: HG.border,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  headerTitle: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-    pointerEvents: 'none',
-    color: HG.ink,
-    fontSize: 17,
-    fontWeight: '800',
   },
   body: {
     paddingTop: 4,
