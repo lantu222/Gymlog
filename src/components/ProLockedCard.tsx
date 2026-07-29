@@ -65,6 +65,12 @@ export function ProLockedCard({ language, teaser, lines, cta, compact, onPress }
             {line}
           </Text>
         ))}
+        {/* Android's text shadow is a mask filter, not a gaussian blur: on
+            device the glyph shapes survived it and short lines stayed
+            readable. A scrim over the top is what the old coach sheet had to
+            do for the same reason. You can see there is an answer here; you
+            cannot read it. */}
+        <View style={styles.hiddenScrim} pointerEvents="none" />
       </View>
       <Text style={styles.cta}>{cta ?? t(language, 'pro.locked.cta')} →</Text>
     </Pressable>
@@ -113,16 +119,25 @@ const styles = StyleSheet.create({
   },
   hiddenBlock: {
     marginTop: 9,
+    position: 'relative',
+  },
+  hiddenScrim: {
+    ...StyleSheet.absoluteFillObject,
+    // 0.55 still left a short line readable on device; 0.75 leaves the shape
+    // of an answer and nothing else, which is the whole point.
+    backgroundColor: 'rgba(239,231,255,0.75)',
   },
   hiddenLine: {
     fontSize: 13.5,
     fontWeight: '600',
     lineHeight: 20,
-    // The blur: real text, unreadable. Transparent ink, soft shadow.
+    // The blur: real text, unreadable. Transparent ink, soft shadow. Radius 7
+    // still read cleanly on device for short lines — 11 is the point where the
+    // shape survives and the words do not.
     color: 'transparent',
-    textShadowColor: 'rgba(16,24,40,0.5)',
+    textShadowColor: 'rgba(16,24,40,0.55)',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 7,
+    textShadowRadius: 11,
   },
   cta: {
     marginTop: 10,

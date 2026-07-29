@@ -2266,6 +2266,7 @@ export function OnboardingScreen({
       const result = await requestAiCoachAdvice({
         prompt,
         context: buildFirstRunAiCoachContext(selection, readyProgramCount),
+        language,
       });
 
       setHelperAnswer(result.answer);
@@ -2274,7 +2275,7 @@ export function OnboardingScreen({
       setHelperState('ready');
     } catch {
       setHelperState('error');
-      setHelperError('Ask one clear question.');
+      setHelperError(t(language, 'coachPreview.default.takeaway'));
     }
   }
 

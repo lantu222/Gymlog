@@ -181,6 +181,13 @@ export interface AICoachAdvice {
 export interface AICoachAdviceRequest {
   prompt: string;
   context: AICoachTrainingContext;
+  /**
+   * The language the answer must come back in. The live coach is told to
+   * answer in the language the user wrote in; the offline preview has no
+   * model to infer that, so it is passed explicitly. Defaults to English when
+   * absent, which is what an older client sends.
+   */
+  language?: 'fi' | 'en';
 }
 
 export interface AICoachAdviceSuccess {

@@ -14,6 +14,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
+import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
 import {
   CoachChatIntroInput,
@@ -137,17 +138,20 @@ export function AICoachChatScreen({
       // Out of quota: the question still lands, and the answer that exists is
       // shown blurred rather than refused. The door stays open (design rule);
       // what is withheld is the conclusion, not the conversation.
+      //
+      // The blurred text is the REAL answer — the offline coach is
+      // deterministic and costs nothing, so withholding it is a choice about
+      // access, not about having something to say. Blurring a placeholder
+      // instead would make the lock a bluff.
       if (!canAsk) {
+        const withheld = buildAiCoachPreviewAnswer(trimmed, trainingContext, language);
         setMessages((current) => [
           ...current,
           {
             id: `locked:${token}`,
             fromCoach: true,
             text: '',
-            lockedLines: [
-              t(language, 'coachChat.locked.teaser'),
-              t(language, 'coachChat.quotaReset'),
-            ],
+            lockedLines: [withheld.takeaway, withheld.nextSteps[0] ?? withheld.why[0] ?? ''].filter(Boolean),
           },
         ]);
         return;
@@ -160,7 +164,7 @@ export function AICoachChatScreen({
 
       setAsking(true);
       try {
-        const result = await requestAiCoachAdvice({ prompt: trimmed, context: trainingContext });
+        const result = await requestAiCoachAdvice({ prompt: trimmed, context: trainingContext, language });
         if (token !== askToken.current) {
           return;
         }
@@ -297,8 +301,8 @@ export function AICoachChatScreen({
               <View key={message.id} style={styles.lockWrap}>
                 <ProLockedCard
                   language={language}
-                  teaser={message.lockedLines[0]}
-                  lines={[message.lockedLines[1]]}
+                  teaser={t(language, 'coachChat.locked.teaser')}
+                  lines={message.lockedLines}
                   cta={t(language, 'coachChat.locked.cta')}
                   onPress={onOpenPremium}
                 />

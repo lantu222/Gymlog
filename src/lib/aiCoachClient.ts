@@ -55,7 +55,7 @@ function isErrorResponse(value: unknown): value is AICoachAdviceError {
 export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstreamSignal?: AbortSignal): Promise<RequestAiCoachAdviceResult> {
   if (!AI_COACH_API_URL) {
     return {
-      answer: buildAiCoachPreviewAnswer(input.prompt, input.context),
+      answer: buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       source: 'preview',
       note: 'Preview mode.',
     };
@@ -92,13 +92,13 @@ export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstream
     }
 
     return {
-      answer: buildAiCoachPreviewAnswer(input.prompt, input.context),
+      answer: buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       source: 'preview',
       note: 'Live error. Preview answer.',
     };
   } catch {
     return {
-      answer: buildAiCoachPreviewAnswer(input.prompt, input.context),
+      answer: buildAiCoachPreviewAnswer(input.prompt, input.context, input.language),
       source: 'preview',
       note: 'Live unavailable. Preview answer.',
     };

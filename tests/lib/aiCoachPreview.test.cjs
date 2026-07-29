@@ -199,3 +199,52 @@ module.exports = [
     },
   },
 ];
+
+// --- Language: every install answers from here, so it must speak Finnish ---
+
+const LANG_CASES = [
+  ['a plateau question', 'miksi penkki on jumissa', { plateaus: [{ exerciseKey: 'penkkipunnerrus', name: 'Penkkipunnerrus', stagnantSessions: 4, topWeightKg: 82.5 }] }],
+  ['a recovery question', 'olenko palautunut', {}],
+  ['a running question', 'haluan juosta 20 km', {}],
+  ['a program question', 'korjaa treenijakoni', {}],
+  ['an unmatched question', 'moikka', {}],
+];
+
+module.exports.push(
+  {
+    name: 'preview: every branch answers in Finnish when asked to',
+    run() {
+      for (const [label, prompt, overrides] of LANG_CASES) {
+        const answer = buildAiCoachPreviewAnswer(prompt, baseContext(overrides), 'fi');
+        const text = [answer.takeaway, ...answer.why, ...answer.nextSteps, ...answer.plan, ...answer.assumptions].join(' ');
+        // The tell for untranslated copy: these words only exist in the
+        // English strings this generator used to hardcode.
+        assert.doesNotMatch(text, /(week|session|sessions|Preview answer|Recovery score|reps|load)/i, label);
+        assert.match(answer.assumptions.join(' '), /Esikatseluvastaus/, label);
+      }
+    },
+  },
+  {
+    name: 'preview: English is still English, and is the default',
+    run() {
+      const explicit = buildAiCoachPreviewAnswer('moikka', baseContext(), 'en');
+      const implicit = buildAiCoachPreviewAnswer('moikka', baseContext());
+      assert.equal(explicit.takeaway, 'Ask one clear question.');
+      assert.equal(implicit.takeaway, explicit.takeaway, 'an older caller with no language still gets English');
+    },
+  },
+  {
+    name: 'preview: Finnish gets its own singular for one session',
+    run() {
+      const one = buildAiCoachPreviewAnswer('olenko palautunut', baseContext({
+        fatigue: { acwr: 1.05, recoveryScore: 90, signal: 'optimal', sessionCount7d: 1, confident: true },
+      }), 'fi');
+      assert.match(one.why.join(' '), /1 treeni tällä viikolla/);
+
+      const many = buildAiCoachPreviewAnswer('olenko palautunut', baseContext({
+        fatigue: { acwr: 1.05, recoveryScore: 90, signal: 'optimal', sessionCount7d: 4, confident: true },
+      }), 'fi');
+      assert.match(many.why.join(' '), /4 treeniä tällä viikolla/);
+    },
+  },
+);

@@ -110,7 +110,10 @@ module.exports = [
       // Out of quota the door stays open: the question still sends and the
       // answer comes back blurred, rather than the chat refusing to talk.
       assert.match(chat, /if \(!canAsk\) \{/);
-      assert.match(chat, /lockedLines:/);
+      // What is blurred is the REAL withheld answer — the offline coach is
+      // free and deterministic, so blurring a placeholder would be a bluff.
+      assert.match(chat, /buildAiCoachPreviewAnswer\(trimmed, trainingContext, language\)/);
+      assert.match(chat, /lockedLines: \[withheld\.takeaway/);
 
       // "AI program builder — Pro": the generator and both entries gate on Pro.
       assert.match(appSource, /if \(!isProUnlocked\(nextPreferences\)\) \{/);
