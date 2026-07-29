@@ -183,6 +183,12 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
+      screen: 'legal';
+      /** Privacy policy or terms — same screen, same source data. */
+      document: 'privacy' | 'terms';
+    }
+  | {
+      tab: 'profile';
       screen: 'setup';
       /**
        * Questionnaire entry point: 'avoid' jumps straight to the limitations

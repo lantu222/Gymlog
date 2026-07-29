@@ -26,6 +26,7 @@ interface SettingsScreenProps {
   onOpenSupport: () => void;
   onOpenFeatures: () => void;
   onOpenAiInfo: () => void;
+  onOpenLegal: (document: 'privacy' | 'terms') => void;
   onConnectHealth: () => void;
   onResetAllData: () => void;
 }
@@ -191,12 +192,11 @@ export function SettingsScreen({
   onOpenSupport,
   onOpenFeatures,
   onOpenAiInfo,
+  onOpenLegal,
   onConnectHealth,
   onResetAllData,
 }: SettingsScreenProps) {
   const [resetVisible, setResetVisible] = useState(false);
-  // Visual-only until its engine exists.
-  const [analytics, setAnalytics] = useState(true);
   const language = preferences.appLanguage;
   // A redeemed promo is Pro too, so the badge cannot read the preview switch.
   const proUnlocked = isProUnlocked(preferences);
@@ -400,14 +400,21 @@ export function SettingsScreen({
               chevron
               onPress={onOpenAiInfo}
             />
-            <Row icon="shield" title={t(language, 'settings.privacy')} chevron />
-            <Row icon="doc" title={t(language, 'settings.terms')} chevron />
+            <Row
+              icon="shield"
+              title={t(language, 'settings.privacy')}
+              chevron
+              onPress={() => onOpenLegal('privacy')}
+            />
+            <Row icon="doc" title={t(language, 'settings.terms')} chevron onPress={() => onOpenLegal('terms')} />
+            {/* Not a toggle. This app sends no analytics at all, so a switch
+                here would have been a lie in both positions — and the privacy
+                policy states the same fact. It is a statement, not a setting. */}
             <Row
               icon="analytics"
               title={t(language, 'settings.analytics')}
               sub={t(language, 'settings.analytics.sub')}
               last
-              control={<ToggleSwitch label={t(language, 'settings.analytics')} value={analytics} onChange={setAnalytics} />}
             />
           </View>
         </View>

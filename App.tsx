@@ -116,6 +116,7 @@ import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { SupportScreen } from './src/screens/SupportScreen';
 import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
 import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
+import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
 import { ProOfferScreen } from './src/screens/ProOfferScreen';
 import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
@@ -3505,6 +3506,7 @@ function GymlogApp() {
             adaptiveCoachPremiumUnlocked: !preferences.adaptiveCoachPremiumUnlocked,
           })
         }
+        onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {
@@ -3625,6 +3627,14 @@ function GymlogApp() {
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'legal') {
+    content = (
+      <LegalDocumentScreen
+        document={route.document}
+        language={preferences.appLanguage}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'edit_profile') {
     content = (
       <EditProfileScreen
@@ -3663,6 +3673,7 @@ function GymlogApp() {
         onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
         onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
+        onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
         onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
           await resetAllData();
@@ -3910,7 +3921,8 @@ function GymlogApp() {
       route.screen === 'subscription' ||
       route.screen === 'support' ||
       route.screen === 'features' ||
-      route.screen === 'ai_transparency');
+      route.screen === 'ai_transparency' ||
+      route.screen === 'legal');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
   const exercisePreferencesActive = route.tab === 'profile' && route.screen === 'exercise_preferences';

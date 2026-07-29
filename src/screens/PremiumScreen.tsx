@@ -35,6 +35,7 @@ interface PremiumScreenProps {
   language?: AppLanguage;
   onBack: () => void;
   onTogglePreview: () => void;
+  onOpenLegal: (document: 'privacy' | 'terms') => void;
 }
 
 type TableCell = 1 | 0 | 'quota';
@@ -207,6 +208,7 @@ export function PremiumScreen({
   language = 'en',
   onBack,
   onTogglePreview,
+  onOpenLegal,
 }: PremiumScreenProps) {
   const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
   const promoOnly = proUnlocked && !previewUnlocked;
@@ -436,9 +438,13 @@ export function PremiumScreen({
         )}
         <Text style={styles.ctaFine}>{t(language, 'pro.page.plannedNote')}</Text>
         <View style={styles.legalRow}>
-          <Text style={styles.legalText}>{t(language, 'pro.page.terms')}</Text>
+          <Pressable accessibilityRole="button" onPress={() => onOpenLegal('terms')} hitSlop={8}>
+            <Text style={styles.legalText}>{t(language, 'pro.page.terms')}</Text>
+          </Pressable>
           <View style={styles.legalDot} />
-          <Text style={styles.legalText}>{t(language, 'pro.page.privacy')}</Text>
+          <Pressable accessibilityRole="button" onPress={() => onOpenLegal('privacy')} hitSlop={8}>
+            <Text style={styles.legalText}>{t(language, 'pro.page.privacy')}</Text>
+          </Pressable>
         </View>
       </View>
     </View>
@@ -1003,6 +1009,8 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: HG.faint,
+    // These open the real documents now, so they have to look like links.
+    textDecorationLine: 'underline',
   },
   legalDot: {
     width: 3,
