@@ -344,6 +344,41 @@ function getOverviewDurationTicks(maxValue: number) {
   return Array.from({ length: top / step + 1 }, (_, index) => index * step);
 }
 
+/**
+ * Volume ticks on round numbers.
+ *
+ * Without these the chart interpolated its own axis and printed things like
+ * "1730.8 kg" and "496.7 kg" — a decimal on a number nobody lifts to a tenth
+ * of a kilo, under a headline that already reads "2,2 t". The axis steps in
+ * halves and thousands instead, and the labels use the same compact unit as
+ * the headline so the two agree.
+ */
+function getOverviewVolumeTicks(maxValue: number) {
+  if (maxValue <= 0) {
+    return [0, 250, 500];
+  }
+
+  // Step from a 1 / 2.5 / 5 ladder so every tick lands on a readable number.
+  const magnitude = Math.pow(10, Math.floor(Math.log10(maxValue / 3)));
+  const step = [1, 2.5, 5, 10].map((factor) => factor * magnitude).find((candidate) => maxValue / candidate <= 4)
+    ?? 10 * magnitude;
+  const top = Math.ceil(maxValue / step) * step;
+  const ticks: number[] = [];
+  for (let tick = 0; tick <= top + step / 2; tick += step) {
+    ticks.push(Number(tick.toFixed(2)));
+  }
+  return ticks;
+}
+
+function formatOverviewVolumeTick(value: number, ticks: number[]) {
+  const top = ticks.length ? ticks[ticks.length - 1] : 0;
+  if (top >= 1000) {
+    const tonnes = value / 1000;
+    return `${removeTrailingZeros(Number(tonnes.toFixed(tonnes >= 10 ? 0 : 1)))} t`;
+  }
+  return `${removeTrailingZeros(Math.round(value))} kg`;
+}
+
 function getOverviewBodyweightTicks(values: number[], unitPreference: UnitPreference) {
   if (!values.length) {
     return unitPreference === 'lb' ? [100, 102, 104, 106] : [50, 50.5, 51, 51.5];
@@ -814,13 +849,16 @@ export function ProgressScreen({
       overviewRange,
       'sum',
     );
+    const volumeTicks = getOverviewVolumeTicks(Math.max(...points.map((point) => point.value), 0));
     return {
       valueLabel: formatCompactVolume(rows.reduce((sum, row) => sum + row.volume, 0), unitPreference),
       unitLabel: unitPreference,
       points,
       footerLabels: getOverviewFooterLabels(points, overviewRange, language),
-      yTickValues: undefined,
-      formatValueLabel: undefined,
+      yTickValues: volumeTicks,
+      // One unit for the whole axis: formatCompactVolume alone would mix
+      // "500 kg" and "1 t" on the same scale. The top tick decides.
+      formatValueLabel: (value: number) => formatOverviewVolumeTick(value, volumeTicks),
       tooltipFormatter: (point: { label: string; value: number }) => ({
         title: formatDate(point.label, language),
         value: formatVolume(

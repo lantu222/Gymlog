@@ -159,6 +159,12 @@ module.exports = [
       assert.match(progress, /points=\{overviewChart\.points\}/);
       assert.match(progress, /onChange=\{setOverviewMetric\}/);
       assert.match(progress, /onChange=\{setOverviewRange\}/);
+
+      // Volume was the one metric with no tick values, so the chart made its
+      // own and printed "1730.8 kg" under a headline reading "2,2 t".
+      assert.match(progress, /yTickValues: volumeTicks/);
+      assert.match(progress, /formatOverviewVolumeTick\(value, volumeTicks\)/);
+      assert.doesNotMatch(progress, /yTickValues: undefined/);
     },
   },
   {
