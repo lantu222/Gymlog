@@ -23,6 +23,10 @@ import {
 } from '../lib/format';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
+import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
+import { ProLockedCard } from '../components/ProLockedCard';
+import { ProMomentSheet } from '../components/ProMomentSheet';
+import { PW } from '../lightTheme';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
 import {
   BodyweightProgressSummary,
@@ -82,6 +86,11 @@ interface ProgressScreenProps {
   recentSessions?: HomeRecentSessionItem[];
   onOpenSessionHistory?: () => void;
   onOpenRecentSession?: (sessionId: string) => void;
+  /** Paywall moment 3: traffic-light statuses (free) with Pro conclusions. */
+  weeklyRead?: WeeklyReadRow[];
+  readMoment?: ProMomentContent | null;
+  proUnlocked?: boolean;
+  onOpenPremium?: () => void;
 }
 
 // The activity grid is Monday-first, so these are the one-letter chips in that
@@ -620,7 +629,12 @@ export function ProgressScreen({
   recentSessions = [],
   onOpenSessionHistory,
   onOpenRecentSession,
+  weeklyRead = [],
+  readMoment = null,
+  proUnlocked = false,
+  onOpenPremium,
 }: ProgressScreenProps) {
+  const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [progressQuery, setProgressQuery] = useState('');
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
@@ -930,11 +944,91 @@ export function ProgressScreen({
 
   // ── sections ──
 
+  function renderWeeklyRead() {
+    if (weeklyRead.length === 0) {
+      return null;
+    }
+    return (
+      <View style={styles.readBlock}>
+        <Text style={styles.readTitle}>{t(language, 'pro.read.title')}</Text>
+        <View style={styles.readList}>
+          {weeklyRead.map((row) => {
+            const tone =
+              row.tone === 'green'
+                ? { dot: PW.green, soft: PW.greenSoft }
+                : row.tone === 'amber'
+                  ? { dot: PW.amber, soft: PW.amberSoft }
+                  : { dot: PW.red, soft: PW.redSoft };
+            return (
+              <View key={row.key} style={styles.readRow}>
+                <View style={styles.readRowHead}>
+                  <View style={[styles.readDotRing, { backgroundColor: tone.soft }]}>
+                    <View style={[styles.readDot, { backgroundColor: tone.dot }]} />
+                  </View>
+                  <View style={styles.readCopy}>
+                    <Text style={styles.readName} numberOfLines={1}>
+                      {row.name} — <Text style={{ color: tone.dot }}>{row.status}</Text>
+                    </Text>
+                    <Text style={styles.readMeta}>{row.meta}</Text>
+                  </View>
+                  <View style={styles.readBars}>
+                    {row.bars.map((bar, index) => (
+                      <View
+                        key={index}
+                        style={[
+                          styles.readBar,
+                          {
+                            height: `${Math.round(bar * 100)}%`,
+                            backgroundColor: index === row.bars.length - 1 ? tone.dot : tone.soft,
+                          },
+                        ]}
+                      />
+                    ))}
+                  </View>
+                </View>
+                {row.locked ? (
+                  <View style={styles.readLock}>
+                    {proUnlocked ? (
+                      <View style={styles.readFix}>
+                        {row.locked.lines.map((line, index) => (
+                          <Text key={index} style={styles.readFixLine}>
+                            {line}
+                          </Text>
+                        ))}
+                      </View>
+                    ) : (
+                      <ProLockedCard
+                        language={language}
+                        compact
+                        teaser={t(language, 'pro.read.lockedTeaser')}
+                        lines={row.locked.lines}
+                        cta={t(language, 'pro.read.lockedCta')}
+                        onPress={() => {
+                          if (readMoment) {
+                            setReadSheetVisible(true);
+                          } else {
+                            onOpenPremium?.();
+                          }
+                        }}
+                      />
+                    )}
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
+        <Text style={styles.readFooter}>{t(language, 'pro.read.footer')}</Text>
+      </View>
+    );
+  }
+
   function renderOverview() {
     const maxWeekSessions = Math.max(4, ...rhythm.sessionsPerWeek);
 
     return (
       <>
+        {renderWeeklyRead()}
         {heroSummary ? (
           <View style={styles.heroBlock}>
             <View style={styles.heroCard}>
@@ -1370,6 +1464,17 @@ export function ProgressScreen({
         {progressSection === 'tracked' ? renderTracked() : null}
         {progressSection === 'measures' ? renderMeasures() : null}
       </ScrollView>
+
+      <ProMomentSheet
+        visible={readSheetVisible}
+        content={readMoment}
+        language={language}
+        onClose={() => setReadSheetVisible(false)}
+        onSeePro={() => {
+          setReadSheetVisible(false);
+          onOpenPremium?.();
+        }}
+      />
     </View>
   );
 }
@@ -1378,6 +1483,92 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: HG.bg,
+  },
+  readBlock: {
+    marginBottom: 18,
+  },
+  readTitle: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: HG.faint,
+    marginBottom: 11,
+  },
+  readList: {
+    gap: 10,
+  },
+  readRow: {
+    backgroundColor: HG.surface,
+    borderWidth: 1,
+    borderColor: HG.border,
+    borderRadius: 18,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+  },
+  readRowHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 11,
+  },
+  readDotRing: {
+    width: 20,
+    height: 20,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  readDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 999,
+  },
+  readCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  readName: {
+    fontSize: 15.5,
+    fontWeight: '800',
+    color: HG.ink,
+  },
+  readMeta: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: HG.muted,
+    marginTop: 2,
+  },
+  readBars: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 3,
+    height: 30,
+    width: 52,
+  },
+  readBar: {
+    flex: 1,
+    borderRadius: 3,
+  },
+  readLock: {
+    marginTop: 13,
+  },
+  readFix: {
+    backgroundColor: HG.surfaceSoft,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  readFixLine: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: HG.ink,
+    lineHeight: 20,
+  },
+  readFooter: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: HG.faint,
+    lineHeight: 18,
+    marginTop: 14,
   },
   header: {
     paddingHorizontal: 20,

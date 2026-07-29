@@ -7,6 +7,9 @@ import { ExerciseInfoSheet } from '../components/ExerciseInfoSheet';
 import { InlineTip } from '../components/InlineTip';
 import { WorkoutSetRow } from '../components/WorkoutSetRow';
 import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation, resolveAdaptiveCoachOffer } from '../lib/adaptiveCoach';
+import { buildLoggerMoment } from '../lib/proInsights';
+import { ProLockIcon, ProPill } from '../components/ProLockedCard';
+import { ProMomentSheet } from '../components/ProMomentSheet';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getGuidedSessionTitle } from '../lib/guidedPlayer';
@@ -104,10 +107,10 @@ const REST_TIMER_OPTIONS: { label: string; seconds: number | null }[] = [
   { label: '2:30 min', seconds: 150 },
   { label: '3:00 min', seconds: 180 },
 ];
-const EFFORT_OPTIONS: { value: WorkoutSetEffort; label: string }[] = [
-  { value: 'easy', label: 'Easy' },
-  { value: 'good', label: 'Good' },
-  { value: 'hard', label: 'Hard' },
+const EFFORT_OPTIONS: { value: WorkoutSetEffort; labelKey: I18nKey }[] = [
+  { value: 'easy', labelKey: 'logger.effort.easy' },
+  { value: 'good', labelKey: 'logger.effort.good' },
+  { value: 'hard', labelKey: 'logger.effort.hard' },
 ];
 
 function normalizeName(value: string) {
@@ -398,6 +401,7 @@ export function WorkoutLoggingScreen({
   const [restTimerMenuOpen, setRestTimerMenuOpen] = useState(false);
   const [skippedEffortKeys, setSkippedEffortKeys] = useState<string[]>([]);
   const [postEffortTransition, setPostEffortTransition] = useState<PostEffortTransitionState | null>(null);
+  const [coachMomentVisible, setCoachMomentVisible] = useState(false);
   const [collapsedExerciseSlotIds, setCollapsedExerciseSlotIds] = useState<string[]>([]);
   const bootstrappedTargetKeyRef = useRef<string | null>(null);
 
@@ -519,6 +523,20 @@ export function WorkoutLoggingScreen({
     () => activeSession?.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.status === 'completed').length ?? 0,
     [activeSession?.exercises],
   );
+  // Moment 4's sheet content: the next exercise's own top-set history. Null
+  // when there is no logged history to show, and then the chip opens the Pro
+  // page directly instead of an empty chart.
+  const lockedCoachMoment = useMemo(() => {
+    if (!postEffortTransition?.adaptiveCoachLocked) {
+      return null;
+    }
+    return buildLoggerMoment(
+      previousEntriesBySlot[postEffortTransition.nextExercise.slotId] ?? [],
+      postEffortTransition.nextExercise.exerciseName,
+      language,
+      setupLevel,
+    );
+  }, [language, postEffortTransition, previousEntriesBySlot, setupLevel]);
   const isFirstSession = history.sessions.length === 0;
   const loggedExercises = useMemo(
     () =>
@@ -953,6 +971,45 @@ export function WorkoutLoggingScreen({
                   </Pressable>
                 </Pressable>
 
+                {/* Paywall moment 4 — after an effort rating, under the next
+                    exercise. Pro sees the real recommendation card; free sees
+                    a passive dashed chip. Never a modal mid-set: the sets
+                    below stay tappable, and the chip only speaks when tapped. */}
+                {postEffortTransition && postEffortTransition.nextExercise.slotId === exercise.slotId ? (
+                  postEffortTransition.adaptiveCoach ? (
+                    <View style={styles.coachCard}>
+                      <View style={styles.coachCardHead}>
+                        <Svg width={14} height={14} viewBox="0 0 24 24">
+                          <Path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z" fill={LOGGING_PURPLE} />
+                        </Svg>
+                        <Text style={styles.coachCardTitle}>{postEffortTransition.adaptiveCoach.title}</Text>
+                      </View>
+                      <Text style={styles.coachCardLine}>{postEffortTransition.adaptiveCoach.targetLine}</Text>
+                      <Text style={styles.coachCardLine}>{postEffortTransition.adaptiveCoach.restLine}</Text>
+                      <Text style={styles.coachCardRationale}>{postEffortTransition.adaptiveCoach.rationale}</Text>
+                    </View>
+                  ) : postEffortTransition.adaptiveCoachLocked ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t(language, 'pro.logger.chip', { set: postEffortTransition.nextSetNumber })}
+                      onPress={() => {
+                        if (lockedCoachMoment) {
+                          setCoachMomentVisible(true);
+                        } else {
+                          onOpenAdaptiveCoachPremium?.();
+                        }
+                      }}
+                      style={({ pressed }) => [styles.coachChip, pressed && { opacity: 0.85 }]}
+                    >
+                      <ProLockIcon />
+                      <Text style={styles.coachChipText}>
+                        {t(language, 'pro.logger.chip', { set: postEffortTransition.nextSetNumber })}
+                      </Text>
+                      <ProPill />
+                    </Pressable>
+                  ) : null
+                ) : null}
+
                 {isOpen ? (
                   <View style={styles.activeExercisePanel}>
                     <Pressable
@@ -1056,6 +1113,42 @@ export function WorkoutLoggingScreen({
                       })}
                     </View>
 
+                    {/* The effort question. It was declared and never rendered:
+                        EFFORT_OPTIONS and handleRecordEffort existed as dead
+                        code, so no set could ever be rated — which silently
+                        killed the adaptive coach, the coach's rest override,
+                        and paywall moment 4, all of which start here. Inline
+                        and skippable, never a modal: it must not block the
+                        next set. */}
+                    {activeEffortPrompt && activeEffortPrompt.slotId === exercise.slotId ? (
+                      <View style={styles.effortPrompt}>
+                        <View style={styles.effortPromptHead}>
+                          <Text style={styles.effortPromptTitle}>
+                            {t(language, 'logger.effort.question', { set: activeEffortPrompt.setNumber })}
+                          </Text>
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={handleSkipEffortPrompt}
+                            hitSlop={8}
+                          >
+                            <Text style={styles.effortSkip}>{t(language, 'logger.effort.skip')}</Text>
+                          </Pressable>
+                        </View>
+                        <View style={styles.effortOptions}>
+                          {EFFORT_OPTIONS.map((option) => (
+                            <Pressable
+                              key={option.value}
+                              accessibilityRole="button"
+                              onPress={() => handleRecordEffort(option.value)}
+                              style={({ pressed }) => [styles.effortOption, pressed && { opacity: 0.85 }]}
+                            >
+                              <Text style={styles.effortOptionText}>{t(language, option.labelKey)}</Text>
+                            </Pressable>
+                          ))}
+                        </View>
+                      </View>
+                    ) : null}
+
                     <Pressable onPress={() => addSet(exercise.slotId)} style={styles.addSetButton}>
                       <Text style={styles.addSetText}>{t(language, 'logger.addSet')}</Text>
                     </Pressable>
@@ -1085,6 +1178,17 @@ export function WorkoutLoggingScreen({
           <Text style={styles.cancelWorkoutText}>{t(language, 'logger.cancel')}</Text>
         </Pressable>
       </ScrollView>
+
+      <ProMomentSheet
+        visible={coachMomentVisible}
+        content={lockedCoachMoment}
+        language={language}
+        onClose={() => setCoachMomentVisible(false)}
+        onSeePro={() => {
+          setCoachMomentVisible(false);
+          onOpenAdaptiveCoachPremium?.();
+        }}
+      />
 
       <AddExerciseSheet
         visible={showAddExercise}
@@ -1490,6 +1594,111 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     fontWeight: '900',
     letterSpacing: 1,
+  },
+  effortPrompt: {
+    marginTop: 10,
+    backgroundColor: '#F6F2FF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  effortPromptHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  effortPromptTitle: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#2A2340',
+  },
+  effortSkip: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#7A7391',
+  },
+  effortOptions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  effortOption: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#DDD2F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  effortOptionText: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: LOGGING_PURPLE,
+  },
+  // Moment 4: the Pro recommendation card and the free locked chip.
+  coachCard: {
+    marginTop: 8,
+    marginBottom: 4,
+    backgroundColor: '#EFE7FF',
+    borderWidth: 1,
+    borderColor: LOGGING_PURPLE,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  coachCardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  coachCardTitle: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '800',
+    color: '#3B2A64',
+  },
+  coachCardLine: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1C1533',
+    marginTop: 6,
+  },
+  coachCardRationale: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#5B5474',
+    lineHeight: 17,
+    marginTop: 7,
+  },
+  coachChip: {
+    marginTop: 8,
+    marginBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: LOGGING_PURPLE,
+    borderStyle: 'dashed',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  coachChipText: {
+    fontFamily: WORKOUT_FONT_FAMILY,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#5B21B6',
   },
   activeExercisePanel: {
     marginHorizontal: 0,

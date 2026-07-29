@@ -6,6 +6,7 @@ import { colors, radii, spacing } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { getWorkoutSetValidationMessage } from '../lib/workoutValidation';
+import { I18nKey, t } from '../lib/i18n';
 
 const LOGGING_PURPLE = '#7C3AED';
 const SUCCESS_GREEN = '#16A34A';
@@ -172,6 +173,22 @@ export function WorkoutSetRow({
         </View>
 
       </View>
+
+      {/* A recorded effort reads back on the row. The prop and these styles
+          existed unused — the rating had nowhere to land, and nothing showed
+          that a set had been rated at all. */}
+      {completed && effort ? (
+        <View style={styles.effortRow}>
+          <View
+            style={[
+              styles.effortPill,
+              effort === 'easy' ? styles.effortPillEasy : effort === 'hard' ? styles.effortPillHard : styles.effortPillGood,
+            ]}
+          >
+            <Text style={styles.effortText}>{t(language, `logger.effort.${effort}` as I18nKey)}</Text>
+          </View>
+        </View>
+      ) : null}
 
       {validationMessage ? <Text style={styles.validationText}>{validationMessage}</Text> : null}
     </Pressable>

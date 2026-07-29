@@ -423,6 +423,16 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
             (id: unknown): id is string => typeof id === 'string' && id.length > 0,
           )
         : fallback.preferences.featureVotedIds,
+      aiCoachFreeQuota:
+        input?.preferences?.aiCoachFreeQuota &&
+        typeof input.preferences.aiCoachFreeQuota.weekStart === 'string' &&
+        typeof input.preferences.aiCoachFreeQuota.used === 'number' &&
+        Number.isFinite(input.preferences.aiCoachFreeQuota.used)
+          ? {
+              weekStart: input.preferences.aiCoachFreeQuota.weekStart,
+              used: Math.max(0, Math.round(input.preferences.aiCoachFreeQuota.used)),
+            }
+          : fallback.preferences.aiCoachFreeQuota,
       adaptiveCoachPremiumUnlocked:
         typeof input?.preferences?.adaptiveCoachPremiumUnlocked === 'boolean'
           ? input.preferences.adaptiveCoachPremiumUnlocked

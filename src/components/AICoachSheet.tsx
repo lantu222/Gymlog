@@ -25,6 +25,13 @@ interface AICoachSheetProps {
   visible: boolean;
   /** False shows the locked preview instead of the coach. */
   proUnlocked: boolean;
+  /**
+   * The real free tier (Pro page table row "AI Coach — 3 / wk"): questions a
+   * free user may still ask this week. The lock only closes when it hits 0.
+   */
+  freeQuestionsRemaining?: number;
+  /** Called when a free user's question is actually sent. */
+  onFreeQuestionUsed?: () => void;
   modules: CoachModules;
   trainingContext: AICoachTrainingContext;
   language?: AppLanguage;
@@ -84,6 +91,8 @@ function BulletGlyph({ tone }: { tone: CoachBullet['tone'] }) {
 export function AICoachSheet({
   visible,
   proUnlocked,
+  freeQuestionsRemaining = 0,
+  onFreeQuestionUsed,
   modules,
   trainingContext,
   language = 'en',
@@ -115,11 +124,18 @@ export function AICoachSheet({
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   }, []);
 
+  const chatUnlocked = proUnlocked || freeQuestionsRemaining > 0;
+
   const send = useCallback(
     async (prompt: string) => {
       const trimmed = prompt.trim();
-      if (!trimmed || asking) {
+      if (!trimmed || asking || !chatUnlocked) {
         return;
+      }
+      if (!proUnlocked) {
+        // Free question spent the moment it is sent, not answered — a failed
+        // upstream call still called the model's front door.
+        onFreeQuestionUsed?.();
       }
 
       const token = (askToken.current += 1);
@@ -159,7 +175,7 @@ export function AICoachSheet({
         }
       }
     },
-    [asking, language, scrollToEnd, trainingContext],
+    [asking, chatUnlocked, language, onFreeQuestionUsed, proUnlocked, scrollToEnd, trainingContext],
   );
 
   const suggestion = dismissedSuggestion ? null : modules.suggestion;
@@ -213,9 +229,9 @@ export function AICoachSheet({
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.bodyContent}
               keyboardShouldPersistTaps="handled"
-              scrollEnabled={proUnlocked}
+              scrollEnabled={chatUnlocked}
             >
-              <View style={proUnlocked ? null : styles.lockedModules} pointerEvents={proUnlocked ? 'auto' : 'none'}>
+              <View style={chatUnlocked ? null : styles.lockedModules} pointerEvents={chatUnlocked ? 'auto' : 'none'}>
                 {showEmptyState ? (
                   <View style={styles.emptyCard}>
                     <Text style={styles.emptyTitle}>{t(language, 'coach.empty.title')}</Text>
@@ -371,6 +387,14 @@ export function AICoachSheet({
                     ))}
                   </View>
 
+                  {!proUnlocked && freeQuestionsRemaining > 0 ? (
+                    <View style={styles.quotaPill}>
+                      <Text style={styles.quotaPillText}>
+                        {t(language, 'pro.coach.quotaLeft', { count: freeQuestionsRemaining })}
+                      </Text>
+                    </View>
+                  ) : null}
+
                   <View style={styles.composer}>
                     <TextInput
                       value={draft}
@@ -381,7 +405,7 @@ export function AICoachSheet({
                       style={styles.input}
                       onSubmitEditing={() => void send(draft)}
                       returnKeyType="send"
-                      editable={proUnlocked}
+                      editable={chatUnlocked}
                     />
                     <Pressable
                       accessibilityRole="button"
@@ -404,7 +428,7 @@ export function AICoachSheet({
               </View>
             </ScrollView>
 
-            {proUnlocked ? null : (
+            {chatUnlocked ? null : (
               <View style={styles.lockLayer} pointerEvents="box-none">
                 {/* Dimming alone still left the figures readable on device, so a
                     scrim sits over the preview: you can see there is a coach
@@ -422,8 +446,10 @@ export function AICoachSheet({
                       />
                     </Svg>
                   </View>
-                  <Text style={styles.lockTitle}>{t(language, 'coach.lock.title')}</Text>
-                  <Text style={styles.lockBody}>{t(language, 'coach.lock.body')}</Text>
+                  {/* The lock only closes when the week's 3 free questions
+                      are spent — a fresh free user chats first. */}
+                  <Text style={styles.lockTitle}>{t(language, 'pro.coach.quotaUsed')}</Text>
+                  <Text style={styles.lockBody}>{t(language, 'pro.coach.quotaBody')}</Text>
                   <Pressable
                     accessibilityRole="button"
                     onPress={onStartTrial}
@@ -764,6 +790,19 @@ const styles = StyleSheet.create({
     color: COACH.text,
     fontSize: 12.5,
     fontWeight: '700',
+  },
+  quotaPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(244,183,64,0.14)',
+    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 11,
+    marginTop: 10,
+  },
+  quotaPillText: {
+    color: COACH.gold,
+    fontSize: 11.5,
+    fontWeight: '800',
   },
   composer: {
     flexDirection: 'row',

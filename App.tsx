@@ -44,6 +44,19 @@ import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
+import { buildFatigueModel } from './src/lib/fatigueModel';
+import { buildLiftHistories } from './src/lib/trainingHistory';
+import {
+  buildCompletionConclusion,
+  buildNextSessionMoment,
+  buildPlateauConclusion,
+  buildPlateauDetection,
+  buildPlateauMoment,
+  buildWeeklyRead,
+  detectPlateau,
+  pickCompletionLift,
+} from './src/lib/proInsights';
+import { recordCoachQuestion, resolveCoachQuota } from './src/lib/aiCoachQuota';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
 import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTitle } from './src/lib/homeSessionHero';
@@ -876,6 +889,13 @@ function GymlogApp() {
 
   async function openAiMode(preferencesPatch?: Partial<AppPreferences>) {
     const nextPreferences = preferencesPatch ? { ...preferences, ...preferencesPatch } : preferences;
+    // The AI program builder is Pro (the Pro page table says so, so it must be
+    // true). Free users land on the Pro page instead of a generator they
+    // cannot run.
+    if (!isProUnlocked(nextPreferences)) {
+      navigate({ tab: 'profile', screen: 'premium' });
+      return;
+    }
     if (!nextPreferences.aiSetupCompleted) {
       navigate({ tab: 'home', screen: 'ai_setup' });
       return;
@@ -1201,6 +1221,53 @@ function GymlogApp() {
   const premiumHeroChart = useMemo(
     () => buildPremiumHeroChart(trackedProgress, unitPreference),
     [trackedProgress, unitPreference],
+  );
+  // The paywall-moments data layer: real lift histories → detections (free)
+  // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
+  const proLiftHistories = useMemo(
+    () => buildLiftHistories(database.workoutSessions, database.exerciseLogs),
+    [database.exerciseLogs, database.workoutSessions],
+  );
+  const proFatigue = useMemo(
+    () =>
+      buildFatigueModel({
+        workoutSessions: database.workoutSessions,
+        exerciseLogs: database.exerciseLogs,
+      }),
+    [database.exerciseLogs, database.workoutSessions],
+  );
+  const proPlateauLift = useMemo(() => detectPlateau(proLiftHistories), [proLiftHistories]);
+  const proPlateau = useMemo(
+    () =>
+      proPlateauLift
+        ? {
+            detection: buildPlateauDetection(proPlateauLift, preferences.appLanguage),
+            conclusion: buildPlateauConclusion(proPlateauLift, preferences.appLanguage),
+            moment: buildPlateauMoment(proPlateauLift, preferences.appLanguage, preferences.setupLevel),
+          }
+        : null,
+    [preferences.appLanguage, preferences.setupLevel, proPlateauLift],
+  );
+  const proWeeklyRead = useMemo(
+    () => buildWeeklyRead(proLiftHistories, proFatigue, preferences.appLanguage),
+    [preferences.appLanguage, proFatigue, proLiftHistories],
+  );
+  const proCompletionLift = useMemo(() => pickCompletionLift(proLiftHistories), [proLiftHistories]);
+  const proCompletionMoment = useMemo(
+    () =>
+      proCompletionLift
+        ? {
+            conclusion: buildCompletionConclusion(proCompletionLift, preferences.appLanguage, preferences.setupLevel),
+            moment: buildNextSessionMoment(proCompletionLift, preferences.appLanguage, preferences.setupLevel),
+          }
+        : null,
+    [preferences.appLanguage, preferences.setupLevel, proCompletionLift],
+  );
+  // The Pro page's coach specimen: the deterministic read of the user's own
+  // stalled lift — the same text Pro unlocks at the plateau moments.
+  const proCoachSpecimen = useMemo(
+    () => (proPlateau ? proPlateau.conclusion.lines.join(' ') : null),
+    [proPlateau],
   );
   const homeActiveWorkoutSummary = useMemo(() => {
     if (!workout.activeSession) {
@@ -3247,6 +3314,18 @@ function GymlogApp() {
         muscles={completionSummary.muscles}
         exerciseCards={completionSummary.exerciseCards}
         prCards={completionSummary.prCards}
+        // Moment 1 is for free users only — Pro gets the conclusions unlocked
+        // at the surfaces where they live, not a lock on its own screen.
+        lockedInsight={
+          !coachProUnlocked && proCompletionMoment
+            ? {
+                teaser: proCompletionMoment.conclusion.teaser,
+                lines: proCompletionMoment.conclusion.lines,
+                moment: proCompletionMoment.moment,
+              }
+            : null
+        }
+        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         onDone={() => {
           setCompletionSummary(null);
           setWorkoutCelebration(null);
@@ -3294,6 +3373,10 @@ function GymlogApp() {
           rhythm={progressTrainingRhythm}
           weeklyTargetSessions={progressWeeklyTarget}
           unitPreference={unitPreference}
+          weeklyRead={proWeeklyRead}
+          readMoment={proPlateau?.moment ?? null}
+          proUnlocked={coachProUnlocked}
+          onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
           language={preferences.appLanguage}
           selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
         initialSection={route.screen === 'list' ? route.section : undefined}
@@ -3439,6 +3522,9 @@ function GymlogApp() {
         proUnlocked={coachProUnlocked}
         heroChart={premiumHeroChart}
         unitPreference={unitPreference}
+        sessionCount={database.workoutSessions.length}
+        coachSpecimen={proCoachSpecimen}
+        trainingDayIndexes={homeTrainingDayIndexes}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onTogglePreview={() =>
           void updatePreferences({
@@ -3483,7 +3569,7 @@ function GymlogApp() {
                 navigate({ tab: 'workout', screen: 'template', workoutTemplateId: homeActivePlanCard.programId })
             : undefined
         }
-        onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_setup' })}
+        onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
         onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
@@ -3698,7 +3784,7 @@ function GymlogApp() {
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}
         onAdjustSchedule={handleOpenPlanSettings}
-        onAiAssisted={() => navigate({ tab: 'home', screen: 'ai_setup' })}
+        onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
@@ -3789,6 +3875,8 @@ function GymlogApp() {
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
         onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
+        plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}
+        proUnlocked={coachProUnlocked}
         historyItems={homeHistoryItems}
         onOpenHistory={() => navigate({ tab: 'home', screen: 'history' })}
         onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
@@ -3899,6 +3987,10 @@ function GymlogApp() {
       <AICoachSheet
         visible={coachSheetVisible}
         proUnlocked={coachProUnlocked}
+        freeQuestionsRemaining={resolveCoachQuota(preferences.aiCoachFreeQuota).remaining}
+        onFreeQuestionUsed={() =>
+          void updatePreferences({ aiCoachFreeQuota: recordCoachQuestion(preferences.aiCoachFreeQuota) })
+        }
         modules={coachModules}
         trainingContext={aiCoachTrainingContext}
         language={preferences.appLanguage}

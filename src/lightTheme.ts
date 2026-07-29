@@ -31,6 +31,30 @@ export const HG = {
 export type HGToken = keyof typeof HG;
 
 /**
+ * Paywall-moment tokens ("PW", pw-shared.jsx): the locked-state language and
+ * the caution colours the detection cards use. Shared by the locked card, the
+ * contextual sheet, the Pro page, and the traffic-light rows so the moments
+ * cannot drift apart.
+ */
+export const PW = {
+  amber: '#D97706',
+  amberSoft: '#FDF3E3',
+  amberBorder: '#F0D3A2',
+  amberInk: '#7A5B32',
+  red: '#DC2626',
+  redSoft: '#FDECEC',
+  green: '#16A34A',
+  greenSoft: '#E8F7EE',
+  proInk: '#5B21B6',
+  /** Contextual sheet gradient stops (dark violet). */
+  sheetTop: '#251743',
+  sheetMid: '#3A1F7A',
+  sheetBottom: '#4A2398',
+  sheetLavender: '#C9B6FF',
+  sheetMint: '#8FE3B4',
+} as const;
+
+/**
  * Active Workout v3 palette additions ("AW3" tokens, aw3-shared.jsx). Field
  * and hairline colors for the shared logging surfaces: the freestyle Empty
  * Workout screen now, the Active Workout v3 rebuild later.

@@ -71,67 +71,98 @@ module.exports = [
     },
   },
   {
-    name: 'every lane the premium screen calls LIVE is one the app actually runs',
+    name: 'the Pro page table draws the line where the code draws it',
     run() {
-      const lanes = premiumSource.match(/const LANES[\s\S]*?\n\];/);
-      assert.ok(lanes, 'LANES list should still be declared');
+      const table = premiumSource.match(/const TABLE[\s\S]*?\n\];/);
+      assert.ok(table, 'the grouped Track/Understand/Decide table should be declared');
 
-      // The AI coach sheet and the session-analysis screen are both gated on
-      // Pro and both work, so they belong on the list a buyer reads.
-      assert.match(lanes[0], /live: true, variant: 'ai'/);
-      assert.match(premiumSource, /labelKey: 'premium\.lane\.ai', free: false, premium: 'Live'/);
-
-      // Nothing without an implementation may claim Live.
-      assert.match(lanes[0], /live: false, variant: 'session'/);
-      assert.match(lanes[0], /live: false, variant: 'week'/);
-    },
-  },
-  {
-    name: 'the paywall states no efficacy figure nobody measured',
-    run() {
-      const stats = homeSource.match(/const PRO_STATS[\s\S]*?\n\];/);
-      assert.ok(stats, 'PRO_STATS should still be declared');
-
-      // These two shipped as "2.3x more consistent training" and "+34% avg.
-      // strength in 12 wks" on a paywall. There is no study and there are no
-      // users; they were invented. Every figure here must come from the code.
-      assert.doesNotMatch(stats[0], /'2\.3'|'\+34'/);
-      assert.match(stats[0], /GENERATED_EXERCISE_LIBRARY\.length/);
-      assert.match(stats[0], /DEFAULT_HISTORY_WINDOW_DAYS/);
-      // "Unlimited AI coach questions" was false too — the endpoint rate-limits
-      // and holds a token budget.
-      assert.doesNotMatch(stats[0], /'∞'/);
-    },
-  },
-  {
-    name: 'the paywall does not bill free features as Pro',
-    run() {
-      const rows = homeSource.match(/const PRO_COMPARISON[\s\S]*?\n\];/);
-      assert.ok(rows, 'PRO_COMPARISON should still be declared');
-
-      // Ready plans, own templates and the progress tab all work without
-      // paying. Marking them Pro-only sells the free tier short and is the
-      // same lie in the other direction.
-      for (const key of ['log', 'plans', 'analytics']) {
-        assert.match(
-          rows[0],
-          new RegExp(`'home\\.proSheet\\.row\\.${key}', free: true`),
-          `${key} is free in the app and must say so`,
-        );
+      // TRACK: everything free stays marked free in both columns.
+      for (const key of ['logging', 'ready', 'own', 'history', 'records', 'rest']) {
+        assert.match(table[0], new RegExp(`\['pro\.page\.row\.${key}', 1, 1\]`), `${key} is free`);
       }
-      for (const key of ['adaptive', 'coach']) {
-        assert.match(rows[0], new RegExp(`'home\\.proSheet\\.row\\.${key}', free: false`));
-      }
-      // Nothing implemented an early-access promise.
-      assert.doesNotMatch(rows[0], /earlyAccess/);
+
+      // The paywall-moments rule: the detection is free, the conclusion is Pro.
+      assert.match(table[0], /\['pro\.page\.row\.plateau', 1, 1\]/);
+      assert.match(table[0], /\['pro\.page\.row\.why', 0, 1\]/);
+      assert.match(table[0], /\['pro\.page\.row\.recovery', 0, 1\]/);
+      assert.match(table[0], /\['pro\.page\.row\.analysis', 0, 1\]/);
+
+      // DECIDE: all four are genuinely gated in the app.
+      assert.match(table[0], /\['pro\.page\.row\.adaptive', 0, 1\]/);
+      assert.match(table[0], /\['pro\.page\.row\.progression', 0, 1\]/);
+      assert.match(table[0], /\['pro\.page\.row\.builder', 0, 1\]/);
+      // The free coach quota the table promises is implemented (aiCoachQuota).
+      assert.match(table[0], /\['pro\.page\.row\.coach', 'quota', 1\]/);
+
+      // No trial promise anywhere on the page while billing is off.
+      assert.doesNotMatch(premiumSource, /trial|kokeilujakso/i);
+      assert.match(premiumSource, /pro\.page\.plannedNote/);
     },
   },
   {
-    name: 'the paywall CTA leads somewhere real instead of promising a trial',
+    name: 'the Pro page table promises are wired, not just printed',
     run() {
-      assert.doesNotMatch(homeSource, /home\.proSheet\.cta.*trial/i);
-      assert.match(homeSource, /onOpenPremium\?\.\(\)/, 'the CTA must open the premium screen');
-      assert.match(appSource, /onOpenPremium=\{\(\) => navigate\(\{ tab: 'profile', screen: 'premium' \}\)\}/);
+      // "AI Coach — 3 / wk": App resolves the quota and the sheet gates on it.
+      assert.match(appSource, /freeQuestionsRemaining=\{resolveCoachQuota\(preferences\.aiCoachFreeQuota\)\.remaining\}/);
+      assert.match(appSource, /recordCoachQuestion\(preferences\.aiCoachFreeQuota\)/);
+      const coachSheet = read('src', 'components', 'AICoachSheet.tsx');
+      assert.match(coachSheet, /const chatUnlocked = proUnlocked \|\| freeQuestionsRemaining > 0;/);
+      assert.match(coachSheet, /editable=\{chatUnlocked\}/);
+
+      // "AI program builder — Pro": the generator and both entries gate on Pro.
+      assert.match(appSource, /if \(!isProUnlocked\(nextPreferences\)\) \{/);
+      assert.equal(
+        (appSource.match(/onAiAssisted=\{\(\) => navigate\(coachProUnlocked \? \{ tab: 'home', screen: 'ai_setup' \} : \{ tab: 'profile', screen: 'premium' \}\)\}/g) ?? []).length,
+        2,
+      );
+    },
+  },
+  {
+    name: 'the effort question is rendered, because every adaptive feature starts there',
+    run() {
+      // EFFORT_OPTIONS and handleRecordEffort existed as dead code: declared,
+      // never rendered. No set could be rated, so the adaptive set coach, the
+      // coach's rest override and paywall moment 4 were all unreachable while
+      // the Pro page sold two of them. The prompt must stay on screen.
+      assert.match(loggerSource, /EFFORT_OPTIONS\.map\(/, 'the effort options must render');
+      assert.match(loggerSource, /onPress=\{\(\) => handleRecordEffort\(option\.value\)\}/);
+      assert.match(loggerSource, /activeEffortPrompt && activeEffortPrompt\.slotId === exercise\.slotId/);
+      // Skippable and inline — it must never block the next set.
+      assert.match(loggerSource, /onPress=\{handleSkipEffortPrompt\}/);
+      assert.doesNotMatch(loggerSource, /<Modal[^>]*effort/i);
+
+      // A recorded effort reads back on the row it belongs to.
+      const setRow = read('src', 'components', 'WorkoutSetRow.tsx');
+      assert.match(setRow, /completed && effort \?/);
+      assert.match(setRow, /styles\.effortPill/);
+    },
+  },
+  {
+    name: 'the paywall moments blur the real conclusion, never a feature list',
+    run() {
+      const locked = read('src', 'components', 'ProLockedCard.tsx');
+      // The blur is transparent ink + shadow over caller-provided REAL lines.
+      assert.match(locked, /color: 'transparent'/);
+      assert.match(locked, /textShadowRadius/);
+
+      // Home: the detection card carries the plateau conclusion from
+      // proInsights — the same lines Pro reads unblurred in place.
+      assert.match(appSource, /locked: proPlateau\.conclusion/);
+      assert.match(homeSource, /plateau\.locked\.lines/);
+      assert.match(homeSource, /proUnlocked \?/);
+
+      // Progress: statuses always free, and the footer says so.
+      const progress = read('src', 'screens', 'ProgressScreen.tsx');
+      assert.match(progress, /pro\.read\.footer/);
+
+      // Logger: moment 4 is a passive chip, never a spontaneous modal — it
+      // renders inline in the exercise list and only speaks when tapped.
+      assert.match(loggerSource, /postEffortTransition\.adaptiveCoachLocked \?/);
+      assert.match(loggerSource, /styles\.coachChip/);
+
+      // The old Home pro sheet is gone: one full page, moments elsewhere.
+      assert.doesNotMatch(homeSource, /PRO_STATS|PRO_COMPARISON|proSheetVisible/);
+      assert.match(homeSource, /onPress=\{\(\) => onOpenPremium\?\.\(\)\}/);
     },
   },
   {

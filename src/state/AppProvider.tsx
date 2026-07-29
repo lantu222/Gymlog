@@ -136,6 +136,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       trainingBreak: null,
       promoProUntil: null,
       featureVotedIds: [],
+      aiCoachFreeQuota: null,
       adaptiveCoachPremiumUnlocked: false,
       automatedProgressionEnabled: true,
       aiSetupCompleted: false,

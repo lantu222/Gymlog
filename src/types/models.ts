@@ -271,6 +271,11 @@ export interface AppPreferences {
   promoProUntil: string | null;
   /** Feature-request ids this device has upvoted (local demo board). */
   featureVotedIds: string[];
+  /**
+   * Free coach-question counter for the current week (3/week — the Pro page
+   * table promises it, so it must be real). Null = nothing used yet.
+   */
+  aiCoachFreeQuota: { weekStart: string; used: number } | null;
   adaptiveCoachPremiumUnlocked: boolean;
   /** Plan-review toggle: GAINER adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;

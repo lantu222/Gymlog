@@ -44,7 +44,7 @@ module.exports = [
     run() {
       // Home v3 (GAINER Home v3 mock): palette comes from the shared HG3 token
       // set in lightTheme.ts — no local hex constants for tokenized colors.
-      assert.match(homeScreenSource, /import \{ HG3 \} from '\.\.\/lightTheme'/);
+      assert.match(homeScreenSource, /import \{ HG3, PW \} from '\.\.\/lightTheme'/);
       assert.doesNotMatch(homeScreenSource, /const HOME_BACKGROUND =/);
       assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: HG3\.bg/);
 
@@ -62,9 +62,9 @@ module.exports = [
       assert.match(homeScreenSource, /PRO/);
       assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: HG3\.green/);
       assert.match(homeScreenSource, /proBadge:\s*\{\s*paddingVertical: 7,\s*paddingHorizontal: 13/);
-      // PRO pill opens the dark Pro bottom sheet.
-      assert.match(homeScreenSource, /onPress=\{\(\) => setProSheetVisible\(true\)\}/);
-      assert.match(homeScreenSource, /const \[proSheetVisible, setProSheetVisible\] = useState\(false\)/);
+      // PRO pill opens the one full Pro page (the Home sheet is gone).
+      assert.match(homeScreenSource, /onPress=\{\(\) => onOpenPremium\?\.\(\)\}/);
+      assert.match(homeScreenSource, /const \[plateauSheetVisible, setPlateauSheetVisible\] = useState\(false\)/);
       // Week strip lives on a white card and expands into a Monday-first month
       // grid; the chevron rotates 180° and the panel height animates.
       assert.match(homeScreenSource, /topCalendarDays/);
@@ -166,22 +166,14 @@ module.exports = [
       assert.match(homeScreenSource, /onRequestClose=\{\(\) => setAdaptSheetVisible\(false\)\}/);
       // Hero + accordions render only with an active plan.
       assert.match(homeScreenSource, /\{activePlan && nextPlanSession \? \(/);
-      // Pro sheet: dark gradient bottom sheet with stats, comparison table,
-      // pricing toggle, gold CTA, and dismiss.
-      assert.match(i18nSource, /'home\.proSheet\.headline': "Train like it's personal\."/);
-      assert.match(i18nSource, /'home\.proSheet\.badge': '✦ GAINER PRO'/);
-      assert.match(homeScreenSource, /proSheetGradient/);
-      assert.match(homeScreenSource, /stopColor=\{HG3\.proSheetTop\}/);
-      assert.match(homeScreenSource, /PRO_STATS/);
-      assert.match(homeScreenSource, /PRO_COMPARISON\.map/);
-      assert.match(homeScreenSource, /setProPlan\(key\)/);
-      assert.match(homeScreenSource, /proPricingCardSelected/);
-      assert.match(homeScreenSource, /t\(language, activePricing\.finePrintKey\)/);
-      // No trial and no billing exist, so the CTA cannot offer one. See
-      // tests/lib/proSurfaces.test.cjs for the rest of the paywall guards.
-      assert.match(i18nSource, /'home\.proSheet\.cta': 'See what Pro does'/);
-      assert.match(i18nSource, /'home\.proSheet\.notNow': 'Not now'/);
-      assert.match(homeScreenSource, /onRequestClose=\{\(\) => setProSheetVisible\(false\)\}/);
+      // The Home pro sheet is gone (GAINER Paywall Moments): the PRO pill
+      // opens the one full Pro page, and Home's paywall moment is the plateau
+      // card whose blurred conclusion is the real text from proInsights.
+      assert.doesNotMatch(homeScreenSource, /proSheetVisible|PRO_STATS|PRO_COMPARISON/);
+      assert.match(homeScreenSource, /onPress=\{\(\) => onOpenPremium\?\.\(\)\}/);
+      assert.match(homeScreenSource, /pro\.plateau\.eyebrow/);
+      assert.match(homeScreenSource, /<ProLockedCard/);
+      assert.match(homeScreenSource, /<ProMomentSheet/);
       assert.match(homeScreenSource, /t\(language, 'home\.emptyWorkout\.title'\)/);
       assert.match(homeScreenSource, /t\(language, 'home\.emptyWorkout\.meta'\)/);
       assert.match(i18nSource, /'home\.emptyWorkout\.title': 'Empty workout'/);

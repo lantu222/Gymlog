@@ -30,6 +30,7 @@ const DEFAULT_PREFERENCES = {
   trainingBreak: null as import('../types/models').TrainingBreak | null,
   promoProUntil: null as string | null,
   featureVotedIds: [] as string[],
+  aiCoachFreeQuota: null as { weekStart: string; used: number } | null,
   adaptiveCoachPremiumUnlocked: false,
   automatedProgressionEnabled: true,
   aiSetupCompleted: false,

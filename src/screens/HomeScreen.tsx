@@ -28,80 +28,16 @@ import { getGreetingRotation, selectHomeGreeting } from '../lib/homeGreeting';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
-import { I18nKey, t } from '../lib/i18n';
-import { DEFAULT_HISTORY_WINDOW_DAYS } from '../lib/trainingHistory';
-import { GENERATED_EXERCISE_LIBRARY } from '../data/generatedExerciseLibrary';
-import { HG3 } from '../lightTheme';
+import { t } from '../lib/i18n';
+import { ProMomentContent } from '../lib/proInsights';
+import { ProLockedCard } from '../components/ProLockedCard';
+import { ProMomentSheet } from '../components/ProMomentSheet';
+import { HG3, PW } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 
-// Dark Pro-sheet-only shades (GAINER Home v3 mock). The sheet lives on the
-// HG3.proSheetTop -> proSheetBottom gradient, so these do not belong in the
-// shared light palette.
-const PRO_SHEET_INK = '#F5F2FC';
-const PRO_SHEET_MUTED = '#A79FC4';
-const PRO_SHEET_FAINT = '#7C739E';
-const PRO_SHEET_CARD = 'rgba(255,255,255,0.06)';
-const PRO_SHEET_BORDER = 'rgba(255,255,255,0.12)';
-
-// Prices are placeholders until the purchase flow is wired up; real ones must
-// come from RevenueCat (see "GAINER Premium - build notes.md").
-//
-// The three figures used to be "2.3x more consistent training" and "+34% avg.
-// strength in 12 wks". Nobody measured either — the app has no users and no
-// study, so they were invented efficacy claims on a paywall, which is both the
-// least defensible thing in the app and the kind of statement a regulator
-// treats as a misleading commercial practice. These three are facts about the
-// product that can be checked from the code.
-const PRO_STATS: Array<{ value: string; suffix: string; labelKey: I18nKey }> = [
-  { value: String(GENERATED_EXERCISE_LIBRARY.length), suffix: '', labelKey: 'home.proSheet.stat.library' },
-  // The unit lives in the label so both languages get their own word for it.
-  { value: String(Math.round(DEFAULT_HISTORY_WINDOW_DAYS / 7)), suffix: '', labelKey: 'home.proSheet.stat.window' },
-  { value: '0', suffix: '', labelKey: 'home.proSheet.stat.ads' },
-];
-
-/**
- * The same rows as PremiumScreen's comparison table, and they have to stay
- * that way: two surfaces describing one tier cannot disagree about what free
- * includes. Three of these were marked Pro-only and are not — ready plans, own
- * templates and the progress tab all work without paying, and an "early access
- * to new features" promise had no mechanism behind it at all.
- */
-const PRO_COMPARISON: Array<{ labelKey: I18nKey; free: boolean }> = [
-  { labelKey: 'home.proSheet.row.log', free: true },
-  { labelKey: 'home.proSheet.row.plans', free: true },
-  { labelKey: 'home.proSheet.row.analytics', free: true },
-  { labelKey: 'home.proSheet.row.adaptive', free: false },
-  { labelKey: 'home.proSheet.row.progression', free: false },
-  { labelKey: 'home.proSheet.row.coach', free: false },
-];
-
-const PRO_PRICING: Record<
-  'annual' | 'monthly',
-  {
-    titleKey: I18nKey;
-    price: string;
-    noteKey: I18nKey;
-    badgeKey: I18nKey | null;
-    finePrintKey: I18nKey;
-  }
-> = {
-  annual: {
-    titleKey: 'home.proSheet.annual',
-    price: '€4.99',
-    noteKey: 'home.proSheet.annualNote',
-    badgeKey: 'home.proSheet.saveBadge',
-    finePrintKey: 'home.proSheet.annualFinePrint',
-  },
-  monthly: {
-    titleKey: 'home.proSheet.monthly',
-    price: '€8.99',
-    noteKey: 'home.proSheet.monthlyNote',
-    badgeKey: null,
-    finePrintKey: 'home.proSheet.monthlyFinePrint',
-  },
-};
-
-type ProPlanKey = keyof typeof PRO_PRICING;
+// The Home Pro sheet is gone (design: GAINER Paywall Moments): contextual
+// sheets belong to the moments, and the comparison table lives on the ONE full
+// Pro page. The PRO pill now opens that page directly.
 
 // PRO pill: half "what you have" ink, half "what Pro adds" orange.
 const PRO_BADGE_INK = '#1C1830';
@@ -170,8 +106,16 @@ interface HomeScreenProps {
   onStartActivePlanSession?: (sessionId: string) => void;
   onCreateWorkoutFromExercises: () => void;
   onOpenCardio?: () => void;
-  /** Where the Pro sheet's CTA leads — the screen that states the real state. */
+  /** Where every Pro touchpoint leads — the full Pro page. */
   onOpenPremium?: () => void;
+  /** Paywall moment 2: a real stalled lift, or null when nothing is stalled. */
+  plateau?: {
+    headline: string;
+    meta: string;
+    locked: { teaser: string; lines: string[] };
+    moment: ProMomentContent;
+  } | null;
+  proUnlocked?: boolean;
   historyItems?: HomeHistoryItem[];
   onOpenHistory?: () => void;
   onSelectHistorySession?: (sessionId: string) => void;
@@ -210,6 +154,8 @@ export function HomeScreen({
   onCreateWorkoutFromExercises,
   onOpenCardio,
   onOpenPremium,
+  plateau = null,
+  proUnlocked = false,
   historyItems = [],
   onOpenHistory,
   onSelectHistorySession,
@@ -222,8 +168,7 @@ export function HomeScreen({
   availableEquipment = null,
   greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
 }: HomeScreenProps) {
-  const [proSheetVisible, setProSheetVisible] = useState(false);
-  const [proPlan, setProPlan] = useState<ProPlanKey>('annual');
+  const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   // Months away from today. Reset on close so reopening always lands on now.
@@ -409,7 +354,6 @@ export function HomeScreen({
     onCreateWorkoutFromExercises();
   };
 
-  const activePricing = PRO_PRICING[proPlan];
 
   const renderSection = (
     key: SectionKey,
@@ -479,7 +423,7 @@ export function HomeScreen({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'home.a11y.openPro')}
-            onPress={() => setProSheetVisible(true)}
+            onPress={() => onOpenPremium?.()}
             hitSlop={8}
             style={({ pressed }) => [styles.proBadge, pressed && styles.pressed]}
           >
@@ -630,6 +574,42 @@ export function HomeScreen({
             ) : null}
           </Animated.View>
         </Animated.View>
+
+        {/* Paywall moment 2: the plateau detection. The finding — real lift,
+            real numbers, real dates — is free; the fix is the conclusion. Free
+            users see it blurred (the REAL text), Pro users read it in place. */}
+        {plateau ? (
+          <View style={styles.plateauCard}>
+            <View style={styles.plateauHead}>
+              <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                <Path d="M12 3l9 16H3z" stroke={PW.amber} strokeWidth={2.3} strokeLinejoin="round" />
+                <Path d="M12 10v4M12 17h.01" stroke={PW.amber} strokeWidth={2.3} strokeLinecap="round" />
+              </Svg>
+              <Text style={styles.plateauKicker}>{t(language, 'pro.plateau.eyebrow')}</Text>
+            </View>
+            <Text style={styles.plateauHeadline}>{plateau.headline}</Text>
+            <Text style={styles.plateauMeta}>{plateau.meta}</Text>
+            <View style={styles.plateauLock}>
+              {proUnlocked ? (
+                <View style={styles.plateauFix}>
+                  {plateau.locked.lines.map((line, index) => (
+                    <Text key={index} style={styles.plateauFixLine}>
+                      {line}
+                    </Text>
+                  ))}
+                </View>
+              ) : (
+                <ProLockedCard
+                  language={language}
+                  compact
+                  teaser={plateau.locked.teaser}
+                  lines={plateau.locked.lines}
+                  onPress={() => setPlateauSheetVisible(true)}
+                />
+              )}
+            </View>
+          </View>
+        ) : null}
 
         {/* Session hero (Home v4) — renders only with an active plan */}
         {activePlan && nextPlanSession ? (
@@ -899,129 +879,20 @@ export function HomeScreen({
         </View>
       </Modal>
 
-      <Modal
-        visible={proSheetVisible}
-        transparent
-        animationType={reduceMotion ? 'none' : 'slide'}
-        onRequestClose={() => setProSheetVisible(false)}
-      >
-        <View style={styles.proSheetOverlay}>
-          <Pressable style={styles.proSheetScrim} onPress={() => setProSheetVisible(false)} />
-          <View style={styles.proSheet}>
-            <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none">
-              <Defs>
-                <SvgLinearGradient id="proSheetGradient" x1="0" y1="0" x2="0" y2="1">
-                  <Stop offset="0" stopColor={HG3.proSheetTop} />
-                  <Stop offset="1" stopColor={HG3.proSheetBottom} />
-                </SvgLinearGradient>
-              </Defs>
-              <Rect width="100%" height="100%" fill="url(#proSheetGradient)" />
-            </Svg>
-            <ScrollView contentContainerStyle={styles.proSheetContent} showsVerticalScrollIndicator={false}>
-              <View style={styles.proSheetGrip} />
-              <View style={styles.proSheetBadge}>
-                <Text style={styles.proSheetBadgeText}>{t(language, 'home.proSheet.badge')}</Text>
-              </View>
-              <Text style={styles.proSheetHeadline}>{t(language, 'home.proSheet.headline')}</Text>
-              <Text style={styles.proSheetSubline}>{t(language, 'home.proSheet.subline')}</Text>
-
-              <View style={styles.proStatRow}>
-                {PRO_STATS.map((stat) => (
-                  <View key={stat.labelKey} style={styles.proStatCard}>
-                    <Text style={styles.proStatValue}>
-                      {stat.value}
-                      {stat.suffix ? <Text style={styles.proStatSuffix}>{stat.suffix}</Text> : null}
-                    </Text>
-                    <Text style={styles.proStatLabel}>{t(language, stat.labelKey)}</Text>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.proTable}>
-                <View style={styles.proTableHeaderRow}>
-                  <Text style={styles.proTableHeaderLabel}>{t(language, 'home.proSheet.whatYouGet')}</Text>
-                  <Text style={styles.proTableHeaderFree}>{t(language, 'home.proSheet.free')}</Text>
-                  <Text style={styles.proTableHeaderPro}>{t(language, 'home.proSheet.pro')}</Text>
-                </View>
-                {PRO_COMPARISON.map((row) => (
-                  <View key={row.labelKey} style={styles.proTableRow}>
-                    <Text style={styles.proTableRowLabel}>{t(language, row.labelKey)}</Text>
-                    <View style={styles.proTableCell}>
-                      {row.free ? (
-                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                          <Path d="M5 12l5 5L19 7" stroke={HG3.gold} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-                        </Svg>
-                      ) : (
-                        <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                          <Path d="M6 6l12 12M18 6L6 18" stroke={PRO_SHEET_FAINT} strokeWidth={2.4} strokeLinecap="round" />
-                        </Svg>
-                      )}
-                    </View>
-                    <View style={styles.proTableCell}>
-                      <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                        <Path d="M5 12l5 5L19 7" stroke={HG3.gold} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
-                      </Svg>
-                    </View>
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.proPricingRow}>
-                {(Object.keys(PRO_PRICING) as ProPlanKey[]).map((key) => {
-                  const pricing = PRO_PRICING[key];
-                  const selected = proPlan === key;
-
-                  return (
-                    <Pressable
-                      key={key}
-                      accessibilityRole="button"
-                      accessibilityLabel={t(language, 'home.proSheet.a11y.choosePlan', { title: t(language, pricing.titleKey) })}
-                      onPress={() => setProPlan(key)}
-                      style={({ pressed }) => [styles.proPricingCard, selected && styles.proPricingCardSelected, pressed && styles.pressed]}
-                    >
-                      {pricing.badgeKey ? (
-                        <View style={styles.proPricingBadge}>
-                          <Text style={styles.proPricingBadgeText}>{t(language, pricing.badgeKey)}</Text>
-                        </View>
-                      ) : null}
-                      <Text style={styles.proPricingTitle}>{t(language, pricing.titleKey)}</Text>
-                      <Text style={styles.proPricingPrice}>
-                        {pricing.price}
-                        <Text style={styles.proPricingPer}>{t(language, 'home.proSheet.perMonth')}</Text>
-                      </Text>
-                      <Text style={styles.proPricingNote}>{t(language, pricing.noteKey)}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'home.proSheet.cta')}
-                // Used to say "Start 7-day free trial" and silently close the
-                // sheet. There is no trial and no billing, so the button now
-                // leads to the screen that says so and shows what Pro runs.
-                onPress={() => {
-                  setProSheetVisible(false);
-                  onOpenPremium?.();
-                }}
-                style={({ pressed }) => [styles.proCta, pressed && styles.pressed]}
-              >
-                <Text style={styles.proCtaText}>{t(language, 'home.proSheet.cta')}</Text>
-              </Pressable>
-              <Text style={styles.proFinePrint}>{t(language, activePricing.finePrintKey)}</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setProSheetVisible(false)}
-                hitSlop={8}
-                style={styles.proDismiss}
-              >
-                <Text style={styles.proDismissText}>{t(language, 'home.proSheet.notNow')}</Text>
-              </Pressable>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      {/* Paywall moment sheet: the plateau conclusion, on the user's own
+          numbers. The comparison table lives on the full Pro page. */}
+      {plateau ? (
+        <ProMomentSheet
+          visible={plateauSheetVisible}
+          content={plateau.moment}
+          language={language}
+          onClose={() => setPlateauSheetVisible(false)}
+          onSeePro={() => {
+            setPlateauSheetVisible(false);
+            onOpenPremium?.();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
@@ -1623,249 +1494,53 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontWeight: '700',
   },
-  proSheetOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(16, 10, 32, 0.5)',
-  },
-  proSheetScrim: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  proSheet: {
-    maxHeight: '92%',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
-    backgroundColor: HG3.proSheetBottom,
-  },
-  proSheetContent: {
-    paddingHorizontal: 22,
-    paddingTop: 10,
-    paddingBottom: 26,
-  },
-  proSheetGrip: {
-    alignSelf: 'center',
-    width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    marginBottom: 18,
-  },
-  proSheetBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: HG3.gold,
-    paddingVertical: 6,
-    paddingHorizontal: 13,
-  },
-  proSheetBadgeText: {
-    color: HG3.gold,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-  },
-  proSheetHeadline: {
-    marginTop: 14,
-    color: PRO_SHEET_INK,
-    fontSize: 27,
-    lineHeight: 33,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  proSheetSubline: {
-    marginTop: 8,
-    color: PRO_SHEET_MUTED,
-    fontSize: 13.5,
-    lineHeight: 19,
-    fontWeight: '600',
-  },
-  proStatRow: {
-    flexDirection: 'row',
-    gap: 9,
-    marginTop: 18,
-  },
-  proStatCard: {
-    flex: 1,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: PRO_SHEET_BORDER,
-    backgroundColor: PRO_SHEET_CARD,
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 6,
-    gap: 4,
-  },
-  proStatValue: {
-    color: PRO_SHEET_INK,
-    fontSize: 21,
-    lineHeight: 26,
-    fontWeight: '800',
-  },
-  proStatSuffix: {
-    color: HG3.gold,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  proStatLabel: {
-    color: PRO_SHEET_MUTED,
-    fontSize: 10.5,
-    lineHeight: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  proTable: {
-    marginTop: 14,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: PRO_SHEET_BORDER,
-    backgroundColor: PRO_SHEET_CARD,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-  },
-  proTableHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-  },
-  proTableHeaderLabel: {
-    flex: 1,
-    color: PRO_SHEET_INK,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '800',
-  },
-  proTableHeaderFree: {
-    width: 48,
-    textAlign: 'center',
-    color: PRO_SHEET_FAINT,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  proTableHeaderPro: {
-    width: 48,
-    textAlign: 'center',
-    color: HG3.gold,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  proTableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(255,255,255,0.08)',
-  },
-  proTableRowLabel: {
-    flex: 1,
-    color: PRO_SHEET_MUTED,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '600',
-  },
-  proTableCell: {
-    width: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  proPricingRow: {
-    flexDirection: 'row',
-    gap: 10,
+  plateauCard: {
     marginTop: 16,
+    backgroundColor: PW.amberSoft,
+    borderWidth: 1,
+    borderColor: PW.amberBorder,
+    borderRadius: 20,
+    paddingVertical: 16,
+    paddingHorizontal: 17,
   },
-  proPricingCard: {
-    flex: 1,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    borderColor: PRO_SHEET_BORDER,
-    backgroundColor: PRO_SHEET_CARD,
-    paddingVertical: 15,
-    paddingHorizontal: 14,
-    gap: 2,
+  plateauHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  proPricingCardSelected: {
-    borderColor: HG3.gold,
-    backgroundColor: 'rgba(228,177,76,0.08)',
-  },
-  proPricingBadge: {
-    position: 'absolute',
-    top: -10,
-    left: 12,
-    borderRadius: 999,
-    backgroundColor: HG3.gold,
-    paddingVertical: 3,
-    paddingHorizontal: 9,
-  },
-  proPricingBadgeText: {
-    color: HG3.proSheetBottom,
-    fontSize: 9.5,
-    lineHeight: 12,
+  plateauKicker: {
+    fontSize: 10.5,
     fontWeight: '800',
-    letterSpacing: 0.6,
+    letterSpacing: 1,
+    color: PW.amber,
   },
-  proPricingTitle: {
-    color: PRO_SHEET_MUTED,
+  plateauHeadline: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: HG3.ink,
+    lineHeight: 25,
+    marginTop: 11,
+  },
+  plateauMeta: {
     fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '700',
-    marginTop: 3,
-  },
-  proPricingPrice: {
-    color: PRO_SHEET_INK,
-    fontSize: 21,
-    lineHeight: 26,
-    fontWeight: '800',
-  },
-  proPricingPer: {
-    color: PRO_SHEET_MUTED,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  proPricingNote: {
-    color: PRO_SHEET_FAINT,
-    fontSize: 11.5,
-    lineHeight: 15,
     fontWeight: '600',
-  },
-  proCta: {
-    marginTop: 18,
-    height: 54,
-    borderRadius: 15,
-    backgroundColor: HG3.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  proCtaText: {
-    color: HG3.proSheetBottom,
-    fontSize: 16,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  proFinePrint: {
-    marginTop: 10,
-    textAlign: 'center',
-    color: PRO_SHEET_FAINT,
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '600',
-  },
-  proDismiss: {
-    alignSelf: 'center',
-    minHeight: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    marginTop: 6,
-  },
-  proDismissText: {
-    color: PRO_SHEET_MUTED,
-    fontSize: 14,
+    color: PW.amberInk,
     lineHeight: 18,
+    marginTop: 7,
+  },
+  plateauLock: {
+    marginTop: 14,
+  },
+  plateauFix: {
+    backgroundColor: 'rgba(255,255,255,0.65)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  plateauFixLine: {
+    fontSize: 13.5,
     fontWeight: '700',
+    color: HG3.ink,
+    lineHeight: 20,
   },
 });

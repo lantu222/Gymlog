@@ -14,6 +14,9 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { MuscleFocusRow } from '../lib/workoutCompleteView';
 import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/workoutCompletionSummary';
+import { ProMomentContent } from '../lib/proInsights';
+import { ProLockedCard } from '../components/ProLockedCard';
+import { ProMomentSheet } from '../components/ProMomentSheet';
 import { HG3 } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 import { haptics } from '../utils/haptics';
@@ -67,6 +70,13 @@ interface WorkoutCompletionScreenProps {
   prCards: WorkoutCompletionPrCard[];
   language?: AppLanguage;
   onDone: () => void;
+  /**
+   * Paywall moment 1: the coach's one change for next time. The blurred lines
+   * are the REAL deterministic conclusion; null hides the lock entirely (fresh
+   * users and Pro users see nothing extra here).
+   */
+  lockedInsight?: { teaser: string; lines: string[]; moment: ProMomentContent } | null;
+  onOpenPremium?: () => void;
 }
 
 function formatWhenLabel(performedAt: string, language: AppLanguage) {
@@ -110,9 +120,12 @@ export function WorkoutCompletionScreen({
   prCards,
   language = 'en',
   onDone,
+  lockedInsight = null,
+  onOpenPremium,
 }: WorkoutCompletionScreenProps) {
   const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+  const [momentSheetVisible, setMomentSheetVisible] = useState(false);
   const pr = prCards[0] ?? null;
 
   // The workout is saved by the time this screen mounts — mark the moment.
@@ -396,6 +409,19 @@ export function WorkoutCompletionScreen({
             </View>
           </Animated.View>
 
+          {/* Paywall moment 1: one locked recommendation right after the free
+              insight, while the data is fresh. Never shown without real data. */}
+          {lockedInsight ? (
+            <Animated.View style={rise(5)}>
+              <ProLockedCard
+                language={language}
+                teaser={lockedInsight.teaser}
+                lines={lockedInsight.lines}
+                onPress={() => setMomentSheetVisible(true)}
+              />
+            </Animated.View>
+          ) : null}
+
           <Animated.View style={rise(6)}>
             <Pressable
               accessibilityRole="button"
@@ -408,6 +434,19 @@ export function WorkoutCompletionScreen({
           </Animated.View>
         </View>
       </ScrollView>
+
+      {lockedInsight ? (
+        <ProMomentSheet
+          visible={momentSheetVisible}
+          content={lockedInsight.moment}
+          language={language}
+          onClose={() => setMomentSheetVisible(false)}
+          onSeePro={() => {
+            setMomentSheetVisible(false);
+            onOpenPremium?.();
+          }}
+        />
+      ) : null}
     </View>
   );
 }
