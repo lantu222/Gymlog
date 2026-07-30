@@ -42,6 +42,15 @@ const MONTH_WEEKDAY_LABELS: Record<AppLanguage, string[]> = {
   fi: ['MA', 'TI', 'KE', 'TO', 'PE', 'LA', 'SU'],
 };
 
+/**
+ * Monday-first weekday abbreviations, indexed by the `weekdayIndex` convention
+ * used across the app (0 = Monday). Shared so the home-screen widget cannot
+ * drift into a second set of labels.
+ */
+export function getMondayFirstWeekdayLabels(language: AppLanguage = 'en') {
+  return MONTH_WEEKDAY_LABELS[language] ?? MONTH_WEEKDAY_LABELS.en;
+}
+
 function toDayStart(dateInput: Date) {
   const date = new Date(dateInput);
   date.setHours(0, 0, 0, 0);

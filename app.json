@@ -43,7 +43,8 @@
       "expo-asset",
       "expo-audio",
       "expo-notifications",
-      "./plugins/withHealthConnect.js"
+      "./plugins/withHealthConnect.js",
+      "./plugins/withHomeWidget.js"
     ]
   }
 }

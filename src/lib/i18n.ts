@@ -1208,6 +1208,15 @@ const EN = {
   'notif.msg.recordTitle': 'New personal record',
   'notif.msg.recordBody': 'Yesterday you hit {weight} × {reps} on {exercise}.',
   'notif.footer': 'GAINER keeps notifications off until you turn them on. No streak pressure, no dark patterns.',
+  // Home-screen widget. Rendered by the launcher, so every string is finished
+  // here — the native side never formats or translates anything.
+  'widget.today': 'Today',
+  'widget.tomorrow': 'Tomorrow',
+  'widget.noPlan': 'No plan yet',
+  'widget.noDays': 'Pick your training days',
+  'widget.noSessions': 'Open the app to start a plan',
+  'widget.exercise': '1 exercise',
+  'widget.exercises': '{count} exercises',
   // ── Training break, promo code, edit profile ──────────────────────────
   'break.title': 'Training break',
   'break.onBreak': 'ON A BREAK',
@@ -3415,6 +3424,13 @@ const FI: Record<I18nKey, string> = {
   'notif.msg.recordTitle': 'Uusi ennätys',
   'notif.msg.recordBody': 'Eilen teit liikkeessä {exercise} {weight} × {reps}.',
   'notif.footer': 'GAINER pitää ilmoitukset pois kunnes laitat ne päälle. Ei putkipainetta, ei kyseenalaisia kikkoja.',
+  'widget.today': 'Tänään',
+  'widget.tomorrow': 'Huomenna',
+  'widget.noPlan': 'Ei suunnitelmaa',
+  'widget.noDays': 'Valitse treenipäiväsi',
+  'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',
+  'widget.exercise': '1 liike',
+  'widget.exercises': '{count} liikettä',
   // ── Training break, promo code, edit profile ──────────────────────────
   'break.title': 'Treenitauko',
   'break.onBreak': 'TAUOLLA',

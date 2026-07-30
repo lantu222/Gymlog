@@ -30,6 +30,8 @@ import {
   requestNotificationPermission,
 } from './src/utils/appNotifications';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
+import { writeHomeWidgetPayload } from './src/utils/homeWidget';
+import { buildHomeWidgetPayload } from './src/lib/widgetPayload';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
@@ -2366,6 +2368,24 @@ function GymlogApp() {
     const order: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
     return preferences.setupAvailableDays.map((day) => order[day]).filter((index) => index !== undefined);
   }, [preferences.setupAvailableDays]);
+  // Feeds the home-screen widget. The launcher redraws it on its own schedule,
+  // so all this has to do is keep the file current. Placed after the plan card
+  // and the picked days, because it is built from exactly what Home renders.
+  useEffect(() => {
+    if (!appHydrated) {
+      return;
+    }
+    writeHomeWidgetPayload(
+      buildHomeWidgetPayload({
+        nowMs: Date.now(),
+        language: preferences.appLanguage,
+        planName: homeActivePlanCard?.title ?? null,
+        trainingDayIndexes: homeTrainingDayIndexes,
+        sessions: homeActivePlanCard?.sessions ?? [],
+      }),
+    );
+  }, [appHydrated, preferences.appLanguage, homeActivePlanCard, homeTrainingDayIndexes]);
+
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content
   // that never leaves the app, so there is nothing to carry out for it.
