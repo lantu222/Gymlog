@@ -168,6 +168,49 @@ module.exports = [
     },
   },
   {
+    name: 'no surface offers an account the app does not have',
+    run() {
+      // The policy says there is no account, no sign-in and no server-side
+      // profile. Settings used to carry "Sign out" and "Delete account" rows
+      // with chevrons and no handler — a promise of something that does not
+      // exist anywhere in the app.
+      const i18n = read('src/lib/i18n.ts');
+      for (const key of ['settings.signOut', 'settings.deleteAccount']) {
+        assert.ok(
+          !i18n.includes(`'${key}'`),
+          `${key} is back. The app has no account, so nothing can sign out of or delete one.`,
+        );
+      }
+
+      const settings = read('src/screens/SettingsScreen.tsx');
+      assert.ok(
+        !/signOut|deleteAccount/.test(settings),
+        'Settings references an account action again.',
+      );
+    },
+  },
+  {
+    name: 'the CSV rows in settings reach a real importer and exporter',
+    run() {
+      // These two sat inert for months. Wired now: import opens the same paste
+      // sheet the Programs tab uses, export shares the plan as CSV text.
+      const settings = read('src/screens/SettingsScreen.tsx');
+      assert.ok(settings.includes('onPress={onImportPlan}'), 'Import plan (CSV) does nothing again');
+      assert.ok(settings.includes('onPress={onExportPlan}'), 'Export plan (CSV) does nothing again');
+
+      // The row promised a download for months; there is no file to download.
+      const i18n = read('src/lib/i18n.ts');
+      const subs = i18n.split('\n').filter((row) => row.includes("'settings.exportCsv.sub'"));
+      assert.equal(subs.length, 2, 'expected an English and a Finnish export subtitle');
+      for (const row of subs) {
+        assert.ok(
+          !/download|lataa/i.test(row.slice(row.indexOf(':') + 1)),
+          `"${row.trim()}" promises a download; the plan is shared as text.`,
+        );
+      }
+    },
+  },
+  {
     name: 'both documents are reachable from settings and from the Pro page',
     run() {
       const settings = read('src/screens/SettingsScreen.tsx');

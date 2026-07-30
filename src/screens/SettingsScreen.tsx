@@ -20,6 +20,9 @@ interface SettingsScreenProps {
   onPreferencesChange: (patch: Partial<AppPreferences>) => void;
   onOpenMyData: () => void;
   onOpenEditProfile: () => void;
+  /** Opens the paste-CSV sheet — the same importer the Programs tab uses. */
+  onImportPlan: () => void;
+  onExportPlan: () => void;
   onOpenNotifications: () => void;
   onOpenTrainingBreak: () => void;
   onOpenPromo: () => void;
@@ -79,7 +82,6 @@ const IC_PATHS: Record<string, string> = {
   doc: 'M7 3h7l4 4v14H7zM14 3v4h4',
   analytics: 'M4 20V4M4 20h16M8 16l3-4 3 2 4-6',
   sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19',
-  logout: 'M9 21H5V3h4M16 16l5-4-5-4M21 12H9',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   back: 'M15 5l-7 7 7 7',
   chevron: 'M9 6l6 6-6 6',
@@ -173,11 +175,13 @@ function Row({
 
 /**
  * Settings, pushed from the Profile gear. Mirrors psuite-screens1.jsx
- * SettingsMenu; rows whose engines are still unbuilt (dark theme, language,
- * notifications, promo, subscription, CSV import/export, support, feature
- * requests, sign out / delete account) render per design ahead of their
- * wiring — an explicit product decision (2026-07-22) for this pre-release
- * phase. Before store submission each must be wired or hidden.
+ * SettingsMenu.
+ *
+ * Every row here now either does something or states a fact. The two that
+ * asserted an account the app does not have are gone, and CSV import/export
+ * reach the real importer and exporter. What remains unbuilt is the theme
+ * engine, and that row wears a Soon pill rather than a switch that repaints
+ * nothing. If a row is added back without a handler, say why in a comment.
  */
 export function SettingsScreen({
   preferences,
@@ -186,6 +190,8 @@ export function SettingsScreen({
   onPreferencesChange,
   onOpenMyData,
   onOpenEditProfile,
+  onImportPlan,
+  onExportPlan,
   onOpenNotifications,
   onOpenTrainingBreak,
   onOpenPromo,
@@ -367,8 +373,21 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.yourData')} />
           <View style={styles.card}>
-            <Row icon="upload" title={t(language, 'settings.importCsv')} sub={t(language, 'settings.importCsv.sub')} chevron />
-            <Row icon="download" title={t(language, 'settings.exportCsv')} sub={t(language, 'settings.exportCsv.sub')} chevron last />
+            <Row
+              icon="upload"
+              title={t(language, 'settings.importCsv')}
+              sub={t(language, 'settings.importCsv.sub')}
+              chevron
+              onPress={onImportPlan}
+            />
+            <Row
+              icon="download"
+              title={t(language, 'settings.exportCsv')}
+              sub={t(language, 'settings.exportCsv.sub')}
+              chevron
+              last
+              onPress={onExportPlan}
+            />
           </View>
         </View>
 
@@ -419,8 +438,11 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.dangerZone')} />
           <View style={styles.card}>
-            <Row icon="logout" title={t(language, 'settings.signOut')} danger chevron />
-            <Row icon="trash" title={t(language, 'settings.deleteAccount')} danger chevron />
+            {/* No "Sign out" and no "Delete account". There is no account to
+                sign out of or delete — the app is local-only and the privacy
+                policy says so. Two chevrons asserting otherwise were the one
+                place Settings contradicted it. Resetting the data is the real
+                destructive action, and it is right here. */}
             <Row
               icon="trash"
               title={t(language, 'settings.resetData')}

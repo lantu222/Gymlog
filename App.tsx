@@ -112,6 +112,8 @@ import { PremiumScreen } from './src/screens/PremiumScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { MyDataScreen } from './src/screens/MyDataScreen';
+import { ExportPlanScreen, ExportablePlan } from './src/screens/ExportPlanScreen';
+import { NewProgramSheet } from './src/components/NewProgramSheet';
 import { EditProfileScreen } from './src/screens/EditProfileScreen';
 import { TrainingPlanScreen } from './src/screens/TrainingPlanScreen';
 import { NotificationsScreen } from './src/screens/NotificationsScreen';
@@ -736,6 +738,9 @@ function GymlogApp() {
     message: null,
   });
   const [cardioSaving, setCardioSaving] = useState(false);
+  // Settings' "Import plan (CSV)" opens the same sheet the Programs tab uses,
+  // straight into its paste view. One importer, two doors.
+  const [settingsImportVisible, setSettingsImportVisible] = useState(false);
   const [minimumSplashElapsed, setMinimumSplashElapsed] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -2361,6 +2366,49 @@ function GymlogApp() {
     const order: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
     return preferences.setupAvailableDays.map((day) => order[day]).filter((index) => index !== undefined);
   }, [preferences.setupAvailableDays]);
+  // Settings → "Export plan (CSV)". The user's own plans, plus the ready
+  // program they are actually running. The rest of the catalog is app content
+  // that never leaves the app, so there is nothing to carry out for it.
+  const exportablePlans = useMemo<ExportablePlan[]>(() => {
+    const plans: ExportablePlan[] = workoutTemplates.map((template) => ({
+      id: template.id,
+      name: formatWorkoutDisplayLabel(template.name, 'Workout plan'),
+      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
+        name: session.name,
+        exercises: session.exercises.map((exercise) => ({
+          name: exercise.name,
+          sets: exercise.targetSets,
+          repMin: exercise.repMin,
+          repMax: exercise.repMax,
+        })),
+      })),
+    }));
+
+    if (homeActivePlanCard?.programType === 'ready') {
+      const readyTemplate = getWorkoutTemplateById(homeActivePlanCard.programId);
+      if (readyTemplate && !plans.some((plan) => plan.id === readyTemplate.id)) {
+        plans.push({
+          id: readyTemplate.id,
+          // The card's title, not the raw catalog name: curated titles in
+          // templatePresentation override it, and the export must not name the
+          // plan differently from every other screen.
+          name: homeActivePlanCard.title,
+          sessions: readyTemplate.sessions.map((session) => ({
+            name: session.name,
+            exercises: session.exercises.map((exercise) => ({
+              name: exercise.exerciseName,
+              sets: exercise.sets,
+              repMin: exercise.repsMin,
+              repMax: exercise.repsMax,
+            })),
+          })),
+        });
+      }
+    }
+
+    return plans;
+  }, [workoutTemplates, getWorkoutTemplateSessions, homeActivePlanCard]);
+
   // Profile "TRAINING PLAN" card. Reuses the same composed plan Home renders so
   // the two screens can never disagree about what the user is running.
   // Built only while the analysis route is open; it reads the whole log table.
@@ -3669,6 +3717,14 @@ function GymlogApp() {
         onCreateNewPlan={() => navigate({ tab: 'profile', screen: 'setup', stage: 'location' })}
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'export_plan') {
+    content = (
+      <ExportPlanScreen
+        language={preferences.appLanguage}
+        plans={exportablePlans}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'settings') {
     content = (
       <SettingsScreen
@@ -3680,6 +3736,8 @@ function GymlogApp() {
           await updatePreferences(patch);
         }}
         onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
+        onImportPlan={() => setSettingsImportVisible(true)}
+        onExportPlan={() => navigate({ tab: 'profile', screen: 'export_plan' })}
         onOpenNotifications={() => navigate({ tab: 'profile', screen: 'notifications' })}
         onOpenTrainingBreak={() => navigate({ tab: 'profile', screen: 'training_break' })}
         onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
@@ -3927,6 +3985,7 @@ function GymlogApp() {
     route.tab === 'profile' &&
     (route.screen === 'settings' ||
       route.screen === 'my_data' ||
+      route.screen === 'export_plan' ||
       route.screen === 'edit_profile' ||
       route.screen === 'training_plan' ||
       route.screen === 'notifications' ||
@@ -3987,6 +4046,22 @@ function GymlogApp() {
       }
     >
       {content}
+      <NewProgramSheet
+        visible={settingsImportVisible}
+        initialView="csv"
+        language={preferences.appLanguage}
+        exerciseLibrary={exerciseBrowserItems}
+        onClose={() => setSettingsImportVisible(false)}
+        onAiAssisted={() =>
+          navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })
+        }
+        onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
+        onImportProgram={async (draft) => {
+          const workoutTemplateId = await upsertWorkoutTemplate(draft);
+          setSettingsImportVisible(false);
+          navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+        }}
+      />
     </AppShell>
   );
 }

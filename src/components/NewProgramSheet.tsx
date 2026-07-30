@@ -29,6 +29,12 @@ interface NewProgramSheetProps {
   visible: boolean;
   language?: AppLanguage;
   exerciseLibrary: CsvLibraryEntry[];
+  /**
+   * Where the sheet opens. Settings' "Import plan (CSV)" row means exactly one
+   * thing, so it skips the menu — and the back arrow with it, since there is no
+   * menu behind it to go back to.
+   */
+  initialView?: 'menu' | 'csv';
   onClose: () => void;
   onAiAssisted: () => void;
   onBuildYourself: () => void;
@@ -69,12 +75,13 @@ export function NewProgramSheet({
   visible,
   language = 'en',
   exerciseLibrary,
+  initialView = 'menu',
   onClose,
   onAiAssisted,
   onBuildYourself,
   onImportProgram,
 }: NewProgramSheetProps) {
-  const [view, setView] = useState<'menu' | 'csv'>('menu');
+  const [view, setView] = useState<'menu' | 'csv'>(initialView);
   const [csvText, setCsvText] = useState('');
   const defaultProgramName = t(language, 'csv.defaultName');
   const [programName, setProgramName] = useState(defaultProgramName);
@@ -86,7 +93,7 @@ export function NewProgramSheet({
   );
 
   function reset() {
-    setView('menu');
+    setView(initialView);
     setCsvText('');
     setProgramName(defaultProgramName);
     setImporting(false);
@@ -117,7 +124,7 @@ export function NewProgramSheet({
         <View style={[styles.panel, view === 'csv' && styles.panelTall]}>
           <View style={styles.grabHandle} />
           <View style={styles.headerRow}>
-            {view !== 'menu' ? (
+            {view !== initialView ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t(language, 'common.back')}
