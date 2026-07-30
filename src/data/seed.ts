@@ -26,6 +26,7 @@ const DEFAULT_PREFERENCES = {
     weeklySummary: true,
     comebackNudge: true,
     sessionReminders: false,
+    reminderTime: '17:30',
   },
   trainingBreak: null as import('../types/models').TrainingBreak | null,
   promoProUntil: null as string | null,

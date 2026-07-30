@@ -25,6 +25,11 @@ import { formatWorkoutDisplayLabel } from './src/lib/displayLabel';
 import { buildCardioStatsLine, getCardioActivity } from './src/lib/cardio';
 import { setSoundCuesEnabled } from './src/utils/sound';
 import { setHapticsEnabled } from './src/utils/haptics';
+import {
+  getNotificationPermissionGranted,
+  requestNotificationPermission,
+} from './src/utils/appNotifications';
+import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
@@ -743,6 +748,10 @@ function GymlogApp() {
   useEffect(() => {
     setHapticsEnabled(preferences.hapticsEnabled);
   }, [preferences.hapticsEnabled]);
+
+  // Mirrors the notification preferences onto the OS clock: reminders, the
+  // comeback nudge, the Sunday summary and the morning-after record note.
+  useScheduledNotifications(database);
 
   const exerciseBrowserItems = useMemo(
     () => exerciseLibrary.filter((item) => !item.id.startsWith('lib_')),
@@ -3558,10 +3567,15 @@ function GymlogApp() {
       <NotificationsScreen
         language={preferences.appLanguage}
         prefs={preferences.notificationPrefs}
+        trainingDays={preferences.setupAvailableDays}
+        onTrainingBreak={preferences.trainingBreak !== null}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onChange={(patch) =>
           void updatePreferences({ notificationPrefs: { ...preferences.notificationPrefs, ...patch } })
         }
+        requestPermission={requestNotificationPermission}
+        checkPermission={getNotificationPermissionGranted}
+        onOpenTrainingPlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_break') {

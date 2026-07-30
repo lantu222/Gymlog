@@ -151,15 +151,19 @@ module.exports = [
       // The policy says notifications are scheduled locally and no device token
       // exists. Settings used to say "Push and reminders", which contradicted it.
       const i18n = read('src/lib/i18n.ts');
-      const line = i18n
-        .split('\n')
-        .filter((row) => row.includes("'settings.notifications.sub'"));
-      assert.equal(line.length, 2, 'expected an English and a Finnish notifications subtitle');
-      for (const row of line) {
-        assert.ok(
-          !/push/i.test(row),
-          `"${row.trim()}" promises push notifications; the app schedules them locally`,
-        );
+      // The Settings row and the master switch on the Notifications screen both
+      // name the feature, so both have to stay honest about what it is.
+      for (const key of ['settings.notifications.sub', 'notif.push']) {
+        const line = i18n.split('\n').filter((row) => row.includes(`'${key}'`));
+        assert.equal(line.length, 2, `expected an English and a Finnish value for ${key}`);
+        for (const row of line) {
+          // Only the value: the key itself is allowed to be called notif.push.
+          const value = row.slice(row.indexOf(':') + 1);
+          assert.ok(
+            !/push/i.test(value),
+            `"${row.trim()}" promises push notifications; the app schedules them locally`,
+          );
+        }
       }
     },
   },

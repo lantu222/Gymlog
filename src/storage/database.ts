@@ -402,6 +402,13 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
           typeof input?.preferences?.notificationPrefs?.sessionReminders === 'boolean'
             ? input.preferences.notificationPrefs.sessionReminders
             : fallback.preferences.notificationPrefs.sessionReminders,
+        // "HH:MM" 24h. A malformed value would silently move every reminder, so
+        // anything that is not a real clock time falls back to the default.
+        reminderTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(
+          input?.preferences?.notificationPrefs?.reminderTime as string,
+        )
+          ? (input!.preferences!.notificationPrefs!.reminderTime as string)
+          : fallback.preferences.notificationPrefs.reminderTime,
       },
       trainingBreak:
         input?.preferences?.trainingBreak &&

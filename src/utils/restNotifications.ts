@@ -9,38 +9,20 @@
  * behalf.
  *
  * While the app is in the foreground the in-app cue already covers it, so the
- * handler suppresses the banner — the user should never get alerted twice for
- * the same rest.
+ * shared handler in `notificationHandler.ts` suppresses the banner — the user
+ * should never get alerted twice for the same rest.
  */
-import { AppState, Platform } from 'react-native';
+import { Platform } from 'react-native';
 import * as Notifications from 'expo-notifications';
 
-export const REST_NOTIFICATION_CHANNEL_ID = 'rest-timer';
+import { installNotificationHandler } from './notificationHandler';
 
-let handlerInstalled = false;
+export const REST_NOTIFICATION_CHANNEL_ID = 'rest-timer';
+/** Tags our rest alerts so the shade sweep leaves other notifications alone. */
+const REST_NOTIFICATION_MARKER = 'gymlogRest';
+
 let channelReady = false;
 let permissionGranted: boolean | null = null;
-
-function installHandler() {
-  if (handlerInstalled) {
-    return;
-  }
-  handlerInstalled = true;
-  Notifications.setNotificationHandler({
-    handleNotification: async () => {
-      // Foreground: the player already buzzed and moved on — a banner on top of
-      // that is noise. Background/killed: the system presents it for us and we
-      // never reach this handler.
-      const foreground = AppState.currentState === 'active';
-      return {
-        shouldShowBanner: !foreground,
-        shouldShowList: !foreground,
-        shouldPlaySound: !foreground,
-        shouldSetBadge: false,
-      };
-    },
-  });
-}
 
 /**
  * Permission + channel setup. Safe to call repeatedly; the work happens once.
@@ -52,7 +34,7 @@ export async function ensureRestNotifications(): Promise<boolean> {
     return false;
   }
 
-  installHandler();
+  installNotificationHandler();
 
   try {
     if (Platform.OS === 'android' && !channelReady) {
@@ -69,10 +51,14 @@ export async function ensureRestNotifications(): Promise<boolean> {
       channelReady = true;
     }
 
-    if (permissionGranted === null) {
+    // Re-checked until it is actually granted: the cached `false` would
+    // otherwise outlive a permission the user granted on the settings screen.
+    if (permissionGranted !== true) {
       const current = await Notifications.getPermissionsAsync();
       permissionGranted = current.granted;
-      if (!permissionGranted && current.canAskAgain) {
+      if (!permissionGranted) {
+        // Not gated on `canAskAgain` — on Android that flag is false before the
+        // first ask too, which would mean the dialog never appears at all.
         const requested = await Notifications.requestPermissionsAsync();
         permissionGranted = requested.granted;
       }
@@ -88,11 +74,17 @@ export async function ensureRestNotifications(): Promise<boolean> {
 /**
  * Clears any rest alert still sitting in the shade. Called when the player
  * opens: an alert from a session that was killed mid-rest has nothing left to
- * say. Safe to blanket-dismiss — a rest ending is the only thing we ever post.
+ * say. Only rest alerts are cleared — a training reminder or a record note in
+ * the same shade is unrelated and stays where the user left it.
  */
 export async function clearDeliveredRestNotifications(): Promise<void> {
   try {
-    await Notifications.dismissAllNotificationsAsync();
+    const presented = await Notifications.getPresentedNotificationsAsync();
+    await Promise.all(
+      presented
+        .filter((notification) => notification.request.content.data?.[REST_NOTIFICATION_MARKER] === true)
+        .map((notification) => Notifications.dismissNotificationAsync(notification.request.identifier)),
+    );
   } catch {
     // Nothing delivered, or the platform has no shade to clear.
   }
@@ -131,6 +123,7 @@ export async function scheduleRestEndNotification({
         // `true` = the platform default tone; a string would name an asset.
         sound: true,
         priority: Notifications.AndroidNotificationPriority.HIGH,
+        data: { [REST_NOTIFICATION_MARKER]: true },
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,

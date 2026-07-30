@@ -118,6 +118,41 @@ export function getSessionsThisWeek(database: AppDatabase, now = new Date()) {
   ).length;
 }
 
+/**
+ * Newest activity timestamp (workout or cardio) in epoch ms, or null when
+ * nothing has been logged yet. Drives the comeback nudge and the "already
+ * trained today" check in the notification planner.
+ */
+export function getLastActivityTimestamp(database: AppDatabase): number | null {
+  let newest: number | null = null;
+  getAllActivityTimestamps(database).forEach((performedAtIso) => {
+    const performedAt = new Date(performedAtIso).getTime();
+    if (!Number.isFinite(performedAt)) {
+      return;
+    }
+    if (newest === null || performedAt > newest) {
+      newest = performedAt;
+    }
+  });
+  return newest;
+}
+
+/**
+ * Lifted volume of the current calendar week in kg. Sums the stored session
+ * volume, the same source the lifetime summary uses, so the weekly-summary
+ * notification can never quote a number the app itself would contradict.
+ */
+export function getVolumeThisWeekKg(database: AppDatabase, now = new Date()) {
+  const currentWeekStart = getCalendarWeekStartTimestamp(now);
+
+  return getCanonicalCompletedSessions(database)
+    .filter((session) => getCalendarWeekStartTimestamp(session.performedAt) === currentWeekStart)
+    .reduce((total, session) => {
+      const volume = session.totalVolumeKg;
+      return total + (typeof volume === 'number' && Number.isFinite(volume) ? Math.max(0, volume) : 0);
+    }, 0);
+}
+
 export function getSessionsLast30Days(database: AppDatabase, now = new Date()) {
   const nowTimestamp = new Date(now).getTime();
   const windowStart = nowTimestamp - 30 * DAY_MS;

@@ -132,6 +132,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         weeklySummary: true,
         comebackNudge: true,
         sessionReminders: false,
+        reminderTime: '17:30',
       },
       trainingBreak: null,
       promoProUntil: null,

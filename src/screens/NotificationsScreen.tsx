@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -7,14 +7,28 @@ import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsU
 import { I18nKey, t } from '../lib/i18n';
 import { HG } from '../lightTheme';
 import { layout } from '../theme';
-import { AppLanguage, NotificationLevel, NotificationPrefs } from '../types/models';
+import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from '../types/models';
 
 interface NotificationsScreenProps {
   prefs: NotificationPrefs;
   language?: AppLanguage;
+  /** Days picked in setup. Empty = reminders have no days to fire on. */
+  trainingDays?: SetupWeekday[];
+  onTrainingBreak?: boolean;
   onBack: () => void;
   onChange: (patch: Partial<NotificationPrefs>) => void;
+  /** Shows the system dialog when possible; resolves with what we ended up with. */
+  requestPermission?: () => Promise<boolean>;
+  /** Reads the current OS permission without prompting. */
+  checkPermission?: () => Promise<boolean>;
+  onOpenTrainingPlan?: () => void;
 }
+
+/** 05:00–22:00 in half hours — the window a reminder is worth sending in. */
+const REMINDER_TIMES = Array.from({ length: 35 }, (_, index) => {
+  const minutes = 5 * 60 + index * 30;
+  return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${minutes % 60 === 0 ? '00' : '30'}`;
+});
 
 const LEVELS: Array<{ key: NotificationLevel; titleKey: I18nKey; subKey: I18nKey }> = [
   { key: 'quiet', titleKey: 'notif.level.quiet', subKey: 'notif.level.quietSub' },
@@ -38,11 +52,67 @@ function RadioDot({ on }: { on: boolean }) {
 }
 
 /**
- * Notification settings (spec screen 4). The preferences are stored now; the
- * delivery engine comes later — the master defaults to off, and everything
- * below it dims and locks while it stays off.
+ * Notification settings (spec screen 4). The master defaults to off, and
+ * everything below it dims and locks while it stays off.
+ *
+ * The master is the OS permission, not a wish: turning it on asks Android for
+ * permission and only stores "on" if we got it. If the user later revokes it in
+ * system settings, the mount check flips this back off rather than letting the
+ * screen claim notifications are running when nothing can be delivered.
  */
-export function NotificationsScreen({ prefs, language = 'en', onBack, onChange }: NotificationsScreenProps) {
+export function NotificationsScreen({
+  prefs,
+  language = 'en',
+  trainingDays = [],
+  onTrainingBreak = false,
+  onBack,
+  onChange,
+  requestPermission,
+  checkPermission,
+  onOpenTrainingPlan,
+}: NotificationsScreenProps) {
+  const [systemBlocked, setSystemBlocked] = useState(false);
+  const [timePickerOpen, setTimePickerOpen] = useState(false);
+
+  // Permission can be revoked while the app is closed, so trust the OS over
+  // what we stored. Runs once: re-running on every prefs change would fight
+  // the user's own toggling.
+  useEffect(() => {
+    if (!prefs.pushEnabled || !checkPermission) {
+      return undefined;
+    }
+    let cancelled = false;
+    void checkPermission().then((granted) => {
+      if (cancelled || granted) {
+        return;
+      }
+      setSystemBlocked(true);
+      onChange({ pushEnabled: false });
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleMasterChange = (next: boolean) => {
+    if (!next) {
+      setSystemBlocked(false);
+      onChange({ pushEnabled: false });
+      return;
+    }
+    if (!requestPermission) {
+      onChange({ pushEnabled: true });
+      return;
+    }
+    void requestPermission().then((granted) => {
+      setSystemBlocked(!granted);
+      onChange({ pushEnabled: granted });
+    });
+  };
+
+  const remindersWithoutDays = prefs.sessionReminders && trainingDays.length === 0;
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -64,16 +134,22 @@ export function NotificationsScreen({ prefs, language = 'en', onBack, onChange }
         <View style={[styles.card, styles.masterCard]}>
           <View style={styles.masterCopy}>
             <Text style={styles.masterTitle}>{t(language, 'notif.push')}</Text>
-            <Text style={styles.masterSub}>
-              {t(language, prefs.pushEnabled ? 'notif.pushOn' : 'notif.pushOff')}
+            <Text style={[styles.masterSub, systemBlocked && styles.masterSubBlocked]}>
+              {systemBlocked
+                ? t(language, 'notif.blocked')
+                : t(language, prefs.pushEnabled ? 'notif.pushOn' : 'notif.pushOff')}
             </Text>
           </View>
           <ToggleSwitch
             label={t(language, 'notif.push')}
             value={prefs.pushEnabled}
-            onChange={(next) => onChange({ pushEnabled: next })}
+            onChange={handleMasterChange}
           />
         </View>
+
+        {prefs.pushEnabled && onTrainingBreak ? (
+          <Text style={styles.note}>{t(language, 'notif.breakNote')}</Text>
+        ) : null}
 
         <View style={styles.dimmable} pointerEvents={prefs.pushEnabled ? 'auto' : 'none'}>
           <View style={prefs.pushEnabled ? null : styles.dimmed}>
@@ -106,7 +182,13 @@ export function NotificationsScreen({ prefs, language = 'en', onBack, onChange }
               <SectionLabel label={t(language, 'notif.training')} />
               <View style={styles.card}>
                 {TRAINING_TOGGLES.map((item, index) => (
-                  <View key={item.key} style={[styles.row, index !== TRAINING_TOGGLES.length - 1 && styles.rowDivider]}>
+                  <View
+                    key={item.key}
+                    style={[
+                      styles.row,
+                      (index !== TRAINING_TOGGLES.length - 1 || prefs.sessionReminders) && styles.rowDivider,
+                    ]}
+                  >
                     <View style={styles.rowCopy}>
                       <Text style={styles.rowTitle}>{t(language, item.titleKey)}</Text>
                       <Text style={styles.rowSub}>{t(language, item.subKey)}</Text>
@@ -118,6 +200,82 @@ export function NotificationsScreen({ prefs, language = 'en', onBack, onChange }
                     />
                   </View>
                 ))}
+
+                {/* Reminders are the only setting with a clock, so the picker
+                    lives with them instead of in a section of its own. */}
+                {prefs.sessionReminders ? (
+                  <>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={t(language, 'notif.reminderTime')}
+                      onPress={() => setTimePickerOpen((open) => !open)}
+                      style={({ pressed }) => [
+                        styles.row,
+                        remindersWithoutDays && styles.rowDivider,
+                        pressed && { opacity: 0.75 },
+                      ]}
+                    >
+                      <View style={styles.rowCopy}>
+                        <Text style={styles.rowTitle}>{t(language, 'notif.reminderTime')}</Text>
+                        <Text style={styles.rowSub}>{t(language, 'notif.reminderTimeSub')}</Text>
+                      </View>
+                      <Text style={styles.timeValue}>{prefs.reminderTime}</Text>
+                    </Pressable>
+
+                    {timePickerOpen ? (
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.timeStrip}
+                      >
+                        {REMINDER_TIMES.map((time) => {
+                          const active = time === prefs.reminderTime;
+                          return (
+                            <Pressable
+                              key={time}
+                              accessibilityRole="radio"
+                              accessibilityState={{ selected: active }}
+                              onPress={() => {
+                                onChange({ reminderTime: time });
+                                setTimePickerOpen(false);
+                              }}
+                              style={({ pressed }) => [
+                                styles.timeChip,
+                                active && styles.timeChipActive,
+                                pressed && { opacity: 0.75 },
+                              ]}
+                            >
+                              <Text style={[styles.timeChipText, active && styles.timeChipTextActive]}>
+                                {time}
+                              </Text>
+                            </Pressable>
+                          );
+                        })}
+                      </ScrollView>
+                    ) : null}
+
+                    {/* No days picked = nothing to fire on. Say so instead of
+                        leaving a switch that quietly does nothing. */}
+                    {remindersWithoutDays ? (
+                      <View style={styles.row}>
+                        <View style={styles.rowCopy}>
+                          <Text style={styles.rowTitle}>{t(language, 'notif.noDaysTitle')}</Text>
+                          <Text style={styles.rowSub}>{t(language, 'notif.noDaysBody')}</Text>
+                        </View>
+                        {onOpenTrainingPlan ? (
+                          <Pressable
+                            accessibilityRole="button"
+                            onPress={onOpenTrainingPlan}
+                            hitSlop={8}
+                            style={({ pressed }) => pressed && { opacity: 0.65 }}
+                          >
+                            <Text style={styles.rowAction}>{t(language, 'notif.noDaysAction')}</Text>
+                          </Pressable>
+                        ) : null}
+                      </View>
+                    ) : null}
+                  </>
+                ) : null}
               </View>
             </View>
           </View>
@@ -184,6 +342,17 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
   },
+  masterSubBlocked: {
+    color: '#C0392B',
+  },
+  note: {
+    color: HG.muted,
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 18,
+    marginTop: 12,
+    paddingHorizontal: 4,
+  },
   dimmable: {},
   dimmed: {
     opacity: 0.45,
@@ -217,6 +386,44 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 2,
     lineHeight: 17,
+  },
+  rowAction: {
+    color: HG.purple,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  timeValue: {
+    color: HG.purple,
+    fontSize: 15,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  timeStrip: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 15,
+    paddingBottom: 14,
+  },
+  timeChip: {
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: HG.border,
+    backgroundColor: HG.bg,
+  },
+  timeChipActive: {
+    borderColor: HG.purple,
+    backgroundColor: HG.purple,
+  },
+  timeChipText: {
+    color: HG.muted,
+    fontSize: 13,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  timeChipTextActive: {
+    color: '#FFFFFF',
   },
   radioOuter: {
     width: 22,

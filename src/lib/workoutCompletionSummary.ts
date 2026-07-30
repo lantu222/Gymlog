@@ -96,6 +96,102 @@ export function buildExercisePrLookup({
   };
 }
 
+export interface LatestSessionPr {
+  exerciseName: string;
+  weightKg: number;
+  reps: number;
+  /** performedAt of the session the record was set in, epoch ms. */
+  achievedAtMs: number;
+}
+
+/**
+ * The strongest personal record in the most recently performed session, or null
+ * when it produced none. Feeds the morning-after record notification.
+ *
+ * Unlike the completion screen this ignores first-ever entries: calling the
+ * first log of an exercise a "record" is technically true and practically
+ * hollow, so a previous best has to exist for it to count here.
+ */
+export function findLatestSessionPr({
+  workoutSessions,
+  exerciseLogs,
+  exerciseTemplates,
+}: {
+  workoutSessions: WorkoutSession[];
+  exerciseLogs: ExerciseLog[];
+  exerciseTemplates: ExerciseTemplate[];
+}): LatestSessionPr | null {
+  let latestSession: WorkoutSession | null = null;
+  let latestAtMs = Number.NEGATIVE_INFINITY;
+  for (const session of workoutSessions) {
+    const performedAt = new Date(session.performedAt).getTime();
+    if (Number.isFinite(performedAt) && performedAt > latestAtMs) {
+      latestSession = session;
+      latestAtMs = performedAt;
+    }
+  }
+
+  if (!latestSession) {
+    return null;
+  }
+  const latest = latestSession;
+
+  const priorLookup = buildExercisePrLookup({
+    exerciseLogs: exerciseLogs.filter((log) => log.sessionId !== latest.id),
+    workoutSessions: workoutSessions.filter((session) => session.id !== latest.id),
+    exerciseTemplates,
+  });
+
+  const templatesById = new Map(exerciseTemplates.map((exercise) => [exercise.id, exercise] as const));
+  const candidates: Array<LatestSessionPr & { estimate: number }> = [];
+
+  exerciseLogs
+    .filter((log) => log.sessionId === latest.id)
+    .forEach((log) => {
+      const template = log.exerciseTemplateId ? templatesById.get(log.exerciseTemplateId) ?? null : null;
+      const previousBest = resolvePreviousExercisePr({
+        libraryItemId: template?.libraryItemId ?? null,
+        exerciseName: log.exerciseNameSnapshot,
+        lookup: priorLookup,
+      });
+
+      if (previousBest === null) {
+        return;
+      }
+
+      getComparableLogSets(log).forEach((set) => {
+        const estimate = estimateOneRepMaxKg(set.weight, set.reps);
+        // Same 0.05 kg margin the completion screen uses, so the two surfaces
+        // can never disagree about whether a set was a record.
+        if (estimate === null || estimate <= previousBest + 0.05) {
+          return;
+        }
+        candidates.push({
+          exerciseName: log.exerciseNameSnapshot,
+          weightKg: set.weight,
+          reps: set.reps,
+          achievedAtMs: latestAtMs,
+          estimate,
+        });
+      });
+    });
+
+  if (candidates.length === 0) {
+    return null;
+  }
+
+  const best = candidates.reduce((strongest, candidate) =>
+    candidate.estimate > strongest.estimate ? candidate : strongest,
+  );
+
+  return {
+    exerciseName: best.exerciseName,
+    weightKg: best.weightKg,
+    reps: best.reps,
+    achievedAtMs: best.achievedAtMs,
+  };
+}
+
 export function resolvePreviousExercisePr({
   libraryItemId,
   exerciseName,

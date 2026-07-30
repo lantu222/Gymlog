@@ -55,6 +55,8 @@ export interface NotificationPrefs {
   weeklySummary: boolean;
   comebackNudge: boolean;
   sessionReminders: boolean;
+  /** Local time of day for session reminders, 24h "HH:MM". */
+  reminderTime: string;
 }
 
 export type TrainingBreakReason = 'injury' | 'holiday' | 'other';
