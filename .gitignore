@@ -68,3 +68,6 @@ _tmp_bodbot/
 tmp-*
 .claude/settings.local.json
 *.zip
+
+# Local native modules: sources are tracked, Gradle output is not.
+modules/*/android/build/
