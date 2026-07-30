@@ -1821,73 +1821,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '800',
   },
-  rhythmHead: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 14,
-  },
-  rhythmHeadLeft: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-  },
-  rhythmBig: {
-    color: HG.ink,
-    fontSize: 30,
-    fontWeight: '800',
-    letterSpacing: -0.6,
-    lineHeight: 32,
-  },
-  rhythmBigLabel: {
-    color: HG.muted,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  rhythmThisWeek: {
-    color: HG.purple,
-    fontSize: 12.5,
-    fontWeight: '800',
-  },
-  rhythmBars: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 6,
-    height: 56,
-  },
-  rhythmBarSlot: {
-    flex: 1,
-    height: '100%',
-    justifyContent: 'flex-end',
-  },
-  rhythmBar: {
-    borderRadius: 7,
-    backgroundColor: HG.purple,
-  },
-  rhythmBarCurrent: {
-    backgroundColor: HG.purpleLight,
-    borderWidth: 1.5,
-    borderColor: HG.purple,
-    borderStyle: 'dashed',
-  },
-  rhythmFootRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  rhythmFootText: {
-    color: HG.faint,
-    fontSize: 10.5,
-    fontWeight: '700',
-  },
-  rhythmCaption: {
-    color: HG.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 18,
-    marginTop: 12,
-  },
   monthGrid: {
     flexDirection: 'row',
     gap: 10,
@@ -1919,15 +1852,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
-  },
-  trendBlock: {
-    gap: 10,
-  },
-  trendHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
   },
   trendValue: {
     flexShrink: 1,
@@ -2061,21 +1985,6 @@ const styles = StyleSheet.create({
     width: 11,
     height: 11,
     borderRadius: 4,
-  },
-  legendDotDone: {
-    backgroundColor: HG.purple,
-  },
-  legendDotMissed: {
-    backgroundColor: '#FBEAE7',
-    borderWidth: 1,
-    borderColor: '#E7C3BC',
-  },
-  legendDotUpcoming: {
-    borderWidth: 1.5,
-    borderColor: HG.purple,
-  },
-  legendDotRest: {
-    backgroundColor: '#F1ECFB',
   },
   legendText: {
     color: HG.muted,

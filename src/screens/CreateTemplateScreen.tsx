@@ -628,12 +628,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.3,
   },
-  supportingText: {
-    color: '#6B7280',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
   supportingTextCompact: {
     color: '#6B7280',
     fontSize: 11,

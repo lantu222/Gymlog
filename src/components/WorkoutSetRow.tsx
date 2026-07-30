@@ -337,35 +337,6 @@ const styles = StyleSheet.create({
     color: '#9B93AD',
     fontWeight: '800',
   },
-  activeHintRow: {
-    paddingHorizontal: 2,
-  },
-  activeHintText: {
-    fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#667085',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  repeatRow: {
-    alignItems: 'flex-start',
-  },
-  repeatButton: {
-    minHeight: 30,
-    maxWidth: '100%',
-    paddingHorizontal: spacing.sm,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3ECFF',
-    borderWidth: 1,
-    borderColor: 'rgba(124, 58, 237, 0.22)',
-  },
-  repeatText: {
-    fontFamily: WORKOUT_FONT_FAMILY,
-    color: LOGGING_PURPLE,
-    fontSize: 10,
-    fontWeight: '800',
-  },
   effortRow: {
     alignItems: 'flex-start',
   },

@@ -114,11 +114,6 @@ export const settingsStyles = StyleSheet.create({
     paddingVertical: 4,
     ...CARD_SHADOW,
   },
-  value: {
-    color: HG.ink,
-    fontSize: 14,
-    fontWeight: '800',
-  },
 });
 
 const styles = StyleSheet.create({

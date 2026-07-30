@@ -1476,62 +1476,6 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#C0B8D4',
   },
-  liveStatsCard: {
-    minHeight: 72,
-    marginTop: 0,
-    marginBottom: 20,
-    marginHorizontal: 26,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#EFEAF9',
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    paddingVertical: 13,
-    paddingHorizontal: 6,
-  },
-  liveStat: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 7,
-    paddingHorizontal: 2,
-    minWidth: 0,
-  },
-  liveStatDuration: {
-    flex: 1,
-  },
-  liveStatSets: {
-    flex: 1,
-  },
-  liveStatVolume: {
-    flex: 1,
-  },
-  liveStatValue: {
-    fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#101828',
-    fontSize: 22,
-    lineHeight: 30,
-    fontWeight: '800',
-    fontVariant: ['tabular-nums'],
-    maxWidth: '100%',
-    textAlign: 'center',
-  },
-  liveStatValueLong: {
-    fontSize: 19,
-    lineHeight: 27,
-  },
-  liveStatDurationValue: {
-    color: LOGGING_PURPLE,
-  },
-  liveStatLabel: {
-    fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#8D7FA9',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '400',
-    letterSpacing: 0,
-    textAlign: 'center',
-  },
   content: {
     paddingHorizontal: 0,
     paddingBottom: 44,
@@ -1900,12 +1844,6 @@ const styles = StyleSheet.create({
   sheetContent: {
     gap: spacing.sm,
   },
-  sheetBodyText: {
-    color: '#667085',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-  },
   swapSheetHeader: {
     gap: spacing.xs,
   },
@@ -2002,9 +1940,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
-  },
-  sheetButtonDisabled: {
-    opacity: 0.6,
   },
   sheetDestructiveButton: {
     minHeight: 48,

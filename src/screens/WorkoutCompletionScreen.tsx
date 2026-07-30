@@ -555,9 +555,6 @@ const styles = StyleSheet.create({
   noteIconTileGold: {
     backgroundColor: GOLD_SOFT,
   },
-  noteIconTilePurple: {
-    backgroundColor: HG3.purpleSoft,
-  },
   noteCopy: {
     flex: 1,
     minWidth: 0,

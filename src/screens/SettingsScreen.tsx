@@ -672,21 +672,6 @@ const styles = StyleSheet.create({
   segTextActive: {
     color: HG.purpleDark,
   },
-  proPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingVertical: 7,
-    paddingHorizontal: 13,
-    borderRadius: 999,
-    backgroundColor: HG.purpleLight,
-  },
-  proPillText: {
-    color: HG.purpleDark,
-    fontSize: 12,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
   connectPill: {
     paddingVertical: 7,
     paddingHorizontal: 14,

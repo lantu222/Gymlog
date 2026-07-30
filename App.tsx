@@ -1,7 +1,7 @@
 import './src/globalFont';
 
 import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, StyleSheet, View } from 'react-native';
+import { Alert, AppState, BackHandler, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -159,7 +159,6 @@ import {
   HealthBasics,
   requestHealthBasics,
 } from './src/integrations/health';
-import { colors } from './src/theme';
 import {
   AppDatabase,
   AppLanguage,
@@ -4152,14 +4151,6 @@ export default function App() {
   );
 }
 
-const styles = StyleSheet.create({
-  loading: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.background,
-  },
-});
 
 
 
