@@ -1217,6 +1217,14 @@ const EN = {
   'widget.noSessions': 'Open the app to start a plan',
   'widget.exercise': '1 exercise',
   'widget.exercises': '{count} exercises',
+  'widget.prompt.title': 'Put your week on the home screen',
+  'widget.prompt.body':
+    'The widget shows this week’s training days and your next session, without opening the app.',
+  'widget.prompt.add': 'Add widget',
+  'widget.prompt.dismiss': 'Not now',
+  'settings.widget': 'Home screen widget',
+  'settings.widget.sub': 'Your week and next session, on the home screen.',
+  'settings.widget.added': 'Already on your home screen.',
   // ── Training break, promo code, edit profile ──────────────────────────
   'break.title': 'Training break',
   'break.onBreak': 'ON A BREAK',
@@ -3431,6 +3439,14 @@ const FI: Record<I18nKey, string> = {
   'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',
   'widget.exercise': '1 liike',
   'widget.exercises': '{count} liikettä',
+  'widget.prompt.title': 'Ota viikko kotinäytölle',
+  'widget.prompt.body':
+    'Widget näyttää tämän viikon treenipäivät ja seuraavan treenin avaamatta sovellusta.',
+  'widget.prompt.add': 'Lisää widget',
+  'widget.prompt.dismiss': 'Ei nyt',
+  'settings.widget': 'Kotinäytön widget',
+  'settings.widget.sub': 'Viikkosi ja seuraava treeni kotinäytöllä.',
+  'settings.widget.added': 'Jo kotinäytölläsi.',
   // ── Training break, promo code, edit profile ──────────────────────────
   'break.title': 'Treenitauko',
   'break.onBreak': 'TAUOLLA',

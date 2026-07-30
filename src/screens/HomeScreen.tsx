@@ -146,6 +146,15 @@ interface HomeScreenProps {
     trainedToday: boolean;
     weekStreak: number;
   };
+  /**
+   * The one-time home-screen widget offer. Null unless the device can actually
+   * pin one and the user has not answered yet — an offer that cannot be
+   * fulfilled is worse than no offer.
+   */
+  widgetPrompt?: {
+    onAdd: () => void;
+    onDismiss: () => void;
+  } | null;
 }
 
 export function HomeScreen({
@@ -167,6 +176,7 @@ export function HomeScreen({
   language = 'en',
   availableEquipment = null,
   greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
+  widgetPrompt = null,
 }: HomeScreenProps) {
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
@@ -725,6 +735,30 @@ export function HomeScreen({
             </Pressable>
           ) : null}
         </Animated.View>
+
+        {widgetPrompt ? (
+          <Animated.View style={[styles.widgetPromptCard, rise(RISE_EMPTY_ROW)]}>
+            <Text style={styles.widgetPromptTitle}>{t(language, 'widget.prompt.title')}</Text>
+            <Text style={styles.widgetPromptBody}>{t(language, 'widget.prompt.body')}</Text>
+            <View style={styles.widgetPromptActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={widgetPrompt.onDismiss}
+                hitSlop={8}
+                style={({ pressed }) => [styles.widgetPromptGhost, pressed && styles.pressed]}
+              >
+                <Text style={styles.widgetPromptGhostText}>{t(language, 'widget.prompt.dismiss')}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={widgetPrompt.onAdd}
+                style={({ pressed }) => [styles.widgetPromptCta, pressed && styles.pressed]}
+              >
+                <Text style={styles.widgetPromptCtaText}>{t(language, 'widget.prompt.add')}</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        ) : null}
 
         {onChangePinnedStatCardKeys ? (
           <Animated.View style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
@@ -1350,6 +1384,53 @@ const styles = StyleSheet.create({
   },
   statCardsSection: {
     marginTop: 26,
+  },
+  widgetPromptCard: {
+    marginTop: 26,
+    padding: 16,
+    borderRadius: 18,
+    backgroundColor: HG3.surface,
+    borderWidth: 1,
+    borderColor: HG3.border,
+  },
+  widgetPromptTitle: {
+    color: HG3.ink,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  widgetPromptBody: {
+    color: HG3.muted,
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 19,
+    marginTop: 5,
+  },
+  widgetPromptActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 14,
+  },
+  widgetPromptGhost: {
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+  },
+  widgetPromptGhostText: {
+    color: HG3.muted,
+    fontSize: 13.5,
+    fontWeight: '800',
+  },
+  widgetPromptCta: {
+    paddingVertical: 9,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: HG3.purple,
+  },
+  widgetPromptCtaText: {
+    color: '#FFFFFF',
+    fontSize: 13.5,
+    fontWeight: '800',
   },
   historySectionTitle: {
     color: HG3.ink,

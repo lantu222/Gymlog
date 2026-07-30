@@ -283,6 +283,11 @@ export interface AppPreferences {
   automatedProgressionEnabled: boolean;
   aiSetupCompleted: boolean;
   hasOpenedAppBefore: boolean;
+  /**
+   * True once the home-screen widget offer has been answered either way. The
+   * offer is shown once; Settings keeps a permanent entry for later.
+   */
+  homeWidgetPromptDismissed: boolean;
   entryFlowCompleted: boolean;
   trainingFirstRunDismissed: boolean;
   selectedSignInMethod: SignInMethod | null;

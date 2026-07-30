@@ -1,7 +1,7 @@
 import './src/globalFont';
 
 import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, BackHandler, StyleSheet, View } from 'react-native';
+import { Alert, AppState, BackHandler, StyleSheet, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -31,6 +31,11 @@ import {
 } from './src/utils/appNotifications';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { writeHomeWidgetPayload } from './src/utils/homeWidget';
+import {
+  isHomeWidgetAdded,
+  isHomeWidgetSupported,
+  requestPinHomeWidget,
+} from './modules/home-widget';
 import { buildHomeWidgetPayload } from './src/lib/widgetPayload';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
@@ -743,6 +748,10 @@ function GymlogApp() {
   // Settings' "Import plan (CSV)" opens the same sheet the Programs tab uses,
   // straight into its paste view. One importer, two doors.
   const [settingsImportVisible, setSettingsImportVisible] = useState(false);
+  // null = still asking Android, or the device cannot pin widgets at all.
+  const [homeWidgetState, setHomeWidgetState] = useState<{ supported: boolean; added: boolean } | null>(
+    null,
+  );
   const [minimumSplashElapsed, setMinimumSplashElapsed] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -2368,6 +2377,40 @@ function GymlogApp() {
     const order: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
     return preferences.setupAvailableDays.map((day) => order[day]).filter((index) => index !== undefined);
   }, [preferences.setupAvailableDays]);
+  // What Android says about pinning the widget. Re-asked on every foreground,
+  // because the user may have added or removed it while we were away.
+  useEffect(() => {
+    if (!appHydrated) {
+      return undefined;
+    }
+    let cancelled = false;
+    const refresh = async () => {
+      const supported = await isHomeWidgetSupported();
+      const added = supported ? await isHomeWidgetAdded() : false;
+      if (!cancelled) {
+        setHomeWidgetState({ supported, added });
+      }
+    };
+    void refresh();
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') {
+        void refresh();
+      }
+    });
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, [appHydrated]);
+
+  // Android never reports whether the user accepted the pin dialog, so the
+  // offer is retired on the attempt, not on a success we cannot observe. The
+  // Settings row stays available either way.
+  const handleAddHomeWidget = async () => {
+    await requestPinHomeWidget();
+    void updatePreferences({ homeWidgetPromptDismissed: true });
+  };
+
   // Feeds the home-screen widget. The launcher redraws it on its own schedule,
   // so all this has to do is keep the file current. Placed after the plan card
   // and the picked days, because it is built from exactly what Home renders.
@@ -3758,6 +3801,11 @@ function GymlogApp() {
         onOpenMyData={() => navigate({ tab: 'profile', screen: 'my_data' })}
         onImportPlan={() => setSettingsImportVisible(true)}
         onExportPlan={() => navigate({ tab: 'profile', screen: 'export_plan' })}
+        homeWidget={
+          homeWidgetState?.supported
+            ? { added: homeWidgetState.added, onAdd: () => void handleAddHomeWidget() }
+            : null
+        }
         onOpenNotifications={() => navigate({ tab: 'profile', screen: 'notifications' })}
         onOpenTrainingBreak={() => navigate({ tab: 'profile', screen: 'training_break' })}
         onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
@@ -3919,6 +3967,14 @@ function GymlogApp() {
         activePlan={homeActivePlanCard}
         availableEquipment={availableEquipmentForDrills}
         greetingState={homeGreetingState}
+        widgetPrompt={
+          homeWidgetState?.supported && !homeWidgetState.added && !preferences.homeWidgetPromptDismissed
+            ? {
+                onAdd: () => void handleAddHomeWidget(),
+                onDismiss: () => void updatePreferences({ homeWidgetPromptDismissed: true }),
+              }
+            : null
+        }
         trainingDayIndexes={homeTrainingDayIndexes}
         statCatalogCards={homeStatCatalogCards}
         pinnedStatCardKeys={homePinnedStatCardKeys}

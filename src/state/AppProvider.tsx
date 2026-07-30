@@ -142,6 +142,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       automatedProgressionEnabled: true,
       aiSetupCompleted: false,
       hasOpenedAppBefore: false,
+      homeWidgetPromptDismissed: false,
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,
       selectedSignInMethod: null,

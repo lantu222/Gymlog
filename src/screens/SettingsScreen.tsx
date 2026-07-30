@@ -23,6 +23,11 @@ interface SettingsScreenProps {
   /** Opens the paste-CSV sheet — the same importer the Programs tab uses. */
   onImportPlan: () => void;
   onExportPlan: () => void;
+  /**
+   * Null on devices that cannot pin a widget — the row is hidden rather than
+   * shown as something that would do nothing.
+   */
+  homeWidget?: { added: boolean; onAdd: () => void } | null;
   onOpenNotifications: () => void;
   onOpenTrainingBreak: () => void;
   onOpenPromo: () => void;
@@ -83,6 +88,7 @@ const IC_PATHS: Record<string, string> = {
   analytics: 'M4 20V4M4 20h16M8 16l3-4 3 2 4-6',
   sun: 'M12 17a5 5 0 100-10 5 5 0 000 10zM12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
+  calendar: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   back: 'M15 5l-7 7 7 7',
   chevron: 'M9 6l6 6-6 6',
 };
@@ -192,6 +198,7 @@ export function SettingsScreen({
   onOpenEditProfile,
   onImportPlan,
   onExportPlan,
+  homeWidget = null,
   onOpenNotifications,
   onOpenTrainingBreak,
   onOpenPromo,
@@ -385,9 +392,22 @@ export function SettingsScreen({
               title={t(language, 'settings.exportCsv')}
               sub={t(language, 'settings.exportCsv.sub')}
               chevron
-              last
+              last={!homeWidget}
               onPress={onExportPlan}
             />
+            {/* Hidden entirely where pinning is unsupported. When the widget is
+                already placed the row states that instead of offering again —
+                Android will happily pin a second copy otherwise. */}
+            {homeWidget ? (
+              <Row
+                icon="calendar"
+                title={t(language, 'settings.widget')}
+                sub={t(language, homeWidget.added ? 'settings.widget.added' : 'settings.widget.sub')}
+                chevron={!homeWidget.added}
+                last
+                onPress={homeWidget.added ? undefined : homeWidget.onAdd}
+              />
+            ) : null}
           </View>
         </View>
 

@@ -456,6 +456,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.hasOpenedAppBefore === 'boolean'
           ? input.preferences.hasOpenedAppBefore
           : fallback.preferences.hasOpenedAppBefore,
+      homeWidgetPromptDismissed:
+        typeof input?.preferences?.homeWidgetPromptDismissed === 'boolean'
+          ? input.preferences.homeWidgetPromptDismissed
+          : fallback.preferences.homeWidgetPromptDismissed,
       entryFlowCompleted:
         typeof input?.preferences?.entryFlowCompleted === 'boolean'
           ? input.preferences.entryFlowCompleted
