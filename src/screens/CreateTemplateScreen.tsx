@@ -376,7 +376,6 @@ export function CreateTemplateScreen({
         onRightActionPress={() => {
           void handleSave();
         }}
-        tone="dark"
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

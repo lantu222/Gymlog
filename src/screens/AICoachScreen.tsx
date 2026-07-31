@@ -292,7 +292,6 @@ export function AICoachScreen({
       <ScreenHeader
         title="GAINER AI"
         subtitle={t(language, 'ai.subtitle')}
-        tone="dark"
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

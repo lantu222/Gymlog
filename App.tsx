@@ -3280,8 +3280,7 @@ function GymlogApp() {
         defaultRestSeconds={preferences.defaultRestSeconds}
         unitPreference={unitPreference}
         exerciseHistoryLookup={editorExerciseHistoryLookup}
-        exercisePrLookup={exercisePrLookup}
-        inlineTip={null}
+        exercisePrLookup={exercisePrLookup}
         onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
         onUseTemplate={() => navigate(WORKOUT_PLAN_ROUTE)}
         onSave={async (draft, summary: WorkoutEditorFinishSummary) => {
@@ -3368,8 +3367,7 @@ function GymlogApp() {
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
-        customTemplate={customWorkoutRuntimeMap[route.workoutTemplateId] ?? null}
-        inlineTip={null}
+        customTemplate={customWorkoutRuntimeMap[route.workoutTemplateId] ?? null}
         dismissedTipIds={dismissedTipIds}
         onDismissTip={handleDismissTip}
         onOpenAdaptiveCoachPremium={handleOpenPremium}

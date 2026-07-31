@@ -53,7 +53,6 @@ export function WorkoutCelebrationScreen({
       <ScreenHeader
         title={t(language, 'celebrate.title')}
         subtitle={t(language, 'celebrate.subtitle')}
-        tone="dark"
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

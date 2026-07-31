@@ -4,7 +4,6 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ExerciseInfoSheet } from '../components/ExerciseInfoSheet';
-import { InlineTip } from '../components/InlineTip';
 import { WorkoutSetRow } from '../components/WorkoutSetRow';
 import { AdaptiveCoachRecommendation, buildAdaptiveCoachRecommendation, resolveAdaptiveCoachOffer } from '../lib/adaptiveCoach';
 import { buildLoggerMoment } from '../lib/proInsights';
@@ -24,7 +23,6 @@ import { radii, spacing, typography } from '../theme';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
-import { SurfaceAccent } from '../components/MainScreenPrimitives';
 import { AppLanguage, ExerciseLibraryItem, SetupLevel, UnitPreference } from '../types/models';
 import { I18nKey, t } from '../lib/i18n';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_SUBSTITUTION_GROUPS, getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -67,12 +65,6 @@ interface WorkoutLoggingScreenProps {
   isSavingWorkout?: boolean;
   dismissedTipIds: string[];
   onDismissTip: (tipId: string) => void | Promise<void>;
-  inlineTip?: {
-    title: string;
-    body: string;
-    accent?: SurfaceAccent;
-    onDismiss: () => void;
-  } | null;
 }
 
 interface EffortPromptTarget {
@@ -352,7 +344,6 @@ export function WorkoutLoggingScreen({
   isSavingWorkout = false,
   dismissedTipIds,
   onDismissTip,
-  inlineTip,
 }: WorkoutLoggingScreenProps) {
   useKeepScreenAwake(keepScreenAwake, 'workout-logger');
   const {
@@ -578,8 +569,6 @@ export function WorkoutLoggingScreen({
     !overlaySurfaceOpen;
   const activeEffortPrompt =
     latestEffortTarget && !skippedEffortKeys.includes(latestEffortTarget.key) ? latestEffortTarget : null;
-  const showGenericInlineTip =
-    Boolean(inlineTip) && !isFirstSession && !showFirstSessionCoach;
 
   useEffect(() => {
     if (!activeSlotId) {
@@ -905,18 +894,6 @@ export function WorkoutLoggingScreen({
         keyboardDismissMode="on-drag"
       >
         {liveStats}
-
-        {showGenericInlineTip && inlineTip ? (
-          <View style={styles.inlineTipWrap}>
-            <InlineTip
-              title={inlineTip.title}
-              body={inlineTip.body}
-              accent={inlineTip.accent}
-              onDismiss={inlineTip.onDismiss}
-              compact
-            />
-          </View>
-        ) : null}
 
         <View style={styles.exerciseList}>
           {workoutExerciseRows.map((exercise) => {
@@ -1480,10 +1457,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     paddingBottom: 44,
     paddingTop: 0,
-  },
-  inlineTipWrap: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 6,
   },
   exerciseListRow: {
     minHeight: 73,

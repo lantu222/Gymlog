@@ -1,8 +1,19 @@
-﻿import React from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { spacing } from '../theme';
 
+/**
+ * The older screen header, still used by twelve screens.
+ *
+ * It used to take a `tone` prop defaulting to 'light', where "light" meant the
+ * near-white text of the legacy dark theme. Every single caller passed
+ * `tone="dark"` to get readable text, so the default branch never rendered —
+ * it was a trap waiting for the thirteenth caller to fall into. The prop and
+ * the unreachable branch are gone; the colours come from the shared palette
+ * like everything else.
+ */
 interface ScreenHeaderProps {
   title: string;
   subtitle?: string;
@@ -10,7 +21,6 @@ interface ScreenHeaderProps {
   backLabel?: string;
   rightActionLabel?: string;
   onRightActionPress?: () => void;
-  tone?: 'light' | 'dark';
 }
 
 export function ScreenHeader({
@@ -20,28 +30,25 @@ export function ScreenHeader({
   backLabel = 'Back',
   rightActionLabel,
   onRightActionPress,
-  tone = 'light',
 }: ScreenHeaderProps) {
-  const darkTone = tone === 'dark';
-
   return (
     <View style={styles.wrapper}>
       <View style={styles.topRow}>
         <View style={styles.titleRow}>
           {onBack ? (
             <Pressable hitSlop={10} onPress={onBack} style={styles.backButton}>
-              <Text style={[styles.backText, darkTone && styles.backTextDark]}>{backLabel}</Text>
+              <Text style={styles.backText}>{backLabel}</Text>
             </Pressable>
           ) : null}
-          <Text style={[styles.title, darkTone && styles.titleDark]}>{title}</Text>
+          <Text style={styles.title}>{title}</Text>
         </View>
         {rightActionLabel && onRightActionPress ? (
           <Pressable hitSlop={10} onPress={onRightActionPress} style={styles.action}>
-            <Text style={[styles.actionText, darkTone && styles.actionTextDark]}>{rightActionLabel}</Text>
+            <Text style={styles.actionText}>{rightActionLabel}</Text>
           </Pressable>
         ) : null}
       </View>
-      {subtitle ? <Text style={[styles.subtitle, darkTone && styles.subtitleDark]}>{subtitle}</Text> : null}
+      {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
     </View>
   );
 }
@@ -74,30 +81,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backText: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 14,
     fontWeight: '800',
   },
-  backTextDark: {
-    color: '#111111',
-  },
   title: {
     flex: 1,
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 24,
     fontWeight: '900',
     letterSpacing: -0.6,
   },
-  titleDark: {
-    color: '#111111',
-  },
   subtitle: {
-    color: colors.textSecondary,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
-  },
-  subtitleDark: {
-    color: '#6B7280',
   },
   action: {
     minHeight: 40,
@@ -105,11 +103,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   actionText: {
-    color: colors.textPrimary,
+    color: HG.ink,
     fontSize: 14,
     fontWeight: '800',
-  },
-  actionTextDark: {
-    color: '#111111',
   },
 });

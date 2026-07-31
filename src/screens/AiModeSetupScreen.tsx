@@ -93,7 +93,6 @@ export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave
         title={t(language, 'aiSetup.title')}
         subtitle={t(language, 'aiSetup.subtitle')}
         onBack={onBack}
-        tone="dark"
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.noteCard}>

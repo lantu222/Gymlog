@@ -2,9 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
-import { InlineTip } from '../components/InlineTip';
 import { ScreenHeader } from '../components/ScreenHeader';
-import { SurfaceAccent } from '../components/MainScreenPrimitives';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { parseNumberInput } from '../lib/format';
@@ -99,12 +97,6 @@ interface WorkoutEditorScreenProps {
   onBack: () => void;
   onSave: (draft: WorkoutTemplateDraft, summary: WorkoutEditorFinishSummary) => Promise<void> | void;
   onUseTemplate?: () => void;
-  inlineTip?: {
-    title: string;
-    body: string;
-    accent?: SurfaceAccent;
-    onDismiss: () => void;
-  } | null;
 }
 
 function createSetEntry(): EditorSetState {
@@ -236,7 +228,6 @@ export function WorkoutEditorScreen({
   language = 'en',
   onBack,
   onSave,
-  inlineTip,
   exercisePrLookup,
 }: WorkoutEditorScreenProps) {
   const [session, setSession] = useState<EditorSessionState>(() => mapDraftToState(initialDraft));
@@ -660,19 +651,9 @@ export function WorkoutEditorScreen({
         onBack={onBack}
         rightActionLabel={hasExercises ? t(language, 'editor.finish') : undefined}
         onRightActionPress={handleSave}
-        tone="dark"
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {!hasExercises && inlineTip ? (
-          <InlineTip
-            title={inlineTip.title}
-            body={inlineTip.body}
-            accent={inlineTip.accent}
-            onDismiss={inlineTip.onDismiss}
-          />
-        ) : null}
-
         {!hasExercises ? (
           <View style={styles.startCard}>
             <Text style={styles.startKicker}>{t(language, 'editor.quickStart')}</Text>

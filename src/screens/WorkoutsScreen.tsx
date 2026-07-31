@@ -419,8 +419,7 @@ export function WorkoutsScreen({
     <>
       <ScreenHeader
         title={t(language, 'tabs.programs')}
-        subtitle={t(language, 'ready.subtitle', { count: readyDiscoveryItems.length })}
-        tone="dark"
+        subtitle={t(language, 'ready.subtitle', { count: readyDiscoveryItems.length })}
       />
       <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
         <View style={styles.readyTemplateSearchCard}>

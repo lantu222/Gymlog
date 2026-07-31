@@ -121,7 +121,7 @@ export function ExercisePreferencesScreen({
 
   return (
     <>
-      <ScreenHeader title={t(language, 'planSet.exercisePrefs')} tone="dark" onBack={onBack} />
+      <ScreenHeader title={t(language, 'planSet.exercisePrefs')} onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={heroPhoto} style={styles.heroSurface}>
           <View style={styles.heroContent}>

@@ -157,8 +157,7 @@ export function JointFriendlySwapsScreen({
     <>
       <ScreenHeader
         title={t(language, 'planSet.jointSwaps')}
-        subtitle={t(language, 'swaps.subtitle')}
-        tone="dark"
+        subtitle={t(language, 'swaps.subtitle')}
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>

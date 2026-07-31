@@ -202,7 +202,18 @@ module.exports = [
       assert.match(workoutsScreenSource, /READY_FAMILY_SECTIONS\.find\(\(candidate\) => candidate\.match\(item\)\)/);
       assert.doesNotMatch(workoutsScreenSource, /tpl_gainer_'\)\)/);
       assert.match(workoutsScreenSource, /title=\{t\(language, 'tabs\.programs'\)\}/);
-      assert.match(workoutsScreenSource, /tone="dark"/);
+      // This used to assert `tone="dark"` on the header, because ScreenHeader
+      // defaulted to near-white legacy text that vanished on a light screen.
+      // The prop is gone and the header always reads from the shared palette,
+      // so the guard now protects that instead — reintroducing a tone prop
+      // would bring the trap back.
+      const screenHeaderSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'ScreenHeader.tsx'),
+        'utf8',
+      );
+      assert.doesNotMatch(screenHeaderSource, /tone\?:/);
+      assert.doesNotMatch(screenHeaderSource, /from '\.\.\/theme'[\s\S]*colors/);
+      assert.match(screenHeaderSource, /color: HG\.ink/);
       assert.match(workoutsScreenSource, /t\(language, 'ready\.searchPlaceholder'\)/);
       assert.match(workoutsScreenSource, /MagnifyingGlass/);
       assert.match(workoutsScreenSource, /SlidersHorizontal/);
@@ -367,7 +378,11 @@ module.exports = [
       assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'editor'/);
       assert.match(appSource, /<EmptyWorkoutScreen/);
       assert.doesNotMatch(appSource, /presentation=/);
-      assert.match(appSource, /inlineTip=\{null\}/);
+      // The inline tip is gone entirely. It used to be passed as null from both
+      // call sites, which meant a dark-themed card that could never render —
+      // this guard pinned the null; now it pins the absence.
+      assert.doesNotMatch(appSource, /inlineTip/);
+      assert.doesNotMatch(workoutEditorScreenSource, /inlineTip/);
       assert.doesNotMatch(appSource, /Start with the main lift first/);
       assert.doesNotMatch(appSource, /WORKOUT_EDITOR_TIP_ID/);
       assert.doesNotMatch(workoutEditorScreenSource, /emptyWorkout/);

@@ -89,7 +89,7 @@ export function EquipmentPreferencesScreen({
 
   return (
     <>
-      <ScreenHeader title={t(language, 'myData.equipment')} tone="dark" onBack={onBack} />
+      <ScreenHeader title={t(language, 'myData.equipment')} onBack={onBack} />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <FitnessPhotoSurface variant={getHeroPhotoKey(equipment)} style={styles.heroSurface}>
           <View style={styles.heroContent}>
