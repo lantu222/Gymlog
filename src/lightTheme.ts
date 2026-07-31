@@ -11,9 +11,6 @@
  * higher-contrast values won (user decision 2026-07-31): it was the newer,
  * deliberate direction and it dresses the most-looked-at screen.
  *
- * `HG3` below is an alias, kept only so the migration could land without
- * touching 54 call sites at the same time as changing colours. Prefer `HG`.
- *
  * Deliberately NOT themed: `COACH` and the `PW` sheet gradients are designed
  * dark surfaces, not light-theme variants — the contrast is what marks the
  * paid features. They stay fixed in both modes.
@@ -89,15 +86,6 @@ export const AW3 = {
 
 export type AW3Token = keyof typeof AW3;
 
-/**
- * @deprecated Alias of `HG`, which now carries these values. Kept so the
- * palette merge could land without rewriting 54 call sites in the same commit
- * as the colour change. Import `HG` in new code; this name goes away once the
- * remaining `HG3.` references are renamed.
- */
-export const HG3 = HG;
-
-export type HG3Token = HGToken;
 
 /**
  * The AI Coach surface (design_handoff_ai_coach). Deliberately dark and gold

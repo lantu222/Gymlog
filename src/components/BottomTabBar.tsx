@@ -14,7 +14,7 @@ import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-nativ
 
 import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
-import { HG3 } from '../lightTheme';
+import { HG } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 
 // EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
@@ -377,7 +377,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(124, 58, 237, 0.16)',
-    shadowColor: HG3.purpleBright,
+    shadowColor: HG.purpleBright,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.62,
     shadowRadius: 22,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { HG3 } from '../lightTheme';
+import { HG } from '../lightTheme';
 
 /**
  * Placeholder for a real gym photo that will be shot later (source photos are
@@ -25,11 +25,11 @@ export function ProgramPhotoSlot({
       <Svg width={compact ? 18 : 28} height={compact ? 18 : 28} viewBox="0 0 24 24" fill="none">
         <Path
           d="M4 8a2 2 0 0 1 2-2h1.5l1.4-1.6a1 1 0 0 1 .75-.4h4.7a1 1 0 0 1 .75.4L16.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
-          stroke={HG3.faint}
+          stroke={HG.faint}
           strokeWidth={1.8}
           strokeLinejoin="round"
         />
-        <Circle cx={12} cy={12.5} r={3.2} stroke={HG3.faint} strokeWidth={1.8} />
+        <Circle cx={12} cy={12.5} r={3.2} stroke={HG.faint} strokeWidth={1.8} />
       </Svg>
       {!compact ? <Text style={styles.slotLabel}>{label}</Text> : null}
     </View>
@@ -42,8 +42,8 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: HG3.border,
-    backgroundColor: HG3.purpleSoft,
+    borderColor: HG.border,
+    backgroundColor: HG.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -55,7 +55,7 @@ const styles = StyleSheet.create({
   slotLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: HG3.muted,
+    color: HG.muted,
     letterSpacing: 0.3,
   },
 });

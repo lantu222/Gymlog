@@ -32,7 +32,7 @@ import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
-import { HG3, PW } from '../lightTheme';
+import { HG, PW } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 
 // The Home Pro sheet is gone (design: GAINER Paywall Moments): contextual
@@ -421,12 +421,12 @@ export function HomeScreen({
             <AnimatedGreeting
               text={t(language, greeting.titleKey, greeting.titleVars)}
               style={styles.greetingTitle}
-              accentColor={HG3.purpleBright}
+              accentColor={HG.purpleBright}
             />
             <AnimatedGreeting
               text={t(language, greeting.subtitleKey)}
               style={styles.greetingSubtitle}
-              accentColor={HG3.purpleBright}
+              accentColor={HG.purpleBright}
               staggerMs={28}
             />
           </View>
@@ -474,7 +474,7 @@ export function HomeScreen({
             })}
             <Animated.View style={[styles.weekStripChevron, calendarStyles.chevron]}>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M6 9l6 6 6-6" stroke={HG3.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M6 9l6 6 6-6" stroke={HG.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </Animated.View>
           </Pressable>
@@ -493,7 +493,7 @@ export function HomeScreen({
                   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                     <Path
                       d="M15 6l-6 6 6 6"
-                      stroke={HG3.ink}
+                      stroke={HG.ink}
                       strokeWidth={2.2}
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -510,7 +510,7 @@ export function HomeScreen({
                   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                     <Path
                       d="M9 6l6 6-6 6"
-                      stroke={HG3.ink}
+                      stroke={HG.ink}
                       strokeWidth={2.2}
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -631,7 +631,7 @@ export function HomeScreen({
                 <AnimatedGreeting
                   text={localizeWorkoutFocus(focusTitle, language)}
                   style={styles.heroTitle}
-                  accentColor={HG3.purpleBright}
+                  accentColor={HG.purpleBright}
                   mode="line"
                   numberOfLines={1}
                   adjustsFontSizeToFit
@@ -695,7 +695,7 @@ export function HomeScreen({
           >
             <Text style={styles.startButtonText}>{t(language, 'home.startWorkout')}</Text>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG3.green} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG.green} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </Pressable>
         </Animated.View>
@@ -710,7 +710,7 @@ export function HomeScreen({
             style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
           >
             <View style={styles.emptyWorkoutIcon}>
-              <GymlogIcon name="plus" color={HG3.purple} size={20} />
+              <GymlogIcon name="plus" color={HG.purple} size={20} />
             </View>
             <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.emptyWorkout.title')}</Text>
             <Text style={styles.emptyWorkoutMeta}>{t(language, 'home.emptyWorkout.meta')}</Text>
@@ -726,7 +726,7 @@ export function HomeScreen({
                 <Svg width={20} height={20} viewBox="0 0 256 256">
                   <Path
                     d="M152 88a28 28 0 1 0-28-28 28 28 0 0 0 28 28Zm-56.4 68.7-20.6 41.1a12 12 0 0 0 21.5 10.7l20.5-41.1 26.4 19.8V232a12 12 0 0 0 24 0v-48a12 12 0 0 0-4.8-9.6l-25.5-19.1 14.3-35.8 8.5 12.8a12 12 0 0 0 8 5.1l40 8a12 12 0 1 0 4.7-23.6l-35-7-21.9-32.8a12 12 0 0 0-15.5-4l-48 24a12 12 0 0 0-5.4 5.3l-16 32a12 12 0 0 0 21.5 10.7l14.2-28.4 18.9-9.5-13.6 34Z"
-                    fill={HG3.purple}
+                    fill={HG.purple}
                   />
                 </Svg>
               </View>
@@ -801,12 +801,12 @@ export function HomeScreen({
                 >
                   <View style={styles.historyIconTile}>
                     {item.kind === 'cardio' && item.cardioIcon ? (
-                      <CardioIcon kind={item.cardioIcon} size={19} color={HG3.purple} />
+                      <CardioIcon kind={item.cardioIcon} size={19} color={HG.purple} />
                     ) : (
                       <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
                         <Path
                           d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-                          stroke={HG3.purple}
+                          stroke={HG.purple}
                           strokeWidth={2.1}
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -824,7 +824,7 @@ export function HomeScreen({
                   </View>
                   {item.kind === 'strength' ? (
                     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                      <Path d="M9 6l6 6-6 6" stroke={HG3.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M9 6l6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                   ) : null}
                 </Pressable>
@@ -888,7 +888,7 @@ export function HomeScreen({
                 >
                   <View style={styles.adaptOptIcon}>
                     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                      <Path d={option.icon} stroke={HG3.purple} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d={option.icon} stroke={HG.purple} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                   </View>
                   <View style={styles.adaptOptCopy}>
@@ -896,7 +896,7 @@ export function HomeScreen({
                     <Text style={styles.adaptOptSub}>{option.sub}</Text>
                   </View>
                   <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                    <Path d="m9 6 6 6-6 6" stroke={HG3.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                    <Path d="m9 6 6 6-6 6" stroke={HG.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
                   </Svg>
                 </Pressable>
               ))}
@@ -934,7 +934,7 @@ export function HomeScreen({
 const styles = StyleSheet.create({
   screenBackground: {
     flex: 1,
-    backgroundColor: HG3.bg,
+    backgroundColor: HG.bg,
   },
   scrollView: {
     flex: 1,
@@ -959,14 +959,14 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   greetingTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 26,
     lineHeight: 31,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   greetingSubtitle: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '600',
@@ -1005,8 +1005,8 @@ const styles = StyleSheet.create({
     marginTop: 14,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
@@ -1024,7 +1024,7 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   weekStripItemToday: {
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
   },
   weekStripDot: {
     width: 7,
@@ -1032,22 +1032,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   weekStripDotTraining: {
-    backgroundColor: HG3.purpleBright,
+    backgroundColor: HG.purpleBright,
   },
   weekStripDotUnknown: {
     backgroundColor: 'transparent',
   },
   weekStripDotRecovery: {
-    backgroundColor: HG3.green,
+    backgroundColor: HG.green,
   },
   weekStripDayLabel: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '800',
   },
   weekStripDayLabelToday: {
-    color: HG3.ink,
+    color: HG.ink,
   },
   weekStripChevron: {
     width: 22,
@@ -1068,7 +1068,7 @@ const styles = StyleSheet.create({
   },
   monthTitle: {
     flex: 1,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
   },
   monthTodayLink: {
     alignSelf: 'flex-start',
@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
   },
   monthTodayLinkText: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
@@ -1104,7 +1104,7 @@ const styles = StyleSheet.create({
   monthWeekdayLabel: {
     flex: 1,
     textAlign: 'center',
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '800',
@@ -1121,10 +1121,10 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   monthDayCellToday: {
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
   },
   monthDayNumber: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 13,
     lineHeight: 16,
     fontWeight: '700',
@@ -1133,7 +1133,7 @@ const styles = StyleSheet.create({
     color: 'rgba(162,155,180,0.55)',
   },
   monthDayNumberToday: {
-    color: HG3.purple,
+    color: HG.purple,
     fontWeight: '900',
   },
   monthDayDot: {
@@ -1142,10 +1142,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   monthDayDotTraining: {
-    backgroundColor: HG3.purpleBright,
+    backgroundColor: HG.purpleBright,
   },
   monthDayDotRecovery: {
-    backgroundColor: HG3.green,
+    backgroundColor: HG.green,
   },
   monthLegendRow: {
     flexDirection: 'row',
@@ -1160,7 +1160,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   monthLegendText: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '700',
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
   },
   heroTitle: {
     flex: 1,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 38,
     lineHeight: 43,
     fontWeight: '800',
@@ -1188,7 +1188,7 @@ const styles = StyleSheet.create({
     paddingTop: 4,
   },
   heroProgLabel: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '700',
@@ -1197,14 +1197,14 @@ const styles = StyleSheet.create({
     width: 88,
     height: 6,
     borderRadius: 999,
-    backgroundColor: HG3.border,
+    backgroundColor: HG.border,
     overflow: 'hidden',
     marginTop: 7,
   },
   heroProgFill: {
     height: 6,
     borderRadius: 999,
-    backgroundColor: HG3.purple,
+    backgroundColor: HG.purple,
   },
   secs: {
     marginTop: 20,
@@ -1213,10 +1213,10 @@ const styles = StyleSheet.create({
   secCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     overflow: 'hidden',
-    shadowColor: HG3.purpleBright,
+    shadowColor: HG.purpleBright,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -1230,14 +1230,14 @@ const styles = StyleSheet.create({
   },
   secTitle: {
     flex: 1,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 20,
     lineHeight: 25,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   secCount: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 13.5,
     lineHeight: 17,
     fontWeight: '700',
@@ -1255,7 +1255,7 @@ const styles = StyleSheet.create({
     gap: 13,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: HG3.border,
+    borderTopColor: HG.border,
   },
   planExerciseNumberChip: {
     width: 25,
@@ -1263,29 +1263,29 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
   },
   planExerciseNumberText: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
   },
   planExerciseName: {
     flex: 1,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '700',
   },
   planExerciseScheme: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 16,
     fontFamily: 'JetBrainsMono',
   },
   planListFooterText: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '600',
@@ -1300,18 +1300,18 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: HG3.purpleBright,
+    shadowColor: HG.purpleBright,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
     elevation: 2,
   },
   adaptButtonText: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',
@@ -1321,35 +1321,35 @@ const styles = StyleSheet.create({
     height: 56,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: HG3.green,
-    backgroundColor: HG3.surface,
+    borderColor: HG.green,
+    backgroundColor: HG.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: HG3.green,
+    shadowColor: HG.green,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
     shadowRadius: 16,
     elevation: 4,
   },
   startButtonText: {
-    color: HG3.green,
+    color: HG.green,
     fontSize: 17.5,
     lineHeight: 22,
     fontWeight: '800',
   },
   sectionDivider: {
     height: 1,
-    backgroundColor: HG3.border,
+    backgroundColor: HG.border,
     marginTop: 22,
   },
   emptyWorkoutRow: {
     minHeight: 54,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -1364,13 +1364,13 @@ const styles = StyleSheet.create({
   },
   emptyWorkoutTitle: {
     flex: 1,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 15.5,
     lineHeight: 20,
     fontWeight: '800',
   },
   emptyWorkoutMeta: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '600',
@@ -1389,17 +1389,17 @@ const styles = StyleSheet.create({
     marginTop: 26,
     padding: 16,
     borderRadius: 18,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderWidth: 1,
-    borderColor: HG3.border,
+    borderColor: HG.border,
   },
   widgetPromptTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16,
     fontWeight: '800',
   },
   widgetPromptBody: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 19,
@@ -1417,7 +1417,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   widgetPromptGhostText: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13.5,
     fontWeight: '800',
   },
@@ -1425,7 +1425,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: 999,
-    backgroundColor: HG3.purple,
+    backgroundColor: HG.purple,
   },
   widgetPromptCtaText: {
     color: '#FFFFFF',
@@ -1433,14 +1433,14 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   historySectionTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 20,
     lineHeight: 25,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   historySeeAll: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '800',
@@ -1453,24 +1453,24 @@ const styles = StyleSheet.create({
   },
   historyRowDivider: {
     borderTopWidth: 1,
-    borderTopColor: HG3.border,
+    borderTopColor: HG.border,
   },
   historyIconTile: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   historyRowTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
   },
   historyRowMeta: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '600',
@@ -1492,7 +1492,7 @@ const styles = StyleSheet.create({
     maxHeight: '94%',
     borderTopLeftRadius: 30,
     borderTopRightRadius: 30,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     paddingHorizontal: 22,
     paddingTop: 12,
     paddingBottom: 26,
@@ -1502,11 +1502,11 @@ const styles = StyleSheet.create({
     width: 42,
     height: 5,
     borderRadius: 3,
-    backgroundColor: HG3.border,
+    backgroundColor: HG.border,
     marginBottom: 18,
   },
   adaptTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 22,
     lineHeight: 27,
     fontWeight: '800',
@@ -1514,7 +1514,7 @@ const styles = StyleSheet.create({
   },
   adaptSub: {
     marginTop: 6,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13.5,
     lineHeight: 20,
     fontWeight: '600',
@@ -1529,8 +1529,8 @@ const styles = StyleSheet.create({
     gap: 13,
     borderRadius: 15,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.bg,
+    borderColor: HG.border,
+    backgroundColor: HG.bg,
     paddingHorizontal: 15,
     paddingVertical: 14,
   },
@@ -1539,8 +1539,8 @@ const styles = StyleSheet.create({
     height: 38,
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1549,14 +1549,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   adaptOptTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 14.5,
     lineHeight: 18,
     fontWeight: '800',
   },
   adaptOptSub: {
     marginTop: 2,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '600',
@@ -1570,7 +1570,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   adaptCancelText: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '700',
@@ -1598,7 +1598,7 @@ const styles = StyleSheet.create({
   plateauHeadline: {
     fontSize: 19,
     fontWeight: '800',
-    color: HG3.ink,
+    color: HG.ink,
     lineHeight: 25,
     marginTop: 11,
   },
@@ -1621,7 +1621,7 @@ const styles = StyleSheet.create({
   plateauFixLine: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: HG3.ink,
+    color: HG.ink,
     lineHeight: 20,
   },
 });

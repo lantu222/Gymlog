@@ -46,7 +46,7 @@ module.exports = [
   {
     name: 'programs home screen composes photo hero, this-week plan, actions, switch rail, and library',
     run() {
-      assert.match(programsHomeSource, /import \{ HG3 \} from '\.\.\/lightTheme'/);
+      assert.match(programsHomeSource, /import \{ HG \} from '\.\.\/lightTheme'/);
       // Redesign: no screen header — the full-bleed photo-placeholder hero leads.
       assert.doesNotMatch(programsHomeSource, /Your plan, and the programs behind it\./);
       assert.match(programsHomeSource, /programsHeroScrim/);

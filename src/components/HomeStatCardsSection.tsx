@@ -4,7 +4,7 @@ import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
 import { formatHomeStatValue, HomeStatCard, HomeStatCardIcon } from '../lib/homeStatCards';
 import { t } from '../lib/i18n';
-import { HG3 } from '../lightTheme';
+import { HG } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -29,7 +29,7 @@ interface HomeStatCardsSectionProps {
   language?: AppLanguage;
 }
 
-function StatIcon({ icon, size = 20, color = HG3.purple }: { icon: HomeStatCardIcon; size?: number; color?: string }) {
+function StatIcon({ icon, size = 20, color = HG.purple }: { icon: HomeStatCardIcon; size?: number; color?: string }) {
   switch (icon) {
     case 'scale':
       return (
@@ -98,7 +98,7 @@ function Sparkline({ series }: { series: number[] }) {
 
   // Neutral accent on purpose — the card reports the numbers and passes no
   // judgement on which direction is "good".
-  const stroke = HG3.purpleBright;
+  const stroke = HG.purpleBright;
   const last = points[points.length - 1];
 
   return (
@@ -244,10 +244,10 @@ export function HomeStatCardsSection({
             accessibilityRole="button"
             accessibilityLabel={t(language, 'cards.addCard')}
             onPress={() => setAddSheetVisible(true)}
-            style={({ pressed }) => [styles.addCard, pressed && { borderColor: HG3.purpleBright }]}
+            style={({ pressed }) => [styles.addCard, pressed && { borderColor: HG.purpleBright }]}
           >
             <Svg width={23} height={23} viewBox="0 0 24 24" fill="none">
-              <Path d="M12 5v14M5 12h14" stroke={HG3.purpleBright} strokeWidth={2.4} strokeLinecap="round" />
+              <Path d="M12 5v14M5 12h14" stroke={HG.purpleBright} strokeWidth={2.4} strokeLinecap="round" />
             </Svg>
             <Text style={styles.addCardText}>{t(language, 'cards.addCard')}</Text>
           </Pressable>
@@ -320,12 +320,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16,
     fontWeight: '800',
   },
   sectionAction: {
-    color: HG3.purpleBright,
+    color: HG.purpleBright,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -340,9 +340,9 @@ const styles = StyleSheet.create({
     maxWidth: '48.6%',
   },
   card: {
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderWidth: 1,
-    borderColor: HG3.border,
+    borderColor: HG.border,
     borderRadius: 16,
     paddingTop: 13,
     paddingHorizontal: 14,
@@ -350,12 +350,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardLabel: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12,
     fontWeight: '700',
   },
   previousText: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 11.5,
     fontWeight: '700',
     marginBottom: 4,
@@ -368,18 +368,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   valueText: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 25,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   unitText: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     fontWeight: '800',
   },
   noDataText: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 14,
     fontWeight: '700',
     paddingVertical: 6,
@@ -406,13 +406,13 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: '#B4A9CC',
     borderRadius: 16,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   addCardText: {
-    color: HG3.purpleBright,
+    color: HG.purpleBright,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -435,16 +435,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 5,
     borderRadius: 999,
-    backgroundColor: HG3.border,
+    backgroundColor: HG.border,
     marginBottom: 14,
   },
   sheetTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 19,
     fontWeight: '800',
   },
   sheetSubtitle: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 19,
@@ -462,13 +462,13 @@ const styles = StyleSheet.create({
   },
   sheetRowDivider: {
     borderTopWidth: 1,
-    borderTopColor: HG3.border,
+    borderTopColor: HG.border,
   },
   sheetIconTile: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -477,12 +477,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   sheetRowTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   sheetRowSub: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
@@ -491,12 +491,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: HG3.purpleBright,
+    backgroundColor: HG.purpleBright,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sheetEmpty: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 13.5,
     fontWeight: '600',
     textAlign: 'center',
@@ -509,7 +509,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   sheetDoneText: {
-    color: HG3.purpleBright,
+    color: HG.purpleBright,
     fontSize: 14.5,
     fontWeight: '800',
   },

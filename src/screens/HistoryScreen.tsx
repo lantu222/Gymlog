@@ -24,12 +24,12 @@ import {
 } from '../lib/historyView';
 import { I18nKey, t } from '../lib/i18n';
 import { localizeSessionName } from '../lib/sessionNameLabel';
-import { HG3 } from '../lightTheme';
+import { HG } from '../lightTheme';
 import { layout, spacing } from '../theme';
 import { AppDatabase, AppLanguage, UnitPreference } from '../types/models';
 
 /**
- * Rebuilt in the light HG3 language (2026-07-25). The old screen still wore the
+ * Rebuilt in the light HG language (2026-07-25). The old screen still wore the
  * dark ScreenHeader and stock photo heroes from an earlier phase, which left it
  * looking like a different app than the one that saved the session.
  *
@@ -286,7 +286,7 @@ export function HistoryScreen({
                   <Svg width={22} height={22} viewBox="0 0 24 24">
                     <Path
                       d="M12 2l2.5 5 5.5.8-4 3.9.95 5.5L12 20.5 7.05 17.2 8 11.7l-4-3.9L9.5 7z"
-                      fill={HG3.gold}
+                      fill={HG.gold}
                     />
                   </Svg>
                 </View>
@@ -385,8 +385,8 @@ export function HistoryScreen({
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder={t(language, 'history.searchPlaceholder')}
-                placeholderTextColor={HG3.faint}
-                selectionColor={HG3.purple}
+                placeholderTextColor={HG.faint}
+                selectionColor={HG.purple}
                 style={styles.searchInput}
               />
               <View style={styles.filterRow}>
@@ -443,7 +443,7 @@ export function HistoryScreen({
                     return (
                       <View key={session.id} style={[styles.cardioRow, index > 0 && styles.liftRowDivided]}>
                         <View style={styles.cardioIcon}>
-                          <CardioIcon kind={activity.icon} size={19} color={HG3.purple} />
+                          <CardioIcon kind={activity.icon} size={19} color={HG.purple} />
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={styles.liftName} numberOfLines={1}>
@@ -478,7 +478,7 @@ const CARD_SHADOW = {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG3.bg,
+    backgroundColor: HG.bg,
   },
   pressed: {
     opacity: 0.9,
@@ -492,7 +492,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   pageTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 30,
     lineHeight: 36,
     fontWeight: '800',
@@ -500,13 +500,13 @@ const styles = StyleSheet.create({
   },
   pageSubtitle: {
     marginTop: -8,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '600',
   },
   browseCard: {
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -518,8 +518,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     paddingHorizontal: 14,
-    backgroundColor: HG3.bg,
-    color: HG3.ink,
+    backgroundColor: HG.bg,
+    color: HG.ink,
     fontSize: 14.5,
     fontWeight: '700',
   },
@@ -533,23 +533,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: HAIRLINE,
-    backgroundColor: HG3.bg,
+    backgroundColor: HG.bg,
   },
   filterChipActive: {
-    backgroundColor: HG3.purpleSoft,
-    borderColor: HG3.purple,
+    backgroundColor: HG.purpleSoft,
+    borderColor: HG.purple,
   },
   filterChipText: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '800',
   },
   filterChipTextActive: {
-    color: HG3.purple,
+    color: HG.purple,
   },
   browseMeta: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
@@ -559,7 +559,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sessionCard: {
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   },
   sessionCardTitle: {
     flex: 1,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
@@ -582,7 +582,7 @@ const styles = StyleSheet.create({
   },
   sessionCardMeta: {
     marginTop: 3,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sessionCardVolume: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
@@ -602,7 +602,7 @@ const styles = StyleSheet.create({
   },
   sessionCardLift: {
     flex: 1,
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '700',
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 4,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 19,
     lineHeight: 24,
     fontWeight: '800',
@@ -681,7 +681,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     marginTop: 5,
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 9.5,
     lineHeight: 13,
     fontWeight: '800',
@@ -699,7 +699,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -720,7 +720,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   noteEyebrow: {
-    color: HG3.gold,
+    color: HG.gold,
     fontSize: 10.5,
     lineHeight: 14,
     fontWeight: '800',
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     marginTop: 2,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
@@ -737,14 +737,14 @@ const styles = StyleSheet.create({
   },
   noteBody: {
     marginTop: 2,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
   },
   sectionLabel: {
     marginTop: 4,
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '800',
@@ -752,7 +752,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   liftCard: {
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -780,14 +780,14 @@ const styles = StyleSheet.create({
   },
   liftName: {
     flexShrink: 1,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '800',
   },
   liftResult: {
     marginTop: 2,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
@@ -795,14 +795,14 @@ const styles = StyleSheet.create({
   },
   liftMeta: {
     marginTop: 2,
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
   },
   liftNote: {
     marginTop: 4,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
@@ -826,7 +826,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
   },
 
   /* shared bits */
@@ -834,16 +834,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: HG3.bg,
+    backgroundColor: HG.bg,
   },
   badgePurple: {
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
   },
   badgeWarn: {
     backgroundColor: '#FEF3C7',
   },
   badgeText: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 10.5,
     lineHeight: 14,
     fontWeight: '800',
@@ -851,13 +851,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   badgeTextPurple: {
-    color: HG3.purple,
+    color: HG.purple,
   },
   badgeTextWarn: {
     color: '#B45309',
   },
   emptyState: {
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -867,14 +867,14 @@ const styles = StyleSheet.create({
     ...CARD_SHADOW,
   },
   emptyTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
   },
   emptyBody: {
     marginTop: 5,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',

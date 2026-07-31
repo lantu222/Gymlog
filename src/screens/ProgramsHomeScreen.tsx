@@ -16,14 +16,14 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { I18nKey, t } from '../lib/i18n';
 import { localizeSessionName } from '../lib/sessionNameLabel';
-import { HG3 } from '../lightTheme';
+import { HG } from '../lightTheme';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 
 // The redesign gave Programs its own green accent, which left it as the only
-// tab not wearing the app's purple. It now uses the shared HG3 purple so the
+// tab not wearing the app's purple. It now uses the shared HG purple so the
 // CTAs read as the same product as everywhere else.
-const ACCENT = HG3.purple;
-const ACCENT_SOFT = HG3.purpleSoft;
+const ACCENT = HG.purple;
+const ACCENT_SOFT = HG.purpleSoft;
 const ACCENT_LINE = '#C9B6FF';
 
 const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
@@ -365,7 +365,7 @@ export function ProgramsHomeScreen({
                     </View>
                     <Text style={styles.dayDuration}>{session.duration}</Text>
                     <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path d="m9 6 6 6-6 6" stroke={HG3.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="m9 6 6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                   </Pressable>
                 );
@@ -484,7 +484,7 @@ export function ProgramsHomeScreen({
           style={({ pressed }) => [styles.createRow, pressed && styles.pressedRow]}
         >
           <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-            <Path d="M12 5v14M5 12h14" stroke={HG3.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M12 5v14M5 12h14" stroke={HG.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
           <Text style={styles.createText}>{t(language, 'programs.create')}</Text>
         </Pressable>
@@ -498,7 +498,7 @@ export function ProgramsHomeScreen({
         >
           <View style={styles.libraryIcon}>
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-              <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={HG3.purple} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={HG.purple} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </View>
           <View style={styles.libraryCopy}>
@@ -508,7 +508,7 @@ export function ProgramsHomeScreen({
             </Text>
           </View>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-            <Path d="m9 6 6 6-6 6" stroke={HG3.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="m9 6 6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
 
@@ -583,7 +583,7 @@ export function ProgramsHomeScreen({
 const styles = StyleSheet.create({
   screenBackground: {
     flex: 1,
-    backgroundColor: HG3.bg,
+    backgroundColor: HG.bg,
   },
   scrollView: {
     flex: 1,
@@ -682,8 +682,8 @@ const styles = StyleSheet.create({
     gap: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.purpleSoft,
+    borderColor: HG.border,
+    backgroundColor: HG.purpleSoft,
     paddingVertical: 13,
     paddingHorizontal: 14,
   },
@@ -695,9 +695,9 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     borderWidth: 1,
-    borderColor: HG3.border,
+    borderColor: HG.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -706,7 +706,7 @@ const styles = StyleSheet.create({
     borderColor: ACCENT,
   },
   dayBadgeText: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   dayTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 15.5,
     lineHeight: 20,
     fontWeight: '800',
@@ -742,13 +742,13 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   dayFocus: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
   },
   dayDuration: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
     marginTop: 11,
   },
   subAction: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1.5,
     borderColor: ACCENT,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -811,19 +811,19 @@ const styles = StyleSheet.create({
   emptyActiveCard: {
     borderRadius: 22,
     borderWidth: 1.5,
-    borderColor: HG3.purple,
-    backgroundColor: HG3.surface,
+    borderColor: HG.purple,
+    backgroundColor: HG.surface,
     padding: 20,
     gap: 8,
   },
   emptyActiveTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 18,
     lineHeight: 23,
     fontWeight: '800',
   },
   emptyActiveSub: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13.5,
     lineHeight: 19,
     fontWeight: '600',
@@ -837,14 +837,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionEyebrow: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '800',
     letterSpacing: 1.1,
   },
   sectionEyebrowStandalone: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 12,
     lineHeight: 15,
     fontWeight: '800',
@@ -854,7 +854,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionLink: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
@@ -871,10 +871,10 @@ const styles = StyleSheet.create({
     width: COVER_W,
     borderRadius: 22,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     overflow: 'hidden',
-    shadowColor: HG3.purpleBright,
+    shadowColor: HG.purpleBright,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 24,
@@ -949,7 +949,7 @@ const styles = StyleSheet.create({
     paddingBottom: 15,
   },
   exploreBlurb: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '600',
@@ -962,7 +962,7 @@ const styles = StyleSheet.create({
     marginTop: 11,
   },
   exploreMeta: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '800',
@@ -971,7 +971,7 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 999,
-    backgroundColor: HG3.faint,
+    backgroundColor: HG.faint,
   },
   customRow: {
     flexDirection: 'row',
@@ -979,8 +979,8 @@ const styles = StyleSheet.create({
     gap: 13,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     paddingHorizontal: 14,
     paddingVertical: 13,
     marginBottom: 10,
@@ -990,20 +990,20 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   customTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '800',
   },
   customSubtitle: {
     marginTop: 2,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
   },
   customAction: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
@@ -1016,11 +1016,11 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: HG3.border,
+    borderColor: HG.border,
     borderStyle: 'dashed',
   },
   createText: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '800',
@@ -1031,8 +1031,8 @@ const styles = StyleSheet.create({
     gap: 13,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     paddingHorizontal: 15,
     paddingVertical: 14,
   },
@@ -1040,7 +1040,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 12,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1049,14 +1049,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   libraryTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '800',
   },
   librarySubtitle: {
     marginTop: 2,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
   footerNote: {
     marginTop: 18,
     textAlign: 'center',
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 11.5,
     lineHeight: 18,
     fontWeight: '600',
@@ -1084,7 +1084,7 @@ const styles = StyleSheet.create({
   sheet: {
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    backgroundColor: HG3.surface,
+    backgroundColor: HG.surface,
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 26,
@@ -1094,7 +1094,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 5,
     borderRadius: 3,
-    backgroundColor: HG3.border,
+    backgroundColor: HG.border,
     marginBottom: 16,
   },
   sheetHeaderRow: {
@@ -1107,14 +1107,14 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   sheetName: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 18,
     lineHeight: 23,
     fontWeight: '800',
   },
   sheetMeta: {
     marginTop: 2,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '700',
@@ -1122,13 +1122,13 @@ const styles = StyleSheet.create({
   sheetExplainer: {
     marginTop: 15,
     marginHorizontal: 2,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13.5,
     lineHeight: 21,
     fontWeight: '600',
   },
   sheetExplainerBold: {
-    color: HG3.ink,
+    color: HG.ink,
     fontWeight: '800',
   },
   sheetButtonRow: {
@@ -1140,12 +1140,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 50,
     borderRadius: 14,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sheetCancelText: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
@@ -1154,17 +1154,17 @@ const styles = StyleSheet.create({
     flex: 1.4,
     height: 50,
     borderRadius: 14,
-    backgroundColor: HG3.purple,
+    backgroundColor: HG.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: HG3.purpleBright,
+    shadowColor: HG.purpleBright,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.32,
     shadowRadius: 16,
     elevation: 4,
   },
   sheetConfirmText: {
-    color: HG3.surface,
+    color: HG.surface,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',

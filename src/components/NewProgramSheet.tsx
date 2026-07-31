@@ -5,7 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../lib/csvProgramImport';
 import { I18nKey, t } from '../lib/i18n';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
-import { HG3 } from '../lightTheme';
+import { HG } from '../lightTheme';
 
 // Program accent (design_handoff_programs_redesign, hue 150). The handoff
 // specifies oklch values; RN has no oklch support, so these are the closest hex.
@@ -42,7 +42,7 @@ interface NewProgramSheetProps {
 }
 
 function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
-  const stroke = name === 'spark' ? '#FFFFFF' : HG3.purple;
+  const stroke = name === 'spark' ? '#FFFFFF' : HG.purple;
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       {name === 'spark' ? (
@@ -66,7 +66,7 @@ function OptionIcon({ name }: { name: 'spark' | 'build' | 'table' }) {
 function Chevron() {
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="m9 6 6 6-6 6" stroke={HG3.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="m9 6 6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -133,7 +133,7 @@ export function NewProgramSheet({
                 style={styles.roundButton}
               >
                 <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                  <Path d="M15 6l-6 6 6 6" stroke={HG3.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M15 6l-6 6 6 6" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               </Pressable>
             ) : (
@@ -148,7 +148,7 @@ export function NewProgramSheet({
               style={styles.roundButton}
             >
               <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                <Path d="M6 6l12 12M18 6L6 18" stroke={HG3.ink} strokeWidth={2.2} strokeLinecap="round" />
+                <Path d="M6 6l12 12M18 6L6 18" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" />
               </Svg>
             </Pressable>
           </View>
@@ -217,7 +217,7 @@ export function NewProgramSheet({
                 onChangeText={setCsvText}
                 multiline
                 placeholder={'Day,Exercise,Sets,Reps\nDay 1,Bench Press,4,6-10\n…'}
-                placeholderTextColor={HG3.faint}
+                placeholderTextColor={HG.faint}
                 style={styles.csvInput}
                 autoCapitalize="none"
                 autoCorrect={false}
@@ -291,7 +291,7 @@ export function NewProgramSheet({
                         onChangeText={setProgramName}
                         style={styles.nameInput}
                         placeholder={defaultProgramName}
-                        placeholderTextColor={HG3.faint}
+                        placeholderTextColor={HG.faint}
                       />
                       <Pressable
                         accessibilityRole="button"
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   panel: {
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
-    backgroundColor: HG3.bg,
+    backgroundColor: HG.bg,
     paddingHorizontal: 20,
     paddingBottom: 28,
     shadowColor: '#140C28',
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 5,
     borderRadius: 999,
-    backgroundColor: HG3.border,
+    backgroundColor: HG.border,
     marginTop: 10,
     marginBottom: 8,
   },
@@ -383,7 +383,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   headerTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 19,
     lineHeight: 24,
     fontWeight: '800',
@@ -392,7 +392,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -401,7 +401,7 @@ const styles = StyleSheet.create({
     height: 34,
   },
   subtitle: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 13.5,
     lineHeight: 19,
     fontWeight: '600',
@@ -417,15 +417,15 @@ const styles = StyleSheet.create({
     gap: 13,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     padding: 15,
   },
   optionIconTile: {
     width: 48,
     height: 48,
     borderRadius: 14,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -437,13 +437,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   optionTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '800',
   },
   optionBody: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
@@ -460,16 +460,16 @@ const styles = StyleSheet.create({
     minHeight: 130,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     padding: 12,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 13,
     lineHeight: 18,
     textAlignVertical: 'top',
   },
   sampleLink: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 12.5,
     fontWeight: '800',
   },
@@ -487,7 +487,7 @@ const styles = StyleSheet.create({
     borderColor: '#F2D8A0',
   },
   resultBannerText: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '700',
@@ -501,8 +501,8 @@ const styles = StyleSheet.create({
   previewTable: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     overflow: 'hidden',
   },
   previewHeader: {
@@ -510,11 +510,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 9,
     paddingHorizontal: 12,
-    backgroundColor: HG3.purpleSoft,
+    backgroundColor: HG.purpleSoft,
     gap: 8,
   },
   previewHeaderCell: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.5,
@@ -526,7 +526,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     gap: 8,
     borderTopWidth: 1,
-    borderTopColor: HG3.border,
+    borderTopColor: HG.border,
   },
   previewRowUnmatched: {
     backgroundColor: '#FEF6E7',
@@ -546,12 +546,12 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   previewCellDay: {
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 12,
     fontWeight: '800',
   },
   previewCellName: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -564,12 +564,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   previewCellMeta: {
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     fontWeight: '700',
   },
   nameLabel: {
-    color: HG3.faint,
+    color: HG.faint,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -578,10 +578,10 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     paddingHorizontal: 13,
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 14.5,
     fontWeight: '700',
   },
@@ -607,13 +607,13 @@ const styles = StyleSheet.create({
   columnsCard: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: HG3.border,
-    backgroundColor: HG3.surface,
+    borderColor: HG.border,
+    backgroundColor: HG.surface,
     padding: 14,
     gap: 10,
   },
   columnsTitle: {
-    color: HG3.ink,
+    color: HG.ink,
     fontSize: 13.5,
     fontWeight: '800',
   },
@@ -623,13 +623,13 @@ const styles = StyleSheet.create({
   },
   columnsKey: {
     width: 74,
-    color: HG3.purple,
+    color: HG.purple,
     fontSize: 13,
     fontWeight: '800',
   },
   columnsHelp: {
     flex: 1,
-    color: HG3.muted,
+    color: HG.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
