@@ -14,7 +14,7 @@ import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-nativ
 
 import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
@@ -148,8 +148,16 @@ function SideTab({
 }
 
 export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPress, language = 'en' }: BottomTabBarProps) {
+  const theme = useTheme();
+  const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
+
+  // The pill is a dark surface designed to float over LIGHT content. On the
+  // dark theme that reads as a smudge — #1E1B2C over a #141021 background is
+  // barely a shade apart — so there it has to lift off the background instead
+  // of sinking into it.
+  const pillBackground = themeName === 'dark' ? theme.surfaceSoft : BAR.pill;
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   // Entrance: the bar rises in at .24s and the FAB pops (scale .3 -> 1 with
@@ -262,7 +270,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
         },
       ]}
     >
-      <View style={styles.pill}>
+      <View style={[styles.pill, { backgroundColor: pillBackground }]}>
         <View style={styles.row}>
           <Animated.View
             pointerEvents="none"
@@ -333,6 +341,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 18,
   },
   pill: {
+    // Overridden in dark — see the pill background note in the component.
     backgroundColor: BAR.pill,
     borderRadius: 30,
     borderWidth: 1,

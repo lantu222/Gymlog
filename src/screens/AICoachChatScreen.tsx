@@ -374,7 +374,7 @@ export function AICoachChatScreen({
               onChangeText={setDraft}
               placeholder={t(language, canAsk ? 'coachChat.placeholder' : 'coachChat.placeholderSpent')}
               placeholderTextColor={theme.faint}
-              selectionColor={theme.purple}
+              selectionColor={theme.highlight}
               style={styles.input}
               onSubmitEditing={() => void send(draft)}
               returnKeyType="send"
@@ -387,11 +387,11 @@ export function AICoachChatScreen({
             >
               {canAsk ? (
                 <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                  <Path d="M5 12h14M13 6l6 6-6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.onHighlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               ) : (
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M6 11h12v9H6zM9 11V8a3 3 0 016 0v3" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M6 11h12v9H6zM9 11V8a3 3 0 016 0v3" stroke={theme.onHighlight} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
               )}
             </Pressable>
@@ -444,6 +444,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
+  // PRO is a brand marker, not an action — it keeps the violet.
   badgePro: {
     backgroundColor: theme.purple,
   },
@@ -451,7 +452,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.5,
-    color: PW.proInk,
+    // Was PW.proInk, a fixed dark violet: unreadable once theme.purpleLight
+    // behind it turned into a dark tint.
+    color: theme.purpleDark,
   },
   badgeTextPro: {
     color: '#FFFFFF',
@@ -625,7 +628,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   analysisCta: {
     fontSize: 13,
     fontWeight: '800',
-    color: theme.purple,
+    color: theme.highlight,
     marginTop: 4,
   },
   quotaRow: {
@@ -666,7 +669,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   quickAskText: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: PW.proInk,
+    color: theme.highlight,
   },
   resetNote: {
     fontSize: 11.5,
@@ -706,7 +709,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.highlight,
     alignItems: 'center',
     justifyContent: 'center',
   },
