@@ -5,7 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -45,6 +45,8 @@ const SECTIONS: Array<{ labelKey: I18nKey; bulletKeys: I18nKey[] }> = [
 ];
 
 function Bullet({ text }: { text: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.bulletRow}>
       <View style={styles.bulletDot} />
@@ -54,6 +56,8 @@ function Bullet({ text }: { text: string }) {
 }
 
 export function AiTransparencyScreen({ language = 'en', liveModeConfigured, onBack }: AiTransparencyScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -64,7 +68,7 @@ export function AiTransparencyScreen({ language = 'en', liveModeConfigured, onBa
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'aiInfo.title')} />
@@ -102,10 +106,10 @@ export function AiTransparencyScreen({ language = 'en', liveModeConfigured, onBa
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -117,9 +121,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -129,23 +133,23 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   heroTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 27,
     fontWeight: '800',
     letterSpacing: -0.4,
     marginTop: 10,
   },
   heroBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     fontWeight: '600',
     lineHeight: 21,
     marginTop: 6,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     paddingVertical: 6,
     paddingHorizontal: 15,
@@ -154,17 +158,17 @@ const styles = StyleSheet.create({
   modeCard: {
     marginTop: 16,
     paddingVertical: 14,
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.border,
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.border,
   },
   modeLabel: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 0.7,
   },
   modeBody: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13.5,
     fontWeight: '600',
     lineHeight: 20,
@@ -182,18 +186,18 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     marginTop: 7,
   },
   bulletText: {
     flex: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13.5,
     fontWeight: '600',
     lineHeight: 20,
   },
   footer: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',

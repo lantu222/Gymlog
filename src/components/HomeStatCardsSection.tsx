@@ -4,7 +4,7 @@ import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
 import { formatHomeStatValue, HomeStatCard, HomeStatCardIcon } from '../lib/homeStatCards';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -29,14 +29,18 @@ interface HomeStatCardsSectionProps {
   language?: AppLanguage;
 }
 
-function StatIcon({ icon, size = 20, color = HG.purple }: { icon: HomeStatCardIcon; size?: number; color?: string }) {
+function StatIcon({ icon, size = 20, color }: { icon: HomeStatCardIcon; size?: number; color?: string }) {
+  // A parameter default cannot reach a hook; resolve it in the body.
+  const theme = useTheme();
+  const stroke = color ?? theme.purple;
+
   switch (icon) {
     case 'scale':
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
           <Path
             d="M7 3h10a4 4 0 0 1 4 4v10a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V7a4 4 0 0 1 4-4zM8 8l4 4M8 8h4"
-            stroke={color}
+            stroke={stroke}
             strokeWidth={2.1}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -48,7 +52,7 @@ function StatIcon({ icon, size = 20, color = HG.purple }: { icon: HomeStatCardIc
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
           <Path
             d="M12 3c3 4 6 7 6 11a6 6 0 0 1-12 0c0-4 3-7 6-11z"
-            stroke={color}
+            stroke={stroke}
             strokeWidth={2.1}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -60,7 +64,7 @@ function StatIcon({ icon, size = 20, color = HG.purple }: { icon: HomeStatCardIc
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
           <Path
             d="M3 8h18a2 2 0 0 1 0 0v8H3V8zM7 8v4M11 8v4M15 8v4M19 8v4"
-            stroke={color}
+            stroke={stroke}
             strokeWidth={2.1}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -70,13 +74,17 @@ function StatIcon({ icon, size = 20, color = HG.purple }: { icon: HomeStatCardIc
     default:
       return (
         <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-          <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={color} strokeWidth={2.1} strokeLinecap="round" />
+          <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={stroke} strokeWidth={2.1} strokeLinecap="round" />
         </Svg>
       );
   }
 }
 
 function Sparkline({ series }: { series: number[] }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const [width, setWidth] = useState(0);
 
   if (series.length < 2) {
@@ -98,7 +106,7 @@ function Sparkline({ series }: { series: number[] }) {
 
   // Neutral accent on purpose — the card reports the numbers and passes no
   // judgement on which direction is "good".
-  const stroke = HG.purpleBright;
+  const stroke = theme.purpleBright;
   const last = points[points.length - 1];
 
   return (
@@ -128,6 +136,8 @@ export function HomeStatCardsSection({
   reduceMotion,
   language = 'en',
 }: HomeStatCardsSectionProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [editing, setEditing] = useState(false);
   const [addSheetVisible, setAddSheetVisible] = useState(false);
 
@@ -244,10 +254,10 @@ export function HomeStatCardsSection({
             accessibilityRole="button"
             accessibilityLabel={t(language, 'cards.addCard')}
             onPress={() => setAddSheetVisible(true)}
-            style={({ pressed }) => [styles.addCard, pressed && { borderColor: HG.purpleBright }]}
+            style={({ pressed }) => [styles.addCard, pressed && { borderColor: theme.purpleBright }]}
           >
             <Svg width={23} height={23} viewBox="0 0 24 24" fill="none">
-              <Path d="M12 5v14M5 12h14" stroke={HG.purpleBright} strokeWidth={2.4} strokeLinecap="round" />
+              <Path d="M12 5v14M5 12h14" stroke={theme.purpleBright} strokeWidth={2.4} strokeLinecap="round" />
             </Svg>
             <Text style={styles.addCardText}>{t(language, 'cards.addCard')}</Text>
           </Pressable>
@@ -312,7 +322,7 @@ export function HomeStatCardsSection({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -320,12 +330,12 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   sectionTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '800',
   },
   sectionAction: {
-    color: HG.purpleBright,
+    color: theme.purpleBright,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -340,9 +350,9 @@ const styles = StyleSheet.create({
     maxWidth: '48.6%',
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 16,
     paddingTop: 13,
     paddingHorizontal: 14,
@@ -350,12 +360,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   cardLabel: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
   },
   previousText: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '700',
     marginBottom: 4,
@@ -368,18 +378,18 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   valueText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 25,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   unitText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '800',
   },
   noDataText: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 14,
     fontWeight: '700',
     paddingVertical: 6,
@@ -406,13 +416,13 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
     borderColor: '#B4A9CC',
     borderRadius: 16,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
   },
   addCardText: {
-    color: HG.purpleBright,
+    color: theme.purpleBright,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -422,7 +432,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
@@ -435,16 +445,16 @@ const styles = StyleSheet.create({
     width: 44,
     height: 5,
     borderRadius: 999,
-    backgroundColor: HG.border,
+    backgroundColor: theme.border,
     marginBottom: 14,
   },
   sheetTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 19,
     fontWeight: '800',
   },
   sheetSubtitle: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 19,
@@ -462,13 +472,13 @@ const styles = StyleSheet.create({
   },
   sheetRowDivider: {
     borderTopWidth: 1,
-    borderTopColor: HG.border,
+    borderTopColor: theme.border,
   },
   sheetIconTile: {
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.purpleSoft,
+    backgroundColor: theme.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -477,12 +487,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   sheetRowTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   sheetRowSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
@@ -491,12 +501,12 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: HG.purpleBright,
+    backgroundColor: theme.purpleBright,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sheetEmpty: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 13.5,
     fontWeight: '600',
     textAlign: 'center',
@@ -509,7 +519,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   sheetDoneText: {
-    color: HG.purpleBright,
+    color: theme.purpleBright,
     fontSize: 14.5,
     fontWeight: '800',
   },

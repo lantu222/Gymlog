@@ -6,7 +6,7 @@ import { CARD_SHADOW } from '../components/SettingsUi';
 import { GENERATED_EXERCISE_LIBRARY } from '../data/generatedExerciseLibrary';
 import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -43,9 +43,11 @@ const PRO_ROWS: Array<{ titleKey: I18nKey; bodyKey: I18nKey }> = [
 ];
 
 function CheckGlyph() {
+  const theme = useTheme();
+
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 13l4 4L19 7" stroke={HG.green} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M5 13l4 4L19 7" stroke={theme.green} strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -59,6 +61,8 @@ function SparkGlyph({ color }: { color: string }) {
 }
 
 export function ProOfferScreen({ language = 'en', onContinueFree, onSeePro }: ProOfferScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.screen}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
@@ -85,7 +89,7 @@ export function ProOfferScreen({ language = 'en', onContinueFree, onSeePro }: Pr
         {/* The Pro layer — three features, all implemented and gated. */}
         <View style={styles.proCard}>
           <View style={styles.proHead}>
-            <SparkGlyph color={HG.gold} />
+            <SparkGlyph color={theme.gold} />
             <Text style={styles.proLabel}>{t(language, 'proOffer.proLabel')}</Text>
           </View>
           {PRO_ROWS.map((row) => (
@@ -117,10 +121,10 @@ export function ProOfferScreen({ language = 'en', onContinueFree, onSeePro }: Pr
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   body: {
     paddingTop: 18,
@@ -128,29 +132,29 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   kicker: {
-    color: HG.purple,
+    color: theme.purple,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.4,
   },
   title: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.4,
     marginTop: 8,
   },
   subtitle: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14.5,
     fontWeight: '600',
     lineHeight: 21,
     marginTop: 6,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 20,
     ...CARD_SHADOW,
   },
@@ -160,7 +164,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
   freeLabel: {
-    color: HG.greenInk,
+    color: theme.greenInk,
     fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 0.8,
@@ -174,7 +178,7 @@ const styles = StyleSheet.create({
   },
   freeRowText: {
     flex: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '700',
   },
@@ -191,7 +195,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   proLabel: {
-    color: HG.gold,
+    color: theme.gold,
     fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 1.1,
@@ -223,7 +227,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     alignItems: 'center',
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   primaryButtonText: {
     color: '#FFFFFF',
@@ -235,12 +239,12 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   secondaryButtonText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 14.5,
     fontWeight: '800',
   },

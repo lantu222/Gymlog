@@ -5,7 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -74,13 +74,17 @@ const REQUESTS: FeatureRequest[] = [
   },
 ];
 
-const STATUS_STYLES: Record<RequestStatus, { labelKey: I18nKey; fg: string; bg: string }> = {
-  planned: { labelKey: 'requests.status.planned', fg: HG.purpleDark, bg: HG.purpleLight },
+// A module-level map is evaluated once at import, so the two themed colours
+// have to come from a call rather than a constant.
+const statusStyles = (theme: Theme): Record<RequestStatus, { labelKey: I18nKey; fg: string; bg: string }> => ({
+  planned: { labelKey: 'requests.status.planned', fg: theme.purpleDark, bg: theme.purpleLight },
   in_progress: { labelKey: 'requests.status.inProgress', fg: '#B45309', bg: '#FBF0DD' },
   done: { labelKey: 'requests.status.done', fg: '#157A3A', bg: '#E4F6EA' },
-};
+});
 
 export function FeatureRequestsScreen({ votedIds, language = 'en', onBack, onToggleVote }: FeatureRequestsScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const items = [...REQUESTS]
     .map((request) => ({
       ...request,
@@ -99,7 +103,7 @@ export function FeatureRequestsScreen({ votedIds, language = 'en', onBack, onTog
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'requests.title')} />
@@ -109,7 +113,7 @@ export function FeatureRequestsScreen({ votedIds, language = 'en', onBack, onTog
         <Text style={styles.intro}>{t(language, 'requests.intro')}</Text>
 
         {items.map((request) => {
-          const status = STATUS_STYLES[request.status];
+          const status = statusStyles(theme)[request.status];
           return (
             <View key={request.id} style={[styles.card, styles.requestCard]}>
               <View style={styles.requestCopy}>
@@ -134,13 +138,13 @@ export function FeatureRequestsScreen({ votedIds, language = 'en', onBack, onTog
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                   <Path
                     d="M12 19V5M6 11l6-6 6 6"
-                    stroke={request.voted ? HG.purpleDark : HG.muted}
+                    stroke={request.voted ? theme.purpleDark : theme.muted}
                     strokeWidth={2.4}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   />
                 </Svg>
-                <Text style={[styles.voteCount, request.voted && { color: HG.purpleDark }]}>{request.votes}</Text>
+                <Text style={[styles.voteCount, request.voted && { color: theme.purpleDark }]}>{request.votes}</Text>
               </Pressable>
             </View>
           );
@@ -150,10 +154,10 @@ export function FeatureRequestsScreen({ votedIds, language = 'en', onBack, onTog
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -165,9 +169,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -177,7 +181,7 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   intro: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 6,
@@ -185,9 +189,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -203,12 +207,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   requestTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   requestDesc: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     lineHeight: 18,
@@ -226,7 +230,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1EDFA',
   },
   categoryBadgeText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -245,16 +249,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     gap: 2,
   },
   voteButtonActive: {
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.purple,
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
   },
   voteCount: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '800',
   },

@@ -8,7 +8,7 @@ import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsU
 import { getHealthProviderLabel } from '../integrations/health';
 import { t } from '../lib/i18n';
 import { isProUnlocked } from '../lib/proEntitlement';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
 
@@ -93,10 +93,14 @@ const IC_PATHS: Record<string, string> = {
   chevron: 'M9 6l6 6-6 6',
 };
 
-function Ic({ n, c = HG.purpleDark, s = 20, sw = 2 }: { n: string; c?: string; s?: number; sw?: number }) {
+function Ic({ n, c, s = 20, sw = 2 }: { n: string; c?: string; s?: number; sw?: number }) {
+  // A parameter default cannot reach a hook; resolve it in the body.
+  const theme = useTheme();
+  const stroke = c ?? theme.purpleDark;
+
   return (
     <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-      <Path d={IC_PATHS[n] ?? ''} stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d={IC_PATHS[n] ?? ''} stroke={stroke} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -111,6 +115,8 @@ function Seg<T extends string>({
   value: T;
   onChange: (next: T) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.seg}>
       {options.map((option) => {
@@ -155,10 +161,14 @@ function Row({
   last?: boolean;
   onPress?: () => void;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const inner = (
     <View style={[styles.row, !last && styles.rowDivider]}>
       <View style={[styles.rowTile, danger && { backgroundColor: RED_SOFT }]}>
-        <Ic n={icon} c={danger ? RED : iconColor ?? HG.purpleDark} />
+        <Ic n={icon} c={danger ? RED : iconColor ?? theme.purpleDark} />
       </View>
       <View style={styles.rowCopy}>
         <Text style={[styles.rowTitle, danger && { color: RED }]}>{title}</Text>
@@ -166,7 +176,7 @@ function Row({
       </View>
       {value !== undefined ? <Text style={styles.rowValue}>{value}</Text> : null}
       {control}
-      {chevron ? <Ic n="chevron" c={HG.faint} s={18} sw={2.2} /> : null}
+      {chevron ? <Ic n="chevron" c={theme.faint} s={18} sw={2.2} /> : null}
     </View>
   );
 
@@ -210,6 +220,8 @@ export function SettingsScreen({
   onConnectHealth,
   onResetAllData,
 }: SettingsScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [resetVisible, setResetVisible] = useState(false);
   const language = preferences.appLanguage;
   // A redeemed promo is Pro too, so the badge cannot read the preview switch.
@@ -226,7 +238,7 @@ export function SettingsScreen({
           onPress={onBack}
           style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
         >
-          <Ic n="back" c={HG.ink} s={20} sw={2.4} />
+          <Ic n="back" c={theme.ink} s={20} sw={2.4} />
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'settings.title')} />
         <View style={styles.headerSpacer} />
@@ -260,13 +272,13 @@ export function SettingsScreen({
             {proUnlocked ? (
               <View style={styles.proBadge}>
                 <Svg width={12} height={12} viewBox="0 0 24 24">
-                  <Path d={IC_PATHS.spark} fill={HG.purpleDark} />
+                  <Path d={IC_PATHS.spark} fill={theme.purpleDark} />
                 </Svg>
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
             ) : null}
           </View>
-          <Ic n="chevron" c={HG.faint} s={18} sw={2.2} />
+          <Ic n="chevron" c={theme.faint} s={18} sw={2.2} />
         </Pressable>
 
         <View style={styles.section}>
@@ -494,10 +506,10 @@ export function SettingsScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -509,9 +521,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -527,9 +539,9 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -537,9 +549,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     padding: 14,
     marginTop: 4,
@@ -563,12 +575,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   profileChipName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '800',
   },
   profileChipMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 2,
@@ -581,11 +593,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     marginTop: 6,
   },
   proBadgeText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 11.5,
     fontWeight: '800',
   },
@@ -593,12 +605,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   soonPillText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -615,13 +627,13 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   rowTile: {
     width: 36,
     height: 36,
     borderRadius: 11,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -630,19 +642,19 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   rowTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   rowSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
     lineHeight: 17,
   },
   rowValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -665,26 +677,26 @@ const styles = StyleSheet.create({
     boxShadow: '0 1px 4px rgba(80, 40, 160, 0.14)',
   },
   segText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '800',
   },
   segTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   connectPill: {
     paddingVertical: 7,
     paddingHorizontal: 14,
     borderRadius: 10,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   connectPillText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 13,
     fontWeight: '800',
   },
   footer: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '600',
     textAlign: 'center',

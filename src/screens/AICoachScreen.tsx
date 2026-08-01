@@ -10,7 +10,7 @@ import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { t } from '../lib/i18n';
 import { AICoachAction, AICoachAdvice, AICoachTrainingContext } from '../types/aiCoach';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout, radii, spacing } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -32,10 +32,14 @@ interface PreviewRequest {
 }
 
 function SectionLabel({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function HeroPill({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.heroPill}>
       <Text style={styles.heroPillText}>{label}</Text>
@@ -44,6 +48,8 @@ function HeroPill({ label }: { label: string }) {
 }
 
 function SourceBadge({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.sourceBadge}>
       <Text style={styles.sourceBadgeText}>{label}</Text>
@@ -52,6 +58,8 @@ function SourceBadge({ label }: { label: string }) {
 }
 
 function SignalCard({ label, value }: { label: string; value: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.signalCard}>
       <Text style={styles.signalLabel}>{label}</Text>
@@ -69,6 +77,8 @@ function InfoList({
   title: string;
   items: string[];
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   if (items.length === 0) {
     return null;
   }
@@ -100,6 +110,8 @@ export function AICoachScreen({
   onSubmitPrompt,
   onSelectAction,
 }: AICoachScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState(initialPrompt ?? '');
   const safeSuggestions = Array.isArray(suggestions) ? suggestions : [];
   const [request, setRequest] = useState<PreviewRequest | null>(
@@ -324,8 +336,8 @@ export function AICoachScreen({
             value={draft}
             onChangeText={setDraft}
             placeholder={t(language, 'ai.placeholder')}
-            placeholderTextColor={HG.faint}
-            selectionColor={HG.purple}
+            placeholderTextColor={theme.faint}
+            selectionColor={theme.purple}
             multiline
             textAlignVertical="top"
             style={[styles.input, hasAnswer && styles.inputCompact]}
@@ -348,7 +360,7 @@ export function AICoachScreen({
 
         {state === 'loading' ? (
           <View style={styles.feedbackCard}>
-            <ActivityIndicator color={HG.purple} size="small" />
+            <ActivityIndicator color={theme.purple} size="small" />
             <View style={styles.feedbackCopy}>
               <Text style={styles.feedbackTitle}>{t(language, 'ai.loading')}</Text>
               <Text style={styles.feedbackBody}>{t(language, 'ai.loadingBody')}</Text>
@@ -412,7 +424,7 @@ export function AICoachScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
@@ -469,10 +481,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     justifyContent: 'center',
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   sourceBadgeText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -494,8 +506,8 @@ const styles = StyleSheet.create({
   askSurface: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -511,21 +523,21 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     gap: 4,
   },
   signalLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
   signalValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
@@ -534,11 +546,11 @@ const styles = StyleSheet.create({
     minHeight: 108,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '600',
@@ -557,11 +569,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
   },
   suggestionChipText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -570,7 +582,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   buttonDisabled: {
     opacity: 0.45,
@@ -586,8 +598,8 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.md,
   },
   feedbackCopy: {
@@ -595,12 +607,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   feedbackTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
   feedbackBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -611,7 +623,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   retryButtonText: {
     color: '#FFFFFF',
@@ -621,8 +633,8 @@ const styles = StyleSheet.create({
   answerSurface: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -633,27 +645,27 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
   questionText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 24,
     lineHeight: 29,
     fontWeight: '800',
     letterSpacing: -0.7,
   },
   answerNote: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '600',
   },
   takeawayText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '600',
@@ -664,18 +676,18 @@ const styles = StyleSheet.create({
   actionCard: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: 4,
   },
   actionCardPrimary: {
-    backgroundColor: HG.purple,
-    borderColor: HG.purple,
+    backgroundColor: theme.purple,
+    borderColor: theme.purple,
   },
   actionTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -683,7 +695,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   actionDescription: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -695,7 +707,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   infoTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -703,13 +715,13 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   infoItem: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '600',
   },
   assumptionText: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '600',

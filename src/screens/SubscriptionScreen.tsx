@@ -6,7 +6,7 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -31,6 +31,8 @@ const RED_BORDER = '#F3CFC9';
  * real store subscriptions page.
  */
 export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: SubscriptionScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
 
   const promoActive = promoProUntil !== null && new Date(promoProUntil).getTime() > Date.now();
@@ -49,7 +51,7 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'subs.title')} />
@@ -244,10 +246,10 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -259,9 +261,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -271,9 +273,9 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -304,7 +306,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   statusName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
@@ -320,7 +322,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   statusSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 2,
@@ -332,7 +334,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: HG.border,
+    backgroundColor: theme.border,
     marginVertical: 13,
   },
   metaRow: {
@@ -342,12 +344,12 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   metaKey: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13.5,
     fontWeight: '600',
   },
   metaValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13.5,
     fontWeight: '800',
   },
@@ -369,7 +371,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   freeNote: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     lineHeight: 18,
@@ -383,7 +385,7 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   planRowLast: {
     borderBottomWidth: 0,
@@ -401,7 +403,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   planName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15.5,
     fontWeight: '800',
   },
@@ -409,15 +411,15 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 9,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   currentBadgeText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 11,
     fontWeight: '800',
   },
   planPrice: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 3,
@@ -426,7 +428,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 13,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -435,15 +437,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 11,
     borderWidth: 1.5,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   switchPillText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13,
     fontWeight: '800',
   },
   caption: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 9,
@@ -455,7 +457,7 @@ const styles = StyleSheet.create({
     gap: 13,
     padding: 14,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   manageRowLast: {
     borderBottomWidth: 0,
@@ -473,18 +475,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   manageTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   manageSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
   footer: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',

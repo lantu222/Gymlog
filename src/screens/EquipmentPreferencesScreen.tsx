@@ -9,7 +9,7 @@ import {
   summarizeExercisePreferences,
 } from '../lib/tailoring';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { layout, radii, spacing } from '../theme';
 import { AppLanguage, AppPreferences, SetupEquipment } from '../types/models';
 
@@ -35,10 +35,14 @@ function getHeroPhotoKey(equipment: SetupEquipment) {
 }
 
 function SectionLabel({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function HeroPill({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.heroPill}>
       <Text style={styles.heroPillText}>{label}</Text>
@@ -57,6 +61,8 @@ function EquipmentOption({
   language: AppLanguage;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onPress} style={[styles.optionCard, active && styles.optionCardActive]}>
       <Text style={[styles.optionTitle, active && styles.optionTitleActive]}>
@@ -75,6 +81,7 @@ export function EquipmentPreferencesScreen({
   onBack,
   onChange,
 }: EquipmentPreferencesScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const equipment = preferences.setupEquipment ?? 'gym';
   const exerciseSummary = summarizeExercisePreferences(
     {
@@ -148,7 +155,7 @@ export function EquipmentPreferencesScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
@@ -210,7 +217,7 @@ const styles = StyleSheet.create({
     maxWidth: '84%',
   },
   sectionLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -219,8 +226,8 @@ const styles = StyleSheet.create({
   questionCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -228,13 +235,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   questionTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   questionBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -245,51 +252,51 @@ const styles = StyleSheet.create({
   optionCard: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: spacing.xs,
   },
   optionCardActive: {
-    borderColor: HG.purple,
-    backgroundColor: HG.purpleLight,
+    borderColor: theme.purple,
+    backgroundColor: theme.purpleLight,
   },
   optionTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   optionTitleActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   optionBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
   },
   optionBodyActive: {
-    color: HG.purple,
+    color: theme.purple,
   },
   signalCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.md,
     gap: spacing.xs,
   },
   signalLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
   signalValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
@@ -297,26 +304,26 @@ const styles = StyleSheet.create({
   nextCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.md,
     gap: 4,
   },
   nextKicker: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   nextTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   nextBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 19,
     fontWeight: '600',

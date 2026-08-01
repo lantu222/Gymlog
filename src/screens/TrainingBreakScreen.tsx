@@ -6,7 +6,7 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage, TrainingBreak, TrainingBreakReason } from '../types/models';
 
@@ -41,6 +41,8 @@ export function TrainingBreakScreen({
   onStartBreak,
   onEndBreak,
 }: TrainingBreakScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [reason, setReason] = useState<TrainingBreakReason | null>(null);
   const [note, setNote] = useState('');
 
@@ -54,7 +56,7 @@ export function TrainingBreakScreen({
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'break.title')} />
@@ -115,7 +117,7 @@ export function TrainingBreakScreen({
                 value={note}
                 onChangeText={setNote}
                 placeholder={t(language, 'break.notePlaceholder')}
-                placeholderTextColor={HG.faint}
+                placeholderTextColor={theme.faint}
                 style={styles.noteInput}
                 multiline
               />
@@ -148,10 +150,10 @@ export function TrainingBreakScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -163,9 +165,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -175,9 +177,9 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -203,19 +205,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   statusTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 18,
     fontWeight: '800',
     marginTop: 10,
   },
   statusNote: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13.5,
     fontWeight: '600',
     marginTop: 6,
   },
   statusBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     lineHeight: 18,
@@ -232,33 +234,33 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 13,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1.5,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   reasonChipActive: {
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.purple,
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
   },
   reasonChipText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     fontWeight: '800',
   },
   reasonChipTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   noteInput: {
     minHeight: 84,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     paddingHorizontal: 15,
     paddingVertical: 12,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '600',
     textAlignVertical: 'top',
@@ -266,7 +268,7 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: 50,
     borderRadius: 15,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,
@@ -280,7 +282,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   footer: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',

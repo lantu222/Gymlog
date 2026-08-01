@@ -13,7 +13,7 @@ import {
   summarizeJointSwapPreferences,
 } from '../lib/tailoring';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { layout, radii, spacing } from '../theme';
 import { AppLanguage, AppPreferences, JointSwapBias, JointSwapPreference } from '../types/models';
 
@@ -61,10 +61,14 @@ function getHeroPhotoKey(preferences: AppPreferences) {
 }
 
 function SectionLabel({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function HeroPill({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.heroPill}>
       <Text style={styles.heroPillText}>{label}</Text>
@@ -73,6 +77,8 @@ function HeroPill({ label }: { label: string }) {
 }
 
 function StateBadge({ value, language }: { value: JointSwapPreference; language: AppLanguage }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View
       style={[
@@ -105,6 +111,8 @@ function JointPreferenceRow({
   language: AppLanguage;
   onChange: (nextValue: JointSwapPreference) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.preferenceRow}>
       <View style={styles.preferenceRowHeader}>
@@ -144,6 +152,7 @@ export function JointFriendlySwapsScreen({
   onBack,
   onChange,
 }: JointFriendlySwapsScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const summary = summarizeJointSwapPreferences(
     {
       shoulders: preferences.setupShoulderFriendlySwaps,
@@ -157,7 +166,7 @@ export function JointFriendlySwapsScreen({
     <>
       <ScreenHeader
         title={t(language, 'planSet.jointSwaps')}
-        subtitle={t(language, 'swaps.subtitle')}
+        subtitle={t(language, 'swaps.subtitle')}
         onBack={onBack}
       />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -205,7 +214,7 @@ export function JointFriendlySwapsScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
@@ -267,7 +276,7 @@ const styles = StyleSheet.create({
     maxWidth: '84%',
   },
   sectionLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -276,8 +285,8 @@ const styles = StyleSheet.create({
   preferenceCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -285,13 +294,13 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   questionTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   questionBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -310,13 +319,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   preferenceRowTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   preferenceRowBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -326,23 +335,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     justifyContent: 'center',
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
   },
   stateBadgePrefer: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   stateBadgePrioritize: {
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   stateBadgeText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   stateBadgeTextPrefer: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   stateBadgeTextPrioritize: {
     color: '#FFFFFF',
@@ -358,57 +367,57 @@ const styles = StyleSheet.create({
     minHeight: 72,
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     gap: 4,
   },
   preferenceSegmentActive: {
-    borderColor: HG.purple,
-    backgroundColor: HG.purpleLight,
+    borderColor: theme.purple,
+    backgroundColor: theme.purpleLight,
   },
   preferenceSegmentText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13,
     fontWeight: '800',
   },
   preferenceSegmentTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   preferenceSegmentHint: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '600',
   },
   preferenceSegmentHintActive: {
-    color: HG.purple,
+    color: theme.purple,
   },
   explainCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.md,
     gap: spacing.xs,
   },
   explainKicker: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   explainTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 24,
   },
   explainBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',

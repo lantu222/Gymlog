@@ -17,7 +17,7 @@ import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/w
 import { ProMomentContent } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
@@ -123,6 +123,8 @@ export function WorkoutCompletionScreen({
   lockedInsight = null,
   onOpenPremium,
 }: WorkoutCompletionScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   const [momentSheetVisible, setMomentSheetVisible] = useState(false);
@@ -267,7 +269,7 @@ export function WorkoutCompletionScreen({
               <Svg width={38} height={38} viewBox="0 0 24 24" fill="none">
                 <AnimatedPath
                   d="M5 12.5l4.5 4.5L19 7"
-                  stroke={HG.purpleBright}
+                  stroke={theme.purpleBright}
                   strokeWidth={3}
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -382,7 +384,7 @@ export function WorkoutCompletionScreen({
                 <View key={exercise.id} style={[styles.exerciseRow, index > 0 && styles.exerciseRowDivided]}>
                   <View style={styles.exerciseCheckTile}>
                     <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path d="M5 12.5l4.5 4.5L19 7" stroke={HG.green} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M5 12.5l4.5 4.5L19 7" stroke={theme.green} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
                     </Svg>
                   </View>
                   <View style={styles.exerciseCopy}>
@@ -451,10 +453,10 @@ export function WorkoutCompletionScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screenBackground: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   content: {
     paddingBottom: 26,
@@ -533,7 +535,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -568,7 +570,7 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     marginTop: 2,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
@@ -576,7 +578,7 @@ const styles = StyleSheet.create({
   },
   noteSub: {
     marginTop: 2,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '600',
@@ -585,7 +587,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 4,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -603,7 +605,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 21,
     lineHeight: 26,
     fontWeight: '800',
@@ -611,13 +613,13 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   statUnit: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '700',
   },
   statLabel: {
     marginTop: 5,
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '800',
@@ -631,7 +633,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   statDeltaUp: {
-    color: HG.green,
+    color: theme.green,
   },
   statDeltaDown: {
     color: '#D64545',
@@ -646,14 +648,14 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 9,
     marginHorizontal: 4,
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '800',
     letterSpacing: 1,
   },
   sectionCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -681,7 +683,7 @@ const styles = StyleSheet.create({
   muscleNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 },
   muscleSwatch: { width: 9, height: 9, borderRadius: 999 },
   muscleName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '800',
@@ -694,7 +696,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   muscleMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
@@ -703,7 +705,7 @@ const styles = StyleSheet.create({
   muscleTrack: {
     height: 9,
     borderRadius: 999,
-    backgroundColor: HG.purpleSoft,
+    backgroundColor: theme.purpleSoft,
     overflow: 'hidden',
   },
   muscleFill: {
@@ -738,7 +740,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   exerciseName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '800',
@@ -760,7 +762,7 @@ const styles = StyleSheet.create({
   },
   exerciseSets: {
     marginTop: 2,
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
@@ -769,14 +771,14 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   exerciseTopSetValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
   },
   exerciseTopSetLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '800',
@@ -785,11 +787,11 @@ const styles = StyleSheet.create({
   primaryButton: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: HG.purpleBright,
+    backgroundColor: theme.purpleBright,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 22,
-    shadowColor: HG.purpleBright,
+    shadowColor: theme.purpleBright,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.32,
     shadowRadius: 26,

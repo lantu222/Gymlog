@@ -25,7 +25,8 @@ import {
   buildCoachOpeningLine,
 } from '../lib/coachChat';
 import { I18nKey, t } from '../lib/i18n';
-import { HG, PW } from '../lightTheme';
+import { PW } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
@@ -82,7 +83,9 @@ function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
 }
 
 function toneColor(tone: CoachContextChip['tone']) {
-  return tone === 'plan' ? HG.purple : tone === 'warn' ? PW.amber : PW.red;
+  const theme = useTheme();
+
+  return tone === 'plan' ? theme.purple : tone === 'warn' ? PW.amber : PW.red;
 }
 
 export function AICoachChatScreen({
@@ -98,6 +101,8 @@ export function AICoachChatScreen({
   onOpenAnalysis,
   onOpenPremium,
 }: AICoachChatScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [asking, setAsking] = useState(false);
@@ -200,7 +205,7 @@ export function AICoachChatScreen({
     <View style={styles.screen}>
       <View style={styles.header}>
         <View style={styles.headerTile}>
-          <SparkGlyph color={HG.purple} />
+          <SparkGlyph color={theme.purple} />
         </View>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>{t(language, 'coachChat.title')}</Text>
@@ -323,7 +328,7 @@ export function AICoachChatScreen({
           {asking ? (
             <View style={styles.bubbleRow}>
               <View style={[styles.coachBubble, styles.thinkingBubble]}>
-                <ActivityIndicator size="small" color={HG.purple} />
+                <ActivityIndicator size="small" color={theme.purple} />
                 <Text style={styles.thinkingText}>{t(language, 'coachChat.thinking')}</Text>
               </View>
             </View>
@@ -368,8 +373,8 @@ export function AICoachChatScreen({
               value={draft}
               onChangeText={setDraft}
               placeholder={t(language, canAsk ? 'coachChat.placeholder' : 'coachChat.placeholderSpent')}
-              placeholderTextColor={HG.faint}
-              selectionColor={HG.purple}
+              placeholderTextColor={theme.faint}
+              selectionColor={theme.purple}
               style={styles.input}
               onSubmitEditing={() => void send(draft)}
               returnKeyType="send"
@@ -397,10 +402,10 @@ export function AICoachChatScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     flexDirection: 'row',
@@ -414,7 +419,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 11,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -425,22 +430,22 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 19,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   headerSub: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 1,
   },
   badge: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 10,
   },
   badgePro: {
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   badgeText: {
     fontSize: 10.5,
@@ -462,9 +467,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 9,
@@ -478,7 +483,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 11,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   body: {
     flex: 1,
@@ -551,9 +556,9 @@ const styles = StyleSheet.create({
   },
   coachBubble: {
     maxWidth: '88%',
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     borderBottomLeftRadius: 6,
     paddingVertical: 13,
@@ -561,7 +566,7 @@ const styles = StyleSheet.create({
   },
   meBubble: {
     maxWidth: '88%',
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     borderRadius: 18,
     borderBottomRightRadius: 6,
     paddingVertical: 13,
@@ -570,7 +575,7 @@ const styles = StyleSheet.create({
   coachText: {
     fontSize: 14,
     fontWeight: '600',
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 22,
   },
   meText: {
@@ -583,10 +588,10 @@ const styles = StyleSheet.create({
     marginTop: 11,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: HG.border,
+    borderTopColor: theme.border,
     fontSize: 11.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
   },
   thinkingBubble: {
     flexDirection: 'row',
@@ -596,15 +601,15 @@ const styles = StyleSheet.create({
   thinkingText: {
     fontSize: 13,
     fontWeight: '700',
-    color: HG.muted,
+    color: theme.muted,
   },
   lockWrap: {
     marginTop: 2,
   },
   analysisRow: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -615,21 +620,21 @@ const styles = StyleSheet.create({
   analysisTitle: {
     fontSize: 13,
     fontWeight: '700',
-    color: HG.muted,
+    color: theme.muted,
   },
   analysisCta: {
     fontSize: 13,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
     marginTop: 4,
   },
   quotaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 14,
     paddingVertical: 11,
     paddingHorizontal: 13,
@@ -638,12 +643,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '700',
-    color: HG.muted,
+    color: theme.muted,
   },
   quotaCta: {
     fontSize: 12,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
   },
   quickAsks: {
     flexDirection: 'row',
@@ -653,7 +658,7 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   quickAsk: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 12,
@@ -666,7 +671,7 @@ const styles = StyleSheet.create({
   resetNote: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     textAlign: 'center',
     paddingHorizontal: 20,
     paddingBottom: 10,
@@ -680,33 +685,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 15,
     paddingLeft: 15,
     paddingRight: 6,
   },
   composerSpent: {
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
   },
   input: {
     flex: 1,
     fontSize: 13.5,
     fontWeight: '600',
-    color: HG.ink,
+    color: theme.ink,
     padding: 0,
   },
   sendButton: {
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sendButtonSpent: {
-    backgroundColor: HG.faint,
+    backgroundColor: theme.faint,
   },
   pressed: {
     opacity: 0.85,

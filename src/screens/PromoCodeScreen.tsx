@@ -6,7 +6,7 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -23,6 +23,8 @@ interface PromoCodeScreenProps {
 const DEMO_CODE = 'gainer_2026';
 
 export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRedeemed }: PromoCodeScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +54,7 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'promo.title')} />
@@ -65,7 +67,7 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
             <Svg width={26} height={26} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M4 4h7l9 9-7 7-9-9zM8 8h.01"
-                stroke={HG.purpleDark}
+                stroke={theme.purpleDark}
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -97,7 +99,7 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
                 setError(null);
               }}
               placeholder={t(language, 'promo.placeholder')}
-              placeholderTextColor={HG.faint}
+              placeholderTextColor={theme.faint}
               autoCapitalize="none"
               autoCorrect={false}
               style={styles.input}
@@ -122,10 +124,10 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -137,9 +139,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -157,26 +159,26 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 18,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 20,
     fontWeight: '800',
     marginTop: 12,
   },
   heroSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -192,7 +194,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: '#F4F0FC',
     paddingHorizontal: 14,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '700',
   },
@@ -200,7 +202,7 @@ const styles = StyleSheet.create({
     height: 46,
     paddingHorizontal: 20,
     borderRadius: 12,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -232,13 +234,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   activeTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
     marginTop: 10,
   },
   activeSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',

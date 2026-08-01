@@ -5,7 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -40,6 +40,8 @@ const ICONS: Record<string, string> = {
  * that actually reaches the founder today.
  */
 export function SupportScreen({ profileName, language = 'en', onBack }: SupportScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const greetingName = profileName?.trim() ? profileName.trim().split(/\s+/)[0] : t(language, 'support.there');
 
   const openMail = (category: string) => {
@@ -57,7 +59,7 @@ export function SupportScreen({ profileName, language = 'en', onBack }: SupportS
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'support.title')} />
@@ -83,7 +85,7 @@ export function SupportScreen({ profileName, language = 'en', onBack }: SupportS
                 <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
                   <Path
                     d={ICONS[category.icon]}
-                    stroke={HG.purpleDark}
+                    stroke={theme.purpleDark}
                     strokeWidth={2}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -95,7 +97,7 @@ export function SupportScreen({ profileName, language = 'en', onBack }: SupportS
                 <Text style={styles.rowSub}>{t(language, category.subKey)}</Text>
               </View>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M9 6l6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M9 6l6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </Pressable>
           ))}
@@ -107,10 +109,10 @@ export function SupportScreen({ profileName, language = 'en', onBack }: SupportS
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -122,9 +124,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -134,22 +136,22 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   greeting: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 27,
     fontWeight: '800',
     letterSpacing: -0.4,
     marginTop: 10,
   },
   greetingSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     fontWeight: '600',
     marginTop: 4,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -165,13 +167,13 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   rowTile: {
     width: 36,
     height: 36,
     borderRadius: 11,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -180,18 +182,18 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   rowTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   rowSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
   footer: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',
