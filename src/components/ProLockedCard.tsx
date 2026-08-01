@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
 import { t } from '../lib/i18n';
-import { HG, PW } from '../lightTheme';
+import { PW } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -25,6 +26,8 @@ export function ProLockIcon({ color = PW.proInk, size = 13 }: { color?: string; 
 }
 
 export function ProPill({ label = 'PRO' }: { label?: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.pill}>
       <Text style={styles.pillText}>{label}</Text>
@@ -45,6 +48,8 @@ interface ProLockedCardProps {
 }
 
 export function ProLockedCard({ language, teaser, lines, cta, compact, onPress }: ProLockedCardProps) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -77,11 +82,11 @@ export function ProLockedCard({ language, teaser, lines, cta, compact, onPress }
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   card: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     borderWidth: 1.5,
-    borderColor: HG.purple,
+    borderColor: theme.purple,
     borderStyle: 'dashed',
     borderRadius: 14,
     paddingVertical: 13,
@@ -106,7 +111,7 @@ const styles = StyleSheet.create({
     color: PW.proInk,
   },
   pill: {
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     borderRadius: 6,
     paddingVertical: 3,
     paddingHorizontal: 7,
@@ -143,6 +148,6 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 13,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
   },
 });

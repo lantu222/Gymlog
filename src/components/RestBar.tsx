@@ -3,7 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 interface RestBarProps {
@@ -26,6 +26,7 @@ function formatClock(seconds: number) {
  * reuse it.
  */
 export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, language = 'en' }: RestBarProps) {
+  const styles = useThemedStyles(makeStyles);
   const slideIn = useRef(new Animated.Value(0)).current;
   // Interpolated once: the bar re-renders every second while the timer runs,
   // and a per-render interpolate leaks native nodes (disconnectAnimatedNodes).
@@ -86,7 +87,7 @@ export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, lang
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   bar: {
     position: 'absolute',
     left: 14,
@@ -95,7 +96,7 @@ const styles = StyleSheet.create({
     zIndex: 8,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: HG.purpleDark,
+    backgroundColor: theme.purpleDark,
     shadowColor: '#3C1690',
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.45,
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   pillTextSolid: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   progressTrack: {
     height: 4,

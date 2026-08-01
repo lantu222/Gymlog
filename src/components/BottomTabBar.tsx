@@ -14,7 +14,7 @@ import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-nativ
 
 import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
@@ -129,6 +129,8 @@ function SideTab({
   onPress: () => void;
   onMeasure: (key: RootTabKey, event: LayoutChangeEvent) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable
       onPress={onPress}
@@ -144,6 +146,7 @@ function SideTab({
 }
 
 export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPress, language = 'en' }: BottomTabBarProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -317,7 +320,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   // Absolutely positioned so it floats low over the content (no backdrop strip).
   shell: {
     position: 'absolute',
@@ -377,7 +380,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(124, 58, 237, 0.16)',
-    shadowColor: HG.purpleBright,
+    shadowColor: theme.purpleBright,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.62,
     shadowRadius: 22,

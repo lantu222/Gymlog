@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, View } from 'react-native';
 
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 
 /**
  * The centred title in a pushed screen's header.
@@ -20,6 +20,7 @@ import { HG } from '../lightTheme';
  * headerBackReachable.test.cjs fails if a screen goes back to the old shape.
  */
 export function ScreenHeaderTitle({ title, style }: { title: string; style?: StyleProp<TextStyle> }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View pointerEvents="none" style={styles.wrap}>
       <Text numberOfLines={1} style={[styles.text, style]}>
@@ -29,7 +30,7 @@ export function ScreenHeaderTitle({ title, style }: { title: string; style?: Sty
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   wrap: {
     position: 'absolute',
     left: 0,
@@ -37,7 +38,7 @@ const styles = StyleSheet.create({
   },
   text: {
     textAlign: 'center',
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },

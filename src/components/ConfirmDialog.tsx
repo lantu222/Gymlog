@@ -1,7 +1,7 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 
 interface ConfirmDialogProps {
@@ -25,6 +25,7 @@ export function ConfirmDialog({
   onCancel,
   onConfirm,
 }: ConfirmDialogProps) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Modal visible={visible} transparent animationType="fade">
       <View style={styles.overlay}>
@@ -48,7 +49,7 @@ export function ConfirmDialog({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'center',
@@ -58,24 +59,24 @@ const styles = StyleSheet.create({
   dialog: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.xl,
     gap: spacing.md,
-    shadowColor: HG.shadow,
+    shadowColor: theme.shadow,
     shadowOpacity: 0.5,
     shadowRadius: 24,
     shadowOffset: { width: 0, height: 12 },
     elevation: 8,
   },
   title: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 22,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   message: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     lineHeight: 20,
   },
@@ -89,12 +90,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   secondaryText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -102,7 +103,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     borderRadius: radii.md,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   destructiveButton: {
     backgroundColor: '#DC2626',

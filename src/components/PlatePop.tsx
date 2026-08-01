@@ -4,7 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { parseNumberInput } from '../lib/format';
 import { t } from '../lib/i18n';
 import { BAR_WEIGHT_KG, PLATE_COLORS, platesPerSide } from '../lib/plateMath';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 interface PlatePopProps {
@@ -23,6 +23,7 @@ function formatPlate(plate: number) {
  * Shared by the freestyle logger; Active Workout v3 will reuse it.
  */
 export function PlatePop({ kg, barKg = BAR_WEIGHT_KG, language = 'en' }: PlatePopProps) {
+  const styles = useThemedStyles(makeStyles);
   const total = parseNumberInput(kg);
   const valid = total !== null && total > 0;
   const plates = valid ? platesPerSide(total, barKg) : [];
@@ -50,17 +51,17 @@ export function PlatePop({ kg, barKg = BAR_WEIGHT_KG, language = 'en' }: PlatePo
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   eyebrow: {
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.84,
-    color: HG.faint,
+    color: theme.faint,
   },
   barOnly: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     marginTop: 7,
   },
   chipRow: {

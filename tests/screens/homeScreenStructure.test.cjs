@@ -464,7 +464,7 @@ module.exports = [
       assert.match(bottomTabBarSource, /const AI_SIZE = 46/);
       assert.match(bottomTabBarSource, />AI<\/Text>/);
       assert.match(bottomTabBarSource, /url\(#aiFill\)/);
-      assert.match(bottomTabBarSource, /centerGlow:\s*\{[\s\S]*shadowColor: HG\.purpleBright/);
+      assert.match(bottomTabBarSource, /centerGlow:\s*\{[\s\S]*shadowColor: theme\.purpleBright/);
       assert.match(bottomTabBarSource, /aiCircle:\s*\{[\s\S]*width: AI_SIZE/);
       assert.match(bottomTabBarSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
       assert.match(bottomTabBarSource, /fabPop\.setValue\(1\)/);
