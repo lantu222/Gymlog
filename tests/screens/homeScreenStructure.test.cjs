@@ -273,10 +273,18 @@ module.exports = [
       assert.doesNotMatch(workoutsScreenSource, /formatTemplateSubtitle/);
       assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);
       assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
-      // Token, not a hex: the shell used to hardcode the palette's background
-      // value, so merging the palettes left the safe area a different colour
-      // from the content it framed.
-      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? HG\.bg : [^}]*emptyWorkoutActive[^}]*readyTemplatesActive[^}]*\? HG\.bg : undefined\}/);
+      // The safe area must match the content it frames. App.tsx used to
+      // enumerate every light screen to achieve that, and any screen left off
+      // the list fell through to the legacy dark theme — which is how Home got
+      // a navy status bar. The shell now defaults to light and only the
+      // gradient-hero screens opt out, so the guard lives on the default.
+      const appShellSource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'components', 'AppShell.tsx'),
+        'utf8',
+      );
+      assert.match(appShellSource, /shellBackgroundColor \?\? HG\.bg/);
+      assert.match(appShellSource, /statusBarStyleOverride \?\? 'dark'/);
+      assert.match(appSource, /shellBackgroundColor=\{aiSetupActive \? HG\.surface : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
       assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);

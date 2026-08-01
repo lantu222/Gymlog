@@ -4032,17 +4032,6 @@ function GymlogApp() {
     !(route.tab === 'profile' && route.screen === 'setup');
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
-  const shellTone =
-    onboardingActive ||
-    route.tab === 'progress' ||
-    (route.tab === 'workout' &&
-      (route.screen === 'programs_home' ||
-        route.screen === 'list' ||
-        route.screen === 'detail' ||
-        route.screen === 'summary' ||
-        route.screen === 'celebration'))
-      ? 'home'
-      : route.tab;
   const welcomeActive = onboardingActive && entryFlowActive;
   const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
   const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
@@ -4086,10 +4075,6 @@ function GymlogApp() {
   return (
     <AppShell
       toastMessage={toastMessage}
-      screenTone={shellTone}
-      showBackgroundFrame={
-        !welcomeActive && route.tab !== 'home' && route.tab !== 'workout' && route.tab !== 'progress' && route.tab !== 'profile'
-      }
       safeAreaEdges={
         welcomeActive || workoutSummaryActive || historySessionActive
           ? ['left', 'right']
@@ -4097,10 +4082,18 @@ function GymlogApp() {
             ? ['top', 'left', 'right']
             : ['top', 'left', 'right', 'bottom']
       }
-      statusBarStyleOverride={programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || aiSetupActive || historyActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={workoutSummaryActive || historySessionActive ? 'transparent' : aiSetupActive ? HG.surface : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? HG.bg : welcomeActive ? 'transparent' : undefined}
+      // Only the gradient-hero screens want light icons; everything else takes
+      // the shell's light default.
+      statusBarStyleOverride={workoutSummaryActive || historySessionActive ? 'light' : undefined}
+      statusBarBackgroundColor={
+        workoutSummaryActive || historySessionActive || welcomeActive
+          ? 'transparent'
+          : aiSetupActive
+            ? HG.surface
+            : undefined
+      }
       statusBarTranslucent={welcomeActive || workoutSummaryActive || historySessionActive}
-      shellBackgroundColor={onboardingScreenActive ? HG.bg : aiSetupActive ? HG.surface : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? HG.bg : undefined}
+      shellBackgroundColor={aiSetupActive ? HG.surface : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar

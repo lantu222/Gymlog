@@ -17,8 +17,16 @@ module.exports = [
       assert.match(appShellSource, /shellBackgroundColor\?: string/);
       assert.match(appSource, /const onboardingScreenActive = onboardingActive \|\| setupOnboardingActive/);
       // Light shell: warm lavender behind onboarding; dark status-bar glyphs.
-      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? HG\.bg :/);
-      assert.match(appSource, /statusBarStyleOverride=\{[^}]*onboardingScreenActive \? 'dark' : welcomeActive \? 'dark' : undefined\}/);
+      // Onboarding no longer names its own shell colour — the shell defaults to
+      // the palette background, which is what onboarding wanted all along.
+      assert.match(appShellSource, /shellBackgroundColor \?\? HG\.bg/);
+      // Dark icons are the default now, so onboarding and welcome no longer
+      // have to ask for them; only the gradient heroes override to 'light'.
+      assert.match(appShellSource, /statusBarStyleOverride \?\? 'dark'/);
+      assert.match(
+        appSource,
+        /statusBarStyleOverride=\{workoutSummaryActive \|\| historySessionActive \? 'light' : undefined\}/,
+      );
       assert.doesNotMatch(appSource, /#1D1C35/);
 
       // Plan-ready views animate on one shared card; the footer stays visible
