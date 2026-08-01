@@ -7,7 +7,7 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailViewModel } from '../lib/programDetails';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import type { AppLanguage } from '../types/models';
@@ -22,7 +22,6 @@ const DAY_KEYS: I18nKey[] = [
   'setup.day.sun',
 ];
 
-const PLAN_BACKGROUND = HG.bg;
 const PLAN_SURFACE = '#FFFFFF';
 const PLAN_SURFACE_SOFT = '#F2ECFF';
 const PLAN_TEXT = '#101828';
@@ -152,6 +151,7 @@ export function ProgramDetailScreen({
   activePlanSummary = null,
   language = 'en',
 }: ProgramDetailScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout plan');
   const nextSession = program.sessions[0] ?? null;
@@ -369,10 +369,10 @@ export function ProgramDetailScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: PLAN_BACKGROUND,
+    backgroundColor: theme.bg,
   },
   header: {
     flexDirection: 'row',

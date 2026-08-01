@@ -28,7 +28,7 @@ import {
 } from '../lib/workoutDiscovery';
 import { ProgramInsightSummary } from '../lib/programInsights';
 import { TailoringPreferencesInput } from '../lib/tailoringFit';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
 import { layout, spacing } from '../theme';
 
@@ -276,6 +276,7 @@ export function WorkoutsScreen({
   tailoringPreferences = null,
   language = 'en',
 }: WorkoutsScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const { activeSession, history, templates } = useWorkoutContext();
   const activeTemplateId = activeSession?.templateId ?? history.lastSelectedTemplateId ?? CORE_WORKOUT_TEMPLATE_ID;
   const [menuTemplateId, setMenuTemplateId] = useState<string | null>(null);
@@ -632,12 +633,12 @@ export function WorkoutsScreen({
 }
 
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   readyTemplateContent: {
     paddingHorizontal: spacing.md,
     paddingBottom: layout.bottomTabBarReserve,
     gap: spacing.md,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   readyTemplateSearchCard: {
     minHeight: 44,

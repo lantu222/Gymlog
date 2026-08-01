@@ -19,7 +19,7 @@ module.exports = [
       // Light shell: warm lavender behind onboarding; dark status-bar glyphs.
       // Onboarding no longer names its own shell colour — the shell defaults to
       // the palette background, which is what onboarding wanted all along.
-      assert.match(appShellSource, /shellBackgroundColor \?\? HG\.bg/);
+      assert.match(appShellSource, /shellBackgroundColor \?\? theme\.bg/);
       // Dark icons are the default now, so onboarding and welcome no longer
       // have to ask for them; only the gradient heroes override to 'light'.
       assert.match(appShellSource, /statusBarStyleOverride \?\? 'dark'/);

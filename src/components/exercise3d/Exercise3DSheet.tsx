@@ -12,7 +12,7 @@ import { AppState, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { HG } from '../../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../../theming';
 import { ExerciseScene } from './ExerciseScene';
 import { getExercisePose } from './exercisePose';
 
@@ -29,6 +29,8 @@ interface Exercise3DSheetProps {
 }
 
 export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }: Exercise3DSheetProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const pose = useMemo(() => getExercisePose(name), [name]);
   const memoryKey = name.trim().toLowerCase();
 
@@ -96,7 +98,7 @@ export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }
             {muscle ? <Text style={styles.muscle}>{muscle[0].toUpperCase() + muscle.slice(1)}</Text> : null}
           </View>
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
-            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round">
+            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round">
               <Path d="M6 6l12 12M18 6L6 18" />
             </Svg>
           </Pressable>
@@ -168,12 +170,12 @@ export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }
 
 const ACCENT = '#7C5CFC';
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: HG.bg },
+const makeStyles = (theme: Theme) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: theme.bg },
   header: { flexDirection: 'row', alignItems: 'flex-start', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 10, gap: 12 },
-  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: HG.purple },
-  title: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: HG.ink, marginTop: 3 },
-  muscle: { fontSize: 13, fontWeight: '600', color: HG.muted, marginTop: 2 },
+  eyebrow: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: theme.purple },
+  title: { fontSize: 24, fontWeight: '800', letterSpacing: -0.5, color: theme.ink, marginTop: 3 },
+  muscle: { fontSize: 13, fontWeight: '600', color: theme.muted, marginTop: 2 },
   closeBtn: {
     width: 40,
     height: 40,
@@ -221,19 +223,19 @@ const styles = StyleSheet.create({
     borderColor: ACCENT,
     marginLeft: -10,
   },
-  pct: { fontSize: 17, fontWeight: '800', color: HG.ink, fontVariant: ['tabular-nums'], minWidth: 46, textAlign: 'right' },
-  hint: { textAlign: 'center', fontSize: 12.5, fontWeight: '600', color: HG.faint, marginTop: 12, marginBottom: 8 },
+  pct: { fontSize: 17, fontWeight: '800', color: theme.ink, fontVariant: ['tabular-nums'], minWidth: 46, textAlign: 'right' },
+  hint: { textAlign: 'center', fontSize: 12.5, fontWeight: '600', color: theme.faint, marginTop: 12, marginBottom: 8 },
   howTo: { marginHorizontal: 20, marginTop: 18, gap: 13 },
-  howToLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: HG.purple, marginBottom: 2 },
+  howToLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1.5, color: theme.purple, marginBottom: 2 },
   howToRow: { flexDirection: 'row', gap: 13, alignItems: 'flex-start' },
   howToNumber: {
     width: 26,
     height: 26,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  howToNumberText: { fontSize: 13, fontWeight: '800', color: HG.purpleDark },
-  howToText: { flex: 1, fontSize: 15, fontWeight: '600', color: HG.ink, lineHeight: 22 },
+  howToNumberText: { fontSize: 13, fontWeight: '800', color: theme.purpleDark },
+  howToText: { flex: 1, fontSize: 15, fontWeight: '600', color: theme.ink, lineHeight: 22 },
 });

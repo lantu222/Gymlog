@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -32,6 +32,8 @@ function getInitials(name: string) {
  * toggles, and no photo control until image picking actually exists.
  */
 export function EditProfileScreen({ initialName, language = 'en', onBack, onSave }: EditProfileScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [name, setName] = useState(initialName ?? '');
 
   const trimmed = name.trim();
@@ -55,7 +57,7 @@ export function EditProfileScreen({ initialName, language = 'en', onBack, onSave
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <Text style={styles.headerTitle}>{t(language, 'editProfile.title')}</Text>
@@ -102,7 +104,7 @@ export function EditProfileScreen({ initialName, language = 'en', onBack, onSave
             value={name}
             onChangeText={(next) => setName(next.slice(0, MAX_NAME_LENGTH))}
             placeholder={t(language, 'editProfile.namePlaceholder')}
-            placeholderTextColor={HG.faint}
+            placeholderTextColor={theme.faint}
             maxLength={MAX_NAME_LENGTH}
             autoCapitalize="words"
             style={styles.input}
@@ -113,10 +115,10 @@ export function EditProfileScreen({ initialName, language = 'en', onBack, onSave
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -128,16 +130,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
@@ -146,12 +148,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   saveText: {
-    color: HG.purple,
+    color: theme.purple,
     fontSize: 15,
     fontWeight: '800',
   },
   saveTextDisabled: {
-    color: HG.faint,
+    color: theme.faint,
   },
   body: {
     paddingHorizontal: 20,
@@ -185,13 +187,13 @@ const styles = StyleSheet.create({
     paddingBottom: 9,
   },
   fieldLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 1,
   },
   fieldCounter: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '700',
   },
@@ -199,10 +201,10 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     paddingHorizontal: 16,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15.5,
     fontWeight: '700',
   },

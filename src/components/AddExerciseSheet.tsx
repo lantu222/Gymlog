@@ -25,7 +25,7 @@ import {
   ExerciseEquipment,
   ExerciseLibraryItem,
 } from '../types/models';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 
 interface AddExerciseSheetProps {
@@ -129,6 +129,8 @@ function FilterPillGroup<T extends string>({
   language,
   onSelect,
 }: FilterPillGroupProps<T>) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.filterGroup}>
       <Text style={styles.filterTitle}>{title}</Text>
@@ -169,6 +171,8 @@ export function AddExerciseSheet({
   onSelectItem,
   onConfirmSelection,
 }: AddExerciseSheetProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const sheetTitle = title ?? t(language, 'editor.addExercise');
   const addLabel = actionLabel ?? t(language, 'editor.add');
   const searchRef = useRef<TextInput | null>(null);
@@ -371,9 +375,9 @@ export function AddExerciseSheet({
             value={search}
             onChangeText={setSearch}
             placeholder={t(language, 'sheet.searchPlaceholder')}
-            placeholderTextColor={HG.faint}
+            placeholderTextColor={theme.faint}
             style={styles.searchInput}
-            selectionColor={HG.purple}
+            selectionColor={theme.purple}
           />
           {search.length > 0 ? (
             <Pressable onPress={() => setSearch('')} style={styles.clearButton}>
@@ -617,7 +621,7 @@ export function AddExerciseSheet({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   overlay: {
     flex: 1,
     justifyContent: 'flex-end',

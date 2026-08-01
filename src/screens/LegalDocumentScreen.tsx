@@ -6,7 +6,7 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { t } from '../lib/i18n';
 import { LegalDocumentId, buildLegalDocument } from '../lib/legalDocuments';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -24,6 +24,8 @@ interface LegalDocumentScreenProps {
  * having none. Both read from the same data the Markdown export uses.
  */
 export function LegalDocumentScreen({ document, language, onBack }: LegalDocumentScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const doc = useMemo(() => buildLegalDocument(document, language), [document, language]);
 
   return (
@@ -36,7 +38,7 @@ export function LegalDocumentScreen({ document, language, onBack }: LegalDocumen
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={doc.title} />
@@ -67,10 +69,10 @@ export function LegalDocumentScreen({ document, language, onBack }: LegalDocumen
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -82,9 +84,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -98,21 +100,21 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
-    color: HG.muted,
+    color: theme.muted,
   },
   summary: {
     marginTop: 8,
     fontSize: 15.5,
     lineHeight: 23,
     fontWeight: '600',
-    color: HG.ink,
+    color: theme.ink,
   },
   card: {
     marginTop: 14,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     paddingHorizontal: 16,
     paddingVertical: 15,
     ...CARD_SHADOW,
@@ -123,13 +125,13 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     marginBottom: 9,
   },
   paragraph: {
     fontSize: 14,
     lineHeight: 22,
-    color: HG.muted,
+    color: theme.muted,
     marginBottom: 9,
   },
   bulletRow: {
@@ -141,13 +143,13 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 3,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     marginTop: 8,
   },
   bulletText: {
     flex: 1,
     fontSize: 14,
     lineHeight: 22,
-    color: HG.muted,
+    color: theme.muted,
   },
 });

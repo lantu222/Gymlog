@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 
 /**
  * Placeholder for a real gym photo that will be shot later (source photos are
@@ -20,30 +20,32 @@ export function ProgramPhotoSlot({
   aspectRatio?: number;
   compact?: boolean;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={[styles.slot, { aspectRatio }, compact && styles.slotCompact]}>
       <Svg width={compact ? 18 : 28} height={compact ? 18 : 28} viewBox="0 0 24 24" fill="none">
         <Path
           d="M4 8a2 2 0 0 1 2-2h1.5l1.4-1.6a1 1 0 0 1 .75-.4h4.7a1 1 0 0 1 .75.4L16.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
-          stroke={HG.faint}
+          stroke={theme.faint}
           strokeWidth={1.8}
           strokeLinejoin="round"
         />
-        <Circle cx={12} cy={12.5} r={3.2} stroke={HG.faint} strokeWidth={1.8} />
+        <Circle cx={12} cy={12.5} r={3.2} stroke={theme.faint} strokeWidth={1.8} />
       </Svg>
       {!compact ? <Text style={styles.slotLabel}>{label}</Text> : null}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   slot: {
     width: '100%',
     borderRadius: 20,
     borderWidth: 1.5,
     borderStyle: 'dashed',
-    borderColor: HG.border,
-    backgroundColor: HG.purpleSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.purpleSoft,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
@@ -55,7 +57,7 @@ const styles = StyleSheet.create({
   slotLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     letterSpacing: 0.3,
   },
 });

@@ -287,7 +287,7 @@ module.exports = [
         path.join(__dirname, '..', '..', 'src', 'components', 'AppShell.tsx'),
         'utf8',
       );
-      assert.match(appShellSource, /shellBackgroundColor \?\? HG\.bg/);
+      assert.match(appShellSource, /shellBackgroundColor \?\? theme\.bg/);
       assert.match(appShellSource, /statusBarStyleOverride \?\? 'dark'/);
       assert.match(appSource, /shellBackgroundColor=\{aiSetupActive \? HG\.surface : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);

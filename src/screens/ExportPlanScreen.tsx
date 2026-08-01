@@ -6,7 +6,7 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, ChevronIcon, SectionLabel } from '../components/SettingsUi';
 import { t } from '../lib/i18n';
 import { buildProgramCsv, CsvExportSession, summarizeExportSessions } from '../lib/programCsvExport';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
@@ -47,6 +47,8 @@ interface ExportPlanScreenProps {
  * paste it straight back into the importer.
  */
 export function ExportPlanScreen({ language = 'en', plans, onBack }: ExportPlanScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   async function sharePlan(plan: ExportablePlan) {
     try {
       await Share.share({
@@ -68,7 +70,7 @@ export function ExportPlanScreen({ language = 'en', plans, onBack }: ExportPlanS
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'export.title')} />
@@ -118,10 +120,10 @@ export function ExportPlanScreen({ language = 'en', plans, onBack }: ExportPlanS
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -133,9 +135,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   intro: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 19,
@@ -156,9 +158,9 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -166,12 +168,12 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   emptyTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15,
     fontWeight: '800',
   },
   emptyBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     lineHeight: 19,
@@ -186,25 +188,25 @@ const styles = StyleSheet.create({
   },
   rowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   rowCopy: {
     flex: 1,
     minWidth: 0,
   },
   rowTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   rowSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
   footer: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',

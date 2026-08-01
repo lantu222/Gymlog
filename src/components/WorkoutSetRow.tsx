@@ -2,7 +2,7 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/workoutTypes';
@@ -53,6 +53,8 @@ function CompactValueCell({
   completed?: boolean;
   muted?: boolean;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={[styles.valueCell, styles.valueCellFlex, completed && styles.valueCellCompleted]}>
       <Text style={[styles.valueText, completed && styles.valueTextCompleted, muted && styles.valueTextMuted]} numberOfLines={1}>
@@ -88,6 +90,8 @@ export function WorkoutSetRow({
   onWeightSubmit,
   onRepsSubmit,
 }: WorkoutSetRowProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const showLoadField = trackingMode !== 'bodyweight';
   const showEditableInputs = active && !completed;
   const validationMessage = active && !completed
@@ -131,7 +135,7 @@ export function WorkoutSetRow({
                     placeholder={weightPlaceholder || '0'}
                     placeholderTextColor="#9B93AD"
                     keyboardType="decimal-pad"
-                    selectionColor={HG.purple}
+                    selectionColor={theme.purple}
                     style={styles.input}
                     returnKeyType="next"
                     onSubmitEditing={onWeightSubmit}
@@ -159,7 +163,7 @@ export function WorkoutSetRow({
                   placeholder={repsPlaceholder || '0'}
                   placeholderTextColor="#9B93AD"
                   keyboardType="number-pad"
-                  selectionColor={HG.purple}
+                  selectionColor={theme.purple}
                   style={styles.input}
                   returnKeyType="done"
                   onSubmitEditing={onRepsSubmit}
@@ -196,7 +200,7 @@ export function WorkoutSetRow({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   row: {
     minHeight: 46,
     overflow: 'hidden',

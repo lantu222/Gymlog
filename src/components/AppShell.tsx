@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-na
 import { Edge, SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 
 interface AppShellProps {
@@ -27,11 +27,13 @@ export function AppShell({
   statusBarTranslucent = false,
   shellBackgroundColor,
 }: AppShellProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   // The app is light; dark is the exception. These defaults used to be the
   // legacy dark theme, so any screen that forgot to opt in — Home among them —
   // got a navy status bar with light icons above light content. Screens that
   // genuinely want the dark treatment now ask for it.
-  const shellBackground = shellBackgroundColor ?? HG.bg;
+  const shellBackground = shellBackgroundColor ?? theme.bg;
   const statusBarStyle = statusBarStyleOverride ?? 'dark';
 
   return (
@@ -59,14 +61,14 @@ export function AppShell({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   safeArea: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   keyboardArea: {
     flex: 1,
@@ -82,7 +84,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: HG.ink,
+    backgroundColor: theme.ink,
   },
   toastText: {
     color: '#FFFFFF',
