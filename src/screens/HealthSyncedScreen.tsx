@@ -6,10 +6,11 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { getAgeFromDateOfBirth, getHealthProviderLabel, HealthBasics } from '../integrations/health';
 import { t } from '../lib/i18n';
+import { HG } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
-const BG = '#F7F3FF';
+const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';

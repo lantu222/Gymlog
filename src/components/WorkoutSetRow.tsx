@@ -2,7 +2,8 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { colors, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { radii, spacing } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { getWorkoutSetValidationMessage } from '../lib/workoutValidation';
@@ -130,7 +131,7 @@ export function WorkoutSetRow({
                     placeholder={weightPlaceholder || '0'}
                     placeholderTextColor="#9B93AD"
                     keyboardType="decimal-pad"
-                    selectionColor={colors.accent}
+                    selectionColor={HG.purple}
                     style={styles.input}
                     returnKeyType="next"
                     onSubmitEditing={onWeightSubmit}
@@ -158,7 +159,7 @@ export function WorkoutSetRow({
                   placeholder={repsPlaceholder || '0'}
                   placeholderTextColor="#9B93AD"
                   keyboardType="number-pad"
-                  selectionColor={colors.accent}
+                  selectionColor={HG.purple}
                   style={styles.input}
                   returnKeyType="done"
                   onSubmitEditing={onRepsSubmit}

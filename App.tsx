@@ -30,6 +30,7 @@ import {
   requestNotificationPermission,
 } from './src/utils/appNotifications';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
+import { HG } from './src/lightTheme';
 import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
   isHomeWidgetAdded,
@@ -3280,7 +3281,7 @@ function GymlogApp() {
         defaultRestSeconds={preferences.defaultRestSeconds}
         unitPreference={unitPreference}
         exerciseHistoryLookup={editorExerciseHistoryLookup}
-        exercisePrLookup={exercisePrLookup}
+        exercisePrLookup={exercisePrLookup}
         onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
         onUseTemplate={() => navigate(WORKOUT_PLAN_ROUTE)}
         onSave={async (draft, summary: WorkoutEditorFinishSummary) => {
@@ -3367,7 +3368,7 @@ function GymlogApp() {
         tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
-        customTemplate={customWorkoutRuntimeMap[route.workoutTemplateId] ?? null}
+        customTemplate={customWorkoutRuntimeMap[route.workoutTemplateId] ?? null}
         dismissedTipIds={dismissedTipIds}
         onDismissTip={handleDismissTip}
         onOpenAdaptiveCoachPremium={handleOpenPremium}
@@ -4097,9 +4098,9 @@ function GymlogApp() {
             : ['top', 'left', 'right', 'bottom']
       }
       statusBarStyleOverride={programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || aiSetupActive || historyActive || progressActive || onboardingScreenActive ? 'dark' : welcomeActive ? 'dark' : undefined}
-      statusBarBackgroundColor={workoutSummaryActive || historySessionActive ? 'transparent' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : welcomeActive ? 'transparent' : undefined}
+      statusBarBackgroundColor={workoutSummaryActive || historySessionActive ? 'transparent' : aiSetupActive ? HG.surface : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? HG.bg : welcomeActive ? 'transparent' : undefined}
       statusBarTranslucent={welcomeActive || workoutSummaryActive || historySessionActive}
-      shellBackgroundColor={onboardingScreenActive ? '#F7F3FF' : aiSetupActive ? '#FFFFFF' : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? '#F7F3FF' : undefined}
+      shellBackgroundColor={onboardingScreenActive ? HG.bg : aiSetupActive ? HG.surface : programsHomeActive || emptyWorkoutActive || readyTemplatesActive || programDetailActive || workoutLogActive || exerciseDetailActive || exercisesListActive || profileListActive || profileSettingsActive || premiumActive || planSettingsActive || exercisePreferencesActive || equipmentActive || jointSwapsActive || aiCoachActive || historyActive || progressActive ? HG.bg : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar

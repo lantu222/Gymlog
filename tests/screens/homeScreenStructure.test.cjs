@@ -273,7 +273,10 @@ module.exports = [
       assert.doesNotMatch(workoutsScreenSource, /formatTemplateSubtitle/);
       assert.doesNotMatch(workoutsScreenSource, /Next: \{firstExercise\}/);
       assert.match(appSource, /const readyTemplatesActive = route\.tab === 'workout' && route\.screen === 'plans'/);
-      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#F7F3FF' : [^}]*emptyWorkoutActive[^}]*readyTemplatesActive[^}]*\? '#F7F3FF' : undefined\}/);
+      // Token, not a hex: the shell used to hardcode the palette's background
+      // value, so merging the palettes left the safe area a different colour
+      // from the content it framed.
+      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? HG\.bg : [^}]*emptyWorkoutActive[^}]*readyTemplatesActive[^}]*\? HG\.bg : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
       assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);

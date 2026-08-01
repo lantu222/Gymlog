@@ -28,6 +28,7 @@ import {
 } from '../lib/workoutDiscovery';
 import { ProgramInsightSummary } from '../lib/programInsights';
 import { TailoringPreferencesInput } from '../lib/tailoringFit';
+import { HG } from '../lightTheme';
 import type { AppLanguage } from '../types/models';
 import { layout, spacing } from '../theme';
 
@@ -419,7 +420,7 @@ export function WorkoutsScreen({
     <>
       <ScreenHeader
         title={t(language, 'tabs.programs')}
-        subtitle={t(language, 'ready.subtitle', { count: readyDiscoveryItems.length })}
+        subtitle={t(language, 'ready.subtitle', { count: readyDiscoveryItems.length })}
       />
       <ScrollView contentContainerStyle={styles.readyTemplateContent} showsVerticalScrollIndicator={false}>
         <View style={styles.readyTemplateSearchCard}>
@@ -636,7 +637,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingBottom: layout.bottomTabBarReserve,
     gap: spacing.md,
-    backgroundColor: '#F7F3FF',
+    backgroundColor: HG.bg,
   },
   readyTemplateSearchCard: {
     minHeight: 44,

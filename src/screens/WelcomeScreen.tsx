@@ -5,10 +5,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { SUPPORTED_LANGUAGES, t } from '../lib/i18n';
+import { HG } from '../lightTheme';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette from the redesign handoff).
-const BG = '#F7F3FF';
+const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';

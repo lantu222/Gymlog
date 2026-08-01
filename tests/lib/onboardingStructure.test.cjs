@@ -434,7 +434,9 @@ module.exports = [
       assert.match(welcomeSource, /t\(language, 'welcome\.tagline'\)/);
       assert.match(welcomeSource, /t\(language, 'welcome\.continueGoogle'\)/);
       assert.match(welcomeSource, /SUPPORTED_LANGUAGES/);
-      assert.match(welcomeSource, /const BG = '#F7F3FF'/);
+      // Reads the palette rather than copying its value: a local hex silently
+      // drifts the moment the palette moves, which is exactly what happened.
+      assert.match(welcomeSource, /const BG = HG.bg/);
       assert.match(welcomeSource, /const PURPLE = '#7C3AED'/);
       assert.match(welcomeSource, /logoInk/);
       assert.match(welcomeSource, /logoPurple/);
@@ -484,7 +486,7 @@ module.exports = [
   {
     name: 'plan-ready screens share the light onboarding palette',
     run() {
-      assert.match(onboardingSource, /const ONBOARDING_PANEL = '#F7F3FF'/);
+      assert.match(onboardingSource, /const ONBOARDING_PANEL = HG.bg/);
       assert.match(onboardingSource, /const ONBOARDING_CARD = '#FFFFFF'/);
       assert.match(onboardingSource, /const ONBOARDING_PRIMARY = '#7C3AED'/);
       assert.match(onboardingSource, /const ONBOARDING_TEXT = '#101828'/);

@@ -7,6 +7,7 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailViewModel } from '../lib/programDetails';
+import { HG } from '../lightTheme';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import type { AppLanguage } from '../types/models';
@@ -21,7 +22,7 @@ const DAY_KEYS: I18nKey[] = [
   'setup.day.sun',
 ];
 
-const PLAN_BACKGROUND = '#F7F3FF';
+const PLAN_BACKGROUND = HG.bg;
 const PLAN_SURFACE = '#FFFFFF';
 const PLAN_SURFACE_SOFT = '#F2ECFF';
 const PLAN_TEXT = '#101828';

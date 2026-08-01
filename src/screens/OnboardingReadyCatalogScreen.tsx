@@ -11,9 +11,10 @@ import { I18nKey, t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 import { getReadyProgramCollectionCopy, READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
+import { HG } from '../lightTheme';
 
 // Light design tokens (HG palette, same as the other onboarding screens).
-const BG = '#F7F3FF';
+const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';

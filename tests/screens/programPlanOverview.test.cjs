@@ -13,7 +13,7 @@ module.exports = [
   {
     name: 'program detail screen renders the light plan overview instead of the old session-flow hero',
     run() {
-      assert.match(programDetailSource, /PLAN_BACKGROUND = '#F7F3FF'/);
+      assert.match(programDetailSource, /PLAN_BACKGROUND = HG.bg/);
       assert.match(programDetailSource, /PLAN_PURPLE = '#7C3AED'/);
       assert.match(programDetailSource, /PLAN_GREEN = '#16A34A'/);
       // The copy moved into the key table; the screen is checked by key and

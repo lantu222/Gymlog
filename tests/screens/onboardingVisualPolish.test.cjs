@@ -17,7 +17,7 @@ module.exports = [
       assert.match(appShellSource, /shellBackgroundColor\?: string/);
       assert.match(appSource, /const onboardingScreenActive = onboardingActive \|\| setupOnboardingActive/);
       // Light shell: warm lavender behind onboarding; dark status-bar glyphs.
-      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? '#F7F3FF' :/);
+      assert.match(appSource, /shellBackgroundColor=\{onboardingScreenActive \? HG\.bg :/);
       assert.match(appSource, /statusBarStyleOverride=\{[^}]*onboardingScreenActive \? 'dark' : welcomeActive \? 'dark' : undefined\}/);
       assert.doesNotMatch(appSource, /#1D1C35/);
 

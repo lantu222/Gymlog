@@ -19,6 +19,7 @@ import {
   View,
   ViewStyle,
 } from 'react-native';
+import { HG } from '../lightTheme';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
@@ -151,7 +152,7 @@ function getQuestionnaireStepLabel(stage: SetupStage, language: AppLanguage) {
 }
 
 // Light redesign palette (HG tokens from the design handoff).
-const ONBOARDING_PANEL = '#F7F3FF';
+const ONBOARDING_PANEL = HG.bg;
 const ONBOARDING_BG = ONBOARDING_PANEL;
 const ONBOARDING_TOP = ONBOARDING_PANEL;
 const ONBOARDING_CARD = '#FFFFFF';

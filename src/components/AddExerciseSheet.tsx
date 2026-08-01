@@ -25,7 +25,8 @@ import {
   ExerciseEquipment,
   ExerciseLibraryItem,
 } from '../types/models';
-import { colors, radii, spacing } from '../theme';
+import { HG } from '../lightTheme';
+import { radii, spacing } from '../theme';
 
 interface AddExerciseSheetProps {
   visible: boolean;
@@ -370,9 +371,9 @@ export function AddExerciseSheet({
             value={search}
             onChangeText={setSearch}
             placeholder={t(language, 'sheet.searchPlaceholder')}
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={HG.faint}
             style={styles.searchInput}
-            selectionColor={colors.accent}
+            selectionColor={HG.purple}
           />
           {search.length > 0 ? (
             <Pressable onPress={() => setSearch('')} style={styles.clearButton}>
