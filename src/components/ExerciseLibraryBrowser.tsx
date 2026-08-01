@@ -851,7 +851,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 1,
   },
   sectionHeadAction: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 12.5,
     fontWeight: '800',
   },

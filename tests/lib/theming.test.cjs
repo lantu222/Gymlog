@@ -44,7 +44,13 @@ module.exports = [
       assert.deepEqual(Object.keys(darkTheme).sort(), Object.keys(HG).sort());
       for (const [token, value] of Object.entries(darkTheme)) {
         assert.equal(typeof value, 'string', `${token} must be a colour string`);
-        assert.match(value, /^#[0-9A-Fa-f]{6}$/, `${token} must be a plain hex`);
+        // Hex for solid tokens, rgba() for the washes that have to blend with
+        // whatever is behind them (highlightSoft over the tab bar's pill).
+        assert.match(
+          value,
+          /^(#[0-9A-Fa-f]{6}|rgba\([\d\s.,]+\))$/,
+          `${token} must be a hex or rgba colour`,
+        );
       }
     },
   },

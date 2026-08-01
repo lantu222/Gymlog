@@ -14,19 +14,20 @@ import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-nativ
 
 import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
-import { Theme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
 // positioned so it floats low over the (light) app content — no light backdrop
 // strip. The active tab gets a circular purple highlight that slides between
 // tabs. Kept isolated in this file + its own commit so it reverts cleanly.
+// The pill is a designed dark surface and stays dark in both themes. The
+// accent and its wash come from the theme, so the active tab turns orange
+// alongside every other interactive thing when dark is on.
 const BAR = {
   pill: '#1E1B2C',
   pillBorder: 'rgba(255,255,255,0.09)',
-  active: '#A78BFA',
   inactive: '#8B84A6',
-  highlight: 'rgba(167, 139, 250, 0.22)',
 };
 
 // Diameter of the sliding circular highlight behind the active tab's icon.
@@ -53,8 +54,9 @@ const sideTabs: { key: RootTabKey; labelKey: I18nKey }[] = [
 ];
 
 function TabIcon({ tab, active }: { tab: RootTabKey; active: boolean }) {
-  const stroke = active ? BAR.active : BAR.inactive;
-  const fill = active ? BAR.active : 'none';
+  const theme = useTheme();
+  const stroke = active ? theme.highlight : BAR.inactive;
+  const fill = active ? theme.highlight : 'none';
   const size = 26;
 
   if (tab === 'home') {
@@ -356,7 +358,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: HIGHLIGHT,
     height: HIGHLIGHT,
     borderRadius: HIGHLIGHT / 2,
-    backgroundColor: BAR.highlight,
+    backgroundColor: theme.highlightSoft,
   },
   pressed: {
     transform: [{ scale: 0.95 }],

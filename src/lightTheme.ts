@@ -41,6 +41,11 @@ export const HG = {
   // the accent split. The two are separate tokens because the dark theme moves
   // this one to orange and must not drag "done" along with it.
   accent: '#16A34A',
+  // Likewise the same violet the app already used for links and badges — the
+  // light theme keeps its two accent families, and only dark collapses them.
+  highlight: '#6D28D9',
+  highlightSoft: 'rgba(167, 139, 250, 0.22)',
+  onHighlight: '#FFFFFF',
   blue: '#0A84FF',
   gold: '#E4B14C',
   // Pro sheet gradient stops (dark violet).

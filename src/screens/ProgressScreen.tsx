@@ -2039,7 +2039,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   historySeeAll: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 12.5,
     fontWeight: '800',
   },

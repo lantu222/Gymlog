@@ -50,6 +50,13 @@ export const HG_DARK = {
   // enough to lead the eye on a near-black screen, and far enough from `gold`
   // (#E4B14C) that a favourite star and a start button do not read alike.
   accent: '#FF8A4C',
+  // Dark collapses the two accent families into one: anything pressable is
+  // orange, violet carries brand and structure. `onHighlight` is near-black
+  // because white on #FF8A4C is about 2:1 — a white TODAY badge would be
+  // unreadable.
+  highlight: '#FF8A4C',
+  highlightSoft: 'rgba(255, 138, 76, 0.26)',
+  onHighlight: '#241203',
   blue: '#4FA8FF',
   gold: '#E4B14C',
   proSheetTop: '#241A3E',

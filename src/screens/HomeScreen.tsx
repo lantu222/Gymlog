@@ -702,7 +702,7 @@ export function HomeScreen({
             style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
           >
             <View style={styles.emptyWorkoutIcon}>
-              <GymlogIcon name="plus" color={theme.purple} size={20} />
+              <GymlogIcon name="plus" color={theme.highlight} size={20} />
             </View>
             <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.emptyWorkout.title')}</Text>
             <Text style={styles.emptyWorkoutMeta}>{t(language, 'home.emptyWorkout.meta')}</Text>
@@ -718,7 +718,7 @@ export function HomeScreen({
                 <Svg width={20} height={20} viewBox="0 0 256 256">
                   <Path
                     d="M152 88a28 28 0 1 0-28-28 28 28 0 0 0 28 28Zm-56.4 68.7-20.6 41.1a12 12 0 0 0 21.5 10.7l20.5-41.1 26.4 19.8V232a12 12 0 0 0 24 0v-48a12 12 0 0 0-4.8-9.6l-25.5-19.1 14.3-35.8 8.5 12.8a12 12 0 0 0 8 5.1l40 8a12 12 0 1 0 4.7-23.6l-35-7-21.9-32.8a12 12 0 0 0-15.5-4l-48 24a12 12 0 0 0-5.4 5.3l-16 32a12 12 0 0 0 21.5 10.7l14.2-28.4 18.9-9.5-13.6 34Z"
-                    fill={theme.purple}
+                    fill={theme.highlight}
                   />
                 </Svg>
               </View>
@@ -1421,7 +1421,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: -0.2,
   },
   historySeeAll: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 14,
     lineHeight: 18,
     fontWeight: '800',

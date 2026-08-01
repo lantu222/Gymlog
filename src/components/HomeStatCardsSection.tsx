@@ -335,7 +335,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   sectionAction: {
-    color: theme.purpleBright,
+    color: theme.highlight,
     fontSize: 13,
     fontWeight: '700',
   },

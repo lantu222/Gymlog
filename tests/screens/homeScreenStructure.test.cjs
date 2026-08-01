@@ -186,7 +186,7 @@ module.exports = [
       assert.match(i18nSource, /'home\.emptyWorkout\.meta': 'Log freestyle'/);
       assert.match(homeScreenSource, /emptyWorkoutRow/);
       assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: theme.surface/);
-      assert.match(homeScreenSource, /name="plus" color=\{theme.purple\} size=\{20\}/);
+      assert.match(homeScreenSource, /name="plus" color=\{theme.highlight\} size=\{20\}/);
       assert.doesNotMatch(homeScreenSource, /Jump into an empty workout/);
       assert.doesNotMatch(homeScreenSource, /startWorkoutHero/);
       assert.match(homeScreenSource, /onPress=\{onCreateWorkoutFromExercises\}/);
@@ -449,17 +449,21 @@ module.exports = [
       assert.match(appSource, /initialSection=\{route\.screen === 'list' \? route\.section : undefined\}/);
 
       // Bottom bar EXPERIMENT (dark floating pill): absolutely positioned so it
-      // floats low over the content (no backdrop strip), a dark pill, purple-on-dark
-      // active tint, a circular highlight that slides between tabs, and a smaller
-      // Start button with a purple halo (motion-aware).
+      // floats low over the content (no backdrop strip), a dark pill, a circular
+      // highlight that slides between tabs, and a smaller Start button with a
+      // purple halo (motion-aware).
+      //
+      // The pill stays a designed dark surface in both themes, but the active
+      // tint follows the theme (2026-08-01) — violet in light, orange in dark,
+      // alongside every other interactive element.
       assert.match(bottomTabBarSource, /shell:\s*\{\s*[\s\S]*position: 'absolute'/);
       assert.match(bottomTabBarSource, /pill:\s*\{[\s\S]*backgroundColor: BAR\.pill/);
       assert.match(bottomTabBarSource, /activeTab: RootTabKey \| null/);
       assert.match(bottomTabBarSource, /activeKey === tab\.key/);
       assert.match(appSource, /activeTab=\{route\.tab === 'workout' && route\.screen === 'plans' \? null : route\.tab\}/);
-      assert.match(bottomTabBarSource, /const stroke = active \? BAR\.active/);
-      assert.match(bottomTabBarSource, /const fill = active \? BAR\.active/);
-      assert.match(bottomTabBarSource, /indicator:\s*\{[\s\S]*backgroundColor: BAR\.highlight/);
+      assert.match(bottomTabBarSource, /const stroke = active \? theme\.highlight/);
+      assert.match(bottomTabBarSource, /const fill = active \? theme\.highlight/);
+      assert.match(bottomTabBarSource, /indicator:\s*\{[\s\S]*backgroundColor: theme\.highlightSoft/);
       assert.match(bottomTabBarSource, /borderRadius: HIGHLIGHT \/ 2/);
       assert.match(bottomTabBarSource, /Animated\.spring\(indicatorX/);
       // Icon-only tabs (labels removed), larger icons, a11y label preserved.

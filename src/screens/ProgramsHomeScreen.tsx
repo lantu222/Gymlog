@@ -19,11 +19,6 @@ import { localizeSessionName } from '../lib/sessionNameLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 
-// The redesign gave Programs its own green accent, which left it as the only
-// tab not wearing the app's purple. It now uses the shared HG purple so the
-// CTAs read as the same product as everywhere else.
-const ACCENT_LINE = '#C9B6FF';
-
 const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
 // Same spread pattern as ProgramDetailScreen's schedule preview.
 const TRAINING_DAY_SPREAD: Record<number, number[]> = {
@@ -381,7 +376,7 @@ export function ProgramsHomeScreen({
               style={({ pressed }) => [styles.viewPlanButton, pressed && styles.pressed]}
             >
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke="#FFFFFF" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke={theme.onHighlight} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
               <Text style={styles.viewPlanButtonText}>{t(language, 'programs.viewPlan')}</Text>
             </Pressable>
@@ -420,7 +415,7 @@ export function ProgramsHomeScreen({
           style={({ pressed }) => [styles.newProgramButton, pressed && styles.pressed]}
         >
           <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-            <Path d="M12 5v14M5 12h14" stroke={theme.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M12 5v14M5 12h14" stroke={theme.highlight} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
           <Text style={styles.newProgramButtonText}>{t(language, 'csv.newProgram')}</Text>
         </Pressable>
@@ -670,7 +665,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 10,
   },
   weekEditLink: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
@@ -691,7 +686,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   dayRowToday: {
     backgroundColor: theme.purpleSoft,
-    borderColor: ACCENT_LINE,
+    // Structural, not an action: the row says "this is today", while the
+    // badge and pill inside it carry the interactive accent.
+    borderColor: theme.purple,
   },
   dayBadge: {
     width: 44,
@@ -704,8 +701,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   dayBadgeToday: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
+    backgroundColor: theme.highlight,
+    borderColor: theme.highlight,
   },
   dayBadgeText: {
     color: theme.faint,
@@ -713,7 +710,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   dayBadgeTextToday: {
-    color: '#FFFFFF',
+    color: theme.onHighlight,
   },
   dayCopy: {
     flex: 1,
@@ -733,12 +730,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   todayPill: {
     borderRadius: 999,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.highlight,
     paddingVertical: 3,
     paddingHorizontal: 7,
   },
   todayPillText: {
-    color: '#FFFFFF',
+    color: theme.onHighlight,
     fontSize: 9.5,
     lineHeight: 12,
     fontWeight: '800',
@@ -757,20 +754,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   viewPlanButton: {
     height: 52,
     borderRadius: 15,
-    backgroundColor: theme.purple,
+    backgroundColor: theme.highlight,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginTop: 14,
-    shadowColor: theme.purple,
+    shadowColor: theme.highlight,
     shadowOpacity: 0.27,
     shadowRadius: 22,
     shadowOffset: { width: 0, height: 10 },
     elevation: 8,
   },
   viewPlanButtonText: {
-    color: '#FFFFFF',
+    color: theme.onHighlight,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -790,7 +787,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 52,
     borderRadius: 15,
     borderWidth: 1.5,
-    borderColor: theme.purple,
+    borderColor: theme.highlight,
     backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
@@ -800,7 +797,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 6,
   },
   newProgramButtonText: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 15,
     fontWeight: '800',
   },
@@ -856,7 +853,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 2,
   },
   sectionLink: {
-    color: theme.purple,
+    color: theme.highlight,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',

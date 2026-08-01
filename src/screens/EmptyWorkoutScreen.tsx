@@ -984,7 +984,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   quickSeeAll: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: theme.purple,
+    color: theme.highlight,
   },
   quickList: {
     gap: 9,

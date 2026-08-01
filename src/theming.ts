@@ -43,12 +43,29 @@ export interface Theme {
   greenSoft: string;
   greenInk: string;
   /**
-   * The colour of "do the thing" — the start-workout CTA and the highlights
-   * that lead the eye to it. Deliberately its own token rather than `green`:
-   * green also means *done* (completed sets, finished cardio, success chips),
-   * and those must not move when the action accent does.
+   * The colour of "do the thing" — the start-workout CTA. Deliberately its own
+   * token rather than `green`: green also means *done* (completed sets,
+   * finished cardio, success chips), and those must not move when the action
+   * accent does.
    */
   accent: string;
+  /**
+   * Everything else that is interactive: text links, the active tab, the TODAY
+   * badge, secondary filled buttons.
+   *
+   * In light this is the same violet the app has always used, so nothing
+   * changes there. In dark it converges on `accent` — one orange for anything
+   * you can press, with violet left to carry brand and structure (user
+   * decision 2026-08-01).
+   */
+  highlight: string;
+  /** A tinted wash of `highlight`, e.g. the sliding circle in the tab bar. */
+  highlightSoft: string;
+  /**
+   * What goes ON a filled `highlight`. White works on violet and on green, but
+   * not on a light orange — a white TODAY badge would be unreadable in dark.
+   */
+  onHighlight: string;
   blue: string;
   gold: string;
   proSheetTop: string;
