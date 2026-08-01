@@ -159,6 +159,15 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   // of sinking into it.
   const pillBackground = themeName === 'dark' ? theme.surfaceSoft : BAR.pill;
 
+  // The AI button: a near-white orb with a violet label, which is the single
+  // brightest thing on a dark screen. In dark it inverts to a dark orb with an
+  // orange label (user decision 2026-08-01) — the violet halo stays, so the
+  // button keeps its brand glow without shouting.
+  const aiDark = themeName === 'dark';
+  const aiFillStops = aiDark ? ['#2E2545', '#241C38', '#1B1530'] : ['#FFFFFF', '#F2ECFF', '#E3D4FF'];
+  const aiCircleBackground = aiDark ? '#1B1530' : '#FFFFFF';
+  const aiLabelColor = aiDark ? theme.highlight : '#6D28D9';
+
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   // Entrance: the bar rises in at .24s and the FAB pops (scale .3 -> 1 with
   // overshoot) at .5s. Reduced motion skips straight to the final state.
@@ -298,18 +307,18 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
             style={({ pressed }) => [styles.centerTab, pressed && styles.pressed]}
           >
             <Animated.View style={[styles.centerGlow, aiActive && styles.centerGlowActive, { transform: [{ scale: fabPop }] }]}>
-              <View style={styles.aiCircle}>
+              <View style={[styles.aiCircle, { backgroundColor: aiCircleBackground }]}>
                 <Svg style={StyleSheet.absoluteFill} width={AI_SIZE} height={AI_SIZE}>
                   <Defs>
                     <RadialGradient id="aiFill" cx="50%" cy="38%" r="65%">
-                      <Stop offset="0" stopColor="#FFFFFF" />
-                      <Stop offset="0.62" stopColor="#F2ECFF" />
-                      <Stop offset="1" stopColor="#E3D4FF" />
+                      <Stop offset="0" stopColor={aiFillStops[0]} />
+                      <Stop offset="0.62" stopColor={aiFillStops[1]} />
+                      <Stop offset="1" stopColor={aiFillStops[2]} />
                     </RadialGradient>
                   </Defs>
                   <Rect width={AI_SIZE} height={AI_SIZE} fill="url(#aiFill)" />
                 </Svg>
-                <Text style={styles.aiText}>AI</Text>
+                <Text style={[styles.aiText, { color: aiLabelColor }]}>AI</Text>
               </View>
             </Animated.View>
           </Pressable>
