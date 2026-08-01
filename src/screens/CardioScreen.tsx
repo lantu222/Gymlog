@@ -40,7 +40,7 @@ import {
 import { I18nKey, t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, CardioActivityType, CardioFeel, CardioSession } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
@@ -83,6 +83,8 @@ export function CardioScreen({
   onSaveCardioSession,
   onLeave,
 }: CardioScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const workout = useWorkoutContext();
   const activeCardio = workout.activeCardio;
   // Only hold the screen while a cardio session is actually running.
@@ -130,8 +132,8 @@ export function CardioScreen({
   }, [mode, onLeave]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: HG.bg }}>
-      <StatusBar style="dark" backgroundColor={HG.bg} />
+    <View style={{ flex: 1, backgroundColor: theme.bg }}>
+      <StatusBar style="dark" backgroundColor={theme.bg} />
 
       {mode === 'list' && <CardioListView language={language} onLeave={onLeave} onStart={startActivity} />}
 
@@ -186,7 +188,7 @@ export function CardioScreen({
           <View style={{ gap: 10 }}>
             <SheetPrimaryBtn
               label={t(language, 'cardio.finish')}
-              color={HG.green}
+              color={theme.green}
               onPress={() => {
                 setEndSheetOpen(false);
                 workout.pauseCardio();
@@ -211,7 +213,7 @@ export function CardioScreen({
           <View style={{ gap: 10 }}>
             <SheetPrimaryBtn
               label={t(language, 'cardio.resumeIt')}
-              color={HG.purple}
+              color={theme.purple}
               onPress={() => {
                 setConflictFor(null);
                 onResumeStrengthSession();
@@ -247,6 +249,10 @@ function CardioListView({
   onLeave: () => void;
   onStart: (activityType: CardioActivityType) => void;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <ScrollView
       style={{ flex: 1 }}
@@ -254,7 +260,7 @@ function CardioListView({
       showsVerticalScrollIndicator={false}
     >
       <Pressable onPress={onLeave} style={styles.backBtn} hitSlop={8}>
-        <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={HG.purpleDark} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+        <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={theme.purpleDark} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
           <Path d="M15 6l-6 6 6 6" />
         </Svg>
       </Pressable>
@@ -268,7 +274,7 @@ function CardioListView({
             onPress={() => onStart(activity.id)}
           >
             <View style={styles.activityIconTile}>
-              <CardioIcon kind={activity.icon} size={24} color={HG.purple} />
+              <CardioIcon kind={activity.icon} size={24} color={theme.purple} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={styles.activityName}>{cardioActivityName(language, activity.id)}</Text>
@@ -276,7 +282,7 @@ function CardioListView({
                 <Text style={styles.equipmentChipText}>{cardioEquipmentLabel(language, activity.equipmentLabel).toUpperCase()}</Text>
               </View>
             </View>
-            <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+            <Svg width={17} height={17} viewBox="0 0 24 24" fill="none" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
               <Path d="M9 6l6 6-6 6" />
             </Svg>
           </Pressable>
@@ -300,6 +306,10 @@ function CardioPlayerView({
   onResume: () => void;
   onExit: () => void;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const activity = getCardioActivity(session.activityType);
   const running = session.resumedAt !== null;
   const [elapsedMs, setElapsedMs] = useState(() => getCardioElapsedMs(session, Date.now()));
@@ -336,7 +346,7 @@ function CardioPlayerView({
     <View style={{ flex: 1 }}>
       <View style={styles.playerTopBar}>
         <Pressable onPress={onExit} style={styles.playerTopBtn} hitSlop={8}>
-          <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+          <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
             <Path d="M6 6l12 12M18 6L6 18" />
           </Svg>
         </Pressable>
@@ -346,10 +356,10 @@ function CardioPlayerView({
 
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8, paddingHorizontal: 32 }}>
         <Animated.View style={[styles.playerIconTile, { transform: [{ scale: pulse }] }]}>
-          <CardioIcon kind={activity.icon} size={34} color={HG.purple} />
+          <CardioIcon kind={activity.icon} size={34} color={theme.purple} />
         </Animated.View>
         <Text style={styles.playerActivityName}>{cardioActivityName(language, session.activityType)}</Text>
-        <Text style={[styles.playerTimer, { color: running ? HG.ink : HG.faint }]}>
+        <Text style={[styles.playerTimer, { color: running ? theme.ink : theme.faint }]}>
           {formatCardioDuration(elapsedMs / 1000)}
         </Text>
         {!running ? <Text style={styles.pausedLabel}>{t(language, 'cardio.paused')}</Text> : <View style={{ height: 20 }} />}
@@ -361,7 +371,7 @@ function CardioPlayerView({
             {running ? <Path d="M9 5v14M15 5v14" /> : <Path d="M8 5l11 7-11 7z" />}
           </Svg>
         </Pressable>
-        <Text style={{ fontSize: 13, fontWeight: '700', color: HG.muted, marginTop: 10 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.muted, marginTop: 10 }}>
           {t(language, running ? 'cardio.pause' : 'cardio.resume')}
         </Text>
       </View>
@@ -383,6 +393,10 @@ function CardioFinishView({
   isSaving: boolean;
   onComplete: (distanceKm: number | null, feel: CardioFeel | null) => Promise<void>;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const durationSec = Math.round(getCardioElapsedMs(session, Date.now()) / 1000);
   const [distanceText, setDistanceText] = useState('');
   const [feel, setFeel] = useState<CardioFeel | null>(null);
@@ -405,27 +419,27 @@ function CardioFinishView({
 
         <View style={[styles.finishCard, { alignItems: 'center' }]}>
           <Text style={styles.finishHeroStat}>{formatCardioDuration(durationSec)}</Text>
-          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2, color: HG.muted, marginTop: 4 }}>
+          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.2, color: theme.muted, marginTop: 4 }}>
             {t(language, 'cardio.stat.duration')}
           </Text>
         </View>
 
         <View style={styles.finishCard}>
-          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.purple }}>
+          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: theme.purple }}>
             {t(language, 'cardio.stat.distance')}
           </Text>
           <TextInput
             value={distanceText}
             onChangeText={setDistanceText}
             placeholder={t(language, 'cardio.addDistance')}
-            placeholderTextColor={HG.faint}
+            placeholderTextColor={theme.faint}
             keyboardType="decimal-pad"
             style={styles.distanceInput}
           />
           {pace !== null ? (
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-              <Text style={{ fontSize: 12.5, fontWeight: '700', color: HG.muted }}>{t(language, 'cardio.avgPace')}</Text>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: HG.ink, fontVariant: ['tabular-nums'] }}>
+              <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.muted }}>{t(language, 'cardio.avgPace')}</Text>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: theme.ink, fontVariant: ['tabular-nums'] }}>
                 {formatCardioPace(pace)}
               </Text>
             </View>
@@ -434,16 +448,16 @@ function CardioFinishView({
 
         <View style={styles.finishCard}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.green }}>{t(language, 'cardio.thisWeek')}</Text>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: HG.ink }}>
+            <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: theme.green }}>{t(language, 'cardio.thisWeek')}</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: theme.ink }}>
               {t(language, 'cardio.weekMinutes', { min: weekMinutes })}{' '}
-              <Text style={{ fontSize: 12, fontWeight: '700', color: HG.muted }}>{t(language, 'cardio.weekCardio')}</Text>
+              <Text style={{ fontSize: 12, fontWeight: '700', color: theme.muted }}>{t(language, 'cardio.weekCardio')}</Text>
             </Text>
           </View>
         </View>
 
         <View style={styles.finishCard}>
-          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: HG.purple }}>
+          <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: theme.purple }}>
             {t(language, 'cardio.howFeel')}
           </Text>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 11 }}>
@@ -481,6 +495,8 @@ function CardioFinishView({
 
 /* ── sheets ── */
 function CardioSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
@@ -494,6 +510,8 @@ function CardioSheet({ onClose, children }: { onClose: () => void; children: Rea
 }
 
 function SheetPrimaryBtn({ label, color, onPress }: { label: string; color: string; onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onPress} style={[styles.sheetPrimaryBtn, { backgroundColor: color, shadowColor: color }]}>
       <Text style={{ fontSize: 16, fontWeight: '800', color: '#fff' }}>{label}</Text>
@@ -502,26 +520,30 @@ function SheetPrimaryBtn({ label, color, onPress }: { label: string; color: stri
 }
 
 function SheetGhostBtn({ label, onPress }: { label: string; onPress: () => void }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onPress} style={styles.sheetGhostBtn}>
-      <Text style={{ fontSize: 14.5, fontWeight: '800', color: HG.ink }}>{label}</Text>
+      <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.ink }}>{label}</Text>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   /* list */
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 13,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 18,
   },
-  listTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5, color: HG.ink },
-  listSub: { fontSize: 14, fontWeight: '600', color: HG.muted, marginTop: 4 },
+  listTitle: { fontSize: 30, fontWeight: '800', letterSpacing: -0.5, color: theme.ink },
+  listSub: { fontSize: 14, fontWeight: '600', color: theme.muted, marginTop: 4 },
   activityCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -543,14 +565,14 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 14,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  activityName: { fontSize: 16.5, fontWeight: '800', color: HG.ink },
+  activityName: { fontSize: 16.5, fontWeight: '800', color: theme.ink },
   equipmentChip: {
     alignSelf: 'flex-start',
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     borderRadius: 7,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -560,7 +582,7 @@ const styles = StyleSheet.create({
     fontFamily: 'JetBrainsMono',
     fontSize: 10,
     letterSpacing: 0.6,
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
 
   /* player */
@@ -581,17 +603,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E4DBF5',
   },
-  playerTopLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.6, color: HG.muted },
+  playerTopLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.6, color: theme.muted },
   playerIconTile: {
     width: 74,
     height: 74,
     borderRadius: 22,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 10,
   },
-  playerActivityName: { fontSize: 20, fontWeight: '800', color: HG.ink, textAlign: 'center' },
+  playerActivityName: { fontSize: 20, fontWeight: '800', color: theme.ink, textAlign: 'center' },
   playerTimer: {
     fontSize: 72,
     fontWeight: '800',
@@ -600,15 +622,15 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
     marginTop: 8,
   },
-  pausedLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 1.8, color: HG.muted, marginTop: 2 },
+  pausedLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 1.8, color: theme.muted, marginTop: 2 },
   pauseBtn: {
     width: 68,
     height: 68,
     borderRadius: 999,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: HG.purple,
+    shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.35,
     shadowRadius: 20,
@@ -616,7 +638,7 @@ const styles = StyleSheet.create({
   },
 
   /* finish (light — same theme as every other screen) */
-  finishTitle: { marginTop: 6, marginHorizontal: 2, fontSize: 28, fontWeight: '800', letterSpacing: -0.5, color: HG.ink },
+  finishTitle: { marginTop: 6, marginHorizontal: 2, fontSize: 28, fontWeight: '800', letterSpacing: -0.5, color: theme.ink },
   finishCard: {
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
@@ -629,7 +651,7 @@ const styles = StyleSheet.create({
     fontSize: 54,
     fontWeight: '800',
     letterSpacing: -1.8,
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 60,
     fontVariant: ['tabular-nums'],
   },
@@ -639,11 +661,11 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.5,
     borderColor: '#E4DBF5',
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
     paddingHorizontal: 14,
     fontSize: 16,
     fontWeight: '700',
-    color: HG.ink,
+    color: theme.ink,
   },
   feelPill: {
     borderRadius: 999,
@@ -654,10 +676,10 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
   },
   feelPillSelected: {
-    backgroundColor: HG.purple,
-    borderColor: HG.purple,
+    backgroundColor: theme.purple,
+    borderColor: theme.purple,
   },
-  feelPillText: { fontSize: 13.5, fontWeight: '800', color: HG.muted },
+  feelPillText: { fontSize: 13.5, fontWeight: '800', color: theme.muted },
   finishFooter: {
     paddingHorizontal: 18,
     paddingTop: 10,
@@ -668,10 +690,10 @@ const styles = StyleSheet.create({
   completeBtn: {
     height: 56,
     borderRadius: 17,
-    backgroundColor: HG.green,
+    backgroundColor: theme.green,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: HG.green,
+    shadowColor: theme.green,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 26,
@@ -693,7 +715,7 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
   },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', color: HG.ink, marginBottom: 16 },
+  sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
   sheetPrimaryBtn: {
     height: 56,
     borderRadius: 17,

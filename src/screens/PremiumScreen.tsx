@@ -6,7 +6,8 @@ import { ProPill } from '../components/ProLockedCard';
 import { removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { PremiumHeroChart } from '../lib/premiumHeroChart';
-import { HG, PW } from '../lightTheme';
+import { PW } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 
@@ -163,8 +164,12 @@ function HeroChart({ chart, unitPreference }: { chart: PremiumHeroChart; unitPre
 }
 
 function Cell({ value, pro }: { value: TableCell; pro?: boolean }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   if (value === 1) {
-    return <CheckGlyph color={pro ? HG.purple : PW.green} />;
+    return <CheckGlyph color={pro ? theme.purple : PW.green} />;
   }
   if (value === 0) {
     return <View style={styles.cellDash} />;
@@ -183,6 +188,8 @@ function BenefitCard({
   body: string;
   children: React.ReactNode;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.benefitCard}>
       <View style={styles.benefitHead}>
@@ -210,6 +217,8 @@ export function PremiumScreen({
   onTogglePreview,
   onOpenLegal,
 }: PremiumScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
   const promoOnly = proUnlocked && !previewUnlocked;
   const chartStep = heroChart ? fmt(heroChart.projectedNext - heroChart.latest) : null;
@@ -225,7 +234,7 @@ export function PremiumScreen({
           style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
         >
           <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-            <Path d="M6 6l12 12M18 6L6 18" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" />
+            <Path d="M6 6l12 12M18 6L6 18" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" />
           </Svg>
         </Pressable>
         {/* Restore is required store copy once billing ships; inert until then. */}
@@ -283,7 +292,7 @@ export function PremiumScreen({
         <View style={styles.benefitList}>
           <BenefitCard index={0} title={t(language, 'pro.page.b1.title')} body={t(language, 'pro.page.b1.body')}>
             <View style={styles.specimenHead}>
-              <SparkGlyph color={HG.purple} size={13} />
+              <SparkGlyph color={theme.purple} size={13} />
               <Text style={styles.specimenTag}>{t(language, 'pro.page.b1.tag')}</Text>
             </View>
             <Text style={coachSpecimen ? styles.specimenQuote : styles.specimenEmpty}>
@@ -300,7 +309,7 @@ export function PremiumScreen({
                   </View>
                 ))}
                 <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M5 12h14M13 6l6 6-6 6" stroke={HG.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+                  <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
                 <View style={[styles.chip, styles.chipNext]}>
                   <Text style={styles.chipNextText}>{fmt(heroChart.projectedNext)}</Text>
@@ -451,10 +460,10 @@ export function PremiumScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   topBar: {
     flexDirection: 'row',
@@ -468,9 +477,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -480,7 +489,7 @@ const styles = StyleSheet.create({
   restore: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
   },
   content: {
     paddingHorizontal: 18,
@@ -583,7 +592,7 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 1,
-    color: HG.faint,
+    color: theme.faint,
     marginTop: 24,
     marginBottom: 11,
     paddingHorizontal: 2,
@@ -592,9 +601,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   benefitCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 20,
     paddingHorizontal: 17,
     paddingTop: 17,
@@ -606,7 +615,7 @@ const styles = StyleSheet.create({
     gap: 9,
   },
   benefitIndex: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     borderRadius: 6,
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -621,20 +630,20 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 17.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   benefitBody: {
     fontSize: 13.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     lineHeight: 20,
     marginTop: 9,
   },
   benefitSpecimen: {
     marginTop: 14,
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 14,
     paddingVertical: 13,
     paddingHorizontal: 14,
@@ -649,18 +658,18 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 1,
-    color: HG.faint,
+    color: theme.faint,
   },
   specimenQuote: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 20,
   },
   specimenEmpty: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     lineHeight: 18,
   },
   chipRow: {
@@ -670,9 +679,9 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   chip: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 9,
     paddingVertical: 6,
     paddingHorizontal: 10,
@@ -680,11 +689,11 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: 13,
     fontWeight: '800',
-    color: HG.muted,
+    color: theme.muted,
   },
   chipNext: {
-    backgroundColor: HG.purple,
-    borderColor: HG.purple,
+    backgroundColor: theme.purple,
+    borderColor: theme.purple,
   },
   chipNextText: {
     fontSize: 13,
@@ -717,12 +726,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#E6DEF7',
   },
   weekBarActive: {
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   weekLabel: {
     fontSize: 9.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     marginTop: 5,
   },
   promise: {
@@ -730,10 +739,10 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   promiseFree: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     paddingVertical: 15,
     paddingHorizontal: 17,
   },
@@ -741,12 +750,12 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1,
-    color: HG.faint,
+    color: theme.faint,
   },
   promiseFreeLine: {
     fontSize: 16.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     marginTop: 6,
   },
   promisePro: {
@@ -768,9 +777,9 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   table: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     overflow: 'hidden',
   },
@@ -779,9 +788,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 11,
     paddingHorizontal: 15,
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   tableLabelCol: {
     flex: 1,
@@ -791,14 +800,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 11.5,
     fontWeight: '800',
-    color: HG.muted,
+    color: theme.muted,
   },
   tableHeadPro: {
     width: 66,
     textAlign: 'center',
     fontSize: 11.5,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
   },
   bandRow: {
     flexDirection: 'row',
@@ -808,13 +817,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     backgroundColor: '#FBF8FF',
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   bandLabel: {
     fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 1,
-    color: HG.ink,
+    color: theme.ink,
   },
   bandNote: {
     borderRadius: 6,
@@ -825,7 +834,7 @@ const styles = StyleSheet.create({
     backgroundColor: PW.greenSoft,
   },
   bandNotePro: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   bandNoteText: {
     fontSize: 10,
@@ -843,13 +852,13 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 15,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   tableRowLabel: {
     flex: 1,
     fontSize: 13,
     fontWeight: '700',
-    color: HG.ink,
+    color: theme.ink,
     paddingRight: 6,
   },
   tableCell: {
@@ -860,19 +869,19 @@ const styles = StyleSheet.create({
     width: 12,
     height: 2,
     borderRadius: 2,
-    backgroundColor: HG.faint,
+    backgroundColor: theme.faint,
   },
   quotaText: {
     fontSize: 11,
     fontWeight: '800',
-    color: HG.muted,
+    color: theme.muted,
   },
   tableFoot: {
     paddingVertical: 13,
     paddingHorizontal: 15,
     fontSize: 12,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     lineHeight: 18,
   },
   planRow: {
@@ -883,14 +892,14 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 18,
     borderWidth: 2,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     paddingVertical: 15,
     paddingHorizontal: 15,
   },
   planCardOn: {
-    borderColor: HG.purple,
-    backgroundColor: HG.purpleLight,
+    borderColor: theme.purple,
+    backgroundColor: theme.purpleLight,
   },
   planSave: {
     position: 'absolute',
@@ -916,23 +925,23 @@ const styles = StyleSheet.create({
     height: 19,
     borderRadius: 999,
     borderWidth: 2,
-    borderColor: HG.faint,
+    borderColor: theme.faint,
     alignItems: 'center',
     justifyContent: 'center',
   },
   planRadioOn: {
-    borderColor: HG.purple,
+    borderColor: theme.purple,
   },
   planRadioDot: {
     width: 9,
     height: 9,
     borderRadius: 999,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   planName: {
     fontSize: 14,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   planPriceRow: {
     flexDirection: 'row',
@@ -943,23 +952,23 @@ const styles = StyleSheet.create({
   planPrice: {
     fontSize: 27,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   planPer: {
     fontSize: 13,
     fontWeight: '700',
-    color: HG.muted,
+    color: theme.muted,
   },
   planBilled: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 4,
   },
   reassure: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: HG.faint,
+    color: theme.faint,
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 16,
@@ -968,14 +977,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: layout.bottomTabBarReserve,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: HG.border,
+    borderTopColor: theme.border,
   },
   ctaButton: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -987,7 +996,7 @@ const styles = StyleSheet.create({
   promoNote: {
     fontSize: 13,
     fontWeight: '700',
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 19,
     textAlign: 'center',
   },
@@ -995,7 +1004,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 12,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 9,
   },
   legalRow: {
@@ -1008,7 +1017,7 @@ const styles = StyleSheet.create({
   legalText: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     // These open the real documents now, so they have to look like links.
     textDecorationLine: 'underline',
   },
@@ -1016,6 +1025,6 @@ const styles = StyleSheet.create({
     width: 3,
     height: 3,
     borderRadius: 999,
-    backgroundColor: HG.faint,
+    backgroundColor: theme.faint,
   },
 });

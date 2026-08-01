@@ -27,6 +27,7 @@ import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
 import {
   BodyweightProgressSummary,
@@ -34,7 +35,6 @@ import {
   getExerciseProgressSignal,
 } from '../lib/progression';
 import { TrainingRhythmSummary } from '../lib/trainingRhythm';
-import { HG } from '../lightTheme';
 import { layout } from '../theme';
 import {
   AppLanguage,
@@ -105,8 +105,9 @@ const PROGRESS_WEEKDAY_KEYS: I18nKey[] = [
   'onb.weekday.sun',
 ];
 
-const CALENDAR_LEGEND: Array<{ key: string; labelKey: I18nKey; dotStyle: object }> = [
-  { key: 'done', labelKey: 'progress.legend.done', dotStyle: { backgroundColor: HG.purple } },
+// Evaluated once at import, so the themed dots have to come from a call.
+const calendarLegend = (theme: Theme): Array<{ key: string; labelKey: I18nKey; dotStyle: object }> => [
+  { key: 'done', labelKey: 'progress.legend.done', dotStyle: { backgroundColor: theme.purple } },
   {
     key: 'missed',
     labelKey: 'progress.legend.missed',
@@ -115,7 +116,7 @@ const CALENDAR_LEGEND: Array<{ key: string; labelKey: I18nKey; dotStyle: object 
   {
     key: 'upcoming',
     labelKey: 'progress.legend.upcoming',
-    dotStyle: { borderWidth: 1.5, borderColor: HG.purple },
+    dotStyle: { borderWidth: 1.5, borderColor: theme.purple },
   },
   { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: '#F1ECFB' } },
 ];
@@ -507,7 +508,10 @@ function fmtDelta(value: number) {
 
 // ── glyphs ──
 
-function SearchIcon({ color = HG.faint, size = 17 }: { color?: string; size?: number }) {
+function SearchIcon({ color: colorProp, size = 17 }: { color?: string; size?: number }) {
+  const theme = useTheme();
+  const color = colorProp ?? theme.faint;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={2} />
@@ -517,15 +521,19 @@ function SearchIcon({ color = HG.faint, size = 17 }: { color?: string; size?: nu
 }
 
 function ChevronDown({ open }: { open: boolean }) {
+  const theme = useTheme();
+
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none" style={open ? { transform: [{ rotate: '180deg' }] } : undefined}>
-      <Path d="M6 9l6 6 6-6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M6 9l6 6 6-6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function MeasureIcon({ name }: { name: MeasureIconName }) {
-  const common = { stroke: HG.purpleDark, strokeWidth: 2, fill: 'none' as const, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
+  const theme = useTheme();
+
+  const common = { stroke: theme.purpleDark, strokeWidth: 2, fill: 'none' as const, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
   if (name === 'scale') {
     return (
       <Svg width={18} height={18} viewBox="0 0 24 24">
@@ -560,6 +568,8 @@ function ArrowGlyph({ up, color }: { up: boolean; color: string }) {
 // ── shared light widgets ──
 
 function SectionLabel({ label, right }: { label: string; right?: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.sectionHead}>
       <Text style={styles.sectionHeadLabel}>{label}</Text>
@@ -569,6 +579,8 @@ function SectionLabel({ label, right }: { label: string; right?: string }) {
 }
 
 function SignalBadge({ summary, language }: { summary: ExerciseProgressSummary; language: AppLanguage }) {
+  const styles = useThemedStyles(makeStyles);
+
   const signal = getExerciseProgressSignal(summary, language);
   const palette = SIGNAL_STYLES[signal.kind];
   return (
@@ -580,6 +592,8 @@ function SignalBadge({ summary, language }: { summary: ExerciseProgressSummary; 
 }
 
 function DeltaPill({ delta, unit, lowerIsBetter = false }: { delta: number; unit: string; lowerIsBetter?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+
   const up = delta > 0;
   const good = lowerIsBetter ? !up : up;
   const color = good ? '#157A3A' : '#9A5B16';
@@ -627,6 +641,8 @@ function Seg<T extends string>({
   onChange: (next: T) => void;
   grow?: boolean;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={[styles.seg, grow && styles.segGrow]}>
       {options.map((option) => {
@@ -669,6 +685,8 @@ export function ProgressScreen({
   proUnlocked = false,
   onOpenPremium,
 }: ProgressScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
   const [progressQuery, setProgressQuery] = useState('');
@@ -717,7 +735,7 @@ export function ProgressScreen({
     () => (heroSummary ? getSummaryChartPoints(heroSummary, unitPreference, language) : []),
     [heroSummary, language, unitPreference],
   );
-  const heroSignalDot = heroSummary ? SIGNAL_STYLES[getExerciseProgressSignal(heroSummary).kind].dot : HG.purple;
+  const heroSignalDot = heroSummary ? SIGNAL_STYLES[getExerciseProgressSignal(heroSummary).kind].dot : theme.purple;
   const heroLatest = heroPoints.length ? heroPoints[heroPoints.length - 1].value : null;
   const heroStart = heroPoints.length ? heroPoints[0].value : null;
   const heroDelta = heroLatest !== null && heroStart !== null && heroPoints.length > 1 ? heroLatest - heroStart : null;
@@ -1142,7 +1160,7 @@ export function ProgressScreen({
           <SimpleLineChart
             points={overviewChart.points}
             unitLabel={overviewChart.unitLabel}
-            accent={HG.purple}
+            accent={theme.purple}
             emptyLabel={overviewChart.emptyLabel}
             footerLabels={overviewChart.footerLabels}
             yTickValues={overviewChart.yTickValues}
@@ -1228,7 +1246,7 @@ export function ProgressScreen({
           </View>
 
           <View style={styles.calendarLegend}>
-            {CALENDAR_LEGEND.map((entry) => (
+            {calendarLegend(theme).map((entry) => (
               <View key={entry.key} style={styles.legendItem}>
                 <View style={[styles.legendDot, entry.dotStyle]} />
                 <Text style={styles.legendText}>{t(language, entry.labelKey)}</Text>
@@ -1256,7 +1274,7 @@ export function ProgressScreen({
                   style={styles.historyRow}
                 >
                   <View style={styles.historyIcon}>
-                    <GymlogIcon name="dumbbell" color={HG.purpleDark} size={17} />
+                    <GymlogIcon name="dumbbell" color={theme.purpleDark} size={17} />
                   </View>
                   <View style={styles.historyCopy}>
                     <Text numberOfLines={1} style={styles.historyTitle}>
@@ -1266,7 +1284,7 @@ export function ProgressScreen({
                       {session.dateLabel} · {session.durationLabel} · {session.volumeLabel}
                     </Text>
                   </View>
-                  <GymlogIcon name="chevronRight" color={HG.faint} size={16} />
+                  <GymlogIcon name="chevronRight" color={theme.faint} size={16} />
                 </Pressable>
               ))}
             </View>
@@ -1290,7 +1308,7 @@ export function ProgressScreen({
             value={progressQuery}
             onChangeText={setProgressQuery}
             placeholder={t(language, 'progress.searchTracked')}
-            placeholderTextColor={HG.faint}
+            placeholderTextColor={theme.faint}
             style={styles.searchInput}
           />
         </View>
@@ -1436,7 +1454,7 @@ export function ProgressScreen({
                 onChangeText={setMeasureInput}
                 keyboardType="decimal-pad"
                 placeholder={`0 ${model.kind === null ? unitPreference : measureUnit}`}
-                placeholderTextColor={HG.faint}
+                placeholderTextColor={theme.faint}
                 style={styles.measureInput}
               />
               {model.kind !== null && model.key !== 'bodyfat' ? (
@@ -1458,7 +1476,7 @@ export function ProgressScreen({
           <SimpleLineChart
             points={selectedMeasureRangePoints}
             unitLabel={model.unit}
-            accent={HG.purple}
+            accent={theme.purple}
             emptyLabel={t(language, 'progress.noEntriesRange')}
             tooltipFormatter={(point) => ({
               title: point.label,
@@ -1501,7 +1519,7 @@ export function ProgressScreen({
                 </View>
                 <Sparkline
                   values={item.values.slice(-8)}
-                  color={delta === null ? HG.faint : good ? '#37C46B' : '#E0922F'}
+                  color={delta === null ? theme.faint : good ? '#37C46B' : '#E0922F'}
                   width={58}
                 />
                 {delta !== null && delta !== 0 ? (
@@ -1563,10 +1581,10 @@ export function ProgressScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   readBlock: {
     marginBottom: 18,
@@ -1575,16 +1593,16 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1,
-    color: HG.faint,
+    color: theme.faint,
     marginBottom: 11,
   },
   readList: {
     gap: 10,
   },
   readRow: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     paddingVertical: 15,
     paddingHorizontal: 16,
@@ -1613,12 +1631,12 @@ const styles = StyleSheet.create({
   readName: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   readMeta: {
     fontSize: 12,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 2,
   },
   readBars: {
@@ -1636,7 +1654,7 @@ const styles = StyleSheet.create({
     marginTop: 13,
   },
   readFix: {
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
@@ -1644,13 +1662,13 @@ const styles = StyleSheet.create({
   readFixLine: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 20,
   },
   readFooter: {
     fontSize: 12,
     fontWeight: '600',
-    color: HG.faint,
+    color: theme.faint,
     lineHeight: 18,
     marginTop: 14,
   },
@@ -1660,20 +1678,20 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   headerTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   headerSubtitle: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
   },
   tabsRow: {
     flexDirection: 'row',
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderRadius: 12,
     padding: 3,
     marginTop: 14,
@@ -1693,12 +1711,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   tabText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     fontWeight: '800',
   },
   tabTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   content: {
     paddingHorizontal: 20,
@@ -1714,20 +1732,20 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   sectionHeadLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
   },
   sectionHeadRight: {
-    color: HG.purple,
+    color: theme.purple,
     fontSize: 12.5,
     fontWeight: '800',
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     padding: 16,
   },
@@ -1735,9 +1753,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   heroCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     padding: 18,
   },
@@ -1750,7 +1768,7 @@ const styles = StyleSheet.create({
   heroLabel: {
     flex: 1,
     minWidth: 0,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -1761,14 +1779,14 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   heroValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 46,
     fontWeight: '800',
     letterSpacing: -1,
     lineHeight: 48,
   },
   heroUnit: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 18,
     fontWeight: '800',
   },
@@ -1779,15 +1797,15 @@ const styles = StyleSheet.create({
     marginTop: 7,
   },
   heroSinceMuted: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 7,
   },
   emptyHeroCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     paddingHorizontal: 18,
     paddingVertical: 26,
@@ -1827,35 +1845,35 @@ const styles = StyleSheet.create({
   },
   monthCard: {
     flex: 1,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 13,
   },
   monthLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.4,
   },
   monthValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 21,
     fontWeight: '800',
     letterSpacing: -0.4,
     marginTop: 5,
   },
   monthMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11,
     fontWeight: '600',
     marginTop: 2,
   },
   trendValue: {
     flexShrink: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 22,
     fontWeight: '800',
   },
@@ -1874,7 +1892,7 @@ const styles = StyleSheet.create({
   },
   seg: {
     flexDirection: 'row',
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
     borderRadius: 10,
     padding: 3,
     gap: 2,
@@ -1900,12 +1918,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   segText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '800',
   },
   segTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   calendarWeekdayRow: {
     flexDirection: 'row',
@@ -1915,7 +1933,7 @@ const styles = StyleSheet.create({
   calendarWeekday: {
     flex: 1,
     textAlign: 'center',
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -1936,7 +1954,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1ECFB',
   },
   calendarBubbleDone: {
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   // Missed reads as a quiet outline, not an alarm: the point is to show the
   // shape of the month, not to scold anyone for a skipped Thursday.
@@ -1948,16 +1966,16 @@ const styles = StyleSheet.create({
   calendarBubbleUpcoming: {
     backgroundColor: 'transparent',
     borderWidth: 1.5,
-    borderColor: HG.purple,
+    borderColor: theme.purple,
   },
   calendarBubbleToday: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     borderWidth: 1.5,
-    borderColor: HG.purple,
+    borderColor: theme.purple,
     borderStyle: 'dashed',
   },
   calendarBubbleText: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '700',
   },
@@ -1968,7 +1986,7 @@ const styles = StyleSheet.create({
     color: '#B4483A',
   },
   calendarBubbleTextUpcoming: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   calendarLegend: {
     flexDirection: 'row',
@@ -1987,17 +2005,17 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   legendText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11.5,
     fontWeight: '700',
   },
   calendarBubbleTextToday: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   progressHistoryCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     padding: 16,
     marginTop: 22,
@@ -2008,12 +2026,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   referenceCardTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '800',
   },
   historySeeAll: {
-    color: HG.purple,
+    color: theme.purple,
     fontSize: 12.5,
     fontWeight: '800',
   },
@@ -2026,13 +2044,13 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 11,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   historyIcon: {
     width: 38,
     height: 38,
     borderRadius: 11,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2041,12 +2059,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   historyTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '800',
   },
   historyMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
@@ -2058,9 +2076,9 @@ const styles = StyleSheet.create({
   searchShell: {
     height: 44,
     borderRadius: 13,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -2069,7 +2087,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '600',
     paddingVertical: 0,
@@ -2085,16 +2103,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   filterChipActive: {
-    backgroundColor: HG.purple,
-    borderColor: HG.purple,
+    backgroundColor: theme.purple,
+    borderColor: theme.purple,
   },
   filterChipText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -2105,9 +2123,9 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   trackedCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     padding: 14,
   },
@@ -2121,7 +2139,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   trackedName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15.5,
     fontWeight: '800',
   },
@@ -2133,7 +2151,7 @@ const styles = StyleSheet.create({
   },
   trackedMeta: {
     flexShrink: 1,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
   },
@@ -2141,7 +2159,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: HG.border,
+    borderTopColor: theme.border,
     gap: 10,
   },
   trackedDelta: {
@@ -2151,7 +2169,7 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   trackedDeltaMuted: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     textAlign: 'right',
@@ -2165,25 +2183,25 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 9,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   trackedLogCopy: {
     flex: 1,
     minWidth: 0,
   },
   trackedLogTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13,
     fontWeight: '800',
   },
   trackedLogMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11.5,
     fontWeight: '600',
     marginTop: 2,
   },
   trackedLogValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13.5,
     fontWeight: '800',
   },
@@ -2193,12 +2211,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   emptyTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15,
     fontWeight: '800',
   },
   emptyText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
@@ -2214,7 +2232,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   measureDetailLabel: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -2225,19 +2243,19 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   measureValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 42,
     fontWeight: '800',
     letterSpacing: -1,
     lineHeight: 44,
   },
   measureUnit: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 17,
     fontWeight: '800',
   },
   measureCaption: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 6,
@@ -2252,11 +2270,11 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 44,
     borderRadius: 12,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     paddingHorizontal: 13,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '700',
   },
@@ -2264,7 +2282,7 @@ const styles = StyleSheet.create({
     height: 44,
     paddingHorizontal: 18,
     borderRadius: 12,
-    backgroundColor: HG.green,
+    backgroundColor: theme.green,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2282,19 +2300,19 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingHorizontal: 13,
     paddingVertical: 11,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   measureRowActive: {
-    borderColor: HG.purple,
+    borderColor: theme.purple,
   },
   measureRowIcon: {
     width: 38,
     height: 38,
     borderRadius: 11,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2303,12 +2321,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   measureRowTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   measureRowMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 2,

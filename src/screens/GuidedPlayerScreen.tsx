@@ -61,7 +61,7 @@ import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { sound, type CueSound } from '../utils/sound';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
@@ -218,6 +218,10 @@ function MediaZone({
   /** v4 fills the set card edge to edge; other steps keep the whole frame. */
   fit?: 'contain' | 'cover';
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const match = useMemo(() => {
     // Warmup/cooldown drills are generated copy with no library entry of their
     // own — they borrow a photo from the exercise that shows the same position.
@@ -250,7 +254,7 @@ function MediaZone({
             style={styles.media3dButton}
             hitSlop={8}
           >
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={HG.ink} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={theme.ink} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round">
               <Path d="M3 7.5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <Path d="M15 10.5 20 7.5v9l-5-3z" />
             </Svg>
@@ -320,6 +324,8 @@ function RestRing({
   size?: number;
   children: React.ReactNode;
 }) {
+  const theme = useTheme();
+
   const [total, setTotal] = useState(Math.max(1, plannedSeconds));
 
   useEffect(() => {
@@ -343,7 +349,7 @@ function RestRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={HG.purple}
+          stroke={theme.purple}
           strokeWidth={strokeWidth}
           fill="none"
           strokeLinecap="round"
@@ -378,14 +384,18 @@ function TopBar({
    */
   video?: { label: string; onPress: () => void } | null;
 }) {
-  const iconColor = dark ? GPD.ink : HG.ink;
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
+  const iconColor = dark ? GPD.ink : theme.ink;
   const buttonStyle = [styles.topBtn, dark ? styles.topBtnDark : null];
   return (
     <View style={styles.topBar}>
       <Pressable onPress={onExit} style={buttonStyle} hitSlop={8}>
         <GPIcon name="x" size={19} color={iconColor} />
       </Pressable>
-      <Text style={[styles.topLabel, { color: dark ? GPD.muted : HG.muted }]} numberOfLines={1}>
+      <Text style={[styles.topLabel, { color: dark ? GPD.muted : theme.muted }]} numberOfLines={1}>
         {label}
       </Text>
       {video ? (
@@ -394,7 +404,7 @@ function TopBar({
         </Pressable>
       ) : (
         <Pressable onPress={onMute} style={buttonStyle} hitSlop={8}>
-          <GPIcon name={muted ? 'mute' : 'sound'} size={19} color={muted ? (dark ? GPD.faint : HG.faint) : iconColor} />
+          <GPIcon name={muted ? 'mute' : 'sound'} size={19} color={muted ? (dark ? GPD.faint : theme.faint) : iconColor} />
         </Pressable>
       )}
     </View>
@@ -414,6 +424,10 @@ function ProgressRail({
   dotIndex: number;
   dotsDone: number;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.rail}>
       {groups.map((group, index) => {
@@ -428,8 +442,8 @@ function ProgressRail({
                 styles.railSetPill,
                 {
                   marginLeft: 5 + phaseGap,
-                  backgroundColor: dark ? 'rgba(155,109,255,0.25)' : HG.purpleLight,
-                  borderColor: dark ? GPD.purple : HG.purple,
+                  backgroundColor: dark ? 'rgba(155,109,255,0.25)' : theme.purpleLight,
+                  borderColor: dark ? GPD.purple : theme.purple,
                 },
               ]}
             >
@@ -444,11 +458,11 @@ function ProgressRail({
                       dot < dotsDone
                         ? dark
                           ? GPD.purple
-                          : HG.purple
+                          : theme.purple
                         : dot === dotIndex
                           ? dark
                             ? GPD.ink
-                            : HG.purple
+                            : theme.purple
                           : dark
                             ? 'rgba(255,255,255,0.25)'
                             : '#CFC3EA',
@@ -468,7 +482,7 @@ function ProgressRail({
               height: isCurrent ? 7 : 5,
               borderRadius: 999,
               backgroundColor:
-                done || isCurrent ? (dark ? GPD.purple : HG.purple) : dark ? 'rgba(255,255,255,0.14)' : '#E4DBF5',
+                done || isCurrent ? (dark ? GPD.purple : theme.purple) : dark ? 'rgba(255,255,255,0.14)' : '#E4DBF5',
               opacity: done ? 0.85 : 1,
             }}
           />
@@ -479,13 +493,15 @@ function ProgressRail({
 }
 
 function NextLine({ text, dark, language }: { text: string | null; dark: boolean; language: AppLanguage }) {
+  const theme = useTheme();
+
   if (!text) {
     return <View style={{ height: 20 }} />;
   }
   return (
     <View style={{ alignItems: 'center', paddingHorizontal: 26 }}>
-      <Text style={{ fontSize: 13.5, fontWeight: '700', color: dark ? GPD.muted : HG.muted }} numberOfLines={1}>
-        <Text style={{ color: dark ? GPD.faint : HG.faint }}>{t(language, 'guided.next.prefix')}</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: '700', color: dark ? GPD.muted : theme.muted }} numberOfLines={1}>
+        <Text style={{ color: dark ? GPD.faint : theme.faint }}>{t(language, 'guided.next.prefix')}</Text>
         {text}
       </Text>
     </View>
@@ -503,6 +519,8 @@ function NameBlock({
   language: AppLanguage;
   onHow: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={{ paddingHorizontal: 26, alignItems: 'center' }}>
       <Text style={styles.exerciseName} numberOfLines={2}>
@@ -528,13 +546,17 @@ function CtrlBtn({
   onPress: () => void;
   big?: boolean;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const size = big ? 62 : 52;
   return (
     <Pressable onPress={onPress} style={{ alignItems: 'center', gap: 6, width: 66 }}>
       <View style={[styles.ctrlCircle, { width: size, height: size }]}>
-        <GPIcon name={icon} size={big ? 24 : 21} color={HG.ink} />
+        <GPIcon name={icon} size={big ? 24 : 21} color={theme.ink} />
       </View>
-      <Text style={{ fontSize: 11, fontWeight: '700', color: HG.muted }}>{label}</Text>
+      <Text style={{ fontSize: 11, fontWeight: '700', color: theme.muted }}>{label}</Text>
     </Pressable>
   );
 }
@@ -542,7 +564,7 @@ function CtrlBtn({
 function BigBtn({
   label,
   onPress,
-  color = HG.green,
+  color: colorProp,
   disabled,
 }: {
   label: string;
@@ -550,6 +572,10 @@ function BigBtn({
   color?: string;
   disabled?: boolean;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const color = colorProp ?? theme.green;
+
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
@@ -572,6 +598,10 @@ function GhostBtn({
   icon?: string;
   dark?: boolean;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable
       onPress={onPress}
@@ -580,7 +610,7 @@ function GhostBtn({
         dark ? { borderColor: GPD.line, backgroundColor: 'rgba(255,255,255,0.06)' } : null,
       ]}
     >
-      {icon ? <GPIcon name={icon} size={17} color={dark ? GPD.ink : HG.ink} /> : null}
+      {icon ? <GPIcon name={icon} size={17} color={dark ? GPD.ink : theme.ink} /> : null}
       <Text style={[styles.ghostBtnText, dark ? { color: GPD.ink } : null]}>{label}</Text>
     </Pressable>
   );
@@ -601,18 +631,22 @@ function Stepper({
   min: number;
   onChange: (next: number) => void;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 8 }}>
-      <Text style={{ fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: HG.muted }}>{label}</Text>
+      <Text style={{ fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted }}>{label}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
         <Pressable style={styles.stepperBtn} onPress={() => onChange(Math.max(min, Number((value - step).toFixed(1))))}>
           <Text style={styles.stepperBtnText}>−</Text>
         </Pressable>
         <View style={{ minWidth: 58, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: HG.ink, fontVariant: ['tabular-nums'] }}>
+          <Text style={{ fontSize: 26, fontWeight: '800', color: theme.ink, fontVariant: ['tabular-nums'] }}>
             {removeTrailingZeros(value)}
           </Text>
-          {unit ? <Text style={{ fontSize: 12.5, fontWeight: '700', color: HG.muted, marginLeft: 2 }}>{unit}</Text> : null}
+          {unit ? <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.muted, marginLeft: 2 }}>{unit}</Text> : null}
         </View>
         <Pressable style={styles.stepperBtn} onPress={() => onChange(Number((value + step).toFixed(1)))}>
           <Text style={styles.stepperBtnText}>+</Text>
@@ -624,6 +658,8 @@ function Stepper({
 
 /* ── bottom sheet ── */
 function GPSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
@@ -655,6 +691,8 @@ export function GuidedPlayerScreen({
   onFinishSession,
   isSavingWorkout,
 }: GuidedPlayerScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const workout = useWorkoutContext();
   const session = workout.activeSession;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
@@ -925,7 +963,7 @@ export function GuidedPlayerScreen({
   }, [mode, onLeave]);
 
   if (!session) {
-    return <View style={{ flex: 1, backgroundColor: HG.bg }} />;
+    return <View style={{ flex: 1, backgroundColor: theme.bg }} />;
   }
 
   const completedSetCount = exercises.reduce(
@@ -1004,8 +1042,8 @@ export function GuidedPlayerScreen({
   const secondsLeft = remainingMs / 1000;
 
   return (
-    <View style={{ flex: 1, backgroundColor: dark ? GPD.bg2 : HG.bg }}>
-      <StatusBar style={dark ? 'light' : 'dark'} backgroundColor={dark ? GPD.bg1 : HG.bg} />
+    <View style={{ flex: 1, backgroundColor: dark ? GPD.bg2 : theme.bg }}>
+      <StatusBar style={dark ? 'light' : 'dark'} backgroundColor={dark ? GPD.bg1 : theme.bg} />
       {dark ? (
         <View style={StyleSheet.absoluteFill}>
           <Svg width="100%" height="100%">
@@ -1026,7 +1064,7 @@ export function GuidedPlayerScreen({
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={styles.entryEyebrow}>{entryEyebrow}</Text>
               <Pressable onPress={onLeave} style={styles.topBtn} hitSlop={8}>
-                <GPIcon name="x" size={19} color={HG.ink} />
+                <GPIcon name="x" size={19} color={theme.ink} />
               </Pressable>
             </View>
             <Text style={styles.entryTitle} numberOfLines={2}>
@@ -1044,16 +1082,16 @@ export function GuidedPlayerScreen({
 
             {showResume && (
               <Pressable style={styles.resumeCard} onPress={() => startAt(resumeIndex)}>
-                <GPIcon name="play" size={18} color={HG.purpleDark} sw={2.4} />
+                <GPIcon name="play" size={18} color={theme.purpleDark} sw={2.4} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14.5, fontWeight: '800', color: HG.purpleDark }}>
+                  <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.purpleDark }}>
                     {t(language, 'guided.entry.resume')}
                   </Text>
-                  <Text style={{ fontSize: 12.5, fontWeight: '600', color: HG.purple, marginTop: 1 }} numberOfLines={1}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '600', color: theme.purple, marginTop: 1 }} numberOfLines={1}>
                     {getGuidedStepLabel(steps[resumeIndex], language)}
                   </Text>
                 </View>
-                <GPIcon name="chevR" size={17} color={HG.purpleDark} />
+                <GPIcon name="chevR" size={17} color={theme.purpleDark} />
               </Pressable>
             )}
 
@@ -1114,24 +1152,24 @@ export function GuidedPlayerScreen({
                         }
                       >
                         <View style={styles.phasePlay}>
-                          <GPIcon name="play" size={17} color={HG.purple} sw={2.4} />
+                          <GPIcon name="play" size={17} color={theme.purple} sw={2.4} />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={{ fontSize: 17.5, fontWeight: '800', color: HG.ink }}>{phase.label}</Text>
-                          <Text style={{ fontSize: 13.5, fontWeight: '600', color: HG.muted, marginTop: 3 }}>{phase.sub}</Text>
+                          <Text style={{ fontSize: 17.5, fontWeight: '800', color: theme.ink }}>{phase.label}</Text>
+                          <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, marginTop: 3 }}>{phase.sub}</Text>
                         </View>
                         <View style={{ transform: [{ rotate: expanded ? '90deg' : '0deg' }] }}>
-                          <GPIcon name="chevR" size={18} color={HG.faint} />
+                          <GPIcon name="chevR" size={18} color={theme.faint} />
                         </View>
                       </Pressable>
                       {expanded && (
                         <View style={styles.phaseRows}>
                           {phase.rows.map((row, rowIndex) => (
                             <View key={rowIndex} style={styles.phaseRow}>
-                              <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: HG.ink }} numberOfLines={1}>
+                              <Text style={{ flex: 1, fontSize: 14.5, fontWeight: '700', color: theme.ink }} numberOfLines={1}>
                                 {row.left}
                               </Text>
-                              <Text style={{ fontSize: 13.5, fontWeight: '600', color: HG.muted, fontVariant: ['tabular-nums'] }}>
+                              <Text style={{ fontSize: 13.5, fontWeight: '600', color: theme.muted, fontVariant: ['tabular-nums'] }}>
                                 {row.right}
                               </Text>
                             </View>
@@ -1178,17 +1216,17 @@ export function GuidedPlayerScreen({
                   <PopIn popKey={stepIndex}>
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 18 }}>
                       <View style={styles.splashCheck}>
-                        <GPIcon name="check" size={16} color={HG.green} sw={2.8} />
+                        <GPIcon name="check" size={16} color={theme.green} sw={2.8} />
                       </View>
-                      <Text style={{ fontSize: 14.5, fontWeight: '800', color: HG.green }}>{step.doneLabel}</Text>
+                      <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.green }}>{step.doneLabel}</Text>
                     </View>
                   </PopIn>
                 ) : null}
-                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: HG.muted }}>
+                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.muted }}>
                   {t(language, 'guided.upNext')}
                 </Text>
                 <Text style={styles.splashTitle}>{step.title}</Text>
-                <Text style={{ fontSize: 15, fontWeight: '600', color: HG.muted }}>{step.sub}</Text>
+                <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
               </Pressable>
             </StepIn>
           )}
@@ -1196,16 +1234,16 @@ export function GuidedPlayerScreen({
           {step.type === 'ready' && (
             <StepIn stepKey={`ready-${stepIndex}`}>
               <View style={styles.splashRoot}>
-                <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2, color: HG.purple }}>
+                <Text style={{ fontSize: 13, fontWeight: '800', letterSpacing: 2, color: theme.purple }}>
                   {t(language, 'guided.getReady')}
                 </Text>
                 <PopIn popKey={Math.max(1, Math.ceil(secondsLeft))}>
                   <Text style={styles.readyDigit}>{Math.max(1, Math.ceil(secondsLeft))}</Text>
                 </PopIn>
-                <Text style={{ fontSize: 22, fontWeight: '800', color: HG.ink, marginTop: 16, textAlign: 'center' }}>
+                <Text style={{ fontSize: 22, fontWeight: '800', color: theme.ink, marginTop: 16, textAlign: 'center' }}>
                   {step.drillName}
                 </Text>
-                <Text style={{ fontSize: 14, fontWeight: '600', color: HG.muted, marginTop: 4 }}>{step.seconds}s</Text>
+                <Text style={{ fontSize: 14, fontWeight: '600', color: theme.muted, marginTop: 4 }}>{step.seconds}s</Text>
               </View>
             </StepIn>
           )}
@@ -1225,12 +1263,12 @@ export function GuidedPlayerScreen({
                   <Text
                     style={[
                       styles.drillCountdown,
-                      { color: secondsLeft <= 3.05 ? HG.green : HG.ink },
+                      { color: secondsLeft <= 3.05 ? theme.green : theme.ink },
                     ]}
                   >
                     {formatGuidedCountdown(secondsLeft)}
                   </Text>
-                  <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: HG.muted, marginTop: 6 }}>
+                  <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: theme.muted, marginTop: 6 }}>
                     {t(language, 'guided.secondsLeft')}
                   </Text>
                 </View>
@@ -1265,7 +1303,7 @@ export function GuidedPlayerScreen({
               <View style={{ flex: 1, minHeight: 0 }}>
                 <MediaZone name={step.exerciseName} library={exerciseLibrary} height={300} mode="position" />
                 <View style={{ height: 16 }} />
-                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: HG.purple, textAlign: 'center' }}>
+                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple, textAlign: 'center' }}>
                   {t(language, 'guided.getIntoPosition')}
                 </Text>
                 <View style={{ height: 6 }} />
@@ -1279,14 +1317,14 @@ export function GuidedPlayerScreen({
                   onHow={() => setHowtoOpen(true)}
                 />
                 <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: HG.muted }}>{t(language, 'guided.firstSet')}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: '700', color: theme.muted }}>{t(language, 'guided.firstSet')}</Text>
                   <Text style={styles.positionTarget}>
                     {(() => {
                       const target = resolveTarget(step.slotId, 0);
                       return target ? formatGuidedTarget(target, language) : '';
                     })()}
                   </Text>
-                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: HG.faint, marginTop: 8 }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.faint, marginTop: 8 }}>
                     {t(language, 'guided.startingIn', { time: formatGuidedCountdown(secondsLeft) })}
                   </Text>
                 </View>
@@ -1328,7 +1366,7 @@ export function GuidedPlayerScreen({
                     <Text style={styles.restRingLabel}>{t(language, 'guided.rest')}</Text>
                     <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
                     {paused ? (
-                      <Text style={{ fontSize: 13, fontWeight: '800', color: HG.muted, letterSpacing: 1.6 }}>
+                      <Text style={{ fontSize: 13, fontWeight: '800', color: theme.muted, letterSpacing: 1.6 }}>
                         {t(language, 'guided.paused')}
                       </Text>
                     ) : null}
@@ -1445,7 +1483,7 @@ export function GuidedPlayerScreen({
           <View style={{ gap: 10 }}>
             <BigBtn
               label={t(language, 'guided.resume')}
-              color={HG.purple}
+              color={theme.purple}
               onPress={() => {
                 setPauseSheetOpen(false);
                 setPaused(false);
@@ -1508,20 +1546,22 @@ function formatSessionClock(totalSeconds: number): string {
  * doesn't read as a different typeface from the countdowns and labels.
  */
 function TargetNumber({ value, unit, size }: { value: string | number; unit: string; size: number }) {
+  const theme = useTheme();
+
   return (
     <Text
       style={{
         fontSize: size,
         fontWeight: '800',
         letterSpacing: -size * 0.038,
-        color: HG.ink,
+        color: theme.ink,
         lineHeight: size * 1.05,
         fontVariant: ['tabular-nums'],
       }}
     >
       {value}
       {unit ? (
-        <Text style={{ fontSize: size * 0.34, fontWeight: '800', color: HG.faint, letterSpacing: 0 }}>{unit}</Text>
+        <Text style={{ fontSize: size * 0.34, fontWeight: '800', color: theme.faint, letterSpacing: 0 }}>{unit}</Text>
       ) : null}
     </Text>
   );
@@ -1559,6 +1599,10 @@ function SetStepView({
   onSwitchToList: () => void;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const target = resolveTarget(step.slotId, step.setIndex);
   const bodyweight = exercise?.trackingMode === 'bodyweight';
   const [edit, setEdit] = useState(false);
@@ -1596,8 +1640,8 @@ function SetStepView({
                     key={index}
                     style={[
                       styles.setDot,
-                      { borderColor: done || current ? HG.purple : HG.faint },
-                      done && { backgroundColor: HG.purple },
+                      { borderColor: done || current ? theme.purple : theme.faint },
+                      done && { backgroundColor: theme.purple },
                     ]}
                   >
                     {done ? <GPIcon name="check" size={12} color="#FFFFFF" sw={3} /> : null}
@@ -1607,7 +1651,7 @@ function SetStepView({
             </View>
           </View>
           <View style={styles.setClock}>
-            <GPIcon name="clock" size={19} color={HG.muted} sw={2} />
+            <GPIcon name="clock" size={19} color={theme.muted} sw={2} />
             <Text style={styles.setClockText}>{formatSessionClock(elapsedSeconds)}</Text>
           </View>
         </View>
@@ -1643,7 +1687,7 @@ function SetStepView({
                 ) : null}
               </View>
               <Pressable onPress={() => setEdit(false)} hitSlop={10} style={{ alignSelf: 'center' }}>
-                <Text style={{ fontSize: 13.5, fontWeight: '800', color: HG.purple }}>{t(language, 'guided.back')}</Text>
+                <Text style={{ fontSize: 13.5, fontWeight: '800', color: theme.purple }}>{t(language, 'guided.back')}</Text>
               </Pressable>
             </View>
           )}
@@ -1669,7 +1713,7 @@ function SetStepView({
             onPress={onPause}
             style={styles.setRoundBtn}
           >
-            <GPIcon name={paused ? 'play' : 'pause'} size={24} color={HG.ink} sw={2.2} />
+            <GPIcon name={paused ? 'play' : 'pause'} size={24} color={theme.ink} sw={2.2} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -1677,7 +1721,7 @@ function SetStepView({
             onPress={onToggleMute}
             style={styles.setRoundBtn}
           >
-            <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? HG.faint : HG.ink} sw={2.2} />
+            <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? theme.faint : theme.ink} sw={2.2} />
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -1685,7 +1729,7 @@ function SetStepView({
             onPress={onSwitchToList}
             style={styles.setListBtn}
           >
-            <GPIcon name="list" size={20} color={HG.ink} sw={2.2} />
+            <GPIcon name="list" size={20} color={theme.ink} sw={2.2} />
             <Text style={styles.setListBtnText}>{t(language, 'guided.listShort')}</Text>
           </Pressable>
         </View>
@@ -1718,6 +1762,8 @@ function FinishView({
   language: AppLanguage;
   onFinish: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   const completedSets = exercises.flatMap((exercise) => exercise.sets.filter((set) => set.status === 'completed'));
   const volumeKg = completedSets.reduce((sum, set) => sum + (set.actualLoadKg ?? 0) * (set.actualReps ?? 0), 0);
   const minutes = Math.floor(elapsedSeconds / 60);
@@ -1871,11 +1917,15 @@ function HowToSheetView({
   fallbackName: string;
   onClose: () => void;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <GPSheet onClose={onClose}>
-      <Text style={{ fontSize: 20, fontWeight: '800', color: HG.ink }}>{libraryItem?.name ?? fallbackName}</Text>
+      <Text style={{ fontSize: 20, fontWeight: '800', color: theme.ink }}>{libraryItem?.name ?? fallbackName}</Text>
       {libraryItem?.primaryMuscles?.[0] ? (
-        <Text style={{ fontSize: 13, fontWeight: '700', color: HG.purple, marginTop: 4 }}>
+        <Text style={{ fontSize: 13, fontWeight: '700', color: theme.purple, marginTop: 4 }}>
           {libraryItem.primaryMuscles[0][0].toUpperCase() + libraryItem.primaryMuscles[0].slice(1)}
         </Text>
       ) : null}
@@ -1884,9 +1934,9 @@ function HowToSheetView({
           {(libraryItem?.instructions ?? []).map((instruction, index) => (
             <View key={index} style={{ flexDirection: 'row', gap: 13, alignItems: 'flex-start' }}>
               <View style={styles.howToNumber}>
-                <Text style={{ fontSize: 13, fontWeight: '800', color: HG.purpleDark }}>{index + 1}</Text>
+                <Text style={{ fontSize: 13, fontWeight: '800', color: theme.purpleDark }}>{index + 1}</Text>
               </View>
-              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: HG.ink, lineHeight: 22 }}>{instruction}</Text>
+              <Text style={{ flex: 1, fontSize: 15, fontWeight: '600', color: theme.ink, lineHeight: 22 }}>{instruction}</Text>
             </View>
           ))}
         </View>
@@ -1895,20 +1945,20 @@ function HowToSheetView({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   /* entry */
   entryRoot: { flex: 1, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14 },
-  entryEyebrow: { fontSize: 12.5, fontWeight: '800', letterSpacing: 1.5, color: HG.muted },
-  entryTitle: { marginTop: 8, marginBottom: 4, fontSize: 32, fontWeight: '800', letterSpacing: -0.6, color: HG.ink },
-  entrySub: { fontSize: 14.5, fontWeight: '600', color: HG.muted },
+  entryEyebrow: { fontSize: 12.5, fontWeight: '800', letterSpacing: 1.5, color: theme.muted },
+  entryTitle: { marginTop: 8, marginBottom: 4, fontSize: 32, fontWeight: '800', letterSpacing: -0.6, color: theme.ink },
+  entrySub: { fontSize: 14.5, fontWeight: '600', color: theme.muted },
   resumeCard: {
     marginTop: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     borderWidth: 1.5,
-    borderColor: HG.purple,
+    borderColor: theme.purple,
     borderRadius: 18,
     paddingVertical: 13,
     paddingHorizontal: 16,
@@ -1944,20 +1994,20 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   startCta: {
     height: 60,
     borderRadius: 19,
-    backgroundColor: HG.green,
+    backgroundColor: theme.green,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
     marginTop: 18,
-    shadowColor: HG.green,
+    shadowColor: theme.green,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 24,
@@ -2039,17 +2089,17 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
     borderRadius: 999,
-    backgroundColor: HG.greenSoft,
+    backgroundColor: theme.greenSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  splashTitle: { fontSize: 46, fontWeight: '800', letterSpacing: -1.4, color: HG.ink, textAlign: 'center' },
-  readyDigit: { fontSize: 150, fontWeight: '800', letterSpacing: -7, color: HG.ink, lineHeight: 160, fontVariant: ['tabular-nums'] },
+  splashTitle: { fontSize: 46, fontWeight: '800', letterSpacing: -1.4, color: theme.ink, textAlign: 'center' },
+  readyDigit: { fontSize: 150, fontWeight: '800', letterSpacing: -7, color: theme.ink, lineHeight: 160, fontVariant: ['tabular-nums'] },
 
   /* drill / set */
-  exerciseName: { fontSize: 27, fontWeight: '800', letterSpacing: -0.5, color: HG.ink, lineHeight: 31, textAlign: 'center' },
+  exerciseName: { fontSize: 27, fontWeight: '800', letterSpacing: -0.5, color: theme.ink, lineHeight: 31, textAlign: 'center' },
   cueRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginTop: 7, maxWidth: '100%' },
-  howToLink: { fontSize: 13, fontWeight: '800', color: HG.purple },
+  howToLink: { fontSize: 13, fontWeight: '800', color: theme.purple },
   drillCountdown: { fontSize: 104, fontWeight: '800', letterSpacing: -4, lineHeight: 110, fontVariant: ['tabular-nums'] },
   ctrlCircle: {
     borderRadius: 999,
@@ -2073,7 +2123,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   setMetaLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  setCounter: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, color: HG.purple, fontVariant: ['tabular-nums'] },
+  setCounter: { fontSize: 19, fontWeight: '800', letterSpacing: -0.4, color: theme.purple, fontVariant: ['tabular-nums'] },
   setDots: { flexDirection: 'row', gap: 5 },
   setDot: {
     width: 19,
@@ -2084,20 +2134,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   setClock: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  setClockText: { fontSize: 19, fontWeight: '800', color: HG.muted, letterSpacing: -0.2, fontVariant: ['tabular-nums'] },
+  setClockText: { fontSize: 19, fontWeight: '800', color: theme.muted, letterSpacing: -0.2, fontVariant: ['tabular-nums'] },
   setNameRow: { paddingTop: 6, paddingHorizontal: 24 },
-  setName: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: HG.ink, lineHeight: 24 },
+  setName: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 24 },
   setTargetArea: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   setTargetStack: { alignItems: 'center', gap: 4, maxWidth: '100%' },
   setTargetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  setTargetLabel: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: HG.ink, lineHeight: 23 },
+  setTargetLabel: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 23 },
   setLogButton: {
     height: 64,
     borderRadius: 20,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: HG.purple,
+    shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.32,
     shadowRadius: 26,
@@ -2114,21 +2164,21 @@ const styles = StyleSheet.create({
     gap: 9,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     shadowColor: '#28185A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.07,
     shadowRadius: 14,
     elevation: 2,
   },
-  setListBtnText: { fontSize: 15, fontWeight: '800', color: HG.ink, letterSpacing: -0.15 },
+  setListBtnText: { fontSize: 15, fontWeight: '800', color: theme.ink, letterSpacing: -0.15 },
   setRoundBtn: {
     width: 60,
     height: 60,
     borderRadius: 999,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#28185A',
@@ -2137,7 +2187,7 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 2,
   },
-  positionTarget: { fontSize: 44, fontWeight: '800', letterSpacing: -1.3, color: HG.ink, fontVariant: ['tabular-nums'] },
+  positionTarget: { fontSize: 44, fontWeight: '800', letterSpacing: -1.3, color: theme.ink, fontVariant: ['tabular-nums'] },
   bigBtn: {
     height: 60,
     borderRadius: 19,
@@ -2162,7 +2212,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
   },
-  ghostBtnText: { fontSize: 14.5, fontWeight: '800', color: HG.ink },
+  ghostBtnText: { fontSize: 14.5, fontWeight: '800', color: theme.ink },
   stepperBtn: {
     width: 38,
     height: 42,
@@ -2173,29 +2223,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepperBtnText: { fontSize: 20, fontWeight: '800', color: HG.purple },
+  stepperBtnText: { fontSize: 20, fontWeight: '800', color: theme.purple },
 
   /* rest (light theme like every other in-workout screen) */
   // The ring itself carries the purple; label and figure stay ink so the
   // countdown reads like every other number in the player.
-  restRingLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: HG.ink },
+  restRingLabel: { fontSize: 13, fontWeight: '800', letterSpacing: 2.6, color: theme.ink },
   restCountdown: {
     fontSize: 76,
     fontWeight: '800',
     letterSpacing: -2.9,
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 80,
     fontVariant: ['tabular-nums'],
   },
   skipRestBtn: {
     height: 56,
     borderRadius: 17,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: HG.purple,
+    shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 26,
@@ -2270,11 +2320,11 @@ const styles = StyleSheet.create({
     maxHeight: '78%',
   },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
-  sheetTitle: { fontSize: 20, fontWeight: '800', color: HG.ink, marginBottom: 16 },
+  sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
   sheetFootnote: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 14,
     textAlign: 'center',
     lineHeight: 19,
@@ -2283,7 +2333,7 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },

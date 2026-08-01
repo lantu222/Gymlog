@@ -44,9 +44,12 @@ module.exports = [
     run() {
       // Home v3 (GAINER Home v3 mock): palette comes from the shared HG token
       // set in lightTheme.ts — no local hex constants for tokenized colors.
-      assert.match(homeScreenSource, /import \{ HG, PW \} from '\.\.\/lightTheme'/);
+      // Home reads the active theme now. PW's sheet gradients stay outside it,
+      // being a designed dark surface rather than a light-theme variant.
+      assert.match(homeScreenSource, /import \{ PW \} from '\.\.\/lightTheme'/);
+      assert.match(homeScreenSource, /useThemedStyles\(makeStyles\)/);
       assert.doesNotMatch(homeScreenSource, /const HOME_BACKGROUND =/);
-      assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: HG\.bg/);
+      assert.match(homeScreenSource, /screenBackground:\s*\{[\s\S]*backgroundColor: theme.bg/);
 
       // The greeting is chosen by homeGreeting from what the log says, then
       // rendered through i18n — never a hardcoded "welcome back".
@@ -60,7 +63,7 @@ module.exports = [
       assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 26/);
       assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 13\.5/);
       assert.match(homeScreenSource, /PRO/);
-      assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: HG\.green/);
+      assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: theme.green/);
       assert.match(homeScreenSource, /proBadge:\s*\{\s*paddingVertical: 7,\s*paddingHorizontal: 13/);
       // PRO pill opens the one full Pro page (the Home sheet is gone).
       assert.match(homeScreenSource, /onPress=\{\(\) => onOpenPremium\?\.\(\)\}/);
@@ -69,7 +72,7 @@ module.exports = [
       // grid; the chevron rotates 180° and the panel height animates.
       assert.match(homeScreenSource, /topCalendarDays/);
       assert.match(homeScreenSource, /weekCard:\s*\{[\s\S]*borderRadius: 18/);
-      assert.match(homeScreenSource, /weekStripItemToday:\s*\{[\s\S]*backgroundColor: HG\.purpleSoft/);
+      assert.match(homeScreenSource, /weekStripItemToday:\s*\{[\s\S]*backgroundColor: theme.purpleSoft/);
       assert.match(homeScreenSource, /const \[calendarExpanded, setCalendarExpanded\] = useState\(false\)/);
       // The month grid pages, so the offset is part of what it memoises on.
       assert.match(
@@ -118,7 +121,7 @@ module.exports = [
       assert.match(homeScreenSource, /t\(language, 'home\.hero\.sessionsProgress', \{ done: sessionsDone, total: sessionsTotal \}\)/);
       assert.match(i18nSource, /'home\.hero\.sessionsProgress': '\{done\} of \{total\} sessions'/);
       assert.match(homeScreenSource, /heroProgTrack:\s*\{\s*width: 88,\s*height: 6/);
-      assert.match(homeScreenSource, /heroProgFill:\s*\{[\s\S]*backgroundColor: HG\.purple/);
+      assert.match(homeScreenSource, /heroProgFill:\s*\{[\s\S]*backgroundColor: theme.purple/);
       assert.match(homeScreenSource, /progressFillAnim\.interpolate\(\{ inputRange: \[0, 100\], outputRange: \['0%', '100%'\] \}\)/);
       // Home simplification round (2026-07-20): the hero shows ONLY the focus
       // title + plan progress — no meta grid, no equipment line.
@@ -148,10 +151,10 @@ module.exports = [
       assert.match(homeScreenSource, /exercise\.schemeLabel \?\? exercise\.setsLabel/);
       // Inline Adapt + Start row (no floating bar) and the Adapt sheet with
       // four presentational options + computed trim copy.
-      assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: HG\.border/);
+      assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.border/);
       // Start workout is the green action: green border, label, and arrow.
-      assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: HG\.green/);
-      assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: HG\.green/);
+      assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.green/);
+      assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: theme.green/);
       assert.match(homeScreenSource, /t\(language, 'home\.startWorkout'\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.adaptSheet\.title': 'Adapt session'/);
@@ -179,8 +182,8 @@ module.exports = [
       assert.match(i18nSource, /'home\.emptyWorkout\.title': 'Empty workout'/);
       assert.match(i18nSource, /'home\.emptyWorkout\.meta': 'Log freestyle'/);
       assert.match(homeScreenSource, /emptyWorkoutRow/);
-      assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: HG\.surface/);
-      assert.match(homeScreenSource, /name="plus" color=\{HG\.purple\} size=\{20\}/);
+      assert.match(homeScreenSource, /emptyWorkoutRow:\s*\{[\s\S]*backgroundColor: theme.surface/);
+      assert.match(homeScreenSource, /name="plus" color=\{theme.purple\} size=\{20\}/);
       assert.doesNotMatch(homeScreenSource, /Jump into an empty workout/);
       assert.doesNotMatch(homeScreenSource, /startWorkoutHero/);
       assert.match(homeScreenSource, /onPress=\{onCreateWorkoutFromExercises\}/);
@@ -289,7 +292,7 @@ module.exports = [
       );
       assert.match(appShellSource, /shellBackgroundColor \?\? theme\.bg/);
       assert.match(appShellSource, /statusBarStyleOverride \?\? 'dark'/);
-      assert.match(appSource, /shellBackgroundColor=\{aiSetupActive \? HG\.surface : undefined\}/);
+      assert.match(appSource, /shellBackgroundColor=\{aiSetupActive \? theme\.surface : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);
       assert.doesNotMatch(homeScreenSource, /YOUR PLAN/);

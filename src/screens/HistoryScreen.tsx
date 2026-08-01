@@ -24,7 +24,7 @@ import {
 } from '../lib/historyView';
 import { I18nKey, t } from '../lib/i18n';
 import { localizeSessionName } from '../lib/sessionNameLabel';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout, spacing } from '../theme';
 import { AppDatabase, AppLanguage, UnitPreference } from '../types/models';
 
@@ -92,10 +92,14 @@ function getReviewLabel(session: HistorySessionViewModel, language: AppLanguage)
 }
 
 function SectionLabel({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 'purple' | 'warn' }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={[styles.badge, tone === 'purple' && styles.badgePurple, tone === 'warn' && styles.badgeWarn]}>
       <Text
@@ -112,6 +116,8 @@ function Badge({ label, tone = 'neutral' }: { label: string; tone?: 'neutral' | 
 }
 
 function StatCell({ value, label }: { value: string; label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.statCell}>
       <Text style={styles.statValue} numberOfLines={1} adjustsFontSizeToFit>
@@ -123,6 +129,8 @@ function StatCell({ value, label }: { value: string; label: string }) {
 }
 
 function EmptyState({ title, body }: { title: string; body: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.emptyState}>
       <Text style={styles.emptyTitle}>{title}</Text>
@@ -142,6 +150,8 @@ function SessionRow({
   language: AppLanguage;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   const badge = getReviewLabel(session, language);
   const topLift = formatTopLift(session, unitPreference, language);
   const meta = [
@@ -183,6 +193,8 @@ export function HistoryScreen({
   onSelectSession,
   onBack,
 }: HistoryScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
@@ -286,7 +298,7 @@ export function HistoryScreen({
                   <Svg width={22} height={22} viewBox="0 0 24 24">
                     <Path
                       d="M12 2l2.5 5 5.5.8-4 3.9.95 5.5L12 20.5 7.05 17.2 8 11.7l-4-3.9L9.5 7z"
-                      fill={HG.gold}
+                      fill={theme.gold}
                     />
                   </Svg>
                 </View>
@@ -385,8 +397,8 @@ export function HistoryScreen({
                 value={searchQuery}
                 onChangeText={setSearchQuery}
                 placeholder={t(language, 'history.searchPlaceholder')}
-                placeholderTextColor={HG.faint}
-                selectionColor={HG.purple}
+                placeholderTextColor={theme.faint}
+                selectionColor={theme.purple}
                 style={styles.searchInput}
               />
               <View style={styles.filterRow}>
@@ -443,7 +455,7 @@ export function HistoryScreen({
                     return (
                       <View key={session.id} style={[styles.cardioRow, index > 0 && styles.liftRowDivided]}>
                         <View style={styles.cardioIcon}>
-                          <CardioIcon kind={activity.icon} size={19} color={HG.purple} />
+                          <CardioIcon kind={activity.icon} size={19} color={theme.purple} />
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={styles.liftName} numberOfLines={1}>
@@ -475,10 +487,10 @@ const CARD_SHADOW = {
   elevation: 2,
 } as const;
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   pressed: {
     opacity: 0.9,
@@ -492,7 +504,7 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   pageTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 30,
     lineHeight: 36,
     fontWeight: '800',
@@ -500,13 +512,13 @@ const styles = StyleSheet.create({
   },
   pageSubtitle: {
     marginTop: -8,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '600',
   },
   browseCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -518,8 +530,8 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 14,
     paddingHorizontal: 14,
-    backgroundColor: HG.bg,
-    color: HG.ink,
+    backgroundColor: theme.bg,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '700',
   },
@@ -533,23 +545,23 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: 1,
     borderColor: HAIRLINE,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   filterChipActive: {
-    backgroundColor: HG.purpleSoft,
-    borderColor: HG.purple,
+    backgroundColor: theme.purpleSoft,
+    borderColor: theme.purple,
   },
   filterChipText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '800',
   },
   filterChipTextActive: {
-    color: HG.purple,
+    color: theme.purple,
   },
   browseMeta: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
@@ -559,7 +571,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sessionCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -574,7 +586,7 @@ const styles = StyleSheet.create({
   },
   sessionCardTitle: {
     flex: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
@@ -582,7 +594,7 @@ const styles = StyleSheet.create({
   },
   sessionCardMeta: {
     marginTop: 3,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
@@ -594,7 +606,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sessionCardVolume: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
@@ -602,7 +614,7 @@ const styles = StyleSheet.create({
   },
   sessionCardLift: {
     flex: 1,
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '700',
@@ -659,7 +671,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 4,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -672,7 +684,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 19,
     lineHeight: 24,
     fontWeight: '800',
@@ -681,7 +693,7 @@ const styles = StyleSheet.create({
   },
   statLabel: {
     marginTop: 5,
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 9.5,
     lineHeight: 13,
     fontWeight: '800',
@@ -699,7 +711,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -720,7 +732,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   noteEyebrow: {
-    color: HG.gold,
+    color: theme.gold,
     fontSize: 10.5,
     lineHeight: 14,
     fontWeight: '800',
@@ -729,7 +741,7 @@ const styles = StyleSheet.create({
   },
   noteTitle: {
     marginTop: 2,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
@@ -737,14 +749,14 @@ const styles = StyleSheet.create({
   },
   noteBody: {
     marginTop: 2,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
   },
   sectionLabel: {
     marginTop: 4,
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '800',
@@ -752,7 +764,7 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   liftCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -780,14 +792,14 @@ const styles = StyleSheet.create({
   },
   liftName: {
     flexShrink: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '800',
   },
   liftResult: {
     marginTop: 2,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
@@ -795,14 +807,14 @@ const styles = StyleSheet.create({
   },
   liftMeta: {
     marginTop: 2,
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
   },
   liftNote: {
     marginTop: 4,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     lineHeight: 17,
     fontWeight: '600',
@@ -826,7 +838,7 @@ const styles = StyleSheet.create({
     borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.purpleSoft,
+    backgroundColor: theme.purpleSoft,
   },
 
   /* shared bits */
@@ -834,16 +846,16 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingVertical: 3,
     paddingHorizontal: 8,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   badgePurple: {
-    backgroundColor: HG.purpleSoft,
+    backgroundColor: theme.purpleSoft,
   },
   badgeWarn: {
     backgroundColor: '#FEF3C7',
   },
   badgeText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 10.5,
     lineHeight: 14,
     fontWeight: '800',
@@ -851,13 +863,13 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   badgeTextPurple: {
-    color: HG.purple,
+    color: theme.purple,
   },
   badgeTextWarn: {
     color: '#B45309',
   },
   emptyState: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     borderWidth: 1,
     borderColor: HAIRLINE,
@@ -867,14 +879,14 @@ const styles = StyleSheet.create({
     ...CARD_SHADOW,
   },
   emptyTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16.5,
     lineHeight: 21,
     fontWeight: '800',
   },
   emptyBody: {
     marginTop: 5,
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',

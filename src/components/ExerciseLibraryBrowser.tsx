@@ -14,7 +14,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { GymlogIcon, GymlogIconName } from './GymlogIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage, ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
 
@@ -114,7 +114,10 @@ function useOrderedExercises(items: ExerciseLibraryItem[], filteredItems: Exerci
   return { commonOrder, orderedItems };
 }
 
-function SearchIcon({ color = HG.faint, size = 18 }: { color?: string; size?: number }) {
+function SearchIcon({ color: colorProp, size = 18 }: { color?: string; size?: number }) {
+  const theme = useTheme();
+  const color = colorProp ?? theme.faint;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Circle cx="11" cy="11" r="7" stroke={color} strokeWidth={2} />
@@ -123,7 +126,10 @@ function SearchIcon({ color = HG.faint, size = 18 }: { color?: string; size?: nu
   );
 }
 
-function FilterIcon({ color = HG.purpleDark, size = 19 }: { color?: string; size?: number }) {
+function FilterIcon({ color: colorProp, size = 19 }: { color?: string; size?: number }) {
+  const theme = useTheme();
+  const color = colorProp ?? theme.purpleDark;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M3 6h18M6 12h12M10 18h4" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -131,7 +137,10 @@ function FilterIcon({ color = HG.purpleDark, size = 19 }: { color?: string; size
   );
 }
 
-function ListIcon({ color = HG.muted, size = 14 }: { color?: string; size?: number }) {
+function ListIcon({ color: colorProp, size = 14 }: { color?: string; size?: number }) {
+  const theme = useTheme();
+  const color = colorProp ?? theme.muted;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 7h16M4 12h16M4 17h10" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -148,11 +157,13 @@ function PlusIcon({ color = '#FFFFFF', size = 16 }: { color?: string; size?: num
 }
 
 function StarGlyph({ active, size = 18 }: { active: boolean; size?: number }) {
+  const theme = useTheme();
+
   return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" fill={active ? HG.gold : 'none'}>
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill={active ? theme.gold : 'none'}>
       <Path
         d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.5l1.1-6L3.4 9.3l6-.8z"
-        stroke={active ? HG.gold : HG.faint}
+        stroke={active ? theme.gold : theme.faint}
         strokeWidth={2}
         strokeLinejoin="round"
       />
@@ -160,7 +171,10 @@ function StarGlyph({ active, size = 18 }: { active: boolean; size?: number }) {
   );
 }
 
-function DumbbellIcon({ color = HG.faint, size = 22 }: { color?: string; size?: number }) {
+function DumbbellIcon({ color: colorProp, size = 22 }: { color?: string; size?: number }) {
+  const theme = useTheme();
+  const color = colorProp ?? theme.faint;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -191,6 +205,10 @@ function Thumb({
   height: number;
   radius?: number;
 }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const [state, setState] = useState<'load' | 'ok' | 'err'>(uri ? 'load' : 'err');
 
   useEffect(() => {
@@ -198,7 +216,7 @@ function Thumb({
   }, [uri]);
 
   return (
-    <View style={{ width, height, borderRadius: radius, overflow: 'hidden', backgroundColor: HG.surfaceSoft }}>
+    <View style={{ width, height, borderRadius: radius, overflow: 'hidden', backgroundColor: theme.surfaceSoft }}>
       {uri ? (
         <Image
           source={{ uri }}
@@ -218,6 +236,8 @@ function Thumb({
 }
 
 function AddButton({ onPress }: { onPress?: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onPress} disabled={!onPress} hitSlop={6} style={styles.addButton}>
       <PlusIcon />
@@ -226,6 +246,8 @@ function AddButton({ onPress }: { onPress?: () => void }) {
 }
 
 function FavoriteStar({ active, onPress, framed }: { active: boolean; onPress?: () => void; framed?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onPress} disabled={!onPress} hitSlop={8} style={framed ? styles.starFrame : styles.starPlain}>
       <StarGlyph active={active} size={framed ? 15 : 18} />
@@ -246,6 +268,8 @@ function ExCard({
   onAdd?: () => void;
   onToggleFavorite?: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onOpen} style={styles.card}>
       <View style={styles.cardImageWrap}>
@@ -282,6 +306,8 @@ function ExRow({
   onAdd?: () => void;
   onToggleFavorite?: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onOpen} style={styles.row}>
       <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
@@ -300,6 +326,8 @@ function ExRow({
 }
 
 function SectionHead({ label, action, onAction }: { label: string; action?: string; onAction?: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.sectionHead}>
       <Text style={styles.sectionHeadLabel}>{label}</Text>
@@ -320,6 +348,8 @@ export function ExerciseLibraryBrowser({
   onToggleTracked,
   onAddToWorkout,
 }: ExerciseLibraryBrowserProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [search, setSearch] = useState('');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [bodyPartFilter, setBodyPartFilter] = useState<string>('all');
@@ -467,7 +497,7 @@ export function ExerciseLibraryBrowser({
               </View>
               <View style={styles.headerActions}>
                 <Pressable onPress={() => searchRef.current?.focus()} style={styles.iconButton}>
-                  <SearchIcon color={HG.purpleDark} size={19} />
+                  <SearchIcon color={theme.purpleDark} size={19} />
                 </Pressable>
                 <Pressable onPress={() => setFiltersOpen((current) => !current)} style={styles.iconButton}>
                   <FilterIcon />
@@ -487,7 +517,7 @@ export function ExerciseLibraryBrowser({
                 value={search}
                 onChangeText={setSearch}
                 placeholder={t(language, 'sheet.searchPlaceholder')}
-                placeholderTextColor={HG.faint}
+                placeholderTextColor={theme.faint}
                 style={styles.searchInput}
               />
               {search.length ? (
@@ -511,7 +541,7 @@ export function ExerciseLibraryBrowser({
                     onPress={() => setBodyPartFilter(option)}
                     style={[styles.categoryChip, selected && styles.categoryChipActive]}
                   >
-                    <CategoryIcon option={option} color={selected ? '#FFFFFF' : HG.muted} />
+                    <CategoryIcon option={option} color={selected ? '#FFFFFF' : theme.muted} />
                     <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>
                       {formatCompactBodyPartLabel(option)}
                     </Text>
@@ -627,10 +657,10 @@ export function ExerciseLibraryBrowser({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   listContent: {
     paddingBottom: layout.bottomTabBarReserve,
@@ -651,13 +681,13 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   title: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 28,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
   subtitle: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
@@ -671,7 +701,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 13,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -685,7 +715,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     paddingHorizontal: 4,
   },
   filterBadgeText: {
@@ -697,9 +727,9 @@ const styles = StyleSheet.create({
     marginTop: 14,
     height: 46,
     borderRadius: 14,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
@@ -707,13 +737,13 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '600',
     paddingVertical: 0,
   },
   searchClear: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 20,
     fontWeight: '700',
     paddingHorizontal: 2,
@@ -728,19 +758,19 @@ const styles = StyleSheet.create({
     height: 34,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
     paddingHorizontal: 14,
   },
   categoryChipActive: {
-    borderColor: HG.purple,
-    backgroundColor: HG.purple,
+    borderColor: theme.purple,
+    backgroundColor: theme.purple,
   },
   categoryChipText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 13,
     fontWeight: '700',
   },
@@ -751,23 +781,23 @@ const styles = StyleSheet.create({
     marginTop: 14,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: 16,
   },
   filtersTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
   filtersSubtitle: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 2,
   },
   filterSectionLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.4,
@@ -788,21 +818,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   filterChipSelected: {
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.purple,
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
   },
   filterChipText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '700',
   },
   filterChipTextSelected: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   dashboardSection: {
     marginTop: 22,
@@ -815,13 +845,13 @@ const styles = StyleSheet.create({
     paddingBottom: 11,
   },
   sectionHeadLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
   },
   sectionHeadAction: {
-    color: HG.purple,
+    color: theme.purple,
     fontSize: 12.5,
     fontWeight: '800',
   },
@@ -831,9 +861,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   emptyFavoriteCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 16,
     paddingHorizontal: 18,
     paddingVertical: 18,
@@ -841,20 +871,20 @@ const styles = StyleSheet.create({
   emptyFavoriteTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   emptyFavoriteText: {
     fontSize: 13,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 4,
   },
   card: {
     width: 180,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     overflow: 'hidden',
   },
   cardImageWrap: {
@@ -873,7 +903,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 17,
     height: 34,
   },
@@ -887,7 +917,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11.5,
     fontWeight: '700',
-    color: HG.muted,
+    color: theme.muted,
   },
   row: {
     flexDirection: 'row',
@@ -895,10 +925,10 @@ const styles = StyleSheet.create({
     gap: 13,
     paddingHorizontal: 12,
     paddingVertical: 10,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   rowSeparator: {
     height: 9,
@@ -910,24 +940,24 @@ const styles = StyleSheet.create({
   rowTitle: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   rowMeta: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 3,
   },
   thumbSkeleton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
   },
   addButton: {
     width: 32,
     height: 32,
     borderRadius: 999,
-    backgroundColor: HG.green,
+    backgroundColor: theme.green,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -957,13 +987,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   summaryLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
   },
   summaryCount: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '700',
   },
@@ -973,12 +1003,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   emptyTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15,
     fontWeight: '800',
   },
   emptyText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,

@@ -32,7 +32,8 @@ import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems } from '../
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
-import { AW3, HG } from '../lightTheme';
+import { AW3 } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { haptics } from '../utils/haptics';
@@ -142,6 +143,8 @@ function CheckIcon({ size, color, strokeWidth = 3 }: { size: number; color: stri
 
 /** Letter tile — the purpleLight / purpleDark idiom shared with the guided player. */
 function Tile({ initials, size = 46, radius = 12, fontSize }: { initials: string; size?: number; radius?: number; fontSize?: number }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={[styles.tile, { width: size, height: size, borderRadius: radius }]}>
       <Text style={[styles.tileText, { fontSize: fontSize ?? Math.round(size * 0.36) }]}>{initials}</Text>
@@ -169,6 +172,8 @@ function FadeInView({ style, children }: { style?: object; children: React.React
 
 /** Check button with the aw3Pop squash when a set flips to done. */
 function SetCheckButton({ done, label, onPress }: { done: boolean; label: string; onPress: () => void }) {
+  const styles = useThemedStyles(makeStyles);
+
   const scale = useRef(new Animated.Value(1)).current;
   const wasDone = useRef(done);
 
@@ -212,14 +217,22 @@ const FILTER_LABEL_KEYS: Record<EmptyWorkoutMuscleFilter, I18nKey> = {
 };
 
 function SelectTogglePill({ selected }: { selected: boolean }) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={[styles.selectPill, selected && styles.selectPillOn]}>
-      {selected ? <CheckIcon size={16} color="#FFFFFF" strokeWidth={2.8} /> : <PlusIcon size={16} color={HG.purple} />}
+      {selected ? <CheckIcon size={16} color="#FFFFFF" strokeWidth={2.8} /> : <PlusIcon size={16} color={theme.purple} />}
     </View>
   );
 }
 
 function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddSheetProps) {
+  const theme = useTheme();
+
+  const styles = useThemedStyles(makeStyles);
+
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<EmptyWorkoutMuscleFilter>('All');
   const [query, setQuery] = useState('');
@@ -347,15 +360,15 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddShe
             </View>
             <View style={styles.searchField}>
               <Svg viewBox="0 0 24 24" width={18} height={18}>
-                <Circle cx={11} cy={11} r={7} stroke={HG.faint} strokeWidth={2} fill="none" />
-                <Path d="M20 20l-3.5-3.5" stroke={HG.faint} strokeWidth={2} fill="none" strokeLinecap="round" />
+                <Circle cx={11} cy={11} r={7} stroke={theme.faint} strokeWidth={2} fill="none" />
+                <Path d="M20 20l-3.5-3.5" stroke={theme.faint} strokeWidth={2} fill="none" strokeLinecap="round" />
               </Svg>
               <TextInput
                 value={query}
                 onChangeText={setQuery}
                 placeholder={t(language, 'emptyWorkout.sheet.search')}
                 placeholderTextColor={AW3.ghost}
-                selectionColor={HG.purple}
+                selectionColor={theme.purple}
                 style={styles.searchInput}
               />
             </View>
@@ -430,6 +443,8 @@ export function EmptyWorkoutScreen({
   onBack,
   onSave,
 }: EmptyWorkoutScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [exercises, setExercises] = useState<FreestyleExerciseState[]>([]);
   const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -582,7 +597,7 @@ export function EmptyWorkoutScreen({
       <View style={styles.header}>
         <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'emptyWorkout.a11y.back')} onPress={onBack} hitSlop={10} style={styles.headerBack}>
           <Svg viewBox="0 0 24 24" width={24} height={24}>
-            <Path d="M15 6l-6 6 6 6" stroke={HG.ink} strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 6l-6 6 6 6" stroke={theme.ink} strokeWidth={2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <View style={styles.headerCenter}>
@@ -623,7 +638,7 @@ export function EmptyWorkoutScreen({
               <Svg viewBox="0 0 24 24" width={42} height={42}>
                 <Path
                   d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-                  stroke={HG.purple}
+                  stroke={theme.purple}
                   strokeWidth={2}
                   fill="none"
                   strokeLinecap="round"
@@ -665,7 +680,7 @@ export function EmptyWorkoutScreen({
                       </Text>
                     </View>
                     <View style={styles.quickRowPlus}>
-                      <PlusIcon size={16} color={HG.purpleDark} />
+                      <PlusIcon size={16} color={theme.purpleDark} />
                     </View>
                   </Pressable>
                 ))}
@@ -702,7 +717,7 @@ export function EmptyWorkoutScreen({
                     style={styles.exerciseRemove}
                   >
                     <Svg viewBox="0 0 24 24" width={18} height={18}>
-                      <Path d="M6 6l12 12M18 6L6 18" stroke={HG.faint} strokeWidth={2.2} fill="none" strokeLinecap="round" />
+                      <Path d="M6 6l12 12M18 6L6 18" stroke={theme.faint} strokeWidth={2.2} fill="none" strokeLinecap="round" />
                     </Svg>
                   </Pressable>
                 </View>
@@ -728,7 +743,7 @@ export function EmptyWorkoutScreen({
                           onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { kg: value })}
                           placeholder="0"
                           placeholderTextColor={AW3.ghost}
-                          selectionColor={HG.purple}
+                          selectionColor={theme.purple}
                           keyboardType="decimal-pad"
                           style={[styles.setInput, styles.setColField]}
                         />
@@ -737,7 +752,7 @@ export function EmptyWorkoutScreen({
                           onChangeText={(value) => patchSet(exercise.localKey, set.localKey, { reps: value })}
                           placeholder="0"
                           placeholderTextColor={AW3.ghost}
-                          selectionColor={HG.purple}
+                          selectionColor={theme.purple}
                           keyboardType="number-pad"
                           style={[styles.setInput, styles.setColField]}
                         />
@@ -766,7 +781,7 @@ export function EmptyWorkoutScreen({
                   onPress={() => addSet(exercise.localKey)}
                   style={styles.addSetButton}
                 >
-                  <PlusIcon size={15} color={HG.purpleDark} strokeWidth={2.6} />
+                  <PlusIcon size={15} color={theme.purpleDark} strokeWidth={2.6} />
                   <Text style={styles.addSetText}>{t(language, 'emptyWorkout.addSet')}</Text>
                 </Pressable>
               </View>
@@ -780,7 +795,7 @@ export function EmptyWorkoutScreen({
               onPress={() => setSheetVisible(true)}
               style={styles.addExerciseDashed}
             >
-              <PlusIcon size={17} color={HG.purpleDark} strokeWidth={2.6} />
+              <PlusIcon size={17} color={theme.purpleDark} strokeWidth={2.6} />
               <Text style={styles.addExerciseDashedText}>{t(language, 'emptyWorkout.addExercise')}</Text>
             </Pressable>
             <Pressable
@@ -822,10 +837,10 @@ export function EmptyWorkoutScreen({
 
 // ── styles ───────────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     flexDirection: 'row',
@@ -845,13 +860,13 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 15.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     letterSpacing: -0.15,
   },
   headerClock: {
     fontSize: 11.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     fontVariant: ['tabular-nums'],
     marginTop: 1,
   },
@@ -861,7 +876,7 @@ const styles = StyleSheet.create({
   headerFinishText: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
   },
   headerFinishTextDisabled: {
     color: '#C9C2DA',
@@ -878,10 +893,10 @@ const styles = StyleSheet.create({
   statText: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   statTextFaint: {
-    color: HG.faint,
+    color: theme.faint,
   },
   statDot: {
     width: 3,
@@ -893,7 +908,7 @@ const styles = StyleSheet.create({
     marginLeft: 'auto',
     fontSize: 11.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
   },
   body: {
     flex: 1,
@@ -912,21 +927,21 @@ const styles = StyleSheet.create({
     width: 92,
     height: 92,
     borderRadius: 26,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyTitle: {
     fontSize: 21,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     letterSpacing: -0.2,
     marginTop: 18,
   },
   emptySubtitle: {
     fontSize: 13.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 7,
     lineHeight: 20,
     maxWidth: 260,
@@ -936,13 +951,13 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     height: 54,
     borderRadius: 16,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
     marginTop: 22,
-    shadowColor: HG.purple,
+    shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.32,
     shadowRadius: 26,
@@ -964,12 +979,12 @@ const styles = StyleSheet.create({
   quickTitle: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   quickSeeAll: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
   },
   quickList: {
     gap: 9,
@@ -981,9 +996,9 @@ const styles = StyleSheet.create({
     gap: 13,
     padding: 11,
     borderRadius: 14,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   quickRowCopy: {
     flex: 1,
@@ -992,19 +1007,19 @@ const styles = StyleSheet.create({
   quickRowName: {
     fontSize: 15,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   quickRowMeta: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     marginTop: 2,
   },
   quickRowPlus: {
     width: 30,
     height: 30,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -1033,13 +1048,13 @@ const styles = StyleSheet.create({
   exerciseName: {
     fontSize: 16.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     letterSpacing: -0.16,
   },
   exerciseMeta: {
     fontSize: 12,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     marginTop: 1,
   },
   exerciseRemove: {
@@ -1060,7 +1075,7 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 0.7,
-    color: HG.faint,
+    color: theme.faint,
   },
   setGridHeaderCenter: {
     textAlign: 'center',
@@ -1093,10 +1108,10 @@ const styles = StyleSheet.create({
   setIndex: {
     fontSize: 14,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   setIndexActive: {
-    color: HG.purple,
+    color: theme.purple,
   },
   setInput: {
     height: 40,
@@ -1107,7 +1122,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 16,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     paddingVertical: 0,
     paddingHorizontal: 0,
   },
@@ -1123,7 +1138,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFEBF9',
   },
   setCheckDone: {
-    backgroundColor: HG.green,
+    backgroundColor: theme.green,
   },
   plateStrip: {
     marginTop: 7,
@@ -1132,7 +1147,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   addSetButton: {
     height: 36,
@@ -1147,7 +1162,7 @@ const styles = StyleSheet.create({
   addSetText: {
     fontSize: 13,
     fontWeight: '800',
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   loggingFooter: {
     marginTop: 6,
@@ -1162,7 +1177,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1.6,
     borderStyle: 'dashed',
-    borderColor: HG.border,
+    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1171,17 +1186,17 @@ const styles = StyleSheet.create({
   addExerciseDashedText: {
     fontSize: 15,
     fontWeight: '800',
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   finishButton: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
-    shadowColor: HG.purple,
+    shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.3,
     shadowRadius: 26,
@@ -1199,13 +1214,13 @@ const styles = StyleSheet.create({
   // shared tile
   tile: {
     flexShrink: 0,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   tileText: {
     fontWeight: '800',
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     letterSpacing: 0.3,
   },
 
@@ -1219,7 +1234,7 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
     borderTopLeftRadius: 26,
     borderTopRightRadius: 26,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
     overflow: 'hidden',
   },
   sheetGripRow: {
@@ -1250,19 +1265,19 @@ const styles = StyleSheet.create({
   sheetTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     letterSpacing: -0.22,
   },
   sheetSubtitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 3,
   },
   sheetClose: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: HG.purple,
+    color: theme.purple,
     paddingTop: 4,
   },
   searchField: {
@@ -1281,7 +1296,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     fontWeight: '700',
-    color: HG.ink,
+    color: theme.ink,
     paddingVertical: 0,
   },
   sheetChipRow: {
@@ -1301,13 +1316,13 @@ const styles = StyleSheet.create({
     borderColor: AW3.fieldBorder,
   },
   sheetChipActive: {
-    backgroundColor: HG.purple,
-    borderColor: HG.purple,
+    backgroundColor: theme.purple,
+    borderColor: theme.purple,
   },
   sheetChipText: {
     fontSize: 13.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   sheetChipTextActive: {
     color: '#FFFFFF',
@@ -1323,12 +1338,12 @@ const styles = StyleSheet.create({
   sheetSectionTitle: {
     fontSize: 16.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   sheetSectionSubtitle: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 2,
   },
   popularRow: {
@@ -1353,8 +1368,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   popularCardSelected: {
-    borderColor: HG.purple,
-    shadowColor: HG.purple,
+    borderColor: theme.purple,
+    shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 22,
@@ -1363,14 +1378,14 @@ const styles = StyleSheet.create({
   popularTile: {
     height: 78,
     borderRadius: 12,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   popularTileText: {
     fontSize: 30,
     fontWeight: '800',
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   popularToggle: {
     position: 'absolute',
@@ -1380,14 +1395,14 @@ const styles = StyleSheet.create({
   popularName: {
     fontSize: 14.5,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     marginTop: 10,
     lineHeight: 17,
   },
   popularMeta: {
     fontSize: 12,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     marginTop: 4,
   },
   selectPill: {
@@ -1407,8 +1422,8 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   selectPillOn: {
-    backgroundColor: HG.green,
-    borderColor: HG.green,
+    backgroundColor: theme.green,
+    borderColor: theme.green,
   },
   sheetListContent: {
     paddingBottom: 12,
@@ -1426,7 +1441,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   sheetRowSelected: {
-    borderColor: HG.purple,
+    borderColor: theme.purple,
   },
   sheetRowCopy: {
     flex: 1,
@@ -1435,12 +1450,12 @@ const styles = StyleSheet.create({
   sheetRowName: {
     fontSize: 15,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   sheetRowMeta: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
     marginTop: 2,
   },
   sheetEmptyText: {
@@ -1448,7 +1463,7 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     fontSize: 14,
     fontWeight: '700',
-    color: HG.faint,
+    color: theme.faint,
   },
   sheetFooter: {
     paddingTop: 12,
@@ -1456,15 +1471,15 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     borderTopWidth: 1,
     borderTopColor: AW3.hair,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   sheetConfirm: {
     height: 54,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.purple,
-    shadowColor: HG.purple,
+    backgroundColor: theme.purple,
+    shadowColor: theme.purple,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.32,
     shadowRadius: 26,
@@ -1481,6 +1496,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   sheetConfirmTextDisabled: {
-    color: HG.faint,
+    color: theme.faint,
   },
 });

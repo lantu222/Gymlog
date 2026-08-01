@@ -30,8 +30,7 @@ import {
   requestNotificationPermission,
 } from './src/utils/appNotifications';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
-import { HG } from './src/lightTheme';
-import { ThemeProvider } from './src/theming';
+import { ThemeProvider, useTheme } from './src/theming';
 import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
   isHomeWidgetAdded,
@@ -704,6 +703,7 @@ function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; 
 }
 
 function GymlogApp() {
+  const theme = useTheme();
   const {
     database,
     hydrated,
@@ -4090,11 +4090,11 @@ function GymlogApp() {
         workoutSummaryActive || historySessionActive || welcomeActive
           ? 'transparent'
           : aiSetupActive
-            ? HG.surface
+            ? theme.surface
             : undefined
       }
       statusBarTranslucent={welcomeActive || workoutSummaryActive || historySessionActive}
-      shellBackgroundColor={aiSetupActive ? HG.surface : undefined}
+      shellBackgroundColor={aiSetupActive ? theme.surface : undefined}
       tabBar={
         showTabBar ? (
           <BottomTabBar

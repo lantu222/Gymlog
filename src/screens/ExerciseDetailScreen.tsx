@@ -7,7 +7,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { ExerciseProgressSummary } from '../lib/progression';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 
 // Muscle and facet names are stored English and used for matching, so only
@@ -81,19 +81,23 @@ function formatLastDone(iso: string, language: AppLanguage) {
 }
 
 function ChevronLeftIcon() {
+  const theme = useTheme();
+
   return (
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-      <Path d="M15 6l-6 6 6 6" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M15 6l-6 6 6 6" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function StarIcon({ active }: { active: boolean }) {
+  const theme = useTheme();
+
   return (
-    <Svg width={19} height={19} viewBox="0 0 24 24" fill={active ? HG.gold : 'none'}>
+    <Svg width={19} height={19} viewBox="0 0 24 24" fill={active ? theme.gold : 'none'}>
       <Path
         d="M12 3l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 16.8 6.7 19.5l1.1-6L3.4 9.3l6-.8z"
-        stroke={active ? HG.gold : HG.muted}
+        stroke={active ? theme.gold : theme.muted}
         strokeWidth={2}
         strokeLinejoin="round"
       />
@@ -101,7 +105,10 @@ function StarIcon({ active }: { active: boolean }) {
   );
 }
 
-function DumbbellIcon({ color = HG.faint, size = 30 }: { color?: string; size?: number }) {
+function DumbbellIcon({ color: colorProp, size = 30 }: { color?: string; size?: number }) {
+  const theme = useTheme();
+  const color = colorProp ?? theme.faint;
+
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path
@@ -116,10 +123,12 @@ function DumbbellIcon({ color = HG.faint, size = 30 }: { color?: string; size?: 
 }
 
 function ActionIcon({ added }: { added: boolean }) {
+  const theme = useTheme();
+
   return (
     <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
       {added ? (
-        <Path d="M5 13l4 4L19 7" stroke={HG.green} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+        <Path d="M5 13l4 4L19 7" stroke={theme.green} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
       ) : (
         <Path d="M12 5v14M5 12h14" stroke="#FFFFFF" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
       )}
@@ -128,6 +137,8 @@ function ActionIcon({ added }: { added: boolean }) {
 }
 
 function HeroImage({ uri }: { uri?: string | null }) {
+  const styles = useThemedStyles(makeStyles);
+
   const [state, setState] = useState<'loading' | 'ok' | 'err'>(uri ? 'loading' : 'err');
   const opacity = useRef(new Animated.Value(0)).current;
 
@@ -160,6 +171,8 @@ function HeroImage({ uri }: { uri?: string | null }) {
 }
 
 function Chip({ label, filled }: { label: string; filled?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={[styles.chip, filled ? styles.chipFilled : styles.chipSoft]}>
       <Text style={[styles.chipText, filled ? styles.chipTextFilled : styles.chipTextSoft]}>{label}</Text>
@@ -168,6 +181,8 @@ function Chip({ label, filled }: { label: string; filled?: boolean }) {
 }
 
 function SectionLabel({ children, right }: { children: string; right?: React.ReactNode }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.sectionLabelRow}>
       <Text style={styles.sectionLabel}>{children}</Text>
@@ -177,6 +192,8 @@ function SectionLabel({ children, right }: { children: string; right?: React.Rea
 }
 
 function StatCard({ label, value, meta }: { label: string; value: string; meta?: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.statCard}>
       <Text style={styles.statLabel}>{label}</Text>
@@ -202,6 +219,8 @@ export function ExerciseDetailScreen({
   onToggleTracked,
   onAddToWorkout,
 }: ExerciseDetailScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -334,14 +353,14 @@ export function ExerciseDetailScreen({
               </View>
               <SimpleLineChart
                 points={chartPoints}
-                accent={HG.purple}
+                accent={theme.purple}
                 unitLabel={unitPreference}
                 emptyLabel={t(language, 'progress.noEntries')}
               />
             </>
           ) : (
             <View style={styles.emptyHistoryCard}>
-              <DumbbellIcon color={HG.faint} size={28} />
+              <DumbbellIcon color={theme.faint} size={28} />
               <Text style={styles.emptyHistoryTitle}>{t(language, 'exDetail.noHistory')}</Text>
               <Text style={styles.emptyHistoryBody}>{t(language, 'exDetail.noHistoryBody')}</Text>
             </View>
@@ -418,10 +437,10 @@ export function ExerciseDetailScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   topBar: {
     flexDirection: 'row',
@@ -435,9 +454,9 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -445,7 +464,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     letterSpacing: 1,
-    color: HG.faint,
+    color: theme.faint,
   },
   scroll: {
     flex: 1,
@@ -460,13 +479,13 @@ const styles = StyleSheet.create({
     aspectRatio: 16 / 10,
     borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
   },
   heroSkeleton: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: HG.surfaceSoft,
+    backgroundColor: theme.surfaceSoft,
   },
   heroImage: {
     width: '100%',
@@ -479,7 +498,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 25,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     letterSpacing: -0.5,
     lineHeight: 28,
   },
@@ -495,10 +514,10 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   chipFilled: {
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   chipSoft: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   chipText: {
     fontSize: 12,
@@ -508,7 +527,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   chipTextSoft: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   section: {
     marginTop: 24,
@@ -524,7 +543,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1,
-    color: HG.faint,
+    color: theme.faint,
   },
   statGrid: {
     flexDirection: 'row',
@@ -532,9 +551,9 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 12,
@@ -543,19 +562,19 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.3,
-    color: HG.faint,
+    color: theme.faint,
   },
   statValue: {
     fontSize: 19,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
     letterSpacing: -0.3,
     marginTop: 5,
   },
   statMeta: {
     fontSize: 10.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     marginTop: 2,
   },
   workingWeightHeader: {
@@ -569,20 +588,20 @@ const styles = StyleSheet.create({
   workingWeightLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   workingWeightDelta: {
     fontSize: 12.5,
     fontWeight: '700',
-    color: HG.greenInk,
+    color: theme.greenInk,
   },
   workingWeightDeltaDown: {
-    color: HG.muted,
+    color: theme.muted,
   },
   emptyHistoryCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 16,
     paddingVertical: 26,
     paddingHorizontal: 18,
@@ -592,19 +611,19 @@ const styles = StyleSheet.create({
   emptyHistoryTitle: {
     fontSize: 15,
     fontWeight: '800',
-    color: HG.ink,
+    color: theme.ink,
   },
   emptyHistoryBody: {
     fontSize: 13,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     textAlign: 'center',
     lineHeight: 19,
   },
   musclesCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 16,
     padding: 16,
   },
@@ -612,15 +631,15 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.4,
-    color: HG.faint,
+    color: theme.faint,
   },
   musclesGroupLabelSpaced: {
     marginTop: 15,
   },
   howToCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     paddingHorizontal: 16,
   },
@@ -629,7 +648,7 @@ const styles = StyleSheet.create({
     gap: 13,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   howToStepLast: {
     borderBottomWidth: 0,
@@ -638,33 +657,33 @@ const styles = StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepBadgeText: {
     fontSize: 12.5,
     fontWeight: '800',
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   stepText: {
     flex: 1,
     fontSize: 13.5,
     fontWeight: '600',
-    color: HG.ink,
+    color: theme.ink,
     lineHeight: 21,
   },
   stepTextMuted: {
     flex: 1,
     fontSize: 13.5,
     fontWeight: '600',
-    color: HG.muted,
+    color: theme.muted,
     lineHeight: 21,
   },
   footnote: {
     fontSize: 11.5,
     fontWeight: '600',
-    color: HG.faint,
+    color: theme.faint,
     textAlign: 'center',
     lineHeight: 18,
     marginTop: 16,
@@ -690,14 +709,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 12,
     paddingBottom: 10,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: HG.border,
+    borderTopColor: theme.border,
   },
   ctaButton: {
     height: 54,
     borderRadius: 16,
-    backgroundColor: HG.green,
+    backgroundColor: theme.green,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

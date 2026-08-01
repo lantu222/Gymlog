@@ -5,7 +5,8 @@ import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from
 import { ProMomentContent } from '../lib/proInsights';
 import { formatWeight } from '../lib/format';
 import { t } from '../lib/i18n';
-import { HG, PW } from '../lightTheme';
+import { PW } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -25,6 +26,7 @@ interface ProMomentSheetProps {
 }
 
 export function ProMomentSheet({ visible, content, language, onClose, onSeePro }: ProMomentSheetProps) {
+  const styles = useThemedStyles(makeStyles);
   const slide = useRef(new Animated.Value(0)).current;
   const slideTranslate = useRef(slide.interpolate({ inputRange: [0, 1], outputRange: [420, 0] })).current;
 
@@ -106,6 +108,8 @@ export function ProMomentSheet({ visible, content, language, onClose, onSeePro }
 
 /** Bars extracted so the language threading stays simple. */
 function BarsBlock({ content, language }: { content: ProMomentContent; language: AppLanguage }) {
+  const styles = useThemedStyles(makeStyles);
+
   const values = content.bars;
   const all = content.nextValue === null ? values : [...values, content.nextValue];
   if (all.length === 0) {
@@ -145,7 +149,7 @@ function BarsBlock({ content, language }: { content: ProMomentContent; language:
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   scrim: {
     flex: 1,
     backgroundColor: 'rgba(16,10,32,0.5)',

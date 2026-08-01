@@ -24,7 +24,7 @@ import {
 } from '../lib/tailoring';
 import { t } from '../lib/i18n';
 import { isProUnlocked } from '../lib/proEntitlement';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout, radii, spacing } from '../theme';
 import { AppLanguage, AppPreferences, SetupScheduleMode } from '../types/models';
 
@@ -57,41 +57,47 @@ function compactOutcomes(preferences: AppPreferences, language: AppLanguage) {
 }
 
 function PlanGlyph() {
+  const theme = useTheme();
+
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M8 3v3M16 3v3M4 8h16M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z"
-        stroke={HG.purpleDark}
+        stroke={theme.purpleDark}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M9 14l2 2 4-4" stroke={HG.purpleDark} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 14l2 2 4-4" stroke={theme.purpleDark} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function SlidersGlyph() {
+  const theme = useTheme();
+
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 8h10M18 8h2M4 16h4M12 16h8"
-        stroke={HG.purpleDark}
+        stroke={theme.purpleDark}
         strokeWidth={2}
         strokeLinecap="round"
       />
-      <Circle cx={16} cy={8} r={2.4} stroke={HG.purpleDark} strokeWidth={2} />
-      <Circle cx={10} cy={16} r={2.4} stroke={HG.purpleDark} strokeWidth={2} />
+      <Circle cx={16} cy={8} r={2.4} stroke={theme.purpleDark} strokeWidth={2} />
+      <Circle cx={10} cy={16} r={2.4} stroke={theme.purpleDark} strokeWidth={2} />
     </Svg>
   );
 }
 
 function DumbbellGlyph() {
+  const theme = useTheme();
+
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-        stroke={HG.purpleDark}
+        stroke={theme.purpleDark}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -101,40 +107,46 @@ function DumbbellGlyph() {
 }
 
 function ShieldGlyph() {
+  const theme = useTheme();
+
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 3l7 3v5c0 4.6-3 8.3-7 10-4-1.7-7-5.4-7-10V6l7-3z"
-        stroke={HG.purpleDark}
+        stroke={theme.purpleDark}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Path d="M9 12l2 2 4-4" stroke={HG.purpleDark} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 12l2 2 4-4" stroke={theme.purpleDark} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function SparkGlyph() {
+  const theme = useTheme();
+
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"
-        stroke={HG.purpleDark}
+        stroke={theme.purpleDark}
         strokeWidth={2}
         strokeLinejoin="round"
       />
-      <Path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9L18 16z" fill={HG.purpleDark} />
+      <Path d="M18 16l.9 2.1L21 19l-2.1.9L18 22l-.9-2.1L15 19l2.1-.9L18 16z" fill={theme.purpleDark} />
     </Svg>
   );
 }
 
 function MoonGlyph() {
+  const theme = useTheme();
+
   return (
     <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
       <Path
         d="M20 13.5A8 8 0 0 1 10.5 4 8 8 0 1 0 20 13.5z"
-        stroke={HG.purpleDark}
+        stroke={theme.purpleDark}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -144,18 +156,24 @@ function MoonGlyph() {
 }
 
 function ChevronIcon() {
+  const theme = useTheme();
+
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 6l6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 6l6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function SectionLabel({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
 function EntryBadge({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.entryBadge}>
       <Text style={styles.entryBadgeText}>{label}</Text>
@@ -164,6 +182,8 @@ function EntryBadge({ label }: { label: string }) {
 }
 
 function HeroPill({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.heroPill}>
       <Text style={styles.heroPillText}>{label}</Text>
@@ -186,6 +206,8 @@ function TailoringEntry({
   badgeLabel?: string;
   onPress?: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable onPress={onPress} style={styles.entryCard}>
       <View style={styles.entryIcon}>{glyph}</View>
@@ -218,6 +240,8 @@ export function PlanSettingsScreen({
   onOpenProgram,
   onAskAiCoach,
 }: PlanSettingsScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   // A redeemed promo is Pro too, so this cannot read the preview switch alone.
   const proUnlocked = isProUnlocked(preferences);
   const setupComplete =
@@ -513,7 +537,7 @@ export function PlanSettingsScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve,
@@ -583,28 +607,28 @@ const styles = StyleSheet.create({
     minHeight: 76,
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     justifyContent: 'center',
     gap: 4,
   },
   signalLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   signalValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   sectionLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '800',
     textTransform: 'uppercase',
@@ -619,15 +643,15 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.md,
   },
   entryIcon: {
     width: 46,
     height: 46,
     borderRadius: 13,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -642,20 +666,20 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   entryKicker: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   entryTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   entryBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -665,10 +689,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     borderRadius: radii.pill,
     justifyContent: 'center',
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   entryBadgeText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -677,8 +701,8 @@ const styles = StyleSheet.create({
   scheduleCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.lg,
     gap: spacing.md,
   },
@@ -693,20 +717,20 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   scheduleKicker: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   scheduleTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   scheduleBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
@@ -723,11 +747,11 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 9,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     marginBottom: 8,
   },
   autoProgressionProPillText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 0.6,
@@ -735,33 +759,33 @@ const styles = StyleSheet.create({
   scheduleToggle: {
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surfaceSoft,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: 4,
   },
   scheduleToggleActive: {
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.purple,
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
   },
   scheduleToggleTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15,
     fontWeight: '800',
     letterSpacing: -0.2,
   },
   scheduleToggleTitleActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   scheduleToggleMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '600',
   },
   scheduleToggleMetaActive: {
-    color: HG.purple,
+    color: theme.purple,
   },
   actionGrid: {
     gap: spacing.sm,
@@ -769,26 +793,26 @@ const styles = StyleSheet.create({
   actionCard: {
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: HG.border,
-    backgroundColor: HG.surface,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.md,
     gap: spacing.xs,
   },
   actionKicker: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.9,
   },
   actionTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   actionBody: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
