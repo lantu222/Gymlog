@@ -7,7 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "splash": {
-      "image": "./assets/branding/gainer-splash-blank.png",
+      "image": "./assets/branding/vinha-splash-blank.png",
       "resizeMode": "contain",
       "backgroundColor": "#F7F3FF"
     },
@@ -18,9 +18,8 @@
       "backgroundColor": "#F7F3FF",
       "versionCode": 1,
       "adaptiveIcon": {
-        "backgroundColor": "#0B0D10",
+        "backgroundColor": "#101828",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
@@ -43,7 +42,13 @@
     "plugins": [
       "expo-asset",
       "expo-audio",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#7C3AED"
+        }
+      ],
       "./plugins/withHealthConnect.js",
       "./plugins/withHomeWidget.js"
     ]

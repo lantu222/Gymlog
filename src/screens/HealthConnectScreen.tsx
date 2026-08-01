@@ -154,7 +154,7 @@ export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: He
         <View style={styles.tileRow}>
           <View style={[styles.appTile, styles.appTileVinha]}>
             <Image
-              source={require('../../assets/branding/gainer-app-icon.png')}
+              source={require('../../assets/branding/vinha-app-icon.png')}
               style={styles.appTileLogoImage}
               resizeMode="cover"
             />
@@ -237,7 +237,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   appTileVinha: {
-    backgroundColor: '#0B0B0E',
+    // The icon's own field colour, so the tile matches even while the image
+    // loads or if a future icon stops covering the full square.
+    backgroundColor: '#101828',
     borderWidth: 2,
     borderColor: '#C9B6FF',
     overflow: 'hidden',

@@ -1,5 +1,6 @@
 const suites = [
   ...require('./releaseReadiness.test.cjs'),
+  ...require('./lib/appIcon.test.cjs'),
   ...require('./features/workout/workoutAppAdapter.test.cjs'),
   ...require('./features/workout/workoutState.test.cjs'),
   ...require('./state/completedWorkoutPersistence.test.cjs'),

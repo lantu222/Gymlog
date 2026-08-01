@@ -1,237 +1,202 @@
-# Builds the Android/iOS icon assets from the GAINER brand mark.
-#
-# The mark ships as a black rounded square with a white G on a white page
-# (assets/branding/gainer-app-icon.png). Adaptive icons need the mark alone on
-# a transparent background, so this:
-#   1. flood-fills the white page in from the borders and drops it,
-#   2. keeps the white that survives - that is the G - using luminance as the
-#      alpha mask, which preserves the antialiased edges,
-#   3. crops to the mark and re-centres it at the size each asset wants.
+# Renders every app-icon asset from the one vector source.
 #
 #   powershell -ExecutionPolicy Bypass -File scripts/generate_app_icons.ps1
 #
-# Re-run after replacing gainer-app-icon.png, then `npx expo prebuild
-# --platform android` so the generated android/ picks the new assets up.
+# The source of record is assets/branding/vinha-icon.svg: a purple V on the ink
+# field, split by two thin cuts — it moves so fast it tears. The numbers below
+# mirror that file exactly, and tests/lib/appIcon.test.cjs fails if the two ever
+# disagree, because a renderer that has quietly drifted from its design source
+# still produces a plausible-looking icon.
+#
+# Why a renderer and not just the PNG exports: Android's adaptive icon needs the
+# glyph ALONE on transparency, scaled into the mask's safe zone. No exported
+# square can be cropped into that, and every attempt to derive it from a bitmap
+# is a guess about which pixels are background.
+#
+# After running: npx expo prebuild --platform android, then npm run android.
+# (prebuild wipes android/local.properties — restore it before Gradle runs.)
 
 Add-Type -AssemblyName System.Drawing
 
-Add-Type -TypeDefinition @'
-using System;
-using System.Collections.Generic;
-
-public static class MarkExtractor {
-  /// Returns BGRA bytes for the mark: white with luminance as alpha.
-  ///
-  /// The source is a mark inside a dark tile on a light page, so the background
-  /// is peeled off in two passes from the image border: first the light page,
-  /// then the dark tile it exposes. Whatever survives is enclosed by the tile -
-  /// that is the mark, and nothing else can be.
-  public static byte[] Extract(byte[] src, int width, int height, int stride, out int minX, out int minY, out int maxX, out int maxY) {
-    int count = width * height;
-    int[] lum = new int[count];
-    for (int y = 0; y < height; y++) {
-      int row = y * stride;
-      for (int x = 0; x < width; x++) {
-        int i = row + x * 4;
-        int value = (int)(0.299 * src[i + 2] + 0.587 * src[i + 1] + 0.114 * src[i]);
-        // Fully transparent source pixels read as page, whatever their colour.
-        lum[y * width + x] = src[i + 3] < 24 ? 255 : value;
-      }
-    }
-
-    bool[] background = new bool[count];
-    var queue = new Queue<int>();
-
-    // Pass 1: the light page, flooded in from the border.
-    for (int x = 0; x < width; x++) {
-      Seed(lum, background, queue, width, x, 0, 170, true);
-      Seed(lum, background, queue, width, x, height - 1, 170, true);
-    }
-    for (int y = 0; y < height; y++) {
-      Seed(lum, background, queue, width, 0, y, 170, true);
-      Seed(lum, background, queue, width, width - 1, y, 170, true);
-    }
-    Flood(lum, background, queue, width, height, 170, true);
-
-    // Pass 2: everything the page now touches that is not near-white. This eats
-    // the tile and its antialiased rim, and stops at the mark's solid core.
-    for (int index = 0; index < count; index++) {
-      if (!background[index]) continue;
-      int x = index % width;
-      int y = index / width;
-
-      if (x > 0) Seed(lum, background, queue, width, x - 1, y, 240, false);
-      if (x < width - 1) Seed(lum, background, queue, width, x + 1, y, 240, false);
-      if (y > 0) Seed(lum, background, queue, width, x, y - 1, 240, false);
-      if (y < height - 1) Seed(lum, background, queue, width, x, y + 1, 240, false);
-    }
-    Flood(lum, background, queue, width, height, 240, false);
-
-    // Pass 2 also ate the mark's own soft edge. Give it back: a background pixel
-    // within two of the core keeps its luminance as alpha, so the mark stays
-    // smooth while the tile rim - which is nowhere near the core - stays gone.
-    byte[] outBytes = new byte[stride * height];
-    minX = width; minY = height; maxX = -1; maxY = -1;
-
-    for (int y = 0; y < height; y++) {
-      int row = y * stride;
-      for (int x = 0; x < width; x++) {
-        int i = row + x * 4;
-        int index = y * width + x;
-        int alpha = background[index] ? (NearCore(background, width, height, x, y, 2) ? lum[index] : 0) : 255;
-
-        outBytes[i] = 255;
-        outBytes[i + 1] = 255;
-        outBytes[i + 2] = 255;
-        outBytes[i + 3] = (byte)alpha;
-
-        if (alpha > 24) {
-          if (x < minX) minX = x;
-          if (x > maxX) maxX = x;
-          if (y < minY) minY = y;
-          if (y > maxY) maxY = y;
-        }
-      }
-    }
-
-    return outBytes;
-  }
-
-  private static bool NearCore(bool[] background, int width, int height, int x, int y, int radius) {
-    int x0 = Math.Max(0, x - radius);
-    int x1 = Math.Min(width - 1, x + radius);
-    int y0 = Math.Max(0, y - radius);
-    int y1 = Math.Min(height - 1, y + radius);
-
-    for (int yy = y0; yy <= y1; yy++) {
-      int row = yy * width;
-      for (int xx = x0; xx <= x1; xx++) {
-        if (!background[row + xx]) return true;
-      }
-    }
-
-    return false;
-  }
-
-  private static void Flood(int[] lum, bool[] background, Queue<int> queue, int width, int height, int threshold, bool brighterThan) {
-    while (queue.Count > 0) {
-      int index = queue.Dequeue();
-      int x = index % width;
-      int y = index / width;
-
-      if (x > 0) Seed(lum, background, queue, width, x - 1, y, threshold, brighterThan);
-      if (x < width - 1) Seed(lum, background, queue, width, x + 1, y, threshold, brighterThan);
-      if (y > 0) Seed(lum, background, queue, width, x, y - 1, threshold, brighterThan);
-      if (y < height - 1) Seed(lum, background, queue, width, x, y + 1, threshold, brighterThan);
-    }
-  }
-
-  private static void Seed(int[] lum, bool[] background, Queue<int> queue, int width, int x, int y, int threshold, bool brighterThan) {
-    int index = y * width + x;
-    if (background[index]) return;
-
-    bool matches = brighterThan ? lum[index] > threshold : lum[index] < threshold;
-    if (matches) {
-      background[index] = true;
-      queue.Enqueue(index);
-    }
-  }
-}
-'@
-
 $root = Split-Path -Parent $PSScriptRoot
-$source = Join-Path $root 'assets\branding\gainer-app-icon.png'
 $assets = Join-Path $root 'assets'
+$branding = Join-Path $assets 'branding'
 
-# Brand black, matching android/app/src/main/res/values/colors.xml iconBackground.
-$brandBlack = [System.Drawing.Color]::FromArgb(255, 11, 13, 16)
-$canvas = 1024
+# --- the source geometry, in the SVG's 1024 space -------------------------
 
-# Android crops adaptive icons to a circle covering the middle ~66% of the
-# canvas. A square-ish mark only fits inside that circle if it stays under
-# 66% / sqrt(2) = 47%, so anything larger gets its corners shaved by the mask.
-$adaptiveScale = 0.45
-# The plain square icon has no crop, so the mark can sit larger.
-$squareScale = 0.68
+$FIELD = [System.Drawing.Color]::FromArgb(255, 0x10, 0x18, 0x28)   # #101828
+$GLYPH = [System.Drawing.Color]::FromArgb(255, 0x8B, 0x5C, 0xF6)   # #8B5CF6
+$CANVAS = 1024.0
 
-function Get-MarkBitmap {
-  param([string]$Path)
+# M330 264 L512 724 L694 264 — the V, stroked, not filled.
+$V_POINTS = @(
+  (New-Object System.Drawing.PointF 330, 264),
+  (New-Object System.Drawing.PointF 512, 724),
+  (New-Object System.Drawing.PointF 694, 264)
+)
+$STROKE = 126.0
+$SKEW_DEG = -7.0
+$SHIFT_X = 36.0
 
-  $src = [System.Drawing.Bitmap]::FromFile($Path)
-  $w = $src.Width
-  $h = $src.Height
+# Two 30-unit bands across the whole canvas, rotated together.
+$CUT_ROTATION_DEG = -16.0
+$CUT_TOPS = @(392.0, 606.0)
+$CUT_HEIGHT = 30.0
+$CUT_X = -120.0
+$CUT_WIDTH = 1264.0
 
-  $rect = New-Object System.Drawing.Rectangle 0, 0, $w, $h
-  $data = $src.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-  $bytes = New-Object byte[] ($data.Stride * $h)
-  [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $bytes, 0, $bytes.Length)
-  $stride = $data.Stride
-  $src.UnlockBits($data)
-  $src.Dispose()
+# Android shows the middle 72 of a 108 foreground layer. Scaling the WHOLE
+# composition by that ratio — not re-centring the glyph — is what keeps the
+# masked Android icon looking like the iOS tile instead of a zoomed-in crop.
+$ADAPTIVE_SCALE = 72.0 / 108.0
 
-  $minX = 0; $minY = 0; $maxX = 0; $maxY = 0
-  $outBytes = [MarkExtractor]::Extract($bytes, $w, $h, $stride, [ref]$minX, [ref]$minY, [ref]$maxX, [ref]$maxY)
+# --- rendering ------------------------------------------------------------
 
-  if ($maxX -lt 0) { throw "No mark found in $Path - is it still white on black?" }
+function New-GlyphTransform {
+  param([double]$Size, [double]$Scale)
 
-  $out = New-Object System.Drawing.Bitmap $w, $h, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-  $outData = $out.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::WriteOnly, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-  [System.Runtime.InteropServices.Marshal]::Copy($outBytes, 0, $outData.Scan0, $outBytes.Length)
-  $out.UnlockBits($outData)
+  # SVG applies transform="skewX(-7) translate(36 0)" right to left, so a point
+  # is translated first and skewed second.
+  $skew = [Math]::Tan($SKEW_DEG * [Math]::PI / 180.0)
+  $m = New-Object System.Drawing.Drawing2D.Matrix 1, 0, $skew, 1, 0, 0
+  $m.Translate($SHIFT_X, 0, [System.Drawing.Drawing2D.MatrixOrder]::Prepend)
 
-  $cropRect = New-Object System.Drawing.Rectangle $minX, $minY, ($maxX - $minX + 1), ($maxY - $minY + 1)
-  $cropped = $out.Clone($cropRect, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-  $out.Dispose()
-  return $cropped
+  $fit = New-Object System.Drawing.Drawing2D.Matrix
+  $fit.Translate($Size / 2, $Size / 2)
+  $fit.Scale(($Size / $CANVAS) * $Scale, ($Size / $CANVAS) * $Scale)
+  $fit.Translate(-$CANVAS / 2, -$CANVAS / 2)
+  $fit.Multiply($m)
+  return $fit
 }
 
-function Save-Icon {
+function New-CutTransform {
+  param([double]$Size, [double]$Scale)
+
+  $m = New-Object System.Drawing.Drawing2D.Matrix
+  $m.Translate($Size / 2, $Size / 2)
+  $m.Scale(($Size / $CANVAS) * $Scale, ($Size / $CANVAS) * $Scale)
+  $m.Translate(-$CANVAS / 2, -$CANVAS / 2)
+  # The cuts live in the root space, outside the glyph's own skew: they are the
+  # mask on the group, not part of the path.
+  $m.RotateAt($CUT_ROTATION_DEG, (New-Object System.Drawing.PointF 512, 512))
+  return $m
+}
+
+function New-Graphics {
+  param([System.Drawing.Bitmap]$Bitmap)
+
+  $g = [System.Drawing.Graphics]::FromImage($Bitmap)
+  $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
+  $g.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  return $g
+}
+
+function Draw-Glyph {
   param(
-    [System.Drawing.Bitmap]$Mark,
-    [string]$Path,
-    [int]$Size,
-    [double]$Scale,
-    [System.Drawing.Color]$Background,
-    [switch]$Transparent
+    [System.Drawing.Graphics]$Graphics,
+    [System.Drawing.Color]$Color,
+    [double]$Size,
+    [double]$Scale
   )
 
-  $bmp = New-Object System.Drawing.Bitmap $Size, $Size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
-  $gfx = [System.Drawing.Graphics]::FromImage($bmp)
-  $gfx.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $gfx.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
-  $gfx.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+  $pen = New-Object System.Drawing.Pen $Color, $STROKE
+  $pen.LineJoin = [System.Drawing.Drawing2D.LineJoin]::Miter
+  $pen.MiterLimit = 4
+  $pen.StartCap = [System.Drawing.Drawing2D.LineCap]::Flat
+  $pen.EndCap = [System.Drawing.Drawing2D.LineCap]::Flat
 
-  if ($Transparent) {
-    $gfx.Clear([System.Drawing.Color]::Transparent)
-  } else {
-    $gfx.Clear($Background)
-  }
-
-  if ($Scale -gt 0) {
-    $target = $Size * $Scale
-    $ratio = [Math]::Min($target / $Mark.Width, $target / $Mark.Height)
-    $drawW = $Mark.Width * $ratio
-    $drawH = $Mark.Height * $ratio
-    $gfx.DrawImage($Mark, ($Size - $drawW) / 2, ($Size - $drawH) / 2, $drawW, $drawH)
-  }
-
-  $gfx.Dispose()
-  $bmp.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
-  $bmp.Dispose()
-  Write-Host "wrote $Path"
+  $saved = $Graphics.Transform
+  $Graphics.Transform = New-GlyphTransform -Size $Size -Scale $Scale
+  $Graphics.DrawLines($pen, $V_POINTS)
+  $Graphics.Transform = $saved
+  $pen.Dispose()
 }
 
-$mark = Get-MarkBitmap -Path $source
-Write-Host "mark extracted: $($mark.Width)x$($mark.Height)"
+function Draw-Cuts {
+  param(
+    [System.Drawing.Graphics]$Graphics,
+    [System.Drawing.Color]$Color,
+    [double]$Size,
+    [double]$Scale
+  )
 
-# Adaptive icon: mark alone on transparent, brand black behind it.
-Save-Icon -Mark $mark -Path (Join-Path $assets 'android-icon-foreground.png') -Size $canvas -Scale $adaptiveScale -Background $brandBlack -Transparent
-Save-Icon -Mark $mark -Path (Join-Path $assets 'android-icon-background.png') -Size $canvas -Scale 0 -Background $brandBlack
-# Themed icons: Android tints the silhouette, so it ships white on transparent.
-Save-Icon -Mark $mark -Path (Join-Path $assets 'android-icon-monochrome.png') -Size $canvas -Scale $adaptiveScale -Background $brandBlack -Transparent
-# Square icon (iOS + stores) and the web favicon.
-Save-Icon -Mark $mark -Path (Join-Path $assets 'icon.png') -Size $canvas -Scale $squareScale -Background $brandBlack
-Save-Icon -Mark $mark -Path (Join-Path $assets 'favicon.png') -Size 96 -Scale $squareScale -Background $brandBlack
+  $brush = New-Object System.Drawing.SolidBrush $Color
+  $saved = $Graphics.Transform
+  $Graphics.Transform = New-CutTransform -Size $Size -Scale $Scale
+  foreach ($top in $CUT_TOPS) {
+    $Graphics.FillRectangle($brush, $CUT_X, $top, $CUT_WIDTH, $CUT_HEIGHT)
+  }
+  $Graphics.Transform = $saved
+  $brush.Dispose()
+}
 
-$mark.Dispose()
+function Save-Opaque {
+  param([string]$Path, [int]$Size, [double]$Scale = 1.0, [switch]$NoCuts)
+
+  $bmp = New-Object System.Drawing.Bitmap $Size, $Size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  $g = New-Graphics -Bitmap $bmp
+  $g.Clear($FIELD)
+  Draw-Glyph -Graphics $g -Color $GLYPH -Size $Size -Scale $Scale
+  # On an opaque tile the cuts are just field-coloured bands painted back over
+  # the V — no masking needed, and the antialiasing stays exact.
+  if (-not $NoCuts) { Draw-Cuts -Graphics $g -Color $FIELD -Size $Size -Scale $Scale }
+  $g.Dispose()
+  $bmp.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
+  Write-Host "wrote $Path ($Size, opaque)"
+}
+
+function Save-Glyph {
+  param([string]$Path, [int]$Size, [double]$Scale, [System.Drawing.Color]$Color, [switch]$NoCuts)
+
+  # Built in luminance and converted to alpha at the end. Punching the cuts out
+  # of an already-transparent bitmap would need SourceCopy, which cannot blend —
+  # every cut edge would come out jagged. White-on-black antialiases correctly
+  # for BOTH the V and the cuts, and luminance is then exactly the coverage.
+  $bmp = New-Object System.Drawing.Bitmap $Size, $Size, ([System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  $g = New-Graphics -Bitmap $bmp
+  $g.Clear([System.Drawing.Color]::Black)
+  Draw-Glyph -Graphics $g -Color ([System.Drawing.Color]::White) -Size $Size -Scale $Scale
+  if (-not $NoCuts) { Draw-Cuts -Graphics $g -Color ([System.Drawing.Color]::Black) -Size $Size -Scale $Scale }
+  $g.Dispose()
+
+  $rect = New-Object System.Drawing.Rectangle 0, 0, $Size, $Size
+  $data = $bmp.LockBits($rect, [System.Drawing.Imaging.ImageLockMode]::ReadWrite, [System.Drawing.Imaging.PixelFormat]::Format32bppArgb)
+  $bytes = New-Object byte[] ($data.Stride * $Size)
+  [System.Runtime.InteropServices.Marshal]::Copy($data.Scan0, $bytes, 0, $bytes.Length)
+  for ($i = 0; $i -lt $bytes.Length; $i += 4) {
+    $bytes[$i + 3] = $bytes[$i + 1]   # green channel == coverage for white on black
+    $bytes[$i] = $Color.B
+    $bytes[$i + 1] = $Color.G
+    $bytes[$i + 2] = $Color.R
+  }
+  [System.Runtime.InteropServices.Marshal]::Copy($bytes, 0, $data.Scan0, $bytes.Length)
+  $bmp.UnlockBits($data)
+
+  $bmp.Save($Path, [System.Drawing.Imaging.ImageFormat]::Png)
+  $bmp.Dispose()
+  Write-Host "wrote $Path ($Size, glyph only)"
+}
+
+# --- the assets -----------------------------------------------------------
+
+# iOS / Expo master. Square, opaque, no rounding: Apple rounds it itself.
+Save-Opaque -Path (Join-Path $assets 'icon.png') -Size 1024
+# Play Console listing.
+Save-Opaque -Path (Join-Path $branding 'vinha-play-store-512.png') -Size 512
+# The tile the Health Connect screen shows next to the health app's icon.
+Save-Opaque -Path (Join-Path $branding 'vinha-app-icon.png') -Size 256
+
+# Android adaptive: glyph on transparency, field supplied by backgroundColor.
+Save-Glyph -Path (Join-Path $assets 'android-icon-foreground.png') -Size 1024 -Scale $ADAPTIVE_SCALE -Color $GLYPH
+# Themed icons: Android tints the silhouette, so it ships white.
+Save-Glyph -Path (Join-Path $assets 'android-icon-monochrome.png') -Size 1024 -Scale $ADAPTIVE_SCALE -Color ([System.Drawing.Color]::White)
+
+# Below ~40px the cuts close up and the V turns to mud, so the small marks ship
+# solid — the design's own rule, and it is the difference between a readable
+# glyph and a purple smudge in a browser tab or a status bar.
+Save-Opaque -Path (Join-Path $assets 'favicon.png') -Size 96 -NoCuts
+Save-Glyph -Path (Join-Path $assets 'notification-icon.png') -Size 96 -Scale 0.72 -Color ([System.Drawing.Color]::White) -NoCuts
+
+Write-Host ''
 Write-Host 'done - next: npx expo prebuild --platform android, then npm run android'
