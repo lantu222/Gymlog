@@ -14,6 +14,7 @@ const homeSource = read('src', 'screens', 'HomeScreen.tsx');
 const loggerSource = read('src', 'screens', 'WorkoutLoggingScreen.tsx');
 const proOfferSource = read('src', 'screens', 'ProOfferScreen.tsx');
 const i18nSource = read('src', 'lib', 'i18n.ts');
+const unlockSource = read('src', 'screens', 'PremiumUnlockScreen.tsx');
 
 /**
  * The Pro/Free audit (2026-07-28) found three ways the paid tier lied: a promo
@@ -282,6 +283,36 @@ module.exports = [
 
       // Shown once, on the plan-ready path.
       assert.match(appSource, /resetToRoute\(\{ tab: 'home', screen: 'pro_offer' \}\)/);
+    },
+  },
+  {
+    name: 'the unlock moment names what actually switched on',
+    run() {
+      // The mock's third card said '14 months of logs are back', which would
+      // mean history had been taken away. It never was, in either tier, and the
+      // Pro page one screen earlier says so.
+      const block = i18nSource.match(/'unlock\.[\s\S]*?'unlock\.noBadge': '[^']*'/g);
+      const copy = block ? block.join('\n') : '';
+      assert.ok(copy.length > 0, 'the unlock copy block should be findable');
+      assert.doesNotMatch(copy, /logs are back|lokit ovat takaisin|months of logs/i);
+      assert.doesNotMatch(copy, /8 weeks|8 viikkoa/);
+
+      // Each card points somewhere real and is a genuinely gated feature.
+      for (const key of ['c1', 'c2', 'c3', 'c4']) {
+        assert.match(unlockSource, new RegExp(`'unlock\\.${key}\\.t'`), `${key} should be listed`);
+      }
+
+      // A celebration you cannot dismiss is a modal, and the animation must
+      // never be the thing hiding the content underneath it.
+      assert.match(unlockSource, /setShowMoment\(false\)/);
+      assert.match(unlockSource, /isReduceMotionEnabled/);
+
+      // The %-sized Svg trap: a gradient with no viewBox does not stretch to a
+      // flex parent on Android, it leaves a hard edge where it stopped
+      // measuring. The field is measured and drawn at pixel size instead.
+      // (A percentage Svg WITH a viewBox scales fine — the sparkline uses one.)
+      assert.match(unlockSource, /onLayout=\{\(event\) => \{/);
+      assert.match(unlockSource, /<Svg style=\{StyleSheet\.absoluteFill\} width=\{field\.width\} height=\{field\.height\}>/);
     },
   },
 ];

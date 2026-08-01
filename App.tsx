@@ -118,6 +118,7 @@ import { ExercisesScreen } from './src/screens/ExercisesScreen';
 import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen';
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { PremiumScreen } from './src/screens/PremiumScreen';
+import { PremiumUnlockScreen } from './src/screens/PremiumUnlockScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { MyDataScreen } from './src/screens/MyDataScreen';
@@ -482,6 +483,12 @@ function getBackRoute(route: AppRoute): AppRoute | null {
   }
 
   if (route.tab === 'profile' && route.screen === 'premium') {
+    return ROOT_ROUTES.profile;
+  }
+
+  // Back out of the unlock moment lands on Profile, not on the paywall you
+  // just came through — going 'back' to a page selling what you now own.
+  if (route.tab === 'profile' && route.screen === 'premium_unlock') {
     return ROOT_ROUTES.profile;
   }
 
@@ -2066,6 +2073,13 @@ function GymlogApp() {
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
   );
   const coachProUnlocked = isProUnlocked(preferences);
+  // Seven days out. There is no billing, so this is the demo story the paywall
+  // already tells rather than a date anything will act on.
+  const premiumTrialEndsAt = useMemo(() => {
+    const end = new Date();
+    end.setDate(end.getDate() + 7);
+    return end.toISOString();
+  }, []);
   const analysisSessionId = route.tab === 'home' && route.screen === 'analysis' ? route.sessionId : null;
   // The AI tab's written-analysis entry needs the most recent session that has
   // enough logged sets to analyse. Only built while the chat is open.
@@ -3634,12 +3648,26 @@ function GymlogApp() {
         coachSpecimen={proCoachSpecimen}
         trainingDayIndexes={homeTrainingDayIndexes}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onTogglePreview={() =>
-          void updatePreferences({
-            adaptiveCoachPremiumUnlocked: !preferences.adaptiveCoachPremiumUnlocked,
-          })
-        }
+        onTogglePreview={() => {
+          // The CTA sells a trial the app cannot deliver (demo build). What it
+          // actually does is flip the preview switch — and if that turns Pro
+          // ON, the unlock moment follows, which is the whole point of it.
+          const turningOn = !preferences.adaptiveCoachPremiumUnlocked;
+          void updatePreferences({ adaptiveCoachPremiumUnlocked: turningOn });
+          if (turningOn) {
+            navigate({ tab: 'profile', screen: 'premium_unlock' });
+          }
+        }}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'premium_unlock') {
+    content = (
+      <PremiumUnlockScreen
+        language={preferences.appLanguage}
+        trialEndsAt={premiumTrialEndsAt}
+        onDone={() => resetToRoute(ROOT_ROUTES.profile)}
+        onOpenLogger={() => resetToRoute(ROOT_ROUTES.home)}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {
@@ -4044,7 +4072,10 @@ function GymlogApp() {
     !(route.tab === 'home' && route.screen === 'cardio') &&
     // The setup editor is a full-screen flow — the floating bar was covering
     // its footer Cancel/Back controls.
-    !(route.tab === 'profile' && route.screen === 'setup');
+    !(route.tab === 'profile' && route.screen === 'setup') &&
+    // The unlock moment is a full-screen takeover; a floating bar over it
+    // would say 'you are still in the app' at the one moment that should not.
+    !(route.tab === 'profile' && route.screen === 'premium_unlock');
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const welcomeActive = onboardingActive && entryFlowActive;

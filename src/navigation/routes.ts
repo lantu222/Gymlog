@@ -187,6 +187,10 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
+      screen: 'premium_unlock';
+    }
+  | {
+      tab: 'profile';
       screen: 'legal';
       /** Privacy policy or terms — same screen, same source data. */
       document: 'privacy' | 'terms';
