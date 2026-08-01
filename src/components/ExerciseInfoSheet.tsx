@@ -6,7 +6,8 @@ import { WorkoutExerciseInstance, WorkoutSlotHistoryEntry } from '../features/wo
 import { buildExerciseInfoSnapshot, ExerciseInfoTheme } from '../lib/exerciseInfo';
 import { t } from '../lib/i18n';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
-import { colors, radii, spacing } from '../theme';
+import { INFO_SHEET } from '../lightTheme';
+import { radii, spacing } from '../theme';
 
 interface ExerciseInfoSheetProps {
   exercise: WorkoutExerciseInstance;
@@ -448,7 +449,7 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'flex-end',
-    backgroundColor: colors.overlay,
+    backgroundColor: INFO_SHEET.scrim,
   },
   sheet: {
     overflow: 'hidden',
@@ -490,14 +491,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   kicker: {
-    color: colors.textMuted,
+    color: INFO_SHEET.textMuted,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
   title: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 24,
     fontWeight: '900',
     letterSpacing: -0.5,
@@ -513,7 +514,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.10)',
   },
   closeText: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -561,18 +562,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   metaChipText: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 11,
     fontWeight: '800',
   },
   heroTitle: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 18,
     fontWeight: '900',
     letterSpacing: -0.3,
   },
   heroBody: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
@@ -587,7 +588,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   notePillText: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 11,
     lineHeight: 16,
     fontWeight: '700',
@@ -624,14 +625,14 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   thumbnailCaptionKicker: {
-    color: colors.textMuted,
+    color: INFO_SHEET.textMuted,
     fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.6,
   },
   thumbnailCaptionText: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '800',
@@ -663,21 +664,21 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   statLabel: {
-    color: colors.textMuted,
+    color: INFO_SHEET.textMuted,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
   statValue: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 16,
     lineHeight: 20,
     fontWeight: '900',
     letterSpacing: -0.2,
   },
   statMeta: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 11,
     lineHeight: 15,
     fontWeight: '700',
@@ -686,7 +687,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   sectionTitle: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 15,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -705,7 +706,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   impactTitle: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 12,
     fontWeight: '900',
     textTransform: 'uppercase',
@@ -727,7 +728,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   smallChipText: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -735,12 +736,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   patternTitle: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 14,
     fontWeight: '900',
   },
   patternBody: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '700',
@@ -775,12 +776,12 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   cueTitle: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 13,
     fontWeight: '900',
   },
   cueBody: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '700',
@@ -805,12 +806,12 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   trendTitle: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 14,
     fontWeight: '900',
   },
   trendBody: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '700',
@@ -828,14 +829,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   trendMetricLabel: {
-    color: colors.textMuted,
+    color: INFO_SHEET.textMuted,
     fontSize: 9,
     fontWeight: '900',
     textTransform: 'uppercase',
     letterSpacing: 0.7,
   },
   trendMetricValue: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 11,
     fontWeight: '900',
   },
@@ -848,7 +849,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
   },
   emptyTrendText: {
-    color: colors.textSecondary,
+    color: INFO_SHEET.textSoft,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '700',
@@ -861,7 +862,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   trendFooterText: {
-    color: colors.textMuted,
+    color: INFO_SHEET.textMuted,
     fontSize: 10,
     fontWeight: '800',
   },
@@ -875,12 +876,12 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.accentAlt,
+    backgroundColor: INFO_SHEET.accent,
     borderWidth: 1,
     borderColor: 'rgba(85, 138, 189, 0.28)',
   },
   footerButtonText: {
-    color: colors.textPrimary,
+    color: INFO_SHEET.text,
     fontSize: 14,
     fontWeight: '900',
     letterSpacing: 0.2,
