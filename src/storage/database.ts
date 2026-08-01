@@ -351,7 +351,6 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
           : fallback.preferences.appLanguage,
       // App is kg-only: any legacy 'lb' preference normalizes to kg on load.
       unitPreference: 'kg',
-      theme: 'dark',
       defaultRestSeconds:
         typeof input?.preferences?.defaultRestSeconds === 'number'
           ? input.preferences.defaultRestSeconds

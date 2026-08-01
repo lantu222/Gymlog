@@ -213,7 +213,12 @@ module.exports = [
       );
       assert.doesNotMatch(screenHeaderSource, /tone\?:/);
       assert.doesNotMatch(screenHeaderSource, /from '\.\.\/theme'[\s\S]*colors/);
-      assert.match(screenHeaderSource, /color: HG\.ink/);
+      // First component on the theme hook. Reading from the active theme is a
+      // stronger version of the old guard — it cannot be a local hex, and it
+      // cannot be a palette constant frozen at module load either.
+      assert.match(screenHeaderSource, /useThemedStyles\(makeStyles\)/);
+      assert.match(screenHeaderSource, /const makeStyles = \(theme: Theme\)/);
+      assert.match(screenHeaderSource, /color: theme\.ink/);
       assert.match(workoutsScreenSource, /t\(language, 'ready\.searchPlaceholder'\)/);
       assert.match(workoutsScreenSource, /MagnifyingGlass/);
       assert.match(workoutsScreenSource, /SlidersHorizontal/);

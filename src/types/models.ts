@@ -1,5 +1,4 @@
 export type UnitPreference = 'kg' | 'lb';
-export type ThemePreference = 'dark';
 export type AppLanguage = 'en' | 'fi';
 export type SignInMethod = 'apple' | 'email' | 'local' | 'google';
 export type AccessTier = 'free' | 'premium';
@@ -249,7 +248,6 @@ export interface MeasurementEntry {
 export interface AppPreferences {
   appLanguage: AppLanguage;
   unitPreference: UnitPreference;
-  theme: ThemePreference;
   defaultRestSeconds: number;
   autoFocusNextInput: boolean;
   keepScreenAwakeDuringWorkout: boolean;

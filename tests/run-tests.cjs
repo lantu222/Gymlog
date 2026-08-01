@@ -41,6 +41,7 @@ const suites = [
   ...require('./lib/notificationPlan.test.cjs'),
   ...require('./lib/programCsvExport.test.cjs'),
   ...require('./lib/widgetPayload.test.cjs'),
+  ...require('./lib/theming.test.cjs'),
   ...require('./lib/proInsights.test.cjs'),
   ...require('./lib/aiCoachQuota.test.cjs'),
   ...require('./lib/coachChat.test.cjs'),

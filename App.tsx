@@ -31,6 +31,7 @@ import {
 } from './src/utils/appNotifications';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
 import { HG } from './src/lightTheme';
+import { ThemeProvider } from './src/theming';
 import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
   isHomeWidgetAdded,
@@ -4135,11 +4136,13 @@ function GymlogApp() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <WorkoutProvider>
-        <GymlogApp />
-      </WorkoutProvider>
-    </AppProvider>
+    <ThemeProvider>
+      <AppProvider>
+        <WorkoutProvider>
+          <GymlogApp />
+        </WorkoutProvider>
+      </AppProvider>
+    </ThemeProvider>
   );
 }
 

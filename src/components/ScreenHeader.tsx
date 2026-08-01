@@ -1,8 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { HG } from '../lightTheme';
 import { spacing } from '../theme';
+import { Theme, useThemedStyles } from '../theming';
 
 /**
  * The older screen header, still used by twelve screens.
@@ -31,6 +31,8 @@ export function ScreenHeader({
   rightActionLabel,
   onRightActionPress,
 }: ScreenHeaderProps) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.wrapper}>
       <View style={styles.topRow}>
@@ -53,58 +55,61 @@ export function ScreenHeader({
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    gap: spacing.xs,
-    marginBottom: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-  },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  titleRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  backButton: {
-    minWidth: 70,
-    minHeight: 40,
-    paddingHorizontal: spacing.sm,
-    marginLeft: -spacing.sm,
-    borderRadius: 999,
-    justifyContent: 'center',
-  },
-  backText: {
-    color: HG.ink,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  title: {
-    flex: 1,
-    color: HG.ink,
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: -0.6,
-  },
-  subtitle: {
-    color: HG.muted,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  action: {
-    minHeight: 40,
-    paddingHorizontal: spacing.xs,
-    justifyContent: 'center',
-  },
-  actionText: {
-    color: HG.ink,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-});
+// Module scope on purpose: useThemedStyles caches per factory, and a factory
+// created inside the component would be a new one on every render.
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    wrapper: {
+      gap: spacing.xs,
+      marginBottom: spacing.sm,
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+    },
+    topRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: spacing.md,
+    },
+    titleRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    backButton: {
+      minWidth: 70,
+      minHeight: 40,
+      paddingHorizontal: spacing.sm,
+      marginLeft: -spacing.sm,
+      borderRadius: 999,
+      justifyContent: 'center',
+    },
+    backText: {
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    title: {
+      flex: 1,
+      color: theme.ink,
+      fontSize: 24,
+      fontWeight: '900',
+      letterSpacing: -0.6,
+    },
+    subtitle: {
+      color: theme.muted,
+      fontSize: 13,
+      lineHeight: 18,
+    },
+    action: {
+      minHeight: 40,
+      paddingHorizontal: spacing.xs,
+      justifyContent: 'center',
+    },
+    actionText: {
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+  });

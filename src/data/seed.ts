@@ -12,7 +12,6 @@ import { GENERATED_EXERCISE_LIBRARY } from './generatedExerciseLibrary';
 const DEFAULT_PREFERENCES = {
   appLanguage: 'en' as const,
   unitPreference: 'kg' as const,
-  theme: 'dark' as const,
   defaultRestSeconds: 120,
   autoFocusNextInput: true,
   keepScreenAwakeDuringWorkout: true,

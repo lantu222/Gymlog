@@ -118,7 +118,6 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     preferences: {
       appLanguage: 'en',
       unitPreference: 'kg',
-      theme: 'dark',
       defaultRestSeconds: 120,
       autoFocusNextInput: true,
       keepScreenAwakeDuringWorkout: true,
