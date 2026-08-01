@@ -81,30 +81,48 @@ module.exports = [
   {
     name: 'the Pro page table draws the line where the code draws it',
     run() {
-      const table = premiumSource.match(/const TABLE[\s\S]*?\n\];/);
-      assert.ok(table, 'the grouped Track/Understand/Decide table should be declared');
+      const table = premiumSource.match(/const ROWS[\s\S]*?\n\];/);
+      assert.ok(table, 'the free/premium comparison rows should be declared');
 
-      // TRACK: everything free stays marked free in both columns.
-      for (const key of ['logging', 'ready', 'own', 'history', 'records', 'rest']) {
-        assert.match(table[0], new RegExp(`\['pro\.page\.row\.${key}', 1, 1\]`), `${key} is free`);
+      // Free in BOTH columns. Each of these was checked against the code on
+      // 2026-08-01: none of them has an isProUnlocked gate anywhere.
+      for (const key of ['logging', 'ready', 'own', 'records', 'guided', 'widget', 'csv']) {
+        assert.match(
+          table[0],
+          new RegExp(`'pro\\.v2\\.row\\.${key}', free: 'pro\\.v2\\.val\\.[a-zA-Z]+'`),
+          `${key} is free and the table has to say so`,
+        );
       }
 
+      // History is never capped, in either tier — the page's trust row. An
+      // eight-week free limit was in the v2 mock and does not exist in code.
+      assert.match(table[0], /'pro\.v2\.row\.history', free: 'pro\.v2\.val\.allTime', pro: 'pro\.v2\.val\.allTime'/);
+      assert.doesNotMatch(premiumSource, /8 weeks|8 viikkoa/);
+
       // The paywall-moments rule: the detection is free, the conclusion is Pro.
-      assert.match(table[0], /\['pro\.page\.row\.plateau', 1, 1\]/);
-      assert.match(table[0], /\['pro\.page\.row\.why', 0, 1\]/);
-      assert.match(table[0], /\['pro\.page\.row\.recovery', 0, 1\]/);
-      assert.match(table[0], /\['pro\.page\.row\.analysis', 0, 1\]/);
+      assert.match(table[0], /'pro\.v2\.row\.plateau', free: 'pro\.v2\.val\.yes'/);
+      for (const key of ['why', 'recovery', 'analysis']) {
+        assert.match(table[0], new RegExp(`'pro\\.v2\\.row\\.${key}', free: null`), `${key} is the Pro conclusion`);
+      }
 
-      // DECIDE: all four are genuinely gated in the app.
-      assert.match(table[0], /\['pro\.page\.row\.adaptive', 0, 1\]/);
-      assert.match(table[0], /\['pro\.page\.row\.progression', 0, 1\]/);
-      assert.match(table[0], /\['pro\.page\.row\.builder', 0, 1\]/);
+      // Genuinely gated in the app: resolveProgressionOptions and openAiMode.
+      for (const key of ['adaptive', 'progression', 'builder', 'theme']) {
+        assert.match(table[0], new RegExp(`'pro\\.v2\\.row\\.${key}', free: null`), `${key} is Pro-gated in code`);
+      }
       // The free coach quota the table promises is implemented (aiCoachQuota).
-      assert.match(table[0], /\['pro\.page\.row\.coach', 'quota', 1\]/);
+      assert.match(table[0], /'pro\.v2\.row\.coachQ', free: 'pro\.v2\.val\.threeWeek'/);
 
-      // No trial promise anywhere on the page while billing is off.
-      assert.doesNotMatch(premiumSource, /trial|kokeilujakso/i);
-      assert.match(premiumSource, /pro\.page\.plannedNote/);
+      // Unbuilt things wear 'Soon' rather than being sold as present.
+      assert.match(table[0], /'pro\.v2\.row\.backup', free: null, pro: 'pro\.v2\.val\.soon'/);
+      assert.match(table[0], /'pro\.v2\.row\.adaptSession', free: null, pro: 'pro\.v2\.val\.soon'/);
+
+      // Claims from the v2 mock that describe things this app does not do.
+      // Checked against the copy itself, not the screen — the screen's comments
+      // name the cut features on purpose.
+      const copy = i18nSource.match(/'pro\.v2\.[\s\S]*?'pro\.v2\.footer': '[^']*'/g)?.join('\n') ?? '';
+      assert.ok(copy.length > 0, 'the pro.v2 copy block should be findable');
+      assert.doesNotMatch(copy, /watch|wrist|kello|ranteest/i, 'there is no watch app');
+      assert.doesNotMatch(copy, /several active|useita aktiivisia/i, 'only one plan can be active');
     },
   },
   {

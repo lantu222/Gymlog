@@ -78,4 +78,36 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'release: the paywall does not sell a trial the app cannot deliver',
+    run() {
+      // The Pro page advertises a 7-day free trial and a monthly price. That is
+      // deliberate and fine in a demo build (user decision 2026-08-01), and a
+      // consumer-law problem the moment it reaches a store: there is no billing,
+      // no trial, and nothing to cancel.
+      //
+      // A guard that is permanently red teaches people to ignore the suite, so
+      // this one does not fail on the demo. It fails when the two facts stop
+      // agreeing — which is exactly the release step: flip extra.demoBuild to
+      // false, and this test names what became a lie.
+      const screen = read('src/screens/PremiumScreen.tsx');
+      const advertisesTrial = /'pro\.v2\.cta'/.test(screen);
+      if (!advertisesTrial) {
+        return;
+      }
+
+      // Whatever ends up implementing purchases will name one of these.
+      const billingMarkers = ['react-native-iap', 'expo-in-app-purchases', 'revenuecat', 'purchases'];
+      const pkg = read('package.json').toLowerCase();
+      const billingExists = billingMarkers.some((marker) => pkg.includes(marker));
+      const demoBuild = readJson('app.json')?.expo?.extra?.demoBuild === true;
+
+      assert.ok(
+        billingExists || demoBuild,
+        'PremiumScreen advertises a 7-day free trial, no billing library is installed, and ' +
+          'app.json no longer declares extra.demoBuild. One of the three has to give: wire ' +
+          'billing, take the trial copy off the CTA, or admit this is still a demo.',
+      );
+    },
+  },
 ];

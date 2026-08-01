@@ -12,13 +12,16 @@ import { layout } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 
 /**
- * The Pro full page (design: GAINER Pro Page / pro-page.jsx).
+ * The Pro full page (design: GAINER Premium v2 / premium2-app.jsx).
  *
- * Structure: own-data hero → three benefits with real specimens → the Free/Pro
- * promise in one line → grouped Track/Understand/Decide table → plan select →
- * pinned CTA. Every specimen is the user's own data with an honest empty state,
- * every table cell matches what the app actually does, and the CTA is the
- * preview switch until billing exists — the planned prices are labeled planned.
+ * Structure: own-data hero → three grouped reasons → the free tier stated
+ * plainly → plan select → a free/premium table where every cell is a phrase →
+ * pinned CTA. The hero is still the user's own numbers with an honest empty
+ * state, and every claim below it was checked against the code (see the note
+ * above GROUPS).
+ *
+ * The CTA advertises a trial that does not exist. That is a demo-only decision
+ * and releaseReadiness.test.cjs holds the other end of it.
  */
 interface PremiumScreenProps {
   /** State of the on-device preview switch, which is what the CTA toggles. */
@@ -39,52 +42,105 @@ interface PremiumScreenProps {
   onOpenLegal: (document: 'privacy' | 'terms') => void;
 }
 
-type TableCell = 1 | 0 | 'quota';
+/**
+ * Every line on this page was checked against the code on 2026-08-01. Claims
+ * from the v2 mock that described things this app does not do were cut rather
+ * than shipped: a watch app, several active programs, an eight-week cap on free
+ * history, and a free tier that gets one AI build. What is left is either live
+ * or wears a SOON badge.
+ */
+const IC = {
+  spark: 'M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z',
+  clock: 'M12 21a8 8 0 100-16 8 8 0 000 16zM12 13V9M9 3h6',
+  lines: 'M4 7h16M4 12h10M4 17h7',
+  chart: 'M4 19V5M4 19h16M8 15l3-4 3 2 4-6',
+  chat: 'M20 15a3 3 0 01-3 3H8l-4 3V6a3 3 0 013-3h10a3 3 0 013 3z',
+  layers: 'M12 3l8 4.5-8 4.5-8-4.5 8-4.5zM4 12l8 4.5 8-4.5',
+  doc: 'M7 3h7l4 4v14H7zM14 3v4h4',
+  heart: 'M12 20S4 14 4 9a4 4 0 017.5-2A4 4 0 0120 9c0 5-8 11-8 11z',
+  moon: 'M20 14a8 8 0 01-10-10 8 8 0 1010 10z',
+  cloud: 'M7 18a4 4 0 010-8 5 5 0 019.6-1.4A3.5 3.5 0 1117.5 18z',
+};
 
-const TABLE: Array<{
-  bandKey: I18nKey;
-  noteKey: I18nKey;
-  notePro: boolean;
-  rows: Array<[I18nKey, TableCell, TableCell]>;
-}> = [
+interface ProItem {
+  titleKey: I18nKey;
+  bodyKey: I18nKey;
+  soon?: boolean;
+  icon: string;
+}
+
+const GROUPS: Array<{ key: string; kickerKey: I18nKey; titleKey: I18nKey; leadKey: I18nKey; items: ProItem[] }> = [
   {
-    bandKey: 'pro.page.band.track',
-    noteKey: 'pro.page.band.trackNote',
-    notePro: false,
-    rows: [
-      ['pro.page.row.logging', 1, 1],
-      ['pro.page.row.ready', 1, 1],
-      ['pro.page.row.own', 1, 1],
-      ['pro.page.row.history', 1, 1],
-      ['pro.page.row.records', 1, 1],
-      ['pro.page.row.rest', 1, 1],
+    key: 'coach',
+    kickerKey: 'pro.v2.group.coach.kicker',
+    titleKey: 'pro.v2.group.coach.title',
+    leadKey: 'pro.v2.group.coach.lead',
+    items: [
+      // adaptiveCoach.ts + progressionGate.ts; +2.5 kg is the beginner tier's
+      // real increment, not a round number chosen for the page.
+      { titleKey: 'pro.v2.coach.adaptive.t', bodyKey: 'pro.v2.coach.adaptive.b', icon: IC.spark },
+      { titleKey: 'pro.v2.coach.rest.t', bodyKey: 'pro.v2.coach.rest.b', icon: IC.clock },
+      { titleKey: 'pro.v2.coach.progression.t', bodyKey: 'pro.v2.coach.progression.b', icon: IC.chart },
+      { titleKey: 'pro.v2.coach.session.t', bodyKey: 'pro.v2.coach.session.b', soon: true, icon: IC.lines },
     ],
   },
   {
-    bandKey: 'pro.page.band.understand',
-    noteKey: 'pro.page.bandNote.pro',
-    notePro: true,
-    rows: [
-      // Detection is free — the conclusion is Pro (the paywall-moments rule).
-      ['pro.page.row.plateau', 1, 1],
-      ['pro.page.row.why', 0, 1],
-      ['pro.page.row.recovery', 0, 1],
-      ['pro.page.row.analysis', 0, 1],
-    ],
-  },
-  {
-    bandKey: 'pro.page.band.decide',
-    noteKey: 'pro.page.bandNote.pro',
-    notePro: true,
-    rows: [
-      ['pro.page.row.adaptive', 0, 1],
-      ['pro.page.row.progression', 0, 1],
-      ['pro.page.row.builder', 0, 1],
+    key: 'plan',
+    kickerKey: 'pro.v2.group.plan.kicker',
+    titleKey: 'pro.v2.group.plan.title',
+    leadKey: 'pro.v2.group.plan.lead',
+    items: [
       // The free quota is real: 3 coach questions a week (aiCoachQuota.ts).
-      ['pro.page.row.coach', 'quota', 1],
+      { titleKey: 'pro.v2.plan.coach.t', bodyKey: 'pro.v2.plan.coach.b', icon: IC.chat },
+      // Free gets none, not one — openAiMode() sends free users to this page.
+      { titleKey: 'pro.v2.plan.builder.t', bodyKey: 'pro.v2.plan.builder.b', icon: IC.layers },
+    ],
+  },
+  {
+    key: 'read',
+    kickerKey: 'pro.v2.group.read.kicker',
+    titleKey: 'pro.v2.group.read.title',
+    leadKey: 'pro.v2.group.read.lead',
+    items: [
+      { titleKey: 'pro.v2.read.analysis.t', bodyKey: 'pro.v2.read.analysis.b', icon: IC.doc },
+      { titleKey: 'pro.v2.read.why.t', bodyKey: 'pro.v2.read.why.b', icon: IC.chart },
+      { titleKey: 'pro.v2.read.recovery.t', bodyKey: 'pro.v2.read.recovery.b', icon: IC.heart },
+      { titleKey: 'pro.v2.read.theme.t', bodyKey: 'pro.v2.read.theme.b', icon: IC.moon },
+      // Not built. The privacy policy two taps away says data stays on the
+      // phone, so this cannot be a live promise — only a stated intention.
+      { titleKey: 'pro.v2.read.backup.t', bodyKey: 'pro.v2.read.backup.b', soon: true, icon: IC.cloud },
     ],
   },
 ];
+
+/** A cell is either a phrase, or a dash meaning "not in this tier". */
+type Cellv2 = I18nKey | null;
+
+const ROWS: Array<{ labelKey: I18nKey; free: Cellv2; pro: Cellv2 }> = [
+  { labelKey: 'pro.v2.row.logging', free: 'pro.v2.val.unlimited', pro: 'pro.v2.val.unlimited' },
+  { labelKey: 'pro.v2.row.ready', free: 'pro.v2.val.all', pro: 'pro.v2.val.all' },
+  { labelKey: 'pro.v2.row.own', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
+  // Never capped, in either tier. The one row that says we do not hold your
+  // own data hostage, so it is stated rather than hidden.
+  { labelKey: 'pro.v2.row.history', free: 'pro.v2.val.allTime', pro: 'pro.v2.val.allTime' },
+  { labelKey: 'pro.v2.row.records', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.guided', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.widget', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.csv', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
+  // Detection is free — the conclusion is Pro (the paywall-moments rule).
+  { labelKey: 'pro.v2.row.plateau', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.coachQ', free: 'pro.v2.val.threeWeek', pro: 'pro.v2.val.unlimited' },
+  { labelKey: 'pro.v2.row.builder', free: null, pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.adaptive', free: null, pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.progression', free: null, pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.why', free: null, pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.recovery', free: null, pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.analysis', free: null, pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.theme', free: null, pro: 'pro.v2.val.yes' },
+  { labelKey: 'pro.v2.row.adaptSession', free: null, pro: 'pro.v2.val.soon' },
+  { labelKey: 'pro.v2.row.backup', free: null, pro: 'pro.v2.val.soon' },
+];
+
 
 function fmt(value: number) {
   return removeTrailingZeros(Number(value.toFixed(1)));
@@ -161,20 +217,6 @@ function HeroChart({ chart, unitPreference }: { chart: PremiumHeroChart; unitPre
       </SvgText>
     </Svg>
   );
-}
-
-function Cell({ value, pro }: { value: TableCell; pro?: boolean }) {
-  const theme = useTheme();
-
-  const styles = useThemedStyles(makeStyles);
-
-  if (value === 1) {
-    return <CheckGlyph color={pro ? theme.purple : theme.green} />;
-  }
-  if (value === 0) {
-    return <View style={styles.cellDash} />;
-  }
-  return null;
 }
 
 function BenefitCard({
@@ -287,104 +329,50 @@ export function PremiumScreen({
           </View>
         </View>
 
-        {/* THREE BENEFITS — each with a specimen of real output */}
-        <Text style={styles.sectionLabel}>{t(language, 'pro.page.whatYouGet')}</Text>
-        <View style={styles.benefitList}>
-          <BenefitCard index={0} title={t(language, 'pro.page.b1.title')} body={t(language, 'pro.page.b1.body')}>
-            <View style={styles.specimenHead}>
-              <SparkGlyph color={theme.purple} size={13} />
-              <Text style={styles.specimenTag}>{t(language, 'pro.page.b1.tag')}</Text>
-            </View>
-            <Text style={coachSpecimen ? styles.specimenQuote : styles.specimenEmpty}>
-              {coachSpecimen ? `“${coachSpecimen}”` : t(language, 'pro.page.b1.empty')}
-            </Text>
-          </BenefitCard>
-
-          <BenefitCard index={1} title={t(language, 'pro.page.b2.title')} body={t(language, 'pro.page.b2.body')}>
-            {heroChart && lastChips.length > 0 ? (
-              <View style={styles.chipRow}>
-                {lastChips.map((weight, index) => (
-                  <View key={index} style={styles.chip}>
-                    <Text style={styles.chipText}>{fmt(weight)}</Text>
+        {/* THREE GROUPS — the reason to buy, then why the price is fair */}
+        {GROUPS.map((group) => (
+          <View key={group.key} style={styles.group}>
+            <Text style={styles.groupKicker}>{t(language, group.kickerKey)}</Text>
+            <Text style={styles.groupTitle}>{t(language, group.titleKey)}</Text>
+            <Text style={styles.groupLead}>{t(language, group.leadKey)}</Text>
+            <View style={styles.groupItems}>
+              {group.items.map((item) => (
+                <View key={item.titleKey} style={styles.itemCard}>
+                  <View style={styles.itemIcon}>
+                    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d={item.icon}
+                        stroke={theme.purple}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
                   </View>
-                ))}
-                <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                  <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-                <View style={[styles.chip, styles.chipNext]}>
-                  <Text style={styles.chipNextText}>{fmt(heroChart.projectedNext)}</Text>
-                </View>
-                <View style={styles.chipDelta}>
-                  <Text style={styles.chipDeltaText}>{`+${chartStep}`}</Text>
-                </View>
-              </View>
-            ) : (
-              <Text style={styles.specimenEmpty}>{t(language, 'pro.page.b2.empty')}</Text>
-            )}
-          </BenefitCard>
-
-          <BenefitCard index={2} title={t(language, 'pro.page.b3.title')} body={t(language, 'pro.page.b3.body')}>
-            <View style={styles.weekRow}>
-              {['M', 'T', 'K', 'T', 'P', 'L', 'S'].map((label, index) => (
-                <View key={index} style={styles.weekCol}>
-                  <View
-                    style={[styles.weekBar, trainingDayIndexes.includes(index) && styles.weekBarActive]}
-                  />
-                  <Text style={styles.weekLabel}>{label}</Text>
-                </View>
-              ))}
-            </View>
-          </BenefitCard>
-        </View>
-
-        {/* THE PROMISE — the whole pitch in two lines */}
-        <View style={styles.promise}>
-          <View style={styles.promiseFree}>
-            <Text style={styles.promiseFreeLabel}>{t(language, 'pro.page.promiseFree')}</Text>
-            <Text style={styles.promiseFreeLine}>{t(language, 'pro.page.promiseFreeLine')}</Text>
-          </View>
-          <View style={styles.promisePro}>
-            <Text style={styles.promiseProLabel}>{t(language, 'pro.page.promisePro')}</Text>
-            <Text style={styles.promiseProLine}>{t(language, 'pro.page.promiseProLine')}</Text>
-          </View>
-        </View>
-
-        {/* GROUPED TABLE — verbs, not feature names */}
-        <Text style={styles.sectionLabel}>{t(language, 'pro.page.whereLine')}</Text>
-        <View style={styles.table}>
-          <View style={styles.tableHeadRow}>
-            <View style={styles.tableLabelCol} />
-            <Text style={styles.tableHeadFree}>{t(language, 'pro.page.colFree')}</Text>
-            <Text style={styles.tableHeadPro}>{t(language, 'pro.page.colPro')}</Text>
-          </View>
-          {TABLE.map((band) => (
-            <View key={band.bandKey}>
-              <View style={styles.bandRow}>
-                <Text style={styles.bandLabel}>{t(language, band.bandKey)}</Text>
-                <View style={[styles.bandNote, band.notePro ? styles.bandNotePro : styles.bandNoteFree]}>
-                  <Text style={[styles.bandNoteText, band.notePro ? styles.bandNoteTextPro : styles.bandNoteTextFree]}>
-                    {t(language, band.noteKey)}
-                  </Text>
-                </View>
-              </View>
-              {band.rows.map(([labelKey, freeCell, proCell]) => (
-                <View key={labelKey} style={styles.tableRow}>
-                  <Text style={styles.tableRowLabel}>{t(language, labelKey)}</Text>
-                  <View style={styles.tableCell}>
-                    {freeCell === 'quota' ? (
-                      <Text style={styles.quotaText}>{t(language, 'pro.page.coachQuota')}</Text>
-                    ) : (
-                      <Cell value={freeCell} />
-                    )}
-                  </View>
-                  <View style={styles.tableCell}>
-                    <Cell value={proCell} pro />
+                  <View style={styles.itemCopy}>
+                    <View style={styles.itemTitleRow}>
+                      <Text style={styles.itemTitle}>{t(language, item.titleKey)}</Text>
+                      {item.soon ? (
+                        <View style={styles.soonPill}>
+                          <Text style={styles.soonPillText}>{t(language, 'pro.v2.soon')}</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={styles.itemBody}>{t(language, item.bodyKey)}</Text>
                   </View>
                 </View>
               ))}
             </View>
-          ))}
-          <Text style={styles.tableFoot}>{t(language, 'pro.page.tableFoot')}</Text>
+          </View>
+        ))}
+
+        {/* Free stated plainly, before the price — trust first. */}
+        <View style={styles.freeCard}>
+          <View style={styles.freeHead}>
+            <CheckGlyph color={theme.green} />
+            <Text style={styles.freeTitle}>{t(language, 'pro.v2.free.title')}</Text>
+          </View>
+          <Text style={styles.freeBody}>{t(language, 'pro.v2.free.body')}</Text>
         </View>
 
         {/* PLAN — planned prices, labeled planned */}
@@ -427,25 +415,62 @@ export function PremiumScreen({
             );
           })}
         </View>
-        <Text style={styles.reassure}>{t(language, 'pro.page.reassure')}</Text>
+        {/* COMPARE — every cell is a phrase, not a tick nobody can read */}
+        <Text style={styles.sectionLabel}>{t(language, 'pro.v2.compare')}</Text>
+        <View style={styles.table}>
+          <View style={styles.tableHeadRow}>
+            <View style={styles.tableLabelCol} />
+            <Text style={styles.tableHeadFree}>{t(language, 'pro.page.colFree')}</Text>
+            <Text style={styles.tableHeadPro}>{t(language, 'pro.page.colPro')}</Text>
+          </View>
+          {ROWS.map((row, index) => (
+            <View
+              key={row.labelKey}
+              style={[styles.tableRow, index === ROWS.length - 1 && styles.tableRowLast]}
+            >
+              <Text style={styles.tableRowLabel}>{t(language, row.labelKey)}</Text>
+              <View style={styles.tableCell}>
+                {row.free ? (
+                  <Text style={styles.cellFree}>{t(language, row.free)}</Text>
+                ) : (
+                  <View style={styles.cellDash} />
+                )}
+              </View>
+              <View style={styles.tableCell}>
+                {row.pro ? (
+                  <Text style={row.pro === 'pro.v2.val.soon' ? styles.cellSoon : styles.cellPro}>
+                    {t(language, row.pro)}
+                  </Text>
+                ) : (
+                  <View style={styles.cellDash} />
+                )}
+              </View>
+            </View>
+          ))}
+        </View>
+        <Text style={styles.tableFoot}>{t(language, 'pro.v2.footer')}</Text>
+
       </ScrollView>
 
-      {/* PINNED CTA — the honest one: the preview switch until billing exists */}
+      {/*
+        PINNED CTA. This button does not sell anything — billing does not exist.
+        It is here because this is a demo build (user decision 2026-08-01) and
+        the preview switch that used to live here read as a broken feature.
+
+        releaseReadiness.test.cjs fails while this copy is present and billing
+        still is not, so the demo cannot become the release by forgetting.
+      */}
       <View style={styles.ctaBar}>
-        {promoOnly ? (
-          <Text style={styles.promoNote}>{t(language, 'pro.page.promoNote')}</Text>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            onPress={onTogglePreview}
-            style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
-          >
-            <Text style={styles.ctaButtonText}>
-              {t(language, previewUnlocked ? 'pro.page.previewCtaOn' : 'pro.page.previewCtaOff')}
-            </Text>
-          </Pressable>
-        )}
-        <Text style={styles.ctaFine}>{t(language, 'pro.page.plannedNote')}</Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onTogglePreview}
+          style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.ctaButtonText}>{t(language, 'pro.v2.cta')}</Text>
+        </Pressable>
+        <Text style={styles.ctaFine}>
+          {t(language, plan === 'yearly' ? 'pro.v2.ctaSubYearly' : 'pro.v2.ctaSubMonthly')}
+        </Text>
         <View style={styles.legalRow}>
           <Pressable accessibilityRole="button" onPress={() => onOpenLegal('terms')} hitSlop={8}>
             <Text style={styles.legalText}>{t(language, 'pro.page.terms')}</Text>
@@ -873,6 +898,135 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 2,
     borderRadius: 2,
     backgroundColor: theme.faint,
+  },
+  cellFree: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.muted,
+    textAlign: 'center',
+  },
+  cellPro: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: theme.purple,
+    textAlign: 'center',
+  },
+  // Soon is deliberately quiet: it is a plan, not a feature you are buying.
+  cellSoon: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.faint,
+    textAlign: 'center',
+  },
+  group: {
+    marginTop: 24,
+  },
+  groupKicker: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: theme.purple,
+  },
+  groupTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    color: theme.ink,
+    marginTop: 6,
+    lineHeight: 24,
+  },
+  groupLead: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: theme.muted,
+    marginTop: 5,
+    lineHeight: 19,
+  },
+  groupItems: {
+    gap: 9,
+    marginTop: 13,
+  },
+  itemCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  itemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: theme.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  itemTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  itemTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: theme.ink,
+    flexShrink: 1,
+  },
+  soonPill: {
+    paddingVertical: 2,
+    paddingHorizontal: 7,
+    borderRadius: 999,
+    backgroundColor: theme.surfaceSoft,
+  },
+  soonPillText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    color: theme.muted,
+  },
+  itemBody: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: theme.muted,
+    marginTop: 3,
+    lineHeight: 18.5,
+  },
+  freeCard: {
+    marginTop: 24,
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 18,
+    paddingVertical: 15,
+    paddingHorizontal: 16,
+  },
+  freeHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  freeTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: theme.ink,
+  },
+  freeBody: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: theme.muted,
+    marginTop: 6,
+    lineHeight: 19,
+  },
+  tableRowLast: {
+    borderBottomWidth: 0,
   },
   quotaText: {
     fontSize: 11,
