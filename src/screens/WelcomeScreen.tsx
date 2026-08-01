@@ -18,19 +18,13 @@ const MUTED = '#667085';
 const BORDER = '#E4D8FF';
 const PURPLE = '#7C3AED';
 const PURPLE_DARK = '#5B21B6';
+const FAINT = '#9A93AC';
 
 interface WelcomeScreenProps {
   language: AppLanguage;
   onChangeLanguage?: (language: AppLanguage) => void;
   onContinue: () => void;
-  onSignIn?: () => void;
 }
-
-const FEATURES = [
-  { icon: 'dumbbell', titleKey: 'welcome.feature.plans.title', bodyKey: 'welcome.feature.plans.body' },
-  { icon: 'trend', titleKey: 'welcome.feature.adaptive.title', bodyKey: 'welcome.feature.adaptive.body' },
-  { icon: 'heart', titleKey: 'welcome.feature.recovery.title', bodyKey: 'welcome.feature.recovery.body' },
-] as const;
 
 function GoogleMark() {
   return (
@@ -63,29 +57,7 @@ function AppleMark() {
   );
 }
 
-function FeatureIcon({ name }: { name: (typeof FEATURES)[number]['icon'] }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      {name === 'dumbbell' ? (
-        <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={PURPLE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      ) : null}
-      {name === 'trend' ? (
-        <Path d="M4 18l5-6 4 3 7-9" stroke={PURPLE} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-      ) : null}
-      {name === 'heart' ? (
-        <Path
-          d="M12 20s-7-4.5-7-9a4 4 0 017-2.5A4 4 0 0119 11c0 4.5-7 9-7 9z"
-          stroke={PURPLE}
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      ) : null}
-    </Svg>
-  );
-}
-
-export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn }: WelcomeScreenProps) {
+export function WelcomeScreen({ language, onChangeLanguage, onContinue }: WelcomeScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
@@ -151,25 +123,16 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn
         </View>
       ) : null}
 
-      <View style={styles.hero}>
+      {/* Same slot as the splash's, so the mark does not move when the one
+          hands over to the other. */}
+      <View style={styles.markSlot}>
         {/* No 'app' tag here: the splash carried it, and it left. */}
-        <VinhaWordmark size={54} fontFamily={fontFamily} />
-        <Text style={[styles.tagline, { fontFamily }]}>{t(language, 'welcome.tagline')}</Text>
+        <VinhaWordmark size={62} fontFamily={fontFamily} />
       </View>
 
-      <Animated.View style={{ opacity: actionOpacity, transform: [{ translateY: actionTranslateY }] }}>
-        <View style={styles.featureRow}>
-          {FEATURES.map((feature) => (
-            <View key={feature.titleKey} style={styles.featureItem}>
-              <View style={styles.featureIconRing}>
-                <FeatureIcon name={feature.icon} />
-              </View>
-              <Text style={[styles.featureTitle, { fontFamily }]}>{t(language, feature.titleKey)}</Text>
-              <Text style={[styles.featureBody, { fontFamily }]}>{t(language, feature.bodyKey)}</Text>
-            </View>
-          ))}
-        </View>
-
+      <Animated.View
+        style={[styles.actions, { opacity: actionOpacity, transform: [{ translateY: actionTranslateY }] }]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(language, 'welcome.continueGoogle')}
@@ -190,29 +153,7 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn
           <Text style={[styles.providerLabel, { fontFamily }]}>{t(language, 'welcome.continueApple')}</Text>
         </Pressable>
 
-        <View style={styles.dividerRow}>
-          <View style={styles.dividerLine} />
-          <Text style={[styles.dividerText, { fontFamily }]}>{t(language, 'welcome.or')}</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'welcome.signUpEmail')}
-          onPress={onContinue}
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-        >
-          <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'welcome.signUpEmail')}</Text>
-        </Pressable>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'welcome.haveAccount')}
-          onPress={onSignIn ?? onContinue}
-          style={({ pressed }) => [styles.signInLink, pressed && styles.signInLinkPressed]}
-        >
-          <Text style={[styles.signInText, { fontFamily }]}>{t(language, 'welcome.haveAccount')}</Text>
-        </Pressable>
+        <Text style={[styles.tagline, { fontFamily }]}>{t(language, 'brand.tagline')}</Text>
       </Animated.View>
     </View>
   );
@@ -257,12 +198,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.bg,
     paddingHorizontal: 24,
   },
-  hero: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
   logoRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -279,48 +214,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   logoPurple: {
     color: PURPLE,
   },
+  markSlot: {
+    position: 'absolute',
+    top: 201,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  actions: {
+    marginTop: 'auto',
+  },
+  // The design's tagline is a quiet footer, not a headline: small, tracked
+  // out, and the last thing you read rather than the second.
   tagline: {
-    color: INK,
-    fontSize: 18,
-    lineHeight: 25,
+    color: FAINT,
+    fontSize: 12.5,
     fontWeight: '700',
-    textAlign: 'center',
-  },
-  featureRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
-  },
-  featureItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 8,
-  },
-  featureIconRing: {
-    width: 52,
-    height: 52,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: '#C9B6FF',
-    backgroundColor: SURFACE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  featureTitle: {
-    color: PURPLE_DARK,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.66,
+    letterSpacing: 2.7,
     textTransform: 'uppercase',
     textAlign: 'center',
-  },
-  featureBody: {
-    color: INK,
-    fontSize: 12.5,
-    lineHeight: 17,
-    fontWeight: '700',
-    textAlign: 'center',
+    marginTop: 22,
   },
   providerButton: {
     height: 54,
@@ -342,59 +255,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: INK,
     fontSize: 15.5,
     fontWeight: '800',
-  },
-  dividerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 4,
-    marginBottom: 14,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#D6C7F2',
-  },
-  dividerText: {
-    color: INK,
-    fontSize: 12.5,
-    fontWeight: '800',
-  },
-  cta: {
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: PURPLE,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: PURPLE,
-    shadowOpacity: 0.32,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 10,
-  },
-  ctaPressed: {
-    opacity: 0.92,
-    transform: [{ scale: 0.98 }],
-  },
-  ctaLabel: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: 0.17,
-  },
-  signInLink: {
-    alignSelf: 'center',
-    marginTop: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  signInLinkPressed: {
-    opacity: 0.7,
-  },
-  signInText: {
-    color: INK,
-    fontSize: 14.5,
-    fontWeight: '700',
-    textAlign: 'center',
   },
 });

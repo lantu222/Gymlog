@@ -48,11 +48,14 @@ module.exports = [
       assert.match(componentSource, /outputRange: \[1, 0\.98\]/);
       assert.match(componentSource, /outputRange: \[1, 0\.92\]/);
 
-      // Redesigned welcome renders its own local flat CTA (email sign-up).
-      // Copy moved to the i18n dictionary; the screen renders it via t().
+      // Welcome no longer has a local CTA of its own: the Vinha design cut the
+      // email sign-up, the feature row and the account link, leaving the two
+      // providers and the tagline (2026-08-01). It still must not reach for
+      // PrimaryCTAButton — that one belongs to onboarding.
       assert.doesNotMatch(welcomeSource, /PrimaryCTAButton/);
-      assert.match(welcomeSource, /t\(language, 'welcome\.signUpEmail'\)/);
-      assert.match(welcomeSource, /backgroundColor: PURPLE/);
+      assert.doesNotMatch(welcomeSource, /welcome\.signUpEmail/);
+      assert.doesNotMatch(welcomeSource, /welcome\.haveAccount/);
+      assert.doesNotMatch(welcomeSource, /welcome\.feature\./);
     },
   },
 ];

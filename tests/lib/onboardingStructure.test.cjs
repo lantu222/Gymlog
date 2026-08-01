@@ -431,7 +431,12 @@ module.exports = [
       // The old Welcome CTA is gone. Scoped to a welcome.* value on purpose:
       // "Start free" is legitimate prose on the access-choice screen.
       assert.doesNotMatch(i18nSource, /'welcome\.[^']*': '[^']*Start free/);
-      assert.match(welcomeSource, /t\(language, 'welcome\.tagline'\)/);
+      // The Vinha design stripped Welcome back to the mark, the two providers
+      // and a quiet tagline (2026-08-01) — the feature row, the email CTA and
+      // the account link were cut on purpose, so the screen no longer renders
+      // welcome.tagline as a headline. brand.tagline is the footer now.
+      assert.match(welcomeSource, /t\(language, 'brand\.tagline'\)/);
+      assert.match(welcomeSource, /<VinhaWordmark/);
       assert.match(welcomeSource, /t\(language, 'welcome\.continueGoogle'\)/);
       assert.match(welcomeSource, /SUPPORTED_LANGUAGES/);
       // Reads the theme rather than copying a value: a local hex silently
