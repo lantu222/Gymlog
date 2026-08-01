@@ -181,7 +181,7 @@ const LAYOUT_XML = `<?xml version="1.0" encoding="utf-8"?>
             android:textStyle="bold"
             android:letterSpacing="0.16"
             android:textColor="${DARK.mark}"
-            android:text="GAINER" />
+            android:text="VINHA" />
         <TextView
             android:id="@+id/widget_plan_name"
             android:layout_width="0dp"

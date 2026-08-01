@@ -7,7 +7,7 @@ import { useTheme } from '../theming';
  * The Home greeting, revealed one word at a time.
  *
  * Each word rises and fades in on a short stagger, and any occurrence of
- * "GAINER" gets the brand's purple "AI" treatment — the same three letters the
+ * "Vinha" gets the brand's purple "AI" treatment — the same three letters the
  * logo colours, so the word reads the same wherever it appears.
  *
  * Words, not letters: a per-letter stagger on a Finnish greeting means thirty
@@ -21,7 +21,7 @@ import { useTheme } from '../theming';
 interface AnimatedGreetingProps {
   text: string;
   style?: StyleProp<TextStyle>;
-  /** Colour for the "AI" inside GAINER. */
+  /** Colour for the "AI" inside Vinha. */
   accentColor?: string;
   /** Milliseconds between consecutive words. */
   staggerMs?: number;
@@ -40,12 +40,12 @@ interface AnimatedGreetingProps {
   minimumFontScale?: number;
 }
 
-const BRAND = 'GAINER';
+const BRAND = 'Vinha';
 
 /** How long a single word takes to arrive, independent of the stagger. */
 const WORD_DURATION_MS = 420;
 
-/** "GAINER" → G + AI (accented) + NER, so the logo's colour break survives. */
+/** "Vinha" → G + AI (accented) + NER, so the logo's colour break survives. */
 function renderBrandWord(word: string, accentColor: string, key: string) {
   const at = word.toUpperCase().indexOf(BRAND);
   if (at === -1) {

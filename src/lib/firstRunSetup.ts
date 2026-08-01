@@ -53,7 +53,7 @@ export interface FirstRunSetupSelection {
   cautionFlags?: SetupCautionFlag[];
   guidanceMode: SetupGuidanceMode;
   scheduleMode: SetupScheduleMode;
-  /** Plan-review toggle: GAINER manages weekly progression automatically. */
+  /** Plan-review toggle: Vinha manages weekly progression automatically. */
   automatedProgression?: boolean;
   weeklyMinutes?: number | null;
   availableDays: SetupWeekday[];
@@ -277,7 +277,7 @@ export function getScheduleModeLabel(mode: SetupScheduleMode, language: AppLangu
 export function getScheduleModeDescription(mode: SetupScheduleMode) {
   switch (mode) {
     case 'app_managed':
-      return 'GAINER places the week.';
+      return 'Vinha places the week.';
     case 'self_managed':
       return 'You pick the days.';
     default:
@@ -528,7 +528,7 @@ function buildSchedulePromptFragment(selection: FirstRunSetupSelection) {
   fragments.push(
     scheduleMode === 'self_managed'
       ? 'I want to manage the training days myself'
-      : 'I am happy to let GAINER place the weekly rhythm for me',
+      : 'I am happy to let Vinha place the weekly rhythm for me',
   );
 
   if (typeof selection.weeklyMinutes === 'number' && selection.weeklyMinutes > 0) {
@@ -545,9 +545,9 @@ function buildSchedulePromptFragment(selection: FirstRunSetupSelection) {
 function buildGuidancePromptFragment(mode: SetupGuidanceMode) {
   switch (mode) {
     case 'done_for_me':
-      return 'GAINER to keep the path simple and mostly done for me';
+      return 'Vinha to keep the path simple and mostly done for me';
     case 'guided_editable':
-      return 'GAINER to recommend the path but still leave room to edit';
+      return 'Vinha to recommend the path but still leave room to edit';
     case 'self_directed':
       return 'a strong starting point before I build my own split';
     default:
@@ -578,7 +578,7 @@ function buildLowEquipmentMismatchNote(selection: FirstRunSetupSelection) {
   const base =
     selection.daysPerWeek === 2
       ? 'You picked a lighter equipment setup, so this is the cleanest low-equipment starting point.'
-      : 'You picked a lighter equipment setup, so GAINER recommends the closest low-equipment starting point even though the weekly rhythm is lighter than your target.';
+      : 'You picked a lighter equipment setup, so Vinha recommends the closest low-equipment starting point even though the weekly rhythm is lighter than your target.';
 
   return selection.guidanceMode === 'self_directed'
     ? `${base} You can still use it as the base for your own custom split.`
@@ -601,8 +601,8 @@ function buildRecommendationMismatchNote(
   if (selection.goal === 'run_mobility' && featuredProgramId === PROGRAM_IDS.runMobility && selection.daysPerWeek > featuredDays) {
     const secondaryName = secondaryProgramId ? getWorkoutTemplateById(secondaryProgramId)?.name ?? null : null;
     return secondaryName
-      ? `GAINER's closest match is a 3-day run + mobility split. Add a ${secondaryName} session as an optional 4th day if you want extra conditioning.`
-      : "GAINER's closest match is a 3-day run + mobility split.";
+      ? `Vinha's closest match is a 3-day run + mobility split. Add a ${secondaryName} session as an optional 4th day if you want extra conditioning.`
+      : "Vinha's closest match is a 3-day run + mobility split.";
   }
 
   if (selection.equipment !== 'gym' && featuredDefinition?.equipmentTier === 'low_equipment') {
@@ -610,7 +610,7 @@ function buildRecommendationMismatchNote(
   }
 
   if (featuredDays !== selection.daysPerWeek) {
-    return `GAINER's closest match keeps this start at ${featuredDays} days so the week stays coherent.`;
+    return `Vinha's closest match keeps this start at ${featuredDays} days so the week stays coherent.`;
   }
 
   return buildTailoringRecommendationNote(tailoringPreferences);

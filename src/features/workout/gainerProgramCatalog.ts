@@ -1,14 +1,14 @@
 import type { WorkoutSubstitutionGroup, WorkoutTemplateV1 } from './workoutTypes';
 import type { RecommendationProgramDefinition } from '../../types/recommendation';
 
-const GAINER_PROGRESSION_RULES = {
+const Vinha_PROGRESSION_RULES = {
   primary: "Use double progression on anchor lifts. Add load after the top of the rep range is repeatable with clean form.",
   secondary: "Progress secondary lifts by adding reps first, then load once the range is stable across working sets.",
   accessory: "Keep accessories controlled. Add reps before load and avoid form breakdown near fatigue.",
   failureHandling: "If repsMin is missed, repeat the load next time. If it happens twice, reduce load 5-10% and rebuild.",
 } as const;
 
-export const GAINER_PROGRAM_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
+export const Vinha_PROGRAM_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: "gainer_arms", allowedExerciseNames: ["Barbell Bench Press", "Barbell Curl", "Barbell Row", "Bench Press", "Bicep Curl", "Cable Bicep Curl", "Cable Curl", "Cable Hammer Curl", "Cable Triceps Extension", "Cable Triceps Kickback", "Cable Triceps Pushdown", "Chin-Up", "Close-Grip Bench Press", "Competition Bench Press", "Diamond Push-Up", "Dumbbell Bicep Curl", "Dumbbell Floor Press", "Hammer Curl", "Incline Dumbbell Curl", "Inverted Row (Table)", "Lat Pulldown", "Leg Curl", "Lying Leg Curl", "Machine Chest Press", "Muscle-Up Progression (Negative)", "Nordic Hamstring Curl (Assisted)", "Overhead Press", "Overhead Triceps Extension", "Paused Bench Press", "Pike Push-Up", "Pike Push-Up (Elevated)", "Preacher Curl", "Pull-Up", "Push Press", "Push-Up", "Push-Up (20s on / 10s off)", "Push-Up (or Knee Push-Up)", "Reverse Wrist Curl", "Rope Pushdown", "Rows (Bar or Rings)", "Seated Dumbbell Press", "Seated Leg Curl", "Skull Crusher", "Standing Overhead Press", "Triceps Dip (Chair)", "Triceps Kickback", "Triceps Pushdown", "Wall Push-Up", "Weighted Dips", "Weighted Pull-Up", "Wrist Curl"] },
   { id: "gainer_bodyweight", allowedExerciseNames: ["Box Breathing", "Cat-Cow", "Cobra to Down Dog Flow", "Cone Drill (Pro Agility)", "Heel-to-Toe Walk", "High Knees", "Hip Circles", "Jumping Jack", "Pelvic Floor Activation (Kegel)", "Sprint 40m", "Sprint Interval (200m)", "Standing Side Bend", "Vacuum (Stomach)"] },
   { id: "gainer_calves", allowedExerciseNames: ["Calf Raise", "Pogo Hops", "Seated Calf Raise", "Single-Leg Calf Raise", "Standing Calf Raise"] },
@@ -24,7 +24,7 @@ export const GAINER_PROGRAM_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: "gainer_warmup", allowedExerciseNames: ["Dynamic Warm-Up", "Joint Prep Flow", "Mobility Warm-Up"] },
 ];
 
-export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
+export const Vinha_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
   {
     id: "tpl_gainer_dream_body_man_v1",
     name: "Dream Body Man",
@@ -35,7 +35,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 70,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "day_1_chest_triceps", name: "Day 1: Chest & Triceps", orderIndex: 1, exercises: [
         { id: "day_1_chest_triceps_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -104,7 +104,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 55,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "day_1_chest", name: "Day 1: Chest", orderIndex: 1, exercises: [
         { id: "day_1_chest_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -155,7 +155,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 70,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "push_a_chest_focus", name: "Push A: Chest Focus", orderIndex: 1, exercises: [
         { id: "push_a_chest_focus_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -235,7 +235,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 80,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "bench_day", name: "Bench Day", orderIndex: 1, exercises: [
         { id: "bench_day_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -300,7 +300,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 60,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "upper_push_hiit", name: "Upper Push + HIIT", orderIndex: 1, exercises: [
         { id: "upper_push_hiit_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -364,7 +364,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 60,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "glutes_hamstrings", name: "Glutes & Hamstrings", orderIndex: 1, exercises: [
         { id: "glutes_hamstrings_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -430,7 +430,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 50,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "glute_activation", name: "Glute Activation", orderIndex: 1, exercises: [
         { id: "glute_activation_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -473,7 +473,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 65,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "heavy_glutes_strength", name: "Heavy Glutes (Strength)", orderIndex: 1, exercises: [
         { id: "heavy_glutes_strength_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -534,7 +534,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 60,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "glutes_legs", name: "Glutes & Legs", orderIndex: 1, exercises: [
         { id: "glutes_legs_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -587,7 +587,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 35,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "upper_body_hiit", name: "Upper Body HIIT", orderIndex: 1, exercises: [
         { id: "upper_body_hiit_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -637,7 +637,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 30,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "morning_mobility_full_body", name: "Morning Mobility (Full Body)", orderIndex: 1, exercises: [
         { id: "morning_mobility_full_body_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -701,7 +701,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 35,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "upper_body_bodyweight", name: "Upper Body Bodyweight", orderIndex: 1, exercises: [
         { id: "upper_body_bodyweight_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -743,7 +743,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 65,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "push_handstand_planche_progressions", name: "Push: Handstand & Planche Progressions", orderIndex: 1, exercises: [
         { id: "push_handstand_planche_progressions_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -797,7 +797,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 50,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "workout_a", name: "Workout A", orderIndex: 1, exercises: [
         { id: "workout_a_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -825,7 +825,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 65,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "explosive_lower", name: "Explosive Lower", orderIndex: 1, exercises: [
         { id: "explosive_lower_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -889,7 +889,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 60,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "upper_body_strength", name: "Upper Body Strength", orderIndex: 1, exercises: [
         { id: "upper_body_strength_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -942,7 +942,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 40,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "lower_body_supported", name: "Lower Body (Supported)", orderIndex: 1, exercises: [
         { id: "lower_body_supported_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -987,7 +987,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 35,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "gentle_strength", name: "Gentle Strength", orderIndex: 1, exercises: [
         { id: "gentle_strength_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -1031,7 +1031,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 35,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "core_reconnection", name: "Core Reconnection", orderIndex: 1, exercises: [
         { id: "core_reconnection_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -1075,7 +1075,7 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     estimatedSessionDuration: 50,
     progressionModel: 'double_progression',
     defaultScheduleMode: 'rolling_sequence',
-    progressionRules: GAINER_PROGRESSION_RULES,
+    progressionRules: Vinha_PROGRESSION_RULES,
     sessions: [
       { id: "posterior_chain_power", name: "Posterior Chain & Power", orderIndex: 1, exercises: [
         { id: "posterior_chain_power_dynamic_warm_up", exerciseName: "Dynamic Warm-Up", slotId: "warmup_gainer_warmup_0", role: "accessory", progressionPriority: "low", trackingMode: "bodyweight", sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: "gainer_warmup" },
@@ -1112,11 +1112,11 @@ export const GAINER_WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
   },
 ];
 
-type GainerRecommendationConfig = Omit<RecommendationProgramDefinition, 'daysPerWeek' | 'estimatedSessionMinutes'> & {
+type VinhaRecommendationConfig = Omit<RecommendationProgramDefinition, 'daysPerWeek' | 'estimatedSessionMinutes'> & {
   targetGender: RecommendationProgramDefinition['targetGender'];
 };
 
-export const GAINER_PROGRAM_RECOMMENDATIONS: GainerRecommendationConfig[] = [
+export const Vinha_PROGRAM_RECOMMENDATIONS: VinhaRecommendationConfig[] = [
   {
     programId: 'tpl_gainer_dream_body_man_v1',
     familyId: 'mass_hypertrophy',

@@ -3907,7 +3907,7 @@ export function OnboardingScreen({
               onPress={() => toggleRecommendationRefinement('custom')}
             />
             <ChoiceChip
-              label="GAINER AI"
+              label="Vinha AI"
               active={activeRecommendationRefinement === 'ai'}
               onPress={() => toggleRecommendationRefinement('ai')}
             />

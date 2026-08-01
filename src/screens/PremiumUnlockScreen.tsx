@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, Path, Polyline, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+import { VinhaWordmark } from '../components/VinhaWordmark';
 import { I18nKey, t } from '../lib/i18n';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -9,7 +10,7 @@ import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
 /**
- * What happens the moment Premium turns on (design: GAINER Premium Unlock).
+ * What happens the moment Premium turns on (design: Vinha Premium Unlock).
  *
  * No confetti, no trophy, no mascot. The celebration is the product switching
  * on: the wordmark locks in, then the thing they actually bought — the
@@ -148,7 +149,7 @@ function Moment({ language, reduceMotion }: { language: AppLanguage; reduceMotio
       />
 
       <Animated.View style={[styles.momentCopy, { opacity: rise, transform: [{ translateY: riseY }] }]}>
-        <Text style={styles.momentMark}>GAINER</Text>
+        <VinhaWordmark size={40} color="#FFFFFF" accentColor={PW.sheetLavender} />
         <Text style={styles.momentTier}>{t(language, 'unlock.premium')}</Text>
         <Text style={styles.momentLine}>{t(language, 'unlock.coachOn')}</Text>
         <Text style={styles.momentSub}>{t(language, 'unlock.coachOnSub')}</Text>

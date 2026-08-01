@@ -152,7 +152,7 @@ export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: He
     <View style={[styles.screen, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 14 }]}>
       <View style={styles.content}>
         <View style={styles.tileRow}>
-          <View style={[styles.appTile, styles.appTileGainer]}>
+          <View style={[styles.appTile, styles.appTileVinha]}>
             <Image
               source={require('../../assets/branding/gainer-app-icon.png')}
               style={styles.appTileLogoImage}
@@ -236,7 +236,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  appTileGainer: {
+  appTileVinha: {
     backgroundColor: '#0B0B0E',
     borderWidth: 2,
     borderColor: '#C9B6FF',

@@ -36,7 +36,7 @@ import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
-// The Home Pro sheet is gone (design: GAINER Paywall Moments): contextual
+// The Home Pro sheet is gone (design: Vinha Paywall Moments): contextual
 // sheets belong to the moments, and the comparison table lives on the ONE full
 // Pro page. The PRO pill now opens that page directly.
 

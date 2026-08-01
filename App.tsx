@@ -119,6 +119,7 @@ import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { PremiumUnlockScreen } from './src/screens/PremiumUnlockScreen';
+import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { SettingsScreen } from './src/screens/SettingsScreen';
 import { MyDataScreen } from './src/screens/MyDataScreen';
@@ -763,6 +764,10 @@ function GymlogApp() {
   );
   const [minimumSplashElapsed, setMinimumSplashElapsed] = useState(false);
   const [nativeSplashHidden, setNativeSplashHidden] = useState(false);
+  // The brand animation plays once per cold start, after the native splash has
+  // handed over. It is skipped entirely until the app is ready, so it never
+  // becomes the thing hiding a slow start.
+  const [brandSplashDone, setBrandSplashDone] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   // Keep the cue utilities in sync with the user's preferences, so every call
@@ -979,10 +984,10 @@ function GymlogApp() {
           resolveProgressionOptions(nextPreferences),
         );
         navigateToGuidedWorkout(persistedTemplateId);
-        showToast(shouldRegenerate ? 'GAINER AI plan ready' : 'GAINER AI next workout loaded');
+        showToast(shouldRegenerate ? 'Vinha AI plan ready' : 'Vinha AI next workout loaded');
       });
     } catch (error) {
-      console.error('Failed to open GAINER AI workout flow', error);
+      console.error('Failed to open Vinha AI workout flow', error);
       showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
       navigate({
         tab: 'home',
@@ -1557,7 +1562,7 @@ function GymlogApp() {
         navigate({
           tab: 'workout',
           screen: 'editor',
-          prefillName: action.prefillName ?? (prompt.trim() ? 'GAINER AI custom workout' : undefined),
+          prefillName: action.prefillName ?? (prompt.trim() ? 'Vinha AI custom workout' : undefined),
         });
         return;
 
@@ -1927,7 +1932,7 @@ function GymlogApp() {
     }
 
     await updatePreferences(patch);
-    showToast(nextMode === 'app_managed' ? 'GAINER manages the week' : 'You manage the days');
+    showToast(nextMode === 'app_managed' ? 'Vinha manages the week' : 'You manage the days');
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
@@ -2855,7 +2860,7 @@ function GymlogApp() {
   const programsExploreItems = useMemo<ProgramsExploreItem[]>(
     () => {
       // Curated Explore row: one card per program family (goal-first naming),
-      // mixing the rebranded catalog with the Gainer identity programs.
+      // mixing the rebranded catalog with the Vinha identity programs.
       const exploreIds = [
         'tpl_3_day_push_pull_legs_v1', // HUGE
         'tpl_3_day_strength_base_v1', // STRONG
@@ -3474,7 +3479,7 @@ function GymlogApp() {
           workoutSessions={workoutSessions}
           activityCalendar={homeSummary.streak.calendar}
           // Same source the Training plan screen edits, so the calendar cannot
-          // disagree with the schedule the user set. Empty when GAINER places
+          // disagree with the schedule the user set. Empty when Vinha places
           // the week, and then nothing is ever called missed.
           trainingDays={preferences.setupAvailableDays}
           rhythm={progressTrainingRhythm}
@@ -4117,6 +4122,21 @@ function GymlogApp() {
   // so the status bar joins it instead of sitting above it as a light strip.
   const historySessionActive = route.tab === 'home' && route.screen === 'session';
   const progressActive = route.tab === 'progress';
+
+  // The brand animation, once per cold start. It sits outside AppShell's
+  // status-bar plumbing on purpose: it is a full-bleed field, and it must not
+  // be the reason a slow start looks slower, so it only plays once everything
+  // it would otherwise be covering is already there.
+  if (!brandSplashDone) {
+    return (
+      <AppShell safeAreaEdges={['left', 'right']}>
+        <VinhaSplashScreen
+          language={preferences.appLanguage}
+          onDone={() => setBrandSplashDone(true)}
+        />
+      </AppShell>
+    );
+  }
 
   return (
     <AppShell

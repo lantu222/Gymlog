@@ -282,7 +282,7 @@ export interface AppPreferences {
    */
   aiCoachFreeQuota: { weekStart: string; used: number } | null;
   adaptiveCoachPremiumUnlocked: boolean;
-  /** Plan-review toggle: GAINER adjusts weekly load/progression automatically. */
+  /** Plan-review toggle: Vinha adjusts weekly load/progression automatically. */
   automatedProgressionEnabled: boolean;
   aiSetupCompleted: boolean;
   hasOpenedAppBefore: boolean;

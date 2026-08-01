@@ -302,7 +302,7 @@ export function AICoachScreen({
   return (
     <>
       <ScreenHeader
-        title="GAINER AI"
+        title="Vinha AI"
         subtitle={t(language, 'ai.subtitle')}
         onBack={onBack}
       />
@@ -310,7 +310,7 @@ export function AICoachScreen({
         <FitnessPhotoSurface variant={heroVariant} style={[styles.heroSurface, hasAnswer && styles.heroSurfaceCompact]}>
           <View style={styles.heroContent}>
             <View style={styles.heroTopRow}>
-              <Text style={styles.heroKicker}>GAINER AI</Text>
+              <Text style={styles.heroKicker}>Vinha AI</Text>
               <HeroPill label={t(language, 'ai.preview')} />
             </View>
 

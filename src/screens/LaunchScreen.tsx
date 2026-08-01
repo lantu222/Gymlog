@@ -4,7 +4,7 @@ import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 import { Theme, useThemedStyles } from '../theming';
 
 /**
- * The first frame the app owns: the GAINER wordmark alone on the light
+ * The first frame the app owns: the Vinha wordmark alone on the light
  * background, breathing in while storage hydrates. Deliberately nothing else —
  * the system splash before this one is only a colour, so the wordmark should
  * feel like it fades up onto that same surface.

@@ -1,5 +1,5 @@
 /**
- * GAINER coaching system types.
+ * Vinha coaching system types.
  *
  * Implementation status per type is documented in docs/coaching-architecture.md.
  * Do not add types here ahead of an active implementation need.
@@ -66,7 +66,7 @@ export interface UserFitnessProfile {
 // SessionPerformanceSignal — computed after each session        [later]
 // AdherenceRecord        — weekly planned vs actual             [later]
 // CoachingAction         — typed coaching recommendation union  [later]
-// CoachingContext        — assembled context for GAINER AI       [later]
+// CoachingContext        — assembled context for Vinha AI       [later]
 // MuscleGroupFatigueState — per-muscle ACWR                    [do not build yet]
 // GoalMilestone          — goal progress tracking               [do not build yet]
 // RecentMemory / BlockMemory / LifetimeMemory                   [do not build yet]

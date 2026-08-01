@@ -501,7 +501,7 @@ export function SettingsScreen({
           </View>
         </View>
 
-        <Text style={styles.footer}>GAINER · v{appInfo.version}</Text>
+        <Text style={styles.footer}>Vinha · v{appInfo.version}</Text>
       </ScrollView>
 
       <ConfirmDialog

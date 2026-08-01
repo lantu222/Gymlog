@@ -267,7 +267,7 @@ export function ProfileScreen({
 
   const handleInvite = async () => {
     // OS share sheet only — the user picks the target and can edit the text.
-    // The link is the app's store page (live once GAINER is published).
+    // The link is the app's store page (live once Vinha is published).
     try {
       await Share.share({
         message: t(language, 'profile.inviteMessage'),

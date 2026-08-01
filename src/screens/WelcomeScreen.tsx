@@ -2,6 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { AmbientDrift } from '../components/AmbientDrift';
+import { VinhaWordmark } from '../components/VinhaWordmark';
 import Svg, { Path } from 'react-native-svg';
 
 import { SUPPORTED_LANGUAGES, t } from '../lib/i18n';
@@ -125,6 +128,8 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 22 }]}>
+      {/* The same objects that streaked past on the splash, still going. */}
+      <AmbientDrift />
       {onChangeLanguage ? (
         <View style={styles.langRow}>
           {SUPPORTED_LANGUAGES.map((option) => {
@@ -147,11 +152,8 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn
       ) : null}
 
       <View style={styles.hero}>
-        <View style={styles.logoRow}>
-          <Text style={[styles.logoText, styles.logoInk, { fontFamily }]}>G</Text>
-          <Text style={[styles.logoText, styles.logoPurple, { fontFamily }]}>AI</Text>
-          <Text style={[styles.logoText, styles.logoInk, { fontFamily }]}>NER</Text>
-        </View>
+        {/* No 'app' tag here: the splash carried it, and it left. */}
+        <VinhaWordmark size={54} fontFamily={fontFamily} />
         <Text style={[styles.tagline, { fontFamily }]}>{t(language, 'welcome.tagline')}</Text>
       </View>
 

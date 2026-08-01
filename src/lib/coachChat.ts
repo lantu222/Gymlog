@@ -4,7 +4,7 @@ import { WeeklyReadRow } from './proInsights';
 import { AppLanguage } from '../types/models';
 
 /**
- * The AI tab's opening state (design: GAINER AI Tab).
+ * The AI tab's opening state (design: Vinha AI Tab).
  *
  * The design's rule for the middle button is "the door is always open — the
  * quota runs out, not the quality", and the chat has to prove it read the log

@@ -1,7 +1,7 @@
 /**
  * ExerciseScene — reusable 3D exercise view (react-three-fiber/native).
  *
- * Renders the athlete rig lit on the GAINER stage and drives its pose from
+ * Renders the athlete rig lit on the Vinha stage and drives its pose from
  * shared refs so no React re-render is needed per frame:
  *   - tRef      : current scrub position 0..1 (0 = top, 1 = bottom)
  *   - playingRef: when true, the tempo loop advances t = (1 − cos(phase)) / 2

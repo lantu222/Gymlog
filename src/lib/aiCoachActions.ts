@@ -33,7 +33,7 @@ function buildEditorPrefillName(prompt: string, context: AICoachTrainingContext)
   const daysMatch = normalizedPrompt.match(/\b([2-5])\s*-?\s*days?\b/i);
 
   if (daysMatch) {
-    return `${daysMatch[1]}-Day GAINER AI Plan`;
+    return `${daysMatch[1]}-Day Vinha AI Plan`;
   }
 
   const matchedLift = context.trackedLifts.find((lift) =>
@@ -44,10 +44,10 @@ function buildEditorPrefillName(prompt: string, context: AICoachTrainingContext)
   }
 
   if (includesAny(normalizeText(normalizedPrompt), ['split', 'program', 'plan'])) {
-    return 'GAINER AI custom plan';
+    return 'Vinha AI custom plan';
   }
 
-  return 'GAINER AI custom workout';
+  return 'Vinha AI custom workout';
 }
 
 function buildLastSessionDescription(context: AICoachTrainingContext) {

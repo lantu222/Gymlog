@@ -1,5 +1,5 @@
 /**
- * GAINER Guided Player (design_handoff_guided_player).
+ * Vinha Guided Player (design_handoff_guided_player).
  *
  * Full-screen Freeletics-style session mode: Warm-up (timed drills) → Workout
  * (strength sets + rests) → Cooldown (stretches) → dark session summary. One

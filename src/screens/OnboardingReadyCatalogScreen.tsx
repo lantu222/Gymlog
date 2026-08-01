@@ -238,7 +238,7 @@ export function OnboardingReadyCatalogScreen({
               {programs.map(({ template, presentation }) => {
                 const selected = selectedId === template.id;
                 const coverImage = coverImages?.[template.id];
-                const coverWord = presentation.title.trim().split(/\s+/)[0] ?? 'GAINER';
+                const coverWord = presentation.title.trim().split(/\s+/)[0] ?? 'Vinha';
 
                 return (
                   <Pressable

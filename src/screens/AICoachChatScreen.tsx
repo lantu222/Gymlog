@@ -32,7 +32,7 @@ import { AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
 /**
- * The AI tab (design: GAINER AI Tab).
+ * The AI tab (design: Vinha AI Tab).
  *
  * The middle button used to open a paywall-shaped sheet: the app's most
  * valuable placement spent on an advert, which teaches a user to stop pressing

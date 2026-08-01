@@ -73,14 +73,14 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'The short version',
     body: [
-      'GAINER keeps your training data on your phone. There is no account, no cloud database and no analytics. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.',
+      'Vinha keeps your training data on your phone. There is no account, no cloud database and no analytics. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.',
       'If you uninstall the app, that data is gone. There is no copy of it anywhere else.',
     ],
   },
   {
     heading: 'Who is responsible',
     body: [
-      `${publisher()} (${LEGAL_ENTITY.country}) publishes GAINER and is the data controller for the limited processing described below.`,
+      `${publisher()} (${LEGAL_ENTITY.country}) publishes Vinha and is the data controller for the limited processing described below.`,
       `Questions about this policy or your data: ${LEGAL_ENTITY.email}.`,
     ],
   },
@@ -101,7 +101,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'Where it is stored',
     body: [
       'In the app’s local storage on your device, under two keys. It is not synced to a server we run, and we have no way to read it remotely.',
-      'Your device or Android backup settings may include app data in a system backup you control. That backup is between you and Google — it is not something GAINER sends or receives.',
+      'Your device or Android backup settings may include app data in a system backup you control. That backup is between you and Google — it is not something Vinha sends or receives.',
       'Deleting the data is immediate and total: Settings → My data → reset, or uninstalling the app.',
     ],
   },
@@ -159,7 +159,7 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Children',
     body: [
-      'GAINER is not intended for children under 16. We do not knowingly process the data of children — and since we receive no data at all, there is nothing for us to identify or delete.',
+      'Vinha is not intended for children under 16. We do not knowingly process the data of children — and since we receive no data at all, there is nothing for us to identify or delete.',
     ],
   },
   {
@@ -174,14 +174,14 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Lyhyesti',
     body: [
-      'GAINER pitää treenitietosi puhelimessasi. Ei tiliä, ei pilvitietokantaa, ei analytiikkaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.',
+      'Vinha pitää treenitietosi puhelimessasi. Ei tiliä, ei pilvitietokantaa, ei analytiikkaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.',
       'Jos poistat sovelluksen, tiedot katoavat. Niistä ei ole kopiota missään muualla.',
     ],
   },
   {
     heading: 'Kuka vastaa',
     body: [
-      `${publisher()} (${LEGAL_ENTITY.countryFi}) julkaisee GAINERin ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.`,
+      `${publisher()} (${LEGAL_ENTITY.countryFi}) julkaisee Vinhan ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.`,
       `Kysymykset tästä selosteesta tai tiedoistasi: ${LEGAL_ENTITY.email}.`,
     ],
   },
@@ -202,7 +202,7 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Missä tiedot ovat',
     body: [
       'Sovelluksen paikallisessa tallennustilassa laitteellasi, kahden avaimen alla. Niitä ei synkronoida meidän palvelimellemme, eikä meillä ole mitään keinoa lukea niitä etänä.',
-      'Laitteesi tai Androidin varmuuskopiointiasetukset voivat sisällyttää sovellusdatan järjestelmän varmuuskopioon, jota sinä hallitset. Se varmuuskopio on sinun ja Googlen välinen — GAINER ei lähetä eikä vastaanota sitä.',
+      'Laitteesi tai Androidin varmuuskopiointiasetukset voivat sisällyttää sovellusdatan järjestelmän varmuuskopioon, jota sinä hallitset. Se varmuuskopio on sinun ja Googlen välinen — Vinha ei lähetä eikä vastaanota sitä.',
       'Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → nollaus, tai sovelluksen poistaminen.',
     ],
   },
@@ -260,7 +260,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Lapset',
     body: [
-      'GAINERia ei ole tarkoitettu alle 16-vuotiaille. Emme tietoisesti käsittele lasten tietoja — eikä meillä ole mitään tunnistettavaa tai poistettavaa, koska emme vastaanota tietoja lainkaan.',
+      'Vinhaa ei ole tarkoitettu alle 16-vuotiaille. Emme tietoisesti käsittele lasten tietoja — eikä meillä ole mitään tunnistettavaa tai poistettavaa, koska emme vastaanota tietoja lainkaan.',
     ],
   },
   {
@@ -275,26 +275,26 @@ const TERMS_EN: LegalSection[] = [
   {
     heading: 'The short version',
     body: [
-      'GAINER is a training app. It suggests programs and tracks what you lift. It is not a doctor, a physiotherapist or a personal trainer standing next to you, and it cannot see your form or how you feel. You decide what is safe to lift.',
+      'Vinha is a training app. It suggests programs and tracks what you lift. It is not a doctor, a physiotherapist or a personal trainer standing next to you, and it cannot see your form or how you feel. You decide what is safe to lift.',
       'By using the app you accept these terms.',
     ],
   },
   {
     heading: 'Who provides the service',
     body: [
-      `GAINER is provided by ${publisher()} (${LEGAL_ENTITY.country}). Contact: ${LEGAL_ENTITY.email}.`,
+      `Vinha is provided by ${publisher()} (${LEGAL_ENTITY.country}). Contact: ${LEGAL_ENTITY.email}.`,
     ],
   },
   {
     heading: 'Your licence to use the app',
     body: [
-      'You get a personal, non-exclusive, non-transferable right to use GAINER for your own training. That right lasts as long as you follow these terms.',
+      'You get a personal, non-exclusive, non-transferable right to use Vinha for your own training. That right lasts as long as you follow these terms.',
     ],
   },
   {
     heading: 'Health and safety — read this one',
     body: [
-      'GAINER gives general fitness information. It is not medical advice, and nothing in it diagnoses, treats or prevents any condition.',
+      'Vinha gives general fitness information. It is not medical advice, and nothing in it diagnoses, treats or prevents any condition.',
       'Talk to a doctor before starting a training program, especially if you are pregnant, recovering from an injury or illness, have a heart, joint or blood-pressure condition, or have not trained in a long time.',
       'Stop immediately if you feel pain, dizziness, chest tightness or shortness of breath, and get medical help.',
       'Weights are dangerous. You are responsible for your own technique, your warm-up, the equipment you use and the weight you choose. A suggested weight in the app is a suggestion based on numbers you logged — it knows nothing about how you slept, what hurts today, or whether the bar is loaded correctly.',
@@ -355,7 +355,7 @@ const TERMS_EN: LegalSection[] = [
   {
     heading: 'Changes and ending',
     body: [
-      'We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use GAINER after that means you accept them.',
+      'We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use Vinha after that means you accept them.',
       'You can stop at any time by uninstalling the app. We may end your access if you seriously breach these terms.',
     ],
   },
@@ -371,26 +371,26 @@ const TERMS_FI: LegalSection[] = [
   {
     heading: 'Lyhyesti',
     body: [
-      'GAINER on treenisovellus. Se ehdottaa ohjelmia ja seuraa mitä nostat. Se ei ole lääkäri, fysioterapeutti eikä vieressä seisova personal trainer, eikä se näe tekniikkaasi tai sitä miltä sinusta tuntuu. Sinä päätät mikä on turvallista nostaa.',
+      'Vinha on treenisovellus. Se ehdottaa ohjelmia ja seuraa mitä nostat. Se ei ole lääkäri, fysioterapeutti eikä vieressä seisova personal trainer, eikä se näe tekniikkaasi tai sitä miltä sinusta tuntuu. Sinä päätät mikä on turvallista nostaa.',
       'Käyttämällä sovellusta hyväksyt nämä ehdot.',
     ],
   },
   {
     heading: 'Kuka palvelun tarjoaa',
     body: [
-      `GAINERin tarjoaa ${publisher()} (${LEGAL_ENTITY.countryFi}). Yhteystieto: ${LEGAL_ENTITY.email}.`,
+      `Vinhan tarjoaa ${publisher()} (${LEGAL_ENTITY.countryFi}). Yhteystieto: ${LEGAL_ENTITY.email}.`,
     ],
   },
   {
     heading: 'Käyttöoikeutesi',
     body: [
-      'Saat henkilökohtaisen, ei-yksinomaisen ja siirtokelvottoman oikeuden käyttää GAINERia omaan treenaamiseesi. Oikeus on voimassa niin kauan kuin noudatat näitä ehtoja.',
+      'Saat henkilökohtaisen, ei-yksinomaisen ja siirtokelvottoman oikeuden käyttää Vinhaa omaan treenaamiseesi. Oikeus on voimassa niin kauan kuin noudatat näitä ehtoja.',
     ],
   },
   {
     heading: 'Terveys ja turvallisuus — lue tämä',
     body: [
-      'GAINER antaa yleistä kuntoilutietoa. Se ei ole lääketieteellistä neuvontaa, eikä mikään siinä diagnosoi, hoida tai ehkäise mitään sairautta.',
+      'Vinha antaa yleistä kuntoilutietoa. Se ei ole lääketieteellistä neuvontaa, eikä mikään siinä diagnosoi, hoida tai ehkäise mitään sairautta.',
       'Keskustele lääkärin kanssa ennen treeniohjelman aloittamista, erityisesti jos olet raskaana, toivut vammasta tai sairaudesta, sinulla on sydän-, nivel- tai verenpaineongelma, tai et ole treenannut pitkään aikaan.',
       'Lopeta heti jos tunnet kipua, huimausta, puristusta rinnassa tai hengenahdistusta, ja hakeudu lääkäriin.',
       'Painot ovat vaarallisia. Vastaat itse tekniikastasi, lämmittelystäsi, käyttämistäsi välineistä ja valitsemastasi painosta. Sovelluksen ehdottama paino on ehdotus, joka perustuu kirjaamiisi numeroihin — se ei tiedä mitään siitä miten nukuit, mihin sattuu tänään, tai onko tanko ladattu oikein.',
@@ -467,21 +467,21 @@ const TITLES: Record<LegalDocumentId, Record<AppLanguage, { title: string; summa
   privacy: {
     en: {
       title: 'Privacy policy',
-      summary: 'What GAINER stores, where it stays, and what never leaves your phone.',
+      summary: 'What Vinha stores, where it stays, and what never leaves your phone.',
     },
     fi: {
       title: 'Tietosuojaseloste',
-      summary: 'Mitä GAINER tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.',
+      summary: 'Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.',
     },
   },
   terms: {
     en: {
       title: 'Terms of use',
-      summary: 'The rules of using GAINER, including the health warning and how Pro billing works.',
+      summary: 'The rules of using Vinha, including the health warning and how Pro billing works.',
     },
     fi: {
       title: 'Käyttöehdot',
-      summary: 'GAINERin käytön säännöt, terveysvaroitus ja miten Pro-laskutus toimii.',
+      summary: 'Vinhan käytön säännöt, terveysvaroitus ja miten Pro-laskutus toimii.',
     },
   },
 };

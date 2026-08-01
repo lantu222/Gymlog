@@ -8,7 +8,7 @@ import { LiftHistory } from './trainingHistory';
 import { AppLanguage, SetupLevel } from '../types/models';
 
 /**
- * The paywall-moments layer (design: GAINER Paywall Moments).
+ * The paywall-moments layer (design: Vinha Paywall Moments).
  *
  * One rule at every touchpoint: THE FINDING IS FREE, THE CONCLUSION IS PRO.
  * Detections — a stalled lift, a traffic-light status — are computed here from

@@ -1,4 +1,4 @@
-﻿import { GAINER_PROGRAM_SUBSTITUTION_GROUPS, GAINER_WORKOUT_TEMPLATES_V1 } from './gainerProgramCatalog';
+﻿import { Vinha_PROGRAM_SUBSTITUTION_GROUPS, Vinha_WORKOUT_TEMPLATES_V1 } from './gainerProgramCatalog';
 import { WorkoutSubstitutionGroup, WorkoutTemplateExercise, WorkoutTemplateSession, WorkoutTemplateV1 } from './workoutTypes';
 
 function ex(exercise: WorkoutTemplateExercise) {
@@ -33,7 +33,7 @@ export const WORKOUT_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: 'chest_fly', allowedExerciseNames: ['Cable Fly', 'Dumbbell Fly', 'Pec Deck'] },
   { id: 'barbell_curl', allowedExerciseNames: ['Barbell Curl', 'EZ-Bar Curl', 'Cable Curl', 'Preacher Curl'] },
   { id: 'overhead_triceps', allowedExerciseNames: ['Overhead Triceps Extension', 'Skull Crusher', 'Close-Grip Bench Press'] },
-  ...GAINER_PROGRAM_SUBSTITUTION_GROUPS,
+  ...Vinha_PROGRAM_SUBSTITUTION_GROUPS,
 ];
 
 export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
@@ -1503,7 +1503,7 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     ],
   },
 
-  ...GAINER_WORKOUT_TEMPLATES_V1,
+  ...Vinha_WORKOUT_TEMPLATES_V1,
 ];
 
 export const CORE_WORKOUT_TEMPLATE_ID = 'tpl_4_day_upper_lower_v1';

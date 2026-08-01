@@ -45,7 +45,7 @@ export function SupportScreen({ profileName, language = 'en', onBack }: SupportS
   const greetingName = profileName?.trim() ? profileName.trim().split(/\s+/)[0] : t(language, 'support.there');
 
   const openMail = (category: string) => {
-    const subject = encodeURIComponent(`GAINER support — ${category}`);
+    const subject = encodeURIComponent(`Vinha support — ${category}`);
     void Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${subject}`);
   };
 

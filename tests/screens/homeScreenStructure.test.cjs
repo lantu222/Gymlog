@@ -57,7 +57,7 @@ module.exports = [
       assert.match(homeScreenSource, /t\(language, greeting\.subtitleKey\)/);
       assert.match(homeScreenSource, /selectHomeGreeting\(\{/);
       assert.doesNotMatch(homeScreenSource, /t\(language, 'home\.greeting\.title'\)/);
-      assert.match(i18nSource, /'home\.greet\.first\.title': 'Welcome to GAINER'/);
+      assert.match(i18nSource, /'home\.greet\.first\.title': 'Welcome to Vinha'/);
       assert.match(i18nSource, /'home\.greet\.back1\.title': 'Tervetuloa takaisin'/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
       assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 26/);

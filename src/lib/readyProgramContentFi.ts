@@ -235,7 +235,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     summary:
       'Kahden päivän joogapainotteinen palautusjakso liikkuvuudelle, tasapainolle, hengitykselle ja hitaammalle koko kehon liikeharjoittelulle.',
     audience:
-      'Aloittelijoille, liikkuvuuspainotteisiin viikkoihin tai kenelle tahansa, joka haluaa rauhallisemman liikevaihtoehdon GAINERin sisällä.',
+      'Aloittelijoille, liikkuvuuspainotteisiin viikkoihin tai kenelle tahansa, joka haluaa rauhallisemman liikevaihtoehdon Vinhan sisällä.',
     equipmentProfile: 'Mattoystävällinen ja pelkällä kehonpainolla. Ohjelman ydin ei vaadi salia.',
     whyItWorks:
       'Pohja käyttää lyhyitä toistettavia sarjoja monimutkaisen sekvenssin sijaan, joten joogatavan voi rakentaa ilman täyttä studiotuntia joka kerta.',
@@ -248,7 +248,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
     summary:
       'Aloittelijaystävällinen juoksu- ja palautuspohja, joka yhdistää intervallipohjaiset juoksublokit liikkuvuus- ja palautumistyöhön.',
     audience:
-      'Niille, jotka haluavat yksinkertaisen juoksun aloituspisteen GAINERin nykymallissa hyppäämättä suoraan suuriin kilometrimääriin.',
+      'Niille, jotka haluavat yksinkertaisen juoksun aloituspisteen Vinhan nykymallissa hyppäämättä suoraan suuriin kilometrimääriin.',
     equipmentProfile: 'Minimaalinen setuppi. Juoksupäivät on rakennettu yksinkertaisiksi blokeiksi ja palautuspäivä vaatii vain lattiatilaa.',
     whyItWorks:
       'Sen sijaan että jahtaisit heti pitkiä lenkkejä, ohjelma vuorottelee kevyitä ja tempotyylisiä juoksublokkeja oman palautuspäivän kanssa, jotta jalat ja lonkat pysyvät mukana.',
@@ -517,7 +517,7 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
 /** Finnish text for programs generated outside the curated map. */
 export const FALLBACK_READY_PROGRAM_CONTENT_FI: ReadyProgramContent = {
   summary:
-    'Rakenteinen Gainer-ohjelma, jossa on selkeät treenit, liiketavoitteet ja etenemissäännöt valitulle treeniprofiilille.',
+    'Rakenteinen Vinha-ohjelma, jossa on selkeät treenit, liiketavoitteet ja etenemissäännöt valitulle treeniprofiilille.',
   audience:
     'Käyttäjille, joiden onboarding-valinnat vastaavat tämän ohjelman tyyliä, viikkotiheyttä, kokemustasoa ja treenipainotusta.',
   equipmentProfile:

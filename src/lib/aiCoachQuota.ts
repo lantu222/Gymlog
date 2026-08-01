@@ -1,5 +1,5 @@
 /**
- * The free coach quota (design: GAINER Pro Page, table row "AI Coach — 3 / wk").
+ * The free coach quota (design: Vinha Pro Page, table row "AI Coach — 3 / wk").
  *
  * The Pro page promises free users three coach questions a week, so this makes
  * the promise true rather than letting the table lie. The week key is the local

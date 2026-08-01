@@ -49,7 +49,7 @@ export const typography = {
 };
 
 export const appInfo = {
-  name: 'GAINER',
+  name: 'Vinha',
   version: '1.1.0',
   starterSuggestions: ['Ylakroppa', 'Alakroppa', 'Koko kroppa', 'Push', 'Pull', 'Jalat'],
 };

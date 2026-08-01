@@ -41,7 +41,7 @@ import { useKeepScreenAwake } from '../utils/keepAwake';
 import { sound } from '../utils/sound';
 
 /**
- * Freestyle logging in the GAINER (HG) language — replaces the old generic
+ * Freestyle logging in the Vinha (HG) language — replaces the old generic
  * Empty Workout presentation. Empty state → Add-exercise sheet → set table
  * with plate readout and the shared floating rest bar. Design source:
  * empty-workout.jsx + aw3-shared.jsx in the design archive.

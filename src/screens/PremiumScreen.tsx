@@ -12,7 +12,7 @@ import { layout } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 
 /**
- * The Pro full page (design: GAINER Premium v2 / premium2-app.jsx).
+ * The Pro full page (design: Vinha Premium v2 / premium2-app.jsx).
  *
  * Structure: own-data hero → three grouped reasons → the free tier stated
  * plainly → plan select → a free/premium table where every cell is a phrase →

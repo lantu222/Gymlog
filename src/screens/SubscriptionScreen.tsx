@@ -74,7 +74,7 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
             </View>
             <View style={styles.statusCopy}>
               <View style={styles.statusNameRow}>
-                <Text style={styles.statusName}>GAINER Pro</Text>
+                <Text style={styles.statusName}>Vinha Pro</Text>
                 {promoActive ? (
                   <View style={styles.trialBadge}>
                     <Text style={styles.trialBadgeText}>{t(language, 'subs.promo')}</Text>

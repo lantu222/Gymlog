@@ -1,5 +1,5 @@
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
-import { GAINER_PROGRAM_RECOMMENDATIONS } from '../features/workout/gainerProgramCatalog';
+import { Vinha_PROGRAM_RECOMMENDATIONS } from '../features/workout/gainerProgramCatalog';
 import type { SetupFocusArea, SetupGoal, SetupLevel, SetupSecondaryOutcome } from '../types/models';
 import type { RecommendationProgramDefinition, TemplateFamilyId } from '../types/recommendation';
 
@@ -304,7 +304,7 @@ export const RECOMMENDATION_PROGRAMS: RecommendationProgramDefinition[] = [
     secondaryOutcomeTags: ['muscle'],
     focusAreaTags: ['glutes', 'hamstrings', 'legs'],
   }),
-  ...GAINER_PROGRAM_RECOMMENDATIONS.map((program) => defineProgram(program.programId, program)),
+  ...Vinha_PROGRAM_RECOMMENDATIONS.map((program) => defineProgram(program.programId, program)),
 ];
 
 export function getRecommendationProgramDefinition(programId: string) {
