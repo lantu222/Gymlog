@@ -315,4 +315,30 @@ module.exports = [
       assert.match(unlockSource, /<Svg style=\{StyleSheet\.absoluteFill\} width=\{field\.width\} height=\{field\.height\}>/);
     },
   },
+  {
+    name: 'the coach chat says each fact once',
+    run() {
+      const chat = read('src', 'screens', 'AICoachChatScreen.tsx');
+
+      // What the coach has read and what today is were three surfaces saying
+      // one thing: a subtitle, a strip of context chips, and an evidence
+      // footnote under every answer. They are one line now.
+      assert.match(chat, /const contextLine = useMemo/);
+      assert.doesNotMatch(chat, /styles.chipStrip/);
+      assert.doesNotMatch(chat, /'coachChat.evidence'/);
+
+      // The PRO pill is gone; the free quota still has its own row, so nothing
+      // honest was lost with it.
+      assert.doesNotMatch(chat, /styles.badge/);
+      assert.match(chat, /styles.quotaRow/);
+
+      // The coach gets no bubble — it is the voice of the screen. Only the
+      // user's own words are enclosed.
+      assert.match(chat, /coachBubble: \{\s*maxWidth: '96%',\s*\},/);
+      assert.match(chat, /meBubble: \{[\s\S]*?backgroundColor: theme\.purple/);
+
+      // Bottom-anchored: a half-empty thread must not leave a dead middle.
+      assert.match(chat, /thread: \{[\s\S]*?justifyContent: 'flex-end'/);
+    },
+  },
 ];

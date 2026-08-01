@@ -10,7 +10,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
@@ -26,7 +26,7 @@ import {
 } from '../lib/coachChat';
 import { I18nKey, t } from '../lib/i18n';
 import { PW } from '../lightTheme';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
@@ -74,6 +74,9 @@ interface ChatMessage {
   lockedLines?: string[];
 }
 
+/** Width of the soft light behind the dark thread's header. */
+const TOP_LIGHT = 460;
+
 function SparkGlyph({ color, size = 18 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
@@ -102,6 +105,7 @@ export function AICoachChatScreen({
   onOpenPremium,
 }: AICoachChatScreenProps) {
   const theme = useTheme();
+  const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
   const [draft, setDraft] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -115,6 +119,22 @@ export function AICoachChatScreen({
     [intro.weeklyRead, language, proUnlocked],
   );
   const openingLine = useMemo(() => buildCoachOpeningLine(intro, language), [intro, language]);
+
+  /**
+   * What the coach has read, and what today is — one line.
+   *
+   * These used to be three surfaces: a subtitle, a strip of context chips, and
+   * an evidence footnote under every answer. They are the same fact told three
+   * times, and stacking them is what made the screen feel like a form.
+   */
+  const contextLine = useMemo(() => {
+    const read =
+      sessionCount > 0
+        ? t(language, 'coachChat.subtitle', { count: sessionCount })
+        : t(language, 'coachChat.subtitleFresh');
+    const today = chips[0]?.label;
+    return today ? `${read} · ${today}` : read;
+  }, [chips, language, sessionCount]);
 
   const canAsk = proUnlocked || freeQuestionsRemaining > 0;
   const used = FREE_COACH_QUESTIONS_PER_WEEK - Math.max(0, freeQuestionsRemaining);
@@ -181,7 +201,6 @@ export function AICoachChatScreen({
             id: `coach:${token}`,
             fromCoach: true,
             text: reply || answer.takeaway,
-            evidence: sessionCount > 0 ? t(language, 'coachChat.evidence', { count: sessionCount }) : undefined,
           },
         ]);
       } catch {
@@ -203,39 +222,32 @@ export function AICoachChatScreen({
 
   return (
     <View style={styles.screen}>
+      {/* A soft light at the top so the dark field is not flat. Light already
+          has its own depth from the surfaces, so it does not need one. */}
+      {themeName === 'dark' ? (
+        <Svg pointerEvents="none" style={styles.topLight} width={TOP_LIGHT} height={TOP_LIGHT * 0.72}>
+          <Defs>
+            <RadialGradient id="coachTopLight" cx="50%" cy="50%" r="50%">
+              <Stop offset="0" stopColor="#8B5CF6" stopOpacity={0.34} />
+              <Stop offset="1" stopColor="#8B5CF6" stopOpacity={0} />
+            </RadialGradient>
+          </Defs>
+          <Rect width={TOP_LIGHT} height={TOP_LIGHT * 0.72} fill="url(#coachTopLight)" />
+        </Svg>
+      ) : null}
       <View style={styles.header}>
         <View style={styles.headerTile}>
           <SparkGlyph color={theme.purple} />
         </View>
         <View style={styles.headerCopy}>
           <Text style={styles.headerTitle}>{t(language, 'coachChat.title')}</Text>
-          <Text style={styles.headerSub} numberOfLines={1}>
-            {sessionCount > 0
-              ? t(language, 'coachChat.subtitle', { count: sessionCount })
-              : t(language, 'coachChat.subtitleFresh')}
-          </Text>
-        </View>
-        <View style={[styles.badge, proUnlocked && styles.badgePro]}>
-          <Text style={[styles.badgeText, proUnlocked && styles.badgeTextPro]}>
-            {proUnlocked
-              ? t(language, 'coachChat.badge.pro')
-              : t(language, 'coachChat.badge.quota', { used, total: FREE_COACH_QUESTIONS_PER_WEEK })}
+          {/* One line, not a subtitle plus a strip of chips plus a footnote.
+              What the coach has read and what today is are the same fact. */}
+          <Text style={styles.headerSub} numberOfLines={2}>
+            {contextLine}
           </Text>
         </View>
       </View>
-
-      {chips.length > 0 ? (
-        <View style={styles.chipStrip}>
-          {chips.map((chip) => (
-            <View key={chip.key} style={styles.contextChip}>
-              <View style={[styles.contextDot, { backgroundColor: toneColor(chip.tone) }]} />
-              <Text style={styles.contextChipText} numberOfLines={1}>
-                {chip.label}
-              </Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -283,21 +295,26 @@ export function AICoachChatScreen({
           </View>
 
           {/* The written analysis is Pro (the Pro page's table says so), so a
-              free user gets the row and the reason, not a dead end. */}
+              free user gets the link and the reason, not a dead end. It is a
+              link rather than a card: one sentence does not need a surface. */}
           {lastSession ? (
             <Pressable
               accessibilityRole="button"
               onPress={() => (proUnlocked ? onOpenAnalysis(lastSession.id) : onOpenPremium())}
-              style={({ pressed }) => [styles.analysisRow, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.analysisLink, pressed && styles.pressed]}
             >
-              <View style={styles.analysisCopy}>
-                <Text style={styles.analysisTitle} numberOfLines={1}>
-                  {t(language, 'coachChat.analysisRow', { name: lastSession.name })}
-                </Text>
-                <Text style={styles.analysisCta}>
-                  {t(language, proUnlocked ? 'coach.seeFullAnalysis' : 'coach.analysisLocked')}
-                </Text>
-              </View>
+              <Text style={styles.analysisCta}>
+                {t(language, proUnlocked ? 'coach.seeFullAnalysis' : 'coach.analysisLocked')}
+              </Text>
+              <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M5 12h13M12 6l6 6-6 6"
+                  stroke={theme.highlight}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
             </Pressable>
           ) : null}
 
@@ -350,7 +367,13 @@ export function AICoachChatScreen({
           ) : null}
         </ScrollView>
 
-        <View style={styles.quickAsks}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          style={styles.quickAsksRail}
+          contentContainerStyle={styles.quickAsks}
+        >
           {quickAskKeys.map((key) => (
             <Pressable
               key={key}
@@ -361,7 +384,7 @@ export function AICoachChatScreen({
               <Text style={styles.quickAskText}>{t(language, key)}</Text>
             </Pressable>
           ))}
-        </View>
+        </ScrollView>
 
         {!canAsk ? (
           <Text style={styles.resetNote}>{t(language, 'coachChat.quotaReset')}</Text>
@@ -438,64 +461,27 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
     marginTop: 1,
   },
-  badge: {
-    backgroundColor: theme.purpleLight,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  // PRO is a brand marker, not an action — it keeps the violet.
-  badgePro: {
-    backgroundColor: theme.purple,
-  },
-  badgeText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-    // Was PW.proInk, a fixed dark violet: unreadable once theme.purpleLight
-    // behind it turned into a dark tint.
-    color: theme.purpleDark,
-  },
-  badgeTextPro: {
-    color: '#FFFFFF',
-  },
-  chipStrip: {
-    flexDirection: 'row',
-    gap: 6,
-    paddingHorizontal: 20,
-    paddingBottom: 14,
-  },
-  contextChip: {
-    flexShrink: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 999,
-    paddingVertical: 6,
-    paddingHorizontal: 9,
-  },
-  contextDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 999,
-  },
-  contextChipText: {
-    flexShrink: 1,
-    fontSize: 11,
-    fontWeight: '800',
-    color: theme.ink,
+  // A gradient, not a disc: a flat circle with a radius is a shape, and it
+  // reads as one. Sized in pixels because a %-sized Svg does not stretch on
+  // Android (the trap the unlock screen paid for).
+  topLight: {
+    position: 'absolute',
+    top: -TOP_LIGHT * 0.34,
+    left: -TOP_LIGHT * 0.18,
   },
   body: {
     flex: 1,
     minHeight: 0,
   },
+  // Bottom-anchored: a half-empty thread starting at the top leaves a dead
+  // middle, and the first thing you read should sit where the next one will.
   thread: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
     paddingHorizontal: 20,
+    paddingTop: 18,
     paddingBottom: 14,
-    gap: 12,
+    gap: 20,
   },
   noticedCard: {
     backgroundColor: PW.sheetTop,
@@ -557,35 +543,31 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   bubbleRowMe: {
     justifyContent: 'flex-end',
   },
+  // The coach gets no bubble at all: it is the voice of the screen, not a
+  // participant in it. Only the user's own words are enclosed.
   coachBubble: {
-    maxWidth: '88%',
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
-    borderBottomLeftRadius: 6,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
+    maxWidth: '96%',
   },
   meBubble: {
-    maxWidth: '88%',
+    maxWidth: '82%',
     backgroundColor: theme.purple,
-    borderRadius: 18,
-    borderBottomRightRadius: 6,
-    paddingVertical: 13,
-    paddingHorizontal: 15,
+    borderRadius: 20,
+    borderBottomRightRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   coachText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16.5,
+    fontWeight: '500',
+    letterSpacing: -0.15,
     color: theme.ink,
-    lineHeight: 22,
+    lineHeight: 25.5,
   },
   meText: {
-    fontSize: 14,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#FFFFFF',
-    lineHeight: 22,
+    lineHeight: 22.5,
   },
   evidence: {
     marginTop: 11,
@@ -609,21 +591,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   lockWrap: {
     marginTop: 2,
   },
-  analysisRow: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  analysisCopy: {
-    minWidth: 0,
-  },
-  analysisTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.muted,
+  // A link, not a card: the row title only repeated the session name that the
+  // context line already carries.
+  analysisLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: -8,
   },
   analysisCta: {
     fontSize: 13,
@@ -653,18 +627,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     color: theme.purple,
   },
+  quickAsksRail: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
   quickAsks: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
+    gap: 8,
     paddingHorizontal: 20,
     paddingBottom: 10,
   },
+  // A surface, not a tint: purpleLight sits within a few points of the light
+  // background, which left the chips reading as floating text.
   quickAsk: {
-    backgroundColor: theme.purpleLight,
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
     borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
   },
   quickAskText: {
     fontSize: 12.5,
