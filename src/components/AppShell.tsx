@@ -3,7 +3,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-na
 import { Edge, SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 
 interface AppShellProps {
@@ -28,13 +28,14 @@ export function AppShell({
   shellBackgroundColor,
 }: AppShellProps) {
   const theme = useTheme();
+  const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
-  // The app is light; dark is the exception. These defaults used to be the
-  // legacy dark theme, so any screen that forgot to opt in — Home among them —
-  // got a navy status bar with light icons above light content. Screens that
-  // genuinely want the dark treatment now ask for it.
   const shellBackground = shellBackgroundColor ?? theme.bg;
-  const statusBarStyle = statusBarStyleOverride ?? 'dark';
+  // Status-bar icons follow the theme, not a fixed default. Hardcoding 'dark'
+  // here was right while the app was light-only; under the dark theme it would
+  // paint near-black icons on a near-black bar. Screens that want the other
+  // treatment — the gradient heroes — still override it explicitly.
+  const statusBarStyle = statusBarStyleOverride ?? (themeName === 'dark' ? 'light' : 'dark');
 
   return (
     <SafeAreaProvider style={[styles.root, { backgroundColor: shellBackground }]}>

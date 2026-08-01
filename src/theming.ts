@@ -1,5 +1,6 @@
 import React, { createContext, createElement, useContext, useMemo } from 'react';
 
+import { HG_DARK } from './darkTheme';
 import { HG } from './lightTheme';
 
 /**
@@ -14,11 +15,10 @@ import { HG } from './lightTheme';
  *     …
  *     const styles = useThemedStyles(makeStyles);
  *
- * Today there is exactly one theme and the provider always serves it, so this
- * changes nothing you can see. It is deliberately landed early anyway: moving
- * ~54 files onto the hook is the bulk of the work, and it can only start once
- * the seam is here. The dark values, the switch and the preference come later
- * — and until they do, nothing in the app claims a theme can be chosen.
+ * There are two themes now. Which one is served is decided outside this file —
+ * `resolveThemeName` in lib/themePreference.ts combines the user's toggle with
+ * the Pro entitlement — so nothing here needs to know about preferences, Pro,
+ * or storage, and a component can be rendered under either theme in isolation.
  */
 
 /**
@@ -51,19 +51,48 @@ export interface Theme {
 /** The light theme is the palette itself — not a copy of it. */
 export const lightTheme: Theme = HG;
 
+/** Typed here rather than in darkTheme.ts, so the two files cannot cycle. */
+export const darkTheme: Theme = HG_DARK;
+
+export type ThemeName = 'light' | 'dark';
+
+export function themeForName(name: ThemeName): Theme {
+  return name === 'dark' ? darkTheme : lightTheme;
+}
+
 const ThemeContext = createContext<Theme>(lightTheme);
 
 /**
  * `createElement` rather than JSX so this file can stay `.ts`. The test build
  * compiles `src/**\/*.ts` only, and the theme is worth asserting on directly
  * rather than by reading its source.
+ *
+ * `theme` defaults to light so a screen rendered outside the app's provider —
+ * a test, a preview — still gets a complete palette instead of undefined
+ * tokens.
  */
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  return createElement(ThemeContext.Provider, { value: lightTheme }, children);
+export function ThemeProvider({
+  theme = lightTheme,
+  children,
+}: {
+  theme?: Theme;
+  children: React.ReactNode;
+}) {
+  return createElement(ThemeContext.Provider, { value: theme }, children);
 }
 
 export function useTheme(): Theme {
   return useContext(ThemeContext);
+}
+
+/**
+ * Which theme is active, for the handful of decisions that are not a colour —
+ * status-bar icon style, a keyboard appearance, an image asset. Derived from
+ * the same context rather than stored in a second one, so the two can never
+ * disagree about what is on screen.
+ */
+export function useThemeName(): ThemeName {
+  return useContext(ThemeContext) === darkTheme ? 'dark' : 'light';
 }
 
 /**

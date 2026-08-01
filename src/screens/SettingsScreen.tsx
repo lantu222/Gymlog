@@ -8,6 +8,7 @@ import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsU
 import { getHealthProviderLabel } from '../integrations/health';
 import { t } from '../lib/i18n';
 import { isProUnlocked } from '../lib/proEntitlement';
+import { resolveThemeRowState } from '../lib/themePreference';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
@@ -193,11 +194,11 @@ function Row({
  * Settings, pushed from the Profile gear. Mirrors psuite-screens1.jsx
  * SettingsMenu.
  *
- * Every row here now either does something or states a fact. The two that
- * asserted an account the app does not have are gone, and CSV import/export
- * reach the real importer and exporter. What remains unbuilt is the theme
- * engine, and that row wears a Soon pill rather than a switch that repaints
- * nothing. If a row is added back without a handler, say why in a comment.
+ * Every row here either does something or states a fact. The two that asserted
+ * an account the app does not have are gone, CSV import/export reach the real
+ * importer and exporter, and the theme row became a live switch when the
+ * engine landed (2026-08-01). If a row is added back without a handler, say
+ * why in a comment.
  */
 export function SettingsScreen({
   preferences,
@@ -226,6 +227,7 @@ export function SettingsScreen({
   const language = preferences.appLanguage;
   // A redeemed promo is Pro too, so the badge cannot read the preview switch.
   const proUnlocked = isProUnlocked(preferences);
+  const themeRow = resolveThemeRowState(preferences);
   const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : t(language, 'profile.guestName');
   const soundAndHaptics = preferences.soundCuesEnabled || preferences.hapticsEnabled;
 
@@ -284,19 +286,32 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.app')} />
           <View style={styles.card}>
-            {/* Theme choice is a Pro perk (user decision 2026-07-22), but the
-                theme engine does not exist yet. Until it does this row shows
-                Soon to everyone: a Pro user got a live-looking switch that
-                repainted nothing, and a free user was told it "unlocks with
-                Pro", which would have been a paid-for no-op. */}
+            {/* Theme choice is a Pro perk (user decision 2026-07-22). The row
+                has two honest states and resolveThemeRowState picks between
+                them: a live switch for Pro, and for everyone else a PRO pill
+                that opens the Pro page rather than a switch that repaints
+                nothing. It stopped saying "Soon" on 2026-08-01, when the
+                engine landed. */}
             <Row
               icon="moon"
               title={t(language, 'settings.darkTheme')}
               sub={t(language, 'settings.darkTheme.sub')}
+              onPress={themeRow.locked ? onOpenSubscription : undefined}
               control={
-                <View style={styles.soonPill}>
-                  <Text style={styles.soonPillText}>{t(language, 'premium.soon')}</Text>
-                </View>
+                themeRow.locked ? (
+                  <View
+                    accessibilityLabel={t(language, 'settings.a11y.unlockDarkTheme')}
+                    style={styles.themeProPill}
+                  >
+                    <Text style={styles.themeProPillText}>PRO</Text>
+                  </View>
+                ) : (
+                  <ToggleSwitch
+                    label={t(language, 'settings.darkTheme')}
+                    value={themeRow.value}
+                    onChange={(next) => onPreferencesChange({ darkThemeEnabled: next })}
+                  />
+                )
               }
             />
             <Row
@@ -600,6 +615,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.purpleDark,
     fontSize: 11.5,
     fontWeight: '800',
+  },
+  themeProPill: {
+    paddingVertical: 4,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+    backgroundColor: theme.purpleLight,
+    borderWidth: 1,
+    borderColor: theme.purple,
+  },
+  themeProPillText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    color: theme.purpleDark,
   },
   soonPill: {
     paddingVertical: 4,

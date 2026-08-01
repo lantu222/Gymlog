@@ -13,6 +13,7 @@ const premiumSource = read('src', 'screens', 'PremiumScreen.tsx');
 const homeSource = read('src', 'screens', 'HomeScreen.tsx');
 const loggerSource = read('src', 'screens', 'WorkoutLoggingScreen.tsx');
 const proOfferSource = read('src', 'screens', 'ProOfferScreen.tsx');
+const i18nSource = read('src', 'lib', 'i18n.ts');
 
 /**
  * The Pro/Free audit (2026-07-28) found three ways the paid tier lied: a promo
@@ -60,14 +61,21 @@ module.exports = [
     },
   },
   {
-    name: 'the dark-theme row offers no switch while the theme engine does not exist',
+    name: 'the dark-theme row is a live switch for Pro and a paywall for everyone else',
     run() {
-      assert.doesNotMatch(
+      // The engine landed 2026-08-01, so the row stopped saying Soon. What it
+      // must not become is a switch a free user can flip: the state comes from
+      // resolveThemeRowState, which folds in the entitlement.
+      assert.match(settingsSource, /resolveThemeRowState\(preferences\)/);
+      assert.match(
         settingsSource,
-        /darkTheme, setDarkTheme/,
-        'a toggle that repaints nothing reads as a delivered Pro perk',
+        /title=\{t\(language, 'settings\.darkTheme'\)\}[\s\S]{0,600}?themeRow\.locked \? \(/,
       );
-      assert.match(settingsSource, /title=\{t\(language, 'settings\.darkTheme'\)\}[\s\S]{0,240}?soonPill/);
+      assert.match(settingsSource, /onPress=\{themeRow\.locked \? onOpenSubscription : undefined\}/);
+      assert.match(settingsSource, /value=\{themeRow\.value\}/);
+      assert.match(settingsSource, /onPreferencesChange\(\{ darkThemeEnabled: next \}\)/);
+      // The subtitle no longer promises something unbuilt.
+      assert.doesNotMatch(i18nSource, /'settings\.darkTheme\.sub': '[^']*still in build/);
     },
   },
   {

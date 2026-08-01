@@ -276,7 +276,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 8,
   },
   recommendedPillSelected: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderColor: PURPLE_DARK,
   },
   recommendedPillText: {
@@ -300,7 +300,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 26,
     height: 26,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1.5,
     borderColor: PURPLE_DARK,
     alignItems: 'center',

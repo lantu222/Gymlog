@@ -367,6 +367,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.soundCuesEnabled === 'boolean'
           ? input.preferences.soundCuesEnabled
           : fallback.preferences.soundCuesEnabled,
+      darkThemeEnabled:
+        typeof input?.preferences?.darkThemeEnabled === 'boolean'
+          ? input.preferences.darkThemeEnabled
+          : fallback.preferences.darkThemeEnabled,
       hapticsEnabled:
         typeof input?.preferences?.hapticsEnabled === 'boolean'
           ? input.preferences.hapticsEnabled

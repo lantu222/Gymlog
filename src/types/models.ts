@@ -256,6 +256,11 @@ export interface AppPreferences {
   /** Vibration feedback for the same moments. */
   hapticsEnabled: boolean;
   /**
+   * The dark-theme choice, kept exactly as the user set it even when Pro
+   * lapses — resolveThemeName decides what actually gets served.
+   */
+  darkThemeEnabled: boolean;
+  /**
    * "Your cards" pins on Home. null = never customized (defaults apply);
    * [] = the user removed every card and that choice sticks.
    */

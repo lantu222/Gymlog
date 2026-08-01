@@ -28,7 +28,7 @@ import {
 } from '../lib/workoutDiscovery';
 import { ProgramInsightSummary } from '../lib/programInsights';
 import { TailoringPreferencesInput } from '../lib/tailoringFit';
-import { Theme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
 import { layout, spacing } from '../theme';
 
@@ -276,6 +276,7 @@ export function WorkoutsScreen({
   tailoringPreferences = null,
   language = 'en',
 }: WorkoutsScreenProps) {
+  const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const { activeSession, history, templates } = useWorkoutContext();
   const activeTemplateId = activeSession?.templateId ?? history.lastSelectedTemplateId ?? CORE_WORKOUT_TEMPLATE_ID;
@@ -430,7 +431,7 @@ export function WorkoutsScreen({
             value={searchQuery}
             onChangeText={setSearchQuery}
             placeholder={t(language, 'ready.searchPlaceholder')}
-            placeholderTextColor="#9A93AC"
+            placeholderTextColor={theme.faint}
             selectionColor="#7C3AED"
             style={styles.readyTemplateSearchInput}
           />
@@ -645,7 +646,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E7D9FF',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     paddingHorizontal: spacing.sm,
     flexDirection: 'row',
     alignItems: 'center',
@@ -660,7 +661,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   readyTemplateSearchInput: {
     flex: 1,
     minHeight: 42,
-    color: '#0F172A',
+    color: theme.ink,
     fontSize: 13,
     fontWeight: '800',
     paddingVertical: 0,
@@ -677,16 +678,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     elevation: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3ECFF',
+    backgroundColor: theme.purpleLight,
   },
   readyTemplateFilterButtonActive: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: theme.purpleBright,
   },
   readyTemplateFilterBlock: {
     gap: 6,
   },
   readyTemplateFilterLabel: {
-    color: '#7C3AED',
+    color: theme.purpleBright,
     fontSize: 10,
     fontWeight: '900',
     letterSpacing: 1,
@@ -702,7 +703,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E2D3FF',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -710,11 +711,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: spacing.sm,
   },
   readyTemplateFilterChipActive: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
+    backgroundColor: theme.purpleBright,
+    borderColor: theme.purpleBright,
   },
   readyTemplateFilterText: {
-    color: '#667085',
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '900',
   },
@@ -725,7 +726,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E7D9FF',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     padding: spacing.xs,
     gap: spacing.xs,
   },
@@ -742,22 +743,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#E2D3FF',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.sm,
   },
   readyTemplateMiniChipActive: {
-    backgroundColor: '#F3ECFF',
+    backgroundColor: theme.purpleLight,
     borderColor: '#B994FF',
   },
   readyTemplateMiniChipText: {
-    color: '#667085',
+    color: theme.muted,
     fontSize: 10,
     fontWeight: '900',
   },
   readyTemplateMiniChipTextActive: {
-    color: '#7C3AED',
+    color: theme.purpleBright,
   },
   readyTemplateSectionHeader: {
     flexDirection: 'row',
@@ -789,7 +790,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 16,
     height: 4,
     borderRadius: 2,
-    backgroundColor: '#7C3AED',
+    backgroundColor: theme.purpleBright,
   },
   readyTemplateScrollDot: {
     width: 4,
@@ -803,7 +804,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 22,
     borderWidth: 1,
     borderColor: '#E7D9FF',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     shadowColor: '#BDA5F4',
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
@@ -811,7 +812,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     elevation: 5,
   },
   readyTemplateCardCurrent: {
-    borderColor: '#7C3AED',
+    borderColor: theme.purpleBright,
   },
   readyTemplateCardMain: {
     gap: 0,
@@ -877,19 +878,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: spacing.xs,
   },
   readyTemplateName: {
-    color: '#0F172A',
+    color: theme.ink,
     fontSize: 15,
     lineHeight: 18,
     fontWeight: '900',
     letterSpacing: -0.2,
   },
   readyTemplateMeta: {
-    color: '#667085',
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '800',
   },
   readyTemplateMetaStrong: {
-    color: '#7C3AED',
+    color: theme.purpleBright,
     fontWeight: '900',
   },
   readyTemplateFooterRow: {
@@ -899,7 +900,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 4,
   },
   readyTemplateDuration: {
-    color: '#667085',
+    color: theme.muted,
     fontSize: 11,
     fontWeight: '800',
   },
@@ -910,13 +911,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F3ECFF',
+    backgroundColor: theme.purpleLight,
   },
   readyTemplateStartButtonCurrent: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: theme.greenSoft,
   },
   readyTemplateStartText: {
-    color: '#7C3AED',
+    color: theme.purpleBright,
     fontSize: 13,
     fontWeight: '900',
   },
@@ -924,18 +925,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E7D9FF',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     padding: spacing.xl,
     gap: spacing.sm,
   },
   readyTemplateEmptyTitle: {
-    color: '#0F172A',
+    color: theme.ink,
     fontSize: 20,
     fontWeight: '800',
     letterSpacing: -0.4,
   },
   readyTemplateEmptyBody: {
-    color: '#667085',
+    color: theme.muted,
     fontSize: 14,
     lineHeight: 20,
   },

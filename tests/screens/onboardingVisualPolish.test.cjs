@@ -22,7 +22,8 @@ module.exports = [
       assert.match(appShellSource, /shellBackgroundColor \?\? theme\.bg/);
       // Dark icons are the default now, so onboarding and welcome no longer
       // have to ask for them; only the gradient heroes override to 'light'.
-      assert.match(appShellSource, /statusBarStyleOverride \?\? 'dark'/);
+      // Status-bar icons follow the theme now; only gradient heroes override.
+      assert.match(appShellSource, /statusBarStyleOverride \?\? \(themeName === 'dark' \? 'light' : 'dark'\)/);
       assert.match(
         appSource,
         /statusBarStyleOverride=\{workoutSummaryActive \|\| historySessionActive \? 'light' : undefined\}/,

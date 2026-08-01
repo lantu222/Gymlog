@@ -464,7 +464,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   weekdayChip: {
     height: 34,
     borderRadius: 10,
-    backgroundColor: '#F1EDFA',
+    backgroundColor: theme.surfaceSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },

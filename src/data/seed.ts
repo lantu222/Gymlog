@@ -16,6 +16,7 @@ const DEFAULT_PREFERENCES = {
   autoFocusNextInput: true,
   keepScreenAwakeDuringWorkout: true,
   soundCuesEnabled: true,
+  darkThemeEnabled: false,
   hapticsEnabled: true,
   homeStatCardKeys: null as string[] | null,
   notificationPrefs: {

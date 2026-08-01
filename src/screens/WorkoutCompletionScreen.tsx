@@ -486,7 +486,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 76,
     height: 76,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#2E106E',

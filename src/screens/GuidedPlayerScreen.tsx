@@ -273,7 +273,7 @@ function MediaZone({
 
   if (imageUrl && !imageFailed) {
     return (
-      <View style={[styles.mediaZone, { height, backgroundColor: '#FFFFFF', borderColor: '#E6DAF8' }]}>
+      <View style={[styles.mediaZone, { height, backgroundColor: theme.surface, borderColor: '#E6DAF8' }]}>
         <Image
           source={{ uri: imageUrl }}
           resizeMode={fit}
@@ -1964,7 +1964,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 16,
   },
   phaseCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: '#E4DBF5',
     borderRadius: 18,
@@ -2028,7 +2028,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: '#E4DBF5',
   },
@@ -2103,7 +2103,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   drillCountdown: { fontSize: 104, fontWeight: '800', letterSpacing: -4, lineHeight: 110, fontVariant: ['tabular-nums'] },
   ctrlCircle: {
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: '#E4DBF5',
     alignItems: 'center',
@@ -2162,7 +2162,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
     shadowColor: '#28185A',
@@ -2176,7 +2176,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1,
     borderColor: theme.border,
     alignItems: 'center',
@@ -2206,7 +2206,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 15,
     borderWidth: 1.5,
     borderColor: '#E4DBF5',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2217,7 +2217,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 38,
     height: 42,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderWidth: 1.5,
     borderColor: '#E4DBF5',
     alignItems: 'center',
@@ -2311,7 +2311,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     paddingTop: 12,

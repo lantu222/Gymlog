@@ -143,7 +143,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.16)',
   },
   pillSolid: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
   pillText: {
     fontSize: 12.5,
@@ -159,6 +159,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
 });

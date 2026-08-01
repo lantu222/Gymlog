@@ -9,9 +9,6 @@ import { WorkoutSetEffort, WorkoutTrackingMode } from '../features/workout/worko
 import { getWorkoutSetValidationMessage } from '../lib/workoutValidation';
 import { I18nKey, t } from '../lib/i18n';
 
-const LOGGING_PURPLE = '#7C3AED';
-const SUCCESS_GREEN = '#16A34A';
-const SUCCESS_GREEN_BG = '#ECF7F0';
 const WORKOUT_FONT_FAMILY = 'Manrope';
 const SET_BADGE_SIZE = 32;
 const VALUE_CELL_WIDTH = 76;
@@ -114,7 +111,7 @@ export function WorkoutSetRow({
           </Text>
           {completed ? (
             <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-              <Path d="M5 12l5 5L19 7" stroke={SUCCESS_GREEN} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M5 12l5 5L19 7" stroke={theme.green} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           ) : null}
         </View>
@@ -133,7 +130,7 @@ export function WorkoutSetRow({
                     value={weightValue}
                     onChangeText={onWeightChange}
                     placeholder={weightPlaceholder || '0'}
-                    placeholderTextColor="#9B93AD"
+                    placeholderTextColor={theme.faint}
                     keyboardType="decimal-pad"
                     selectionColor={theme.purple}
                     style={styles.input}
@@ -161,7 +158,7 @@ export function WorkoutSetRow({
                   value={repsValue}
                   onChangeText={onRepsChange}
                   placeholder={repsPlaceholder || '0'}
-                  placeholderTextColor="#9B93AD"
+                  placeholderTextColor={theme.faint}
                   keyboardType="number-pad"
                   selectionColor={theme.purple}
                   style={styles.input}
@@ -205,15 +202,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     minHeight: 46,
     overflow: 'hidden',
     borderRadius: radii.sm,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     paddingVertical: 0,
     gap: 5,
   },
   rowActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
   rowCompleted: {
-    backgroundColor: SUCCESS_GREEN_BG,
+    backgroundColor: theme.greenSoft,
   },
   rowFuture: {
     opacity: 0.76,
@@ -236,23 +233,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   setBadgeValue: {
     fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#111827',
+    color: theme.ink,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
   },
   setBadgeValueActive: {
-    color: LOGGING_PURPLE,
+    color: theme.purpleBright,
   },
   setBadgeValueCompleted: {
-    color: SUCCESS_GREEN,
+    color: theme.green,
   },
   previousValue: {
     fontFamily: WORKOUT_FONT_FAMILY,
     width: PREVIOUS_CELL_WIDTH,
     paddingLeft: 10,
-    color: '#80768F',
+    color: theme.faint,
     fontSize: 15,
     lineHeight: 21,
     fontWeight: '700',
@@ -281,13 +278,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F5F5F7',
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.sm,
   },
   inputWrapActive: {
-    borderColor: LOGGING_PURPLE,
-    backgroundColor: '#F5F5F7',
+    borderColor: theme.purpleBright,
+    backgroundColor: theme.surfaceSoft,
   },
   loadCell: {
     width: VALUE_CELL_WIDTH,
@@ -298,7 +295,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   input: {
     fontFamily: WORKOUT_FONT_FAMILY,
     flex: 1,
-    color: '#111827',
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
@@ -312,8 +309,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     minHeight: 38,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F5F5F7',
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: spacing.xs,
     alignItems: 'center',
     justifyContent: 'center',
@@ -327,7 +324,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   valueText: {
     fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#111827',
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '900',
     fontVariant: ['tabular-nums'],
@@ -336,10 +333,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     includeFontPadding: false,
   },
   valueTextCompleted: {
-    color: '#111827',
+    color: theme.ink,
   },
   valueTextMuted: {
-    color: '#9B93AD',
+    color: theme.faint,
     fontWeight: '800',
   },
   effortRow: {
@@ -367,7 +364,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   effortText: {
     fontFamily: WORKOUT_FONT_FAMILY,
-    color: '#111827',
+    color: theme.ink,
     fontSize: 10,
     fontWeight: '900',
     textTransform: 'uppercase',

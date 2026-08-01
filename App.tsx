@@ -30,7 +30,7 @@ import {
   requestNotificationPermission,
 } from './src/utils/appNotifications';
 import { useScheduledNotifications } from './src/hooks/useScheduledNotifications';
-import { ThemeProvider, useTheme } from './src/theming';
+import { ThemeProvider, themeForName, useTheme } from './src/theming';
 import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
   isHomeWidgetAdded,
@@ -78,6 +78,7 @@ import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVi
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProgressionOptions } from './src/lib/proEntitlement';
+import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 
 import { resolveWorkoutLoggerFallbackRoute } from './src/lib/workoutLoggerNavigation';
@@ -4134,15 +4135,35 @@ function GymlogApp() {
   );
 }
 
+/**
+ * ThemeProvider sits *inside* AppProvider because the theme is a stored,
+ * Pro-gated preference — it cannot be resolved before the database has
+ * hydrated. AppProvider renders nothing of its own, so nothing is unthemed
+ * while that happens.
+ */
+function ThemedRoot() {
+  const { preferences } = useAppContext();
+  const theme = useMemo(
+    () => themeForName(resolveThemeName(preferences)),
+    // The entitlement can lapse mid-session; recomputing on any preference
+    // change is cheap and keeps the theme honest without a timer.
+    [preferences],
+  );
+
+  return (
+    <ThemeProvider theme={theme}>
+      <WorkoutProvider>
+        <GymlogApp />
+      </WorkoutProvider>
+    </ThemeProvider>
+  );
+}
+
 export default function App() {
   return (
-    <ThemeProvider>
-      <AppProvider>
-        <WorkoutProvider>
-          <GymlogApp />
-        </WorkoutProvider>
-      </AppProvider>
-    </ThemeProvider>
+    <AppProvider>
+      <ThemedRoot />
+    </AppProvider>
   );
 }
 

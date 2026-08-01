@@ -1703,7 +1703,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 9,
   },
   tabActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     shadowColor: '#5028A0',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.16,
@@ -1910,7 +1910,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
   },
   segItemActive: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
     shadowColor: '#5028A0',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.14,

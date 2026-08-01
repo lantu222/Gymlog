@@ -105,8 +105,8 @@ module.exports = [
       assert.doesNotMatch(setRowSource, /doneButton/);
       assert.doesNotMatch(setRowSource, /setHeaderCheck/);
       assert.doesNotMatch(screenSource, /setHeaderCheck/);
-      assert.match(setRowSource, /const SUCCESS_GREEN = '#16A34A'/);
-      assert.match(setRowSource, /rowCompleted:\s*\{\s*backgroundColor: SUCCESS_GREEN_BG/);
+      assert.match(setRowSource, /backgroundColor: theme.green/);
+      assert.match(setRowSource, /rowCompleted:\s*\{\s*backgroundColor: theme\.greenSoft/);
       // No weight console and no Log set button: the row is just SET/PREVIOUS/
       // KG/REPS. Submitting reps completes the set (rest timer + auto-advance
       // via the existing reducer), and the weight carries to the next set.
@@ -127,14 +127,14 @@ module.exports = [
       assert.match(setRowSource, /paddingLeft:\s*10/);
       assert.match(screenSource, /width:\s*86/);
       assert.match(screenSource, /paddingLeft:\s*10/);
-      assert.match(setRowSource, /backgroundColor:\s*'#F5F5F7'/);
+      assert.match(setRowSource, /backgroundColor: theme\.surfaceSoft/);
       assert.match(setRowSource, /setMiddleGroup/);
       assert.match(setRowSource, /valueCellsGroup/);
       assert.match(screenSource, /setHeaderMiddleGroup/);
       assert.match(screenSource, /setHeaderValueGroup/);
       assert.doesNotMatch(setRowSource, /rowSpacer/);
       assert.doesNotMatch(screenSource, /setHeaderSpacer/);
-      assert.match(setRowSource, /placeholderTextColor="#9B93AD"/);
+      assert.match(setRowSource, /placeholderTextColor={theme.faint}/);
       assert.match(setRowSource, /valueTextMuted/);
 
       assert.match(screenSource, /t\(language, 'logger\.addExercise'\)/);

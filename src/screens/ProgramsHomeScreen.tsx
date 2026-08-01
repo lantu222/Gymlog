@@ -657,7 +657,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
   },
   heroSegmentFilled: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
   heroSegmentEmpty: {
     backgroundColor: 'rgba(255,255,255,0.32)',

@@ -291,7 +291,8 @@ module.exports = [
         'utf8',
       );
       assert.match(appShellSource, /shellBackgroundColor \?\? theme\.bg/);
-      assert.match(appShellSource, /statusBarStyleOverride \?\? 'dark'/);
+      // Status-bar icons follow the theme now; only gradient heroes override.
+      assert.match(appShellSource, /statusBarStyleOverride \?\? \(themeName === 'dark' \? 'light' : 'dark'\)/);
       assert.match(appSource, /shellBackgroundColor=\{aiSetupActive \? theme\.surface : undefined\}/);
       assert.doesNotMatch(workoutsScreenSource, /Search for programs/);
       assert.doesNotMatch(workoutsScreenSource, /{activeSession \?/);

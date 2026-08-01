@@ -122,6 +122,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       autoFocusNextInput: true,
       keepScreenAwakeDuringWorkout: true,
       soundCuesEnabled: true,
+      darkThemeEnabled: false,
       hapticsEnabled: true,
       homeStatCardKeys: null,
       notificationPrefs: {

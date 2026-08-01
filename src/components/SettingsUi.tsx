@@ -192,7 +192,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 999,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.surface,
   },
   toggleKnobOn: {
     alignSelf: 'flex-end',
