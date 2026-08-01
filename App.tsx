@@ -53,7 +53,7 @@ import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
-import { getCanonicalCompletedSessions } from './src/lib/completedSessions';
+import { getCalendarWeekStartTimestamp, getCanonicalCompletedSessions } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
@@ -2420,16 +2420,29 @@ function GymlogApp() {
     if (!appHydrated) {
       return;
     }
+    const nowMs = Date.now();
+    // Which weekdays already have a logged session this calendar week. The
+    // widget's bars need it to say "done" rather than only "training day".
+    const weekStart = getCalendarWeekStartTimestamp(new Date(nowMs));
+    const completedWeekdayIndexes = getCanonicalCompletedSessions(database)
+      .map((session) => new Date(session.performedAt))
+      .filter((date) => Number.isFinite(date.getTime()) && date.getTime() >= weekStart)
+      .map((date) => (date.getDay() === 0 ? 6 : date.getDay() - 1));
+
     writeHomeWidgetPayload(
       buildHomeWidgetPayload({
-        nowMs: Date.now(),
+        nowMs,
         language: preferences.appLanguage,
+        // The widget shows whatever the app resolved, Pro gate included — it
+        // cannot re-derive this, it is drawn in the launcher's process.
+        theme: resolveThemeName(preferences),
         planName: homeActivePlanCard?.title ?? null,
         trainingDayIndexes: homeTrainingDayIndexes,
+        completedWeekdayIndexes,
         sessions: homeActivePlanCard?.sessions ?? [],
       }),
     );
-  }, [appHydrated, preferences.appLanguage, homeActivePlanCard, homeTrainingDayIndexes]);
+  }, [appHydrated, preferences, database, homeActivePlanCard, homeTrainingDayIndexes]);
 
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content

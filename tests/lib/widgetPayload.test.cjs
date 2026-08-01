@@ -33,6 +33,7 @@ function build(overrides = {}) {
     // Thursday 2026-07-30, midday.
     nowMs: at(2026, 7, 30),
     language: 'en',
+    theme: 'dark',
     planName: 'Strong Chest',
     trainingDayIndexes: [1, 2, 3], // tue, wed, thu (0 = Monday)
     sessions: SESSIONS,
@@ -172,8 +173,9 @@ module.exports = [
         assert.equal(typeof day.dateLabel, 'string');
         assert.equal(typeof day.isToday, 'boolean');
         assert.equal(typeof day.isTraining, 'boolean');
+        assert.ok(['done', 'today', 'plan', 'off'].includes(day.state), 'state is one of the four the widget can draw');
       }
-      for (const key of ['planName', 'nextTitle', 'nextWhen', 'nextMeta']) {
+      for (const key of ['planName', 'nextTitle', 'nextWhen', 'nextMeta', 'dayLine', 'ctaLabel']) {
         assert.equal(typeof payload[key], 'string', `${key} must be a string the native side can draw`);
       }
       // Serialisable as-is: this is what gets written to disk for Kotlin.
@@ -190,6 +192,43 @@ module.exports = [
         ['27', '28', '29', '30', '31', '1', '2'],
       );
       assert.equal(payload.days[6].isToday, true);
+    },
+  },
+  {
+    name: 'widgetPayload: the resolved theme travels with the payload',
+    run() {
+      // The launcher cannot read the app's preference, so the answer has to be
+      // in the file. Whatever the app resolved — Pro gate included — is what
+      // the widget paints.
+      assert.equal(build({ theme: 'dark' }).theme, 'dark');
+      assert.equal(build({ theme: 'light' }).theme, 'light');
+    },
+  },
+  {
+    name: 'widgetPayload: a logged session turns its bar to done, outranking today',
+    run() {
+      // Thursday is today AND a training day; logging it should read as done.
+      const payload = build({ completedWeekdayIndexes: [1, 3] });
+      assert.deepEqual(
+        payload.days.map((day) => day.state),
+        ['off', 'done', 'plan', 'done', 'off', 'off', 'off'],
+      );
+      // Without any logged session, today is still today.
+      assert.equal(build().days[3].state, 'today');
+    },
+  },
+  {
+    name: 'widgetPayload: the button and the day line are pre-translated',
+    run() {
+      // The widget is drawn by the launcher, which has none of the app's i18n.
+      assert.equal(build().ctaLabel, 'Start');
+      assert.equal(build({ language: 'fi' }).ctaLabel, 'Aloita');
+      assert.equal(build().dayLine, 'Today · THU');
+      assert.equal(build({ language: 'fi' }).dayLine, 'Tänään · TO');
+      // Not today: no 'today' claim, and the CTA falls back to opening the app.
+      const later = build({ nowMs: at(2026, 7, 31) });
+      assert.equal(later.dayLine, 'TUE');
+      assert.equal(build({ trainingDayIndexes: [] }).ctaLabel, 'Open app');
     },
   },
 ];

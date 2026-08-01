@@ -17,7 +17,14 @@ import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
 /** Bumped whenever the shape changes, so a stale file is ignored, not misread. */
-export const HOME_WIDGET_PAYLOAD_VERSION = 1;
+export const HOME_WIDGET_PAYLOAD_VERSION = 2;
+
+/**
+ * What a bar in the week strip says. Four states, because a widget that only
+ * knows "training day / not" cannot tell you whether you already did it — and
+ * that is the one thing you glance at a home screen to find out.
+ */
+export type HomeWidgetDayState = 'done' | 'today' | 'plan' | 'off';
 
 export interface HomeWidgetDay {
   /** "MA" / "MON". */
@@ -26,11 +33,18 @@ export interface HomeWidgetDay {
   dateLabel: string;
   isToday: boolean;
   isTraining: boolean;
+  state: HomeWidgetDayState;
 }
 
 export interface HomeWidgetPayload {
   version: number;
   updatedAt: string;
+  /**
+   * Which palette the native side should draw. The widget is rendered by the
+   * launcher with none of the app's context, so the *resolved* theme travels
+   * in the payload rather than being re-derived there.
+   */
+  theme: 'light' | 'dark';
   /** Plan name, or an honest stand-in when there is no plan. */
   planName: string;
   days: HomeWidgetDay[];
@@ -41,6 +55,10 @@ export interface HomeWidgetPayload {
   nextWhen: string;
   /** "~45 min · 6 exercises", or just the count when no duration is known. */
   nextMeta: string;
+  /** "TODAY · THURSDAY" — the line above the title. Empty when not today. */
+  dayLine: string;
+  /** The button's own words, so the launcher never has to translate. */
+  ctaLabel: string;
 }
 
 /** How far ahead to look for the next training day before giving up. */
@@ -49,9 +67,13 @@ const LOOKAHEAD_DAYS = 14;
 export interface HomeWidgetInput {
   nowMs: number;
   language: AppLanguage;
+  /** The theme the app actually resolved — already through the Pro gate. */
+  theme: 'light' | 'dark';
   planName: string | null;
   /** Monday-first indexes from setupAvailableDays. Empty = unknown. */
   trainingDayIndexes: number[];
+  /** Monday-first indexes of days already trained this calendar week. */
+  completedWeekdayIndexes?: number[];
   sessions: HomeDaySessionSummary[];
 }
 
@@ -77,7 +99,8 @@ function whenLabel(language: AppLanguage, offset: number, weekdayLabel: string) 
 }
 
 export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayload {
-  const { nowMs, language, trainingDayIndexes, sessions } = input;
+  const { nowMs, language, theme, trainingDayIndexes, sessions } = input;
+  const completed = input.completedWeekdayIndexes ?? [];
   const labels = getMondayFirstWeekdayLabels(language);
   const now = new Date(nowMs);
   const weekStart = new Date(getCalendarWeekStartTimestamp(now));
@@ -85,27 +108,38 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
 
   const days: HomeWidgetDay[] = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index);
-    return {
-      label: labels[index] ?? '',
-      dateLabel: String(date.getDate()),
-      isToday: index === todayIndex,
-      isTraining: trainingDayIndexes.includes(index),
-    };
+    const isToday = index === todayIndex;
+    const isTraining = trainingDayIndexes.includes(index);
+    // Done outranks today: once the session is logged, "you already did it" is
+    // the more useful thing for the bar to say.
+    const state: HomeWidgetDayState = completed.includes(index)
+      ? 'done'
+      : isToday
+        ? 'today'
+        : isTraining
+          ? 'plan'
+          : 'off';
+    return { label: labels[index] ?? '', dateLabel: String(date.getDate()), isToday, isTraining, state };
   });
 
   const planName = input.planName?.trim() ? input.planName.trim() : t(language, 'widget.noPlan');
+  const ctaLabel = t(language, 'widget.start');
+  const todayLine = `${t(language, 'widget.today')} · ${labels[todayIndex] ?? ''}`.trim();
 
   // No days picked, or no sessions to name: say so rather than invent a rhythm.
   if (trainingDayIndexes.length === 0 || sessions.length === 0) {
     return {
       version: HOME_WIDGET_PAYLOAD_VERSION,
       updatedAt: new Date(nowMs).toISOString(),
+      theme,
       planName,
       days,
       hasNext: false,
       nextTitle: t(language, trainingDayIndexes.length === 0 ? 'widget.noDays' : 'widget.noSessions'),
       nextWhen: '',
       nextMeta: '',
+      dayLine: '',
+      ctaLabel: t(language, 'widget.openApp'),
     };
   }
 
@@ -139,23 +173,30 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
     return {
       version: HOME_WIDGET_PAYLOAD_VERSION,
       updatedAt: new Date(nowMs).toISOString(),
+      theme,
       planName,
       days,
       hasNext: true,
       nextTitle: view.session.title,
       nextWhen: whenLabel(language, offset, labels[weekdayIndex] ?? ''),
       nextMeta: duration ? `${duration} · ${countLabel}` : countLabel,
+      // The hero line only claims 'today' when it really is today.
+      dayLine: offset === 0 ? todayLine : whenLabel(language, offset, labels[weekdayIndex] ?? ''),
+      ctaLabel,
     };
   }
 
   return {
     version: HOME_WIDGET_PAYLOAD_VERSION,
     updatedAt: new Date(nowMs).toISOString(),
+    theme,
     planName,
     days,
     hasNext: false,
     nextTitle: t(language, 'widget.noSessions'),
     nextWhen: '',
     nextMeta: '',
+    dayLine: '',
+    ctaLabel: t(language, 'widget.openApp'),
   };
 }

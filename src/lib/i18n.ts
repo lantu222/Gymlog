@@ -1216,6 +1216,8 @@ const EN = {
   'widget.noSessions': 'Open the app to start a plan',
   'widget.exercise': '1 exercise',
   'widget.exercises': '{count} exercises',
+  'widget.start': 'Start',
+  'widget.openApp': 'Open app',
   'widget.prompt.title': 'Put your week on the home screen',
   'widget.prompt.body':
     'The widget shows this week’s training days and your next session, without opening the app.',
@@ -3437,6 +3439,8 @@ const FI: Record<I18nKey, string> = {
   'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',
   'widget.exercise': '1 liike',
   'widget.exercises': '{count} liikettä',
+  'widget.start': 'Aloita',
+  'widget.openApp': 'Avaa sovellus',
   'widget.prompt.title': 'Ota viikko kotinäytölle',
   'widget.prompt.body':
     'Widget näyttää tämän viikon treenipäivät ja seuraavan treenin avaamatta sovellusta.',
