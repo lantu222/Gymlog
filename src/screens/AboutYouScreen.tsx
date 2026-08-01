@@ -6,11 +6,10 @@ import Svg, { Path } from 'react-native-svg';
 
 import { getHealthProviderLabel } from '../integrations/health';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
-const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';
@@ -80,6 +79,8 @@ function Stepper({
   decrementLabel: string;
   incrementLabel: string;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.stepperRow}>
       <Pressable
@@ -113,6 +114,7 @@ export function AboutYouScreen({
   onContinue,
   onBack,
 }: AboutYouScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -295,10 +297,10 @@ export function AboutYouScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: theme.bg,
   },
   scroll: {
     flex: 1,
@@ -386,7 +388,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#C9B6FF',
     borderStyle: 'dashed',
-    backgroundColor: BG,
+    backgroundColor: theme.bg,
   },
   avatarFilled: {
     borderWidth: 2,

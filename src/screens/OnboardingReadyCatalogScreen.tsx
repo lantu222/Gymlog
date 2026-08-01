@@ -11,10 +11,9 @@ import { I18nKey, t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 import { getReadyProgramCollectionCopy, READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 
 // Light design tokens (HG palette, same as the other onboarding screens).
-const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';
@@ -81,6 +80,8 @@ function CoverStripes({ patternId }: { patternId: string }) {
 }
 
 function SelectionCircle({ selected }: { selected: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+
   if (!selected) {
     return <View style={styles.selectRing} />;
   }
@@ -100,6 +101,7 @@ export function OnboardingReadyCatalogScreen({
   busy = false,
   coverImages,
 }: OnboardingReadyCatalogScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -314,10 +316,10 @@ export function OnboardingReadyCatalogScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: theme.bg,
     paddingHorizontal: 24,
   },
   scrollContent: {

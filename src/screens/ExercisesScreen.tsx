@@ -2,7 +2,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
@@ -23,6 +23,7 @@ export function ExercisesScreen({
   onToggleTracked,
   onAddToWorkout,
 }: ExercisesScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.content}>
       <ExerciseLibraryBrowser
@@ -37,9 +38,9 @@ export function ExercisesScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   content: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
 });

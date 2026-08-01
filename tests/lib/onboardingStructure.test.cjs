@@ -434,9 +434,12 @@ module.exports = [
       assert.match(welcomeSource, /t\(language, 'welcome\.tagline'\)/);
       assert.match(welcomeSource, /t\(language, 'welcome\.continueGoogle'\)/);
       assert.match(welcomeSource, /SUPPORTED_LANGUAGES/);
-      // Reads the palette rather than copying its value: a local hex silently
+      // Reads the theme rather than copying a value: a local hex silently
       // drifts the moment the palette moves, which is exactly what happened.
-      assert.match(welcomeSource, /const BG = HG.bg/);
+      // The module-level BG constant is gone — a constant cannot follow a
+      // theme, so the background is read inside the style factory.
+      assert.doesNotMatch(welcomeSource, /const BG = /);
+      assert.match(welcomeSource, /backgroundColor: theme\.bg/);
       assert.match(welcomeSource, /const PURPLE = '#7C3AED'/);
       assert.match(welcomeSource, /logoInk/);
       assert.match(welcomeSource, /logoPurple/);

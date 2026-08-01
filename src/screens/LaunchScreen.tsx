@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
 
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 
 /**
  * The first frame the app owns: the GAINER wordmark alone on the light
@@ -10,6 +10,7 @@ import { HG } from '../lightTheme';
  * feel like it fades up onto that same surface.
  */
 export function LaunchScreen() {
+  const styles = useThemedStyles(makeStyles);
   const enter = useRef(new Animated.Value(0)).current;
   const enterScale = useRef(enter.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] })).current;
 
@@ -44,10 +45,10 @@ export function LaunchScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   backgroundLogo: {
     position: 'absolute',
@@ -63,9 +64,9 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   gainerTextInk: {
-    color: HG.ink,
+    color: theme.ink,
   },
   gainerTextPurple: {
-    color: HG.purple,
+    color: theme.purple,
   },
 });

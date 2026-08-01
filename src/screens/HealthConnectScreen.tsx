@@ -6,11 +6,10 @@ import Svg, { Path } from 'react-native-svg';
 
 import { getHealthProviderLabel, HealthBasics, requestHealthBasics } from '../integrations/health';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
-const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';
@@ -45,6 +44,8 @@ function CheckGlyph() {
 const CONNECTOR_DOT_COUNT = 7;
 
 function ConnectorWave() {
+  const styles = useThemedStyles(makeStyles);
+
   const wave = useRef(new Animated.Value(-0.3)).current;
   // One interpolation per dot for the component's life — per-render
   // interpolations leak native nodes (disconnectAnimatedNodes crash).
@@ -101,6 +102,8 @@ function ConnectorWave() {
 }
 
 function Bullet({ title, body, fontFamily }: { title: string; body: string; fontFamily?: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.bulletRow}>
       <View style={styles.bulletCheck}>
@@ -115,6 +118,7 @@ function Bullet({ title, body, fontFamily }: { title: string; body: string; font
 }
 
 export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: HealthConnectScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -209,10 +213,10 @@ export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: He
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: theme.bg,
     paddingHorizontal: 24,
   },
   content: {

@@ -6,11 +6,10 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { getAgeFromDateOfBirth, getHealthProviderLabel, HealthBasics } from '../integrations/health';
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
-const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';
@@ -78,6 +77,7 @@ function SpinnerArc() {
 }
 
 export function HealthSyncedScreen({ basics, language = 'en', onContinue, onBack }: HealthSyncedScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -267,10 +267,10 @@ export function HealthSyncedScreen({ basics, language = 'en', onContinue, onBack
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: theme.bg,
     paddingHorizontal: 24,
   },
   content: {

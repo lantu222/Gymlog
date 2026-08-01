@@ -5,11 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { SUPPORTED_LANGUAGES, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette from the redesign handoff).
-const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';
@@ -84,6 +83,7 @@ function FeatureIcon({ name }: { name: (typeof FEATURES)[number]['icon'] }) {
 }
 
 export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn }: WelcomeScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -216,7 +216,7 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue, onSignIn
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   langRow: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: theme.bg,
     paddingHorizontal: 24,
   },
   hero: {

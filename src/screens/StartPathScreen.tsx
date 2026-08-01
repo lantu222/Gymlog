@@ -5,11 +5,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
 import { t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 // Light design tokens (HG palette, same as WelcomeScreen).
-const BG = HG.bg;
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
 const MUTED = '#667085';
@@ -51,6 +50,8 @@ function PathIcon({ name, color }: { name: 'sparkle' | 'grid'; color: string }) 
 }
 
 function CheckCircle({ selected }: { selected: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+
   if (!selected) {
     return <View style={styles.checkRing} />;
   }
@@ -75,6 +76,8 @@ interface PathCardProps {
 }
 
 function PathCard({ icon, title, body, recommendedLabel, selected, fontFamily, accessibilityLabel, onPress }: PathCardProps) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -112,6 +115,7 @@ export function StartPathScreen({
   onBrowsePrograms,
   onBack,
 }: StartPathScreenProps) {
+  const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
@@ -172,10 +176,10 @@ export function StartPathScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: BG,
+    backgroundColor: theme.bg,
     paddingHorizontal: 24,
   },
   heading: {
