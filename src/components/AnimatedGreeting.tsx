@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef } from 'react';
 import { Animated, Easing, StyleProp, StyleSheet, Text, TextStyle, View } from 'react-native';
 
+import { useTheme } from '../theming';
+
 /**
  * The Home greeting, revealed one word at a time.
  *
@@ -68,7 +70,7 @@ function renderBrandWord(word: string, accentColor: string, key: string) {
 export function AnimatedGreeting({
   text,
   style,
-  accentColor = '#7C3AED',
+  accentColor: accentColorProp,
   staggerMs = 55,
   animate = true,
   mode = 'words',
@@ -76,6 +78,8 @@ export function AnimatedGreeting({
   adjustsFontSizeToFit,
   minimumFontScale,
 }: AnimatedGreetingProps) {
+  const theme = useTheme();
+  const accentColor = accentColorProp ?? theme.purpleBright;
   // Split on spaces but keep them, so wrapping and spacing stay natural.
   // 'line' mode is a single unit and animates as one.
   const words = useMemo(

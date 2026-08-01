@@ -10,11 +10,7 @@ import {
   ViewStyle,
 } from 'react-native';
 
-// Flat light-theme CTA from the redesign handoff (onb-shared CTA spec):
-// 56px solid purple pill, 17/800 label, soft purple drop shadow.
-const CTA_PURPLE = '#7C3AED';
-const CTA_DISABLED_BG = '#E3DAF5';
-const CTA_DISABLED_TEXT = '#9A93AC';
+import { Theme, useThemedStyles } from '../theming';
 
 interface PrimaryCTAButtonProps {
   title: string;
@@ -29,6 +25,7 @@ export function PrimaryCTAButton({
   disabled = false,
   style,
 }: PrimaryCTAButtonProps) {
+  const styles = useThemedStyles(makeStyles);
   const pressProgress = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
@@ -86,40 +83,43 @@ export function PrimaryCTAButton({
   );
 }
 
-const styles = StyleSheet.create({
-  button: {
-    width: '100%',
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: CTA_PURPLE,
-    shadowColor: CTA_PURPLE,
-    shadowOpacity: 0.32,
-    shadowRadius: 14,
-    shadowOffset: { width: 0, height: 14 },
-    elevation: 10,
-  },
-  buttonDisabled: {
-    backgroundColor: CTA_DISABLED_BG,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  pressable: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  label: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '800',
-    letterSpacing: 0.17,
-    textAlign: 'center',
-  },
-  labelDisabled: {
-    color: CTA_DISABLED_TEXT,
-  },
-});
+// Flat CTA from the redesign handoff (onb-shared CTA spec): 56px solid purple
+// pill, 17/800 label, soft purple drop shadow.
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    button: {
+      width: '100%',
+      height: 56,
+      borderRadius: 18,
+      backgroundColor: theme.purpleBright,
+      shadowColor: theme.purpleBright,
+      shadowOpacity: 0.32,
+      shadowRadius: 14,
+      shadowOffset: { width: 0, height: 14 },
+      elevation: 10,
+    },
+    buttonDisabled: {
+      backgroundColor: theme.purpleLight,
+      shadowOpacity: 0,
+      elevation: 0,
+    },
+    pressable: {
+      width: '100%',
+      height: '100%',
+      borderRadius: 18,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 16,
+    },
+    label: {
+      color: '#FFFFFF',
+      fontSize: 17,
+      lineHeight: 22,
+      fontWeight: '800',
+      letterSpacing: 0.17,
+      textAlign: 'center',
+    },
+    labelDisabled: {
+      color: theme.faint,
+    },
+  });

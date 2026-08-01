@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Theme, useTheme, useThemedStyles } from '../theming';
+
 import { HomeHeroVisual } from '../lib/homeVisuals';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { radii, spacing } from '../theme';
@@ -22,6 +24,9 @@ interface ResumeWorkoutCardProps {
 }
 
 export function ResumeWorkoutCard({ card, heroVisual, onPress }: ResumeWorkoutCardProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   const metaParts = (card.meta ?? '')
     .split('|')
     .map((part) => part.trim())
@@ -64,83 +69,84 @@ export function ResumeWorkoutCard({ card, heroVisual, onPress }: ResumeWorkoutCa
   );
 }
 
-const styles = StyleSheet.create({
-  card: {
-    gap: spacing.md,
-  },
-  hero: {
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    backgroundColor: '#101010',
-    padding: spacing.lg,
-    gap: spacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.24,
-    shadowRadius: 24,
-    elevation: 10,
-  },
-  heroTop: {
-    gap: spacing.sm,
-  },
-  tokenRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  token: {
-    minHeight: 28,
-    paddingHorizontal: spacing.sm + 2,
-    borderRadius: radii.pill,
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  tokenMuted: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
-  tokenText: {
-    color: '#050505',
-    fontSize: 10,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-  },
-  tokenTextMuted: {
-    color: '#FFFFFF',
-  },
-  heroBody: {
-    gap: spacing.sm,
-  },
-  copy: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  planLabel: {
-    color: 'rgba(255,255,255,0.50)',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  title: {
-    color: '#FFFFFF',
-    fontSize: 30,
-    lineHeight: 31,
-    fontWeight: '900',
-    letterSpacing: -1,
-    maxWidth: '94%',
-  },
-  duration: {
-    color: 'rgba(255,255,255,0.78)',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: 'rgba(255,255,255,0.62)',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    maxWidth: '90%',
-  },
-});
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    card: {
+      gap: spacing.md,
+    },
+    hero: {
+      borderRadius: 28,
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.10)',
+      backgroundColor: theme.ink,
+      padding: spacing.lg,
+      gap: spacing.md,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.24,
+      shadowRadius: 24,
+      elevation: 10,
+    },
+    heroTop: {
+      gap: spacing.sm,
+    },
+    tokenRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+    },
+    token: {
+      minHeight: 28,
+      paddingHorizontal: spacing.sm + 2,
+      borderRadius: radii.pill,
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+    },
+    tokenMuted: {
+      backgroundColor: 'rgba(255,255,255,0.08)',
+      borderWidth: 1,
+      borderColor: 'rgba(255,255,255,0.10)',
+    },
+    tokenText: {
+      color: '#050505',
+      fontSize: 10,
+      fontWeight: '900',
+      textTransform: 'uppercase',
+      letterSpacing: 0.8,
+    },
+    tokenTextMuted: {
+      color: '#FFFFFF',
+    },
+    heroBody: {
+      gap: spacing.sm,
+    },
+    copy: {
+      flex: 1,
+      gap: spacing.xs,
+    },
+    planLabel: {
+      color: 'rgba(255,255,255,0.50)',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    title: {
+      color: '#FFFFFF',
+      fontSize: 30,
+      lineHeight: 31,
+      fontWeight: '900',
+      letterSpacing: -1,
+      maxWidth: '94%',
+    },
+    duration: {
+      color: 'rgba(255,255,255,0.78)',
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    subtitle: {
+      color: 'rgba(255,255,255,0.62)',
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '700',
+      maxWidth: '90%',
+    },
+  });

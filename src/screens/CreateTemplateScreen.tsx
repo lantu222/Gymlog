@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { Theme, useTheme, useThemedStyles } from '../theming';
+
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -239,6 +241,9 @@ export function CreateTemplateScreen({
   onBack,
   onSave,
 }: CreateTemplateScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   const [templateName, setTemplateName] = useState(initialDraft.name);
   const [sessions, setSessions] = useState<TemplateSessionState[]>(() => mapDraftToSessions(initialDraft));
   const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
@@ -385,7 +390,7 @@ export function CreateTemplateScreen({
             value={templateName}
             onChangeText={setTemplateName}
             placeholder={t(language, 'tpl.namePlaceholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={theme.faint}
             selectionColor="#111111"
             style={styles.nameInput}
           />
@@ -480,7 +485,7 @@ export function CreateTemplateScreen({
                 value={session.name}
                 onChangeText={(value) => updateSessionName(session.localKey, value)}
                 placeholder={t(language, 'tpl.day', { index: index + 1 })}
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={theme.faint}
                 selectionColor="#111111"
                 style={styles.sessionNameInput}
               />
@@ -576,340 +581,341 @@ export function CreateTemplateScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: layout.bottomTabBarReserve,
-    gap: spacing.lg,
-    backgroundColor: '#FFFFFF',
-  },
-  card: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.md,
-    gap: spacing.xs,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  topCompactCard: {
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.sm,
-    gap: 6,
-  },
-  daysCompactCard: {
-    paddingBottom: spacing.md - 2,
-  },
-  cardKicker: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  nameInput: {
-    minHeight: 36,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.sm + 2,
-    color: '#111111',
-    fontSize: 17,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  supportingTextCompact: {
-    color: '#6B7280',
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '600',
-  },
-  dayRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-  },
-  dayChip: {
-    width: 38,
-    height: 38,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayChipActive: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
-  },
-  dayChipText: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  dayChipTextActive: {
-    color: '#FFFFFF',
-  },
-  quickLayoutsCard: {
-    gap: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  presetRow: {
-    gap: spacing.sm,
-    paddingRight: spacing.lg,
-  },
-  presetCard: {
-    width: 228,
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-  },
-  presetMedia: {
-    height: 126,
-    backgroundColor: '#0F172A',
-    position: 'relative',
-  },
-  presetMediaImage: {
-    width: '100%',
-    height: '100%',
-  },
-  presetMediaFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111111',
-  },
-  presetMediaFallbackText: {
-    color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-  presetMediaOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(17, 17, 17, 0.22)',
-  },
-  presetBadge: {
-    position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
-    minHeight: 28,
-    borderRadius: radii.pill,
-    paddingHorizontal: spacing.sm,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-  },
-  presetBadgeText: {
-    color: '#111111',
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  presetCopy: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    gap: 6,
-  },
-  presetTitle: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  presetBody: {
-    color: '#6B7280',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-  presetMeta: {
-    color: '#111111',
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  sessionList: {
-    gap: spacing.md,
-  },
-  sessionCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    gap: spacing.md,
-  },
-  sessionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  sessionHeaderCopy: {
-    gap: 4,
-  },
-  sessionCountText: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  sessionRemoveButton: {
-    minHeight: 36,
-    paddingHorizontal: spacing.sm,
-    justifyContent: 'center',
-  },
-  sessionRemoveButtonText: {
-    color: '#DC2626',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  sessionNameInput: {
-    minHeight: 50,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-  },
-  exerciseList: {
-    gap: spacing.sm,
-  },
-  exerciseRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.sm,
-  },
-  exerciseLead: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minWidth: 0,
-  },
-  exerciseThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
-  },
-  exerciseThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  exerciseThumbFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  exerciseThumbFallbackText: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  exerciseCopy: {
-    flex: 1,
-    gap: 4,
-    minWidth: 0,
-  },
-  exerciseName: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '800',
-    lineHeight: 20,
-  },
-  exerciseMeta: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  exerciseRemoveButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF5F5',
-  },
-  exerciseRemoveButtonText: {
-    color: '#DC2626',
-    fontSize: 12,
-    fontWeight: '900',
-  },
-  emptyState: {
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    padding: spacing.md,
-    gap: 4,
-  },
-  emptyStateTitle: {
-    color: '#111111',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  emptyStateBody: {
-    color: '#6B7280',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
-  addExerciseButton: {
-    minHeight: 48,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#111111',
-    backgroundColor: '#111111',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addExerciseButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  saveButton: {
-    minHeight: 56,
-    borderRadius: radii.lg,
-    backgroundColor: '#111111',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonDisabled: {
-    opacity: 0.45,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-});
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.surface,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: layout.bottomTabBarReserve,
+      gap: spacing.lg,
+      backgroundColor: theme.surface,
+    },
+    card: {
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: spacing.md,
+      gap: spacing.xs,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+      elevation: 2,
+    },
+    topCompactCard: {
+      paddingTop: spacing.sm,
+      paddingBottom: spacing.sm,
+      gap: 6,
+    },
+    daysCompactCard: {
+      paddingBottom: spacing.md - 2,
+    },
+    cardKicker: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    nameInput: {
+      minHeight: 36,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      paddingHorizontal: spacing.sm + 2,
+      color: theme.ink,
+      fontSize: 17,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+    },
+    supportingTextCompact: {
+      color: theme.muted,
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '600',
+    },
+    dayRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.xs,
+    },
+    dayChip: {
+      width: 38,
+      height: 38,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    dayChipActive: {
+      backgroundColor: theme.ink,
+      borderColor: theme.ink,
+    },
+    dayChipText: {
+      color: theme.ink,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    dayChipTextActive: {
+      color: theme.surface,
+    },
+    quickLayoutsCard: {
+      gap: spacing.sm,
+      paddingVertical: spacing.md,
+    },
+    presetRow: {
+      gap: spacing.sm,
+      paddingRight: spacing.lg,
+    },
+    presetCard: {
+      width: 228,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      overflow: 'hidden',
+    },
+    presetMedia: {
+      height: 126,
+      backgroundColor: theme.ink,
+      position: 'relative',
+    },
+    presetMediaImage: {
+      width: '100%',
+      height: '100%',
+    },
+    presetMediaFallback: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.ink,
+    },
+    presetMediaFallbackText: {
+      color: theme.surface,
+      fontSize: 36,
+      fontWeight: '900',
+      letterSpacing: -1,
+    },
+    presetMediaOverlay: {
+      ...StyleSheet.absoluteFillObject,
+      backgroundColor: 'rgba(17, 17, 17, 0.22)',
+    },
+    presetBadge: {
+      position: 'absolute',
+      top: spacing.sm,
+      left: spacing.sm,
+      minHeight: 28,
+      borderRadius: radii.pill,
+      paddingHorizontal: spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    },
+    presetBadgeText: {
+      color: theme.ink,
+      fontSize: 12,
+      fontWeight: '800',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    presetCopy: {
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      gap: 6,
+    },
+    presetTitle: {
+      color: theme.ink,
+      fontSize: 18,
+      fontWeight: '800',
+      letterSpacing: -0.3,
+    },
+    presetBody: {
+      color: theme.muted,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '600',
+    },
+    presetMeta: {
+      color: theme.ink,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '700',
+    },
+    sessionList: {
+      gap: spacing.md,
+    },
+    sessionCard: {
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: spacing.lg,
+      gap: spacing.md,
+    },
+    sessionHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      gap: spacing.md,
+    },
+    sessionHeaderCopy: {
+      gap: 4,
+    },
+    sessionCountText: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    sessionRemoveButton: {
+      minHeight: 36,
+      paddingHorizontal: spacing.sm,
+      justifyContent: 'center',
+    },
+    sessionRemoveButtonText: {
+      color: '#DC2626',
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    sessionNameInput: {
+      minHeight: 50,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      paddingHorizontal: spacing.md,
+      color: theme.ink,
+      fontSize: 18,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+    },
+    exerciseList: {
+      gap: spacing.sm,
+    },
+    exerciseRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: spacing.sm,
+    },
+    exerciseLead: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      minWidth: 0,
+    },
+    exerciseThumb: {
+      width: 52,
+      height: 52,
+      borderRadius: 12,
+      overflow: 'hidden',
+      backgroundColor: theme.surfaceSoft,
+    },
+    exerciseThumbImage: {
+      width: '100%',
+      height: '100%',
+    },
+    exerciseThumbFallback: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surfaceSoft,
+    },
+    exerciseThumbFallbackText: {
+      color: theme.ink,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    exerciseCopy: {
+      flex: 1,
+      gap: 4,
+      minWidth: 0,
+    },
+    exerciseName: {
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '800',
+      lineHeight: 20,
+    },
+    exerciseMeta: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    exerciseRemoveButton: {
+      width: 32,
+      height: 32,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: '#FCA5A5',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#FFF5F5',
+    },
+    exerciseRemoveButtonText: {
+      color: '#DC2626',
+      fontSize: 12,
+      fontWeight: '900',
+    },
+    emptyState: {
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surfaceSoft,
+      padding: spacing.md,
+      gap: 4,
+    },
+    emptyStateTitle: {
+      color: theme.ink,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    emptyStateBody: {
+      color: theme.muted,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '600',
+    },
+    addExerciseButton: {
+      minHeight: 48,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: theme.ink,
+      backgroundColor: theme.ink,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    addExerciseButtonText: {
+      color: theme.surface,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    saveButton: {
+      minHeight: 56,
+      borderRadius: radii.lg,
+      backgroundColor: theme.ink,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    saveButtonDisabled: {
+      opacity: 0.45,
+    },
+    saveButtonText: {
+      color: theme.surface,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+  });

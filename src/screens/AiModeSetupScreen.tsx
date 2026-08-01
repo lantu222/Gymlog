@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { Theme, useTheme, useThemedStyles } from '../theming';
+
 import { ScreenHeader } from '../components/ScreenHeader';
 import { t } from '../lib/i18n';
 import { radii, spacing } from '../theme';
@@ -22,6 +24,7 @@ interface AiModeSetupScreenProps {
 }
 
 function SectionLabel({ label }: { label: string }) {
+  const styles = useThemedStyles(makeStyles);
   return <Text style={styles.sectionLabel}>{label}</Text>;
 }
 
@@ -34,6 +37,7 @@ function ChoiceChip({
   active: boolean;
   onPress: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <Pressable onPress={onPress} style={[styles.choiceChip, active && styles.choiceChipActive]}>
       <Text style={[styles.choiceChipText, active && styles.choiceChipTextActive]}>{label}</Text>
@@ -50,6 +54,7 @@ function OptionRow<T extends string | number>({
   selected: T | null;
   onSelect: (value: T) => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.optionRow}>
       {options.map((option) => (
@@ -72,6 +77,9 @@ function splitCsv(value: string) {
 }
 
 export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave }: AiModeSetupScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   const [goal, setGoal] = useState<AiPlannerGoal | null>(preferences.aiPlannerGoal);
   const [daysPerWeek, setDaysPerWeek] = useState<AiPlannerDaysPerWeek | null>(preferences.aiPlannerDaysPerWeek);
   const [experience, setExperience] = useState<AiPlannerExperience | null>(preferences.aiPlannerExperience);
@@ -179,7 +187,7 @@ export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave
           value={mustInclude}
           onChangeText={setMustInclude}
           placeholder={t(language, 'aiSetup.mustIncludeHint')}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={theme.faint}
           style={styles.input}
         />
 
@@ -188,7 +196,7 @@ export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave
           value={avoid}
           onChangeText={setAvoid}
           placeholder={t(language, 'aiSetup.avoidHint')}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={theme.faint}
           style={styles.input}
         />
 
@@ -197,7 +205,7 @@ export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave
           value={limitations}
           onChangeText={setLimitations}
           placeholder={t(language, 'aiSetup.limitationsHint')}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={theme.faint}
           style={[styles.input, styles.multilineInput]}
           multiline
           textAlignVertical="top"
@@ -238,127 +246,128 @@ export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave
   );
 }
 
-const styles = StyleSheet.create({
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: 140,
-    gap: spacing.md,
-    backgroundColor: '#FFFFFF',
-  },
-  noteCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E9D5FF',
-    backgroundColor: '#FAF5FF',
-    padding: spacing.lg,
-    gap: spacing.xs,
-  },
-  noteTitle: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  noteBody: {
-    color: '#374151',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
-  },
-  noteMeta: {
-    color: '#7C3AED',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  sectionLabel: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 0.7,
-    marginTop: spacing.sm,
-  },
-  optionRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  choiceChip: {
-    minHeight: 42,
-    paddingHorizontal: spacing.md,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  choiceChipActive: {
-    backgroundColor: '#7C3AED',
-    borderColor: '#7C3AED',
-  },
-  choiceChipText: {
-    color: '#111111',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  choiceChipTextActive: {
-    color: '#FFFFFF',
-  },
-  input: {
-    minHeight: 54,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  multilineInput: {
-    minHeight: 104,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  summaryCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.lg,
-    gap: spacing.xs,
-  },
-  summaryTitle: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  summaryBody: {
-    color: '#374151',
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '600',
-  },
-  summaryMeta: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  primaryButton: {
-    minHeight: 56,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111111',
-    marginTop: spacing.sm,
-    marginBottom: spacing.lg,
-  },
-  primaryButtonDisabled: {
-    opacity: 0.4,
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-});
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: 140,
+      gap: spacing.md,
+      backgroundColor: theme.surface,
+    },
+    noteCard: {
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.purpleLight,
+      backgroundColor: theme.surfaceSoft,
+      padding: spacing.lg,
+      gap: spacing.xs,
+    },
+    noteTitle: {
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '900',
+    },
+    noteBody: {
+      color: theme.muted,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '600',
+    },
+    noteMeta: {
+      color: theme.purpleBright,
+      fontSize: 12,
+      fontWeight: '800',
+    },
+    sectionLabel: {
+      color: theme.ink,
+      fontSize: 13,
+      fontWeight: '900',
+      textTransform: 'uppercase',
+      letterSpacing: 0.7,
+      marginTop: spacing.sm,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: spacing.sm,
+    },
+    choiceChip: {
+      minHeight: 42,
+      paddingHorizontal: spacing.md,
+      borderRadius: radii.pill,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    choiceChipActive: {
+      backgroundColor: theme.purpleBright,
+      borderColor: theme.purpleBright,
+    },
+    choiceChipText: {
+      color: theme.ink,
+      fontSize: 13,
+      fontWeight: '800',
+    },
+    choiceChipTextActive: {
+      color: '#FFFFFF',
+    },
+    input: {
+      minHeight: 54,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      paddingHorizontal: spacing.md,
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    multilineInput: {
+      minHeight: 104,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+    },
+    summaryCard: {
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: spacing.lg,
+      gap: spacing.xs,
+    },
+    summaryTitle: {
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '900',
+    },
+    summaryBody: {
+      color: theme.muted,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '600',
+    },
+    summaryMeta: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '700',
+    },
+    primaryButton: {
+      minHeight: 56,
+      borderRadius: radii.md,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.ink,
+      marginTop: spacing.sm,
+      marginBottom: spacing.lg,
+    },
+    primaryButtonDisabled: {
+      opacity: 0.4,
+    },
+    primaryButtonText: {
+      color: theme.surface,
+      fontSize: 15,
+      fontWeight: '900',
+    },
+  });

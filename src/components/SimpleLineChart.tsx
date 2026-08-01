@@ -1,5 +1,7 @@
 import React from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { removeTrailingZeros } from '../lib/format';
@@ -30,6 +32,9 @@ export function SimpleLineChart({
   tooltipFormatter,
   showFooter = true,
 }: SimpleLineChartProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   const [width, setWidth] = React.useState(0);
   const [selectedPointIndex, setSelectedPointIndex] = React.useState<number | null>(null);
   const height = 220;
@@ -108,7 +113,7 @@ export function SimpleLineChart({
                       x2={width - chartPadding}
                       y1={tick.y}
                       y2={tick.y}
-                      stroke="#E5E7EB"
+                      stroke={theme.border}
                       strokeWidth={1}
                     />
                   ))}
@@ -201,89 +206,90 @@ export function SimpleLineChart({
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    overflow: 'hidden',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    gap: spacing.sm,
-  },
-  chartFrame: {
-    minHeight: 220,
-  },
-  emptyState: {
-    minHeight: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyText: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  axisLabels: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: 44,
-    height: 220,
-  },
-  valueLabel: {
-    position: 'absolute',
-    left: 0,
-    width: 40,
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingLeft: 44,
-  },
-  footerSingle: {
-    justifyContent: 'center',
-    paddingLeft: 0,
-  },
-  footerThreeUp: {
-    alignItems: 'center',
-  },
-  tooltipBubble: {
-    position: 'absolute',
-    minWidth: 96,
-    maxWidth: 128,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DCFCE7',
-    backgroundColor: '#F0FDF4',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 3,
-  },
-  tooltipTitle: {
-    color: '#166534',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  tooltipValue: {
-    color: '#111827',
-    fontSize: 12,
-    fontWeight: '900',
-    marginTop: 2,
-  },
-  dateLabel: {
-    color: '#4B5563',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  dateLabelCentered: {
-    textAlign: 'center',
-  },
-});
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    wrapper: {
+      overflow: 'hidden',
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: spacing.xl,
+      gap: spacing.sm,
+    },
+    chartFrame: {
+      minHeight: 220,
+    },
+    emptyState: {
+      minHeight: 220,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyText: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    axisLabels: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      width: 44,
+      height: 220,
+    },
+    valueLabel: {
+      position: 'absolute',
+      left: 0,
+      width: 40,
+      color: theme.muted,
+      fontSize: 11,
+      fontWeight: '600',
+    },
+    footer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      paddingLeft: 44,
+    },
+    footerSingle: {
+      justifyContent: 'center',
+      paddingLeft: 0,
+    },
+    footerThreeUp: {
+      alignItems: 'center',
+    },
+    tooltipBubble: {
+      position: 'absolute',
+      minWidth: 96,
+      maxWidth: 128,
+      paddingHorizontal: 10,
+      paddingVertical: 8,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: '#DCFCE7',
+      backgroundColor: theme.greenSoft,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 3,
+    },
+    tooltipTitle: {
+      color: theme.greenInk,
+      fontSize: 11,
+      fontWeight: '800',
+    },
+    tooltipValue: {
+      color: theme.ink,
+      fontSize: 12,
+      fontWeight: '900',
+      marginTop: 2,
+    },
+    dateLabel: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '600',
+    },
+    dateLabelCentered: {
+      textAlign: 'center',
+    },
+  });

@@ -21,10 +21,13 @@ module.exports = [
       assert.match(componentSource, /style\?: StyleProp<ViewStyle>/);
       assert.match(componentSource, /export function PrimaryCTAButton/);
 
-      // Flat design tokens: solid purple pill, 56px tall, radius 18.
-      assert.match(componentSource, /const CTA_PURPLE = '#7C3AED'/);
-      assert.match(componentSource, /const CTA_DISABLED_BG = '#E3DAF5'/);
-      assert.match(componentSource, /const CTA_DISABLED_TEXT = '#9A93AC'/);
+      // Flat design tokens: solid purple pill, 56px tall, radius 18. The three
+      // colours are the palette's own now (theme migration 2026-08-01) rather
+      // than local copies of it, so the CTA can follow a theme change.
+      assert.match(componentSource, /useThemedStyles\(makeStyles\)/);
+      assert.match(componentSource, /backgroundColor: theme\.purpleBright/);
+      assert.match(componentSource, /backgroundColor: theme\.purpleLight/);
+      assert.match(componentSource, /color: theme\.faint/);
       assert.match(componentSource, /height: 56/);
       assert.match(componentSource, /borderRadius: 18/);
       assert.match(componentSource, /shadowOpacity: 0\.32/);
@@ -34,8 +37,8 @@ module.exports = [
       assert.match(componentSource, /fontWeight: '800'/);
 
       // Disabled state swaps colors instead of fading opacity.
-      assert.match(componentSource, /buttonDisabled:\s*\{[\s\S]*backgroundColor: CTA_DISABLED_BG[\s\S]*shadowOpacity: 0[\s\S]*elevation: 0/);
-      assert.match(componentSource, /labelDisabled:\s*\{[\s\S]*color: CTA_DISABLED_TEXT/);
+      assert.match(componentSource, /buttonDisabled:\s*\{[\s\S]*backgroundColor: theme.purpleLight[\s\S]*shadowOpacity: 0[\s\S]*elevation: 0/);
+      assert.match(componentSource, /labelDisabled:\s*\{[\s\S]*color: theme\.faint/);
 
       // No gradient remnants and no forced uppercase.
       assert.doesNotMatch(componentSource, /LinearGradient|Svg|gradientStops|toUpperCase|textTransform/);

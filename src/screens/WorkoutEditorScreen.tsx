@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { Theme, useTheme, useThemedStyles } from '../theming';
+
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
 import { ScreenHeader } from '../components/ScreenHeader';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -230,6 +232,9 @@ export function WorkoutEditorScreen({
   onSave,
   exercisePrLookup,
 }: WorkoutEditorScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
   const [session, setSession] = useState<EditorSessionState>(() => mapDraftToState(initialDraft));
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [sheetTarget, setSheetTarget] = useState<ExerciseSheetTarget | null>(null);
@@ -633,7 +638,7 @@ export function WorkoutEditorScreen({
               }
             }}
             placeholder={t(language, 'editor.notesPlaceholder')}
-            placeholderTextColor="#9CA3AF"
+            placeholderTextColor={theme.faint}
             selectionColor="#111111"
             multiline
             style={styles.notesModalInput}
@@ -720,7 +725,7 @@ export function WorkoutEditorScreen({
                                 })
                               }
                               placeholder={t(language, 'editor.writeExercise')}
-                              placeholderTextColor="#9CA3AF"
+                              placeholderTextColor={theme.faint}
                               selectionColor="#111111"
                               style={styles.exerciseInput}
                             />
@@ -780,7 +785,7 @@ export function WorkoutEditorScreen({
                             value={exercise.restSeconds}
                             onChangeText={(value) => updateExercise(exercise.localKey, { restSeconds: value })}
                             placeholder={`${defaultRestSeconds}`}
-                            placeholderTextColor="#9CA3AF"
+                            placeholderTextColor={theme.faint}
                             selectionColor="#111111"
                             keyboardType="number-pad"
                             style={styles.restInput}
@@ -802,7 +807,7 @@ export function WorkoutEditorScreen({
                               value={entry.kg}
                               onChangeText={(value) => updateSetEntry(exercise.localKey, entry.localKey, { kg: value })}
                               placeholder="-"
-                              placeholderTextColor="#9CA3AF"
+                              placeholderTextColor={theme.faint}
                               selectionColor="#111111"
                               keyboardType="numbers-and-punctuation"
                               style={styles.setInput}
@@ -811,7 +816,7 @@ export function WorkoutEditorScreen({
                               value={entry.reps}
                               onChangeText={(value) => updateSetEntry(exercise.localKey, entry.localKey, { reps: value })}
                               placeholder="-"
-                              placeholderTextColor="#9CA3AF"
+                              placeholderTextColor={theme.faint}
                               selectionColor="#111111"
                               keyboardType="numbers-and-punctuation"
                               style={styles.setInput}
@@ -881,412 +886,413 @@ export function WorkoutEditorScreen({
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  content: {
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xxl + 48,
-    gap: spacing.lg,
-    backgroundColor: '#FFFFFF',
-  },
-  startCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    gap: spacing.md,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 2,
-  },
-  startKicker: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  startTitle: {
-    color: '#111111',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.6,
-  },
-  startBody: {
-    color: '#4B5563',
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '600',
-  },
-  primaryAction: {
-    minHeight: 58,
-    borderRadius: radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111111',
-    marginTop: spacing.xs,
-  },
-  primaryActionText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  sessionStatsCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sessionStatLabel: {
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  sessionStatValue: {
-    color: '#2563EB',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  exerciseList: {
-    gap: spacing.md,
-  },
-  exerciseRowCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    padding: spacing.md,
-    gap: spacing.md,
-  },
-  exerciseTopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  exerciseLeadRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    minWidth: 0,
-  },
-  exerciseThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
-    overflow: 'hidden',
-    backgroundColor: '#F3F4F6',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  exerciseThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  exerciseThumbFallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#F3F4F6',
-  },
-  exerciseThumbFallbackText: {
-    color: '#111111',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  exerciseNameCell: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  exerciseNameText: {
-    color: '#111111',
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-  },
-  exerciseInput: {
-    color: '#111111',
-    fontSize: 20,
-    fontWeight: '800',
-    paddingVertical: 0,
-  },
-  exerciseMetaText: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  rowMenuWrap: {
-    position: 'relative',
-    zIndex: 3,
-  },
-  rowMenuButton: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowMenuButtonText: {
-    color: '#16A34A',
-    fontSize: 22,
-    fontWeight: '800',
-    lineHeight: 22,
-  },
-  rowMenu: {
-    position: 'absolute',
-    top: 28,
-    right: 0,
-    width: 188,
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 3,
-    overflow: 'hidden',
-  },
-  rowMenuItem: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
-  },
-  rowMenuItemText: {
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  rowMenuItemDanger: {
-    color: '#DC2626',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  expandedExercise: {
-    gap: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  restRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  restLabel: {
-    color: '#16A34A',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  restInput: {
-    minWidth: 64,
-    minHeight: 40,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  restSuffix: {
-    color: '#6B7280',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  setHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  setHeaderCell: {
-    flex: 1,
-    color: '#6B7280',
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  setRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  setIndex: {
-    width: 44,
-    color: '#111111',
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  setInput: {
-    flex: 1,
-    minHeight: 42,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: spacing.md,
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  setCheck: {
-    width: 42,
-    height: 42,
-    minHeight: 42,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    backgroundColor: '#F9FAFB',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  setCheckDone: {
-    backgroundColor: '#E8F7EE',
-    borderColor: '#22C55E',
-  },
-  setCheckText: {
-    color: '#D1D5DB',
-    fontSize: 18,
-    fontWeight: '900',
-  },
-  setCheckTextDone: {
-    color: '#16A34A',
-  },
-  addSetButton: {
-    minHeight: 46,
-    borderRadius: radii.pill,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addSetButtonText: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  addExercisesButton: {
-    minHeight: 56,
-    borderRadius: radii.lg,
-    backgroundColor: '#111111',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addExercisesButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 17, 17, 0.24)',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  instructionsModal: {
-    borderRadius: radii.lg,
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    gap: spacing.lg,
-  },
-  instructionsHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-  },
-  instructionsHeaderCopy: {
-    flex: 1,
-    gap: 4,
-  },
-  instructionsTitle: {
-    color: '#111111',
-    fontSize: 24,
-    fontWeight: '900',
-    letterSpacing: -0.6,
-  },
-  instructionsSubtitle: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  instructionsCloseButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  instructionsCloseButtonText: {
-    color: '#111111',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  instructionsList: {
-    gap: spacing.md,
-  },
-  instructionsStep: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  instructionsStepDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: '#22C55E',
-    marginTop: 8,
-  },
-  instructionsStepText: {
-    flex: 1,
-    color: '#111111',
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '600',
-  },
-  instructionsEmptyText: {
-    color: '#6B7280',
-    fontSize: 14,
-    lineHeight: 21,
-    fontWeight: '600',
-  },
-  notesModal: {
-    borderRadius: radii.lg,
-    backgroundColor: '#FFFFFF',
-    padding: spacing.xl,
-    gap: spacing.lg,
-  },
-  notesModalInput: {
-    minHeight: 140,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: radii.md,
-    padding: spacing.md,
-    textAlignVertical: 'top',
-    color: '#111111',
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '500',
-  },
-});
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.surface,
+    },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingBottom: spacing.xxl + 48,
+      gap: spacing.lg,
+      backgroundColor: theme.surface,
+    },
+    startCard: {
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: spacing.xl,
+      gap: spacing.md,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.05,
+      shadowRadius: 12,
+      elevation: 2,
+    },
+    startKicker: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    startTitle: {
+      color: theme.ink,
+      fontSize: 22,
+      fontWeight: '900',
+      letterSpacing: -0.6,
+    },
+    startBody: {
+      color: theme.muted,
+      fontSize: 14,
+      lineHeight: 21,
+      fontWeight: '600',
+    },
+    primaryAction: {
+      minHeight: 58,
+      borderRadius: radii.lg,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.ink,
+      marginTop: spacing.xs,
+    },
+    primaryActionText: {
+      color: theme.surface,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    sessionStatsCard: {
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      paddingHorizontal: spacing.lg,
+      paddingVertical: spacing.md,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+    },
+    sessionStatLabel: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.6,
+    },
+    sessionStatValue: {
+      color: '#2563EB',
+      fontSize: 22,
+      fontWeight: '900',
+      letterSpacing: -0.5,
+    },
+    exerciseList: {
+      gap: spacing.md,
+    },
+    exerciseRowCard: {
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: spacing.md,
+      gap: spacing.md,
+    },
+    exerciseTopRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: spacing.sm,
+    },
+    exerciseLeadRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+      minWidth: 0,
+    },
+    exerciseThumb: {
+      width: 44,
+      height: 44,
+      borderRadius: 10,
+      overflow: 'hidden',
+      backgroundColor: theme.surfaceSoft,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    exerciseThumbImage: {
+      width: '100%',
+      height: '100%',
+    },
+    exerciseThumbFallback: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surfaceSoft,
+    },
+    exerciseThumbFallbackText: {
+      color: theme.ink,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    exerciseNameCell: {
+      flex: 1,
+      minWidth: 0,
+      gap: 4,
+    },
+    exerciseNameText: {
+      color: theme.ink,
+      fontSize: 20,
+      fontWeight: '800',
+      letterSpacing: -0.4,
+    },
+    exerciseInput: {
+      color: theme.ink,
+      fontSize: 20,
+      fontWeight: '800',
+      paddingVertical: 0,
+    },
+    exerciseMetaText: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    rowMenuWrap: {
+      position: 'relative',
+      zIndex: 3,
+    },
+    rowMenuButton: {
+      paddingHorizontal: 4,
+      paddingVertical: 2,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rowMenuButtonText: {
+      color: theme.green,
+      fontSize: 22,
+      fontWeight: '800',
+      lineHeight: 22,
+    },
+    rowMenu: {
+      position: 'absolute',
+      top: 28,
+      right: 0,
+      width: 188,
+      borderRadius: radii.md,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 3,
+      overflow: 'hidden',
+    },
+    rowMenuItem: {
+      paddingHorizontal: spacing.md,
+      paddingVertical: spacing.md,
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    rowMenuItemText: {
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    rowMenuItemDanger: {
+      color: '#DC2626',
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    expandedExercise: {
+      gap: spacing.md,
+      paddingTop: spacing.xs,
+    },
+    restRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    restLabel: {
+      color: theme.green,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    restInput: {
+      minWidth: 64,
+      minHeight: 40,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      paddingHorizontal: spacing.md,
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    restSuffix: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '700',
+    },
+    setHeaderRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    setHeaderCell: {
+      flex: 1,
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: 0.5,
+    },
+    setRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    setIndex: {
+      width: 44,
+      color: theme.ink,
+      fontSize: 20,
+      fontWeight: '800',
+    },
+    setInput: {
+      flex: 1,
+      minHeight: 42,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 12,
+      backgroundColor: theme.surface,
+      paddingHorizontal: spacing.md,
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '700',
+      textAlign: 'center',
+    },
+    setCheck: {
+      width: 42,
+      height: 42,
+      minHeight: 42,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surfaceSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    setCheckDone: {
+      backgroundColor: theme.greenSoft,
+      borderColor: '#22C55E',
+    },
+    setCheckText: {
+      color: '#D1D5DB',
+      fontSize: 18,
+      fontWeight: '900',
+    },
+    setCheckTextDone: {
+      color: theme.green,
+    },
+    addSetButton: {
+      minHeight: 46,
+      borderRadius: radii.pill,
+      backgroundColor: theme.surfaceSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    addSetButtonText: {
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    addExercisesButton: {
+      minHeight: 56,
+      borderRadius: radii.lg,
+      backgroundColor: theme.ink,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    addExercisesButtonText: {
+      color: theme.surface,
+      fontSize: 18,
+      fontWeight: '800',
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(17, 17, 17, 0.24)',
+      justifyContent: 'center',
+      paddingHorizontal: spacing.lg,
+    },
+    instructionsModal: {
+      borderRadius: radii.lg,
+      backgroundColor: theme.surface,
+      padding: spacing.xl,
+      gap: spacing.lg,
+    },
+    instructionsHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: spacing.md,
+    },
+    instructionsHeaderCopy: {
+      flex: 1,
+      gap: 4,
+    },
+    instructionsTitle: {
+      color: theme.ink,
+      fontSize: 24,
+      fontWeight: '900',
+      letterSpacing: -0.6,
+    },
+    instructionsSubtitle: {
+      color: theme.muted,
+      fontSize: 14,
+      fontWeight: '600',
+    },
+    instructionsCloseButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.surface,
+    },
+    instructionsCloseButtonText: {
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '900',
+    },
+    instructionsList: {
+      gap: spacing.md,
+    },
+    instructionsStep: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: spacing.sm,
+    },
+    instructionsStepDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 999,
+      backgroundColor: '#22C55E',
+      marginTop: 8,
+    },
+    instructionsStepText: {
+      flex: 1,
+      color: theme.ink,
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '600',
+    },
+    instructionsEmptyText: {
+      color: theme.muted,
+      fontSize: 14,
+      lineHeight: 21,
+      fontWeight: '600',
+    },
+    notesModal: {
+      borderRadius: radii.lg,
+      backgroundColor: theme.surface,
+      padding: spacing.xl,
+      gap: spacing.lg,
+    },
+    notesModalInput: {
+      minHeight: 140,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: radii.md,
+      padding: spacing.md,
+      textAlignVertical: 'top',
+      color: theme.ink,
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '500',
+    },
+  });

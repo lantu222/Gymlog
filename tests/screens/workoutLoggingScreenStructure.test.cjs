@@ -28,8 +28,10 @@ module.exports = [
         setRowSource,
       ].join('\n');
 
-      assert.match(source, /LOGGING_BACKGROUND\s*=\s*'#FFFFFF'/);
-      assert.match(source, /LOGGING_PURPLE\s*=\s*'#7C3AED'/);
+      // The logger's two local colour constants are the palette's own now
+      // (theme migration 2026-08-01), so the screen follows a theme change.
+      assert.match(source, /backgroundColor: theme\.surface/);
+      assert.match(source, /backgroundColor: theme\.purpleBright/);
       assert.match(source, /Font\.loadAsync/);
       assert.match(source, /Inter:\s*require\('\.\/assets\/fonts\/Inter\.ttf'\)/);
       assert.match(source, /Manrope:\s*require\('\.\/assets\/fonts\/Manrope\.ttf'\)/);
@@ -63,7 +65,7 @@ module.exports = [
       assert.match(screenSource, /exerciseListMore/);
       assert.match(screenSource, /fontSize:\s*19/);
       assert.match(screenSource, /letterSpacing:\s*-0\.2/);
-      assert.match(screenSource, /color:\s*'#344054'/);
+      assert.match(screenSource, /color: theme\.muted/);
       assert.match(screenSource, /fontWeight:\s*'700'/);
       assert.match(screenSource, /formatWorkoutListExerciseName/);
       assert.match(screenSource, /getExerciseCompletionMeta/);
@@ -74,7 +76,7 @@ module.exports = [
       assert.match(screenSource, />\.\.\.</);
       assert.match(screenSource, /borderBottomWidth:\s*1/);
       assert.doesNotMatch(screenSource, /borderTopWidth:\s*1/);
-      assert.match(screenSource, /backgroundColor:\s*'#FFFFFF'/);
+      assert.match(screenSource, /backgroundColor: theme\.surface/);
       assert.match(screenSource, /minHeight:\s*73/);
 
       assert.match(screenSource, /<WorkoutSetRow/);
@@ -138,7 +140,7 @@ module.exports = [
       assert.match(screenSource, /t\(language, 'logger\.addExercise'\)/);
       assert.match(i18nSource, /'logger\.addExercise': '\+ Add exercise'/);
       assert.match(screenSource, /addExerciseButton/);
-      assert.match(screenSource, /color:\s*'#5B21B6'/);
+      assert.match(screenSource, /color: theme\.purpleDark/);
       assert.match(screenSource, /fontSize:\s*15/);
       assert.match(screenSource, /borderRadius:\s*radii\.pill/);
       assert.match(screenSource, /t\(language, 'logger\.cancel'\)/);
