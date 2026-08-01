@@ -169,7 +169,7 @@ function Cell({ value, pro }: { value: TableCell; pro?: boolean }) {
   const styles = useThemedStyles(makeStyles);
 
   if (value === 1) {
-    return <CheckGlyph color={pro ? theme.purple : PW.green} />;
+    return <CheckGlyph color={pro ? theme.purple : theme.green} />;
   }
   if (value === 0) {
     return <View style={styles.cellDash} />;
@@ -624,7 +624,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     letterSpacing: 1,
-    color: PW.proInk,
+    color: theme.purpleDark,
   },
   benefitTitle: {
     flex: 1,
@@ -701,7 +701,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   chipDelta: {
-    backgroundColor: PW.greenSoft,
+    backgroundColor: theme.greenSoft,
     borderRadius: 7,
     paddingVertical: 5,
     paddingHorizontal: 8,
@@ -709,7 +709,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   chipDeltaText: {
     fontSize: 11,
     fontWeight: '800',
-    color: PW.green,
+    color: theme.greenInk,
   },
   weekRow: {
     flexDirection: 'row',
@@ -815,7 +815,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 8,
     paddingVertical: 11,
     paddingHorizontal: 15,
-    backgroundColor: '#FBF8FF',
+    backgroundColor: theme.surfaceSoft,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
   },
@@ -830,8 +830,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 3,
     paddingHorizontal: 7,
   },
+  // Both pills sit on a themed fill, so their labels have to be themed too.
+  // PW's fixed pair put a dark-purple "Pro" on theme.purpleLight — fine on the
+  // light tint, invisible once that tint went dark.
   bandNoteFree: {
-    backgroundColor: PW.greenSoft,
+    backgroundColor: theme.greenSoft,
   },
   bandNotePro: {
     backgroundColor: theme.purpleLight,
@@ -841,10 +844,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   bandNoteTextFree: {
-    color: PW.green,
+    color: theme.greenInk,
   },
   bandNoteTextPro: {
-    color: PW.proInk,
+    color: theme.purpleDark,
   },
   tableRow: {
     flexDirection: 'row',
@@ -905,7 +908,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     position: 'absolute',
     top: -10,
     right: 12,
-    backgroundColor: PW.green,
+    backgroundColor: theme.green,
     borderRadius: 999,
     paddingVertical: 3,
     paddingHorizontal: 9,

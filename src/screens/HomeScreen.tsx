@@ -522,17 +522,6 @@ export function HomeScreen({
                 </Pressable>
               </View>
             </View>
-            {/* Paged away from now: one tap back, the way a desktop calendar does it. */}
-            {monthOffset !== 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => setMonthOffset(0)}
-                hitSlop={8}
-                style={({ pressed }) => [styles.monthTodayLink, pressed && styles.pressed]}
-              >
-                <Text style={styles.monthTodayLinkText}>{t(language, 'home.calendar.today')}</Text>
-              </Pressable>
-            ) : null}
             <View style={styles.monthWeekdayRow}>
               {monthCalendar.weekdayLabels.map((label) => (
                 <Text key={label} style={styles.monthWeekdayLabel}>
@@ -698,7 +687,7 @@ export function HomeScreen({
           >
             <Text style={styles.startButtonText}>{t(language, 'home.startWorkout')}</Text>
             <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.green} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
             </Svg>
           </Pressable>
         </Animated.View>
@@ -1089,17 +1078,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.purpleSoft,
   },
-  monthTodayLink: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 4,
-    paddingBottom: 6,
-  },
-  monthTodayLinkText: {
-    color: theme.purple,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
   monthWeekdayRow: {
     flexDirection: 'row',
     marginBottom: 2,
@@ -1324,20 +1302,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 56,
     borderRadius: 16,
     borderWidth: 1.5,
-    borderColor: theme.green,
+    borderColor: theme.accent,
     backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: theme.green,
+    shadowColor: theme.accent,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14,
     shadowRadius: 16,
     elevation: 4,
   },
   startButtonText: {
-    color: theme.green,
+    color: theme.accent,
     fontSize: 17.5,
     lineHeight: 22,
     fontWeight: '800',

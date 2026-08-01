@@ -543,11 +543,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 6,
     marginTop: 14,
   },
+  // The inactive fill was hardcoded pale, so under the dark theme the rest
+  // days lit up white while the training days (theme.purpleLight, a dark tint)
+  // went quiet — the card read backwards.
   weekdayChip: {
     flex: 1,
     paddingVertical: 7,
     borderRadius: 9,
-    backgroundColor: '#F1EDFA',
+    backgroundColor: theme.surfaceSoft,
     borderWidth: 1,
     borderColor: 'transparent',
     alignItems: 'center',
@@ -555,7 +558,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   weekdayChipActive: {
     backgroundColor: theme.purpleLight,
-    borderColor: theme.border,
+    borderColor: theme.purple,
   },
   weekdayChipText: {
     color: theme.faint,
@@ -592,7 +595,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: '#F1EDFA',
+    backgroundColor: theme.surfaceSoft,
   },
   badgeAccent: {
     backgroundColor: theme.purpleLight,

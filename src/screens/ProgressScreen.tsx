@@ -107,18 +107,22 @@ const PROGRESS_WEEKDAY_KEYS: I18nKey[] = [
 
 // Evaluated once at import, so the themed dots have to come from a call.
 const calendarLegend = (theme: Theme): Array<{ key: string; labelKey: I18nKey; dotStyle: object }> => [
+  // Each dot must be the same recipe as its bubble, or the legend explains a
+  // calendar that does not exist. Four states, three distinguishing devices:
+  // solid = trained, purple outline = planned, gold outline = missed, quiet
+  // fill = rest.
   { key: 'done', labelKey: 'progress.legend.done', dotStyle: { backgroundColor: theme.purple } },
   {
     key: 'missed',
     labelKey: 'progress.legend.missed',
-    dotStyle: { backgroundColor: '#FBEAE7', borderWidth: 1, borderColor: '#E7C3BC' },
+    dotStyle: { backgroundColor: theme.surfaceSoft, borderWidth: 1.5, borderColor: theme.gold },
   },
   {
     key: 'upcoming',
     labelKey: 'progress.legend.upcoming',
     dotStyle: { borderWidth: 1.5, borderColor: theme.purple },
   },
-  { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: '#F1ECFB' } },
+  { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: theme.surfaceSoft } },
 ];
 
 const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey }> = [
@@ -1946,12 +1950,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     width: `${100 / 7}%`,
     paddingHorizontal: 3,
   },
+  // Rest is the default and by far the most common cell, so it has to be the
+  // quietest thing on screen. A hardcoded pale lavender made it the loudest
+  // under the dark theme — a grid of white blobs with the states that matter
+  // lost among them.
   calendarBubble: {
     aspectRatio: 1,
     borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1ECFB',
+    backgroundColor: theme.surfaceSoft,
   },
   calendarBubbleDone: {
     backgroundColor: theme.purple,
@@ -1959,9 +1967,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // Missed reads as a quiet outline, not an alarm: the point is to show the
   // shape of the month, not to scold anyone for a skipped Thursday.
   calendarBubbleMissed: {
-    backgroundColor: '#FBEAE7',
+    backgroundColor: theme.surfaceSoft,
     borderWidth: 1,
-    borderColor: '#E7C3BC',
+    borderColor: theme.gold,
   },
   calendarBubbleUpcoming: {
     backgroundColor: 'transparent',
@@ -1983,7 +1991,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   calendarBubbleTextMissed: {
-    color: '#B4483A',
+    color: theme.gold,
   },
   calendarBubbleTextUpcoming: {
     color: theme.purpleDark,

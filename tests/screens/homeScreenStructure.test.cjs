@@ -153,8 +153,11 @@ module.exports = [
       // four presentational options + computed trim copy.
       assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.border/);
       // Start workout is the green action: green border, label, and arrow.
-      assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.green/);
-      assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: theme.green/);
+      assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.accent/);
+      // The start CTA reads `accent`, not `green`: green also means "done"
+      // (completed sets, finished cardio), and the dark theme moves the action
+      // accent to orange without moving those.
+      assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: theme.accent/);
       assert.match(homeScreenSource, /t\(language, 'home\.startWorkout'\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.adaptSheet\.title': 'Adapt session'/);

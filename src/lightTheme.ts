@@ -37,6 +37,10 @@ export const HG = {
   green: '#16A34A',
   greenSoft: '#E8F7EE',
   greenInk: '#157A3A',
+  // Same green as `green` today, on purpose: the light theme is unchanged by
+  // the accent split. The two are separate tokens because the dark theme moves
+  // this one to orange and must not drag "done" along with it.
+  accent: '#16A34A',
   blue: '#0A84FF',
   gold: '#E4B14C',
   // Pro sheet gradient stops (dark violet).

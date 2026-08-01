@@ -46,6 +46,10 @@ export const HG_DARK = {
   green: '#37D08A',
   greenSoft: '#16321F',
   greenInk: '#5FE3A6',
+  // The action accent goes orange in dark (user decision 2026-08-01). Warm
+  // enough to lead the eye on a near-black screen, and far enough from `gold`
+  // (#E4B14C) that a favourite star and a start button do not read alike.
+  accent: '#FF8A4C',
   blue: '#4FA8FF',
   gold: '#E4B14C',
   proSheetTop: '#241A3E',

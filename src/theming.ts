@@ -42,6 +42,13 @@ export interface Theme {
   green: string;
   greenSoft: string;
   greenInk: string;
+  /**
+   * The colour of "do the thing" — the start-workout CTA and the highlights
+   * that lead the eye to it. Deliberately its own token rather than `green`:
+   * green also means *done* (completed sets, finished cardio, success chips),
+   * and those must not move when the action accent does.
+   */
+  accent: string;
   blue: string;
   gold: string;
   proSheetTop: string;
