@@ -9,7 +9,7 @@ Failure in this system blocks launch.
 
 ---
 
-# GAINER — MVP Launch Scope
+# Vinha — MVP Launch Scope
 
 **Type:** Implementation spec — authoritative launch boundary definition
 **Status:** Definitive scope reference. Supersedes item-level feature discussions where they conflict.
@@ -38,9 +38,9 @@ Failure in this system blocks launch.
 
 ## 1. Core MVP Definition
 
-**GAINER's MVP is a workout tracker that recommends a structured program, lets the user log sessions reliably, and keeps an honest record of their training history.**
+**Vinha's MVP is a workout tracker that recommends a structured program, lets the user log sessions reliably, and keeps an honest record of their training history.**
 
-That is the complete core. Everything else — GAINER AI, progression intelligence, advanced analytics, social features, premium monetization — is built on top of this foundation, and that foundation must be solid before anything else matters.
+That is the complete core. Everything else — Vinha AI, progression intelligence, advanced analytics, social features, premium monetization — is built on top of this foundation, and that foundation must be solid before anything else matters.
 
 The MVP succeeds when a user can complete this loop without friction or confusion:
 
@@ -55,7 +55,7 @@ If any step in that loop breaks, confuses, or deceives, the MVP is not done — 
 
 ### What MVP is not
 
-MVP is not the minimum the team can ship. It is the minimum that creates a real, honest product relationship with a user. A user who opens GAINER, logs their first workout, and sees their session saved truthfully — with clear next action and visible progress — has received real value. That is the bar.
+MVP is not the minimum the team can ship. It is the minimum that creates a real, honest product relationship with a user. A user who opens Vinha, logs their first workout, and sees their session saved truthfully — with clear next action and visible progress — has received real value. That is the bar.
 
 MVP is also not the first commit. The app already exists and has significant capability. The work remaining for launch is mostly making what exists trustworthy and removing what does not yet work.
 
@@ -283,7 +283,7 @@ The single post-session insight system defined in `post-session-single-insight-m
 
 **Why it is deferrable:** The core logging loop works without it. Sessions save, history records, and progress tracks without any coaching layer.
 
-**Why it should ship fast:** It is GAINER's first differentiating experience beyond generic logging. It demonstrates that the product observes and notices. Without it, GAINER is a logging app, not a coaching app.
+**Why it should ship fast:** It is Vinha's first differentiating experience beyond generic logging. It demonstrates that the product observes and notices. Without it, Vinha is a logging app, not a coaching app.
 
 **Launch condition:** Deterministic template messages only. No LLM generation. No push notifications. One insight or null, post-session only. See `post-session-single-insight-mvp.md` for the full spec.
 
@@ -337,7 +337,7 @@ Shipping notifications before delivering genuine value is the most reliable way 
 
 ### 4.2 Social features
 
-**Excluded permanently for now.** No friend connections, leaderboards, shared workouts, public profiles, or activity feeds. GAINER is a personal training companion. See `gainer-philosophy.md`.
+**Excluded permanently for now.** No friend connections, leaderboards, shared workouts, public profiles, or activity feeds. Vinha is a personal training companion. See `vinha-philosophy.md`.
 
 If social features are ever added, they will not be in onboarding and will not be visible in the core training flow.
 
@@ -345,27 +345,27 @@ If social features are ever added, they will not be in onboarding and will not b
 
 ### 4.3 Nutrition tracking
 
-**Excluded permanently.** Nutrition is adjacent to training. Building adjacent features dilutes what GAINER does well. If a user needs calorie tracking, they already have MyFitnessPal.
+**Excluded permanently.** Nutrition is adjacent to training. Building adjacent features dilutes what Vinha does well. If a user needs calorie tracking, they already have MyFitnessPal.
 
 ---
 
 ### 4.4 Wellness and mood tracking
 
-**Excluded permanently.** Sleep score, stress level, mood logging, journaling, breathing exercises, affirmations — none of these are GAINER features. They belong to a different product category. See `gainer-philosophy.md`.
+**Excluded permanently.** Sleep score, stress level, mood logging, journaling, breathing exercises, affirmations — none of these are Vinha features. They belong to a different product category. See `vinha-philosophy.md`.
 
 ---
 
-### 4.5 Live GAINER AI as a primary feature
+### 4.5 Live Vinha AI as a primary feature
 
-**Excluded from v1 launch as a prominently marketed feature.** The GAINER AI exists in preview mode (local mock responses). It can ship in that state without marketing it as a key differentiator.
+**Excluded from v1 launch as a prominently marketed feature.** The Vinha AI exists in preview mode (local mock responses). It can ship in that state without marketing it as a key differentiator.
 
 **What this means in practice:**
-- GAINER AI preview mode: ships, accessible, not prominently marketed
-- GAINER AI live mode (LLM calls): does not ship at launch unless the serverless endpoint, rate limiting, cost controls, and data safety review are complete
-- GAINER AI as the primary onboarding or session hook: excluded
-- GAINER AI as a chatbot users are encouraged to interact with continuously: excluded
+- Vinha AI preview mode: ships, accessible, not prominently marketed
+- Vinha AI live mode (LLM calls): does not ship at launch unless the serverless endpoint, rate limiting, cost controls, and data safety review are complete
+- Vinha AI as the primary onboarding or session hook: excluded
+- Vinha AI as a chatbot users are encouraged to interact with continuously: excluded
 
-**Decision required before launch:** Choose whether GAINER AI launches in preview-only mode or with live backend enabled. If live backend is enabled, the privacy policy must be updated and Data Safety answers re-checked. See `manual-launch-tasks.md`.
+**Decision required before launch:** Choose whether Vinha AI launches in preview-only mode or with live backend enabled. If live backend is enabled, the privacy policy must be updated and Data Safety answers re-checked. See `manual-launch-tasks.md`.
 
 ---
 
@@ -373,7 +373,7 @@ If social features are ever added, they will not be in onboarding and will not b
 
 **Excluded from v1.** No subscription gate, no feature lock, no "upgrade to unlock" prompts in the initial experience.
 
-The reason is not that monetization is wrong. The reason is that GAINER cannot ask users to pay for something before they have seen that it works. The premium tier is defined in `premium-philosophy.md` — it exists for when the coaching layer has demonstrated genuine recurring value. Shipping a paywall in v1 before that value exists inverts the trust relationship.
+The reason is not that monetization is wrong. The reason is that Vinha cannot ask users to pay for something before they have seen that it works. The premium tier is defined in `premium-philosophy.md` — it exists for when the coaching layer has demonstrated genuine recurring value. Shipping a paywall in v1 before that value exists inverts the trust relationship.
 
 **What this means:** All features in v1 are free. No free/premium distinction yet. The coaching layer, when it exists and demonstrably works, is the natural premium unlock. Build that first.
 
@@ -383,13 +383,13 @@ The reason is not that monetization is wrong. The reason is that GAINER cannot a
 
 **Excluded permanently.** No streaks, no achievement badges, no points, no "Day 5 of your program!" popups, no consecutive-days counters. Training consistency is the goal. Gamification proxies encourage the appearance of consistency (opening the app) rather than consistency itself (completing training sessions).
 
-See `gainer-philosophy.md` Anti-Bloat Principles for the canonical prohibition list.
+See `vinha-philosophy.md` Anti-Bloat Principles for the canonical prohibition list.
 
 ---
 
 ### 4.8 Calendar and scheduling integration
 
-**Excluded from MVP.** Planned sessions in a calendar view, Google Calendar sync, notification scheduling based on training days — all deferred. The user knows when they train. GAINER does not need to manage their calendar.
+**Excluded from MVP.** Planned sessions in a calendar view, Google Calendar sync, notification scheduling based on training days — all deferred. The user knows when they train. Vinha does not need to manage their calendar.
 
 ---
 
@@ -445,9 +445,9 @@ The following AI-adjacent features are allowed in v1. "Allowed" means they can s
 
 ---
 
-### 5.1 GAINER AI in preview mode
+### 5.1 Vinha AI in preview mode
 
-The GAINER AI exists with local mock responses (`aiCoachPreview.ts`). It provides a realistic preview of the coaching experience without a live backend.
+The Vinha AI exists with local mock responses (`aiCoachPreview.ts`). It provides a realistic preview of the coaching experience without a live backend.
 
 **Allowed because:** It is already implemented, it demonstrates the product's coaching direction, and it works fully offline. It is clearly framed as preview mode in the UI.
 
@@ -478,7 +478,7 @@ If implemented and tested before launch, the post-session insight system may shi
 
 The scoring-based program recommendation system that runs during onboarding (`recommendationScoring`, `recommendationProfile`, `recommendationProgramme`) is allowed and required.
 
-**Allowed because:** It is already implemented, fully local, and deterministic. It is the core mechanism by which GAINER demonstrates personalization at the first session.
+**Allowed because:** It is already implemented, fully local, and deterministic. It is the core mechanism by which Vinha demonstrates personalization at the first session.
 
 **Constraints:**
 - The recommendation must visibly reflect different answers (equipment filter must produce different program lists)
@@ -511,7 +511,7 @@ These AI-related features must not ship with v1, regardless of their development
 | Plateau intervention beyond `plateau_detected` | The detection is MVP; the intervention advice is not |
 | Per-muscle-group fatigue modeling | Requires reliable volume-load tracking per muscle group; not yet built |
 | AI-assisted program generation | Requires live backend, structured output parsing, exercise validation — v3 |
-| Chatbot interface (open-ended Q&A) | GAINER is not a chatbot; this is a product identity constraint |
+| Chatbot interface (open-ended Q&A) | Vinha is not a chatbot; this is a product identity constraint |
 | Coaching insights during active sessions | Architecturally prohibited; see §4.13 |
 | Multiple insights per session | Requires ranking and sequencing logic not built in MVP |
 | AI personalization of the program catalog | Requires enough behavioral data to personalize; not present at launch |
@@ -649,7 +649,7 @@ The user must have received genuine value from the core product before any premi
 
 Onboarding must terminate at a specific recommended program with a brief explanation, not at a list of programs for the user to choose from.
 
-**Correct:** "Based on your goal and schedule, GAINER recommends Foundational Strength 3-Day. It matches your 3-day week and intermediate level."
+**Correct:** "Based on your goal and schedule, Vinha recommends Foundational Strength 3-Day. It matches your 3-day week and intermediate level."
 
 **Incorrect:** "Here are programs that might work for you." (followed by five equally-weighted options)
 
@@ -657,7 +657,7 @@ Onboarding must terminate at a specific recommended program with a brief explana
 
 ### 8.7 Tone is calm and direct
 
-GAINER does not use exclamation marks in coaching output. It does not call sessions "epic" or users "warriors." It does not celebrate opening the app. The tone is that of a knowledgeable training partner who respects that you already know why you are here.
+Vinha does not use exclamation marks in coaching output. It does not call sessions "epic" or users "warriors." It does not celebrate opening the app. The tone is that of a knowledgeable training partner who respects that you already know why you are here.
 
 **Standard:** Read any piece of copy before it ships. If it would sound out of place in a calm conversation with a good coach, rewrite it.
 
@@ -679,11 +679,11 @@ The app must work completely without a network connection. This is not aspiratio
 - All program catalog access: offline
 - Recommendation engine: offline
 - Post-session insights (MVP, deterministic): offline
-- GAINER AI in preview mode: offline
-- GAINER AI in live mode: gracefully degraded (falls back to preview mode, user is informed)
+- Vinha AI in preview mode: offline
+- Vinha AI in live mode: gracefully degraded (falls back to preview mode, user is informed)
 
 **What online means:**
-- GAINER AI live mode only, with explicit fallback
+- Vinha AI live mode only, with explicit fallback
 - Future: account sync and backup (Supabase, not yet active)
 
 ---
@@ -722,7 +722,7 @@ Any new function in `src/lib/` that makes a decision (branching logic, threshold
 
 ### 9.7 OpenAI never called from the mobile app
 
-The live GAINER AI endpoint is serverless (`api/ai-coach.ts`). The mobile app calls its own endpoint. The endpoint calls OpenAI. This indirection is load-bearing: it prevents API keys from being extracted from app binaries, enables rate limiting and cost controls at the server layer, and keeps sensitive data off the device.
+The live Vinha AI endpoint is serverless (`api/ai-coach.ts`). The mobile app calls its own endpoint. The endpoint calls OpenAI. This indirection is load-bearing: it prevents API keys from being extracted from app binaries, enables rate limiting and cost controls at the server layer, and keeps sensitive data off the device.
 
 **Hard rule:** `openai` package is never imported in `src/`. It belongs only in `api/`.
 
@@ -730,7 +730,7 @@ The live GAINER AI endpoint is serverless (`api/ai-coach.ts`). The mobile app ca
 
 ## 10. Analytics and Metrics Priorities
 
-GAINER's v1 analytics must serve one purpose: understand whether users complete the core loop and return to it.
+Vinha's v1 analytics must serve one purpose: understand whether users complete the core loop and return to it.
 
 ---
 
@@ -757,7 +757,7 @@ Track only what informs a specific product decision. If a metric cannot inform a
 | Insight engagement rate | Post-session insights may not exist at launch; need usage volume first |
 | Premium conversion rate | No premium tier in v1 |
 | Notification open rate | No notifications in v1 |
-| GAINER AI interaction rate | Preview mode only; rate reflects curiosity, not value |
+| Vinha AI interaction rate | Preview mode only; rate reflects curiosity, not value |
 | Exercise substitution rate | Data volume too low to be meaningful |
 | Feature discovery rate (tabs visited, settings opened) | Vanity metric at v1 scale |
 | Daily active users | DAU is meaningless for a training app; sessions per week is the right proxy |
@@ -774,7 +774,7 @@ Secondary proxy: **Sessions per user in weeks 2–4.** A user who logs their fir
 
 ### 10.4 Privacy-first analytics
 
-GAINER collects training data. It does not need to collect behavioral analytics that include personally identifiable information. Analytics should be:
+Vinha collects training data. It does not need to collect behavioral analytics that include personally identifiable information. Analytics should be:
 - Aggregate, not individual
 - Opt-in where possible
 - Clearly disclosed in the privacy policy
@@ -882,7 +882,7 @@ These are the failure modes most likely to cause the launch to damage rather tha
 
 **Scenario:** A user who selects "home gym" sees the same program recommendation as a user who selects "full gym." The user concludes the app does not actually adapt.
 
-**Impact:** Loss of trust before the first session. Onboarding's primary job — demonstrating that GAINER understood the user — fails.
+**Impact:** Loss of trust before the first session. Onboarding's primary job — demonstrating that Vinha understood the user — fails.
 
 **Mitigation:** Equipment filter must change the recommendation visibly. Verify this with all equipment configurations before launch.
 
@@ -898,23 +898,23 @@ These are the failure modes most likely to cause the launch to damage rather tha
 
 ---
 
-### Risk 4: GAINER AI live mode ships without cost controls (medium risk)
+### Risk 4: Vinha AI live mode ships without cost controls (medium risk)
 
-**Scenario:** Live GAINER AI is enabled at launch. A subset of engaged users makes hundreds of requests. OpenAI costs spike before any revenue exists.
+**Scenario:** Live Vinha AI is enabled at launch. A subset of engaged users makes hundreds of requests. OpenAI costs spike before any revenue exists.
 
 **Impact:** Financial risk. Potential service interruption if rate limits are not enforced.
 
-**Mitigation:** If live GAINER AI ships, enforce rate limiting in `api/ai-coach.ts` (`AI_COACH_RATE_LIMIT_MAX` and `AI_COACH_RATE_LIMIT_WINDOW_MS`). Consider keeping live mode off in v1 and shipping preview mode only. See `manual-launch-tasks.md`.
+**Mitigation:** If live Vinha AI ships, enforce rate limiting in `api/ai-coach.ts` (`AI_COACH_RATE_LIMIT_MAX` and `AI_COACH_RATE_LIMIT_WINDOW_MS`). Consider keeping live mode off in v1 and shipping preview mode only. See `manual-launch-tasks.md`.
 
 ---
 
 ### Risk 5: Privacy policy gap (medium risk, high consequence)
 
-**Scenario:** Google Play Data Safety form does not accurately describe data collection. Especially relevant if live GAINER AI ships (training context is sent to OpenAI).
+**Scenario:** Google Play Data Safety form does not accurately describe data collection. Especially relevant if live Vinha AI ships (training context is sent to OpenAI).
 
 **Impact:** Play Store policy violation, potential removal from store.
 
-**Mitigation:** Complete the Data Safety form accurately. If live GAINER AI is enabled, update the privacy policy to disclose that session context is sent to a third-party AI provider. If uncertain, launch with preview-only AI and update after the full policy review.
+**Mitigation:** Complete the Data Safety form accurately. If live Vinha AI is enabled, update the privacy policy to disclose that session context is sent to a third-party AI provider. If uncertain, launch with preview-only AI and update after the full policy review.
 
 ---
 
@@ -996,9 +996,9 @@ Likely first-30-day work:
 
 **Priority: premium tier and AI intelligence.**
 
-- Premium subscription tier (GAINER AI insights as the primary unlock)
-- Live GAINER AI as a prominently marketed feature (if not shipped at launch)
-- Operational GAINER AI with scoped actions (why this plan, adapt to 2 days, swap for home gym)
+- Premium subscription tier (Vinha AI insights as the primary unlock)
+- Live Vinha AI as a prominently marketed feature (if not shipped at launch)
+- Operational Vinha AI with scoped actions (why this plan, adapt to 2 days, swap for home gym)
 - Advanced progression analytics and trend detection
 - Phase-aware coaching delivery (`observation → trusted` system from `ai-trust-system.md`)
 
@@ -1059,8 +1059,8 @@ A v1 launch succeeds if, at Day 30:
 
 ### What v1 is explicitly not trying to prove
 
-- That GAINER is the most feature-complete fitness app
-- That the GAINER AI layer is fully operational
+- That Vinha is the most feature-complete fitness app
+- That the Vinha AI layer is fully operational
 - That the premium tier is revenue-positive
 - That 1,000 users love it
 
@@ -1080,10 +1080,10 @@ Onboarding, recommendation engine, workout logging with truthful save states, or
 Editable setup post-onboarding, post-session coaching insight, personal data export, Home continue/browse clarity, body weight tracking
 
 **Explicitly excluded from MVP:**
-Push notifications, social features, nutrition tracking, wellness tracking, premium paywall, streak/gamification mechanics, calendar integration, program catalog search, live GAINER AI as primary feature (TBD), LLM-generated coaching messages, progression gating recommendations, AI program builder, long-range analytics, in-session coaching, multiple insights per session
+Push notifications, social features, nutrition tracking, wellness tracking, premium paywall, streak/gamification mechanics, calendar integration, program catalog search, live Vinha AI as primary feature (TBD), LLM-generated coaching messages, progression gating recommendations, AI program builder, long-range analytics, in-session coaching, multiple insights per session
 
 **AI allowed in MVP:**
-Recommendation engine, GAINER AI preview mode, post-session insight (4 types, deterministic, silence-default), internal progression signal computation
+Recommendation engine, Vinha AI preview mode, post-session insight (4 types, deterministic, silence-default), internal progression signal computation
 
 **AI not allowed in MVP:**
 LLM-generated messages, push notification delivery, `progression_ready` insight, full progression gating surface, weekly/monthly summaries, deload recommendations, phase-aware coaching delivery, chatbot interface, in-session coaching

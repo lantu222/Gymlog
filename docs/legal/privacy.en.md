@@ -2,17 +2,17 @@
 
 *Updated 29 July 2026*
 
-What GAINER stores, where it stays, and what never leaves your phone.
+What Vinha stores, where it stays, and what never leaves your phone.
 
 ## The short version
 
-GAINER keeps your training data on your phone. There is no account, no cloud database and no analytics. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.
+Vinha keeps your training data on your phone. There is no account, no cloud database and no analytics. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.
 
 If you uninstall the app, that data is gone. There is no copy of it anywhere else.
 
 ## Who is responsible
 
-Santeri Ylönen (Finland) publishes GAINER and is the data controller for the limited processing described below.
+Santeri Ylönen (Finland) publishes Vinha and is the data controller for the limited processing described below.
 
 Questions about this policy or your data: santeriylonen@gmail.com.
 
@@ -30,7 +30,7 @@ Everything below is entered by you, or produced by the app from what you entered
 
 In the app’s local storage on your device, under two keys. It is not synced to a server we run, and we have no way to read it remotely.
 
-Your device or Android backup settings may include app data in a system backup you control. That backup is between you and Google — it is not something GAINER sends or receives.
+Your device or Android backup settings may include app data in a system backup you control. That backup is between you and Google — it is not something Vinha sends or receives.
 
 Deleting the data is immediate and total: Settings → My data → reset, or uninstalling the app.
 
@@ -78,7 +78,7 @@ Under the GDPR you have the right to access your data, correct it, delete it, an
 
 ## Children
 
-GAINER is not intended for children under 16. We do not knowingly process the data of children — and since we receive no data at all, there is nothing for us to identify or delete.
+Vinha is not intended for children under 16. We do not knowingly process the data of children — and since we receive no data at all, there is nothing for us to identify or delete.
 
 ## Changes to this policy
 

@@ -1,8 +1,8 @@
-# GAINER - Execution Plan
+# Vinha - Execution Plan
 
 **Type:** Execution plan - ordered, dependency-aware task list
 **Status:** Active. This is the working plan.
-**Supersedes:** conflicting sequencing advice in `Gainer_Audit/` and `long-term-vision.md`. Where those documents disagree with this one on *what to do next*, this wins. Where they disagree on *technical facts*, they win.
+**Supersedes:** conflicting sequencing advice in `Vinha_Audit/` and `long-term-vision.md`. Where those documents disagree with this one on *what to do next*, this wins. Where they disagree on *technical facts*, they win.
 **Covers:** Step 1 (ship to store) and Step 2 (make the AI coach as good as possible). Stages 3-5 stay in `long-term-vision.md`.
 **Assumed capacity:** solo, approx. 10 h / week.
 
@@ -39,9 +39,9 @@ Checked against the codebase on 26 July 2026, not assumed:
 
 ---
 
-# PART 1 - Ship GAINER
+# PART 1 - Ship Vinha
 
-Target: GAINER live on Google Play, with working measurement.
+Target: Vinha live on Google Play, with working measurement.
 
 **Android first, iOS second.** iOS has no project directory, no EAS config, needs a paid Apple Developer account, and faces stricter review. Shipping Android proves the funnel; adding iOS afterwards is a build-config task, not a rewrite.
 
@@ -64,7 +64,7 @@ Personal (non-organisation) Play developer accounts registered in recent years m
 
 ### S2. Decide the public identity
 
-Publisher name, support email, and whether the store listing says GAINER AI is Beta.
+Publisher name, support email, and whether the store listing says Vinha AI is Beta.
 
 **Done when:** `docs/manual-launch-tasks.md` items 1-2 are answered in writing.
 **Effort:** 1 h.
@@ -73,7 +73,7 @@ Publisher name, support email, and whether the store listing says GAINER AI is B
 
 ## Wave B - The honesty fixes
 
-These are launch blockers on both policy and principle grounds. `gainer-philosophy.md` already forbids UI that promises what the product does not do; the store review guidelines agree.
+These are launch blockers on both policy and principle grounds. `vinha-philosophy.md` already forbids UI that promises what the product does not do; the store review guidelines agree.
 
 ### S3. Remove the non-functional auth UI
 
@@ -205,7 +205,7 @@ If they do, Part 2 is the right investment, and you will have the one thing that
 
 ---
 
-# PART 2 - Make GAINER AI As Good As Possible
+# PART 2 - Make Vinha AI As Good As Possible
 
 Target: a coach that a serious lifter would keep, not a chat window bolted onto a logger.
 

@@ -1,15 +1,15 @@
-# GAINER — System Architecture
+# Vinha — System Architecture
 
 **Type:** Implementation spec — architecture decisions defined here are authoritative
 **Status:** Reference document. Design authority, not implementation spec.
-**Related:** `coaching-architecture.md`, `gainer-philosophy.md`, `ai-trust-system.md`, `coaching-intelligence-design.md`
+**Related:** `coaching-architecture.md`, `vinha-philosophy.md`, `ai-trust-system.md`, `coaching-intelligence-design.md`
 **Canonical owner of:** five-layer coaching architecture, coaching phase names and session-count boundaries (`observation/emerging/active/trusted`)
 
 ---
 
 ## Purpose
 
-This document defines the high-level system architecture for GAINER: how data flows, where intelligence lives, what each layer owns, and which boundaries must never be crossed. It is the single reference for architectural decisions and the test against which new features are evaluated.
+This document defines the high-level system architecture for Vinha: how data flows, where intelligence lives, what each layer owns, and which boundaries must never be crossed. It is the single reference for architectural decisions and the test against which new features are evaluated.
 
 It describes the target architecture. Not every layer is built. Where something is not yet implemented, this document marks it clearly.
 
@@ -26,7 +26,7 @@ It describes the target architecture. Not every layer is built. Where something 
    - [Signal Layer](#43-signal-layer)
    - [Intelligence Layer](#44-intelligence-layer)
    - [Delivery Layer](#45-delivery-layer)
-5. [GAINER AI Boundaries](#5-gainer-ai-boundaries)
+5. [Vinha AI Boundaries](#5-gainer-ai-boundaries)
 6. [Offline-First and Local-First Philosophy](#6-offline-first-and-local-first-philosophy)
 7. [Supabase Role](#7-supabase-role)
 8. [Append-Only Logging Philosophy](#8-append-only-logging-philosophy)
@@ -55,7 +55,7 @@ It describes the target architecture. Not every layer is built. Where something 
 │  │  (App.tsx)   │   │  AppProvider        WorkoutProvider   │   │
 │  │              │   │  (AppDatabase)      (Live session)    │   │
 │  │  Routing     │   │  AsyncStorage       AsyncStorage      │   │
-│  │  Screen mgmt │   │  @gymlog/db/v1      @gymlog/workout/v1│   │
+│  │  Screen mgmt │   │  @gymlog/db/v1      @vinha/workout/v1│   │
 │  └──────────────┘   └──────────────────────────────────────┘   │
 │                                                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
@@ -72,7 +72,7 @@ It describes the target architecture. Not every layer is built. Where something 
 │  │  Seeded into AppDatabase on load, stripped on save       │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └────────────────────────────────┬────────────────────────────────┘
-                                 │ HTTPS (GAINER AI live mode only)
+                                 │ HTTPS (Vinha AI live mode only)
                  ┌───────────────▼──────────────┐
                  │     Serverless API Layer      │
                  │   api/ai-coach.ts             │
@@ -209,7 +209,7 @@ If a derived value changes (because the computation logic improved), the logs st
 
 **What it owns:**
 - Structured history at multiple time horizons
-- Context assembly for GAINER AI calls
+- Context assembly for Vinha AI calls
 - Stateful coaching knowledge (last insight delivered, coaching phase)
 
 **Tiers of memory:**
@@ -231,7 +231,7 @@ SESSION           The session just completed — freshest signal
 
 **Context assembly for AI calls:**
 
-When the GAINER AI is invoked, the context assembler selects the most relevant subset of memory for the current situation. It does not dump everything — it curates.
+When the Vinha AI is invoked, the context assembler selects the most relevant subset of memory for the current situation. It does not dump everything — it curates.
 
 ```
 contextAssembler(profile, sessionHistory, recentSignals) → CoachingContext
@@ -384,7 +384,7 @@ DETERMINISTIC SYSTEM                    LLM BOUNDARY
 
 ---
 
-## 5. GAINER AI Boundaries
+## 5. Vinha AI Boundaries
 
 ### Where AI reasoning should happen
 
@@ -403,7 +403,7 @@ DETERMINISTIC SYSTEM                    LLM BOUNDARY
 ❌  Selecting which exercises to substitute (rule-based + profile)
 ❌  Computing progression load (deterministic from history)
 ❌  Determining coaching phase (function of session count)
-❌  Answering open-ended fitness questions (GAINER is not a chatbot)
+❌  Answering open-ended fitness questions (Vinha is not a chatbot)
 ❌  Generating motivational copy disconnected from user data
 ❌  Any task where a deterministic function produces a reliable result
 ```
@@ -445,7 +445,7 @@ The mobile app never calls OpenAI directly. The serverless layer (`api/ai-coach.
 
 ### The guarantee
 
-GAINER must function completely without a network connection. Logging a session, viewing history, following a program, receiving coaching insights — all of this works offline. Network access is a capability enhancement, never a dependency.
+Vinha must function completely without a network connection. Logging a session, viewing history, following a program, receiving coaching insights — all of this works offline. Network access is a capability enhancement, never a dependency.
 
 ### Local-first storage model
 
@@ -468,8 +468,8 @@ Gyms often have poor connectivity. A workout logging app that requires network c
 | Workout logging | Fully functional |
 | Session history | Fully functional |
 | Program following | Fully functional |
-| GAINER AI (preview mode) | Fully functional (local mock) |
-| GAINER AI (live mode) | Degrades to silence — no error shown |
+| Vinha AI (preview mode) | Fully functional (local mock) |
+| Vinha AI (live mode) | Degrades to silence — no error shown |
 | Account sync | Queued until connection restored (future) |
 | Premium validation | Cached locally — not re-checked on every launch |
 
@@ -541,7 +541,7 @@ measurementEntries: append only — later entries supersede earlier ones
 
 **Trust is not retroactively broken.** If a user sees a coaching insight ("you plateaued on bench press") and then that session were editable, the insight would be rendered incoherent. Immutable logs mean insights remain coherent.
 
-**Debugging is possible.** Any unexpected GAINER AI output can be traced back to the exact log data that triggered it. This is only possible if the log is never mutated.
+**Debugging is possible.** Any unexpected Vinha AI output can be traced back to the exact log data that triggered it. This is only possible if the log is never mutated.
 
 ### What "append-only" means in practice
 
@@ -747,17 +747,17 @@ When the system is silent, it must not explain its silence ("Nothing notable thi
 
 | Data | Owner | Storage | Mutable? |
 |---|---|---|---|
-| `AppPreferences` | `AppProvider` | `@gymlog/database/v1` | Yes — current state |
-| `WorkoutTemplate[]` (custom) | `AppProvider` | `@gymlog/database/v1` | Yes — user created |
-| `WorkoutSession[]` | `AppProvider` | `@gymlog/database/v1` | No — append only |
-| `ExerciseLog[]` | `AppProvider` | `@gymlog/database/v1` | No — append only |
-| `BodyweightEntry[]` | `AppProvider` | `@gymlog/database/v1` | No — append only |
+| `AppPreferences` | `AppProvider` | `@vinha/database/v1` | Yes — current state |
+| `WorkoutTemplate[]` (custom) | `AppProvider` | `@vinha/database/v1` | Yes — user created |
+| `WorkoutSession[]` | `AppProvider` | `@vinha/database/v1` | No — append only |
+| `ExerciseLog[]` | `AppProvider` | `@vinha/database/v1` | No — append only |
+| `BodyweightEntry[]` | `AppProvider` | `@vinha/database/v1` | No — append only |
 | `ExerciseLibrary` | Static (generated) | Seeded on load, not saved | N/A |
 | `WorkoutTemplate[]` (ready) | Static catalog | `workoutCatalog.ts` | No — immutable at runtime |
-| Live session state | `WorkoutProvider` | `@gymlog/workout/v1` | Yes — active session |
+| Live session state | `WorkoutProvider` | `@vinha/workout/v1` | Yes — active session |
 | `UserFitnessProfile` | Derived | Not stored | N/A — recomputed |
 | Signals (plateau, ACWR) | Computed | Not stored | N/A — recomputed |
-| Coaching phase | `AppProvider` | `@gymlog/database/v1` (in prefs) | Yes |
+| Coaching phase | `AppProvider` | `@vinha/database/v1` (in prefs) | Yes |
 
 ### Source-of-truth rules
 
@@ -902,7 +902,7 @@ Coaching decisions are expressed as typed values (`CoachingInsight`, `Progressio
 The intelligence layer calls an AI function that returns a coaching message. Whether that function calls OpenAI, a local model, or returns a mock is invisible to the intelligence layer. This means the AI provider can change without touching the coaching logic.
 
 **Rule 4: Storage keys must be versioned.**
-`@gymlog/database/v1` includes the version. When the schema changes in a breaking way, the version increments and a migration is run on load. Never change the schema of an existing key without a version bump.
+`@vinha/database/v1` includes the version. When the schema changes in a breaking way, the version increments and a migration is run on load. Never change the schema of an existing key without a version bump.
 
 **Rule 5: The recommendation pipeline must not depend on specific template IDs.**
 Recommendations are computed from scoring — not from hardcoded IDs. If the catalog changes (new programs, deprecated programs), the pipeline produces correct results without modification.
@@ -926,7 +926,7 @@ The session layer (`WorkoutProvider`, `workoutState.ts`, `saveCompletedWorkoutSe
 **Architecture requirements:**
 - Session save is atomic — all or nothing
 - Save completion must be confirmed before any post-session UI is shown
-- Active session state survives app restart (WorkoutProvider persists to `@gymlog/workout/v1`)
+- Active session state survives app restart (WorkoutProvider persists to `@vinha/workout/v1`)
 - Exercise log format must be consistent — normalization on load catches legacy shape mismatches
 
 ### Priority 2: Clean data model
@@ -947,12 +947,12 @@ All coaching intelligence, recommendation, and progression logic must live in `s
 - No AsyncStorage, no React imports in lib
 - Tests compile from `tsconfig.test.json` and run in Node
 
-### Priority 4: GAINER AI isolation
+### Priority 4: Vinha AI isolation
 
-The GAINER AI must degrade gracefully when the network is unavailable. Preview mode must be indistinguishable in behavior from live mode (same types, same interfaces).
+The Vinha AI must degrade gracefully when the network is unavailable. Preview mode must be indistinguishable in behavior from live mode (same types, same interfaces).
 
 **Architecture requirements:**
-- GAINER AI interface is identical in preview and live modes
+- Vinha AI interface is identical in preview and live modes
 - Network failure produces silence, not error state
 - No coaching logic lives in `api/ai-coach.ts` — the serverless layer is only a relay
 
@@ -978,7 +978,7 @@ The GAINER AI must degrade gracefully when the network is unavailable. Preview m
 
 ### Risk 3: LLM reliability for coaching messages
 
-**Current state:** GAINER AI messages are generated by an LLM with a structured prompt.
+**Current state:** Vinha AI messages are generated by an LLM with a structured prompt.
 
 **Risk:** LLM output can be generic, incorrect, or contain content that contradicts the deterministic signal it is rendering.
 
@@ -990,7 +990,7 @@ The GAINER AI must degrade gracefully when the network is unavailable. Preview m
 
 **Risk:** Adding Supabase before the local experience is solid will introduce sync complexity, auth state management, and remote dependency before the product earns the right to add that complexity.
 
-**Mitigation path:** Supabase is not introduced until: (1) the core workout logging experience is stable, (2) at least one GAINER AI feature is complete, and (3) the user base justifies cross-device sync.
+**Mitigation path:** Supabase is not introduced until: (1) the core workout logging experience is stable, (2) at least one Vinha AI feature is complete, and (3) the user base justifies cross-device sync.
 
 ### Risk 5: Coaching frequency calibration
 
@@ -998,7 +998,7 @@ The GAINER AI must degrade gracefully when the network is unavailable. Preview m
 
 **Risk:** Thresholds that seem correct in design may be too aggressive (noisy coach) or too conservative (invisible coach) in practice.
 
-**Mitigation path:** Instrument insight delivery (type, confidence, phase) in analytics from day one of GAINER AI activation. Adjust thresholds based on observed data — do not guess.
+**Mitigation path:** Instrument insight delivery (type, confidence, phase) in analytics from day one of Vinha AI activation. Adjust thresholds based on observed data — do not guess.
 
 ---
 
@@ -1019,8 +1019,8 @@ The following are explicitly deferred. They should not be built, prototyped, or 
 | Social features of any kind | Not in product scope |
 | Chatbot / Q&A interface | Explicitly out of scope by product philosophy |
 | User-editable session logs | App-level decision: logs are append-only in MVP |
-| Body composition tracking | Outside GAINER's scope |
-| Nutrition integration | Outside GAINER's scope |
+| Body composition tracking | Outside Vinha's scope |
+| Nutrition integration | Outside Vinha's scope |
 | Wearable integrations | Out of scope until sync layer is stable |
 | Multi-user / household mode | Not a use case for this product |
 | Admin / coach dashboard | Out of scope |
@@ -1075,7 +1075,7 @@ src/features/workout/workoutCatalog.ts Static: ready program templates (immutabl
 
 ## Summary
 
-GAINER's architecture is built on five principles:
+Vinha's architecture is built on five principles:
 
 **Local-first.** The device is the source of truth. Every feature works without a network connection. The server is a future enhancement, not a current dependency.
 

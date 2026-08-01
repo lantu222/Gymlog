@@ -1,8 +1,8 @@
-# GAINER — Documentation Architecture
+# Vinha — Documentation Architecture
 
 **Type:** Meta-document — documentation structure, ownership, and integrity rules
 **Status:** Authoritative. This document governs how all other docs/ files are classified, owned, and used.
-**App name:** GAINER (formerly GAINER — rename applies to all future documentation)
+**App name:** Vinha (formerly Vinha — rename applies to all future documentation)
 
 ---
 
@@ -75,12 +75,12 @@ docs/
 ├── product/                         ← Philosophy, UX principles, branding, roadmap.
 │   │                                   Informs decisions but does not override specs.
 │   │
-│   ├── gainer-philosophy.md         ← Core product values and anti-patterns
+│   ├── vinha-philosophy.md         ← Core product values and anti-patterns
 │   ├── onboarding-philosophy.md     ← Onboarding design intent
 │   ├── ux-principles.md             ← UX behavioral rules
 │   ├── retention-philosophy.md      ← Retention approach
 │   ├── premium-philosophy.md        ← Monetization intent
-│   ├── coaching-intelligence-design.md ← GAINER AI behavioral intent (design ref)
+│   ├── coaching-intelligence-design.md ← Vinha AI behavioral intent (design ref)
 │   ├── product-roadmap-phases.md    ← Three-phase implementation roadmap
 │   ├── your-plan-ready-review.md    ← Plan-ready screen design intent
 │   ├── manual-launch-tasks.md       ← Launch checklist (external tasks)
@@ -135,12 +135,12 @@ docs/
 | `onboarding-step3-training-profile.md` | validation | Medium | UI spec and acceptance criteria for Step 3. |
 | `onboarding-step4-focus-areas.md` | validation | Medium | UI spec and acceptance criteria for Step 4. |
 | `onboarding-step5-bodyweight-progress.md` | validation | Medium | UI spec and acceptance criteria for Step 5. |
-| `gainer-philosophy.md` | product | Low-Med | Core product values. Anti-gamification canonical source. |
+| `vinha-philosophy.md` | product | Low-Med | Core product values. Anti-gamification canonical source. |
 | `onboarding-philosophy.md` | product | Low-Med | Onboarding design intent. Not an implementation spec. |
 | `ux-principles.md` | product | Low-Med | UX behavioral rules. References authority docs for specific values. |
 | `retention-philosophy.md` | product | Low | Retention design intent. |
 | `premium-philosophy.md` | product | Low-Med | Free-tier definition and monetization ethics. Canonical owner of free-tier rules. |
-| `coaching-intelligence-design.md` | product | Low | GAINER AI behavioral intent. Superseded by implementation specs on all numeric values. |
+| `coaching-intelligence-design.md` | product | Low | Vinha AI behavioral intent. Superseded by implementation specs on all numeric values. |
 | `product-roadmap-phases.md` | product | Low | Three-phase roadmap. Not a feature commitment. |
 | `your-plan-ready-review.md` | product | Low | Plan-ready screen redesign intent. Design reference only. |
 | `manual-launch-tasks.md` | product | Medium | External launch checklist. Non-implementation tasks. |
@@ -148,7 +148,7 @@ docs/
 | `play-data-safety.md` | product | High (legal) | Store compliance. Must be accurate. |
 | `asset-shortlist-free.md` | product | Low | Asset inventory. |
 | `asset-strategy-fully-free.md` | product | Low | Asset sourcing. |
-| `premium-adaptive-coach-plan.md` | **archive** | **None** | Proposes in-session GAINER AI. Explicitly excluded from MVP. |
+| `premium-adaptive-coach-plan.md` | **archive** | **None** | Proposes in-session Vinha AI. Explicitly excluded from MVP. |
 | `superpowers/plans/2026-04-21-*` | **archive** | None | Historical implementation plan. Superseded. |
 | `superpowers/plans/2026-04-25-*` | **archive** | None | Historical training-plan spec. Superseded. |
 | `superpowers/specs/2026-04-21-*` | **archive** | None | Historical recommendation engine design. Superseded. |
@@ -189,7 +189,7 @@ Every implementation responsibility is owned by exactly one document. If a value
 | **Anti-overengineering rules** | `system-architecture.md` + `mvp-launch-scope.md` | Dual ownership; both lists apply. |
 | **Free-tier definition** | `premium-philosophy.md` | What must remain free forever. |
 | **Ethical monetization rules** | `premium-philosophy.md` | What may be charged for and why. |
-| **Anti-gamification rules** | `gainer-philosophy.md` | Canonical prohibition list for streaks, badges, points, engagement mechanics. |
+| **Anti-gamification rules** | `vinha-philosophy.md` | Canonical prohibition list for streaks, badges, points, engagement mechanics. |
 | **Canonical shared terminology** | `glossary.md` | Deprecated term index and canonical names. |
 | **Subsystem responsibilities** | `architecture/system-boundaries.md` | What each subsystem may and may not do. |
 
@@ -203,7 +203,7 @@ The following responsibilities appear in more than one document. The owner above
 | Confidence thresholds (MVP) | `post-session-single-insight-mvp.md` | `ai-trust-system.md`, `system-architecture.md` | Marked as future in secondaries. No further action. |
 | Completion rate threshold | `progression-gating-rules.md` | `coaching-intelligence-design.md` | `coaching-intelligence-design.md` updated to reference owner. No further action. |
 | ACWR threshold values | `progression-gating-rules.md` | `coaching-intelligence-design.md`, `ai-trust-system.md` | Secondary docs reference owner by section. No further action. |
-| Anti-gamification rules | `gainer-philosophy.md` | `ux-principles.md` | `ux-principles.md` references owner. No further action. |
+| Anti-gamification rules | `vinha-philosophy.md` | `ux-principles.md` | `ux-principles.md` references owner. No further action. |
 | Notification rules | `ai-trust-system.md` | `ux-principles.md`, `onboarding-philosophy.md` | Secondaries reference owner by section. No further action. |
 | Onboarding content rules | `onboarding-impact-matrix.md` | `recommendation-programme-contract.md`, `workout-content-matrix.md` | Overlap is legitimate specialization, not duplication. Each doc owns a distinct aspect. |
 
@@ -231,10 +231,10 @@ These conflicts were identified and resolved in a prior documentation pass. List
 | C-02 | **Critical** | `coaching-intelligence-design.md` §3 states "In-session: exercise substitution suggestions allowed" — this conflicts with the absolute no-in-session-AI rule in `ai-trust-system.md` §3.5 and `post-session-single-insight-mvp.md`. | `coaching-intelligence-design.md` | Update §3 to remove the in-session exception. No coaching output is allowed during an active session, including substitution suggestions. |
 | C-03 | **High** | `your-plan-ready-review.md` references implementation anchors (`renderReview()`, specific asset names) that may be outdated or renamed. It contains no "design reference only" label. | `your-plan-ready-review.md` | Add Type: Design reference label. Verify implementation anchors are current or note they require verification. |
 | C-04 | **Medium** | `onboarding-impact-matrix.md` and `recommendation-programme-contract.md` both define content rules for recommendation output. The boundary between "what gets selected" (impact matrix) and "what gets built into the programme" (contract) is clear in intent. | Both | Keep explicit scope statements at the top of each document clarifying the boundary: impact matrix owns *selection*, programme contract owns *construction*. |
-| C-05 | **Medium** | `product-roadmap-phases.md` uses "GAINER" throughout. App has been renamed to "GAINER." | `product-roadmap-phases.md` | Update all instances of "GAINER" to "GAINER." |
-| C-06 | **Medium** | `premium-adaptive-coach-plan.md` (archived) proposes "GAINER AI actions that can change the plan" during sessions. If future premium docs are created, they must not inherit this proposal. | Future premium docs | When premium documentation is rebuilt, start from `premium-philosophy.md` as the canonical base. Do not reference the archived plan. |
-| C-07 | **Low** | `project-context.md` uses "GAINER" in title and throughout. | `project-context.md` | Update to "GAINER." |
-| C-08 | **Low** | `superpowers/specs/2026-04-21-recommendation-engine-design.md` uses "GAINER" and contains design decisions that may conflict with current implementation. It has no archive label. | superpowers/specs/ | Archive the entire `superpowers/` folder. See §5. |
+| C-05 | **Medium** | `product-roadmap-phases.md` uses "Vinha" throughout. App has been renamed to "Vinha." | `product-roadmap-phases.md` | Update all instances of "Vinha" to "Vinha." |
+| C-06 | **Medium** | `premium-adaptive-coach-plan.md` (archived) proposes "Vinha AI actions that can change the plan" during sessions. If future premium docs are created, they must not inherit this proposal. | Future premium docs | When premium documentation is rebuilt, start from `premium-philosophy.md` as the canonical base. Do not reference the archived plan. |
+| C-07 | **Low** | `project-context.md` uses "Vinha" in title and throughout. | `project-context.md` | Update to "Vinha." |
+| C-08 | **Low** | `superpowers/specs/2026-04-21-recommendation-engine-design.md` uses "Vinha" and contains design decisions that may conflict with current implementation. It has no archive label. | superpowers/specs/ | Archive the entire `superpowers/` folder. See §5. |
 
 ### Active conflicts (in-spec ambiguity)
 
@@ -253,7 +253,7 @@ These conflicts were identified and resolved in a prior documentation pass. List
 - "set-to-set guidance during logging" — in-session AI (architecturally prohibited)
 - "smarter rest and next-set recommendations" — in-session AI (architecturally prohibited)
 - "session adjustment when energy, time, or recovery is off" — in-session AI (architecturally prohibited)
-- "GAINER AI actions that can change the plan" — speculative feature with no current foundation
+- "Vinha AI actions that can change the plan" — speculative feature with no current foundation
 
 **Action:** Add the Archived header. Move to `docs/archive/`. Do not reference this document in future implementation work.
 
@@ -323,9 +323,9 @@ The current filenames use inconsistent naming conventions that make it unclear w
 
 ---
 
-### R-03: App rename — GAINER → GAINER
+### R-03: App rename — Vinha → Vinha
 
-Every document that uses "GAINER" as a product name must be updated. "GAINER" is acceptable as an internal package/code identifier (e.g., `@gymlog/database/v1`). It is not acceptable as the user-facing product name in documentation.
+Every document that uses "Vinha" as a product name must be updated. "Vinha" is acceptable as an internal package/code identifier (e.g., `@vinha/database/v1`). It is not acceptable as the user-facing product name in documentation.
 
 **Files requiring name updates:**
 - `project-context.md` — title and throughout
@@ -415,7 +415,7 @@ AI features that require live backend, LLM generation, or always produce output 
 
 ## 9. Scope Creep Risks
 
-Patterns that historically introduce scope creep in fitness apps, ordered by current risk level for GAINER.
+Patterns that historically introduce scope creep in fitness apps, ordered by current risk level for Vinha.
 
 | Risk | Current signal | Mitigation |
 |---|---|---|
@@ -437,7 +437,7 @@ Systems where boundary violations are most likely to occur during implementation
 | Boundary | Risk | Protection |
 |---|---|---|
 | **Coaching output ↔ Session state** | An engineer adds an insight trigger that fires while WorkoutProvider has an active session | ADR-001 (no in-session AI). `computePostSessionInsight()` must only be called after session save. |
-| **Recommendation engine ↔ GAINER AI** | GAINER AI begins generating or overriding programme selections | `recommendation-programme-contract.md` §"Product Boundary" explicitly prohibits this. |
+| **Recommendation engine ↔ Vinha AI** | Vinha AI begins generating or overriding programme selections | `recommendation-programme-contract.md` §"Product Boundary" explicitly prohibits this. |
 | **Save flow ↔ Completion UI** | Completion screen appears optimistically before persistence resolves | ADR-002 (truthful save states). `WorkoutCompletionScreen` must only be entered after successful persistence. |
 | **src/lib/ ↔ Storage** | A lib function accesses AsyncStorage directly | CLAUDE.md and `system-architecture.md` §13 prohibit side effects in `src/lib/`. |
 | **Progression logic ↔ User-facing messaging** | `evaluateProgressionGating()` return value is shown directly to the user | `progression-gating-rules.md` §display-contract: hold is always silent to user. Function output drives internal logic only. |
@@ -482,7 +482,7 @@ Architecture Decision Records are in `docs/adr/`. Each ADR represents a finalize
 
 | ADR | Title | Status | Key constraint |
 |---|---|---|---|
-| ADR-001 | No In-Session AI | **Accepted** | All GAINER AI output is architecturally prohibited during active sessions |
+| ADR-001 | No In-Session AI | **Accepted** | All Vinha AI output is architecturally prohibited during active sessions |
 | ADR-002 | Truthful Save States | **Accepted** | Completion UI cannot appear before persistence resolves |
 | ADR-003 | Silence as Default for Coaching | **Accepted** | `null` is the correct and expected return for most sessions |
 | ADR-004 | Double Progression Model | **Accepted** | All weighted exercises use rep-accumulation-then-load-increment |

@@ -5,7 +5,7 @@ If any other document conflicts with this file, this file takes precedence.
 
 ---
 
-# GAINER — AI Trust System
+# Vinha — AI Trust System
 
 **Type:** Design reference — behavioral intent with future implementation targets
 **Status:** Design reference. Not an implementation spec.
@@ -16,11 +16,11 @@ If any other document conflicts with this file, this file takes precedence.
 
 ## 1. Trust Philosophy
 
-Trust in a GAINER AI system is not built by being impressive. It is built by being consistently, quietly right — and by knowing when to say nothing.
+Trust in a Vinha AI system is not built by being impressive. It is built by being consistently, quietly right — and by knowing when to say nothing.
 
 Most fitness apps fail at trust not because their advice is wrong, but because they spend trust capital recklessly. Every generic motivational push notification, every "You're doing amazing!" after a mediocre session, every unsolicited advice message during a workout — each one costs more than it delivers. The account goes into deficit. Users learn to ignore everything. By the time the system has something genuinely valuable to say, no one is listening.
 
-GAINER's AI trust system is built on the opposite model: radical restraint in exchange for real authority. The AI speaks infrequently, specifically, and correctly. Over time, users learn that when it does speak, it is worth attention.
+Vinha's AI trust system is built on the opposite model: radical restraint in exchange for real authority. The AI speaks infrequently, specifically, and correctly. Over time, users learn that when it does speak, it is worth attention.
 
 **The core trade:** the system earns the right to be heard by spending almost nothing.
 
@@ -319,7 +319,7 @@ This means some valid insights are never delivered. That is correct. The alterna
 
 Most AI fitness apps feel the same because they all make the same mistake: they prioritize output over accuracy. They fill every session with something. The content is templated, the tone is uniformly enthusiastic, and the advice could apply to any user of any fitness level doing any workout.
 
-GAINER avoids this through a structural rule: **if removing the user's name and replacing their data with a different user's data would produce an identical message, the message should not be sent.**
+Vinha avoids this through a structural rule: **if removing the user's name and replacing their data with a different user's data would produce an identical message, the message should not be sent.**
 
 Every insight must be earned by the user's specific history. There are no generic messages in the system.
 
@@ -474,10 +474,10 @@ These are not guidelines. They are failure modes that must be impossible, not ju
 
 ## Summary
 
-The trust system is not a feature. It is the operating constraint that all GAINER AI output exists within.
+The trust system is not a feature. It is the operating constraint that all Vinha AI output exists within.
 
 Every message the AI delivers is a withdrawal from a trust account that is built slowly and depleted quickly. The system's job is to keep that account in surplus — by making far fewer withdrawals than the account can support, and by making every withdrawal count.
 
-A user who has received twelve insights from GAINER over six months, each of which was specific, accurate, and actionable, trusts the system more than a user who has received 180 generic motivational messages. The first user acts on recommendations. The second user has the notifications disabled.
+A user who has received twelve insights from Vinha over six months, each of which was specific, accurate, and actionable, trusts the system more than a user who has received 180 generic motivational messages. The first user acts on recommendations. The second user has the notifications disabled.
 
-GAINER's AI earns authority by spending almost nothing.
+Vinha's AI earns authority by spending almost nothing.

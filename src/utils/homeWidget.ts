@@ -12,7 +12,7 @@
  * practice — except right after a workout, and the widget does not claim
  * otherwise.
  *
- * Kotlin reads `context.filesDir/gymlog-widget.json`. Keep that in step with
+ * Kotlin reads `context.filesDir/vinha-widget.json`. Keep that in step with
  * `plugins/withHomeWidget.js`.
  */
 import { Platform } from 'react-native';
@@ -20,7 +20,7 @@ import { File, Paths } from 'expo-file-system';
 
 import type { HomeWidgetPayload } from '../lib/widgetPayload';
 
-export const HOME_WIDGET_FILE_NAME = 'gymlog-widget.json';
+export const HOME_WIDGET_FILE_NAME = 'vinha-widget.json';
 
 /**
  * Writes the payload. Returns the file URI on success, null when there was

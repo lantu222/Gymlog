@@ -3,13 +3,13 @@
 This document is outdated and should not be used for implementation decisions.
 See `premium-philosophy.md` for current premium direction, and `mvp-launch-scope.md` §4 for the full excluded features list.
 
-**Reason archived:** This document proposes in-session GAINER AI ("set-to-set guidance during logging," "session adjustment when energy, time, or recovery is off") which is architecturally prohibited by ADR-001. It also proposes features explicitly excluded from MVP. The premium philosophy remains active in `premium-philosophy.md`.
+**Reason archived:** This document proposes in-session Vinha AI ("set-to-set guidance during logging," "session adjustment when energy, time, or recovery is off") which is architecturally prohibited by ADR-001. It also proposes features explicitly excluded from MVP. The premium philosophy remains active in `premium-philosophy.md`.
 
 ---
 
-# GAINER Premium Plan (ARCHIVED)
+# Vinha Premium Plan (ARCHIVED)
 
-This document defines the first premium feature direction for GAINER.
+This document defines the first premium feature direction for Vinha.
 
 The recommended premium direction is not "more charts" or "more templates".
 It is one clear promise:
@@ -18,7 +18,7 @@ It is one clear promise:
 
 `Adaptive Coach`
 
-GAINER Premium adapts the workout, the session, and the week to how the user actually performs.
+Vinha Premium adapts the workout, the session, and the week to how the user actually performs.
 
 That means:
 
@@ -26,7 +26,7 @@ That means:
 - smarter rest and next-set recommendations
 - session adjustment when energy, time, or recovery is off
 - weekly plan adaptation based on real performance trends
-- GAINER AI actions that can change the plan, not only explain it
+- Vinha AI actions that can change the plan, not only explain it
 
 This is the strongest premium candidate because the app already has the right foundations:
 
@@ -34,7 +34,7 @@ This is the strongest premium candidate because the app already has the right fo
 - effort capture
 - plan-fit setup
 - progress and history
-- GAINER AI
+- Vinha AI
 
 The premium layer should unify those into one paid coaching system.
 
@@ -49,7 +49,7 @@ Free should continue to include:
 - custom workouts
 - basic progress
 - manual rest timer
-- basic GAINER AI advice
+- basic Vinha AI advice
 - plan setup and editing
 
 Free should feel complete enough to trust the app.
@@ -72,7 +72,7 @@ This is the first premium slice and the best place to start.
 
 ### What it does
 
-After each completed set, GAINER Premium uses:
+After each completed set, Vinha Premium uses:
 
 - planned reps
 - actual reps
@@ -98,9 +98,9 @@ to generate the next recommendation.
 
 ### Where it lives
 
-- [WorkoutLoggingScreen.tsx](/D:/GAINER/src/screens/WorkoutLoggingScreen.tsx)
-- [WorkoutExerciseCard.tsx](/D:/GAINER/src/components/WorkoutExerciseCard.tsx)
-- [WorkoutSummaryBar.tsx](/D:/GAINER/src/components/WorkoutSummaryBar.tsx)
+- [WorkoutLoggingScreen.tsx](/D:/Vinha/src/screens/WorkoutLoggingScreen.tsx)
+- [WorkoutExerciseCard.tsx](/D:/Vinha/src/components/WorkoutExerciseCard.tsx)
+- [WorkoutSummaryBar.tsx](/D:/Vinha/src/components/WorkoutSummaryBar.tsx)
 
 ## 2. Smart Rest
 
@@ -138,7 +138,7 @@ This is the second premium slice after Adaptive Set Coach.
 
 ### What it does
 
-Before the session starts, GAINER asks 3-4 short questions:
+Before the session starts, Vinha asks 3-4 short questions:
 
 - sleep
 - soreness
@@ -161,9 +161,9 @@ This is the cleanest way to introduce premium adaptation before needing wearable
 
 ### Where it lives
 
-- [StartingWeekScreen.tsx](/D:/GAINER/src/screens/StartingWeekScreen.tsx)
-- [ProgramDetailScreen.tsx](/D:/GAINER/src/screens/ProgramDetailScreen.tsx)
-- [WorkoutLoggingScreen.tsx](/D:/GAINER/src/screens/WorkoutLoggingScreen.tsx)
+- [StartingWeekScreen.tsx](/D:/Vinha/src/screens/StartingWeekScreen.tsx)
+- [ProgramDetailScreen.tsx](/D:/Vinha/src/screens/ProgramDetailScreen.tsx)
+- [WorkoutLoggingScreen.tsx](/D:/Vinha/src/screens/WorkoutLoggingScreen.tsx)
 
 ## 4. Adaptive Week
 
@@ -171,7 +171,7 @@ This is the third premium slice.
 
 ### What it does
 
-GAINER adjusts the next week based on:
+Vinha adjusts the next week based on:
 
 - repeated hard/maxed sets
 - missed sessions
@@ -193,22 +193,22 @@ This is the first premium feature that makes the whole app feel alive, not just 
 
 ### Where it lives
 
-- [PlanSettingsScreen.tsx](/D:/GAINER/src/screens/PlanSettingsScreen.tsx)
-- [StartingWeekScreen.tsx](/D:/GAINER/src/screens/StartingWeekScreen.tsx)
-- [HomeScreen.tsx](/D:/GAINER/src/screens/HomeScreen.tsx)
-- [firstRunSetup.ts](/D:/GAINER/src/lib/firstRunSetup.ts)
+- [PlanSettingsScreen.tsx](/D:/Vinha/src/screens/PlanSettingsScreen.tsx)
+- [StartingWeekScreen.tsx](/D:/Vinha/src/screens/StartingWeekScreen.tsx)
+- [HomeScreen.tsx](/D:/Vinha/src/screens/HomeScreen.tsx)
+- [firstRunSetup.ts](/D:/Vinha/src/lib/firstRunSetup.ts)
 
-## 5. GAINER AI Pro Actions
+## 5. Vinha AI Pro Actions
 
-Premium should also upgrade GAINER AI from advice to execution.
+Premium should also upgrade Vinha AI from advice to execution.
 
-### Free GAINER AI
+### Free Vinha AI
 
 - explanations
 - general Q&A
 - simple suggestions
 
-### Premium GAINER AI
+### Premium Vinha AI
 
 - `Adapt this session`
 - `Make today 35 min`
@@ -223,9 +223,9 @@ This gives the paywall a visible AI value that is concrete and immediately usefu
 
 ### Where it lives
 
-- [AICoachScreen.tsx](/D:/GAINER/src/screens/AICoachScreen.tsx)
-- [aiCoachActions.ts](/D:/GAINER/src/lib/aiCoachActions.ts)
-- [aiTrainingContext.ts](/D:/GAINER/src/lib/aiTrainingContext.ts)
+- [AICoachScreen.tsx](/D:/Vinha/src/screens/AICoachScreen.tsx)
+- [aiCoachActions.ts](/D:/Vinha/src/lib/aiCoachActions.ts)
+- [aiTrainingContext.ts](/D:/Vinha/src/lib/aiTrainingContext.ts)
 
 ## Free vs Premium Boundary
 
@@ -235,7 +235,7 @@ This gives the paywall a visible AI value that is concrete and immediately usefu
 - use ready plans
 - build custom workouts
 - track progress
-- ask GAINER AI questions
+- ask Vinha AI questions
 - use a fixed rest timer
 - edit setup and plan settings
 
@@ -245,7 +245,7 @@ This gives the paywall a visible AI value that is concrete and immediately usefu
 - adaptive rest timing
 - readiness-based session adjustment
 - weekly plan adaptation
-- premium GAINER AI actions that change plans or sessions
+- premium Vinha AI actions that change plans or sessions
 - premium insight summaries that explain why changes were made
 
 ## UX Surfaces
@@ -282,7 +282,7 @@ Why this works:
 
 - the user is already thinking in terms of plan fit
 
-## Surface 3: GAINER AI action lock
+## Surface 3: Vinha AI action lock
 
 Best trigger:
 
@@ -302,7 +302,7 @@ Add a Premium block:
 - `Smart Rest`
 - `Readiness`
 - `Adaptive Week`
-- `GAINER AI Pro`
+- `Vinha AI Pro`
 
 This is the cleanest internal home for premium configuration.
 
@@ -339,14 +339,14 @@ Secondary:
 
 ### MVP implementation files
 
-- [WorkoutLoggingScreen.tsx](/D:/GAINER/src/screens/WorkoutLoggingScreen.tsx)
-- [WorkoutExerciseCard.tsx](/D:/GAINER/src/components/WorkoutExerciseCard.tsx)
+- [WorkoutLoggingScreen.tsx](/D:/Vinha/src/screens/WorkoutLoggingScreen.tsx)
+- [WorkoutExerciseCard.tsx](/D:/Vinha/src/components/WorkoutExerciseCard.tsx)
 - new logic file:
   - `src/lib/adaptiveCoach.ts`
 - new entitlement/preference support:
-  - [models.ts](/D:/GAINER/src/types/models.ts)
-  - [database.ts](/D:/GAINER/src/storage/database.ts)
-  - [AppProvider.tsx](/D:/GAINER/src/state/AppProvider.tsx)
+  - [models.ts](/D:/Vinha/src/types/models.ts)
+  - [database.ts](/D:/Vinha/src/storage/database.ts)
+  - [AppProvider.tsx](/D:/Vinha/src/state/AppProvider.tsx)
 
 ### MVP data needed
 
@@ -363,7 +363,7 @@ After MVP:
 1. Smart Rest
 2. Readiness Check
 3. Adaptive Week
-4. GAINER AI Pro Actions
+4. Vinha AI Pro Actions
 5. Premium insights summaries
 
 This order is important because each step reuses the previous data.
@@ -377,7 +377,7 @@ Avoid sounding like a generic AI fitness app.
 
 - `Adaptive Coach`
 - `Train smarter every set`
-- `Let GAINER adjust the next move`
+- `Let Vinha adjust the next move`
 - `Your plan adapts as you train`
 - `Get smarter rest and next-set guidance`
 

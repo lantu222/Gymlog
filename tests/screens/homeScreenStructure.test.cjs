@@ -10,8 +10,8 @@ const bottomTabBarSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'components', 'BottomTabBar.tsx'),
   'utf8',
 );
-const gymlogIconSource = fs.readFileSync(
-  path.join(__dirname, '..', '..', 'src', 'components', 'GymlogIcon.tsx'),
+const vinhaIconSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'components', 'VinhaIcon.tsx'),
   'utf8',
 );
 const dashboardSource = fs.readFileSync(
@@ -101,10 +101,10 @@ module.exports = [
       assert.match(dashboardSource, /totalDurationMinutes: number/);
       assert.match(dashboardSource, /getCanonicalCompletedSessions\(database\)\.reduce/);
 
-      assert.match(gymlogIconSource, /\| 'dumbbell'/);
-      assert.match(gymlogIconSource, /\| 'chevronRight'/);
-      assert.match(gymlogIconSource, /case 'dumbbell':/);
-      assert.match(gymlogIconSource, /case 'chevronRight':/);
+      assert.match(vinhaIconSource, /\| 'dumbbell'/);
+      assert.match(vinhaIconSource, /\| 'chevronRight'/);
+      assert.match(vinhaIconSource, /case 'dumbbell':/);
+      assert.match(vinhaIconSource, /case 'chevronRight':/);
 
       // Home v4 session hero (design_handoff_home_v4): no eyebrow or plan-name
       // subline — focus title + plan-wide progress beside it, 2x2 meta grid,

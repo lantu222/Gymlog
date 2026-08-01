@@ -13,7 +13,7 @@ Branch: `onboarding-update-v5`. Backup: commit `d565de2` = branch `backup/pre-on
 Source of truth: the user's full-rebuild prompt (2026-07-15). The repo's design handoff
 (`Design_handoff/.../design_handoff_gainer_redesign/designs/onb-*.jsx`) is an OLDER flow
 (still has Training profile / Goal / Goal weight / Save your plan) — do NOT copy structure
-from it; use it only for shared atoms/tokens. If an updated `GAINER Onboarding.html` handoff
+from it; use it only for shared atoms/tokens. If an updated `Vinha Onboarding.html` handoff
 appears, drop it next to the old one and prefer it.
 
 ## Already done (commit d565de2)
@@ -61,7 +61,7 @@ New `equipmentItems: string[]` in selection + `setupEquipmentItems` pref (+norma
 Chip catalogs per environment (full gym / home / bodyweight). No "WHY IT'S GREAT" anywhere.
 
 **P3 · 04 Training level.** Replace the level picker with a 3-stop slider (Beginner/Advanced/Pro),
-live descriptor lines, centred GAINER wordmark with purple flame Svg elements whose count/size
+live descriptor lines, centred Vinha wordmark with purple flame Svg elements whose count/size
 scale by level + pop animation on change (Animated, reduced-motion safe). Maps to existing
 `SetupLevel` ('beginner' | 'intermediate' | 'advanced' — map Pro→advanced, Advanced→intermediate;
 confirm naming with user).
@@ -83,7 +83,7 @@ selection field `cautionFlags` + pref `setupCautionFlags` (+normalization + patc
 careful = amber row + warning triangle, avoid = red. FocusAreaBodyCard becomes dead code — delete.
 
 **P7 · 11 Plan review.** Replace "Save your plan"/account remnants with the automated-progression
-card: toggle default ON (glowing purple border/shadow + purple checks + "On — GAINER adjusts your
+card: toggle default ON (glowing purple border/shadow + purple checks + "On — Vinha adjusts your
 plan for you"); OFF dims bullets with ✕/strike-through; "change this anytime in Settings" note;
 CTA "Start training". New pref `automatedProgressionEnabled: boolean` default true
 (decide in-phase whether it maps onto existing `SetupGuidanceMode` or is a new field).

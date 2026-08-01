@@ -15,7 +15,7 @@ const appSource = fs.readFileSync(
   'utf8',
 );
 const iconSource = fs.readFileSync(
-  path.join(__dirname, '..', '..', 'src', 'components', 'GymlogIcon.tsx'),
+  path.join(__dirname, '..', '..', 'src', 'components', 'VinhaIcon.tsx'),
   'utf8',
 );
 const i18nSource = fs.readFileSync(

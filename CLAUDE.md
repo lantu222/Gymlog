@@ -56,14 +56,14 @@ Two React context providers wrap the app:
 **AppProvider** (`src/state/AppProvider.tsx`)
 - Owns all persisted app data: preferences, custom workout templates, completed sessions, exercise logs, bodyweight/measurements
 - Root type: `AppDatabase` in `src/types/models.ts`
-- Persists to AsyncStorage key `@gymlog/database/v1`
+- Persists to AsyncStorage key `@vinha/database/v1`
 - Exercise library is seeded on load but **stripped on save** (regenerated from `src/data/generatedExerciseLibrary.ts` each load)
 - Access via `useAppContext()`
 
 **WorkoutProvider** (`src/features/workout/WorkoutProvider.tsx`)
 - Owns the live workout session state machine: `useReducer(workoutReducer, workoutInitialState)`
 - All session mutations dispatch `WorkoutAction` — see `src/features/workout/workoutState.ts` for the full action union and reducer
-- Persists active session + slot history to AsyncStorage key `@gymlog/workout/v1`
+- Persists active session + slot history to AsyncStorage key `@vinha/workout/v1`
 - Access via `useWorkoutContext()`
 
 ### Ready programs vs custom programs
@@ -109,8 +109,8 @@ No test framework — only `node:assert/strict`. Tests import compiled output fr
 
 | Key | Contents |
 |---|---|
-| `@gymlog/database/v1` | Full `AppDatabase` (minus exerciseLibrary which is stripped on write) |
-| `@gymlog/workout/v1` | `WorkoutPersistenceBundle`: active session + slot history |
+| `@vinha/database/v1` | Full `AppDatabase` (minus exerciseLibrary which is stripped on write) |
+| `@vinha/workout/v1` | `WorkoutPersistenceBundle`: active session + slot history |
 
 `src/storage/database.ts` normalizes all fields on load, providing safe defaults for missing or malformed stored values.
 

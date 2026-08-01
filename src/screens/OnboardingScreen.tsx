@@ -24,7 +24,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Sto
 
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
-import { GymlogIcon, GymlogIconName } from '../components/GymlogIcon';
+import { VinhaIcon, VinhaIconName } from '../components/VinhaIcon';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -137,7 +137,7 @@ type HelperState = 'idle' | 'loading' | 'ready' | 'error';
 type RecommendationRefinementPanel = 'schedule' | 'focus' | 'custom' | 'ai' | null;
 type PlanReadyHeroKey = 'mass' | 'strength' | 'athletic';
 type LocationSelectionOptionId = SetupTrainingEnvironment;
-type LocationBenefit = { icon: GymlogIconName; label: string; body?: string };
+type LocationBenefit = { icon: VinhaIconName; label: string; body?: string };
 type FocusBadgeTone = 'neutral' | 'green' | 'blue' | 'purple';
 type FocusBadgeInput = string | { label: string; tone?: FocusBadgeTone };
 
@@ -1303,7 +1303,7 @@ function getPlanReadyWeekIconName({
   training: boolean;
   title: string;
   body: string;
-}): GymlogIconName {
+}): VinhaIconName {
   const haystack = `${title} ${body}`.toLowerCase();
 
   if (!training) {
@@ -1516,10 +1516,10 @@ function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDay
   };
 }
 
-function TrainingSetupMetric({ icon, label }: { icon: GymlogIconName; label: string }) {
+function TrainingSetupMetric({ icon, label }: { icon: VinhaIconName; label: string }) {
   return (
     <View style={styles.trainingSetupMetric}>
-      <GymlogIcon name={icon} size={18} color={ONBOARDING_PRIMARY} />
+      <VinhaIcon name={icon} size={18} color={ONBOARDING_PRIMARY} />
       <Text style={styles.trainingSetupMetricText}>{label}</Text>
     </View>
   );
@@ -2449,7 +2449,7 @@ export function OnboardingScreen({
                 </Text>
               </View>
               <View style={styles.equipmentExpandedCheck}>
-                <GymlogIcon name="check" size={13} color="#FFFFFF" />
+                <VinhaIcon name="check" size={13} color="#FFFFFF" />
               </View>
             </View>
             {selectedChips.length > 0 ? (
@@ -3007,7 +3007,7 @@ export function OnboardingScreen({
           </View>
           {flag ? (
             <View style={[styles.avoidRowRadio, { borderColor: colors!.ink, backgroundColor: colors!.ink }]}>
-              <GymlogIcon name="check" size={12} color="#FFFFFF" />
+              <VinhaIcon name="check" size={12} color="#FFFFFF" />
             </View>
           ) : (
             <View style={styles.avoidRowRadio} />
@@ -3039,7 +3039,7 @@ export function OnboardingScreen({
                         active && { borderColor: levelColors.ink, backgroundColor: levelColors.ink },
                       ]}
                     >
-                      {active ? <GymlogIcon name="check" size={11} color="#FFFFFF" /> : null}
+                      {active ? <VinhaIcon name="check" size={11} color="#FFFFFF" /> : null}
                     </View>
                     <View style={styles.avoidLevelCopy}>
                       <Text style={[styles.avoidLevelTitle, active && { color: levelColors.ink }]}>
@@ -3420,12 +3420,12 @@ export function OnboardingScreen({
         <View style={styles.planReadyDayMetaRow}>
           {dayDuration ? (
             <View style={styles.planReadyDayMetaItem}>
-              <GymlogIcon name="tempo" color={ONBOARDING_TEXT_SOFT} size={15} />
+              <VinhaIcon name="tempo" color={ONBOARDING_TEXT_SOFT} size={15} />
               <Text style={styles.planReadyDayMetaText}>{dayDuration}</Text>
             </View>
           ) : null}
           <View style={styles.planReadyDayMetaItem}>
-            <GymlogIcon name="progress" color={ONBOARDING_TEXT_SOFT} size={15} />
+            <VinhaIcon name="progress" color={ONBOARDING_TEXT_SOFT} size={15} />
             <Text style={styles.planReadyDayMetaText}>{levelLabel}</Text>
           </View>
         </View>
@@ -3506,7 +3506,7 @@ export function OnboardingScreen({
               <View key={bulletKey} style={styles.progressionBulletRow}>
                 {enabled ? (
                   <View style={styles.progressionBulletCheck}>
-                    <GymlogIcon name="check" size={12} color="#FFFFFF" />
+                    <VinhaIcon name="check" size={12} color="#FFFFFF" />
                   </View>
                 ) : (
                   <View style={styles.progressionBulletCross}>
@@ -3595,7 +3595,7 @@ export function OnboardingScreen({
                   </Text>
                   <View style={[styles.focusListRadio, active && styles.focusListRadioActive]}>
                     {active ? (
-                      <GymlogIcon name="check" size={12} color={cautionColors ? cautionColors.ink : ONBOARDING_PRIMARY} />
+                      <VinhaIcon name="check" size={12} color={cautionColors ? cautionColors.ink : ONBOARDING_PRIMARY} />
                     ) : null}
                   </View>
                 </Pressable>

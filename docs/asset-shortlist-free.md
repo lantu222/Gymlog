@@ -1,6 +1,6 @@
 # Free Fitness Image Shortlist
 
-This is the first `fully free` image shortlist for GAINER.
+This is the first `fully free` image shortlist for Vinha.
 
 Source policy:
 

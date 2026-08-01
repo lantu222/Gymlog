@@ -16,7 +16,7 @@ The programme system must support different block lengths over time. The MVP out
 
 ## Product Boundary
 
-Programme construction is core product logic. GAINER AI can later explain a selected programme, compare alternatives, or suggest guarded changes, but it must not invent the programme or override deterministic selection.
+Programme construction is core product logic. Vinha AI can later explain a selected programme, compare alternatives, or suggest guarded changes, but it must not invent the programme or override deterministic selection.
 
 | Allowed in MVP | Not allowed in MVP |
 | --- | --- |
@@ -255,9 +255,9 @@ If the selected focus area cannot be meaningfully shown because of equipment, fr
 | Bodyweight Only | Reps, tempo, range, variation difficulty, density, holds. |
 | Running / Hybrid | Run time/blocks, conditioning density, mobility quality, low-fatigue strength. |
 
-## Reference Content From Gainer Program
+## Reference Content From Vinha Program
 
-The folder `D:\Gymlog dokumentointi\Gainer Program` is useful as reference content, not as direct production import.
+The folder `D:\Vinha dokumentointi\Vinha Program` is useful as reference content, not as direct production import.
 
 | Source | Finding | Use |
 | --- | --- | --- |
@@ -381,7 +381,7 @@ A programme contract is ready for MVP when:
 - equipment-specific progression differs between full gym, minimal, bodyweight, and running/hybrid paths
 - beginner and high-frequency guardrails can lower intensity or explain fallback
 - `yourplan` can render the plan without inventing copy
-- GAINER AI is not required for any part of programme creation
+- Vinha AI is not required for any part of programme creation
 
 ## Implementation Notes
 
@@ -398,6 +398,6 @@ The next implementation pass should expand it with:
 - readiness guardrail summary
 - plan-ready copy fields
 - optional-day metadata for fallback frequencies
-- reference-source tags when a session pattern comes from the Gainer Program catalog
+- reference-source tags when a session pattern comes from the Vinha Program catalog
 
 Keep the implementation deterministic and testable. If a field is needed by `yourplan`, it should come from typed programme metadata, not ad hoc UI copy.

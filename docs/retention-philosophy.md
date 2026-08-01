@@ -1,8 +1,8 @@
-# GAINER — Retention Philosophy
+# Vinha — Retention Philosophy
 
 **Type:** Philosophy — design intent only, no implementation values
 **Status:** Design reference. Not an implementation spec.
-**Related:** `gainer-philosophy.md`, `ai-trust-system.md`, `coaching-intelligence-design.md`
+**Related:** `vinha-philosophy.md`, `ai-trust-system.md`, `coaching-intelligence-design.md`
 
 ---
 
@@ -26,7 +26,7 @@ Before designing for retention, it is necessary to understand why retention fail
 
 ## Why Users Stop Training
 
-Users stop training for different reasons than they stop using apps. Understanding the distinction matters because GAINER's retention strategy must address training continuity, not just app engagement.
+Users stop training for different reasons than they stop using apps. Understanding the distinction matters because Vinha's retention strategy must address training continuity, not just app engagement.
 
 **Life disruption.** Work, illness, injury, travel, family — training is often the first practice to be paused when life becomes demanding. This is not a character failure. It is a predictable feature of a fitness practice competing with other priorities. The app's response to this reality determines whether users return.
 
@@ -42,7 +42,7 @@ Users stop training for different reasons than they stop using apps. Understandi
 
 ## Healthy vs Manipulative Retention
 
-This distinction is the foundation of GAINER's retention philosophy.
+This distinction is the foundation of Vinha's retention philosophy.
 
 **Manipulative retention** keeps users in the app by exploiting psychological vulnerabilities. Loss aversion, social comparison, fear of missing out, guilt, shame, and variable reward loops are all manipulation tactics. They work in the short term. They damage the user's relationship with training in the long term. They are also ethically wrong.
 
@@ -50,9 +50,9 @@ Apps built on manipulative retention can show strong 30-day retention numbers wh
 
 **Healthy retention** keeps users in the app by delivering genuine value that compounds over time. The user stays because the product is useful, because it knows them better over time, because their training history has accumulated real value in this system. They stay because leaving means losing something real — not because the app engineered an emotional cost to leaving.
 
-GAINER is built on healthy retention only. This is both an ethical decision and a strategic one. Manipulative retention is a short-term lever that produces fragile metrics and damages the long-term relationship. Healthy retention is slower to build and produces durable engagement.
+Vinha is built on healthy retention only. This is both an ethical decision and a strategic one. Manipulative retention is a short-term lever that produces fragile metrics and damages the long-term relationship. Healthy retention is slower to build and produces durable engagement.
 
-The test for any retention mechanic: **does this keep users because it gives them something valuable, or because it threatens to take something away?** If the latter, it does not belong in GAINER.
+The test for any retention mechanic: **does this keep users because it gives them something valuable, or because it threatens to take something away?** If the latter, it does not belong in Vinha.
 
 ---
 
@@ -87,11 +87,11 @@ The three components of a habit loop — cue, routine, and reward — each requi
 
 **Cue.** Training sessions need consistent triggers. Time of day is the most powerful cue for fitness habits. The app can support this by recognizing the user's natural training window from session timestamp patterns and gently reinforcing it. It should not engineer arbitrary cues (random notifications) that compete with the user's genuine habit formation.
 
-**Routine.** The training session itself is the routine. For the habit to form, the routine must be rewarding enough to repeat and simple enough that the decision to begin is small. GAINER's job here is frictionless session logging, well-structured programs, and fast access to the starting workout. If beginning a session requires too much setup, the routine fails before it starts.
+**Routine.** The training session itself is the routine. For the habit to form, the routine must be rewarding enough to repeat and simple enough that the decision to begin is small. Vinha's job here is frictionless session logging, well-structured programs, and fast access to the starting workout. If beginning a session requires too much setup, the routine fails before it starts.
 
 **Reward.** The reward that forms a habit must be immediate. Long-term goals (losing weight, getting stronger over months) are too distal to drive daily habit loops. The immediate reward is the feeling of completion, the visible log entry, the progress tick — and occasionally, the AI surfacing a genuine observation that tells the user their effort is being tracked and their progress is real. The app does not manufacture fake rewards. It makes the real ones more visible.
 
-**The minimum viable habit.** The smallest version of a training session that still counts. GAINER should make it easy to log a short session, a modified session, or a lighter-than-planned session — because a user who logs something maintains the habit. A user who skips because they could not complete the full planned session breaks it. The system should never signal that a partial session is a failure.
+**The minimum viable habit.** The smallest version of a training session that still counts. Vinha should make it easy to log a short session, a modified session, or a lighter-than-planned session — because a user who logs something maintains the habit. A user who skips because they could not complete the full planned session breaks it. The system should never signal that a partial session is a failure.
 
 ---
 
@@ -101,7 +101,7 @@ Extrinsic motivation — points, badges, streaks, leaderboards, social validatio
 
 Intrinsic motivation — genuine strength progress, consistency pride, the physical experience of improving fitness, the sense of competence — compounds. Users who develop intrinsic motivation do not need the app to keep them engaged. They come to the app because it serves their training, not because the app has manufactured a reason to return.
 
-GAINER's retention strategy is built on accelerating intrinsic motivation, not manufacturing extrinsic motivation.
+Vinha's retention strategy is built on accelerating intrinsic motivation, not manufacturing extrinsic motivation.
 
 **How to accelerate intrinsic motivation:**
 - Make genuine progress visible. Not estimated, not implied — real progression data on exercises the user actually cares about.
@@ -126,12 +126,12 @@ GAINER's retention strategy is built on accelerating intrinsic motivation, not m
 
 Streaks have a useful function and a destructive failure mode. The function is making consistency visible. The failure mode is making inconsistency feel catastrophic.
 
-**Streaks GAINER can use:**
+**Streaks Vinha can use:**
 - Weekly training consistency (sessions completed this week vs. planned). This measures real training behavior and does not punish for taking a rest day.
 - Longest training streak (weeks with at least one session). A historical record that acknowledges the user's pattern over time, not a live countdown.
 - Milestone counts (total sessions logged, total weeks active). These accumulate and never reset.
 
-**Streaks GAINER must not use:**
+**Streaks Vinha must not use:**
 - Daily streaks that reset if any day is missed. These create anxiety and punish legitimate rest.
 - Countdown timers on streaks. "Your streak ends tonight" is anxiety, not motivation.
 - Streak loss notifications. A broken streak is not an emergency. Notifying the user about it is an intrusion.
@@ -142,13 +142,13 @@ The system acknowledges it neutrally. It does not mourn it, pressure the user to
 
 ---
 
-## How GAINER AI Affects Retention
+## How Vinha AI Affects Retention
 
-The GAINER AI layer is GAINER's most important long-term retention mechanism — but only if it is built correctly. A generic, over-communicating GAINER AI layer is a churn driver, not a retention driver.
+The Vinha AI layer is Vinha's most important long-term retention mechanism — but only if it is built correctly. A generic, over-communicating Vinha AI layer is a churn driver, not a retention driver.
 
-**How GAINER AI creates retention correctly:**
+**How Vinha AI creates retention correctly:**
 
-*Compounding personalization.* The longer a user trains in GAINER, the more accurately the AI understands their individual patterns. This creates genuine switching cost: leaving means starting over with a system that knows nothing about them. The user who has been in GAINER for a year has a coaching relationship with accumulated value. This value cannot be transferred to a competitor.
+*Compounding personalization.* The longer a user trains in Vinha, the more accurately the AI understands their individual patterns. This creates genuine switching cost: leaving means starting over with a system that knows nothing about them. The user who has been in Vinha for a year has a coaching relationship with accumulated value. This value cannot be transferred to a competitor.
 
 *The first magic moment.* The first time the AI catches something the user had not noticed — a genuine plateau, an accurate performance observation, a pattern in their training week — is a retention anchor. Users remember these moments. They associate the app with a system that is actually watching. This single event can sustain engagement through periods where the AI is appropriately silent.
 
@@ -286,9 +286,9 @@ Notifications are a finite resource. Each notification sent draws on a limited a
 
 ## Anti-Addiction Principles
 
-GAINER should not create compulsive behaviors around the app. The product's goal is to improve training, not to maximize time-in-app or session frequency.
+Vinha should not create compulsive behaviors around the app. The product's goal is to improve training, not to maximize time-in-app or session frequency.
 
-**GAINER does not engineer:**
+**Vinha does not engineer:**
 - Variable reward loops (unpredictable rewards that create checking behavior)
 - Infinite scroll or bottomless content
 - Social feeds that generate ambient engagement
@@ -311,7 +311,7 @@ This pattern has a low daily open rate and high training quality. It is the corr
 
 Guilt is a retention lever that works precisely once. The first time a user feels guilty because of the app, they may respond by training. The third time, they avoid the app to avoid the guilt. The app becomes associated with a negative emotional state, and users stop opening it.
 
-GAINER eliminates guilt mechanics at the architectural level:
+Vinha eliminates guilt mechanics at the architectural level:
 
 **No inactivity response.** Missing sessions generates no system response. No notification, no dashboard badge, no counter of days missed. The system simply waits.
 
@@ -378,10 +378,10 @@ These are absolute prohibitions, not guidelines:
 
 ## Summary
 
-GAINER's retention philosophy rests on one foundational principle: **users stay because the product is genuinely useful, and its usefulness compounds over time.**
+Vinha's retention philosophy rests on one foundational principle: **users stay because the product is genuinely useful, and its usefulness compounds over time.**
 
 Not because they are afraid of losing a streak. Not because the app made them feel guilty. Not because they receive notifications that simulate urgency. Not because the gamification system manufactured reasons to return.
 
-The user who stays in GAINER for three years stays because their training history is there, because the system knows their patterns, because the AI occasionally says something that demonstrates it has been watching, and because leaving means starting over with a system that knows nothing about them.
+The user who stays in Vinha for three years stays because their training history is there, because the system knows their patterns, because the AI occasionally says something that demonstrates it has been watching, and because leaving means starting over with a system that knows nothing about them.
 
 That is retention through value. It is harder to build than retention through manipulation. It is the only kind worth building.

@@ -56,8 +56,8 @@ module.exports = [
       assert.doesNotMatch(programDetailSource, /inlineTip \?/);
       assert.doesNotMatch(programDetailSource, /secondaryActionLabel && onSecondaryAction/);
       assert.doesNotMatch(programDetailSource, /secondaryButton/);
-      assert.doesNotMatch(programDetailSource, /<GymlogIcon name="dumbbell" color="#FFFFFF"/);
-      assert.doesNotMatch(programDetailSource, /<GymlogIcon name="chevronRight" color="#FFFFFF"/);
+      assert.doesNotMatch(programDetailSource, /<VinhaIcon name="dumbbell" color="#FFFFFF"/);
+      assert.doesNotMatch(programDetailSource, /<VinhaIcon name="chevronRight" color="#FFFFFF"/);
 
       assert.match(appSource, /<ProgramDetailScreen/);
       assert.match(appSource, /onStartSession=\{\(sessionId\) => \{/);

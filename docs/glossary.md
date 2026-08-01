@@ -5,9 +5,9 @@ If any other document conflicts with this file, this file takes precedence.
 
 ---
 
-# GAINER — Shared Terminology Glossary
+# Vinha — Shared Terminology Glossary
 
-**Type:** Reference — canonical definitions for all GAINER documentation and implementation
+**Type:** Reference — canonical definitions for all Vinha documentation and implementation
 **Status:** Living document. Add terms when introduced; deprecate variants when standardised.
 **Related:** All docs/ files. When a term is used in any document, it must match the canonical form defined here.
 
@@ -15,7 +15,7 @@ If any other document conflicts with this file, this file takes precedence.
 
 ## Purpose
 
-This glossary defines the canonical term for every concept used across GAINER's documentation and codebase. When the same concept has appeared under multiple names, one name is designated canonical and all others are deprecated.
+This glossary defines the canonical term for every concept used across Vinha's documentation and codebase. When the same concept has appeared under multiple names, one name is designated canonical and all others are deprecated.
 
 **Rules:**
 1. When writing a document, use only canonical terms from this glossary.
@@ -67,7 +67,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Enum value (one of four named states) | **Code identifier:** `coachingPhase` field on `AppPreferences`
 
-**Definition:** The stage of the coaching relationship between GAINER's AI system and a specific user, determined by how many completed sessions exist in the user's history. Phase governs how conservative or confident the system's output is.
+**Definition:** The stage of the coaching relationship between Vinha's AI system and a specific user, determined by how many completed sessions exist in the user's history. Phase governs how conservative or confident the system's output is.
 
 **The four canonical phases:**
 
@@ -98,7 +98,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Concept (noun phrase)
 
-**Definition:** The incremental right of the GAINER AI system to make more specific, predictive, and higher-stakes recommendations as it accumulates accurate, verified observations about a specific user. Authority is not granted on day one — it is earned through correct, restrained output over time.
+**Definition:** The incremental right of the Vinha AI system to make more specific, predictive, and higher-stakes recommendations as it accumulates accurate, verified observations about a specific user. Authority is not granted on day one — it is earned through correct, restrained output over time.
 
 **Allowed usage:** In philosophy and design reference documents when describing the arc of the coaching relationship. "The system earns authority by being right, not by being present."
 
@@ -114,7 +114,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun | **Code identifier:** `CoachingInsight` (interface), `PostSessionInsight` (MVP type)
 
-**Definition:** A specific, data-referenced observation or recommendation surfaced to the user by the GAINER AI system. A coaching insight must contain at least one reference to the user's specific training history. Generic statements are not coaching insights.
+**Definition:** A specific, data-referenced observation or recommendation surfaced to the user by the Vinha AI system. A coaching insight must contain at least one reference to the user's specific training history. Generic statements are not coaching insights.
 
 **Allowed usage:** The canonical term for what the AI produces and the user sees. Use "coaching insight" in all prose, "CoachingInsight" in code.
 
@@ -136,7 +136,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (outcome), Design principle
 
-**Definition (as outcome):** The state in which the GAINER AI system produces no visible output for a given session or trigger point. Silence is expressed as `null` from the insight computation function — not as a "nothing to show" message, not as an empty state with explanatory text.
+**Definition (as outcome):** The state in which the Vinha AI system produces no visible output for a given session or trigger point. Silence is expressed as `null` from the insight computation function — not as a "nothing to show" message, not as an empty state with explanatory text.
 
 **Definition (as principle):** The design philosophy that the AI should default to producing no output unless a specific, high-confidence observation is warranted. "Silence is the correct output for most sessions."
 
@@ -281,7 +281,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun | **Code identifier:** `CoachingAction` (future type, not yet implemented)
 
-**Definition:** A structured, typed value representing a specific intervention the GAINER AI system has decided is warranted. Coaching actions are the output of the intelligence layer and the input to the delivery layer. In MVP, coaching actions are implicit in the insight types; the formal `CoachingAction` type system is future work.
+**Definition:** A structured, typed value representing a specific intervention the Vinha AI system has decided is warranted. Coaching actions are the output of the intelligence layer and the input to the delivery layer. In MVP, coaching actions are implicit in the insight types; the formal `CoachingAction` type system is future work.
 
 **MVP insight types that will become formal coaching actions:**
 `personal_record`, `plateau_detected`, `session_volume_peak`, `return_after_gap`, `progression_ready` (future), `deload_recommended` (future)
@@ -320,13 +320,13 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (training model)
 
-**Definition:** The progression model used for all weighted exercises with a defined rep range in GAINER. It has two phases: (1) rep accumulation — the user works at a fixed load, increasing reps within the target range across sessions; (2) load increment — once the rep ceiling is reached consistently, load increases and reps reset to the bottom of the range.
+**Definition:** The progression model used for all weighted exercises with a defined rep range in Vinha. It has two phases: (1) rep accumulation — the user works at a fixed load, increasing reps within the target range across sessions; (2) load increment — once the rep ceiling is reached consistently, load increases and reps reset to the bottom of the range.
 
 **Example:** Target 3×8–12 reps. User trains at 60 kg until all three sets reach 12 reps. Then load increases to 62.5 kg and reps reset toward 8.
 
 **Canonical term:** double progression
 
-**Allowed usage:** "GAINER uses double progression for all weighted exercises with defined rep ranges."
+**Allowed usage:** "Vinha uses double progression for all weighted exercises with defined rep ranges."
 
 **Disallowed variants:**
 - "linear progression" — too generic; double progression is a specific model
@@ -517,7 +517,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Disallowed variants:**
 - "fatigue state" — deprecated; use "fatigue signal"
-- "overtraining" (as a coaching-layer term) — deprecated; use "fatigue signal `'high'`" for implementation precision. "Overtraining" is a clinical term outside GAINER's scope.
+- "overtraining" (as a coaching-layer term) — deprecated; use "fatigue signal `'high'`" for implementation precision. "Overtraining" is a clinical term outside Vinha's scope.
 - "fatigue level" — acceptable but non-canonical; use "fatigue signal"
 
 **Related terms:** → ACWR, → hold (progression decision), → deload recommendation
@@ -546,7 +546,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun, Verb
 
-**Definition:** A period of reduced training load — typically one week — intended to allow recovery and precede a performance gain. In GAINER, deload is always framed as a performance strategy, not as rest. Deload parameters: reduce load 40–50%, maintain movement patterns, maintain frequency.
+**Definition:** A period of reduced training load — typically one week — intended to allow recovery and precede a performance gain. In Vinha, deload is always framed as a performance strategy, not as rest. Deload parameters: reduce load 40–50%, maintain movement patterns, maintain frequency.
 
 **Canonical term:** deload
 
@@ -763,7 +763,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (design pattern)
 
-**Definition:** The practice of collecting additional user information at the moment it becomes relevant to the product's recommendations, rather than upfront during onboarding. GAINER collects only what it can immediately use, then adds context over time as features require it.
+**Definition:** The practice of collecting additional user information at the moment it becomes relevant to the product's recommendations, rather than upfront during onboarding. Vinha collects only what it can immediately use, then adds context over time as features require it.
 
 **Onboarding data (collected day 1):** goal, level, equipment, days per week, (optionally) focus areas.
 
@@ -811,7 +811,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Concept — PROHIBITED
 
-**Definition:** A "profile completeness" percentage or indicator suggesting the user's profile is incomplete until they have answered every possible question. This concept is explicitly prohibited in GAINER.
+**Definition:** A "profile completeness" percentage or indicator suggesting the user's profile is incomplete until they have answered every possible question. This concept is explicitly prohibited in Vinha.
 
 **Why prohibited:** Implies the user has not done enough. Pressures users to provide data the product cannot yet use. Contradicts the progressive profiling philosophy.
 
@@ -907,7 +907,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (design principle)
 
-**Definition:** Retention that keeps users in the product by delivering genuine, compounding value. The user stays because the product is useful and improves over time — not because leaving has been engineered to feel costly. Healthy retention is the only acceptable retention model in GAINER.
+**Definition:** Retention that keeps users in the product by delivering genuine, compounding value. The user stays because the product is useful and improves over time — not because leaving has been engineered to feel costly. Healthy retention is the only acceptable retention model in Vinha.
 
 **Contrasted with:** manipulative retention — using loss aversion, guilt, social pressure, or streak mechanics to keep users from leaving.
 
@@ -921,7 +921,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (anti-pattern)
 
-**Definition:** Retention mechanics that exploit psychological vulnerabilities to prevent users from leaving — loss aversion, guilt, fear of missing out, streak pressure, false urgency, re-engagement guilt ("we miss you"). Explicitly prohibited in GAINER.
+**Definition:** Retention mechanics that exploit psychological vulnerabilities to prevent users from leaving — loss aversion, guilt, fear of missing out, streak pressure, false urgency, re-engagement guilt ("we miss you"). Explicitly prohibited in Vinha.
 
 **Canonical term:** manipulative retention
 
@@ -939,7 +939,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (system design)
 
-**Definition:** The layered architecture of GAINER's GAINER AI system. Five layers, each with a single responsibility, where lower layers never depend on higher ones.
+**Definition:** The layered architecture of Vinha's Vinha AI system. Five layers, each with a single responsibility, where lower layers never depend on higher ones.
 
 **Canonical layer names (bottom to top):**
 
@@ -1059,7 +1059,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (architecture concept)
 
-**Definition:** The single authoritative location for a given data type. When the source of truth and a copy of that data differ, the source of truth is correct. Each data type in GAINER has exactly one source of truth.
+**Definition:** The single authoritative location for a given data type. When the source of truth and a copy of that data differ, the source of truth is correct. Each data type in Vinha has exactly one source of truth.
 
 **Source-of-truth table:**
 
@@ -1070,7 +1070,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 | Exercise history | `exerciseLogs` in `AppDatabase` |
 | Exercise library | `generatedExerciseLibrary.ts` (static, re-seeded on load) |
 | Ready programs | `workoutCatalog.ts` (static, immutable at runtime) |
-| Live workout state | `WorkoutProvider` (`@gymlog/workout/v1`) |
+| Live workout state | `WorkoutProvider` (`@vinha/workout/v1`) |
 | `UserFitnessProfile` | Derived from `AppPreferences` — not stored |
 | Performance signals | Derived from `exerciseLogs` — not stored |
 
@@ -1082,7 +1082,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (architecture constraint)
 
-**Definition:** A function in `src/lib/` that has no side effects, no storage access, no network calls, and no React dependencies. Given the same inputs, always returns the same output. All domain logic in GAINER must be implemented as pure functions. Testable in Node without a running app.
+**Definition:** A function in `src/lib/` that has no side effects, no storage access, no network calls, and no React dependencies. Given the same inputs, always returns the same output. All domain logic in Vinha must be implemented as pure functions. Testable in Node without a running app.
 
 **Canonical term:** pure function
 
@@ -1105,7 +1105,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 **Disallowed variants:**
 - "confidence level" — acceptable but prefer "confidence score" for precision
 - "certainty score" — non-canonical
-- "probability" — GAINER's confidence scoring is not a probabilistic model; prefer "confidence score"
+- "probability" — Vinha's confidence scoring is not a probabilistic model; prefer "confidence score"
 
 **Related terms:** → confidence threshold, → confidence gate
 
@@ -1149,7 +1149,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Noun (user experience concept)
 
-**Definition:** The user's belief that the GAINER AI system is watching their data, is right when it speaks, and is on their side. Trust is built through specificity, restraint, accuracy, and demonstrated memory. It is lost through generic advice, wrong recommendations, and over-messaging. Trust is a user experience outcome, not a system property.
+**Definition:** The user's belief that the Vinha AI system is watching their data, is right when it speaks, and is on their side. Trust is built through specificity, restraint, accuracy, and demonstrated memory. It is lost through generic advice, wrong recommendations, and over-messaging. Trust is a user experience outcome, not a system property.
 
 **Distinguished from earned authority:** Earned authority is the system's capability level (a function of data volume). Trust is the user's perception. A system can have earned authority without the user trusting it (if early outputs were wrong). A user can trust a system before it has full authority (if early outputs were right despite limited data).
 
@@ -1199,13 +1199,13 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 ### Gamification
 
-**Type:** Noun (anti-pattern in GAINER context)
+**Type:** Noun (anti-pattern in Vinha context)
 
-**Definition:** The use of game mechanics — points, badges, leaderboards, achievement sequences — in a non-game context to drive engagement. In GAINER, gamification that manufactures false achievement signals is explicitly prohibited. Gamification that acknowledges genuine achievements (PRs, meaningful milestones, genuine consistency records) is acceptable in limited form.
+**Definition:** The use of game mechanics — points, badges, leaderboards, achievement sequences — in a non-game context to drive engagement. In Vinha, gamification that manufactures false achievement signals is explicitly prohibited. Gamification that acknowledges genuine achievements (PRs, meaningful milestones, genuine consistency records) is acceptable in limited form.
 
 **Canonical term:** gamification
 
-**Canonical prohibition list:** See `gainer-philosophy.md` Anti-Bloat Principles — this is the authoritative source.
+**Canonical prohibition list:** See `vinha-philosophy.md` Anti-Bloat Principles — this is the authoritative source.
 
 **Acceptable forms:** streak counts (genuine consistency, displayed neutrally), PR notation, meaningful milestone acknowledgment.
 
@@ -1247,7 +1247,7 @@ This glossary defines the canonical term for every concept used across GAINER's 
 
 **Type:** Design spectrum (noun phrase)
 
-**Definition:** The design quality axis that measures how many competing calls to action, indicators, animations, and notifications a screen contains. GAINER targets the calm end: one primary action, clear hierarchy, motion only when functional. Noisy UX has multiple competing elements, ambient animations, and unread indicators that do not require action.
+**Definition:** The design quality axis that measures how many competing calls to action, indicators, animations, and notifications a screen contains. Vinha targets the calm end: one primary action, clear hierarchy, motion only when functional. Noisy UX has multiple competing elements, ambient animations, and unread indicators that do not require action.
 
 **Canonical terms:** calm UX / noisy UX
 

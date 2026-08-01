@@ -1,14 +1,14 @@
-# GAINER — UX Principles
+# Vinha — UX Principles
 
 **Type:** Philosophy — design intent only, no implementation values
 **Status:** Design reference. Not an implementation spec.
-**Related:** `gainer-philosophy.md`, `ai-trust-system.md`, `retention-philosophy.md`
+**Related:** `vinha-philosophy.md`, `ai-trust-system.md`, `retention-philosophy.md`
 
 ---
 
 ## What the UX Should Feel Like
 
-GAINER should feel like a well-made tool used by someone who knows what they want.
+Vinha should feel like a well-made tool used by someone who knows what they want.
 
 Not impressive. Not feature-rich. Not designed to show off what it can do. Designed to serve the user's training with the smallest possible amount of friction and visual noise. The product should feel like it trusts the user to know why they opened it. It does not try to redirect them, upsell them, or entertain them. It helps them train, and then it gets out of the way.
 
@@ -22,7 +22,7 @@ Users should be able to describe the app's UX the way they describe a good piece
 
 **Busy.** Competing calls to action, notification dots, badge counters, and promotional banners all fighting for attention simultaneously. The user came to train, not to manage a dashboard.
 
-**Gamified.** Achievement overlays, confetti animations, XP bars, level-up screens. These mechanics belong to engagement-optimized apps that need manufactured reasons to return. GAINER's reason to return is training progress. The UX should not obscure that with theater.
+**Gamified.** Achievement overlays, confetti animations, XP bars, level-up screens. These mechanics belong to engagement-optimized apps that need manufactured reasons to return. Vinha's reason to return is training progress. The UX should not obscure that with theater.
 
 **Anxious.** Streak countdowns, urgency framing, "you're falling behind" indicators. The UX must never make users feel pressured, guilty, or behind. Training is a practice, not a competition with the app.
 
@@ -34,7 +34,7 @@ Users should be able to describe the app's UX the way they describe a good piece
 
 ## Workout-Flow-First Philosophy
 
-The workout logging screen is used more frequently than any other surface in the app. It is used with one hand, in a gym environment with noise and distraction, often while holding equipment or mid-rest. It is the most important UX surface GAINER has.
+The workout logging screen is used more frequently than any other surface in the app. It is used with one hand, in a gym environment with noise and distraction, often while holding equipment or mid-rest. It is the most important UX surface Vinha has.
 
 Every other screen exists in service of this one.
 
@@ -108,7 +108,7 @@ Complexity should appear only where the underlying domain genuinely requires it.
 
 ## How AI Should Appear in the UX
 
-The GAINER AI layer has one primary appearance rule: it shows up where the user already is, never where it wants to take the user.
+The Vinha AI layer has one primary appearance rule: it shows up where the user already is, never where it wants to take the user.
 
 **In the post-session completion screen.** This is the correct place for a coaching insight. The user has finished training. They are in a moment of completion and reflection. A single, specific observation — if one has been earned — appears here. One line or two. Then the session is done.
 
@@ -116,7 +116,7 @@ The GAINER AI layer has one primary appearance rule: it shows up where the user 
 
 **In program recommendations.** The AI's understanding of the user's profile shapes which programs surface at the top and which are presented as less relevant. Again, invisible — the user experiences a recommendation that seems right, not an AI that is explaining itself.
 
-**Nowhere else by default.** There is no AI tab. There is no chat interface. There is no AI widget on the home screen reminding the user that GAINER AI is active. The AI exists in the background and surfaces through specific, contextual outputs — not through ambient presence.
+**Nowhere else by default.** There is no AI tab. There is no chat interface. There is no AI widget on the home screen reminding the user that Vinha AI is active. The AI exists in the background and surfaces through specific, contextual outputs — not through ambient presence.
 
 **When the AI has no output, the UX reflects that accurately.** A post-session completion screen without an AI insight should look complete, not empty. The absence of a coaching message should feel like everything is fine, not like something failed to load.
 
@@ -140,7 +140,7 @@ The invisibility is not a limitation. It is the correct behavior. An AI that ann
 
 ## Minimalism Philosophy
 
-GAINER's minimalism is functional, not aesthetic. It is not about visual style — it is about removing every element that does not serve the user's current task.
+Vinha's minimalism is functional, not aesthetic. It is not about visual style — it is about removing every element that does not serve the user's current task.
 
 **Remove before you add.** Before adding a new UI element, the correct question is: what does this remove? If nothing is removed, complexity is accumulating without offset. Every addition should either replace something less useful or justify its presence with a task that could not previously be completed.
 
@@ -166,7 +166,7 @@ Inconsistency forces users to re-learn. Each inconsistency is a small tax on att
 
 ## Emotional Tone of the App
 
-The app's emotional register is set in the first moment of each interaction and maintained throughout. GAINER's register is: focused, capable, clean.
+The app's emotional register is set in the first moment of each interaction and maintained throughout. Vinha's register is: focused, capable, clean.
 
 **Focused:** The screen communicates what this moment is for. Not ten things. One thing. The interface's confidence in its own focus communicates capability — this product knows what it is and what it is not.
 
@@ -228,11 +228,11 @@ Clutter in an app is rarely added in one large decision. It accumulates incremen
 
 ## Anti-Gamification Principles
 
-> **Canonical source.** The authoritative anti-gamification and anti-bloat prohibition list lives in `gainer-philosophy.md` (Anti-Bloat Principles section). This section applies those principles to UX decisions specifically but does not redefine the canonical list. When in doubt, defer to `gainer-philosophy.md`.
+> **Canonical source.** The authoritative anti-gamification and anti-bloat prohibition list lives in `vinha-philosophy.md` (Anti-Bloat Principles section). This section applies those principles to UX decisions specifically but does not redefine the canonical list. When in doubt, defer to `vinha-philosophy.md`.
 
 Gamification in fitness apps is a response to a real problem: training is hard and motivation is finite. The solution — making the app feel like a game — addresses the symptom while worsening the underlying condition. Users who train because of gamification are training for the game, not for themselves. When the gamification loses its novelty, the motivation disappears with it.
 
-GAINER addresses the motivation problem differently: by making training itself more intelligent, more personalized, and more clearly progressive. When a user can see that their squat has gone from 60 kg to 95 kg over eight months, that progress is its own motivation. The app does not need to augment it with points.
+Vinha addresses the motivation problem differently: by making training itself more intelligent, more personalized, and more clearly progressive. When a user can see that their squat has gone from 60 kg to 95 kg over eight months, that progress is its own motivation. The app does not need to augment it with points.
 
 **What is explicitly excluded from the UX:**
 - XP, points, coins, or any abstract currency
@@ -253,7 +253,7 @@ The difference: acceptable gamification acknowledges real things. Excluded gamif
 
 ## Why Most Fitness App UX Becomes Overwhelming
 
-Most fitness app UX degrades over time through a predictable process. Understanding it defines what GAINER must actively prevent.
+Most fitness app UX degrades over time through a predictable process. Understanding it defines what Vinha must actively prevent.
 
 **Feature accretion without accountability.** Each product team ships features. No team is accountable for removing features that are no longer serving their purpose. The interface accumulates every decision ever made. Three years in, the app has a workout tracker, a social layer, a content feed, a nutrition section, a coaching dashboard, a challenges system, and a community forum — none of which talk to each other and all of which compete for the same screen space.
 
@@ -277,7 +277,7 @@ Current exercise name, large. Current set number and target reps. Last session's
 Why: the user is mid-training. Nothing competes with the current set for attention. The interface has exactly what is needed and nothing more.
 
 **Bad:**
-Current exercise at the top. Exercise video looping in the middle. Motivation quote at the bottom. Tab bar visible. GAINER AI status indicator. Progress ring for today's session in the corner. Share button.
+Current exercise at the top. Exercise video looping in the middle. Motivation quote at the bottom. Tab bar visible. Vinha AI status indicator. Progress ring for today's session in the corner. Share button.
 
 Why: each element was probably added by a different team. Together, they describe an interface that does not trust the user to train without entertainment.
 
@@ -305,7 +305,7 @@ A single line chart for a tracked exercise: weight over time, last six months. A
 Why: the chart answers one question — is this lift going in the right direction? It answers it immediately without requiring the user to interpret multiple variables.
 
 **Bad:**
-A progress screen with twelve cards: recent sessions, body measurements, streak, weekly volume, monthly volume, exercise variety, calories burned estimate, active minutes, heartrate graph from phone integration, friends' activity, GAINER AI score, and a "your fitness age" metric.
+A progress screen with twelve cards: recent sessions, body measurements, streak, weekly volume, monthly volume, exercise variety, calories burned estimate, active minutes, heartrate graph from phone integration, friends' activity, Vinha AI score, and a "your fitness age" metric.
 
 Why: none of these compete with each other on usefulness, but together they compete for attention in a way that makes each less useful. The screen requires management rather than glance.
 
@@ -388,9 +388,9 @@ The following are explicitly excluded, regardless of how reasonable they might s
 
 | Element | Reason excluded |
 |---|---|
-| Activity feed or social timeline | Social layer is outside GAINER's scope; feeds optimize for time-in-app, not training quality |
+| Activity feed or social timeline | Social layer is outside Vinha's scope; feeds optimize for time-in-app, not training quality |
 | Motivational quotes (static or AI-generated) | Generic; adds visual noise; communicates nothing about the user's actual training |
-| Calorie or nutrition metrics | Outside GAINER's domain; adds complexity without supporting the core use case |
+| Calorie or nutrition metrics | Outside Vinha's domain; adds complexity without supporting the core use case |
 | Before/after photo feature | Privacy concerns; creates social anxiety; adjacent to a body-image problem space |
 | Leaderboards or friend comparison | Optimizes for social competition, not individual progress |
 | Push notification permission prompt during onboarding | User has not yet experienced value; prompt will be declined and channel permanently damaged |
@@ -404,10 +404,10 @@ The following are explicitly excluded, regardless of how reasonable they might s
 
 ## Summary
 
-GAINER's UX earns trust the same way its coaching intelligence does: through restraint, specificity, and consistent quality.
+Vinha's UX earns trust the same way its coaching intelligence does: through restraint, specificity, and consistent quality.
 
 The interface that gets out of the way of training is not a minimal interface — it is an interface that understood exactly what the user needed at each moment and chose to show only that. This understanding is the hardest thing to build and the most invisible when it is working correctly.
 
 The test for every UX decision: if the user noticed this element, what would they think? If the answer is "nothing — it was just there when I needed it," the element is working. If the answer requires any explanation of why it is there, it may not belong.
 
-GAINER's interface should be invisible to users who are training. That is not a limitation. That is the goal.
+Vinha's interface should be invisible to users who are training. That is not a limitation. That is the goal.

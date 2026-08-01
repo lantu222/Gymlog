@@ -711,7 +711,7 @@ function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; 
   return getExerciseFocusName(primaryName);
 }
 
-function GymlogApp() {
+function VinhaApp() {
   const theme = useTheme();
   const {
     database,
@@ -4217,7 +4217,7 @@ function ThemedRoot() {
   return (
     <ThemeProvider theme={theme}>
       <WorkoutProvider>
-        <GymlogApp />
+        <VinhaApp />
       </WorkoutProvider>
     </ThemeProvider>
   );

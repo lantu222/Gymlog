@@ -1,36 +1,36 @@
-# GAINER — Product Philosophy
+# Vinha — Product Philosophy
 
 **Type:** Philosophy — design intent only, no implementation values
-**Status:** Living document. Defines what GAINER is and what it is not.
+**Status:** Living document. Defines what Vinha is and what it is not.
 **Related:** `coaching-intelligence-design.md`, `ai-trust-system.md`, `coaching-architecture.md`, `system-architecture.md`
 
 ---
 
-## What GAINER Is
+## What Vinha Is
 
-GAINER is a training companion that gets smarter the longer you use it.
+Vinha is a training companion that gets smarter the longer you use it.
 
 At its core, it is a structured workout tracker. You log sessions, track progression, follow programs. This is the foundation — and it must always work excellently before anything else is considered.
 
-On top of that foundation, GAINER builds a coaching intelligence layer. It observes your training patterns over time. It notices things you don't. It speaks rarely, specifically, and accurately. Over months, it develops a picture of how you train that becomes more useful than any generic coaching advice.
+On top of that foundation, Vinha builds a coaching intelligence layer. It observes your training patterns over time. It notices things you don't. It speaks rarely, specifically, and accurately. Over months, it develops a picture of how you train that becomes more useful than any generic coaching advice.
 
 The goal is not to automate fitness. The goal is to make your own training data work for you — without you having to interpret it yourself.
 
 ---
 
-## What GAINER Is Not
+## What Vinha Is Not
 
-**Not a chatbot.** GAINER's AI does not have conversations. It does not answer questions on demand. It does not generate motivational text in response to prompts. When it speaks, it is because the data warranted it — not because the user asked.
+**Not a chatbot.** Vinha's AI does not have conversations. It does not answer questions on demand. It does not generate motivational text in response to prompts. When it speaks, it is because the data warranted it — not because the user asked.
 
-**Not a motivational speaker.** Motivation is not GAINER's job. Training is the user's job. GAINER's job is to make that training more intelligent over time. Generic encouragement is noise. GAINER does not produce noise.
+**Not a motivational speaker.** Motivation is not Vinha's job. Training is the user's job. Vinha's job is to make that training more intelligent over time. Generic encouragement is noise. Vinha does not produce noise.
 
-**Not a social network.** There are no feeds, leaderboards, public profiles, or follower mechanics. Training is a personal practice. GAINER respects that.
+**Not a social network.** There are no feeds, leaderboards, public profiles, or follower mechanics. Training is a personal practice. Vinha respects that.
 
-**Not a calorie counter or nutrition tracker.** GAINER is a training platform. Nutrition is adjacent. We do not build adjacently when it dilutes what we do well.
+**Not a calorie counter or nutrition tracker.** Vinha is a training platform. Nutrition is adjacent. We do not build adjacently when it dilutes what we do well.
 
-**Not a wellness app.** Journaling, breathing exercises, affirmations, sleep scores, mood tracking — these are not GAINER features. They belong to a different category of app with different goals.
+**Not a wellness app.** Journaling, breathing exercises, affirmations, sleep scores, mood tracking — these are not Vinha features. They belong to a different category of app with different goals.
 
-**Not an engagement machine.** GAINER does not optimize for time-in-app, daily active users, notification open rates, or streak counts. It optimizes for one thing: whether the user's training is actually improving over time. If users open the app less because they are training more consistently, that is a success.
+**Not an engagement machine.** Vinha does not optimize for time-in-app, daily active users, notification open rates, or streak counts. It optimizes for one thing: whether the user's training is actually improving over time. If users open the app less because they are training more consistently, that is a success.
 
 ---
 
@@ -38,7 +38,7 @@ The goal is not to automate fitness. The goal is to make your own training data 
 
 ### Do fewer things, and do them completely
 
-Every feature added to GAINER competes with every existing feature for the user's attention and the team's maintenance burden. A focused app used seriously is worth more than a complete app used superficially.
+Every feature added to Vinha competes with every existing feature for the user's attention and the team's maintenance burden. A focused app used seriously is worth more than a complete app used superficially.
 
 The question before building any feature is not "would users want this?" It is "does this make the core experience better?" Most features fail this test.
 
@@ -50,7 +50,7 @@ The best product decision is often not building something. This is hard to choos
 
 ### The product earns trust before it earns engagement
 
-A new user who opens GAINER and immediately sees AI insights, achievement badges, social prompts, and a premium paywall has learned nothing about whether the core product is useful. A new user who logs three sessions and notices that the progression logic actually works, that the programs are well-structured, and that the app does not spam them — that user has reason to return.
+A new user who opens Vinha and immediately sees AI insights, achievement badges, social prompts, and a premium paywall has learned nothing about whether the core product is useful. A new user who logs three sessions and notices that the progression logic actually works, that the programs are well-structured, and that the app does not spam them — that user has reason to return.
 
 Trust is earned before engagement is earned. Engagement follows trust.
 
@@ -66,13 +66,13 @@ Build for the relationship that lasts. Make day-one simple. Make month-six power
 
 Training is a long-term practice. The improvements that matter — real strength, genuine body composition change, sustainable habits — happen over months and years, not weeks.
 
-GAINER's coaching philosophy reflects this timescale.
+Vinha's coaching philosophy reflects this timescale.
 
-**Observation precedes prescription.** The system watches before it advises. It accumulates data before it draws conclusions. It draws conclusions before it acts on them. A system that advises before observing is guessing. GAINER does not guess.
+**Observation precedes prescription.** The system watches before it advises. It accumulates data before it draws conclusions. It draws conclusions before it acts on them. A system that advises before observing is guessing. Vinha does not guess.
 
 **Accuracy over frequency.** One correct coaching insight per month is worth more than thirty generic ones. The goal is not to fill every session with coaching output. The goal is to be right when it matters.
 
-**The user is the athlete.** GAINER is not the coach who runs the program. GAINER is the coach who watches, notices, and occasionally says one true thing. The user makes the training decisions. The system informs those decisions with data the user cannot easily compile themselves.
+**The user is the athlete.** Vinha is not the coach who runs the program. Vinha is the coach who watches, notices, and occasionally says one true thing. The user makes the training decisions. The system informs those decisions with data the user cannot easily compile themselves.
 
 **Progress is the point.** Not sessions logged. Not streaks maintained. Not engagement with the app. Whether the user is stronger, more consistent, and training with better intelligence than they were six months ago — that is the only success metric that matters.
 
@@ -82,7 +82,7 @@ GAINER's coaching philosophy reflects this timescale.
 
 ### The AI should usually be invisible
 
-Most of GAINER's AI value is delivered silently. Better default progression suggestions. Smarter exercise substitution logic. Appropriate volume recommendations. These improve the experience without announcing themselves.
+Most of Vinha's AI value is delivered silently. Better default progression suggestions. Smarter exercise substitution logic. Appropriate volume recommendations. These improve the experience without announcing themselves.
 
 Visible AI — messages, insights, recommendations surfaced to the user — should be rare. The ratio of invisible to visible AI output should be approximately ten to one. When the AI does speak, the rarity makes it count.
 
@@ -98,7 +98,7 @@ Language models enter the picture when the task requires natural language genera
 
 AI theater is the practice of using AI to produce outputs that look intelligent but contain no insight that wasn't already in the input. Generic summaries of data the user already has. Motivational messages dressed as analysis. Personalization that consists of inserting the user's name.
 
-GAINER does not produce AI theater. Every AI output must contain something the user could not have easily derived from looking at their own data. If the AI cannot add that, it says nothing.
+Vinha does not produce AI theater. Every AI output must contain something the user could not have easily derived from looking at their own data. If the AI cannot add that, it says nothing.
 
 ### The AI earns authority incrementally
 
@@ -138,19 +138,19 @@ The absence of coaching output after a routine session should feel calm, not abs
 
 ## Long-term Vision
 
-GAINER's long-term vision is to be the training companion that knows your training history better than you remember it yourself.
+Vinha's long-term vision is to be the training companion that knows your training history better than you remember it yourself.
 
 Not the app with the most features. Not the most comprehensive fitness platform. Not the app with the best AI chatbot. The app that has watched you train for three years and can say, specifically, "the last two times you came back from a deload at this volume, you hit a PR within four sessions."
 
-That kind of intelligence cannot be replicated by a new app, regardless of its feature set. It is earned through continuous use and honest data. This is GAINER's durable competitive advantage: the compounding value of a long-term training relationship.
+That kind of intelligence cannot be replicated by a new app, regardless of its feature set. It is earned through continuous use and honest data. This is Vinha's durable competitive advantage: the compounding value of a long-term training relationship.
 
 The implications of this vision:
 
 **Data integrity matters more than data richness.** A small amount of clean, consistent training data over years is more valuable than a large amount of fragmented, inconsistent data. The product must make logging easy and reliable above all else.
 
-**The experience should improve with age.** A user who has been in GAINER for two years should experience a meaningfully better product than a new user — not because they have unlocked features, but because the system knows them better. This must be felt, not just promised.
+**The experience should improve with age.** A user who has been in Vinha for two years should experience a meaningfully better product than a new user — not because they have unlocked features, but because the system knows them better. This must be felt, not just promised.
 
-**Switching costs should be earned, not engineered.** GAINER's user retention should come from genuine value, not from making it painful to export data or cancel a subscription. If users stay because the product is genuinely useful, the business is healthy. If they stay because they can't leave, the product has failed.
+**Switching costs should be earned, not engineered.** Vinha's user retention should come from genuine value, not from making it painful to export data or cancel a subscription. If users stay because the product is genuinely useful, the business is healthy. If they stay because they can't leave, the product has failed.
 
 ---
 
@@ -158,7 +158,7 @@ The implications of this vision:
 
 > **Canonical source.** This section and the Anti-Generic-AI section below are the authoritative prohibition lists for anti-gamification and anti-bloat rules. Other documents (`retention-philosophy.md`, `ux-principles.md`, `ai-trust-system.md`) apply these principles in their own context but do not redefine them. When rules appear to conflict, this document is the source of truth.
 
-These principles define what GAINER will not become.
+These principles define what Vinha will not become.
 
 **No feature that adds complexity without removing a real problem.** A settings screen is only justified if the default cannot serve most users. A new data field is only justified if the data will be used by the product, not just collected.
 
@@ -174,13 +174,13 @@ These principles define what GAINER will not become.
 
 ## Anti-Generic-AI Principles
 
-These principles define what GAINER's AI will not become.
+These principles define what Vinha's AI will not become.
 
 **No generated motivational text.** "You're crushing it! Every rep counts! Your future self will thank you!" is not coaching. It is text that happened to be produced by a model. It contains no information, creates no trust, and wastes the user's attention.
 
 **No AI output that ignores personal data.** If the same message could be sent to any user at any fitness level doing any workout, it should not be sent. Every AI output must contain at least one reference to this user's specific training history.
 
-**No chatbot interface.** An AI that answers fitness questions on demand produces the illusion of personalization. "What should I eat before a workout?" is a Google search, not a coaching session. GAINER's AI observes training data and surfaces insights from it. It does not answer general fitness questions.
+**No chatbot interface.** An AI that answers fitness questions on demand produces the illusion of personalization. "What should I eat before a workout?" is a Google search, not a coaching session. Vinha's AI observes training data and surfaces insights from it. It does not answer general fitness questions.
 
 **No AI authority before data justifies it.** A system that makes confident recommendations on day one — when it knows almost nothing about this user — erodes trust. The AI earns authority through accurate observation over time. It must behave conservatively until that authority is earned.
 
@@ -257,11 +257,11 @@ Features that look impressive in a walkthrough but become annoying in daily use 
 
 ---
 
-### GAINER AI visibility
+### Vinha AI visibility
 
 **Good:** An AI that has been watching for six weeks surfaces one insight that references a specific trend in the user's squat data. The user thinks "this app actually noticed something."
 
-**Bad:** An GAINER AI tab with a chat interface available from day one. The user asks "how do I get bigger arms?" and receives a five-paragraph response that could have been copied from any fitness website.
+**Bad:** An Vinha AI tab with a chat interface available from day one. The user asks "how do I get bigger arms?" and receives a five-paragraph response that could have been copied from any fitness website.
 
 ---
 
@@ -269,16 +269,16 @@ Features that look impressive in a walkthrough but become annoying in daily use 
 
 Ship the core experience completely, not the full vision partially.
 
-At launch, GAINER must do two things excellently: structured workout tracking, and a small number of genuinely smart AI observations. Nothing else matters until those two things are excellent.
+At launch, Vinha must do two things excellently: structured workout tracking, and a small number of genuinely smart AI observations. Nothing else matters until those two things are excellent.
 
 Features that are half-built at launch become technical debt and user disappointment. A smaller product that works completely is worth more than a larger product that mostly works. The roadmap exists to define what comes next, not to justify shipping what isn't ready.
 
-Users who find GAINER at launch should encounter:
+Users who find Vinha at launch should encounter:
 - A fast, reliable workout logging experience
 - Well-structured programs with clear progression logic
 - An AI that speaks rarely and specifically, and earns trust because of it
 
-Users who find GAINER six months after launch should encounter all of the above, plus a system that has begun to know them individually.
+Users who find Vinha six months after launch should encounter all of the above, plus a system that has begun to know them individually.
 
 That is the launch philosophy. Do the foundation completely. Earn the rest.
 
@@ -286,7 +286,7 @@ That is the launch philosophy. Do the foundation completely. Earn the rest.
 
 ## Summary
 
-GAINER is a training platform built on the principle that intelligence through restraint is more valuable than intelligence through volume.
+Vinha is a training platform built on the principle that intelligence through restraint is more valuable than intelligence through volume.
 
 It tracks workouts because that is the foundation. It builds a coaching layer on top because that is the long-term value. It earns trust before it earns engagement, because trust is the only sustainable basis for the relationship between a user and a fitness product.
 

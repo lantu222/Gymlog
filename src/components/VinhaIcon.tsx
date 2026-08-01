@@ -1,7 +1,7 @@
 import React from 'react';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-export type GymlogIconName =
+export type VinhaIconName =
   | 'arms'
   | 'back'
   | 'benchPress'
@@ -34,13 +34,13 @@ export type GymlogIconName =
   | 'strength'
   | 'tempo';
 
-interface GymlogIconProps {
-  name: GymlogIconName;
+interface VinhaIconProps {
+  name: VinhaIconName;
   size?: number;
   color?: string;
 }
 
-export function GymlogIcon({ name, size = 18, color = '#FFFFFF' }: GymlogIconProps) {
+export function VinhaIcon({ name, size = 18, color = '#FFFFFF' }: VinhaIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       {renderIcon(name, color)}
@@ -48,7 +48,7 @@ export function GymlogIcon({ name, size = 18, color = '#FFFFFF' }: GymlogIconPro
   );
 }
 
-function renderIcon(name: GymlogIconName, color: string) {
+function renderIcon(name: VinhaIconName, color: string) {
   switch (name) {
     case 'chest':
       return (

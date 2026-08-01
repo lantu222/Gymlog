@@ -16,7 +16,7 @@ import { CardioIcon } from '../components/CardioIcon';
 import { HomeStatCardsSection } from '../components/HomeStatCardsSection';
 import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
-import { GymlogIcon } from '../components/GymlogIcon';
+import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import {
   getAdaptTrimEstimate,
@@ -702,7 +702,7 @@ export function HomeScreen({
             style={({ pressed }) => [styles.emptyWorkoutRow, pressed && styles.pressed]}
           >
             <View style={styles.emptyWorkoutIcon}>
-              <GymlogIcon name="plus" color={theme.highlight} size={20} />
+              <VinhaIcon name="plus" color={theme.highlight} size={20} />
             </View>
             <Text style={styles.emptyWorkoutTitle}>{t(language, 'home.emptyWorkout.title')}</Text>
             <Text style={styles.emptyWorkoutMeta}>{t(language, 'home.emptyWorkout.meta')}</Text>

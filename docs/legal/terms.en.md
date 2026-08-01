@@ -2,25 +2,25 @@
 
 *Updated 29 July 2026*
 
-The rules of using GAINER, including the health warning and how Pro billing works.
+The rules of using Vinha, including the health warning and how Pro billing works.
 
 ## The short version
 
-GAINER is a training app. It suggests programs and tracks what you lift. It is not a doctor, a physiotherapist or a personal trainer standing next to you, and it cannot see your form or how you feel. You decide what is safe to lift.
+Vinha is a training app. It suggests programs and tracks what you lift. It is not a doctor, a physiotherapist or a personal trainer standing next to you, and it cannot see your form or how you feel. You decide what is safe to lift.
 
 By using the app you accept these terms.
 
 ## Who provides the service
 
-GAINER is provided by Santeri Ylönen (Finland). Contact: santeriylonen@gmail.com.
+Vinha is provided by Santeri Ylönen (Finland). Contact: santeriylonen@gmail.com.
 
 ## Your licence to use the app
 
-You get a personal, non-exclusive, non-transferable right to use GAINER for your own training. That right lasts as long as you follow these terms.
+You get a personal, non-exclusive, non-transferable right to use Vinha for your own training. That right lasts as long as you follow these terms.
 
 ## Health and safety — read this one
 
-GAINER gives general fitness information. It is not medical advice, and nothing in it diagnoses, treats or prevents any condition.
+Vinha gives general fitness information. It is not medical advice, and nothing in it diagnoses, treats or prevents any condition.
 
 Talk to a doctor before starting a training program, especially if you are pregnant, recovering from an injury or illness, have a heart, joint or blood-pressure condition, or have not trained in a long time.
 
@@ -74,7 +74,7 @@ Your training data is yours. We claim no ownership of anything you log.
 
 ## Changes and ending
 
-We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use GAINER after that means you accept them.
+We may update these terms as the app changes. Material changes are shown in the app before they take effect, and continuing to use Vinha after that means you accept them.
 
 You can stop at any time by uninstalling the app. We may end your access if you seriously breach these terms.
 

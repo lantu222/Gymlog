@@ -1,4 +1,4 @@
-# GAINER Product Roadmap
+# Vinha Product Roadmap
 
 This document turns the current product and UX audit into three implementation phases.
 
@@ -13,7 +13,7 @@ The next work should protect those strengths while fixing trust, continuity, and
 
 ### Goal
 
-Make GAINER feel reliable from recommendation to saved workout. Users should always know where they came from, what will happen when they finish a workout, and whether data was actually saved.
+Make Vinha feel reliable from recommendation to saved workout. Users should always know where they came from, what will happen when they finish a workout, and whether data was actually saved.
 
 ### Why This Comes First
 
@@ -50,8 +50,8 @@ Implementation direction:
 
 Likely files:
 
-- [App.tsx](/D:/GAINER/App.tsx)
-- [routes.ts](/D:/GAINER/src/navigation/routes.ts)
+- [App.tsx](/D:/Vinha/App.tsx)
+- [routes.ts](/D:/Vinha/src/navigation/routes.ts)
 
 Acceptance criteria:
 
@@ -68,15 +68,15 @@ Implementation direction:
 - add an explicit finish review state before final save
 - treat zero-log sessions as discard or confirm discard, not as successful saves
 - show `saving`, `saved`, and `save failed` states explicitly
-- only enter [WorkoutCompletionScreen.tsx](/D:/GAINER/src/screens/WorkoutCompletionScreen.tsx) after successful persistence
+- only enter [WorkoutCompletionScreen.tsx](/D:/Vinha/src/screens/WorkoutCompletionScreen.tsx) after successful persistence
 
 Likely files:
 
-- [App.tsx](/D:/GAINER/App.tsx)
-- [WorkoutLoggingScreen.tsx](/D:/GAINER/src/screens/WorkoutLoggingScreen.tsx)
-- [WorkoutCompletionScreen.tsx](/D:/GAINER/src/screens/WorkoutCompletionScreen.tsx)
-- [completedWorkoutPersistence.ts](/D:/GAINER/src/state/completedWorkoutPersistence.ts)
-- [workoutAppAdapter.ts](/D:/GAINER/src/features/workout/workoutAppAdapter.ts)
+- [App.tsx](/D:/Vinha/App.tsx)
+- [WorkoutLoggingScreen.tsx](/D:/Vinha/src/screens/WorkoutLoggingScreen.tsx)
+- [WorkoutCompletionScreen.tsx](/D:/Vinha/src/screens/WorkoutCompletionScreen.tsx)
+- [completedWorkoutPersistence.ts](/D:/Vinha/src/state/completedWorkoutPersistence.ts)
+- [workoutAppAdapter.ts](/D:/Vinha/src/features/workout/workoutAppAdapter.ts)
 
 Acceptance criteria:
 
@@ -97,9 +97,9 @@ Implementation direction:
 
 Likely files:
 
-- [WorkoutLoggingScreen.tsx](/D:/GAINER/src/screens/WorkoutLoggingScreen.tsx)
-- [WorkoutExerciseCard.tsx](/D:/GAINER/src/components/WorkoutExerciseCard.tsx)
-- [workoutState.ts](/D:/GAINER/src/features/workout/workoutState.ts)
+- [WorkoutLoggingScreen.tsx](/D:/Vinha/src/screens/WorkoutLoggingScreen.tsx)
+- [WorkoutExerciseCard.tsx](/D:/Vinha/src/components/WorkoutExerciseCard.tsx)
+- [workoutState.ts](/D:/Vinha/src/features/workout/workoutState.ts)
 
 Acceptance criteria:
 
@@ -119,14 +119,14 @@ Implementation direction:
 
 Likely files:
 
-- [ProfileScreen.tsx](/D:/GAINER/src/screens/ProfileScreen.tsx)
-- [SettingsScreen.tsx](/D:/GAINER/src/screens/SettingsScreen.tsx)
+- [ProfileScreen.tsx](/D:/Vinha/src/screens/ProfileScreen.tsx)
+- [SettingsScreen.tsx](/D:/Vinha/src/screens/SettingsScreen.tsx)
 
 ### Out Of Scope
 
 - big new feature work
 - plan discovery redesign
-- GAINER AI interaction redesign
+- Vinha AI interaction redesign
 
 ### Exit Criteria
 
@@ -139,7 +139,7 @@ Likely files:
 
 ### Goal
 
-Turn onboarding from a one-time wizard into a reusable plan-fit system. The user should feel that GAINER helps them land on the right plan quickly, then lets them refine it without friction.
+Turn onboarding from a one-time wizard into a reusable plan-fit system. The user should feel that Vinha helps them land on the right plan quickly, then lets them refine it without friction.
 
 ### Why This Comes Second
 
@@ -175,10 +175,10 @@ Implementation direction:
 
 Likely files:
 
-- [OnboardingScreen.tsx](/D:/GAINER/src/screens/OnboardingScreen.tsx)
-- [firstRunSetup.ts](/D:/GAINER/src/lib/firstRunSetup.ts)
-- [App.tsx](/D:/GAINER/App.tsx)
-- [ProfileScreen.tsx](/D:/GAINER/src/screens/ProfileScreen.tsx)
+- [OnboardingScreen.tsx](/D:/Vinha/src/screens/OnboardingScreen.tsx)
+- [firstRunSetup.ts](/D:/Vinha/src/lib/firstRunSetup.ts)
+- [App.tsx](/D:/Vinha/App.tsx)
+- [ProfileScreen.tsx](/D:/Vinha/src/screens/ProfileScreen.tsx)
 
 Acceptance criteria:
 
@@ -196,13 +196,13 @@ Implementation direction:
 - show one clear primary CTA first:
   - `Start with this plan`
   - `Continue with this plan`
-- demote `Shape the week`, `Make it more yours`, and GAINER AI to secondary refinement layers
+- demote `Shape the week`, `Make it more yours`, and Vinha AI to secondary refinement layers
 - keep the recommendation screen visually product-like, not form-like
 
 Likely files:
 
-- [OnboardingScreen.tsx](/D:/GAINER/src/screens/OnboardingScreen.tsx)
-- [firstRunSetup.ts](/D:/GAINER/src/lib/firstRunSetup.ts)
+- [OnboardingScreen.tsx](/D:/Vinha/src/screens/OnboardingScreen.tsx)
+- [firstRunSetup.ts](/D:/Vinha/src/lib/firstRunSetup.ts)
 
 Acceptance criteria:
 
@@ -223,10 +223,10 @@ Implementation direction:
 
 Likely files:
 
-- [HomeScreen.tsx](/D:/GAINER/src/screens/HomeScreen.tsx)
-- [homePrimaryAction.ts](/D:/GAINER/src/lib/homePrimaryAction.ts)
-- [homeProgramSelection.ts](/D:/GAINER/src/lib/homeProgramSelection.ts)
-- [App.tsx](/D:/GAINER/App.tsx)
+- [HomeScreen.tsx](/D:/Vinha/src/screens/HomeScreen.tsx)
+- [homePrimaryAction.ts](/D:/Vinha/src/lib/homePrimaryAction.ts)
+- [homeProgramSelection.ts](/D:/Vinha/src/lib/homeProgramSelection.ts)
+- [App.tsx](/D:/Vinha/App.tsx)
 
 Acceptance criteria:
 
@@ -250,15 +250,15 @@ Implementation direction:
 
 Likely files:
 
-- [firstRunSetup.ts](/D:/GAINER/src/lib/firstRunSetup.ts)
-- [programDetails.ts](/D:/GAINER/src/lib/programDetails.ts)
-- [OnboardingScreen.tsx](/D:/GAINER/src/screens/OnboardingScreen.tsx)
-- [ProgramDetailScreen.tsx](/D:/GAINER/src/screens/ProgramDetailScreen.tsx)
+- [firstRunSetup.ts](/D:/Vinha/src/lib/firstRunSetup.ts)
+- [programDetails.ts](/D:/Vinha/src/lib/programDetails.ts)
+- [OnboardingScreen.tsx](/D:/Vinha/src/screens/OnboardingScreen.tsx)
+- [ProgramDetailScreen.tsx](/D:/Vinha/src/screens/ProgramDetailScreen.tsx)
 
 ### Out Of Scope
 
 - full search and advanced plan comparison
-- major GAINER AI workflow integration
+- major Vinha AI workflow integration
 
 ### Exit Criteria
 
@@ -270,20 +270,20 @@ Likely files:
 
 ### Goal
 
-Make GAINER more useful after week one. This phase is about giving users better discovery, richer history/progress, and more actionable plan intelligence without losing the app’s directness.
+Make Vinha more useful after week one. This phase is about giving users better discovery, richer history/progress, and more actionable plan intelligence without losing the app’s directness.
 
 ### Why This Comes Third
 
 - it compounds the value of Phases 1 and 2
 - richer analysis is only worth it after trust and activation are strong
-- this is where GAINER starts feeling like a product users keep, not just try
+- this is where Vinha starts feeling like a product users keep, not just try
 
 ### Scope
 
 - better workout discovery
 - richer saved-session fidelity
 - more useful history and progress
-- GAINER AI as an operational tool
+- Vinha AI as an operational tool
 - tighter long-term profile surfaces
 
 ### Deliverables
@@ -305,10 +305,10 @@ Implementation direction:
 
 Likely files:
 
-- [WorkoutsScreen.tsx](/D:/GAINER/src/screens/WorkoutsScreen.tsx)
-- [readyProgramCollections.ts](/D:/GAINER/src/lib/readyProgramCollections.ts)
-- [readyProgramContent.ts](/D:/GAINER/src/lib/readyProgramContent.ts)
-- [programDetails.ts](/D:/GAINER/src/lib/programDetails.ts)
+- [WorkoutsScreen.tsx](/D:/Vinha/src/screens/WorkoutsScreen.tsx)
+- [readyProgramCollections.ts](/D:/Vinha/src/lib/readyProgramCollections.ts)
+- [readyProgramContent.ts](/D:/Vinha/src/lib/readyProgramContent.ts)
+- [programDetails.ts](/D:/Vinha/src/lib/programDetails.ts)
 
 Acceptance criteria:
 
@@ -328,10 +328,10 @@ Implementation direction:
 
 Likely files:
 
-- [workoutAppAdapter.ts](/D:/GAINER/src/features/workout/workoutAppAdapter.ts)
-- [models.ts](/D:/GAINER/src/types/models.ts)
-- [database.ts](/D:/GAINER/src/storage/database.ts)
-- [completedWorkoutPersistence.ts](/D:/GAINER/src/state/completedWorkoutPersistence.ts)
+- [workoutAppAdapter.ts](/D:/Vinha/src/features/workout/workoutAppAdapter.ts)
+- [models.ts](/D:/Vinha/src/types/models.ts)
+- [database.ts](/D:/Vinha/src/storage/database.ts)
+- [completedWorkoutPersistence.ts](/D:/Vinha/src/state/completedWorkoutPersistence.ts)
 
 Acceptance criteria:
 
@@ -352,19 +352,19 @@ Implementation direction:
 
 Likely files:
 
-- [HistoryScreen.tsx](/D:/GAINER/src/screens/HistoryScreen.tsx)
-- [ProgressScreen.tsx](/D:/GAINER/src/screens/ProgressScreen.tsx)
-- [ProgressCard.tsx](/D:/GAINER/src/components/ProgressCard.tsx)
-- [progression.ts](/D:/GAINER/src/lib/progression.ts)
+- [HistoryScreen.tsx](/D:/Vinha/src/screens/HistoryScreen.tsx)
+- [ProgressScreen.tsx](/D:/Vinha/src/screens/ProgressScreen.tsx)
+- [ProgressCard.tsx](/D:/Vinha/src/components/ProgressCard.tsx)
+- [progression.ts](/D:/Vinha/src/lib/progression.ts)
 
 Acceptance criteria:
 
 - progress feels motivating, not just archival
 - history becomes easier to scan and more useful for review
 
-#### 4. Operational GAINER AI
+#### 4. Operational Vinha AI
 
-GAINER AI should help users act, not only read advice.
+Vinha AI should help users act, not only read advice.
 
 Implementation direction:
 
@@ -374,19 +374,19 @@ Implementation direction:
   - `Swap for home gym`
   - `Apply to custom editor`
 - improve trust messaging for live vs preview mode
-- keep GAINER AI close to decision moments
+- keep Vinha AI close to decision moments
 
 Likely files:
 
-- [AICoachScreen.tsx](/D:/GAINER/src/screens/AICoachScreen.tsx)
-- [AICoachCard.tsx](/D:/GAINER/src/components/AICoachCard.tsx)
-- [aiCoachClient.ts](/D:/GAINER/src/lib/aiCoachClient.ts)
-- [aiCoachPreview.ts](/D:/GAINER/src/lib/aiCoachPreview.ts)
-- [App.tsx](/D:/GAINER/App.tsx)
+- [AICoachScreen.tsx](/D:/Vinha/src/screens/AICoachScreen.tsx)
+- [AICoachCard.tsx](/D:/Vinha/src/components/AICoachCard.tsx)
+- [aiCoachClient.ts](/D:/Vinha/src/lib/aiCoachClient.ts)
+- [aiCoachPreview.ts](/D:/Vinha/src/lib/aiCoachPreview.ts)
+- [App.tsx](/D:/Vinha/App.tsx)
 
 Acceptance criteria:
 
-- GAINER AI outputs can move the user into an actual product action
+- Vinha AI outputs can move the user into an actual product action
 - trust framing is consistent
 
 #### 5. Mature profile and plan utilities
@@ -401,8 +401,8 @@ Implementation direction:
 
 Likely files:
 
-- [ProfileScreen.tsx](/D:/GAINER/src/screens/ProfileScreen.tsx)
-- [App.tsx](/D:/GAINER/App.tsx)
+- [ProfileScreen.tsx](/D:/Vinha/src/screens/ProfileScreen.tsx)
+- [App.tsx](/D:/Vinha/App.tsx)
 
 ### Out Of Scope
 
@@ -415,7 +415,7 @@ Likely files:
 - workout discovery is meaningfully stronger
 - saved sessions retain more truth
 - progress and history feel rewarding
-- GAINER AI can trigger action, not only text
+- Vinha AI can trigger action, not only text
 
 ## Suggested Execution Order
 
@@ -444,12 +444,12 @@ Likely files:
 1. saved-session model upgrade
 2. history/progress upgrade
 3. workout discovery upgrade
-4. operational GAINER AI
+4. operational Vinha AI
 5. mature profile utilities
 
 ## Product Principle To Keep
 
-GAINER works best when it feels decisive:
+Vinha works best when it feels decisive:
 
 - one clear next action
 - visible reasoning

@@ -1,14 +1,14 @@
-# Google Play Data Safety Prep for GAINER
+# Google Play Data Safety Prep for Vinha
 
 Last reviewed: 26 March 2026
 Version reviewed: 1.1.0
-Package: com.lantu66.gymlog
+Package: app.vinha
 
 This file is a practical draft for the Google Play Data safety form based on the current codebase.
 It is not legal advice. You must verify the final declarations in Play Console.
 
 ## 1. Current app behavior observed in code
-GAINER currently:
+Vinha currently:
 - stores workout data locally via AsyncStorage
 - stores active workout session state locally via AsyncStorage
 - stores bodyweight entries locally via AsyncStorage
@@ -16,7 +16,7 @@ GAINER currently:
 - does not implement analytics or crash reporting SDKs
 - does not implement ads, subscriptions, or payments
 - does not implement camera, microphone, contacts, or location features
-- includes an optional GAINER AI backend path:
+- includes an optional Vinha AI backend path:
   - preview mode when no endpoint is configured
   - live mode when the app calls your own endpoint and that endpoint calls Anthropic (Claude)
 - uses bundled local assets for Home artwork instead of loading third-party remote media
@@ -35,9 +35,9 @@ Relevant files reviewed:
 - <repo-root>\api\ai-coach.ts
 
 ## 2. Recommended declaration strategy
-Choose one declaration strategy based on how you launch GAINER AI.
+Choose one declaration strategy based on how you launch Vinha AI.
 
-### Option A: Preview-only GAINER AI
+### Option A: Preview-only Vinha AI
 Recommended answer:
 - No user data collected
 - No user data shared
@@ -47,12 +47,12 @@ Why this is defensible:
 - No analytics SDK is present.
 - No account system is present.
 - Home artwork no longer depends on a third-party remote image host.
-- GAINER AI stays on preview mode when `EXPO_PUBLIC_AI_COACH_API_URL` is not configured.
+- Vinha AI stays on preview mode when `EXPO_PUBLIC_AI_COACH_API_URL` is not configured.
 
-### Option B: Live GAINER AI enabled
+### Option B: Live Vinha AI enabled
 Do not keep the `No user data collected` answer without re-review.
 
-If live GAINER AI is enabled, the app transmits at least:
+If live Vinha AI is enabled, the app transmits at least:
 - the prompt the user types
 - limited training context such as active workout title, next exercise, recent workout names, tracked lift highlights, and recent training counts
 
@@ -65,13 +65,13 @@ Because this data leaves the device and is sent through your endpoint to an AI p
 ## 3. Recommended Play Console answers
 ### Does your app collect or share any of the required user data types?
 Recommended answer:
-- Preview-only GAINER AI launch: No
-- Live GAINER AI launch: re-evaluate before submitting
+- Preview-only Vinha AI launch: No
+- Live Vinha AI launch: re-evaluate before submitting
 
 ### Is all data encrypted in transit?
 Recommended answer:
-- Preview-only GAINER AI launch: Not applicable if you declare no data collected
-- Live GAINER AI launch: Yes, if your endpoint is HTTPS only
+- Preview-only Vinha AI launch: Not applicable if you declare no data collected
+- Live Vinha AI launch: Yes, if your endpoint is HTTPS only
 
 ### Can users request deletion of their data?
 Recommended answer: Yes, via in-app local deletion / reset.
@@ -88,7 +88,7 @@ These exist in the app's local database:
 
 Important:
 - Under Google's Data Safety guidance, data processed only on-device and not sent off-device does not need to be disclosed as collected.
-- If live GAINER AI is enabled, a limited subset of this context is sent off-device for GAINER AI responses and should be reviewed for disclosure.
+- If live Vinha AI is enabled, a limited subset of this context is sent off-device for Vinha AI responses and should be reviewed for disclosure.
 
 ## 5. Data Safety form draft answers
 - Preview-only launch:
@@ -96,14 +96,14 @@ Important:
   - Data shared: No
   - Security practices: local storage only for user workout data
   - Deletion request mechanism: Yes, in-app reset of local data
-- Live GAINER AI launch:
+- Live Vinha AI launch:
   - Re-review Data Safety before submission
-  - Document GAINER AI prompt/context processing in the privacy policy
+  - Document Vinha AI prompt/context processing in the privacy policy
   - Confirm HTTPS in transit and non-logging stance for prompts/context
   - Deletion request mechanism: local reset for on-device data; clarify any server-side retention if you later add it
 - Privacy policy: required, must be published at a public URL and linked in Play Console and inside the app
 
-## 6. If GAINER AI Beta is launched live
+## 6. If Vinha AI Beta is launched live
 The Data Safety form and privacy policy must match that release before shipping any version that sends prompts or training context to a server or third-party AI provider.
 
 At that point you will likely need to reassess at least:
@@ -115,5 +115,5 @@ At that point you will likely need to reassess at least:
 
 ## 7. Final recommendation
 For the first public Play launch:
-- if you want the simplest launch path, keep GAINER AI in preview mode and launch as a local-first strength logger
-- if you enable live GAINER AI Beta, update Play declarations and privacy text before release and keep the feature clearly marked as Beta
+- if you want the simplest launch path, keep Vinha AI in preview mode and launch as a local-first strength logger
+- if you enable live Vinha AI Beta, update Play declarations and privacy text before release and keep the feature clearly marked as Beta

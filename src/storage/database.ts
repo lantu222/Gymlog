@@ -51,7 +51,16 @@ function normalizeSetupCautionFlags(value: unknown, fallback: SetupCautionFlag[]
   return flags.slice(0, CAUTION_AREAS.length);
 }
 
-const STORAGE_KEY = '@gymlog/database/v1';
+const STORAGE_KEY = '@vinha/database/v1';
+/**
+ * The key this app used before the rename. Read once, on a first load that
+ * finds nothing under the new one, and then written forward.
+ *
+ * Nobody has shipped, so in principle this is dead code. It is here because
+ * the cost of being wrong about that is every workout somebody ever logged,
+ * and the cost of being right is four lines.
+ */
+const LEGACY_STORAGE_KEY = '@gymlog/database/v1';
 
 function normalizeJointSwapPreference(rawValue: unknown, fallbackValue: 'neutral' | 'prefer' | 'prioritize') {
   if (rawValue === 'neutral' || rawValue === 'prefer' || rawValue === 'prioritize') {
@@ -834,7 +843,7 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
  * fixture for tests and demos; it must never reach a real install.
  */
 export async function loadDatabase() {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const raw = (await AsyncStorage.getItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
 
   if (!raw) {
     const empty = normalizeDatabase(createEmptyDatabase());
@@ -866,5 +875,8 @@ export async function saveDatabase(database: AppDatabase) {
 export async function resetDatabase() {
   const empty = normalizeDatabase(createEmptyDatabase());
   await saveDatabase(empty);
+  // Reset has to mean reset: leaving the pre-rename blob behind would let it
+  // come back if the new key were ever cleared on its own.
+  await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
   return empty;
 }

@@ -3,7 +3,7 @@ plugins {
   id 'expo-module-gradle-plugin'
 }
 
-group = 'com.lantu66.gymlog'
+group = 'app.vinha'
 version = '1.0.0'
 
 android {

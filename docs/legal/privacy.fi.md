@@ -2,17 +2,17 @@
 
 *Päivitetty 29.7.2026*
 
-Mitä GAINER tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
+Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
 
 ## Lyhyesti
 
-GAINER pitää treenitietosi puhelimessasi. Ei tiliä, ei pilvitietokantaa, ei analytiikkaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.
+Vinha pitää treenitietosi puhelimessasi. Ei tiliä, ei pilvitietokantaa, ei analytiikkaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.
 
 Jos poistat sovelluksen, tiedot katoavat. Niistä ei ole kopiota missään muualla.
 
 ## Kuka vastaa
 
-Santeri Ylönen (Suomi) julkaisee GAINERin ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.
+Santeri Ylönen (Suomi) julkaisee Vinhan ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.
 
 Kysymykset tästä selosteesta tai tiedoistasi: santeriylonen@gmail.com.
 
@@ -30,7 +30,7 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa sinun s
 
 Sovelluksen paikallisessa tallennustilassa laitteellasi, kahden avaimen alla. Niitä ei synkronoida meidän palvelimellemme, eikä meillä ole mitään keinoa lukea niitä etänä.
 
-Laitteesi tai Androidin varmuuskopiointiasetukset voivat sisällyttää sovellusdatan järjestelmän varmuuskopioon, jota sinä hallitset. Se varmuuskopio on sinun ja Googlen välinen — GAINER ei lähetä eikä vastaanota sitä.
+Laitteesi tai Androidin varmuuskopiointiasetukset voivat sisällyttää sovellusdatan järjestelmän varmuuskopioon, jota sinä hallitset. Se varmuuskopio on sinun ja Googlen välinen — Vinha ei lähetä eikä vastaanota sitä.
 
 Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → nollaus, tai sovelluksen poistaminen.
 
@@ -78,7 +78,7 @@ GDPR antaa sinulle oikeuden nähdä tietosi, korjata ne, poistaa ne ja ottaa ne 
 
 ## Lapset
 
-GAINERia ei ole tarkoitettu alle 16-vuotiaille. Emme tietoisesti käsittele lasten tietoja — eikä meillä ole mitään tunnistettavaa tai poistettavaa, koska emme vastaanota tietoja lainkaan.
+Vinhaa ei ole tarkoitettu alle 16-vuotiaille. Emme tietoisesti käsittele lasten tietoja — eikä meillä ole mitään tunnistettavaa tai poistettavaa, koska emme vastaanota tietoja lainkaan.
 
 ## Muutokset tähän selosteeseen
 

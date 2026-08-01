@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Vinha",
-    "slug": "gymlog",
+    "slug": "vinha",
     "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -29,7 +29,7 @@
         "android.permission.SCHEDULE_EXACT_ALARM",
         "android.permission.USE_EXACT_ALARM"
       ],
-      "package": "com.lantu66.gymlog"
+      "package": "app.vinha"
     },
     "web": {
       "favicon": "./assets/favicon.png"

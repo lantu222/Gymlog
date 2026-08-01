@@ -1,4 +1,4 @@
-# GAINER - Long-Term Vision
+# Vinha - Long-Term Vision
 
 **Type:** Product vision - strategic direction only, no implementation authority
 **Status:** Exploratory. Nothing in this document is committed work.
@@ -12,14 +12,14 @@
 
 `product-roadmap-phases.md` covers Phases 1-3: shipping a trustworthy app. This document records what comes after, so the ambition is written down somewhere without leaking into launch scope.
 
-The core idea: GAINER is not intended to end as a logging app. The intended end state is a training system that spans software and hardware. But the ordering matters more than the ambition, and the ordering is deliberately conservative.
+The core idea: Vinha is not intended to end as a logging app. The intended end state is a training system that spans software and hardware. But the ordering matters more than the ambition, and the ordering is deliberately conservative.
 
 ---
 
 ## The Sequence
 
 ```
-1. Gainer app          -> ship, get paying users, get data
+1. Vinha app          -> ship, get paying users, get data
 2. AI coach            -> recurring value, funded by 1
 3. AI movement analysis -> phone camera first, no hardware
 4. AI rack             -> fixed hardware, sold to gyms
@@ -28,7 +28,7 @@ The core idea: GAINER is not intended to end as a logging app. The intended end 
 
 Each stage funds and de-risks the next. No stage begins before the previous one has evidence behind it.
 
-### Stage 1 - Ship GAINER
+### Stage 1 - Ship Vinha
 
 Publish to Google Play and the App Store. Acquire the first paying users. Fix bugs and iterate on real feedback rather than assumption.
 
@@ -38,7 +38,7 @@ Publish to Google Play and the App Store. Acquire the first paying users. Fix bu
 
 ### Stage 2 - AI Coach
 
-Deepen what already exists in `api/ai-coach.ts` and the GAINER AI preview layer:
+Deepen what already exists in `api/ai-coach.ts` and the Vinha AI preview layer:
 
 - program optimisation
 - recovery tracking
@@ -104,7 +104,7 @@ Intended contents: one rack, a bench, plates, cameras, a workstation, a server, 
 
 These are unresolved. They are recorded here so that later decisions are made against them rather than around them.
 
-**1. ADR-001 conflict.** `adr/ADR-001-no-in-session-ai.md` establishes that GAINER produces no AI output during an active workout session. An AI rack that gives feedback after every set is in-session AI by definition. Either the rack is a separate product outside the ADR's boundary, or ADR-001 needs a successor ADR that defines when live feedback is acceptable. This must be resolved before any rack work starts, not after.
+**1. ADR-001 conflict.** `adr/ADR-001-no-in-session-ai.md` establishes that Vinha produces no AI output during an active workout session. An AI rack that gives feedback after every set is in-session AI by definition. Either the rack is a separate product outside the ADR's boundary, or ADR-001 needs a successor ADR that defines when live feedback is acceptable. This must be resolved before any rack work starts, not after.
 
 **2. Conversion assumptions.** 500-1000 paying users implies a substantially larger install base at realistic free-to-paid conversion rates for consumer fitness apps. The download volume required to reach the milestone has not been estimated.
 
@@ -120,13 +120,13 @@ These are unresolved. They are recorded here so that later decisions are made ag
 
 ## Relationship To The Existing Strategy Documents
 
-`Gainer_Audit/` (dated 4 June 2026) already contains competitive, financial and roadmap analysis. This vision document sits **below** those in authority. Where they disagree, they win, because they were written against the actual codebase.
+`Vinha_Audit/` (dated 4 June 2026) already contains competitive, financial and roadmap analysis. This vision document sits **below** those in authority. Where they disagree, they win, because they were written against the actual codebase.
 
 Known tensions to resolve before acting on anything above:
 
-| Tension | This document assumes | `Gainer_Audit/` says |
+| Tension | This document assumes | `Vinha_Audit/` says |
 |---|---|---|
-| Sequencing | Ship -> paying users -> AI coach | `GAINER-TIEKARTTA-12KK.md`: validate **retention** first, with analytics in place, before building AI, backend or premium at all |
+| Sequencing | Ship -> paying users -> AI coach | `Vinha-TIEKARTTA-12KK.md`: validate **retention** first, with analytics in place, before building AI, backend or premium at all |
 | AI coach effort | An incremental next step on `api/ai-coach.ts` | `INVESTMENT-MEMO.md`: premium, sync and AI memory require a near-total backend rebuild; current persistence is a single JSON blob rewritten on every mutation |
 | User milestones | 100 -> 500-1000 paying users | `COMPETITIVE-ANALYSIS.md`: models the path to 10,000 paying users in a saturated, low-ARPU category |
 | Differentiation | The AI rack is the eventual moat | `COMPETITIVE-ANALYSIS.md`: the near-term wedge is bilingual Finnish/Nordic plus anti-gamification honesty - and the AI coach differentiator is not shipped yet |
@@ -145,4 +145,4 @@ The practical reading: the phased ordering in this document is sound in shape, b
 - no new dependency in the app
 - no AI feature that violates `ai-trust-system.md` or an existing ADR
 
-The next action remains the one in `manual-launch-tasks.md`: get GAINER published.
+The next action remains the one in `manual-launch-tasks.md`: get Vinha published.

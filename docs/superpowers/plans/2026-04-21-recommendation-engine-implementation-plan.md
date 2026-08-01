@@ -9,9 +9,9 @@ The recommendation engine described here is now implemented. See `docs/source-of
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Build a deterministic recommendation engine for GAINER that turns onboarding inputs into a ranked `template family + programme profile` recommendation, with clear user-facing explanations and telemetry.
+**Goal:** Build a deterministic recommendation engine for Vinha that turns onboarding inputs into a ranked `template family + programme profile` recommendation, with clear user-facing explanations and telemetry.
 
-**Architecture:** Add a focused recommendation layer beside the current onboarding and ready-program systems rather than overloading `firstRunSetup.ts` further. The new layer owns family definitions, candidate scoring, confidence, programme-profile generation, and recommendation explanations. Existing onboarding and ready-program surfaces consume that layer directly. `GAINER AI` consumes it separately as a premium explanation/adaptation layer and does not own recommendation decisions.
+**Architecture:** Add a focused recommendation layer beside the current onboarding and ready-program systems rather than overloading `firstRunSetup.ts` further. The new layer owns family definitions, candidate scoring, confidence, programme-profile generation, and recommendation explanations. Existing onboarding and ready-program surfaces consume that layer directly. `Vinha AI` consumes it separately as a premium explanation/adaptation layer and does not own recommendation decisions.
 
 **Tech Stack:** React Native, TypeScript, existing `src/lib` business-logic modules, existing `tests/lib/*.test.cjs` node-based tests.
 
@@ -53,7 +53,7 @@ The recommendation engine described here is now implemented. See `docs/source-of
 - `src/screens/AICoachScreen.tsx`
   - consume recommendation output for premium explanation and adaptation entry points
 - `src/lib/aiCoachActions.ts`
-  - add allowed GAINER AI recommendation actions and guardrails
+  - add allowed Vinha AI recommendation actions and guardrails
 - `src/lib/readyProgramCollections.ts`
   - map collections to families or recommendation-friendly categories
 - `src/lib/readyProgramContent.ts`
@@ -81,7 +81,7 @@ The recommendation engine described here is now implemented. See `docs/source-of
 - [ ] Define `RecommendationInput`, `TemplateFamilyId`, `TemplateFamilyDefinition`, `RecommendationCandidate`, `RecommendationResult`, `ProgrammeProfile`, and `RecommendationConfidence`.
 - [ ] Keep `template`, `session`, and `programme` as distinct entities. Do not overload `WorkoutTemplate` for programme metadata.
 - [ ] Add only minimal new preference fields to `AppPreferences` if a field cannot be derived from current onboarding state.
-- [ ] Keep new types recommendation-specific so they can be reused across onboarding and optional premium GAINER AI flows.
+- [ ] Keep new types recommendation-specific so they can be reused across onboarding and optional premium Vinha AI flows.
 
 **Verification:**
 - TypeScript compile should pass once imports are wired in later tasks.
@@ -144,7 +144,7 @@ The recommendation engine described here is now implemented. See `docs/source-of
   - preferred training style, if existing fields are not enough
   - explicit limitations / avoid list normalization
 - [ ] Preserve compatibility with the current first-run flow so legacy defaults still produce a recommendation.
-- [ ] Do not require GAINER AI or any premium-only state to produce a recommendation result.
+- [ ] Do not require Vinha AI or any premium-only state to produce a recommendation result.
 
 **Verification:**
 - Add tests that show current onboarding defaults produce a valid normalized input.
@@ -266,7 +266,7 @@ The recommendation engine described here is now implemented. See `docs/source-of
 - Add tests that explanation output exists for both high-confidence and low-confidence cases.
 - Assert explanation text never references a scoring field that was not actually part of the result.
 
-### Task 8: Define GAINER AI guardrails around recommendation actions
+### Task 8: Define Vinha AI guardrails around recommendation actions
 
 **Files:**
 - Modify: `src/screens/AICoachScreen.tsx`
@@ -280,12 +280,12 @@ The recommendation engine described here is now implemented. See `docs/source-of
   - shorten this plan
   - make this more joint-friendly
   - rerank because my goal changed
-- [ ] Restrict GAINER AI to safe modifications inside policy:
+- [ ] Restrict Vinha AI to safe modifications inside policy:
   - no silent family switch
   - no hard-constraint override
   - no uncataloged onboarding recommendation generation
-- [ ] Keep GAINER AI out of free template/programme recommendation so premium boundaries stay clear.
-- [ ] Expose rerank triggers so GAINER AI can intentionally request a new engine pass instead of improvising.
+- [ ] Keep Vinha AI out of free template/programme recommendation so premium boundaries stay clear.
+- [ ] Expose rerank triggers so Vinha AI can intentionally request a new engine pass instead of improvising.
 
 **Verification:**
 - Add tests for action availability by context.
@@ -329,7 +329,7 @@ The recommendation engine described here is now implemented. See `docs/source-of
 - Modify: `src/lib/programInsights.ts`
 - Test: `tests/lib/programDetails.test.cjs`, `tests/lib/programInsights.test.cjs`
 
-- [ ] Add a rerank entry path from GAINER AI and plan-detail surfaces.
+- [ ] Add a rerank entry path from Vinha AI and plan-detail surfaces.
 - [ ] Reuse the same recommendation engine for "my plan no longer fits" flows instead of inventing separate logic.
 - [ ] Show whether a recommendation switch is driven by:
   - goal change
@@ -358,7 +358,7 @@ If implementation needs a narrow first shipping slice, keep:
 Defer if necessary:
 
 - telemetry enrichment beyond selection/start events
-- deep GAINER AI rerank flows
+- deep Vinha AI rerank flows
 - broad programme detail integration
 
 ### Non-goals
@@ -378,7 +378,7 @@ Do not do these in the first implementation pass:
 - Hard constraints exclude invalid families.
 - Low-confidence scenarios show meaningful alternatives.
 - User-facing explanations align with actual scoring output.
-- GAINER AI actions respect guardrails.
+- Vinha AI actions respect guardrails.
 - Existing ready-program and onboarding flows remain functional.
 
 ## Execution Handoff

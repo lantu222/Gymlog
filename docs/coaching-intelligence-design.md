@@ -1,4 +1,4 @@
-# GAINER — GAINER AI Intelligence Design
+# Vinha — Vinha AI Intelligence Design
 
 **Type:** Design reference — behavioral intent only. Numeric thresholds in this document are design illustrations unless marked otherwise. For authoritative MVP values, see the implementation specs listed below.
 **Status:** Design reference. Not an implementation spec.
@@ -18,11 +18,11 @@
 
 Every time the AI speaks, it spends attention capital. Users have a finite tolerance for coaching input. A coach who speaks constantly becomes noise. A coach who speaks rarely and precisely becomes trusted.
 
-GAINER's AI should behave like the best coaches actually behave: they watch, they absorb, they say almost nothing — and when they finally say something, you listen.
+Vinha's AI should behave like the best coaches actually behave: they watch, they absorb, they say almost nothing — and when they finally say something, you listen.
 
 **The coach in the corner.** A knowledgeable coach sitting at the edge of the gym. They see every session. They notice when your bench form breaks down under fatigue. They track your sleep patterns through your training quality. They remember what you were doing six months ago. They don't talk between sets. But once every few weeks, they catch you on the way out and say one thing that changes how you train for the next month.
 
-That is the experience GAINER should create.
+That is the experience Vinha should create.
 
 ### What coaching actually is
 
@@ -30,7 +30,7 @@ Coaching is not motivation. It is pattern recognition + timely intervention.
 
 A great coach does not say "you've got this." A great coach says "you've been sleeping less than usual and your working sets have been slower for three weeks — take next week lighter and test your real ceiling the week after."
 
-GAINER's AI delivers three things, in order of value:
+Vinha's AI delivers three things, in order of value:
 1. **Observation** — noticing what the user's data actually shows
 2. **Interpretation** — explaining what it means in context
 3. **Recommendation** — suggesting one specific action
@@ -103,7 +103,7 @@ Higher priority signals suppress lower priority ones. A safety signal does not s
 
 ### The coaching cadence model
 
-**In-session:** No GAINER AI output of any kind. This is architecturally prohibited — see ADR-001. Exercise substitution is a user-initiated data lookup (finding an alternative exercise), not GAINER AI output, and is allowed only when explicitly requested by the user via a substitution button. Unsolicited messages, suggestions, and encouragement are prohibited during active sessions.
+**In-session:** No Vinha AI output of any kind. This is architecturally prohibited — see ADR-001. Exercise substitution is a user-initiated data lookup (finding an alternative exercise), not Vinha AI output, and is allowed only when explicitly requested by the user via a substitution button. Unsolicited messages, suggestions, and encouragement are prohibited during active sessions.
 
 **Post-session:** One observation if meaningful. Never multiple insights.
 
@@ -185,7 +185,7 @@ If any answer is no, hold the output.
 
 ### Retention through compounding value
 
-The longer a user is in GAINER, the more the system knows about them, and the more accurate the coaching becomes. This creates switching cost without lock-in mechanics.
+The longer a user is in Vinha, the more the system knows about them, and the more accurate the coaching becomes. This creates switching cost without lock-in mechanics.
 
 **The investment curve must be felt by month two.** If users don't notice that the app "knows them better" by 60 days, the compounding value proposition fails. The system must surface at least one observation in the first 8 weeks that clearly derives from personal history — not a generic observation that could apply to anyone.
 
@@ -349,7 +349,7 @@ These are the moments that make a user think "this app actually gets me":
 
 ## Core summary
 
-GAINER's GAINER AI intelligence has one job: be right less often, but be undeniably right when it speaks.
+Vinha's Vinha AI intelligence has one job: be right less often, but be undeniably right when it speaks.
 
 The system earns trust through restraint, builds retention through compounding personalization, and delivers value through precise observation — not volume of output.
 

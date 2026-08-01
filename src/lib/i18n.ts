@@ -784,7 +784,7 @@ const EN = {
   'profile.guestName': 'Guest athlete',
   'profile.invite': 'Invite a friend to Vinha',
   'profile.inviteMessage':
-    'Join me on Vinha — an honest strength-training companion.\nhttps://play.google.com/store/apps/details?id=com.lantu66.gymlog',
+    'Join me on Vinha — an honest strength-training companion.\nhttps://play.google.com/store/apps/details?id=app.vinha',
   'profile.section.trainingPlan': 'TRAINING PLAN',
   'profile.manage': 'Manage',
   'profile.section.records': 'PERSONAL RECORDS',
@@ -3118,7 +3118,7 @@ const FI: Record<I18nKey, string> = {
   'profile.guestName': 'Vierastreenaaja',
   'profile.invite': 'Kutsu kaveri Vinhaan',
   'profile.inviteMessage':
-    'Tule mukaan Vinhaan — rehellinen treenikaveri salille.\nhttps://play.google.com/store/apps/details?id=com.lantu66.gymlog',
+    'Tule mukaan Vinhaan — rehellinen treenikaveri salille.\nhttps://play.google.com/store/apps/details?id=app.vinha',
   'profile.section.trainingPlan': 'TREENISUUNNITELMA',
   'profile.manage': 'Hallinnoi',
   'profile.section.records': 'ENNÄTYKSET',

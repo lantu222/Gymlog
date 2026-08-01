@@ -5,7 +5,7 @@ If any other document conflicts with this file, this file takes precedence.
 
 ---
 
-# GAINER — Progression Gating Rules (MVP Specification)
+# Vinha — Progression Gating Rules (MVP Specification)
 
 **Type:** Implementation spec — values defined here are authoritative and buildable
 **Status:** MVP implementation specification. Ready to implement.
@@ -25,7 +25,7 @@ The output of the progression gating function drives one concrete surface: **the
 
 ## Core Model: Double Progression
 
-GAINER uses **double progression** for all weighted exercises with a defined rep range.
+Vinha uses **double progression** for all weighted exercises with a defined rep range.
 
 ```
 Phase 1 — Rep accumulation

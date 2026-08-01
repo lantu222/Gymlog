@@ -4,7 +4,9 @@ import { normalizeActiveCardioSession } from '../../lib/cardio';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutSessionRuntime, WorkoutSessionSummary } from './workoutTypes';
 
-const STORAGE_KEY = '@gymlog/workout/v1';
+const STORAGE_KEY = '@vinha/workout/v1';
+/** Pre-rename key; see the note in storage/database.ts. */
+const LEGACY_STORAGE_KEY = '@gymlog/workout/v1';
 
 export function createEmptyWorkoutHistory(): WorkoutHistoryStore {
   return {
@@ -125,7 +127,7 @@ export function normalizeWorkoutBundle(input: unknown): WorkoutPersistenceBundle
 }
 
 export async function loadWorkoutBundle() {
-  const raw = await AsyncStorage.getItem(STORAGE_KEY);
+  const raw = (await AsyncStorage.getItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
   if (!raw) {
     return { activeSession: null, history: createEmptyWorkoutHistory(), activeCardio: null } satisfies WorkoutPersistenceBundle;
   }
@@ -143,4 +145,5 @@ export async function saveWorkoutBundle(bundle: WorkoutPersistenceBundle) {
 
 export async function clearWorkoutBundle() {
   await AsyncStorage.removeItem(STORAGE_KEY);
+  await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
 }

@@ -1,8 +1,8 @@
-# GAINER — Onboarding Philosophy
+# Vinha — Onboarding Philosophy
 
 **Type:** Philosophy — design intent only, no implementation values
 **Status:** Design reference. Not an implementation spec.
-**Related:** `gainer-philosophy.md`, `coaching-intelligence-design.md`, `ai-trust-system.md`
+**Related:** `vinha-philosophy.md`, `coaching-intelligence-design.md`, `ai-trust-system.md`
 
 ---
 
@@ -10,7 +10,7 @@
 
 Onboarding has one primary job: get the user to their first training session with enough confidence that they come back for a second.
 
-It is not a data collection exercise. It is not a feature tour. It is not a commitment ceremony. It is the first moment a new user decides whether GAINER is worth their time — and that decision is made mostly by feel, not by feature completeness.
+It is not a data collection exercise. It is not a feature tour. It is not a commitment ceremony. It is the first moment a new user decides whether Vinha is worth their time — and that decision is made mostly by feel, not by feature completeness.
 
 The secondary job is to collect the minimum information needed to make the first recommendation genuinely useful. Not comprehensive. Useful.
 
@@ -76,7 +76,7 @@ Any question where the answer cannot be used to improve the user's experience in
 - "Do you have any injuries?" — the correct substitute is asking about joint sensitivity when it becomes relevant, not collecting injury history upfront
 - "What is your body fat percentage?" — most users don't know; those who do get no benefit from sharing it here
 - "How motivated are you to train? (1–10)" — creates performance anxiety, produces no signal
-- "What is your nutrition approach?" — outside GAINER's scope
+- "What is your nutrition approach?" — outside Vinha's scope
 - "Do you want to share your progress with friends?" — social features may not exist; asking pre-emptively implies they do
 - "Would you like to enable notifications?" — ask after the user has seen value, not before
 
@@ -106,7 +106,7 @@ The implications for onboarding design:
 
 ## How Onboarding Builds Trust
 
-Onboarding is the first opportunity to demonstrate that GAINER is different from other fitness apps. That demonstration happens through action, not messaging.
+Onboarding is the first opportunity to demonstrate that Vinha is different from other fitness apps. That demonstration happens through action, not messaging.
 
 **Show the effect of each answer.** When the user selects "full gym," the programs shown should visibly differ from what they would see with "home." When they select "beginner," the complexity of the recommendation should be clearly appropriate for that level. The user sees that their answers mattered.
 
@@ -140,58 +140,58 @@ The progressive model respects two facts: users cannot answer questions accurate
 
 **Not a form.** Forms create the feeling of bureaucracy. Onboarding should feel like a focused conversation with someone who knows fitness and knows what they need to ask.
 
-**Not a tutorial.** Feature tours and UI overlays communicate that the product is complex. GAINER's onboarding should not explain the app — it should put the user in the app.
+**Not a tutorial.** Feature tours and UI overlays communicate that the product is complex. Vinha's onboarding should not explain the app — it should put the user in the app.
 
 **Not a quiz.** Questions should not feel like tests with right and wrong answers. The user is not being assessed. They are being heard.
 
 **Confident and brief.** Each screen should feel purposeful. The user should never wonder "why are they asking me this?" The consequence of each question should be visible.
 
-**Warm but not gushing.** "Welcome to GAINER" is sufficient. "Welcome to the journey of a lifetime where you will transform yourself and unlock your true potential!" is not. The tone of onboarding sets expectations for the product's voice. Set the right expectations.
+**Warm but not gushing.** "Welcome to Vinha" is sufficient. "Welcome to the journey of a lifetime where you will transform yourself and unlock your true potential!" is not. The tone of onboarding sets expectations for the product's voice. Set the right expectations.
 
 ---
 
 ## How to Avoid Generic Fitness-App Onboarding
 
-Generic fitness app onboarding has recognizable patterns. GAINER avoids each of them.
+Generic fitness app onboarding has recognizable patterns. Vinha avoids each of them.
 
 **Generic pattern: Collect everything upfront.**
 Every metric, preference, and goal is captured in a 10-screen questionnaire before the user sees the product. The completion rate of this questionnaire is the first failure signal of the product.
 
-**GAINER alternative:** Five decisions maximum in core onboarding. Everything else is progressive.
+**Vinha alternative:** Five decisions maximum in core onboarding. Everything else is progressive.
 
 ---
 
 **Generic pattern: The motivation screen.**
 "How committed are you?" or "Set your intention for this journey." These screens collect no useful data and create performance anxiety. Users who answer "low commitment" get no different experience than users who answer "high commitment."
 
-**GAINER alternative:** Do not ask about motivation. Motivation is a behavior, not a declaration. The system observes it through adherence signals.
+**Vinha alternative:** Do not ask about motivation. Motivation is a behavior, not a declaration. The system observes it through adherence signals.
 
 ---
 
 **Generic pattern: The feature tour.**
 A swipeable introduction to every app section, complete with animation and copy explaining what each tab does. Users skip these immediately. They have never been demonstrated to improve retention.
 
-**GAINER alternative:** No feature tour. Put the user in the app. The first session teaches the product better than any walkthrough.
+**Vinha alternative:** No feature tour. Put the user in the app. The first session teaches the product better than any walkthrough.
 
 ---
 
 **Generic pattern: Asking for permissions and notifications immediately.**
 Notification permission dialogs presented before the user has seen any value are declined by the majority of users. Once declined, they are extremely difficult to recover.
 
-**GAINER alternative:** Ask for notification permission after the user has completed their first session and seen a genuine coaching insight. The value of the notification is now demonstrated. For the full notification rule system — tiers, timing, interruption rules, and what qualifies as a Tier 1 event — see `ai-trust-system.md` §5.
+**Vinha alternative:** Ask for notification permission after the user has completed their first session and seen a genuine coaching insight. The value of the notification is now demonstrated. For the full notification rule system — tiers, timing, interruption rules, and what qualifies as a Tier 1 event — see `ai-trust-system.md` §5.
 
 ---
 
 **Generic pattern: The social setup screen.**
 "Connect with friends," "find people you know," or "share your goals publicly." These screens signal that the app is a social network wearing a fitness app costume.
 
-**GAINER alternative:** No social setup in onboarding. Social features, if they exist, are discovered through use, not mandated in the initial flow.
+**Vinha alternative:** No social setup in onboarding. Social features, if they exist, are discovered through use, not mandated in the initial flow.
 
 ---
 
 ## What the User Should Feel After Onboarding
 
-Specific to GAINER, by the end of onboarding the user should be able to think each of the following:
+Specific to Vinha, by the end of onboarding the user should be able to think each of the following:
 
 - "I know what I'm going to do in my first session."
 - "The program it recommended makes sense for me."
@@ -311,7 +311,7 @@ The following are explicitly excluded from onboarding, regardless of their event
 | "Do you have any injuries?" | Joint sensitivity flags are a better, lower-friction proxy |
 | "What is your body fat percentage?" | Most users don't know; not used in MVP recommendations |
 | "How motivated are you to change?" | Not a useful signal; creates performance anxiety |
-| "What is your nutrition approach?" | Outside GAINER's scope |
+| "What is your nutrition approach?" | Outside Vinha's scope |
 | "Would you like to connect with friends?" | Social layer does not exist |
 | "What are your preferred training days?" | Inferred from usage within two weeks |
 | "How long do you want your sessions to be?" | Estimable from daysPerWeek and goal; refinable later |
@@ -323,8 +323,8 @@ The following are explicitly excluded from onboarding, regardless of their event
 
 ## Summary
 
-GAINER's onboarding succeeds when the user finishes it thinking "I know what to do, and this app understood what I need." It fails when they finish thinking "that took a while" or "I wonder if I answered that right."
+Vinha's onboarding succeeds when the user finishes it thinking "I know what to do, and this app understood what I need." It fails when they finish thinking "that took a while" or "I wonder if I answered that right."
 
-The way to achieve the first outcome is the same way GAINER achieves trust everywhere else in the product: restraint. Ask less. Use what you ask. Show the consequence. Let the rest accumulate through use.
+The way to achieve the first outcome is the same way Vinha achieves trust everywhere else in the product: restraint. Ask less. Use what you ask. Show the consequence. Let the rest accumulate through use.
 
-Onboarding is not the place to demonstrate comprehensiveness. It is the place to demonstrate that GAINER respects the user's time and knows what actually matters.
+Onboarding is not the place to demonstrate comprehensiveness. It is the place to demonstrate that Vinha respects the user's time and knows what actually matters.

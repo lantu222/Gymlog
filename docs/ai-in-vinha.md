@@ -1,4 +1,4 @@
-# What the AI actually does in GAINER
+# What the AI actually does in Vinha
 
 Last updated: 28 July 2026
 
@@ -11,7 +11,7 @@ it.
 
 ## The short version
 
-Most of what feels like intelligence in GAINER is **not** a language model.
+Most of what feels like intelligence in Vinha is **not** a language model.
 Programme selection, the composed week, progression, plateau detection and the
 figures on the analysis screen are all deterministic code with tests. A model
 is involved in exactly two places: the Coach chat, and the AI-assisted

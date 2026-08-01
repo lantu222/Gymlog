@@ -26,9 +26,9 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
  * table below names its source so the two can be diffed by eye.
  */
 
-const PACKAGE = 'com.lantu66.gymlog';
+const PACKAGE = 'app.vinha';
 const PROVIDER_CLASS = 'HomeWidgetProvider';
-const PAYLOAD_FILE = 'gymlog-widget.json';
+const PAYLOAD_FILE = 'vinha-widget.json';
 const PAYLOAD_VERSION = 2;
 /** Android's own floor. Anything smaller is silently rounded up to this. */
 const UPDATE_PERIOD_MS = 1800000;

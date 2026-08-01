@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
-import { GymlogIcon } from '../components/GymlogIcon';
+import { VinhaIcon } from '../components/VinhaIcon';
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -1278,7 +1278,7 @@ export function ProgressScreen({
                   style={styles.historyRow}
                 >
                   <View style={styles.historyIcon}>
-                    <GymlogIcon name="dumbbell" color={theme.purpleDark} size={17} />
+                    <VinhaIcon name="dumbbell" color={theme.purpleDark} size={17} />
                   </View>
                   <View style={styles.historyCopy}>
                     <Text numberOfLines={1} style={styles.historyTitle}>
@@ -1288,7 +1288,7 @@ export function ProgressScreen({
                       {session.dateLabel} · {session.durationLabel} · {session.volumeLabel}
                     </Text>
                   </View>
-                  <GymlogIcon name="chevronRight" color={theme.faint} size={16} />
+                  <VinhaIcon name="chevronRight" color={theme.faint} size={16} />
                 </Pressable>
               ))}
             </View>

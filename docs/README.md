@@ -1,8 +1,8 @@
-# GAINER — Documentation Index
+# Vinha — Documentation Index
 
-This is the navigation hub for all GAINER documentation.
+This is the navigation hub for all Vinha documentation.
 
-**App name:** GAINER (package identifier: `gymlog` — internal only)
+**App name:** Vinha (package identifier: `gymlog` — internal only)
 **Documentation architecture:** See `documentation-architecture.md` for classification, ownership, and conflict rules.
 
 ---
@@ -18,12 +18,12 @@ This is the navigation hub for all GAINER documentation.
 | How post-session coaching insights work | `post-session-single-insight-mvp.md` |
 | When and how load should increase | `progression-gating-rules.md` |
 | When the AI should and should not speak | `ai-trust-system.md` |
-| **What the AI actually does in the app** | **`ai-in-gainer.md`** |
+| **What the AI actually does in the app** | **`ai-in-vinha.md`** |
 | What each system may and may not do | `architecture/system-boundaries.md` |
 | Why a major architectural decision was made | `adr/` |
 | What a term means | `glossary.md` |
 | The five-layer coaching architecture | `system-architecture.md` |
-| Product values and anti-patterns | `product/gainer-philosophy.md` |
+| Product values and anti-patterns | `product/vinha-philosophy.md` |
 | Onboarding design intent | `product/onboarding-philosophy.md` |
 | What to do before launch (external tasks) | `manual-launch-tasks.md` |
 | **What to do next, in order** | **`execution-plan.md`** |
@@ -92,12 +92,12 @@ Philosophy, UX principles, branding, roadmap. Informs decisions but does not ove
 
 | Document | Covers |
 |---|---|
-| `gainer-philosophy.md` | Core product values |
+| `vinha-philosophy.md` | Core product values |
 | `onboarding-philosophy.md` | Onboarding design intent |
 | `ux-principles.md` | UX behavioral rules |
 | `retention-philosophy.md` | Retention approach |
 | `premium-philosophy.md` | Monetization ethics and free-tier definition |
-| `coaching-intelligence-design.md` | GAINER AI behavioral intent (design reference) |
+| `coaching-intelligence-design.md` | Vinha AI behavioral intent (design reference) |
 | `product-roadmap-phases.md` | Three-phase implementation roadmap |
 | `your-plan-ready-review.md` | Plan-ready screen design intent |
 | `manual-launch-tasks.md` | External launch checklist |

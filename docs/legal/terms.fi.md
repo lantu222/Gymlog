@@ -2,25 +2,25 @@
 
 *Päivitetty 29.7.2026*
 
-GAINERin käytön säännöt, terveysvaroitus ja miten Pro-laskutus toimii.
+Vinhan käytön säännöt, terveysvaroitus ja miten Pro-laskutus toimii.
 
 ## Lyhyesti
 
-GAINER on treenisovellus. Se ehdottaa ohjelmia ja seuraa mitä nostat. Se ei ole lääkäri, fysioterapeutti eikä vieressä seisova personal trainer, eikä se näe tekniikkaasi tai sitä miltä sinusta tuntuu. Sinä päätät mikä on turvallista nostaa.
+Vinha on treenisovellus. Se ehdottaa ohjelmia ja seuraa mitä nostat. Se ei ole lääkäri, fysioterapeutti eikä vieressä seisova personal trainer, eikä se näe tekniikkaasi tai sitä miltä sinusta tuntuu. Sinä päätät mikä on turvallista nostaa.
 
 Käyttämällä sovellusta hyväksyt nämä ehdot.
 
 ## Kuka palvelun tarjoaa
 
-GAINERin tarjoaa Santeri Ylönen (Suomi). Yhteystieto: santeriylonen@gmail.com.
+Vinhan tarjoaa Santeri Ylönen (Suomi). Yhteystieto: santeriylonen@gmail.com.
 
 ## Käyttöoikeutesi
 
-Saat henkilökohtaisen, ei-yksinomaisen ja siirtokelvottoman oikeuden käyttää GAINERia omaan treenaamiseesi. Oikeus on voimassa niin kauan kuin noudatat näitä ehtoja.
+Saat henkilökohtaisen, ei-yksinomaisen ja siirtokelvottoman oikeuden käyttää Vinhaa omaan treenaamiseesi. Oikeus on voimassa niin kauan kuin noudatat näitä ehtoja.
 
 ## Terveys ja turvallisuus — lue tämä
 
-GAINER antaa yleistä kuntoilutietoa. Se ei ole lääketieteellistä neuvontaa, eikä mikään siinä diagnosoi, hoida tai ehkäise mitään sairautta.
+Vinha antaa yleistä kuntoilutietoa. Se ei ole lääketieteellistä neuvontaa, eikä mikään siinä diagnosoi, hoida tai ehkäise mitään sairautta.
 
 Keskustele lääkärin kanssa ennen treeniohjelman aloittamista, erityisesti jos olet raskaana, toivut vammasta tai sairaudesta, sinulla on sydän-, nivel- tai verenpaineongelma, tai et ole treenannut pitkään aikaan.
 

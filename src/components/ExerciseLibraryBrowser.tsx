@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 
-import { GymlogIcon, GymlogIconName } from './GymlogIcon';
+import { VinhaIcon, VinhaIconName } from './VinhaIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -61,7 +61,7 @@ function formatCompactBodyPartLabel(raw: string) {
   return formatFilterLabel(raw);
 }
 
-function getBodyPartIcon(bodyPart: ExerciseBodyPart | 'all'): GymlogIconName {
+function getBodyPartIcon(bodyPart: ExerciseBodyPart | 'all'): VinhaIconName {
   switch (bodyPart) {
     case 'chest':
       return 'chest';
@@ -186,7 +186,7 @@ function CategoryIcon({ option, color }: { option: string; color: string }) {
   if (option === 'all') {
     return <ListIcon color={color} size={14} />;
   }
-  return <GymlogIcon name={getBodyPartIcon(option as ExerciseBodyPart)} color={color} size={14} />;
+  return <VinhaIcon name={getBodyPartIcon(option as ExerciseBodyPart)} color={color} size={14} />;
 }
 
 // Explicit numeric width/height (not '%' or absoluteFill): images nested in the

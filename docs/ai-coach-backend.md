@@ -1,4 +1,4 @@
-# GAINER AI backend setup
+# Vinha AI backend setup
 
 Last updated: 26 July 2026
 
@@ -14,7 +14,7 @@ This backend path is designed so that the app can work in two modes:
 
 ## Environment variables
 ### App
-Set this in the Expo environment for builds that should use live GAINER AI:
+Set this in the Expo environment for builds that should use live Vinha AI:
 - `EXPO_PUBLIC_AI_COACH_API_URL=https://your-domain.example/api/ai-coach`
 
 If this variable is missing, the app automatically falls back to local preview mode.

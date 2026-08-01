@@ -123,11 +123,20 @@ module.exports = [
         );
       }
 
-      const keys = new Set(allSource.match(/@gymlog\/[a-z0-9/]+/g) ?? []);
+      // The live keys are @vinha/*. Two @gymlog/* constants also remain — the
+      // pre-rename fallback that loadDatabase/loadWorkoutBundle read once — and
+      // they are the same two stores, so they are not a third thing to declare.
+      const keys = new Set(allSource.match(/@vinha\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
         [...keys].sort(),
-        ['@gymlog/database/v1', '@gymlog/workout/v1'],
+        ['@vinha/database/v1', '@vinha/workout/v1'],
         'The policy says two storage keys. A new one needs a line in "What the app stores".',
+      );
+      const legacy = new Set(allSource.match(/@gymlog\/[a-z0-9/]+/g) ?? []);
+      assert.deepEqual(
+        [...legacy].sort(),
+        ['@gymlog/database/v1', '@gymlog/workout/v1'],
+        'The only pre-rename keys left should be the two migration fallbacks.',
       );
     },
   },
