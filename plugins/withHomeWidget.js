@@ -54,8 +54,11 @@ const LIGHT = {
   onAccent: '#FFFFFF',
   barDone: '#16A34A',
   barToday: '#6D28D9',
-  barPlan: '#EFE7FF',
-  barOff: '#ECE7F8',
+  // 'plan' has to be clearly darker than 'off' — the app's pale purpleLight
+  // and the neutral track were within a couple of points of each other, so a
+  // planned day and a free day read identically on a 5dp bar.
+  barPlan: '#C4B5FD',
+  barOff: '#EAE4F5',
 };
 
 const DARK = {
@@ -72,7 +75,7 @@ const DARK = {
   onAccent: '#241203',
   barDone: '#37D08A',
   barToday: '#9B6DFF',
-  barPlan: '#2C2350',
+  barPlan: '#5B4A93',
   barOff: '#2A2340',
 };
 
