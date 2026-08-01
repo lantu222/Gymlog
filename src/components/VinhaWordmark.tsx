@@ -41,7 +41,16 @@ export function VinhaWordmark({
 
   return (
     <View style={[styles.row, { gap: size * 0.14 }]}>
-      <Text style={[styles.mark, { fontSize: size, lineHeight: size, fontFamily }, color ? { color } : null]}>
+      <Text
+        style={[
+          styles.mark,
+          // Tracking scales with the mark like everything else here. Left at a
+          // fixed -2.9 it would read tighter at 64 and looser at 74, so the
+          // lockup would change shape whenever the size changed.
+          { fontSize: size, lineHeight: size, letterSpacing: size * -0.0453, fontFamily },
+          color ? { color } : null,
+        ]}
+      >
         V
         <Text style={[styles.accent, accentColor ? { color: accentColor } : null]}>in</Text>
         ha
@@ -69,7 +78,6 @@ const makeStyles = (theme: Theme) =>
     },
     mark: {
       fontWeight: '800',
-      letterSpacing: -2.9,
       color: theme.ink,
     },
     accent: {

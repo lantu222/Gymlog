@@ -1,10 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AmbientDrift } from '../components/AmbientDrift';
 import { VinhaWordmark } from '../components/VinhaWordmark';
+import { EASE_SETTLE, MARK_CENTER_WELCOME, MARK_SIZE, markSlotTop } from '../components/vinhaMotion';
 import Svg, { Path } from 'react-native-svg';
 
 import { SUPPORTED_LANGUAGES, t } from '../lib/i18n';
@@ -14,10 +15,7 @@ import { AppLanguage } from '../types/models';
 // Light design tokens (HG palette from the redesign handoff).
 const SURFACE = '#FFFFFF';
 const INK = '#101828';
-const MUTED = '#667085';
 const BORDER = '#E4D8FF';
-const PURPLE = '#7C3AED';
-const PURPLE_DARK = '#5B21B6';
 const FAINT = '#9A93AC';
 
 interface WelcomeScreenProps {
@@ -60,10 +58,13 @@ function AppleMark() {
 export function WelcomeScreen({ language, onChangeLanguage, onContinue }: WelcomeScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
   const actionOpacity = useRef(new Animated.Value(0)).current;
-  const actionTranslateY = useRef(new Animated.Value(16)).current;
+  // The spec rises the sign-in block 26 px over 620 ms — it is the third beat
+  // of the hand-off, and it starts as this screen takes over from the splash.
+  const actionTranslateY = useRef(new Animated.Value(26)).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -79,16 +80,14 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
       Animated.parallel([
         Animated.timing(actionOpacity, {
           toValue: 1,
-          duration: 520,
-          delay: 120,
-          easing: Easing.out(Easing.cubic),
+          duration: 620,
+          easing: EASE_SETTLE,
           useNativeDriver: true,
         }),
         Animated.timing(actionTranslateY, {
           toValue: 0,
-          duration: 700,
-          delay: 120,
-          easing: Easing.out(Easing.exp),
+          duration: 620,
+          easing: EASE_SETTLE,
           useNativeDriver: true,
         }),
       ]).start();
@@ -99,11 +98,11 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
   }, [actionOpacity, actionTranslateY]);
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom + 22 }]}>
+    <View style={styles.screen}>
       {/* The same objects that streaked past on the splash, still going. */}
       <AmbientDrift />
       {onChangeLanguage ? (
-        <View style={styles.langRow}>
+        <View style={[styles.langRow, { paddingTop: insets.top + 10 }]}>
           {SUPPORTED_LANGUAGES.map((option) => {
             const active = option.key === language;
             return (
@@ -123,15 +122,23 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
         </View>
       ) : null}
 
-      {/* Same slot as the splash's, so the mark does not move when the one
-          hands over to the other. */}
-      <View style={styles.markSlot}>
+      {/* The splash's anchor and this one are both CENTRES. Measuring one from
+          the top and the other from the centre is what made the mark jump
+          between the two screens. */}
+      <View style={[styles.markSlot, { top: markSlotTop(windowHeight, MARK_CENTER_WELCOME), height: MARK_SIZE }]}>
         {/* No 'app' tag here: the splash carried it, and it left. */}
-        <VinhaWordmark size={62} fontFamily={fontFamily} />
+        <VinhaWordmark size={MARK_SIZE} fontFamily={fontFamily} />
       </View>
 
       <Animated.View
-        style={[styles.actions, { opacity: actionOpacity, transform: [{ translateY: actionTranslateY }] }]}
+        style={[
+          styles.actions,
+          {
+            paddingBottom: insets.bottom + 22,
+            opacity: actionOpacity,
+            transform: [{ translateY: actionTranslateY }],
+          },
+        ]}
       >
         <Pressable
           accessibilityRole="button"
@@ -165,7 +172,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'flex-end',
     gap: 8,
     paddingHorizontal: 20,
-    paddingTop: 10,
   },
   langChip: {
     flexDirection: 'row',
@@ -193,36 +199,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   langLabelActive: {
     color: '#5B21B6',
   },
+  // No padding on the screen itself: an absolutely positioned child is laid out
+  // inside the parent's padding box, so a paddingTop here would push the mark
+  // down by the status-bar inset — and the splash, which has no padding, hands
+  // it over at the unpadded coordinate. That mismatch was the jump.
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
-    paddingHorizontal: 24,
-  },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  logoText: {
-    fontSize: 64,
-    lineHeight: 64,
-    fontWeight: '800',
-    letterSpacing: -1.28,
-  },
-  logoInk: {
-    color: INK,
-  },
-  logoPurple: {
-    color: PURPLE,
   },
   markSlot: {
     position: 'absolute',
-    top: 201,
     left: 0,
     right: 0,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   actions: {
     marginTop: 'auto',
+    paddingHorizontal: 24,
   },
   // The design's tagline is a quiet footer, not a headline: small, tracked
   // out, and the last thing you read rather than the second.

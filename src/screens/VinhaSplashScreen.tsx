@@ -4,76 +4,141 @@ import {
   Animated,
   Easing,
   StyleSheet,
-  Text,
   View,
   useWindowDimensions,
 } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
 import { VinhaWordmark } from '../components/VinhaWordmark';
+import {
+  EASE_ARRIVE,
+  EASE_SETTLE,
+  EASE_STREAK,
+  EASE_SWEEP,
+  HANDOFF_NUDGE,
+  MARK_CENTER_SPLASH,
+  MARK_CENTER_WELCOME,
+  MARK_SIZE,
+  STREAKS,
+  T,
+  markSlotTop,
+  scaleY,
+} from '../components/vinhaMotion';
 import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 /**
- * The launch animation (design: Vinha Splash & Welcome).
+ * The launch sequence (spec: "Vinha — splash & welcome animation spec").
  *
  * Objects streak past at different speeds and the wordmark arrives last and
- * fastest, landing dead centre. That is the whole idea: *vinha* means fast, so
- * the name is demonstrated rather than explained.
+ * fastest: the name is *vinha*, so it is demonstrated rather than explained.
  *
- * This is not the native splash — that one is a static image Android shows
- * before any JavaScript runs. This plays after it, and hands over to whatever
- * comes next with the mark sitting at the same height, so the handoff has no
- * jump. The "app" tag carries the momentum out to the right and does not come
- * back; see VinhaWordmark for why the tag exists at all.
+ * Three details carry the whole thing:
+ *
+ *   The mark overshoots. It passes centre by 16 px and comes back, which is
+ *   what makes it read as having travelled rather than faded in.
+ *
+ *   The ghosts die 4 px short of centre, so only the real mark lands.
+ *
+ *   At the hand-off the mark decelerates while the "app" tag accelerates away.
+ *   Same 700 ms, opposite feel — one is arriving, the other is leaving.
+ *
+ * This runs after the native splash, not instead of it, and it never blocks:
+ * the screen only mounts once the app is already ready to draw.
  */
 interface VinhaSplashScreenProps {
   language?: AppLanguage;
-  /** Called once the animation has settled, or immediately on reduced motion. */
+  /** Called once the mark has settled where Welcome will draw it. */
   onDone: () => void;
 }
 
-/** Where the wordmark sits, measured from the top, on this screen and Welcome. */
-export const VINHA_MARK_TOP = 247;
-
-const STREAKS: Array<{ top: number; width: number; height: number; ms: number; delay: number; accent: boolean; opacity: number }> = [
-  { top: 214, width: 116, height: 6, ms: 700, delay: 60, accent: true, opacity: 0.2 },
-  { top: 266, width: 62, height: 4, ms: 1020, delay: 0, accent: false, opacity: 0.13 },
-  { top: 318, width: 178, height: 9, ms: 560, delay: 180, accent: true, opacity: 0.32 },
-  { top: 470, width: 90, height: 5, ms: 880, delay: 120, accent: false, opacity: 0.1 },
-  { top: 512, width: 148, height: 7, ms: 640, delay: 300, accent: true, opacity: 0.24 },
-  { top: 566, width: 46, height: 4, ms: 1180, delay: 220, accent: false, opacity: 0.12 },
-  { top: 612, width: 124, height: 5, ms: 760, delay: 420, accent: true, opacity: 0.16 },
-  { top: 668, width: 74, height: 3, ms: 980, delay: 500, accent: false, opacity: 0.09 },
-];
-
-/** The mark lands at 900ms; the tagline follows it; then we hand over. */
-const HOLD_MS = 2500;
-
 export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreenProps) {
   const styles = useThemedStyles(makeStyles);
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
-  // Held in a ref, not a dependency: the parent passes a fresh closure on every
-  // render, and depending on it restarted the hand-off timer each time — so the
-  // splash animated correctly and then never left.
+  // Held in a ref: the parent passes a fresh closure every render, and
+  // depending on it restarted the hand-off timer each time.
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
 
   const streaks = useRef(STREAKS.map(() => new Animated.Value(0))).current;
   const mark = useRef(new Animated.Value(0)).current;
-  const tagline = useRef(new Animated.Value(0)).current;
+  const ghosts = useRef([0, 1, 2].map(() => new Animated.Value(0))).current;
+  const sweep = useRef(new Animated.Value(0)).current;
+  const slogan = useRef(new Animated.Value(0)).current;
+  const handoff = useRef(new Animated.Value(0)).current;
+
+  // Travel is measured on the reference canvas and stretched to the device, so
+  // a wider screen does not leave the bars finishing early.
+  const travelIn = -220 - width * 0.1;
+  const travelOut = width + 40;
+
+  const geometry = useMemo(
+    () => ({
+      slotFrom: markSlotTop(height, MARK_CENTER_SPLASH),
+      slotTo: markSlotTop(height, MARK_CENTER_WELCOME),
+      sloganBottom: scaleY(height, 34),
+    }),
+    [height],
+  );
 
   const streakSweeps = useMemo(
     () =>
-      STREAKS.map((streak, index) =>
-        streaks[index].interpolate({ inputRange: [0, 1], outputRange: [-streak.width, width] }),
+      STREAKS.map((_, index) =>
+        streaks[index].interpolate({ inputRange: [0, 1], outputRange: [travelIn, travelOut] }),
       ),
-    [streaks, width],
+    [streaks, travelIn, travelOut],
   );
-  // The mark arrives from the left like everything else, only faster and last.
-  const markX = useRef(mark.interpolate({ inputRange: [0, 1], outputRange: [-90, 0] })).current;
-  const taglineY = useRef(tagline.interpolate({ inputRange: [0, 1], outputRange: [10, 0] })).current;
+  const streakFades = useMemo(
+    () =>
+      STREAKS.map((bar, index) =>
+        streaks[index].interpolate({
+          inputRange: [0, 0.12, 0.8, 1],
+          outputRange: [0, bar.opacity, bar.opacity, 0],
+        }),
+      ),
+    [streaks],
+  );
+
+  // Interpolated once — an inline .interpolate() rebuilds native animated nodes
+  // every frame, which is the crash this app already paid for.
+  const markX = useRef(mark.interpolate({ inputRange: [0, 0.72, 1], outputRange: [-340, 16, 0] })).current;
+  const markSkew = useRef(
+    mark.interpolate({ inputRange: [0, 0.72, 1], outputRange: ['-16deg', '-3deg', '0deg'] }),
+  ).current;
+  const markFade = useRef(mark.interpolate({ inputRange: [0, 0.4, 1], outputRange: [0, 1, 1] })).current;
+
+  const ghostX = useRef(
+    ghosts.map((value) => value.interpolate({ inputRange: [0, 1], outputRange: [-380, -4] })),
+  ).current;
+  const ghostSkew = useRef(
+    ghosts.map((value) =>
+      value.interpolate({ inputRange: [0, 0.8, 1], outputRange: ['-16deg', '-3deg', '0deg'] }),
+    ),
+  ).current;
+  const ghostFade = useRef(
+    ghosts.map((value) =>
+      value.interpolate({ inputRange: [0, 0.35, 0.8, 1], outputRange: [0, 0.9, 0.25, 0] }),
+    ),
+  ).current;
+
+  const sweepX = useRef(sweep.interpolate({ inputRange: [0, 1], outputRange: [-200, width + 110] })).current;
+  const sweepFade = useRef(sweep.interpolate({ inputRange: [0, 0.3, 1], outputRange: [0, 1, 0] })).current;
+  const sloganY = useRef(slogan.interpolate({ inputRange: [0, 1], outputRange: [10, 0] })).current;
+
+  // The hand-off. The mark lifts to Welcome's anchor and nudges right as the
+  // tag leaves, which re-centres the lockup optically once "app" is gone.
+  const slotTop = useRef(
+    handoff.interpolate({ inputRange: [0, 1], outputRange: [geometry.slotFrom, geometry.slotTo] }),
+  ).current;
+  const handoffX = useRef(
+    handoff.interpolate({ inputRange: [0, 1], outputRange: [0, HANDOFF_NUDGE] }),
+  ).current;
+  const tagX = useRef(handoff.interpolate({ inputRange: [0, 1], outputRange: [0, 150] })).current;
+  const tagFade = useRef(handoff.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })).current;
+  const sloganOut = useRef(handoff.interpolate({ inputRange: [0, 0.29, 1], outputRange: [1, 0, 0] })).current;
+  const sloganOpacity = useRef(Animated.multiply(slogan, sloganOut)).current;
 
   useEffect(() => {
     let cancelled = false;
@@ -92,72 +157,170 @@ export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreen
       return;
     }
 
+    // Reduced motion keeps only the slogan fade and the cross-fade to Welcome:
+    // the streaks, the overshoot, the ghosts and the sweep are skipped, and the
+    // mark simply sits where it belongs.
     if (reduceMotion) {
-      // Nothing to watch, so nothing to wait for. The settled frame is shown
-      // for a beat and then we move on.
-      streaks.forEach((value) => value.setValue(1));
       mark.setValue(1);
-      tagline.setValue(1);
-      const timer = setTimeout(() => onDoneRef.current(), 600);
+      Animated.timing(slogan, { toValue: 1, duration: 400, useNativeDriver: false }).start();
+      const timer = setTimeout(() => {
+        Animated.timing(handoff, {
+          toValue: 1,
+          duration: 260,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: false,
+        }).start(() => onDoneRef.current());
+      }, 900);
       return () => clearTimeout(timer);
     }
 
     Animated.parallel([
-      ...STREAKS.map((streak, index) =>
+      ...STREAKS.map((bar, index) =>
         Animated.timing(streaks[index], {
           toValue: 1,
-          duration: streak.ms,
-          delay: streak.delay,
-          easing: Easing.bezier(0.35, 0, 0.25, 1),
+          duration: bar.ms,
+          delay: bar.delay,
+          easing: EASE_STREAK,
           useNativeDriver: true,
+        }),
+      ),
+      // JS driver, deliberately: this group animates skewX and, at the
+      // hand-off, `top` — neither of which the native driver accepts — and
+      // every value here shares a transform array with the others. Mixing the
+      // two drivers in one array is a hard crash, not a degradation.
+      ...ghosts.map((value, index) =>
+        Animated.timing(value, {
+          toValue: 1,
+          duration: T.markDuration,
+          delay: T.markDelay + index * T.ghostStagger,
+          easing: EASE_ARRIVE,
+          useNativeDriver: false,
         }),
       ),
       Animated.timing(mark, {
         toValue: 1,
-        duration: 900,
-        delay: 900,
-        easing: Easing.bezier(0.12, 0.8, 0.2, 1),
+        duration: T.markDuration,
+        delay: T.markDelay,
+        easing: EASE_ARRIVE,
+        useNativeDriver: false,
+      }),
+      Animated.timing(sweep, {
+        toValue: 1,
+        duration: T.sweepDuration,
+        delay: T.sweepDelay,
+        easing: EASE_SWEEP,
         useNativeDriver: true,
       }),
-      Animated.timing(tagline, {
+      // Shares its opacity with the hand-off value, so it follows that driver.
+      Animated.timing(slogan, {
         toValue: 1,
-        duration: 700,
-        delay: 1700,
+        duration: T.sloganDuration,
+        delay: T.sloganDelay,
         easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
+        useNativeDriver: false,
       }),
     ]).start();
 
-    const timer = setTimeout(() => onDoneRef.current(), HOLD_MS);
+    const timer = setTimeout(() => {
+      // `top` is not a transform, so this one leaves the native driver. It is a
+      // single element for 700 ms, which is the price of the mark not jumping.
+      Animated.timing(handoff, {
+        toValue: 1,
+        duration: T.handoffDuration,
+        easing: EASE_SETTLE,
+        useNativeDriver: false,
+      }).start(() => onDoneRef.current());
+    }, T.handoffAt);
     return () => clearTimeout(timer);
-  }, [mark, reduceMotion, streaks, tagline]);
+  }, [ghosts, handoff, mark, reduceMotion, slogan, streaks, sweep]);
+
+  if (reduceMotion === null) {
+    return <View style={styles.screen} />;
+  }
 
   return (
     <View style={styles.screen}>
-      {STREAKS.map((streak, index) => (
+      {!reduceMotion
+        ? STREAKS.map((bar, index) => (
+            <Animated.View
+              key={bar.y}
+              style={[
+                styles.bar,
+                {
+                  top: scaleY(height, bar.y),
+                  width: bar.width,
+                  height: bar.height,
+                  opacity: streakFades[index],
+                  backgroundColor: bar.accent ? styles.accent.color : styles.ink.color,
+                  transform: [{ translateX: streakSweeps[index] }],
+                },
+              ]}
+            />
+          ))
+        : null}
+
+      <Animated.View style={[styles.markSlot, { top: slotTop, height: MARK_SIZE }]}>
+        {!reduceMotion
+          ? ghosts.map((_, index) => (
+              <Animated.View
+                key={index}
+                pointerEvents="none"
+                style={[
+                  styles.ghost,
+                  {
+                    opacity: ghostFade[index],
+                    transform: [{ translateX: ghostX[index] }, { skewX: ghostSkew[index] }],
+                  },
+                ]}
+              >
+                <VinhaWordmark
+                  size={MARK_SIZE}
+                  showAppTag
+                  color={styles.ghostInk.color}
+                  accentColor={styles.ghostAccent.color}
+                />
+              </Animated.View>
+            ))
+          : null}
+
         <Animated.View
-          key={streak.top}
-          style={[
-            styles.streak,
-            {
-              top: streak.top,
-              width: streak.width,
-              height: streak.height,
-              opacity: streak.opacity,
-              backgroundColor: streak.accent ? styles.accent.backgroundColor : styles.ink.backgroundColor,
-              transform: [{ translateX: streakSweeps[index] }],
-            },
-          ]}
-        />
-      ))}
-
-      <View style={styles.markSlot}>
-        <Animated.View style={{ opacity: mark, transform: [{ translateX: markX }] }}>
-          <VinhaWordmark size={64} showAppTag />
+          style={{
+            opacity: markFade,
+            transform: [{ translateX: markX }, { translateX: handoffX }, { skewX: markSkew }],
+          }}
+        >
+          <VinhaWordmark
+            size={MARK_SIZE}
+            showAppTag
+            appTagStyle={{ opacity: tagFade, transform: [{ translateX: tagX }] }}
+          />
         </Animated.View>
-      </View>
+      </Animated.View>
 
-      <Animated.Text style={[styles.tagline, { opacity: tagline, transform: [{ translateY: taglineY }] }]}>
+      {!reduceMotion ? (
+        <Animated.View
+          pointerEvents="none"
+          style={[styles.sweep, { opacity: sweepFade, transform: [{ translateX: sweepX }] }]}
+        >
+          <Svg width={180} height={height}>
+            <Defs>
+              <LinearGradient id="vinhaSweep" x1="0" y1="0" x2="1" y2="0">
+                <Stop offset="0" stopColor={styles.accent.color} stopOpacity={0} />
+                <Stop offset="0.6" stopColor={styles.accent.color} stopOpacity={0.1} />
+                <Stop offset="1" stopColor="#FFFFFF" stopOpacity={0.9} />
+              </LinearGradient>
+            </Defs>
+            <Rect width={180} height={height} fill="url(#vinhaSweep)" />
+          </Svg>
+        </Animated.View>
+      ) : null}
+
+      <Animated.Text
+        style={[
+          styles.slogan,
+          { bottom: geometry.sloganBottom, opacity: sloganOpacity, transform: [{ translateY: sloganY }] },
+        ]}
+      >
         {t(language, 'brand.tagline')}
       </Animated.Text>
     </View>
@@ -171,32 +334,47 @@ const makeStyles = (theme: Theme) =>
       backgroundColor: theme.bg,
       overflow: 'hidden',
     },
-    streak: {
+    bar: {
       position: 'absolute',
       left: 0,
       borderRadius: 999,
     },
+    // `color` rather than backgroundColor: these are read as values, not applied.
     accent: {
-      backgroundColor: theme.purple,
+      color: theme.purple,
     },
     ink: {
-      backgroundColor: theme.ink,
+      color: theme.ink,
     },
-    // Fixed top so the mark does not move when Welcome takes over.
+    ghostInk: {
+      color: theme.faint,
+    },
+    ghostAccent: {
+      color: theme.purpleLight,
+    },
     markSlot: {
       position: 'absolute',
-      top: VINHA_MARK_TOP,
       left: 0,
       right: 0,
-      height: 64,
       alignItems: 'center',
       justifyContent: 'center',
     },
-    tagline: {
+    ghost: {
+      ...StyleSheet.absoluteFillObject,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    sweep: {
+      position: 'absolute',
+      top: 0,
+      bottom: 0,
+      left: 0,
+      width: 180,
+    },
+    slogan: {
       position: 'absolute',
       left: 0,
       right: 0,
-      bottom: 34,
       textAlign: 'center',
       fontSize: 12.5,
       fontWeight: '700',

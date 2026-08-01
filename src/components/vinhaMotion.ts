@@ -1,0 +1,117 @@
+import { Easing } from 'react-native';
+
+/**
+ * Shared geometry and timing for the Vinha launch sequence.
+ *
+ * The spec is written against a 392 × 812 reference canvas, so every position
+ * here is scaled to the real screen rather than used raw — otherwise the
+ * composition drifts up the taller the device is.
+ *
+ * The one that matters most: MARK_CENTER_SPLASH and MARK_CENTER_WELCOME are
+ * both *centres*. Measuring one from the top and the other from the centre is
+ * exactly what made the wordmark jump between the two screens.
+ */
+export const CANVAS_WIDTH = 392;
+export const CANVAS_HEIGHT = 812;
+
+/** Vertical centre of the lockup, on the reference canvas. */
+export const MARK_CENTER_SPLASH = 247;
+export const MARK_CENTER_WELCOME = 201;
+
+/**
+ * Wordmark base size. The spec says 64; the user asked for ~15% more, and the
+ * lockup derives the "app" tag and the gap from this number, so scaling the
+ * base keeps every proportion the spec set.
+ */
+export const MARK_SIZE = 74;
+
+/**
+ * How far the mark slides right as the "app" tag leaves.
+ *
+ * The tag still occupies its slot while it flies off — only its transform and
+ * opacity animate — so without this the lockup stays centred around a token
+ * that is no longer visible, and the mark lands a few points left of where
+ * Welcome draws it. The spec's 18 is measured at a 64 mark, so it scales with
+ * the size like every other number here.
+ */
+export const HANDOFF_NUDGE = (18 * MARK_SIZE) / 64;
+
+export function scaleY(height: number, value: number) {
+  return (value / CANVAS_HEIGHT) * height;
+}
+
+/** Top edge for a centre-anchored slot of `size` height. */
+export function markSlotTop(height: number, center: number, size = MARK_SIZE) {
+  return scaleY(height, center) - size / 2;
+}
+
+/** cubic-bezier(0.12, 0.8, 0.2, 1) — arriving and settling. */
+export const EASE_ARRIVE = Easing.bezier(0.12, 0.8, 0.2, 1);
+/** cubic-bezier(0.35, 0, 0.25, 1) — the streaks. */
+export const EASE_STREAK = Easing.bezier(0.35, 0, 0.25, 1);
+/** cubic-bezier(0.35, 0, 0.2, 1) — the light sweep. */
+export const EASE_SWEEP = Easing.bezier(0.35, 0, 0.2, 1);
+/** cubic-bezier(0.16, 0.9, 0.2, 1) — the hand-off settle. */
+export const EASE_SETTLE = Easing.bezier(0.16, 0.9, 0.2, 1);
+/**
+ * cubic-bezier(0.5, 0, 0.75, 0) — accelerating, never decelerating.
+ *
+ * This is the whole trick of the hand-off: the same 700 ms reads as *leaving
+ * at speed* for the "app" tag and as *arriving* for the mark, purely because
+ * one curve accelerates out and the other decelerates in.
+ */
+export const EASE_LEAVE = Easing.bezier(0.5, 0, 0.75, 1);
+
+export interface MotionBar {
+  y: number;
+  width: number;
+  height: number;
+  ms: number;
+  delay: number;
+  accent: boolean;
+  opacity: number;
+}
+
+/** Splash streaks — 560 ms fastest to 1180 ms slowest over the same distance. */
+export const STREAKS: MotionBar[] = [
+  { y: 214, width: 116, height: 6, ms: 700, delay: 60, accent: true, opacity: 0.2 },
+  { y: 266, width: 62, height: 4, ms: 1020, delay: 0, accent: false, opacity: 0.13 },
+  { y: 318, width: 178, height: 9, ms: 560, delay: 180, accent: true, opacity: 0.32 },
+  { y: 470, width: 90, height: 5, ms: 880, delay: 120, accent: false, opacity: 0.1 },
+  { y: 512, width: 148, height: 7, ms: 640, delay: 300, accent: true, opacity: 0.24 },
+  { y: 566, width: 46, height: 4, ms: 1180, delay: 220, accent: false, opacity: 0.12 },
+  { y: 612, width: 124, height: 5, ms: 760, delay: 420, accent: true, opacity: 0.16 },
+  { y: 668, width: 74, height: 3, ms: 980, delay: 500, accent: false, opacity: 0.09 },
+];
+
+/**
+ * Welcome's ambient field. Durations are mutually non-harmonic
+ * (3.4 / 3.9 / 4.2 / 4.4 / 4.8 / 5.6 / 6.0 / 6.4 / 7.2) so the layer takes
+ * minutes to repeat a pattern, and the delays are negative so it is already
+ * mid-flight on the first paint — no empty first cycle, no visible seam.
+ */
+export const DRIFT: MotionBar[] = [
+  { y: 78, width: 96, height: 5, ms: 4200, delay: -400, accent: true, opacity: 0.16 },
+  { y: 132, width: 54, height: 4, ms: 6400, delay: -2100, accent: false, opacity: 0.08 },
+  { y: 196, width: 140, height: 7, ms: 3400, delay: -1200, accent: true, opacity: 0.13 },
+  { y: 268, width: 72, height: 4, ms: 5600, delay: -3400, accent: false, opacity: 0.07 },
+  { y: 330, width: 112, height: 6, ms: 3900, delay: -900, accent: true, opacity: 0.1 },
+  { y: 402, width: 44, height: 3, ms: 7200, delay: -4600, accent: false, opacity: 0.07 },
+  { y: 486, width: 126, height: 5, ms: 4800, delay: -2700, accent: true, opacity: 0.12 },
+  { y: 604, width: 88, height: 4, ms: 6000, delay: -1700, accent: true, opacity: 0.09 },
+  { y: 722, width: 108, height: 5, ms: 4400, delay: -3900, accent: true, opacity: 0.11 },
+];
+
+/** Splash timings, in ms from mount. */
+export const T = {
+  markDelay: 900,
+  markDuration: 900,
+  ghostStagger: 55,
+  sweepDelay: 940,
+  sweepDuration: 640,
+  sloganDelay: 1700,
+  sloganDuration: 700,
+  handoffAt: 2500,
+  handoffDuration: 700,
+  sloganFadeOut: 200,
+} as const;

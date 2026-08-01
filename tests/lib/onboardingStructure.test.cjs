@@ -445,9 +445,28 @@ module.exports = [
       // theme, so the background is read inside the style factory.
       assert.doesNotMatch(welcomeSource, /const BG = /);
       assert.match(welcomeSource, /backgroundColor: theme\.bg/);
-      assert.match(welcomeSource, /const PURPLE = '#7C3AED'/);
-      assert.match(welcomeSource, /logoInk/);
-      assert.match(welcomeSource, /logoPurple/);
+      // The hand-drawn logoRow/logoInk/logoPurple lockup is gone: VinhaWordmark
+      // owns the mark and its accent, so a local purple hex here could only
+      // disagree with it.
+      assert.doesNotMatch(welcomeSource, /const PURPLE = /);
+      assert.doesNotMatch(welcomeSource, /logoInk|logoPurple|logoText/);
+
+      // Splash and Welcome must place the mark at the same coordinate, or it
+      // jumps at the hand-off. Two things make that true and both are easy to
+      // undo by accident:
+      //
+      //   Both anchors are CENTRES, resolved through the shared helper.
+      assert.match(welcomeSource, /markSlotTop\(windowHeight, MARK_CENTER_WELCOME\)/);
+      assert.match(welcomeSource, /MARK_SIZE/);
+      //   And the screen carries no padding — an absolutely positioned child is
+      //   laid out inside the parent's padding box, so a paddingTop here would
+      //   push the mark down by the status-bar inset while the splash, which
+      //   has none, hands it over at the unpadded coordinate.
+      const welcomeScreenStyle = welcomeSource.slice(
+        welcomeSource.indexOf('  screen: {'),
+        welcomeSource.indexOf('  markSlot: {'),
+      );
+      assert.doesNotMatch(welcomeScreenStyle, /padding/);
       assert.match(i18nSource, /AI-built plans/);
       assert.match(i18nSource, /Recovery aware/);
       assert.doesNotMatch(welcomeSource, /Sinä menet salille/);
