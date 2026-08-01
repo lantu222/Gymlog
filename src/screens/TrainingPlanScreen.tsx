@@ -3,10 +3,10 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { NewProgramSheet } from '../components/NewProgramSheet';
-import { ChevronIcon, SectionLabel, settingsStyles } from '../components/SettingsUi';
+import { ChevronIcon, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import type { AppLanguage, SetupWeekday, WorkoutTemplateDraft } from '../types/models';
 
@@ -54,6 +54,8 @@ interface TrainingPlanScreenProps {
 }
 
 function SessionTile({ title }: { title: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   const letter = title.trim().charAt(0).toUpperCase() || 'S';
   return (
     <View style={styles.sessionTile}>
@@ -86,6 +88,9 @@ export function TrainingPlanScreen({
   onBuildYourself,
   onImportProgram,
 }: TrainingPlanScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const settingsStyles = useThemedStyles(makeSettingsStyles);
   const [editingSchedule, setEditingSchedule] = useState(false);
   const [draftDays, setDraftDays] = useState<SetupWeekday[]>(trainingDays);
   const [createOpen, setCreateOpen] = useState(false);
@@ -136,7 +141,7 @@ export function TrainingPlanScreen({
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.7 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <Text style={styles.headerTitle}>{t(language, 'plan.title')}</Text>
@@ -336,10 +341,10 @@ export function TrainingPlanScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -351,16 +356,16 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
@@ -372,13 +377,13 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   activeCard: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 2,
-    borderColor: HG.purple,
+    borderColor: theme.purple,
     borderRadius: 18,
     padding: 16,
     marginTop: 8,
-    shadowColor: HG.purple,
+    shadowColor: theme.purple,
     shadowOpacity: 0.18,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 4 },
@@ -411,18 +416,18 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
   activeMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '700',
   },
   activeName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 21,
     fontWeight: '800',
     marginTop: 10,
   },
   activeCaption: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
@@ -437,12 +442,12 @@ const styles = StyleSheet.create({
     height: 28,
     paddingHorizontal: 10,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   badgeText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -464,22 +469,22 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weekdayChipActive: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   weekdayChipEditing: {
     borderWidth: 1.5,
-    borderColor: HG.border,
+    borderColor: theme.border,
   },
   weekdayChipText: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12.5,
     fontWeight: '800',
   },
   weekdayChipTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   scheduleCaption: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 12,
@@ -490,7 +495,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   sessionRowLast: {
     borderBottomWidth: 0,
@@ -499,12 +504,12 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 13,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
   sessionTileText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 16,
     fontWeight: '800',
   },
@@ -519,7 +524,7 @@ const styles = StyleSheet.create({
   },
   sessionTitle: {
     flexShrink: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
@@ -527,22 +532,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 999,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   nextBadgeText: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
     fontSize: 9.5,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
   sessionMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
   },
   readOnlyNote: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 8,
@@ -553,12 +558,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '800',
   },
   emptyText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
@@ -576,12 +581,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   planSettingsTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   planSettingsSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
@@ -589,7 +594,7 @@ const styles = StyleSheet.create({
   createButton: {
     height: 50,
     borderRadius: 15,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 24,
@@ -600,7 +605,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   footNote: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     textAlign: 'center',

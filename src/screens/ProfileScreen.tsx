@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-nati
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
-import { CARD_SHADOW, SectionLabel, settingsStyles } from '../components/SettingsUi';
+import { CARD_SHADOW, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { formatCompactVolume, formatWeight } from '../lib/format';
@@ -15,7 +15,7 @@ import {
   formatRecordWhenLabel,
 } from '../lib/profileOverview';
 import { ExerciseProgressSummary } from '../lib/progression';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppPreferences, ExerciseLibraryItem, SetupWeekday, UnitPreference } from '../types/models';
 
@@ -58,13 +58,15 @@ function getInitials(name: string | null | undefined) {
 }
 
 function GearIcon() {
+  const theme = useTheme();
+
   // The prototype's ray-style cog (psuite-screens1.jsx top bar).
   return (
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={3} stroke={HG.ink} strokeWidth={2} />
+      <Circle cx={12} cy={12} r={3} stroke={theme.ink} strokeWidth={2} />
       <Path
         d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"
-        stroke={HG.ink}
+        stroke={theme.ink}
         strokeWidth={2}
         strokeLinecap="round"
       />
@@ -73,11 +75,13 @@ function GearIcon() {
 }
 
 function GiftIcon() {
+  const theme = useTheme();
+
   return (
     <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 12v8h16v-8M2 7h20v5H2V7zM12 7v13M12 7c-1.5 0-4.5-.6-4.5-2.7C7.5 2.6 9 2 10 2c1.8 0 2 2.6 2 5zM12 7c1.5 0 4.5-.6 4.5-2.7C16.5 2.6 15 2 14 2c-1.8 0-2 2.6-2 5z"
-        stroke={HG.ink}
+        stroke={theme.ink}
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -87,19 +91,23 @@ function GiftIcon() {
 }
 
 function ChevronIcon() {
+  const theme = useTheme();
+
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 6l6 6-6 6" stroke={HG.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 6l6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
 
 function TrophyIcon() {
+  const theme = useTheme();
+
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
       <Path
         d="M7 4h10v4a5 5 0 0 1-10 0zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M9 15h6M8 20h8M12 15v5"
-        stroke={HG.purpleDark}
+        stroke={theme.purpleDark}
         strokeWidth={1.9}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -109,20 +117,24 @@ function TrophyIcon() {
 }
 
 function SparkIcon() {
+  const theme = useTheme();
+
   // Filled spark, prototype's AI badge glyph.
   return (
     <Svg width={13} height={13} viewBox="0 0 24 24">
-      <Path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" fill={HG.purpleDark} />
+      <Path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z" fill={theme.purpleDark} />
     </Svg>
   );
 }
 
 function CalendarIcon() {
+  const theme = useTheme();
+
   return (
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 6h16v15H4zM4 10h16M8 3v4M16 3v4"
-        stroke={HG.muted}
+        stroke={theme.muted}
         strokeWidth={2}
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -132,11 +144,13 @@ function CalendarIcon() {
 }
 
 function DumbbellIcon() {
+  const theme = useTheme();
+
   return (
     <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
       <Path
         d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10"
-        stroke={HG.muted}
+        stroke={theme.muted}
         strokeWidth={2}
         strokeLinecap="round"
       />
@@ -145,6 +159,8 @@ function DumbbellIcon() {
 }
 
 function Avatar({ initials }: { initials: string }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={styles.avatarWrap}>
       <Svg width={82} height={82} viewBox="0 0 82 82">
@@ -169,6 +185,8 @@ function Avatar({ initials }: { initials: string }) {
 }
 
 function Badge({ icon, label, accent = false }: { icon: React.ReactNode; label: string; accent?: boolean }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <View style={[styles.badge, accent && styles.badgeAccent]}>
       {icon}
@@ -191,6 +209,9 @@ export function ProfileScreen({
   onOpenSettings,
   onManagePlan,
 }: ProfileScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const settingsStyles = useThemedStyles(makeSettingsStyles);
   const identityName = preferences.profileName?.trim() ? preferences.profileName.trim() : null;
   const language = preferences.appLanguage;
 
@@ -287,7 +308,7 @@ export function ProfileScreen({
         <AnimatedGreeting
           text={identityName ?? t(language, 'profile.guestName')}
           style={styles.identityName}
-          accentColor={HG.purple}
+          accentColor={theme.purple}
         />
 
         {/* INVITE */}
@@ -412,10 +433,10 @@ export function ProfileScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   topBar: {
     flexDirection: 'row',
@@ -426,7 +447,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   topTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.4,
@@ -435,9 +456,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 13,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -477,13 +498,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   identityStatValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 21,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   identityStatLabel: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 1,
@@ -492,7 +513,7 @@ const styles = StyleSheet.create({
   // 38 pt session hero, Progress's 46 pt month figure); this is Profile's —
   // same scale as Home's hero so the tabs read as one family.
   identityName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 38,
     lineHeight: 43,
     fontWeight: '800',
@@ -502,9 +523,9 @@ const styles = StyleSheet.create({
   inviteButton: {
     height: 48,
     borderRadius: 14,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -513,7 +534,7 @@ const styles = StyleSheet.create({
     ...CARD_SHADOW,
   },
   inviteButtonText: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
@@ -533,16 +554,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   weekdayChipActive: {
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.border,
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.border,
   },
   weekdayChipText: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '800',
   },
   weekdayChipTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   planCard: {
     paddingVertical: 15,
@@ -554,7 +575,7 @@ const styles = StyleSheet.create({
   },
   planName: {
     flex: 1,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
@@ -574,18 +595,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F1EDFA',
   },
   badgeAccent: {
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
   },
   badgeText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11.5,
     fontWeight: '800',
   },
   badgeTextAccent: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   planCaption: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '700',
     marginTop: 12,
@@ -596,7 +617,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   recordRowLast: {
     borderBottomWidth: 0,
@@ -605,7 +626,7 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: HG.purpleLight,
+    backgroundColor: theme.purpleLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -614,12 +635,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   recordName: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   recordBodyPart: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 1,
@@ -628,12 +649,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   recordValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 15.5,
     fontWeight: '800',
   },
   recordMetaText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11.5,
     fontWeight: '700',
     marginTop: 1,
@@ -642,12 +663,12 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   emptyTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
   emptyText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12.5,
     fontWeight: '600',
     marginTop: 4,
@@ -660,28 +681,28 @@ const styles = StyleSheet.create({
   statCard: {
     flexGrow: 1,
     flexBasis: '47%',
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     padding: 14,
     ...CARD_SHADOW,
   },
   statLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.44,
   },
   statValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 24,
     fontWeight: '800',
     letterSpacing: -0.5,
     marginTop: 5,
   },
   statMeta: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 11.5,
     fontWeight: '600',
     marginTop: 2,

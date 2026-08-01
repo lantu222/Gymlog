@@ -3,10 +3,10 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import Svg, { Path } from 'react-native-svg';
 
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
-import { CARD_SHADOW, ChevronIcon, SectionLabel, settingsStyles } from '../components/SettingsUi';
+import { CARD_SHADOW, ChevronIcon, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
 import { getSetupEquipmentTitle, getSetupGoalTitle } from '../lib/firstRunSetup';
 import { I18nKey, t } from '../lib/i18n';
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import {
   AppLanguage,
@@ -127,6 +127,8 @@ function DataRow({
   isLast?: boolean;
   onPress?: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   const inner = (
     <View style={[styles.dataRow, !isLast && styles.dataRowDivider]}>
       <View style={styles.dataCopy}>
@@ -165,6 +167,9 @@ export function MyDataScreen({
   onEditLimitations,
   onCreateNewPlan,
 }: MyDataScreenProps) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+  const settingsStyles = useThemedStyles(makeSettingsStyles);
   const [editing, setEditing] = useState<BasicField | null>(null);
   const [draftValue, setDraftValue] = useState('');
   const [draftGender, setDraftGender] = useState<SetupGender>('unspecified');
@@ -263,7 +268,7 @@ export function MyDataScreen({
           style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
           <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={HG.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'myData.title')} />
@@ -398,7 +403,7 @@ export function MyDataScreen({
                   keyboardType="numeric"
                   autoFocus
                   placeholder="0"
-                  placeholderTextColor={HG.faint}
+                  placeholderTextColor={theme.faint}
                   style={styles.numericInput}
                 />
                 <Text style={styles.numericUnit}>{t(language, BASIC_FIELD_META[editing].unitKey)}</Text>
@@ -436,10 +441,10 @@ export function MyDataScreen({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: HG.bg,
+    backgroundColor: theme.bg,
   },
   header: {
     height: 56,
@@ -451,9 +456,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -463,9 +468,9 @@ const styles = StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
   },
@@ -478,20 +483,20 @@ const styles = StyleSheet.create({
   },
   dataRowDivider: {
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   dataCopy: {
     flex: 1,
     minWidth: 0,
   },
   dataLabel: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.4,
   },
   dataValue: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 16,
     fontWeight: '800',
     marginTop: 3,
@@ -499,7 +504,7 @@ const styles = StyleSheet.create({
   newPlanButton: {
     height: 48,
     borderRadius: 14,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 12,
@@ -510,7 +515,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   newPlanCaption: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12,
     fontWeight: '600',
     lineHeight: 17,
@@ -547,7 +552,7 @@ const styles = StyleSheet.create({
     color: '#C0392B',
   },
   footerText: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 12.5,
     fontWeight: '600',
     lineHeight: 18,
@@ -562,12 +567,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   sheet: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderRadius: 20,
     padding: 20,
   },
   sheetTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
@@ -579,21 +584,21 @@ const styles = StyleSheet.create({
     height: 46,
     borderRadius: 13,
     borderWidth: 1.5,
-    borderColor: HG.border,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   genderChipActive: {
-    backgroundColor: HG.purpleLight,
-    borderColor: HG.purple,
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
   },
   genderChipText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     fontWeight: '800',
   },
   genderChipTextActive: {
-    color: HG.purpleDark,
+    color: theme.purpleDark,
   },
   numericRow: {
     flexDirection: 'row',
@@ -606,15 +611,15 @@ const styles = StyleSheet.create({
     height: 50,
     borderRadius: 13,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     backgroundColor: '#F4F0FC',
     paddingHorizontal: 15,
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '800',
   },
   numericUnit: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -635,7 +640,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   sheetCancelText: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 14.5,
     fontWeight: '800',
   },
@@ -643,7 +648,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: 22,
     borderRadius: 12,
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   sheetSaveDisabled: {
     backgroundColor: '#D8D2E6',

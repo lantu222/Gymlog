@@ -2,7 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { HG } from '../lightTheme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 
 /**
  * Shared list primitives for the Profile / Settings suite. Extracted from
@@ -19,6 +19,8 @@ export function SectionLabel({
   actionLabel?: string;
   onAction?: () => void;
 }) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
   return (
     <View style={styles.sectionHead}>
       <Text style={styles.sectionLabel}>{label}</Text>
@@ -40,6 +42,8 @@ export function ToggleSwitch({
   onChange: (next: boolean) => void;
   label: string;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   return (
     <Pressable
       accessibilityRole="switch"
@@ -54,10 +58,14 @@ export function ToggleSwitch({
   );
 }
 
-export function ChevronIcon({ color = HG.faint }: { color?: string }) {
+export function ChevronIcon({ color }: { color?: string }) {
+  // A parameter default is not a place a hook can reach, so the fallback is
+  // resolved in the body instead.
+  const theme = useTheme();
+
   return (
     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-      <Path d="M9 6l6 6-6 6" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Path d="M9 6l6 6-6 6" stroke={color ?? theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }
@@ -77,6 +85,8 @@ export function SettingsRow({
   isLast?: boolean;
   onPress?: () => void;
 }) {
+  const styles = useThemedStyles(makeStyles);
+
   const inner = (
     <View style={[styles.setRow, isLast && styles.setRowLast]}>
       <View style={styles.setCopy}>
@@ -101,14 +111,14 @@ export const CARD_SHADOW = {
   boxShadow: '0 6px 18px rgba(120, 80, 200, 0.06)',
 } as const;
 
-export const settingsStyles = StyleSheet.create({
+export const makeSettingsStyles = (theme: Theme) => StyleSheet.create({
   section: {
     marginTop: 22,
   },
   card: {
-    backgroundColor: HG.surface,
+    backgroundColor: theme.surface,
     borderWidth: 1,
-    borderColor: HG.border,
+    borderColor: theme.border,
     borderRadius: 18,
     paddingHorizontal: 16,
     paddingVertical: 4,
@@ -116,7 +126,7 @@ export const settingsStyles = StyleSheet.create({
   },
 });
 
-const styles = StyleSheet.create({
+const makeStyles = (theme: Theme) => StyleSheet.create({
   sectionHead: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -125,13 +135,13 @@ const styles = StyleSheet.create({
     paddingBottom: 11,
   },
   sectionLabel: {
-    color: HG.faint,
+    color: theme.faint,
     fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 1.15,
   },
   sectionAction: {
-    color: HG.purple,
+    color: theme.purple,
     fontSize: 12.5,
     fontWeight: '800',
   },
@@ -141,7 +151,7 @@ const styles = StyleSheet.create({
     gap: 12,
     paddingVertical: 13,
     borderBottomWidth: 1,
-    borderBottomColor: HG.border,
+    borderBottomColor: theme.border,
   },
   setRowLast: {
     borderBottomWidth: 0,
@@ -154,7 +164,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   setTitle: {
-    color: HG.ink,
+    color: theme.ink,
     fontSize: 14.5,
     fontWeight: '800',
   },
@@ -162,7 +172,7 @@ const styles = StyleSheet.create({
     color: '#C0392B',
   },
   setSub: {
-    color: HG.muted,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,
@@ -176,7 +186,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   toggleTrackOn: {
-    backgroundColor: HG.purple,
+    backgroundColor: theme.purple,
   },
   toggleKnob: {
     width: 22,
