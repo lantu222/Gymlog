@@ -79,31 +79,37 @@ export function MembershipEndScreen({
             : t(language, 'membership.end.lead')}
         </Text>
 
+        {/* One card, one line each. The descriptions moved out on purpose: nine
+            of them turned the list into a page you had to scroll, and a loss
+            you have to scroll to see is not a loss you feel. Every title
+            stands on its own — Smart rest timing, Dark theme — so the body
+            copy was explaining what the label already said. */}
         <View style={styles.list}>
-          {PRO_LIVE_BENEFITS.map((benefit) => (
-            <View key={benefit.titleKey} style={styles.row}>
+          {PRO_LIVE_BENEFITS.map((benefit, index) => (
+            <View
+              key={benefit.titleKey}
+              style={[styles.row, index < PRO_LIVE_BENEFITS.length - 1 && styles.rowDivider]}
+            >
               <View style={styles.crossTile}>
-                <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-                  <Path d="M6 6l12 12M18 6L6 18" stroke={RED} strokeWidth={2.6} strokeLinecap="round" />
+                <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+                  <Path d="M6 6l12 12M18 6L6 18" stroke={RED} strokeWidth={3} strokeLinecap="round" />
                 </Svg>
               </View>
-              <View style={styles.rowCopy}>
-                <Text style={styles.rowTitle}>{t(language, benefit.titleKey)}</Text>
-                <Text style={styles.rowBody}>{t(language, benefit.bodyKey)}</Text>
-              </View>
+              <Text style={styles.rowTitle} numberOfLines={1}>
+                {t(language, benefit.titleKey)}
+              </Text>
             </View>
           ))}
         </View>
 
-        {/* The one thing that does NOT stop. Worth saying out loud here of all
-            places: history is free forever, so ending Pro is not a threat to
-            anything the user has already logged. */}
-        <View style={styles.keepsCard}>
-          <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+        {/* The one thing that does NOT stop. It carries the reassurance now
+            that the lead is a single sentence. */}
+        <View style={styles.keepsRow}>
+          <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
             <Path
               d="M5 12l5 5L19 7"
               stroke={theme.greenInk}
-              strokeWidth={2.6}
+              strokeWidth={3}
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -167,81 +173,77 @@ const makeStyles = (theme: Theme) =>
       alignItems: 'center',
       justifyContent: 'center',
     },
+    // Sized to land the whole list above the footer on a normal phone. The
+    // ScrollView stays as a safety net for a large accessibility font, but on
+    // the default one nothing here should need scrolling.
     body: {
       paddingHorizontal: 18,
-      paddingTop: 8,
-      paddingBottom: 20,
+      paddingTop: 4,
+      paddingBottom: 14,
     },
     title: {
       color: theme.ink,
-      fontSize: 27,
+      fontSize: 24,
       fontWeight: '800',
-      letterSpacing: -0.6,
+      letterSpacing: -0.5,
     },
     lead: {
       color: theme.muted,
-      fontSize: 14,
+      fontSize: 12.5,
       fontWeight: '600',
-      lineHeight: 20,
-      marginTop: 8,
-      marginBottom: 18,
+      lineHeight: 17,
+      marginTop: 5,
+      marginBottom: 13,
     },
+    // One container with hairlines rather than nine floating cards: the gaps
+    // between cards were costing more height than the rows themselves, and a
+    // single block reads as one list instead of nine separate warnings.
     list: {
-      gap: 8,
+      backgroundColor: theme.surfaceSoft,
+      borderRadius: 15,
+      overflow: 'hidden',
     },
     row: {
       flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 12,
-      backgroundColor: theme.surfaceSoft,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 13,
+      height: 43,
+    },
+    rowDivider: {
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.border,
     },
     crossTile: {
-      width: 26,
-      height: 26,
-      borderRadius: 13,
+      width: 21,
+      height: 21,
+      borderRadius: 11,
       backgroundColor: RED_SOFT,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 1,
-    },
-    rowCopy: {
-      flex: 1,
     },
     // The strike-through is the whole point: it reads as taken away rather
     // than as a list of features.
     rowTitle: {
+      flex: 1,
       color: theme.muted,
-      fontSize: 14.5,
-      fontWeight: '800',
+      fontSize: 13,
+      fontWeight: '700',
       textDecorationLine: 'line-through',
     },
-    rowBody: {
-      color: theme.faint,
-      fontSize: 12.5,
-      fontWeight: '600',
-      lineHeight: 17,
-      marginTop: 3,
-      textDecorationLine: 'line-through',
-    },
-    keepsCard: {
+    keepsRow: {
       flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      marginTop: 16,
-      backgroundColor: theme.greenSoft,
-      borderRadius: 14,
-      paddingHorizontal: 14,
-      paddingVertical: 13,
+      alignItems: 'flex-start',
+      gap: 8,
+      marginTop: 12,
+      paddingHorizontal: 2,
     },
     keepsText: {
       flex: 1,
-      color: theme.ink,
-      fontSize: 13,
-      fontWeight: '700',
-      lineHeight: 18,
+      color: theme.faint,
+      fontSize: 11.5,
+      fontWeight: '600',
+      lineHeight: 16,
     },
     footer: {
       paddingHorizontal: 18,
@@ -252,7 +254,7 @@ const makeStyles = (theme: Theme) =>
       ...CARD_SHADOW,
     },
     keepButton: {
-      height: 52,
+      height: 50,
       borderRadius: 15,
       backgroundColor: theme.purple,
       alignItems: 'center',
@@ -264,12 +266,12 @@ const makeStyles = (theme: Theme) =>
       fontWeight: '800',
     },
     endButton: {
-      height: 50,
+      height: 46,
       borderRadius: 15,
       backgroundColor: RED_SOFT,
       alignItems: 'center',
       justifyContent: 'center',
-      marginTop: 9,
+      marginTop: 8,
     },
     endButtonText: {
       color: RED,
