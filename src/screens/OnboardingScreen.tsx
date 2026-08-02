@@ -3784,7 +3784,7 @@ export function OnboardingScreen({
                   onCompleteToCustom(
                     selection,
                     activeRecommendedProgramId,
-                    buildFirstRunCustomProgramName(selection),
+                    buildFirstRunCustomProgramName(selection, language),
                   ),
                 )
               }

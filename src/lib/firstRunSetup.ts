@@ -717,7 +717,83 @@ const PROGRAM_NAME_TIERS: Record<SetupLevel, string> = {
   pro: 'Pro',
 };
 
-export function buildFirstRunCustomProgramName(selection: FirstRunSetupSelection) {
+const PROGRAM_NAME_TIERS_FI: Record<SetupLevel, string> = {
+  beginner: 'Aloittelija',
+  advanced: 'Konkari',
+  pro: 'Pro',
+};
+
+/**
+ * Finnish compounds instead of adjective + noun.
+ *
+ * "Strong Chest Amateur" translated word for word is "Vahva rinta", which
+ * works — until the focus is plural (olkapäät, kädet, pakarat) and the
+ * adjective has to agree: "Vahvat olkapäät". Finnish sidesteps the agreement
+ * entirely by compounding the body part onto the goal noun, which is also how
+ * a Finn would actually name the thing: rinta + voima → "Rintavoima".
+ */
+const PROGRAM_FOCUS_STEM_FI: Partial<Record<SetupFocusArea, string>> = {
+  chest: 'Rinta',
+  back: 'Selkä',
+  shoulders: 'Olkapää',
+  arms: 'Käsi',
+  core: 'Keskivartalo',
+  quads: 'Etureisi',
+  glutes: 'Pakara',
+  hamstrings: 'Takareisi',
+  calves: 'Pohje',
+  legs: 'Jalka',
+  mobility: 'Liikkuvuus',
+  conditioning: 'Kunto',
+  bodyweight: 'Kehonpaino',
+};
+
+/** The goal as a Finnish noun, lower-case because it is the compound's tail. */
+const PROGRAM_GOAL_NOUN_FI: Record<string, string> = {
+  muscle: 'massa',
+  strength: 'voima',
+  lean_athletic: 'kunto',
+  run_mobility: 'kestävyys',
+};
+
+function buildFinnishProgramName(selection: FirstRunSetupSelection) {
+  const tier = PROGRAM_NAME_TIERS_FI[selection.level] ?? PROGRAM_NAME_TIERS_FI.beginner;
+  const focus = selection.focusAreas.length > 0 ? selection.focusAreas[0] : null;
+  const stem = focus ? PROGRAM_FOCUS_STEM_FI[focus] : null;
+  const goalNoun = PROGRAM_GOAL_NOUN_FI[selection.goal] ?? 'kunto';
+
+  if (stem) {
+    return `${stem}${goalNoun} · ${tier}`;
+  }
+
+  const goalTitle =
+    selection.goal === 'run_mobility'
+      ? 'Juoksu ja liikkuvuus'
+      : selection.goal === 'lean_athletic'
+        ? 'Kiinteä ja atleettinen'
+        : selection.goal === 'muscle'
+          ? 'Massa'
+          : selection.goal === 'strength'
+            ? 'Voima'
+            : 'Kunto';
+
+  return `${goalTitle} · ${tier}`;
+}
+
+/**
+ * The name is stored on the created template, not rendered from a key, so it
+ * has to be written in the user's language at creation time. A plan named in
+ * Finnish keeps its Finnish name if the app later switches to English — which
+ * is right: by then it is the name of *their* program, and they can rename it.
+ */
+export function buildFirstRunCustomProgramName(
+  selection: FirstRunSetupSelection,
+  language: AppLanguage = 'en',
+) {
+  if (language === 'fi') {
+    return buildFinnishProgramName(selection);
+  }
+
   const tier = PROGRAM_NAME_TIERS[selection.level] ?? 'Amateur';
   const focusTitle = selection.focusAreas.length > 0 ? getFocusAreaTitle(selection.focusAreas[0]) : null;
 

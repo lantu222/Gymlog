@@ -709,4 +709,47 @@ module.exports = [
       assert.match(reasons.join(' '), /Add a Fat Burn HIIT session as an optional 4th day/i);
     },
   },
+  {
+    name: 'the generated plan name is written in the language the user picked',
+    run() {
+      const plan = (goal, focusAreas, level = 'beginner') => ({ goal, focusAreas, level });
+
+      // English keeps adjective + noun: "Strong Chest Amateur".
+      assert.equal(
+        buildFirstRunCustomProgramName(plan('strength', ['chest']), 'en'),
+        'Strong Chest Amateur',
+      );
+
+      // Finnish compounds instead. Translating word for word gives "Vahva
+      // rinta", which works until the body part is plural and the adjective
+      // has to agree — "Vahvat olkapäät". Compounding sidesteps agreement and
+      // is how the thing would actually be named.
+      assert.equal(
+        buildFirstRunCustomProgramName(plan('strength', ['chest']), 'fi'),
+        'Rintavoima · Aloittelija',
+      );
+      assert.equal(
+        buildFirstRunCustomProgramName(plan('muscle', ['shoulders']), 'fi'),
+        'Olkapäämassa · Aloittelija',
+      );
+
+      // No focus area: goal + tier, still Finnish.
+      assert.equal(buildFirstRunCustomProgramName(plan('strength', []), 'fi'), 'Voima · Aloittelija');
+
+      // Every focus area must have a stem, or the name silently falls back to
+      // the goal alone and the user's chosen focus disappears from it.
+      const areas = ['chest', 'back', 'shoulders', 'arms', 'core', 'quads', 'glutes',
+        'hamstrings', 'calves', 'legs', 'mobility', 'conditioning', 'bodyweight'];
+      for (const area of areas) {
+        const name = buildFirstRunCustomProgramName(plan('strength', [area]), 'fi');
+        assert.notEqual(name, 'Voima · Aloittelija', `${area} has no Finnish stem`);
+      }
+
+      // Default stays English so nothing that omits the argument changes.
+      assert.equal(
+        buildFirstRunCustomProgramName(plan('strength', ['chest'])),
+        'Strong Chest Amateur',
+      );
+    },
+  },
 ];
