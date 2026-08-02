@@ -363,4 +363,45 @@ module.exports = [
       assert.equal(getGuidedInitials('Deep Squat Rotations'), 'DS');
     },
   },
+  {
+    name: 'skipping an exercise lands on the next one, never back at the warm-up',
+    run() {
+      // The guided player used to ask resolveGuidedResumeIndex where to go
+      // after a skip, and that resolver answers 0 when no set has been
+      // completed yet. So skipping the very first exercise before logging
+      // anything — the rack is taken, you move on — threw the user back to the
+      // start of the warm-up. This pins the arithmetic the screen now uses.
+      const before = buildGuidedSteps({ warmup: WARMUP, exercises: EXERCISES, cooldown: COOLDOWN }).steps;
+      const blockStart = before.findIndex(
+        (step) => (step.type === 'position' || step.type === 'set') && step.slotId === 'a',
+      );
+      assert.ok(blockStart > 0, 'the first exercise should start after the warm-up');
+
+      const after = buildGuidedSteps({
+        warmup: WARMUP,
+        exercises: [
+          { ...EXERCISES[0], skipped: true },
+          EXERCISES[1],
+        ],
+        cooldown: COOLDOWN,
+      }).steps;
+
+      // Everything that followed the skipped block slides down into the index
+      // that block started at, so that index IS the next exercise.
+      const landing = after[Math.min(blockStart, after.length - 1)];
+      assert.ok(landing, 'the landing index must exist in the rebuilt plan');
+      assert.ok(
+        landing.type !== 'drill' && landing.type !== 'ready',
+        `skipping landed back in the warm-up (${landing.type})`,
+      );
+      assert.equal(
+        landing.type === 'position' || landing.type === 'set' ? landing.slotId : 'b',
+        'b',
+        'skipping the first exercise should land on the second',
+      );
+
+      // And the resolver alone would have sent us to 0 — the bug this replaces.
+      assert.equal(resolveGuidedResumeIndex(after, null, () => false), 0);
+    },
+  },
 ];

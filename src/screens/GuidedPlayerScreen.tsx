@@ -1106,20 +1106,35 @@ export function GuidedPlayerScreen({
   // Skipping an exercise removes its steps from the list, so the index we are
   // sitting on stops meaning what it meant. Re-resolve once the rebuilt steps
   // arrive rather than guessing an offset.
-  const resyncAfterSkipRef = useRef(false);
+  // Where to land once the rebuilt steps arrive. Removing an exercise deletes
+  // the block it occupied, so whatever followed it slides down into the index
+  // that block STARTED at — which makes that index the next exercise, and the
+  // cooldown or the finish when the skipped one was last.
+  //
+  // This used to ask resolveGuidedResumeIndex instead, and that resolver
+  // answers 0 when no set has been completed yet. Skipping the very first
+  // exercise before logging anything — the rack is taken, so you move on —
+  // threw the user back to the start of the warm-up.
+  const resyncTargetRef = useRef<number | null>(null);
   useEffect(() => {
-    if (!resyncAfterSkipRef.current) {
+    const target = resyncTargetRef.current;
+    if (target === null) {
       return;
     }
-    resyncAfterSkipRef.current = false;
-    goToRef.current(resolveGuidedResumeIndex(steps, null, isSetCompleted));
-  }, [isSetCompleted, steps]);
+    resyncTargetRef.current = null;
+    goToRef.current(Math.min(target, steps.length - 1));
+  }, [steps]);
 
   const handleSkipExercise = () => {
     if (!actionSlotId) {
       return;
     }
-    resyncAfterSkipRef.current = true;
+    const blockStart = steps.findIndex(
+      (candidate) =>
+        (candidate.type === 'position' || candidate.type === 'set') &&
+        candidate.slotId === actionSlotId,
+    );
+    resyncTargetRef.current = blockStart >= 0 ? blockStart : stepIndex;
     workout.skipExercise(actionSlotId);
     setPauseSheetOpen(false);
     setPaused(false);

@@ -44,10 +44,13 @@ module.exports = [
         );
       }
 
-      // Skipping an exercise drops its steps, so the index stops meaning what
-      // it meant; the player re-resolves instead of guessing an offset.
-      assert.match(guidedSource, /resyncAfterSkipRef/);
-      assert.match(guidedSource, /resolveGuidedResumeIndex\(steps, null, isSetCompleted\)/);
+      // Skipping drops that exercise's steps, so whatever followed slides into
+      // the index its block started at — that index is the landing. Asking
+      // resolveGuidedResumeIndex instead is the bug this replaced: it answers 0
+      // when no set is complete, so skipping the first exercise before logging
+      // anything threw the user back to the warm-up.
+      assert.match(guidedSource, /resyncTargetRef/);
+      assert.doesNotMatch(guidedSource, /resolveGuidedResumeIndex\(steps, null/);
 
       // The clock must not run while a sheet is open over the set.
       assert.match(guidedSource, /const frozen = paused \|\|[^;]*swapOpen/);
