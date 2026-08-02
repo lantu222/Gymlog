@@ -752,11 +752,13 @@ export function ProgressScreen({
       return activityCalendar.monthLabel;
     }
 
-    return new Intl.DateTimeFormat('en-US', {
+    // Hardcoded en-US put "August 2026" above a Finnish calendar, under a
+    // Finnish heading, in an otherwise Finnish app.
+    return new Intl.DateTimeFormat(language === 'fi' ? 'fi-FI' : 'en-US', {
       month: 'long',
       year: 'numeric',
     }).format(new Date(currentMonthDay.dayStart));
-  }, [activityCalendar.monthLabel, activityCalendar.weeks]);
+  }, [activityCalendar.monthLabel, activityCalendar.weeks, language]);
 
   const monthStats = useMemo(() => {
     const currentMonthDay = activityCalendar.weeks.flat().find((day) => day.inCurrentMonth);

@@ -57,12 +57,20 @@ module.exports = [
       assert.match(programsHomeSource, /Array\.from\(\{ length: totalWeeks \}/);
       assert.match(programsHomeSource, /index < currentWeek \? styles\.heroSegmentFilled : styles\.heroSegmentEmpty/);
       // THIS WEEK plan: day rows land on the saved plan's own weekday labels
-      // (weekday truth, P6); the generic spread is only a fallback. TODAY
-      // highlight stays; the old next-session Start strip is intentionally gone.
+      // (weekday truth, P6). TODAY highlight stays; the old next-session Start
+      // strip is intentionally gone.
       assert.match(programsHomeSource, /t\(language, 'programs\.thisWeek', \{ count: activeProgram\.sessionsPerWeek \}\)/);
       assert.match(i18nSource, /'programs\.thisWeek': 'THIS WEEK · \{count\} DAYS \/ WEEK'/);
-      assert.match(programsHomeSource, /resolveSessionWeekday\(session\.dayLabel, index, weekSessions\.length\)/);
       assert.match(programsHomeSource, /function resolveSessionWeekday\(/);
+
+      // The generic spread fills a GAP in a week that has real weekdays; it
+      // must never invent the whole week. With nothing scheduled this screen
+      // showed MA/KE/PE while Home and Progress showed nothing for the same
+      // plan, because those two refuse to invent a rhythm and this one did not.
+      assert.match(programsHomeSource, /anyFixedWeekday \? weekdayForSession\(index, sessionCount\) : null/);
+      assert.match(programsHomeSource, /const anyFixedWeekday = allSessions\.some\(/);
+      // Unknown weekday falls back to the session number, not a made-up day.
+      assert.match(programsHomeSource, /: `\$\{index \+ 1\}`/);
       assert.match(programsHomeSource, /dayRowToday/);
       assert.match(programsHomeSource, /t\(language, 'programs\.today'\)/);
       assert.doesNotMatch(programsHomeSource, /NEXT SESSION/);

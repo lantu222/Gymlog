@@ -30,6 +30,15 @@ const TRAINING_DAY_SPREAD: Record<number, number[]> = {
   6: [0, 1, 2, 3, 4, 5],
 };
 
+/**
+ * A generic Mon/Wed/Fri-style spread for plans that DO carry fixed weekdays but
+ * are missing one, so the chips stay a weekday set rather than a mix.
+ *
+ * It is never used to invent a whole week any more: with no fixed labels and no
+ * schedule of the user's own, this screen showed MA/KE/PE while Home and
+ * Progress showed nothing for the same plan — because those two refuse to
+ * invent a rhythm and this one did it happily. One of the three was lying.
+ */
 function weekdayForSession(index: number, sessionCount: number) {
   const spread = TRAINING_DAY_SPREAD[Math.min(6, Math.max(1, sessionCount))] ?? [0, 2, 4];
   return WEEKDAYS[spread[index] ?? Math.min(index, 6)];
@@ -56,12 +65,20 @@ function weekdayLabel(code: string, language: AppLanguage) {
   return (key ? t(language, key) : code).toUpperCase();
 }
 
-function resolveSessionWeekday(dayLabel: string | null | undefined, index: number, sessionCount: number) {
+function resolveSessionWeekday(
+  dayLabel: string | null | undefined,
+  index: number,
+  sessionCount: number,
+  anyFixedWeekday: boolean,
+): string | null {
   const normalized = dayLabel?.trim().slice(0, 3).toUpperCase() ?? '';
   if (WEEKDAY_SET.has(normalized)) {
     return normalized;
   }
-  return weekdayForSession(index, sessionCount);
+  // Only fill a gap in a plan that otherwise has real weekdays. When nothing
+  // in the week is scheduled, the answer is "we do not know" — the badge shows
+  // the session number and "Muokkaa päiviä" is right above it.
+  return anyFixedWeekday ? weekdayForSession(index, sessionCount) : null;
 }
 
 // Designed program covers (README "Program Covers"): a per-program hue rendered
@@ -324,10 +341,20 @@ export function ProgramsHomeScreen({
               </Pressable>
             </View>
             <View style={styles.weekList}>
-              {weekSessions.map((session, index) => {
+              {weekSessions.map((session, index, allSessions) => {
+                const anyFixedWeekday = allSessions.some((entry) =>
+                  WEEKDAY_SET.has(entry.dayLabel?.trim().slice(0, 3).toUpperCase() ?? ''),
+                );
                 const isToday = nextSession?.id === session.id;
-                const weekday = resolveSessionWeekday(session.dayLabel, index, weekSessions.length);
-                const weekdayText = weekdayLabel(weekday, language);
+                const weekday = resolveSessionWeekday(
+                  session.dayLabel,
+                  index,
+                  weekSessions.length,
+                  anyFixedWeekday,
+                );
+                const weekdayText = weekday
+                  ? weekdayLabel(weekday, language)
+                  : `${index + 1}`;
                 const sessionTitle = localizeSessionName(session.title, language);
                 const focusLine = session.exercises
                   .slice(0, 3)
