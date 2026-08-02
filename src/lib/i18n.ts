@@ -751,7 +751,6 @@ const EN = {
   'onb.equip.selectedCount': '{count} selected',
 
   'onb.progression.b1': 'Load moves up when you hit the top of the rep range on every set (Pro)',
-  'onb.progression.b2': 'Effort feedback tunes rest and the next set (Pro)',
   'onb.progression.b3': 'Your choice is saved either way — change it anytime in Plan settings',
 
   // ── Body parts (library enum → display label) ──────────────────────────
@@ -1504,10 +1503,6 @@ const EN = {
   'pro.v2.group.coach.kicker': 'THE REASON TO UPGRADE',
   'pro.v2.group.coach.title': 'A coach inside every set',
   'pro.v2.group.coach.lead': 'Vinha stops being a notebook and starts making the calls.',
-  'pro.v2.coach.adaptive.t': 'Adaptive set coach',
-  'pro.v2.coach.adaptive.b': 'Reads how the set felt and sets the next load — +2.5 kg when you clear the rep ceiling, hold or back off when you do not.',
-  'pro.v2.coach.rest.t': 'Smart rest timing',
-  'pro.v2.coach.rest.b': 'Rest moves with the set instead of the same countdown every round.',
   'pro.v2.coach.progression.t': 'Automatic progression',
   'pro.v2.coach.progression.b': 'Double progression across sessions: the load only moves once every working set hits the ceiling.',
   'pro.v2.coach.session.t': 'Session & weekly adaptation',
@@ -1552,7 +1547,6 @@ const EN = {
   'pro.v2.row.plateau': 'Plateau detection',
   'pro.v2.row.coachQ': 'AI Coach questions',
   'pro.v2.row.builder': 'AI program builder',
-  'pro.v2.row.adaptive': 'Adaptive load after every set',
   'pro.v2.row.progression': 'Automatic progression',
   'pro.v2.row.why': 'Why a lift stalled',
   'pro.v2.row.recovery': 'Recovery read',
@@ -1632,8 +1626,6 @@ const EN = {
   'proOffer.pro.coachBody': 'Ask about your own logged numbers, and open a written breakdown of any session.',
   'proOffer.pro.progression': 'Automated progression',
   'proOffer.pro.progressionBody': 'Hit the top of the rep range on every set and the next session starts heavier.',
-  'proOffer.pro.adaptive': 'Adaptive set coach & rest',
-  'proOffer.pro.adaptiveBody': 'After each set, effort tunes the next load and your rest.',
   'proOffer.proFine': 'Planned pricing 5.99 €/mo billed yearly. Billing is not live yet — nothing is charged.',
   'proOffer.continueFree': 'Continue free',
   'proOffer.seePro': 'See what Pro does',
@@ -3129,7 +3121,6 @@ const FI: Record<I18nKey, string> = {
   'onb.equip.selectedCount': '{count} valittu',
 
   'onb.progression.b1': 'Paino nousee kun osut toistohaarukan yläpäähän joka sarjassa (Pro)',
-  'onb.progression.b2': 'Tuntuma-palaute säätää lepoa ja seuraavaa sarjaa (Pro)',
   'onb.progression.b3': 'Valintasi tallentuu joka tapauksessa — muuta milloin vain suunnitelman asetuksissa',
 
   // ── Body parts ─────────────────────────────────────────────────────────
@@ -3864,10 +3855,6 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.group.coach.kicker': 'SYY PÄIVITTÄÄ',
   'pro.v2.group.coach.title': 'Valmentaja jokaisessa sarjassa',
   'pro.v2.group.coach.lead': 'Vinha lakkaa olemasta vihko ja alkaa tehdä päätökset.',
-  'pro.v2.coach.adaptive.t': 'Mukautuva sarjavalmentaja',
-  'pro.v2.coach.adaptive.b': 'Lukee miltä sarja tuntui ja asettaa seuraavan kuorman — +2,5 kg kun ylität toistokaton, pitää tai keventää kun et.',
-  'pro.v2.coach.rest.t': 'Älykäs lepoaika',
-  'pro.v2.coach.rest.b': 'Lepo elää sarjan mukana, ei sama laskuri joka kierroksella.',
   'pro.v2.coach.progression.t': 'Automaattinen eteneminen',
   'pro.v2.coach.progression.b': 'Tuplaprogressio treenien yli: kuorma nousee vasta kun jokainen työsarja osuu kattoon.',
   'pro.v2.coach.session.t': 'Treenin ja viikon mukautus',
@@ -3912,7 +3899,6 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.row.plateau': 'Jumin havaitseminen',
   'pro.v2.row.coachQ': 'AI-valmentajan kysymykset',
   'pro.v2.row.builder': 'AI-ohjelmarakentaja',
-  'pro.v2.row.adaptive': 'Mukautuva kuorma joka sarjan jälkeen',
   'pro.v2.row.progression': 'Automaattinen eteneminen',
   'pro.v2.row.why': 'Miksi liike jumittui',
   'pro.v2.row.recovery': 'Palautumislukema',
@@ -3991,8 +3977,6 @@ const FI: Record<I18nKey, string> = {
   'proOffer.pro.coachBody': 'Kysy omista kirjatuista luvuistasi ja avaa kirjallinen erittely mistä tahansa treenistä.',
   'proOffer.pro.progression': 'Automaattinen eteneminen',
   'proOffer.pro.progressionBody': 'Osu toistohaarukan yläpäähän joka sarjassa ja seuraava treeni alkaa raskaampana.',
-  'proOffer.pro.adaptive': 'Mukautuva sarjavalmentaja ja lepo',
-  'proOffer.pro.adaptiveBody': 'Jokaisen sarjan jälkeen tuntuma säätää seuraavan painon ja leposi.',
   'proOffer.proFine': 'Suunniteltu hinta 5,99 €/kk vuosilaskutuksella. Laskutus ei ole vielä käytössä — mitään ei veloiteta.',
   'proOffer.continueFree': 'Jatka ilmaiseksi',
   'proOffer.seePro': 'Katso mitä Pro tekee',

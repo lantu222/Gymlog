@@ -22,12 +22,6 @@ export interface ProBenefit {
 
 export const PRO_LIVE_BENEFITS: ProBenefit[] = [
   {
-    titleKey: 'pro.v2.coach.adaptive.t',
-    bodyKey: 'pro.v2.coach.adaptive.b',
-    gate: 'hasAdaptiveCoachPremium',
-  },
-  { titleKey: 'pro.v2.coach.rest.t', bodyKey: 'pro.v2.coach.rest.b', gate: 'hasAdaptiveCoachPremium' },
-  {
     titleKey: 'pro.v2.coach.progression.t',
     bodyKey: 'pro.v2.coach.progression.b',
     gate: 'resolveProgressionOptions',

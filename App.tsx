@@ -147,7 +147,6 @@ import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
 import { EmptyWorkoutScreen } from './src/screens/EmptyWorkoutScreen';
-import { WorkoutLoggingScreen } from './src/screens/WorkoutLoggingScreen';
 import { GuidedPlayerScreen } from './src/screens/GuidedPlayerScreen';
 import { CardioScreen } from './src/screens/CardioScreen';
 import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
@@ -452,7 +451,6 @@ function getBackRoute(route: AppRoute): AppRoute | null {
       route.screen === 'program' ||
       route.screen === 'template' ||
       route.screen === 'editor' ||
-      route.screen === 'log' ||
       route.screen === 'guided' ||
       route.screen === 'summary' ||
       route.screen === 'celebration')
@@ -908,11 +906,6 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES[tab]);
   }
 
-  function navigateToWorkoutLog(workoutTemplateId: string) {
-    workoutLogNavigationAllowedAtRef.current = Date.now();
-    navigate({ tab: 'workout', screen: 'log', workoutTemplateId });
-  }
-
   // Guided player (design_handoff_guided_player) is the default way to run a
   // session; the table logger stays reachable via "Switch to list view".
   function navigateToGuidedWorkout(workoutTemplateId: string) {
@@ -1048,21 +1041,6 @@ function VinhaApp() {
   }, [finishSaveState.sessionId, finishSaveState.status, workout.activeSession?.sessionId]);
 
   useEffect(() => {
-    if (route.tab === 'workout' && route.screen === 'log') {
-      const allowedAt = workoutLogNavigationAllowedAtRef.current;
-      workoutLogNavigationAllowedAtRef.current = null;
-
-      if (
-        !workout.activeSession &&
-        finishSaveState.status !== 'saving' &&
-        !summaryNavigationPendingRef.current &&
-        (!allowedAt || Date.now() - allowedAt > 2000)
-      ) {
-        replaceRoute(ROOT_ROUTES.home);
-        return;
-      }
-    }
-
     if (route.tab === 'workout' && route.screen === 'guided') {
       const allowedAt = workoutLogNavigationAllowedAtRef.current;
       workoutLogNavigationAllowedAtRef.current = null;
@@ -1080,7 +1058,7 @@ function VinhaApp() {
 
     if (
       route.tab === 'workout' &&
-      route.screen === 'log' &&
+      route.screen === 'guided' &&
       !workout.templates.some((template) => template.id === route.workoutTemplateId) &&
       !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
     ) {
@@ -3381,37 +3359,8 @@ function VinhaApp() {
         weekProgress={guidedWeekProgress}
         nextUp={guidedNextUp}
         onLeave={() => navigateBack(getWorkoutLoggerFallbackRoute())}
-        onSwitchToListView={() => {
-          workoutLogNavigationAllowedAtRef.current = Date.now();
-          replaceRoute({ tab: 'workout', screen: 'log', workoutTemplateId: route.workoutTemplateId });
-        }}
         onEndSession={() => void handleDiscardWorkout()}
         onFinishSession={() => void handleConfirmFinishWorkout()}
-        isSavingWorkout={finishSaveState.status === 'saving'}
-      />
-    );
-  } else if (route.tab === 'workout' && route.screen === 'log') {
-    content = (
-      <WorkoutLoggingScreen
-        keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
-        sessionKey={route.workoutTemplateId}
-        unitPreference={unitPreference}
-        language={preferences.appLanguage}
-        autoFocusNextInput={preferences.autoFocusNextInput}
-        defaultRestSeconds={preferences.defaultRestSeconds}
-        hasAdaptiveCoachPremium={coachProUnlocked}
-        automatedProgressionEnabled={preferences.automatedProgressionEnabled}
-        setupLevel={preferences.setupLevel}
-        tailoringPreferences={tailoringPreferences}
-        exerciseLibrary={exerciseBrowserItems}
-        recentExerciseLibraryItems={recentExerciseBrowserItems}
-        customTemplate={customWorkoutRuntimeMap[route.workoutTemplateId] ?? null}
-        dismissedTipIds={dismissedTipIds}
-        onDismissTip={handleDismissTip}
-        onOpenAdaptiveCoachPremium={handleOpenPremium}
-        onBack={() => navigateBack(getWorkoutLoggerFallbackRoute())}
-        onConfirmFinishWorkout={() => void handleConfirmFinishWorkout()}
-        onDiscardWorkout={() => void handleDiscardWorkout()}
         isSavingWorkout={finishSaveState.status === 'saving'}
       />
     );
@@ -3916,7 +3865,7 @@ function VinhaApp() {
         programInsightsByTemplateId={programInsightsByTemplateId}
         recommendedReadyProgramId={recommendedReadyTemplate?.id ?? null}
         tailoringPreferences={tailoringPreferences}
-        onOpenWorkout={navigateToWorkoutLog}
+        onOpenWorkout={navigateToGuidedWorkout}
         onOpenReadyProgram={handleOpenReadyProgramDetail}
         onStartReadyProgram={handleStartReadyProgram}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
@@ -4093,7 +4042,6 @@ function VinhaApp() {
       route.tab === 'workout' &&
       (route.screen === 'detail' ||
         route.screen === 'empty' ||
-        route.screen === 'log' ||
         route.screen === 'guided' ||
         route.screen === 'summary' ||
         route.screen === 'celebration')
@@ -4122,7 +4070,7 @@ function VinhaApp() {
   const emptyWorkoutActive = route.tab === 'workout' && route.screen === 'empty';
   const readyTemplatesActive = route.tab === 'workout' && route.screen === 'plans';
   const programDetailActive = route.tab === 'workout' && route.screen === 'program';
-  const workoutLogActive = route.tab === 'workout' && (route.screen === 'log' || route.screen === 'guided');
+  const workoutLogActive = route.tab === 'workout' && route.screen === 'guided';
   // Workout Complete opens on a full-bleed purple hero — the status bar joins it
   // rather than sitting above it as a dark strip.
   const workoutSummaryActive = route.tab === 'workout' && route.screen === 'summary';

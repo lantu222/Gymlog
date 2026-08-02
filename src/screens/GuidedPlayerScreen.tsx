@@ -162,7 +162,6 @@ interface GuidedPlayerScreenProps {
   weekProgress: GuidedWeekProgress | null;
   nextUp: GuidedNextUp | null;
   onLeave: () => void;
-  onSwitchToListView: () => void;
   onEndSession: () => void;
   onFinishSession: () => void;
   isSavingWorkout: boolean;
@@ -774,7 +773,6 @@ export function GuidedPlayerScreen({
   weekProgress,
   nextUp,
   onLeave,
-  onSwitchToListView,
   onEndSession,
   onFinishSession,
   isSavingWorkout,
@@ -1633,7 +1631,6 @@ export function GuidedPlayerScreen({
           <Text style={styles.sheetTitle}>{t(language, 'guided.exit.title')}</Text>
           <View style={{ gap: 10 }}>
             <BigBtn label={t(language, 'guided.exit.keep')} onPress={() => setExitOpen(false)} />
-            <GhostBtn icon="list" label={t(language, 'guided.exit.list')} onPress={onSwitchToListView} />
             <GhostBtn icon="x" label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
           </View>
           <Text style={styles.sheetFootnote}>{t(language, 'guided.exit.footnote')}</Text>

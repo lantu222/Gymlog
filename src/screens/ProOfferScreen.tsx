@@ -39,7 +39,6 @@ const FREE_ROWS: I18nKey[] = [
 const PRO_ROWS: Array<{ titleKey: I18nKey; bodyKey: I18nKey }> = [
   { titleKey: 'proOffer.pro.coach', bodyKey: 'proOffer.pro.coachBody' },
   { titleKey: 'proOffer.pro.progression', bodyKey: 'proOffer.pro.progressionBody' },
-  { titleKey: 'proOffer.pro.adaptive', bodyKey: 'proOffer.pro.adaptiveBody' },
 ];
 
 function CheckGlyph() {

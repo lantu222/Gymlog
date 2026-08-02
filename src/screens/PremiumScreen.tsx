@@ -76,10 +76,11 @@ const GROUPS: Array<{ key: string; kickerKey: I18nKey; titleKey: I18nKey; leadKe
     titleKey: 'pro.v2.group.coach.title',
     leadKey: 'pro.v2.group.coach.lead',
     items: [
-      // adaptiveCoach.ts + progressionGate.ts; +2.5 kg is the beginner tier's
-      // real increment, not a round number chosen for the page.
-      { titleKey: 'pro.v2.coach.adaptive.t', bodyKey: 'pro.v2.coach.adaptive.b', icon: IC.spark },
-      { titleKey: 'pro.v2.coach.rest.t', bodyKey: 'pro.v2.coach.rest.b', icon: IC.clock },
+      // progressionGate.ts; +2.5 kg is the beginner tier's real increment,
+      // not a round number chosen for the page. The adaptive set coach and the
+      // smart rest timing used to head this group; they were removed with the
+      // list logger they lived in (user decision 2026-08-02), so they are not
+      // sold here any more.
       { titleKey: 'pro.v2.coach.progression.t', bodyKey: 'pro.v2.coach.progression.b', icon: IC.chart },
       { titleKey: 'pro.v2.coach.session.t', bodyKey: 'pro.v2.coach.session.b', soon: true, icon: IC.lines },
     ],
@@ -131,7 +132,6 @@ const ROWS: Array<{ labelKey: I18nKey; free: Cellv2; pro: Cellv2 }> = [
   { labelKey: 'pro.v2.row.plateau', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.coachQ', free: 'pro.v2.val.threeWeek', pro: 'pro.v2.val.unlimited' },
   { labelKey: 'pro.v2.row.builder', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.adaptive', free: null, pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.progression', free: null, pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.why', free: null, pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.recovery', free: null, pro: 'pro.v2.val.yes' },

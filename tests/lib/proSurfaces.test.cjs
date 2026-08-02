@@ -11,7 +11,6 @@ const settingsSource = read('src', 'screens', 'SettingsScreen.tsx');
 const planSettingsSource = read('src', 'screens', 'PlanSettingsScreen.tsx');
 const premiumSource = read('src', 'screens', 'PremiumScreen.tsx');
 const homeSource = read('src', 'screens', 'HomeScreen.tsx');
-const loggerSource = read('src', 'screens', 'WorkoutLoggingScreen.tsx');
 const proOfferSource = read('src', 'screens', 'ProOfferScreen.tsx');
 const i18nSource = read('src', 'lib', 'i18n.ts');
 const unlockSource = read('src', 'screens', 'PremiumUnlockScreen.tsx');
@@ -90,7 +89,8 @@ module.exports = [
   {
     name: 'the logger and the premium screen ask the entitlement, not the preview switch',
     run() {
-      assert.match(appSource, /hasAdaptiveCoachPremium=\{coachProUnlocked\}/);
+      // hasAdaptiveCoachPremium was the list logger's prop and went with it.
+      assert.doesNotMatch(appSource, /hasAdaptiveCoachPremium/);
       assert.match(appSource, /proUnlocked=\{coachProUnlocked\}/);
     },
   },
@@ -177,7 +177,7 @@ module.exports = [
       }
 
       // Genuinely gated in the app: resolveProgressionOptions and openAiMode.
-      for (const key of ['adaptive', 'progression', 'builder', 'theme']) {
+      for (const key of ['progression', 'builder', 'theme']) {
         assert.match(table[0], new RegExp(`'pro\\.v2\\.row\\.${key}', free: null`), `${key} is Pro-gated in code`);
       }
       // The free coach quota the table promises is implemented (aiCoachQuota).
@@ -265,23 +265,31 @@ module.exports = [
     },
   },
   {
-    name: 'the effort question is rendered, because every adaptive feature starts there',
+    name: 'the adaptive set coach is gone from the code AND from every price list',
     run() {
-      // EFFORT_OPTIONS and handleRecordEffort existed as dead code: declared,
-      // never rendered. No set could be rated, so the adaptive set coach, the
-      // coach's rest override and paywall moment 4 were all unreachable while
-      // the Pro page sold two of them. The prompt must stay on screen.
-      assert.match(loggerSource, /EFFORT_OPTIONS\.map\(/, 'the effort options must render');
-      assert.match(loggerSource, /onPress=\{\(\) => handleRecordEffort\(option\.value\)\}/);
-      assert.match(loggerSource, /activeEffortPrompt && activeEffortPrompt\.slotId === exercise\.slotId/);
-      // Skippable and inline — it must never block the next set.
-      assert.match(loggerSource, /onPress=\{handleSkipEffortPrompt\}/);
-      assert.doesNotMatch(loggerSource, /<Modal[^>]*effort/i);
+      // The effort question, the coach's rest override and the adaptive set
+      // coach lived only in WorkoutLoggingScreen. Removing the list logger
+      // removed them (user decision 2026-08-02), so the guard flips: they must
+      // not be sold anywhere. A feature the app no longer has is the worst
+      // kind of paywall claim, because nobody can find it to complain.
+      assert.ok(
+        !fs.existsSync(path.join(__dirname, '..', '..', 'src', 'lib', 'adaptiveCoach.ts')),
+        'adaptiveCoach.ts is back — if the feature returns, restore its Pro claims too',
+      );
+      assert.doesNotMatch(premiumSource, /pro\.v2\.coach\.adaptive|pro\.v2\.coach\.rest/);
+      assert.doesNotMatch(premiumSource, /pro\.v2\.row\.adaptive'/);
+      assert.doesNotMatch(proOfferSource, /proOffer\.pro\.adaptive/);
 
-      // A recorded effort reads back on the row it belongs to.
-      const setRow = read('src', 'components', 'WorkoutSetRow.tsx');
-      assert.match(setRow, /completed && effort \?/);
-      assert.match(setRow, /styles\.effortPill/);
+      const benefits = read('src', 'lib', 'proBenefits.ts');
+      assert.doesNotMatch(benefits, /coach\.adaptive|coach\.rest/);
+
+      // Onboarding's progression step sold the effort feedback too.
+      const onboarding = read('src', 'screens', 'OnboardingScreen.tsx');
+      const bullets = onboarding.slice(
+        onboarding.indexOf('const PROGRESSION_BULLET_KEYS'),
+        onboarding.indexOf('const CAUTION_REFINEMENT_OPTIONS'),
+      );
+      assert.doesNotMatch(bullets, /'onb\.progression\.b2'/);
     },
   },
   {
@@ -302,10 +310,8 @@ module.exports = [
       const progress = read('src', 'screens', 'ProgressScreen.tsx');
       assert.match(progress, /pro\.read\.footer/);
 
-      // Logger: moment 4 is a passive chip, never a spontaneous modal — it
-      // renders inline in the exercise list and only speaks when tapped.
-      assert.match(loggerSource, /postEffortTransition\.adaptiveCoachLocked \?/);
-      assert.match(loggerSource, /styles\.coachChip/);
+      // Moment 4 (the logger's post-effort coach chip) went with the list
+      // logger and the effort question it hung off.
 
       // The old Home pro sheet is gone: one full page, moments elsewhere.
       assert.doesNotMatch(homeSource, /PRO_STATS|PRO_COMPARISON|proSheetVisible/);
@@ -328,15 +334,8 @@ module.exports = [
         'the ready, custom, and AI start paths must all resolve through the entitlement',
       );
 
-      // The logger's own bootstrap is the fourth path.
-      assert.match(
-        loggerSource,
-        /automatedProgressionEnabled: automatedProgressionEnabled && hasAdaptiveCoachPremium/,
-      );
-
-      // The raw toggle still drives the adaptive-coach offer, so a free user
-      // with it on sees the locked upsell and one with it off is left alone.
-      assert.match(loggerSource, /resolveAdaptiveCoachOffer\(\{\s*automatedProgressionEnabled,/);
+      // There used to be a fourth path — the list logger's own bootstrap —
+      // and it went with the screen. The three above are now all of them.
     },
   },
   {

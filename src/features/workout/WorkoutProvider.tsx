@@ -38,14 +38,12 @@ interface WorkoutContextValue {
   clearRestTimer: () => void;
   pauseRestTimer: () => void;
   resumeRestTimer: () => void;
-  overrideRestTimer: (durationSeconds: number) => void;
   setActiveExercise: (slotId: string, setIndex?: number) => void;
   expandExercise: (slotId: string) => void;
   collapseExercise: (slotId: string) => void;
   insertExerciseAfter: (afterSlotId: string, exercise: WorkoutExerciseInsertInput) => void;
   updateSetDraft: (slotId: string, setIndex: number, patch: { loadText?: string; repsText?: string }) => void;
   completeSet: (slotId: string, setIndex: number, unitPreference: UnitPreference) => void;
-  recordSetEffort: (slotId: string, setIndex: number, effort: WorkoutSetEffort) => void;
   repeatLastSet: (slotId: string, setIndex: number, unitPreference: UnitPreference) => void;
   undoSet: (slotId: string, setIndex: number) => void;
   addSet: (slotId: string) => void;
@@ -185,15 +183,6 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       resumeRestTimer() {
         dispatch({ type: 'timer/resume', payload: { nowMs: Date.now() } });
       },
-      overrideRestTimer(durationSeconds) {
-        dispatch({
-          type: 'timer/override',
-          payload: {
-            durationSeconds: Math.max(15, Math.round(durationSeconds)),
-            nowMs: Date.now(),
-          },
-        });
-      },
       setActiveExercise(slotId, setIndex = 0) {
         dispatch({ type: 'exercise/setActive', payload: { slotId, setIndex } });
       },
@@ -211,9 +200,6 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       completeSet(slotId, setIndex, unitPreference) {
         dispatch({ type: 'set/complete', payload: { slotId, setIndex, nowMs: Date.now(), unitPreference } });
-      },
-      recordSetEffort(slotId, setIndex, effort) {
-        dispatch({ type: 'set/recordEffort', payload: { slotId, setIndex, effort } });
       },
       repeatLastSet(slotId, setIndex, unitPreference) {
         dispatch({ type: 'set/repeatLast', payload: { slotId, setIndex, nowMs: Date.now(), unitPreference } });

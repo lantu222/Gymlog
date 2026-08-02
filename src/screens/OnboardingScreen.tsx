@@ -409,7 +409,8 @@ const CAUTION_REFINEMENT_FALLBACK = ['Old injury', 'Chronic pain', 'Recent surge
 // auto-progressing weights the engine doesn't ship yet.
 const PROGRESSION_BULLET_KEYS: I18nKey[] = [
   'onb.progression.b1',
-  'onb.progression.b2',
+  // b2 sold the effort feedback that tuned rest and the next set. That went
+  // with the list logger it lived in (2026-08-02).
   'onb.progression.b3',
 ];
 
