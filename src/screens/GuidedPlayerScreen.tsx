@@ -1521,7 +1521,7 @@ export function GuidedPlayerScreen({
                 setPaused(true);
                 setPauseSheetOpen(true);
               }}
-              onSwitchToList={onSwitchToListView}
+              onSwapExercise={swapOptions.length ? () => setSwapOpen(true) : null}
               onConfirm={confirmSet}
             />
           )}
@@ -1810,7 +1810,7 @@ function SetStepView({
   nextName,
   onToggleMute,
   onPause,
-  onSwitchToList,
+  onSwapExercise,
   onConfirm,
 }: {
   stepIndex: number;
@@ -1825,7 +1825,8 @@ function SetStepView({
   nextName: string | null;
   onToggleMute: () => void;
   onPause: () => void;
-  onSwitchToList: () => void;
+  /** Null when this exercise has no catalog alternatives. */
+  onSwapExercise: (() => void) | null;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
 }) {
   const theme = useTheme();
@@ -1955,15 +1956,21 @@ function SetStepView({
           >
             <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? theme.faint : theme.ink} sw={2.2} />
           </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'guided.exit.list')}
-            onPress={onSwitchToList}
-            style={styles.setListBtn}
-          >
-            <GPIcon name="list" size={20} color={theme.ink} sw={2.2} />
-            <Text style={styles.setListBtnText}>{t(language, 'guided.listShort')}</Text>
-          </Pressable>
+          {/* Was "List" — the table logger is gone, and this slot now does the
+              one thing people left the guided flow for. Same icon on purpose:
+              the button did not move, only what it opens. Hidden when the
+              exercise has no alternatives, rather than opening an empty sheet. */}
+          {onSwapExercise ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'guided.action.swap')}
+              onPress={onSwapExercise}
+              style={styles.setListBtn}
+            >
+              <GPIcon name="list" size={20} color={theme.ink} sw={2.2} />
+              <Text style={styles.setListBtnText}>{t(language, 'guided.swapShort')}</Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <NextLine text={nextName} dark={false} language={language} />
