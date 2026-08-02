@@ -25,6 +25,26 @@ const unlockSource = read('src', 'screens', 'PremiumUnlockScreen.tsx');
  */
 module.exports = [
   {
+    name: 'every screen that pins its own CTA hides the floating tab bar',
+    run() {
+      // Three screens shipped with a pinned footer under the floating bar: the
+      // Pro page (a bar of dead space reserved under the CTA), the membership
+      // screen (second button covered) and the post-onboarding offer (primary
+      // button covered outright, on the one screen shown once). The bar is a
+      // sibling of the content, not a layout the screens can see, so nothing
+      // catches this except looking at the phone.
+      //
+      // If you add a screen with a bottom-pinned action, add it here too.
+      const gate = appSource.slice(
+        appSource.indexOf('const showTabBar ='),
+        appSource.indexOf('const setupOnboardingActive'),
+      );
+      assert.match(gate, /screen === 'premium'/);
+      assert.match(gate, /screen === 'membership_end'/);
+      assert.match(gate, /screen === 'pro_offer'/);
+    },
+  },
+  {
     name: 'redeeming a promo stores only the expiry, so Pro ends when the code does',
     run() {
       const redeem = appSource.match(/onRedeemed=\{[^}]*\}/);

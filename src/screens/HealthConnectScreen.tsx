@@ -156,6 +156,9 @@ export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: He
             <Image
               source={require('../../assets/branding/vinha-app-icon.png')}
               style={styles.appTileLogoImage}
+              // The old mark was drawn to be cropped; this one is a full tile
+              // with its own margins, and cover was cutting the V off top and
+              // bottom. The image now fills the tile exactly.
               resizeMode="cover"
             />
           </View>
@@ -252,8 +255,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // The exported icon has a small white margin around its rounded square;
   // rendering it slightly oversized inside the clipped tile crops that away.
   appTileLogoImage: {
-    width: 88,
-    height: 88,
+    width: 74,
+    height: 74,
   },
   appTileHealth: {
     backgroundColor: SURFACE,

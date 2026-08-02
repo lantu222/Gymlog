@@ -25,6 +25,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Sto
 import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenPrimitives';
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { VinhaIcon, VinhaIconName } from '../components/VinhaIcon';
+import { VinhaWordmark } from '../components/VinhaWordmark';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -55,6 +56,8 @@ import {
   resolveFirstRunRecommendationWithTailoring,
   resolveProjectedTrainingDays,
   getEffectiveWeeklyMinutes,
+  getSetupEquipmentTitle,
+  getSetupGoalTitle,
 } from '../lib/firstRunSetup';
 import { buildRecommendationTradeoffLabel } from '../lib/recommendationExplanation';
 import { buildRecommendationOptionIds } from '../lib/recommendationPresentation';
@@ -1406,57 +1409,37 @@ function StepDots({ index, light = false }: { index: number; light?: boolean }) 
   );
 }
 
-function getLocationLabel(trainingEnvironment: SetupTrainingEnvironment, equipment: SetupEquipment) {
+// These three used to be hardcoded English, which is how "4 viikon ohjelma ·
+// Get stronger · Full gym" reached the plan-ready screen — Finnish sentence,
+// English fragments. The translations already existed; nothing was reading
+// them. They take `language` now so there is no English path left.
+function getLocationLabel(
+  trainingEnvironment: SetupTrainingEnvironment,
+  equipment: SetupEquipment,
+  language: AppLanguage,
+) {
   switch (trainingEnvironment) {
     case 'full_gym':
-      return 'Full gym';
+      return t(language, 'setup.env.fullGym');
     case 'home_gym':
-      return 'Home gym';
+      return t(language, 'setup.env.homeGym');
     case 'minimal_equipment':
-      return 'Minimal equipment';
+      return t(language, 'setup.env.minimal');
     case 'bodyweight_only':
-      return 'Bodyweight only';
+      return t(language, 'setup.env.bodyweight');
     case 'running_hybrid':
-      return 'Running / hybrid';
+      return t(language, 'setup.env.running');
     default:
-      switch (equipment) {
-        case 'gym':
-          return 'Full gym';
-        case 'home':
-          return 'Home setup';
-        case 'minimal':
-          return 'Minimal equipment';
-        default:
-          return 'Your setup';
-      }
+      return getSetupEquipmentTitle(equipment, language);
   }
 }
 
-function getGoalLabel(goal: SetupGoal) {
-  switch (goal) {
-    case 'strength':
-      return 'Get stronger';
-    case 'muscle':
-      return 'Build muscle';
-    case 'lean_athletic':
-      return 'Lean & athletic';
-    case 'general_fitness':
-      return 'General fitness';
-    case 'general':
-      return 'Lose weight';
-    case 'run_mobility':
-      return 'Endurance / cardio';
-    default:
-      return 'Training';
-  }
-}
-
-function formatGoalList(goals: SetupGoal[]) {
+function formatGoalList(goals: SetupGoal[], language: AppLanguage) {
   if (goals.length === 0) {
-    return 'Not set';
+    return t(language, 'setup.goal.none');
   }
 
-  return goals.map((goal) => getGoalLabel(goal)).join(', ');
+  return goals.map((goal) => getSetupGoalTitle(goal, language)).join(', ');
 }
 
 function getAgeRangeLabel(ageRange: SetupAgeRange) {
@@ -1478,12 +1461,12 @@ function getAgeRangeLabel(ageRange: SetupAgeRange) {
   }
 }
 
-function getLevelLabel(level: SetupLevel) {
+function getLevelLabel(level: SetupLevel, language: AppLanguage) {
   if (level === 'beginner') {
-    return 'Beginner';
+    return t(language, 'setup.level.beginner');
   }
 
-  return level === 'pro' ? 'Pro' : 'Advanced';
+  return t(language, level === 'pro' ? 'setup.level.pro' : 'setup.level.advanced');
 }
 
 function getTrainingProfileSetupSummary(level: SetupLevel, daysPerWeek: SetupDaysPerWeek) {
@@ -1861,9 +1844,12 @@ export function OnboardingScreen({
     () => composeProgramWeekForSelection(selection, activeRecommendedProgramId),
     [activeRecommendedProgramId, selection],
   );
-  const locationLabel = useMemo(() => getLocationLabel(trainingEnvironment, equipment), [equipment, trainingEnvironment]);
-  const goalLabel = useMemo(() => formatGoalList(goals), [goals]);
-  const levelLabel = useMemo(() => getLevelLabel(level), [level]);
+  const locationLabel = useMemo(
+    () => getLocationLabel(trainingEnvironment, equipment, language),
+    [equipment, language, trainingEnvironment],
+  );
+  const goalLabel = useMemo(() => formatGoalList(goals, language), [goals, language]);
+  const levelLabel = useMemo(() => getLevelLabel(level, language), [language, level]);
   const secondaryOutcomeLabels = useMemo(
     () => secondaryOutcomes.map((outcome) => getSecondaryOutcomeTitle(outcome)),
     [secondaryOutcomes],
@@ -2737,10 +2723,14 @@ export function OnboardingScreen({
                 </View>
               ))}
             </Animated.View>
+            {/* This was the GAINER wordmark, spelled out as G + AI + NER —
+                three Text nodes, so the string "GAINER" never appeared in the
+                source and every search for it during the rename came back
+                clean. It survived on step 3 of 6 of first-run onboarding. */}
             <View style={styles.levelLogoRow}>
-              <Text style={[styles.levelLogoText, styles.levelLogoInk]}>G</Text>
-              <Text style={[styles.levelLogoText, styles.levelLogoPurple]}>AI</Text>
-              <Text style={[styles.levelLogoText, styles.levelLogoInk]}>NER</Text>
+              {/* Onboarding is light-only and paints from its own constants,
+                  so the mark takes them rather than the theme's near-matches. */}
+              <VinhaWordmark size={62} color={ONBOARDING_TEXT} accentColor={ONBOARDING_PRIMARY} />
             </View>
           </View>
 
@@ -2896,7 +2886,15 @@ export function OnboardingScreen({
             })}
           </View>
 
-          <Text style={styles.daysWeekLabel}>{t(language, 'onb.days.tapToAdjust')}</Text>
+          {/* Until a count is chosen, this step LOOKS answered — the weekday
+              cells are drawn from the recommendation and the summary reads as
+              a result — while Continue stays disabled on
+              profileFrequencySelected. "Tap days to adjust" told the user the
+              opposite of what the screen required, with nothing saying why.
+              The level stage already solves this by asking when unselected. */}
+          <Text style={styles.daysWeekLabel}>
+            {t(language, profileFrequencySelected ? 'onb.days.tapToAdjust' : 'onb.days.pickCount')}
+          </Text>
           <View style={styles.daysWeekRow}>
             {WEEKDAY_OPTIONS.map((day) => {
               const dayActive = selectedDays.includes(day);
@@ -4521,18 +4519,6 @@ const styles = StyleSheet.create({
   levelLogoRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
-  },
-  levelLogoText: {
-    fontSize: 46,
-    lineHeight: 50,
-    fontWeight: '800',
-    letterSpacing: -0.92,
-  },
-  levelLogoInk: {
-    color: ONBOARDING_TEXT,
-  },
-  levelLogoPurple: {
-    color: ONBOARDING_PRIMARY,
   },
   levelFlame: {
     position: 'absolute',

@@ -4109,7 +4109,12 @@ function VinhaApp() {
     // button — on a paywall, the most expensive space on the screen. The
     // membership screen has the same pinned footer, and there the bar covered
     // the second button outright.
-    !(route.tab === 'profile' && (route.screen === 'premium' || route.screen === 'membership_end'));
+    !(route.tab === 'profile' && (route.screen === 'premium' || route.screen === 'membership_end')) &&
+    // Third screen with a pinned footer that the floating bar sat on top of —
+    // and the worst of the three, because this one is the post-onboarding
+    // paywall and the bar covered its primary button outright. Any new screen
+    // that pins a CTA to the bottom belongs on this list.
+    !(route.tab === 'home' && route.screen === 'pro_offer');
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const welcomeActive = onboardingActive && entryFlowActive;

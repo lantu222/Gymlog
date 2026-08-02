@@ -102,6 +102,28 @@ module.exports = [
         const source = fs.readFileSync(path.join(root, file), 'utf8');
         assert.doesNotMatch(source, /gainer/i, `${file} still points at a GAINER asset`);
       }
+
+      // The onboarding level stage spelled the old wordmark out as three Text
+      // nodes — G, AI, NER — so the string GAINER never appeared in the source
+      // and every search during the rename came back clean. It shipped on step
+      // 3 of 6 of first-run onboarding until someone looked at the screen.
+      //
+      // The fragment is what the search has to look for, and the mark is a
+      // component now so there is nothing to reassemble.
+      const screens = fs.readdirSync(path.join(root, 'src', 'screens'));
+      for (const name of screens.filter((file) => file.endsWith('.tsx'))) {
+        const source = fs.readFileSync(path.join(root, 'src', 'screens', name), 'utf8');
+        assert.doesNotMatch(
+          source,
+          />NER</,
+          `${name} still assembles the old wordmark out of letters`,
+        );
+      }
+      const onboarding = fs.readFileSync(
+        path.join(root, 'src', 'screens', 'OnboardingScreen.tsx'),
+        'utf8',
+      );
+      assert.match(onboarding, /<VinhaWordmark/);
     },
   },
 ];

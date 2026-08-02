@@ -1,13 +1,13 @@
 import React from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { GENERATED_EXERCISE_LIBRARY } from '../data/generatedExerciseLibrary';
 import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
 interface ProOfferScreenProps {
@@ -63,9 +63,13 @@ function SparkGlyph({ color }: { color: string }) {
 export function ProOfferScreen({ language = 'en', onContinueFree, onSeePro }: ProOfferScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
   return (
     <View style={styles.screen}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 20 }]}
+      >
         <Text style={styles.kicker}>{t(language, 'proOffer.kicker')}</Text>
         <Text style={styles.title}>{t(language, 'proOffer.title')}</Text>
         <Text style={styles.subtitle}>{t(language, 'proOffer.subtitle')}</Text>
@@ -126,10 +130,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     backgroundColor: theme.bg,
   },
+  // The tab bar is hidden on this route now; it used to cover the two CTAs at
+  // the end of this scroll, so the reserve that made room for it is gone too.
   body: {
     paddingTop: 18,
     paddingHorizontal: 20,
-    paddingBottom: layout.bottomTabBarReserve,
   },
   kicker: {
     color: theme.purple,
