@@ -638,11 +638,14 @@ function BigBtn({
   label,
   onPress,
   color: colorProp,
+  icon = 'check',
   disabled,
 }: {
   label: string;
   onPress: () => void;
   color?: string;
+  /** A green tick on a button that stops something reads as confirm. */
+  icon?: string;
   disabled?: boolean;
 }) {
   const theme = useTheme();
@@ -654,7 +657,7 @@ function BigBtn({
       onPress={disabled ? undefined : onPress}
       style={[styles.bigBtn, { backgroundColor: color, opacity: disabled ? 0.6 : 1, shadowColor: color }]}
     >
-      <GPIcon name="check" size={20} color="#fff" sw={2.6} />
+      <GPIcon name={icon} size={20} color="#fff" sw={2.6} />
       <Text style={styles.bigBtnText}>{label}</Text>
     </Pressable>
   );
@@ -1373,37 +1376,64 @@ export function GuidedPlayerScreen({
 
           {step.type === 'position' && (
             <StepIn stepKey={`position-${stepIndex}`}>
-              <View style={{ flex: 1, minHeight: 0 }}>
-                <MediaZone name={step.exerciseName} library={exerciseLibrary} height={300} mode="position" />
-                <View style={{ height: 16 }} />
-                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple, textAlign: 'center' }}>
-                  {t(language, 'guided.getIntoPosition')}
+              {/* Stripped to the four things you need while walking to the rack
+                  (user, 2026-08-02): what is next, how much of it, how long you
+                  have, and a way to stop the clock. The photo, the how-to link
+                  and the first-set breakdown all moved off this screen — you
+                  are not reading, you are walking. */}
+              <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+                <Text style={{ fontSize: 12.5, fontWeight: '800', letterSpacing: 2, color: theme.purple }}>
+                  {t(language, 'guided.nextUp')}
                 </Text>
-                <View style={{ height: 6 }} />
-                <NameBlock
-                  name={step.exerciseName}
-                  // Exercises with a 3D rig teach the movement inside that sheet.
-                  hasHowTo={
-                    Boolean(libraryFor(step.exerciseName)?.instructions?.length) && !hasExercise3D(step.exerciseName)
+                <Text style={styles.positionName} numberOfLines={2}>
+                  {exerciseNameLabel(language, step.exerciseName)}
+                </Text>
+                {(() => {
+                  const exercise = exerciseBySlot.get(step.slotId);
+                  const target = resolveTarget(step.slotId, 0);
+                  if (!exercise || !target) {
+                    return null;
                   }
-                  language={language}
-                  onHow={() => setHowtoOpen(true)}
+                  return (
+                    <Text style={styles.positionPlan}>
+                      {t(language, 'guided.prescription', {
+                        sets: exercise.sets.length,
+                        reps: target.reps,
+                      })}
+                    </Text>
+                  );
+                })()}
+                <View style={{ height: 18 }} />
+                <Text
+                  style={[
+                    styles.drillCountdown,
+                    { color: secondsLeft <= 3.05 ? theme.green : theme.ink },
+                  ]}
+                >
+                  {formatGuidedCountdown(secondsLeft)}
+                </Text>
+                <Text style={{ fontSize: 12, fontWeight: '700', letterSpacing: 1.7, color: theme.muted }}>
+                  {t(language, paused ? 'guided.stopped' : 'guided.untilStart')}
+                </Text>
+              </View>
+              <View style={{ paddingHorizontal: 22, paddingBottom: 14 }}>
+                {/* One control, both jobs: stop the clock to take your time,
+                    and start the set when you are standing there. A separate
+                    "I'm ready" button on top of a stop button would be two
+                    ways to say the same thing. */}
+                <BigBtn
+                  label={t(language, paused ? 'guided.imReady' : 'guided.stopClock')}
+                  icon={paused ? 'check' : 'pause'}
+                  color={paused ? undefined : theme.ink}
+                  onPress={() => {
+                    if (paused) {
+                      setPaused(false);
+                      advance();
+                      return;
+                    }
+                    setPaused(true);
+                  }}
                 />
-                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 }}>
-                  <Text style={{ fontSize: 13, fontWeight: '700', color: theme.muted }}>{t(language, 'guided.firstSet')}</Text>
-                  <Text style={styles.positionTarget}>
-                    {(() => {
-                      const target = resolveTarget(step.slotId, 0);
-                      return target ? formatGuidedTarget(target, language) : '';
-                    })()}
-                  </Text>
-                  <Text style={{ fontSize: 13.5, fontWeight: '700', color: theme.faint, marginTop: 8 }}>
-                    {t(language, 'guided.startingIn', { time: formatGuidedCountdown(secondsLeft) })}
-                  </Text>
-                </View>
-                <View style={{ paddingHorizontal: 22, paddingBottom: 14 }}>
-                  <BigBtn label={t(language, 'guided.imReady')} onPress={advance} />
-                </View>
               </View>
             </StepIn>
           )}
@@ -2176,6 +2206,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   exerciseName: { fontSize: 27, fontWeight: '800', letterSpacing: -0.5, color: theme.ink, lineHeight: 31, textAlign: 'center' },
   cueRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 6, marginTop: 7, maxWidth: '100%' },
   howToLink: { fontSize: 13, fontWeight: '800', color: theme.purple },
+  positionName: {
+    fontSize: 34,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+    color: theme.ink,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  positionPlan: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: theme.muted,
+  },
   drillCountdown: { fontSize: 104, fontWeight: '800', letterSpacing: -4, lineHeight: 110, fontVariant: ['tabular-nums'] },
   ctrlCircle: {
     borderRadius: 999,
@@ -2263,7 +2306,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowRadius: 14,
     elevation: 2,
   },
-  positionTarget: { fontSize: 44, fontWeight: '800', letterSpacing: -1.3, color: theme.ink, fontVariant: ['tabular-nums'] },
   bigBtn: {
     height: 60,
     borderRadius: 19,
