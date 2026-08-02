@@ -23,7 +23,17 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, {
+  Circle,
+  Defs,
+  FeColorMatrix,
+  Filter,
+  Image as SvgImage,
+  LinearGradient as SvgLinearGradient,
+  Path,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 
 import {
   GuidedDrill,
@@ -61,12 +71,45 @@ import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { sound, type CueSound } from '../utils/sound';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
 import { WorkoutExerciseInstance } from '../features/workout/workoutTypes';
+
+/**
+ * Duotone ramps: where black lands, and where white lands. Light theme keeps
+ * the photo airy so it sits on the lilac surface; dark theme keeps it deep so
+ * it does not glare mid-set.
+ */
+const DUOTONE = {
+  light: { shadow: [0.298, 0.227, 0.478], light: [1, 1, 1] },
+  dark: { shadow: [0.09, 0.063, 0.169], light: [0.851, 0.8, 0.961] },
+} as const;
+
+/** Rec.601 luma weights — the same ones feColorMatrix's own saturate uses. */
+const LUMA = [0.299, 0.587, 0.114] as const;
+
+/**
+ * The whole duotone as one feColorMatrix.
+ *
+ * The textbook recipe is saturate-to-grey followed by an feComponentTransfer
+ * table per channel, and on Android the transfer node is ignored — the photo
+ * came out plain greyscale. A single matrix does both steps at once and is the
+ * one filter primitive that definitely renders: each output channel is the
+ * luma weights scaled by that channel's ramp span, with the shadow end as the
+ * constant term. Verified on device; do not "simplify" it back into two nodes.
+ */
+function duotoneMatrix(shadow: readonly number[], light: readonly number[]) {
+  const row = (index: number) => {
+    const span = light[index] - shadow[index];
+    return [LUMA[0] * span, LUMA[1] * span, LUMA[2] * span, 0, shadow[index]];
+  };
+  return [...row(0), ...row(1), ...row(2), 0, 0, 0, 1, 0]
+    .map((value) => value.toFixed(4))
+    .join(' ');
+}
 
 // Dark palette for rest / finish takeovers (guided-shared.jsx GPD).
 const GPD = {
@@ -229,6 +272,7 @@ function MediaZone({
     const index = findGuidedLibraryIndex(lookupName, library.map((item) => item.name));
     return index === null ? null : library[index];
   }, [name, library]);
+  const themeName = useThemeName();
   const [imageFailed, setImageFailed] = useState(false);
   useEffect(() => setImageFailed(false), [name]);
 
@@ -296,15 +340,32 @@ function MediaZone({
   );
 
   if (imageUrl && !imageFailed) {
+    const ramp = DUOTONE[themeName];
     return (
       <View style={[styles.mediaZone, { height, backgroundColor: '#E9DCFA', borderColor: '#E6DAF8' }]}>
         {panel}
-        <Image
-          source={{ uri: imageUrl }}
-          resizeMode={fit}
-          style={StyleSheet.absoluteFill}
-          onError={() => setImageFailed(true)}
-        />
+        {/* The library photos are stock gym shots — red walls, yellow floors —
+            and during a set the photo is the biggest thing on the screen, so
+            the app looked like two products. Desaturate, then map luminance
+            onto a two-colour brand ramp: same picture, same information, our
+            colour world. Done at render time rather than baked, which is the
+            only way the treatment can follow the theme. */}
+        <View style={StyleSheet.absoluteFill}>
+          <Svg width="100%" height="100%">
+            <Defs>
+              <Filter id="vinhaDuotone" x="0" y="0" width="100%" height="100%">
+                <FeColorMatrix type="matrix" values={duotoneMatrix(ramp.shadow, ramp.light)} />
+              </Filter>
+            </Defs>
+            <SvgImage
+              href={{ uri: imageUrl }}
+              width="100%"
+              height="100%"
+              preserveAspectRatio={fit === 'cover' ? 'xMidYMid slice' : 'xMidYMid meet'}
+              filter="url(#vinhaDuotone)"
+            />
+          </Svg>
+        </View>
         {overlays}
       </View>
     );
