@@ -51,8 +51,12 @@ export function formatSessionDate(dateString: string, language?: AppLanguage) {
   }).format(new Date(dateString));
 }
 
-export function formatTime(dateString: string) {
-  return new Intl.DateTimeFormat(undefined, {
+/**
+ * `undefined` means the DEVICE locale, which on an en-US phone gives "6:06 PM"
+ * even when the app is in Finnish. Finland writes 18:06.
+ */
+export function formatTime(dateString: string, language: AppLanguage = 'en') {
+  return new Intl.DateTimeFormat(language === 'fi' ? 'fi-FI' : undefined, {
     hour: '2-digit',
     minute: '2-digit',
   }).format(new Date(dateString));

@@ -2616,8 +2616,16 @@ function VinhaApp() {
       return null;
     }
     const next = card.sessions[(index + 1) % card.sessions.length];
-    return { name: next.title, weekday: 'dayLabel' in next ? next.dayLabel ?? '' : '' };
-  }, [homeActivePlanCard, workout.activeSession?.templateSessionId]);
+    // dayLabel is a stored English code (MON/TUE/…) matched against saved
+    // plans, so it has to be translated before it reaches a screen — it was
+    // printing "WED" over a Finnish summary.
+    const rawDay = 'dayLabel' in next ? next.dayLabel ?? '' : '';
+    const dayKey = WEEKDAY_LABEL_KEYS[rawDay.trim().slice(0, 3).toUpperCase()];
+    return {
+      name: next.title,
+      weekday: dayKey ? t(preferences.appLanguage, dayKey) : rawDay,
+    };
+  }, [homeActivePlanCard, preferences.appLanguage, workout.activeSession?.templateSessionId]);
   const homeAiPromptSuggestions = useMemo(
     () =>
       setupSelection
@@ -4257,5 +4265,16 @@ export default function App() {
 
 
 
+
+/** Stored weekday codes → the display keys the rest of the app uses. */
+const WEEKDAY_LABEL_KEYS: Record<string, I18nKey> = {
+  MON: 'setup.day.mon',
+  TUE: 'setup.day.tue',
+  WED: 'setup.day.wed',
+  THU: 'setup.day.thu',
+  FRI: 'setup.day.fri',
+  SAT: 'setup.day.sat',
+  SUN: 'setup.day.sun',
+};
 
 

@@ -95,7 +95,7 @@ function formatWhenLabel(performedAt: string, language: AppLanguage) {
     : language === 'fi'
       ? `${performed.getDate()}.${performed.getMonth() + 1}.`
       : new Intl.DateTimeFormat('en-US', { day: 'numeric', month: 'short' }).format(performed);
-  return `${day} · ${formatTime(performedAt)}`;
+  return `${day} · ${formatTime(performedAt, language)}`;
 }
 
 function formatPrTitle(pr: WorkoutCompletionPrCard, language: AppLanguage) {
@@ -340,12 +340,16 @@ export function WorkoutCompletionScreen({
             <View style={styles.statDivider} />
             <View style={styles.statCell}>
               <Text style={styles.statValue}>{setsCompleted}</Text>
-              <Text style={styles.statLabel}>{t(language, 'complete.stat.sets')}</Text>
+              <Text style={styles.statLabel}>
+                {t(language, setsCompleted === 1 ? 'complete.stat.setsOne' : 'complete.stat.sets')}
+              </Text>
             </View>
             <View style={styles.statDivider} />
             <View style={styles.statCell}>
               <Text style={styles.statValue}>{exercisesLogged}</Text>
-              <Text style={styles.statLabel}>{t(language, 'complete.stat.exercises')}</Text>
+              <Text style={styles.statLabel}>
+                {t(language, exercisesLogged === 1 ? 'complete.stat.exercisesOne' : 'complete.stat.exercises')}
+              </Text>
             </View>
           </Animated.View>
 
