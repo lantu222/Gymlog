@@ -10,11 +10,12 @@ P8 dead-code sweep (~2700 lines) + automated end-to-end emulator walks of both p
 Branch: `onboarding-update-v5`. Backup: commit `d565de2` = branch `backup/pre-onb-full-rebuild`
 (both pushed to origin). Restore with `git reset --hard backup/pre-onb-full-rebuild`.
 
-Source of truth: the user's full-rebuild prompt (2026-07-15). The repo's design handoff
-(`Design_handoff/.../design_handoff_gainer_redesign/designs/onb-*.jsx`) is an OLDER flow
-(still has Training profile / Goal / Goal weight / Save your plan) — do NOT copy structure
-from it; use it only for shared atoms/tokens. If an updated `Vinha Onboarding.html` handoff
-appears, drop it next to the old one and prefer it.
+Source of truth: the user's full-rebuild prompt (2026-07-15). The GAINER-era handoff bundle
+that used to sit in `Design_handoff/` was removed from the repo on 2026-08-01 — it described
+an OLDER flow (Training profile / Goal / Goal weight / Save your plan) that this rebuild
+deliberately does not follow, and keeping it invited copying the wrong structure. Recover it
+from git history if a shared atom or token is ever needed:
+`git show 8007087:Design_handoff/design_handoff/design_handoff_gainer_redesign/designs/onb-main.jsx`.
 
 ## Already done (commit d565de2)
 
