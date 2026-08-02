@@ -77,7 +77,7 @@ import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocus
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
-import { isProUnlocked, resolveProgressionOptions } from './src/lib/proEntitlement';
+import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 
@@ -131,6 +131,7 @@ import { NotificationsScreen } from './src/screens/NotificationsScreen';
 import { TrainingBreakScreen } from './src/screens/TrainingBreakScreen';
 import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
+import { MembershipEndScreen } from './src/screens/MembershipEndScreen';
 import { SupportScreen } from './src/screens/SupportScreen';
 import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
 import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
@@ -2077,7 +2078,8 @@ function VinhaApp() {
       }),
     [database.exerciseLogs, database.exerciseTemplates, database.workoutSessions],
   );
-  const coachProUnlocked = isProUnlocked(preferences);
+  const proEntitlement = resolveProEntitlement(preferences);
+  const coachProUnlocked = proEntitlement.unlocked;
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
   const premiumTrialEndsAt = useMemo(() => {
@@ -3765,6 +3767,23 @@ function VinhaApp() {
         language={preferences.appLanguage}
         promoProUntil={preferences.promoProUntil}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+        onManageMembership={() => navigate({ tab: 'profile', screen: 'membership_end' })}
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'membership_end') {
+    content = (
+      <MembershipEndScreen
+        language={preferences.appLanguage}
+        // The entitlement names its own source, so the screen never has to
+        // guess which of promo / demo switch is keeping Pro on.
+        source={proEntitlement.source ?? 'none'}
+        promoUntil={proEntitlement.promoUntil}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
+        onKeep={() => navigate({ tab: 'profile', screen: 'premium' })}
+        onEndNow={() => {
+          void updatePreferences({ adaptiveCoachPremiumUnlocked: false });
+          navigateBack({ tab: 'profile', screen: 'subscription' });
+        }}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'support') {
@@ -4083,8 +4102,10 @@ function VinhaApp() {
     !(route.tab === 'profile' && route.screen === 'premium_unlock') &&
     // The Pro page ends in its own pinned CTA. The floating bar sat on top of
     // it, so the page had to reserve a bar's worth of dead space under the
-    // button — on a paywall, the most expensive space on the screen.
-    !(route.tab === 'profile' && route.screen === 'premium');
+    // button — on a paywall, the most expensive space on the screen. The
+    // membership screen has the same pinned footer, and there the bar covered
+    // the second button outright.
+    !(route.tab === 'profile' && (route.screen === 'premium' || route.screen === 'membership_end'));
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const welcomeActive = onboardingActive && entryFlowActive;

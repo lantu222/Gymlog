@@ -15,6 +15,8 @@ interface SubscriptionScreenProps {
   promoProUntil: string | null;
   language?: AppLanguage;
   onBack: () => void;
+  /** Opens the what-you-lose screen. */
+  onManageMembership: () => void;
 }
 
 const GREEN = '#157A3A';
@@ -30,7 +32,12 @@ const RED_BORDER = '#F3CFC9';
  * are a preview of the intended pricing. "Manage in Google Play" opens the
  * real store subscriptions page.
  */
-export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: SubscriptionScreenProps) {
+export function SubscriptionScreen({
+  promoProUntil,
+  language = 'en',
+  onBack,
+  onManageMembership,
+}: SubscriptionScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
@@ -131,9 +138,12 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
           )}
         </View>
 
-        {/* change plan */}
+        {/* Prices, not a plan switcher. There is no subscription to switch, so
+            a CURRENT badge and a SWITCH pill were describing an account that
+            does not exist. Selecting a row is a preview of what it would cost,
+            and the caption says so. */}
         <View style={styles.section}>
-          <SectionLabel label={t(language, 'subs.changePlan')} />
+          <SectionLabel label={t(language, 'subs.pricing')} />
           <View style={styles.card}>
             <Pressable
               accessibilityRole="button"
@@ -145,7 +155,7 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
                   <Text style={styles.planName}>{t(language, 'subs.yearly')}</Text>
                   {plan === 'yearly' ? (
                     <View style={styles.currentBadge}>
-                      <Text style={styles.currentBadgeText}>{t(language, 'subs.current')}</Text>
+                      <Text style={styles.currentBadgeText}>{t(language, 'subs.bestValue')}</Text>
                     </View>
                   ) : null}
                 </View>
@@ -158,9 +168,7 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
                   </Svg>
                 </View>
               ) : (
-                <View style={styles.switchPill}>
-                  <Text style={styles.switchPillText}>{t(language, 'subs.switch')}</Text>
-                </View>
+                <View style={styles.emptyCircle} />
               )}
             </Pressable>
             <Pressable
@@ -171,11 +179,6 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
               <View style={styles.planCopy}>
                 <View style={styles.planNameRow}>
                   <Text style={styles.planName}>{t(language, 'subs.monthly')}</Text>
-                  {plan === 'monthly' ? (
-                    <View style={styles.currentBadge}>
-                      <Text style={styles.currentBadgeText}>{t(language, 'subs.current')}</Text>
-                    </View>
-                  ) : null}
                 </View>
                 <Text style={styles.planPrice}>{t(language, 'subs.monthlyPrice')}</Text>
               </View>
@@ -186,9 +189,7 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
                   </Svg>
                 </View>
               ) : (
-                <View style={styles.switchPill}>
-                  <Text style={styles.switchPillText}>{t(language, 'subs.switch')}</Text>
-                </View>
+                <View style={styles.emptyCircle} />
               )}
             </Pressable>
           </View>
@@ -220,11 +221,18 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
                 <Text style={styles.manageSub}>{t(language, 'subs.googlePlaySub')}</Text>
               </View>
             </Pressable>
-            <View style={[styles.manageRow, styles.manageRowLast]}>
+            {/* Replaces an inert Restore row. Restore needs a store account to
+                ask, and there is none — this goes somewhere and says something
+                true either way. */}
+            <Pressable
+              accessibilityRole="button"
+              onPress={onManageMembership}
+              style={({ pressed }) => [styles.manageRow, styles.manageRowLast, pressed && { opacity: 0.75 }]}
+            >
               <View style={styles.manageTile}>
                 <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
                   <Path
-                    d="M20 11a8 8 0 10-1.8 5M20 4v6h-6"
+                    d="M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6z"
                     stroke={GREEN}
                     strokeWidth={2}
                     strokeLinecap="round"
@@ -233,10 +241,10 @@ export function SubscriptionScreen({ promoProUntil, language = 'en', onBack }: S
                 </Svg>
               </View>
               <View style={styles.manageCopy}>
-                <Text style={styles.manageTitle}>{t(language, 'subs.restore')}</Text>
-                <Text style={styles.manageSub}>{t(language, 'subs.restoreSub')}</Text>
+                <Text style={styles.manageTitle}>{t(language, 'subs.manageMembership')}</Text>
+                <Text style={styles.manageSub}>{t(language, 'subs.manageMembershipSub')}</Text>
               </View>
-            </View>
+            </Pressable>
           </View>
         </View>
 
@@ -390,8 +398,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   planRowLast: {
     borderBottomWidth: 0,
   },
+  // A literal light lilac here put theme.ink text on a near-white fill under
+  // the dark theme: the selected plan's name went invisible and only its price
+  // showed. Same shape of bug as every other copied hex in this app.
   planRowCurrent: {
-    backgroundColor: '#F6F1FE',
+    backgroundColor: theme.purpleLight,
   },
   planCopy: {
     flex: 1,
@@ -432,17 +443,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  switchPill: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 11,
+  emptyCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     borderWidth: 1.5,
     borderColor: theme.border,
-  },
-  switchPillText: {
-    color: theme.ink,
-    fontSize: 13,
-    fontWeight: '800',
   },
   caption: {
     color: theme.faint,

@@ -155,6 +155,10 @@ export type AppRoute =
     }
   | {
       tab: 'profile';
+      screen: 'membership_end';
+    }
+  | {
+      tab: 'profile';
       screen: 'support';
     }
   | {
