@@ -2,13 +2,14 @@
  * Vinha Guided Player (design_handoff_guided_player).
  *
  * Full-screen Freeletics-style session mode: Warm-up (timed drills) → Workout
- * (strength sets + rests) → Cooldown (stretches) → dark session summary. One
- * thing on screen at a time. The step list itself is pure
+ * (strength sets + rests) → Cooldown (stretches) → save. One thing on screen
+ * at a time. The summary lives in WorkoutCompletionScreen, not here. The step list itself is pure
  * (src/lib/guidedPlayer.ts); this screen owns timers, dispatches into
  * WorkoutProvider (so list view / resume stay in sync) and the visuals.
  */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   AppState,
@@ -1589,11 +1590,6 @@ export function GuidedPlayerScreen({
       {mode === 'player' && step.type === 'finish' && (
         <FinishView
           sessionTitle={sessionTitle}
-          elapsedSeconds={session.elapsedSeconds}
-          exercises={exercises}
-          history={workout.history}
-          weekProgress={weekProgress}
-          nextUp={nextUp}
           isSaving={isSavingWorkout}
           language={language}
           onFinish={onFinishSession}
@@ -1977,167 +1973,51 @@ function SetStepView({
 }
 
 /* ── dark scrollable session summary ── */
+/**
+ * The last step: the save, and nothing else.
+ *
+ * This used to be a summary — week bar, title, PR card, duration/sets/volume,
+ * a coach line, next up — and then Workout Complete opened straight after it
+ * with the same facts and more of them. Two finish screens, the first a
+ * thinner version of the second, which is why it read as the poor relation.
+ *
+ * The week bar and the next session moved to Workout Complete; the PR, the
+ * stats and the coach line were already there. What is left is the one thing
+ * that belongs between the last set and the summary: saying the workout is
+ * being written down, so a slow save is never a blank screen.
+ */
 function FinishView({
   sessionTitle,
-  elapsedSeconds,
-  exercises,
-  history,
-  weekProgress,
-  nextUp,
   isSaving,
   language,
   onFinish,
 }: {
   sessionTitle: string;
-  elapsedSeconds: number;
-  exercises: WorkoutExerciseInstance[];
-  history: ReturnType<typeof useWorkoutContext>['history'];
-  weekProgress: GuidedWeekProgress | null;
-  nextUp: GuidedNextUp | null;
   isSaving: boolean;
   language: AppLanguage;
   onFinish: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
+  const firedRef = useRef(false);
 
-  const completedSets = exercises.flatMap((exercise) => exercise.sets.filter((set) => set.status === 'completed'));
-  const volumeKg = completedSets.reduce((sum, set) => sum + (set.actualLoadKg ?? 0) * (set.actualReps ?? 0), 0);
-  const minutes = Math.floor(elapsedSeconds / 60);
-  const durationLabel = `${minutes}:${String(Math.max(0, elapsedSeconds % 60)).padStart(2, '0')}`;
-
-  const pr = findGuidedSessionPr(exercises, (exerciseIndex) => {
-    const entries = getHistoryEntriesForExercise(history, exercises[exerciseIndex]);
-    // Exclude today's just-written entries: history is only appended on save,
-    // which has not happened yet, so everything here is prior sessions.
-    let best = 0;
-    for (const entry of entries) {
-      for (const set of entry.sets) {
-        if (set.loadKg > best) {
-          best = set.loadKg;
-        }
-      }
+  // Fires once on arrival: the summary is the destination now, so there is
+  // nothing here to read and nothing to press.
+  useEffect(() => {
+    if (firedRef.current) {
+      return;
     }
-    return best > 0 ? best : null;
-  });
-  const coach = buildGuidedCoachMessage({ pr, topSet: findGuidedTopSet(exercises) }, language);
-
-  const weekSegments = weekProgress ? Math.max(weekProgress.target, weekProgress.done, 1) : 0;
+    firedRef.current = true;
+    onFinish();
+  }, [onFinish]);
 
   return (
     <StepIn stepKey="finish">
-      <View style={{ flex: 1, minHeight: 0 }}>
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 18, paddingTop: 8, paddingBottom: 12, gap: 11 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {weekProgress ? (
-            <View style={styles.finishCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 11, fontWeight: '800', letterSpacing: 1.4, color: GPD.purple }}>
-                  {weekProgress.weekLabel}
-                </Text>
-                <Text style={{ fontSize: 11.5, fontWeight: '800', color: GPD.muted }}>
-                  {weekProgress.done}/{weekProgress.target}
-                </Text>
-              </View>
-              <View style={{ flexDirection: 'row', gap: 5, marginTop: 9 }}>
-                {Array.from({ length: weekSegments }).map((_, index) => (
-                  <View
-                    key={index}
-                    style={{
-                      flex: 1,
-                      height: 5,
-                      borderRadius: 99,
-                      backgroundColor: index < weekProgress.done ? GPD.green : 'rgba(255,255,255,0.14)',
-                    }}
-                  />
-                ))}
-              </View>
-              <Text style={{ fontSize: 13.5, fontWeight: '700', color: GPD.ink, marginTop: 10 }}>
-                {weekProgress.done === 1
-                  ? t(language, 'guided.finish.towardGoalOne')
-                  : t(language, 'guided.finish.towardGoalMany', { count: weekProgress.done })}
-              </Text>
-            </View>
-          ) : null}
-
-          <Text style={styles.finishTitle}>{t(language, 'guided.finish.title', { title: sessionTitle })}</Text>
-
-          {pr ? (
-            <View style={[styles.finishCard, { alignItems: 'center' }]}>
-              <View style={styles.prPill}>
-                <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.amber }}>
-                  {t(language, 'guided.finish.newRecord')}
-                </Text>
-              </View>
-              <PopIn popKey="pr">
-                <Text style={styles.prValue}>
-                  {removeTrailingZeros(pr.bestKg)}
-                  <Text style={{ fontSize: 17, color: GPD.muted }}> kg</Text>
-                </Text>
-              </PopIn>
-              <Text style={{ fontSize: 13.5, fontWeight: '700', color: GPD.muted, marginTop: 6 }}>{pr.exerciseName}</Text>
-              <View style={styles.prDeltaPill}>
-                <Text style={{ fontSize: 11.5, fontWeight: '800', color: GPD.green }}>
-                  ↑ +{removeTrailingZeros(pr.deltaKg)} kg
-                </Text>
-              </View>
-            </View>
-          ) : null}
-
-          <View style={[styles.finishCard, { flexDirection: 'row', paddingHorizontal: 8, paddingVertical: 14 }]}>
-            {[
-              { value: durationLabel, label: t(language, 'guided.finish.duration') },
-              { value: `${completedSets.length}`, label: t(language, 'guided.finish.sets') },
-              { value: `${Math.round(volumeKg)} kg`, label: t(language, 'guided.finish.volume') },
-            ].map((stat) => (
-              <View key={stat.label} style={{ flex: 1, alignItems: 'center' }}>
-                <Text style={{ fontSize: 19, fontWeight: '800', color: GPD.ink }}>{stat.value}</Text>
-                <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1, color: GPD.muted, marginTop: 3 }}>
-                  {stat.label}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.finishCard}>
-            <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.purple }}>
-              {t(language, 'guided.finish.coach')}
-            </Text>
-            <Text style={{ fontSize: 14.5, fontWeight: '800', color: GPD.ink, marginTop: 6, lineHeight: 21 }}>
-              {coach.message}
-            </Text>
-            {coach.sub ? (
-              <Text style={{ fontSize: 13, fontWeight: '600', color: GPD.muted, marginTop: 4 }}>{coach.sub}</Text>
-            ) : null}
-          </View>
-
-          {nextUp ? (
-            <View style={styles.finishCard}>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text style={{ fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: GPD.green }}>
-                  {t(language, 'guided.finish.nextUp')}
-                </Text>
-                <Text style={{ fontSize: 11.5, fontWeight: '800', color: GPD.muted }}>{nextUp.weekday.toUpperCase()}</Text>
-              </View>
-              <Text style={{ fontSize: 15.5, fontWeight: '800', color: GPD.ink, marginTop: 6 }}>{nextUp.name}</Text>
-            </View>
-          ) : null}
-        </ScrollView>
-
-        {/* One button. There were two — "Valmis" and "Jatka →" — wired to the
-            same onFinish, so the screen offered a choice that was not one. */}
-        <View style={styles.finishFooter}>
-          <Pressable
-            style={[styles.finishContinueBtn, { flex: 1, opacity: isSaving ? 0.6 : 1 }]}
-            onPress={isSaving ? undefined : onFinish}
-          >
-            <Text style={{ fontSize: 15, fontWeight: '800', color: '#0C2A1C' }}>
-              {t(language, isSaving ? 'guided.finish.saving' : 'guided.finish.continue')}
-            </Text>
-          </Pressable>
-        </View>
+      <View style={{ flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+        <Text style={styles.finishTitle}>{t(language, 'guided.finish.title', { title: sessionTitle })}</Text>
+        <ActivityIndicator size="large" color={GPD.green} />
+        <Text style={{ fontSize: 13.5, fontWeight: '700', color: GPD.muted }}>
+          {t(language, isSaving ? 'guided.finish.saving' : 'guided.finish.continue')}
+        </Text>
       </View>
     </StepIn>
   );

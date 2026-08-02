@@ -3368,6 +3368,8 @@ function VinhaApp() {
     content = (
       <WorkoutCompletionScreen
         language={preferences.appLanguage}
+        weekProgress={guidedWeekProgress}
+        nextUp={guidedNextUp}
         workoutName={completionSummary.workoutName}
         performedAt={completionSummary.performedAt}
         durationMinutes={completionSummary.durationMinutes}

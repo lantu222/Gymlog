@@ -68,6 +68,10 @@ interface WorkoutCompletionScreenProps {
   muscles: MuscleFocusRow[];
   exerciseCards: WorkoutCompletionExerciseCard[];
   prCards: WorkoutCompletionPrCard[];
+  /** This week's completed/target — moved here from the guided finish step. */
+  weekProgress?: { weekLabel: string; done: number; target: number } | null;
+  /** The next planned session, same source the guided finish used. */
+  nextUp?: { name: string; weekday: string } | null;
   language?: AppLanguage;
   onDone: () => void;
   /**
@@ -119,6 +123,8 @@ export function WorkoutCompletionScreen({
   exerciseCards,
   prCards,
   language = 'en',
+  weekProgress = null,
+  nextUp = null,
   onDone,
   lockedInsight = null,
   onOpenPremium,
@@ -424,6 +430,43 @@ export function WorkoutCompletionScreen({
             </Animated.View>
           ) : null}
 
+          {/* Both of these lived on the guided finish step, which showed the
+              same duration/sets/volume/coach as this screen and then handed
+              straight over to it. They are the two things it had that this one
+              did not, so they came across and that screen became the save. */}
+          {weekProgress ? (
+            <Animated.View style={[styles.weekCard, rise(6)]}>
+              <View style={styles.weekHeadRow}>
+                <Text style={styles.weekKicker}>{weekProgress.weekLabel}</Text>
+                <Text style={styles.weekCount}>
+                  {weekProgress.done}/{weekProgress.target}
+                </Text>
+              </View>
+              <View style={styles.weekBarRow}>
+                {Array.from({ length: Math.max(weekProgress.target, weekProgress.done, 1) }).map(
+                  (_, index) => (
+                    <View
+                      key={index}
+                      style={[styles.weekBar, index < weekProgress.done && styles.weekBarDone]}
+                    />
+                  ),
+                )}
+              </View>
+            </Animated.View>
+          ) : null}
+
+          {nextUp ? (
+            <Animated.View style={[styles.nextCard, rise(6)]}>
+              <View style={styles.weekHeadRow}>
+                <Text style={styles.nextKicker}>{t(language, 'complete.nextUp')}</Text>
+                <Text style={styles.nextWeekday}>{nextUp.weekday.toUpperCase()}</Text>
+              </View>
+              <Text style={styles.nextName} numberOfLines={2}>
+                {localizeSessionName(nextUp.name, language)}
+              </Text>
+            </Animated.View>
+          ) : null}
+
           <Animated.View style={rise(6)}>
             <Pressable
               accessibilityRole="button"
@@ -533,6 +576,71 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '600',
+  },
+  weekCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  weekHeadRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weekKicker: {
+    color: theme.purpleDark,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  weekCount: {
+    color: theme.muted,
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  weekBarRow: {
+    flexDirection: 'row',
+    gap: 5,
+    marginTop: 10,
+  },
+  weekBar: {
+    flex: 1,
+    height: 5,
+    borderRadius: 99,
+    backgroundColor: theme.border,
+  },
+  weekBarDone: {
+    backgroundColor: theme.green,
+  },
+  nextCard: {
+    backgroundColor: theme.surface,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 14,
+  },
+  nextKicker: {
+    color: theme.greenInk,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+  },
+  nextWeekday: {
+    color: theme.muted,
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  nextName: {
+    color: theme.ink,
+    fontSize: 15.5,
+    fontWeight: '800',
+    marginTop: 6,
   },
   body: {
     paddingHorizontal: 18,
