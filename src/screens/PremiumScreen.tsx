@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProPill } from '../components/ProLockedCard';
 import { removeTrailingZeros } from '../lib/format';
@@ -8,7 +9,6 @@ import { I18nKey, t } from '../lib/i18n';
 import { PremiumHeroChart } from '../lib/premiumHeroChart';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import { layout } from '../theme';
 import { AppLanguage, UnitPreference } from '../types/models';
 
 /**
@@ -261,6 +261,7 @@ export function PremiumScreen({
 }: PremiumScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
   const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
   const promoOnly = proUnlocked && !previewUnlocked;
   const chartStep = heroChart ? fmt(heroChart.projectedNext - heroChart.latest) : null;
@@ -460,7 +461,7 @@ export function PremiumScreen({
         releaseReadiness.test.cjs fails while this copy is present and billing
         still is not, so the demo cannot become the release by forgetting.
       */}
-      <View style={styles.ctaBar}>
+      <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 12 }]}>
         <Pressable
           accessibilityRole="button"
           onPress={onTogglePreview}
@@ -1130,10 +1131,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 18,
     marginTop: 16,
   },
+  // The tab bar is hidden on this route, so the CTA sits on the real bottom
+  // edge and the page keeps a bar's worth of height it used to reserve for a
+  // control that was floating over the button anyway.
   ctaBar: {
     paddingHorizontal: 18,
     paddingTop: 12,
-    paddingBottom: layout.bottomTabBarReserve,
     backgroundColor: theme.surface,
     borderTopWidth: 1,
     borderTopColor: theme.border,

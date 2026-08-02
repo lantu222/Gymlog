@@ -4080,7 +4080,11 @@ function VinhaApp() {
     !(route.tab === 'profile' && route.screen === 'setup') &&
     // The unlock moment is a full-screen takeover; a floating bar over it
     // would say 'you are still in the app' at the one moment that should not.
-    !(route.tab === 'profile' && route.screen === 'premium_unlock');
+    !(route.tab === 'profile' && route.screen === 'premium_unlock') &&
+    // The Pro page ends in its own pinned CTA. The floating bar sat on top of
+    // it, so the page had to reserve a bar's worth of dead space under the
+    // button — on a paywall, the most expensive space on the screen.
+    !(route.tab === 'profile' && route.screen === 'premium');
   const setupOnboardingActive = route.tab === 'profile' && route.screen === 'setup';
   const onboardingScreenActive = onboardingActive || setupOnboardingActive;
   const welcomeActive = onboardingActive && entryFlowActive;

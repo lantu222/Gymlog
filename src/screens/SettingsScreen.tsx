@@ -298,7 +298,10 @@ export function SettingsScreen({
             <Row
               icon="moon"
               title={t(language, 'settings.darkTheme')}
-              sub={t(language, 'settings.darkTheme.sub')}
+              // "A Pro perk" is a reason to upgrade, which is only useful to
+              // someone who has not. Once Pro is on it is the one line on the
+              // row that says nothing about what the switch does.
+              sub={t(language, themeRow.locked ? 'settings.darkTheme.sub' : 'settings.darkTheme.subPro')}
               onPress={themeRow.locked ? onOpenSubscription : undefined}
               control={
                 themeRow.locked ? (
