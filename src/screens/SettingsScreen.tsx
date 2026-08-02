@@ -7,7 +7,8 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
 import { getHealthProviderLabel } from '../integrations/health';
 import { t } from '../lib/i18n';
-import { isProUnlocked } from '../lib/proEntitlement';
+import { isDemoBuild } from '../lib/demoMode';
+import { resolveProEntitlement } from '../lib/proEntitlement';
 import { resolveThemeRowState } from '../lib/themePreference';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { appInfo, layout } from '../theme';
@@ -61,10 +62,10 @@ function memberSinceLabel(firstSessionAt: string | null, language: AppLanguage) 
 
 function getInitials(name: string | null) {
   if (!name?.trim()) {
-    return 'G';
+    return 'V';
   }
   const parts = name.trim().split(/\s+/).filter(Boolean);
-  const first = parts[0]?.charAt(0) ?? 'G';
+  const first = parts[0]?.charAt(0) ?? 'V';
   const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
   return (first + second).toUpperCase();
 }
@@ -226,7 +227,9 @@ export function SettingsScreen({
   const [resetVisible, setResetVisible] = useState(false);
   const language = preferences.appLanguage;
   // A redeemed promo is Pro too, so the badge cannot read the preview switch.
-  const proUnlocked = isProUnlocked(preferences);
+  const entitlement = resolveProEntitlement(preferences);
+  const proUnlocked = entitlement.unlocked;
+  const demoBuild = isDemoBuild();
   const themeRow = resolveThemeRowState(preferences);
   const displayName = preferences.profileName?.trim() ? preferences.profileName.trim() : t(language, 'profile.guestName');
   const soundAndHaptics = preferences.soundCuesEnabled || preferences.hapticsEnabled;
@@ -500,6 +503,42 @@ export function SettingsScreen({
             />
           </View>
         </View>
+
+        {/* Demo only, and it disappears on its own: isDemoBuild reads the same
+            app.json flag the release guard checks, so clearing that flag to ship
+            takes this switch with it. No separate list to remember.
+
+            It lives down here rather than on the Pro page because that is where
+            it was, and it was in the way. Its job is to let you walk the app as
+            Free and as Pro and see the difference — so it has to turn OFF as
+            easily as it turns ON, which the Pro page's CTA never did. */}
+        {demoBuild ? (
+          <View style={styles.section}>
+            <SectionLabel label={t(language, 'settings.section.demo')} />
+            <View style={styles.card}>
+              <Row
+                icon="spark"
+                title={t(language, 'settings.demoPro')}
+                // Truthful about which source is granting Pro: a redeemed promo
+                // outranks this switch, so flipping it off would not show Free
+                // and the row says so instead of appearing broken.
+                sub={
+                  entitlement.source === 'promo'
+                    ? t(language, 'settings.demoPro.promo')
+                    : t(language, 'settings.demoPro.sub')
+                }
+                last
+                control={
+                  <ToggleSwitch
+                    label={t(language, 'settings.demoPro')}
+                    value={preferences.adaptiveCoachPremiumUnlocked}
+                    onChange={(next) => onPreferencesChange({ adaptiveCoachPremiumUnlocked: next })}
+                  />
+                }
+              />
+            </View>
+          </View>
+        ) : null}
 
         <Text style={styles.footer}>Vinha · v{appInfo.version}</Text>
       </ScrollView>

@@ -6,6 +6,7 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
 import { t } from '../lib/i18n';
+import { redeemPromoCode } from '../lib/promoCodes';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
@@ -19,9 +20,6 @@ interface PromoCodeScreenProps {
   onRedeemed: (proUntilIso: string) => void;
 }
 
-/** The demo code — one free month of Pro. */
-const DEMO_CODE = 'gainer_2026';
-
 export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRedeemed }: PromoCodeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -34,11 +32,10 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
     if (code.trim().length === 0) {
       return;
     }
-    if (code.trim().toLowerCase() === DEMO_CODE) {
-      const until = new Date();
-      until.setDate(until.getDate() + 30);
+    const until = redeemPromoCode(code);
+    if (until) {
       setError(null);
-      onRedeemed(until.toISOString());
+      onRedeemed(until);
     } else {
       setError(t(language, 'promo.noMatch'));
     }

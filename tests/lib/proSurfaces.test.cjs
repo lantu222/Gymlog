@@ -45,20 +45,40 @@ module.exports = [
     },
   },
   {
-    name: 'Settings and Plan settings resolve Pro through isProUnlocked',
+    name: 'Settings and Plan settings resolve Pro through the entitlement',
     run() {
-      for (const [name, source] of [
-        ['SettingsScreen', settingsSource],
-        ['PlanSettingsScreen', planSettingsSource],
-      ]) {
-        assert.match(source, /import \{ isProUnlocked \} from '\.\.\/lib\/proEntitlement';/, name);
-        assert.match(source, /const proUnlocked = isProUnlocked\(preferences\);/, name);
-        assert.doesNotMatch(
-          source,
-          /preferences\.adaptiveCoachPremiumUnlocked/,
-          `${name} must not read the raw preview flag — a promo user is Pro too`,
-        );
-      }
+      assert.match(
+        planSettingsSource,
+        /import \{ isProUnlocked \} from '\.\.\/lib\/proEntitlement';/,
+      );
+      assert.match(planSettingsSource, /const proUnlocked = isProUnlocked\(preferences\);/);
+      assert.doesNotMatch(
+        planSettingsSource,
+        /preferences\.adaptiveCoachPremiumUnlocked/,
+        'PlanSettingsScreen must not read the raw preview flag — a promo user is Pro too',
+      );
+
+      // Settings resolves the same way, but through resolveProEntitlement
+      // because its demo row has to say WHICH source is granting Pro.
+      assert.match(
+        settingsSource,
+        /import \{ resolveProEntitlement \} from '\.\.\/lib\/proEntitlement';/,
+      );
+      assert.match(settingsSource, /const proUnlocked = entitlement\.unlocked;/);
+
+      // The raw preview flag may be read in exactly one place: the demo switch,
+      // which IS that flag. Everywhere else it would hide promo users from a
+      // Pro surface, which is the bug this whole suite exists for.
+      const demoStart = settingsSource.indexOf('{demoBuild ? (');
+      assert.ok(demoStart > 0, 'the demo block is gone — move this guard, do not delete it');
+      const demoEnd = settingsSource.indexOf(') : null}', demoStart);
+      const outsideDemo =
+        settingsSource.slice(0, demoStart) + settingsSource.slice(demoEnd);
+      assert.doesNotMatch(
+        outsideDemo,
+        /preferences\.adaptiveCoachPremiumUnlocked/,
+        'SettingsScreen reads the raw preview flag outside the demo switch',
+      );
     },
   },
   {
