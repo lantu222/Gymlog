@@ -43,6 +43,11 @@ export function SimpleLineChart({
   const plotWidth = Math.max(width - leftAxisWidth - chartPadding, 1);
   const plotHeight = height - chartPadding * 2;
   const values = points.map((point) => point.value);
+  // A metric that is zero everywhere has no trend to draw, and the scale code
+  // below cannot say so: with every value at 0 it pads to a 0–1 kg axis, which
+  // reads as "your squat is somewhere under a kilo". Real case, not a corner
+  // one — bodyweight work, or any session logged without entering loads.
+  const hasSomethingToPlot = values.some((value) => value !== 0);
   const firstValue = values[0] ?? 0;
   const explicitTickMin = yTickValues?.length ? Math.min(...yTickValues) : null;
   const explicitTickMax = yTickValues?.length ? Math.max(...yTickValues) : null;
@@ -96,7 +101,7 @@ export function SimpleLineChart({
       <View style={styles.chartFrame} onLayout={handleLayout}>
         {width > 0 ? (
           <>
-            {points.length ? (
+            {points.length && hasSomethingToPlot ? (
               <>
                 <View pointerEvents="none" style={styles.axisLabels}>
                   {yTicks.map((tick) => (
@@ -181,7 +186,7 @@ export function SimpleLineChart({
           </>
         ) : null}
       </View>
-      {points.length && showFooter ? (
+      {points.length && hasSomethingToPlot && showFooter ? (
         <View
           style={[
             styles.footer,
