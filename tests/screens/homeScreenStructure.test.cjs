@@ -484,4 +484,31 @@ module.exports = [
       assert.match(bottomTabBarSource, /delay: 240/);
     },
   },
+  {
+    name: 'an unknown training week asks for the days instead of guessing them',
+    run() {
+      // setupAvailableDays is only written when the user explicitly picks
+      // weekdays: the ready-program path never asks, and neither does the
+      // guided path when the app is left to decide. That left the calendar,
+      // the week strip and the home widget blank with no route to fill them.
+      const writes = appSource.match(/setupAvailableDays: [^,\r\n]+/g) ?? [];
+      assert.ok(
+        writes.length <= 3,
+        'a new setupAvailableDays writer appeared — check whether the empty-week prompt is still needed',
+      );
+
+      // The blank asks the question. It must never answer it: deriving
+      // Mon/Wed/Fri from "3 a week" is the invention the dots exist to avoid.
+      assert.match(homeScreenSource, /home\.calendar\.setDays/);
+      assert.match(homeScreenSource, /onSetTrainingDays/);
+      // editSchedule: true, because landing on a read-only schedule with an
+      // Edit button is not what "Pick your training days" promised.
+      assert.match(appSource, /screen: 'training_plan', editSchedule: true/);
+      assert.match(appSource, /startEditingSchedule=\{route\.editSchedule === true\}/);
+
+      // The dots themselves stay gated on real data in both calendar views.
+      assert.match(homeScreenSource, /trainingDayIndexes\.length > 0/);
+      assert.match(homeScreenSource, /weekStripDotUnknown/);
+    },
+  },
 ];

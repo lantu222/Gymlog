@@ -119,6 +119,8 @@ interface HomeScreenProps {
   proUnlocked?: boolean;
   historyItems?: HomeHistoryItem[];
   onOpenHistory?: () => void;
+  /** Opens the training-plan screen so the week can stop being unknown. */
+  onSetTrainingDays?: () => void;
   onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
   statCatalogCards?: HomeStatCard[];
@@ -168,6 +170,7 @@ export function HomeScreen({
   proUnlocked = false,
   historyItems = [],
   onOpenHistory,
+  onSetTrainingDays,
   onSelectHistorySession,
   statCatalogCards = [],
   pinnedStatCardKeys = [],
@@ -573,6 +576,30 @@ export function HomeScreen({
                   <Text style={styles.monthLegendText}>{t(language, 'home.calendar.recovery')}</Text>
                 </View>
               </View>
+            ) : onSetTrainingDays ? (
+              // Nobody is ever asked which weekdays they train unless they pick
+              // "I choose my days" in onboarding — the ready-program path and
+              // "let the app decide" both leave it empty. That left the
+              // calendar, the week strip and the home widget permanently blank
+              // with no way in. The blank now asks the question instead of
+              // guessing an answer: inventing Mon/Wed/Fri from "3 a week" is
+              // the exact invention the dots were built to avoid.
+              <Pressable
+                accessibilityRole="button"
+                onPress={onSetTrainingDays}
+                style={({ pressed }) => [styles.monthSetDaysRow, pressed && styles.pressed]}
+              >
+                <Text style={styles.monthSetDaysText}>{t(language, 'home.calendar.setDays')}</Text>
+                <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M9 6l6 6-6 6"
+                    stroke={theme.purpleDark}
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </Pressable>
             ) : null}
           </Animated.View>
         </Animated.View>
@@ -1134,6 +1161,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 16,
     marginTop: 8,
     marginBottom: 4,
+  },
+  monthSetDaysRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: 8,
+    marginBottom: 4,
+    paddingVertical: 4,
+  },
+  monthSetDaysText: {
+    color: theme.purpleDark,
+    fontSize: 12.5,
+    fontWeight: '800',
   },
   monthLegendItem: {
     flexDirection: 'row',

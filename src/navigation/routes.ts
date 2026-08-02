@@ -136,6 +136,8 @@ export type AppRoute =
   | {
       tab: 'profile';
       screen: 'training_plan';
+      /** Opens on the weekday editor — set when the week is still unknown. */
+      editSchedule?: boolean;
     }
   | {
       tab: 'profile';

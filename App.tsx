@@ -3681,6 +3681,7 @@ function VinhaApp() {
     content = (
       <TrainingPlanScreen
         language={preferences.appLanguage}
+        startEditingSchedule={route.editSchedule === true}
         planName={profilePlanSummary.name}
         planType={homeActivePlanCard?.programType ?? null}
         planDaysPerWeek={profilePlanSummary.daysPerWeek}
@@ -4077,6 +4078,9 @@ function VinhaApp() {
         proUnlocked={coachProUnlocked}
         historyItems={homeHistoryItems}
         onOpenHistory={() => navigate({ tab: 'home', screen: 'history' })}
+        onSetTrainingDays={() =>
+          navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })
+        }
         onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );

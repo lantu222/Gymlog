@@ -43,6 +43,12 @@ interface TrainingPlanScreenProps {
   exerciseLibrary: CsvLibraryEntry[];
   language?: AppLanguage;
   onBack: () => void;
+  /**
+   * Opens straight into the weekday editor. Home sends the user here when the
+   * week is unknown, and "Pick your training days" that lands on a read-only
+   * schedule with an Edit button is a promise the screen did not keep.
+   */
+  startEditingSchedule?: boolean;
   onChangeTrainingDays: (days: SetupWeekday[]) => void;
   /** Present only for custom plans — ready programs are immutable. */
   onEditCustomPlan?: () => void;
@@ -81,6 +87,7 @@ export function TrainingPlanScreen({
   exerciseLibrary,
   language = 'en',
   onBack,
+  startEditingSchedule = false,
   onChangeTrainingDays,
   onEditCustomPlan,
   onOpenPlanSettings,
@@ -91,7 +98,7 @@ export function TrainingPlanScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const settingsStyles = useThemedStyles(makeSettingsStyles);
-  const [editingSchedule, setEditingSchedule] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState(startEditingSchedule);
   const [draftDays, setDraftDays] = useState<SetupWeekday[]>(trainingDays);
   const [createOpen, setCreateOpen] = useState(false);
 
@@ -99,7 +106,7 @@ export function TrainingPlanScreen({
   const draftValid = draftDays.length >= MIN_TRAINING_DAYS && draftDays.length <= MAX_TRAINING_DAYS;
   const draftDirty = [...draftDays].sort().join(',') !== [...trainingDays].sort().join(',');
 
-  const startEditingSchedule = () => {
+  const beginEditingSchedule = () => {
     setDraftDays(trainingDays);
     setEditingSchedule(true);
   };
@@ -193,7 +200,7 @@ export function TrainingPlanScreen({
                       : t(language, 'plan.done')
                     : t(language, 'plan.edit')
                 }
-                onAction={editingSchedule ? finishEditingSchedule : startEditingSchedule}
+                onAction={editingSchedule ? finishEditingSchedule : beginEditingSchedule}
               />
               <View style={[settingsStyles.card, styles.scheduleCard]}>
                 <View style={styles.weekdayRow}>
