@@ -253,15 +253,19 @@ const makeStyles = (theme: Theme) =>
       borderTopColor: theme.border,
       ...CARD_SHADOW,
     },
+    // highlight, not purple: the app's rule is orange = the thing to press,
+    // violet = the brand. Purple resolves it in the light theme, orange in the
+    // dark one, and onHighlight follows so the label stays legible on both —
+    // a fixed #FFFFFF here would be white on orange.
     keepButton: {
       height: 50,
       borderRadius: 15,
-      backgroundColor: theme.purple,
+      backgroundColor: theme.highlight,
       alignItems: 'center',
       justifyContent: 'center',
     },
     keepButtonText: {
-      color: '#FFFFFF',
+      color: theme.onHighlight,
       fontSize: 15.5,
       fontWeight: '800',
     },

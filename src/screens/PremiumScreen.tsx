@@ -461,7 +461,11 @@ export function PremiumScreen({
         releaseReadiness.test.cjs fails while this copy is present and billing
         still is not, so the demo cannot become the release by forgetting.
       */}
-      <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 12 }]}>
+      {/* Sits on the gesture bar with only the system inset under it. The fine
+          print and the legal links are what push the button up, so they are
+          tight — every point spent below the CTA is a point of the page you
+          cannot see. */}
+      <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 2 }]}>
         <Pressable
           accessibilityRole="button"
           onPress={onTogglePreview}
@@ -1162,17 +1166,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   ctaFine: {
     textAlign: 'center',
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
     color: theme.muted,
-    marginTop: 9,
+    marginTop: 7,
   },
   legalRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 16,
-    marginTop: 8,
+    marginTop: 6,
   },
   legalText: {
     fontSize: 11.5,
