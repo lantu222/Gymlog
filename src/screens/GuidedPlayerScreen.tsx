@@ -271,23 +271,14 @@ function MediaZone({
     </>
   );
 
-  if (imageUrl && !imageFailed) {
-    return (
-      <View style={[styles.mediaZone, { height, backgroundColor: theme.surface, borderColor: '#E6DAF8' }]}>
-        <Image
-          source={{ uri: imageUrl }}
-          resizeMode={fit}
-          style={{ width: '100%', height: '100%' }}
-          onError={() => setImageFailed(true)}
-        />
-        {overlays}
-      </View>
-    );
-  }
-
   const initials = getGuidedInitials(name);
-  return (
-    <View style={[styles.mediaZone, { height, backgroundColor: '#E9DCFA', borderColor: '#E6DAF8' }]}>
+  // The panel is the FLOOR, not the fallback. It used to render only after
+  // onError, so a photo that was merely slow left a blank white card filling
+  // half the screen with nothing in it — and onError never fires while a
+  // request is still in flight. Drawing the panel underneath means the media
+  // zone is never empty: the photo arrives on top of it, or it does not.
+  const panel = (
+    <>
       <View style={StyleSheet.absoluteFill}>
         <Svg width="100%" height="100%">
           <Defs>
@@ -301,6 +292,27 @@ function MediaZone({
         </Svg>
       </View>
       <Text style={styles.mediaInitials}>{initials}</Text>
+    </>
+  );
+
+  if (imageUrl && !imageFailed) {
+    return (
+      <View style={[styles.mediaZone, { height, backgroundColor: '#E9DCFA', borderColor: '#E6DAF8' }]}>
+        {panel}
+        <Image
+          source={{ uri: imageUrl }}
+          resizeMode={fit}
+          style={StyleSheet.absoluteFill}
+          onError={() => setImageFailed(true)}
+        />
+        {overlays}
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.mediaZone, { height, backgroundColor: '#E9DCFA', borderColor: '#E6DAF8' }]}>
+      {panel}
       {overlays}
     </View>
   );
@@ -1668,8 +1680,11 @@ function SetStepView({
               <View style={styles.setTargetRow}>
                 <TargetNumber value={step.setIndex + 1} unit="" size={42} />
                 <Text style={styles.setTargetLabel}>{t(language, 'guided.numLabel.set')}</Text>
-                <TargetNumber value={reps} unit="×" size={repsSize} />
-                <Text style={styles.setTargetLabel}>{t(language, 'guided.reps')}</Text>
+                {/* The × used to hang off the reps number, so the row read
+                    "1 SARJA 6× TOISTOT" — the multiplier attached to the wrong
+                    side and the noun in the wrong case. */}
+                <TargetNumber value={reps} unit="" size={repsSize} />
+                <Text style={styles.setTargetLabel}>{t(language, 'guided.repsCount')}</Text>
               </View>
               {!bodyweight && kg > 0 ? (
                 <View style={styles.setTargetRow}>

@@ -1103,6 +1103,9 @@ const EN = {
   'guided.setOfCount': 'Set {index}/{count}',
   'guided.numLabel.set': 'SET',
   'guided.reps': 'REPS',
+  // Same word, but after a numeral Finnish takes the partitive, so the count
+  // context needs its own key: "6 toistoa", not "6 toistot".
+  'guided.repsCount': 'REPS',
   'guided.weight': 'WEIGHT',
   'guided.back': '‹ Back',
   'guided.logSet': 'Log set',
@@ -3459,6 +3462,7 @@ const FI: Record<I18nKey, string> = {
   'guided.setOfCount': 'Sarja {index}/{count}',
   'guided.numLabel.set': 'SARJA',
   'guided.reps': 'TOISTOT',
+  'guided.repsCount': 'TOISTOA',
   'guided.weight': 'PAINO',
   'guided.back': '‹ Takaisin',
   'guided.logSet': 'Kirjaa sarja',
