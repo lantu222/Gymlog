@@ -503,13 +503,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
   },
+  // A row with no give: a long program name ("Strong Chest Amateur — Päivä 1:
+  // Kyykky & Penkki") pushed past both screen edges and the date went with it.
+  // It wraps now, and the name can wrap inside itself, so nothing is ever cut.
   heroSubRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 7,
   },
   heroSubName: {
+    flexShrink: 1,
+    textAlign: 'center',
     color: '#FFFFFF',
     fontSize: 14,
     lineHeight: 18,

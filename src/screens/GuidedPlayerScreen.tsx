@@ -2126,12 +2126,11 @@ function FinishView({
           ) : null}
         </ScrollView>
 
+        {/* One button. There were two — "Valmis" and "Jatka →" — wired to the
+            same onFinish, so the screen offered a choice that was not one. */}
         <View style={styles.finishFooter}>
-          <Pressable style={styles.finishGhostBtn} onPress={isSaving ? undefined : onFinish}>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: GPD.ink }}>{t(language, 'guided.finish.done')}</Text>
-          </Pressable>
           <Pressable
-            style={[styles.finishContinueBtn, { opacity: isSaving ? 0.6 : 1 }]}
+            style={[styles.finishContinueBtn, { flex: 1, opacity: isSaving ? 0.6 : 1 }]}
             onPress={isSaving ? undefined : onFinish}
           >
             <Text style={{ fontSize: 15, fontWeight: '800', color: '#0C2A1C' }}>
@@ -2527,16 +2526,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: GPD.line,
-  },
-  finishGhostBtn: {
-    flex: 1,
-    height: 54,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    borderColor: GPD.line,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   finishContinueBtn: {
     flex: 1.4,
