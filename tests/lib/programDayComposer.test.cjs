@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const { composeProgramWeekForSelection } = require('../../.test-dist/lib/programDayComposer');
 const { buildProgramFocusSplit } = require('../../.test-dist/lib/programFocusSplit');
 const { DEFAULT_FIRST_RUN_SELECTION } = require('../../.test-dist/lib/firstRunSetup');
-const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
+const {
+  WORKOUT_SUBSTITUTION_GROUPS,
+  WORKOUT_TEMPLATES_V1,
+} = require('../../.test-dist/features/workout/workoutCatalog');
 
 function findTemplateWithDays(days) {
   const template = WORKOUT_TEMPLATES_V1.find((entry) => entry.daysPerWeek === days);
@@ -87,6 +90,35 @@ module.exports = [
     name: 'programDayComposer: unknown program returns null',
     run() {
       assert.equal(composeProgramWeekForSelection(selectionWithDays(3), 'tpl_does_not_exist'), null);
+    },
+  },
+  {
+    name: 'composed exercises land in real swap groups, so a built plan can be swapped',
+    run() {
+      // The composer used to stamp every exercise with `onboarding_<role>_<n>`
+      // — ids that exist in no group — so getAllowedSwaps found nothing and
+      // NOTHING built through onboarding could be substituted. The list logger
+      // opened an empty swap sheet; the guided player showed no swap row.
+      const template = findTemplateWithDays(3);
+      const week = composeProgramWeekForSelection(selectionWithDays(3), template.id);
+      assert.ok(week, 'the composer should produce a week');
+
+      const exercises = week.sessions.flatMap((session) => session.exercises);
+      assert.ok(exercises.length > 0);
+
+      const swappable = exercises.filter((exercise) => {
+        const group = WORKOUT_SUBSTITUTION_GROUPS.find(
+          (candidate) => candidate.id === exercise.substitutionGroup,
+        );
+        return Boolean(group && group.allowedExerciseNames.length > 1);
+      });
+
+      // Not all of them: an exercise the catalog does not group is genuinely
+      // unswappable and keeps the synthetic id. Most of them must be.
+      assert.ok(
+        swappable.length > exercises.length / 2,
+        `only ${swappable.length}/${exercises.length} composed exercises can be swapped`,
+      );
     },
   },
 ];

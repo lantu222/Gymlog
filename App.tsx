@@ -3372,6 +3372,7 @@ function VinhaApp() {
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         unitPreference={unitPreference}
         availableEquipment={availableEquipmentForDrills}
+        tailoringPreferences={tailoringPreferences}
         exerciseLibrary={exerciseLibrary}
         soundCuesEnabled={preferences.soundCuesEnabled}
         onToggleSoundCues={(next) => void updatePreferences({ soundCuesEnabled: next })}

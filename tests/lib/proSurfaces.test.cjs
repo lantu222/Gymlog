@@ -15,6 +15,7 @@ const loggerSource = read('src', 'screens', 'WorkoutLoggingScreen.tsx');
 const proOfferSource = read('src', 'screens', 'ProOfferScreen.tsx');
 const i18nSource = read('src', 'lib', 'i18n.ts');
 const unlockSource = read('src', 'screens', 'PremiumUnlockScreen.tsx');
+const guidedSource = read('src', 'screens', 'GuidedPlayerScreen.tsx');
 
 /**
  * The Pro/Free audit (2026-07-28) found three ways the paid tier lied: a promo
@@ -23,7 +24,36 @@ const unlockSource = read('src', 'screens', 'PremiumUnlockScreen.tsx');
  * nothing. These guard the fixes, because every one of them is invisible until
  * someone pays.
  */
+
 module.exports = [
+  {
+    name: 'the guided player can do everything the list logger can do to a session',
+    run() {
+      // The list logger was the only place you could swap an exercise, skip
+      // one, or add a set — so the only way to do any of them mid-workout was
+      // to leave the guided flow entirely. All three happen in a real gym
+      // (rack taken, shoulder complaining, one more set in you).
+      //
+      // This is the precondition for ever retiring the list view: while the
+      // guided player is missing any of these, the list is not redundant, it
+      // is the only editor.
+      for (const action of ['swapExercise', 'skipExercise', 'addSet', 'completeSet']) {
+        assert.match(
+          guidedSource,
+          new RegExp(`workout\\.${action}\\(`),
+          `the guided player cannot ${action} — the list logger still has to exist for it`,
+        );
+      }
+
+      // Skipping an exercise drops its steps, so the index stops meaning what
+      // it meant; the player re-resolves instead of guessing an offset.
+      assert.match(guidedSource, /resyncAfterSkipRef/);
+      assert.match(guidedSource, /resolveGuidedResumeIndex\(steps, null, isSetCompleted\)/);
+
+      // The clock must not run while a sheet is open over the set.
+      assert.match(guidedSource, /const frozen = paused \|\|[^;]*swapOpen/);
+    },
+  },
   {
     name: 'every screen that pins its own CTA hides the floating tab bar',
     run() {

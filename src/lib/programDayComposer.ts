@@ -1,5 +1,5 @@
 import { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
-import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { getWorkoutTemplateById, WORKOUT_SUBSTITUTION_GROUPS } from '../features/workout/workoutCatalog';
 import { buildRecommendationPlanReadyPayload } from './recommendationProgramme';
 import { applyCautionFlagsToExercises, CautionExerciseSwap } from './cautionExerciseFilter';
 import { applyEquipmentToExercises, resolveAvailableEquipment } from './equipmentExerciseFilter';
@@ -70,8 +70,31 @@ export function buildComposedFallbackExercise(
     repsMax: name.toLowerCase().includes('plank') ? 40 : 15,
     restSecondsMin: exerciseIndex === 0 ? 75 : 45,
     restSecondsMax: exerciseIndex === 0 ? 120 : 75,
-    substitutionGroup: `onboarding_${role}_${exerciseIndex + 1}`,
+    substitutionGroup: resolveSubstitutionGroup(name, role, exerciseIndex),
   };
+}
+
+/**
+ * The real swap group this exercise belongs to, by looking it up in the
+ * catalog rather than inventing an id.
+ *
+ * This used to return `onboarding_primary_1` and friends — ids that exist in
+ * no group — so getAllowedSwaps found nothing and NOTHING composed through
+ * onboarding could be swapped. The list logger showed a Swap row that opened
+ * an empty sheet; the guided player, which only offers the row when there is
+ * something in it, showed no row at all. Either way the user could not
+ * substitute a single exercise in the plan the app had just built for them.
+ *
+ * The synthetic id stays as the fallback: an exercise the catalog does not
+ * group is genuinely unswappable, and a made-up group is more honest than
+ * silently borrowing someone else's.
+ */
+function resolveSubstitutionGroup(name: string, role: string, exerciseIndex: number): string {
+  const normalized = name.trim().toLowerCase();
+  const group = WORKOUT_SUBSTITUTION_GROUPS.find((candidate) =>
+    candidate.allowedExerciseNames.some((allowed) => allowed.trim().toLowerCase() === normalized),
+  );
+  return group?.id ?? `onboarding_${role}_${exerciseIndex + 1}`;
 }
 
 export function composeProgramWeekForSelection(

@@ -74,6 +74,8 @@ import { sound, type CueSound } from '../utils/sound';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
+import { WORKOUT_SUBSTITUTION_GROUPS } from '../features/workout/workoutCatalog';
+import { buildTailoredSwapOptions, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
 import { WorkoutExerciseInstance } from '../features/workout/workoutTypes';
@@ -124,6 +126,13 @@ const GPD = {
   amber: '#F5B93B',
 };
 
+/** The swap pool for a slot — the same catalog the list logger reads. */
+function getAllowedSwaps(substitutionGroup: string) {
+  return (
+    WORKOUT_SUBSTITUTION_GROUPS.find((group) => group.id === substitutionGroup)?.allowedExerciseNames ?? []
+  );
+}
+
 const SPLASH_MS = 2300;
 
 export interface GuidedWeekProgress {
@@ -142,6 +151,8 @@ interface GuidedPlayerScreenProps {
   language?: AppLanguage;
   /** Equipment chips the user actually has; null when the setup never said. */
   availableEquipment?: string[] | null;
+  /** Ranks the swap list the same way the list logger does. */
+  tailoringPreferences?: TailoringPreferencesInput | null;
   exerciseLibrary: ExerciseLibraryItem[];
   soundCuesEnabled: boolean;
   /** Keep the display on for the whole guided session. */
@@ -754,6 +765,7 @@ export function GuidedPlayerScreen({
   unitPreference,
   language = 'en',
   availableEquipment = null,
+  tailoringPreferences = null,
   exerciseLibrary,
   soundCuesEnabled,
   keepScreenAwake = false,
@@ -870,7 +882,8 @@ export function GuidedPlayerScreen({
   const [setVideoOpen, setSetVideoOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
-  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen;
+  const [swapOpen, setSwapOpen] = useState(false);
+  const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen;
 
   const stepSeconds = (target: GuidedStep): number => {
     switch (target.type) {
@@ -1068,6 +1081,58 @@ export function GuidedPlayerScreen({
 
   const skipCurrent = () => {
     goTo(getGuidedSkipTargetIndex(steps, stepIndex));
+  };
+
+  /* ── exercise-level actions ──────────────────────────────────────────────
+     Swap, skip and add-set used to live only in the list logger, so the only
+     way to do any of them was to leave the guided flow entirely — and all
+     three are things a gym makes you do (rack taken, shoulder complaining,
+     one more set in you). They hang off the pause sheet because that is
+     already the "I need to do something else" surface. */
+  const actionSlotId = step.type === 'set' || step.type === 'position' ? step.slotId : null;
+  const actionExercise = actionSlotId ? exerciseBySlot.get(actionSlotId) ?? null : null;
+  const swapOptions = useMemo(() => {
+    if (!actionExercise) {
+      return [];
+    }
+    const current = actionExercise.exerciseName.trim().toLowerCase();
+    // The group contains the exercise you are already doing; offering it as a
+    // swap target is a row that does nothing.
+    return buildTailoredSwapOptions(
+      getAllowedSwaps(actionExercise.substitutionGroup),
+      tailoringPreferences,
+    ).filter((option) => option.exerciseName.trim().toLowerCase() !== current);
+  }, [actionExercise, tailoringPreferences]);
+
+  // Skipping an exercise removes its steps from the list, so the index we are
+  // sitting on stops meaning what it meant. Re-resolve once the rebuilt steps
+  // arrive rather than guessing an offset.
+  const resyncAfterSkipRef = useRef(false);
+  useEffect(() => {
+    if (!resyncAfterSkipRef.current) {
+      return;
+    }
+    resyncAfterSkipRef.current = false;
+    goToRef.current(resolveGuidedResumeIndex(steps, null, isSetCompleted));
+  }, [isSetCompleted, steps]);
+
+  const handleSkipExercise = () => {
+    if (!actionSlotId) {
+      return;
+    }
+    resyncAfterSkipRef.current = true;
+    workout.skipExercise(actionSlotId);
+    setPauseSheetOpen(false);
+    setPaused(false);
+  };
+
+  const handleAddSet = () => {
+    if (!actionSlotId) {
+      return;
+    }
+    workout.addSet(actionSlotId);
+    setPauseSheetOpen(false);
+    setPaused(false);
   };
 
   const backOne = () => {
@@ -1600,7 +1665,68 @@ export function GuidedPlayerScreen({
                 <GhostBtn icon="skip" label={t(language, 'guided.pauseSheet.skipThis')} onPress={skipCurrent} />
               </View>
             </View>
+            {actionExercise ? (
+              <>
+                <Text style={styles.sheetFootnote}>
+                  {exerciseNameLabel(language, actionExercise.exerciseName)}
+                </Text>
+                <GhostBtn
+                  icon="plus"
+                  label={t(language, 'guided.action.addSet')}
+                  onPress={handleAddSet}
+                />
+                {swapOptions.length ? (
+                  <GhostBtn
+                    icon="list"
+                    label={t(language, 'guided.action.swap')}
+                    onPress={() => {
+                      setPauseSheetOpen(false);
+                      setSwapOpen(true);
+                    }}
+                  />
+                ) : null}
+                <GhostBtn
+                  icon="x"
+                  label={t(language, 'guided.action.skipExercise')}
+                  onPress={handleSkipExercise}
+                />
+              </>
+            ) : null}
           </View>
+        </GPSheet>
+      )}
+
+      {swapOpen && actionExercise && (
+        <GPSheet
+          onClose={() => {
+            setSwapOpen(false);
+            setPaused(false);
+          }}
+        >
+          <Text style={styles.sheetTitle}>
+            {t(language, 'guided.swap.title', {
+              name: exerciseNameLabel(language, actionExercise.exerciseName),
+            })}
+          </Text>
+          <View style={{ gap: 10 }}>
+            {swapOptions.map((option) => (
+              <GhostBtn
+                key={option.exerciseName}
+                icon="check"
+                label={exerciseNameLabel(language, option.exerciseName)}
+                onPress={() => {
+                  workout.swapExercise(
+                    actionExercise.slotId,
+                    option.exerciseName,
+                    actionExercise.substitutionGroup,
+                  );
+                  setSwapOpen(false);
+                  setPaused(false);
+                }}
+              />
+            ))}
+          </View>
+          <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.footnote')}</Text>
         </GPSheet>
       )}
     </View>

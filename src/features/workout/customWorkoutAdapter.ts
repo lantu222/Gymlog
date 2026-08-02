@@ -7,8 +7,30 @@ import {
   WorkoutTrackingMode,
 } from './workoutTypes';
 
+import { WORKOUT_SUBSTITUTION_GROUPS } from './workoutCatalog';
+
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
+}
+
+/**
+ * The catalog swap group this exercise belongs to, by name.
+ *
+ * Every custom template used to get `custom_<exerciseId>` — a group of one,
+ * belonging to no catalog — so nothing in a custom plan could ever be
+ * substituted. That includes the plan onboarding builds and saves for the
+ * user, which is most plans. The list logger opened an empty swap sheet and
+ * the guided player showed no swap row at all.
+ *
+ * The synthetic id remains the fallback: an exercise the catalog does not
+ * group has no honest alternatives to offer.
+ */
+function resolveSubstitutionGroup(exerciseName: string, fallbackId: string): string {
+  const normalized = normalizeName(exerciseName);
+  const group = WORKOUT_SUBSTITUTION_GROUPS.find((candidate) =>
+    candidate.allowedExerciseNames.some((allowed) => normalizeName(allowed) === normalized),
+  );
+  return group?.id ?? `custom_${fallbackId}`;
 }
 
 function getTrackingMode(exercise: ExerciseTemplate, libraryItem?: ExerciseLibraryItem): WorkoutTrackingMode {
@@ -62,7 +84,7 @@ function adaptExercise(
     repsMax: Math.max(Math.max(1, exercise.repMin), exercise.repMax),
     restSecondsMin: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : defaultRestSeconds,
     restSecondsMax: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : defaultRestSeconds,
-    substitutionGroup: `custom_${exercise.id}`,
+    substitutionGroup: resolveSubstitutionGroup(exercise.name, exercise.id),
   };
 }
 
