@@ -48,7 +48,12 @@ interface WorkoutContextValue {
   undoSet: (slotId: string, setIndex: number) => void;
   addSet: (slotId: string) => void;
   skipExercise: (slotId: string, reason?: string) => void;
-  swapExercise: (slotId: string, exerciseName: string, substitutionGroup: string) => void;
+  swapExercise: (
+    slotId: string,
+    exerciseName: string,
+    substitutionGroup: string,
+    unitPreference: UnitPreference,
+  ) => void;
   updateNotes: (slotId: string, notes: string) => void;
   setGuidedStep: (stepIndex: number) => void;
   activeCardio: ActiveCardioSession | null;
@@ -213,8 +218,8 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       skipExercise(slotId, reason) {
         dispatch({ type: 'exercise/skip', payload: { slotId, reason } });
       },
-      swapExercise(slotId, exerciseName, substitutionGroup) {
-        dispatch({ type: 'exercise/swap', payload: { slotId, exerciseName, substitutionGroup } });
+      swapExercise(slotId, exerciseName, substitutionGroup, unitPreference) {
+        dispatch({ type: 'exercise/swap', payload: { slotId, exerciseName, substitutionGroup, unitPreference } });
       },
       updateNotes(slotId, notes) {
         dispatch({ type: 'exercise/updateNotes', payload: { slotId, notes } });

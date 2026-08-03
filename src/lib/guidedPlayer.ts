@@ -350,6 +350,12 @@ export interface GuidedSetTarget {
    * weight the user typed.
    */
   autoProgressedFromKg: number | null;
+  /**
+   * When this weight came from the same lift in another slot — another
+   * program, another day, an empty workout — the date it was performed. Same
+   * "only while untouched" rule as the badge above.
+   */
+  prefilledFromPerformedAt: string | null;
 }
 
 export interface GuidedNextPreview {
@@ -449,40 +455,50 @@ export function resolveGuidedSetTarget(
     draftLoadText: string;
     draftRepsText: string;
     autoProgressedFromKg?: number;
+    prefilledFromPerformedAt?: string;
     actualLoadKg?: number;
     actualReps?: number;
   }>,
   setIndex: number,
   trackingMode: string,
+  /**
+   * Sets at or below this index were logged as a different lift (the exercise
+   * was swapped mid-way). Carry-forward stops here — see
+   * `WorkoutExerciseInstance.swappedAfterSetIndex`.
+   */
+  swappedAfterSetIndex?: number | null,
 ): GuidedSetTarget | null {
   const set = sets.find((item) => item.setIndex === setIndex);
   if (!set) {
     return null;
   }
 
+  const carryForwardFloor = typeof swappedAfterSetIndex === 'number' ? swappedAfterSetIndex : -1;
   const previous = [...sets]
-    .filter((item) => item.setIndex < setIndex && item.status === 'completed')
+    .filter(
+      (item) => item.setIndex < setIndex && item.setIndex > carryForwardFloor && item.status === 'completed',
+    )
     .sort((left, right) => right.setIndex - left.setIndex)[0];
 
   const reps = previous?.actualReps ?? set.plannedRepsMax;
 
   if (trackingMode === 'bodyweight') {
-    return { reps, loadKg: null, autoProgressedFromKg: null };
+    return { reps, loadKg: null, autoProgressedFromKg: null, prefilledFromPerformedAt: null };
   }
 
   const draftLoad = parseNumberInput(set.draftLoadText);
   const loadKg = draftLoad ?? set.plannedLoadKg ?? previous?.actualLoadKg ?? null;
-  // The badge follows the number, not the set: once the shown load drifts off
-  // the progressed plan (user edit, carry-forward from a set they logged
-  // heavier), it is no longer the machine's suggestion.
-  const autoProgressedFromKg =
-    set.autoProgressedFromKg !== undefined &&
-    loadKg !== null &&
-    set.plannedLoadKg !== undefined &&
-    Math.abs(loadKg - set.plannedLoadKg) < 0.001
-      ? set.autoProgressedFromKg
-      : null;
-  return { reps, loadKg, autoProgressedFromKg };
+  // Both badges follow the number, not the set: once the shown load drifts off
+  // the plan (user edit, carry-forward from a set they logged heavier), it is
+  // no longer the weight the app put there, and neither badge may claim it.
+  const untouched =
+    loadKg !== null && set.plannedLoadKg !== undefined && Math.abs(loadKg - set.plannedLoadKg) < 0.001;
+  return {
+    reps,
+    loadKg,
+    autoProgressedFromKg: untouched && set.autoProgressedFromKg !== undefined ? set.autoProgressedFromKg : null,
+    prefilledFromPerformedAt: untouched ? set.prefilledFromPerformedAt ?? null : null,
+  };
 }
 
 /**

@@ -220,12 +220,14 @@ module.exports = [
         reps: 7,
         loadKg: 62.5,
         autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
       });
       // No draft, no plan → previous actual load.
       assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps'), {
         reps: 7,
         loadKg: 62.5,
         autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
       });
       // First set, no history: planned max reps, null load.
       const fresh = [
@@ -235,12 +237,14 @@ module.exports = [
         reps: 10,
         loadKg: null,
         autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
       });
       // Bodyweight never carries a load.
       assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'bodyweight'), {
         reps: 7,
         loadKg: null,
         autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
       });
       assert.equal(resolveGuidedSetTarget(sets, 9, 'load_and_reps'), null);
       assert.equal(formatGuidedTarget({ reps: 8, loadKg: 62.5 }), '8 × 62.5 kg');
@@ -273,6 +277,65 @@ module.exports = [
     },
   },
   {
+    name: 'carry-forward does not reach back over a mid-exercise swap',
+    run() {
+      // Two sets of leg press are in the book, then the rack frees up and you
+      // swap to front squat for the rest. Set 3 must not open on the leg press
+      // weight — which is exactly what the device did before this: 2.5 kg of
+      // one lift shown as the target for another.
+      const sets = [
+        {
+          setIndex: 0,
+          status: 'completed',
+          plannedRepsMin: 6,
+          plannedRepsMax: 8,
+          draftLoadText: '150',
+          draftRepsText: '',
+          actualLoadKg: 150,
+          actualReps: 10,
+        },
+        {
+          setIndex: 1,
+          status: 'completed',
+          plannedRepsMin: 6,
+          plannedRepsMax: 8,
+          draftLoadText: '150',
+          draftRepsText: '',
+          actualLoadKg: 150,
+          actualReps: 10,
+        },
+        { setIndex: 2, status: 'pending', plannedRepsMin: 6, plannedRepsMax: 8, draftLoadText: '', draftRepsText: '' },
+      ];
+
+      // Without the boundary this is the old behaviour, kept for every set
+      // that was NOT swapped across.
+      assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps'), {
+        reps: 10,
+        loadKg: 150,
+        autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
+      });
+
+      // Swapped after set 2 (index 1): neither the load nor the reps of the
+      // old lift may cross the line. Reps fall back to the planned ceiling.
+      assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps', 1), {
+        reps: 8,
+        loadKg: null,
+        autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
+      });
+
+      // A set logged AFTER the swap carries forward normally again.
+      const afterSwap = [
+        ...sets.slice(0, 2),
+        { ...sets[2], status: 'completed', actualLoadKg: 60, actualReps: 6 },
+        { setIndex: 3, status: 'pending', plannedRepsMin: 6, plannedRepsMax: 8, draftLoadText: '', draftRepsText: '' },
+      ];
+      assert.equal(resolveGuidedSetTarget(afterSwap, 3, 'load_and_reps', 1).loadKg, 60);
+      assert.equal(resolveGuidedSetTarget(afterSwap, 3, 'load_and_reps', 1).reps, 6);
+    },
+  },
+  {
     name: 'an automated-progression load is flagged only while it is untouched',
     run() {
       const progressed = (draftLoadText) => ({
@@ -291,6 +354,7 @@ module.exports = [
         reps: 8,
         loadKg: 62.5,
         autoProgressedFromKg: 60,
+        prefilledFromPerformedAt: null,
       });
 
       // Typed over in the list logger — this is the user's weight now, and
@@ -299,6 +363,7 @@ module.exports = [
         reps: 8,
         loadKg: 65,
         autoProgressedFromKg: null,
+        prefilledFromPerformedAt: null,
       });
 
       // Bodyweight never carries a load, so it never carries the badge either.

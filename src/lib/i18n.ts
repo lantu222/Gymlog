@@ -1126,6 +1126,9 @@ const EN = {
   // Automated progression (Pro) raised this set's load; the badge names the
   // step it took so the number is not a mystery.
   'guided.autoLoad': 'AUTO +{kg} KG',
+  // The weight came from this lift in another program or an empty workout —
+  // real, but not from this slot, so it says when.
+  'guided.carriedFrom': 'LAST TIME · {date}',
   'guided.a11y.weightDown': 'Lower the weight by 2.5 kg',
   'guided.a11y.weightUp': 'Raise the weight by 2.5 kg',
   'guided.back': '‹ Back',
@@ -3479,6 +3482,7 @@ const FI: Record<I18nKey, string> = {
   'guided.stopClock': 'Pysäytä kello',
   'guided.weight': 'PAINO',
   'guided.autoLoad': 'AUTOMAATTINEN +{kg} KG',
+  'guided.carriedFrom': 'VIIMEKSI · {date}',
   'guided.a11y.weightDown': 'Vähennä painoa 2,5 kg',
   'guided.a11y.weightUp': 'Lisää painoa 2,5 kg',
   'guided.back': '‹ Takaisin',

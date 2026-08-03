@@ -224,6 +224,7 @@ module.exports = [
             slotId: activeSession.exercises[0].slotId,
             exerciseName: 'Front Squat',
             substitutionGroup: 'squat_pattern',
+            unitPreference: 'kg',
           },
         },
       );
@@ -236,11 +237,178 @@ module.exports = [
       // What was actually lifted stays on the record.
       assert.equal(swapped.sets[0].actualLoadKg, 150);
 
-      // What is still ahead does not open on a weight from a different lift —
-      // and automated progression cannot claim it picked one.
+      // Never squatted before, so the field opens empty rather than on the leg
+      // press weight — and automated progression cannot claim it picked one.
       assert.equal(swapped.sets[1].draftLoadText, '');
       assert.equal(swapped.sets[1].plannedLoadKg, undefined);
       assert.equal(swapped.sets[1].autoProgressedFromKg, undefined);
+      assert.equal(swapped.sets[1].prefilledFromPerformedAt, undefined);
+    },
+  },
+  {
+    name: 'swapping to a lift you have done elsewhere prefills what you lifted',
+    run() {
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [
+          createExercise({
+            exerciseName: 'Leg Press',
+            substitutionGroup: 'squat_pattern',
+            status: 'active',
+            sets: [
+              createSet({
+                setIndex: 0,
+                status: 'pending',
+                plannedLoadKg: 150,
+                draftLoadText: '150',
+                draftRepsText: '',
+                actualLoadKg: undefined,
+                actualReps: undefined,
+                completedAt: undefined,
+                edited: false,
+              }),
+            ],
+          }),
+        ],
+      });
+
+      // Front squats done in a DIFFERENT program. Slot-keyed history cannot
+      // reach this; the name lookup can, and it is a weight the user actually
+      // lifted rather than anything estimated.
+      const history = {
+        sessions: [],
+        lastSelectedTemplateId: null,
+        slotHistory: {
+          'tpl_other:day_2:legs_1': [
+            {
+              slotId: 'tpl_other:day_2:legs_1',
+              templateId: 'tpl_other',
+              templateName: 'Other plan',
+              exerciseName: 'Front Squat',
+              substitutionGroup: 'squat_pattern',
+              performedAt: '2026-07-12T09:00:00.000Z',
+              sessionId: 'session_x',
+              sets: [{ setIndex: 0, loadKg: 65, reps: 6, completedAt: '2026-07-12T09:05:00.000Z' }],
+              skipped: false,
+            },
+          ],
+        },
+      };
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, history, activeSession },
+        {
+          type: 'exercise/swap',
+          payload: {
+            slotId: activeSession.exercises[0].slotId,
+            exerciseName: 'Front Squat',
+            substitutionGroup: 'squat_pattern',
+            unitPreference: 'kg',
+          },
+        },
+      );
+
+      const swapped = nextState.activeSession.exercises[0];
+      assert.equal(swapped.sets[0].draftLoadText, '65');
+      assert.equal(swapped.sets[0].plannedLoadKg, 65);
+      // Borrowed history never feeds the progression gate, so no AUTO badge…
+      assert.equal(swapped.sets[0].autoProgressedFromKg, undefined);
+      // …but the weight says where it came from instead of appearing from air.
+      assert.equal(swapped.sets[0].prefilledFromPerformedAt, '2026-07-12T09:00:00.000Z');
+    },
+  },
+  {
+    name: 'a brand-new slot prefills from the same lift done in another program',
+    run() {
+      // Nothing has ever been logged on this slot. The lift itself has been —
+      // in a different plan. Slot-keyed history is blind to that, which is why
+      // a lift you have done for months used to open at zero in a new program.
+      const history = {
+        sessions: [],
+        lastSelectedTemplateId: null,
+        slotHistory: {
+          'tpl_other:day_2:legs_1': [
+            {
+              slotId: 'tpl_other:day_2:legs_1',
+              templateId: 'tpl_other',
+              templateName: 'Other plan',
+              exerciseName: 'Front Squat',
+              substitutionGroup: 'squat_pattern',
+              performedAt: '2026-07-12T09:00:00.000Z',
+              sessionId: 'session_x',
+              sets: [
+                { setIndex: 0, loadKg: 65, reps: 8, completedAt: '2026-07-12T09:05:00.000Z' },
+                { setIndex: 1, loadKg: 67.5, reps: 8, completedAt: '2026-07-12T09:10:00.000Z' },
+              ],
+              skipped: false,
+            },
+          ],
+        },
+      };
+
+      const template = {
+        id: 'tpl_new',
+        name: 'New plan',
+        defaultScheduleMode: 'rolling_sequence',
+        sessions: [
+          {
+            id: 'day_1',
+            name: 'Legs',
+            orderIndex: 0,
+            exercises: [
+              {
+                id: 'ex_1',
+                exerciseName: 'Front Squat',
+                slotId: 'primary_squat',
+                role: 'primary',
+                progressionPriority: 'high',
+                trackingMode: 'load_and_reps',
+                sets: 2,
+                repsMin: 6,
+                repsMax: 8,
+                restSecondsMin: 120,
+                restSecondsMax: 180,
+                substitutionGroup: 'squat_pattern',
+              },
+            ],
+          },
+        ],
+      };
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, history },
+        {
+          type: 'session/startFromRuntimeTemplate',
+          payload: {
+            template,
+            sessionOrderIndex: 0,
+            unitPreference: 'kg',
+            // ON, and a rep ceiling was cleared on every set of that session —
+            // the gate would happily add 2.5 kg if it were fed this history.
+            progression: { automatedProgressionEnabled: true, setupLevel: 'beginner' },
+          },
+        },
+      );
+
+      const sets = nextState.activeSession.exercises[0].sets;
+      assert.equal(sets[0].draftLoadText, '65');
+      assert.equal(sets[0].plannedLoadKg, 65);
+      assert.equal(sets[1].plannedLoadKg, 67.5);
+
+      // Decision A: borrowed history seeds the number and NOTHING else. The
+      // gate judges "rep ceiling cleared" against this template's rep range,
+      // and those sets were performed under another prescription — so it must
+      // not move a weight off sessions it never watched, and the AUTO badge
+      // must not appear on one.
+      assert.equal(sets[0].autoProgressedFromKg, undefined);
+      assert.equal(sets[1].autoProgressedFromKg, undefined);
+
+      // Decision B: the weight says where it came from.
+      assert.equal(sets[0].prefilledFromPerformedAt, '2026-07-12T09:00:00.000Z');
+
+      // Reps stay empty either way — entering them is what logs the set.
+      assert.equal(sets[0].draftRepsText, '');
     },
   },
 ];

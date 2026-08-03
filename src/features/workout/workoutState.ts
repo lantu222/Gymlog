@@ -10,6 +10,7 @@ import { CardioActivityType } from '../../types/models';
 import { WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg } from '../../lib/progressionGate';
+import { findHistoricalSetForIndex, findLatestEntryForExerciseName } from '../../lib/exerciseHistoryLookup';
 
 export interface WorkoutFeatureState {
   hydrated: boolean;
@@ -56,7 +57,17 @@ export type WorkoutAction =
   | { type: 'exercise/addSet'; payload: { slotId: string } }
   | { type: 'exercise/skip'; payload: { slotId: string; reason?: string } }
   | { type: 'exercise/insertAfter'; payload: { afterSlotId: string; exercise: WorkoutExerciseInsertInput } }
-  | { type: 'exercise/swap'; payload: { slotId: string; exerciseName: string; substitutionGroup: string } }
+  | {
+      type: 'exercise/swap';
+      payload: {
+        slotId: string;
+        exerciseName: string;
+        substitutionGroup: string;
+        // The swapped-in lift's own history seeds the remaining sets, so the
+        // reducer has to write the draft in the unit the logger reads back.
+        unitPreference: 'kg' | 'lb';
+      };
+    }
   | { type: 'exercise/updateNotes'; payload: { slotId: string; notes: string } }
   | { type: 'timer/start'; payload: { slotId: string; setIndex: number; durationSeconds: number; nowMs: number } }
   | { type: 'timer/pause' }
@@ -139,6 +150,55 @@ export function getHistoryEntriesForExercise(
   return getHistoryEntries(history, exercise.slotId, exercise.templateSlotId);
 }
 
+/**
+ * Nothing on this slot — but the same lift may have been done somewhere else:
+ * another program, another day, an empty workout. That weight is recorded, not
+ * estimated, so it seeds the prefill instead of opening at zero.
+ *
+ * What it deliberately does NOT do is feed the progression gate. The gate
+ * decides "rep ceiling cleared on every working set" against THIS template's
+ * rep range, and those other sessions were performed under a different
+ * prescription — a load increase computed from them would be a Pro feature
+ * moving weights off sessions it never watched. So: the gate moves weights it
+ * has seen, and this lookup only stops you starting from nothing.
+ * `autoProgressedFromKg` stays undefined here, which is what keeps the AUTO
+ * badge off a weight the gate did not choose.
+ */
+function resolveNamedHistoryDraft(
+  history: WorkoutHistoryStore,
+  setIndex: number,
+  unitPreference: 'kg' | 'lb',
+  exercise: WorkoutTemplateExercise,
+) {
+  const blank = {
+    draftLoadText: '',
+    draftRepsText: '',
+    plannedLoadKg: undefined,
+    autoProgressedFromKg: undefined,
+    prefilledFromPerformedAt: undefined,
+  };
+
+  const entry = findLatestEntryForExerciseName(history.slotHistory, exercise.exerciseName, {
+    // 0 kg is a real answer for bodyweight work and a missing one for a loaded
+    // lift — the guided player used to hide the weight field, so zeroes exist.
+    requireLoaded: exercise.trackingMode !== 'bodyweight',
+  });
+  const matched = findHistoricalSetForIndex(entry, setIndex);
+  if (!entry || !matched) {
+    return blank;
+  }
+
+  return {
+    draftLoadText: formatWeightInputValue(matched.loadKg, unitPreference),
+    draftRepsText: '',
+    plannedLoadKg: matched.loadKg,
+    autoProgressedFromKg: undefined,
+    // Where it came from, so the logger can say so rather than presenting a
+    // weight from another program as if it belonged to this slot.
+    prefilledFromPerformedAt: entry.performedAt,
+  };
+}
+
 function resolveHistoricalSetDraft(
   history: WorkoutHistoryStore,
   slotId: string,
@@ -150,10 +210,22 @@ function resolveHistoricalSetDraft(
 ) {
   const entries = getHistoryEntries(history, slotId, templateSlotId);
   const latest = entries[0];
-  const matched = latest?.sets.find((item) => item.setIndex === setIndex) ?? latest?.sets[setIndex] ?? null;
+  const matched = findHistoricalSetForIndex(latest, setIndex);
 
   if (!matched) {
-    return { draftLoadText: '', draftRepsText: '', plannedLoadKg: undefined, autoProgressedFromKg: undefined };
+    // This slot has been trained before, this set index just was not reached
+    // (a template that added a set). Unchanged: the slot is the better source
+    // and it has nothing for this index.
+    if (entries.length > 0) {
+      return {
+        draftLoadText: '',
+        draftRepsText: '',
+        plannedLoadKg: undefined,
+        autoProgressedFromKg: undefined,
+        prefilledFromPerformedAt: undefined,
+      };
+    }
+    return resolveNamedHistoryDraft(history, setIndex, unitPreference, exercise);
   }
 
   // Automated progression (ADR-004): when the last session cleared the rep
@@ -179,6 +251,8 @@ function resolveHistoricalSetDraft(
     draftRepsText: '',
     plannedLoadKg: loadKg,
     autoProgressedFromKg: fromLoadKg ?? undefined,
+    // This slot's own history — the ordinary case, nothing to explain.
+    prefilledFromPerformedAt: undefined,
   };
 }
 
@@ -209,6 +283,7 @@ function materializeExercise(
       draftLoadText: resolved.draftLoadText,
       draftRepsText: resolved.draftRepsText,
       autoProgressedFromKg: resolved.autoProgressedFromKg,
+      prefilledFromPerformedAt: resolved.prefilledFromPerformedAt,
       status: 'pending',
       edited: false,
     };
@@ -916,19 +991,40 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       exercise.substitutionGroup = action.payload.substitutionGroup;
       exercise.status = 'swapped';
       // The prefilled load belongs to the lift you just swapped AWAY from — it
-      // came from that slot's history, and a leg-press weight is not a front-
+      // came from this slot's history, and a leg-press weight is not a front-
       // squat weight. Sets already logged keep what was actually done; the ones
-      // still ahead start blank rather than opening on a number from a
-      // different exercise. `autoProgressedFromKg` goes with it: the
-      // progression gate did not pick a weight for this lift, and a badge
-      // saying it did would be a Pro feature taking credit for a stale number.
+      // still ahead are re-resolved for the lift you are actually about to do:
+      // if you have squatted before — anywhere — that weight appears, otherwise
+      // the field opens empty. `autoProgressedFromKg` is dropped either way,
+      // because the progression gate did not choose a weight for this lift and
+      // the badge must not say it did.
+      const swappedInEntry = findLatestEntryForExerciseName(state.history.slotHistory, action.payload.exerciseName, {
+        requireLoaded: exercise.trackingMode !== 'bodyweight',
+      });
+      // Sets logged before this moment were a different lift. Clearing their
+      // drafts is not enough on its own: the logger also carries forward from
+      // the last COMPLETED set, which walked straight back over the swap and
+      // put the old lift's weight on the new one (seen on device: 2.5 kg of
+      // front squat reappearing on a back squat). This is the line it may not
+      // cross. A second swap keeps the later line.
+      const completedIndexes = exercise.sets
+        .filter((set) => set.status === 'completed')
+        .map((set) => set.setIndex);
+      if (completedIndexes.length > 0) {
+        exercise.swappedAfterSetIndex = Math.max(
+          exercise.swappedAfterSetIndex ?? -1,
+          ...completedIndexes,
+        );
+      }
       exercise.sets.forEach((set) => {
         if (set.status !== 'pending') {
           return;
         }
-        set.draftLoadText = '';
-        set.plannedLoadKg = undefined;
+        const historical = findHistoricalSetForIndex(swappedInEntry, set.setIndex);
+        set.draftLoadText = historical ? formatWeightInputValue(historical.loadKg, action.payload.unitPreference) : '';
+        set.plannedLoadKg = historical?.loadKg;
         set.autoProgressedFromKg = undefined;
+        set.prefilledFromPerformedAt = historical ? swappedInEntry?.performedAt : undefined;
       });
       session.ui.swapSheetSlotId = null;
       session.updatedAt = new Date().toISOString();

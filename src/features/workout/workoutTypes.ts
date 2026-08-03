@@ -91,6 +91,15 @@ export interface WorkoutSetInstance {
    * to mark a weight the user did not pick themselves.
    */
   autoProgressedFromKg?: number;
+  /**
+   * When the prefill came from the same lift in a DIFFERENT slot — another
+   * program, another day, an empty workout — this is when that session was
+   * performed. The guided player shows it, because a weight that did not come
+   * from this slot should say where it did come from. (The list logger does
+   * not surface it yet.) Undefined for the ordinary case — this slot's own
+   * history — and for a blank set.
+   */
+  prefilledFromPerformedAt?: string;
   actualLoadKg?: number;
   actualReps?: number;
   status: WorkoutSetStatus;
@@ -101,6 +110,15 @@ export interface WorkoutSetInstance {
 }
 
 export interface WorkoutExerciseInstance {
+  /**
+   * The highest set index that was already logged when this exercise was
+   * swapped. Those sets were performed as a DIFFERENT lift, so nothing may
+   * carry forward across this line — the sheet promises "your logged sets stay
+   * on the exercise you did them on", and a prefill that reaches back over the
+   * swap quietly breaks that promise. Undefined when no swap happened, or when
+   * the swap happened before anything was logged.
+   */
+  swappedAfterSetIndex?: number;
   templateExerciseId: string;
   persistedExerciseTemplateId?: string | null;
   slotId: string;

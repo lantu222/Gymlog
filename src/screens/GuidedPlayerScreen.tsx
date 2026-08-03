@@ -68,7 +68,7 @@ import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
-import { removeTrailingZeros } from '../lib/format';
+import { formatShortDate, removeTrailingZeros } from '../lib/format';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
@@ -835,7 +835,12 @@ export function GuidedPlayerScreen({
       if (!exercise) {
         return null;
       }
-      return resolveGuidedSetTarget(exercise.sets, setIndex, exercise.trackingMode);
+      return resolveGuidedSetTarget(
+        exercise.sets,
+        setIndex,
+        exercise.trackingMode,
+        exercise.swappedAfterSetIndex,
+      );
     },
     [exerciseBySlot],
   );
@@ -1719,6 +1724,7 @@ export function GuidedPlayerScreen({
                     actionExercise.slotId,
                     option.exerciseName,
                     actionExercise.substitutionGroup,
+                    unitPreference,
                   );
                   setSwapOpen(false);
                   setPaused(false);
@@ -1859,10 +1865,16 @@ function SetStepView({
    * is still that one — the moment the stepper moves it, it is the user's
    * weight and the badge has no business claiming otherwise.
    */
-  const autoFromKg =
-    target?.autoProgressedFromKg != null && target.loadKg != null && Math.abs(kg - target.loadKg) < 0.001
-      ? target.autoProgressedFromKg
-      : null;
+  const untouched = target?.loadKg != null && Math.abs(kg - target.loadKg) < 0.001;
+  const autoFromKg = untouched && target?.autoProgressedFromKg != null ? target.autoProgressedFromKg : null;
+  /**
+   * A weight carried in from the same lift in another program or an empty
+   * workout. It is a real number the user lifted, but not one this slot has
+   * seen — so it says when, rather than appearing out of nowhere. The AUTO
+   * badge wins when both apply, which cannot currently happen (the gate never
+   * runs on borrowed history) but would be the more specific claim if it did.
+   */
+  const prefilledFrom = untouched && !autoFromKg ? target?.prefilledFromPerformedAt ?? null : null;
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
@@ -1974,6 +1986,13 @@ function SetStepView({
                     <GPIcon name="arrowUp" size={13} color={theme.purple} sw={2.8} />
                     <Text style={styles.setAutoBadgeText}>
                       {t(language, 'guided.autoLoad', { kg: removeTrailingZeros(kg - autoFromKg) })}
+                    </Text>
+                  </View>
+                ) : prefilledFrom ? (
+                  <View style={styles.setAutoBadge}>
+                    <GPIcon name="clock" size={13} color={theme.purple} sw={2.4} />
+                    <Text style={styles.setAutoBadgeText}>
+                      {t(language, 'guided.carriedFrom', { date: formatShortDate(prefilledFrom, language) })}
                     </Text>
                   </View>
                 ) : null}
