@@ -8,6 +8,7 @@
  * and dispatches; this module owns the step list and its derived labels.
  */
 
+import { exerciseNameLabel } from './exerciseNameLabel';
 import { parseNumberInput, removeTrailingZeros } from './format';
 import { SessionRoutineBlock } from './homeSessionHero';
 import { t } from './i18n';
@@ -321,15 +322,25 @@ export function getGuidedPhaseLabel(step: GuidedStep, language: AppLanguage = 'e
   }
 }
 
-/** Short human label for the resume chip ("Bench Press set 2"). */
+/**
+ * Short human label for the resume chip ("Bench Press set 2").
+ *
+ * The exercise name goes through the same translation the player itself uses.
+ * Without it the entry screen offered to resume "Front Squat sarja 3" while
+ * the screen it resumes into says "Etukyykky" — one lift with two names, and
+ * the English one on the surface that is meant to be reassuring.
+ */
 export function getGuidedStepLabel(step: GuidedStep, language: AppLanguage = 'en'): string {
   switch (step.type) {
     case 'set':
-      return t(language, 'guided.step.set', { name: step.exerciseName, index: step.setIndex + 1 });
+      return t(language, 'guided.step.set', {
+        name: exerciseNameLabel(language, step.exerciseName),
+        index: step.setIndex + 1,
+      });
     case 'position':
-      return t(language, 'guided.step.setup', { name: step.exerciseName });
+      return t(language, 'guided.step.setup', { name: exerciseNameLabel(language, step.exerciseName) });
     case 'rest':
-      return t(language, 'guided.step.rest', { name: step.exerciseName });
+      return t(language, 'guided.step.rest', { name: exerciseNameLabel(language, step.exerciseName) });
     case 'drill':
     case 'ready':
       return step.drillName;
@@ -397,14 +408,15 @@ export function getGuidedNextPreview(
     if (step.type === 'set') {
       const target = resolveTarget(step.slotId, step.setIndex);
       const targetLabel = target ? formatGuidedTarget(target, language) : null;
+      const name = exerciseNameLabel(language, step.exerciseName);
       return {
         title: t(language, 'guided.next.setTitle', {
-          name: step.exerciseName,
+          name,
           index: step.setIndex + 1,
           count: step.setCount,
         }),
         sub: targetLabel ?? '',
-        line: targetLabel ? `${step.exerciseName} · ${targetLabel}` : step.exerciseName,
+        line: targetLabel ? `${name} · ${targetLabel}` : name,
       };
     }
     if (step.type === 'splash') {
@@ -418,17 +430,25 @@ export function getGuidedNextPreview(
 }
 
 /**
- * Bare name of the next drill/exercise/block after `index` — the set screen's
+ * Name of the next drill/exercise/block after `index` — the set screen's
  * "Next ·" line names what is coming without repeating its target.
+ *
+ * Translated here, like every other label this module returns. It used to hand
+ * back the raw English name and rely on the caller to localize it, which is
+ * the arrangement that let the resume chip ship in the wrong language.
  */
-export function getGuidedNextName(steps: GuidedStep[], index: number): string | null {
+export function getGuidedNextName(
+  steps: GuidedStep[],
+  index: number,
+  language: AppLanguage = 'en',
+): string | null {
   for (let cursor = index + 1; cursor < steps.length; cursor += 1) {
     const step = steps[cursor];
     if (step.type === 'drill') {
       return step.drillName;
     }
     if (step.type === 'set') {
-      return step.exerciseName;
+      return exerciseNameLabel(language, step.exerciseName);
     }
     if (step.type === 'splash') {
       return step.title;

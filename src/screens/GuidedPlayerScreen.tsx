@@ -1526,7 +1526,7 @@ export function GuidedPlayerScreen({
               muted={muted}
               paused={paused}
               resolveTarget={resolveTarget}
-              nextName={exerciseNameLabel(language, getGuidedNextName(steps, stepIndex) ?? '')}
+              nextName={getGuidedNextName(steps, stepIndex, language)}
               onToggleMute={() => onToggleSoundCues(!soundCuesEnabled)}
               onPause={() => {
                 setPaused(true);

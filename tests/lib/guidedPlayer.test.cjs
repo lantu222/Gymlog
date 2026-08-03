@@ -142,6 +142,15 @@ module.exports = [
       assert.equal(getGuidedPhaseLabel(steps[19]), 'COOLDOWN · 1 OF 1');
       assert.equal(getGuidedPhaseLabel(steps[20]), 'DONE');
       assert.equal(getGuidedStepLabel(steps[9]), 'Bench Press set 2');
+      // Every label this module returns is localized, including the lift's
+      // name. The resume chip used to offer "Front Squat sarja 3" for a screen
+      // that then said "Etukyykky".
+      assert.equal(getGuidedStepLabel(steps[9], 'fi'), 'Penkkipunnerrus sarja 2');
+      assert.equal(getGuidedNextName(steps, 8, 'fi'), 'Penkkipunnerrus');
+      assert.equal(
+        getGuidedNextPreview(steps, 8, () => ({ reps: 8, loadKg: 60 }), 'fi').line,
+        'Penkkipunnerrus · 8 × 60 kg',
+      );
     },
   },
   {
