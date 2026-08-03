@@ -513,7 +513,7 @@ const EN = {
 
   'onb.stepLabel': 'STEP {index} OF {count}',
   'onb.cta.saving': 'Saving plan...',
-  'onb.cta.savePlan': 'Save plan & start',
+  'onb.cta.savePlan': 'Use this program',
   'onb.cta.backToPlan': 'Back to plan',
   'onb.cta.startTraining': 'Start training',
   'onb.cta.buildPlan': 'Build my plan',
@@ -2886,7 +2886,7 @@ const FI: Record<I18nKey, string> = {
 
   'onb.stepLabel': 'VAIHE {index}/{count}',
   'onb.cta.saving': 'Tallennetaan...',
-  'onb.cta.savePlan': 'Tallenna ja aloita',
+  'onb.cta.savePlan': 'Valitse tämä ohjelma',
   'onb.cta.backToPlan': 'Takaisin suunnitelmaan',
   'onb.cta.startTraining': 'Aloita treenaaminen',
   'onb.cta.buildPlan': 'Rakenna suunnitelmani',

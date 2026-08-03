@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
   ActivityIndicator,
   Animated,
   Dimensions,
@@ -26,6 +27,7 @@ import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenP
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { VinhaIcon, VinhaIconName } from '../components/VinhaIcon';
 import { VinhaWordmark } from '../components/VinhaWordmark';
+import { LEVEL_STREAKS } from '../lib/levelStreaks';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
@@ -329,27 +331,6 @@ const LEVEL_SLIDER_OPTIONS: Array<{
 
 // Flame positions inside the 280x140 logo wrap - count and size grow with the
 // level (few small sparks -> whole-logo blaze).
-const LEVEL_FLAME_LAYOUTS: Array<Array<{ x: number; y: number; size: number; opacity?: number }>> = [
-  [
-    { x: 82, y: 98, size: 16, opacity: 0.9 },
-    { x: 184, y: 100, size: 14, opacity: 0.75 },
-  ],
-  [
-    { x: 44, y: 92, size: 18, opacity: 0.8 },
-    { x: 104, y: 102, size: 24, opacity: 0.95 },
-    { x: 166, y: 100, size: 20, opacity: 0.85 },
-    { x: 222, y: 90, size: 16, opacity: 0.7 },
-  ],
-  [
-    { x: 18, y: 58, size: 22, opacity: 0.75 },
-    { x: 56, y: 92, size: 30, opacity: 0.9 },
-    { x: 106, y: 102, size: 34 },
-    { x: 158, y: 98, size: 30, opacity: 0.95 },
-    { x: 206, y: 88, size: 26, opacity: 0.85 },
-    { x: 244, y: 54, size: 20, opacity: 0.7 },
-    { x: 128, y: 14, size: 18, opacity: 0.65 },
-  ],
-];
 
 // Training-days step (04b): number chips on top, a tappable week row below.
 const TRAINING_DAY_COUNT_OPTIONS: SetupDaysPerWeek[] = [2, 3, 4, 5, 6];
@@ -1346,49 +1327,121 @@ function formatProfileName(value: string) {
   return trimmedStart.replace(/\b\p{L}/gu, (letter) => letter.toLocaleUpperCase());
 }
 
-const FLAME_RED = '#EF4444';
+/** The level step's motion box — the wordmark's own frame. */
+const LEVEL_FIELD_WIDTH = 280;
 
-function FlameGlyph({ size, opacity = 1 }: { size: number; opacity?: number }) {
-  return (
-    <Svg width={size} height={size} viewBox="0 0 24 24" style={{ opacity }}>
-      <Path
-        d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"
-        fill={FLAME_RED}
-      />
-    </Svg>
+/**
+ * The level step's motion field: the launch sequence's own bars, sweeping
+ * across the wordmark's box.
+ *
+ * This replaced a ring of flame emoji, which said "intensity" in a vocabulary
+ * the app does not otherwise speak. The bars are the brand's, and unlike a
+ * flame they can carry a degree — `LEVEL_STREAKS` gets denser and quicker per
+ * tier, so the level reads twice: in how many there are, and in how fast they
+ * cross.
+ *
+ * Bounded to its parent (`overflow: hidden` on the wrap) so bars appear from
+ * the left edge of the box rather than the screen. Reduced motion drops the
+ * layer, like `AmbientDrift`: a row of parked bars is stranger than none.
+ */
+function LevelStreaks({ levelIndex }: { levelIndex: number }) {
+  const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
+  const bars = LEVEL_STREAKS[levelIndex] ?? LEVEL_STREAKS[0];
+  // One value per bar in the WIDEST tier, so switching level never changes the
+  // hook count — the same reason the animated values live in a ref.
+  const values = useRef(LEVEL_STREAKS.map((tier) => tier.map(() => new Animated.Value(0)))).current;
+  const tierValues = values[levelIndex] ?? values[0];
+
+  const sweeps = useMemo(
+    () =>
+      tierValues.map((value) =>
+        value.interpolate({ inputRange: [0, 1], outputRange: [-140, LEVEL_FIELD_WIDTH + 40] }),
+      ),
+    [tierValues],
   );
-}
-
-// Each flame flickers on its own rhythm (duration varies with `phase`) so the
-// cluster reads as a live fire instead of a synchronized pulse.
-function AnimatedFlame({ size, opacity = 1, phase = 0 }: { size: number; opacity?: number; phase?: number }) {
-  const flicker = useRef(new Animated.Value(0)).current;
-  // Interpolated once (disconnectAnimatedNodes rule). `opacity` is a static
-  // prop, so baking it into the ref is safe.
-  const flickerStyle = useRef({
-    opacity: flicker.interpolate({ inputRange: [0, 1], outputRange: [opacity * 0.65, opacity] }),
-    transform: [
-      { translateY: flicker.interpolate({ inputRange: [0, 1], outputRange: [1.5, -1.5] }) },
-      { scale: flicker.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.08] }) },
-    ],
-  }).current;
+  const fades = useMemo(
+    () =>
+      tierValues.map((value, index) =>
+        value.interpolate({
+          inputRange: [0, 0.14, 0.8, 1],
+          outputRange: [0, bars[index]?.opacity ?? 0.2, bars[index]?.opacity ?? 0.2, 0],
+        }),
+      ),
+    [tierValues, bars],
+  );
 
   useEffect(() => {
-    const duration = 380 + (phase % 4) * 85;
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(flicker, { toValue: 1, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-        Animated.timing(flicker, { toValue: 0, duration, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-      ]),
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [flicker, phase]);
+    let cancelled = false;
+    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (!cancelled) {
+        setReduceMotion(enabled);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (reduceMotion !== false) {
+      return;
+    }
+    const loops: Animated.CompositeAnimation[] = [];
+    bars.forEach((bar, index) => {
+      const value = tierValues[index];
+      if (!value) {
+        return;
+      }
+      // A negative delay is a head start: seed the value part-way through the
+      // cycle so the field is already in flight on the first frame.
+      const headStart = Math.min(0.999, Math.abs(bar.delay) / bar.ms);
+      value.setValue(headStart);
+      const loop = Animated.loop(
+        Animated.timing(value, { toValue: 1, duration: bar.ms, easing: Easing.linear, useNativeDriver: true }),
+      );
+      Animated.timing(value, {
+        toValue: 1,
+        duration: bar.ms * (1 - headStart),
+        easing: Easing.linear,
+        useNativeDriver: true,
+      }).start(({ finished }) => {
+        if (finished) {
+          value.setValue(0);
+          loop.start();
+        }
+      });
+      loops.push(loop);
+    });
+
+    return () => {
+      loops.forEach((loop) => loop.stop());
+      tierValues.forEach((value) => value.stopAnimation());
+    };
+  }, [bars, reduceMotion, tierValues]);
+
+  if (reduceMotion !== false) {
+    return null;
+  }
 
   return (
-    <Animated.View style={flickerStyle}>
-      <FlameGlyph size={size} />
-    </Animated.View>
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {bars.map((bar, index) => (
+        <Animated.View
+          key={`${levelIndex}-${bar.y}`}
+          style={[
+            styles.levelStreak,
+            {
+              top: bar.y,
+              width: bar.width,
+              height: bar.height,
+              opacity: fades[index],
+              backgroundColor: bar.accent ? ONBOARDING_PRIMARY : ONBOARDING_TEXT,
+              transform: [{ translateX: sweeps[index] }],
+            },
+          ]}
+        />
+      ))}
+    </View>
   );
 }
 
@@ -2111,9 +2164,13 @@ export function OnboardingScreen({
           void haptics.success();
           setIsBuildingPlan(false);
           setShowBuildingPlanThinking(false);
-          // The built plan lands on the program picker (08b) first; "Save plan
-          // & start" advances it to the plan overview.
-          setPlanReadyView('pick');
+          // The built plan lands on its OVERVIEW, not the picker. Landing on
+          // two comparable cards asked the user to redo the choice the whole
+          // questionnaire had just made for them, under a heading that already
+          // said the program was ready — and then said it again one screen
+          // later. The alternative is still there, behind "Vaihda", as an
+          // escape hatch rather than an equal option.
+          setPlanReadyView('overview');
           setStageIndex(getStageIndex('review'));
         });
       }, BUILDING_PLAN_TOTAL_MS - 420),
@@ -2704,7 +2761,6 @@ export function OnboardingScreen({
     );
     const selectedLevelOption = LEVEL_SLIDER_OPTIONS[selectedLevelIndex];
     const segmentWidth = levelTrackWidth > 0 ? (levelTrackWidth - 8) / LEVEL_SLIDER_OPTIONS.length : 0;
-    const flames = LEVEL_FLAME_LAYOUTS[selectedLevelIndex] ?? [];
 
     return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('level', language),
@@ -2718,11 +2774,7 @@ export function OnboardingScreen({
         <View style={styles.levelStageContent}>
           <View style={styles.levelLogoWrap}>
             <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, { transform: [{ scale: levelFlamePop }] }]}>
-              {flames.map((flame, index) => (
-                <View key={`${selectedLevelIndex}-${index}`} style={[styles.levelFlame, { left: flame.x, top: flame.y }]}>
-                  <AnimatedFlame size={flame.size} opacity={flame.opacity} phase={index} />
-                </View>
-              ))}
+              <LevelStreaks levelIndex={selectedLevelIndex} />
             </Animated.View>
             {/* This was the GAINER wordmark, spelled out as G + AI + NER —
                 three Text nodes, so the string "GAINER" never appeared in the
@@ -4136,7 +4188,8 @@ export function OnboardingScreen({
                   void haptics.success();
                   if (planReadyView === 'pick') {
                     // Commits the selected program (selection state already
-                    // follows the cards) and advances to the plan overview.
+                    // follows the cards) and returns to the overview that
+                    // opened it.
                     setPlanReadyView('overview');
                     return;
                   }
@@ -4164,11 +4217,11 @@ export function OnboardingScreen({
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>
               ) : planReadyView === 'pick' ? (
-                <Pressable onPress={() => setStageIndex(getStageIndex('planning'))} disabled={busy}>
+                <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>
               ) : planReadyView === 'overview' ? (
-                <Pressable onPress={() => setPlanReadyView('pick')} disabled={busy}>
+                <Pressable onPress={() => setStageIndex(getStageIndex('planning'))} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>
               ) : null
@@ -4517,17 +4570,22 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   levelLogoWrap: {
-    width: 280,
+    width: LEVEL_FIELD_WIDTH,
     height: 140,
     alignItems: 'center',
     justifyContent: 'center',
+    // The bars sweep in from outside the box; without this they cross the
+    // whole screen instead of the mark.
+    overflow: 'hidden',
   },
   levelLogoRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
   },
-  levelFlame: {
+  levelStreak: {
     position: 'absolute',
+    left: 0,
+    borderRadius: 999,
   },
   levelCopyBlock: {
     alignItems: 'center',
