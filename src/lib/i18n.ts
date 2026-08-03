@@ -88,9 +88,6 @@ const EN = {
 
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
   'home.adaptSheet.shorter.title': 'Shorter session',
-  // Still used by nothing but the sheet's own numbers — kept as the one place
-  // the trim is described, so the promise and the act quote the same figures.
-  'home.adaptSheet.shorter.sub': 'Trim to ~{min} min · drops {sets} sets',
   // Sets, not minutes. The minute figure here came from a different estimator
   // than the one the player shows on the very next screen ("~35 min" against
   // "~50 min" for the same session), and a promise the next screen contradicts
@@ -2479,7 +2476,6 @@ const FI: Record<I18nKey, string> = {
 
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
   'home.adaptSheet.shorter.title': 'Lyhyempi treeni',
-  'home.adaptSheet.shorter.sub': 'Lyhennä ~{min} min · pudottaa {sets} sarjaa',
   'home.adaptSheet.shorter.explain':
     'Pudottaa {sets} sarjaa apuliikkeistä: {before} → {after} sarjaa. Päänostoon ei kosketa.',
   'home.adaptSheet.shorter.cta': 'Aloita lyhennettynä',
