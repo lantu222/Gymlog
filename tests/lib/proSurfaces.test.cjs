@@ -358,33 +358,36 @@ module.exports = [
     },
   },
   {
-    name: 'the unlock moment names what actually switched on',
+    name: 'the unlock moment announces exactly what PRO_LIVE_BENEFITS sells',
     run() {
-      // The mock's third card said '14 months of logs are back', which would
-      // mean history had been taken away. It never was, in either tier, and the
-      // Pro page one screen earlier says so.
+      // The unlock screen used to carry its own parallel card list, which is
+      // how it sold the adaptive set coach for a day after the feature was
+      // deleted. The cards now live in proBenefits.ts next to the source list
+      // and the union invariant is tested at runtime in proBenefits.test.cjs;
+      // here we pin the screen to that source and to the honest behaviours.
+      assert.match(unlockSource, /PRO_UNLOCK_CARDS\.map/);
+      assert.doesNotMatch(unlockSource, /adaptive|sarjavalmentaja|nextSet|\+2,5/i);
+
+      // No splash phase: the reveal IS the staggered checklist, and it must
+      // settle instantly under reduced motion — the animation is never the
+      // thing hiding the content.
+      assert.doesNotMatch(unlockSource, /MOMENT_MS|setShowMoment/);
+      assert.match(unlockSource, /Animated\.stagger\(ROW_STAGGER_MS/);
+      assert.match(unlockSource, /isReduceMotionEnabled/);
+
+      // One CTA, not two labels for the same navigation.
+      assert.match(unlockSource, /onPress=\{onDone\}/);
+      assert.doesNotMatch(unlockSource, /onOpenLogger/);
+
+      // The specimen card renders only with real data — no invented read.
+      assert.match(unlockSource, /coachSpecimen \? \(/);
+
+      // Old lies stay dead: no history-restoration claims in the copy.
       const block = i18nSource.match(/'unlock\.[\s\S]*?'unlock\.noBadge': '[^']*'/g);
       const copy = block ? block.join('\n') : '';
       assert.ok(copy.length > 0, 'the unlock copy block should be findable');
       assert.doesNotMatch(copy, /logs are back|lokit ovat takaisin|months of logs/i);
       assert.doesNotMatch(copy, /8 weeks|8 viikkoa/);
-
-      // Each card points somewhere real and is a genuinely gated feature.
-      for (const key of ['c1', 'c2', 'c3', 'c4']) {
-        assert.match(unlockSource, new RegExp(`'unlock\\.${key}\\.t'`), `${key} should be listed`);
-      }
-
-      // A celebration you cannot dismiss is a modal, and the animation must
-      // never be the thing hiding the content underneath it.
-      assert.match(unlockSource, /setShowMoment\(false\)/);
-      assert.match(unlockSource, /isReduceMotionEnabled/);
-
-      // The %-sized Svg trap: a gradient with no viewBox does not stretch to a
-      // flex parent on Android, it leaves a hard edge where it stopped
-      // measuring. The field is measured and drawn at pixel size instead.
-      // (A percentage Svg WITH a viewBox scales fine — the sparkline uses one.)
-      assert.match(unlockSource, /onLayout=\{\(event\) => \{/);
-      assert.match(unlockSource, /<Svg style=\{StyleSheet\.absoluteFill\} width=\{field\.width\} height=\{field\.height\}>/);
     },
   },
   {

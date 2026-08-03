@@ -3633,8 +3633,9 @@ function VinhaApp() {
       <PremiumUnlockScreen
         language={preferences.appLanguage}
         trialEndsAt={premiumTrialEndsAt}
+        // The reads just unlocked; this is the first one, from their own log.
+        coachSpecimen={proCoachSpecimen}
         onDone={() => resetToRoute(ROOT_ROUTES.profile)}
-        onOpenLogger={() => resetToRoute(ROOT_ROUTES.home)}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {

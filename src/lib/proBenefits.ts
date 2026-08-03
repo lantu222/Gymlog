@@ -35,6 +35,52 @@ export const PRO_LIVE_BENEFITS: ProBenefit[] = [
 ];
 
 /**
+ * The unlock moment's cards, defined next to the list they announce.
+ *
+ * The unlock screen used to carry its own parallel card list, and that is how
+ * it kept selling the adaptive set coach for a day after the feature was
+ * deleted — the removal sweep cleaned every surface that read from here and
+ * missed the one that did not. Each card names the benefits it covers, and the
+ * test asserts the union of `gates` equals PRO_LIVE_BENEFITS exactly: remove a
+ * benefit and the card announcing it fails loudly instead of lying quietly.
+ */
+export interface ProUnlockCard {
+  titleKey: I18nKey;
+  bodyKey: I18nKey;
+  /** Where the feature lives, so "what happens next" answers itself. */
+  placeKey: I18nKey;
+  /** titleKeys of the PRO_LIVE_BENEFITS entries this card announces. */
+  gates: I18nKey[];
+}
+
+export const PRO_UNLOCK_CARDS: ProUnlockCard[] = [
+  {
+    titleKey: 'unlock.progression.t',
+    bodyKey: 'unlock.progression.b',
+    placeKey: 'unlock.progression.to',
+    gates: ['pro.v2.coach.progression.t'],
+  },
+  {
+    titleKey: 'unlock.ai.t',
+    bodyKey: 'unlock.ai.b',
+    placeKey: 'unlock.ai.to',
+    gates: ['pro.v2.plan.coach.t', 'pro.v2.plan.builder.t'],
+  },
+  {
+    titleKey: 'unlock.reads.t',
+    bodyKey: 'unlock.reads.b',
+    placeKey: 'unlock.reads.to',
+    gates: ['pro.v2.read.analysis.t', 'pro.v2.read.why.t', 'pro.v2.read.recovery.t'],
+  },
+  {
+    titleKey: 'unlock.theme.t',
+    bodyKey: 'unlock.theme.b',
+    placeKey: 'unlock.theme.to',
+    gates: ['pro.v2.read.theme.t'],
+  },
+];
+
+/**
  * How Pro is being kept on, which decides what "ending it" can honestly offer.
  *
  * A promo cannot be cancelled — it runs out. The demo switch can be flipped
