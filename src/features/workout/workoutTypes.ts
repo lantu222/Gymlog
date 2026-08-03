@@ -85,6 +85,12 @@ export interface WorkoutSetInstance {
   plannedRepsMax: number;
   draftLoadText: string;
   draftRepsText: string;
+  /**
+   * Load this set was carrying before automated progression moved it up (Pro).
+   * Undefined when the prefill simply repeats last session — the loggers use it
+   * to mark a weight the user did not pick themselves.
+   */
+  autoProgressedFromKg?: number;
   actualLoadKg?: number;
   actualReps?: number;
   status: WorkoutSetStatus;

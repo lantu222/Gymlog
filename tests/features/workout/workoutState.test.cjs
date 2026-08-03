@@ -186,4 +186,61 @@ module.exports = [
       assert.equal(nextState.activeSession.restTimer.endsAtMs, null);
     },
   },
+  {
+    name: 'swapping an exercise renames it and drops the old prefilled load',
+    run() {
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [
+          createExercise({
+            exerciseName: 'Leg Press',
+            substitutionGroup: 'squat_pattern',
+            status: 'active',
+            sets: [
+              createSet({ setIndex: 0, actualLoadKg: 150, draftLoadText: '150', plannedLoadKg: 150 }),
+              createSet({
+                setIndex: 1,
+                status: 'pending',
+                plannedLoadKg: 150,
+                draftLoadText: '150',
+                draftRepsText: '',
+                actualLoadKg: undefined,
+                actualReps: undefined,
+                completedAt: undefined,
+                edited: false,
+                autoProgressedFromKg: 147.5,
+              }),
+            ],
+          }),
+        ],
+      });
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, activeSession },
+        {
+          type: 'exercise/swap',
+          payload: {
+            slotId: activeSession.exercises[0].slotId,
+            exerciseName: 'Front Squat',
+            substitutionGroup: 'squat_pattern',
+          },
+        },
+      );
+
+      const swapped = nextState.activeSession.exercises[0];
+      assert.equal(swapped.exerciseName, 'Front Squat');
+      assert.equal(swapped.sourceExerciseName, 'Leg Press');
+      assert.equal(swapped.status, 'swapped');
+
+      // What was actually lifted stays on the record.
+      assert.equal(swapped.sets[0].actualLoadKg, 150);
+
+      // What is still ahead does not open on a weight from a different lift —
+      // and automated progression cannot claim it picked one.
+      assert.equal(swapped.sets[1].draftLoadText, '');
+      assert.equal(swapped.sets[1].plannedLoadKg, undefined);
+      assert.equal(swapped.sets[1].autoProgressedFromKg, undefined);
+    },
+  },
 ];

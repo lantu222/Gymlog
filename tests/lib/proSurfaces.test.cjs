@@ -54,6 +54,15 @@ module.exports = [
 
       // The clock must not run while a sheet is open over the set.
       assert.match(guidedSource, /const frozen = paused \|\|[^;]*swapOpen/);
+
+      // Calling the action is not the same as the action landing. The swap
+      // above satisfied this suite while being completely dead on screen: the
+      // step list is memoised, every set step bakes in the exercise name, and
+      // the memo key listed only slots, set counts and skips. The name moved in
+      // state and the player went on rendering the steps it already had. The
+      // key now comes from the module that builds the steps, so the thing the
+      // steps depend on and the thing that invalidates them cannot drift apart.
+      assert.match(guidedSource, /getGuidedStepPlanKey\(guidedExercises\)/);
     },
   },
   {

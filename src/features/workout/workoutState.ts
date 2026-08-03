@@ -153,14 +153,14 @@ function resolveHistoricalSetDraft(
   const matched = latest?.sets.find((item) => item.setIndex === setIndex) ?? latest?.sets[setIndex] ?? null;
 
   if (!matched) {
-    return { draftLoadText: '', draftRepsText: '', plannedLoadKg: undefined };
+    return { draftLoadText: '', draftRepsText: '', plannedLoadKg: undefined, autoProgressedFromKg: undefined };
   }
 
   // Automated progression (ADR-004): when the last session cleared the rep
   // ceiling on every working set, the prefill moves up by the level's
   // increment. Every other outcome repeats last time's load, which is what
   // this function did unconditionally before the gate existed.
-  const { loadKg } = resolveProgressedLoadKg({
+  const { loadKg, fromLoadKg } = resolveProgressedLoadKg({
     history: entries,
     repsMin: exercise.repsMin,
     repsMax: exercise.repsMax,
@@ -178,6 +178,7 @@ function resolveHistoricalSetDraft(
     draftLoadText: formatWeightInputValue(loadKg, unitPreference),
     draftRepsText: '',
     plannedLoadKg: loadKg,
+    autoProgressedFromKg: fromLoadKg ?? undefined,
   };
 }
 
@@ -207,6 +208,7 @@ function materializeExercise(
       plannedRepsMax: exercise.repsMax,
       draftLoadText: resolved.draftLoadText,
       draftRepsText: resolved.draftRepsText,
+      autoProgressedFromKg: resolved.autoProgressedFromKg,
       status: 'pending',
       edited: false,
     };
@@ -913,6 +915,21 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       exercise.exerciseName = action.payload.exerciseName;
       exercise.substitutionGroup = action.payload.substitutionGroup;
       exercise.status = 'swapped';
+      // The prefilled load belongs to the lift you just swapped AWAY from — it
+      // came from that slot's history, and a leg-press weight is not a front-
+      // squat weight. Sets already logged keep what was actually done; the ones
+      // still ahead start blank rather than opening on a number from a
+      // different exercise. `autoProgressedFromKg` goes with it: the
+      // progression gate did not pick a weight for this lift, and a badge
+      // saying it did would be a Pro feature taking credit for a stale number.
+      exercise.sets.forEach((set) => {
+        if (set.status !== 'pending') {
+          return;
+        }
+        set.draftLoadText = '';
+        set.plannedLoadKg = undefined;
+        set.autoProgressedFromKg = undefined;
+      });
       session.ui.swapSheetSlotId = null;
       session.updatedAt = new Date().toISOString();
       return { ...state, activeSession: session };

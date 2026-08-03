@@ -166,12 +166,14 @@ module.exports = [
       const history = [entry(60, 12, 0), entry(60, 12, 3)];
       const shared = { history, repsMin: 8, repsMax: 12, targetSets: 3, level: 'beginner', fallbackLoadKg: 60 };
 
+      // `fromLoadKg` is what the loggers show as "AUTO +2.5 kg" — a progressed
+      // load has to be able to say where it came from.
       const on = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: true });
-      assert.deepEqual(on, { loadKg: 62.5, progressed: true });
+      assert.deepEqual(on, { loadKg: 62.5, progressed: true, fromLoadKg: 60 });
 
       // OFF is exactly the old behaviour: repeat what was logged.
       const off = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: false });
-      assert.deepEqual(off, { loadKg: 60, progressed: false });
+      assert.deepEqual(off, { loadKg: 60, progressed: false, fromLoadKg: null });
 
       // ON but not earned still repeats — the toggle promises a rule, not a
       // weekly increase.
@@ -180,7 +182,7 @@ module.exports = [
         history: [entry(60, [12, 11, 10], 0), entry(60, 12, 3)],
         automatedProgressionEnabled: true,
       });
-      assert.deepEqual(notEarned, { loadKg: 60, progressed: false });
+      assert.deepEqual(notEarned, { loadKg: 60, progressed: false, fromLoadKg: null });
     },
   },
   {

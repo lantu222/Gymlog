@@ -42,6 +42,7 @@ import {
   GuidedSetTarget,
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
+  getGuidedStepPlanKey,
   estimateGuidedDurationMinutes,
   findGuidedLibraryIndex,
   findGuidedPhaseStart,
@@ -191,6 +192,7 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
       </>
     ),
     plus: <Path d="M12 5v14M5 12h14" />,
+    arrowUp: <Path d="M12 19V5M6 11l6-6 6 6" />,
     list: <Path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
     video: (
       <>
@@ -798,30 +800,20 @@ export function GuidedPlayerScreen({
   );
 
   const exercises = session?.exercises ?? [];
+  const guidedExercises = exercises.map((exercise) => ({
+    slotId: exercise.slotId,
+    name: exercise.exerciseName,
+    restSeconds: exercise.restSecondsMin,
+    setCount: exercise.sets.length,
+    skipped: exercise.status === 'skipped',
+  }));
   const stepPlan = useMemo(
     () =>
-      buildGuidedSteps(
-        {
-          warmup: warmupDrills,
-          exercises: exercises.map((exercise) => ({
-            slotId: exercise.slotId,
-            name: exercise.exerciseName,
-            restSeconds: exercise.restSecondsMin,
-            setCount: exercise.sets.length,
-            skipped: exercise.status === 'skipped',
-          })),
-          cooldown: cooldownDrills,
-        },
-        language,
-      ),
-    // Rebuild only when the structural shape changes, not on every set log.
+      buildGuidedSteps({ warmup: warmupDrills, exercises: guidedExercises, cooldown: cooldownDrills }, language),
+    // Rebuild only when the shape of the session changes, not on every set log.
+    // The key must cover everything the steps bake in — see getGuidedStepPlanKey.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      warmupDrills,
-      cooldownDrills,
-      language,
-      exercises.map((exercise) => `${exercise.slotId}:${exercise.sets.length}:${exercise.status === 'skipped' ? 's' : ''}`).join('|'),
-    ],
+    [warmupDrills, cooldownDrills, language, getGuidedStepPlanKey(guidedExercises)],
   );
   const { steps, groups } = stepPlan;
 
@@ -1851,12 +1843,26 @@ function SetStepView({
     setEdit(false);
     setReps(target?.reps ?? 8);
     setKg(target?.loadKg ?? 0);
-    // Re-derive when the step changes (target identity follows the step).
+    // Re-derive when the step changes — and when the exercise under the step
+    // changes, which is what a swap does without moving the index. Keying on
+    // stepIndex alone left the old lift's weight sitting in local state after a
+    // swap: the store had already dropped it, the screen still showed it, and
+    // pressing Log would have written it. The visible number always wins, so it
+    // has to be the one the store agrees with.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stepIndex]);
+  }, [stepIndex, step.exerciseName]);
 
-  // Reps carry the big figure; weight only appears when the lift is loaded.
-  const repsSize = bodyweight || kg <= 0 ? 98 : 84;
+  // Reps carry the big figure; only a bodyweight lift gets the whole line.
+  const repsSize = bodyweight ? 98 : 84;
+  /**
+   * The weight the gate picked, shown as such only while the number on screen
+   * is still that one — the moment the stepper moves it, it is the user's
+   * weight and the badge has no business claiming otherwise.
+   */
+  const autoFromKg =
+    target?.autoProgressedFromKg != null && target.loadKg != null && Math.abs(kg - target.loadKg) < 0.001
+      ? target.autoProgressedFromKg
+      : null;
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
@@ -1901,9 +1907,11 @@ function SetStepView({
         </View>
 
         <View style={styles.setTargetArea}>
-          {!edit ? (
-            <Pressable onPress={() => setEdit(true)} style={styles.setTargetStack}>
-              <View style={styles.setTargetRow}>
+          <View style={styles.setTargetStack}>
+            {/* Reps are a correction you make after the set, so they stay the
+                headline and open their stepper on tap. */}
+            {!edit ? (
+              <Pressable onPress={() => setEdit(true)} style={styles.setTargetRow}>
                 <TargetNumber value={step.setIndex + 1} unit="" size={42} />
                 <Text style={styles.setTargetLabel}>{t(language, 'guided.numLabel.set')}</Text>
                 {/* The × used to hang off the reps number, so the row read
@@ -1911,27 +1919,67 @@ function SetStepView({
                     side and the noun in the wrong case. */}
                 <TargetNumber value={reps} unit="" size={repsSize} />
                 <Text style={styles.setTargetLabel}>{t(language, 'guided.repsCount')}</Text>
-              </View>
-              {!bodyweight && kg > 0 ? (
-                <View style={styles.setTargetRow}>
-                  <TargetNumber value={removeTrailingZeros(kg)} unit="kg" size={58} />
-                  <Text style={styles.setTargetLabel}>{t(language, 'guided.weight')}</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ) : (
-            <View style={{ alignSelf: 'stretch', gap: 16 }}>
-              <View style={{ flexDirection: 'row', gap: 10 }}>
+              </Pressable>
+            ) : (
+              <View style={{ alignSelf: 'stretch', gap: 12 }}>
                 <Stepper label={t(language, 'guided.reps')} value={reps} step={1} min={1} onChange={setReps} />
-                {!bodyweight ? (
-                  <Stepper label={t(language, 'guided.weight')} value={kg} unit="kg" step={2.5} min={0} onChange={setKg} />
+                <Pressable onPress={() => setEdit(false)} hitSlop={10} style={{ alignSelf: 'center' }}>
+                  <Text style={{ fontSize: 13.5, fontWeight: '800', color: theme.purple }}>
+                    {t(language, 'guided.back')}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            {/* Weight is decided BEFORE the set, so it is a live control, not a
+                readout: it used to hide behind tapping the reps line, which
+                meant the one number you have to set to start was two taps and
+                a guess away. Loaded lifts always get it — an unset weight is a
+                faint zero to dial in, never a claim that the bar is empty. */}
+            {!bodyweight ? (
+              <View style={styles.setWeightCard}>
+                <Text style={styles.setWeightCardLabel}>{t(language, 'guided.weight')}</Text>
+                <View style={styles.setWeightRow}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'guided.a11y.weightDown')}
+                    hitSlop={8}
+                    onPress={() => setKg((current) => Math.max(0, Number((current - 2.5).toFixed(1))))}
+                    style={({ pressed }) => [styles.setWeightBtn, pressed && { opacity: 0.7 }]}
+                  >
+                    <Text style={styles.setWeightBtnText}>−</Text>
+                  </Pressable>
+                  <View style={styles.setWeightValue}>
+                    <Text style={[styles.setWeightNumber, kg <= 0 && { color: theme.faint }]}>
+                      {removeTrailingZeros(kg)}
+                    </Text>
+                    <Text style={styles.setWeightUnit}>kg</Text>
+                  </View>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'guided.a11y.weightUp')}
+                    hitSlop={8}
+                    onPress={() => setKg((current) => Number((current + 2.5).toFixed(1)))}
+                    style={({ pressed }) => [styles.setWeightBtn, pressed && { opacity: 0.7 }]}
+                  >
+                    <Text style={styles.setWeightBtnText}>+</Text>
+                  </Pressable>
+                </View>
+                {/* Automated progression is Pro-gated upstream (resolveProgressionOptions),
+                    so this badge only ever renders for an unlocked account — and only
+                    when the load moved, which is the one case the user did not choose
+                    the weight themselves. */}
+                {autoFromKg !== null ? (
+                  <View style={styles.setAutoBadge}>
+                    <GPIcon name="arrowUp" size={13} color={theme.purple} sw={2.8} />
+                    <Text style={styles.setAutoBadgeText}>
+                      {t(language, 'guided.autoLoad', { kg: removeTrailingZeros(kg - autoFromKg) })}
+                    </Text>
+                  </View>
                 ) : null}
               </View>
-              <Pressable onPress={() => setEdit(false)} hitSlop={10} style={{ alignSelf: 'center' }}>
-                <Text style={{ fontSize: 13.5, fontWeight: '800', color: theme.purple }}>{t(language, 'guided.back')}</Text>
-              </Pressable>
-            </View>
-          )}
+            ) : null}
+          </View>
         </View>
 
         <View style={{ paddingHorizontal: 22 }}>
@@ -2281,9 +2329,54 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   setNameRow: { paddingTop: 6, paddingHorizontal: 24 },
   setName: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 24 },
   setTargetArea: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  setTargetStack: { alignItems: 'center', gap: 4, maxWidth: '100%' },
+  setTargetStack: { alignItems: 'center', gap: 14, maxWidth: '100%', alignSelf: 'stretch' },
   setTargetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   setTargetLabel: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 23 },
+  setWeightCard: {
+    alignItems: 'center',
+    gap: 6,
+    paddingTop: 11,
+    paddingBottom: 13,
+    paddingHorizontal: 18,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+  },
+  setWeightCardLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
+  setWeightRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  setWeightBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  setWeightBtnText: { fontSize: 25, fontWeight: '800', color: theme.purple, lineHeight: 29 },
+  setWeightValue: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 3, minWidth: 108 },
+  setWeightNumber: {
+    fontSize: 44,
+    fontWeight: '800',
+    letterSpacing: -1.6,
+    color: theme.ink,
+    lineHeight: 48,
+    fontVariant: ['tabular-nums'],
+  },
+  setWeightUnit: { fontSize: 16, fontWeight: '800', color: theme.faint },
+  setAutoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 11,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: theme.purpleSoft,
+  },
+  setAutoBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.purple },
   setLogButton: {
     height: 64,
     borderRadius: 20,

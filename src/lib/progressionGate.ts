@@ -193,15 +193,18 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
  */
 export function resolveProgressedLoadKg(
   input: ProgressionGateInput & { automatedProgressionEnabled: boolean; fallbackLoadKg: number },
-): { loadKg: number; progressed: boolean } {
+): { loadKg: number; progressed: boolean; fromLoadKg: number | null } {
   if (!input.automatedProgressionEnabled) {
-    return { loadKg: input.fallbackLoadKg, progressed: false };
+    return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null };
   }
 
   const decision = evaluateProgression(input);
   if (decision.recommendation === 'increase') {
-    return { loadKg: decision.loadKg, progressed: true };
+    // `fromLoadKg` is what the set was carrying before the gate moved it — the
+    // logger shows the difference, so a load the user did not choose can say
+    // where it came from.
+    return { loadKg: decision.loadKg, progressed: true, fromLoadKg: decision.fromLoadKg };
   }
 
-  return { loadKg: input.fallbackLoadKg, progressed: false };
+  return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null };
 }

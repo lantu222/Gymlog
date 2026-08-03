@@ -266,6 +266,23 @@ export function buildGuidedSteps(
   return { steps, groups };
 }
 
+/**
+ * Identity of a built step list — the memo key the player rebuilds its steps on.
+ *
+ * The exercise NAME is in here for a reason. Every set and position step bakes
+ * in the name it was built with, and the set screen reads the name off the
+ * step, not off the session. Leaving the name out of this key (which is how
+ * this shipped) meant swapping an exercise changed the state and nothing else:
+ * same slots, same set counts, same key, so the steps were never rebuilt and
+ * the player kept showing — and cueing the photo of — the lift you had just
+ * swapped away. The swap looked completely dead from the outside.
+ */
+export function getGuidedStepPlanKey(exercises: GuidedExerciseInput[]): string {
+  return exercises
+    .map((exercise) => `${exercise.slotId}:${exercise.name}:${exercise.setCount}:${exercise.skipped ? 's' : ''}`)
+    .join('|');
+}
+
 /** Index of the first step of a phase, or null when the phase has no steps. */
 export function findGuidedPhaseStart(steps: GuidedStep[], phase: GuidedPhase): number | null {
   const index = steps.findIndex((step) => step.type !== 'finish' && step.phase === phase);
@@ -326,6 +343,13 @@ export function getGuidedStepLabel(step: GuidedStep, language: AppLanguage = 'en
 export interface GuidedSetTarget {
   reps: number;
   loadKg: number | null;
+  /**
+   * Load this set carried before automated progression raised it, when the
+   * shown weight is still that untouched machine-picked one. Null whenever the
+   * user has a hand in the number — the badge must never claim credit for a
+   * weight the user typed.
+   */
+  autoProgressedFromKg: number | null;
 }
 
 export interface GuidedNextPreview {
@@ -424,6 +448,7 @@ export function resolveGuidedSetTarget(
     plannedRepsMax: number;
     draftLoadText: string;
     draftRepsText: string;
+    autoProgressedFromKg?: number;
     actualLoadKg?: number;
     actualReps?: number;
   }>,
@@ -442,12 +467,22 @@ export function resolveGuidedSetTarget(
   const reps = previous?.actualReps ?? set.plannedRepsMax;
 
   if (trackingMode === 'bodyweight') {
-    return { reps, loadKg: null };
+    return { reps, loadKg: null, autoProgressedFromKg: null };
   }
 
   const draftLoad = parseNumberInput(set.draftLoadText);
   const loadKg = draftLoad ?? set.plannedLoadKg ?? previous?.actualLoadKg ?? null;
-  return { reps, loadKg };
+  // The badge follows the number, not the set: once the shown load drifts off
+  // the progressed plan (user edit, carry-forward from a set they logged
+  // heavier), it is no longer the machine's suggestion.
+  const autoProgressedFromKg =
+    set.autoProgressedFromKg !== undefined &&
+    loadKg !== null &&
+    set.plannedLoadKg !== undefined &&
+    Math.abs(loadKg - set.plannedLoadKg) < 0.001
+      ? set.autoProgressedFromKg
+      : null;
+  return { reps, loadKg, autoProgressedFromKg };
 }
 
 /**

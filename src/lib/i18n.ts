@@ -1123,6 +1123,11 @@ const EN = {
   'guided.stopped': 'CLOCK STOPPED',
   'guided.stopClock': 'Stop the clock',
   'guided.weight': 'WEIGHT',
+  // Automated progression (Pro) raised this set's load; the badge names the
+  // step it took so the number is not a mystery.
+  'guided.autoLoad': 'AUTO +{kg} KG',
+  'guided.a11y.weightDown': 'Lower the weight by 2.5 kg',
+  'guided.a11y.weightUp': 'Raise the weight by 2.5 kg',
   'guided.back': '‹ Back',
   'guided.logSet': 'Log set',
   'guided.a11y.watchHowTo': 'Watch how {name} is done',
@@ -3473,6 +3478,9 @@ const FI: Record<I18nKey, string> = {
   'guided.stopped': 'KELLO PYSÄYTETTY',
   'guided.stopClock': 'Pysäytä kello',
   'guided.weight': 'PAINO',
+  'guided.autoLoad': 'AUTOMAATTINEN +{kg} KG',
+  'guided.a11y.weightDown': 'Vähennä painoa 2,5 kg',
+  'guided.a11y.weightUp': 'Lisää painoa 2,5 kg',
   'guided.back': '‹ Takaisin',
   'guided.logSet': 'Kirjaa sarja',
   'guided.a11y.watchHowTo': 'Katso miten {name} tehdään',

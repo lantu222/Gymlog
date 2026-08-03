@@ -10,6 +10,7 @@ const {
   getGuidedNextPreview,
   getGuidedNextName,
   resolveGuidedSetTarget,
+  getGuidedStepPlanKey,
   resolveGuidedResumeIndex,
   getGuidedSkipTargetIndex,
   getGuidedBackTargetIndex,
@@ -215,19 +216,108 @@ module.exports = [
         },
       ];
       // Draft (comma decimal) wins; reps follow the previous completed set.
-      assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'load_and_reps'), { reps: 7, loadKg: 62.5 });
+      assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'load_and_reps'), {
+        reps: 7,
+        loadKg: 62.5,
+        autoProgressedFromKg: null,
+      });
       // No draft, no plan → previous actual load.
-      assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps'), { reps: 7, loadKg: 62.5 });
+      assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps'), {
+        reps: 7,
+        loadKg: 62.5,
+        autoProgressedFromKg: null,
+      });
       // First set, no history: planned max reps, null load.
       const fresh = [
         { setIndex: 0, status: 'pending', plannedRepsMin: 6, plannedRepsMax: 10, draftLoadText: '', draftRepsText: '' },
       ];
-      assert.deepEqual(resolveGuidedSetTarget(fresh, 0, 'load_and_reps'), { reps: 10, loadKg: null });
+      assert.deepEqual(resolveGuidedSetTarget(fresh, 0, 'load_and_reps'), {
+        reps: 10,
+        loadKg: null,
+        autoProgressedFromKg: null,
+      });
       // Bodyweight never carries a load.
-      assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'bodyweight'), { reps: 7, loadKg: null });
+      assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'bodyweight'), {
+        reps: 7,
+        loadKg: null,
+        autoProgressedFromKg: null,
+      });
       assert.equal(resolveGuidedSetTarget(sets, 9, 'load_and_reps'), null);
       assert.equal(formatGuidedTarget({ reps: 8, loadKg: 62.5 }), '8 × 62.5 kg');
       assert.equal(formatGuidedTarget({ reps: 12, loadKg: null }), '12 reps');
+    },
+  },
+  {
+    name: 'the step-plan key notices a swap, because the steps carry the name',
+    run() {
+      const before = getGuidedStepPlanKey(EXERCISES);
+
+      // A swap changes nothing else: same slot, same set count, not skipped.
+      // If this key does not move, the player never rebuilds its steps and the
+      // swapped exercise stays on screen under its old name.
+      const swapped = EXERCISES.map((exercise, index) =>
+        index === 0 ? { ...exercise, name: 'Dumbbell Bench Press' } : exercise,
+      );
+      assert.notEqual(getGuidedStepPlanKey(swapped), before);
+
+      // And the steps it guards really do bake the name in, which is why.
+      const steps = buildGuidedSteps({ warmup: [], exercises: swapped, cooldown: [] }).steps;
+      const firstSet = steps.find((step) => step.type === 'set');
+      assert.equal(firstSet.exerciseName, 'Dumbbell Bench Press');
+
+      // The things it already tracked still move it.
+      assert.notEqual(getGuidedStepPlanKey(EXERCISES.map((e, i) => (i === 0 ? { ...e, setCount: 4 } : e))), before);
+      assert.notEqual(getGuidedStepPlanKey(EXERCISES.map((e, i) => (i === 0 ? { ...e, skipped: true } : e))), before);
+      // Rest length is not baked into a set step, so it is not identity.
+      assert.equal(getGuidedStepPlanKey(EXERCISES.map((e) => ({ ...e, restSeconds: 999 }))), before);
+    },
+  },
+  {
+    name: 'an automated-progression load is flagged only while it is untouched',
+    run() {
+      const progressed = (draftLoadText) => ({
+        setIndex: 0,
+        status: 'pending',
+        plannedLoadKg: 62.5,
+        autoProgressedFromKg: 60,
+        plannedRepsMin: 6,
+        plannedRepsMax: 8,
+        draftLoadText,
+        draftRepsText: '',
+      });
+
+      // The prefill the gate wrote: badge-worthy, and it knows the step it took.
+      assert.deepEqual(resolveGuidedSetTarget([progressed('62.5')], 0, 'load_and_reps'), {
+        reps: 8,
+        loadKg: 62.5,
+        autoProgressedFromKg: 60,
+      });
+
+      // Typed over in the list logger — this is the user's weight now, and
+      // claiming the app chose it would be a lie about a Pro feature.
+      assert.deepEqual(resolveGuidedSetTarget([progressed('65')], 0, 'load_and_reps'), {
+        reps: 8,
+        loadKg: 65,
+        autoProgressedFromKg: null,
+      });
+
+      // Bodyweight never carries a load, so it never carries the badge either.
+      assert.equal(
+        resolveGuidedSetTarget([progressed('62.5')], 0, 'bodyweight').autoProgressedFromKg,
+        null,
+      );
+
+      // Automated progression off (or free): no origin recorded, no badge.
+      const plain = {
+        setIndex: 0,
+        status: 'pending',
+        plannedLoadKg: 60,
+        plannedRepsMin: 6,
+        plannedRepsMax: 8,
+        draftLoadText: '60',
+        draftRepsText: '',
+      };
+      assert.equal(resolveGuidedSetTarget([plain], 0, 'load_and_reps').autoProgressedFromKg, null);
     },
   },
   {
