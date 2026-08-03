@@ -621,7 +621,7 @@ export function EmptyWorkoutScreen({
       {/* stat strip */}
       <View style={styles.statStrip}>
         <Text style={[styles.statText, !hasExercises && styles.statTextFaint]}>
-          {t(language, 'emptyWorkout.stat.sets', { count: doneSetCount })}
+          {t(language, doneSetCount === 1 ? 'emptyWorkout.stat.setsOne' : 'emptyWorkout.stat.setsMany', { count: doneSetCount })}
         </Text>
         <View style={styles.statDot} />
         <Text style={[styles.statText, !hasExercises && styles.statTextFaint]}>

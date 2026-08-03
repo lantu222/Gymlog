@@ -33,6 +33,23 @@ module.exports = [
     },
   },
   {
+    name: 'a lift spelled two ways is translated under both spellings',
+    run() {
+      // The catalog, the swap pools and the generated library do not agree on
+      // singular vs plural, and the lookup is exact — so "Dumbbell Flyes"
+      // reached the screen in English while "Dumbbell Fly" was translated.
+      // Same lift, same Finnish, both keys.
+      for (const [a, b] of [
+        ['Dumbbell Fly', 'Dumbbell Flyes'],
+        ['Bench Dip', 'Bench Dips'],
+        ['Mountain Climbers', 'Mountain Climber'],
+      ]) {
+        assert.equal(exerciseNameLabel('fi', a), exerciseNameLabel('fi', b));
+        assert.notEqual(exerciseNameLabel('fi', b), b, `${b} still reads in English`);
+      }
+    },
+  },
+  {
     name: 'English is returned untouched and unknown names pass through',
     run() {
       assert.equal(exerciseNameLabel('en', 'Back Squat'), 'Back Squat');

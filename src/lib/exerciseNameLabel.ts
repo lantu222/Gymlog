@@ -80,6 +80,8 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   // ── Chest isolation ──────────────────────────────────────────────────
   'Cable Fly': 'Taljaristikkäisveto',
   'Dumbbell Fly': 'Vipunosto rinnalle',
+  // The pools spell it plural; the lookup is exact, so both spellings need an entry.
+  'Dumbbell Flyes': 'Vipunosto rinnalle',
   'Pec Deck': 'Pec deck',
 
   // ── Vertical pull ────────────────────────────────────────────────────
@@ -130,6 +132,7 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Skull Crusher': 'Ranskalainen punnerrus',
   'Lying Triceps Press': 'Ranskalainen punnerrus',
   'Bench Dip': 'Penkkidippi',
+  'Bench Dips': 'Penkkidippi',
 
   // ── Legs isolation ───────────────────────────────────────────────────
   'Leg Curl': 'Takareisikoukistus',
@@ -151,6 +154,7 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Russian Twist': 'Venäläinen kierto',
   'Ab Wheel': 'Vatsarulla',
   'Mountain Climbers': 'Vuorikiipeilijä',
+  'Mountain Climber': 'Vuorikiipeilijä',
   'Bicycle Crunch': 'Polkupyörärutistus',
   'Farmer Carry': 'Maanviljelijän kävely',
 

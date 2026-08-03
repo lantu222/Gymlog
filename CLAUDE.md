@@ -128,4 +128,4 @@ Do not call OpenAI directly from the mobile app. See `docs/ai-coach-backend.md` 
 - Saved workout UX must be truthful: do not show a success state before `saveCompletedWorkoutSession` resolves
 - Use `src/theme.ts` colors and existing shared components in `src/components/` before adding new styling
 - Keep `src/lib/` pure — no AsyncStorage, no React, no side effects
-- Ready program templates in `workoutCatalog.ts` are immutable at runtime; duplication into custom templates is done via `src/lib/customProgramDuplication.ts` (`buildDuplicatedCustomProgramDraft`, wired in `App.tsx`). An older `readyProgramDuplication.ts` still exists but nothing outside its test imports it.
+- Ready program templates in `workoutCatalog.ts` are immutable at runtime; duplication into custom templates is done via `src/lib/customProgramDuplication.ts` (`buildDuplicatedCustomProgramDraft`, wired in `App.tsx`).

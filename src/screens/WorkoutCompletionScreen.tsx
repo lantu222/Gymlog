@@ -369,7 +369,7 @@ export function WorkoutCompletionScreen({
                           {muscle.sharePercent} %
                         </Text>
                         <Text style={styles.muscleMeta}>
-                          {t(language, 'complete.exerciseSets', { count: muscle.sets })}
+                          {t(language, muscle.sets === 1 ? 'complete.exerciseSetsOne' : 'complete.exerciseSetsMany', { count: muscle.sets })}
                         </Text>
                       </View>
                     </View>
@@ -408,7 +408,7 @@ export function WorkoutCompletionScreen({
                         </View>
                       ) : null}
                     </View>
-                    <Text style={styles.exerciseSets}>{t(language, 'complete.exerciseSets', { count: exercise.completedSets })}</Text>
+                    <Text style={styles.exerciseSets}>{t(language, exercise.completedSets === 1 ? 'complete.exerciseSetsOne' : 'complete.exerciseSetsMany', { count: exercise.completedSets })}</Text>
                   </View>
                   {exercise.topSetLabel ? (
                     <View style={styles.exerciseTopSet}>
