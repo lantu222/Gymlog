@@ -538,6 +538,7 @@ const EN = {
   'onb.level.a11y': '{label} training level',
   'onb.level.hintChosen': 'You can change this anytime.',
   'onb.level.hintPick': 'Pick the level that sounds like you.',
+  'onb.level.pickTitle': 'How long have you trained?',
 
   'onb.area.shoulders': 'Shoulders',
   'onb.area.lower_back': 'Lower back',
@@ -2299,6 +2300,7 @@ const EN = {
   'onb.nothingToNote': 'Nothing to note',
   'onb.viewFirstWeek': 'View the first training week',
   'onb.pickAreas': 'Pick 1–2 areas.',
+  'onb.focusCaution': 'Flagged areas swap to joint-friendly moves. Avoided areas stay out.',
   'onb.focusLabel': 'Focus',
   // ── Progress signal badges ────────────────────────────────────────────
   'signal.newBest': 'New best',
@@ -2908,6 +2910,7 @@ const FI: Record<I18nKey, string> = {
   'onb.level.a11y': 'Taso: {label}',
   'onb.level.hintChosen': 'Voit muuttaa tätä milloin vain.',
   'onb.level.hintPick': 'Valitse taso, joka kuulostaa sinulta.',
+  'onb.level.pickTitle': 'Kauanko olet treenannut?',
 
   'onb.area.shoulders': 'Olkapäät',
   'onb.area.lower_back': 'Alaselkä',
@@ -4635,6 +4638,7 @@ const FI: Record<I18nKey, string> = {
   'onb.nothingToNote': 'Ei huomautettavaa',
   'onb.viewFirstWeek': 'Katso ensimmäinen treeniviikko',
   'onb.pickAreas': 'Valitse 1–2 aluetta.',
+  'onb.focusCaution': 'Merkityt alueet vaihtuvat nivelystävällisiin liikkeisiin. Vältettävät jäävät pois.',
   'onb.focusLabel': 'Painotus',
   // ── Progress signal badges ────────────────────────────────────────────
   'signal.newBest': 'Uusi ennätys',

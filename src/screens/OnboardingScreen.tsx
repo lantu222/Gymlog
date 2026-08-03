@@ -2735,13 +2735,21 @@ export function OnboardingScreen({
             </View>
           </View>
 
+          {/* The thumb is deliberately not drawn before a choice, so the
+              description must not be either: naming "Aloittelija" in bold over
+              an empty selector claims a level the user never picked. Before the
+              choice the block asks for one; after it, it explains. */}
           <View style={styles.levelCopyBlock}>
-            <Text style={styles.levelTitle}>{t(language, selectedLevelOption.labelKey)}</Text>
-            {selectedLevelOption.lineKeys.map((lineKey) => (
-              <Text key={lineKey} style={styles.levelLine}>
-                {t(language, lineKey)}
-              </Text>
-            ))}
+            <Text style={styles.levelTitle}>
+              {t(language, profileLevelSelected ? selectedLevelOption.labelKey : 'onb.level.pickTitle')}
+            </Text>
+            {profileLevelSelected
+              ? selectedLevelOption.lineKeys.map((lineKey) => (
+                  <Text key={lineKey} style={styles.levelLine}>
+                    {t(language, lineKey)}
+                  </Text>
+                ))
+              : null}
           </View>
 
           <View
@@ -2786,7 +2794,7 @@ export function OnboardingScreen({
                       useNativeDriver: true,
                     }).start();
                   }}
-                  style={styles.levelSliderSegment}
+                  style={[styles.levelSliderSegment, !profileLevelSelected && styles.levelSliderSegmentIdle]}
                 >
                   <Text style={[styles.levelSliderLabel, active && styles.levelSliderLabelActive]}>
                     {t(language, option.labelKey)}
@@ -3605,10 +3613,7 @@ export function OnboardingScreen({
           {flaggedFocusSelected ? (
             <View style={styles.focusCautionNote}>
               <CautionGlyph color="#D97706" size={16} />
-              <Text style={styles.focusCautionNoteText}>
-                This shapes your training: flagged areas swap to joint-friendly, bodyweight-first exercises —
-                avoided areas stay out entirely.
-              </Text>
+              <Text style={styles.focusCautionNoteText}>{t(language, 'onb.focusCaution')}</Text>
             </View>
           ) : (
             <Text style={styles.focusPickHint}>{t(language, 'onb.pickAreas')}</Text>
@@ -4573,6 +4578,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 999,
+  },
+  /**
+   * Until a level is picked there is no filled thumb, and three flat grey
+   * labels on a pale track read as a disabled control — the screen looked like
+   * nothing on it could be tapped. Unpicked segments now carry their own pill
+   * so the choice looks like three buttons, which is what it is.
+   */
+  levelSliderSegmentIdle: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 2,
   },
   levelSliderLabel: {
     color: ONBOARDING_TEXT_SOFT,

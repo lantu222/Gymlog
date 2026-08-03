@@ -391,7 +391,10 @@ module.exports = [
       // Flagged areas keep their caution colour when selected, and picking one
       // swaps the hint for the bodyweight-safety note. No info box.
       assert.match(planningBody, /flaggedFocusSelected/);
-      assert.match(planningBody, /joint-friendly, bodyweight-first exercises/);
+      // The note was hardcoded English on a screen that is otherwise Finnish,
+      // and long enough that its third line was clipped by the CTA below.
+      assert.match(planningBody, /t\(language, 'onb\.focusCaution'\)/);
+      assert.doesNotMatch(planningBody, /This shapes your training/);
       assert.match(planningBody, /t\(language, 'onb\.pickAreas'\)/);
       assert.match(i18nSource, /'onb\.pickAreas': 'Pick 1–2 areas\.'/);
       assert.doesNotMatch(planningBody, /Why focus areas\?/);
