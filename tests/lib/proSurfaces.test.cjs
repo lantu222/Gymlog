@@ -362,8 +362,12 @@ module.exports = [
       assert.doesNotMatch(proOfferSource, /trial|kokeilu/i);
       assert.match(proOfferSource, /proOffer\.continueFree/);
 
-      // Shown once, on the plan-ready path.
-      assert.match(appSource, /resetToRoute\(\{ tab: 'home', screen: 'pro_offer' \}\)/);
+      // No longer reached: the Pro sale moved INSIDE onboarding as its last
+      // step (the "GAINER Paywall Sell" design), and keeping this hop would
+      // have put two paywalls back to back. The screen and its route are still
+      // here — unrouted, not deleted — so this asserts the duplication is gone
+      // rather than that the screen is.
+      assert.doesNotMatch(appSource, /resetToRoute\(\{ tab: 'home', screen: 'pro_offer' \}\)/);
     },
   },
   {

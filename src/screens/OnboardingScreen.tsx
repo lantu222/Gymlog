@@ -27,6 +27,7 @@ import { BadgePill, SurfaceAccent, SurfaceCard } from '../components/MainScreenP
 import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { VinhaIcon, VinhaIconName } from '../components/VinhaIcon';
 import { VinhaWordmark } from '../components/VinhaWordmark';
+import { ProPaywallScreen } from './ProPaywallScreen';
 import { LEVEL_STREAKS } from '../lib/levelStreaks';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
@@ -120,6 +121,18 @@ interface OnboardingScreenProps {
   onBackToEntry?: () => void | Promise<void>;
   onSkip: () => void | Promise<void>;
   onCompleteToTraining: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
+  /**
+   * The paywall's CTA. Separate from onCompleteToTraining because it does
+   * something first: grants the seven days, so the button's own sentence is
+   * true. Two buttons that end onboarding identically would be one button.
+   */
+  onStartProTrial: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
+  /**
+   * Fires when the Pro paywall takes over the screen. The shell reserves the
+   * status-bar strip for onboarding and paints it light; the paywall's hero
+   * is full-bleed and dark, so the shell has to stop reserving it.
+   */
+  onProPaywallVisibleChange?: (visible: boolean) => void;
   onCompleteToProgramDetail: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
   onCompleteToCustom: (
     selection: FirstRunSetupSelection,
@@ -1574,6 +1587,8 @@ export function OnboardingScreen({
   onBackToEntry,
   onSkip,
   onCompleteToTraining,
+  onStartProTrial,
+  onProPaywallVisibleChange,
   onCompleteToProgramDetail,
   onCompleteToCustom,
   onCancel,
@@ -1690,7 +1705,12 @@ export function OnboardingScreen({
     useState<RecommendationRefinementPanel>(null);
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
-  const [planReadyView, setPlanReadyView] = useState<'pick' | 'overview' | 'day' | 'progression'>('overview');
+  const [planReadyView, setPlanReadyView] = useState<'pick' | 'overview' | 'day' | 'pro'>('overview');
+  // Told from an effect, never during render: the parent turns it into shell
+  // state, and setting parent state while rendering a child is a loop.
+  useEffect(() => {
+    onProPaywallVisibleChange?.(STAGES[stageIndex] === 'review' && planReadyView === 'pro');
+  }, [onProPaywallVisibleChange, planReadyView, stageIndex]);
   const [automatedProgressionEnabled, setAutomatedProgressionEnabled] = useState(
     setupSeed.automatedProgression ?? true,
   );
@@ -3249,8 +3269,8 @@ export function OnboardingScreen({
     if (planReadyView === 'pick') {
       return renderProgramPick();
     }
-    if (planReadyView === 'progression') {
-      return renderPlanReadyProgression();
+    if (planReadyView === 'pro') {
+      return renderPlanReadyPro();
     }
     if (planReadyView === 'day') {
       return renderPlanReadyDay();
@@ -3511,77 +3531,33 @@ export function OnboardingScreen({
     );
   }
 
-  function renderPlanReadyProgression() {
-    const stageMinHeight = Math.max(
-      560,
-      Dimensions.get('window').height - insets.top - insets.bottom - spacing.xl,
-    );
-    const enabled = automatedProgressionEnabled;
-
+  /**
+   * The last step of onboarding is the Pro paywall (design: "GAINER Paywall
+   * Sell"), in place of the automated-progression toggle that used to sit here.
+   *
+   * The toggle asked a free user to configure a feature they do not have:
+   * `resolveProgressionOptions` gates it behind Pro, and the row even said
+   * "(Pro)" with nothing on the screen to explain what Pro was. Selling it is
+   * the honest version of the same moment. The preference itself still defaults
+   * on and stays editable in plan settings for anyone who has Pro.
+   */
+  function renderPlanReadyPro() {
+    const goalOption = GOAL_OPTIONS.find((option) => option.goal === goal) ?? GOAL_OPTIONS[0];
     return (
-      <Animated.View
-        style={[
-          styles.planReadyProgressionStage,
-          {
-            minHeight: stageMinHeight,
-            paddingTop: insets.top + spacing.xl,
-            opacity: planReadyCardOpacity,
-            transform: [{ translateX: planReadyCardTranslateX }],
-          },
-        ]}
-      >
-        <Text style={styles.progressionKicker}>{t(language, 'onb.progression.kicker')}</Text>
-        <Text style={styles.progressionTitle}>{t(language, 'onb.progression.title')}</Text>
-        <Text style={styles.progressionSubtitle}>
-          {t(language, enabled ? 'onb.progression.subOn' : 'onb.progression.subOff')}
-        </Text>
-
-        <View style={[styles.progressionCard, enabled && styles.progressionCardOn]}>
-          <View style={styles.progressionToggleRow}>
-            <View style={styles.progressionToggleCopy}>
-              <Text style={styles.progressionToggleTitle}>{t(language, 'onb.progression.title')}</Text>
-              <Text style={styles.progressionToggleBody}>
-                {t(language, enabled ? 'onb.progression.bodyOn' : 'onb.progression.bodyOff')}
-              </Text>
-            </View>
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityLabel={t(language, 'planSet.autoProgression')}
-              accessibilityState={{ checked: enabled }}
-              onPress={() => {
-                void haptics.select();
-                setAutomatedProgressionEnabled((current) => !current);
-              }}
-              style={[styles.progressionSwitchTrack, enabled && styles.progressionSwitchTrackOn]}
-            >
-              <View style={styles.progressionSwitchThumb} />
-            </Pressable>
-          </View>
-
-          <View style={styles.progressionDivider} />
-
-          <View style={styles.progressionBulletList}>
-            {PROGRESSION_BULLET_KEYS.map((bulletKey) => (
-              <View key={bulletKey} style={styles.progressionBulletRow}>
-                {enabled ? (
-                  <View style={styles.progressionBulletCheck}>
-                    <VinhaIcon name="check" size={12} color="#FFFFFF" />
-                  </View>
-                ) : (
-                  <View style={styles.progressionBulletCross}>
-                    <Text style={styles.progressionBulletCrossText}>✕</Text>
-                  </View>
-                )}
-                <Text style={[styles.progressionBulletText, !enabled && styles.progressionBulletTextOff]}>
-                  {t(language, bulletKey)}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-
-        <Text style={styles.progressionNote}>{t(language, 'onb.progression.note')}</Text>
-      </Animated.View>
+      <ProPaywallScreen
+        language={language}
+        goalLabel={t(language, goalOption.titleKey).toLowerCase()}
+        daysPerWeek={projectedDaysPerWeek}
+        busy={busy}
+        onStartTrial={() => {
+          void haptics.success();
+          void runAction(() => onStartProTrial(selection, activeRecommendedProgramId));
+        }}
+        onSkip={() => {
+          void haptics.select();
+          void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
+        }}
+      />
     );
   }
 
@@ -4079,7 +4055,7 @@ export function OnboardingScreen({
         ? t(language, 'onb.cta.savePlan')
         : planReadyView === 'day'
         ? t(language, 'onb.cta.backToPlan')
-        : planReadyView === 'progression'
+        : planReadyView === 'pro'
         ? t(language, 'onb.cta.startTraining')
         : t(language, 'common.continue')
       : stage === 'planning'
@@ -4092,7 +4068,9 @@ export function OnboardingScreen({
   // The footer stays visible through every plan-ready view: overview continues
   // to the progression screen, the day view returns to the plan, and the
   // progression screen's "Start training" completes onboarding.
-  const footerVisible = true;
+  // The Pro paywall is full-bleed and carries its own CTA and dismiss, so
+  // the shared footer would stack a second pair of buttons under it.
+  const footerVisible = !(stage === 'review' && planReadyView === 'pro');
   const scrollLockedStage = stage === 'level' || stage === 'days';
   // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
   // wrapped chip row stays reachable above the footer, but they should not
@@ -4111,6 +4089,15 @@ export function OnboardingScreen({
 
   if (isBuildingPlan) {
     return renderBuildingPlan();
+  }
+
+  // The paywall is a full-screen surface with its own scroll and its own
+  // pinned CTA, so it cannot live inside the onboarding's ScrollView: a flex:1
+  // child of a scroll container collapses to content height, and the footer
+  // anchored to it ends up somewhere down the page instead of on the screen.
+  const proPaywallVisible = stage === 'review' && planReadyView === 'pro';
+  if (proPaywallVisible) {
+    return renderPlanReadyPro();
   }
 
   return (
@@ -4198,7 +4185,7 @@ export function OnboardingScreen({
                     return;
                   }
                   if (planReadyView === 'overview') {
-                    setPlanReadyView('progression');
+                    setPlanReadyView('pro');
                     return;
                   }
                   void runAction(() => onCompleteToTraining(selection, activeRecommendedProgramId));
@@ -4212,7 +4199,7 @@ export function OnboardingScreen({
             />
 
             {stage === 'review' ? (
-              planReadyView === 'progression' ? (
+              planReadyView === 'pro' ? (
                 <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>

@@ -24,15 +24,21 @@ module.exports = [
       // have to ask for them; only the gradient heroes override to 'light'.
       // Status-bar icons follow the theme now; only gradient heroes override.
       assert.match(appShellSource, /statusBarStyleOverride \?\? \(themeName === 'dark' \? 'light' : 'dark'\)/);
+      // The Pro paywall joins the gradient heroes: full-bleed dark art under a
+      // translucent status bar, so the shell must not reserve and paint that
+      // strip the way it does for the rest of onboarding.
       assert.match(
         appSource,
-        /statusBarStyleOverride=\{workoutSummaryActive \|\| historySessionActive \? 'light' : undefined\}/,
+        /statusBarStyleOverride=\{\s*workoutSummaryActive \|\| historySessionActive \|\| proPaywallVisible \? 'light' : undefined\s*\}/,
       );
+      assert.match(appSource, /onProPaywallVisibleChange=\{setProPaywallVisible\}/);
       assert.doesNotMatch(appSource, /#1D1C35/);
 
       // Plan-ready views animate on one shared card; the footer stays visible
       // through every view (overview -> progression -> Start training).
-      assert.match(onboardingSource, /const footerVisible = true/);
+      // Visible on every step except the Pro paywall, which is full-bleed
+      // and carries its own CTA and dismiss.
+      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'pro'\)/);
       assert.match(onboardingSource, /Animated\.timing\(planReadyCardTranslateX/);
       assert.match(onboardingSource, /planReadyCardOpacity/);
 

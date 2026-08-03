@@ -60,3 +60,21 @@ export function resolveProgressionOptions(
     setupLevel: preferences.setupLevel,
   };
 }
+
+/**
+ * The onboarding paywall's free trial.
+ *
+ * It grants Pro the same way a promo code does — a stretch of days from this
+ * moment, expiring on its own — rather than being a button that only navigates.
+ * That is what makes "Start 7 days free" a true sentence: the seven days are
+ * real and the features really unlock. What the screen still cannot deliver is
+ * the sentence after it ("then 59,90 € / year"): there is no billing to charge
+ * anyone, which is why that copy lives behind the demo-build guard.
+ */
+export const PRO_TRIAL_DAYS = 7;
+
+export function resolveTrialProUntil(now: Date = new Date()): string {
+  const until = new Date(now.getTime());
+  until.setDate(until.getDate() + PRO_TRIAL_DAYS);
+  return until.toISOString();
+}

@@ -91,7 +91,10 @@ module.exports = [
       // agreeing — which is exactly the release step: flip extra.demoBuild to
       // false, and this test names what became a lie.
       const screen = read('src/screens/PremiumScreen.tsx');
-      const advertisesTrial = /'pro\.v2\.cta'/.test(screen);
+      // The onboarding paywall makes the same promise, louder and to every new
+      // user, so it is covered by the same guard.
+      const paywall = read('src/screens/ProPaywallScreen.tsx');
+      const advertisesTrial = /'pro\.v2\.cta'/.test(screen) || /'paywall\.cta'/.test(paywall);
       if (!advertisesTrial) {
         return;
       }
@@ -104,9 +107,32 @@ module.exports = [
 
       assert.ok(
         billingExists || demoBuild,
-        'PremiumScreen advertises a 7-day free trial, no billing library is installed, and ' +
+        'A paywall advertises a 7-day free trial, no billing library is installed, and ' +
           'app.json no longer declares extra.demoBuild. One of the three has to give: wire ' +
           'billing, take the trial copy off the CTA, or admit this is still a demo.',
+      );
+    },
+  },
+  {
+    name: 'release: the paywall does not quote a study nobody ran',
+    run() {
+      // "1.9x faster to a new PR · 200+ decisions automated · +34% more volume,
+      // n = 4,812" is a made-up cohort. The design it came from says so in its
+      // own note ("Hero numbers are still placeholders"), and it is the same
+      // class of claim the 2026-07-28 Pro audit already stripped once.
+      //
+      // So the figures hang off the demo flag, and this asserts the wiring
+      // rather than the taste: a release build must not be able to render them.
+      const paywall = read('src/screens/ProPaywallScreen.tsx');
+      assert.match(
+        paywall,
+        /const showStats = isDemoBuild\(\)/,
+        'the hero statistics must stay behind the demo flag until they are measured',
+      );
+      assert.match(
+        paywall,
+        /\{showStats \? \(/,
+        'the statistics block must be gated by showStats, not merely computed',
       );
     },
   },

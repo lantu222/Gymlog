@@ -79,7 +79,7 @@ import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocus
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
-import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions } from './src/lib/proEntitlement';
+import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 
@@ -1182,6 +1182,12 @@ function VinhaApp() {
    * "what am I doing today", and it is spent when the session starts.
    */
   const [sessionSwaps, setSessionSwaps] = useState<Record<string, string>>({});
+  /**
+   * The onboarding's last step is a full-bleed dark paywall. The shell
+   * reserves and paints the status-bar strip for onboarding, which would cut
+   * a light band across the top of its hero.
+   */
+  const [proPaywallVisible, setProPaywallVisible] = useState(false);
 
   useEffect(() => {
     if (!hydrated || !preferences.onboardingCompleted) {
@@ -1846,11 +1852,25 @@ function VinhaApp() {
     );
     await upsertWorkoutPlan(activePlan);
     await updatePreferences({ activePlanId: activePlan.id });
-    // The Pro/Free split, once, on the main plan-ready → Home path (user
-    // decision 2026-07-28). The other completion exits (program detail, the
-    // editor) continue to what the user explicitly chose — a paywall does not
-    // interrupt an intent.
-    resetToRoute({ tab: 'home', screen: 'pro_offer' });
+    // This used to hop to the standalone pro_offer screen. The Pro sale now
+    // happens INSIDE onboarding, as its last step, so keeping the hop would
+    // put two paywalls back to back — the same duplication the plan-ready
+    // screens had. The pro_offer route and screen are left in place but no
+    // longer reached from here.
+    resetToRoute(ROOT_ROUTES.home);
+  }
+
+  /**
+   * The paywall's CTA: grant the seven days, then finish onboarding exactly as
+   * "Maybe later" does. The grant is what makes the button's own sentence true
+   * — and what makes it a different button from the one beside it.
+   */
+  async function handleOnboardingStartProTrial(
+    selection: FirstRunSetupSelection,
+    recommendedProgramId: string,
+  ) {
+    await updatePreferences({ promoProUntil: resolveTrialProUntil() });
+    await handleOnboardingCompleteToTraining(selection, recommendedProgramId);
   }
 
   async function handleOnboardingCompleteToProgramDetail(
@@ -3223,6 +3243,8 @@ function VinhaApp() {
           onBackToEntry={() => setOnboardingStep('about')}
           onSkip={() => void handleOnboardingSkip()}
           onCompleteToTraining={handleOnboardingCompleteToTraining}
+          onStartProTrial={handleOnboardingStartProTrial}
+          onProPaywallVisibleChange={setProPaywallVisible}
           onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
           onCompleteToCustom={handleOnboardingCompleteToCustom}
         />
@@ -3244,6 +3266,7 @@ function VinhaApp() {
         onSkip={() => navigateBack(ROOT_ROUTES.profile)}
         onCancel={() => navigateBack(ROOT_ROUTES.profile)}
         onCompleteToTraining={handleSetupCompleteToTraining}
+        onStartProTrial={handleSetupCompleteToTraining}
         onCompleteToProgramDetail={handleSetupOpenProgramDetail}
         onCompleteToCustom={handleSetupBuildOwn}
       />
@@ -4223,7 +4246,7 @@ function VinhaApp() {
     <AppShell
       toastMessage={toastMessage}
       safeAreaEdges={
-        welcomeActive || workoutSummaryActive || historySessionActive
+        welcomeActive || workoutSummaryActive || historySessionActive || proPaywallVisible
           ? ['left', 'right']
           : onboardingActive
             ? ['top', 'left', 'right']
@@ -4231,15 +4254,17 @@ function VinhaApp() {
       }
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
-      statusBarStyleOverride={workoutSummaryActive || historySessionActive ? 'light' : undefined}
+      statusBarStyleOverride={
+        workoutSummaryActive || historySessionActive || proPaywallVisible ? 'light' : undefined
+      }
       statusBarBackgroundColor={
-        workoutSummaryActive || historySessionActive || welcomeActive
+        workoutSummaryActive || historySessionActive || welcomeActive || proPaywallVisible
           ? 'transparent'
           : aiSetupActive
             ? theme.surface
             : undefined
       }
-      statusBarTranslucent={welcomeActive || workoutSummaryActive || historySessionActive}
+      statusBarTranslucent={welcomeActive || workoutSummaryActive || historySessionActive || proPaywallVisible}
       shellBackgroundColor={aiSetupActive ? theme.surface : undefined}
       tabBar={
         showTabBar ? (

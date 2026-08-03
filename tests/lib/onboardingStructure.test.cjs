@@ -41,14 +41,21 @@ module.exports = [
     run() {
       const reviewBody = getFunctionBody('renderReview');
       const dayBody = getFunctionBody('renderPlanReadyDay');
-      const progressionBody = getFunctionBody('renderPlanReadyProgression');
+      const proBody = getFunctionBody('renderPlanReadyPro');
 
       // Plan-ready is a four-view flow: program pick (08b) -> overview -> day
-      // preview -> plan review (automated-progression toggle). No account gate
-      // — auth lives on Welcome.
-      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'pick' \| 'overview' \| 'day' \| 'progression'>\('overview'\)/);
+      // preview -> the Pro paywall. The last view used to be an
+      // automated-progression toggle, which asked a free user to configure a
+      // feature resolveProgressionOptions gates behind Pro. No account gate —
+      // auth lives on Welcome.
+      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'pick' \| 'overview' \| 'day' \| 'pro'>\('overview'\)/);
       assert.match(reviewBody, /if \(planReadyView === 'pick'\) \{\s*return renderProgramPick\(\);/);
-      assert.match(reviewBody, /if \(planReadyView === 'progression'\) \{\s*return renderPlanReadyProgression\(\);/);
+      assert.match(reviewBody, /if \(planReadyView === 'pro'\) \{\s*return renderPlanReadyPro\(\);/);
+      assert.match(proBody, /<ProPaywallScreen/);
+      // The paywall's two buttons must not be the same button: the CTA
+      // grants the trial it advertises, "maybe later" just finishes.
+      assert.match(proBody, /onStartTrial=\{[\s\S]*onStartProTrial\(/);
+      assert.match(proBody, /onSkip=\{[\s\S]*onCompleteToTraining\(/);
       assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
 
       // The builder lands on the OVERVIEW, not the picker. Landing on two
@@ -112,20 +119,12 @@ module.exports = [
       assert.match(dayBody, /exercise\.setsLabel/);
       assert.match(dayBody, /exercise\.repsLabel/);
 
-      // Plan review: automated-progression toggle card (default ON = glow +
-      // purple checks; OFF dims bullets with strike-through), Settings note,
-      // CTA "Start training" completes onboarding. No "Save your plan" copy.
-      assert.match(progressionBody, /t\(language, 'onb\.progression\.title'\)/);
-      assert.match(progressionBody, /'onb\.progression\.subOn' : 'onb\.progression\.subOff'/);
-      assert.match(progressionBody, /'onb\.progression\.bodyOn' : 'onb\.progression\.bodyOff'/);
-      assert.match(progressionBody, /accessibilityRole="switch"/);
-      assert.match(progressionBody, /setAutomatedProgressionEnabled\(\(current\) => !current\)/);
-      assert.match(progressionBody, /PROGRESSION_BULLET_KEYS\.map/);
-      assert.match(progressionBody, /styles\.progressionCardOn/);
-      assert.match(progressionBody, /styles\.progressionBulletTextOff/);
-      assert.match(progressionBody, /t\(language, 'onb\.progression\.note'\)/);
+      // The automated-progression toggle screen is gone from onboarding — the
+      // paywall took its slot. The PREFERENCE is untouched: it still ships from
+      // the selection, still defaults on, and stays editable in plan settings.
+      // Onboarding just no longer asks a free user to configure a Pro feature.
+      assert.doesNotMatch(onboardingSource, /renderPlanReadyProgression/);
       assert.match(onboardingSource, /const \[automatedProgressionEnabled, setAutomatedProgressionEnabled\] = useState\(/);
-      assert.match(onboardingSource, /progressionBulletTextOff:\s*\{[\s\S]*textDecorationLine: 'line-through'/);
       assert.match(onboardingSource, /automatedProgression: automatedProgressionEnabled/);
       assert.match(appSource, /automatedProgressionEnabled: selection\.automatedProgression \?\? true/);
       assert.doesNotMatch(onboardingSource, /Save your plan/);
@@ -135,14 +134,12 @@ module.exports = [
       // returns to the plan ("Back to plan"); progression completes onboarding.
       assert.match(onboardingSource, /setPlanReadyWorkoutPage\(0\);\s*setPlanReadyView\('day'\)/);
       assert.match(onboardingSource, /if \(planReadyView === 'day'\) \{\s*setPlanReadyView\('overview'\);/);
-      assert.match(onboardingSource, /setPlanReadyView\('progression'\)/);
+      assert.match(onboardingSource, /setPlanReadyView\('pro'\)/);
       assert.match(onboardingSource, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
-      assert.match(
-        onboardingSource,
-        /\? t\(language, 'onb\.cta\.backToPlan'\)\s*: planReadyView === 'progression'\s*\? t\(language, 'onb\.cta\.startTraining'\)\s*: t\(language, 'common\.continue'\)/,
-      );
-      assert.match(i18nSource, /'onb\.cta\.startTraining': 'Start training'/);
+      // The shared footer stops at the overview: the paywall is the last view
+      // and brings its own buttons.
+      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'pro'\)/);
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
