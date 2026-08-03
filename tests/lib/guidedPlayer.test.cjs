@@ -14,7 +14,6 @@ const {
   resolveGuidedResumeIndex,
   getGuidedSkipTargetIndex,
   getGuidedBackTargetIndex,
-  estimateGuidedDurationMinutes,
   getGuidedSessionTitle,
   findGuidedSessionPr,
   findGuidedTopSet,
@@ -441,11 +440,10 @@ module.exports = [
     },
   },
   {
-    name: 'duration estimate and session title',
+    name: 'session title',
     run() {
-      const { steps } = buildPlan();
-      const minutes = estimateGuidedDurationMinutes(steps);
-      assert.ok(minutes >= 10 && minutes <= 30, `unexpected estimate ${minutes}`);
+      // The duration estimate moved to lib/sessionDuration, which Home and the
+      // player share — see sessionDuration.test.cjs.
       assert.equal(getGuidedSessionTitle('STRONG Elite - Day 1: Upper (Heavy)'), 'Upper (Heavy)');
       assert.equal(getGuidedSessionTitle('Push Day A'), 'Push Day A');
       assert.equal(getGuidedSessionTitle(''), 'Workout');

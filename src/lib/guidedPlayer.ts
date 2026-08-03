@@ -127,6 +127,18 @@ export function buildGuidedDrillsFromBlock(block: SessionRoutineBlock): GuidedDr
   }));
 }
 
+/**
+ * Seconds a warm-up or cool-down block actually costs, ready-countdowns
+ * included. Shared so Home and the player feed the same number into the
+ * session estimate instead of each summing the block their own way.
+ */
+export function estimateRoutineBlockSeconds(block: SessionRoutineBlock): number {
+  return buildGuidedDrillsFromBlock(block).reduce(
+    (sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS,
+    0,
+  );
+}
+
 function formatBlockLength(totalSeconds: number): string {
   if (totalSeconds < 90) {
     return `~${Math.max(5, Math.round(totalSeconds / 5) * 5)} sec`;
@@ -602,27 +614,13 @@ export function getGuidedBackTargetIndex(steps: GuidedStep[], index: number): nu
   return Math.max(0, cursor);
 }
 
-/** Rough total for the entry sub line, rounded to 5 min (min 5). */
-export function estimateGuidedDurationMinutes(steps: GuidedStep[]): number {
-  const SET_EXECUTION_SECONDS = 35;
-  const totalSeconds = steps.reduce((sum, step) => {
-    switch (step.type) {
-      case 'drill':
-        return sum + step.seconds + GUIDED_READY_SECONDS;
-      case 'position':
-        return sum + step.seconds;
-      case 'set':
-        return sum + SET_EXECUTION_SECONDS;
-      case 'rest':
-        return sum + step.seconds;
-      case 'splash':
-        return sum + 2;
-      default:
-        return sum;
-    }
-  }, 0);
-  return Math.max(5, Math.round(totalSeconds / 60 / 5) * 5);
-}
+/*
+ * The entry screen's duration estimate used to live here, adding up the step
+ * list at a flat 35 s per set. It is gone: a set of five and a set of fifteen
+ * do not take the same time, and this was one of four different answers the
+ * app gave to "how long is this session". See `lib/sessionDuration.ts`, which
+ * Home and the player now share.
+ */
 
 /**
  * "STRONG Elite - Day 1: Upper (Heavy)" → "Upper (Heavy)". Runtime session

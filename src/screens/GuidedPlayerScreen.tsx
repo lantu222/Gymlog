@@ -43,7 +43,6 @@ import {
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
   getGuidedStepPlanKey,
-  estimateGuidedDurationMinutes,
   findGuidedLibraryIndex,
   findGuidedPhaseStart,
   findGuidedSessionPr,
@@ -69,6 +68,7 @@ import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { formatShortDate, removeTrailingZeros } from '../lib/format';
+import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
@@ -1177,9 +1177,20 @@ export function GuidedPlayerScreen({
   const cooldownStart = findGuidedPhaseStart(steps, 'cooldown');
   const activeExercises = exercises.filter((exercise) => exercise.status !== 'skipped' && exercise.sets.length > 0);
   const totalSets = activeExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
-  const durationMinutes = estimateGuidedDurationMinutes(steps);
   const warmupSecondsTotal = warmupDrills.reduce((sum, drill) => sum + drill.seconds + 3, 0);
   const cooldownSecondsTotal = cooldownDrills.reduce((sum, drill) => sum + drill.seconds + 3, 0);
+  // The one session-length formula, shared with Home — this screen used to add
+  // up its own steps at a flat 35 s per set and land on a different number
+  // than the screen the user had just come from.
+  const durationMinutes = estimateSessionMinutes({
+    exercises: activeExercises.map((exercise) => ({
+      sets: exercise.sets.length,
+      reps: exercise.sets[0]?.plannedRepsMax ?? 8,
+      restSeconds: exercise.restSecondsMin,
+    })),
+    warmupSeconds: warmupSecondsTotal,
+    cooldownSeconds: cooldownSecondsTotal,
+  });
 
   const secondsLeft = remainingMs / 1000;
 

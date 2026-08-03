@@ -1,6 +1,6 @@
 import './src/globalFont';
 
-import React, { startTransition, useEffect, useMemo, useRef, useState } from 'react';
+import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, BackHandler, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -72,7 +72,9 @@ import {
 import { recordCoachQuestion, resolveCoachQuota } from './src/lib/aiCoachQuota';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
-import { buildSessionEquipmentLabel, getSessionBodyFocusLabel, getSessionFocusTitle } from './src/lib/homeSessionHero';
+import { buildSessionEquipmentLabel, getDefaultCooldown, getDefaultWarmup, getSessionBodyFocusLabel, getSessionFocusTitle } from './src/lib/homeSessionHero';
+import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
+import { estimateSessionMinutes } from './src/lib/sessionDuration';
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
 import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVisuals';
 import { I18nKey, t } from './src/lib/i18n';
@@ -2166,6 +2168,33 @@ function VinhaApp() {
       database.exerciseLogs,
     ],
   );
+  const availableEquipmentForDrills = useMemo(
+    () =>
+      resolveAvailableEquipment({
+        trainingEnvironment: preferences.setupTrainingEnvironment,
+        equipmentItems: preferences.setupEquipmentItems,
+      }),
+    [preferences.setupTrainingEnvironment, preferences.setupEquipmentItems],
+  );
+  /**
+   * Warm-up and cool-down cost for a session, from the same blocks the player
+   * runs — so Home's "~50 min" and the guided entry's "~50 min" are the same
+   * arithmetic on the same inputs, not two guesses that happen to be close.
+   */
+  const routineBlockSeconds = useCallback(
+    (sessionTitle: string, planTitle: string) => {
+      const focus = getSessionFocusTitle(sessionTitle, planTitle);
+      return {
+        warmupSeconds: estimateRoutineBlockSeconds(
+          getDefaultWarmup(focus, preferences.appLanguage, availableEquipmentForDrills),
+        ),
+        cooldownSeconds: estimateRoutineBlockSeconds(
+          getDefaultCooldown(focus, preferences.appLanguage, availableEquipmentForDrills),
+        ),
+      };
+    },
+    [preferences.appLanguage, availableEquipmentForDrills],
+  );
   const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [preferences]);
   const tailoringPreferences = useMemo(() => buildTailoringPreferences(preferences), [preferences]);
   const setupRecommendation = useMemo(
@@ -2211,7 +2240,16 @@ function VinhaApp() {
       );
       const homeSessions = orderedPlanSessions.map((session, sessionIndex) => {
         const exerciseCount = session.exercises.length;
-        const estimatedDuration = Math.max(20, Math.round(exerciseCount * 10));
+        // Was `exercises × 10 min`, which ignored both sets and rest. Same
+        // formula as the guided entry now, so the two screens agree.
+        const estimatedDuration = estimateSessionMinutes({
+          exercises: session.exercises.map((exercise) => ({
+            sets: exercise.targetSets,
+            reps: exercise.repMax,
+            restSeconds: activeRuntimeExercises.get(exercise.id)?.restSecondsMin ?? 90,
+          })),
+          ...routineBlockSeconds(session.name, activeTemplate?.name ?? ''),
+        });
         // Weekday truth (P6): surface the plan's own entry label so week rows
         // land on the user's chosen days, not a generic spread.
         const entryLabel = sortedEntries[sessionIndex]?.label ?? null;
@@ -2298,7 +2336,17 @@ function VinhaApp() {
     const homeSessions = recommendedReadyTemplate.sessions.map((session) => ({
       id: session.id,
       title: formatHomeSessionTitle(session.name, session.exercises),
-      duration: `~${recommendedReadyTemplate.estimatedSessionDuration} min`,
+      // The catalog's `estimatedSessionDuration` describes the PROGRAM (its
+      // longest day, hand-written). Today's session gets the same treatment
+      // every other session gets, from its own sets and rests.
+      duration: `~${estimateSessionMinutes({
+        exercises: session.exercises.map((exercise) => ({
+          sets: exercise.sets,
+          reps: exercise.repsMax,
+          restSeconds: exercise.restSecondsMin,
+        })),
+        ...routineBlockSeconds(session.name, recommendedReadyTemplate.name),
+      })} min`,
       totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.sets, 0),
       exercises: session.exercises.map((exercise) => ({
         name: exercise.exerciseName,
@@ -2396,14 +2444,6 @@ function VinhaApp() {
   }, [database, homeSummary.streak.currentWeekStreak]);
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
-  const availableEquipmentForDrills = useMemo(
-    () =>
-      resolveAvailableEquipment({
-        trainingEnvironment: preferences.setupTrainingEnvironment,
-        equipmentItems: preferences.setupEquipmentItems,
-      }),
-    [preferences.setupTrainingEnvironment, preferences.setupEquipmentItems],
-  );
   // Week-strip training dots from the days the user actually picked
   // (Monday-first indexes). Empty = unknown → no dots, no invented rhythm.
   const homeTrainingDayIndexes = useMemo(() => {
