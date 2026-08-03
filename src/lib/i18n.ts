@@ -60,6 +60,7 @@ const EN = {
   'home.a11y.expandSection': 'Expand {title}',
   'home.a11y.collapseSection': 'Collapse {title}',
   'home.a11y.adaptSession': "Adapt today's session",
+  'home.a11y.swapExercise': 'Swap {name} for another exercise',
   'home.a11y.startSession': "Start today's workout",
   'home.a11y.startEmptyWorkout': 'Start empty workout',
   'home.a11y.openCardio': 'Open cardio workouts',
@@ -86,17 +87,19 @@ const EN = {
   'home.history.seeAll': 'See all',
 
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
-  'home.adaptSheet.title': 'Adapt session',
-  'home.adaptSheet.subtitle': "Tweak today's session — your plan stays on track.",
   'home.adaptSheet.shorter.title': 'Shorter session',
+  // Still used by nothing but the sheet's own numbers — kept as the one place
+  // the trim is described, so the promise and the act quote the same figures.
   'home.adaptSheet.shorter.sub': 'Trim to ~{min} min · drops {sets} sets',
-  'home.adaptSheet.equipment.title': 'Change equipment',
-  'home.adaptSheet.equipment.sub': 'Rack taken? Swap to dumbbells',
-  'home.adaptSheet.swap.title': 'Swap an exercise',
-  'home.adaptSheet.swap.sub': 'Replace any lift with an alternative',
-  'home.adaptSheet.energy.title': 'Feeling low energy',
-  'home.adaptSheet.energy.sub': 'Lighter loads, same movements',
+  // Sets, not minutes. The minute figure here came from a different estimator
+  // than the one the player shows on the very next screen ("~35 min" against
+  // "~50 min" for the same session), and a promise the next screen contradicts
+  // is worse than no promise. Sets are exact and checkable.
+  'home.adaptSheet.shorter.explain':
+    'Drops {sets} sets from the accessory work: {before} → {after} sets. The main lift is untouched.',
+  'home.adaptSheet.shorter.cta': 'Start the short version',
   'home.adaptSheet.cancel': 'Cancel',
+  'home.swapSheet.title': 'Swap {name} for',
 
   // ── Home · Pro sheet (placeholder marketing copy) ──────────────────────
 
@@ -2448,6 +2451,7 @@ const FI: Record<I18nKey, string> = {
   'home.a11y.expandSection': 'Laajenna {title}',
   'home.a11y.collapseSection': 'Pienennä {title}',
   'home.a11y.adaptSession': 'Mukauta tämän päivän treeniä',
+  'home.a11y.swapExercise': 'Vaihda {name} toiseen liikkeeseen',
   'home.a11y.startSession': 'Aloita tämän päivän treeni',
   'home.a11y.startEmptyWorkout': 'Aloita tyhjä treeni',
   'home.a11y.openCardio': 'Avaa cardiotreenit',
@@ -2474,17 +2478,13 @@ const FI: Record<I18nKey, string> = {
   'home.history.seeAll': 'Näytä kaikki',
 
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
-  'home.adaptSheet.title': 'Mukauta treeniä',
-  'home.adaptSheet.subtitle': 'Säädä tämän päivän treeniä — suunnitelmasi pysyy raiteillaan.',
   'home.adaptSheet.shorter.title': 'Lyhyempi treeni',
   'home.adaptSheet.shorter.sub': 'Lyhennä ~{min} min · pudottaa {sets} sarjaa',
-  'home.adaptSheet.equipment.title': 'Vaihda välineet',
-  'home.adaptSheet.equipment.sub': 'Räkki varattu? Vaihda käsipainoihin',
-  'home.adaptSheet.swap.title': 'Vaihda liike',
-  'home.adaptSheet.swap.sub': 'Korvaa mikä tahansa liike vaihtoehdolla',
-  'home.adaptSheet.energy.title': 'Vähän virtaa tänään',
-  'home.adaptSheet.energy.sub': 'Kevyemmät kuormat, samat liikkeet',
+  'home.adaptSheet.shorter.explain':
+    'Pudottaa {sets} sarjaa apuliikkeistä: {before} → {after} sarjaa. Päänostoon ei kosketa.',
+  'home.adaptSheet.shorter.cta': 'Aloita lyhennettynä',
   'home.adaptSheet.cancel': 'Peruuta',
+  'home.swapSheet.title': 'Vaihda {name} tilalle',
 
   // ── Home · Pro sheet ───────────────────────────────────────────────────
 

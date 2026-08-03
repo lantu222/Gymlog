@@ -149,8 +149,8 @@ module.exports = [
       assert.match(homeScreenSource, /planExerciseNumberChip:\s*\{\s*width: 25,\s*height: 25/);
       assert.match(homeScreenSource, /planExerciseScheme:\s*\{[\s\S]*fontFamily: 'JetBrainsMono'/);
       assert.match(homeScreenSource, /exercise\.schemeLabel \?\? exercise\.setsLabel/);
-      // Inline Adapt + Start row (no floating bar) and the Adapt sheet with
-      // four presentational options + computed trim copy.
+      // Inline Adapt + Start row (no floating bar) and the Adapt sheet, which
+      // is now one real action rather than four rows that closed it.
       assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.border/);
       // Start workout is the green action: green border, label, and arrow.
       assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.accent/);
@@ -160,14 +160,22 @@ module.exports = [
       assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: theme.accent/);
       assert.match(homeScreenSource, /t\(language, 'home\.startWorkout'\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
-      assert.match(i18nSource, /'home\.adaptSheet\.title': 'Adapt session'/);
-      assert.match(i18nSource, /'home\.adaptSheet\.subtitle': "Tweak today's session — your plan stays on track\."/);
       assert.match(i18nSource, /'home\.adaptSheet\.shorter\.title': 'Shorter session'/);
-      assert.match(i18nSource, /'home\.adaptSheet\.shorter\.sub': 'Trim to ~\{min\} min · drops \{sets\} sets'/);
-      assert.match(homeScreenSource, /t\(language, 'home\.adaptSheet\.shorter\.sub', \{[\s\S]*min: adaptTrim\.trimmedMinutes,[\s\S]*sets: adaptTrim\.droppedSets,/);
-      assert.match(i18nSource, /'home\.adaptSheet\.equipment\.title': 'Change equipment'/);
-      assert.match(i18nSource, /'home\.adaptSheet\.swap\.title': 'Swap an exercise'/);
-      assert.match(i18nSource, /'home\.adaptSheet\.energy\.title': 'Feeling low energy'/);
+      // Sets, not minutes: the minute estimate here and the player's own
+      // estimator disagreed about the same session (~35 vs ~50), and the
+      // promise was the one the user read first.
+      assert.match(homeScreenSource, /t\(language, 'home\.adaptSheet\.shorter\.explain', \{[\s\S]*sets: adaptTrim\.droppedSets,[\s\S]*before: totalSets,/);
+      assert.doesNotMatch(homeScreenSource, /shorter\.explain'[\s\S]{0,120}trimmedMinutes/);
+
+      // The three options that used to sit beside it are gone, and must not
+      // come back here: a taken rack and a body with nothing in it are both
+      // discovered in the gym, and the player answers both. Only the trim is
+      // knowable before you leave the house.
+      assert.doesNotMatch(i18nSource, /'home\.adaptSheet\.(equipment|swap|energy)\./);
+      assert.doesNotMatch(homeScreenSource, /adaptSheet\.(equipment|swap|energy)/);
+
+      // And the trim actually starts a session instead of closing a sheet.
+      assert.match(homeScreenSource, /onStartTrimmedSession\?\.\(nextPlanSession\.id\)/);
       assert.match(homeScreenSource, /adaptCancel/);
       assert.match(homeScreenSource, /onRequestClose=\{\(\) => setAdaptSheetVisible\(false\)\}/);
       // Hero + accordions render only with an active plan.

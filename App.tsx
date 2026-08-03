@@ -92,6 +92,7 @@ import {
 } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
+import { applySessionAdaptation } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
@@ -1173,6 +1174,12 @@ function VinhaApp() {
     }
   }, [preferences.entryFlowCompleted, preferences.onboardingCompleted]);
   const [aboutYouValues, setAboutYouValues] = useState<AboutYouValues | null>(null);
+  /**
+   * Today's swaps for the next session, slot id → exercise name, chosen on Home
+   * before the session exists. Deliberately not persisted: it is an answer to
+   * "what am I doing today", and it is spent when the session starts.
+   */
+  const [sessionSwaps, setSessionSwaps] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!hydrated || !preferences.onboardingCompleted) {
@@ -1584,6 +1591,7 @@ function VinhaApp() {
     workoutTemplateId: string,
     sessionId: string,
     nextUnitPreference: UnitPreference,
+    trimSets = false,
   ) {
     const template = getWorkoutTemplateById(workoutTemplateId);
     if (!template) {
@@ -1596,14 +1604,20 @@ function VinhaApp() {
 
     guardStrengthStartOverCardio(() => {
       void updatePreferences({ trainingFirstRunDismissed: true });
-      const runtimeTemplate = buildReadySessionRuntimeTemplate(template, sessionId);
+      const runtimeTemplate = applySessionAdaptation(
+        buildReadySessionRuntimeTemplate(template, sessionId),
+        { swaps: sessionSwaps, trimSets },
+      );
       workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, resolveProgressionOptions(preferences));
+      // Today's changes are spent the moment they are applied — an adaptation
+      // is an answer about right now, and a stale one is worse than none.
+      setSessionSwaps({});
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
 
-  function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string) {
-    startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference);
+  function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string, trimSets = false) {
+    startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference, trimSets);
   }
 
   function handleStartReadyProgram(workoutTemplateId: string) {
@@ -1616,7 +1630,7 @@ function VinhaApp() {
     handleStartReadyProgramSession(workoutTemplateId, firstSessionId);
   }
 
-  function handleStartCustomProgramSession(workoutTemplateId: string, sessionId: string) {
+  function handleStartCustomProgramSession(workoutTemplateId: string, sessionId: string, trimSets = false) {
     const customTemplate = customWorkoutRuntimeMap[workoutTemplateId];
     if (!customTemplate) {
       return;
@@ -1635,8 +1649,12 @@ function VinhaApp() {
 
     guardStrengthStartOverCardio(() => {
       void updatePreferences({ trainingFirstRunDismissed: true });
-      const runtimeTemplate = buildCustomSessionRuntimeTemplate(customTemplate, sessionId);
+      const runtimeTemplate = applySessionAdaptation(
+        buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
+        { swaps: sessionSwaps, trimSets },
+      );
       workout.startCustomWorkout(runtimeTemplate, unitPreference, resolveProgressionOptions(preferences));
+      setSessionSwaps({});
       navigateToGuidedWorkout(workoutTemplateId);
     });
   }
@@ -2183,6 +2201,14 @@ function VinhaApp() {
           return activeTemplateSessions[entry.orderIndex] ?? null;
         })
         .filter((session): session is NonNullable<typeof session> => Boolean(session));
+      // The runtime template is where a custom exercise gets its slot id and
+      // substitution group; read them from there rather than rebuilding the
+      // rule here, so Home and the session cannot disagree about a slot.
+      const activeRuntimeExercises = new Map(
+        (activeTemplate ? customWorkoutRuntimeMap[activeTemplate.id]?.sessions ?? [] : [])
+          .flatMap((session) => session.exercises)
+          .map((exercise) => [exercise.id, exercise] as const),
+      );
       const homeSessions = orderedPlanSessions.map((session, sessionIndex) => {
         const exerciseCount = session.exercises.length;
         const estimatedDuration = Math.max(20, Math.round(exerciseCount * 10));
@@ -2200,6 +2226,8 @@ function VinhaApp() {
             name: exercise.name,
             setsLabel: `${exercise.targetSets} sets`,
             schemeLabel: `${exercise.targetSets} × ${formatRepRange(exercise.repMin, exercise.repMax)}`,
+            slotId: activeRuntimeExercises.get(exercise.id)?.slotId,
+            substitutionGroup: activeRuntimeExercises.get(exercise.id)?.substitutionGroup,
           })),
           hiddenExerciseCount: Math.max(exerciseCount - 5, 0),
         };
@@ -2276,6 +2304,10 @@ function VinhaApp() {
         name: exercise.exerciseName,
         setsLabel: `${exercise.sets} sets`,
         schemeLabel: `${exercise.sets} × ${formatRepRange(exercise.repsMin, exercise.repsMax)}`,
+        // Carried so Home can offer the swap: a ready template's slot id is
+        // the same one the session materializes with.
+        slotId: exercise.slotId,
+        substitutionGroup: exercise.substitutionGroup,
       })),
       hiddenExerciseCount: Math.max(session.exercises.length - 5, 0),
     }));
@@ -4019,6 +4051,21 @@ function VinhaApp() {
           if (key.startsWith('lift:')) {
             navigate({ tab: 'progress', screen: 'detail', exerciseKey: key.slice('lift:'.length) });
           }
+        }}
+        sessionSwaps={sessionSwaps}
+        onSwapSessionExercise={(slotId, exerciseName) =>
+          setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
+        }
+        tailoringPreferences={preferences}
+        onStartTrimmedSession={(sessionId) => {
+          if (!homeActivePlanCard) {
+            return;
+          }
+          if (homeActivePlanCard.programType === 'custom') {
+            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId, true);
+            return;
+          }
+          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId, true);
         }}
         onStartActivePlanSession={(sessionId) => {
           if (!homeActivePlanCard) {

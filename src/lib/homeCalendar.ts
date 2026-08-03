@@ -90,6 +90,13 @@ export interface HomeDaySessionSummary {
     setsLabel: string;
     /** Sets-by-reps scheme, e.g. "4 × 6–8" (Home v3 agenda list). */
     schemeLabel?: string;
+    /**
+     * Runtime slot this row will become, and the pool it can be swapped
+     * within. Present only where both are known — Home offers the swap button
+     * on a row exactly when it can identify what the choice would apply to.
+     */
+    slotId?: string;
+    substitutionGroup?: string;
   }>;
   hiddenExerciseCount: number;
 }

@@ -1,4 +1,4 @@
-import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { getWorkoutTemplateById, WORKOUT_SUBSTITUTION_GROUPS } from '../features/workout/workoutCatalog';
 import { WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 import { getReadyProgramContent } from './readyProgramContent';
 import {
@@ -627,6 +627,34 @@ function buildSwapOptionReason(exerciseName: string, preferences: TailoringPrefe
   }
 
   return reasons.length ? reasons.slice(0, 3).join(' ') : 'Closest fit for your current setup.';
+}
+
+/**
+ * The exercises a slot may be swapped to, from its substitution group.
+ *
+ * Lived inside GuidedPlayerScreen until Home needed the same pool: you can now
+ * change a lift while looking at the plan, not only mid-session, and both have
+ * to offer the same list or the two surfaces disagree about what a slot is.
+ */
+export function getAllowedSwapNames(substitutionGroup: string): string[] {
+  return (
+    WORKOUT_SUBSTITUTION_GROUPS.find((group) => group.id === substitutionGroup)?.allowedExerciseNames ?? []
+  );
+}
+
+/**
+ * The swap list for a slot, minus the lift already in it — offering what you
+ * are already doing is a row that does nothing.
+ */
+export function buildSwapOptionsForSlot(
+  substitutionGroup: string,
+  currentExerciseName: string,
+  preferences: TailoringPreferencesInput | null | undefined,
+): TailoredSwapOption[] {
+  const current = currentExerciseName.trim().toLowerCase();
+  return buildTailoredSwapOptions(getAllowedSwapNames(substitutionGroup), preferences).filter(
+    (option) => option.exerciseName.trim().toLowerCase() !== current,
+  );
 }
 
 export function buildTailoredSwapOptions(

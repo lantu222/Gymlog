@@ -27,6 +27,7 @@ import {
 import { getGreetingRotation, selectHomeGreeting } from '../lib/homeGreeting';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
@@ -158,6 +159,21 @@ interface HomeScreenProps {
     onAdd: () => void;
     onDismiss: () => void;
   } | null;
+  /**
+   * Today's swaps, slot id → chosen exercise name. Decided here while looking
+   * at the plan; applied when the session starts, since there is no session to
+   * write to yet.
+   */
+  sessionSwaps?: Record<string, string>;
+  onSwapSessionExercise?: (slotId: string, exerciseName: string) => void;
+  /** Ranks the swap list the same way the player does. */
+  tailoringPreferences?: TailoringPreferencesInput | null;
+  /**
+   * Start today's session with its accessory sets trimmed. One gesture, not a
+   * stored mode: "adapt" is a decision about right now, and an adaptation left
+   * lying around for tomorrow would be a worse answer than none.
+   */
+  onStartTrimmedSession?: (sessionId: string) => void;
 }
 
 export function HomeScreen({
@@ -181,11 +197,17 @@ export function HomeScreen({
   availableEquipment = null,
   greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
   widgetPrompt = null,
+  sessionSwaps = {},
+  onSwapSessionExercise,
+  tailoringPreferences = null,
+  onStartTrimmedSession,
 }: HomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
+  /** Which row's swap sheet is open, by slot id. */
+  const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
   // Months away from today. Reset on close so reopening always lands on now.
   const [monthOffset, setMonthOffset] = useState(0);
@@ -226,6 +248,21 @@ export function HomeScreen({
   const warmup = getDefaultWarmup(focusTitle, language, availableEquipment);
   const cooldown = getDefaultCooldown(focusTitle, language, availableEquipment);
   const adaptTrim = getAdaptTrimEstimate(totalSets, planDurationMinutes);
+
+  // The row whose swap sheet is open, with its current lift resolved through
+  // today's swaps — reopening the sheet after a swap must offer the pool for
+  // what is there now, not what the template originally said.
+  const swapRow = useMemo(() => {
+    const exercise = nextPlanSession?.exercises.find((item) => item.slotId && item.slotId === swapSlotId);
+    if (!exercise?.slotId) {
+      return { currentName: '', options: [] as ReturnType<typeof buildSwapOptionsForSlot> };
+    }
+    const currentName = sessionSwaps[exercise.slotId] ?? exercise.name;
+    return {
+      currentName,
+      options: buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+    };
+  }, [nextPlanSession, swapSlotId, sessionSwaps, tailoringPreferences]);
 
   // --- Animations -----------------------------------------------------------
 
@@ -375,7 +412,7 @@ export function HomeScreen({
     key: SectionKey,
     title: string,
     countLabel: string,
-    rows: Array<{ name: string; schemeLabel: string }>,
+    rows: Array<{ name: string; schemeLabel: string; slotId?: string; swapped?: boolean }>,
     extraCount = 0,
   ) => (
     <Animated.View
@@ -400,13 +437,38 @@ export function HomeScreen({
         <View style={styles.secInner}>
           {rows.map((row, index) => (
             <View key={`${row.name}-${index}`} style={styles.planExerciseRow}>
-              <View style={styles.planExerciseNumberChip}>
-                <Text style={styles.planExerciseNumberText}>{index + 1}</Text>
+              <View style={[styles.planExerciseNumberChip, row.swapped && styles.planExerciseNumberChipSwapped]}>
+                <Text style={[styles.planExerciseNumberText, row.swapped && styles.planExerciseNumberTextSwapped]}>
+                  {index + 1}
+                </Text>
               </View>
               <Text style={styles.planExerciseName} numberOfLines={1}>
                 {row.name}
               </Text>
               <Text style={styles.planExerciseScheme}>{row.schemeLabel}</Text>
+              {/* Changing a lift belongs next to the lift, not behind a menu
+                  that says "swap any exercise" while showing you none. Only on
+                  rows whose slot can be identified — a button that cannot
+                  apply its own result is worse than no button. */}
+              {row.slotId && onSwapSessionExercise ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.a11y.swapExercise', { name: row.name })}
+                  hitSlop={8}
+                  onPress={() => setSwapSlotId(row.slotId ?? null)}
+                  style={({ pressed }) => [styles.planExerciseSwap, pressed && styles.pressed]}
+                >
+                  <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3"
+                      stroke={row.swapped ? theme.purple : theme.faint}
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                </Pressable>
+              ) : null}
             </View>
           ))}
           {extraCount > 0 ? (
@@ -679,10 +741,17 @@ export function HomeScreen({
                 'workout',
                 t(language, 'home.section.workout'),
                 t(language, 'home.section.workoutMeta', { count: totalExerciseCount, sets: totalSets }),
-                nextPlanSession.exercises.map((exercise) => ({
-                  name: exerciseNameLabel(language, exercise.name),
-                  schemeLabel: exercise.schemeLabel ?? exercise.setsLabel,
-                })),
+                nextPlanSession.exercises.map((exercise) => {
+                  const swappedName = exercise.slotId ? sessionSwaps[exercise.slotId] : undefined;
+                  return {
+                    name: exerciseNameLabel(language, swappedName ?? exercise.name),
+                    // A swap changes the lift, not the prescription — same
+                    // sets, same reps, same slot.
+                    schemeLabel: exercise.schemeLabel ?? exercise.setsLabel,
+                    slotId: exercise.slotId,
+                    swapped: Boolean(swappedName),
+                  };
+                }),
                 nextPlanSession.hiddenExerciseCount,
               )}
               {renderSection(
@@ -855,7 +924,15 @@ export function HomeScreen({
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
-      {/* Adapt session sheet (Home v4) — options are presentational for now */}
+      {/* Adapt = shorten today, and only that.
+          This was four rows, all four of which closed the sheet and did
+          nothing. Three of them were also in the wrong place: a taken rack and
+          a body with no strength in it are both discovered in the gym, and the
+          player answers both (swap the lift, dial the weight down set by set).
+          Time is the one thing you know before you leave the house, so it is
+          the one adaptation that belongs on Home — and it starts the session
+          rather than storing a mode, because "how is today going" has no
+          meaning tomorrow. */}
       <Modal
         visible={adaptSheetVisible}
         transparent
@@ -866,63 +943,81 @@ export function HomeScreen({
           <Pressable style={styles.adaptScrim} onPress={() => setAdaptSheetVisible(false)} />
           <View style={styles.adaptSheet}>
             <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.title')}</Text>
-            <Text style={styles.adaptSub}>{t(language, 'home.adaptSheet.subtitle')}</Text>
+            <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.shorter.title')}</Text>
+            <Text style={styles.adaptSub}>
+              {t(language, 'home.adaptSheet.shorter.explain', {
+                sets: adaptTrim.droppedSets,
+                before: totalSets,
+                after: Math.max(0, totalSets - adaptTrim.droppedSets),
+              })}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'home.adaptSheet.shorter.cta')}
+              onPress={() => {
+                setAdaptSheetVisible(false);
+                if (nextPlanSession) {
+                  onStartTrimmedSession?.(nextPlanSession.id);
+                }
+              }}
+              style={({ pressed }) => [styles.adaptPrimary, pressed && styles.pressed]}
+            >
+              <Text style={styles.adaptPrimaryText}>{t(language, 'home.adaptSheet.shorter.cta')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setAdaptSheetVisible(false)}
+              hitSlop={8}
+              style={styles.adaptCancel}
+            >
+              <Text style={styles.adaptCancelText}>{t(language, 'home.adaptSheet.cancel')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Swap sheet for one row of today's plan — same pool and same ranking
+          as the player's, so the two surfaces cannot offer different lists. */}
+      <Modal
+        visible={swapSlotId !== null}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        onRequestClose={() => setSwapSlotId(null)}
+      >
+        <View style={styles.adaptOverlay}>
+          <Pressable style={styles.adaptScrim} onPress={() => setSwapSlotId(null)} />
+          <View style={styles.adaptSheet}>
+            <View style={styles.adaptGrip} />
+            <Text style={styles.adaptTitle}>
+              {t(language, 'home.swapSheet.title', {
+                name: exerciseNameLabel(language, swapRow.currentName),
+              })}
+            </Text>
             <View style={styles.adaptOpts}>
-              {[
-                {
-                  key: 'shorter',
-                  title: t(language, 'home.adaptSheet.shorter.title'),
-                  sub: t(language, 'home.adaptSheet.shorter.sub', {
-                    min: adaptTrim.trimmedMinutes,
-                    sets: adaptTrim.droppedSets,
-                  }),
-                  icon: 'M12 21a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 9v4l2.5 2.5M9 2h6',
-                },
-                {
-                  key: 'equipment',
-                  title: t(language, 'home.adaptSheet.equipment.title'),
-                  sub: t(language, 'home.adaptSheet.equipment.sub'),
-                  icon: 'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10',
-                },
-                {
-                  key: 'swap',
-                  title: t(language, 'home.adaptSheet.swap.title'),
-                  sub: t(language, 'home.adaptSheet.swap.sub'),
-                  icon: 'M7 8h10M7 8l3-3M7 8l3 3M17 16H7m10 0-3-3m3 3-3 3',
-                },
-                {
-                  key: 'energy',
-                  title: t(language, 'home.adaptSheet.energy.title'),
-                  sub: t(language, 'home.adaptSheet.energy.sub'),
-                  icon: 'M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1',
-                },
-              ].map((option) => (
+              {swapRow.options.map((option) => (
                 <Pressable
-                  key={option.key}
+                  key={option.exerciseName}
                   accessibilityRole="button"
-                  accessibilityLabel={option.title}
-                  onPress={() => setAdaptSheetVisible(false)}
+                  accessibilityLabel={exerciseNameLabel(language, option.exerciseName)}
+                  onPress={() => {
+                    if (swapSlotId) {
+                      onSwapSessionExercise?.(swapSlotId, option.exerciseName);
+                    }
+                    setSwapSlotId(null);
+                  }}
                   style={({ pressed }) => [styles.adaptOpt, pressed && styles.pressed]}
                 >
-                  <View style={styles.adaptOptIcon}>
-                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                      <Path d={option.icon} stroke={theme.purple} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  </View>
                   <View style={styles.adaptOptCopy}>
-                    <Text style={styles.adaptOptTitle}>{option.title}</Text>
-                    <Text style={styles.adaptOptSub}>{option.sub}</Text>
+                    <Text style={styles.adaptOptTitle}>
+                      {exerciseNameLabel(language, option.exerciseName)}
+                    </Text>
                   </View>
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                    <Path d="m9 6 6 6-6 6" stroke={theme.faint} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
                 </Pressable>
               ))}
             </View>
             <Pressable
               accessibilityRole="button"
-              onPress={() => setAdaptSheetVisible(false)}
+              onPress={() => setSwapSlotId(null)}
               hitSlop={8}
               style={styles.adaptCancel}
             >
@@ -1287,12 +1382,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: theme.purpleSoft,
   },
+  // A swapped row wears a filled chip: the plan says one thing and today says
+  // another, and the list should not hide that.
+  planExerciseNumberChipSwapped: {
+    backgroundColor: theme.purple,
+  },
   planExerciseNumberText: {
     color: theme.purple,
     fontSize: 12.5,
     lineHeight: 16,
     fontWeight: '800',
   },
+  planExerciseNumberTextSwapped: { color: '#FFFFFF' },
   planExerciseName: {
     flex: 1,
     color: theme.ink,
@@ -1305,6 +1406,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 16,
     fontFamily: 'JetBrainsMono',
+  },
+  planExerciseSwap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 4,
   },
   planListFooterText: {
     color: theme.faint,
@@ -1583,6 +1692,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 15,
     fontWeight: '600',
   },
+  adaptPrimary: {
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 18,
+  },
+  adaptPrimaryText: { fontSize: 16, fontWeight: '800', letterSpacing: -0.2, color: '#FFFFFF' },
   adaptCancel: {
     alignSelf: 'center',
     minHeight: 44,

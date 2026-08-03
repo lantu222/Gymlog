@@ -18,7 +18,7 @@ module.exports = [
       assert.equal(t('fi', 'welcome.or'), 'tai');
       assert.notEqual(t('fi', 'welcome.tagline'), t('en', 'welcome.tagline'));
       assert.notEqual(t('fi', 'home.greeting.title'), t('en', 'home.greeting.title'));
-      assert.notEqual(t('fi', 'home.adaptSheet.title'), t('en', 'home.adaptSheet.title'));
+      assert.notEqual(t('fi', 'home.adaptSheet.shorter.cta'), t('en', 'home.adaptSheet.shorter.cta'));
     },
   },
   {

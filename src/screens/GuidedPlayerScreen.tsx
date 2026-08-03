@@ -76,8 +76,7 @@ import { sound, type CueSound } from '../utils/sound';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
-import { WORKOUT_SUBSTITUTION_GROUPS } from '../features/workout/workoutCatalog';
-import { buildTailoredSwapOptions, TailoringPreferencesInput } from '../lib/tailoringFit';
+import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
 import { WorkoutExerciseInstance } from '../features/workout/workoutTypes';
@@ -127,13 +126,6 @@ const GPD = {
   green: '#37D08A',
   amber: '#F5B93B',
 };
-
-/** The swap pool for a slot — the same catalog the list logger reads. */
-function getAllowedSwaps(substitutionGroup: string) {
-  return (
-    WORKOUT_SUBSTITUTION_GROUPS.find((group) => group.id === substitutionGroup)?.allowedExerciseNames ?? []
-  );
-}
 
 const SPLASH_MS = 2300;
 
@@ -1091,13 +1083,11 @@ export function GuidedPlayerScreen({
     if (!actionExercise) {
       return [];
     }
-    const current = actionExercise.exerciseName.trim().toLowerCase();
-    // The group contains the exercise you are already doing; offering it as a
-    // swap target is a row that does nothing.
-    return buildTailoredSwapOptions(
-      getAllowedSwaps(actionExercise.substitutionGroup),
+    return buildSwapOptionsForSlot(
+      actionExercise.substitutionGroup,
+      actionExercise.exerciseName,
       tailoringPreferences,
-    ).filter((option) => option.exerciseName.trim().toLowerCase() !== current);
+    );
   }, [actionExercise, tailoringPreferences]);
 
   // Skipping an exercise removes its steps from the list, so the index we are
