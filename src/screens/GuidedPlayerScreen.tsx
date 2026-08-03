@@ -1233,18 +1233,22 @@ export function GuidedPlayerScreen({
               ].join(' · ')}
             </Text>
 
+            {/* Resume is the strongest action on this screen when it exists, so
+                it follows the same rule as the rest: pressable is `highlight`.
+                Left violet it would have been the one button in dark that
+                still was. */}
             {showResume && (
               <Pressable style={styles.resumeCard} onPress={() => startAt(resumeIndex)}>
-                <GPIcon name="play" size={18} color={theme.purpleDark} sw={2.4} />
+                <GPIcon name="play" size={18} color={theme.highlight} sw={2.4} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.purpleDark }}>
+                  <Text style={{ fontSize: 14.5, fontWeight: '800', color: theme.highlight }}>
                     {t(language, 'guided.entry.resume')}
                   </Text>
-                  <Text style={{ fontSize: 12.5, fontWeight: '600', color: theme.purple, marginTop: 1 }} numberOfLines={1}>
+                  <Text style={{ fontSize: 12.5, fontWeight: '600', color: theme.muted, marginTop: 1 }} numberOfLines={1}>
                     {getGuidedStepLabel(steps[resumeIndex], language)}
                   </Text>
                 </View>
-                <GPIcon name="chevR" size={17} color={theme.purpleDark} />
+                <GPIcon name="chevR" size={17} color={theme.highlight} />
               </Pressable>
             )}
 
@@ -1305,7 +1309,7 @@ export function GuidedPlayerScreen({
                         }
                       >
                         <View style={styles.phasePlay}>
-                          <GPIcon name="play" size={17} color={theme.purple} sw={2.4} />
+                          <GPIcon name="play" size={17} color={theme.highlight} sw={2.4} />
                         </View>
                         <View style={{ flex: 1 }}>
                           <Text style={{ fontSize: 17.5, fontWeight: '800', color: theme.ink }}>{phase.label}</Text>
@@ -1335,8 +1339,12 @@ export function GuidedPlayerScreen({
             </ScrollView>
 
             <Pressable style={styles.startCta} onPress={() => startAt(0)}>
-              <GPIcon name="play" size={19} color="#fff" sw={2.5} />
-              <Text style={{ fontSize: 16.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.entry.start')}</Text>
+              {/* White would be unreadable on the dark theme's orange; that is
+                  what `onHighlight` is for. It stays white in light. */}
+              <GPIcon name="play" size={19} color={theme.onHighlight} sw={2.5} />
+              <Text style={{ fontSize: 16.5, fontWeight: '800', color: theme.onHighlight }}>
+                {t(language, 'guided.entry.start')}
+              </Text>
             </Pressable>
           </View>
         </StepIn>
@@ -2154,9 +2162,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: theme.purpleLight,
+    backgroundColor: theme.highlightSoft,
     borderWidth: 1.5,
-    borderColor: theme.purple,
+    borderColor: theme.highlight,
     borderRadius: 18,
     paddingVertical: 13,
     paddingHorizontal: 16,
@@ -2188,24 +2196,30 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingLeft: 57,
     paddingRight: 4,
   },
+  // `highlight` is the "you can press this" colour — violet in light, orange in
+  // dark, where violet is left carrying brand and structure.
   phasePlay: {
     width: 44,
     height: 44,
     borderRadius: 999,
-    backgroundColor: theme.purpleLight,
+    backgroundColor: theme.highlightSoft,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // `accent`, not `green`: this is the "do the thing" button, the same one
+  // Home's Start workout is, and in dark that action colour is orange while
+  // green keeps meaning *done*. In light both tokens are the same green, so
+  // nothing moves there.
   startCta: {
     height: 60,
     borderRadius: 19,
-    backgroundColor: theme.green,
+    backgroundColor: theme.accent,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 9,
     marginTop: 18,
-    shadowColor: theme.green,
+    shadowColor: theme.accent,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.35,
     shadowRadius: 24,
