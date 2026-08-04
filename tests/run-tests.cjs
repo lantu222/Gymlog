@@ -55,6 +55,7 @@ const suites = [
   ...require('./lib/catalogExercisePools.test.cjs'),
   ...require('./lib/onboardingPlanSweep.test.cjs'),
   ...require('./lib/progressionGate.test.cjs'),
+  ...require('./lib/programSlots.test.cjs'),
   ...require('./lib/aiCoachBudget.test.cjs'),
   ...require('./lib/aiCoachEval.test.cjs'),
   ...require('./api/aiCoachEndpoint.test.cjs'),

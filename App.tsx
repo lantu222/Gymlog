@@ -94,6 +94,8 @@ import {
   WorkoutCompletionPrCard,
 } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
+import { ProgramLimitReachedError } from './src/lib/programSlots';
+import { ProgramLimitSheet } from './src/components/ProgramLimitSheet';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
 import { applySessionAdaptation, previewSessionTrim } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
@@ -157,7 +159,7 @@ import { WorkoutsScreen } from './src/screens/WorkoutsScreen';
 import { WorkoutProvider, useWorkoutContext } from './src/features/workout/WorkoutProvider';
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
-import { getWorkoutTemplateById } from './src/features/workout/workoutCatalog';
+import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
 import { WorkoutRuntimeTemplate, WorkoutTemplateExercise } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import {
@@ -734,6 +736,7 @@ function VinhaApp() {
     updatePreferences,
     completeOnboarding,
     upsertWorkoutTemplate,
+    programSlots,
     upsertWorkoutPlan,
     deleteWorkoutTemplate,
     resetAllData,
@@ -1183,6 +1186,10 @@ function VinhaApp() {
    * "what am I doing today", and it is spent when the session starts.
    */
   const [sessionSwaps, setSessionSwaps] = useState<Record<string, string>>({});
+  // Shown when a create is blocked, from wherever it was attempted. Not a
+  // route: the user was in the middle of something, and a screen change
+  // would lose the thing they were doing to a wall they may dismiss.
+  const [programLimitVisible, setProgramLimitVisible] = useState(false);
   /**
    * The onboarding's last two steps are full-bleed: the program picker's
    * diagonal and the paywall's hero both run to the top edge. The shell
@@ -1703,6 +1710,70 @@ function VinhaApp() {
     handleStartCustomProgramSession(workoutTemplateId, firstSessionId);
   }
 
+
+  /**
+   * "Make my own copy" on a ready program.
+   *
+   * This is the whole shape of the free tier in one function: the catalog is
+   * free to browse and free to run, and the moment you want one CHANGED it
+   * becomes a program of your own — which is what the cap counts. Everyone who
+   * reaches this button is by definition past "let me look around" and into
+   * "I want it my way", which is the moment their paying users describe.
+   */
+  function handleCopyReadyProgramToCustom() {
+    const card = homeActivePlanCard;
+    if (!card || card.programType !== 'ready') {
+      return;
+    }
+    if (!programSlots.canCreate) {
+      setProgramLimitVisible(true);
+      return;
+    }
+    const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === card.programId);
+    if (!template) {
+      return;
+    }
+    // The catalog's shape is not the database's, so the ready session is
+    // mapped into the same one duplication already takes from a custom
+    // program. One duplication path, two sources.
+    const draft = buildDuplicatedCustomProgramDraft(
+      template.name,
+      template.sessions.map((session, sessionIndex) => ({
+        id: session.id,
+        workoutTemplateId: template.id,
+        name: session.name,
+        orderIndex: sessionIndex,
+        exerciseIds: session.exercises.map((exercise) => exercise.id),
+        exercises: session.exercises.map((exercise, exerciseIndex) => ({
+          id: exercise.id,
+          workoutTemplateId: template.id,
+          workoutTemplateSessionId: session.id,
+          name: exercise.exerciseName,
+          targetSets: exercise.sets,
+          repMin: exercise.repsMin,
+          repMax: exercise.repsMax,
+          restSeconds: exercise.restSecondsMin,
+          trackedDefault: false,
+          orderIndex: exerciseIndex,
+          libraryItemId: null,
+        })),
+      })),
+      workoutTemplates.map((item) => item.name),
+    );
+    Promise.resolve(upsertWorkoutTemplate(draft))
+      .then((workoutTemplateId) => {
+        showToast(t(preferences.appLanguage, 'toast.programCopied'));
+        navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+      })
+      .catch((error) => {
+        if (error instanceof ProgramLimitReachedError) {
+          setProgramLimitVisible(true);
+          return;
+        }
+        console.error('Failed to copy ready program', error);
+        showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
+      });
+  }
 
   function handleDuplicateCustomProgram(workoutTemplateId: string) {
     const template = workoutTemplates.find((item) => item.id === workoutTemplateId);
@@ -3806,8 +3877,15 @@ function VinhaApp() {
                 navigate({ tab: 'workout', screen: 'template', workoutTemplateId: homeActivePlanCard.programId })
             : undefined
         }
+        onCopyToCustomPlan={
+          homeActivePlanCard?.programType === 'ready' ? handleCopyReadyProgramToCustom : undefined
+        }
         onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
-        onBuildYourself={() => navigate({ tab: 'workout', screen: 'template' })}
+        onBuildYourself={() =>
+          programSlots.canCreate
+            ? navigate({ tab: 'workout', screen: 'template' })
+            : setProgramLimitVisible(true)
+        }
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
@@ -4096,7 +4174,11 @@ function VinhaApp() {
         onOpenExploreProgram={handleOpenReadyProgramDetail}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
         onViewAllPrograms={() => navigate(WORKOUT_PLAN_ROUTE)}
-        onCreateProgram={() => navigate({ tab: 'workout', screen: 'template' })}
+        onCreateProgram={() =>
+          programSlots.canCreate
+            ? navigate({ tab: 'workout', screen: 'template' })
+            : setProgramLimitVisible(true)
+        }
         onOpenLibrary={() => navigate({ tab: 'workout', screen: 'list' })}
       />
     );
@@ -4341,6 +4423,16 @@ function VinhaApp() {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           setSettingsImportVisible(false);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+        }}
+      />
+      <ProgramLimitSheet
+        visible={programLimitVisible}
+        slots={programSlots}
+        language={preferences.appLanguage}
+        onClose={() => setProgramLimitVisible(false)}
+        onSeePro={() => {
+          setProgramLimitVisible(false);
+          navigate({ tab: 'profile', screen: 'premium' });
         }}
       />
     </AppShell>

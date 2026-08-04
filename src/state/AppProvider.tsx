@@ -2,6 +2,13 @@
 
 import { createEmptyDatabase } from '../data/seed';
 import { createId } from '../lib/ids';
+import { isProUnlocked } from '../lib/proEntitlement';
+import {
+  FREE_CUSTOM_PROGRAM_LIMIT,
+  ProgramLimitReachedError,
+  ProgramSlots,
+  resolveProgramSlots,
+} from '../lib/programSlots';
 import { createSerialTaskQueue, RunExclusive } from '../lib/serialTaskQueue';
 import { buildWorkoutTemplateSessions } from '../lib/workoutTemplateSessions';
 import { persistCompletedWorkoutSessionToDatabase, PersistCompletedWorkoutInput, SessionSaveSummary } from './completedWorkoutPersistence';
@@ -42,6 +49,8 @@ interface AppContextValue {
   database: AppDatabase;
   hydrated: boolean;
   preferences: AppPreferences;
+  /** Free-tier program budget, so a screen can show it rather than hit it. */
+  programSlots: ProgramSlots;
   unitPreference: UnitPreference;
   workoutTemplates: AppDatabase['workoutTemplates'];
   workoutPlans: AppDatabase['workoutPlans'];
@@ -307,6 +316,21 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     const nextName = trimmedName || 'Untitled workout';
     const current = databaseRef.current;
     const existingTemplate = draft.id ? workoutTemplateRepository.findById(current, draft.id) : undefined;
+
+    // The cap is checked here, at the one place a program of your own comes
+    // into existence, rather than at the five screens that can ask for one. A
+    // screen that forgets the check would quietly hand out a paid slot; this
+    // cannot be forgotten. Editing is never blocked — only a NEW program past
+    // the limit, so a user who is already over it keeps everything they built.
+    if (!existingTemplate) {
+      const slots = resolveProgramSlots(
+        current.workoutTemplates.length,
+        isProUnlocked(current.preferences),
+      );
+      if (!slots.canCreate) {
+        throw new ProgramLimitReachedError(slots.limit ?? FREE_CUSTOM_PROGRAM_LIMIT);
+      }
+    }
     const workoutTemplateId = existingTemplate?.id ?? createId('workout');
     const timestamp = new Date().toISOString();
     const draftSessions = normalizeDraftSessions(draft);
@@ -604,6 +628,10 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setUnitPreference,
       updatePreferences,
       completeOnboarding,
+      programSlots: resolveProgramSlots(
+        database.workoutTemplates.length,
+        isProUnlocked(database.preferences),
+      ),
       upsertWorkoutTemplate,
       upsertWorkoutPlan,
       renameWorkoutTemplate,

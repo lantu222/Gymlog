@@ -120,7 +120,10 @@ type Cellv2 = I18nKey | null;
 const ROWS: Array<{ labelKey: I18nKey; free: Cellv2; pro: Cellv2 }> = [
   { labelKey: 'pro.v2.row.logging', free: 'pro.v2.val.unlimited', pro: 'pro.v2.val.unlimited' },
   { labelKey: 'pro.v2.row.ready', free: 'pro.v2.val.all', pro: 'pro.v2.val.all' },
-  { labelKey: 'pro.v2.row.own', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
+  // The one row that is now a real difference rather than a courtesy: three
+  // of your own on free, unlimited on Pro. The ready catalog above it stays
+  // All / All, because the cap is on authoring and never on choosing.
+  { labelKey: 'pro.v2.row.own', free: 'pro.v2.val.threePrograms', pro: 'pro.v2.val.unlimited' },
   // Never capped, in either tier. The one row that says we do not hold your
   // own data hostage, so it is stated rather than hidden.
   { labelKey: 'pro.v2.row.history', free: 'pro.v2.val.allTime', pro: 'pro.v2.val.allTime' },
