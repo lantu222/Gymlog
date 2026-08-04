@@ -4018,7 +4018,7 @@ const FI: Record<I18nKey, string> = {
 
   'pro.v2.soon': 'PIAN',
 
-  'pro.v2.free.title': 'Free on oikea sovellus',
+  'pro.v2.free.title': 'Free riittää sellaisenaan',
   'pro.v2.free.body': 'Rajaton kirjaus, kaikki valmiit ohjelmat, omat ohjelmasi, ohjattu treenitila ja 3D-demot, widget, CSV-vienti — ja koko historiasi, ikuisesti. Ei mainoksia, ei aikarajaa. Premium lisää valmennuskerroksen päälle.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
