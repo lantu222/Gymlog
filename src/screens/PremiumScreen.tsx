@@ -627,9 +627,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 11,
     paddingHorizontal: 2,
   },
-  benefitList: {
-    gap: 12,
-  },
   benefitCard: {
     backgroundColor: theme.surface,
     borderWidth: 1,
@@ -678,134 +675,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 13,
     paddingHorizontal: 14,
   },
-  specimenHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginBottom: 8,
-  },
-  specimenTag: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: theme.faint,
-  },
-  specimenQuote: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: theme.ink,
-    lineHeight: 20,
-  },
-  specimenEmpty: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: theme.muted,
-    lineHeight: 18,
-  },
-  chipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  chip: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 9,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: theme.muted,
-  },
-  chipNext: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
-  },
-  chipNextText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  chipDelta: {
-    backgroundColor: theme.greenSoft,
-    borderRadius: 7,
-    paddingVertical: 5,
-    paddingHorizontal: 8,
-  },
-  chipDeltaText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: theme.greenInk,
-  },
-  weekRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  weekCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  weekBar: {
-    alignSelf: 'stretch',
-    height: 6,
-    borderRadius: 999,
-    backgroundColor: '#E6DEF7',
-  },
-  weekBarActive: {
-    backgroundColor: theme.purple,
-  },
-  weekLabel: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: theme.faint,
-    marginTop: 5,
-  },
-  promise: {
-    marginTop: 24,
-    borderRadius: 20,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  promiseFree: {
-    backgroundColor: theme.surface,
-    paddingVertical: 15,
-    paddingHorizontal: 17,
-  },
-  promiseFreeLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: theme.faint,
-  },
-  promiseFreeLine: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: theme.ink,
-    marginTop: 6,
-  },
-  promisePro: {
-    backgroundColor: '#2B1B4F',
-    paddingVertical: 15,
-    paddingHorizontal: 17,
-  },
-  promiseProLabel: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: PW.sheetLavender,
-  },
-  promiseProLine: {
-    fontSize: 16.5,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginTop: 6,
-    lineHeight: 22,
-  },
   table: {
     backgroundColor: theme.surface,
     borderWidth: 1,
@@ -839,46 +708,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     color: theme.purple,
   },
-  bandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 11,
-    paddingHorizontal: 15,
-    backgroundColor: theme.surfaceSoft,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  bandLabel: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: theme.ink,
-  },
-  bandNote: {
-    borderRadius: 6,
-    paddingVertical: 3,
-    paddingHorizontal: 7,
-  },
   // Both pills sit on a themed fill, so their labels have to be themed too.
   // PW's fixed pair put a dark-purple "Pro" on theme.purpleLight — fine on the
   // light tint, invisible once that tint went dark.
-  bandNoteFree: {
-    backgroundColor: theme.greenSoft,
-  },
-  bandNotePro: {
-    backgroundColor: theme.purpleLight,
-  },
-  bandNoteText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  bandNoteTextFree: {
-    color: theme.greenInk,
-  },
-  bandNoteTextPro: {
-    color: theme.purpleDark,
-  },
   tableRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1033,11 +865,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   tableRowLast: {
     borderBottomWidth: 0,
   },
-  quotaText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: theme.muted,
-  },
   tableFoot: {
     paddingVertical: 13,
     paddingHorizontal: 15,
@@ -1127,14 +954,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
     marginTop: 4,
   },
-  reassure: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: theme.faint,
-    textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 16,
-  },
   // The tab bar is hidden on this route, so the CTA sits on the real bottom
   // edge and the page keeps a bar's worth of height it used to reserve for a
   // control that was floating over the button anyway.
@@ -1156,13 +975,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#FFFFFF',
-  },
-  promoNote: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.ink,
-    lineHeight: 19,
-    textAlign: 'center',
   },
   ctaFine: {
     textAlign: 'center',
