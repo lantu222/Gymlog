@@ -3721,7 +3721,7 @@ function VinhaApp() {
         unitPreference={unitPreference}
         sessionCount={database.workoutSessions.length}
         coachSpecimen={proCoachSpecimen}
-        trainingDayIndexes={homeTrainingDayIndexes}
+        onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onTogglePreview={() => {
           // The CTA sells a trial the app cannot deliver (demo build). What it

@@ -34,11 +34,11 @@ interface PremiumScreenProps {
   sessionCount: number;
   /** Deterministic coach read of the user's own log; null with no data. */
   coachSpecimen: string | null;
-  /** Monday-first weekday indexes of the user's training days. */
-  trainingDayIndexes: number[];
   language?: AppLanguage;
   onBack: () => void;
   onTogglePreview: () => void;
+  /** Where an existing subscriber goes instead of the trial CTA. */
+  onManageSubscription: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
 }
 
@@ -253,19 +253,20 @@ export function PremiumScreen({
   unitPreference,
   sessionCount,
   coachSpecimen,
-  trainingDayIndexes,
   language = 'en',
   onBack,
   onTogglePreview,
+  onManageSubscription,
   onOpenLegal,
 }: PremiumScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
+  // Pro via a redeemed code rather than the on-device preview switch: the
+  // switch cannot turn that off, so the page must not offer to.
   const promoOnly = proUnlocked && !previewUnlocked;
   const chartStep = heroChart ? fmt(heroChart.projectedNext - heroChart.latest) : null;
-  const lastChips = heroChart ? heroChart.points.slice(-3) : [];
 
   return (
     <View style={styles.screen}>
@@ -328,6 +329,33 @@ export function PremiumScreen({
               <Text style={styles.heroChartEmpty}>{t(language, 'pro.page.chartEmpty')}</Text>
             )}
           </View>
+
+          {/*
+            The coach's actual sentence about the lift charted above —
+            proInsights, computed from this reader's own log, never a sample.
+            It was passed into this screen and dropped on the floor; the chart
+            showed the numbers and nothing said what they meant, which is the
+            one thing the page is asking to be paid for.
+
+            Blurred before you buy, plain after. Same technique as
+            ProLockedCard (transparent ink, soft shadow, scrim on top) but its
+            scrim is lavender for a light card — here the hero is #3A1F7A, and
+            a light scrim would read as a pale rectangle rather than as text
+            you cannot quite make out.
+          */}
+          {coachSpecimen ? (
+            <View style={styles.specimen}>
+              <Text style={styles.specimenKicker}>{t(language, 'unlock.specimen.kicker')}</Text>
+              {proUnlocked ? (
+                <Text style={styles.specimenText}>{coachSpecimen}</Text>
+              ) : (
+                <View style={styles.specimenBlurBlock}>
+                  <Text style={styles.specimenBlurText}>{coachSpecimen}</Text>
+                  <View style={styles.specimenScrim} pointerEvents="none" />
+                </View>
+              )}
+            </View>
+          ) : null}
         </View>
 
         {/* THREE GROUPS — the reason to buy, then why the price is fair */}
@@ -466,16 +494,45 @@ export function PremiumScreen({
           tight — every point spent below the CTA is a point of the page you
           cannot see. */}
       <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 2 }]}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onTogglePreview}
-          style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.ctaButtonText}>{t(language, 'pro.v2.cta')}</Text>
-        </Pressable>
-        <Text style={styles.ctaFine}>
-          {t(language, plan === 'yearly' ? 'pro.v2.ctaSubYearly' : 'pro.v2.ctaSubMonthly')}
-        </Text>
+        {/*
+          proUnlocked was computed and never read, so this page showed a
+          subscriber the same "start your free trial" button as everyone else
+          — and pressing it ran onTogglePreview, which flips the switch OFF.
+          The one button on the page was a cancel button wearing a trial
+          label. A reader who already pays gets a status line and a way to
+          manage instead; a promo unlock gets no toggle at all, because the
+          preview switch cannot turn a redeemed code off.
+        */}
+        {proUnlocked ? (
+          <>
+            <View style={styles.activeRow}>
+              <CheckGlyph color={theme.green} />
+              <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={promoOnly ? onManageSubscription : onTogglePreview}
+              style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.manageButtonText}>
+                {t(language, promoOnly ? 'subs.manageMembership' : 'settings.demoPro')}
+              </Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onTogglePreview}
+              style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.ctaButtonText}>{t(language, 'pro.v2.cta')}</Text>
+            </Pressable>
+            <Text style={styles.ctaFine}>
+              {t(language, plan === 'yearly' ? 'pro.v2.ctaSubYearly' : 'pro.v2.ctaSubMonthly')}
+            </Text>
+          </>
+        )}
         <View style={styles.legalRow}>
           <Pressable accessibilityRole="button" onPress={() => onOpenLegal('terms')} hitSlop={8}>
             <Text style={styles.legalText}>{t(language, 'pro.page.terms')}</Text>
@@ -557,6 +614,66 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: 'rgba(255,255,255,0.75)',
     lineHeight: 20,
     marginTop: 10,
+  },
+  specimen: {
+    marginTop: 15,
+  },
+  specimenKicker: {
+    fontSize: 9.5,
+    fontWeight: '900',
+    letterSpacing: 1.1,
+    color: 'rgba(255,255,255,0.5)',
+  },
+  specimenText: {
+    marginTop: 7,
+    fontSize: 13.5,
+    fontWeight: '700',
+    lineHeight: 20,
+    color: '#FFFFFF',
+  },
+  specimenBlurBlock: {
+    marginTop: 7,
+    position: 'relative',
+  },
+  specimenBlurText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    lineHeight: 20,
+    color: 'transparent',
+    textShadowColor: 'rgba(255,255,255,0.8)',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 11,
+  },
+  specimenScrim: {
+    ...StyleSheet.absoluteFillObject,
+    // Matches the hero (#3A1F7A) rather than ProLockedCard's lavender: the
+    // scrim has to be the colour it sits on or it reads as a panel, not a blur.
+    backgroundColor: 'rgba(58,31,122,0.72)',
+  },
+  activeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    marginBottom: 10,
+  },
+  activeText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: theme.ink,
+  },
+  manageButton: {
+    height: 52,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manageButtonText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: theme.ink,
   },
   heroChartCard: {
     marginTop: 16,

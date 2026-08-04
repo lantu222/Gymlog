@@ -259,6 +259,32 @@ module.exports = [
     },
   },
   {
+    name: 'the Pro page knows whether the reader already pays, and renders its one real asset',
+    run() {
+      // Two failures of the same kind: a value computed and never read.
+      //
+      // proUnlocked reached this screen and nothing looked at it, so an
+      // existing subscriber saw "start your free trial" — and the button ran
+      // onTogglePreview, which flips the switch OFF. The page's only button
+      // was a cancel button wearing a trial label.
+      assert.match(premiumSource, /\{proUnlocked \? \(/);
+      assert.match(premiumSource, /t\(language, 'promo\.proOn'\)/);
+      // A redeemed code cannot be turned off by the preview switch, so that
+      // case must route to subscription management instead of toggling.
+      assert.match(premiumSource, /promoOnly \? onManageSubscription : onTogglePreview/);
+      assert.match(appSource, /onManageSubscription=\{\(\) => navigate\(\{ tab: 'profile', screen: 'subscription' \}\)\}/);
+
+      // coachSpecimen is proInsights' real read of this reader's own log. It
+      // was passed in and dropped: the hero charted their numbers and nothing
+      // said what they meant, which is the only thing the page is selling.
+      assert.match(premiumSource, /\{coachSpecimen \? \(/);
+      assert.match(premiumSource, /styles\.specimenText/);
+      // Blurred before you buy, plain after — never the other way round.
+      assert.match(premiumSource, /proUnlocked \? \([\s\S]{0,200}styles\.specimenText/);
+      assert.match(premiumSource, /styles\.specimenScrim/);
+    },
+  },
+  {
     name: 'the Progress trend chart is rendered, not just computed',
     run() {
       const progress = read('src', 'screens', 'ProgressScreen.tsx');
