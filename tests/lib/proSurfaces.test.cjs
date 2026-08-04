@@ -354,6 +354,12 @@ module.exports = [
     name: 'the post-onboarding offer states only counts the code can prove',
     run() {
       // The two figures are read from the catalog and the library, never typed.
+      // The onboarding paywall's programs line follows the same rule — it is
+      // the only number on that screen anyone can check, so it must not become
+      // a string the day someone adds a program.
+      const paywallSource = read('src', 'screens', 'ProPaywallScreen.tsx');
+      assert.match(paywallSource, /count: WORKOUT_TEMPLATES_V1\.length/);
+      assert.doesNotMatch(paywallSource, /'\d+ (programs|ohjelmaa)/);
       assert.match(proOfferSource, /WORKOUT_TEMPLATES_V1\.length/);
       assert.match(proOfferSource, /GENERATED_EXERCISE_LIBRARY\.length/);
       assert.doesNotMatch(proOfferSource, /'\d+ (ready programs|exercises)/);

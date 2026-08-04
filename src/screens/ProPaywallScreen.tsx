@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, G, Path, Rect, Stop } from 'react-native-svg';
 
-import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
+import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
 import { isDemoBuild } from '../lib/demoMode';
 import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
@@ -133,6 +133,9 @@ export function ProPaywallScreen({
   ];
 
   const trust = [
+    // Counted, never typed — the same rule the post-onboarding offer follows.
+    // It is also the only figure on this screen anyone can check.
+    t(language, 'paywall.trust.programs', { count: WORKOUT_TEMPLATES_V1.length }),
     t(language, 'paywall.trust.cancel'),
     t(language, 'paywall.trust.export'),
     t(language, 'paywall.trust.ads'),
@@ -148,13 +151,17 @@ export function ProPaywallScreen({
       >
         {/* Hero — the diagonal seam is the design's own full-bleed language. */}
         <View style={styles.hero}>
-          <FitnessPhotoSurface variant="strength" style={styles.heroPhoto} imageStyle={styles.heroPhotoImage} />
+          {/* No photo (user decision): a stock athlete is the one thing on this
+              screen that is not the user's own app, and the gradient carries
+              the hero on its own. The scrim stayed — without an image under it
+              it IS the hero, so it runs the full diagonal rather than fading a
+              picture out. */}
           <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
             <Defs>
-              <SvgLinearGradient id="paywallHeroScrim" x1="0" y1="0" x2="1" y2="0.6">
-                <Stop offset="0" stopColor="#0F0A20" stopOpacity="0.94" />
-                <Stop offset="0.46" stopColor="#140D2C" stopOpacity="0.74" />
-                <Stop offset="1" stopColor="#2E1065" stopOpacity="0.24" />
+              <SvgLinearGradient id="paywallHeroScrim" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#0F0A20" stopOpacity="1" />
+                <Stop offset="0.52" stopColor="#1B1038" stopOpacity="1" />
+                <Stop offset="1" stopColor="#3B1A7A" stopOpacity="1" />
               </SvgLinearGradient>
             </Defs>
             <Rect x="0" y="0" width="100%" height="100%" fill="url(#paywallHeroScrim)" />
@@ -318,8 +325,8 @@ export function ProPaywallScreen({
 
           {/* Trust */}
           <View style={styles.trustGrid}>
-            {trust.map((item) => (
-              <View key={item} style={styles.trustChip}>
+            {trust.map((item, index) => (
+              <View key={item} style={[styles.trustChip, index === 0 && styles.trustChipWide]}>
                 <PwIcon name="check" size={12} color={PW.green} />
                 <Text style={styles.trustText}>{item}</Text>
               </View>
@@ -327,6 +334,22 @@ export function ProPaywallScreen({
           </View>
         </View>
       </ScrollView>
+
+      {/* The screen runs under a translucent status bar so the hero is truly
+          full-bleed, which means scrolled content passes under the clock. A
+          fixed scrim keeps section labels legible up there. Over the hero it is
+          invisible: the gradient's top is already this colour. */}
+      <View pointerEvents="none" style={styles.topScrim}>
+        <Svg style={StyleSheet.absoluteFill}>
+          <Defs>
+            <SvgLinearGradient id="paywallTopScrim" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor="#0F0A20" stopOpacity="0.92" />
+              <Stop offset="1" stopColor="#0F0A20" stopOpacity="0" />
+            </SvgLinearGradient>
+          </Defs>
+          <Rect x="0" y="0" width="100%" height="100%" fill="url(#paywallTopScrim)" />
+        </Svg>
+      </View>
 
       {/* The CTA floats over the scroll from the first frame — the design is
           explicit that it must be visible without scrolling. */}
@@ -371,8 +394,6 @@ const styles = StyleSheet.create({
   flex1: { flex: 1, minWidth: 0 },
 
   hero: { height: 300, overflow: 'hidden' },
-  heroPhoto: { ...StyleSheet.absoluteFillObject, borderRadius: 0 },
-  heroPhotoImage: { borderRadius: 0 },
   heroCopy: { position: 'absolute', left: 0, right: 0, top: 0, paddingTop: 58, paddingHorizontal: PAD },
   heroEyebrow: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.7, color: '#C4B5FD' },
   heroTitle: {
@@ -512,8 +533,11 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     flexBasis: '46%',
   },
+  // The free-programs line gets its own row: it is a claim, not a reassurance.
+  trustChipWide: { flexBasis: '100%', borderColor: PW.purple, backgroundColor: PW.purpleSoft },
   trustText: { fontSize: 10.5, fontWeight: '700', color: PW.muted },
 
+  topScrim: { position: 'absolute', left: 0, right: 0, top: 0, height: 74 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: PAD, paddingTop: 22, paddingBottom: 18 },
   cta: {
     height: 56,
