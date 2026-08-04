@@ -524,11 +524,17 @@ module.exports = [
       // The old black plan-ready stage is gone.
       assert.doesNotMatch(onboardingSource, /planReadyStage:\s*\{\s*backgroundColor: '#050505'/);
       assert.doesNotMatch(onboardingSource, /planReadyHeader:/);
-      // Cover stats stay readable on the purple cover.
-      assert.match(onboardingSource, /planReadyOverviewStatRow:\s*\{[\s\S]*justifyContent: 'space-between'/);
-      assert.match(onboardingSource, /planReadyOverviewStatValue:\s*\{[\s\S]*color: '#FFFFFF'/);
-      // Decorative cover orb removed.
+      // The stacked-card overview and the separate picker are both gone —
+      // ProgramPickScreen replaced them — so their styles must not linger
+      // either. Two assertions here used to describe the overview's cover
+      // stats, which is how 83 dead style definitions survived the redesign:
+      // a guard naming a style keeps it alive whether or not anything renders
+      // it.
+      assert.doesNotMatch(onboardingSource, /planReadyOverviewStat|planReadyPrimaryCard|planReadyAltCard|progPickCard|programPickTitle/);
       assert.doesNotMatch(onboardingSource, /planReadyOverviewCoverGlow/);
+      // The automatic-progression step became the Pro paywall; its card,
+      // toggle and bullet styles went with it.
+      assert.doesNotMatch(onboardingSource, /progressionToggleTrack|progressionBulletRow|progressionCardOn/);
     },
   },
   {

@@ -672,20 +672,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 0.6,
     color: theme.purpleDark,
   },
-  soonPill: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    backgroundColor: theme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: theme.border,
-  },
-  soonPillText: {
-    color: theme.muted,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
   section: {
     marginTop: 22,
   },

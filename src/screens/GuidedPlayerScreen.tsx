@@ -2522,46 +2522,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
 
   /* finish */
-  finishCard: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: GPD.line,
-    borderRadius: 20,
-    paddingVertical: 16,
-    paddingHorizontal: 17,
-  },
   finishTitle: { marginTop: 6, marginHorizontal: 2, fontSize: 30, fontWeight: '800', letterSpacing: -0.6, color: GPD.ink },
-  prPill: { backgroundColor: 'rgba(245,185,59,0.14)', paddingVertical: 5, paddingHorizontal: 11, borderRadius: 999 },
-  prValue: { fontSize: 46, fontWeight: '800', letterSpacing: -1.4, color: GPD.ink, marginTop: 12, lineHeight: 50 },
-  prDeltaPill: {
-    backgroundColor: 'rgba(55,208,138,0.13)',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 999,
-    marginTop: 9,
-  },
-  finishFooter: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 12,
-    borderTopWidth: 1,
-    borderTopColor: GPD.line,
-  },
-  finishContinueBtn: {
-    flex: 1.4,
-    height: 54,
-    borderRadius: 17,
-    backgroundColor: GPD.green,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: GPD.green,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 26,
-    elevation: 6,
-  },
 
   /* sheets */
   sheetScrim: {

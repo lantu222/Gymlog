@@ -1667,16 +1667,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 14,
   },
-  adaptOptIcon: {
-    width: 38,
-    height: 38,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   adaptOptCopy: {
     flex: 1,
     minWidth: 0,
@@ -1686,13 +1676,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14.5,
     lineHeight: 18,
     fontWeight: '800',
-  },
-  adaptOptSub: {
-    marginTop: 2,
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '600',
   },
   adaptPrimary: {
     height: 56,
