@@ -28,6 +28,7 @@ import { FitnessPhotoSurface } from '../components/FitnessPhotoSurface';
 import { VinhaIcon, VinhaIconName } from '../components/VinhaIcon';
 import { VinhaWordmark } from '../components/VinhaWordmark';
 import { ProPaywallScreen } from './ProPaywallScreen';
+import { ProgramPickScreen } from './ProgramPickScreen';
 import { LEVEL_STREAKS } from '../lib/levelStreaks';
 import { OnboardingOptionIcon, OnboardingOptionIconName } from '../components/OnboardingOptionIcon';
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
@@ -128,11 +129,12 @@ interface OnboardingScreenProps {
    */
   onStartProTrial: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
   /**
-   * Fires when the Pro paywall takes over the screen. The shell reserves the
-   * status-bar strip for onboarding and paints it light; the paywall's hero
-   * is full-bleed and dark, so the shell has to stop reserving it.
+   * Fires when a full-bleed review screen takes over — the program picker's
+   * diagonal and the paywall's hero both run to the top edge. The shell
+   * reserves the status-bar strip for onboarding and paints it light, which
+   * would cut a band across either of them.
    */
-  onProPaywallVisibleChange?: (visible: boolean) => void;
+  onFullBleedReviewChange?: (tone: 'light' | 'dark' | null) => void;
   onCompleteToProgramDetail: (selection: FirstRunSetupSelection, recommendedProgramId: string) => void | Promise<void>;
   onCompleteToCustom: (
     selection: FirstRunSetupSelection,
@@ -820,157 +822,6 @@ function LocationChoiceCard({
 
 // Screen 08b "Pick your program" card. Both options render through this same
 // template so the alternative reads as a real choice, not a footnote.
-function ProgramPickCard({
-  title,
-  language,
-  days,
-  mins,
-  weeks,
-  totalWorkouts,
-  recommended,
-  focus,
-  selected,
-  onPress,
-}: {
-  title: string;
-  language: AppLanguage;
-  days: number;
-  mins: number;
-  weeks: number;
-  totalWorkouts: number;
-  recommended: boolean;
-  focus: ProgramFocusSegment[];
-  selected: boolean;
-  onPress: () => void;
-}) {
-  const progress = useRef(new Animated.Value(selected ? 1 : 0)).current;
-  const progressScale = useRef({
-    transform: [{ scale: progress.interpolate({ inputRange: [0, 1], outputRange: [1, 1.01] }) }],
-  }).current;
-
-  useEffect(() => {
-    Animated.timing(progress, {
-      toValue: selected ? 1 : 0,
-      duration: 200,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
-    }).start();
-  }, [progress, selected]);
-
-  // Full words only — no "wks" / "×/wk" abbreviations on the cards.
-  const stats: Array<[string, string]> = [
-    [t(language, 'onb.pick.daysValue', { count: days }), t(language, 'onb.pick.perWeek')],
-    [t(language, 'onb.pick.minsValue', { count: mins }), t(language, 'onb.pick.perSession')],
-    [
-      t(language, 'onb.pick.weeksValue', { count: weeks }),
-      t(language, 'onb.pick.workoutsValue', { count: totalWorkouts }),
-    ],
-  ];
-
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected }}
-      accessibilityLabel={`${title}${recommended ? ', recommended' : ''}`}
-      onPress={onPress}
-    >
-      <Animated.View
-        style={[styles.progPickCard, selected && styles.progPickCardSelected, progressScale]}
-      >
-        {/* Cover image slot — placeholder until each program ships its own asset. */}
-        <View style={[styles.progPickCover, selected && styles.progPickCoverSelected]}>
-          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M4 8a2 2 0 0 1 2-2h1.5l1.4-1.6a1 1 0 0 1 .75-.4h4.7a1 1 0 0 1 .75.4L16.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
-              stroke={selected ? 'rgba(255,255,255,0.75)' : '#B7A8DE'}
-              strokeWidth={2}
-              strokeLinejoin="round"
-            />
-            <Circle cx={12} cy={12.5} r={3.2} stroke={selected ? 'rgba(255,255,255,0.75)' : '#B7A8DE'} strokeWidth={2} />
-          </Svg>
-          <Text style={[styles.progPickCoverCaption, selected && styles.progPickCoverCaptionSelected]}>
-            Program image
-          </Text>
-
-          {recommended ? (
-            <View style={[styles.progPickRecPill, selected && styles.progPickRecPillSelected]}>
-              <Text style={[styles.progPickRecPillText, selected && styles.progPickRecPillTextSelected]}>
-                {t(language, 'onb.pick.recommended')}
-              </Text>
-            </View>
-          ) : null}
-
-          <View style={[styles.progPickRadio, selected && styles.progPickRadioSelected]}>
-            {selected ? (
-              <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M5 12l5 5L19 7"
-                  stroke={ONBOARDING_PRIMARY}
-                  strokeWidth={3}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            ) : null}
-          </View>
-        </View>
-
-        <View style={styles.progPickBody}>
-          <Text
-            numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.75}
-            style={[styles.progPickName, selected && styles.progPickNameSelected]}
-          >
-            {title}
-          </Text>
-
-          <View style={styles.progPickStatRow}>
-            {stats.map(([value, label]) => (
-              <View key={label} style={styles.progPickStat}>
-                <Text numberOfLines={1} style={[styles.progPickStatValue, selected && styles.progPickNameSelected]}>
-                  {value}
-                </Text>
-                <Text numberOfLines={1} style={[styles.progPickStatLabel, selected && styles.progPickDescSelected]}>
-                  {label}
-                </Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={[styles.progPickDivider, selected && styles.progPickDividerSelected]} />
-
-          {/* Training-time composition — factual plan split, never an outcome claim. */}
-          <Text style={[styles.progPickFocusLabel, selected && styles.progPickFocusLabelSelected]}>
-            {t(language, 'onb.pick.whereWeekGoes')}
-          </Text>
-          <View style={styles.progPickFocusBar}>
-            {focus.map((segment) => (
-              <View
-                key={segment.quality}
-                style={[
-                  styles.progPickFocusSegment,
-                  { flex: segment.pct, backgroundColor: PROGRAM_FOCUS_COLORS[segment.quality] },
-                ]}
-              />
-            ))}
-          </View>
-          <View style={styles.progPickLegendRow}>
-            {focus.map((segment) => (
-              <View key={segment.quality} style={styles.progPickLegendItem}>
-                <View style={[styles.progPickLegendSwatch, { backgroundColor: PROGRAM_FOCUS_COLORS[segment.quality] }]} />
-                <Text style={[styles.progPickLegendText, selected && styles.progPickLegendTextSelected]}>
-                  {`${getProgramFocusQualityLabel(segment.quality, language)} ${segment.pct}%`}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </Animated.View>
-    </Pressable>
-  );
-}
-
 function SetupOptionCard({
   title,
   body,
@@ -1588,7 +1439,7 @@ export function OnboardingScreen({
   onSkip,
   onCompleteToTraining,
   onStartProTrial,
-  onProPaywallVisibleChange,
+  onFullBleedReviewChange,
   onCompleteToProgramDetail,
   onCompleteToCustom,
   onCancel,
@@ -1705,12 +1556,25 @@ export function OnboardingScreen({
     useState<RecommendationRefinementPanel>(null);
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
-  const [planReadyView, setPlanReadyView] = useState<'pick' | 'overview' | 'day' | 'pro'>('overview');
+  const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'pro'>('overview');
   // Told from an effect, never during render: the parent turns it into shell
   // state, and setting parent state while rendering a child is a loop.
   useEffect(() => {
-    onProPaywallVisibleChange?.(STAGES[stageIndex] === 'review' && planReadyView === 'pro');
-  }, [onProPaywallVisibleChange, planReadyView, stageIndex]);
+    if (STAGES[stageIndex] !== 'review') {
+      onFullBleedReviewChange?.(null);
+      return;
+    }
+    if (planReadyView === 'pro') {
+      // The paywall's hero is dark top to bottom.
+      onFullBleedReviewChange?.('light');
+      return;
+    }
+    if (planReadyView !== 'overview') {
+      onFullBleedReviewChange?.(null);
+    }
+    // The picker reports its own tone: its top half flips white when the
+    // second program is chosen, and white icons would vanish into it.
+  }, [onFullBleedReviewChange, planReadyView, stageIndex]);
   const [automatedProgressionEnabled, setAutomatedProgressionEnabled] = useState(
     setupSeed.automatedProgression ?? true,
   );
@@ -3227,66 +3091,51 @@ export function OnboardingScreen({
     });
   }
 
-  function renderProgramPick() {
-    return (
-      <Animated.View
-        style={[
-          styles.programPickStage,
-          {
-            paddingTop: insets.top + spacing.lg,
-            opacity: planReadyCardOpacity,
-            transform: [{ translateX: planReadyCardTranslateX }],
-          },
-        ]}
-      >
-        <Text style={styles.programPickTitle}>{t(language, 'onb.planReady.title')}</Text>
-
-        <View style={styles.programPickList}>
-          {programPickOptions.map((option) => (
-            <ProgramPickCard
-              key={option.id}
-              title={option.presentation.title}
-              language={language}
-              days={option.days}
-              mins={option.mins}
-              weeks={option.weeks}
-              totalWorkouts={option.totalWorkouts}
-              recommended={option.recommended}
-              focus={option.focus}
-              selected={activeRecommendedProgramId === option.id}
-              onPress={() => {
-                void haptics.select();
-                setSelectedRecommendationProgramId(option.id);
-              }}
-            />
-          ))}
-        </View>
-      </Animated.View>
-    );
-  }
-
+  /**
+   * The plan-ready screen, from design 08b variant D: two programs owning the
+   * whole screen either side of one diagonal seam.
+   *
+   * This replaced BOTH of the screens that used to be here. The overview
+   * announced one program with the alternative tucked behind a "Vaihda"
+   * button, and that button opened a second screen — titled the same thing —
+   * that asked the question again on two stacked cards. The choice now happens
+   * where the programs are, once, and the CTA never moves.
+   */
   function renderReview() {
-    if (planReadyView === 'pick') {
-      return renderProgramPick();
-    }
     if (planReadyView === 'pro') {
       return renderPlanReadyPro();
     }
     if (planReadyView === 'day') {
       return renderPlanReadyDay();
     }
+
     const planReadyWeeks = planReadyPayload.blockLengthWeeks > 0 ? planReadyPayload.blockLengthWeeks : 4;
-    // Composed-week day count first — the raw template's own day count must
-    // never leak into the UI (days-per-week truth).
+    // Composed-week day count wins; the raw template's own count is only a
+    // fallback (days-per-week truth).
     const planReadyPerWeek =
       projectedDaysPerWeek
       || planReadyPayload.programDaysPerWeek
       || planReadyPayload.requestedDaysPerWeek
       || 3;
     const planReadyTotalWorkouts = planReadyWeeks * planReadyPerWeek;
-    const planReadySessionLength =
-      projectedSessions[0]?.guidance?.estimatedDuration
-      ?? getTrainingProfileSetupSummary(level, daysPerWeek).duration.replace(' sessions', '');
+    // Why THIS program for THIS user. The design's card carries a blurb; the
+    // waterfall's reason is the better sentence for the same slot, so it wins
+    // when there is one. Dropping it would have been the recommendation
+    // quietly stopping explaining itself.
+    const planReadyWaterfall = recommendation.waterfall;
+    const whyKey = (key: I18nKey | null) => (key ? t(language, key) : null);
+    const whyFor = (programId: string): string | null => {
+      if (!planReadyWaterfall) {
+        return null;
+      }
+      if (programId === planReadyWaterfall.primaryProgramId) {
+        return whyKey(planReadyWaterfall.whyPrimary);
+      }
+      if (programId === planReadyWaterfall.alternativeProgramId) {
+        return whyKey(planReadyWaterfall.whyAlternative);
+      }
+      return null;
+    };
     const planReadyMeta = [
       t(language, 'onb.planReady.weekPlan', { count: planReadyWeeks }),
       goalLabel,
@@ -3294,156 +3143,41 @@ export function OnboardingScreen({
     ]
       .filter((part) => Boolean(part && part.trim()))
       .join('  ·  ');
-    const planReadyStats: Array<[string, string]> = [
-      [String(planReadyTotalWorkouts), t(language, 'onb.planReady.workoutsTotal')],
-      [
-        `${planReadyWeeks}`,
-        t(language, planReadyWeeks === 1 ? 'onb.planReady.weekOne' : 'onb.planReady.weekMany'),
-      ],
-      [planReadySessionLength, t(language, 'onb.pick.perSession')],
-    ];
-    const planReadyPrimaryTitle = recommendedProgramPresentation?.title ?? planReadyPayload.title;
-    // The badge stays honest: RECOMMENDED only when the shown program is the
-    // engine's recommendation, YOUR PICK when the user chose the alternative.
-    const planReadyIsRecommended = activeRecommendedProgramId === recommendation.featuredProgramId;
-    // The day tag is already the composed week's count (see
-    // recommendedProgramPresentation) — no string surgery needed.
-    const planReadyTags = recommendedProgramTags;
-    // P2: show that the caution flags actually shaped the plan.
-    const planReadyCautionLine = buildCautionSummaryLabel(cautionFlags, cautionAreaLabels, language);
-    const planReadyWaterfall = recommendation.waterfall;
-    // The waterfall stores reason KEYS; translate at render.
-    const whyKey = (key: I18nKey | null) => (key ? t(language, key) : null);
-    const planReadyWhyPrimary =
-      planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.primaryProgramId
-        ? whyKey(planReadyWaterfall.whyPrimary)
-        : planReadyWaterfall && activeRecommendedProgramId === planReadyWaterfall.alternativeProgramId
-          ? whyKey(planReadyWaterfall.whyAlternative)
-          : null;
-    const planReadyAlternative = alternativeRecommendationPrograms[0] ?? null;
-    const planReadyWhyAlternative = planReadyAlternative
-      ? planReadyWaterfall && planReadyAlternative.id === planReadyWaterfall.alternativeProgramId
-        ? whyKey(planReadyWaterfall.whyAlternative)
-        : planReadyWaterfall && planReadyAlternative.id === planReadyWaterfall.primaryProgramId
-          ? whyKey(planReadyWaterfall.whyPrimary)
-          : planReadyAlternative.tradeoffNote
-      : null;
 
     return (
-      <Animated.View
-        style={[
-          styles.planReadyOverviewStage,
-          {
-            paddingTop: insets.top + spacing.lg,
-            opacity: planReadyCardOpacity,
-            transform: [{ translateX: planReadyCardTranslateX }],
-          },
-        ]}
-      >
-        <Text style={styles.planReadyOverviewHeading}>{t(language, 'onb.planReady.title')}</Text>
-        {planReadyMeta ? <Text style={styles.planReadyOverviewMeta}>{planReadyMeta}</Text> : null}
-
-        <View style={styles.planReadyPrimaryCard}>
-          <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Defs>
-              <SvgLinearGradient id="planReadyCoverGradient" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor="#5B21B6" />
-                <Stop offset="1" stopColor={ONBOARDING_PRIMARY} />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect x="0" y="0" width="100%" height="100%" rx="24" ry="24" fill="url(#planReadyCoverGradient)" />
-          </Svg>
-          <View style={styles.planReadyPrimaryBadge}>
-            <Text style={styles.planReadyPrimaryBadgeText}>
-              {t(language, planReadyIsRecommended ? 'onb.pick.recommended' : 'onb.pick.yourPick')}
-            </Text>
-          </View>
-          <View style={styles.planReadyPrimaryBody}>
-            <Text style={styles.planReadyPrimaryName} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>
-              {planReadyPrimaryTitle}
-            </Text>
-            <Text style={styles.planReadyPrimaryMeta}>
-              {t(language, 'onb.planReady.perWeekLine', { count: planReadyPerWeek })}
-            </Text>
-            {planReadyWhyPrimary || activeRecommendationMismatchNote ? (
-              <Text style={styles.planReadyPrimaryWhy} numberOfLines={3}>
-                {planReadyWhyPrimary ?? activeRecommendationMismatchNote}
-              </Text>
-            ) : null}
-            {planReadyTags.length > 0 ? (
-              <View style={styles.planReadyPrimaryTagRow}>
-                {planReadyTags.map((tag) => (
-                  <View key={tag} style={styles.planReadyPrimaryTag}>
-                    <Text style={styles.planReadyPrimaryTagText}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            ) : null}
-            {planReadyCautionLine ? (
-              <Text style={styles.planReadyCautionLine}>{planReadyCautionLine}</Text>
-            ) : null}
-          </View>
-          <View style={styles.planReadyOverviewStatRow}>
-            {planReadyStats.map(([value, label]) => (
-              <View key={label} style={styles.planReadyOverviewStat}>
-                <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7} style={styles.planReadyOverviewStatValue}>
-                  {value}
-                </Text>
-                <Text style={styles.planReadyOverviewStatLabel}>{label}</Text>
-              </View>
-            ))}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'onb.viewFirstWeek')}
-            onPress={() => {
-              void haptics.select();
-              setPlanReadyWorkoutPage(0);
-              setPlanReadyView('day');
-            }}
-            style={({ pressed }) => [styles.planReadyPrimaryLink, pressed && { opacity: 0.75 }]}
-          >
-            <Text style={styles.planReadyPrimaryLinkText}>{t(language, 'onb.planReady.viewWeek')}</Text>
-            <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-              <Path d="m9 6 6 6-6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </Pressable>
-        </View>
-
-        {planReadyAlternative ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`Switch to the alternative program ${planReadyAlternative.presentation.title}`}
-            onPress={() => {
-              void haptics.select();
-              setSelectedRecommendationProgramId(planReadyAlternative.id);
-            }}
-            style={({ pressed }) => [styles.planReadyAltCard, pressed && { opacity: 0.85 }]}
-          >
-            <View style={styles.planReadyAltCopy}>
-              <Text style={styles.planReadyAltEyebrow}>
-                {t(
-                  language,
-                  planReadyAlternative.id === recommendation.featuredProgramId
-                    ? 'onb.pick.recommended'
-                    : 'onb.pick.alternative',
-                )}
-              </Text>
-              <Text style={styles.planReadyAltName} numberOfLines={1}>
-                {planReadyAlternative.presentation.title}
-              </Text>
-              {planReadyWhyAlternative ? (
-                <Text style={styles.planReadyAltWhy} numberOfLines={2}>
-                  {planReadyWhyAlternative}
-                </Text>
-              ) : null}
-            </View>
-            <View style={styles.planReadyAltCta}>
-              <Text style={styles.planReadyAltCtaText}>{t(language, 'onb.planReady.switch')}</Text>
-            </View>
-          </Pressable>
-        ) : null}
-      </Animated.View>
+      <ProgramPickScreen
+        language={language}
+        title={t(language, 'onb.planReady.title')}
+        meta={planReadyMeta}
+        options={programPickOptions.map((option) => ({
+          id: option.id,
+          title: option.presentation.title,
+          subtitle: whyFor(option.id) ?? option.presentation.subtitle,
+          days: option.days,
+          mins: option.mins,
+          weeks: option.weeks,
+          totalWorkouts: option.totalWorkouts,
+          recommended: option.recommended,
+          focus: option.focus,
+        }))}
+        selectedId={activeRecommendedProgramId}
+        onSelect={(id) => {
+          void haptics.select();
+          setSelectedRecommendationProgramId(id);
+        }}
+        ctaLabel={t(language, 'common.continue')}
+        onContinue={() => {
+          void haptics.success();
+          setPlanReadyView('pro');
+        }}
+        onOpenWeek={() => {
+          setPlanReadyWorkoutPage(0);
+          setPlanReadyView('day');
+        }}
+        weekLinkLabel={t(language, 'onb.planReady.viewWeek')}
+        onTopToneChange={onFullBleedReviewChange}
+        busy={busy}
+      />
     );
   }
 
@@ -4051,9 +3785,7 @@ export function OnboardingScreen({
     stage === 'review' && busy
       ? t(language, 'onb.cta.saving')
       : stage === 'review'
-      ? planReadyView === 'pick'
-        ? t(language, 'onb.cta.savePlan')
-        : planReadyView === 'day'
+      ? planReadyView === 'day'
         ? t(language, 'onb.cta.backToPlan')
         : planReadyView === 'pro'
         ? t(language, 'onb.cta.startTraining')
@@ -4070,7 +3802,7 @@ export function OnboardingScreen({
   // progression screen's "Start training" completes onboarding.
   // The Pro paywall is full-bleed and carries its own CTA and dismiss, so
   // the shared footer would stack a second pair of buttons under it.
-  const footerVisible = !(stage === 'review' && planReadyView === 'pro');
+  const footerVisible = !(stage === 'review' && (planReadyView === 'pro' || planReadyView === 'overview'));
   const scrollLockedStage = stage === 'level' || stage === 'days';
   // Steps 1-2 (location/goal) scroll so an expanded benefits panel or a
   // wrapped chip row stays reachable above the footer, but they should not
@@ -4095,9 +3827,10 @@ export function OnboardingScreen({
   // pinned CTA, so it cannot live inside the onboarding's ScrollView: a flex:1
   // child of a scroll container collapses to content height, and the footer
   // anchored to it ends up somewhere down the page instead of on the screen.
-  const proPaywallVisible = stage === 'review' && planReadyView === 'pro';
-  if (proPaywallVisible) {
-    return renderPlanReadyPro();
+  const fullBleedReview =
+    stage === 'review' && (planReadyView === 'pro' || planReadyView === 'overview');
+  if (fullBleedReview) {
+    return renderReview();
   }
 
   return (
@@ -4173,13 +3906,6 @@ export function OnboardingScreen({
 
                 if (stage === 'review') {
                   void haptics.success();
-                  if (planReadyView === 'pick') {
-                    // Commits the selected program (selection state already
-                    // follows the cards) and returns to the overview that
-                    // opened it.
-                    setPlanReadyView('overview');
-                    return;
-                  }
                   if (planReadyView === 'day') {
                     setPlanReadyView('overview');
                     return;
@@ -4200,10 +3926,6 @@ export function OnboardingScreen({
 
             {stage === 'review' ? (
               planReadyView === 'pro' ? (
-                <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
-                </Pressable>
-              ) : planReadyView === 'pick' ? (
                 <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
                   <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
                 </Pressable>

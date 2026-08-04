@@ -24,21 +24,25 @@ module.exports = [
       // have to ask for them; only the gradient heroes override to 'light'.
       // Status-bar icons follow the theme now; only gradient heroes override.
       assert.match(appShellSource, /statusBarStyleOverride \?\? \(themeName === 'dark' \? 'light' : 'dark'\)/);
-      // The Pro paywall joins the gradient heroes: full-bleed dark art under a
-      // translucent status bar, so the shell must not reserve and paint that
-      // strip the way it does for the rest of onboarding.
-      assert.match(
-        appSource,
-        /statusBarStyleOverride=\{\s*workoutSummaryActive \|\| historySessionActive \|\| proPaywallVisible \? 'light' : undefined\s*\}/,
-      );
-      assert.match(appSource, /onProPaywallVisibleChange=\{setProPaywallVisible\}/);
+      // The two full-bleed review screens join the gradient heroes: art runs
+      // to the top edge under a translucent status bar, so the shell must not
+      // reserve and paint that strip the way it does for the rest of
+      // onboarding. They report a TONE rather than a boolean, because the
+      // picker's top half turns white when the second program is chosen and
+      // white icons would vanish into it.
+      assert.match(appSource, /const \[fullBleedReview, setFullBleedReview\] = useState<'light' \| 'dark' \| null>\(null\)/);
+      assert.match(appSource, /fullBleedReview\s*\?\s*fullBleedReview/);
+      assert.match(appSource, /onFullBleedReviewChange=\{setFullBleedReview\}/);
       assert.doesNotMatch(appSource, /#1D1C35/);
 
       // Plan-ready views animate on one shared card; the footer stays visible
       // through every view (overview -> progression -> Start training).
       // Visible on every step except the Pro paywall, which is full-bleed
       // and carries its own CTA and dismiss.
-      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'pro'\)/);
+      assert.match(
+        onboardingSource,
+        /const footerVisible = !\(stage === 'review' && \(planReadyView === 'pro' \|\| planReadyView === 'overview'\)\)/,
+      );
       assert.match(onboardingSource, /Animated\.timing\(planReadyCardTranslateX/);
       assert.match(onboardingSource, /planReadyCardOpacity/);
 

@@ -1183,11 +1183,12 @@ function VinhaApp() {
    */
   const [sessionSwaps, setSessionSwaps] = useState<Record<string, string>>({});
   /**
-   * The onboarding's last step is a full-bleed dark paywall. The shell
-   * reserves and paints the status-bar strip for onboarding, which would cut
-   * a light band across the top of its hero.
+   * The onboarding's last two steps are full-bleed: the program picker's
+   * diagonal and the paywall's hero both run to the top edge. The shell
+   * reserves and paints the status-bar strip for onboarding, which would cut a
+   * light band across either of them.
    */
-  const [proPaywallVisible, setProPaywallVisible] = useState(false);
+  const [fullBleedReview, setFullBleedReview] = useState<'light' | 'dark' | null>(null);
 
   useEffect(() => {
     if (!hydrated || !preferences.onboardingCompleted) {
@@ -3244,7 +3245,7 @@ function VinhaApp() {
           onSkip={() => void handleOnboardingSkip()}
           onCompleteToTraining={handleOnboardingCompleteToTraining}
           onStartProTrial={handleOnboardingStartProTrial}
-          onProPaywallVisibleChange={setProPaywallVisible}
+          onFullBleedReviewChange={setFullBleedReview}
           onCompleteToProgramDetail={handleOnboardingCompleteToProgramDetail}
           onCompleteToCustom={handleOnboardingCompleteToCustom}
         />
@@ -4246,7 +4247,7 @@ function VinhaApp() {
     <AppShell
       toastMessage={toastMessage}
       safeAreaEdges={
-        welcomeActive || workoutSummaryActive || historySessionActive || proPaywallVisible
+        welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
           ? ['left', 'right']
           : onboardingActive
             ? ['top', 'left', 'right']
@@ -4255,16 +4256,22 @@ function VinhaApp() {
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
       statusBarStyleOverride={
-        workoutSummaryActive || historySessionActive || proPaywallVisible ? 'light' : undefined
+        fullBleedReview
+          ? fullBleedReview
+          : workoutSummaryActive || historySessionActive
+            ? 'light'
+            : undefined
       }
       statusBarBackgroundColor={
-        workoutSummaryActive || historySessionActive || welcomeActive || proPaywallVisible
+        workoutSummaryActive || historySessionActive || welcomeActive || fullBleedReview !== null
           ? 'transparent'
           : aiSetupActive
             ? theme.surface
             : undefined
       }
-      statusBarTranslucent={welcomeActive || workoutSummaryActive || historySessionActive || proPaywallVisible}
+      statusBarTranslucent={
+        welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
+      }
       shellBackgroundColor={aiSetupActive ? theme.surface : undefined}
       tabBar={
         showTabBar ? (

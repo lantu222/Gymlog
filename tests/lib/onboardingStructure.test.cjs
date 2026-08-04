@@ -48,8 +48,8 @@ module.exports = [
       // automated-progression toggle, which asked a free user to configure a
       // feature resolveProgressionOptions gates behind Pro. No account gate —
       // auth lives on Welcome.
-      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'pick' \| 'overview' \| 'day' \| 'pro'>\('overview'\)/);
-      assert.match(reviewBody, /if \(planReadyView === 'pick'\) \{\s*return renderProgramPick\(\);/);
+      assert.match(onboardingSource, /const \[planReadyView, setPlanReadyView\] = useState<'overview' \| 'day' \| 'pro'>\('overview'\)/);
+      assert.doesNotMatch(onboardingSource, /renderProgramPick|ProgramPickCard/);
       assert.match(reviewBody, /if \(planReadyView === 'pro'\) \{\s*return renderPlanReadyPro\(\);/);
       assert.match(proBody, /<ProPaywallScreen/);
       // The paywall's two buttons must not be the same button: the CTA
@@ -58,54 +58,33 @@ module.exports = [
       assert.match(proBody, /onSkip=\{[\s\S]*onCompleteToTraining\(/);
       assert.match(reviewBody, /if \(planReadyView === 'day'\) \{\s*return renderPlanReadyDay\(\);/);
 
-      // The builder lands on the OVERVIEW, not the picker. Landing on two
-      // comparable cards asked the user to redo the choice the questionnaire
-      // had just made — under a heading that said the program was ready, and
-      // then said it again one screen later. The picker is still reachable
-      // from "Vaihda", as an escape hatch rather than an equal option, and its
-      // button no longer promises to start anything.
+      // One plan-ready screen, from design 08b variant D: two programs either
+      // side of a diagonal seam, the choice made where the programs are. It
+      // replaced BOTH the announce-then-ask pair — an overview that hid the
+      // alternative behind "Vaihda", and a second screen with the same title
+      // that asked again on two stacked cards.
       assert.match(onboardingSource, /setPlanReadyView\('overview'\);\s*\r?\n\s*setStageIndex\(getStageIndex\('review'\)\)/);
-      assert.doesNotMatch(onboardingSource, /setPlanReadyView\('pick'\);\s*\r?\n\s*setStageIndex\(getStageIndex\('review'\)\)/);
-      assert.match(onboardingSource, /t\(language, 'onb\.cta\.savePlan'\)/);
-      assert.match(i18nSource, /'onb\.cta\.savePlan': 'Use this program'/);
+      assert.match(reviewBody, /<ProgramPickScreen/);
+      assert.match(reviewBody, /selectedId=\{activeRecommendedProgramId\}/);
+      assert.match(reviewBody, /setSelectedRecommendationProgramId\(id\)/);
+      // The CTA continues; it does not save. The plan is written at the very
+      // end, after the paywall — and "Valitse tämä ohjelma" beside a card
+      // already reading "VALITSE TÄMÄ" was the same words meaning two things.
+      assert.match(reviewBody, /ctaLabel=\{t\(language, 'common\.continue'\)\}/);
 
-      // Program pick: one big purple heading, no subline, two equal-template
-      // cards (recommended first, selection follows taps), honest focus split.
-      const pickBody = getFunctionBody('renderProgramPick');
-      assert.match(pickBody, />\{t\(language, 'onb\.planReady\.title'\)\}</);
-      assert.doesNotMatch(pickBody, />Pick your program</);
-      assert.doesNotMatch(pickBody, /-week plan/);
-      assert.match(pickBody, /programPickOptions\.map/);
-      assert.match(pickBody, /setSelectedRecommendationProgramId\(option\.id\)/);
-      assert.match(onboardingSource, /function ProgramPickCard\(/);
-      assert.match(onboardingSource, /t\(language, 'onb\.pick\.whereWeekGoes'\)/);
-      // Days-per-week truth: picker stats + focus split come from the composed
-      // week (what actually gets saved), never the raw catalog template.
+      // Days-per-week truth: the picker's stats and focus split come from the
+      // composed week (what actually gets saved), never the raw catalog
+      // template. The screen renders them; this is where they are computed.
+      assert.match(reviewBody, /programPickOptions\.map/);
       assert.match(onboardingSource, /composeProgramWeekForSelection\(selection, programId\)/);
       assert.match(onboardingSource, /buildProgramFocusSplit\(week\.sessions\)/);
       assert.doesNotMatch(onboardingSource, /days: template\.daysPerWeek/);
 
-      // Overview: "Your program is ready" H1 + subtitle, then the 2-card result:
-      // a big RECOMMENDED program card (why-line + stat trio + week link) and a
-      // smaller ALTERNATIVE card that swaps the selection. No week rows.
-      assert.match(reviewBody, />\{t\(language, 'onb\.planReady\.title'\)\}</);
-      assert.doesNotMatch(reviewBody, /YOUR PLAN IS READY/);
-      assert.match(reviewBody, /'onb\.planReady\.perWeekLine', \{ count: planReadyPerWeek \}/);
-      assert.doesNotMatch(reviewBody, /BUILD · FOCUS · PROGRESS/);
-      assert.match(reviewBody, /\[String\(planReadyTotalWorkouts\), t\(language, 'onb\.planReady\.workoutsTotal'\)\]/);
-      assert.match(reviewBody, /\[planReadySessionLength, t\(language, 'onb\.pick\.perSession'\)\]/);
-      // Badges are honest about the user's choice: the big card says YOUR PICK
-      // when the selection is not the engine's recommendation, and the
-      // alternative row flips to RECOMMENDED when that's what it holds.
-      assert.match(reviewBody, /planReadyIsRecommended \? 'onb\.pick\.recommended' : 'onb\.pick\.yourPick'/);
-      assert.match(
-        reviewBody,
-        /=== recommendation\.featuredProgramId[\s\S]{0,60}'onb\.pick\.recommended'[\s\S]{0,40}'onb\.pick\.alternative'/,
-      );
-      assert.match(reviewBody, /setSelectedRecommendationProgramId\(planReadyAlternative\.id\)/);
+      // The week preview survived the redesign as a link on the chosen card:
+      // it is the only place the composed week is visible, and the design that
+      // replaced this screen did not have a slot for it.
+      assert.match(reviewBody, /onOpenWeek=\{/);
       assert.match(reviewBody, /setPlanReadyView\('day'\)/);
-      assert.doesNotMatch(reviewBody, /planReadyWeekRows\.map/);
-      assert.doesNotMatch(reviewBody, /planReadyOverviewWeekBadge/);
 
       // Day view: read-only preview — day title is the session name (one source
       // of truth), no A-F switcher, no letter badges, numbered exercise list.
@@ -137,9 +116,12 @@ module.exports = [
       assert.match(onboardingSource, /setPlanReadyView\('pro'\)/);
       assert.match(onboardingSource, /onCompleteToTraining\(selection, activeRecommendedProgramId\)/);
       assert.doesNotMatch(onboardingSource, /: 'See day 1'/);
-      // The shared footer stops at the overview: the paywall is the last view
-      // and brings its own buttons.
-      assert.match(onboardingSource, /const footerVisible = !\(stage === 'review' && planReadyView === 'pro'\)/);
+      // The shared footer stands down for both full-bleed views: each brings
+      // its own pinned CTA.
+      assert.match(
+        onboardingSource,
+        /const footerVisible = !\(stage === 'review' && \(planReadyView === 'pro' \|\| planReadyView === 'overview'\)\)/,
+      );
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
@@ -559,14 +541,11 @@ module.exports = [
       assert.doesNotMatch(reviewBody, /planReadyOptionsMenuOpen \? \(/);
       assert.doesNotMatch(reviewBody, /planReadyOptionsMenuItem/);
       assert.doesNotMatch(reviewBody, /planReadyOptionsMenuFooter/);
-      assert.doesNotMatch(reviewBody, /setSelectedRecommendationProgramId\(option\.id\)/);
       assert.doesNotMatch(onboardingSource, /planReadyOtherPlansPeek:\s*\{/);
       assert.doesNotMatch(onboardingSource, /planReadyOtherPlansLabel:\s*\{/);
       assert.doesNotMatch(onboardingSource, /planReadyOptionsMenu:\s*\{/);
-      assert.match(reviewBody, /Animated\.View/);
-      assert.match(reviewBody, /planReadyCardTranslateX/);
-      assert.match(reviewBody, /planReadyCardOpacity/);
-      assert.match(onboardingSource, /Animated\.timing\(planReadyCardTranslateX/);
+      // The card-swap animation went with the stacked cards; the seam itself
+      // is the transition now.
       assert.doesNotMatch(reviewBody, /SEE OTHER PLANS/);
       assert.doesNotMatch(reviewBody, /planReadyOtherPlansRail/);
       assert.doesNotMatch(reviewBody, /PROGRAM OPTIONS PREVIEW/);
@@ -590,12 +569,12 @@ module.exports = [
         reviewBody,
         /'onb\.planReady\.weekPlan', \{ count: planReadyWeeks \}[\s\S]{0,60}goalLabel,\s*locationLabel/,
       );
-      assert.doesNotMatch(reviewBody, /\[goalLabel, locationLabel, levelLabel, `\$\{planReadyPerWeek\} days \/ week`\]/);
 
-      // The recommended/alternative why-lines come from the waterfall decision.
+      // Why THIS program still comes from the waterfall. The design's card has
+      // a blurb slot; the waterfall's reason is the better sentence for it, so
+      // the recommendation does not stop explaining itself.
       assert.match(reviewBody, /recommendation\.waterfall/);
-      assert.match(reviewBody, /planReadyWhyPrimary/);
-      assert.match(reviewBody, /planReadyWhyAlternative/);
+      assert.match(reviewBody, /whyFor\(option\.id\) \?\? option\.presentation\.subtitle/);
 
       // Day view derives its focus and muscle groups from real session content.
       assert.match(dayBody, /const focusOf = \(name: string, index: number\)/);
