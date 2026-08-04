@@ -157,7 +157,7 @@ module.exports = [
     run() {
       assert.equal(build({ planName: null }).planName, 'No plan yet');
       assert.equal(build({ planName: '   ' }).planName, 'No plan yet');
-      assert.equal(build({ planName: null, language: 'fi' }).planName, 'Ei suunnitelmaa');
+      assert.equal(build({ planName: null, language: 'fi' }).planName, 'Ei ohjelmaa');
       assert.equal(build({ planName: 'Strong Chest' }).planName, 'Strong Chest');
     },
   },
