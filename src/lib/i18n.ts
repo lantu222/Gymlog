@@ -154,12 +154,16 @@ const EN = {
 
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
   'home.adaptSheet.shorter.title': 'Shorter session',
-  // Sets, not minutes. The minute figure here came from a different estimator
-  // than the one the player shows on the very next screen ("~35 min" against
-  // "~50 min" for the same session), and a promise the next screen contradicts
-  // is worse than no promise. Sets are exact and checkable.
+  // Minutes AND sets. This said sets alone, because the minute figure came
+  // from a different estimator than the one the player shows on the very next
+  // screen ("~35 min" against "~50 min" for the same session). Both numbers
+  // now come from one formula run over the real trim plan, so the sheet and
+  // the player agree. Sets stay because they are exact where minutes are an
+  // estimate.
   'home.adaptSheet.shorter.explain':
-    'Drops {sets} sets from the accessory work: {before} → {after} sets. The main lift is untouched.',
+    'About {after} min instead of {before} — {sets} sets fewer, all from the accessory work. The main lift is untouched.',
+  'home.adaptSheet.shorter.explainNoEstimate':
+    'Trims the accessory work. The main lift is untouched.',
   'home.adaptSheet.shorter.cta': 'Start the short version',
   'home.adaptSheet.cancel': 'Cancel',
   'home.swapSheet.title': 'Swap {name} for',
@@ -2613,7 +2617,8 @@ const FI: Record<I18nKey, string> = {
   // ── Home · Adapt sheet ─────────────────────────────────────────────────
   'home.adaptSheet.shorter.title': 'Lyhyempi treeni',
   'home.adaptSheet.shorter.explain':
-    'Pudottaa {sets} sarjaa apuliikkeistä: {before} → {after} sarjaa. Päänostoon ei kosketa.',
+    'Noin {after} min {before} minuutin sijaan — {sets} sarjaa vähemmän, kaikki apuliikkeistä. Päänostoon ei kosketa.',
+  'home.adaptSheet.shorter.explainNoEstimate': 'Karsii apuliikkeitä. Päänostoon ei kosketa.',
   'home.adaptSheet.shorter.cta': 'Aloita lyhennetty versio',
   'home.adaptSheet.cancel': 'Peruuta',
   'home.swapSheet.title': 'Vaihda {name}',

@@ -23,6 +23,7 @@
  */
 
 import { WorkoutRuntimeTemplate, WorkoutTemplateExercise } from '../features/workout/workoutTypes';
+import { estimateSessionMinutes } from './sessionDuration';
 
 export interface SessionAdaptation {
   /** Template slot id → the exercise name to do instead. */
@@ -157,5 +158,43 @@ export function applySessionAdaptation(
         return { ...next, sets: nextSets };
       }),
     })),
+  };
+}
+
+export interface TrimPreviewExercise extends TrimmableExercise {
+  /** Top of the prescribed rep range — what the duration formula plans for. */
+  reps: number;
+  restSeconds: number;
+}
+
+/**
+ * What "Shorter session" would actually do, in the numbers the sheet quotes.
+ *
+ * The sheet used to promise sets rather than minutes, because the minute
+ * figure came from a different estimator than the one the very next screen
+ * showed — it subtracted a flat 5 min per dropped set, where the real formula
+ * charges a set its own reps and its own rest. On a 90-second-rest accessory
+ * that flat 5 was double.
+ *
+ * Now the preview runs the real trim plan through the real duration formula,
+ * so the minutes on the sheet are the minutes the player will show. Sets stay
+ * in the copy too: they are exact where the minutes are an estimate.
+ */
+export function previewSessionTrim(
+  exercises: TrimPreviewExercise[],
+  routine: { warmupSeconds?: number; cooldownSeconds?: number } = {},
+): { droppedSets: number; minutes: number } {
+  const totalSets = exercises.reduce((sum, exercise) => sum + exercise.sets, 0);
+  const kept = planSessionTrim(exercises, getSessionTrimTarget(totalSets));
+  return {
+    droppedSets: countTrimmedSets(exercises, kept),
+    minutes: estimateSessionMinutes({
+      exercises: exercises.map((exercise) => ({
+        sets: kept[exercise.slotId] ?? exercise.sets,
+        reps: exercise.reps,
+        restSeconds: exercise.restSeconds,
+      })),
+      ...routine,
+    }),
   };
 }

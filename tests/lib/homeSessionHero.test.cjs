@@ -8,7 +8,6 @@ const {
   inferEquipmentFromExerciseName,
   getDefaultWarmup,
   getDefaultCooldown,
-  getAdaptTrimEstimate,
 } = require('../../.test-dist/lib/homeSessionHero.js');
 
 module.exports = [
@@ -160,14 +159,6 @@ module.exports = [
       assert.ok(
         getDefaultWarmup('Strength', 'en', null).drills.some((drill) => drill.name === 'Rowing machine'),
       );
-    },
-  },
-  {
-    name: 'adapt trim estimate matches the mock numbers and clamps low inputs',
-    run() {
-      // 14 sets / ~55 min -> drops 4 sets, trims to ~35 min (prototype copy).
-      assert.deepEqual(getAdaptTrimEstimate(14, 55), { trimmedMinutes: 35, droppedSets: 4 });
-      assert.deepEqual(getAdaptTrimEstimate(2, 20), { trimmedMinutes: 15, droppedSets: 1 });
     },
   },
 ];

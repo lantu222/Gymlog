@@ -19,7 +19,6 @@ import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
 import {
-  getAdaptTrimEstimate,
   getDefaultCooldown,
   getDefaultWarmup,
   getSessionFocusTitle,
@@ -231,7 +230,9 @@ export function HomeScreen({
   const sessionsTotal = activePlan?.sessionsTotal ?? 0;
   const sessionsProgressPercent = sessionsTotal > 0 ? Math.round((sessionsDone / sessionsTotal) * 100) : 0;
   const planDuration = nextPlanSession?.duration ?? '~45 min';
-  const planDurationMinutes = Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45;
+  // The number carried alongside the label, not parsed back out of it.
+  const planDurationMinutes =
+    nextPlanSession?.durationMinutes ?? (Number.parseInt(planDuration.replace(/\D/g, ''), 10) || 45);
   const totalExerciseCount = (nextPlanSession?.exercises.length ?? 0) + (nextPlanSession?.hiddenExerciseCount ?? 0);
   const totalSets = nextPlanSession?.totalSets ?? 0;
   // Rotates once per day, so the line is stable while the screen is open.
@@ -247,7 +248,10 @@ export function HomeScreen({
   );
   const warmup = getDefaultWarmup(focusTitle, language, availableEquipment);
   const cooldown = getDefaultCooldown(focusTitle, language, availableEquipment);
-  const adaptTrim = getAdaptTrimEstimate(totalSets, planDurationMinutes);
+  // Computed where the whole session was still in hand (App.tsx): Home only
+  // receives the first five exercises, so a preview built here would quote a
+  // shorter session than the one that starts.
+  const adaptTrim = nextPlanSession?.trim ?? null;
 
   // The row whose swap sheet is open, with its current lift resolved through
   // today's swaps — reopening the sheet after a swap must offer the pool for
@@ -941,11 +945,13 @@ export function HomeScreen({
             <View style={styles.adaptGrip} />
             <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.shorter.title')}</Text>
             <Text style={styles.adaptSub}>
-              {t(language, 'home.adaptSheet.shorter.explain', {
-                sets: adaptTrim.droppedSets,
-                before: totalSets,
-                after: Math.max(0, totalSets - adaptTrim.droppedSets),
-              })}
+              {adaptTrim
+                ? t(language, 'home.adaptSheet.shorter.explain', {
+                    sets: adaptTrim.droppedSets,
+                    before: planDurationMinutes,
+                    after: adaptTrim.minutes,
+                  })
+                : t(language, 'home.adaptSheet.shorter.explainNoEstimate')}
             </Text>
             <Pressable
               accessibilityRole="button"

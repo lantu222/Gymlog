@@ -289,13 +289,3 @@ export function getDefaultCooldown(
     drills: resolveDrills(COOLDOWN_DRILLS[classifyFocus(focusTitle)], language, availableEquipment),
   };
 }
-
-/** "Trim to ~35 min · drops 4 sets" numbers for the Adapt sheet. */
-export function getAdaptTrimEstimate(
-  totalSets: number,
-  durationMinutes: number,
-): { trimmedMinutes: number; droppedSets: number } {
-  const droppedSets = Math.max(1, Math.round(totalSets * 0.3));
-  const trimmedMinutes = Math.max(15, Math.round((durationMinutes - droppedSets * 5) / 5) * 5);
-  return { trimmedMinutes, droppedSets };
-}

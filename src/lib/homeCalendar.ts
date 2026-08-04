@@ -85,6 +85,18 @@ export interface HomeDaySessionSummary {
   dayLabel?: string | null;
   /** Total working sets across every exercise (Home v4 meta grid). */
   totalSets?: number;
+  /**
+   * The same number `duration` renders, carried as a number so Home does not
+   * have to parse its own label back out of a string.
+   */
+  durationMinutes?: number;
+  /**
+   * What "Shorter session" would do, computed where the full session is still
+   * in hand. Home only receives the first five exercises, so it cannot work
+   * this out itself — and a trim preview built from a truncated list would
+   * quote a shorter session than the one that starts.
+   */
+  trim?: { droppedSets: number; minutes: number } | null;
   exercises: Array<{
     name: string;
     setsLabel: string;

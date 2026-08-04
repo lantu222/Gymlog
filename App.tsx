@@ -94,7 +94,7 @@ import {
 } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
-import { applySessionAdaptation } from './src/lib/sessionAdaptation';
+import { applySessionAdaptation, previewSessionTrim } from './src/lib/sessionAdaptation';
 import { buildProgramInsightMap } from './src/lib/programInsights';
 import { buildTailoringBadgeLabels, buildTailoringPreferences } from './src/lib/tailoringFit';
 import { popRoute, pushRoute } from './src/navigation/routeHistory';
@@ -2263,13 +2263,17 @@ function VinhaApp() {
         const exerciseCount = session.exercises.length;
         // Was `exercises × 10 min`, which ignored both sets and rest. Same
         // formula as the guided entry now, so the two screens agree.
+        const durationInputs = session.exercises.map((exercise) => ({
+          slotId: activeRuntimeExercises.get(exercise.id)?.slotId ?? exercise.id,
+          role: activeRuntimeExercises.get(exercise.id)?.role ?? 'accessory',
+          sets: exercise.targetSets,
+          reps: exercise.repMax,
+          restSeconds: activeRuntimeExercises.get(exercise.id)?.restSecondsMin ?? 90,
+        }));
+        const routineSeconds = routineBlockSeconds(session.name, activeTemplate?.name ?? '');
         const estimatedDuration = estimateSessionMinutes({
-          exercises: session.exercises.map((exercise) => ({
-            sets: exercise.targetSets,
-            reps: exercise.repMax,
-            restSeconds: activeRuntimeExercises.get(exercise.id)?.restSecondsMin ?? 90,
-          })),
-          ...routineBlockSeconds(session.name, activeTemplate?.name ?? ''),
+          exercises: durationInputs,
+          ...routineSeconds,
         });
         // Weekday truth (P6): surface the plan's own entry label so week rows
         // land on the user's chosen days, not a generic spread.
@@ -2281,6 +2285,8 @@ function VinhaApp() {
           duration: `~${estimatedDuration} min`,
           dayLabel: entryLabel,
           totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0),
+          durationMinutes: estimatedDuration,
+          trim: previewSessionTrim(durationInputs, routineSeconds),
           exercises: session.exercises.slice(0, 5).map((exercise) => ({
             name: exercise.name,
             setsLabel: `${exercise.targetSets} sets`,
@@ -2354,20 +2360,25 @@ function VinhaApp() {
       // generic 8-week default.
       totalWeeks: getReadyProgramBlockWeeks(recommendedReadyTemplate),
     });
-    const homeSessions = recommendedReadyTemplate.sessions.map((session) => ({
-      id: session.id,
-      title: formatHomeSessionTitle(session.name, session.exercises),
+    const homeSessions = recommendedReadyTemplate.sessions.map((session) => {
+      const durationInputs = session.exercises.map((exercise) => ({
+        slotId: exercise.slotId,
+        role: exercise.role,
+        sets: exercise.sets,
+        reps: exercise.repsMax,
+        restSeconds: exercise.restSecondsMin,
+      }));
+      const routineSeconds = routineBlockSeconds(session.name, recommendedReadyTemplate.name);
       // The catalog's `estimatedSessionDuration` describes the PROGRAM (its
       // longest day, hand-written). Today's session gets the same treatment
       // every other session gets, from its own sets and rests.
-      duration: `~${estimateSessionMinutes({
-        exercises: session.exercises.map((exercise) => ({
-          sets: exercise.sets,
-          reps: exercise.repsMax,
-          restSeconds: exercise.restSecondsMin,
-        })),
-        ...routineBlockSeconds(session.name, recommendedReadyTemplate.name),
-      })} min`,
+      const durationMinutes = estimateSessionMinutes({ exercises: durationInputs, ...routineSeconds });
+      return {
+      id: session.id,
+      title: formatHomeSessionTitle(session.name, session.exercises),
+      duration: `~${durationMinutes} min`,
+      durationMinutes,
+      trim: previewSessionTrim(durationInputs, routineSeconds),
       totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.sets, 0),
       exercises: session.exercises.map((exercise) => ({
         name: exercise.exerciseName,
@@ -2379,7 +2390,8 @@ function VinhaApp() {
         substitutionGroup: exercise.substitutionGroup,
       })),
       hiddenExerciseCount: Math.max(session.exercises.length - 5, 0),
-    }));
+      };
+    });
     const firstHomeSession = homeSessions[0];
 
     return {

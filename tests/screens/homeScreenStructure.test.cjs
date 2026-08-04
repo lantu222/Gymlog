@@ -161,11 +161,17 @@ module.exports = [
       assert.match(homeScreenSource, /t\(language, 'home\.startWorkout'\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.adaptSheet\.shorter\.title': 'Shorter session'/);
-      // Sets, not minutes: the minute estimate here and the player's own
-      // estimator disagreed about the same session (~35 vs ~50), and the
-      // promise was the one the user read first.
-      assert.match(homeScreenSource, /t\(language, 'home\.adaptSheet\.shorter\.explain', \{[\s\S]*sets: adaptTrim\.droppedSets,[\s\S]*before: totalSets,/);
-      assert.doesNotMatch(homeScreenSource, /shorter\.explain'[\s\S]{0,120}trimmedMinutes/);
+      // Minutes again, but only because there is now one formula. The sheet
+      // and the player used to disagree about the same session (~35 vs ~50)
+      // and the promise was the one the user read first, so the copy retreated
+      // to sets. Both numbers now come from previewSessionTrim, which runs the
+      // real trim plan through estimateSessionMinutes.
+      assert.match(homeScreenSource, /t\(language, 'home\.adaptSheet\.shorter\.explain', \{[\s\S]*after: adaptTrim\.minutes,/);
+      assert.match(homeScreenSource, /const adaptTrim = nextPlanSession\?\.trim \?\? null;/);
+      // Home sees only the first five exercises, so it must not compute the
+      // preview itself — App.tsx does it where the whole session is in hand.
+      assert.doesNotMatch(homeScreenSource, /previewSessionTrim|getAdaptTrimEstimate/);
+      assert.match(appSource, /trim: previewSessionTrim\(durationInputs, routineSeconds\)/);
 
       // The three options that used to sit beside it are gone, and must not
       // come back here: a taken rack and a body with nothing in it are both

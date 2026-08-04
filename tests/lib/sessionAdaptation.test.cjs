@@ -7,6 +7,7 @@ const {
   getSessionTrimTarget,
   hasSessionAdaptation,
   planSessionTrim,
+  previewSessionTrim,
 } = require('../../.test-dist/lib/sessionAdaptation.js');
 
 const DAY = [
@@ -134,6 +135,59 @@ module.exports = [
       // Same object back, not a copy: the ordinary start path pays nothing.
       assert.equal(applySessionAdaptation(source, EMPTY_SESSION_ADAPTATION), source);
       assert.equal(applySessionAdaptation(source, null), source);
+    },
+  },
+  {
+    name: 'the trim preview quotes the duration formula, not a flat cost per set',
+    run() {
+      const { estimateSessionMinutes } = require('../../.test-dist/lib/sessionDuration.js');
+      const exercises = [
+        { slotId: 'a', role: 'primary', sets: 4, reps: 6, restSeconds: 180 },
+        { slotId: 'b', role: 'secondary', sets: 3, reps: 10, restSeconds: 120 },
+        { slotId: 'c', role: 'accessory', sets: 3, reps: 15, restSeconds: 60 },
+        { slotId: 'd', role: 'accessory', sets: 3, reps: 15, restSeconds: 60 },
+      ];
+      const routine = { warmupSeconds: 360, cooldownSeconds: 240 };
+      const before = estimateSessionMinutes({ exercises, ...routine });
+      const preview = previewSessionTrim(exercises, routine);
+
+      // 13 sets, 30 % target -> 4 dropped, and all four come off the two
+      // accessories: the primary is the reason the session exists.
+      assert.equal(preview.droppedSets, 4);
+      assert.ok(preview.minutes < before, 'a shorter session must be shorter');
+
+      // The old estimate subtracted a flat 5 min per dropped set. These
+      // accessories rest 60 s and run 15 reps, so a set costs about 2 min —
+      // the flat number was more than double, and it was the number the sheet
+      // promised.
+      assert.notEqual(preview.minutes, before - 4 * 5);
+
+      // The preview is the formula run over the real plan, not an adjustment
+      // of the before-figure: recomputing it by hand must give the same answer.
+      const kept = planSessionTrim(exercises, getSessionTrimTarget(13));
+      assert.equal(
+        preview.minutes,
+        estimateSessionMinutes({
+          exercises: exercises.map((exercise) => ({
+            sets: kept[exercise.slotId],
+            reps: exercise.reps,
+            restSeconds: exercise.restSeconds,
+          })),
+          ...routine,
+        }),
+      );
+    },
+  },
+  {
+    name: 'a session with nothing to give reports what it actually dropped',
+    run() {
+      // Every accessory already at one set: the plan cannot reach its target,
+      // and the sheet must not claim sets it did not take.
+      const exercises = [
+        { slotId: 'a', role: 'primary', sets: 5, reps: 5, restSeconds: 180 },
+        { slotId: 'b', role: 'accessory', sets: 1, reps: 12, restSeconds: 60 },
+      ];
+      assert.equal(previewSessionTrim(exercises).droppedSets, 0);
     },
   },
 ];
