@@ -2499,9 +2499,9 @@ const FI: Record<I18nKey, string> = {
   'home.greet.first.sub': 'Ensimmäinen treeni on tämän päivän koko suunnitelma.',
   'home.greet.back1.title': 'Tervetuloa takaisin',
   'home.greet.back1.sub': 'Tänään treenataan.',
-  'home.greet.back2.title': 'Siinähän sinä',
+  'home.greet.back2.title': 'Siinähän sinä olet',
   'home.greet.back2.sub': 'Tanko on odottanut.',
-  'home.greet.back3.title': 'Lisää tulossa',
+  'home.greet.back3.title': 'Takaisin hakemaan lisää',
   'home.greet.back3.sub': 'Hyvä. Juuri noin tämä toimii.',
   'home.greet.back4.title': 'Juuri ajoissa',
   'home.greet.back4.sub': 'Ei kikkailua tänään — vain työ.',
@@ -2606,7 +2606,7 @@ const FI: Record<I18nKey, string> = {
   'home.emptyWorkout.title': 'Tyhjä treeni',
   'home.emptyWorkout.meta': 'Kirjaa vapaasti',
   'home.cardio.title': 'Cardio',
-  'home.cardio.meta': 'Juoksut, pyöräilyt & kävelyt',
+  'home.cardio.meta': 'Juoksu, pyöräily ja kävely',
   'home.history.title': 'Historia',
   'home.history.seeAll': 'Näytä kaikki',
 
@@ -2614,9 +2614,9 @@ const FI: Record<I18nKey, string> = {
   'home.adaptSheet.shorter.title': 'Lyhyempi treeni',
   'home.adaptSheet.shorter.explain':
     'Pudottaa {sets} sarjaa apuliikkeistä: {before} → {after} sarjaa. Päänostoon ei kosketa.',
-  'home.adaptSheet.shorter.cta': 'Aloita lyhennettynä',
+  'home.adaptSheet.shorter.cta': 'Aloita lyhennetty versio',
   'home.adaptSheet.cancel': 'Peruuta',
-  'home.swapSheet.title': 'Vaihda {name} tilalle',
+  'home.swapSheet.title': 'Vaihda {name}',
 
   // ── Home · Pro sheet ───────────────────────────────────────────────────
 
@@ -2648,7 +2648,7 @@ const FI: Record<I18nKey, string> = {
   'home.drill.bandFacePulls': 'Kuminauhavedot kasvoille',
   'home.drill.chestDoorwayStretch': 'Rintalihasvenytys ovensuussa',
   'home.drill.tricepsOverheadStretch': 'Ojentajavenytys pään yli',
-  'home.drill.latStretchOnRack': 'Leveän selän venytys räkissä',
+  'home.drill.latStretchOnRack': 'Leveän selän venytys telineessä',
   'home.drill.deadHang': 'Roikunta tangossa',
   'home.drill.couchStretch': 'Lonkankoukistajan venytys',
   'home.drill.jumpingJacks': 'Haaraperushypyt',
