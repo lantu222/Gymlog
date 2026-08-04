@@ -1,4 +1,5 @@
 import { SetupLevel, UnitPreference } from '../../types/models';
+import { ProgressionFatigueSignal } from '../../lib/progressionGate';
 import { ActiveCardioSession } from '../../lib/cardio';
 
 export type WorkoutGoalType = 'strength' | 'hypertrophy' | 'general';
@@ -91,6 +92,15 @@ export interface WorkoutSetInstance {
    * to mark a weight the user did not pick themselves.
    */
   autoProgressedFromKg?: number;
+  /**
+   * The load would have moved up, and recovery said not today (Pro).
+   *
+   * The counterpart to autoProgressedFromKg: that one explains a weight the
+   * user did not choose, this one explains a weight that did not change when
+   * it had been earned. Without it the hold is silent, and a feature nobody
+   * can perceive is not one they can knowingly pay for.
+   */
+  heldForFatigue?: boolean;
   /**
    * When the prefill came from the same lift in a DIFFERENT slot — another
    * program, another day, an empty workout — this is when that session was
@@ -254,6 +264,14 @@ export interface WorkoutSwapOption {
 export interface WorkoutProgressionOptions {
   automatedProgressionEnabled: boolean;
   setupLevel?: SetupLevel | null;
+  /**
+   * Recovery at the moment the session starts, from the ACWR model.
+   *
+   * Read once when the session materializes rather than per set: the model
+   * looks at 28 days, so it cannot change during a workout, and re-reading it
+   * mid-session would only let a load move for a reason the user never sees.
+   */
+  fatigueSignal?: ProgressionFatigueSignal;
 }
 
 export interface WorkoutSessionMaterializeOptions {
@@ -268,4 +286,6 @@ export interface WorkoutSessionMaterializeOptions {
   automatedProgressionEnabled?: boolean;
   /** Drives the beginner/intermediate progression parameters. */
   setupLevel?: SetupLevel | null;
+  /** Recovery at session start; holds an earned progression when high. */
+  fatigueSignal?: ProgressionFatigueSignal;
 }

@@ -26,6 +26,14 @@ export const PRO_LIVE_BENEFITS: ProBenefit[] = [
     bodyKey: 'pro.v2.coach.progression.b',
     gate: 'resolveProgressionOptions',
   },
+  {
+    // Same gate as the increase, deliberately: the hold IS automated
+    // progression, deciding not to move. Two gates for one decision would be
+    // two places to drift.
+    titleKey: 'pro.v2.coach.session.t',
+    bodyKey: 'pro.v2.coach.session.b',
+    gate: 'resolveProgressionOptions',
+  },
   { titleKey: 'pro.v2.plan.coach.t', bodyKey: 'pro.v2.plan.coach.b', gate: 'aiCoachQuota' },
   { titleKey: 'pro.v2.plan.builder.t', bodyKey: 'pro.v2.plan.builder.b', gate: 'coachProUnlocked' },
   { titleKey: 'pro.v2.read.analysis.t', bodyKey: 'pro.v2.read.analysis.b', gate: 'coachProUnlocked' },
@@ -58,7 +66,7 @@ export const PRO_UNLOCK_CARDS: ProUnlockCard[] = [
     titleKey: 'unlock.progression.t',
     bodyKey: 'unlock.progression.b',
     placeKey: 'unlock.progression.to',
-    gates: ['pro.v2.coach.progression.t'],
+    gates: ['pro.v2.coach.progression.t', 'pro.v2.coach.session.t'],
   },
   {
     titleKey: 'unlock.ai.t',

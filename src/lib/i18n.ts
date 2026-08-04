@@ -1091,6 +1091,10 @@ const EN = {
   // The weight came from this lift in another program or an empty workout —
   // real, but not from this slot, so it says when.
   'guided.carriedFrom': 'LAST TIME · {date}',
+  // The counterpart to guided.autoLoad: that badge explains a weight the app
+  // raised, this one a weight the app deliberately did not. Says why, because
+  // "unchanged" is otherwise indistinguishable from nothing having happened.
+  'guided.heldForRecovery': 'HELD · RECOVERY',
   'guided.a11y.weightDown': 'Lower the weight by 2.5 kg',
   'guided.a11y.weightUp': 'Raise the weight by 2.5 kg',
   'guided.back': '‹ Back',
@@ -1435,8 +1439,12 @@ const EN = {
   'pro.v2.group.coach.lead': 'Vinha stops being a notebook and starts making the calls.',
   'pro.v2.coach.progression.t': 'Automatic progression',
   'pro.v2.coach.progression.b': 'Double progression across sessions: the load only moves once every working set hits the ceiling.',
-  'pro.v2.coach.session.t': 'Session & weekly adaptation',
-  'pro.v2.coach.session.b': 'Bad day, missed week or a good run reshapes what comes next.',
+  // Was "Session & weekly adaptation", SOON. The session half ships now:
+  // the progression gate holds an earned load when the recovery read says
+  // the week has been heavy. The weekly half does not exist, so it is no
+  // longer named here — a row cannot be half live.
+  'pro.v2.coach.session.t': 'Eases off when you need it',
+  'pro.v2.coach.session.b': 'An earned jump waits when your recent load is high. The set says so, so you know it was a decision.',
 
   'pro.v2.group.plan.kicker': 'NO MORE CEILINGS',
   'pro.v2.group.plan.title': 'Plan without limits',
@@ -1482,7 +1490,7 @@ const EN = {
   'pro.v2.row.recovery': 'Recovery read',
   'pro.v2.row.analysis': 'Written session analysis',
   'pro.v2.row.theme': 'Dark theme',
-  'pro.v2.row.adaptSession': 'Session & weekly adaptation',
+  'pro.v2.row.adaptSession': 'Recovery holds a load',
   'pro.v2.row.backup': 'Cloud backup',
   'pro.v2.val.unlimited': 'Unlimited',
   'pro.v2.val.all': 'All',
@@ -3351,6 +3359,7 @@ const FI: Record<I18nKey, string> = {
   'guided.weight': 'PAINO',
   'guided.autoLoad': 'AUTOMAATTINEN +{kg} KG',
   'guided.carriedFrom': 'VIIMEKSI · {date}',
+  'guided.heldForRecovery': 'PIDETÄÄN · PALAUTUMINEN',
   'guided.a11y.weightDown': 'Vähennä painoa 2,5 kg',
   'guided.a11y.weightUp': 'Lisää painoa 2,5 kg',
   'guided.back': '‹ Takaisin',
@@ -3684,8 +3693,8 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.group.coach.lead': 'Vinha lakkaa olemasta vihko ja alkaa tehdä päätöksiä.',
   'pro.v2.coach.progression.t': 'Automaattinen eteneminen',
   'pro.v2.coach.progression.b': 'Tuplaprogressio treenistä toiseen: kuorma nousee vasta, kun jokainen työsarja osuu kattoon.',
-  'pro.v2.coach.session.t': 'Treenin ja viikon mukautus',
-  'pro.v2.coach.session.b': 'Huono päivä, väliin jäänyt viikko tai hyvä putki muokkaa seuraavaa.',
+  'pro.v2.coach.session.t': 'Keventää kun on tarve',
+  'pro.v2.coach.session.b': 'Ansaittu nosto jää odottamaan, kun viime viikkojen kuorma on korkea. Sarja kertoo sen, jotta tiedät että kyse oli päätöksestä.',
 
   'pro.v2.group.plan.kicker': 'EI KATTOJA',
   'pro.v2.group.plan.title': 'Suunnittele ilman rajoja',
@@ -3731,7 +3740,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.row.recovery': 'Palautumisluenta',
   'pro.v2.row.analysis': 'Kirjoitettu treenianalyysi',
   'pro.v2.row.theme': 'Tumma teema',
-  'pro.v2.row.adaptSession': 'Treenin ja viikon mukautus',
+  'pro.v2.row.adaptSession': 'Palautuminen pitää kuorman',
   'pro.v2.row.backup': 'Pilvivarmuuskopio',
   'pro.v2.val.unlimited': 'Rajaton',
   'pro.v2.val.all': 'Kaikki',

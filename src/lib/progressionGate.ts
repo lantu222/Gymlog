@@ -39,6 +39,9 @@ export function getProgressionTier(level: SetupLevel | null | undefined): Progre
   return level === 'beginner' || level == null ? 'beginner' : 'intermediate';
 }
 
+/** What the gate acts on, narrower than the fatigue model's own signal. */
+export type ProgressionFatigueSignal = 'normal' | 'elevated' | 'high';
+
 export type ProgressionHoldReason =
   | 'fatigue_high'
   | 'fatigue_elevated'
@@ -48,6 +51,35 @@ export type ProgressionHoldReason =
   | 'rep_ceiling_not_reached'
   | 'gap_return'
   | 'awaiting_confirmation';
+
+/**
+ * The fatigue model's four-way signal, narrowed to what the gate acts on.
+ *
+ * The holds below were written with the gate and then never fired: nothing
+ * passed a signal in, so `fatigueSignal` was undefined on every call for
+ * months while the paywall sold "Pro reads your load and eases off before
+ * fatigue costs you a week". This is the missing half.
+ *
+ * `confident` is not optional. The chronic load is a 28-day total over four,
+ * so one logged session gives acute 500 against chronic 125 — an ACWR of 4,
+ * and a hold on the strength of a single workout. Below the confidence bar
+ * the answer is 'normal': the gate must not ease off on a guess.
+ */
+export function toProgressionFatigueSignal(
+  fatigue: { signal: 'undertrained' | 'optimal' | 'elevated' | 'high'; confident: boolean } | null | undefined,
+): ProgressionFatigueSignal {
+  if (!fatigue || !fatigue.confident) {
+    return 'normal';
+  }
+  if (fatigue.signal === 'high') {
+    return 'high';
+  }
+  if (fatigue.signal === 'elevated') {
+    return 'elevated';
+  }
+  // 'undertrained' is not a reason to hold — it is room to add.
+  return 'normal';
+}
 
 export type ProgressionDecision =
   | { recommendation: 'silent' }
@@ -62,7 +94,7 @@ export interface ProgressionGateInput {
   targetSets: number;
   level?: SetupLevel | null;
   /** Caller-computed. Undefined counts as clear, per the spec's T11. */
-  fatigueSignal?: 'normal' | 'elevated' | 'high';
+  fatigueSignal?: ProgressionFatigueSignal;
   /** Bodyweight exercises accumulate reps; load never moves. */
   trackingMode?: string;
 }
@@ -193,9 +225,21 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
  */
 export function resolveProgressedLoadKg(
   input: ProgressionGateInput & { automatedProgressionEnabled: boolean; fallbackLoadKg: number },
-): { loadKg: number; progressed: boolean; fromLoadKg: number | null } {
+): {
+  loadKg: number;
+  progressed: boolean;
+  fromLoadKg: number | null;
+  /**
+   * True when the load would have moved but recovery said not today.
+   *
+   * A hold is the absence of a change, which is invisible — and an invisible
+   * feature is one the user cannot know they are paying for. The logger says
+   * so on the set, the same way it says where a raised load came from.
+   */
+  heldForFatigue: boolean;
+} {
   if (!input.automatedProgressionEnabled) {
-    return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null };
+    return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue: false };
   }
 
   const decision = evaluateProgression(input);
@@ -203,8 +247,29 @@ export function resolveProgressedLoadKg(
     // `fromLoadKg` is what the set was carrying before the gate moved it — the
     // logger shows the difference, so a load the user did not choose can say
     // where it came from.
-    return { loadKg: decision.loadKg, progressed: true, fromLoadKg: decision.fromLoadKg };
+    return {
+      loadKg: decision.loadKg,
+      progressed: true,
+      fromLoadKg: decision.fromLoadKg,
+      heldForFatigue: false,
+    };
   }
 
-  return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null };
+  // The badge may only claim a decision the app actually made.
+  //
+  // Fatigue is checked FIRST in the gate order, so a hold reports
+  // 'fatigue_high' even when the load was never going to move — the user had
+  // not cleared the rep ceiling, or skipped a set. Reporting that as "held for
+  // recovery" would be a false claim, and a loud one: a high ACWR persists for
+  // weeks, so the badge would sit on every set of every session while the app
+  // took credit for holding back a jump that was never earned.
+  //
+  // So: re-run the gate with recovery out of the way. It is only a recovery
+  // hold if the load would otherwise have moved.
+  const heldForFatigue =
+    decision.recommendation === 'hold'
+    && (decision.holdReason === 'fatigue_high' || decision.holdReason === 'fatigue_elevated')
+    && evaluateProgression({ ...input, fatigueSignal: 'normal' }).recommendation === 'increase';
+
+  return { loadKg: input.fallbackLoadKg, progressed: false, fromLoadKg: null, heldForFatigue };
 }

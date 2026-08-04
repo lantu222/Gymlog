@@ -6,6 +6,7 @@ const {
   getProgressionTier,
   isProgressionReadySession,
   resolveProgressedLoadKg,
+  toProgressionFatigueSignal,
 } = require('../../.test-dist/lib/progressionGate.js');
 
 const DAY_MS = 86400000;
@@ -169,11 +170,11 @@ module.exports = [
       // `fromLoadKg` is what the loggers show as "AUTO +2.5 kg" — a progressed
       // load has to be able to say where it came from.
       const on = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: true });
-      assert.deepEqual(on, { loadKg: 62.5, progressed: true, fromLoadKg: 60 });
+      assert.deepEqual(on, { loadKg: 62.5, progressed: true, fromLoadKg: 60, heldForFatigue: false });
 
       // OFF is exactly the old behaviour: repeat what was logged.
       const off = resolveProgressedLoadKg({ ...shared, automatedProgressionEnabled: false });
-      assert.deepEqual(off, { loadKg: 60, progressed: false, fromLoadKg: null });
+      assert.deepEqual(off, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false });
 
       // ON but not earned still repeats — the toggle promises a rule, not a
       // weekly increase.
@@ -182,7 +183,7 @@ module.exports = [
         history: [entry(60, [12, 11, 10], 0), entry(60, 12, 3)],
         automatedProgressionEnabled: true,
       });
-      assert.deepEqual(notEarned, { loadKg: 60, progressed: false, fromLoadKg: null });
+      assert.deepEqual(notEarned, { loadKg: 60, progressed: false, fromLoadKg: null, heldForFatigue: false });
     },
   },
   {
@@ -197,6 +198,73 @@ module.exports = [
       assert.equal(PROGRESSION_LEVEL_PARAMS.intermediate.loadIncrementKg, 1.25);
       assert.equal(PROGRESSION_LEVEL_PARAMS.beginner.requiredConsecutive, 1);
       assert.equal(PROGRESSION_LEVEL_PARAMS.intermediate.requiredConsecutive, 2);
+    },
+  },
+  {
+    name: 'recovery holds an earned load, and never on a guess',
+    run() {
+      // The ACWR model's four-way signal, narrowed to what the gate acts on.
+      // 'undertrained' is room to add, not a reason to ease off.
+      assert.equal(toProgressionFatigueSignal({ signal: 'high', confident: true }), 'high');
+      assert.equal(toProgressionFatigueSignal({ signal: 'elevated', confident: true }), 'elevated');
+      assert.equal(toProgressionFatigueSignal({ signal: 'optimal', confident: true }), 'normal');
+      assert.equal(toProgressionFatigueSignal({ signal: 'undertrained', confident: true }), 'normal');
+
+      // Confidence is the whole safety story. Chronic load is a 28-day total
+      // over four, so ONE logged session reads as ACWR 4 — a confident "you
+      // are far above your safe zone" built from a single workout. Below the
+      // bar the gate must not ease off at all.
+      assert.equal(toProgressionFatigueSignal({ signal: 'high', confident: false }), 'normal');
+      assert.equal(toProgressionFatigueSignal(null), 'normal');
+      assert.equal(toProgressionFatigueSignal(undefined), 'normal');
+    },
+  },
+  {
+    name: 'a fatigue hold keeps the weight and says so, but only when a jump was earned',
+    run() {
+      // Two sessions at 60 kg with every set at the ceiling: this one earned it.
+      const earned = [entry(60, 12, 0), entry(60, 12, 3)];
+      const base = {
+        history: earned,
+        repsMin: 8,
+        repsMax: 12,
+        targetSets: 3,
+        level: 'beginner',
+        automatedProgressionEnabled: true,
+        fallbackLoadKg: 60,
+      };
+
+      const rested = resolveProgressedLoadKg({ ...base, fatigueSignal: 'normal' });
+      assert.equal(rested.loadKg, 62.5);
+      assert.equal(rested.heldForFatigue, false);
+
+      // Cooked: the load stays and the set carries the reason. Without the
+      // flag the hold is invisible, which is indistinguishable from the
+      // feature not existing — which is what it was until it was wired up.
+      for (const signal of ['elevated', 'high']) {
+        const held = resolveProgressedLoadKg({ ...base, fatigueSignal: signal });
+        assert.equal(held.loadKg, 60, signal);
+        assert.equal(held.progressed, false, signal);
+        assert.equal(held.heldForFatigue, true, signal);
+      }
+
+      // Fatigue is checked FIRST in the gate order, so a session that never
+      // earned a jump also reports a fatigue hold. The badge must not claim
+      // it: a high ACWR lasts weeks, so this would sit on every set of every
+      // session while the app took credit for holding back a jump that was
+      // never coming.
+      const notEarned = resolveProgressedLoadKg({
+        ...base,
+        history: [entry(60, 9, 0), entry(60, 9, 3)],
+        fatigueSignal: 'high',
+      });
+      assert.equal(notEarned.loadKg, 60);
+      assert.equal(notEarned.heldForFatigue, false);
+
+      // With progression off there is nothing to hold, so nothing to say.
+      const free = resolveProgressedLoadKg({ ...base, automatedProgressionEnabled: false, fatigueSignal: 'high' });
+      assert.equal(free.heldForFatigue, false);
+      assert.equal(free.loadKg, 60);
     },
   },
 ];

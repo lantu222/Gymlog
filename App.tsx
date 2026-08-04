@@ -80,6 +80,7 @@ import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVi
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
+import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
 
@@ -978,7 +979,7 @@ function VinhaApp() {
         workout.startCustomWorkout(
           buildCustomSessionRuntimeTemplate(aiRuntimeTemplate, nextSessionId),
           nextPreferences.unitPreference,
-          resolveProgressionOptions(nextPreferences),
+          { ...resolveProgressionOptions(nextPreferences), fatigueSignal: progressionFatigueSignal },
         );
         navigateToGuidedWorkout(persistedTemplateId);
         showToast(shouldRegenerate ? 'Vinha AI plan ready' : 'Vinha AI next workout loaded');
@@ -1262,6 +1263,22 @@ function VinhaApp() {
         exerciseLogs: database.exerciseLogs,
       }),
     [database.exerciseLogs, database.workoutSessions],
+  );
+  /**
+   * Recovery, in the shape the progression gate acts on.
+   *
+   * The gate has carried fatigue holds since it was written, and nothing ever
+   * passed a signal in — so `paywall.benefit.recover.b` ("Pro reads your load
+   * and eases off before fatigue costs you a week") described something that
+   * never happened on a single set. This is the wire.
+   *
+   * It rides on the progression options, which resolveProgressionOptions
+   * already gates behind Pro, so the hold is a paid behaviour by construction
+   * rather than by a second check that could drift from the first.
+   */
+  const progressionFatigueSignal = useMemo(
+    () => toProgressionFatigueSignal(proFatigue),
+    [proFatigue],
   );
   const proPlateauLift = useMemo(() => detectPlateau(proLiftHistories), [proLiftHistories]);
   const proPlateau = useMemo(
@@ -1617,7 +1634,10 @@ function VinhaApp() {
         buildReadySessionRuntimeTemplate(template, sessionId),
         { swaps: sessionSwaps, trimSets },
       );
-      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, resolveProgressionOptions(preferences));
+      workout.startCustomWorkout(runtimeTemplate, nextUnitPreference, {
+        ...resolveProgressionOptions(preferences),
+        fatigueSignal: progressionFatigueSignal,
+      });
       // Today's changes are spent the moment they are applied — an adaptation
       // is an answer about right now, and a stale one is worse than none.
       setSessionSwaps({});
@@ -1662,7 +1682,10 @@ function VinhaApp() {
         buildCustomSessionRuntimeTemplate(customTemplate, sessionId),
         { swaps: sessionSwaps, trimSets },
       );
-      workout.startCustomWorkout(runtimeTemplate, unitPreference, resolveProgressionOptions(preferences));
+      workout.startCustomWorkout(runtimeTemplate, unitPreference, {
+        ...resolveProgressionOptions(preferences),
+        fatigueSignal: progressionFatigueSignal,
+      });
       setSessionSwaps({});
       navigateToGuidedWorkout(workoutTemplateId);
     });

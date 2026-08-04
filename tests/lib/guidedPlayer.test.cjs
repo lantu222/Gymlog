@@ -229,6 +229,7 @@ module.exports = [
         loadKg: 62.5,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
       // No draft, no plan → previous actual load.
       assert.deepEqual(resolveGuidedSetTarget(sets, 2, 'load_and_reps'), {
@@ -236,6 +237,7 @@ module.exports = [
         loadKg: 62.5,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
       // First set, no history: planned max reps, null load.
       const fresh = [
@@ -246,6 +248,7 @@ module.exports = [
         loadKg: null,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
       // Bodyweight never carries a load.
       assert.deepEqual(resolveGuidedSetTarget(sets, 1, 'bodyweight'), {
@@ -253,6 +256,7 @@ module.exports = [
         loadKg: null,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
       assert.equal(resolveGuidedSetTarget(sets, 9, 'load_and_reps'), null);
       assert.equal(formatGuidedTarget({ reps: 8, loadKg: 62.5 }), '8 × 62.5 kg');
@@ -322,6 +326,7 @@ module.exports = [
         loadKg: 150,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
 
       // Swapped after set 2 (index 1): neither the load nor the reps of the
@@ -331,6 +336,7 @@ module.exports = [
         loadKg: null,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
 
       // A set logged AFTER the swap carries forward normally again.
@@ -363,6 +369,7 @@ module.exports = [
         loadKg: 62.5,
         autoProgressedFromKg: 60,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
 
       // Typed over in the list logger — this is the user's weight now, and
@@ -372,6 +379,7 @@ module.exports = [
         loadKg: 65,
         autoProgressedFromKg: null,
         prefilledFromPerformedAt: null,
+        heldForFatigue: false,
       });
 
       // Bodyweight never carries a load, so it never carries the badge either.

@@ -82,7 +82,7 @@ const GROUPS: Array<{ key: string; kickerKey: I18nKey; titleKey: I18nKey; leadKe
       // list logger they lived in (user decision 2026-08-02), so they are not
       // sold here any more.
       { titleKey: 'pro.v2.coach.progression.t', bodyKey: 'pro.v2.coach.progression.b', icon: IC.chart },
-      { titleKey: 'pro.v2.coach.session.t', bodyKey: 'pro.v2.coach.session.b', soon: true, icon: IC.lines },
+      { titleKey: 'pro.v2.coach.session.t', bodyKey: 'pro.v2.coach.session.b', icon: IC.lines },
     ],
   },
   {
@@ -137,7 +137,7 @@ const ROWS: Array<{ labelKey: I18nKey; free: Cellv2; pro: Cellv2 }> = [
   { labelKey: 'pro.v2.row.recovery', free: null, pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.analysis', free: null, pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.theme', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.adaptSession', free: null, pro: 'pro.v2.val.soon' },
+  { labelKey: 'pro.v2.row.adaptSession', free: null, pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.backup', free: null, pro: 'pro.v2.val.soon' },
 ];
 

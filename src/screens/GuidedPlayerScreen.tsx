@@ -198,6 +198,7 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
         <Path d="M12 7.5V12l3 2" />
       </>
     ),
+    shield: <Path d="M12 3l7 3v5.5c0 4.2-2.9 7.6-7 8.5-4.1-.9-7-4.3-7-8.5V6z" />,
   };
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
@@ -1884,6 +1885,15 @@ function SetStepView({
    * runs on borrowed history) but would be the more specific claim if it did.
    */
   const prefilledFrom = untouched && !autoFromKg ? target?.prefilledFromPerformedAt ?? null : null;
+  /**
+   * The load had earned a jump and the recovery read held it.
+   *
+   * The other two badges explain a number that changed. This one explains a
+   * number that did not — which is the harder thing to notice and the reason
+   * it needs saying at all. A hold nobody sees is indistinguishable from the
+   * feature not existing.
+   */
+  const heldForFatigue = untouched && !autoFromKg && !prefilledFrom && target?.heldForFatigue === true;
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
@@ -2003,6 +2013,11 @@ function SetStepView({
                     <Text style={styles.setAutoBadgeText}>
                       {t(language, 'guided.carriedFrom', { date: formatShortDate(prefilledFrom, language) })}
                     </Text>
+                  </View>
+                ) : heldForFatigue ? (
+                  <View style={styles.setHoldBadge}>
+                    <GPIcon name="shield" size={13} color={theme.green} sw={2.2} />
+                    <Text style={styles.setHoldBadgeText}>{t(language, 'guided.heldForRecovery')}</Text>
                   </View>
                 ) : null}
               </View>
@@ -2411,6 +2426,21 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.purpleSoft,
   },
   setAutoBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.purple },
+  // Green, not purple: purple marks a load the app RAISED. A hold is the app
+  // protecting the session — the same colour would read as the same event
+  // with a different word, and green is the app's "this is deliberate and
+  // fine" rather than an alarm, which a held weight is not.
+  setHoldBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    marginTop: 2,
+    paddingHorizontal: 11,
+    height: 27,
+    borderRadius: 14,
+    backgroundColor: theme.greenSoft,
+  },
+  setHoldBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.green },
   setLogButton: {
     height: 64,
     borderRadius: 20,

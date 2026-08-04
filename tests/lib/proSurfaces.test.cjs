@@ -197,7 +197,13 @@ module.exports = [
 
       // Unbuilt things wear 'Soon' rather than being sold as present.
       assert.match(table[0], /'pro\.v2\.row\.backup', free: null, pro: 'pro\.v2\.val\.soon'/);
-      assert.match(table[0], /'pro\.v2\.row\.adaptSession', free: null, pro: 'pro\.v2\.val\.soon'/);
+      // adaptSession stopped wearing it: the progression gate's fatigue holds
+      // are wired to the ACWR model now, so the row is live. The claim was
+      // narrowed with it — "Session & weekly adaptation" promised a weekly
+      // half that still does not exist, so the row names only the half that
+      // ships. A row cannot be half live.
+      assert.match(table[0], /'pro\.v2\.row\.adaptSession', free: null, pro: 'pro\.v2\.val\.yes'/);
+      assert.doesNotMatch(i18nSource, /'pro\.v2\.(row\.adaptSession|coach\.session\.t)': '[^']*weekly/);
 
       // Claims from the v2 mock that describe things this app does not do.
       // Checked against the copy itself, not the screen — the screen's comments

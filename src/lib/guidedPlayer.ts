@@ -379,6 +379,12 @@ export interface GuidedSetTarget {
    * "only while untouched" rule as the badge above.
    */
   prefilledFromPerformedAt: string | null;
+  /**
+   * The load had earned a jump and recovery held it (Pro). Same
+   * "only while untouched" rule as the two above: once the user moves the
+   * number themselves, the app has no claim on it either way.
+   */
+  heldForFatigue: boolean;
 }
 
 export interface GuidedNextPreview {
@@ -487,6 +493,7 @@ export function resolveGuidedSetTarget(
     draftLoadText: string;
     draftRepsText: string;
     autoProgressedFromKg?: number;
+    heldForFatigue?: boolean;
     prefilledFromPerformedAt?: string;
     actualLoadKg?: number;
     actualReps?: number;
@@ -515,7 +522,13 @@ export function resolveGuidedSetTarget(
   const reps = previous?.actualReps ?? set.plannedRepsMax;
 
   if (trackingMode === 'bodyweight') {
-    return { reps, loadKg: null, autoProgressedFromKg: null, prefilledFromPerformedAt: null };
+    return {
+      reps,
+      loadKg: null,
+      autoProgressedFromKg: null,
+      prefilledFromPerformedAt: null,
+      heldForFatigue: false,
+    };
   }
 
   const draftLoad = parseNumberInput(set.draftLoadText);
@@ -530,6 +543,7 @@ export function resolveGuidedSetTarget(
     loadKg,
     autoProgressedFromKg: untouched && set.autoProgressedFromKg !== undefined ? set.autoProgressedFromKg : null,
     prefilledFromPerformedAt: untouched ? set.prefilledFromPerformedAt ?? null : null,
+    heldForFatigue: untouched && set.heldForFatigue === true,
   };
 }
 

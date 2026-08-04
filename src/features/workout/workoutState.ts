@@ -232,7 +232,7 @@ function resolveHistoricalSetDraft(
   // ceiling on every working set, the prefill moves up by the level's
   // increment. Every other outcome repeats last time's load, which is what
   // this function did unconditionally before the gate existed.
-  const { loadKg, fromLoadKg } = resolveProgressedLoadKg({
+  const { loadKg, fromLoadKg, heldForFatigue } = resolveProgressedLoadKg({
     history: entries,
     repsMin: exercise.repsMin,
     repsMax: exercise.repsMax,
@@ -240,6 +240,10 @@ function resolveHistoricalSetDraft(
     level: options.setupLevel,
     trackingMode: exercise.trackingMode,
     automatedProgressionEnabled: options.automatedProgressionEnabled ?? false,
+    // Recovery, read once at session start. The gate has had these holds
+    // since it was written; until now nothing passed a signal in, so they
+    // never fired on a single set.
+    fatigueSignal: options.fatigueSignal,
     fallbackLoadKg: matched.loadKg,
   });
 
@@ -251,6 +255,7 @@ function resolveHistoricalSetDraft(
     draftRepsText: '',
     plannedLoadKg: loadKg,
     autoProgressedFromKg: fromLoadKg ?? undefined,
+    heldForFatigue: heldForFatigue || undefined,
     // This slot's own history — the ordinary case, nothing to explain.
     prefilledFromPerformedAt: undefined,
   };
@@ -552,6 +557,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         unitPreference: action.payload.unitPreference,
         sessionOrderIndex: action.payload.sessionOrderIndex,
         automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
+        fatigueSignal: action.payload.progression?.fatigueSignal,
         setupLevel: action.payload.progression?.setupLevel ?? null,
       });
 
@@ -573,6 +579,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         unitPreference: action.payload.unitPreference,
         sessionOrderIndex: action.payload.sessionOrderIndex,
         automatedProgressionEnabled: action.payload.progression?.automatedProgressionEnabled ?? false,
+        fatigueSignal: action.payload.progression?.fatigueSignal,
         setupLevel: action.payload.progression?.setupLevel ?? null,
       });
 
