@@ -262,7 +262,7 @@ export function PremiumScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
-  const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
+  const [plan, setPlan] = useState<'yearly' | 'monthly' | 'lifetime'>('yearly');
   // Pro via a redeemed code rather than the on-device preview switch: the
   // switch cannot turn that off, so the page must not offer to.
   const promoOnly = proUnlocked && !previewUnlocked;
@@ -409,8 +409,39 @@ export function PremiumScreen({
         <View style={styles.planRow}>
           {(
             [
-              { id: 'yearly' as const, per: '5,99 €', billedKey: 'pro.page.billedYearly' as I18nKey, save: true },
-              { id: 'monthly' as const, per: '9,99 €', billedKey: 'pro.page.billedMonthly' as I18nKey, save: false },
+              // Prices live in the dictionary, not here. Two string literals
+              // in this array are how the app shipped 71,99 €/yr on this page
+              // and 59,90 €/yr on the onboarding paywall in the same build:
+              // the guard that exists to catch exactly that reads i18n.ts.
+              {
+                id: 'yearly' as const,
+                perKey: 'pro.page.perYearly' as I18nKey,
+                nameKey: 'pro.page.yearly' as I18nKey,
+                billedKey: 'pro.page.billedYearly' as I18nKey,
+                save: true,
+                perMonth: true,
+              },
+              {
+                id: 'monthly' as const,
+                perKey: 'pro.page.perMonthly' as I18nKey,
+                nameKey: 'pro.page.monthly' as I18nKey,
+                billedKey: 'pro.page.billedMonthly' as I18nKey,
+                save: false,
+                perMonth: true,
+              },
+              // Both leaders in this category sell one, it is the loudest
+              // thing their paying users say they wanted, and it fits an app
+              // whose whole posture is that it does not hold anything of
+              // yours hostage. Priced at ~2x the year rather than the market's
+              // ~3x: a deliberate two-year payback (user decision).
+              {
+                id: 'lifetime' as const,
+                perKey: 'pro.page.perLifetime' as I18nKey,
+                nameKey: 'pro.page.lifetime' as I18nKey,
+                billedKey: 'pro.page.billedLifetime' as I18nKey,
+                save: false,
+                perMonth: false,
+              },
             ]
           ).map((option) => {
             const on = plan === option.id;
@@ -431,13 +462,13 @@ export function PremiumScreen({
                   <View style={[styles.planRadio, on && styles.planRadioOn]}>
                     {on ? <View style={styles.planRadioDot} /> : null}
                   </View>
-                  <Text style={styles.planName}>
-                    {t(language, option.id === 'yearly' ? 'pro.page.yearly' : 'pro.page.monthly')}
-                  </Text>
+                  <Text style={styles.planName}>{t(language, option.nameKey)}</Text>
                 </View>
                 <View style={styles.planPriceRow}>
-                  <Text style={styles.planPrice}>{option.per}</Text>
-                  <Text style={styles.planPer}>{t(language, 'pro.page.perMonth')}</Text>
+                  <Text style={styles.planPrice}>{t(language, option.perKey)}</Text>
+                  {option.perMonth ? (
+                    <Text style={styles.planPer}>{t(language, 'pro.page.perMonth')}</Text>
+                  ) : null}
                 </View>
                 <Text style={styles.planBilled}>{t(language, option.billedKey)}</Text>
               </Pressable>
@@ -529,7 +560,14 @@ export function PremiumScreen({
               <Text style={styles.ctaButtonText}>{t(language, 'pro.v2.cta')}</Text>
             </Pressable>
             <Text style={styles.ctaFine}>
-              {t(language, plan === 'yearly' ? 'pro.v2.ctaSubYearly' : 'pro.v2.ctaSubMonthly')}
+              {t(
+                language,
+                plan === 'yearly'
+                  ? 'pro.v2.ctaSubYearly'
+                  : plan === 'monthly'
+                    ? 'pro.v2.ctaSubMonthly'
+                    : 'pro.v2.ctaSubLifetime',
+              )}
             </Text>
           </>
         )}

@@ -210,6 +210,10 @@ module.exports = [
       // name the cut features on purpose.
       const copy = i18nSource.match(/'pro\.v2\.[\s\S]*?'pro\.v2\.footer': '[^']*'/g)?.join('\n') ?? '';
       assert.ok(copy.length > 0, 'the pro.v2 copy block should be findable');
+      assert.ok(
+        copy.length < 20000,
+        'the pro.v2 span ran past its own block — a pro.v2.* key was added after pro.v2.footer',
+      );
       assert.doesNotMatch(copy, /watch|wrist|kello|ranteest/i, 'there is no watch app');
       assert.doesNotMatch(copy, /several active|useita aktiivisia/i, 'only one plan can be active');
     },
@@ -250,17 +254,58 @@ module.exports = [
     },
   },
   {
-    name: 'one yearly price across every surface that quotes one',
+    name: 'one price set, and no price outside the dictionary',
     run() {
       const i18n = read('src', 'lib', 'i18n.ts');
-      // Three different yearly prices shipped at once (59,99 / 69,99 / 71,99)
-      // across the coach lock, the subscription screen and the Pro page.
-      assert.doesNotMatch(i18n, /59[.,]99/);
-      assert.doesNotMatch(i18n, /69[.,]99/);
-      for (const key of ['pro.page.billedYearly', 'coach.lock.fine', 'subs.yearlyPrice']) {
-        const line = i18n.split('\n').find((row) => row.includes(`'${key}':`));
-        assert.ok(line, `${key} should exist`);
-        assert.match(line, /71[.,]99/, `${key} must quote the one planned yearly price`);
+
+      // This guard existed and still let two coherent price sets ship in one
+      // build. It failed twice over: it forbade 59,99 and 69,99 where the
+      // onboarding paywall actually said 59,90, and it pinned three keys while
+      // the paywall's own keys were not among them.
+      //
+      // The set is arithmetic, not a list of forbidden numbers: 59,90 / 12 =
+      // 4,99, / 52 = 1,15, and against 9,90 x 12 = 118,80 that is 50% off.
+      for (const shape of [/71[.,]99/, /69[.,]99/, /5[.,]99/, /9[.,]99/]) {
+        assert.doesNotMatch(i18n, shape, `${shape} belongs to the retired price set`);
+      }
+      const priced = {
+        'pro.page.billedYearly': /59,90/,
+        'coach.lock.fine': /59,90/,
+        'subs.yearlyPrice': /59,90/,
+        'unlock.trialBody': /59,90/,
+        'pro.v2.ctaSubYearly': /59,90/,
+        'paywall.plan.yearly.price': /59,90/,
+        'paywall.cta.footYear': /59,90/,
+        'pro.page.perYearly': /4,99/,
+        'paywall.plan.yearly.note': /4,99/,
+        'paywall.plan.yearly.week': /1,15/,
+        'pro.page.perMonthly': /9,90/,
+        'paywall.plan.monthly.price': /9,90/,
+        'subs.monthlyPrice': /9,90/,
+        'pro.page.perLifetime': /119,00/,
+        'pro.v2.ctaSubLifetime': /119,00/,
+      };
+      const lines = i18n.split(String.fromCharCode(10));
+      for (const [key, shape] of Object.entries(priced)) {
+        const matches = lines.filter((row) => row.includes(`'${key}':`));
+        assert.ok(matches.length >= 2, `${key} should exist in both languages`);
+        for (const line of matches) {
+          assert.match(line, shape, `${key} must quote the one price set`);
+        }
+      }
+
+      // The root cause: PremiumScreen carried '5,99 €' and '9,99 €' as string
+      // literals in its plan array, so the numbers this guard exists for were
+      // not in the file this guard reads.
+      for (const file of ['PremiumScreen.tsx', 'ProPaywallScreen.tsx']) {
+        // Comments are exempt: the one in PremiumScreen quotes both retired
+        // prices to explain how they came to ship together, and losing that
+        // to a guard about rendered strings would be the wrong trade.
+        const code = read('src', 'screens', file)
+          .split(String.fromCharCode(10))
+          .filter((line) => !line.trim().startsWith('//') && !line.trim().startsWith('*'))
+          .join(String.fromCharCode(10));
+        assert.doesNotMatch(code, /[0-9]+[.,][0-9][0-9]\s*€/, `${file} must take prices from i18n`);
       }
     },
   },
