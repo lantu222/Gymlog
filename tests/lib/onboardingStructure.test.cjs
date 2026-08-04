@@ -422,14 +422,12 @@ module.exports = [
       assert.match(appSource, /if \(!minimumSplashElapsed\) \{\s*return;\s*\}/);
       assert.doesNotMatch(appSource, /firstAppOpen/);
 
-      // Light welcome: plan-focused copy now lives in the i18n dictionary and
-      // the screen renders every string through t(language, …).
-      assert.match(i18nSource, /You go to the gym\./);
-      assert.match(i18nSource, /We handle the rest\./);
+      // Light welcome: the copy lives in the i18n dictionary and the screen
+      // renders every string through t(language, …).
+      assert.match(i18nSource, /Train fast\. Get strong\./);
       assert.match(i18nSource, /Continue with Google/);
       assert.match(i18nSource, /Continue with Apple/);
-      assert.match(i18nSource, /Sign up with email/);
-      assert.match(i18nSource, /I already have an account/);
+      assert.match(welcomeSource, /t\(language, 'welcome\.continueApple'\)/);
       // The old Welcome CTA is gone. Scoped to a welcome.* value on purpose:
       // "Start free" is legitimate prose on the access-choice screen.
       assert.doesNotMatch(i18nSource, /'welcome\.[^']*': '[^']*Start free/);
@@ -469,8 +467,12 @@ module.exports = [
         welcomeSource.indexOf('  markSlot: {'),
       );
       assert.doesNotMatch(welcomeScreenStyle, /padding/);
-      assert.match(i18nSource, /AI-built plans/);
-      assert.match(i18nSource, /Recovery aware/);
+      // These asserted the feature row's copy was still in the dictionary,
+      // twenty lines below the comment saying the feature row was cut on
+      // purpose. A guard that contradicts itself keeps dead copy alive: the
+      // strings outlived the screen by two redesigns because this line was
+      // the only thing still referring to them.
+      assert.doesNotMatch(welcomeSource, /welcome\.feature\./);
       assert.doesNotMatch(welcomeSource, /Sinä menet salille/);
       assert.doesNotMatch(welcomeSource, /Aloita ilmaiseksi/);
       assert.doesNotMatch(welcomeSource, /GYMLOG/);

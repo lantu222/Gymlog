@@ -11,7 +11,6 @@ const {
 } = require('../../.test-dist/lib/firstRunSetup.js');
 const { buildRecommendationInput } = require('../../.test-dist/lib/recommendationInput.js');
 const { getRecommendationProgramDefinition } = require('../../.test-dist/lib/recommendationCatalog.js');
-const { buildRecommendationWeeklyStructure } = require('../../.test-dist/lib/recommendationWeeklyStructure.js');
 const { evaluateWorkoutContentFit } = require('../../.test-dist/lib/workoutContentFit.js');
 
 const HIGH_PRIORITY_BASE_SELECTION = {
@@ -65,7 +64,6 @@ function assertUserReadyRecommendation(selection, options = {}) {
     goalType: input.profile.goalType,
     setupContext: input.profile.setupContext,
   });
-  const weeklyStructure = buildRecommendationWeeklyStructure(selection, recommendation.featuredProgramId);
   const projectedDaysPerWeek = definition?.daysPerWeek ?? selection.daysPerWeek;
   const reasons = buildFirstRunRecommendationReasons(selection, {
     projectedDaysPerWeek,
@@ -75,9 +73,12 @@ function assertUserReadyRecommendation(selection, options = {}) {
 
   assert.ok(definition, recommendation.featuredProgramId);
   assert.deepEqual(fit.issues, [], `${recommendation.featuredProgramId}: ${fit.issues.join(', ')}`);
-  assert.ok(weeklyStructure, recommendation.featuredProgramId);
-  assert.ok(weeklyStructure.summary.length > 20, recommendation.featuredProgramId);
-  assert.ok(weeklyStructure.days.length >= definition.daysPerWeek, recommendation.featuredProgramId);
+  // The three weekly-structure assertions that stood here required
+  // recommendationWeeklyStructure, which 82e44cb deleted from src. They kept
+  // passing for months against a stale .test-dist artifact, because
+  // `npm run test:unit` only runs the Node step and nobody had rebuilt from
+  // clean. The composed week is now programDayComposer's job and is covered by
+  // its own suite; this helper checks the recommendation, not the week.
   assert.ok(reasons.join(' ').length > 20, recommendation.featuredProgramId);
   assert.equal(recommendation.trainingBlock.blockLengthWeeks, 4, recommendation.featuredProgramId);
   assert.equal(recommendation.trainingBlock.currentWeekRole, 'baseline', recommendation.featuredProgramId);
@@ -96,7 +97,7 @@ function assertUserReadyRecommendation(selection, options = {}) {
     );
   }
 
-  return { recommendation, definition, fit, weeklyStructure, reasons };
+  return { recommendation, definition, fit, reasons };
 }
 
 module.exports = [

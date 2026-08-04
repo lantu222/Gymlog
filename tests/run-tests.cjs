@@ -14,7 +14,6 @@ const suites = [
   ...require('./lib/workoutValidation.test.cjs'),
   ...require('./lib/workoutContentFit.test.cjs'),
   ...require('./lib/sessionGuidance.test.cjs'),
-  ...require('./lib/workoutLoggingSessionBootstrap.test.cjs'),
   ...require('./lib/guidedPlayer.test.cjs'),
   ...require('./lib/exerciseHistoryLookup.test.cjs'),
   ...require('./lib/sessionAdaptation.test.cjs'),

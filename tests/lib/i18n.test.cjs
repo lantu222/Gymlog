@@ -14,10 +14,10 @@ module.exports = [
       }
 
       // Spot checks: translations are real, not copies of the English text.
-      assert.equal(t('en', 'welcome.signUpEmail'), 'Sign up with email');
-      assert.equal(t('fi', 'welcome.or'), 'tai');
-      assert.notEqual(t('fi', 'welcome.tagline'), t('en', 'welcome.tagline'));
-      assert.notEqual(t('fi', 'home.greeting.title'), t('en', 'home.greeting.title'));
+      assert.equal(t('en', 'welcome.continueGoogle'), 'Continue with Google');
+      assert.equal(t('fi', 'common.cancel'), 'Peruuta');
+      assert.notEqual(t('fi', 'brand.tagline'), t('en', 'brand.tagline'));
+      assert.notEqual(t('fi', 'home.greet.first.title'), t('en', 'home.greet.first.title'));
       assert.notEqual(t('fi', 'home.adaptSheet.shorter.cta'), t('en', 'home.adaptSheet.shorter.cta'));
     },
   },
@@ -37,7 +37,7 @@ module.exports = [
   {
     name: 'i18n: unknown language falls back to English',
     run() {
-      assert.equal(t('sv', 'welcome.or'), 'or');
+      assert.equal(t('sv', 'common.cancel'), 'Cancel');
       assert.equal(t('sv', 'home.adapt'), 'Adapt');
     },
   },
