@@ -4019,7 +4019,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.soon': 'PIAN',
 
   'pro.v2.free.title': 'Free on oikea sovellus',
-  'pro.v2.free.body': 'Rajaton kirjaus, kaikki valmiit ohjelmat, omat ohjelmasi, ohjattu soitin ja 3D-demot, widget, CSV-vienti — ja koko historiasi, ikuisesti. Ei mainoksia, ei aikarajaa. Premium lisää valmennuskerroksen päälle.',
+  'pro.v2.free.body': 'Rajaton kirjaus, kaikki valmiit ohjelmat, omat ohjelmasi, ohjattu treenitila ja 3D-demot, widget, CSV-vienti — ja koko historiasi, ikuisesti. Ei mainoksia, ei aikarajaa. Premium lisää valmennuskerroksen päälle.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
   'pro.v2.row.logging': 'Treenikirjaus',
@@ -4027,7 +4027,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.row.own': 'Oma ohjelma',
   'pro.v2.row.history': 'Kehityshistoria',
   'pro.v2.row.records': 'Ennätykset',
-  'pro.v2.row.guided': 'Ohjattu soitin & 3D-demot',
+  'pro.v2.row.guided': 'Ohjattu treenitila ja 3D-demot',
   'pro.v2.row.widget': 'Kotinäytön widget',
   'pro.v2.row.csv': 'CSV-vienti',
   'pro.v2.row.plateau': 'Tasanteen havaitseminen',
