@@ -222,7 +222,7 @@ module.exports = [
       // What is blurred is the REAL withheld answer — the offline coach is
       // free and deterministic, so blurring a placeholder would be a bluff.
       assert.match(chat, /buildAiCoachPreviewAnswer\(trimmed, trainingContext, language\)/);
-      assert.match(chat, /lockedLines: \[withheld\.takeaway/);
+      assert.match(chat, /lockedBody: \[withheld\.takeaway/);
 
       // "AI program builder — Pro": the generator and both entries gate on Pro.
       assert.match(appSource, /if \(!isProUnlocked\(nextPreferences\)\) \{/);
@@ -313,9 +313,11 @@ module.exports = [
       assert.match(locked, /textShadowRadius/);
 
       // Home: the detection card carries the plateau conclusion from
-      // proInsights — the same lines Pro reads unblurred in place.
+      // proInsights — the same sentence Pro reads unblurred in place. It is
+      // one string, not a pre-wrapped pair: a line break authored for English
+      // width split a Finnish genitive from its head noun.
       assert.match(appSource, /locked: proPlateau\.conclusion/);
-      assert.match(homeSource, /plateau\.locked\.lines/);
+      assert.match(homeSource, /plateau\.locked\.body/);
       assert.match(homeSource, /proUnlocked \?/);
 
       // Progress: statuses always free, and the footer says so.

@@ -1052,18 +1052,14 @@ export function ProgressScreen({
                   <View style={styles.readLock}>
                     {proUnlocked ? (
                       <View style={styles.readFix}>
-                        {row.locked.lines.map((line, index) => (
-                          <Text key={index} style={styles.readFixLine}>
-                            {line}
-                          </Text>
-                        ))}
+                        <Text style={styles.readFixLine}>{row.locked.body}</Text>
                       </View>
                     ) : (
                       <ProLockedCard
                         language={language}
                         compact
                         teaser={t(language, 'pro.read.lockedTeaser')}
-                        lines={row.locked.lines}
+                        body={row.locked.body}
                         cta={t(language, 'pro.read.lockedCta')}
                         onPress={() => {
                           if (readMoment) {

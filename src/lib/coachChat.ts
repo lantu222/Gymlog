@@ -127,7 +127,7 @@ export function buildCoachNoticed(
         key: row.key,
         tone: row.tone === 'red' ? 'alert' : 'warn',
         title: `${row.name} · ${row.status}`,
-        body: row.locked ? row.locked.lines.join(' ') : row.meta,
+        body: row.locked ? row.locked.body : row.meta,
         question: t(language, 'coachChat.ask.about', { subject: row.name.toLowerCase() }),
       });
     }

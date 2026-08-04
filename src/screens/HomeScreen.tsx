@@ -114,7 +114,7 @@ interface HomeScreenProps {
   plateau?: {
     headline: string;
     meta: string;
-    locked: { teaser: string; lines: string[] };
+    locked: { teaser: string; body: string };
     moment: ProMomentContent;
   } | null;
   proUnlocked?: boolean;
@@ -683,18 +683,14 @@ export function HomeScreen({
             <View style={styles.plateauLock}>
               {proUnlocked ? (
                 <View style={styles.plateauFix}>
-                  {plateau.locked.lines.map((line, index) => (
-                    <Text key={index} style={styles.plateauFixLine}>
-                      {line}
-                    </Text>
-                  ))}
+                  <Text style={styles.plateauFixLine}>{plateau.locked.body}</Text>
                 </View>
               ) : (
                 <ProLockedCard
                   language={language}
                   compact
                   teaser={plateau.locked.teaser}
-                  lines={plateau.locked.lines}
+                  body={plateau.locked.body}
                   onPress={() => setPlateauSheetVisible(true)}
                 />
               )}

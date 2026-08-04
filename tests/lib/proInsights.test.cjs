@@ -78,8 +78,8 @@ module.exports = [
         reps: [[8, 8, 8], [8, 8, 7], [8, 7, 6], [8, 6, 5]],
       });
       const decliningFix = buildPlateauConclusion(detectPlateau(declining), 'en');
-      assert.match(decliningFix.lines.join(' '), /recovery, not load/);
-      assert.match(decliningFix.lines.join(' '), /82\.5 kg/);
+      assert.match(decliningFix.body, /recovery, not load/);
+      assert.match(decliningFix.body, /82\.5 kg/);
 
       // Reps hold → the reps path. Same weight appears in the real text.
       const holding = history({
@@ -87,7 +87,7 @@ module.exports = [
         reps: [[8, 8, 8], [8, 8, 8], [8, 8, 8], [8, 8, 8]],
       });
       const holdingFix = buildPlateauConclusion(detectPlateau(holding), 'en');
-      assert.match(holdingFix.lines.join(' '), /add one rep per set/);
+      assert.match(holdingFix.body, /add one rep per set/);
     },
   },
   {
@@ -144,8 +144,8 @@ module.exports = [
       const lift = pickCompletionLift(lifts);
       assert.ok(lift);
       const conclusion = buildCompletionConclusion(lift, 'en', 'beginner');
-      assert.match(conclusion.lines.join(' '), /67\.5 kg/);
-      assert.match(conclusion.lines.join(' '), /top of its rep range/);
+      assert.match(conclusion.body, /67\.5 kg/);
+      assert.match(conclusion.body, /top of its rep range/);
     },
   },
   {

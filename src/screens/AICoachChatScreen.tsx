@@ -71,7 +71,7 @@ interface ChatMessage {
   text: string;
   evidence?: string;
   /** Set when the answer is withheld: the real conclusion, blurred. */
-  lockedLines?: string[];
+  lockedBody?: string;
 }
 
 /** Width of the soft light behind the dark thread's header. */
@@ -176,7 +176,11 @@ export function AICoachChatScreen({
             id: `locked:${token}`,
             fromCoach: true,
             text: '',
-            lockedLines: [withheld.takeaway, withheld.nextSteps[0] ?? withheld.why[0] ?? ''].filter(Boolean),
+            // Two real sentences, joined into one paragraph — unlike the pro
+            // insights, these were never a single sentence cut in half.
+            lockedBody: [withheld.takeaway, withheld.nextSteps[0] ?? withheld.why[0] ?? '']
+              .filter(Boolean)
+              .join(' '),
           },
         ]);
         return;
@@ -319,12 +323,12 @@ export function AICoachChatScreen({
           ) : null}
 
           {messages.map((message) =>
-            message.lockedLines ? (
+            message.lockedBody ? (
               <View key={message.id} style={styles.lockWrap}>
                 <ProLockedCard
                   language={language}
                   teaser={t(language, 'coachChat.locked.teaser')}
-                  lines={message.lockedLines}
+                  body={message.lockedBody}
                   cta={t(language, 'coachChat.locked.cta')}
                   onPress={onOpenPremium}
                 />

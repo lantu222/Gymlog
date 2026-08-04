@@ -79,7 +79,7 @@ interface WorkoutCompletionScreenProps {
    * are the REAL deterministic conclusion; null hides the lock entirely (fresh
    * users and Pro users see nothing extra here).
    */
-  lockedInsight?: { teaser: string; lines: string[]; moment: ProMomentContent } | null;
+  lockedInsight?: { teaser: string; body: string; moment: ProMomentContent } | null;
   onOpenPremium?: () => void;
 }
 
@@ -428,7 +428,7 @@ export function WorkoutCompletionScreen({
               <ProLockedCard
                 language={language}
                 teaser={lockedInsight.teaser}
-                lines={lockedInsight.lines}
+                body={lockedInsight.body}
                 onPress={() => setMomentSheetVisible(true)}
               />
             </Animated.View>

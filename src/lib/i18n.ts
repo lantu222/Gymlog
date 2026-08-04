@@ -1482,13 +1482,13 @@ const EN = {
   'pro.plateau.headline': "Your {lift} hasn't moved in {count} sessions.",
   'pro.plateau.meta': '{weight} × {reps}, {count} sessions running · {from} – {to}',
   'pro.fix.teaser': 'One fix, from your own {count} sessions',
-  'pro.fix.recovery1': "It's recovery, not load — your later-set reps drop",
-  'pro.fix.recovery2': 'every session. Hold {weight} and cut one set.',
-  'pro.fix.reps1': 'Your reps are holding at this weight — earn the next',
-  'pro.fix.reps2': 'step: add one rep per set before raising {weight}.',
+  'pro.fix.recovery': "It's recovery, not load — your later-set reps drop every session. "
+    + 'Hold {weight} and cut one set.',
+  'pro.fix.reps':
+    'Your reps are holding at this weight — earn the next step: add one rep per set before raising {weight}.',
   'pro.completion.teaser': 'Your coach has one change for next time',
-  'pro.completion.line1': '{lift} is ready to try {weight} next session,',
-  'pro.completion.line2': 'if every set reaches the top of its rep range.',
+  'pro.completion.body':
+    '{lift} is ready to try {weight} next session, if every set reaches the top of its rep range.',
   'pro.logger.chip': 'Coach suggests a change for set {set}',
   'pro.sheet.plateau.eyebrow': 'YOUR {lift}',
   'pro.sheet.plateau.title': 'Why it stalled — and the way out',
@@ -1522,8 +1522,8 @@ const EN = {
   'pro.read.recoveryLow': 'Running low',
   'pro.read.recoveryMeta': '{count} sessions in the last 7 days',
   'pro.read.recoveryTeaser': 'Why — and what to do',
-  'pro.read.recoveryLine1': '{count} hard sessions this week is above your usual',
-  'pro.read.recoveryLine2': 'load — an easier session protects next week.',
+  'pro.read.recoveryBody':
+    '{count} hard sessions this week is above your usual load — an easier session protects next week.',
   'pro.read.footer': 'Statuses are always free. Every number behind them stays yours — history is never locked.',
   'pro.read.lockedTeaser': 'Why — and what to do',
   'pro.read.lockedCta': 'Unlock the read',
@@ -3895,13 +3895,15 @@ const FI: Record<I18nKey, string> = {
   'pro.plateau.headline': '{lift} ei ole liikkunut {count} treeniin.',
   'pro.plateau.meta': '{weight} × {reps}, {count} treeniä putkeen · {from} – {to}',
   'pro.fix.teaser': 'Yksi korjaus, omista {count} treenistäsi',
-  'pro.fix.recovery1': 'Kyse on palautumisesta, ei kuormasta — loppusarjojen',
-  'pro.fix.recovery2': 'toistot putoavat joka treenissä. Pidä {weight} ja pudota yksi sarja.',
-  'pro.fix.reps1': 'Toistosi pitävät tällä painolla — ansaitse seuraava',
-  'pro.fix.reps2': 'askel: lisää yksi toisto sarjaa kohti, ennen kuin nostat {weight}.',
+  'pro.fix.recovery':
+    'Kyse on palautumisesta, ei kuormasta — loppusarjojen toistot putoavat joka treenissä. '
+    + 'Pidä {weight} ja pudota yksi sarja.',
+  'pro.fix.reps':
+    'Toistosi pitävät tällä painolla — ansaitse seuraava askel: lisää yksi toisto sarjaa kohti, '
+    + 'ennen kuin nostat {weight}.',
   'pro.completion.teaser': 'Valmentajalla on yksi muutos ensi kertaan',
-  'pro.completion.line1': '{lift} on valmis kokeilemaan {weight} ensi treenissä,',
-  'pro.completion.line2': 'jos jokainen sarja yltää toistohaarukan yläpäähän.',
+  'pro.completion.body':
+    '{lift} on valmis kokeilemaan {weight} ensi treenissä, jos jokainen sarja yltää toistohaarukan yläpäähän.',
   'pro.logger.chip': 'Valmentaja ehdottaa muutosta sarjaan {set}',
   'pro.sheet.plateau.eyebrow': 'SINUN {lift}',
   'pro.sheet.plateau.title': 'Miksi se jumitti — ja miten siitä pääsee',
@@ -3935,8 +3937,8 @@ const FI: Record<I18nKey, string> = {
   'pro.read.recoveryLow': 'Vähissä',
   'pro.read.recoveryMeta': '{count} treeniä viimeisen 7 päivän aikana',
   'pro.read.recoveryTeaser': 'Miksi — ja mitä tehdä',
-  'pro.read.recoveryLine1': '{count} kovaa treeniä viikossa on yli tavanomaisen kuormasi',
-  'pro.read.recoveryLine2': '— kevyempi treeni suojaa ensi viikkoa.',
+  'pro.read.recoveryBody':
+    '{count} kovaa treeniä viikossa on yli tavanomaisen kuormasi — kevyempi treeni suojaa ensi viikkoa.',
   'pro.read.footer': 'Statukset ovat aina ilmaisia. Jokainen luku niiden takana pysyy sinun — historiaa ei koskaan lukita.',
   'pro.read.lockedTeaser': 'Miksi — ja mitä tehdä',
   'pro.read.lockedCta': 'Avaa luenta',

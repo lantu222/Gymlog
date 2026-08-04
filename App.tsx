@@ -1293,7 +1293,7 @@ function VinhaApp() {
   // The Pro page's coach specimen: the deterministic read of the user's own
   // stalled lift — the same text Pro unlocks at the plateau moments.
   const proCoachSpecimen = useMemo(
-    () => (proPlateau ? proPlateau.conclusion.lines.join(' ') : null),
+    () => (proPlateau ? proPlateau.conclusion.body : null),
     [proPlateau],
   );
   const homeActiveWorkoutSummary = useMemo(() => {
@@ -3490,7 +3490,7 @@ function VinhaApp() {
           !coachProUnlocked && proCompletionMoment
             ? {
                 teaser: proCompletionMoment.conclusion.teaser,
-                lines: proCompletionMoment.conclusion.lines,
+                body: proCompletionMoment.conclusion.body,
                 moment: proCompletionMoment.moment,
               }
             : null

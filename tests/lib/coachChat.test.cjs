@@ -19,9 +19,9 @@ function row(overrides) {
   };
 }
 
-const STALLED = row({ key: 'squat', tone: 'amber', status: 'Stalled', meta: 'Same top set × 4', locked: { teaser: 'One fix', lines: ['Hold the weight', 'and cut one set.'] } });
+const STALLED = row({ key: 'squat', tone: 'amber', status: 'Stalled', meta: 'Same top set × 4', locked: { teaser: 'One fix', body: 'Hold the weight and cut one set.' } });
 const IMPROVING = row({ key: 'bench', name: 'Bench press', tone: 'green', status: 'Improving' });
-const RECOVERY = row({ key: 'recovery', name: 'Recovery', tone: 'red', status: 'Running low', meta: '6 sessions in 7 days', locked: { teaser: 'Why', lines: ['Too much', 'this week.'] } });
+const RECOVERY = row({ key: 'recovery', name: 'Recovery', tone: 'red', status: 'Running low', meta: '6 sessions in 7 days', locked: { teaser: 'Why', body: 'Too much this week.' } });
 
 function intro(overrides) {
   return { todaySessionTitle: null, sessionsThisWeek: 0, weeklyRead: [], fatigue: null, ...overrides };

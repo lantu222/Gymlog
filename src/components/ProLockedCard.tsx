@@ -39,15 +39,15 @@ interface ProLockedCardProps {
   language: AppLanguage;
   /** Short plain-text finding line on the lock. */
   teaser: string;
-  /** The real conclusion, shown blurred. */
-  lines: string[];
+  /** The real conclusion, shown blurred. Wraps on its own. */
+  body: string;
   /** CTA label; defaults to "See the recommendation". */
   cta?: string;
   compact?: boolean;
   onPress: () => void;
 }
 
-export function ProLockedCard({ language, teaser, lines, cta, compact, onPress }: ProLockedCardProps) {
+export function ProLockedCard({ language, teaser, body, cta, compact, onPress }: ProLockedCardProps) {
   const styles = useThemedStyles(makeStyles);
 
   return (
@@ -65,11 +65,9 @@ export function ProLockedCard({ language, teaser, lines, cta, compact, onPress }
         <ProPill />
       </View>
       <View style={styles.hiddenBlock}>
-        {lines.map((line, index) => (
-          <Text key={index} style={styles.hiddenLine} numberOfLines={2}>
-            {line}
-          </Text>
-        ))}
+        {/* No numberOfLines: this is a real conclusion, so a longer
+            translation must wrap rather than lose its second half. */}
+        <Text style={styles.hiddenLine}>{body}</Text>
         {/* Android's text shadow is a mask filter, not a gaussian blur: on
             device the glyph shapes survived it and short lines stayed
             readable. A scrim over the top is what the old coach sheet had to

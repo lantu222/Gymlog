@@ -41,8 +41,15 @@ export interface PlateauDetection {
 export interface LockedConclusion {
   /** Short line on the lock, e.g. "One fix, from your own 4 sessions". */
   teaser: string;
-  /** The REAL conclusion, blurred for free users and readable for Pro. */
-  lines: string[];
+  /**
+   * The REAL conclusion, blurred for free users and readable for Pro.
+   *
+   * One sentence, not a list of visual lines. It used to be a string[] with
+   * the line break authored into the copy, which meant every translation
+   * inherited a break chosen for English width — and in Finnish two of the
+   * four pairs split a genitive from its head noun.
+   */
+  body: string;
 }
 
 export interface ProMomentContent {
@@ -178,19 +185,13 @@ export function buildPlateauDetection(lift: LiftHistory, language: AppLanguage):
 
 export function buildPlateauConclusion(lift: LiftHistory, language: AppLanguage): LockedConclusion {
   const weight = formatWeight(lift.latest.topSetWeightKg, 'kg');
-  const lines =
+  const body =
     stallReason(lift) === 'recovery'
-      ? [
-          t(language, 'pro.fix.recovery1'),
-          t(language, 'pro.fix.recovery2', { weight }),
-        ]
-      : [
-          t(language, 'pro.fix.reps1'),
-          t(language, 'pro.fix.reps2', { weight }),
-        ];
+      ? t(language, 'pro.fix.recovery', { weight })
+      : t(language, 'pro.fix.reps', { weight });
   return {
     teaser: t(language, 'pro.fix.teaser', { count: lift.stalledSessions }),
-    lines,
+    body,
   };
 }
 
@@ -271,13 +272,10 @@ export function buildCompletionConclusion(
   }
   return {
     teaser: t(language, 'pro.completion.teaser'),
-    lines: [
-      t(language, 'pro.completion.line1', {
-        lift: liftLabel,
-        weight: formatWeight(nextStepKg(lift, level), 'kg'),
-      }),
-      t(language, 'pro.completion.line2'),
-    ],
+    body: t(language, 'pro.completion.body', {
+      lift: liftLabel,
+      weight: formatWeight(nextStepKg(lift, level), 'kg'),
+    }),
   };
 }
 
@@ -367,10 +365,7 @@ export function buildWeeklyRead(
           ? null
           : {
               teaser: t(language, 'pro.read.recoveryTeaser'),
-              lines: [
-                t(language, 'pro.read.recoveryLine1', { count: fatigue.sessionCount7d }),
-                t(language, 'pro.read.recoveryLine2'),
-              ],
+              body: t(language, 'pro.read.recoveryBody', { count: fatigue.sessionCount7d }),
             },
     });
   }
