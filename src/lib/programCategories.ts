@@ -33,18 +33,84 @@ export interface ProgramCategory {
   labelKey: I18nKey;
   /** Drives the tile tint — one hue per category, as in the browse design. */
   hue: number;
+  /**
+   * The tile's three colours, pre-converted from the design's oklch.
+   *
+   * React Native has no oklch, and eyeballing nine hues into hex by hand drifts
+   * — two neighbouring categories end up the same colour and the tiles stop
+   * being distinguishable at a glance, which is the only reason they are
+   * coloured at all. These came out of an actual oklch→sRGB conversion of
+   * `0.94/0.045`, `0.88/0.05` and `0.48/0.16` at the hue above.
+   */
+  tint: { bg: string; border: string; ink: string };
+  /** 24×24 stroke path, drawn in `ink`. */
+  icon: string;
 }
 
 export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
-  { key: 'strength', labelKey: 'programs.cat.strength', hue: 268 },
-  { key: 'balanced', labelKey: 'programs.cat.balanced', hue: 96 },
-  { key: 'muscle', labelKey: 'programs.cat.muscle', hue: 222 },
-  { key: 'fatloss', labelKey: 'programs.cat.fatloss', hue: 28 },
-  { key: 'conditioning', labelKey: 'programs.cat.conditioning', hue: 156 },
-  { key: 'home', labelKey: 'programs.cat.home', hue: 62 },
-  { key: 'mobility', labelKey: 'programs.cat.mobility', hue: 300 },
-  { key: 'focus', labelKey: 'programs.cat.focus', hue: 200 },
-  { key: 'beginner', labelKey: 'programs.cat.beginner', hue: 12 },
+  {
+    key: 'strength',
+    labelKey: 'programs.cat.strength',
+    hue: 268,
+    tint: { bg: '#DEEBFF', border: '#C9D7FA', ink: '#3853B6' },
+    icon: 'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10',
+  },
+  {
+    key: 'balanced',
+    labelKey: 'programs.cat.balanced',
+    hue: 96,
+    tint: { bg: '#F4ECCA', border: '#E1D8B3', ink: '#795900' },
+    icon: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12h8M12 8v8',
+  },
+  {
+    key: 'muscle',
+    labelKey: 'programs.cat.muscle',
+    hue: 222,
+    tint: { bg: '#CBF3FF', border: '#B4E0EF', ink: '#006D9D' },
+    icon: 'M5 20V10M12 20V4M19 20v-7',
+  },
+  {
+    key: 'fatloss',
+    labelKey: 'programs.cat.fatloss',
+    hue: 28,
+    tint: { bg: '#FFE1DB', border: '#F7CCC5', ink: '#A52A24' },
+    icon: 'M12 3s5 4 5 9a5 5 0 01-10 0c0-2 1-3 1-3s0 2 2 2 2-4 2-8z',
+  },
+  {
+    key: 'conditioning',
+    labelKey: 'programs.cat.conditioning',
+    hue: 156,
+    tint: { bg: '#D4F5DF', border: '#BEE2CA', ink: '#007633' },
+    icon: 'M3 12h4l2-6 3 12 2-6h5',
+  },
+  {
+    key: 'home',
+    labelKey: 'programs.cat.home',
+    hue: 62,
+    tint: { bg: '#FFE5CD', border: '#F0D1B7', ink: '#994000' },
+    icon: 'M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5',
+  },
+  {
+    key: 'mobility',
+    labelKey: 'programs.cat.mobility',
+    hue: 300,
+    tint: { bg: '#EFE5FF', border: '#DCD1F4', ink: '#6D41A9' },
+    icon: 'M12 4a2 2 0 100 4 2 2 0 000-4zM12 8v6M8 20l4-6 4 6M8 11h8',
+  },
+  {
+    key: 'focus',
+    labelKey: 'programs.cat.focus',
+    hue: 200,
+    tint: { bg: '#C9F5F7', border: '#B2E2E4', ink: '#007581' },
+    icon: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 16a4 4 0 100-8 4 4 0 000 8z',
+  },
+  {
+    key: 'beginner',
+    labelKey: 'programs.cat.beginner',
+    hue: 12,
+    tint: { bg: '#FFE0E3', border: '#F7CBCF', ink: '#A32745' },
+    icon: 'M12 4l2.3 4.7 5.2.8-3.8 3.7.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.5l5.2-.8z',
+  },
 ];
 
 /**

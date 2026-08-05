@@ -96,7 +96,7 @@ module.exports = [
       // Counts come from the same source as the filter, so a tile cannot
       // promise a number the rail does not have.
       assert.match(app, /countByCategory\(workout\.templates\)/);
-      assert.match(screen, /categoryCounts\[key\]/);
+      assert.match(screen, /categoryCounts\[entry\.key\]/);
     },
   },
   {
@@ -114,14 +114,21 @@ module.exports = [
       assert.match(app, /entry\.id && entry\.whyKey/);
       assert.match(screen, /\{item\.why\}/);
 
-      // Empty rather than invented when the setup answers are missing.
-      assert.match(app, /if \(!waterfall\) \{\s*return \[\];/);
+      // No questionnaire is no longer an empty row. Choosing a ready program
+      // off the catalog is a statement of intent every bit as strong as
+      // answering a form, and it is more recent — the old row was permanently
+      // empty for exactly the people who had already told us what they want.
+      assert.match(app, /resolveProgramAffinity\(active, workout\.templates, 4\)/);
+      assert.match(app, /AFFINITY_REASON_KEYS\[match\.reason\]/);
       assert.match(screen, /recommendations\.length > 0 \? \(/);
+      // And the lead sentence says which of the two sources it used.
+      assert.match(screen, /recommendationSource === 'program'/);
 
       // Never labelled AI. aiInfo.never.2 states the model is never used to
       // pick a programme — it is recommendationScoring plus a waterfall, and
       // an AI badge here would contradict the app's own privacy page.
-      const forYou = screen.slice(screen.indexOf("'programs.forYou'"), screen.indexOf("Seasons before the general browse"));
+      const forYou = screen.slice(screen.indexOf("'programs.forYou'"), screen.indexOf('Four season tiles over two blocks'));
+      assert.ok(forYou.length > 200 && forYou.length < 4000, `the row span went wrong: ${forYou.length} chars`);
       assert.doesNotMatch(forYou, /AI/, 'the recommendation row must not claim to be AI');
       const lead = i18n
         .split(String.fromCharCode(10))

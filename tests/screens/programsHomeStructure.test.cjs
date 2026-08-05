@@ -69,32 +69,87 @@ module.exports = [
       // plan, because those two refuse to invent a rhythm and this one did not.
       assert.match(programsHomeSource, /anyFixedWeekday \? weekdayForSession\(index, sessionCount\) : null/);
       assert.match(programsHomeSource, /const anyFixedWeekday = allSessions\.some\(/);
-      // Unknown weekday falls back to the session number, not a made-up day.
-      assert.match(programsHomeSource, /: `\$\{index \+ 1\}`/);
+      // Unknown weekday draws no badge at all — not a made-up day, and not the
+      // session number either. The number was the same fact the title already
+      // states ("Päivä 1: …"), and it cost the title the width it truncated.
+      assert.match(programsHomeSource, /const weekdayText = weekday \? weekdayLabel\(weekday, language\) : null;/);
+      assert.match(programsHomeSource, /\{weekdayText \? \(/);
       assert.match(programsHomeSource, /dayRowToday/);
       assert.match(programsHomeSource, /t\(language, 'programs\.today'\)/);
       assert.doesNotMatch(programsHomeSource, /NEXT SESSION/);
-      // Actions: solid-accent View full plan, sub-actions, outlined New program → sheet.
+
+      // The day row is the day, its name and its length — nothing else. It
+      // used to also list the first three exercises, which is the one thing a
+      // reader glancing at their week does not need: they know it is squats.
+      assert.doesNotMatch(programsHomeSource, /session\.exercises\s*\n?\s*\.slice\(0, 3\)/);
+      assert.doesNotMatch(programsHomeSource, /styles\.dayFocus/);
+      assert.match(programsHomeSource, /styles\.dayDuration/);
+
+      // Actions: one solid View-full-plan button and nothing else.
       assert.match(programsHomeSource, /t\(language, 'programs\.viewPlan'\)/);
-      assert.match(programsHomeSource, /t\(language, 'programs\.swapExercises'\)/);
-      assert.match(i18nSource, /'programs\.swapExercises': 'Swap exercises'/);
-      assert.match(programsHomeSource, /onPress=\{onAdjustSchedule\}/);
-      assert.match(programsHomeSource, /t\(language, 'csv\.newProgram'\)/);
-      assert.match(programsHomeSource, /setCreateOpen\(true\)/);
+      // "Swap exercises · Adjust schedule" is gone. Both opened the plan
+      // screen, and nothing there can edit an exercise or a weekday — the row
+      // advertised two editing tools the app does not have.
+      assert.doesNotMatch(programsHomeSource, /t\(language, 'programs\.swapExercises'\)/);
+      assert.doesNotMatch(programsHomeSource, /onAdjustSchedule/);
+
+      // Exactly ONE way to start a new program on this page. There were two,
+      // one at the top and one at the bottom, and both were the same action.
+      assert.equal((programsHomeSource.match(/setCreateOpen\(true\)/g) ?? []).length, 2,
+        'one button plus the campaign slide, and nothing else, may open the sheet');
+      assert.doesNotMatch(programsHomeSource, /t\(language, 'csv\.newProgram'\)/);
       assert.match(programsHomeSource, /<NewProgramSheet/);
-      // Switch rail: designed gradient covers (oklch pre-converted to sRGB), not
-      // photos. Tapping a card opens the switch-program sheet.
-      assert.match(programsHomeSource, /programs\.switchProgram/);
+
+      // Designed gradient covers (oklch pre-converted to sRGB), not photos.
       assert.doesNotMatch(programsHomeSource, /EXPLORE PROGRAMS/);
       assert.match(programsHomeSource, /const COVER_STYLES/);
       assert.match(programsHomeSource, /function ProgramCover/);
       assert.match(programsHomeSource, /RadialGradient/);
-      // The rail is filterable now: no category shows the curated eight,
-      // a category shows the whole catalog narrowed to it. A tile saying
-      // "Voima 8" filtering the curated list would have opened three.
-      assert.match(programsHomeSource, /category === null[\s\S]{0,40}exploreItems/);
+
+      // Categories are TILES, not text chips. Colour and shape are read
+      // before a word is, which is the only reason a browse row is coloured;
+      // the first build quietly shipped nine identical grey pills instead.
+      assert.match(programsHomeSource, /styles\.catTile\b/);
+      assert.match(programsHomeSource, /d=\{entry\.icon\}/);
+      assert.match(programsHomeSource, /stroke=\{entry\.tint\.ink\}/);
+      assert.match(programsHomeSource, /backgroundColor: entry\.tint\.bg/);
+      // A tile that says 8 has to open 8: the count and the rail read the
+      // same source.
+      assert.match(programsHomeSource, /categoryCounts\[entry\.key\]/);
       assert.match(programsHomeSource, /categoryMembers\[category\]/);
+      // The catalog rail only exists once a tile is tapped — an always-open
+      // rail underneath made the tiles above look decorative.
+      assert.match(programsHomeSource, /\{category !== null \?/);
       assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
+
+      // The rotating hero, and the four season tiles.
+      assert.match(programsHomeSource, /function CampaignHero/);
+      assert.match(programsHomeSource, /setInterval\(/);
+      // Touching it stops the timer for good: a card that moves under your
+      // thumb while you read it is hostile.
+      assert.match(programsHomeSource, /onScrollBeginDrag=\{\(\) => setRunning\(false\)\}/);
+      assert.match(programsHomeSource, /orderSeasonTiles\(\)\.map/);
+      assert.match(programsHomeSource, /currentSeasonTile\(\)/);
+      // Every slide and tile goes somewhere real, including the season CTA,
+      // which scrolls to a measured offset rather than a guessed one.
+      assert.match(programsHomeSource, /const handleCampaignTarget = \(target: CampaignTarget\)/);
+      assert.match(programsHomeSource, /seasonOffset\.current = event\.nativeEvent\.layout\.y/);
+
+      // Continue: real logged work only.
+      assert.match(programsHomeSource, /continueItems\.length > 0/);
+      assert.match(programsHomeSource, /'programs\.continue\.sessions'/);
+
+      // Cards come in three sizes now. A page where five sections draw the
+      // same 274×176 card has told the reader nothing about what matters.
+      const sizes = new Set(
+        [...programsHomeSource.matchAll(/width=\{(\d+)\}\s*\n\s*height=\{(\d+)\}/g)].map(
+          (match) => `${match[1]}x${match[2]}`,
+        ),
+      );
+      assert.ok(sizes.size >= 2, `covers still draw at one size: ${[...sizes].join(', ')}`);
+
+      // Trending has a way out of it.
+      assert.match(programsHomeSource, /'programs\.trending\.all'/);
       // The cover meta went through the dictionary after an emulator pass
       // found "3d / wk", "3 days / week", "Muscle" and "Strength" on cards
       // in the Finnish app — directly under category chips reading the same
@@ -108,7 +163,14 @@ module.exports = [
       assert.match(programsHomeSource, /'programs\.library\.sub'/);
       // Switch-program sheet: explainer + Cancel / Switch program; confirm opens
       // the picked program (existing ready-program detail path).
-      assert.match(programsHomeSource, /Switching starts a fresh block/);
+      //
+      // This sheet shipped in English inside a Finnish screen for weeks,
+      // together with an "or 'program'" fallback that named nothing. Both the
+      // sentence and the meta line go through the dictionary now.
+      assert.doesNotMatch(programsHomeSource, /Switching starts a fresh block/);
+      assert.doesNotMatch(programsHomeSource, /\?\? 'program'/);
+      assert.match(programsHomeSource, /'programs\.switchSheet\.body'/);
+      assert.match(programsHomeSource, /'programs\.switchSheet\.meta'/);
       assert.match(programsHomeSource, /programs\.switchConfirm/);
       assert.match(programsHomeSource, /onOpenExploreProgram\(id\)/);
       // Your programs + create + library.
@@ -128,12 +190,20 @@ module.exports = [
       assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'programs_home'/);
       // Active program reuses the already-computed home plan card.
       assert.match(appSource, /activeProgram=\{\s*homeActivePlanCard/);
-      // Explore comes from the ready templates via getReadyProgramContent, each
-      // assigned one of the designed cover styles.
-      assert.match(appSource, /const programsExploreItems = useMemo<ProgramsExploreItem\[\]>/);
+      // The curated eight-program Explore rail is gone with the always-open
+      // catalog row it fed; the category tiles are the way in now.
+      assert.doesNotMatch(appSource, /const programsExploreItems = useMemo/);
       assert.match(appSource, /getReadyProgramContent\(template\.id, preferences\.appLanguage\)\?\.summary/);
       assert.match(appSource, /coverIndex: index % 5/);
       assert.match(appSource, /const programsCustomItems = useMemo/);
+      // Continue is built from logged sessions, and never from the active
+      // program — that one already owns the hero and the whole week above.
+      assert.match(appSource, /resolveContinueEntries\(workoutSessions, \{/);
+      assert.match(appSource, /excludeTemplateId: homeActivePlanCard\?\.programId \?\? null/);
+      // Campaign counts read the same catalog the tiles filter, so a slide
+      // cannot advertise a season with nothing in it.
+      assert.match(appSource, /seasonCount: programsSeasonTileCounts\[getSeasonForDate\(\)\]/);
+      assert.match(appSource, /exerciseCount: exerciseBrowserItems\.length/);
       // Handlers reuse existing navigation, nothing new invented.
       assert.match(appSource, /onOpenExploreProgram=\{handleOpenReadyProgramDetail\}/);
       assert.match(appSource, /onOpenCustomProgram=\{handleOpenCustomProgramDetail\}/);

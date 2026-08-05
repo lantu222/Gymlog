@@ -79,11 +79,20 @@ module.exports = [
       const app = read('App.tsx');
 
       // A cover that took no fingerprint would silently fall back to the
-      // gradient alone, and the feature would be half-present.
-      assert.equal((screen.match(/<ProgramCover/g) ?? []).length, 3);
-      assert.equal((screen.match(/fingerprint=\{item\.fingerprint\}/g) ?? []).length, 3);
+      // gradient alone, and the feature would be half-present. Every cover on
+      // the page passes one — the count is not pinned, because rows come and
+      // go; what must hold is that none of them skips it.
+      const covers = (screen.match(/<ProgramCover/g) ?? []).length;
+      assert.ok(covers >= 4, `only ${covers} covers on the page`);
+      assert.equal((screen.match(/fingerprint=\{item\.fingerprint\}/g) ?? []).length, covers);
       // Built from the template, not from a card field that could drift.
-      assert.equal((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length, 4);
+      assert.ok((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 4);
+
+      // The bars scale with the cover. They were hard-coded to a 74px ceiling
+      // against a 176px card; dropped onto a 92px continue cover unchanged
+      // they would have run off the top of it.
+      assert.match(screen, /const barCeiling = Math\.max\(18, height \* 0\.42\)/);
+      assert.match(screen, /barRatio \* barCeiling/);
     },
   },
 ];

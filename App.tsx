@@ -95,7 +95,10 @@ import {
 } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
-import { getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
+import { getSeasonForDate, getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
+import { buildProgramCampaigns } from './src/lib/programCampaigns';
+import { resolveContinueEntries } from './src/lib/programContinue';
+import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
@@ -3061,43 +3064,6 @@ function VinhaApp() {
     : 'Browse';
   const readyProgramCtaLabel = 'Browse ready plans';
   const customProgramCount = customWorkouts.length;
-  const programsExploreItems = useMemo<ProgramsExploreItem[]>(
-    () => {
-      // Curated Explore row: one card per program family (goal-first naming),
-      // mixing the rebranded catalog with the Vinha identity programs.
-      const exploreIds = [
-        'tpl_3_day_push_pull_legs_v1', // HUGE
-        'tpl_3_day_strength_base_v1', // STRONG
-        'tpl_huge_starter_v1', // HUGE Starter
-        'tpl_focus_chest_program_v1', // FOCUS Chest
-        'tpl_gainer_dream_body_man_v1',
-        'tpl_gainer_hourglass_shape_v1',
-        'tpl_gainer_at_home_beginner_v1',
-        'tpl_3_day_run_mobility_v1', // RUN
-      ];
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
-      return exploreIds
-        .map((id) => byId.get(id))
-        .filter((template): template is NonNullable<typeof template> => Boolean(template))
-        .map((template, index) => ({
-          id: template.id,
-          name: formatWorkoutDisplayLabel(template.name),
-          goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-          blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
-          days: template.daysPerWeek,
-          minutes: template.estimatedSessionDuration,
-          // Cycles the 5 designed cover styles so each catalog card is distinct.
-          coverIndex: index % 5,
-          fingerprint: buildProgramFingerprint(template),
-        }));
-    },
-    // The language arrives with the hydrated database, AFTER the first
-    // render. Without it in the deps this memo keeps the English blurbs it
-    // computed against the seed default — which is exactly what shipped:
-    // the season rows read Finnish and this rail read English, from the
-    // same dictionary.
-    [preferences.appLanguage, workout.templates],
-  );
   /**
    * The season rows.
    *
@@ -3218,13 +3184,42 @@ function VinhaApp() {
    * and it is: recommendationScoring plus a waterfall, covered by tests. An AI
    * badge here would contradict the app's own privacy page.
    */
+  /**
+   * Where the "For you" row gets its picks.
+   *
+   * The questionnaire wins when it exists, because those answers are explicit.
+   * When it does not — which is everyone who chose a ready program off the
+   * catalog instead of filling a form — the active program IS the answer, and
+   * the row used to be permanently empty for exactly those people.
+   */
+  const programsRecommendationSource: 'setup' | 'program' = setupRecommendation?.waterfall
+    ? 'setup'
+    : 'program';
   const programsRecommendations = useMemo(
     () => {
+      const byId = new Map(workout.templates.map((template) => [template.id, template]));
       const waterfall = setupRecommendation?.waterfall;
       if (!waterfall) {
-        return [];
+        // No questionnaire: recommend neighbours of the program being run.
+        const active = homeActivePlanCard?.programId ? byId.get(homeActivePlanCard.programId) : null;
+        return resolveProgramAffinity(active, workout.templates, 4)
+          .map((match, index) => {
+            const template = byId.get(match.templateId);
+            return template
+              ? {
+                  id: template.id,
+                  name: formatWorkoutDisplayLabel(template.name),
+                  goal: formatGoalLabel(template.goalType, preferences.appLanguage),
+                  why: t(preferences.appLanguage, AFFINITY_REASON_KEYS[match.reason]),
+                  days: template.daysPerWeek,
+                  minutes: template.estimatedSessionDuration,
+                  coverIndex: index % 5,
+                  fingerprint: buildProgramFingerprint(template),
+                }
+              : null;
+          })
+          .filter((item): item is NonNullable<typeof item> => Boolean(item));
       }
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
       return [
         { id: waterfall.primaryProgramId, whyKey: waterfall.whyPrimary },
         { id: waterfall.alternativeProgramId, whyKey: waterfall.whyAlternative },
@@ -3247,7 +3242,93 @@ function VinhaApp() {
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item));
     },
-    [preferences.appLanguage, setupRecommendation?.waterfall, workout.templates],
+    [
+      homeActivePlanCard?.programId,
+      preferences.appLanguage,
+      setupRecommendation?.waterfall,
+      workout.templates,
+    ],
+  );
+  /**
+   * The rotating hero's slides, and the counts they promise.
+   *
+   * Every count is read off the same catalog the tiles filter, so a slide
+   * cannot advertise a season that has nothing in it.
+   */
+  const programsSeasonTileCounts = useMemo(
+    () => ({
+      winter: getSeasonProgramIds('winter').length,
+      summer: getSeasonProgramIds('summer').length,
+    }),
+    [],
+  );
+  const programsCampaigns = useMemo(
+    () =>
+      buildProgramCampaigns({
+        season: getSeasonForDate(),
+        seasonCount: programsSeasonTileCounts[getSeasonForDate()],
+        strengthCount: programsCategoryCounts.strength ?? 0,
+        exerciseCount: exerciseBrowserItems.length,
+      }),
+    [exerciseBrowserItems.length, programsCategoryCounts, programsSeasonTileCounts],
+  );
+  /**
+   * Programs with real logged work, most recently trained first.
+   *
+   * Built from completed sessions rather than from "programs you opened": a
+   * program you looked at is not one you left off.
+   */
+  const programsContinueItems = useMemo(
+    () => {
+      const byId = new Map(workout.templates.map((template) => [template.id, template]));
+      const customById = new Map(customWorkouts.map((template) => [template.id, template]));
+      return resolveContinueEntries(workoutSessions, {
+        excludeTemplateId: homeActivePlanCard?.programId ?? null,
+        limit: 6,
+      })
+        .map((entry, index) => {
+          const template = byId.get(entry.templateId);
+          if (template) {
+            return {
+              id: template.id,
+              name: formatWorkoutDisplayLabel(template.name),
+              goal: formatGoalLabel(template.goalType, preferences.appLanguage),
+              blurb: '',
+              days: template.daysPerWeek,
+              minutes: template.estimatedSessionDuration,
+              coverIndex: index % 5,
+              fingerprint: buildProgramFingerprint(template),
+              sessionCount: entry.sessionCount,
+              daysSince: entry.daysSince,
+            };
+          }
+          // A custom program the reader built. It has no ready-program content
+          // behind it, so the card carries only what the template really says.
+          const custom = customById.get(entry.templateId);
+          return custom
+            ? {
+                id: custom.id,
+                name: formatWorkoutDisplayLabel(custom.name),
+                goal: t(preferences.appLanguage, 'programs.yourPrograms'),
+                blurb: '',
+                days: custom.sessionCount,
+                minutes: 0,
+                coverIndex: index % 5,
+                fingerprint: [],
+                sessionCount: entry.sessionCount,
+                daysSince: entry.daysSince,
+              }
+            : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    },
+    [
+      customWorkouts,
+      homeActivePlanCard?.programId,
+      preferences.appLanguage,
+      workout.templates,
+      workoutSessions,
+    ],
   );
   /**
    * Goals with a bar that can move.
@@ -4343,13 +4424,16 @@ function VinhaApp() {
               }
             : null
         }
-        exploreItems={programsExploreItems}
         seasonRows={programsSeasonRows}
         catalogItems={programsCatalogItems}
         categoryCounts={programsCategoryCounts}
         categoryMembers={programsCategoryMembers}
         trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
+        recommendationSource={programsRecommendationSource}
+        campaigns={programsCampaigns}
+        continueItems={programsContinueItems}
+        seasonTileCounts={programsSeasonTileCounts}
         goals={programsGoals}
         goalCandidates={programsGoalCandidates}
         onSetGoal={(exerciseName, targetKg) =>
@@ -4369,7 +4453,6 @@ function VinhaApp() {
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}
-        onAdjustSchedule={handleOpenPlanSettings}
         onAiAssisted={() => navigate(coachProUnlocked ? { tab: 'home', screen: 'ai_setup' } : { tab: 'profile', screen: 'premium' })}
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
