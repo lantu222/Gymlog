@@ -8,6 +8,7 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailViewModel } from '../lib/programDetails';
+import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { Theme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
@@ -75,6 +76,21 @@ interface ProgramDetailScreenProps {
   destructiveActionTitle?: string;
   destructiveActionMessage?: string;
   onDestructiveAction?: () => void;
+  /**
+   * The template's own progression rules, when it has them. Custom programs
+   * do not — they are the reader's own sessions with no rule attached, and
+   * inventing one for them would be inventing the whole section.
+   */
+  progressionRules?: {
+    primary: string;
+    secondary: string;
+    accessory: string;
+    failureHandling: string;
+  } | null;
+  /** Who the program is for, already in the reader's language. */
+  audience?: string | null;
+  /** Training days the reader's own week has, when the setup says. */
+  availableDays?: number | null;
   activePlanSummary?: {
     weekLabel: string;
     progressPercent: number;
@@ -190,6 +206,9 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onEdit,
+  progressionRules = null,
+  audience = null,
+  availableDays = null,
   destructiveActionLabel,
   destructiveActionTitle,
   destructiveActionMessage,
@@ -200,6 +219,18 @@ export function ProgramDetailScreen({
   const styles = useThemedStyles(makeStyles);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const { width: heroWidth } = useWindowDimensions();
+  /**
+   * The one thing that makes a good program the wrong pick: a week without
+   * room for it. Only shown when the setup actually says how many days the
+   * reader has — guessing would turn a real warning into noise.
+   */
+  const daysWarning =
+    availableDays != null && availableDays > 0 && program.sessions.length > availableDays
+      ? t(language, 'detail.daysWarning', {
+          count: program.sessions.length,
+          have: availableDays,
+        })
+      : null;
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout plan');
   /**
    * The hero's bars: one per session, height from its exercise count.
@@ -482,6 +513,64 @@ export function ProgramDetailScreen({
           })}
         </View>
 
+        {/* How the weight goes up.
+            The catalog carries these four rules per template and the app had
+            never shown one: they were written in English, and the screen's
+            answer to English text had been not to render it. 55 templates
+            share 69 distinct sentences between them, so they are translated
+            the same way exercise names are. */}
+        {progressionRules ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t(language, 'detail.progression')}</Text>
+            </View>
+            <View style={styles.ruleCard}>
+              {(
+                [
+                  ['detail.rule.primary', progressionRules.primary],
+                  ['detail.rule.secondary', progressionRules.secondary],
+                  ['detail.rule.failure', progressionRules.failureHandling],
+                ] as Array<[I18nKey, string]>
+              ).map(([labelKey, rule], index) => (
+                <View key={labelKey} style={[styles.ruleRow, index > 0 && styles.ruleRowDivider]}>
+                  <Text style={styles.ruleIndex}>{index + 1}</Text>
+                  <Text style={styles.ruleText}>
+                    <Text style={styles.ruleLead}>{t(language, labelKey)} </Text>
+                    {progressionRuleLabel(language, rule)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        {/* Who it is for, and the one thing that can make it the wrong pick:
+            a week that does not have room for it. */}
+        {audience ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t(language, 'detail.forWhom')}</Text>
+            </View>
+            <View style={styles.ruleCard}>
+              <Text style={styles.audienceText}>{audience}</Text>
+              {daysWarning ? (
+                <View style={styles.warnRow}>
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 4l9 16H3z M12 10v4M12 17v.01"
+                      stroke="#D97706"
+                      strokeWidth={2.2}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </Svg>
+                  <Text style={styles.warnText}>{daysWarning}</Text>
+                </View>
+              ) : null}
+            </View>
+          </>
+        ) : null}
+
         {hasDestructiveAction ? (
           <Pressable onPress={() => setConfirmVisible(true)} style={styles.destructiveButton}>
             <Text style={styles.destructiveButtonText}>{destructiveActionLabel}</Text>
@@ -649,6 +738,62 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   rhythmDayLabelOn: {
     color: '#FFFFFF',
+  },
+  ruleCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: '#EFEAFB',
+    backgroundColor: PLAN_SURFACE,
+    padding: 14,
+  },
+  ruleRow: {
+    flexDirection: 'row',
+    gap: 10,
+    paddingVertical: 10,
+  },
+  ruleRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: '#F5F1FC',
+  },
+  ruleIndex: {
+    width: 14,
+    color: PLAN_PURPLE,
+    fontSize: 12.5,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  ruleText: {
+    flex: 1,
+    color: '#3F3A4B',
+    fontSize: 12.5,
+    lineHeight: 19,
+    fontWeight: '600',
+  },
+  ruleLead: {
+    color: PLAN_TEXT,
+    fontWeight: '800',
+  },
+  audienceText: {
+    color: '#3F3A4B',
+    fontSize: 13,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  warnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F5F1FC',
+  },
+  warnText: {
+    flex: 1,
+    color: '#8A5C22',
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   roleTag: {
     borderRadius: 6,

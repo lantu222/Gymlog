@@ -3761,6 +3761,18 @@ function VinhaApp() {
       <ProgramDetailScreen
         language={preferences.appLanguage}
         program={program}
+        // The template's own progression rules and audience. Custom programs
+        // have neither — they are the reader's own sessions with no rule
+        // attached, and inventing one would invent the whole section.
+        progressionRules={readyTemplate?.progressionRules ?? null}
+        audience={
+          readyTemplate
+            ? getReadyProgramContent(readyTemplate.id, preferences.appLanguage)?.audience ?? null
+            : null
+        }
+        availableDays={
+          preferences.setupAvailableDays.length > 0 ? preferences.setupAvailableDays.length : null
+        }
         activePlanSummary={
           homeActivePlanCard?.programId === route.workoutTemplateId && homeActivePlanCard.programType === route.programType
             ? {

@@ -60,6 +60,20 @@ module.exports = [
       assert.match(programDetailSource, /detail\.cooldown/);
       assert.match(programDetailSource, /sessionContentSection/);
       assert.match(programDetailSource, /workoutCard/);
+
+      // How the weight goes up. The catalog carries four rules per template
+      // and the app had never shown one — they were written in English, and
+      // the screen's answer to English text had been not to render it.
+      assert.match(programDetailSource, /'detail\.progression'/);
+      assert.match(programDetailSource, /progressionRuleLabel\(language, rule\)/);
+      assert.match(appSource, /progressionRules=\{readyTemplate\?\.progressionRules \?\? null\}/);
+      // Custom programs have no rules and get no section: they are the
+      // reader's own sessions, and inventing a rule invents the whole thing.
+      assert.match(programDetailSource, /\{progressionRules \? \(/);
+      // The warning only fires when the setup actually says how many days the
+      // reader has. Guessing would turn a real warning into noise.
+      assert.match(programDetailSource, /availableDays != null && availableDays > 0/);
+
       assert.match(programDetailSource, /stickyFooter/);
       assert.match(programDetailSource, /onStartSession\(nextSession\.id\)/);
       assert.match(programDetailSource, /program\.sessions\.map/);
