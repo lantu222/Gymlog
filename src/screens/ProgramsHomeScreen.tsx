@@ -15,6 +15,7 @@ import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { I18nKey, t } from '../lib/i18n';
+import type { ProgramSeason } from '../lib/programSeasons';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
@@ -131,6 +132,16 @@ export interface ProgramsCustomItem {
 interface ProgramsHomeScreenProps {
   activeProgram?: ProgramsActiveProgram | null;
   exploreItems: ProgramsExploreItem[];
+  /**
+   * Winter and summer, current season first.
+   *
+   * The one piece of this catalog a global competitor cannot copy per market:
+   * October to March in Finland the sun is gone and training moves indoors,
+   * and the reason to open a training app in November is not the reason in
+   * June. Free, like every ready program — a paywalled reason to come back
+   * brings nobody back.
+   */
+  seasonRows: Array<{ season: ProgramSeason; items: ProgramsExploreItem[] }>;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
   onStartActiveSession: (sessionId: string) => void;
@@ -252,6 +263,7 @@ function ProgramCover({ style, goal, days, name }: { style: (typeof COVER_STYLES
 export function ProgramsHomeScreen({
   activeProgram = null,
   exploreItems,
+  seasonRows,
   customPrograms,
   exerciseLibraryCount,
   onStartActiveSession,
@@ -446,6 +458,56 @@ export function ProgramsHomeScreen({
           </Svg>
           <Text style={styles.newProgramButtonText}>{t(language, 'csv.newProgram')}</Text>
         </Pressable>
+
+        {/* Seasons before the general browse: the row that knows what month
+            it is earns the higher position, and the switch rail below is the
+            same catalog without an opinion about the weather. */}
+        {seasonRows.map((row) => (
+          <View key={row.season}>
+            <View style={styles.sectionHeadRow}>
+              <Text style={styles.sectionEyebrow}>
+                {t(language, row.season === 'winter' ? 'programs.season.winter' : 'programs.season.summer')}
+              </Text>
+              <Text style={styles.seasonCount}>
+                {t(language, 'programs.season.count', { count: row.items.length })}
+              </Text>
+            </View>
+            <Text style={styles.seasonLead}>
+              {t(language, row.season === 'winter' ? 'programs.season.winterLead' : 'programs.season.summerLead')}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.exploreRow}
+              style={styles.exploreScroll}
+            >
+              {row.items.map((item) => {
+                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
+                return (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
+                    onPress={() => setPicked(item)}
+                    style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
+                  >
+                    <ProgramCover style={style} goal={item.goal} days={item.days} name={item.name} />
+                    <View style={styles.exploreBody}>
+                      <Text style={styles.exploreBlurb} numberOfLines={2}>
+                        {item.blurb}
+                      </Text>
+                      <View style={styles.exploreMetaRow}>
+                        <Text style={styles.exploreMeta}>{item.days} days / week</Text>
+                        <View style={styles.metaDot} />
+                        <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ))}
 
         <View style={styles.sectionHeadRow}>
           <Text style={styles.sectionEyebrow}>{t(language, 'programs.switchProgram')}</Text>
@@ -868,6 +930,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 15,
     fontWeight: '800',
     letterSpacing: 1.1,
+  },
+  seasonCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: theme.muted,
+  },
+  seasonLead: {
+    marginTop: -4,
+    marginBottom: 10,
+    paddingHorizontal: 20,
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 18,
+    color: theme.muted,
   },
   sectionEyebrowStandalone: {
     color: theme.faint,

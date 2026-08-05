@@ -95,6 +95,7 @@ import {
 } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
+import { getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
 import { ProgramLimitSheet } from './src/components/ProgramLimitSheet';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
 import { applySessionAdaptation, previewSessionTrim } from './src/lib/sessionAdaptation';
@@ -3075,6 +3076,37 @@ function VinhaApp() {
     },
     [workout.templates],
   );
+  /**
+   * The season rows.
+   *
+   * Same card shape as Explore, so a program looks the same wherever it is
+   * met — and built from the same templates rather than a parallel list, so a
+   * season cannot drift into offering something the catalog no longer has.
+   *
+   * Free, like every ready program. Seasonal content is the reason to open
+   * this app in November; a paywalled reason to come back brings nobody back.
+   */
+  const programsSeasonRows = useMemo(
+    () => {
+      const byId = new Map(workout.templates.map((template) => [template.id, template]));
+      return orderSeasons().map((season) => ({
+        season,
+        items: getSeasonProgramIds(season)
+          .map((id) => byId.get(id))
+          .filter((template): template is NonNullable<typeof template> => Boolean(template))
+          .map((template, index) => ({
+            id: template.id,
+            name: formatWorkoutDisplayLabel(template.name),
+            goal: formatGoalLabel(template.goalType),
+            blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
+            days: template.daysPerWeek,
+            minutes: template.estimatedSessionDuration,
+            coverIndex: index % 5,
+          })),
+      }));
+    },
+    [preferences.appLanguage, workout.templates],
+  );
   const programsCustomItems = useMemo(
     () =>
       customWorkouts.map((template) => ({
@@ -4142,6 +4174,7 @@ function VinhaApp() {
             : null
         }
         exploreItems={programsExploreItems}
+        seasonRows={programsSeasonRows}
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}
