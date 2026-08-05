@@ -58,6 +58,7 @@ const suites = [
   ...require('./lib/programSlots.test.cjs'),
   ...require('./lib/programSeasons.test.cjs'),
   ...require('./lib/programCategories.test.cjs'),
+  ...require('./lib/programFingerprint.test.cjs'),
   ...require('./lib/historyWindow.test.cjs'),
   ...require('./lib/workoutLogCsvExport.test.cjs'),
   ...require('./lib/aiCoachBudget.test.cjs'),

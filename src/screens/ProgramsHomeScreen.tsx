@@ -122,6 +122,8 @@ export interface ProgramsExploreItem {
   days: number;
   minutes: number;
   coverIndex: number;
+  /** The program's week as bar heights — see lib/programFingerprint. */
+  fingerprint: number[];
 }
 
 export interface ProgramsCustomItem {
@@ -176,6 +178,7 @@ interface ProgramsHomeScreenProps {
     days: number;
     minutes: number;
     coverIndex: number;
+    fingerprint: number[];
   }>;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
@@ -236,7 +239,27 @@ function GradientTile({ stops, size, radius }: { stops: [string, string]; size: 
   );
 }
 
-function ProgramCover({ style, goal, days, name }: { style: (typeof COVER_STYLES)[number]; goal: string; days: number; name: string }) {
+function ProgramCover({
+  style,
+  goal,
+  days,
+  name,
+  fingerprint,
+}: {
+  style: (typeof COVER_STYLES)[number];
+  goal: string;
+  days: number;
+  name: string;
+  /**
+   * One bar per session, height proportional to that session's working sets.
+   *
+   * The design this came from called these a fingerprint and then drew a sine
+   * wave, so two programs could look identical while claiming to show their
+   * shape. These are the real thing: bar count is the days per week and the
+   * heights are where the work sits, both readable before a word of the name.
+   */
+  fingerprint: number[];
+}) {
   const styles = useThemedStyles(makeStyles);
 
   const gid = `cover-${style.cover[0]}`.replace(/[^a-zA-Z0-9]/g, '');
@@ -263,6 +286,28 @@ function ProgramCover({ style, goal, days, name }: { style: (typeof COVER_STYLES
         {Array.from({ length: 9 }, (_, i) => (
           <Path key={i} d={`M${-40 + i * 42} ${COVER_H} L${40 + i * 42} 0`} stroke="#FFFFFF" strokeOpacity={0.06} strokeWidth={1} />
         ))}
+        {/* The week, as bars. Drawn under the shade gradient so the name stays
+            readable over them, and inset from the tag row above. */}
+        {fingerprint.length > 0
+          ? fingerprint.map((height, index) => {
+              const slot = (COVER_W - 32) / fingerprint.length;
+              const barWidth = Math.max(4, Math.min(18, slot - 5));
+              const maxHeight = 54;
+              const barHeight = Math.max(4, height * maxHeight);
+              return (
+                <Rect
+                  key={index}
+                  x={16 + index * slot + (slot - barWidth) / 2}
+                  y={COVER_H - 34 - barHeight}
+                  width={barWidth}
+                  height={barHeight}
+                  rx={2}
+                  fill="#FFFFFF"
+                  fillOpacity={0.34}
+                />
+              );
+            })
+          : null}
         {/* signature motif watermark, bottom-right */}
         <Svg x={COVER_W - 132} y={COVER_H - 128} width={150} height={150} viewBox="0 0 24 24">
           <Path d={style.motif} stroke="#FFFFFF" strokeOpacity={0.16} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
@@ -531,7 +576,13 @@ export function ProgramsHomeScreen({
                     }}
                     style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
                   >
-                    <ProgramCover style={style} goal={item.goal} days={item.days} name={item.name} />
+                    <ProgramCover
+                      style={style}
+                      goal={item.goal}
+                      days={item.days}
+                      name={item.name}
+                      fingerprint={item.fingerprint}
+                    />
                     <View style={styles.exploreBody}>
                       {/* The reason, not a blurb. A card that cannot say why it
                           is here does not belong in this row. */}
@@ -583,7 +634,13 @@ export function ProgramsHomeScreen({
                     onPress={() => setPicked(item)}
                     style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
                   >
-                    <ProgramCover style={style} goal={item.goal} days={item.days} name={item.name} />
+                    <ProgramCover
+                      style={style}
+                      goal={item.goal}
+                      days={item.days}
+                      name={item.name}
+                      fingerprint={item.fingerprint}
+                    />
                     <View style={styles.exploreBody}>
                       <Text style={styles.exploreBlurb} numberOfLines={2}>
                         {item.blurb}
@@ -651,7 +708,13 @@ export function ProgramsHomeScreen({
                 onPress={() => setPicked(item)}
                 style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
               >
-                <ProgramCover style={style} goal={item.goal} days={item.days} name={item.name} />
+                <ProgramCover
+                      style={style}
+                      goal={item.goal}
+                      days={item.days}
+                      name={item.name}
+                      fingerprint={item.fingerprint}
+                    />
                 <View style={styles.exploreBody}>
                   <Text style={styles.exploreBlurb} numberOfLines={2}>
                     {item.blurb}

@@ -97,6 +97,7 @@ import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplic
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
+import { buildProgramFingerprint } from './src/lib/programFingerprint';
 import {
   countByCategory,
   filterByCategory,
@@ -3079,6 +3080,7 @@ function VinhaApp() {
           minutes: template.estimatedSessionDuration,
           // Cycles the 5 designed cover styles so each catalog card is distinct.
           coverIndex: index % 5,
+          fingerprint: buildProgramFingerprint(template),
         }));
     },
     [workout.templates],
@@ -3109,6 +3111,7 @@ function VinhaApp() {
             days: template.daysPerWeek,
             minutes: template.estimatedSessionDuration,
             coverIndex: index % 5,
+            fingerprint: buildProgramFingerprint(template),
           })),
       }));
     },
@@ -3133,6 +3136,7 @@ function VinhaApp() {
         days: template.daysPerWeek,
         minutes: template.estimatedSessionDuration,
         coverIndex: index % 5,
+        fingerprint: buildProgramFingerprint(template),
       })),
     [preferences.appLanguage, workout.templates],
   );
@@ -3219,6 +3223,7 @@ function VinhaApp() {
                 days: template.daysPerWeek,
                 minutes: template.estimatedSessionDuration,
                 coverIndex: index % 5,
+                fingerprint: buildProgramFingerprint(template),
               }
             : null;
         })
