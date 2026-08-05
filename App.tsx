@@ -4484,7 +4484,12 @@ function VinhaApp() {
     const seasonProgramTemplate = workout.templates.find((template) => template.id === seasonProgramId);
     const seasonRecords = countSeasonRecords(
       trackedProgress.map((summary) => ({
-        logs: summary.logs.map((log) => ({ weight: log.weight, performedAt: log.performedAt })),
+        logs: summary.logs.map((log) => ({
+          weight: log.weight,
+          // The best single set, so a rep record on an unloaded lift counts.
+          reps: log.repsPerSet.length > 0 ? Math.max(...log.repsPerSet) : 0,
+          performedAt: log.performedAt,
+        })),
       })),
       seasonWindow,
     );

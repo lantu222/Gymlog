@@ -236,19 +236,28 @@ module.exports = [
         1,
       );
 
-      // Getting stronger in two different blocks is two pieces of progress.
+      // Getting stronger in two different blocks is two pieces of progress —
+      // and the first log is the baseline, not a record, so this is one.
       const acrossBlocks = countSeasonRecords(
         [
           {
             logs: [
               { weight: 100, performedAt: at(2026, 4, 2).toISOString() },
               { weight: 110, performedAt: at(2026, 6, 2).toISOString() },
+              { weight: 120, performedAt: at(2026, 8, 2).toISOString() },
             ],
           },
         ],
         window,
       );
       assert.equal(acrossBlocks, 2);
+
+      // Touching a lift for the first time is not getting better at it. Ten
+      // new exercises would otherwise be 500 points for starting.
+      assert.equal(
+        countSeasonRecords([{ logs: [{ weight: 100, performedAt: at(2026, 4, 2).toISOString() }] }], window),
+        0,
+      );
 
       // Repeating an old weight is not a record. Beating one from before the
       // season is.
@@ -372,6 +381,86 @@ module.exports = [
       const i18n = read('src', 'lib', 'i18n.ts');
       assert.match(i18n, /Kauden ohjelman ulkopuolinen työ ei pisteytä/);
       assert.match(i18n, /eikä se vaihdu/);
+    },
+  },
+  {
+    name: 'a record is reps when the lift is never loaded — otherwise summer awards nothing',
+    run() {
+      const window = resolveSeasonWindow(at(2026, 4, 5));
+
+      // The summer program is running and mobility: not one loaded exercise in
+      // it. A weight-only record left 50 points and a badge on the screen that
+      // nothing in that program could ever trigger, all season.
+      const unloaded = countSeasonRecords(
+        [
+          {
+            logs: [
+              { weight: 0, reps: 8, performedAt: at(2026, 4, 2).toISOString() },
+              { weight: 0, reps: 10, performedAt: at(2026, 4, 9).toISOString() },
+              { weight: 0, reps: 12, performedAt: at(2026, 6, 9).toISOString() },
+            ],
+          },
+        ],
+        window,
+      );
+      assert.equal(unloaded, 2, 'better in two blocks is two records; the first log is the baseline');
+
+      // Fewer reps than before is not a record.
+      assert.equal(
+        countSeasonRecords(
+          [
+            {
+              logs: [
+                { weight: 0, reps: 12, performedAt: at(2026, 4, 2).toISOString() },
+                { weight: 0, reps: 10, performedAt: at(2026, 5, 2).toISOString() },
+              ],
+            },
+          ],
+          window,
+        ),
+        0,
+      );
+
+      // The two measures never mix: a lift that has been loaded is judged on
+      // load for the whole season, so six reps at bodyweight cannot beat five
+      // at 100 kg.
+      assert.equal(
+        countSeasonRecords(
+          [
+            {
+              logs: [
+                { weight: 100, reps: 5, performedAt: at(2026, 4, 2).toISOString() },
+                { weight: 0, reps: 30, performedAt: at(2026, 5, 2).toISOString() },
+              ],
+            },
+          ],
+          window,
+        ),
+        0,
+      );
+    },
+  },
+  {
+    name: 'the season program can actually earn its own record award',
+    run() {
+      const { SEASON_PROGRAM_IDS } = require('../../.test-dist/lib/programSeasons.js');
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
+
+      // The screen states "a record is 50 points". A season whose program
+      // cannot produce one is advertising a rule it cannot honour — which is
+      // exactly what shipped when records were weight-only and summer became
+      // a running program.
+      for (const [season, id] of Object.entries(SEASON_PROGRAM_IDS)) {
+        const template = WORKOUT_TEMPLATES_V1.find((entry) => entry.id === id);
+        const exercises = template.sessions.flatMap((entry) => entry.exercises);
+        const measurable = exercises.filter(
+          (exercise) => exercise.trackingMode !== 'time' && exercise.trackingMode !== 'distance',
+        );
+        assert.ok(
+          measurable.length > 0,
+          `${season} program ${id} has nothing a record could be measured on`,
+        );
+      }
     },
   },
   {

@@ -208,30 +208,60 @@ export function resolveSeasonBadges(
  * while "got stronger four times" is four separate pieces of progress and the
  * whole point of a 26-week block.
  *
+ * WEIGHT is not the only way to beat yourself, and assuming it was made the
+ * award unreachable for a whole season: the summer program is running and
+ * mobility, with not one loaded exercise in it, so a weight-only record left
+ * 50 points and a badge on the screen that nothing in that program could ever
+ * trigger. For a lift that is never loaded the record is reps — more of them,
+ * or longer blocks — which is exactly what progress means there.
+ *
+ * The two are never mixed. A lift that has ever been loaded is judged on
+ * weight for the whole season, so six reps at bodyweight cannot beat five at
+ * 100 kg.
+ *
  * The per-block cap is what keeps the incentive honest. At 50 points an
  * uncapped record bonus pays for testing a one-rep max every Friday; capped,
  * the only way to earn it four times is to actually get stronger four times.
  */
 export function countSeasonRecords(
-  lifts: ReadonlyArray<{ logs: ReadonlyArray<{ weight: number; performedAt: string }> }>,
+  lifts: ReadonlyArray<{
+    logs: ReadonlyArray<{ weight: number; reps?: number; performedAt: string }>;
+  }>,
   window: SeasonWindow,
 ): number {
   let count = 0;
 
   for (const lift of lifts) {
     const ordered = [...lift.logs]
-      .map((log) => ({ weight: log.weight, stamp: Date.parse(log.performedAt) }))
-      .filter((log) => Number.isFinite(log.stamp) && log.weight > 0)
+      .map((log) => ({
+        weight: log.weight,
+        reps: log.reps ?? 0,
+        stamp: Date.parse(log.performedAt),
+      }))
+      .filter((log) => Number.isFinite(log.stamp))
       .sort((left, right) => left.stamp - right.stamp);
 
-    let best = 0;
+    // Loaded once, judged on load for the whole season.
+    const loaded = ordered.some((log) => log.weight > 0);
+    const measure = (log: { weight: number; reps: number }) => (loaded ? log.weight : log.reps);
+
+    // The first log sets the baseline and scores nothing. Counting it as a
+    // record would pay 50 points for touching a lift for the first time — ten
+    // new exercises would be 500 points for starting, which is the opposite of
+    // what the award is for.
+    let best: number | null = null;
     const blocksHit = new Set<number>();
 
     for (const log of ordered) {
-      if (log.weight <= best) {
+      const value = measure(log);
+      if (best === null) {
+        best = value;
         continue;
       }
-      best = log.weight;
+      if (!(value > best)) {
+        continue;
+      }
+      best = value;
       // Only a record set INSIDE the window scores. Beating a weight from two
       // years ago is progress; the weight from two years ago is not.
       if (log.stamp >= window.start.getTime() && log.stamp < window.end.getTime()) {
