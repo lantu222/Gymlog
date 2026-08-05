@@ -47,6 +47,53 @@ const COVER_STYLES: Array<{ cover: [string, string]; tile: [string, string]; mot
 ];
 const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
 
+/**
+ * Gold, silver, bronze — then plain numbers.
+ *
+ * A ranked list where every rank looks the same is a list with a number
+ * column, not a ranking. Three metals is the one visual convention everyone
+ * already reads without a legend, and it stops at three on purpose: a fourth
+ * metal would be inventing a rank that does not exist.
+ */
+const MEDALS: Array<{ stops: [string, string]; ink: string }> = [
+  { stops: ['#F8DA86', '#B8860B'], ink: '#4E3400' },
+  { stops: ['#E9EEF4', '#98A2AE'], ink: '#39414C' },
+  { stops: ['#EBB88E', '#A0662F'], ink: '#432408' },
+];
+
+function RankMedal({ index }: { index: number }) {
+  const styles = useThemedStyles(makeStyles);
+  const medal = MEDALS[index];
+  if (!medal) {
+    return (
+      <View style={styles.trendingRank}>
+        <Text style={styles.trendingRankText}>{index + 1}</Text>
+      </View>
+    );
+  }
+  const gid = `medal-${index}`;
+  return (
+    <View style={styles.trendingMedal}>
+      <Svg width={36} height={36}>
+        <Defs>
+          <SvgLinearGradient id={gid} x1="0.2" y1="0" x2="0.8" y2="1">
+            <Stop offset="0" stopColor={medal.stops[0]} />
+            <Stop offset="1" stopColor={medal.stops[1]} />
+          </SvgLinearGradient>
+        </Defs>
+        <Circle cx={18} cy={18} r={17} fill={`url(#${gid})`} />
+        {/* The rim: without it the disc reads as a flat coloured dot. */}
+        <Circle cx={18} cy={18} r={14} stroke="#FFFFFF" strokeOpacity={0.42} strokeWidth={1.2} fill="none" />
+      </Svg>
+      <Text style={[styles.trendingMedalText, { color: medal.ink }]}>{index + 1}</Text>
+    </View>
+  );
+}
+
+// Tall enough for a two-line title, two lines of body AND the pill under
+// them. At 186 the CTA was clipped by the card's own bottom edge.
+const CAMPAIGN_H = 216;
+
 const COVER_W = 274;
 const COVER_H = 176;
 
@@ -376,14 +423,14 @@ function CampaignHero({
               onPress={() => onOpen(campaign.target)}
               style={({ pressed }) => [styles.campaignSlide, { width: slideWidth }, pressed && styles.pressed]}
             >
-              <Svg width={slideWidth} height={186} style={StyleSheet.absoluteFill}>
+              <Svg width={slideWidth} height={CAMPAIGN_H} style={StyleSheet.absoluteFill}>
                 <Defs>
                   <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
                     <Stop offset="0" stopColor={campaign.gradient[0]} />
                     <Stop offset="1" stopColor={campaign.gradient[1]} />
                   </SvgLinearGradient>
                 </Defs>
-                <Rect x="0" y="0" width={slideWidth} height={186} rx={24} fill={`url(#${gid})`} />
+                <Rect x="0" y="0" width={slideWidth} height={CAMPAIGN_H} rx={24} fill={`url(#${gid})`} />
                 <Svg x={slideWidth - 120} y={38} width={140} height={140} viewBox="0 0 24 24">
                   <Path
                     d={LAYERS_MOTIF}
@@ -469,6 +516,9 @@ export function ProgramsHomeScreen({
   // Null is 'All'. Not persisted: a filter is an answer to what you are
   // looking for right now, and a stale one is worse than none.
   const [category, setCategory] = useState<ProgramCategoryKey | null>(null);
+  // Same idea for seasons: the tile is the filter, not a label above a rail
+  // that was open anyway.
+  const [season, setSeason] = useState<ProgramSeason | null>(null);
   // The goal sheet: which lift, and the number being typed.
   const [goalLift, setGoalLift] = useState<{ name: string; label: string; bestKg: number } | null>(null);
   const [goalTarget, setGoalTarget] = useState('');
@@ -497,6 +547,7 @@ export function ProgramsHomeScreen({
         onOpenLibrary();
         break;
       case 'season':
+        setSeason(target.season);
         pageRef.current?.scrollTo({ y: Math.max(0, seasonOffset.current - 12), animated: true });
         break;
     }
@@ -746,6 +797,127 @@ export function ProgramsHomeScreen({
           </View>
         ) : null}
 
+        {/* Four season tiles over two blocks. The reference asks for four and
+            the catalog has two; the month range on each tile makes the mapping
+            visible instead of inventing two empty seasons to fill the row. */}
+        <View
+          style={styles.sectionHeadRow}
+          onLayout={(event) => {
+            seasonOffset.current = event.nativeEvent.layout.y;
+          }}
+        >
+          <Text style={styles.sectionEyebrow}>{t(language, 'programs.seasons')}</Text>
+          {season !== null ? (
+            <Pressable onPress={() => setSeason(null)} hitSlop={8}>
+              <Text style={styles.sectionLink}>{t(language, 'programs.cat.clear')}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.tileRow}
+          style={styles.exploreScroll}
+        >
+          {orderSeasonTiles().map((tile) => {
+            const gid = `season-${tile.key}`;
+            const isNow = tile.key === currentSeasonTile();
+            return (
+              <Pressable
+                key={tile.key}
+                accessibilityRole="button"
+                accessibilityLabel={t(language, tile.labelKey)}
+                accessibilityState={{ selected: season === tile.block }}
+                onPress={() => setSeason(season === tile.block ? null : tile.block)}
+                style={({ pressed }) => [
+                  styles.seasonTile,
+                  season === tile.block && styles.seasonTileOn,
+                  pressed && styles.pressed,
+                ]}
+              >
+                <Svg width={168} height={150} style={StyleSheet.absoluteFill}>
+                  <Defs>
+                    <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
+                      <Stop offset="0" stopColor={tile.gradient[0]} />
+                      <Stop offset="1" stopColor={tile.gradient[1]} />
+                    </SvgLinearGradient>
+                  </Defs>
+                  <Rect x="0" y="0" width={168} height={150} rx={20} fill={`url(#${gid})`} />
+                  <Svg x={92} y={58} width={104} height={104} viewBox="0 0 24 24">
+                    <Path
+                      d={LAYERS_MOTIF}
+                      stroke="#FFFFFF"
+                      strokeOpacity={0.2}
+                      strokeWidth={1.4}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                  </Svg>
+                </Svg>
+                {isNow ? (
+                  <View style={styles.seasonNowPill}>
+                    <Text style={styles.seasonNowText}>{t(language, 'programs.seasonTile.now')}</Text>
+                  </View>
+                ) : null}
+                <View style={styles.seasonTileBody}>
+                  <Text style={styles.seasonTileMonths}>{t(language, tile.monthsKey)}</Text>
+                  <Text style={styles.seasonTileLabel}>{t(language, tile.labelKey)}</Text>
+                  <Text style={styles.seasonTileCount}>
+                    {t(language, 'programs.season.count', { count: seasonTileCounts[tile.block] ?? 0 })}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* A tapped season opens its rail here, exactly like a category
+            tile. Two permanently open season rails used to sit in this slot —
+            "Kesäkausi" and "Talvikausi", both fully expanded, both in the same
+            card size as everything else — which made the four tiles above them
+            pure decoration and gave the page two more identical rows. */}
+        {season !== null ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.exploreRow}
+            style={styles.exploreScroll}
+          >
+            {(seasonRows.find((row) => row.season === season)?.items ?? []).map((item) => {
+              const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
+              return (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
+                  onPress={() => setPicked(item)}
+                  style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
+                >
+                  <ProgramCover
+                    style={style}
+                    goal={item.goal}
+                    days={item.days}
+                    name={item.name}
+                    fingerprint={item.fingerprint}
+                    language={language}
+                  />
+                  <View style={styles.exploreBody}>
+                    <Text style={styles.exploreBlurb} numberOfLines={2}>
+                      {item.blurb}
+                    </Text>
+                    <View style={styles.exploreMetaRow}>
+                      <Text style={styles.exploreMeta}>{t(language, 'programs.card.days', { count: item.days })}</Text>
+                      <View style={styles.metaDot} />
+                      <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
+                    </View>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        ) : null}
+
         {/* "For you" leads the browse: it is the only row that knows who is
             reading it, and every card can say why it is there. */}
         {recommendations.length > 0 ? (
@@ -802,125 +974,6 @@ export function ProgramsHomeScreen({
           </View>
         ) : null}
 
-        {/* Four season tiles over two blocks. The reference asks for four and
-            the catalog has two; the month range on each tile makes the mapping
-            visible instead of inventing two empty seasons to fill the row. */}
-        <Text
-          style={styles.sectionEyebrowStandalone}
-          onLayout={(event) => {
-            seasonOffset.current = event.nativeEvent.layout.y;
-          }}
-        >
-          {t(language, 'programs.seasons')}
-        </Text>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tileRow}
-          style={styles.exploreScroll}
-        >
-          {orderSeasonTiles().map((tile) => {
-            const gid = `season-${tile.key}`;
-            const isNow = tile.key === currentSeasonTile();
-            return (
-              <Pressable
-                key={tile.key}
-                accessibilityRole="button"
-                accessibilityLabel={t(language, tile.labelKey)}
-                onPress={() => handleCampaignTarget({ kind: 'season', season: tile.block })}
-                style={({ pressed }) => [styles.seasonTile, pressed && styles.pressed]}
-              >
-                <Svg width={168} height={150} style={StyleSheet.absoluteFill}>
-                  <Defs>
-                    <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-                      <Stop offset="0" stopColor={tile.gradient[0]} />
-                      <Stop offset="1" stopColor={tile.gradient[1]} />
-                    </SvgLinearGradient>
-                  </Defs>
-                  <Rect x="0" y="0" width={168} height={150} rx={20} fill={`url(#${gid})`} />
-                  <Svg x={92} y={58} width={104} height={104} viewBox="0 0 24 24">
-                    <Path
-                      d={LAYERS_MOTIF}
-                      stroke="#FFFFFF"
-                      strokeOpacity={0.2}
-                      strokeWidth={1.4}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  </Svg>
-                </Svg>
-                {isNow ? (
-                  <View style={styles.seasonNowPill}>
-                    <Text style={styles.seasonNowText}>{t(language, 'programs.seasonTile.now')}</Text>
-                  </View>
-                ) : null}
-                <View style={styles.seasonTileBody}>
-                  <Text style={styles.seasonTileMonths}>{t(language, tile.monthsKey)}</Text>
-                  <Text style={styles.seasonTileLabel}>{t(language, tile.labelKey)}</Text>
-                  <Text style={styles.seasonTileCount}>
-                    {t(language, 'programs.season.count', { count: seasonTileCounts[tile.block] ?? 0 })}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {/* Seasons before the general browse: the row that knows what month
-            it is earns the higher position, and the switch rail below is the
-            same catalog without an opinion about the weather. */}
-        {seasonRows.map((row) => (
-          <View key={row.season}>
-            <View style={styles.sectionHeadRow}>
-              <Text style={styles.sectionEyebrow}>
-                {t(language, row.season === 'winter' ? 'programs.season.winter' : 'programs.season.summer')}
-              </Text>
-              <Text style={styles.seasonCount}>
-                {t(language, 'programs.season.count', { count: row.items.length })}
-              </Text>
-            </View>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.exploreRow}
-              style={styles.exploreScroll}
-            >
-              {row.items.map((item) => {
-                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
-                return (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                    onPress={() => setPicked(item)}
-                    style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
-                  >
-                    <ProgramCover
-                      style={style}
-                      goal={item.goal}
-                      days={item.days}
-                      name={item.name}
-                      fingerprint={item.fingerprint}
-                      language={language}
-                    />
-                    <View style={styles.exploreBody}>
-                      <Text style={styles.exploreBlurb} numberOfLines={2}>
-                        {item.blurb}
-                      </Text>
-                      <View style={styles.exploreMetaRow}>
-                        <Text style={styles.exploreMeta}>{t(language, 'programs.card.days', { count: item.days })}</Text>
-                        <View style={styles.metaDot} />
-                        <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        ))}
-
         {/* The old "Vaihda ohjelmaa" rail lived here: the whole 55-program
             catalog, always open, in the same card size as four other rows. It
             is gone because the tiles above now are the way in, and a rail that
@@ -952,11 +1005,7 @@ export function ProgramsHomeScreen({
                     pressed && styles.pressedRow,
                   ]}
                 >
-                  <View style={[styles.trendingRank, index < 3 && styles.trendingRankTop]}>
-                    <Text style={[styles.trendingRankText, index < 3 && styles.trendingRankTextTop]}>
-                      {index + 1}
-                    </Text>
-                  </View>
+                  <RankMedal index={index} />
                   <View style={styles.trendingCopy}>
                     <Text style={styles.trendingTitle} numberOfLines={1}>
                       {item.name}
@@ -1304,7 +1353,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.green,
   },
   trendingCard: {
-    marginHorizontal: 20,
     marginBottom: 4,
     borderRadius: 18,
     backgroundColor: theme.surface,
@@ -1315,32 +1363,38 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   trendingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    gap: 13,
+    paddingVertical: 13,
+    paddingHorizontal: 15,
   },
   trendingRowDivider: {
     borderTopWidth: 1,
     borderTopColor: theme.purpleLight,
   },
   trendingRank: {
-    width: 26,
-    height: 26,
-    borderRadius: 9,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: theme.purpleLight,
   },
-  trendingRankTop: {
-    backgroundColor: theme.purple,
+  trendingMedal: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trendingMedalText: {
+    position: 'absolute',
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '900',
   },
   trendingRankText: {
     fontSize: 12.5,
     fontWeight: '800',
     color: theme.purple,
-  },
-  trendingRankTextTop: {
-    color: '#FFFFFF',
   },
   trendingCopy: {
     flex: 1,
@@ -1361,7 +1415,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
     lineHeight: 17,
-    color: theme.purple,
+    color: theme.ink,
   },
   seasonCount: {
     fontSize: 12,
@@ -1385,10 +1439,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexGrow: 0,
   },
   campaignSlide: {
-    height: 186,
+    height: CAMPAIGN_H,
     paddingHorizontal: 22,
-    paddingTop: 26,
-    justifyContent: 'flex-start',
+    // Centred, not top-aligned. Titles run one line or two depending on the
+    // slide, and a fixed top padding left a one-line slide with a third of the
+    // card empty under its own button.
+    justifyContent: 'center',
   },
   campaignKicker: {
     color: 'rgba(255,255,255,0.9)',
@@ -1428,14 +1484,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   campaignFooter: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 4,
     marginTop: 10,
+    minHeight: 26,
   },
   campaignDots: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
   },
   campaignDot: {
@@ -1449,6 +1506,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.purple,
   },
   campaignPause: {
+    position: 'absolute',
+    right: 4,
     width: 26,
     height: 26,
     borderRadius: 13,
@@ -1461,7 +1520,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // ── Category tiles ───────────────────────────────────────────────────
   tileRow: {
     gap: 12,
-    paddingRight: 20,
+    paddingHorizontal: 20,
     paddingVertical: 4,
   },
   catTileWrap: {
@@ -1568,6 +1627,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     justifyContent: 'flex-end',
+  },
+  seasonTileOn: {
+    borderWidth: 3,
+    borderColor: theme.ink,
   },
   seasonTileBody: {
     padding: 14,
@@ -1736,10 +1799,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 11,
   },
   exploreMeta: {
-    color: theme.purple,
+    color: theme.muted,
     fontSize: 11.5,
     lineHeight: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   metaDot: {
     width: 3,

@@ -119,8 +119,24 @@ module.exports = [
       );
       assert.ok(sizes.size >= 2, `covers still draw at one size: ${[...sizes].join(', ')}`);
 
-      // Trending has a way out of it.
+      // Trending has a way out of it, and a ranking that looks like one.
       assert.match(programsHomeSource, /'programs\.trending\.all'/);
+      assert.match(programsHomeSource, /const MEDALS/);
+      assert.match(programsHomeSource, /<RankMedal index=\{index\} \/>/);
+      // Three metals, not four: a fourth would invent a rank that does not
+      // exist, so ranks 4 and up keep the plain tile.
+      assert.match(programsHomeSource, /const medal = MEDALS\[index\];[\s\S]{0,20}if \(!medal\)/);
+      // And the card is not inset twice. It carried marginHorizontal: 20
+      // INSIDE the page's own 20px gutter, so it drew 40px narrower than
+      // every other block on the screen.
+      assert.doesNotMatch(programsHomeSource, /trendingCard: \{[\s\S]{0,12}marginHorizontal/);
+
+      // The tile rows bled 20px past the gutter, so the category and season
+      // tiles started left of every heading and card around them.
+      assert.match(programsHomeSource, /tileRow: \{[\s\S]{0,40}paddingHorizontal: 20,/);
+      // The hero clipped its own CTA at 186: "Avaa kirjasto" was cut off by
+      // the card's bottom edge.
+      assert.match(programsHomeSource, /const CAMPAIGN_H = 21[0-9];/);
       // The cover meta went through the dictionary after an emulator pass
       // found "3d / wk", "3 days / week", "Muscle" and "Strength" on cards
       // in the Finnish app — directly under category chips reading the same

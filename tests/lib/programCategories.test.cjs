@@ -125,7 +125,7 @@ module.exports = [
       // Never labelled AI. aiInfo.never.2 states the model is never used to
       // pick a programme — it is recommendationScoring plus a waterfall, and
       // an AI badge here would contradict the app's own privacy page.
-      const forYou = screen.slice(screen.indexOf("'programs.forYou'"), screen.indexOf('Four season tiles over two blocks'));
+      const forYou = screen.slice(screen.indexOf("'programs.forYou'"), screen.indexOf(String.raw`The old "Vaihda ohjelmaa" rail lived here`));
       assert.ok(forYou.length > 200 && forYou.length < 4000, `the row span went wrong: ${forYou.length} chars`);
       assert.doesNotMatch(forYou, /AI/, 'the recommendation row must not claim to be AI');
       // No lead copy anywhere on this page. A row that works does not need a

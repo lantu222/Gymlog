@@ -83,9 +83,16 @@ module.exports = [
       const app = read('App.tsx');
 
       // A lib with no consumer is dead code by the standard applied to the
-      // rest of this app, so the row has to be on the screen.
-      assert.match(screen, /seasonRows\.map\(\(row\) =>/);
-      assert.match(screen, /programs\.season\.winter/);
+      // rest of this app, so the row has to be reachable on the screen.
+      //
+      // It is no longer two permanently open rails. "Kesäkausi" and
+      // "Talvikausi" both sat fully expanded under the four season tiles, in
+      // the same card size as every other row, which made the tiles above them
+      // decoration and gave the page two more identical rows. The tile is the
+      // filter now, and the rail is what a tap opens.
+      assert.doesNotMatch(screen, /seasonRows\.map\(\(row\) =>/);
+      assert.match(screen, /seasonRows\.find\(\(row\) => row\.season === season\)/);
+      assert.match(screen, /setSeason\(season === tile\.block \? null : tile\.block\)/);
       assert.match(app, /seasonRows=\{programsSeasonRows\}/);
 
       // Built from workout.templates rather than a parallel list, so a season
