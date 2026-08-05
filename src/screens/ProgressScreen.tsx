@@ -28,6 +28,12 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
+import {
+  isMeasureRangeLocked,
+  isTrendRangeLocked,
+  resolveMeasureRange,
+  resolveTrendRange,
+} from '../lib/historyWindow';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
 import {
   BodyweightProgressSummary,
@@ -639,25 +645,54 @@ function Seg<T extends string>({
   value,
   onChange,
   grow,
+  lockedKeys,
+  onLockedPress,
 }: {
   options: Array<{ key: T; label: string }>;
   value: T;
   onChange: (next: T) => void;
   grow?: boolean;
+  /**
+   * Options that exist but are not this reader's to pick.
+   *
+   * Shown with a lock rather than removed: hiding them would make the free
+   * tier look like the whole product, and a reader who never learns the long
+   * view exists cannot want it. Pressing one opens the Pro page instead of
+   * selecting — it is not a broken control, it is a door.
+   */
+  lockedKeys?: readonly T[];
+  onLockedPress?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
 
   return (
     <View style={[styles.seg, grow && styles.segGrow]}>
       {options.map((option) => {
-        const active = option.key === value;
+        const locked = lockedKeys?.includes(option.key) ?? false;
+        const active = !locked && option.key === value;
         return (
           <Pressable
             key={option.key}
-            onPress={() => onChange(option.key)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active, disabled: false }}
+            onPress={() => (locked ? onLockedPress?.() : onChange(option.key))}
             style={[styles.segItem, grow && styles.segItemGrow, active && styles.segItemActive]}
           >
-            <Text style={[styles.segText, active && styles.segTextActive]}>{option.label}</Text>
+            {locked ? (
+              <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
+                <Rect x={5} y={11} width={14} height={9} rx={2.5} stroke={theme.faint} strokeWidth={2.4} />
+                <Path
+                  d="M8.5 11V8a3.5 3.5 0 017 0v3"
+                  stroke={theme.faint}
+                  strokeWidth={2.4}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            ) : null}
+            <Text style={[styles.segText, active && styles.segTextActive, locked && styles.segTextLocked]}>
+              {option.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -700,6 +735,20 @@ export function ProgressScreen({
   const [overviewRange, setOverviewRange] = useState<OverviewRange>('3m');
   const [selectedMeasure, setSelectedMeasure] = useState<MeasureKey>(showBodyweightDetail ? 'bodyweight' : 'bodyweight');
   const [measureRange, setMeasureRange] = useState<MeasureRange>('3m');
+  /**
+   * Pro can lapse while this screen is mounted — a promo code expires, the
+   * preview switch goes off — and the selected range is component state that
+   * knows nothing about it. Resolving on every render means the chart narrows
+   * instead of quietly still drawing the paid window.
+   */
+  const resolvedOverviewRange = resolveTrendRange(overviewRange, proUnlocked);
+  const resolvedMeasureRange = resolveMeasureRange(measureRange, proUnlocked);
+  const lockedTrendRanges = OVERVIEW_RANGES.map((option) => option.key).filter((key) =>
+    isTrendRangeLocked(key, proUnlocked),
+  );
+  const lockedMeasureRanges = MEASURE_RANGES.map((option) => option.key).filter((key) =>
+    isMeasureRangeLocked(key, proUnlocked),
+  );
   const [measureUnit, setMeasureUnit] = useState<MeasurementUnit>('cm');
   const [measureInput, setMeasureInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
@@ -783,7 +832,7 @@ export function ProgressScreen({
   }, [activityCalendar.weeks, workoutSessions]);
 
   const overviewChart = useMemo(() => {
-    const start = getOverviewRangeStart(overviewRange);
+    const start = getOverviewRangeStart(resolvedOverviewRange);
 
     if (overviewMetric === 'bodyweight') {
       const entries = [...bodyweightProgress.entries]
@@ -795,7 +844,7 @@ export function ProgressScreen({
           label: entry.recordedAt,
           value: convertWeightFromKg(entry.weight, unitPreference),
         })),
-        overviewRange,
+        resolvedOverviewRange,
         'latest',
       );
 
@@ -803,7 +852,7 @@ export function ProgressScreen({
         valueLabel: points.length ? formatWeight(bodyweightProgress.latest?.weight, unitPreference) : t(language, 'progress.noEntries'),
         unitLabel: unitPreference,
         points,
-        footerLabels: getOverviewFooterLabels(points, overviewRange, language),
+        footerLabels: getOverviewFooterLabels(points, resolvedOverviewRange, language),
         yTickValues: getOverviewBodyweightTicks(points.map((point) => point.value), unitPreference),
         formatValueLabel: (value: number, unitLabel: string) => formatOverviewBodyweightTick(value, unitLabel),
         tooltipFormatter: (point: { label: string; value: number }) => ({
@@ -846,7 +895,7 @@ export function ProgressScreen({
           label: row.performedAt,
           value: row.duration,
         })),
-        overviewRange,
+        resolvedOverviewRange,
         'sum',
       );
       const totalDuration = points.reduce((sum, point) => sum + point.value, 0);
@@ -854,7 +903,7 @@ export function ProgressScreen({
         valueLabel: formatDurationMinutes(totalDuration),
         unitLabel: 'min',
         points,
-        footerLabels: getOverviewFooterLabels(points, overviewRange, language),
+        footerLabels: getOverviewFooterLabels(points, resolvedOverviewRange, language),
         yTickValues: getOverviewDurationTicks(Math.max(...points.map((point) => point.value), 0)),
         formatValueLabel: (value: number) => formatDurationTick(value),
         tooltipFormatter: (point: { label: string; value: number }) => ({
@@ -870,7 +919,7 @@ export function ProgressScreen({
         label: row.performedAt,
         value: convertWeightFromKg(row.volume, unitPreference),
       })),
-      overviewRange,
+      resolvedOverviewRange,
       'sum',
     );
     const volumeTicks = getOverviewVolumeTicks(Math.max(...points.map((point) => point.value), 0));
@@ -878,7 +927,7 @@ export function ProgressScreen({
       valueLabel: formatCompactVolume(rows.reduce((sum, row) => sum + row.volume, 0), unitPreference),
       unitLabel: unitPreference,
       points,
-      footerLabels: getOverviewFooterLabels(points, overviewRange, language),
+      footerLabels: getOverviewFooterLabels(points, resolvedOverviewRange, language),
       yTickValues: volumeTicks,
       // One unit for the whole axis: formatCompactVolume alone would mix
       // "500 kg" and "1 t" on the same scale. The top tick decides.
@@ -892,7 +941,7 @@ export function ProgressScreen({
       }),
       emptyLabel: t(language, 'progress.noVolume'),
     };
-  }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, overviewRange, unitPreference, workoutSessions]);
+  }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, resolvedOverviewRange, unitPreference, workoutSessions]);
 
   const activityCalendarDays = useMemo(() => activityCalendar.weeks.flat(), [activityCalendar.weeks]);
   // Start of today, so a planned day that has already gone by can be told
@@ -970,7 +1019,7 @@ export function ProgressScreen({
   }, [selectedMeasureModel.key, selectedMeasureModel.unit]);
 
   const selectedMeasureRangePoints = useMemo(() => {
-    const start = getMeasurementRangeStart(measureRange);
+    const start = getMeasurementRangeStart(resolvedMeasureRange);
     const points: Array<{ label: string; value: number }> = [];
     selectedMeasureModel.values.forEach((value, index) => {
       const recordedAt = selectedMeasureModel.dates[index];
@@ -980,7 +1029,7 @@ export function ProgressScreen({
       points.push({ label: formatShortDate(recordedAt), value });
     });
     return points;
-  }, [measureRange, selectedMeasureModel]);
+  }, [resolvedMeasureRange, selectedMeasureModel]);
 
   const selectedMeasureLatest = selectedMeasureModel.values.length
     ? selectedMeasureModel.values[selectedMeasureModel.values.length - 1]
@@ -1175,8 +1224,10 @@ export function ProgressScreen({
                 key: option.key,
                 label: option.label ?? t(language, 'progress.range.all'),
               }))}
-              value={overviewRange}
+              value={resolvedOverviewRange}
               onChange={setOverviewRange}
+              lockedKeys={lockedTrendRanges}
+              onLockedPress={onOpenPremium}
             />
           </View>
         </View>
@@ -1491,8 +1542,10 @@ export function ProgressScreen({
                 key: option.key,
                 label: option.label ?? t(language, 'progress.range.all'),
               }))}
-              value={measureRange}
+              value={resolvedMeasureRange}
               onChange={setMeasureRange}
+              lockedKeys={lockedMeasureRanges}
+              onLockedPress={onOpenPremium}
             />
           </View>
         </View>
@@ -1918,6 +1971,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 4,
     elevation: 2,
+  },
+  segTextLocked: {
+    color: theme.faint,
   },
   segText: {
     color: theme.muted,

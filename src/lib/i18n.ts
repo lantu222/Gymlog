@@ -1475,13 +1475,18 @@ const EN = {
   'pro.v2.soon': 'SOON',
 
   'pro.v2.free.title': 'Free stays a real app',
-  'pro.v2.free.body': 'Unlimited logging, every ready-made program, your own programs, the guided player and 3D demos, the widget, CSV export — and your full history, forever. No ads, no time limit. Premium adds the coaching layer on top.',
+  // "your full history, forever" was true of the log and is still true of
+  // the log — but it read as covering the trend charts, which now stop at
+  // three months. Said precisely rather than dropped: the promise is the
+  // strongest thing on the page and it survives being stated exactly.
+  'pro.v2.free.body': 'Unlimited logging, three programs of your own, every ready-made program, the guided player and 3D demos, the widget, CSV export — and every set you have ever logged, readable and exportable forever. No ads, no time limit. Premium opens the long view and the coaching layer.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
   'pro.v2.row.logging': 'Workout logging',
   'pro.v2.row.ready': 'Ready-made programs',
   'pro.v2.row.own': 'Programs of your own',
-  'pro.v2.row.history': 'Progress history',
+  'pro.v2.row.history': 'Your training log',
+  'pro.v2.row.trends': 'Trend charts',
   'pro.v2.row.records': 'Personal records',
   'pro.v2.row.guided': 'Guided player & 3D demos',
   'pro.v2.row.widget': 'Home-screen widget',
@@ -1500,6 +1505,7 @@ const EN = {
   'pro.v2.val.threePrograms': '3',
   'pro.v2.val.all': 'All',
   'pro.v2.val.allTime': 'All time',
+  'pro.v2.val.threeMonths': '3 months',
   'pro.v2.val.yes': 'Yes',
   'pro.v2.val.soon': 'Soon',
   'pro.v2.val.threeWeek': '3 / week',
@@ -3748,13 +3754,14 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.soon': 'PIAN',
 
   'pro.v2.free.title': 'Free riittää sellaisenaan',
-  'pro.v2.free.body': 'Rajaton kirjaus, kaikki valmiit ohjelmat, omat ohjelmasi, ohjattu treenitila ja 3D-demot, widget, CSV-vienti — ja koko historiasi, ikuisesti. Ei mainoksia, ei aikarajaa. Premium lisää valmennuskerroksen päälle.',
+  'pro.v2.free.body': 'Rajaton kirjaus, kolme omaa ohjelmaa, kaikki valmiit ohjelmat, ohjattu treenitila ja 3D-demot, widget, CSV-vienti — ja jokainen kirjaamasi sarja luettavissa ja vietävissä ikuisesti. Ei mainoksia, ei aikarajaa. Premium avaa pitkän näkymän ja valmennuskerroksen.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
   'pro.v2.row.logging': 'Treenikirjaus',
   'pro.v2.row.ready': 'Valmiit ohjelmat',
   'pro.v2.row.own': 'Omat ohjelmat',
-  'pro.v2.row.history': 'Kehityshistoria',
+  'pro.v2.row.history': 'Treenilokisi',
+  'pro.v2.row.trends': 'Kehityskuvaajat',
   'pro.v2.row.records': 'Ennätykset',
   'pro.v2.row.guided': 'Ohjattu treenitila ja 3D-demot',
   'pro.v2.row.widget': 'Kotinäytön widget',
@@ -3773,6 +3780,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.val.threePrograms': '3',
   'pro.v2.val.all': 'Kaikki',
   'pro.v2.val.allTime': 'Koko ajalta',
+  'pro.v2.val.threeMonths': '3 kuukautta',
   'pro.v2.val.yes': 'Kyllä',
   'pro.v2.val.soon': 'Pian',
   'pro.v2.val.threeWeek': '3 / vk',
