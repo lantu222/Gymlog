@@ -93,9 +93,19 @@ export const PROGRAM_SEASONS: Readonly<Record<string, ProgramSeason>> = {
  * are simply not the season.
  */
 export const SEASON_PROGRAM_IDS: Readonly<Record<ProgramSeason, string>> = {
-  // Lean work through the light months.
-  summer: 'tpl_shred_v1',
-  // Build through the dark ones.
+  /**
+   * Summer is conditioning, and conditioning happens outdoors.
+   *
+   * SHRED was the first pick and it was the wrong kind of summer: a cut is a
+   * gym program with a beach deadline, not a season. RUN is running and
+   * mobility — three days, beginner-reachable, and the one thing in the
+   * catalog you actually do because it is light outside.
+   */
+  summer: 'tpl_3_day_run_mobility_v1',
+  /**
+   * Winter is building, indoors, four days. POWERBUILD is the catalog's
+   * clearest statement of exactly that.
+   */
   winter: 'tpl_4_day_powerbuilding_v1',
 };
 

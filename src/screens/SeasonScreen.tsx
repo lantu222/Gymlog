@@ -269,19 +269,28 @@ export function SeasonScreen({
             by how many days their program prescribes. One shared program is
             what makes "week 9" a sentence two people can say to each other. */}
         <Text style={styles.sectionEyebrow}>{t(language, 'season.theProgram')}</Text>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={seasonProgram.name}
-          onPress={() => onOpenProgram(seasonProgram.id)}
-          style={({ pressed }) => [styles.card, pressed && styles.pressedRow]}
-        >
-          <View style={styles.programHeadRow}>
+        <View style={styles.card}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={seasonProgram.name}
+            onPress={() => onOpenProgram(seasonProgram.id)}
+            style={({ pressed }) => [styles.programHeadRow, pressed && styles.pressedRow]}
+          >
             <ProgramMiniCover index={seasonProgram.coverIndex} fingerprint={seasonProgram.fingerprint} />
             <View style={styles.programCopy}>
+              {/* The season's name leads and the program's name follows.
+                  Both are true: you are doing the summer season, and the
+                  training in it is RUN — so tapping through to a screen that
+                  says RUN is not a surprise. */}
               <Text style={styles.programName} numberOfLines={1}>
-                {seasonProgram.name}
+                {t(
+                  language,
+                  season === 'winter' ? 'season.programTitle.winter' : 'season.programTitle.summer',
+                )}
               </Text>
               <Text style={styles.programMeta}>
+                {seasonProgram.name}
+                {'  ·  '}
                 {t(language, 'programs.card.days', { count: seasonProgram.days })}
                 {'  ·  '}
                 {t(language, 'season.weeksUnit', { count: SEASON_WEEKS })}
@@ -292,7 +301,7 @@ export function SeasonScreen({
                 </View>
               ) : null}
             </View>
-          </View>
+          </Pressable>
           <View style={styles.blockRow}>
             {SEASON_BLOCKS.map((block, index) => (
               <View
@@ -305,7 +314,20 @@ export function SeasonScreen({
               </View>
             ))}
           </View>
-        </Pressable>
+          {/* The action lives with the program instead of in a bar pinned
+              over the tab pill. Two stacked bars took a fifth of the screen
+              on a page nobody has to act on right now. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, running ? 'home.startWorkout' : 'season.join')}
+            onPress={onStartToday}
+            style={({ pressed }) => [styles.cta, { backgroundColor: gradient[0] }, pressed && styles.pressed]}
+          >
+            <Text style={styles.ctaText}>
+              {t(language, running ? 'home.startWorkout' : 'season.join')}
+            </Text>
+          </Pressable>
+        </View>
         <Text style={styles.oneProgramNote}>
           {running ? t(language, 'season.oneProgram') : t(language, 'season.notIn')}
         </Text>
@@ -368,18 +390,6 @@ export function SeasonScreen({
         <Text style={styles.optOut}>{t(language, 'season.optOut')}</Text>
       </ScrollView>
 
-      <View style={styles.ctaBar}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, running ? 'home.startWorkout' : 'season.join')}
-          onPress={onStartToday}
-          style={({ pressed }) => [styles.cta, { backgroundColor: gradient[0] }, pressed && styles.pressed]}
-        >
-          <Text style={styles.ctaText}>
-            {t(language, running ? 'home.startWorkout' : 'season.join')}
-          </Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -390,7 +400,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.bg,
   },
   content: {
-    paddingBottom: 210,
+    paddingBottom: 120,
   },
   pressed: {
     opacity: 0.85,
@@ -773,21 +783,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 22,
     paddingHorizontal: 22,
   },
-  ctaBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    // Clears the floating tab pill this screen sits behind.
-    paddingBottom: 108,
-    backgroundColor: theme.bg,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
   cta: {
-    height: 52,
+    height: 48,
+    marginTop: 12,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',

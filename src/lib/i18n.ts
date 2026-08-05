@@ -2184,6 +2184,11 @@ const EN = {
   'season.block.power': '3 · POWER',
   'season.block.peak': '4 · PEAK',
   'season.theProgram': 'THE SEASON PROGRAM',
+  // The season's own identity, over the program that supplies the training.
+  // Two names for one thing, because both are true: you are doing the summer
+  // season, and the training in it is RUN.
+  'season.programTitle.summer': 'Summer conditioning',
+  'season.programTitle.winter': 'Winter build',
   'season.running': 'YOU ARE RUNNING THIS',
   'season.join': 'Start the season',
   'season.notIn': 'You are not in the season yet. Points start from the first workout you log against this program — nothing before it counts, and nothing is lost by starting today.',
@@ -4597,6 +4602,8 @@ const FI: Record<I18nKey, string> = {
   'season.block.power': '3 · TEHO',
   'season.block.peak': '4 · HUIPPU',
   'season.theProgram': 'KAUDEN OHJELMA',
+  'season.programTitle.summer': 'Kesäkunto',
+  'season.programTitle.winter': 'Talvivoima',
   'season.running': 'VEDÄT TÄTÄ',
   'season.join': 'Aloita kausi',
   'season.notIn': 'Et ole vielä kaudessa. Pisteet alkavat ensimmäisestä tähän ohjelmaan kirjatusta treenistä — mikään sitä ennen ei laske, eikä mitään mene hukkaan aloittamalla tänään.',
