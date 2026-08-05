@@ -13,9 +13,12 @@ const {
   seasonWeeksLeft,
 } = require('../../.test-dist/lib/season.js');
 const {
+  POINTS_PER_BLOCK,
   POINTS_PER_FULL_WEEK,
+  POINTS_PER_RECORD,
   POINTS_PER_WORKOUT,
   computeSeasonProgress,
+  countSeasonRecords,
   resolveSeasonBadges,
 } = require('../../.test-dist/lib/seasonScoring.js');
 const { getSeasonForDate } = require('../../.test-dist/lib/programSeasons.js');
@@ -216,6 +219,111 @@ module.exports = [
       assert.equal(present.find((badge) => badge.key === 'finished').earned, false);
       const trained = resolveSeasonBadges({ ...base, fullWeeks: 22 }, { seasonEnded: true, personalRecords: 0 });
       assert.equal(trained.find((badge) => badge.key === 'finished').earned, true);
+    },
+  },
+  {
+    name: 'a record is worth the most, and is capped so max-testing does not pay',
+    run() {
+      const window = resolveSeasonWindow(at(2026, 4, 5));
+      const log = (day, weight) => ({ weight, performedAt: at(2026, 4, day).toISOString() });
+
+      // Four sessions on the same lift, each heavier than the last, all inside
+      // block 1. Progress, but ONE block — so one bonus. Uncapped this would
+      // pay four times for testing a max every week, which is how a season
+      // turns into a max-out contest and how people get hurt.
+      assert.equal(
+        countSeasonRecords([{ logs: [log(2, 100), log(9, 102.5), log(16, 105), log(23, 107.5)] }], window),
+        1,
+      );
+
+      // Getting stronger in two different blocks is two pieces of progress.
+      const acrossBlocks = countSeasonRecords(
+        [
+          {
+            logs: [
+              { weight: 100, performedAt: at(2026, 4, 2).toISOString() },
+              { weight: 110, performedAt: at(2026, 6, 2).toISOString() },
+            ],
+          },
+        ],
+        window,
+      );
+      assert.equal(acrossBlocks, 2);
+
+      // Repeating an old weight is not a record. Beating one from before the
+      // season is.
+      assert.equal(
+        countSeasonRecords(
+          [
+            {
+              logs: [
+                { weight: 120, performedAt: at(2026, 1, 5).toISOString() },
+                { weight: 120, performedAt: at(2026, 5, 5).toISOString() },
+              ],
+            },
+          ],
+          window,
+        ),
+        0,
+      );
+
+      // The scale: a record outweighs a full week, and a week outweighs a
+      // workout. That order is the whole argument — a record is the only
+      // number in the log that means "you got better".
+      assert.ok(POINTS_PER_RECORD > POINTS_PER_FULL_WEEK);
+      assert.ok(POINTS_PER_FULL_WEEK > POINTS_PER_WORKOUT);
+      assert.ok(POINTS_PER_BLOCK > POINTS_PER_RECORD);
+    },
+  },
+  {
+    name: 'a block scores only when every one of its weeks was full',
+    run() {
+      const window = resolveSeasonWindow(at(2026, 4, 5));
+      const sessions = [];
+      // Weeks 1-7 complete at three a week: that is block one, finished.
+      for (let week = 0; week < 7; week += 1) {
+        for (let day = 0; day < 3; day += 1) {
+          sessions.push(session(new Date(window.start.getTime() + (week * 7 + day) * 86400000 + 3600000)));
+        }
+      }
+      const done = computeSeasonProgress(sessions, window, {
+        weeklyTarget: 3,
+        now: new Date(window.start.getTime() + 8 * 7 * 86400000),
+      });
+      assert.equal(done.blocksCompleted, 1);
+      assert.equal(done.points, 21 * POINTS_PER_WORKOUT + 7 * POINTS_PER_FULL_WEEK + POINTS_PER_BLOCK);
+
+      // One missed week inside the block and the block does not score. Half a
+      // block is not a block.
+      const gapped = computeSeasonProgress(
+        sessions.filter((entry) => Date.parse(entry.performedAt) < window.start.getTime() + 21 * 86400000
+          || Date.parse(entry.performedAt) > window.start.getTime() + 28 * 86400000),
+        window,
+        { weeklyTarget: 3, now: new Date(window.start.getTime() + 8 * 7 * 86400000) },
+      );
+      assert.equal(gapped.blocksCompleted, 0);
+    },
+  },
+  {
+    name: 'one season, one program — the ranking cannot be decided by day count',
+    run() {
+      const { SEASON_PROGRAM_IDS } = require('../../.test-dist/lib/programSeasons.js');
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
+      const ids = new Set(WORKOUT_TEMPLATES_V1.map((template) => template.id));
+
+      // Ten season programs meant ten different day counts and therefore ten
+      // different point ceilings: at ten points a workout, a five-day program
+      // beats a two-day one by showing up.
+      assert.deepEqual(Object.keys(SEASON_PROGRAM_IDS).sort(), ['summer', 'winter']);
+      for (const [season, id] of Object.entries(SEASON_PROGRAM_IDS)) {
+        assert.ok(ids.has(id), `${season} points at a program the catalog does not have: ${id}`);
+      }
+
+      // And the screen shows that one, not a list.
+      const screen = read('src', 'screens', 'SeasonScreen.tsx');
+      assert.match(screen, /seasonProgram: SeasonProgramItem;/);
+      assert.doesNotMatch(screen, /programs\.map\(/);
+      assert.match(screen, /'season\.theProgram'/);
     },
   },
   {

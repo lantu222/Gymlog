@@ -1,5 +1,5 @@
 import { WorkoutSession } from '../types/models';
-import { SeasonWindow, SEASON_WEEKS, seasonWeek } from './season';
+import { SeasonWindow, SEASON_BLOCK_COUNT, SEASON_WEEKS, seasonBlockIndex, seasonWeek } from './season';
 
 /**
  * Season points, from the reader's own logged work.
@@ -19,8 +19,34 @@ import { SeasonWindow, SEASON_WEEKS, seasonWeek } from './season';
  * number so a reader can check the arithmetic themselves.
  */
 
+/**
+ * The scale.
+ *
+ * Calibrated against the design's own leaderboard, which is the only external
+ * check available: it puts the reader at 610 points in week 9, about 68 a
+ * week, and the leaders near 2 100 over a full season. Ten a workout plus
+ * twenty-five for a full week lands at 65 — so attendance and consistency are
+ * already in the right range, and the two new awards are headroom on top
+ * rather than a rescale.
+ *
+ * A record is the biggest single award because it is the only number in the
+ * whole log that means "you got better". Everything else means "you showed
+ * up", which matters and is worth less.
+ */
 export const POINTS_PER_WORKOUT = 10;
 export const POINTS_PER_FULL_WEEK = 25;
+export const POINTS_PER_RECORD = 50;
+export const POINTS_PER_BLOCK = 100;
+
+/**
+ * One record bonus per lift per block, and no more.
+ *
+ * Without a cap a 50-point record pays for testing a one-rep max every Friday,
+ * which is how people get hurt and how a season turns into a max-out contest.
+ * Capped per block, the only way to earn it four times is to actually get
+ * stronger four times across six months.
+ */
+export const MAX_RECORDS_PER_LIFT_PER_BLOCK = 1;
 
 export interface SeasonWeekSummary {
   /** 1-based week of the season. */
@@ -33,6 +59,10 @@ export interface SeasonWeekSummary {
 export interface SeasonProgress {
   points: number;
   workouts: number;
+  /** Capped record bonuses earned — see MAX_RECORDS_PER_LIFT_PER_BLOCK. */
+  records: number;
+  /** Blocks whose every week was a full one. */
+  blocksCompleted: number;
   /** Weeks that met the target — each one is worth POINTS_PER_FULL_WEEK. */
   fullWeeks: number;
   /** Longest run of consecutive complete weeks, in weeks. */
@@ -46,6 +76,9 @@ export interface SeasonProgress {
 
 const DAY = 86_400_000;
 
+/** 7/6/7/6 — the same split seasonBlockIndex draws. */
+const BLOCK_LENGTHS = [7, 6, 7, 6];
+
 /**
  * Everything the season screen says about the reader, from their own log.
  *
@@ -56,9 +89,9 @@ const DAY = 86_400_000;
 export function computeSeasonProgress(
   sessions: readonly WorkoutSession[],
   window: SeasonWindow,
-  options: { weeklyTarget?: number | null; now?: Date } = {},
+  options: { weeklyTarget?: number | null; now?: Date; records?: number } = {},
 ): SeasonProgress {
-  const { weeklyTarget = null, now = new Date() } = options;
+  const { weeklyTarget = null, now = new Date(), records = 0 } = options;
   const currentWeek = Math.max(1, seasonWeek(window, now));
 
   const perWeek = new Map<number, number>();
@@ -97,9 +130,26 @@ export function computeSeasonProgress(
     }
   }
 
+  // A block counts only when every one of its weeks was a full one, and only
+  // when the block is over — half a block is not a block.
+  let blocksCompleted = 0;
+  for (let block = 0; block < SEASON_BLOCK_COUNT; block += 1) {
+    const inBlock = weeks.filter((entry) => seasonBlockIndex(entry.week) === block);
+    const blockLength = BLOCK_LENGTHS[block];
+    if (inBlock.length === blockLength && inBlock.every((entry) => entry.complete)) {
+      blocksCompleted += 1;
+    }
+  }
+
   return {
-    points: workouts * POINTS_PER_WORKOUT + fullWeeks * POINTS_PER_FULL_WEEK,
+    points:
+      workouts * POINTS_PER_WORKOUT +
+      fullWeeks * POINTS_PER_FULL_WEEK +
+      records * POINTS_PER_RECORD +
+      blocksCompleted * POINTS_PER_BLOCK,
     workouts,
+    records,
+    blocksCompleted,
     fullWeeks,
     longestStreak,
     weeks,
@@ -135,34 +185,50 @@ export function resolveSeasonBadges(
 }
 
 /**
- * Lifts whose best-ever weight was set inside the season.
+ * Record bonuses earned, capped at one per lift per block.
  *
- * Not "lifts you trained" and not "lifts with a good number" — the best of the
- * whole log, achieved in these 26 weeks. Anything looser would hand out the
- * record badge for repeating a weight from two years ago.
+ * A record is a log that beat everything before it — walked in order, not
+ * compared against a final total, because "the best of the season" counts once
+ * while "got stronger four times" is four separate pieces of progress and the
+ * whole point of a 26-week block.
+ *
+ * The per-block cap is what keeps the incentive honest. At 50 points an
+ * uncapped record bonus pays for testing a one-rep max every Friday; capped,
+ * the only way to earn it four times is to actually get stronger four times.
  */
 export function countSeasonRecords(
-  lifts: ReadonlyArray<{ bestWeight: number | null; logs: ReadonlyArray<{ weight: number; performedAt: string }> }>,
+  lifts: ReadonlyArray<{ logs: ReadonlyArray<{ weight: number; performedAt: string }> }>,
   window: SeasonWindow,
 ): number {
   let count = 0;
+
   for (const lift of lifts) {
-    const best = lift.bestWeight ?? 0;
-    if (!(best > 0)) {
-      continue;
-    }
-    const setInSeason = lift.logs.some((log) => {
-      if (log.weight < best) {
-        return false;
+    const ordered = [...lift.logs]
+      .map((log) => ({ weight: log.weight, stamp: Date.parse(log.performedAt) }))
+      .filter((log) => Number.isFinite(log.stamp) && log.weight > 0)
+      .sort((left, right) => left.stamp - right.stamp);
+
+    let best = 0;
+    const blocksHit = new Set<number>();
+
+    for (const log of ordered) {
+      if (log.weight <= best) {
+        continue;
       }
-      const stamp = Date.parse(log.performedAt);
-      return (
-        Number.isFinite(stamp) && stamp >= window.start.getTime() && stamp < window.end.getTime()
-      );
-    });
-    if (setInSeason) {
-      count += 1;
+      best = log.weight;
+      // Only a record set INSIDE the window scores. Beating a weight from two
+      // years ago is progress; the weight from two years ago is not.
+      if (log.stamp >= window.start.getTime() && log.stamp < window.end.getTime()) {
+        const week = Math.min(
+          SEASON_WEEKS,
+          Math.floor((log.stamp - window.start.getTime()) / (7 * DAY)) + 1,
+        );
+        blocksHit.add(seasonBlockIndex(week));
+      }
     }
+
+    count += Math.min(blocksHit.size, SEASON_BLOCK_COUNT) * MAX_RECORDS_PER_LIFT_PER_BLOCK;
   }
+
   return count;
 }

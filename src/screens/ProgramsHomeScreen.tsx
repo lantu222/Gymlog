@@ -205,7 +205,7 @@ interface ProgramsHomeScreenProps {
     rangeLabel: string;
     startLabel: string;
     weeksLeft: number;
-    programCount: number;
+    programName: string;
     current: boolean;
     gradient: readonly [string, string];
   }>;
@@ -1103,8 +1103,8 @@ export function ProgramsHomeScreen({
                 <View style={styles.seasonCardBody}>
                   <Text style={styles.seasonTileMonths}>{card.rangeLabel}</Text>
                   <Text style={styles.seasonTileLabel}>{t(language, card.labelKey)}</Text>
-                  <Text style={styles.seasonTileCount}>
-                    {t(language, 'season.programCount', { count: card.programCount })}
+                  <Text style={styles.seasonTileCount} numberOfLines={1}>
+                    {card.programName}
                   </Text>
                 </View>
               </Pressable>

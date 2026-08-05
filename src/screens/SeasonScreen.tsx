@@ -13,7 +13,14 @@ import {
   seasonWeek,
   seasonWeeksLeft,
 } from '../lib/season';
-import { POINTS_PER_FULL_WEEK, POINTS_PER_WORKOUT, SeasonBadge, SeasonProgress } from '../lib/seasonScoring';
+import {
+  POINTS_PER_BLOCK,
+  POINTS_PER_FULL_WEEK,
+  POINTS_PER_RECORD,
+  POINTS_PER_WORKOUT,
+  SeasonBadge,
+  SeasonProgress,
+} from '../lib/seasonScoring';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
 
@@ -61,11 +68,8 @@ export interface SeasonProgramItem {
   name: string;
   blurb: string;
   days: number;
-  weeks: number;
   coverIndex: number;
   fingerprint: number[];
-  /** Marks the one the reader is running. */
-  active: boolean;
 }
 
 interface SeasonScreenProps {
@@ -73,10 +77,10 @@ interface SeasonScreenProps {
   language?: AppLanguage;
   progress: SeasonProgress;
   badges: SeasonBadge[];
-  programs: SeasonProgramItem[];
-  /** The running program, when it belongs to this season. */
-  activeProgramName: string | null;
-  activeProgramDays: number | null;
+  /** THE season program — one per season, see SEASON_PROGRAM_IDS. */
+  seasonProgram: SeasonProgramItem;
+  /** True when this is the program the reader is actually running. */
+  running: boolean;
   onBack: () => void;
   onOpenProgram: (programId: string) => void;
   onStartToday: (() => void) | null;
@@ -135,9 +139,8 @@ export function SeasonScreen({
   language = 'en',
   progress,
   badges,
-  programs,
-  activeProgramName,
-  activeProgramDays,
+  seasonProgram,
+  running,
   onBack,
   onOpenProgram,
   onStartToday,
@@ -260,99 +263,50 @@ export function SeasonScreen({
           )}
         </View>
 
-        {/* How it works — the scoring rule, stated where the number is. */}
-        <Text style={styles.sectionEyebrow}>{t(language, 'season.how')}</Text>
-        <View style={styles.card}>
-          {(['season.how.1', 'season.how.2', 'season.how.3'] as I18nKey[]).map((key, index) => (
-            <View key={key} style={styles.howRow}>
-              <Text style={[styles.howIndex, { color: gradient[0] }]}>{index + 1}</Text>
-              <Text style={styles.howText}>
-                {t(language, key, { perWorkout: POINTS_PER_WORKOUT, perWeek: POINTS_PER_FULL_WEEK })}
-              </Text>
-            </View>
-          ))}
-        </View>
-
-        {/* The season program, and which of its four blocks the week is in. */}
-        {activeProgramName ? (
-          <>
-            <Text style={styles.sectionEyebrow}>{t(language, 'season.yourProgram')}</Text>
-            <View style={styles.card}>
+        {/* THE season program. One, not ten.
+            Ten season programs meant ten different day counts and therefore
+            ten different point ceilings — the ranking would have sorted people
+            by how many days their program prescribes. One shared program is
+            what makes "week 9" a sentence two people can say to each other. */}
+        <Text style={styles.sectionEyebrow}>{t(language, 'season.theProgram')}</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={seasonProgram.name}
+          onPress={() => onOpenProgram(seasonProgram.id)}
+          style={({ pressed }) => [styles.card, pressed && styles.pressedRow]}
+        >
+          <View style={styles.programHeadRow}>
+            <ProgramMiniCover index={seasonProgram.coverIndex} fingerprint={seasonProgram.fingerprint} />
+            <View style={styles.programCopy}>
               <Text style={styles.programName} numberOfLines={1}>
-                {activeProgramName}
+                {seasonProgram.name}
               </Text>
-              {activeProgramDays ? (
-                <Text style={styles.programMeta}>
-                  {t(language, 'programs.card.days', { count: activeProgramDays })}
-                  {'  ·  '}
-                  {t(language, 'season.weeksUnit', { count: SEASON_WEEKS })}
-                </Text>
+              <Text style={styles.programMeta}>
+                {t(language, 'programs.card.days', { count: seasonProgram.days })}
+                {'  ·  '}
+                {t(language, 'season.weeksUnit', { count: SEASON_WEEKS })}
+              </Text>
+              {running ? (
+                <View style={[styles.runningPill, { backgroundColor: gradient[0] }]}>
+                  <Text style={styles.runningPillText}>{t(language, 'season.running')}</Text>
+                </View>
               ) : null}
-              <View style={styles.blockRow}>
-                {SEASON_BLOCKS.map((block, index) => (
-                  <View
-                    key={block}
-                    style={[
-                      styles.block,
-                      index === blockIndex && { backgroundColor: gradient[1] },
-                    ]}
-                  >
-                    <Text style={[styles.blockText, index === blockIndex && styles.blockTextOn]}>
-                      {t(language, BLOCK_KEYS[block])}
-                    </Text>
-                  </View>
-                ))}
-              </View>
             </View>
-          </>
-        ) : null}
-
-        {/* The series. The one section that needs other people, and the only
-            one on this screen that cannot be true yet. */}
-        <Text style={styles.sectionEyebrow}>{t(language, 'season.series')}</Text>
-        <View style={styles.lockedCard}>
-          <View style={styles.lockedRow}>
-            <View style={[styles.avatar, { backgroundColor: theme.purple }]}>
-              <Text style={styles.avatarText}>{t(language, 'season.you').slice(0, 2).toUpperCase()}</Text>
-            </View>
-            <Text style={styles.lockedName}>{t(language, 'season.you')}</Text>
-            <Text style={styles.lockedPoints}>{t(language, 'season.points', { count: progress.points })}</Text>
           </View>
-          <Text style={styles.lockedNote}>{t(language, 'season.seriesLocked')}</Text>
-        </View>
-
-        {/* Season programs. */}
-        <Text style={styles.sectionEyebrow}>
-          {t(language, 'season.programs', { count: programs.length })}
-        </Text>
-        <View style={styles.programList}>
-          {programs.map((item) => (
-            <Pressable
-              key={item.id}
-              accessibilityRole="button"
-              accessibilityLabel={item.name}
-              onPress={() => onOpenProgram(item.id)}
-              style={({ pressed }) => [styles.programRow, pressed && styles.pressedRow]}
-            >
-              <ProgramMiniCover index={item.coverIndex} fingerprint={item.fingerprint} />
-              <View style={styles.programCopy}>
-                <Text style={styles.programRowName} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={styles.programBlurb} numberOfLines={2}>
-                  {item.blurb}
-                </Text>
-                <Text style={styles.programRowMeta}>
-                  {t(language, 'programs.card.days', { count: item.days })}
-                  {item.weeks > 0 ? `  ·  ${t(language, 'programs.weeks', { count: item.weeks })}` : ''}
+          <View style={styles.blockRow}>
+            {SEASON_BLOCKS.map((block, index) => (
+              <View
+                key={block}
+                style={[styles.block, index === blockIndex && { backgroundColor: gradient[1] }]}
+              >
+                <Text style={[styles.blockText, index === blockIndex && styles.blockTextOn]}>
+                  {t(language, BLOCK_KEYS[block])}
                 </Text>
               </View>
-              <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                <Path d="m9 6 6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </Pressable>
-          ))}
-        </View>
+            ))}
+          </View>
+        </Pressable>
+        <Text style={styles.oneProgramNote}>{t(language, 'season.oneProgram')}</Text>
 
         {/* Badges. Each condition is the reader's own log. */}
         <Text style={styles.sectionEyebrow}>
@@ -372,6 +326,38 @@ export function SeasonScreen({
               </Svg>
               <Text style={[styles.badgeText, badge.earned && { color: gradient[1] }]}>
                 {t(language, BADGE_KEYS[badge.key])}
+              </Text>
+            </View>
+          ))}
+        </View>
+
+        {/* The series. The one section that needs other people, and the only
+            one on this screen that cannot be true yet. */}
+        <Text style={styles.sectionEyebrow}>{t(language, 'season.series')}</Text>
+        <View style={styles.lockedCard}>
+          <View style={styles.lockedRow}>
+            <View style={[styles.avatar, { backgroundColor: theme.purple }]}>
+              <Text style={styles.avatarText}>{t(language, 'season.you').slice(0, 2).toUpperCase()}</Text>
+            </View>
+            <Text style={styles.lockedName}>{t(language, 'season.you')}</Text>
+            <Text style={styles.lockedPoints}>{t(language, 'season.points', { count: progress.points })}</Text>
+          </View>
+          <Text style={styles.lockedNote}>{t(language, 'season.seriesLocked')}</Text>
+        </View>
+
+        {/* How it works — the scoring rule, stated where the number is. */}
+        <Text style={styles.sectionEyebrow}>{t(language, 'season.how')}</Text>
+        <View style={styles.card}>
+          {(['season.how.1', 'season.how.2', 'season.how.records', 'season.how.3'] as I18nKey[]).map((key, index) => (
+            <View key={key} style={styles.howRow}>
+              <Text style={[styles.howIndex, { color: gradient[0] }]}>{index + 1}</Text>
+              <Text style={styles.howText}>
+                {t(language, key, {
+                  perWorkout: POINTS_PER_WORKOUT,
+                  perWeek: POINTS_PER_FULL_WEEK,
+                  perRecord: POINTS_PER_RECORD,
+                  perBlock: POINTS_PER_BLOCK,
+                })}
               </Text>
             </View>
           ))}
@@ -688,6 +674,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 20,
     gap: 9,
   },
+  programHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  runningPill: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 6,
+  },
+  runningPillText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.7,
+  },
   programRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -749,6 +754,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 0.4,
     textAlign: 'center',
     marginTop: 5,
+  },
+  oneProgramNote: {
+    color: theme.muted,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+    marginTop: 10,
+    paddingHorizontal: 22,
   },
   optOut: {
     color: theme.muted,

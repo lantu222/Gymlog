@@ -95,7 +95,12 @@ import {
 } from './src/lib/workoutCompletionSummary';
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
-import { getSeasonForDate, getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
+import {
+  getSeasonForDate,
+  getSeasonProgramId,
+  getSeasonProgramIds,
+  orderSeasons,
+} from './src/lib/programSeasons';
 import { SEASON_WEEKS, nextSeasonWindow, resolveSeasonWindow, seasonWeeksLeft } from './src/lib/season';
 import {
   computeSeasonProgress,
@@ -3295,7 +3300,15 @@ function VinhaApp() {
         )}${window.year !== window.end.getFullYear() ? window.end.getFullYear() : ''}`,
         startLabel: label(window.start),
         weeksLeft: isCurrent ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
-        programCount: programsSeasonTileCounts[window.season],
+        // The card names the season's ONE program rather than counting ten.
+        // A count was the right label when a season was a filter; it is the
+        // wrong one now that the season is a thing you join.
+        programName: (() => {
+          const template = workout.templates.find(
+            (entry) => entry.id === getSeasonProgramId(window.season),
+          );
+          return template ? formatWorkoutDisplayLabel(template.name) : '';
+        })(),
         current: isCurrent,
         gradient: (window.season === 'winter'
           ? (['#2E5C93', '#12294B'] as const)
@@ -3303,7 +3316,7 @@ function VinhaApp() {
       });
       return [build(current, true), build(next, false)];
     },
-    [preferences.appLanguage, programsSeasonTileCounts],
+    [preferences.appLanguage, workout.templates],
   );
   const programsCampaigns = useMemo(
     () =>
@@ -4464,42 +4477,44 @@ function VinhaApp() {
      */
     const seasonWindow = resolveSeasonWindow();
     const seasonInView = route.season;
+    const seasonRecords = countSeasonRecords(
+      trackedProgress.map((summary) => ({
+        logs: summary.logs.map((log) => ({ weight: log.weight, performedAt: log.performedAt })),
+      })),
+      seasonWindow,
+    );
     const seasonProgress = computeSeasonProgress(workoutSessions, seasonWindow, {
       weeklyTarget: homeActivePlanCard?.sessions?.length ?? null,
+      records: seasonRecords,
     });
     const seasonBadges = resolveSeasonBadges(seasonProgress, {
       // The current window is by definition the one containing today, so it
       // is never over. The finished badge belongs to a past season.
       seasonEnded: false,
-      personalRecords: countSeasonRecords(
-        trackedProgress.map((summary) => ({
-          bestWeight: summary.bestWeight,
-          logs: summary.logs.map((log) => ({ weight: log.weight, performedAt: log.performedAt })),
-        })),
-        seasonWindow,
-      ),
+      personalRecords: seasonRecords,
     });
-    const seasonProgramItems = (
-      programsSeasonRows.find((row) => row.season === seasonInView)?.items ?? []
-    ).map((item) => ({
-      id: item.id,
-      name: item.name,
-      blurb: item.blurb,
-      days: item.days,
-      weeks: item.weeks,
-      coverIndex: item.coverIndex,
-      fingerprint: item.fingerprint,
-      active: item.id === homeActivePlanCard?.programId,
-    }));
+    // THE season program: one per season, the same one for everyone. Ten of
+    // them meant ten different point ceilings and a ranking sorted by how many
+    // days a program prescribes.
+    const seasonProgramId = getSeasonProgramId(seasonInView);
+    const seasonProgramTemplate = workout.templates.find((template) => template.id === seasonProgramId);
     content = (
       <SeasonScreen
         season={seasonInView}
         language={preferences.appLanguage}
         progress={seasonProgress}
         badges={seasonBadges}
-        programs={seasonProgramItems}
-        activeProgramName={homeActivePlanCard?.title ?? null}
-        activeProgramDays={homeActivePlanCard?.sessions?.length ?? null}
+        seasonProgram={{
+          id: seasonProgramId,
+          name: seasonProgramTemplate
+            ? formatWorkoutDisplayLabel(seasonProgramTemplate.name)
+            : seasonProgramId,
+          blurb: getReadyProgramContent(seasonProgramId, preferences.appLanguage)?.summary ?? '',
+          days: seasonProgramTemplate?.daysPerWeek ?? 0,
+          coverIndex: 0,
+          fingerprint: seasonProgramTemplate ? buildProgramFingerprint(seasonProgramTemplate) : [],
+        }}
+        running={homeActivePlanCard?.programId === seasonProgramId}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         onOpenProgram={handleOpenReadyProgramDetail}
         onStartToday={

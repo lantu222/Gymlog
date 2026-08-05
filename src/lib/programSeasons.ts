@@ -78,6 +78,31 @@ export const PROGRAM_SEASONS: Readonly<Record<string, ProgramSeason>> = {
   tpl_gainer_mobility_flow_v1: 'summer',
 };
 
+/**
+ * THE program for each season — one, not ten.
+ *
+ * A season is a competition, and a competition needs everyone doing the same
+ * thing. Ten season programs meant ten different weeks, ten different day
+ * counts and therefore ten different point ceilings; the ranking would have
+ * sorted people by how many days their program prescribes rather than by how
+ * they trained. One shared program is what makes "week 9" a sentence two
+ * people can say to each other.
+ *
+ * The other seasonal programs do not disappear — they stay in the catalog,
+ * under their categories, for anyone who wants to train something else. They
+ * are simply not the season.
+ */
+export const SEASON_PROGRAM_IDS: Readonly<Record<ProgramSeason, string>> = {
+  // Lean work through the light months.
+  summer: 'tpl_shred_v1',
+  // Build through the dark ones.
+  winter: 'tpl_4_day_powerbuilding_v1',
+};
+
+export function getSeasonProgramId(season: ProgramSeason): string {
+  return SEASON_PROGRAM_IDS[season];
+}
+
 export function getProgramSeason(templateId: string): ProgramSeason | null {
   return PROGRAM_SEASONS[templateId] ?? null;
 }
