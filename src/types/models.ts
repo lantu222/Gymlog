@@ -1,3 +1,4 @@
+import { StrengthGoal } from '../lib/strengthGoals';
 export type UnitPreference = 'kg' | 'lb';
 export type AppLanguage = 'en' | 'fi';
 export type SignInMethod = 'apple' | 'email' | 'local' | 'google';
@@ -342,6 +343,12 @@ export interface AppPreferences {
   lastInsightType: PostSessionInsightType | null;
   recommendedProgramId: string | null;
   trackedExerciseLibraryItemIds: string[];
+  /**
+   * "Bench 100 kg" targets. Empty until the user sets one — the onboarding
+   * goal is a category ('strength'), not a number, and a progress bar needs
+   * a number.
+   */
+  strengthGoals: StrengthGoal[];
   dismissedTipIds: string[];
   activePlanId: string | null;
   /**

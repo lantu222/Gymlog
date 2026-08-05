@@ -91,6 +91,7 @@ const DEFAULT_PREFERENCES = {
   dismissedTipIds: [] as string[],
   activePlanId: 'plan_push_pull_legs',
   programsTabEnabled: true,
+  strengthGoals: [],
 };
 
 function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {

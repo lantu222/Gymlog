@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { createEmptyDatabase } from '../data/seed';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
@@ -817,6 +818,9 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
               (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0,
             )
           : fallback.preferences.trackedExerciseLibraryItemIds,
+      // Hand-typed numbers in stored JSON: normalised rather than trusted,
+      // so a corrupt entry cannot make a progress bar draw past its box.
+      strengthGoals: normalizeStrengthGoals(input?.preferences?.strengthGoals),
       dismissedTipIds:
         Array.isArray(input?.preferences?.dismissedTipIds)
           ? input.preferences.dismissedTipIds.filter((value: unknown): value is string => typeof value === 'string')

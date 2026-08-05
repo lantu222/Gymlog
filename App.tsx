@@ -97,7 +97,9 @@ import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplic
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
+import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
+import { removeStrengthGoal, resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
   filterByCategory,
@@ -3231,6 +3233,34 @@ function VinhaApp() {
     },
     [preferences.appLanguage, setupRecommendation?.waterfall, workout.templates],
   );
+  /**
+   * Goals with a bar that can move.
+   *
+   * Measured against the user's own best set for that lift — never an
+   * estimate. A goal on a lift they have not logged shows as not started
+   * rather than 0%: those are different states, and a bar alone cannot tell
+   * them apart.
+   */
+  const programsGoals = useMemo(
+    () =>
+      resolveGoalProgress(
+        preferences.strengthGoals,
+        new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight])),
+      ),
+    [preferences.strengthGoals, trackedProgress],
+  );
+  /** Lifts with logged work, for the goal picker — you cannot aim at nothing. */
+  const programsGoalCandidates = useMemo(
+    () =>
+      trackedProgress
+        .filter((summary) => (summary.bestWeight ?? 0) > 0)
+        .map((summary) => ({
+          name: summary.name,
+          label: exerciseNameLabel(preferences.appLanguage, summary.name),
+          bestKg: summary.bestWeight ?? 0,
+        })),
+    [preferences.appLanguage, trackedProgress],
+  );
   const programsCustomItems = useMemo(
     () =>
       customWorkouts.map((template) => ({
@@ -4304,6 +4334,22 @@ function VinhaApp() {
         categoryMembers={programsCategoryMembers}
         trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
+        goals={programsGoals}
+        goalCandidates={programsGoalCandidates}
+        onSetGoal={(exerciseName, targetKg) =>
+          void updatePreferences({
+            strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
+              exerciseName,
+              targetKg,
+              createdAt: new Date().toISOString(),
+            }),
+          })
+        }
+        onRemoveGoal={(exerciseName) =>
+          void updatePreferences({
+            strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),
+          })
+        }
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}

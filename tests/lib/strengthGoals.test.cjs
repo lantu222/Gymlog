@@ -1,0 +1,113 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const {
+  isValidTarget,
+  normalizeStrengthGoals,
+  removeStrengthGoal,
+  resolveGoalProgress,
+  upsertStrengthGoal,
+} = require('../../.test-dist/lib/strengthGoals.js');
+
+function read(...segments) {
+  return fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
+}
+
+const GOAL = { exerciseName: 'Bench Press', targetKg: 100, createdAt: '2026-01-01T00:00:00.000Z' };
+
+module.exports = [
+  {
+    name: 'progress is measured from the logged best, never an estimate',
+    run() {
+      const [entry] = resolveGoalProgress([GOAL], new Map([['Bench Press', 82.5]]));
+      assert.equal(entry.currentKg, 82.5);
+      assert.equal(Math.round((entry.ratio ?? 0) * 100), 83);
+      assert.equal(entry.reached, false);
+
+      const [done] = resolveGoalProgress([GOAL], new Map([['Bench Press', 102.5]]));
+      assert.equal(done.reached, true);
+      // Clamped: a bar cannot draw past its box, and "110%" is not a state.
+      assert.equal(done.ratio, 1);
+    },
+  },
+  {
+    name: 'a lift never logged is not started, which is not the same as zero',
+    run() {
+      // An empty bar reads as "you have made no progress". The truth is "you
+      // have not begun", and the row says so instead of drawing nothing.
+      const [never] = resolveGoalProgress([GOAL], new Map());
+      assert.equal(never.currentKg, null);
+      assert.equal(never.ratio, null);
+      assert.equal(never.reached, false);
+
+      // A stored zero is the same state, not a real measurement.
+      const [zero] = resolveGoalProgress([GOAL], new Map([['Bench Press', 0]]));
+      assert.equal(zero.ratio, null);
+    },
+  },
+  {
+    name: 'stored goals are normalised, not trusted',
+    run() {
+      // These live in AsyncStorage JSON, and a corrupt entry would otherwise
+      // divide by zero or draw a bar past its container.
+      const goals = normalizeStrengthGoals([
+        GOAL,
+        { exerciseName: 'Bench Press', targetKg: 200, createdAt: 'x' }, // duplicate lift
+        { exerciseName: '  ', targetKg: 100 },
+        { exerciseName: 'Squat', targetKg: 0 },
+        { exerciseName: 'Deadlift', targetKg: -50 },
+        { exerciseName: 'Row', targetKg: 99999 },
+        'nonsense',
+        null,
+      ]);
+      assert.deepEqual(goals.map((goal) => goal.exerciseName), ['Bench Press']);
+      assert.equal(goals[0].targetKg, 100, 'the first entry wins a duplicate');
+      assert.deepEqual(normalizeStrengthGoals(undefined), []);
+
+      assert.equal(isValidTarget(100), true);
+      assert.equal(isValidTarget(0), false);
+      assert.equal(isValidTarget(Number.NaN), false);
+      assert.equal(isValidTarget(1001), false);
+    },
+  },
+  {
+    name: 'one goal per lift, and removing one leaves the rest',
+    run() {
+      const squat = { exerciseName: 'Squat', targetKg: 140, createdAt: 'now' };
+      let goals = upsertStrengthGoal([GOAL], squat);
+      assert.equal(goals.length, 2);
+
+      // Setting a new target for the same lift replaces rather than stacks.
+      goals = upsertStrengthGoal(goals, { ...GOAL, targetKg: 110 });
+      assert.equal(goals.length, 2);
+      assert.equal(goals.find((goal) => goal.exerciseName === 'Bench Press')?.targetKg, 110);
+
+      assert.deepEqual(removeStrengthGoal(goals, 'Squat').map((goal) => goal.exerciseName), ['Bench Press']);
+      assert.equal(removeStrengthGoal(goals, 'Nothing').length, 2);
+    },
+  },
+  {
+    name: 'the row is wired, and only offers lifts with logged work',
+    run() {
+      const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
+      const app = read('App.tsx');
+
+      // Targets on lifts that were never done cannot have a bar, and offering
+      // them would make the row's first impression an empty one.
+      assert.match(app, /filter\(\(summary\) => \(summary\.bestWeight \?\? 0\) > 0\)/);
+      // Measured against the user's own bests, from the same summaries the
+      // Progress tab draws.
+      assert.match(app, /new Map\(trackedProgress\.map\(\(summary\) => \[summary\.name, summary\.bestWeight\]\)\)/);
+
+      // The bar renders the resolved ratio, and "not started" has its own copy.
+      assert.match(screen, /entry\.currentKg === null/);
+      assert.match(screen, /programs\.goals\.notStarted/);
+      assert.match(screen, /Math\.round\(\(entry\.ratio \?\? 0\) \* 100\)/);
+
+      // The target survives a restart: preferences, normalised on load.
+      const database = read('src', 'storage', 'database.ts');
+      assert.match(database, /strengthGoals: normalizeStrengthGoals\(input\?\.preferences\?\.strengthGoals\)/);
+    },
+  },
+];

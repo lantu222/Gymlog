@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, {
   Circle,
   Defs,
@@ -16,6 +16,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { I18nKey, t } from '../lib/i18n';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
+import { isValidTarget, StrengthGoalProgress } from '../lib/strengthGoals';
 import type { ProgramSeason } from '../lib/programSeasons';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -170,6 +171,16 @@ interface ProgramsHomeScreenProps {
    * behind it is worse than no row. Never labelled AI: aiInfo.never.2 says
    * the model is never used to pick a programme, and it is not.
    */
+  /**
+   * Strength targets with their progress. Empty until the reader sets one —
+   * the app stores a goal CATEGORY from onboarding, never a number, so a bar
+   * had nothing behind it before this.
+   */
+  goals: StrengthGoalProgress[];
+  /** Lifts with logged work: you cannot set a target on something never done. */
+  goalCandidates: Array<{ name: string; label: string; bestKg: number }>;
+  onSetGoal: (exerciseName: string, targetKg: number) => void;
+  onRemoveGoal: (exerciseName: string) => void;
   recommendations: Array<{
     id: string;
     name: string;
@@ -349,6 +360,10 @@ export function ProgramsHomeScreen({
   categoryMembers,
   trendingItems,
   recommendations,
+  goals,
+  goalCandidates,
+  onSetGoal,
+  onRemoveGoal,
   customPrograms,
   exerciseLibraryCount,
   onStartActiveSession,
@@ -370,6 +385,9 @@ export function ProgramsHomeScreen({
   // Null is 'All'. Not persisted: a filter is an answer to what you are
   // looking for right now, and a stale one is worse than none.
   const [category, setCategory] = useState<ProgramCategoryKey | null>(null);
+  // The goal sheet: which lift, and the number being typed.
+  const [goalLift, setGoalLift] = useState<{ name: string; label: string; bestKg: number } | null>(null);
+  const [goalTarget, setGoalTarget] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
 
   const nextSession = activeProgram?.nextSession ?? null;
@@ -546,6 +564,63 @@ export function ProgramsHomeScreen({
           </Svg>
           <Text style={styles.newProgramButtonText}>{t(language, 'csv.newProgram')}</Text>
         </Pressable>
+
+        {/* Goals: only ever the reader's own numbers. A lift they have never
+            logged shows as not started rather than 0% — an empty bar reads as
+            "you have made no progress" when the truth is "you have not
+            begun". */}
+        {goals.length > 0 || goalCandidates.length > 0 ? (
+          <View>
+            <View style={styles.sectionHeadRow}>
+              <Text style={styles.sectionEyebrow}>{t(language, 'programs.goals')}</Text>
+              {goalCandidates.length > 0 ? (
+                <Pressable onPress={() => setGoalLift(goalCandidates[0])} hitSlop={8}>
+                  <Text style={styles.sectionLink}>{t(language, 'programs.goals.add')}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+            {goals.length === 0 ? (
+              <Text style={styles.seasonLead}>{t(language, 'programs.goals.empty')}</Text>
+            ) : (
+              <View style={styles.goalCard}>
+                {goals.map((entry, index) => (
+                  <Pressable
+                    key={entry.goal.exerciseName}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'programs.goals.remove', {
+                      name: exerciseNameLabel(language, entry.goal.exerciseName),
+                    })}
+                    onLongPress={() => onRemoveGoal(entry.goal.exerciseName)}
+                    style={[styles.goalRow, index > 0 && styles.trendingRowDivider]}
+                  >
+                    <View style={styles.goalCopy}>
+                      <Text style={styles.goalTitle} numberOfLines={1}>
+                        {exerciseNameLabel(language, entry.goal.exerciseName)}
+                      </Text>
+                      <Text style={styles.goalMeta}>
+                        {entry.currentKg === null
+                          ? t(language, 'programs.goals.notStarted', { target: entry.goal.targetKg })
+                          : t(language, 'programs.goals.meta', {
+                              current: entry.currentKg,
+                              target: entry.goal.targetKg,
+                            })}
+                      </Text>
+                      <View style={styles.goalTrack}>
+                        <View
+                          style={[
+                            styles.goalFill,
+                            { width: `${Math.round((entry.ratio ?? 0) * 100)}%` },
+                            entry.reached && styles.goalFillReached,
+                          ]}
+                        />
+                      </View>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+          </View>
+        ) : null}
 
         {/* "For you" leads the browse: it is the only row that knows who is
             reading it, and every card can say why it is there. */}
@@ -829,6 +904,89 @@ export function ProgramsHomeScreen({
         <Text style={styles.footerNote}>{t(language, 'programs.footNote')}</Text>
         <View style={styles.bottomSafeFade} />
       </ScrollView>
+
+      {/* Setting a target. Only lifts with logged work are offered — a target
+          on something never done cannot have a bar, and offering it would make
+          the row's first impression an empty one. */}
+      <Modal
+        visible={goalLift !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setGoalLift(null)}
+      >
+        <View style={styles.sheetOverlay}>
+          <Pressable style={styles.sheetScrim} onPress={() => setGoalLift(null)} />
+          <View style={styles.sheet}>
+            <View style={styles.sheetGrip} />
+            {goalLift ? (
+              <>
+                <Text style={styles.sheetName}>
+                  {t(language, 'programs.goals.sheetTitle', { name: goalLift.label })}
+                </Text>
+                <Text style={styles.sheetExplainer}>
+                  {t(language, 'programs.goals.sheetBody', { best: goalLift.bestKg })}
+                </Text>
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.categoryRow}
+                  style={styles.exploreScroll}
+                >
+                  {goalCandidates.map((candidate) => (
+                    <Pressable
+                      key={candidate.name}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: candidate.name === goalLift.name }}
+                      onPress={() => setGoalLift(candidate)}
+                      style={[
+                        styles.categoryChip,
+                        candidate.name === goalLift.name && styles.categoryChipOn,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.categoryChipText,
+                          candidate.name === goalLift.name && styles.categoryChipTextOn,
+                        ]}
+                      >
+                        {candidate.label}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </ScrollView>
+                <TextInput
+                  value={goalTarget}
+                  onChangeText={setGoalTarget}
+                  keyboardType="numeric"
+                  placeholder={`${Math.round(goalLift.bestKg + 10)}`}
+                  placeholderTextColor={theme.faint}
+                  style={styles.goalInput}
+                />
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={!isValidTarget(Number(goalTarget.replace(',', '.')))}
+                  onPress={() => {
+                    const target = Number(goalTarget.replace(',', '.'));
+                    if (!isValidTarget(target)) {
+                      return;
+                    }
+                    onSetGoal(goalLift.name, target);
+                    setGoalTarget('');
+                    setGoalLift(null);
+                  }}
+                  style={({ pressed }) => [
+                    styles.sheetConfirm,
+                    !isValidTarget(Number(goalTarget.replace(',', '.'))) && { opacity: 0.5 },
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <Text style={styles.sheetConfirmText}>{t(language, 'programs.goals.save')}</Text>
+                </Pressable>
+              </>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={picked !== null} transparent animationType="slide" onRequestClose={() => setPicked(null)}>
         <View style={styles.sheetOverlay}>
@@ -1195,6 +1353,59 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   categoryChipCountOn: {
     color: theme.purple,
+  },
+  goalInput: {
+    marginTop: 14,
+    height: 54,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 16,
+    fontSize: 18,
+    fontWeight: '800',
+    color: theme.ink,
+  },
+  goalCard: {
+    marginHorizontal: 20,
+    marginBottom: 6,
+    borderRadius: 18,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    overflow: 'hidden',
+  },
+  goalRow: {
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  goalCopy: {
+    gap: 4,
+  },
+  goalTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: theme.ink,
+  },
+  goalMeta: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.muted,
+  },
+  goalTrack: {
+    marginTop: 4,
+    height: 6,
+    borderRadius: 999,
+    backgroundColor: theme.purpleLight,
+    overflow: 'hidden',
+  },
+  goalFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: theme.purple,
+  },
+  goalFillReached: {
+    backgroundColor: theme.green,
   },
   trendingCard: {
     marginHorizontal: 20,
