@@ -414,6 +414,35 @@ export function PremiumScreen({
             <Text style={styles.freeTitle}>{t(language, 'pro.v2.free.title')}</Text>
           </View>
           <Text style={styles.freeBody}>{t(language, 'pro.v2.free.body')}</Text>
+          {/*
+            Three things that were already true and said nowhere.
+            
+            Each one is the loudest complaint about the market leader — the
+            social feed people say they hate, the connection Hevy needs for
+            everything, and the update that lost Strong users years of saved
+            workouts. They cost nothing to state because the app already works
+            this way; not stating them was the only thing wrong.
+            
+            Verified before shipping, which is how the export claim was caught:
+            the app had no log export at all, so "yours to take" was false
+            until it was built. No social graph exists anywhere in the code,
+            and the app makes exactly one outbound request anywhere — the AI
+            coach — which falls back to a local answer with no endpoint set.
+          */}
+          <View style={styles.standRow}>
+            {(
+              [
+                'pro.page.stand.noSocial',
+                'pro.page.stand.offline',
+                'pro.page.stand.yours',
+              ] as I18nKey[]
+            ).map((key) => (
+              <View key={key} style={styles.standItem}>
+                <CheckGlyph color={theme.green} />
+                <Text style={styles.standText}>{t(language, key)}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
         {/* PLAN — planned prices, labeled planned */}
@@ -1020,6 +1049,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   freeTitle: {
     fontSize: 14.5,
     fontWeight: '800',
+    color: theme.ink,
+  },
+  standRow: {
+    marginTop: 14,
+    gap: 9,
+  },
+  standItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  standText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontWeight: '700',
+    lineHeight: 17,
     color: theme.ink,
   },
   freeBody: {

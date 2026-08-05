@@ -4021,6 +4021,7 @@ function VinhaApp() {
       <ExportPlanScreen
         language={preferences.appLanguage}
         plans={exportablePlans}
+        log={{ sessions: database.workoutSessions, logs: database.exerciseLogs }}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
       />
     );

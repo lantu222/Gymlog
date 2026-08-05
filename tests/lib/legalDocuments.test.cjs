@@ -108,7 +108,18 @@ module.exports = [
       };
       walk(path.join(root, 'src'));
 
-      const fetchSites = srcFiles.filter((file) => /\bfetch\s*\(/.test(fs.readFileSync(file, 'utf8')));
+      // Comments and copy are not call sites. A prose mention of the word
+      // was enough to fail this with "update the policy or remove the call",
+      // which is a confusing way to be told a sentence was worded badly.
+      const isCallSite = (source) =>
+        source
+          .split(String.fromCharCode(10))
+          .filter((line) => {
+            const trimmed = line.trim();
+            return !trimmed.startsWith('//') && !trimmed.startsWith('*') && !trimmed.startsWith('/*');
+          })
+          .some((line) => /\bfetch\s*\(/.test(line));
+      const fetchSites = srcFiles.filter((file) => isCallSite(fs.readFileSync(file, 'utf8')));
       assert.deepEqual(
         fetchSites.map((file) => path.basename(file)),
         ['aiCoachClient.ts'],

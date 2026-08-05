@@ -6,6 +6,7 @@ import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, ChevronIcon, SectionLabel } from '../components/SettingsUi';
 import { t } from '../lib/i18n';
 import { buildProgramCsv, CsvExportSession, summarizeExportSessions } from '../lib/programCsvExport';
+import { buildWorkoutLogCsv, summarizeWorkoutLog, WorkoutLogCsvInput } from '../lib/workoutLogCsvExport';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
@@ -35,6 +36,12 @@ interface ExportPlanScreenProps {
   language?: AppLanguage;
   /** The user's own plans plus the ready program they are running, if any. */
   plans: ExportablePlan[];
+  /**
+   * Every logged set. This screen exported the plan and nothing else, while
+   * the free tier had begun promising the log was "readable and exportable
+   * forever" — half of which was true.
+   */
+  log: WorkoutLogCsvInput;
   onBack: () => void;
 }
 
@@ -46,7 +53,7 @@ interface ExportPlanScreenProps {
  * share sheet as text instead — mail it to yourself, drop it in Sheets, or
  * paste it straight back into the importer.
  */
-export function ExportPlanScreen({ language = 'en', plans, onBack }: ExportPlanScreenProps) {
+export function ExportPlanScreen({ language = 'en', plans, log, onBack }: ExportPlanScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   async function sharePlan(plan: ExportablePlan) {
@@ -57,6 +64,19 @@ export function ExportPlanScreen({ language = 'en', plans, onBack }: ExportPlanS
       });
     } catch {
       // Dismissed, or no share target — nothing to recover from.
+    }
+  }
+
+  const logSummary = summarizeWorkoutLog(log);
+
+  async function shareLog() {
+    try {
+      await Share.share({
+        title: t(language, 'export.log.title'),
+        message: buildWorkoutLogCsv(log),
+      });
+    } catch {
+      // Same as above: dismissing the sheet is not a failure.
     }
   }
 
@@ -113,6 +133,42 @@ export function ExportPlanScreen({ language = 'en', plans, onBack }: ExportPlanS
             </View>
           </View>
         )}
+
+        {/*
+          The log, above the plans on purpose. A program is a thing you can
+          rebuild; the sets you lifted are not, and this is the one row that
+          makes "your log is yours" a claim you can check rather than take on
+          trust. Free tier, always — an export you have to pay for is a
+          hostage negotiation.
+        */}
+        <View style={styles.section}>
+          <SectionLabel label={t(language, 'export.log.section')} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'export.log.title')}
+            disabled={logSummary.sets === 0}
+            onPress={() => void shareLog()}
+            style={({ pressed }) => [
+              styles.card,
+              styles.row,
+              logSummary.sets === 0 && { opacity: 0.55 },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>{t(language, 'export.log.title')}</Text>
+              <Text style={styles.rowSub}>
+                {logSummary.sets === 0
+                  ? t(language, 'export.log.empty')
+                  : t(language, 'export.log.meta', {
+                      sessions: logSummary.sessions,
+                      sets: logSummary.sets,
+                    })}
+              </Text>
+            </View>
+            {logSummary.sets > 0 ? <ChevronIcon /> : null}
+          </Pressable>
+        </View>
 
         <Text style={styles.footer}>{t(language, 'export.footer')}</Text>
       </ScrollView>

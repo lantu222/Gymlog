@@ -859,6 +859,10 @@ const EN = {
   'export.intro':
     'Your plan is shared as text in four columns — Day, Exercise, Sets, Reps. Open it in Sheets or Excel, or paste it straight back into Import.',
   'export.section': 'YOUR PLANS',
+  'export.log.section': 'YOUR TRAINING LOG',
+  'export.log.title': 'Export every logged set',
+  'export.log.meta': '{sessions} sessions · {sets} sets',
+  'export.log.empty': 'Nothing logged yet',
   // Split so each half agrees with its own count: "1 day · 13 exercises".
   'export.meta.day': '1 day',
   'export.meta.days': '{count} days',
@@ -1474,6 +1478,12 @@ const EN = {
 
   'pro.v2.soon': 'SOON',
 
+  // Three claims checked against the code before they were written. The
+  // export one was false when first drafted — there was no log export —
+  // so it was built rather than softened.
+  'pro.page.stand.noSocial': 'No feed, no followers, no likes. Nobody sees your training but you.',
+  'pro.page.stand.offline': 'Works with no connection. Only the AI coach needs one.',
+  'pro.page.stand.yours': 'Every set exportable as text, on the free tier, forever.',
   'pro.v2.free.title': 'Free stays a real app',
   // "your full history, forever" was true of the log and is still true of
   // the log — but it read as covering the trend charts, which now stop at
@@ -3172,6 +3182,10 @@ const FI: Record<I18nKey, string> = {
   'export.intro':
     'Ohjelma jaetaan tekstinä neljässä sarakkeessa — Day, Exercise, Sets, Reps. Avaa se Sheetsissä tai Excelissä, tai liitä suoraan takaisin tuontiin.',
   'export.section': 'OMAT OHJELMAT',
+  'export.log.section': 'TREENILOKISI',
+  'export.log.title': 'Vie kaikki kirjatut sarjat',
+  'export.log.meta': '{sessions} treeniä · {sets} sarjaa',
+  'export.log.empty': 'Ei vielä kirjauksia',
   'export.meta.day': '1 päivä',
   'export.meta.days': '{count} päivää',
   'export.meta.exercise': '1 liike',
@@ -3753,6 +3767,9 @@ const FI: Record<I18nKey, string> = {
 
   'pro.v2.soon': 'PIAN',
 
+  'pro.page.stand.noSocial': 'Ei syötettä, ei seuraajia, ei tykkäyksiä. Kukaan muu ei näe treenejäsi.',
+  'pro.page.stand.offline': 'Toimii ilman verkkoa. Vain AI-valmentaja tarvitsee yhteyden.',
+  'pro.page.stand.yours': 'Jokainen sarja vietävissä tekstinä, ilmaisversiossa, ikuisesti.',
   'pro.v2.free.title': 'Free riittää sellaisenaan',
   'pro.v2.free.body': 'Rajaton kirjaus, kolme omaa ohjelmaa, kaikki valmiit ohjelmat, ohjattu treenitila ja 3D-demot, widget, CSV-vienti — ja jokainen kirjaamasi sarja luettavissa ja vietävissä ikuisesti. Ei mainoksia, ei aikarajaa. Premium avaa pitkän näkymän ja valmennuskerroksen.',
 
