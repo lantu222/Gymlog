@@ -1,11 +1,11 @@
 import React from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { I18nKey, t } from '../lib/i18n';
 import type { ProgramSeason } from '../lib/programSeasons';
 import {
-  SEASON_BLOCKS,
+  SEASON_BLOCK_WEEKS,
   SEASON_WEEKS,
   resolveSeasonWindow,
   seasonBlockIndex,
@@ -40,13 +40,6 @@ import type { AppLanguage } from '../types/models';
  * stated rule, the weekly requirement is their own program's days per week,
  * and every badge has a condition they can check.
  */
-
-const BLOCK_KEYS: Record<(typeof SEASON_BLOCKS)[number], I18nKey> = {
-  base: 'season.block.base',
-  load: 'season.block.load',
-  power: 'season.block.power',
-  peak: 'season.block.peak',
-};
 
 const BADGE_KEYS: Record<string, I18nKey> = {
   streak12: 'season.badge.streak12',
@@ -129,6 +122,73 @@ function ProgramMiniCover({ stops, fingerprint }: { stops: readonly [string, str
   );
 }
 
+/**
+ * The season, one bar per week.
+ *
+ * This replaced a plain progress bar, which drew the same shape for a reader
+ * who trained every week and one who trained twice in five months — the only
+ * thing it knew was the date. These bars are the points each week earned, so
+ * the picture is the season as it actually went: gaps are missed weeks, a tall
+ * bar is a week with a record in it, and how far the bars reach is still how
+ * far into the season you are.
+ *
+ * Weeks not yet reached are drawn as baseline ticks rather than left blank, so
+ * the strip reads as 26 weeks from day one instead of growing a container.
+ */
+function SeasonChart({
+  weeks,
+  currentWeek,
+  ratio,
+}: {
+  weeks: SeasonProgress['weeks'];
+  currentWeek: number;
+  ratio: number;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  // Measured, not "100%": a percentage width made react-native-svg scale the
+  // HEIGHT with it too, and the strip opened a 50px hole in the hero.
+  const { width: windowWidth } = useWindowDimensions();
+  const width = Math.max(200, windowWidth - 40);
+  const height = 40;
+  const slot = width / SEASON_WEEKS;
+  const barWidth = Math.max(3, slot - 2.5);
+
+  const points = weeks.map(
+    (entry) => entry.workouts * POINTS_PER_WORKOUT + (entry.complete ? POINTS_PER_FULL_WEEK : 0),
+  );
+  // Scaled to the best week so far, floored at one full week so a single
+  // three-workout week does not draw as a full-height column.
+  const peak = Math.max(POINTS_PER_WORKOUT * 3 + POINTS_PER_FULL_WEEK, ...points, 1);
+
+  return (
+    <View style={styles.chartWrap}>
+      <Svg width={width} height={height}>
+        {Array.from({ length: SEASON_WEEKS }, (_, index) => {
+          const earned = points[index] ?? 0;
+          const reached = index < currentWeek;
+          const barHeight = earned > 0 ? Math.max(4, (earned / peak) * (height - 4)) : 2;
+          return (
+            <Rect
+              key={index}
+              x={index * slot + (slot - barWidth) / 2}
+              y={height - barHeight}
+              width={barWidth}
+              height={barHeight}
+              rx={1.5}
+              fill="#FFFFFF"
+              fillOpacity={earned > 0 ? 0.95 : reached ? 0.4 : 0.22}
+            />
+          );
+        })}
+      </Svg>
+      {/* The date still has to be readable when nothing has been logged. */}
+      <View style={styles.chartBaseline}>
+        <View style={[styles.chartBaselineFill, { width: `${Math.round(ratio * 100)}%` }]} />
+      </View>
+    </View>
+  );
+}
+
 export function SeasonScreen({
   season,
   language = 'en',
@@ -191,9 +251,11 @@ export function SeasonScreen({
                 <Path d="M15 6l-6 6 6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </Pressable>
-            <Text style={styles.heroKicker}>
-              {t(language, season === 'winter' ? 'season.winter' : 'season.summer').toUpperCase()} {window.year}
-            </Text>
+            {/* The label belongs to the BUTTON, not the screen. It read
+                "KESÄKAUSI 2026" next to a back arrow that goes to Programs,
+                repeating the title directly below it and naming the wrong
+                destination at the same time. */}
+            <Text style={styles.heroKicker}>{t(language, 'tabs.programs').toUpperCase()}</Text>
           </View>
 
           <Text style={styles.heroTitle}>
@@ -227,9 +289,11 @@ export function SeasonScreen({
             </View>
           </View>
 
-          <View style={styles.heroTrack}>
-            <View style={[styles.heroTrackFill, { width: `${Math.round(ratio * 100)}%` }]} />
-          </View>
+          <SeasonChart
+            weeks={progress.weeks}
+            currentWeek={upcoming ? 0 : week}
+            ratio={ratio}
+          />
           <View style={styles.heroTrackRow}>
             <Text style={styles.heroTrackLabel}>
               {upcoming
@@ -316,13 +380,16 @@ export function SeasonScreen({
             </View>
           </Pressable>
           <View style={styles.blockRow}>
-            {SEASON_BLOCKS.map((block, index) => (
+            {SEASON_BLOCK_WEEKS.map((range, index) => (
               <View
-                key={block}
+                key={range[0]}
                 style={[styles.block, index === blockIndex && { backgroundColor: gradient[1] }]}
               >
                 <Text style={[styles.blockText, index === blockIndex && styles.blockTextOn]}>
-                  {t(language, BLOCK_KEYS[block])}
+                  {t(language, 'season.blockWeeks', {
+                    from: SEASON_BLOCK_WEEKS[index][0],
+                    to: SEASON_BLOCK_WEEKS[index][1],
+                  })}
                 </Text>
               </View>
             ))}
@@ -341,9 +408,9 @@ export function SeasonScreen({
             </Text>
           </Pressable>
         </View>
-        <Text style={styles.oneProgramNote}>
-          {running ? t(language, 'season.oneProgram') : t(language, 'season.notIn')}
-        </Text>
+        {/* "Et ole vielä kaudessa" used to sit here, under a button that
+            says "Aloita kausi". */}
+        {running ? <Text style={styles.oneProgramNote}>{t(language, 'season.oneProgram')}</Text> : null}
 
         {/* Badges. Each condition is the reader's own log. */}
         <Text style={styles.sectionEyebrow}>
@@ -400,7 +467,6 @@ export function SeasonScreen({
           ))}
         </View>
 
-        <Text style={styles.optOut}>{t(language, 'season.optOut')}</Text>
       </ScrollView>
 
     </View>
@@ -499,16 +565,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 1.2,
     marginTop: 2,
   },
-  heroTrack: {
-    height: 8,
-    borderRadius: 5,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    marginTop: 18,
+  chartWrap: {
+    marginTop: 10,
+  },
+  chartBaseline: {
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    marginTop: 5,
     overflow: 'hidden',
   },
-  heroTrackFill: {
-    height: 8,
-    borderRadius: 5,
+  chartBaselineFill: {
+    height: 3,
+    borderRadius: 2,
     backgroundColor: '#FFFFFF',
   },
   heroTrackRow: {
@@ -695,10 +764,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '600',
     marginTop: 10,
   },
-  programList: {
-    paddingHorizontal: 20,
-    gap: 9,
-  },
   programHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -718,40 +783,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.7,
   },
-  programRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-    padding: 9,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-  },
   programCopy: {
     flex: 1,
     minWidth: 0,
-  },
-  programRowName: {
-    color: theme.ink,
-    fontSize: 14.5,
-    lineHeight: 19,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-  },
-  programBlurb: {
-    color: theme.muted,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  programRowMeta: {
-    color: theme.faint,
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '700',
-    marginTop: 4,
   },
   badgeRow: {
     flexDirection: 'row',
@@ -786,14 +820,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 17,
     fontWeight: '600',
     marginTop: 10,
-    paddingHorizontal: 22,
-  },
-  optOut: {
-    color: theme.muted,
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '600',
-    marginTop: 22,
     paddingHorizontal: 22,
   },
   cta: {

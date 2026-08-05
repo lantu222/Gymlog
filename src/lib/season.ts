@@ -93,9 +93,21 @@ export function seasonProgressRatio(window: SeasonWindow, date: Date = new Date(
   return Math.max(0, Math.min(1, week / SEASON_WEEKS));
 }
 
-export type SeasonBlockKey = 'base' | 'load' | 'power' | 'peak';
-
-export const SEASON_BLOCKS: readonly SeasonBlockKey[] = ['base', 'load', 'power', 'peak'];
+/**
+ * The four blocks, as the weeks they cover.
+ *
+ * They were called POHJA / KUORMA / TEHO / HUIPPU, which is periodisation
+ * vocabulary and means nothing to a reader looking at a progress strip: the
+ * names promised that the training changes character between them, and nothing
+ * in the app makes it. Weeks are what a block actually is here, and "1–7" is
+ * checkable against the number right above it.
+ */
+export const SEASON_BLOCK_WEEKS: ReadonlyArray<readonly [number, number]> = [
+  [1, 7],
+  [8, 13],
+  [14, 20],
+  [21, 26],
+];
 
 /**
  * Which of the four blocks a week sits in, 0-based.
