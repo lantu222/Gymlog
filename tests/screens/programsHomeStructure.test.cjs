@@ -89,7 +89,11 @@ module.exports = [
       assert.match(programsHomeSource, /const COVER_STYLES/);
       assert.match(programsHomeSource, /function ProgramCover/);
       assert.match(programsHomeSource, /RadialGradient/);
-      assert.match(programsHomeSource, /exploreItems\.map/);
+      // The rail is filterable now: no category shows the curated eight,
+      // a category shows the whole catalog narrowed to it. A tile saying
+      // "Voima 8" filtering the curated list would have opened three.
+      assert.match(programsHomeSource, /category === null[\s\S]{0,40}exploreItems/);
+      assert.match(programsHomeSource, /categoryMembers\[category\]/);
       assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
       assert.match(programsHomeSource, /days\}d \/ wk/);
       // Switch-program sheet: explainer + Cancel / Switch program; confirm opens

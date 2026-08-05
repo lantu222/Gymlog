@@ -15,6 +15,7 @@ import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { I18nKey, t } from '../lib/i18n';
+import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
 import type { ProgramSeason } from '../lib/programSeasons';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -142,6 +143,15 @@ interface ProgramsHomeScreenProps {
    * brings nobody back.
    */
   seasonRows: Array<{ season: ProgramSeason; items: ProgramsExploreItem[] }>;
+  /**
+   * The whole catalog as cards, not a curated eight.
+   *
+   * A category tile that says "Voima 8" has to be able to open eight, and the
+   * old Explore row was a hand-picked list that no filter could reach past.
+   */
+  catalogItems: ProgramsExploreItem[];
+  categoryCounts: Record<ProgramCategoryKey, number>;
+  categoryMembers: Record<ProgramCategoryKey, string[]>;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
   onStartActiveSession: (sessionId: string) => void;
@@ -264,6 +274,9 @@ export function ProgramsHomeScreen({
   activeProgram = null,
   exploreItems,
   seasonRows,
+  catalogItems,
+  categoryCounts,
+  categoryMembers,
   customPrograms,
   exerciseLibraryCount,
   onStartActiveSession,
@@ -282,6 +295,9 @@ export function ProgramsHomeScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [picked, setPicked] = useState<ProgramsExploreItem | null>(null);
+  // Null is 'All'. Not persisted: a filter is an answer to what you are
+  // looking for right now, and a stale one is worse than none.
+  const [category, setCategory] = useState<ProgramCategoryKey | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
 
   const nextSession = activeProgram?.nextSession ?? null;
@@ -515,8 +531,41 @@ export function ProgramsHomeScreen({
             <Text style={styles.sectionLink}>{t(language, 'programs.viewAll')}</Text>
           </Pressable>
         </View>
+        {/* Categories filter the rail below rather than opening a screen: at
+            eight programs a flat list was fine, at fifty-five it is not, and a
+            filter you can undo in one tap beats a navigation you have to come
+            back from. Counts are shown so a tile cannot promise an empty row. */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryRow}
+          style={styles.exploreScroll}
+        >
+          {[null, ...PROGRAM_CATEGORIES.map((entry) => entry.key)].map((key) => {
+            const entry = key ? PROGRAM_CATEGORIES.find((item) => item.key === key) : null;
+            const on = category === key;
+            const count = key ? categoryCounts[key] : catalogItems.length;
+            return (
+              <Pressable
+                key={key ?? 'all'}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                onPress={() => setCategory(key)}
+                style={[styles.categoryChip, on && styles.categoryChipOn]}
+              >
+                <Text style={[styles.categoryChipText, on && styles.categoryChipTextOn]}>
+                  {entry ? t(language, entry.labelKey) : t(language, 'programs.cat.all')}
+                </Text>
+                <Text style={[styles.categoryChipCount, on && styles.categoryChipCountOn]}>{count}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.exploreRow} style={styles.exploreScroll}>
-          {exploreItems.map((item) => {
+          {(category === null
+            ? exploreItems
+            : catalogItems.filter((item) => categoryMembers[category]?.includes(item.id))
+          ).map((item) => {
             const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
             return (
               <Pressable
@@ -930,6 +979,43 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 15,
     fontWeight: '800',
     letterSpacing: 1.1,
+  },
+  categoryRow: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+  },
+  categoryChipOn: {
+    backgroundColor: theme.purpleLight,
+    borderColor: theme.purple,
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: theme.ink,
+  },
+  categoryChipTextOn: {
+    color: theme.purple,
+    fontWeight: '800',
+  },
+  categoryChipCount: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    color: theme.faint,
+  },
+  categoryChipCountOn: {
+    color: theme.purple,
   },
   seasonCount: {
     fontSize: 12,

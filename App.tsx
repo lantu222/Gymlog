@@ -96,6 +96,12 @@ import {
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
+import {
+  countByCategory,
+  filterByCategory,
+  PROGRAM_CATEGORIES,
+  ProgramCategoryKey,
+} from './src/lib/programCategories';
 import { ProgramLimitSheet } from './src/components/ProgramLimitSheet';
 import { buildCustomProgramDetail, buildCustomSessionRuntimeTemplate, buildReadyProgramDetail, buildReadySessionRuntimeTemplate } from './src/lib/programDetails';
 import { applySessionAdaptation, previewSessionTrim } from './src/lib/sessionAdaptation';
@@ -3107,6 +3113,42 @@ function VinhaApp() {
     },
     [preferences.appLanguage, workout.templates],
   );
+  /**
+   * The full catalog as browse cards, plus the counts each category tile
+   * shows.
+   *
+   * Explore used to be eight hand-picked ids — a curated row that could not
+   * grow and that no filter could reach past. With categories on the screen
+   * the rail has to be the whole catalog, or a tile saying "Voima 8" would
+   * open a list of three.
+   */
+  const programsCatalogItems = useMemo<ProgramsExploreItem[]>(
+    () =>
+      workout.templates.map((template, index) => ({
+        id: template.id,
+        name: formatWorkoutDisplayLabel(template.name),
+        goal: formatGoalLabel(template.goalType),
+        blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
+        days: template.daysPerWeek,
+        minutes: template.estimatedSessionDuration,
+        coverIndex: index % 5,
+      })),
+    [preferences.appLanguage, workout.templates],
+  );
+  const programsCategoryCounts = useMemo(
+    () => countByCategory(workout.templates),
+    [workout.templates],
+  );
+  const programsCategoryMembers = useMemo(
+    () =>
+      Object.fromEntries(
+        PROGRAM_CATEGORIES.map((category) => [
+          category.key,
+          filterByCategory(workout.templates, category.key).map((template) => template.id),
+        ]),
+      ) as Record<ProgramCategoryKey, string[]>,
+    [workout.templates],
+  );
   const programsCustomItems = useMemo(
     () =>
       customWorkouts.map((template) => ({
@@ -4175,6 +4217,9 @@ function VinhaApp() {
         }
         exploreItems={programsExploreItems}
         seasonRows={programsSeasonRows}
+        catalogItems={programsCatalogItems}
+        categoryCounts={programsCategoryCounts}
+        categoryMembers={programsCategoryMembers}
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}
