@@ -24,78 +24,14 @@ import Svg, {
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
-import { HomeDaySessionSummary } from '../lib/homeCalendar';
 import { I18nKey, t } from '../lib/i18n';
 import type { CampaignTarget, ProgramCampaign } from '../lib/programCampaigns';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
 import { isValidTarget, StrengthGoalProgress } from '../lib/strengthGoals';
 import type { ProgramSeason } from '../lib/programSeasons';
 import { orderSeasonTiles, currentSeasonTile } from '../lib/programSeasonTiles';
-import { localizeSessionName } from '../lib/sessionNameLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
-
-const WEEKDAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-// Same spread pattern as ProgramDetailScreen's schedule preview.
-const TRAINING_DAY_SPREAD: Record<number, number[]> = {
-  1: [0],
-  2: [0, 3],
-  3: [0, 2, 4],
-  4: [0, 1, 3, 5],
-  5: [0, 1, 3, 4, 5],
-  6: [0, 1, 2, 3, 4, 5],
-};
-
-/**
- * A generic Mon/Wed/Fri-style spread for plans that DO carry fixed weekdays but
- * are missing one, so the chips stay a weekday set rather than a mix.
- *
- * It is never used to invent a whole week any more: with no fixed labels and no
- * schedule of the user's own, this screen showed MA/KE/PE while Home and
- * Progress showed nothing for the same plan — because those two refuse to
- * invent a rhythm and this one did it happily. One of the three was lying.
- */
-function weekdayForSession(index: number, sessionCount: number) {
-  const spread = TRAINING_DAY_SPREAD[Math.min(6, Math.max(1, sessionCount))] ?? [0, 2, 4];
-  return WEEKDAYS[spread[index] ?? Math.min(index, 6)];
-}
-
-// Weekday truth (P6): the saved plan's own entry label wins; the generic
-// spread is only a fallback for plans without fixed weekdays.
-const WEEKDAY_SET = new Set(WEEKDAYS);
-
-// The three-letter codes above are matched against saved plan entries, so they
-// stay English; only what the chip shows is translated.
-const WEEKDAY_DISPLAY_KEYS: Record<string, I18nKey> = {
-  MON: 'setup.day.mon',
-  TUE: 'setup.day.tue',
-  WED: 'setup.day.wed',
-  THU: 'setup.day.thu',
-  FRI: 'setup.day.fri',
-  SAT: 'setup.day.sat',
-  SUN: 'setup.day.sun',
-};
-
-function weekdayLabel(code: string, language: AppLanguage) {
-  const key = WEEKDAY_DISPLAY_KEYS[code];
-  return (key ? t(language, key) : code).toUpperCase();
-}
-
-function resolveSessionWeekday(
-  dayLabel: string | null | undefined,
-  index: number,
-  sessionCount: number,
-  anyFixedWeekday: boolean,
-): string | null {
-  const normalized = dayLabel?.trim().slice(0, 3).toUpperCase() ?? '';
-  if (WEEKDAY_SET.has(normalized)) {
-    return normalized;
-  }
-  // Only fill a gap in a plan that otherwise has real weekdays. When nothing
-  // in the week is scheduled, the answer is "we do not know" — the badge shows
-  // the session number and "Muokkaa päiviä" is right above it.
-  return anyFixedWeekday ? weekdayForSession(index, sessionCount) : null;
-}
 
 // Designed program covers (README "Program Covers"): a per-program hue rendered
 // as a gradient, with a single-stroke signature motif. oklch from the mock is
@@ -113,20 +49,6 @@ const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
 
 const COVER_W = 274;
 const COVER_H = 176;
-
-export interface ProgramsActiveProgram {
-  programId: string;
-  programType?: 'ready' | 'custom';
-  title: string;
-  goalLabel: string;
-  focusLabel: string;
-  weekLabel: string;
-  currentWeek: number;
-  planTotalWeeks: number;
-  sessionsPerWeek: string;
-  sessions: HomeDaySessionSummary[];
-  nextSession: HomeDaySessionSummary & { label: string };
-}
 
 export interface ProgramsExploreItem {
   id: string;
@@ -153,7 +75,8 @@ export interface ProgramsContinueItem extends ProgramsExploreItem {
 }
 
 interface ProgramsHomeScreenProps {
-  activeProgram?: ProgramsActiveProgram | null;
+  /** The running program's name — the switch sheet says what you leave. */
+  activeProgramTitle?: string | null;
   /**
    * Winter and summer, current season first.
    *
@@ -209,16 +132,6 @@ interface ProgramsHomeScreenProps {
     coverIndex: number;
     fingerprint: number[];
   }>;
-  /**
-   * Where the recommendations came from, because the two sources deserve
-   * different sentences.
-   *
-   * 'setup' is the onboarding questionnaire. 'program' is the program the
-   * reader is actually running — a signal the old row ignored entirely, which
-   * is why it was empty for everyone who picked a program off the catalog
-   * instead of answering a form.
-   */
-  recommendationSource: 'setup' | 'program';
   /** The rotating hero. Empty hides it — see lib/programCampaigns. */
   campaigns: ProgramCampaign[];
   /** Programs with logged work that are not the active one. */
@@ -227,8 +140,6 @@ interface ProgramsHomeScreenProps {
   seasonTileCounts: Record<ProgramSeason, number>;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
-  onStartActiveSession: (sessionId: string) => void;
-  onOpenActivePlan: () => void;
   onOpenExploreProgram: (programId: string) => void;
   onOpenCustomProgram: (programId: string) => void;
   onViewAllPrograms: () => void;
@@ -238,22 +149,6 @@ interface ProgramsHomeScreenProps {
   exerciseLibraryEntries: CsvLibraryEntry[];
   language?: AppLanguage;
   onOpenLibrary: () => void;
-}
-
-const WEEK_PHASE_KEYS: I18nKey[] = [
-  'programs.phase.base',
-  'programs.phase.rhythm',
-  'programs.phase.volume',
-  'programs.phase.peak',
-];
-
-function phaseNote(currentWeek: number, totalWeeks: number, language: AppLanguage): string {
-  if (totalWeeks <= 1) {
-    return t(language, WEEK_PHASE_KEYS[0]);
-  }
-  const ratio = (currentWeek - 1) / Math.max(1, totalWeeks - 1);
-  const index = Math.min(WEEK_PHASE_KEYS.length - 1, Math.max(0, Math.round(ratio * (WEEK_PHASE_KEYS.length - 1))));
-  return t(language, WEEK_PHASE_KEYS[index]);
 }
 
 function GradientTile({ stops, size, radius }: { stops: [string, string]; size: number; radius: number }) {
@@ -542,14 +437,13 @@ function CampaignHero({
 }
 
 export function ProgramsHomeScreen({
-  activeProgram = null,
+  activeProgramTitle = null,
   seasonRows,
   catalogItems,
   categoryCounts,
   categoryMembers,
   trendingItems,
   recommendations,
-  recommendationSource,
   campaigns,
   continueItems,
   seasonTileCounts,
@@ -559,8 +453,6 @@ export function ProgramsHomeScreen({
   onRemoveGoal,
   customPrograms,
   exerciseLibraryCount,
-  onStartActiveSession,
-  onOpenActivePlan,
   onOpenExploreProgram,
   onOpenCustomProgram,
   onViewAllPrograms,
@@ -610,10 +502,6 @@ export function ProgramsHomeScreen({
     }
   };
 
-  const nextSession = activeProgram?.nextSession ?? null;
-  const weekSessions = activeProgram?.sessions ?? [];
-  const totalWeeks = Math.max(1, activeProgram?.planTotalWeeks ?? 1);
-  const currentWeek = Math.min(Math.max(1, activeProgram?.currentWeek ?? 1), totalWeeks);
   const pickedStyle = picked ? COVER_STYLES[picked.coverIndex % COVER_STYLES.length] : null;
 
   return (
@@ -624,143 +512,11 @@ export function ProgramsHomeScreen({
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {activeProgram ? (
-          <>
-            {/* Full-bleed hero: photo placeholder + accent scrim (photo lands here later). */}
-            <View style={styles.hero}>
-              <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
-                <Defs>
-                  <SvgLinearGradient id="programsHeroScrim" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#1E5A38" stopOpacity={0.4} />
-                    <Stop offset="0.4" stopColor="#0A0714" stopOpacity={0.2} />
-                    <Stop offset="1" stopColor="#080510" stopOpacity={0.9} />
-                  </SvgLinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width="100%" height="100%" fill="#241A3E" />
-                <Rect x="0" y="0" width="100%" height="100%" fill="url(#programsHeroScrim)" />
-              </Svg>
-              {/* Photo-slot marker (docs/photo-placeholders.md). */}
-              <View style={styles.heroPhotoMark}>
-                <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M4 8a2 2 0 0 1 2-2h1.5l1.4-1.6a1 1 0 0 1 .75-.4h4.7a1 1 0 0 1 .75.4L16.5 6H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8z"
-                    stroke="#FFFFFF"
-                    strokeOpacity={0.8}
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                  />
-                  <Circle cx={12} cy={12.5} r={3.2} stroke="#FFFFFF" strokeOpacity={0.8} strokeWidth={2} />
-                </Svg>
-              </View>
-              <View style={styles.heroContent}>
-                <Text style={styles.heroKicker}>{t(language, 'programs.activeProgram')}</Text>
-                <Text style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.7}>
-                  {activeProgram.title}
-                </Text>
-                <Text style={styles.heroWeekLine}>
-                  <Text style={styles.heroWeekStrong}>{activeProgram.weekLabel}</Text>
-                  <Text style={styles.heroWeekNote}>{`  ·  ${phaseNote(currentWeek, totalWeeks, language)}`}</Text>
-                </Text>
-                <View style={styles.heroSegmentRow}>
-                  {Array.from({ length: totalWeeks }, (_, index) => (
-                    <View key={index} style={[styles.heroSegment, index < currentWeek ? styles.heroSegmentFilled : styles.heroSegmentEmpty]} />
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* THIS WEEK */}
-            <View style={styles.weekHeaderRow}>
-              <Text style={styles.sectionEyebrow}>
-                {t(language, 'programs.thisWeek', { count: activeProgram.sessionsPerWeek })}
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'programs.editDaysA11y')}
-                onPress={onOpenActivePlan}
-                hitSlop={8}
-              >
-                <Text style={styles.weekEditLink}>{t(language, 'programs.editDays')}</Text>
-              </Pressable>
-            </View>
-            <View style={styles.weekList}>
-              {weekSessions.map((session, index, allSessions) => {
-                const anyFixedWeekday = allSessions.some((entry) =>
-                  WEEKDAY_SET.has(entry.dayLabel?.trim().slice(0, 3).toUpperCase() ?? ''),
-                );
-                const isToday = nextSession?.id === session.id;
-                const weekday = resolveSessionWeekday(
-                  session.dayLabel,
-                  index,
-                  weekSessions.length,
-                  anyFixedWeekday,
-                );
-                // The badge is the weekday, and ONLY when the plan really has
-                // one. Without a schedule it showed the session number beside a
-                // title that already reads "Päivä 1:" — the same fact twice, and
-                // it cost the title the width it then truncated for.
-                const weekdayText = weekday ? weekdayLabel(weekday, language) : null;
-                const sessionTitle = localizeSessionName(session.title, language);
-
-                return (
-                  <Pressable
-                    key={session.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${isToday ? `, ${t(language, 'programs.todayA11y')}` : ''}`}
-                    onPress={onOpenActivePlan}
-                    style={({ pressed }) => [styles.dayRow, isToday && styles.dayRowToday, pressed && styles.pressedRow]}
-                  >
-                    {weekdayText ? (
-                      <View style={[styles.dayBadge, isToday && styles.dayBadgeToday]}>
-                        <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
-                      </View>
-                    ) : null}
-                    <View style={styles.dayCopy}>
-                      <View style={styles.dayTitleRow}>
-                        <Text style={styles.dayTitle} numberOfLines={1}>
-                          {sessionTitle}
-                        </Text>
-                        {isToday ? (
-                          <View style={styles.todayPill}>
-                            <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
-                          </View>
-                        ) : null}
-                      </View>
-                    </View>
-                    <Text style={styles.dayDuration}>{session.duration}</Text>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path d="m9 6 6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'programs.viewPlan')}
-              onPress={onOpenActivePlan}
-              style={({ pressed }) => [styles.viewPlanButton, pressed && styles.pressed]}
-            >
-              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                <Path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" stroke={theme.onHighlight} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-              <Text style={styles.viewPlanButtonText}>{t(language, 'programs.viewPlan')}</Text>
-            </Pressable>
-
-            {/* "Vaihda liikkeitä · Säädä aikataulua" used to sit here. Both
-                opened the plan screen, and nothing on that screen can actually
-                edit an exercise or a weekday — so the row promised two editing
-                tools the app does not have. One honest button beats three
-                links where two of them are decoration. */}
-          </>
-        ) : (
-          <View style={styles.emptyActiveCard}>
-            <Text style={styles.emptyActiveTitle}>{t(language, 'programs.noActive')}</Text>
-            <Text style={styles.emptyActiveSub}>{t(language, 'programs.noActiveSub')}</Text>
-          </View>
-        )}
-
+        {/* The active program used to lead this screen: a 320px photo hero,
+            the whole week as rows, and a View-full-plan button. It lives on
+            Home now, where the reader already is when they wonder what today
+            is. Keeping a copy here would have given the same week two owners,
+            and this tab is for finding a program, not for running one. */}
         {/* The rotating hero, at the top of browsing. I cut this from the first
             build arguing the app has no campaigns; the argument was wrong,
             because a campaign slot needs somewhere real to send you rather than
@@ -784,7 +540,6 @@ export function ProgramsHomeScreen({
             </Pressable>
           )}
         </View>
-        <Text style={styles.seasonLead}>{t(language, 'programs.browse.lead')}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -998,12 +753,6 @@ export function ProgramsHomeScreen({
             <View style={styles.sectionHeadRow}>
               <Text style={styles.sectionEyebrow}>{t(language, 'programs.forYou')}</Text>
             </View>
-            <Text style={styles.seasonLead}>
-              {t(
-                language,
-                recommendationSource === 'program' ? 'programs.forYou.leadProgram' : 'programs.forYou.lead',
-              )}
-            </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -1131,9 +880,6 @@ export function ProgramsHomeScreen({
                 {t(language, 'programs.season.count', { count: row.items.length })}
               </Text>
             </View>
-            <Text style={styles.seasonLead}>
-              {t(language, row.season === 'winter' ? 'programs.season.winterLead' : 'programs.season.summerLead')}
-            </Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -1284,7 +1030,6 @@ export function ProgramsHomeScreen({
           </Svg>
         </Pressable>
 
-        <Text style={styles.footerNote}>{t(language, 'programs.footNote')}</Text>
         <View style={styles.bottomSafeFade} />
       </ScrollView>
 
@@ -1396,8 +1141,8 @@ export function ProgramsHomeScreen({
                 {/* This sheet shipped in English inside a Finnish screen, with
                     an "or 'program'" fallback that named nothing. */}
                 <Text style={styles.sheetExplainer}>
-                  {activeProgram
-                    ? t(language, 'programs.switchSheet.body', { name: activeProgram.title })
+                  {activeProgramTitle
+                    ? t(language, 'programs.switchSheet.body', { name: activeProgramTitle })
                     : t(language, 'programs.switchSheet.bodyNoActive')}
                 </Text>
                 <View style={styles.sheetButtonRow}>
@@ -1455,205 +1200,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 0,
     paddingBottom: 132,
   },
-  hero: {
-    height: 320,
-    marginHorizontal: -20,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-  heroPhotoMark: {
-    position: 'absolute',
-    top: 52,
-    right: 16,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: 'rgba(12,8,26,0.35)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroContent: {
-    padding: 20,
-    gap: 7,
-  },
-  heroKicker: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '800',
-    letterSpacing: 1.7,
-  },
-  heroTitle: {
-    color: '#FFFFFF',
-    fontSize: 26,
-    lineHeight: 31,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-  },
-  heroWeekLine: {
-    marginTop: 1,
-  },
-  heroWeekStrong: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    lineHeight: 20,
-    fontWeight: '800',
-  },
-  heroWeekNote: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-  },
-  heroSegmentRow: {
-    flexDirection: 'row',
-    gap: 4,
-    marginTop: 6,
-  },
-  heroSegment: {
-    flex: 1,
-    height: 6,
-    borderRadius: 999,
-  },
-  heroSegmentFilled: {
-    backgroundColor: theme.surface,
-  },
-  heroSegmentEmpty: {
-    backgroundColor: 'rgba(255,255,255,0.32)',
-  },
-  weekHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 18,
-    marginBottom: 10,
-  },
-  weekEditLink: {
-    color: theme.highlight,
-    fontSize: 12.5,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
-  weekList: {
-    gap: 9,
-  },
-  dayRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.purpleSoft,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-  },
-  dayRowToday: {
-    backgroundColor: theme.purpleSoft,
-    // Structural, not an action: the row says "this is today", while the
-    // badge and pill inside it carry the interactive accent.
-    borderColor: theme.purple,
-  },
-  dayBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayBadgeToday: {
-    backgroundColor: theme.highlight,
-    borderColor: theme.highlight,
-  },
-  dayBadgeText: {
-    color: theme.faint,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  dayBadgeTextToday: {
-    color: theme.onHighlight,
-  },
-  dayCopy: {
-    flex: 1,
-    gap: 2,
-  },
-  dayTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  dayTitle: {
-    color: theme.ink,
-    fontSize: 15.5,
-    lineHeight: 20,
-    fontWeight: '800',
-    flexShrink: 1,
-  },
-  todayPill: {
-    borderRadius: 999,
-    backgroundColor: theme.highlight,
-    paddingVertical: 3,
-    paddingHorizontal: 7,
-  },
-  todayPillText: {
-    color: theme.onHighlight,
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '800',
-  },
-  dayDuration: {
-    color: theme.faint,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  viewPlanButton: {
-    height: 52,
-    borderRadius: 15,
-    backgroundColor: theme.highlight,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginTop: 14,
-    shadowColor: theme.highlight,
-    shadowOpacity: 0.27,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 8,
-  },
-  viewPlanButtonText: {
-    color: theme.onHighlight,
-    fontSize: 15,
-    fontWeight: '800',
-  },
   pressed: {
     transform: [{ scale: 0.96 }],
   },
   pressedRow: {
     opacity: 0.7,
-  },
-  emptyActiveCard: {
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: theme.purple,
-    backgroundColor: theme.surface,
-    padding: 20,
-    gap: 8,
-  },
-  emptyActiveTitle: {
-    color: theme.ink,
-    fontSize: 18,
-    lineHeight: 23,
-    fontWeight: '800',
-  },
-  emptyActiveSub: {
-    color: theme.muted,
-    fontSize: 13.5,
-    lineHeight: 19,
-    fontWeight: '600',
   },
   sectionHeadRow: {
     flexDirection: 'row',
@@ -2283,15 +1834,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '600',
-  },
-  footerNote: {
-    marginTop: 18,
-    textAlign: 'center',
-    color: theme.faint,
-    fontSize: 11.5,
-    lineHeight: 18,
-    fontWeight: '600',
-    paddingHorizontal: 10,
   },
   bottomSafeFade: {
     height: 16,

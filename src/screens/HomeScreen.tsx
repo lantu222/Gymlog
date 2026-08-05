@@ -27,7 +27,8 @@ import { getGreetingRotation, selectHomeGreeting } from '../lib/homeGreeting';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
-import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
+import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
+import { hasFixedWeekdays, resolveSessionWeekday, weekdayLabel } from '../lib/planWeekdays';
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
@@ -121,6 +122,8 @@ interface HomeScreenProps {
   onOpenHistory?: () => void;
   /** Opens the training-plan screen so the week can stop being unknown. */
   onSetTrainingDays?: () => void;
+  /** Opens the running program's full plan — "Katso koko ohjelma". */
+  onOpenActivePlan?: () => void;
   onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
   statCatalogCards?: HomeStatCard[];
@@ -186,6 +189,7 @@ export function HomeScreen({
   historyItems = [],
   onOpenHistory,
   onSetTrainingDays,
+  onOpenActivePlan,
   onSelectHistorySession,
   statCatalogCards = [],
   pinnedStatCardKeys = [],
@@ -787,6 +791,92 @@ export function HomeScreen({
             </Svg>
           </Pressable>
         </Animated.View>
+
+        {/* The active program.
+            The block above is today; this is the block today belongs to. It
+            used to lead the Programs tab, behind a 320px photo hero, which
+            meant the reader had to leave the screen they were already on to
+            find out what week they are in. Programs is for finding a program;
+            Home is for running one. Only one screen owns this now. */}
+        {activePlan && activePlan.sessions.length > 0 ? (
+          <Animated.View style={rise(RISE_DIVIDER)}>
+            <View style={styles.programHeadRow}>
+              <Text style={styles.programEyebrow}>{t(language, 'programs.activeProgram')}</Text>
+              <Text style={styles.programWeek}>{activePlan.weekLabel}</Text>
+            </View>
+            <Text style={styles.programTitle} numberOfLines={1}>
+              {activePlan.title}
+            </Text>
+            <View style={styles.programDays}>
+              {activePlan.sessions.map((session, index, allSessions) => {
+                const anyFixed = hasFixedWeekdays(allSessions);
+                const isToday = activePlan.nextSession?.id === session.id;
+                const weekday = resolveSessionWeekday(session.dayLabel, index, allSessions.length, anyFixed);
+                // The badge is the weekday, and only when the plan really has
+                // one. Without a schedule it repeated the session number that
+                // the title already states, and cost the title the width it
+                // then truncated for.
+                const weekdayText = weekday ? weekdayLabel(weekday, language) : null;
+                const sessionTitle = localizeSessionName(session.title, language);
+                return (
+                  <Pressable
+                    key={session.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${
+                      isToday ? `, ${t(language, 'programs.todayA11y')}` : ''
+                    }`}
+                    onPress={onOpenActivePlan}
+                    style={({ pressed }) => [styles.dayRow, isToday && styles.dayRowToday, pressed && styles.pressed]}
+                  >
+                    {weekdayText ? (
+                      <View style={[styles.dayBadge, isToday && styles.dayBadgeToday]}>
+                        <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.dayTitle} numberOfLines={1}>
+                      {sessionTitle}
+                    </Text>
+                    {isToday ? (
+                      <View style={styles.todayPill}>
+                        <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
+                      </View>
+                    ) : null}
+                    <Text style={styles.dayDuration}>{session.duration}</Text>
+                    <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="m9 6 6 6-6 6"
+                        stroke={theme.faint}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <View style={styles.programActions}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'programs.viewPlan')}
+                onPress={onOpenActivePlan}
+                style={({ pressed }) => [styles.programPrimary, pressed && styles.pressed]}
+              >
+                <Text style={styles.programPrimaryText}>{t(language, 'programs.viewPlan')}</Text>
+              </Pressable>
+              {onSetTrainingDays ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'programs.editDaysA11y')}
+                  onPress={onSetTrainingDays}
+                  style={({ pressed }) => [styles.programSecondary, pressed && styles.pressed]}
+                >
+                  <Text style={styles.programSecondaryText}>{t(language, 'programs.editDays')}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </Animated.View>
+        ) : null}
 
         <Animated.View style={[styles.sectionDivider, rise(RISE_DIVIDER)]} />
 
@@ -1470,6 +1560,135 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.accent,
     fontSize: 17.5,
     lineHeight: 22,
+    fontWeight: '800',
+  },
+  // ── Active program (moved here from the Programs tab) ────────────────
+  programHeadRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 26,
+  },
+  programEyebrow: {
+    color: theme.faint,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+  },
+  programWeek: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  programTitle: {
+    color: theme.ink,
+    fontSize: 20,
+    lineHeight: 25,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    marginTop: 4,
+  },
+  programDays: {
+    marginTop: 11,
+    gap: 8,
+  },
+  dayRow: {
+    minHeight: 54,
+    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 13,
+  },
+  dayRowToday: {
+    borderColor: theme.purple,
+    borderWidth: 1.5,
+  },
+  dayBadge: {
+    width: 42,
+    height: 32,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.bg,
+  },
+  dayBadgeToday: {
+    backgroundColor: theme.purple,
+  },
+  dayBadgeText: {
+    color: theme.muted,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+  },
+  dayBadgeTextToday: {
+    color: '#FFFFFF',
+  },
+  dayTitle: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
+  },
+  todayPill: {
+    borderRadius: 999,
+    backgroundColor: theme.purple,
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+  },
+  todayPillText: {
+    color: '#FFFFFF',
+    fontSize: 9.5,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  dayDuration: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  programActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 12,
+  },
+  programPrimary: {
+    flex: 1.4,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  programPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  programSecondary: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  programSecondaryText: {
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 19,
     fontWeight: '800',
   },
   sectionDivider: {

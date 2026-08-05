@@ -342,7 +342,20 @@ module.exports = [
       assert.doesNotMatch(homeScreenSource, /fullBleedCard/);
       assert.match(homeScreenSource, /pressed:\s*\{\s*transform: \[\{ scale: 0\.95 \}\]/);
       assert.match(homeScreenSource, /style=\{\(\{ pressed \}\) => \[styles\.emptyWorkoutRow, pressed && styles\.pressed\]\}/);
-      assert.doesNotMatch(homeScreenSource, /onOpenActivePlan/);
+      // v3 kept the plan off Home entirely. That reversed once the active
+      // program moved here from the Programs tab: the block above is today,
+      // and this is the block today belongs to. Programs is for FINDING a
+      // program; Home is for running one, and only one screen owns it.
+      assert.match(homeScreenSource, /onPress=\{onOpenActivePlan\}/);
+      assert.match(homeScreenSource, /t\(language, 'programs\.activeProgram'\)/);
+      assert.match(homeScreenSource, /activePlan\.sessions\.map/);
+      // Two actions and nothing else: see the plan, edit the days.
+      assert.match(homeScreenSource, /t\(language, 'programs\.viewPlan'\)/);
+      assert.match(homeScreenSource, /onPress=\{onSetTrainingDays\}/);
+      // The weekday rule is shared, not copied. Two screens with their own
+      // opinion about the same week is the bug that rule exists to prevent.
+      assert.match(homeScreenSource, /from '\.\.\/lib\/planWeekdays'/);
+      assert.doesNotMatch(homeScreenSource, /const TRAINING_DAY_SPREAD/);
       assert.doesNotMatch(homeScreenSource, /<Text style=\{styles\.myRoutineLabel\}>My Routine<\/Text>/);
       assert.doesNotMatch(homeScreenSource, /style=\{styles\.myRoutineCard\}/);
       assert.match(homeScreenSource, /home\.emptyWorkout\.title/);

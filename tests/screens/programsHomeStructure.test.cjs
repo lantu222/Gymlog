@@ -44,53 +44,24 @@ module.exports = [
     },
   },
   {
-    name: 'programs home screen composes photo hero, this-week plan, actions, switch rail, and library',
+    name: 'programs tab is browsing only: hero, tiles, seasons, trending, library',
     run() {
       assert.match(programsHomeSource, /useThemedStyles\(makeStyles\)/);
-      // Redesign: no screen header — the full-bleed photo-placeholder hero leads.
       assert.doesNotMatch(programsHomeSource, /Your plan, and the programs behind it\./);
-      assert.match(programsHomeSource, /programsHeroScrim/);
-      assert.match(programsHomeSource, /t\(language, 'programs\.activeProgram'\)/);
-      assert.match(i18nSource, /'programs\.activeProgram': 'ACTIVE PROGRAM'/);
-      assert.match(programsHomeSource, /activeProgram\.weekLabel/);
-      assert.match(programsHomeSource, /phaseNote\(currentWeek, totalWeeks, language\)/);
-      assert.match(programsHomeSource, /Array\.from\(\{ length: totalWeeks \}/);
-      assert.match(programsHomeSource, /index < currentWeek \? styles\.heroSegmentFilled : styles\.heroSegmentEmpty/);
-      // THIS WEEK plan: day rows land on the saved plan's own weekday labels
-      // (weekday truth, P6). TODAY highlight stays; the old next-session Start
-      // strip is intentionally gone.
-      assert.match(programsHomeSource, /t\(language, 'programs\.thisWeek', \{ count: activeProgram\.sessionsPerWeek \}\)/);
-      assert.match(i18nSource, /'programs\.thisWeek': 'THIS WEEK · \{count\} DAYS \/ WEEK'/);
-      assert.match(programsHomeSource, /function resolveSessionWeekday\(/);
 
-      // The generic spread fills a GAP in a week that has real weekdays; it
-      // must never invent the whole week. With nothing scheduled this screen
-      // showed MA/KE/PE while Home and Progress showed nothing for the same
-      // plan, because those two refuse to invent a rhythm and this one did not.
-      assert.match(programsHomeSource, /anyFixedWeekday \? weekdayForSession\(index, sessionCount\) : null/);
-      assert.match(programsHomeSource, /const anyFixedWeekday = allSessions\.some\(/);
-      // Unknown weekday draws no badge at all — not a made-up day, and not the
-      // session number either. The number was the same fact the title already
-      // states ("Päivä 1: …"), and it cost the title the width it truncated.
-      assert.match(programsHomeSource, /const weekdayText = weekday \? weekdayLabel\(weekday, language\) : null;/);
-      assert.match(programsHomeSource, /\{weekdayText \? \(/);
-      assert.match(programsHomeSource, /dayRowToday/);
-      assert.match(programsHomeSource, /t\(language, 'programs\.today'\)/);
-      assert.doesNotMatch(programsHomeSource, /NEXT SESSION/);
+      // The active program is GONE from this tab. It led the screen behind a
+      // 320px photo hero, which meant the reader had to leave the screen they
+      // were already on to find out what week they are in. It lives on Home
+      // now; keeping a copy here would give the same week two owners.
+      assert.doesNotMatch(programsHomeSource, /programsHeroScrim/);
+      assert.doesNotMatch(programsHomeSource, /programs\.thisWeek/);
+      assert.doesNotMatch(programsHomeSource, /styles\.dayRow\b/);
+      assert.doesNotMatch(programsHomeSource, /programs\.noActive/);
+      assert.doesNotMatch(programsHomeSource, /onStartActiveSession/);
+      // What survives is the program's NAME, because the switch sheet says
+      // what you are leaving.
+      assert.match(programsHomeSource, /activeProgramTitle/);
 
-      // The day row is the day, its name and its length — nothing else. It
-      // used to also list the first three exercises, which is the one thing a
-      // reader glancing at their week does not need: they know it is squats.
-      assert.doesNotMatch(programsHomeSource, /session\.exercises\s*\n?\s*\.slice\(0, 3\)/);
-      assert.doesNotMatch(programsHomeSource, /styles\.dayFocus/);
-      assert.match(programsHomeSource, /styles\.dayDuration/);
-
-      // Actions: one solid View-full-plan button and nothing else.
-      assert.match(programsHomeSource, /t\(language, 'programs\.viewPlan'\)/);
-      // "Swap exercises · Adjust schedule" is gone. Both opened the plan
-      // screen, and nothing there can edit an exercise or a weekday — the row
-      // advertised two editing tools the app does not have.
-      assert.doesNotMatch(programsHomeSource, /t\(language, 'programs\.swapExercises'\)/);
       assert.doesNotMatch(programsHomeSource, /onAdjustSchedule/);
 
       // Exactly ONE way to start a new program on this page. There were two,
@@ -179,8 +150,6 @@ module.exports = [
       assert.match(programsHomeSource, /programs\.create/);
       assert.match(programsHomeSource, /programs\.exerciseLibrary/);
       assert.match(programsHomeSource, /count: exerciseLibraryCount/);
-      // Empty state when there is no active program.
-      assert.match(programsHomeSource, /programs\.noActive/);
     },
   },
   {
@@ -188,8 +157,10 @@ module.exports = [
     run() {
       assert.match(appSource, /import \{ ProgramsHomeScreen, ProgramsExploreItem \} from '\.\/src\/screens\/ProgramsHomeScreen'/);
       assert.match(appSource, /route\.tab === 'workout' && route\.screen === 'programs_home'/);
-      // Active program reuses the already-computed home plan card.
-      assert.match(appSource, /activeProgram=\{\s*homeActivePlanCard/);
+      // App hands this tab the program's NAME and nothing else; the plan
+      // card itself goes to Home, which is the screen that runs it.
+      assert.match(appSource, /activeProgramTitle=\{homeActivePlanCard\?\.title \?\? null\}/);
+      assert.match(appSource, /onOpenActivePlan=\{\(\) => \{/);
       // The curated eight-program Explore rail is gone with the always-open
       // catalog row it fed; the category tiles are the way in now.
       assert.doesNotMatch(appSource, /const programsExploreItems = useMemo/);

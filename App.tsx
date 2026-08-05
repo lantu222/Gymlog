@@ -3184,17 +3184,6 @@ function VinhaApp() {
    * and it is: recommendationScoring plus a waterfall, covered by tests. An AI
    * badge here would contradict the app's own privacy page.
    */
-  /**
-   * Where the "For you" row gets its picks.
-   *
-   * The questionnaire wins when it exists, because those answers are explicit.
-   * When it does not — which is everyone who chose a ready program off the
-   * catalog instead of filling a form — the active program IS the answer, and
-   * the row used to be permanently empty for exactly those people.
-   */
-  const programsRecommendationSource: 'setup' | 'program' = setupRecommendation?.waterfall
-    ? 'setup'
-    : 'program';
   const programsRecommendations = useMemo(
     () => {
       const byId = new Map(workout.templates.map((template) => [template.id, template]));
@@ -4407,30 +4396,13 @@ function VinhaApp() {
     content = (
       <ProgramsHomeScreen
         language={preferences.appLanguage}
-        activeProgram={
-          homeActivePlanCard
-            ? {
-                programId: homeActivePlanCard.programId,
-                programType: homeActivePlanCard.programType,
-                title: homeActivePlanCard.title,
-                goalLabel: homeActivePlanCard.goalLabel,
-                focusLabel: homeActivePlanCard.focusLabel,
-                weekLabel: homeActivePlanCard.weekLabel,
-                currentWeek: homeActivePlanCard.currentWeek,
-                planTotalWeeks: homeActivePlanCard.planTotalWeeks,
-                sessionsPerWeek: homeActivePlanCard.sessionsPerWeek,
-                sessions: homeActivePlanCard.sessions,
-                nextSession: homeActivePlanCard.nextSession,
-              }
-            : null
-        }
+        activeProgramTitle={homeActivePlanCard?.title ?? null}
         seasonRows={programsSeasonRows}
         catalogItems={programsCatalogItems}
         categoryCounts={programsCategoryCounts}
         categoryMembers={programsCategoryMembers}
         trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
-        recommendationSource={programsRecommendationSource}
         campaigns={programsCampaigns}
         continueItems={programsContinueItems}
         seasonTileCounts={programsSeasonTileCounts}
@@ -4457,27 +4429,6 @@ function VinhaApp() {
         onImportProgram={async (draft) => {
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
           navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
-        }}
-        onStartActiveSession={(sessionId) => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          if (homeActivePlanCard.programType === 'custom') {
-            handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId);
-            return;
-          }
-          handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
-        }}
-        onOpenActivePlan={() => {
-          if (!homeActivePlanCard) {
-            return;
-          }
-          navigate({
-            tab: 'workout',
-            screen: 'program',
-            programType: homeActivePlanCard.programType ?? 'ready',
-            workoutTemplateId: homeActivePlanCard.programId,
-          });
         }}
         onOpenExploreProgram={handleOpenReadyProgramDetail}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
@@ -4578,6 +4529,17 @@ function VinhaApp() {
         onSetTrainingDays={() =>
           navigate({ tab: 'profile', screen: 'training_plan', editSchedule: true })
         }
+        onOpenActivePlan={() => {
+          if (!homeActivePlanCard) {
+            return;
+          }
+          navigate({
+            tab: 'workout',
+            screen: 'program',
+            programType: homeActivePlanCard.programType ?? 'ready',
+            workoutTemplateId: homeActivePlanCard.programId,
+          });
+        }}
         onSelectHistorySession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
       />
     );

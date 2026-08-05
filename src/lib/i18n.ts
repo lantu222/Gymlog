@@ -2102,18 +2102,11 @@ const EN = {
   'tpl.strengthMixDesc': 'Upper / lower plus volume days.',
   // ── Programs tab ──────────────────────────────────────────────────────
   'programs.activeProgram': 'ACTIVE PROGRAM',
-  'programs.phase.base': 'Lay the base',
-  'programs.phase.rhythm': 'Build the rhythm',
-  'programs.phase.volume': 'Push the volume',
-  'programs.phase.peak': 'Peak & test',
-  'programs.thisWeek': 'THIS WEEK · {count} DAYS / WEEK',
   'programs.editDays': 'Edit days',
   'programs.editDaysA11y': 'Edit training days',
   'programs.today': 'TODAY',
   'programs.todayA11y': 'today',
   'programs.viewPlan': 'View full plan',
-  'programs.noActive': 'No active program',
-  'programs.noActiveSub': 'Pick a ready program below or build your own to get a weekly plan.',
   // Seasons, as they are lived in Finland rather than as a marketing
   // theme: October to March the sun is gone and training moves indoors.
   // Eight ways into 55 programs. Each one is derived from what a template
@@ -2133,7 +2126,6 @@ const EN = {
   'programs.forYou': 'FOR YOU',
   // Not "AI picks": aiInfo.never.2 says the model never chooses a
   // programme, and it does not — this is recommendationScoring.
-  'programs.forYou.lead': 'Chosen from your answers, and each one says why.',
   'programs.trending': 'MOST STARTED THIS WEEK',
   'programs.trending.meta': '{weeks} weeks · {starts} starts',
   'programs.cat.strength': 'Strength',
@@ -2147,8 +2139,6 @@ const EN = {
   'programs.cat.beginner': 'Beginners',
   'programs.season.winter': 'WINTER SEASON',
   'programs.season.summer': 'SUMMER SEASON',
-  'programs.season.winterLead': 'Dark months are for building. Heavier work, longer blocks, indoors.',
-  'programs.season.summerLead': 'Light evenings are for moving. Leaner work, conditioning, outdoors.',
   'programs.season.count': '{count} programs',
   'programs.switchConfirm': 'Switch program',
   'programs.switchTo': 'Switch to {name}',
@@ -2160,7 +2150,6 @@ const EN = {
   'programs.library': 'LIBRARY',
   'programs.openLibrary': 'Open the exercise library',
   'programs.exerciseLibrary': 'Exercise library',
-  'programs.footNote': 'One program at a time. Finish a block, then repeat, edit, or switch.',
   // The rotating hero. Every slide opens a set that exists and states its
   // size, so the number on the card is checkable by tapping it.
   'programs.campaign.winterKicker': 'WINTER SEASON IS ON',
@@ -2189,7 +2178,6 @@ const EN = {
   // colour and shape are read before a word is, which is the whole point of a
   // browse row you are meant to scan rather than read.
   'programs.browse': 'BROWSE BY GOAL',
-  'programs.browse.lead': 'Nine ways into the catalog. Every tile says how many are behind it.',
   'programs.cat.clear': 'Clear the filter',
   // Continue: only programs with real logged work, never ones you tapped.
   'programs.continue': 'PICK UP WHERE YOU LEFT OFF',
@@ -2199,7 +2187,6 @@ const EN = {
   'programs.continue.sessions': '{count} sessions logged',
   'programs.continue.resume': 'Resume',
   // Recommendations that follow the program you chose, not a questionnaire.
-  'programs.forYou.leadProgram': 'Near the program you are running, and each one says how.',
   'programs.affinity.nextLevel': 'Same goal, one level up — the block after this one.',
   'programs.affinity.sameGoalOtherSplit': 'Same goal, a different split across the week.',
   'programs.affinity.sameDays': 'Fits the same training week, aimed somewhere else.',
@@ -4461,18 +4448,11 @@ const FI: Record<I18nKey, string> = {
   'tpl.strengthMixDesc': 'Ylä / ala sekä volyymipäivät.',
   // ── Programs tab ──────────────────────────────────────────────────────
   'programs.activeProgram': 'AKTIIVINEN OHJELMA',
-  'programs.phase.base': 'Luo perusta',
-  'programs.phase.rhythm': 'Rakenna rytmi',
-  'programs.phase.volume': 'Nosta volyymia',
-  'programs.phase.peak': 'Huippu ja testi',
-  'programs.thisWeek': 'TÄMÄ VIIKKO · {count} PÄIVÄÄ / VIIKKO',
   'programs.editDays': 'Muokkaa päiviä',
   'programs.editDaysA11y': 'Muokkaa treenipäiviä',
   'programs.today': 'TÄNÄÄN',
   'programs.todayA11y': 'tänään',
   'programs.viewPlan': 'Katso koko ohjelma',
-  'programs.noActive': 'Ei aktiivista ohjelmaa',
-  'programs.noActiveSub': 'Valitse valmis ohjelma alta tai rakenna oma, niin saat viikkosuunnitelman.',
   'programs.library.sub': '{count} liikettä · selaa ja vaihda ohjelmaasi',
   'programs.card.days': '{count} pv / viikko',
   'programs.card.daysShort': '{count} pv / vk',
@@ -4486,7 +4466,6 @@ const FI: Record<I18nKey, string> = {
   'programs.goals.sheetBody': 'Paras tähän mennessä {best} kg.',
   'programs.goals.save': 'Tallenna tavoite',
   'programs.forYou': 'SINULLE',
-  'programs.forYou.lead': 'Valittu vastaustesi perusteella, ja jokainen kertoo miksi.',
   'programs.trending': 'ALOITETUIMMAT TÄLLÄ VIIKOLLA',
   'programs.trending.meta': '{weeks} viikkoa · {starts} aloitusta',
   'programs.cat.strength': 'Voima',
@@ -4500,8 +4479,6 @@ const FI: Record<I18nKey, string> = {
   'programs.cat.beginner': 'Aloittelijat',
   'programs.season.winter': 'TALVIKAUSI',
   'programs.season.summer': 'KESÄKAUSI',
-  'programs.season.winterLead': 'Pimeät kuukaudet ovat rakentamista varten. Raskaampaa työtä, pidempiä jaksoja, sisällä.',
-  'programs.season.summerLead': 'Valoisat illat ovat liikkumista varten. Kevyempää työtä, kuntoa, ulkona.',
   'programs.season.count': '{count} ohjelmaa',
   'programs.switchConfirm': 'Vaihda ohjelma',
   'programs.switchTo': 'Vaihda ohjelmaan {name}',
@@ -4513,7 +4490,6 @@ const FI: Record<I18nKey, string> = {
   'programs.library': 'KIRJASTO',
   'programs.openLibrary': 'Avaa liikekirjasto',
   'programs.exerciseLibrary': 'Liikekirjasto',
-  'programs.footNote': 'Yksi ohjelma kerrallaan. Päätä jakso, toista sitten, muokkaa tai vaihda.',
   'programs.campaign.winterKicker': 'TALVIKAUSI ON KÄYNNISSÄ',
   'programs.campaign.winterTitle': 'Rakenna pimeät kuukaudet',
   'programs.campaign.winterBody': '{count} ohjelmaa raskaampaan työhön ja pitkiin jaksoihin sisällä.',
@@ -4537,7 +4513,6 @@ const FI: Record<I18nKey, string> = {
   'programs.campaign.play': 'Jatka karusellia',
   'programs.campaign.slide': 'Dia {index} / {total}',
   'programs.browse': 'SELAA TAVOITTEEN MUKAAN',
-  'programs.browse.lead': 'Yhdeksän tietä kirjastoon. Jokainen laatta kertoo montako sen takana on.',
   'programs.cat.clear': 'Poista suodatin',
   'programs.continue': 'JATKA SIITÄ MIHIN JÄIT',
   'programs.continue.today': 'Treenattu tänään',
@@ -4545,7 +4520,6 @@ const FI: Record<I18nKey, string> = {
   'programs.continue.days': '{count} päivää sitten',
   'programs.continue.sessions': '{count} treeniä kirjattu',
   'programs.continue.resume': 'Jatka',
-  'programs.forYou.leadProgram': 'Lähellä ohjelmaa jota vedät, ja jokainen kertoo miten.',
   'programs.affinity.nextLevel': 'Sama tavoite, taso ylöspäin — jakso tämän jälkeen.',
   'programs.affinity.sameGoalOtherSplit': 'Sama tavoite, eri jako viikolle.',
   'programs.affinity.sameDays': 'Sopii samaan treeniviikkoon, tähtää muualle.',

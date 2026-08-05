@@ -121,8 +121,6 @@ module.exports = [
       assert.match(app, /resolveProgramAffinity\(active, workout\.templates, 4\)/);
       assert.match(app, /AFFINITY_REASON_KEYS\[match\.reason\]/);
       assert.match(screen, /recommendations\.length > 0 \? \(/);
-      // And the lead sentence says which of the two sources it used.
-      assert.match(screen, /recommendationSource === 'program'/);
 
       // Never labelled AI. aiInfo.never.2 states the model is never used to
       // pick a programme — it is recommendationScoring plus a waterfall, and
@@ -130,13 +128,18 @@ module.exports = [
       const forYou = screen.slice(screen.indexOf("'programs.forYou'"), screen.indexOf('Four season tiles over two blocks'));
       assert.ok(forYou.length > 200 && forYou.length < 4000, `the row span went wrong: ${forYou.length} chars`);
       assert.doesNotMatch(forYou, /AI/, 'the recommendation row must not claim to be AI');
-      const lead = i18n
-        .split(String.fromCharCode(10))
-        .filter((line) => line.includes("'programs.forYou.lead':"));
-      assert.equal(lead.length, 2, 'both languages');
-      for (const line of lead) {
-        assert.doesNotMatch(line, /AI|tekoäly/i);
+      // No lead copy anywhere on this page. A row that works does not need a
+      // sentence saying it works, and the reference has none — explaining a
+      // tile row that already shows a count under its label tells the reader
+      // only that the designer did not trust it.
+      for (const key of ['programs.browse.lead', 'programs.forYou.lead', 'programs.season.winterLead']) {
+        assert.doesNotMatch(i18n, new RegExp(`'${key.replace(/\./g, '\.')}':`), `${key} came back`);
       }
+      assert.equal(
+        (screen.match(/styles\.seasonLead/g) ?? []).length,
+        1,
+        'the only body sentence left is the empty state for targets',
+      );
       assert.match(i18n, /'aiInfo\.never\.2': 'Never to pick your programme/);
     },
   },
