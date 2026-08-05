@@ -91,8 +91,12 @@ module.exports = [
       // decoration and gave the page two more identical rows. The tile is the
       // filter now, and the rail is what a tap opens.
       assert.doesNotMatch(screen, /seasonRows\.map\(\(row\) =>/);
-      assert.match(screen, /seasonRows\.find\(\(row\) => row\.season === season\)/);
-      assert.match(screen, /setSeason\(season === tile\.block \? null : tile\.block\)/);
+      assert.match(screen, /seasonRows\.find\(\(row\) => row\.season === sheet\.season\)/);
+      assert.match(screen, /setSheet\(\{ kind: 'season', season: tile\.block, labelKey: tile\.labelKey \}\)/);
+      // "Poista suodatin" is gone with the rail it belonged to. With nothing
+      // selected the section had no rail at all, so the link read as "remove
+      // the seasons" — which is what the reader saw it do.
+      assert.doesNotMatch(screen, /programs\.cat\.clear/);
       assert.match(app, /seasonRows=\{programsSeasonRows\}/);
 
       // Built from workout.templates rather than a parallel list, so a season

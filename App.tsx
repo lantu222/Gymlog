@@ -3091,6 +3091,8 @@ function VinhaApp() {
             minutes: template.estimatedSessionDuration,
             coverIndex: index % 5,
             fingerprint: buildProgramFingerprint(template),
+            level: template.level,
+            weeks: getReadyProgramBlockWeeks(template),
           })),
       }));
     },
@@ -3116,6 +3118,8 @@ function VinhaApp() {
         minutes: template.estimatedSessionDuration,
         coverIndex: index % 5,
         fingerprint: buildProgramFingerprint(template),
+        level: template.level,
+        weeks: getReadyProgramBlockWeeks(template),
       })),
     [preferences.appLanguage, workout.templates],
   );
@@ -3199,11 +3203,16 @@ function VinhaApp() {
                   id: template.id,
                   name: formatWorkoutDisplayLabel(template.name),
                   goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-                  why: t(preferences.appLanguage, AFFINITY_REASON_KEYS[match.reason]),
+                  blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
+                  why: t(preferences.appLanguage, AFFINITY_REASON_KEYS[match.reason], {
+                    days: template.daysPerWeek,
+                  }),
                   days: template.daysPerWeek,
                   minutes: template.estimatedSessionDuration,
                   coverIndex: index % 5,
                   fingerprint: buildProgramFingerprint(template),
+                  level: template.level,
+                  weeks: getReadyProgramBlockWeeks(template),
                 }
               : null;
           })
@@ -3221,11 +3230,14 @@ function VinhaApp() {
                 id: template.id,
                 name: formatWorkoutDisplayLabel(template.name),
                 goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-                why: t(preferences.appLanguage, entry.whyKey),
+                blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
+                why: t(preferences.appLanguage, entry.whyKey, { days: template.daysPerWeek }),
                 days: template.daysPerWeek,
                 minutes: template.estimatedSessionDuration,
                 coverIndex: index % 5,
                 fingerprint: buildProgramFingerprint(template),
+                level: template.level,
+                weeks: getReadyProgramBlockWeeks(template),
               }
             : null;
         })
@@ -3287,6 +3299,8 @@ function VinhaApp() {
               minutes: template.estimatedSessionDuration,
               coverIndex: index % 5,
               fingerprint: buildProgramFingerprint(template),
+              level: template.level,
+              weeks: getReadyProgramBlockWeeks(template),
               sessionCount: entry.sessionCount,
               daysSince: entry.daysSince,
             };
@@ -3304,6 +3318,11 @@ function VinhaApp() {
                 minutes: 0,
                 coverIndex: index % 5,
                 fingerprint: [],
+                // A program the reader built has no declared level and no
+                // block length. Saying "beginner, 4 weeks" would be inventing
+                // both, so the row shows neither.
+                level: 'beginner' as const,
+                weeks: 0,
                 sessionCount: entry.sessionCount,
                 daysSince: entry.daysSince,
               }

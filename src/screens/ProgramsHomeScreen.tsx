@@ -31,6 +31,7 @@ import { isValidTarget, StrengthGoalProgress } from '../lib/strengthGoals';
 import type { ProgramSeason } from '../lib/programSeasons';
 import { orderSeasonTiles, currentSeasonTile } from '../lib/programSeasonTiles';
 import { Theme, useTheme, useThemedStyles } from '../theming';
+import type { WorkoutLevel } from '../features/workout/workoutTypes';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 
 // Designed program covers (README "Program Covers"): a per-program hue rendered
@@ -46,6 +47,12 @@ const COVER_STYLES: Array<{ cover: [string, string]; tile: [string, string]; mot
   { cover: ['#EB7A52', '#A71000'], tile: ['#E98664', '#BF4306'], motif: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5' }, // 40 house
 ];
 const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
+
+/** Seasons get the same header treatment as a category, in their own hue. */
+const SEASON_SHEET_TINTS = {
+  winter: { bg: '#DEEBFF', border: '#C9D7FA', ink: '#0086BE' },
+  summer: { bg: '#FFE5CD', border: '#F0D1B7', ink: '#A76D00' },
+} as const;
 
 /**
  * Gold, silver, bronze — then plain numbers.
@@ -107,6 +114,15 @@ export interface ProgramsExploreItem {
   coverIndex: number;
   /** The program's week as bar heights — see lib/programFingerprint. */
   fingerprint: number[];
+  /**
+   * Level and block length, which the browse cards never carried.
+   *
+   * The level is the single fact that decides whether a program is for this
+   * reader at all, and the catalog screen did not show it anywhere. The sheet
+   * filters on it.
+   */
+  level: WorkoutLevel;
+  weeks: number;
 }
 
 export interface ProgramsCustomItem {
@@ -169,16 +185,12 @@ interface ProgramsHomeScreenProps {
   goalCandidates: Array<{ name: string; label: string; bestKg: number }>;
   onSetGoal: (exerciseName: string, targetKg: number) => void;
   onRemoveGoal: (exerciseName: string) => void;
-  recommendations: Array<{
-    id: string;
-    name: string;
-    goal: string;
-    why: string;
-    days: number;
-    minutes: number;
-    coverIndex: number;
-    fingerprint: number[];
-  }>;
+  recommendations: Array<
+    ProgramsExploreItem & {
+      /** Short, and carrying the number: "Sopii 3 päivään". */
+      why: string;
+    }
+  >;
   /** The rotating hero. Empty hides it — see lib/programCampaigns. */
   campaigns: ProgramCampaign[];
   /** Programs with logged work that are not the active one. */
@@ -483,6 +495,260 @@ function CampaignHero({
   );
 }
 
+/**
+ * Level badges, from the category design.
+ *
+ * The level is the one fact that decides whether a program is for this reader
+ * at all, and no browse card carried it anywhere on this screen. A row that
+ * says "5 days, ~70 min" without saying "Edistynyt" is describing the workload
+ * and hiding the prerequisite.
+ */
+const LEVEL_STYLES: Record<WorkoutLevel, { bg: string; ink: string; key: I18nKey }> = {
+  beginner: { bg: '#E8F7EE', ink: '#007633', key: 'programs.level.beginner' },
+  intermediate: { bg: '#EFE7FF', ink: '#5B21B6', key: 'programs.level.intermediate' },
+  advanced: { bg: '#FFE1DB', ink: '#A52A24', key: 'programs.level.advanced' },
+};
+
+const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
+  { level: null, key: 'programs.level.all' },
+  { level: 'beginner', key: 'programs.level.beginner' },
+  { level: 'intermediate', key: 'programs.level.intermediate' },
+  { level: 'advanced', key: 'programs.level.advanced' },
+];
+
+/** The 74x74 cover on a sheet row: gradient plus the program's own week. */
+function RowCover({ style, fingerprint }: { style: (typeof COVER_STYLES)[number]; fingerprint: number[] }) {
+  const gid = `row-${style.cover[0]}`.replace(/[^a-zA-Z0-9]/g, '');
+  const size = 74;
+  return (
+    <Svg width={size} height={size}>
+      <Defs>
+        <SvgLinearGradient id={gid} x1="0.2" y1="0" x2="0.9" y2="1">
+          <Stop offset="0" stopColor={style.cover[0]} />
+          <Stop offset="1" stopColor={style.cover[1]} />
+        </SvgLinearGradient>
+      </Defs>
+      <Rect x="0" y="0" width={size} height={size} rx={14} fill={`url(#${gid})`} />
+      {fingerprint.map((ratio, index) => {
+        const slot = (size - 16) / Math.max(1, fingerprint.length);
+        const barWidth = Math.max(2, slot - 2.5);
+        const barHeight = Math.max(4, ratio * 42);
+        return (
+          <Rect
+            key={index}
+            x={8 + index * slot}
+            y={size - 9 - barHeight}
+            width={barWidth}
+            height={barHeight}
+            rx={1.5}
+            fill="#FFFFFF"
+            fillOpacity={0.85}
+          />
+        );
+      })}
+    </Svg>
+  );
+}
+
+/**
+ * What a category tile opens.
+ *
+ * The first build put a horizontal rail under the tiles, which gave all nine
+ * categories the same eight-card shape and no way to narrow further. A sheet
+ * carries what a rail cannot: what the category is FOR, the level of every
+ * program in it, a filter on that level, and a sentence per program saying
+ * what the training actually is. Browsing stays behind it, and closing is one
+ * gesture.
+ *
+ * Seasons use the same sheet. Two mechanisms for "show me this subset" is one
+ * too many, and the season rail's "Poista suodatin" link — which emptied the
+ * section instead of narrowing it — was the price of having a second one.
+ */
+function ProgramSheet({
+  visible,
+  onClose,
+  language,
+  title,
+  focus,
+  tint,
+  icon,
+  items,
+  onPick,
+  onViewAll,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  language: AppLanguage;
+  title: string;
+  focus: string;
+  tint: { bg: string; border: string; ink: string };
+  icon: string;
+  items: ProgramsExploreItem[];
+  onPick: (item: ProgramsExploreItem) => void;
+  onViewAll: () => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const { height: windowHeight } = useWindowDimensions();
+  const [level, setLevel] = useState<WorkoutLevel | null>(null);
+
+  // A filter left over from the last category would silently hide programs in
+  // the next one, and the reader would have no idea why "Voima 8" opened three
+  // rows.
+  useEffect(() => {
+    if (!visible) {
+      setLevel(null);
+    }
+  }, [visible]);
+
+  const shown = level === null ? items : items.filter((item) => item.level === level);
+
+  /**
+   * A definite height, not a cap.
+   *
+   * `maxHeight` does not bound a ScrollView's flex sizing here — the list laid
+   * out against its own content and pushed the CTA off the bottom of the
+   * screen. A computed row-count height did not fix it either: the sheet is
+   * anchored to the bottom edge, so whatever it cannot fit is lost at the
+   * bottom rather than the top, and the button is the last thing in it.
+   *
+   * One fixed height — and the CTA is taken out of the flex flow entirely
+   * (see catSheetCta). `flex: 1` on the list still handed it more than the
+   * leftover space on device, and a button that three separate layout fixes
+   * could not keep on screen does not belong in the flow at all.
+   */
+  const sheetHeight = Math.round(windowHeight * 0.84);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.sheetOverlay}>
+        <Pressable style={styles.sheetScrim} onPress={onClose} />
+        {/* A percentage maxHeight inside a Modal does not bound this on
+            Android — the list grew to its content and pushed the CTA off the
+            bottom of the screen. Measured, so it cannot. */}
+        <View style={[styles.catSheet, { height: sheetHeight }]}>
+          <View style={styles.sheetGrip} />
+          <View style={styles.catSheetHead}>
+            <View style={[styles.catSheetIcon, { backgroundColor: tint.bg, borderColor: tint.border }]}>
+              <Svg width={24} height={24} viewBox="0 0 24 24" fill="none">
+                <Path d={icon} stroke={tint.ink} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </View>
+            <View style={styles.catSheetCopy}>
+              <Text style={styles.catSheetTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <Text style={styles.catSheetFocus} numberOfLines={2}>
+                {t(language, 'programs.sheet.count', { count: items.length, focus })}
+              </Text>
+            </View>
+            <Pressable onPress={onClose} hitSlop={10}>
+              <Text style={styles.sectionLink}>{t(language, 'programs.sheet.close')}</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.levelRow}
+            style={styles.levelScroll}
+          >
+            {LEVEL_FILTERS.map((entry) => {
+              const on = level === entry.level;
+              return (
+                <Pressable
+                  key={entry.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setLevel(entry.level)}
+                  style={[styles.levelChip, on && { backgroundColor: tint.ink, borderColor: tint.ink }]}
+                >
+                  <Text style={[styles.levelChipText, on && styles.levelChipTextOn]}>
+                    {t(language, entry.key)}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          <ScrollView style={styles.catSheetList} contentContainerStyle={styles.catSheetListInner}>
+            {shown.length === 0 ? (
+              <Text style={styles.catSheetEmpty}>{t(language, 'programs.sheet.empty')}</Text>
+            ) : (
+              shown.map((item) => {
+                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
+                const levelStyle = LEVEL_STYLES[item.level];
+                return (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
+                    onPress={() => onPick(item)}
+                    style={({ pressed }) => [styles.sheetRow, pressed && styles.pressedRow]}
+                  >
+                    <RowCover style={style} fingerprint={item.fingerprint} />
+                    <View style={styles.sheetRowCopy}>
+                      <View style={styles.sheetRowTitleLine}>
+                        <Text style={styles.sheetRowName} numberOfLines={1}>
+                          {item.name}
+                        </Text>
+                        <View style={[styles.levelBadge, { backgroundColor: levelStyle.bg }]}>
+                          <Text style={[styles.levelBadgeText, { color: levelStyle.ink }]}>
+                            {t(language, levelStyle.key).toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text style={styles.sheetRowBlurb} numberOfLines={2}>
+                        {item.blurb}
+                      </Text>
+                      <View style={styles.exploreMetaRow}>
+                        <Text style={styles.exploreMeta}>
+                          {t(language, 'programs.card.days', { count: item.days })}
+                        </Text>
+                        <View style={styles.metaDot} />
+                        <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
+                        {item.weeks > 0 ? (
+                          <>
+                            <View style={styles.metaDot} />
+                            <Text style={styles.exploreMeta}>
+                              {t(language, 'programs.weeks', { count: item.weeks })}
+                            </Text>
+                          </>
+                        ) : null}
+                      </View>
+                    </View>
+                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="m9 6 6 6-6 6"
+                        stroke={theme.faint}
+                        strokeWidth={2.2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  </Pressable>
+                );
+              })
+            )}
+          </ScrollView>
+
+          <View style={styles.catSheetCta}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onViewAll}
+              style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
+            >
+              <Text style={styles.sheetConfirmText}>
+                {t(language, 'programs.sheet.viewAll', { count: items.length })}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export function ProgramsHomeScreen({
   activeProgramTitle = null,
   seasonRows,
@@ -513,20 +779,27 @@ export function ProgramsHomeScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [picked, setPicked] = useState<ProgramsExploreItem | null>(null);
-  // Null is 'All'. Not persisted: a filter is an answer to what you are
-  // looking for right now, and a stale one is worse than none.
-  const [category, setCategory] = useState<ProgramCategoryKey | null>(null);
-  // Same idea for seasons: the tile is the filter, not a label above a rail
-  // that was open anyway.
-  const [season, setSeason] = useState<ProgramSeason | null>(null);
+  /**
+   * Which sheet is open, if any.
+   *
+   * Categories and seasons used to be two separate pieces of state driving two
+   * inline rails that behaved differently — the season one even had a "Poista
+   * suodatin" link that emptied the section rather than narrowing it. One
+   * state, one sheet, one way to close it.
+   */
+  const [sheet, setSheet] = useState<
+    | { kind: 'category'; key: ProgramCategoryKey }
+    // The tile's own label travels with the block, so tapping "Syksy" opens a
+    // sheet that says Syksy rather than one that says Talvi.
+    | { kind: 'season'; season: ProgramSeason; labelKey: I18nKey }
+    | null
+  >(null);
   // The goal sheet: which lift, and the number being typed.
   const [goalLift, setGoalLift] = useState<{ name: string; label: string; bestKg: number } | null>(null);
   const [goalTarget, setGoalTarget] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   // Where the season rows begin, measured rather than guessed — a hero CTA
   // that says "Open the season" has to actually arrive there.
-  const pageRef = useRef<ScrollView | null>(null);
-  const seasonOffset = useRef(0);
 
   /**
    * Every campaign slide and season tile goes somewhere real.
@@ -538,7 +811,7 @@ export function ProgramsHomeScreen({
   const handleCampaignTarget = (target: CampaignTarget) => {
     switch (target.kind) {
       case 'category':
-        setCategory(target.category);
+        setSheet({ kind: 'category', key: target.category });
         break;
       case 'create':
         setCreateOpen(true);
@@ -547,18 +820,30 @@ export function ProgramsHomeScreen({
         onOpenLibrary();
         break;
       case 'season':
-        setSeason(target.season);
-        pageRef.current?.scrollTo({ y: Math.max(0, seasonOffset.current - 12), animated: true });
+        setSheet({
+          kind: 'season',
+          season: target.season,
+          labelKey:
+            target.season === 'winter' ? 'programs.seasonTile.winter' : 'programs.seasonTile.summer',
+        });
         break;
     }
   };
 
   const pickedStyle = picked ? COVER_STYLES[picked.coverIndex % COVER_STYLES.length] : null;
 
+  // The open sheet's contents, drawn from the same sources the tiles count.
+  const sheetCategory = sheet?.kind === 'category' ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) : null;
+  const sheetItems =
+    sheet === null
+      ? []
+      : sheet.kind === 'category'
+        ? catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id))
+        : (seasonRows.find((row) => row.season === sheet.season)?.items ?? []);
+
   return (
     <View style={styles.screenBackground}>
       <ScrollView
-        ref={pageRef}
         style={styles.scrollView}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -581,15 +866,9 @@ export function ProgramsHomeScreen({
             identical grey pills are read one at a time. */}
         <View style={styles.sectionHeadRow}>
           <Text style={styles.sectionEyebrow}>{t(language, 'programs.browse')}</Text>
-          {category !== null ? (
-            <Pressable onPress={() => setCategory(null)} hitSlop={8}>
-              <Text style={styles.sectionLink}>{t(language, 'programs.cat.clear')}</Text>
-            </Pressable>
-          ) : (
-            <Pressable onPress={onViewAllPrograms} hitSlop={8}>
-              <Text style={styles.sectionLink}>{t(language, 'programs.viewAll')}</Text>
-            </Pressable>
-          )}
+          <Pressable onPress={onViewAllPrograms} hitSlop={8}>
+            <Text style={styles.sectionLink}>{t(language, 'programs.viewAll')}</Text>
+          </Pressable>
         </View>
         <ScrollView
           horizontal
@@ -598,21 +877,18 @@ export function ProgramsHomeScreen({
           style={styles.exploreScroll}
         >
           {PROGRAM_CATEGORIES.map((entry) => {
-            const on = category === entry.key;
             return (
               <Pressable
                 key={entry.key}
                 accessibilityRole="button"
-                accessibilityState={{ selected: on }}
                 accessibilityLabel={`${t(language, entry.labelKey)}, ${categoryCounts[entry.key]}`}
-                onPress={() => setCategory(on ? null : entry.key)}
+                onPress={() => setSheet({ kind: 'category', key: entry.key })}
                 style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
               >
                 <View
                   style={[
                     styles.catTile,
-                    { backgroundColor: entry.tint.bg, borderColor: on ? entry.tint.ink : entry.tint.border },
-                    on && styles.catTileOn,
+                    { backgroundColor: entry.tint.bg, borderColor: entry.tint.border },
                   ]}
                 >
                   <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
@@ -628,7 +904,7 @@ export function ProgramsHomeScreen({
                     <Text style={styles.catTileCountText}>{categoryCounts[entry.key]}</Text>
                   </View>
                 </View>
-                <Text style={[styles.catTileLabel, on && styles.catTileLabelOn]} numberOfLines={2}>
+                <Text style={styles.catTileLabel} numberOfLines={2}>
                   {t(language, entry.labelKey)}
                 </Text>
               </Pressable>
@@ -636,51 +912,10 @@ export function ProgramsHomeScreen({
           })}
         </ScrollView>
 
-        {/* The rail only appears once a tile is tapped. A permanently visible
-            catalog rail underneath was 55 identical cards nobody scrolled, and
-            it made the tiles above look decorative. */}
-        {category !== null ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.exploreRow}
-            style={styles.exploreScroll}
-          >
-            {catalogItems
-              .filter((item) => categoryMembers[category]?.includes(item.id))
-              .map((item) => {
-                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
-                return (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                    onPress={() => setPicked(item)}
-                    style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
-                  >
-                    <ProgramCover
-                      style={style}
-                      goal={item.goal}
-                      days={item.days}
-                      name={item.name}
-                      fingerprint={item.fingerprint}
-                      language={language}
-                    />
-                    <View style={styles.exploreBody}>
-                      <Text style={styles.exploreBlurb} numberOfLines={2}>
-                        {item.blurb}
-                      </Text>
-                      <View style={styles.exploreMetaRow}>
-                        <Text style={styles.exploreMeta}>{t(language, 'programs.card.days', { count: item.days })}</Text>
-                        <View style={styles.metaDot} />
-                        <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              })}
-          </ScrollView>
-        ) : null}
+        {/* The rail that used to live here is a sheet now. Nine categories
+            sharing one horizontal rail gave every one of them the same
+            eight-card shape, no way to narrow further, and nowhere to say what
+            the category is FOR or what level its programs are. */}
 
         {/* Pick up where you left off — built from logged sessions, so it is
             empty on a fresh install and the row simply is not there. */}
@@ -800,19 +1035,11 @@ export function ProgramsHomeScreen({
         {/* Four season tiles over two blocks. The reference asks for four and
             the catalog has two; the month range on each tile makes the mapping
             visible instead of inventing two empty seasons to fill the row. */}
-        <View
-          style={styles.sectionHeadRow}
-          onLayout={(event) => {
-            seasonOffset.current = event.nativeEvent.layout.y;
-          }}
-        >
-          <Text style={styles.sectionEyebrow}>{t(language, 'programs.seasons')}</Text>
-          {season !== null ? (
-            <Pressable onPress={() => setSeason(null)} hitSlop={8}>
-              <Text style={styles.sectionLink}>{t(language, 'programs.cat.clear')}</Text>
-            </Pressable>
-          ) : null}
-        </View>
+        {/* "Poista suodatin" used to sit here, and it did not remove a
+            filter — with nothing selected the section has no rail at all, so
+            the link read as "remove the seasons". The tile opens a sheet now
+            and the sheet closes itself. */}
+        <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.seasons')}</Text>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -827,13 +1054,8 @@ export function ProgramsHomeScreen({
                 key={tile.key}
                 accessibilityRole="button"
                 accessibilityLabel={t(language, tile.labelKey)}
-                accessibilityState={{ selected: season === tile.block }}
-                onPress={() => setSeason(season === tile.block ? null : tile.block)}
-                style={({ pressed }) => [
-                  styles.seasonTile,
-                  season === tile.block && styles.seasonTileOn,
-                  pressed && styles.pressed,
-                ]}
+                onPress={() => setSheet({ kind: 'season', season: tile.block, labelKey: tile.labelKey })}
+                style={({ pressed }) => [styles.seasonTile, pressed && styles.pressed]}
               >
                 <Svg width={168} height={150} style={StyleSheet.absoluteFill}>
                   <Defs>
@@ -872,52 +1094,6 @@ export function ProgramsHomeScreen({
           })}
         </ScrollView>
 
-        {/* A tapped season opens its rail here, exactly like a category
-            tile. Two permanently open season rails used to sit in this slot —
-            "Kesäkausi" and "Talvikausi", both fully expanded, both in the same
-            card size as everything else — which made the four tiles above them
-            pure decoration and gave the page two more identical rows. */}
-        {season !== null ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.exploreRow}
-            style={styles.exploreScroll}
-          >
-            {(seasonRows.find((row) => row.season === season)?.items ?? []).map((item) => {
-              const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
-              return (
-                <Pressable
-                  key={item.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                  onPress={() => setPicked(item)}
-                  style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
-                >
-                  <ProgramCover
-                    style={style}
-                    goal={item.goal}
-                    days={item.days}
-                    name={item.name}
-                    fingerprint={item.fingerprint}
-                    language={language}
-                  />
-                  <View style={styles.exploreBody}>
-                    <Text style={styles.exploreBlurb} numberOfLines={2}>
-                      {item.blurb}
-                    </Text>
-                    <View style={styles.exploreMetaRow}>
-                      <Text style={styles.exploreMeta}>{t(language, 'programs.card.days', { count: item.days })}</Text>
-                      <View style={styles.metaDot} />
-                      <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
-                    </View>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </ScrollView>
-        ) : null}
-
         {/* "For you" leads the browse: it is the only row that knows who is
             reading it, and every card can say why it is there. */}
         {recommendations.length > 0 ? (
@@ -953,18 +1129,27 @@ export function ProgramsHomeScreen({
                       name={item.name}
                       fingerprint={item.fingerprint}
                       language={language}
-                      width={158}
+                      width={186}
                       height={104}
                       compact
                     />
                     <View style={styles.recBody}>
-                      {/* The reason, not a blurb. A card that cannot say why it
-                          is here does not belong in this row. */}
-                      <Text style={styles.forYouWhy} numberOfLines={3}>
-                        {item.why}
+                      {/* What the training IS comes first. The card used to
+                          carry only the reason — "Sama tavoite, eri jako" —
+                          which describes this card's relationship to another
+                          program and tells the reader nothing about the
+                          training they would be doing. */}
+                      <Text style={styles.exploreBlurb} numberOfLines={3}>
+                        {item.blurb}
                       </Text>
                       <Text style={styles.exploreMeta}>
                         {t(language, 'programs.card.days', { count: item.days })} · ~{item.minutes} min
+                        {item.weeks > 0 ? ` · ${t(language, 'programs.weeks', { count: item.weeks })}` : ''}
+                      </Text>
+                      {/* And the reason stays, as one short line with the
+                          number in it rather than a sentence. */}
+                      <Text style={styles.forYouWhy} numberOfLines={2}>
+                        {`★ ${item.why}`}
                       </Text>
                     </View>
                   </Pressable>
@@ -1222,6 +1407,48 @@ export function ProgramsHomeScreen({
         </View>
       </Modal>
 
+      <ProgramSheet
+        visible={sheet !== null}
+        onClose={() => setSheet(null)}
+        language={language}
+        title={
+          sheet === null
+            ? ''
+            : sheet.kind === 'category'
+              ? t(language, sheetCategory?.labelKey ?? 'programs.cat.strength')
+              : t(language, sheet.labelKey)
+        }
+        focus={
+          sheet === null
+            ? ''
+            : sheet.kind === 'category'
+              ? t(language, sheetCategory?.focusKey ?? 'programs.catFocus.strength')
+              : t(
+                  language,
+                  sheet.season === 'winter'
+                    ? 'programs.seasonFocus.winter'
+                    : 'programs.seasonFocus.summer',
+                )
+        }
+        tint={
+          sheet?.kind === 'category' && sheetCategory
+            ? sheetCategory.tint
+            : sheet?.kind === 'season' && sheet.season === 'winter'
+              ? SEASON_SHEET_TINTS.winter
+              : SEASON_SHEET_TINTS.summer
+        }
+        icon={sheet?.kind === 'category' && sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
+        items={sheetItems}
+        onPick={(item) => {
+          setSheet(null);
+          setPicked(item);
+        }}
+        onViewAll={() => {
+          setSheet(null);
+          onViewAllPrograms();
+        }}
+      />
+
       <NewProgramSheet
         language={language}
         visible={createOpen}
@@ -1412,15 +1639,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
   },
   forYouWhy: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    lineHeight: 17,
-    color: theme.ink,
-  },
-  seasonCount: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: theme.muted,
+    fontSize: 11.5,
+    fontWeight: '800',
+    lineHeight: 15,
+    color: theme.purple,
   },
   seasonLead: {
     marginTop: -4,
@@ -1535,9 +1757,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  catTileOn: {
-    borderWidth: 2,
-  },
   catTileCount: {
     position: 'absolute',
     top: -5,
@@ -1562,10 +1781,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 14,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  catTileLabelOn: {
-    color: theme.ink,
-    fontWeight: '800',
   },
   // ── Continue cards (252 × 92 cover) ──────────────────────────────────
   continueCard: {
@@ -1608,7 +1823,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // ── Recommendation cards (158 × 104 cover) ───────────────────────────
   recCard: {
-    width: 158,
+    width: 186,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: theme.border,
@@ -1627,10 +1842,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 20,
     overflow: 'hidden',
     justifyContent: 'flex-end',
-  },
-  seasonTileOn: {
-    borderWidth: 3,
-    borderColor: theme.ink,
   },
   seasonTileBody: {
     padding: 14,
@@ -1695,19 +1906,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 2,
     gap: 12,
-  },
-  exploreCard: {
-    width: COVER_W,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    overflow: 'hidden',
-    shadowColor: theme.purpleBright,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
-    shadowRadius: 24,
-    elevation: 3,
   },
   // Size comes from props now — three card sizes on the page instead of one.
   cover: {
@@ -1779,11 +1977,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     left: 11,
     right: 11,
     bottom: 9,
-  },
-  exploreBody: {
-    paddingHorizontal: 15,
-    paddingTop: 13,
-    paddingBottom: 15,
   },
   exploreBlurb: {
     color: theme.muted,
@@ -1908,6 +2101,150 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   sheetScrim: {
     ...StyleSheet.absoluteFillObject,
+  },
+  // ── Category / season sheet ──────────────────────────────────────────
+  catSheet: {
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    backgroundColor: theme.surface,
+    paddingTop: 10,
+  },
+  catSheetHead: {
+    flexShrink: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingBottom: 12,
+  },
+  catSheetIcon: {
+    width: 46,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  catSheetCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  catSheetTitle: {
+    color: theme.ink,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+  },
+  catSheetFocus: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  levelScroll: {
+    flexGrow: 0,
+    flexShrink: 0,
+  },
+  levelRow: {
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingBottom: 12,
+  },
+  levelChip: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  levelChipText: {
+    color: theme.muted,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
+  levelChipTextOn: {
+    color: '#FFFFFF',
+  },
+  catSheetList: {
+    flex: 1,
+    minHeight: 0,
+  },
+  catSheetListInner: {
+    paddingHorizontal: 18,
+    // Clears the pinned CTA below.
+    paddingBottom: 108,
+    gap: 10,
+  },
+  catSheetEmpty: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    paddingVertical: 24,
+    textAlign: 'center',
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+  },
+  sheetRowCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  sheetRowTitleLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  sheetRowName: {
+    flexShrink: 1,
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 19,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  levelBadge: {
+    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  levelBadgeText: {
+    fontSize: 9.5,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  sheetRowBlurb: {
+    color: theme.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    marginTop: 3,
+  },
+  catSheetCta: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    // Clears the gesture bar: the sheet's bottom IS the screen's bottom, so
+    // the button's own padding is the only thing keeping it reachable.
+    paddingBottom: 34,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
   },
   sheet: {
     borderTopLeftRadius: 28,

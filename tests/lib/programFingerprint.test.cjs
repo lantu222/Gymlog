@@ -83,8 +83,13 @@ module.exports = [
       // the page passes one — the count is not pinned, because rows come and
       // go; what must hold is that none of them skips it.
       const covers = (screen.match(/<ProgramCover/g) ?? []).length;
-      assert.ok(covers >= 4, `only ${covers} covers on the page`);
-      assert.equal((screen.match(/fingerprint=\{item\.fingerprint\}/g) ?? []).length, covers);
+      assert.ok(covers >= 2, `only ${covers} covers on the page`);
+      const passes = (screen.match(/fingerprint=\{item\.fingerprint\}/g) ?? []).length;
+      assert.ok(passes >= covers, `${covers} covers but only ${passes} fingerprints`);
+      // The sheet rows draw the same week at 74px. A row cover that skipped
+      // the fingerprint would be a flat gradient claiming to be a program.
+      assert.match(screen, /function RowCover/);
+      assert.match(screen, /<RowCover style=\{style\} fingerprint=\{item\.fingerprint\} \/>/);
       // Built from the template, not from a card field that could drift.
       assert.ok((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 4);
 

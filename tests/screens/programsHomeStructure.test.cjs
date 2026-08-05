@@ -87,10 +87,25 @@ module.exports = [
       // A tile that says 8 has to open 8: the count and the rail read the
       // same source.
       assert.match(programsHomeSource, /categoryCounts\[entry\.key\]/);
-      assert.match(programsHomeSource, /categoryMembers\[category\]/);
-      // The catalog rail only exists once a tile is tapped — an always-open
-      // rail underneath made the tiles above look decorative.
-      assert.match(programsHomeSource, /\{category !== null \?/);
+      assert.match(programsHomeSource, /categoryMembers\[sheet\.key\]/);
+      // A tile opens a SHEET, not a rail. Nine categories sharing one
+      // horizontal rail gave every one of them the same eight-card shape, no
+      // way to narrow further, and nowhere to say what the category is for or
+      // what level its programs are.
+      assert.match(programsHomeSource, /function ProgramSheet/);
+      assert.match(programsHomeSource, /setSheet\(\{ kind: 'category', key: entry\.key \}\)/);
+      assert.doesNotMatch(programsHomeSource, /\{category !== null \?/);
+      // The level is the one fact that decides whether a program is for this
+      // reader, and no card on this screen carried it before.
+      assert.match(programsHomeSource, /const LEVEL_FILTERS/);
+      assert.match(programsHomeSource, /items\.filter\(\(item\) => item\.level === level\)/);
+      assert.match(programsHomeSource, /LEVEL_STYLES\[item\.level\]/);
+      // A filter left over from the last category would silently hide
+      // programs in the next one.
+      assert.match(programsHomeSource, /if \(!visible\) \{[\s\S]{0,40}setLevel\(null\)/);
+      // Seasons reuse it. Two mechanisms for "show me this subset" is one
+      // too many.
+      assert.match(programsHomeSource, /kind: 'season', season: tile\.block/);
       assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
 
       // The rotating hero, and the four season tiles.
@@ -101,10 +116,11 @@ module.exports = [
       assert.match(programsHomeSource, /onScrollBeginDrag=\{\(\) => setRunning\(false\)\}/);
       assert.match(programsHomeSource, /orderSeasonTiles\(\)\.map/);
       assert.match(programsHomeSource, /currentSeasonTile\(\)/);
-      // Every slide and tile goes somewhere real, including the season CTA,
-      // which scrolls to a measured offset rather than a guessed one.
+      // Every slide and tile goes somewhere real. The season CTA opens the
+      // season's sheet now rather than scrolling to a rail that no longer
+      // exists.
       assert.match(programsHomeSource, /const handleCampaignTarget = \(target: CampaignTarget\)/);
-      assert.match(programsHomeSource, /seasonOffset\.current = event\.nativeEvent\.layout\.y/);
+      assert.doesNotMatch(programsHomeSource, /seasonOffset/);
 
       // Continue: real logged work only.
       assert.match(programsHomeSource, /continueItems\.length > 0/);

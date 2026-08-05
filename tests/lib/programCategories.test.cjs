@@ -92,7 +92,7 @@ module.exports = [
       // catalog instead.
       assert.match(app, /catalogItems=\{programsCatalogItems\}/);
       assert.match(app, /workout\.templates\.map\(\(template, index\) => \(\{/);
-      assert.match(screen, /categoryMembers\[category\]\?\.includes\(item\.id\)/);
+      assert.match(screen, /categoryMembers\[sheet\.key\]\?\.includes\(item\.id\)/);
       // Counts come from the same source as the filter, so a tile cannot
       // promise a number the rail does not have.
       assert.match(app, /countByCategory\(workout\.templates\)/);
