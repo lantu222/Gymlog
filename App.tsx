@@ -96,6 +96,7 @@ import {
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
+import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import {
   countByCategory,
   filterByCategory,
@@ -3149,6 +3150,37 @@ function VinhaApp() {
       ) as Record<ProgramCategoryKey, string[]>,
     [workout.templates],
   );
+  /**
+   * Trending: demo only, and null the moment the build stops being one.
+   *
+   * The row is here so the layout can be judged. The numbers are invented,
+   * and getTrendingEntries returns null in a release build rather than
+   * falling back to something — there is no honest fallback for social proof
+   * on a device that only knows what one person did.
+   */
+  const programsTrendingItems = useMemo(
+    () => {
+      const entries = getTrendingEntries();
+      if (!entries) {
+        return null;
+      }
+      const byId = new Map(workout.templates.map((template) => [template.id, template]));
+      return entries
+        .map((entry) => {
+          const template = byId.get(entry.templateId);
+          return template
+            ? {
+                id: template.id,
+                name: formatWorkoutDisplayLabel(template.name),
+                weeks: getReadyProgramBlockWeeks(template),
+                starts: entry.starts,
+              }
+            : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    },
+    [workout.templates],
+  );
   const programsCustomItems = useMemo(
     () =>
       customWorkouts.map((template) => ({
@@ -4220,6 +4252,7 @@ function VinhaApp() {
         catalogItems={programsCatalogItems}
         categoryCounts={programsCategoryCounts}
         categoryMembers={programsCategoryMembers}
+        trendingItems={programsTrendingItems}
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}

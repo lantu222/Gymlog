@@ -152,6 +152,15 @@ interface ProgramsHomeScreenProps {
   catalogItems: ProgramsExploreItem[];
   categoryCounts: Record<ProgramCategoryKey, number>;
   categoryMembers: Record<ProgramCategoryKey, string[]>;
+  /**
+   * Most-started programs — null when there is nothing honest to show.
+   *
+   * Social proof needs other people, and this device only knows what its own
+   * owner did. Until a server counts starts these numbers are invented, so
+   * they live behind the demo flag and this prop is null in a release build.
+   * The row disappears rather than falling back: there is no honest fallback.
+   */
+  trendingItems: Array<{ id: string; name: string; weeks: number; starts: number }> | null;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
   onStartActiveSession: (sessionId: string) => void;
@@ -277,6 +286,7 @@ export function ProgramsHomeScreen({
   catalogItems,
   categoryCounts,
   categoryMembers,
+  trendingItems,
   customPrograms,
   exerciseLibraryCount,
   onStartActiveSession,
@@ -590,6 +600,46 @@ export function ProgramsHomeScreen({
             );
           })}
         </ScrollView>
+
+        {trendingItems && trendingItems.length > 0 ? (
+          <View>
+            <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.trending')}</Text>
+            <View style={styles.trendingCard}>
+              {trendingItems.map((item, index) => (
+                <Pressable
+                  key={item.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
+                  onPress={() => {
+                    const card = catalogItems.find((entry) => entry.id === item.id);
+                    if (card) {
+                      setPicked(card);
+                    }
+                  }}
+                  style={({ pressed }) => [
+                    styles.trendingRow,
+                    index > 0 && styles.trendingRowDivider,
+                    pressed && styles.pressedRow,
+                  ]}
+                >
+                  <View style={[styles.trendingRank, index < 3 && styles.trendingRankTop]}>
+                    <Text style={[styles.trendingRankText, index < 3 && styles.trendingRankTextTop]}>
+                      {index + 1}
+                    </Text>
+                  </View>
+                  <View style={styles.trendingCopy}>
+                    <Text style={styles.trendingTitle} numberOfLines={1}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.trendingMeta}>
+                      {t(language, 'programs.trending.meta', { weeks: item.weeks, starts: item.starts })}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.yourPrograms')}</Text>
         {customPrograms.map((program) => (
@@ -1016,6 +1066,60 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   categoryChipCountOn: {
     color: theme.purple,
+  },
+  trendingCard: {
+    marginHorizontal: 20,
+    marginBottom: 4,
+    borderRadius: 18,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    overflow: 'hidden',
+  },
+  trendingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  trendingRowDivider: {
+    borderTopWidth: 1,
+    borderTopColor: theme.purpleLight,
+  },
+  trendingRank: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.purpleLight,
+  },
+  trendingRankTop: {
+    backgroundColor: theme.purple,
+  },
+  trendingRankText: {
+    fontSize: 12.5,
+    fontWeight: '800',
+    color: theme.purple,
+  },
+  trendingRankTextTop: {
+    color: '#FFFFFF',
+  },
+  trendingCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  trendingTitle: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: theme.ink,
+  },
+  trendingMeta: {
+    marginTop: 2,
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.muted,
   },
   seasonCount: {
     fontSize: 12,

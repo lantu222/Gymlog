@@ -2116,6 +2116,8 @@ const EN = {
   // theme: October to March the sun is gone and training moves indoors.
   // Eight ways into 55 programs. Each one is derived from what a template
   // declares, so a new program lands in the right rows the day it is added.
+  'programs.trending': 'MOST STARTED THIS WEEK',
+  'programs.trending.meta': '{weeks} weeks · {starts} starts',
   'programs.cat.strength': 'Strength',
   'programs.cat.balanced': 'General fitness',
   'programs.cat.muscle': 'Muscle',
@@ -4398,6 +4400,8 @@ const FI: Record<I18nKey, string> = {
   'programs.adjustSchedule': 'Säädä aikataulua',
   'programs.noActive': 'Ei aktiivista ohjelmaa',
   'programs.noActiveSub': 'Valitse valmis ohjelma alta tai rakenna oma, niin saat viikkosuunnitelman.',
+  'programs.trending': 'ALOITETUIMMAT TÄLLÄ VIIKOLLA',
+  'programs.trending.meta': '{weeks} viikkoa · {starts} aloitusta',
   'programs.cat.strength': 'Voima',
   'programs.cat.balanced': 'Yleiskunto',
   'programs.cat.muscle': 'Lihaskasvu',

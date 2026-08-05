@@ -114,6 +114,65 @@ module.exports = [
     },
   },
   {
+    name: 'release: nothing that needs a server ships pretending it has one',
+    run() {
+      // Two placeholders are allowed to exist while this is a demo, and both
+      // become lies the moment it is not. Same shape as the paywall's invented
+      // cohort: the flag is the permission slip, and this test is what makes
+      // the permission expire.
+      const demoBuild = readJson('app.json')?.expo?.extra?.demoBuild === true;
+
+      // 1 · Trending. Social proof needs other people; this device only knows
+      //     what its owner did. Real numbers need a server that counts starts.
+      const trending = read('src/lib/programTrendingDemo.ts');
+      assert.match(
+        trending,
+        /return isDemoBuild\(\) \? DEMO_TRENDING : null/,
+        'the invented start counts must be unreachable outside a demo build',
+      );
+
+      // 2 · "Continue with Google" and "Continue with Apple". Both currently
+      //     call the same handler and sign nobody in. A user who presses one
+      //     reasonably believes their data is now tied to that account; it is
+      //     not, and a reinstall takes everything.
+      const welcome = read('src/screens/WelcomeScreen.tsx');
+      const providerHandlers = (welcome.match(/onPress=\{onContinue\}/g) ?? []).length;
+      const providersAreDecorative = providerHandlers > 1;
+
+      if (!demoBuild) {
+        // Collected rather than thrown one at a time: on the day this fires,
+        // the person reading it wants the whole list, not the first item and
+        // another run to find the second.
+        const problems = [];
+        if (providersAreDecorative) {
+          problems.push(
+            'Welcome still routes both provider buttons to the same onContinue, so neither '
+              + 'signs anyone in. Wire the providers to real identity, or take the buttons off '
+              + 'the screen.',
+          );
+        }
+
+        // A start counter is collection, and Settings currently promises the
+        // opposite. Shipping the row without rewriting that sentence would
+        // make the app lie in Settings to sell a row on the Programs tab.
+        const i18n = read('src/lib/i18n.ts');
+        const claimsNoCollection = /'settings\.analytics\.sub': 'We collect nothing/.test(i18n);
+        const rendersTrending = /trendingItems && trendingItems\.length > 0/.test(
+          read('src/screens/ProgramsHomeScreen.tsx'),
+        );
+        if (rendersTrending && claimsNoCollection) {
+          problems.push(
+            'The Programs tab renders a start counter and Settings still says "We collect '
+              + 'nothing". A server-backed counter is collection: rewrite the Settings copy, '
+              + 'or drop the row.',
+          );
+        }
+
+        assert.deepEqual(problems, [], problems.join(String.fromCharCode(10)));
+      }
+    },
+  },
+  {
     name: 'release: the paywall does not quote a study nobody ran',
     run() {
       // "1.9x faster to a new PR · 200+ decisions automated · +34% more volume,
