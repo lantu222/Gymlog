@@ -29,7 +29,6 @@ import type { CampaignTarget, ProgramCampaign } from '../lib/programCampaigns';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
 import { isValidTarget, StrengthGoalProgress } from '../lib/strengthGoals';
 import type { ProgramSeason } from '../lib/programSeasons';
-import { orderSeasonTiles, currentSeasonTile } from '../lib/programSeasonTiles';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { WorkoutLevel } from '../features/workout/workoutTypes';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
@@ -195,8 +194,22 @@ interface ProgramsHomeScreenProps {
   campaigns: ProgramCampaign[];
   /** Programs with logged work that are not the active one. */
   continueItems: ProgramsContinueItem[];
-  /** How many programs each season block holds, for the four tiles. */
-  seasonTileCounts: Record<ProgramSeason, number>;
+  /**
+   * The two seasons: the one running and the one after it, with their dates
+   * and program counts. See lib/season — a season is a window, not a filter.
+   */
+  seasonCards: Array<{
+    season: ProgramSeason;
+    labelKey: I18nKey;
+    year: number;
+    rangeLabel: string;
+    startLabel: string;
+    weeksLeft: number;
+    programCount: number;
+    current: boolean;
+    gradient: readonly [string, string];
+  }>;
+  onOpenSeason: (season: ProgramSeason) => void;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
   onOpenExploreProgram: (programId: string) => void;
@@ -759,7 +772,8 @@ export function ProgramsHomeScreen({
   recommendations,
   campaigns,
   continueItems,
-  seasonTileCounts,
+  seasonCards,
+  onOpenSeason,
   goals,
   goalCandidates,
   onSetGoal,
@@ -1032,44 +1046,46 @@ export function ProgramsHomeScreen({
           </View>
         ) : null}
 
-        {/* Four season tiles over two blocks. The reference asks for four and
-            the catalog has two; the month range on each tile makes the mapping
-            visible instead of inventing two empty seasons to fill the row. */}
-        {/* "Poista suodatin" used to sit here, and it did not remove a
-            filter — with nothing selected the section has no rail at all, so
-            the link read as "remove the seasons". The tile opens a sheet now
-            and the sheet closes itself. */}
-        <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.seasons')}</Text>
+        {/* Two cards, not four tiles.
+            The tiles treated a season as a filter — four labels over two
+            blocks, and tapping one narrowed a list. A season is a dated
+            commitment: it opens, runs 26 weeks and closes, and the only two
+            that matter are the one running and the one after it. The card
+            carries the dates and the countdown, because that is the whole
+            reason the row exists. */}
+        <View style={styles.sectionHeadRow}>
+          <Text style={styles.sectionEyebrow}>{t(language, 'season.seasons')}</Text>
+          <Text style={styles.catTileLabel}>{seasonCards[0]?.year ?? ''}</Text>
+        </View>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.tileRow}
           style={styles.exploreScroll}
         >
-          {orderSeasonTiles().map((tile) => {
-            const gid = `season-${tile.key}`;
-            const isNow = tile.key === currentSeasonTile();
+          {seasonCards.map((card) => {
+            const gid = `seasoncard-${card.season}`;
             return (
               <Pressable
-                key={tile.key}
+                key={card.season}
                 accessibilityRole="button"
-                accessibilityLabel={t(language, tile.labelKey)}
-                onPress={() => setSheet({ kind: 'season', season: tile.block, labelKey: tile.labelKey })}
-                style={({ pressed }) => [styles.seasonTile, pressed && styles.pressed]}
+                accessibilityLabel={t(language, card.labelKey)}
+                onPress={() => onOpenSeason(card.season)}
+                style={({ pressed }) => [styles.seasonCard, pressed && styles.pressed]}
               >
-                <Svg width={168} height={150} style={StyleSheet.absoluteFill}>
+                <Svg width={186} height={172} style={StyleSheet.absoluteFill}>
                   <Defs>
                     <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
-                      <Stop offset="0" stopColor={tile.gradient[0]} />
-                      <Stop offset="1" stopColor={tile.gradient[1]} />
+                      <Stop offset="0" stopColor={card.gradient[0]} />
+                      <Stop offset="1" stopColor={card.gradient[1]} />
                     </SvgLinearGradient>
                   </Defs>
-                  <Rect x="0" y="0" width={168} height={150} rx={20} fill={`url(#${gid})`} />
-                  <Svg x={92} y={58} width={104} height={104} viewBox="0 0 24 24">
+                  <Rect x="0" y="0" width={186} height={172} rx={20} fill={`url(#${gid})`} />
+                  <Svg x={104} y={-18} width={120} height={120} viewBox="0 0 24 24">
                     <Path
                       d={LAYERS_MOTIF}
                       stroke="#FFFFFF"
-                      strokeOpacity={0.2}
+                      strokeOpacity={0.18}
                       strokeWidth={1.4}
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -1077,16 +1093,18 @@ export function ProgramsHomeScreen({
                     />
                   </Svg>
                 </Svg>
-                {isNow ? (
-                  <View style={styles.seasonNowPill}>
-                    <Text style={styles.seasonNowText}>{t(language, 'programs.seasonTile.now')}</Text>
-                  </View>
-                ) : null}
-                <View style={styles.seasonTileBody}>
-                  <Text style={styles.seasonTileMonths}>{t(language, tile.monthsKey)}</Text>
-                  <Text style={styles.seasonTileLabel}>{t(language, tile.labelKey)}</Text>
+                <View style={[styles.seasonPill, !card.current && styles.seasonPillMuted]}>
+                  <Text style={[styles.seasonPillText, !card.current && styles.seasonPillTextMuted]}>
+                    {card.current
+                      ? t(language, 'season.now', { count: card.weeksLeft })
+                      : t(language, 'season.upcoming', { date: card.startLabel })}
+                  </Text>
+                </View>
+                <View style={styles.seasonCardBody}>
+                  <Text style={styles.seasonTileMonths}>{card.rangeLabel}</Text>
+                  <Text style={styles.seasonTileLabel}>{t(language, card.labelKey)}</Text>
                   <Text style={styles.seasonTileCount}>
-                    {t(language, 'programs.season.count', { count: seasonTileCounts[tile.block] ?? 0 })}
+                    {t(language, 'season.programCount', { count: card.programCount })}
                   </Text>
                 </View>
               </Pressable>
@@ -1836,6 +1854,38 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 6,
   },
   // ── Season tiles (168 × 150) ─────────────────────────────────────────
+  seasonCard: {
+    width: 186,
+    height: 172,
+    borderRadius: 20,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  seasonCardBody: {
+    padding: 13,
+  },
+  seasonPill: {
+    position: 'absolute',
+    top: 13,
+    left: 13,
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  seasonPillMuted: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  seasonPillText: {
+    color: '#191036',
+    fontSize: 9.5,
+    lineHeight: 12,
+    fontWeight: '900',
+    letterSpacing: 0.8,
+  },
+  seasonPillTextMuted: {
+    color: '#FFFFFF',
+  },
   seasonTile: {
     width: 168,
     height: 150,

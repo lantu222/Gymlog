@@ -103,9 +103,10 @@ module.exports = [
       // A filter left over from the last category would silently hide
       // programs in the next one.
       assert.match(programsHomeSource, /if \(!visible\) \{[\s\S]{0,40}setLevel\(null\)/);
-      // Seasons reuse it. Two mechanisms for "show me this subset" is one
-      // too many.
-      assert.match(programsHomeSource, /kind: 'season', season: tile\.block/);
+      // Seasons still reuse the sheet from the campaign hero's "open the
+      // season" slide — two mechanisms for "show me this subset" is one too
+      // many — but the season ROW is now two dated cards that open a screen.
+      assert.match(programsHomeSource, /kind: 'season',[\s\S]{0,40}season: target\.season/);
       assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
 
       // The rotating hero, and the four season tiles.
@@ -114,8 +115,7 @@ module.exports = [
       // Touching it stops the timer for good: a card that moves under your
       // thumb while you read it is hostile.
       assert.match(programsHomeSource, /onScrollBeginDrag=\{\(\) => setRunning\(false\)\}/);
-      assert.match(programsHomeSource, /orderSeasonTiles\(\)\.map/);
-      assert.match(programsHomeSource, /currentSeasonTile\(\)/);
+      assert.match(programsHomeSource, /seasonCards\.map\(\(card\) =>/);
       // Every slide and tile goes somewhere real. The season CTA opens the
       // season's sheet now rather than scrolling to a rail that no longer
       // exists.

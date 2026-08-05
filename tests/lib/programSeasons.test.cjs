@@ -92,7 +92,16 @@ module.exports = [
       // filter now, and the rail is what a tap opens.
       assert.doesNotMatch(screen, /seasonRows\.map\(\(row\) =>/);
       assert.match(screen, /seasonRows\.find\(\(row\) => row\.season === sheet\.season\)/);
-      assert.match(screen, /setSheet\(\{ kind: 'season', season: tile\.block, labelKey: tile\.labelKey \}\)/);
+      // A season is a dated window with a screen of its own now, not four
+      // tiles over two blocks that narrowed a list. The row shows exactly two
+      // cards — the season running and the one after it — and the card opens
+      // the season rather than filtering anything.
+      assert.doesNotMatch(screen, /orderSeasonTiles/);
+      assert.match(screen, /seasonCards\.map\(\(card\) =>/);
+      assert.match(screen, /onOpenSeason\(card\.season\)/);
+      assert.match(app, /navigate\(\{ tab: 'workout', screen: 'season', season \}\)/);
+      // Two, never four: the row is "what is running and what is next".
+      assert.match(app, /return \[build\(current, true\), build\(next, false\)\];/);
       // "Poista suodatin" is gone with the rail it belonged to. With nothing
       // selected the section had no rail at all, so the link read as "remove
       // the seasons" — which is what the reader saw it do.

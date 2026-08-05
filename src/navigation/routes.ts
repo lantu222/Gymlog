@@ -47,6 +47,15 @@ export type AppRoute =
       screen: 'programs_home';
     }
   | {
+      /**
+       * A season as a screen, not a filter: dates, week N of 26, the reader's
+       * own points and the programs that belong to it.
+       */
+      tab: 'workout';
+      screen: 'season';
+      season: 'winter' | 'summer';
+    }
+  | {
       tab: 'workout';
       screen: 'list';
     }

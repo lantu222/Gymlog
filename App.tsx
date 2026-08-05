@@ -96,6 +96,12 @@ import {
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import { getSeasonForDate, getSeasonProgramIds, orderSeasons } from './src/lib/programSeasons';
+import { SEASON_WEEKS, nextSeasonWindow, resolveSeasonWindow, seasonWeeksLeft } from './src/lib/season';
+import {
+  computeSeasonProgress,
+  countSeasonRecords,
+  resolveSeasonBadges,
+} from './src/lib/seasonScoring';
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
@@ -163,6 +169,7 @@ import { isAiCoachLiveConfigured } from './src/lib/aiCoachClient';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
+import { SeasonScreen } from './src/screens/SeasonScreen';
 import { WorkoutCompletionScreen } from './src/screens/WorkoutCompletionScreen';
 import { WorkoutCelebrationScreen } from './src/screens/WorkoutCelebrationScreen';
 import { WorkoutEditorFinishSummary, WorkoutEditorScreen } from './src/screens/WorkoutEditorScreen';
@@ -3263,6 +3270,41 @@ function VinhaApp() {
     }),
     [],
   );
+  /**
+   * The two seasons the row shows: the one running and the one after it.
+   *
+   * Four tiles over two blocks treated a season as a filter. It is a dated
+   * commitment — it opens, runs 26 weeks and closes — so the card carries the
+   * dates and the countdown rather than a month range and a count.
+   */
+  const programsSeasonCards = useMemo(
+    () => {
+      const now = new Date();
+      const current = resolveSeasonWindow(now);
+      const next = nextSeasonWindow(now);
+      const label = (date: Date) =>
+        preferences.appLanguage === 'fi'
+          ? `${date.getDate()}.${date.getMonth() + 1}.`
+          : `${date.getDate()}/${date.getMonth() + 1}`;
+      const build = (window: typeof current, isCurrent: boolean) => ({
+        season: window.season,
+        labelKey: (window.season === 'winter' ? 'season.winter' : 'season.summer') as I18nKey,
+        year: window.year,
+        rangeLabel: `${label(window.start)}${preferences.appLanguage === 'fi' ? '' : ''}–${label(
+          new Date(window.end.getTime() - 86_400_000),
+        )}${window.year !== window.end.getFullYear() ? window.end.getFullYear() : ''}`,
+        startLabel: label(window.start),
+        weeksLeft: isCurrent ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
+        programCount: programsSeasonTileCounts[window.season],
+        current: isCurrent,
+        gradient: (window.season === 'winter'
+          ? (['#2E5C93', '#12294B'] as const)
+          : (['#C4562A', '#7A2410'] as const)),
+      });
+      return [build(current, true), build(next, false)];
+    },
+    [preferences.appLanguage, programsSeasonTileCounts],
+  );
   const programsCampaigns = useMemo(
     () =>
       buildProgramCampaigns({
@@ -4411,6 +4453,72 @@ function VinhaApp() {
     ) : (
       <View />
     );
+  } else if (route.tab === 'workout' && route.screen === 'season') {
+    /**
+     * The season screen.
+     *
+     * Every number on it is the reader's own: points from their logged
+     * sessions against a stated rule, the weekly requirement from their own
+     * program's days, records from their own bests. The one section that
+     * needs other people — the series — says so instead of inventing names.
+     */
+    const seasonWindow = resolveSeasonWindow();
+    const seasonInView = route.season;
+    const seasonProgress = computeSeasonProgress(workoutSessions, seasonWindow, {
+      weeklyTarget: homeActivePlanCard?.sessions?.length ?? null,
+    });
+    const seasonBadges = resolveSeasonBadges(seasonProgress, {
+      // The current window is by definition the one containing today, so it
+      // is never over. The finished badge belongs to a past season.
+      seasonEnded: false,
+      personalRecords: countSeasonRecords(
+        trackedProgress.map((summary) => ({
+          bestWeight: summary.bestWeight,
+          logs: summary.logs.map((log) => ({ weight: log.weight, performedAt: log.performedAt })),
+        })),
+        seasonWindow,
+      ),
+    });
+    const seasonProgramItems = (
+      programsSeasonRows.find((row) => row.season === seasonInView)?.items ?? []
+    ).map((item) => ({
+      id: item.id,
+      name: item.name,
+      blurb: item.blurb,
+      days: item.days,
+      weeks: item.weeks,
+      coverIndex: item.coverIndex,
+      fingerprint: item.fingerprint,
+      active: item.id === homeActivePlanCard?.programId,
+    }));
+    content = (
+      <SeasonScreen
+        season={seasonInView}
+        language={preferences.appLanguage}
+        progress={seasonProgress}
+        badges={seasonBadges}
+        programs={seasonProgramItems}
+        activeProgramName={homeActivePlanCard?.title ?? null}
+        activeProgramDays={homeActivePlanCard?.sessions?.length ?? null}
+        onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
+        onOpenProgram={handleOpenReadyProgramDetail}
+        onStartToday={
+          homeActivePlanCard
+            ? () => {
+                const sessionId = homeActivePlanCard.nextSession?.id;
+                if (!sessionId) {
+                  return;
+                }
+                if (homeActivePlanCard.programType === 'custom') {
+                  handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId);
+                  return;
+                }
+                handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
+              }
+            : null
+        }
+      />
+    );
   } else if (route.tab === 'workout' && route.screen === 'programs_home') {
     content = (
       <ProgramsHomeScreen
@@ -4424,7 +4532,8 @@ function VinhaApp() {
         recommendations={programsRecommendations}
         campaigns={programsCampaigns}
         continueItems={programsContinueItems}
-        seasonTileCounts={programsSeasonTileCounts}
+        seasonCards={programsSeasonCards}
+        onOpenSeason={(season) => navigate({ tab: 'workout', screen: 'season', season })}
         goals={programsGoals}
         goalCandidates={programsGoalCandidates}
         onSetGoal={(exerciseName, targetKg) =>
