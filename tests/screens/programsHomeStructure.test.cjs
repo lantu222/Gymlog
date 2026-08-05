@@ -95,7 +95,17 @@ module.exports = [
       assert.match(programsHomeSource, /category === null[\s\S]{0,40}exploreItems/);
       assert.match(programsHomeSource, /categoryMembers\[category\]/);
       assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
-      assert.match(programsHomeSource, /days\}d \/ wk/);
+      // The cover meta went through the dictionary after an emulator pass
+      // found "3d / wk", "3 days / week", "Muscle" and "Strength" on cards
+      // in the Finnish app — directly under category chips reading the same
+      // words in Finnish.
+      assert.match(programsHomeSource, /'programs\.card\.daysShort'/);
+      assert.doesNotMatch(programsHomeSource, /days \/ week|\}d \/ wk/);
+      // An emulator pass found four more English strings on this screen in
+      // the Finnish app. A grep is cheaper than another pass: no bare
+      // English sentence may sit in JSX here.
+      assert.doesNotMatch(programsHomeSource, /exercises · browse|browse &amp; swap/);
+      assert.match(programsHomeSource, /'programs\.library\.sub'/);
       // Switch-program sheet: explainer + Cancel / Switch program; confirm opens
       // the picked program (existing ready-program detail path).
       assert.match(programsHomeSource, /Switching starts a fresh block/);
@@ -106,7 +116,7 @@ module.exports = [
       assert.match(programsHomeSource, /customPrograms\.map/);
       assert.match(programsHomeSource, /programs\.create/);
       assert.match(programsHomeSource, /programs\.exerciseLibrary/);
-      assert.match(programsHomeSource, /\{exerciseLibraryCount\} exercises/);
+      assert.match(programsHomeSource, /count: exerciseLibraryCount/);
       // Empty state when there is no active program.
       assert.match(programsHomeSource, /programs\.noActive/);
     },

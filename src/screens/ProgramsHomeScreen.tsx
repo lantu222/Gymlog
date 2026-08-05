@@ -163,7 +163,7 @@ interface ProgramsHomeScreenProps {
    * they live behind the demo flag and this prop is null in a release build.
    * The row disappears rather than falling back: there is no honest fallback.
    */
-  trendingItems: Array<{ id: string; name: string; weeks: number; starts: number }> | null;
+  trendingItems: Array<{ id: string; name: string; weeks: number; starts: string }> | null;
   /**
    * The one or two programs the engine picked, each carrying its reason.
    *
@@ -256,11 +256,13 @@ function ProgramCover({
   days,
   name,
   fingerprint,
+  language,
 }: {
   style: (typeof COVER_STYLES)[number];
   goal: string;
   days: number;
   name: string;
+  language: AppLanguage;
   /**
    * One bar per session, height proportional to that session's working sets.
    *
@@ -303,18 +305,21 @@ function ProgramCover({
           ? fingerprint.map((height, index) => {
               const slot = (COVER_W - 32) / fingerprint.length;
               const barWidth = Math.max(4, Math.min(18, slot - 5));
-              const maxHeight = 54;
+              const maxHeight = 74;
               const barHeight = Math.max(4, height * maxHeight);
               return (
                 <Rect
                   key={index}
                   x={16 + index * slot + (slot - barWidth) / 2}
-                  y={COVER_H - 34 - barHeight}
+                  // Anchored to the bottom edge rather than floating mid-card.
+                  // On device the floating version read as three pale smudges
+                  // behind the title: a histogram needs a baseline to be one.
+                  y={COVER_H - barHeight}
                   width={barWidth}
                   height={barHeight}
                   rx={2}
                   fill="#FFFFFF"
-                  fillOpacity={0.34}
+                  fillOpacity={0.45}
                 />
               );
             })
@@ -329,7 +334,7 @@ function ProgramCover({
         <Text style={styles.coverTagText}>{goal}</Text>
       </View>
       <View style={styles.coverBadge}>
-        <Text style={styles.coverBadgeText}>{days}d / wk</Text>
+        <Text style={styles.coverBadgeText}>{t(language, 'programs.card.daysShort', { count: days })}</Text>
       </View>
       {/* Marks the slot where a real gym photo will land (shot later at 3:2, cropped 4:5). */}
       <View style={styles.coverPhotoMark}>
@@ -657,6 +662,7 @@ export function ProgramsHomeScreen({
                       days={item.days}
                       name={item.name}
                       fingerprint={item.fingerprint}
+                      language={language}
                     />
                     <View style={styles.exploreBody}>
                       {/* The reason, not a blurb. A card that cannot say why it
@@ -665,7 +671,7 @@ export function ProgramsHomeScreen({
                         {item.why}
                       </Text>
                       <View style={styles.exploreMetaRow}>
-                        <Text style={styles.exploreMeta}>{item.days} days / week</Text>
+                        <Text style={styles.exploreMeta}>{t(language, 'programs.card.days', { count: item.days })}</Text>
                         <View style={styles.metaDot} />
                         <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
                       </View>
@@ -715,13 +721,14 @@ export function ProgramsHomeScreen({
                       days={item.days}
                       name={item.name}
                       fingerprint={item.fingerprint}
+                      language={language}
                     />
                     <View style={styles.exploreBody}>
                       <Text style={styles.exploreBlurb} numberOfLines={2}>
                         {item.blurb}
                       </Text>
                       <View style={styles.exploreMetaRow}>
-                        <Text style={styles.exploreMeta}>{item.days} days / week</Text>
+                        <Text style={styles.exploreMeta}>{t(language, 'programs.card.days', { count: item.days })}</Text>
                         <View style={styles.metaDot} />
                         <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
                       </View>
@@ -789,13 +796,14 @@ export function ProgramsHomeScreen({
                       days={item.days}
                       name={item.name}
                       fingerprint={item.fingerprint}
+                      language={language}
                     />
                 <View style={styles.exploreBody}>
                   <Text style={styles.exploreBlurb} numberOfLines={2}>
                     {item.blurb}
                   </Text>
                   <View style={styles.exploreMetaRow}>
-                    <Text style={styles.exploreMeta}>{item.days} days / week</Text>
+                    <Text style={styles.exploreMeta}>{t(language, 'programs.card.days', { count: item.days })}</Text>
                     <View style={styles.metaDot} />
                     <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
                   </View>
@@ -893,7 +901,7 @@ export function ProgramsHomeScreen({
           <View style={styles.libraryCopy}>
             <Text style={styles.libraryTitle}>{t(language, 'programs.exerciseLibrary')}</Text>
             <Text style={styles.librarySubtitle} numberOfLines={1}>
-              {exerciseLibraryCount} exercises · browse &amp; swap into your plan
+              {t(language, 'programs.library.sub', { count: exerciseLibraryCount })}
             </Text>
           </View>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">

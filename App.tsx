@@ -674,16 +674,22 @@ function buildSavedOnboardingWorkoutPlan(
   };
 }
 
-function formatGoalLabel(goalType: string) {
+/**
+ * The goal tag on a program cover.
+ *
+ * Returned hardcoded English until an emulator pass found "Muscle" and
+ * "Strength" sitting on cards in a Finnish app, directly under category chips
+ * reading "Lihaskasvu" and "Voima". It reuses those same keys now, so the tag
+ * and the chip that filters for it cannot say different words.
+ */
+function formatGoalLabel(goalType: string, language: AppLanguage = 'en') {
   if (goalType === 'hypertrophy') {
-    return 'Muscle';
+    return t(language, 'programs.cat.muscle');
   }
-
-  if (!goalType) {
-    return 'General';
+  if (goalType === 'strength') {
+    return t(language, 'programs.cat.strength');
   }
-
-  return goalType[0].toUpperCase() + goalType.slice(1);
+  return t(language, 'programs.cat.balanced');
 }
 
 function formatSplitLabel(splitType?: string) {
@@ -3076,7 +3082,7 @@ function VinhaApp() {
         .map((template, index) => ({
           id: template.id,
           name: formatWorkoutDisplayLabel(template.name),
-          goal: formatGoalLabel(template.goalType),
+          goal: formatGoalLabel(template.goalType, preferences.appLanguage),
           blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
           days: template.daysPerWeek,
           minutes: template.estimatedSessionDuration,
@@ -3085,7 +3091,12 @@ function VinhaApp() {
           fingerprint: buildProgramFingerprint(template),
         }));
     },
-    [workout.templates],
+    // The language arrives with the hydrated database, AFTER the first
+    // render. Without it in the deps this memo keeps the English blurbs it
+    // computed against the seed default — which is exactly what shipped:
+    // the season rows read Finnish and this rail read English, from the
+    // same dictionary.
+    [preferences.appLanguage, workout.templates],
   );
   /**
    * The season rows.
@@ -3108,7 +3119,7 @@ function VinhaApp() {
           .map((template, index) => ({
             id: template.id,
             name: formatWorkoutDisplayLabel(template.name),
-            goal: formatGoalLabel(template.goalType),
+            goal: formatGoalLabel(template.goalType, preferences.appLanguage),
             blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
             days: template.daysPerWeek,
             minutes: template.estimatedSessionDuration,
@@ -3133,7 +3144,7 @@ function VinhaApp() {
       workout.templates.map((template, index) => ({
         id: template.id,
         name: formatWorkoutDisplayLabel(template.name),
-        goal: formatGoalLabel(template.goalType),
+        goal: formatGoalLabel(template.goalType, preferences.appLanguage),
         blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
         days: template.daysPerWeek,
         minutes: template.estimatedSessionDuration,
@@ -3179,13 +3190,18 @@ function VinhaApp() {
                 id: template.id,
                 name: formatWorkoutDisplayLabel(template.name),
                 weeks: getReadyProgramBlockWeeks(template),
-                starts: entry.starts,
+                starts: entry.starts.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' '),
               }
             : null;
         })
         .filter((item): item is NonNullable<typeof item> => Boolean(item));
     },
-    [workout.templates],
+    // The language arrives with the hydrated database, AFTER the first
+    // render. Without it in the deps this memo keeps the English blurbs it
+    // computed against the seed default — which is exactly what shipped:
+    // the season rows read Finnish and this rail read English, from the
+    // same dictionary.
+    [preferences.appLanguage, workout.templates],
   );
   /**
    * "For you" — the programs the recommendation engine actually picked, each
@@ -3220,7 +3236,7 @@ function VinhaApp() {
             ? {
                 id: template.id,
                 name: formatWorkoutDisplayLabel(template.name),
-                goal: formatGoalLabel(template.goalType),
+                goal: formatGoalLabel(template.goalType, preferences.appLanguage),
                 why: t(preferences.appLanguage, entry.whyKey),
                 days: template.daysPerWeek,
                 minutes: template.estimatedSessionDuration,

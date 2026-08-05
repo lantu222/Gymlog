@@ -2120,6 +2120,9 @@ const EN = {
   // theme: October to March the sun is gone and training moves indoors.
   // Eight ways into 55 programs. Each one is derived from what a template
   // declares, so a new program lands in the right rows the day it is added.
+  'programs.library.sub': '{count} exercises · browse and swap into your plan',
+  'programs.card.days': '{count} days / week',
+  'programs.card.daysShort': '{count}d / wk',
   'programs.goals': 'YOUR TARGETS',
   'programs.goals.add': 'Set a target',
   'programs.goals.empty': 'Pick a lift and a number to aim at. Progress is measured from your own best set, never an estimate.',
@@ -4417,6 +4420,9 @@ const FI: Record<I18nKey, string> = {
   'programs.adjustSchedule': 'Säädä aikataulua',
   'programs.noActive': 'Ei aktiivista ohjelmaa',
   'programs.noActiveSub': 'Valitse valmis ohjelma alta tai rakenna oma, niin saat viikkosuunnitelman.',
+  'programs.library.sub': '{count} liikettä · selaa ja vaihda ohjelmaasi',
+  'programs.card.days': '{count} pv / viikko',
+  'programs.card.daysShort': '{count} pv / vk',
   'programs.goals': 'TAVOITTEESI',
   'programs.goals.add': 'Aseta tavoite',
   'programs.goals.empty': 'Valitse liike ja luku johon tähdätä. Edistyminen mitataan omasta parhaasta sarjastasi, ei arviosta.',
