@@ -880,7 +880,11 @@ const EN = {
   'settings.privacy': 'Privacy policy',
   'settings.terms': 'Terms of service',
   'settings.analytics': 'No analytics',
-  'settings.analytics.sub': 'We collect nothing. Your training data stays on this phone.',
+  // Was "We collect nothing", which was true and was about to stop being
+  // true: sign-in and competitions both need a server. Written so it holds
+  // in both worlds — today nothing is collected because neither exists, and
+  // after they ship the sentence still bounds what may be taken.
+  'settings.analytics.sub': 'No behavioural analytics, no tracking, no ad identifiers. Your training stays on this phone. Only what sign-in and competitions need to work is ever collected.',
   'settings.resetData': 'Reset all data',
   'settings.resetData.sub': 'Clear everything on this device.',
   'settings.resetDialog.message':
@@ -3224,7 +3228,7 @@ const FI: Record<I18nKey, string> = {
   'settings.privacy': 'Tietosuojaseloste',
   'settings.terms': 'Käyttöehdot',
   'settings.analytics': 'Ei analytiikkaa',
-  'settings.analytics.sub': 'Emme kerää mitään. Treenitietosi pysyvät tässä puhelimessa.',
+  'settings.analytics.sub': 'Ei käyttäytymisanalytiikkaa, ei seurantaa, ei mainostunnisteita. Treenisi pysyvät tässä puhelimessa. Kerätään vain se, mitä kirjautuminen ja kilpailut vaativat toimiakseen.',
   'settings.resetData': 'Nollaa kaikki tiedot',
   'settings.resetData.sub': 'Tyhjentää kaiken tältä laitteelta.',
   'settings.resetDialog.message':

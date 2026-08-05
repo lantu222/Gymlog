@@ -152,19 +152,27 @@ module.exports = [
           );
         }
 
-        // A start counter is collection, and Settings currently promises the
-        // opposite. Shipping the row without rewriting that sentence would
-        // make the app lie in Settings to sell a row on the Programs tab.
+        // A start counter is collection, and the privacy copy has to say so.
+        //
+        // This used to check for the sentence "We collect nothing", which was
+        // then rewritten — leaving a clause that could never fire again. So it
+        // now asserts the positive: if the row ships, the copy must NAME what
+        // the counter takes. "Only what sign-in and competitions need" does
+        // not cover it; a start counter is neither.
         const i18n = read('src/lib/i18n.ts');
-        const claimsNoCollection = /'settings\.analytics\.sub': 'We collect nothing/.test(i18n);
+        const analytics = i18n
+          .split(String.fromCharCode(10))
+          .filter((line) => line.includes("'settings.analytics.sub':"))
+          .join(' ');
+        const copyNamesStarts = /start|aloitu|popular|suositu/i.test(analytics);
         const rendersTrending = /trendingItems && trendingItems\.length > 0/.test(
           read('src/screens/ProgramsHomeScreen.tsx'),
         );
-        if (rendersTrending && claimsNoCollection) {
+        if (rendersTrending && !copyNamesStarts) {
           problems.push(
-            'The Programs tab renders a start counter and Settings still says "We collect '
-              + 'nothing". A server-backed counter is collection: rewrite the Settings copy, '
-              + 'or drop the row.',
+            'The Programs tab renders a start counter and settings.analytics.sub does not '
+              + 'mention it. A server-backed counter is collection: say so in the privacy '
+              + 'copy and the policy, or drop the row.',
           );
         }
 

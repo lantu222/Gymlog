@@ -73,7 +73,7 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'The short version',
     body: [
-      'Vinha keeps your training data on your phone. There is no account, no cloud database and no analytics. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.',
+      'Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.',
       'If you uninstall the app, that data is gone. There is no copy of it anywhere else.',
     ],
   },
@@ -127,7 +127,7 @@ const PRIVACY_EN: LegalSection[] = [
       'No analytics, telemetry or crash reporting. The app measures nothing about you.',
       'No advertising and no ad networks.',
       'No third-party trackers or social SDKs.',
-      'No account, no sign-up, no password, no email collection.',
+      'No advertising profile, and no identity attached to your training. Signing in and entering a competition are the only features that need an account, and they collect only what they need to work.',
       'No access to location, contacts, camera, photos, microphone or your files.',
       'Your data is never sold, rented or shared. There is no one to share it with.',
     ],
@@ -174,7 +174,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Lyhyesti',
     body: [
-      'Vinha pitää treenitietosi puhelimessasi. Ei tiliä, ei pilvitietokantaa, ei analytiikkaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.',
+      'Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.',
       'Jos poistat sovelluksen, tiedot katoavat. Niistä ei ole kopiota missään muualla.',
     ],
   },
@@ -228,7 +228,7 @@ const PRIVACY_FI: LegalSection[] = [
       'Ei analytiikkaa, telemetriaa eikä kaatumisraportointia. Sovellus ei mittaa sinusta mitään.',
       'Ei mainoksia eikä mainosverkostoja.',
       'Ei kolmannen osapuolen seurantaa eikä sosiaalisen median SDK:ita.',
-      'Ei tiliä, ei rekisteröitymistä, ei salasanaa, ei sähköpostin keräämistä.',
+      'Ei mainosprofiilia eikä henkilöllisyyttä kiinnitettynä treeneihisi. Kirjautuminen ja kilpailuun osallistuminen ovat ainoat toiminnot jotka tarvitsevat tilin, ja ne keräävät vain sen mitä toimiakseen tarvitsevat.',
       'Ei pääsyä sijaintiin, yhteystietoihin, kameraan, kuviin, mikrofoniin tai tiedostoihisi.',
       'Tietojasi ei myydä, vuokrata eikä jaeta. Ei ole ketään kenelle jakaa.',
     ],
