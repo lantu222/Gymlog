@@ -219,7 +219,6 @@ interface ProgramsHomeScreenProps {
   exerciseLibraryCount: number;
   onOpenExploreProgram: (programId: string) => void;
   onOpenCustomProgram: (programId: string) => void;
-  onViewAllPrograms: () => void;
   onCreateProgram: () => void;
   onAiAssisted: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
@@ -378,6 +377,38 @@ function ProgramCover({
         {name}
       </Text>
     </View>
+  );
+}
+
+/**
+ * The category row: a rail that becomes a grid.
+ *
+ * Nine tiles do not fit on a phone, and the answer had been a "Näytä kaikki"
+ * link to the old plans list — a different screen showing a different thing.
+ * Expanding in place keeps the menu where the reader is looking.
+ */
+function ScrollableOrGrid({
+  expanded,
+  style,
+  children,
+}: {
+  expanded: boolean;
+  style: object;
+  children: React.ReactNode;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  if (expanded) {
+    return <View style={styles.tileGrid}>{children}</View>;
+  }
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={style}
+      style={styles.exploreScroll}
+    >
+      {children}
+    </ScrollView>
   );
 }
 
@@ -592,7 +623,6 @@ function ProgramSheet({
   icon,
   items,
   onPick,
-  onViewAll,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -603,7 +633,6 @@ function ProgramSheet({
   icon: string;
   items: ProgramsExploreItem[];
   onPick: (item: ProgramsExploreItem) => void;
-  onViewAll: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -750,17 +779,23 @@ function ProgramSheet({
             )}
           </ScrollView>
 
-          <View style={styles.catSheetCta}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onViewAll}
-              style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
-            >
-              <Text style={styles.sheetConfirmText}>
-                {t(language, 'programs.sheet.viewAll', { count: items.length })}
-              </Text>
-            </Pressable>
-          </View>
+          {/* This said "Näytä kaikki 8 ohjelmaa" and navigated to the old
+              plans list — from a sheet that was already showing all eight. Its
+              only real job is undoing the level filter, so it appears only
+              when there is one to undo. */}
+          {level !== null ? (
+            <View style={styles.catSheetCta}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => setLevel(null)}
+                style={({ pressed }) => [styles.sheetConfirm, pressed && styles.pressed]}
+              >
+                <Text style={styles.sheetConfirmText}>
+                  {t(language, 'programs.sheet.viewAll', { count: items.length })}
+                </Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -787,7 +822,6 @@ export function ProgramsHomeScreen({
   exerciseLibraryCount,
   onOpenExploreProgram,
   onOpenCustomProgram,
-  onViewAllPrograms,
   onCreateProgram,
   onAiAssisted,
   onImportProgram,
@@ -811,12 +845,15 @@ export function ProgramsHomeScreen({
     // The tile's own label travels with the block, so tapping "Syksy" opens a
     // sheet that says Syksy rather than one that says Talvi.
     | { kind: 'season'; season: ProgramSeason; labelKey: I18nKey }
+    | { kind: 'all' }
     | null
   >(null);
   // The goal sheet: which lift, and the number being typed.
   const [goalLift, setGoalLift] = useState<{ name: string; label: string; bestKg: number } | null>(null);
   const [goalTarget, setGoalTarget] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  // The tile row scrolls to four and a half categories; this shows all nine.
+  const [allCategories, setAllCategories] = useState(false);
   // Where the season rows begin, measured rather than guessed — a hero CTA
   // that says "Open the season" has to actually arrive there.
 
@@ -839,12 +876,10 @@ export function ProgramsHomeScreen({
         onOpenLibrary();
         break;
       case 'season':
-        setSheet({
-          kind: 'season',
-          season: target.season,
-          labelKey:
-            target.season === 'winter' ? 'programs.seasonTile.winter' : 'programs.seasonTile.summer',
-        });
+        // The season has a screen of its own. This opened the sheet — a bare
+        // list of its programs — which is what the button used to be for and
+        // has not been since.
+        onOpenSeason(target.season);
         break;
     }
   };
@@ -856,9 +891,11 @@ export function ProgramsHomeScreen({
   const sheetItems =
     sheet === null
       ? []
-      : sheet.kind === 'category'
-        ? catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id))
-        : (seasonRows.find((row) => row.season === sheet.season)?.items ?? []);
+      : sheet.kind === 'all'
+        ? catalogItems
+        : sheet.kind === 'category'
+          ? catalogItems.filter((item) => categoryMembers[sheet.key]?.includes(item.id))
+          : (seasonRows.find((row) => row.season === sheet.season)?.items ?? []);
 
   return (
     <View style={styles.screenBackground}>
@@ -885,16 +922,17 @@ export function ProgramsHomeScreen({
             identical grey pills are read one at a time. */}
         <View style={styles.sectionHeadRow}>
           <Text style={styles.sectionEyebrow}>{t(language, 'programs.browse')}</Text>
-          <Pressable onPress={onViewAllPrograms} hitSlop={8}>
-            <Text style={styles.sectionLink}>{t(language, 'programs.viewAll')}</Text>
+          <Pressable onPress={() => setAllCategories((value) => !value)} hitSlop={8}>
+            <Text style={styles.sectionLink}>
+              {t(language, allCategories ? 'programs.showLess' : 'programs.viewAll')}
+            </Text>
           </Pressable>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tileRow}
-          style={styles.exploreScroll}
-        >
+        {/* Expanded in place rather than on another screen. "Näytä kaikki"
+            used to open the old plans list, which is a different thing
+            entirely — the tiles are the menu, so showing all nine of them is
+            the answer. */}
+        <ScrollableOrGrid expanded={allCategories} style={styles.tileRow}>
           {PROGRAM_CATEGORIES.map((entry) => {
             return (
               <Pressable
@@ -929,7 +967,7 @@ export function ProgramsHomeScreen({
               </Pressable>
             );
           })}
-        </ScrollView>
+        </ScrollableOrGrid>
 
         {/* The rail that used to live here is a sheet now. Nine categories
             sharing one horizontal rail gave every one of them the same
@@ -1183,7 +1221,7 @@ export function ProgramsHomeScreen({
           <View>
             <View style={styles.sectionHeadRow}>
               <Text style={styles.sectionEyebrow}>{t(language, 'programs.trending')}</Text>
-              <Pressable onPress={onViewAllPrograms} hitSlop={8}>
+              <Pressable onPress={() => setSheet({ kind: 'all' })} hitSlop={8}>
                 <Text style={styles.sectionLink}>{t(language, 'programs.trending.all')}</Text>
               </Pressable>
             </View>
@@ -1429,21 +1467,25 @@ export function ProgramsHomeScreen({
         title={
           sheet === null
             ? ''
-            : sheet.kind === 'category'
-              ? t(language, sheetCategory?.labelKey ?? 'programs.cat.strength')
-              : t(language, sheet.labelKey)
+            : sheet.kind === 'all'
+              ? t(language, 'programs.allPrograms')
+              : sheet.kind === 'category'
+                ? t(language, sheetCategory?.labelKey ?? 'programs.cat.strength')
+                : t(language, sheet.labelKey)
         }
         focus={
           sheet === null
             ? ''
-            : sheet.kind === 'category'
-              ? t(language, sheetCategory?.focusKey ?? 'programs.catFocus.strength')
-              : t(
-                  language,
-                  sheet.season === 'winter'
-                    ? 'programs.seasonFocus.winter'
-                    : 'programs.seasonFocus.summer',
-                )
+            : sheet.kind === 'all'
+              ? t(language, 'programs.allProgramsFocus')
+              : sheet.kind === 'category'
+                ? t(language, sheetCategory?.focusKey ?? 'programs.catFocus.strength')
+                : t(
+                    language,
+                    sheet.season === 'winter'
+                      ? 'programs.seasonFocus.winter'
+                      : 'programs.seasonFocus.summer',
+                  )
         }
         tint={
           sheet?.kind === 'category' && sheetCategory
@@ -1457,10 +1499,6 @@ export function ProgramsHomeScreen({
         onPick={(item) => {
           setSheet(null);
           setPicked(item);
-        }}
-        onViewAll={() => {
-          setSheet(null);
-          onViewAllPrograms();
         }}
       />
 
@@ -1755,6 +1793,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
   },
   // ── Category tiles ───────────────────────────────────────────────────
+  tileGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    rowGap: 16,
+    paddingVertical: 4,
+  },
   tileRow: {
     gap: 12,
     paddingHorizontal: 20,

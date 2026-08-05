@@ -492,7 +492,7 @@ export function ExerciseLibraryBrowser({
           <View style={styles.headerBlock}>
             <View style={styles.headerRow}>
               <View style={styles.headerCopy}>
-                <Text style={styles.title}>Exercises</Text>
+                <Text style={styles.title}>{t(language, 'library.title')}</Text>
                 <Text style={styles.subtitle}>{t(language, 'library.subtitle')}</Text>
               </View>
               <View style={styles.headerActions}>

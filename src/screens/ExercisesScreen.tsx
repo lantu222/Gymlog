@@ -1,8 +1,10 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 
 import { ExerciseLibraryBrowser } from '../components/ExerciseLibraryBrowser';
-import { Theme, useThemedStyles } from '../theming';
+import { t } from '../lib/i18n';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem } from '../types/models';
 
 interface ExercisesScreenProps {
@@ -19,13 +21,38 @@ export function ExercisesScreen({
   items,
   trackedIds,
   language = 'en',
+  onBack,
   onOpenExercise,
   onToggleTracked,
   onAddToWorkout,
 }: ExercisesScreenProps) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
   return (
     <View style={styles.content}>
+      {/* This screen declared an onBack prop and then never took it, so the
+          library was a dead end: the only way out was noticing that tapping
+          the Programs tab resets it. */}
+      {onBack ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(language, 'common.back')}
+          onPress={onBack}
+          hitSlop={10}
+          style={styles.backButton}
+        >
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M15 6l-6 6 6 6"
+              stroke={theme.ink}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
+          <Text style={styles.backText}>{t(language, 'common.back')}</Text>
+        </Pressable>
+      ) : null}
       <ExerciseLibraryBrowser
         items={items}
         trackedIds={trackedIds}
@@ -42,5 +69,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   content: {
     flex: 1,
     backgroundColor: theme.bg,
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingTop: 52,
+    paddingBottom: 4,
+  },
+  backText: {
+    color: theme.ink,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '800',
   },
 });

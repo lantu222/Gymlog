@@ -17,6 +17,10 @@ const databaseSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', '
 const seedSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'data', 'seed.ts'), 'utf8');
 const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 
+function read(...segments) {
+  return fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
+}
+
 module.exports = [
   {
     name: 'programs tab is gated by a default-off flag and a dedicated route',
@@ -103,10 +107,20 @@ module.exports = [
       // A filter left over from the last category would silently hide
       // programs in the next one.
       assert.match(programsHomeSource, /if \(!visible\) \{[\s\S]{0,40}setLevel\(null\)/);
-      // Seasons still reuse the sheet from the campaign hero's "open the
-      // season" slide — two mechanisms for "show me this subset" is one too
-      // many — but the season ROW is now two dated cards that open a screen.
-      assert.match(programsHomeSource, /kind: 'season',[\s\S]{0,40}season: target\.season/);
+      // "Avaa kausi" opens the season's SCREEN. It opened the sheet — a bare
+      // list of that season's programs — which is what the button was for
+      // before the season had a screen of its own.
+      assert.match(programsHomeSource, /case 'season':[\s\S]{0,200}onOpenSeason\(target\.season\)/);
+
+      // Nothing on this tab routes to the old plans list any more. "Näytä
+      // kaikki" expands the tiles in place, trending's "Kaikki" opens the
+      // whole catalog in the same sheet, and the sheet's own button clears
+      // the level filter instead of navigating away from a list it is
+      // already showing in full.
+      assert.doesNotMatch(programsHomeSource, /onViewAllPrograms/);
+      assert.match(programsHomeSource, /setAllCategories\(\(value\) => !value\)/);
+      assert.match(programsHomeSource, /setSheet\(\{ kind: 'all' \}\)/);
+      assert.match(programsHomeSource, /\{level !== null \? \(/);
       assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
 
       // The rotating hero, and the four season tiles.
@@ -210,8 +224,14 @@ module.exports = [
       // Handlers reuse existing navigation, nothing new invented.
       assert.match(appSource, /onOpenExploreProgram=\{handleOpenReadyProgramDetail\}/);
       assert.match(appSource, /onOpenCustomProgram=\{handleOpenCustomProgramDetail\}/);
-      assert.match(appSource, /onViewAllPrograms=\{\(\) => navigate\(WORKOUT_PLAN_ROUTE\)\}/);
       assert.match(appSource, /onOpenLibrary=\{\(\) => navigate\(\{ tab: 'workout', screen: 'list' \}\)\}/);
+      // ...and the library can be left again. ExercisesScreen declared an
+      // onBack prop and then never took it, so the only way out was noticing
+      // that tapping the Programs tab resets the screen.
+      assert.match(appSource, /<ExercisesScreen[\s\S]{0,200}onBack=\{\(\) => navigateBack/);
+      const library = read('src', 'screens', 'ExercisesScreen.tsx');
+      assert.match(library, /onBack,/);
+      assert.match(library, /onPress=\{onBack\}/);
       // Status-bar/shell treatment matches the other light workout screens.
       assert.match(appSource, /const programsHomeActive = route\.tab === 'workout' && route\.screen === 'programs_home'/);
     },

@@ -4599,7 +4599,6 @@ function VinhaApp() {
         }}
         onOpenExploreProgram={handleOpenReadyProgramDetail}
         onOpenCustomProgram={handleOpenCustomProgramDetail}
-        onViewAllPrograms={() => navigate(WORKOUT_PLAN_ROUTE)}
         onCreateProgram={() =>
           programSlots.canCreate
             ? navigate({ tab: 'workout', screen: 'template' })
@@ -4612,6 +4611,7 @@ function VinhaApp() {
     content = (
       <ExercisesScreen
         language={preferences.appLanguage}
+        onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         items={exerciseBrowserItems}
         trackedIds={preferences.trackedExerciseLibraryItemIds}
         onOpenExercise={(item) => navigate({ tab: 'workout', screen: 'detail', exerciseId: item.id })}
