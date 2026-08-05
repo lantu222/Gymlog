@@ -101,7 +101,13 @@ import {
   getSeasonProgramIds,
   orderSeasons,
 } from './src/lib/programSeasons';
-import { SEASON_WEEKS, nextSeasonWindow, resolveSeasonWindow, seasonWeeksLeft } from './src/lib/season';
+import {
+  SEASON_COLORS,
+  SEASON_WEEKS,
+  nextSeasonWindow,
+  resolveSeasonWindow,
+  seasonWeeksLeft,
+} from './src/lib/season';
 import {
   computeSeasonProgress,
   countSeasonRecords,
@@ -3310,9 +3316,7 @@ function VinhaApp() {
           return template ? formatWorkoutDisplayLabel(template.name) : '';
         })(),
         current: isCurrent,
-        gradient: (window.season === 'winter'
-          ? (['#2E5C93', '#12294B'] as const)
-          : (['#C4562A', '#7A2410'] as const)),
+        gradient: SEASON_COLORS[window.season],
       });
       return [build(current, true), build(next, false)];
     },
@@ -4475,8 +4479,12 @@ function VinhaApp() {
      * program's days, records from their own bests. The one section that
      * needs other people — the series — says so instead of inventing names.
      */
-    const seasonWindow = resolveSeasonWindow();
     const seasonInView = route.season;
+    // The window of the season being looked at. Resolving from today meant an
+    // upcoming season's points were counted against the CURRENT season's
+    // dates — a screen full of numbers belonging to a different season.
+    const currentWindow = resolveSeasonWindow();
+    const seasonWindow = currentWindow.season === seasonInView ? currentWindow : nextSeasonWindow();
     // THE season program: one per season, the same one for everyone, and it
     // does not change mid-season. Ten of them meant ten different point
     // ceilings and a ranking sorted by how many days a program prescribes.
@@ -4520,7 +4528,6 @@ function VinhaApp() {
             : seasonProgramId,
           blurb: getReadyProgramContent(seasonProgramId, preferences.appLanguage)?.summary ?? '',
           days: seasonProgramTemplate?.daysPerWeek ?? 0,
-          coverIndex: 0,
           fingerprint: seasonProgramTemplate ? buildProgramFingerprint(seasonProgramTemplate) : [],
         }}
         running={homeActivePlanCard?.programId === seasonProgramId}

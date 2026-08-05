@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Dimensions,
   Modal,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -99,6 +100,10 @@ function RankMedal({ index }: { index: number }) {
 // Tall enough for a two-line title, two lines of body AND the pill under
 // them. At 186 the CTA was clipped by the card's own bottom edge.
 const CAMPAIGN_H = 216;
+
+// Two cards, one gap, inside the page's 20px gutters.
+const SEASON_CARD_W = Math.floor((Dimensions.get('window').width - 40 - 12) / 2);
+const SEASON_CARD_H = 216;
 
 const COVER_W = 274;
 const COVER_H = 176;
@@ -1057,12 +1062,7 @@ export function ProgramsHomeScreen({
           <Text style={styles.sectionEyebrow}>{t(language, 'season.seasons')}</Text>
           <Text style={styles.catTileLabel}>{seasonCards[0]?.year ?? ''}</Text>
         </View>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.tileRow}
-          style={styles.exploreScroll}
-        >
+        <View style={styles.seasonGrid}>
           {seasonCards.map((card) => {
             const gid = `seasoncard-${card.season}`;
             return (
@@ -1073,19 +1073,19 @@ export function ProgramsHomeScreen({
                 onPress={() => onOpenSeason(card.season)}
                 style={({ pressed }) => [styles.seasonCard, pressed && styles.pressed]}
               >
-                <Svg width={186} height={172} style={StyleSheet.absoluteFill}>
+                <Svg width={SEASON_CARD_W} height={SEASON_CARD_H} style={StyleSheet.absoluteFill}>
                   <Defs>
                     <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
                       <Stop offset="0" stopColor={card.gradient[0]} />
                       <Stop offset="1" stopColor={card.gradient[1]} />
                     </SvgLinearGradient>
                   </Defs>
-                  <Rect x="0" y="0" width={186} height={172} rx={20} fill={`url(#${gid})`} />
-                  <Svg x={104} y={-18} width={120} height={120} viewBox="0 0 24 24">
+                  <Rect x="0" y="0" width={SEASON_CARD_W} height={SEASON_CARD_H} rx={22} fill={`url(#${gid})`} />
+                  <Svg x={SEASON_CARD_W - 92} y={-26} width={150} height={150} viewBox="0 0 24 24">
                     <Path
                       d={LAYERS_MOTIF}
                       stroke="#FFFFFF"
-                      strokeOpacity={0.18}
+                      strokeOpacity={0.16}
                       strokeWidth={1.4}
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -1102,7 +1102,7 @@ export function ProgramsHomeScreen({
                 </View>
                 <View style={styles.seasonCardBody}>
                   <Text style={styles.seasonTileMonths}>{card.rangeLabel}</Text>
-                  <Text style={styles.seasonTileLabel}>{t(language, card.labelKey)}</Text>
+                  <Text style={styles.seasonCardTitle}>{t(language, card.labelKey)}</Text>
                   <Text style={styles.seasonTileCount} numberOfLines={1}>
                     {card.programName}
                   </Text>
@@ -1110,7 +1110,7 @@ export function ProgramsHomeScreen({
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
 
         {/* "For you" leads the browse: it is the only row that knows who is
             reading it, and every card can say why it is there. */}
@@ -1152,14 +1152,12 @@ export function ProgramsHomeScreen({
                       compact
                     />
                     <View style={styles.recBody}>
-                      {/* What the training IS comes first. The card used to
-                          carry only the reason — "Sama tavoite, eri jako" —
-                          which describes this card's relationship to another
-                          program and tells the reader nothing about the
-                          training they would be doing. */}
-                      <Text style={styles.exploreBlurb} numberOfLines={3}>
-                        {item.blurb}
-                      </Text>
+                      {/* Two facts and a reason. The blurb sat here for a
+                          round and it is a generic fallback for most of the
+                          catalog — three lines of "Rakenteinen Vinha-ohjelma"
+                          buried the numbers that decide whether a card is
+                          worth a tap. It comes back when the programs have
+                          copy of their own. */}
                       <Text style={styles.exploreMeta}>
                         {t(language, 'programs.card.days', { count: item.days })} · ~{item.minutes} min
                         {item.weeks > 0 ? ` · ${t(language, 'programs.weeks', { count: item.weeks })}` : ''}
@@ -1854,15 +1852,27 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 6,
   },
   // ── Season tiles (168 × 150) ─────────────────────────────────────────
+  seasonGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
   seasonCard: {
-    width: 186,
-    height: 172,
-    borderRadius: 20,
+    width: SEASON_CARD_W,
+    height: SEASON_CARD_H,
+    borderRadius: 22,
     overflow: 'hidden',
     justifyContent: 'flex-end',
   },
   seasonCardBody: {
-    padding: 13,
+    padding: 15,
+  },
+  seasonCardTitle: {
+    color: '#FFFFFF',
+    fontSize: 21,
+    lineHeight: 26,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    marginTop: 3,
   },
   seasonPill: {
     position: 'absolute',
@@ -1886,16 +1896,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   seasonPillTextMuted: {
     color: '#FFFFFF',
   },
-  seasonTile: {
-    width: 168,
-    height: 150,
-    borderRadius: 20,
-    overflow: 'hidden',
-    justifyContent: 'flex-end',
-  },
-  seasonTileBody: {
-    padding: 14,
-  },
   seasonTileMonths: {
     color: 'rgba(255,255,255,0.82)',
     fontSize: 10,
@@ -1903,35 +1903,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.2,
   },
-  seasonTileLabel: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '800',
-    letterSpacing: -0.2,
-    marginTop: 3,
-  },
   seasonTileCount: {
     color: 'rgba(255,255,255,0.86)',
     fontSize: 11.5,
     lineHeight: 15,
     marginTop: 2,
-  },
-  seasonNowPill: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-  },
-  seasonNowText: {
-    color: '#191036',
-    fontSize: 9.5,
-    lineHeight: 12,
-    fontWeight: '900',
-    letterSpacing: 1,
   },
   sectionEyebrowStandalone: {
     color: theme.faint,
@@ -2027,13 +2003,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     left: 11,
     right: 11,
     bottom: 9,
-  },
-  exploreBlurb: {
-    color: theme.muted,
-    fontSize: 12.5,
-    lineHeight: 18,
-    fontWeight: '600',
-    minHeight: 36,
   },
   exploreMetaRow: {
     flexDirection: 'row',

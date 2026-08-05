@@ -464,6 +464,33 @@ module.exports = [
     },
   },
   {
+    name: 'a season screen shows ITS OWN dates, not today\'s',
+    run() {
+      // Opening the upcoming winter season showed the summer season's dates,
+      // its week 19 of 26 and its seven weeks left: every number on the screen
+      // belonged to a different season than the title above it.
+      const screen = read('src', 'screens', 'SeasonScreen.tsx');
+      const app = read('App.tsx');
+
+      assert.match(screen, /const upcoming = current\.season !== season;/);
+      assert.match(screen, /const window = upcoming \? nextSeasonWindow\(\) : current;/);
+      // An unopened season has no week and no current block.
+      assert.match(screen, /const week = upcoming \? 0 :/);
+      assert.match(screen, /const blockIndex = upcoming \? -1 :/);
+      // And the same resolution decides which sessions score.
+      assert.match(
+        app,
+        /currentWindow\.season === seasonInView \? currentWindow : nextSeasonWindow\(\)/,
+      );
+
+      // The underlying rule: the two windows really are different.
+      const summer = resolveSeasonWindow(at(2026, 6, 15));
+      const winter = nextSeasonWindow(at(2026, 6, 15));
+      assert.notDeepEqual(summer.start, winter.start);
+      assert.equal(seasonWeek(winter, at(2026, 6, 15)), 0, 'a season not yet open is week 0');
+    },
+  },
+  {
     name: 'the leaderboard is the one part that waits for a server',
     run() {
       // Comment lines are skipped: this guard has been broken three times by

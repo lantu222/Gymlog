@@ -12,6 +12,8 @@ import {
   seasonProgressRatio,
   seasonWeek,
   seasonWeeksLeft,
+  nextSeasonWindow,
+  SEASON_COLORS,
 } from '../lib/season';
 import {
   POINTS_PER_BLOCK,
@@ -39,11 +41,6 @@ import type { AppLanguage } from '../types/models';
  * and every badge has a condition they can check.
  */
 
-const SEASON_GRADIENTS: Record<ProgramSeason, [string, string]> = {
-  summer: ['#C4562A', '#7A2410'],
-  winter: ['#2E5C93', '#12294B'],
-};
-
 const BLOCK_KEYS: Record<(typeof SEASON_BLOCKS)[number], I18nKey> = {
   base: 'season.block.base',
   load: 'season.block.load',
@@ -68,7 +65,6 @@ export interface SeasonProgramItem {
   name: string;
   blurb: string;
   days: number;
-  coverIndex: number;
   fingerprint: number[];
 }
 
@@ -92,17 +88,16 @@ function formatDay(date: Date, language: AppLanguage): string {
   return language === 'fi' ? `${day}.${month}.` : `${day}/${month}`;
 }
 
-const COVER_GRADIENTS: Array<[string, string]> = [
-  ['#7699FB', '#2D48C0'],
-  ['#00B1E0', '#0068A2'],
-  ['#D179CA', '#8D1A89'],
-  ['#37B976', '#007322'],
-  ['#EB7A52', '#A71000'],
-];
-
-function ProgramMiniCover({ index, fingerprint }: { index: number; fingerprint: number[] }) {
-  const stops = COVER_GRADIENTS[index % COVER_GRADIENTS.length];
-  const gid = `season-cov-${index}`;
+/**
+ * The season program's cover, in the season's own colours.
+ *
+ * It drew from the shared cover palette and came out blue on a green season —
+ * this is not one of fifty-five catalog cards that needs to look distinct from
+ * its neighbours, it is THE program of this season and there is nothing beside
+ * it to be confused with.
+ */
+function ProgramMiniCover({ stops, fingerprint }: { stops: readonly [string, string]; fingerprint: number[] }) {
+  const gid = `season-cov-${stops[0]}`.replace(/[^a-zA-Z0-9]/g, '');
   const size = 64;
   return (
     <Svg width={size} height={size}>
@@ -148,12 +143,24 @@ export function SeasonScreen({
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
 
-  const window = resolveSeasonWindow();
-  const week = Math.max(1, seasonWeek(window));
-  const weeksLeft = seasonWeeksLeft(window);
-  const ratio = seasonProgressRatio(window);
-  const blockIndex = seasonBlockIndex(week);
-  const gradient = SEASON_GRADIENTS[season];
+  /**
+   * The window of the season being LOOKED AT, not the one containing today.
+   *
+   * Resolving from today meant opening the upcoming winter season and reading
+   * the summer season's dates, its week 19 of 26 and its seven weeks left —
+   * every number on the screen belonged to a different season than its title.
+   */
+  const current = resolveSeasonWindow();
+  const upcoming = current.season !== season;
+  const window = upcoming ? nextSeasonWindow() : current;
+
+  const week = upcoming ? 0 : Math.max(1, seasonWeek(window));
+  const weeksLeft = upcoming ? SEASON_WEEKS : seasonWeeksLeft(window);
+  const ratio = upcoming ? 0 : seasonProgressRatio(window);
+  // A season that has not opened has no current block; the first one is what
+  // it starts with, so nothing is highlighted as "now".
+  const blockIndex = upcoming ? -1 : seasonBlockIndex(week);
+  const gradient = SEASON_COLORS[season];
   const earned = badges.filter((badge) => badge.earned).length;
   const weekRatio =
     progress.thisWeekTarget > 0 ? Math.min(1, progress.thisWeekDone / progress.thisWeekTarget) : 0;
@@ -225,7 +232,9 @@ export function SeasonScreen({
           </View>
           <View style={styles.heroTrackRow}>
             <Text style={styles.heroTrackLabel}>
-              {t(language, 'season.week', { week, total: SEASON_WEEKS })}
+              {upcoming
+                ? t(language, 'season.upcoming', { date: formatDay(window.start, language) })
+                : t(language, 'season.week', { week, total: SEASON_WEEKS })}
             </Text>
             <Text style={styles.heroTrackLabel}>
               {t(language, 'season.weeksLeft', { count: weeksLeft })}
@@ -233,7 +242,10 @@ export function SeasonScreen({
           </View>
         </View>
 
-        {/* This week: the requirement, and what a full one is worth. */}
+        {/* This week: the requirement, and what a full one is worth.
+            Hidden before the season opens — "this week" is not a thing a
+            season that starts in October has. */}
+        {upcoming ? null : (
         <View style={styles.weekCard}>
           <View style={styles.rowBetween}>
             <Text style={styles.cardEyebrow}>{t(language, 'season.thisWeek')}</Text>
@@ -262,6 +274,7 @@ export function SeasonScreen({
             <Text style={styles.weekGoal}>{t(language, 'season.noTarget')}</Text>
           )}
         </View>
+        )}
 
         {/* THE season program. One, not ten.
             Ten season programs meant ten different day counts and therefore
@@ -276,7 +289,7 @@ export function SeasonScreen({
             onPress={() => onOpenProgram(seasonProgram.id)}
             style={({ pressed }) => [styles.programHeadRow, pressed && styles.pressedRow]}
           >
-            <ProgramMiniCover index={seasonProgram.coverIndex} fingerprint={seasonProgram.fingerprint} />
+            <ProgramMiniCover stops={gradient} fingerprint={seasonProgram.fingerprint} />
             <View style={styles.programCopy}>
               {/* The season's name leads and the program's name follows.
                   Both are true: you are doing the summer season, and the

@@ -115,3 +115,20 @@ export function seasonBlockIndex(week: number): number {
 export function isSeasonActive(window: SeasonWindow, date: Date = new Date()): boolean {
   return date.getTime() >= window.start.getTime() && date.getTime() < window.end.getTime();
 }
+
+/**
+ * A season's two colours: summer is green and growing, winter is cold.
+ *
+ * Kept here rather than in each screen because four surfaces draw a season —
+ * the card on the browse tab, the screen's hero, the current block and the
+ * earned badges — and a hue duplicated four times drifts the first time one of
+ * them is touched.
+ *
+ * Converted from oklch 0.60/0.15 → 0.33/0.12 (summer, hue 148) and
+ * 0.62/0.11 → 0.32/0.09 (winter, hue 232→238), so they sit on the same
+ * lightness ramp as every other cover in the app.
+ */
+export const SEASON_COLORS: Readonly<Record<ProgramSeason, readonly [string, string]>> = {
+  summer: ['#2E9848', '#004407'],
+  winter: ['#2F91BD', '#00375B'],
+};

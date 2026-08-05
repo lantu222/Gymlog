@@ -1,6 +1,7 @@
 import { I18nKey } from './i18n';
 import { ProgramCategoryKey } from './programCategories';
 import { ProgramSeason } from './programSeasons';
+import { SEASON_COLORS } from './season';
 
 /**
  * The rotating hero at the top of browsing.
@@ -40,8 +41,10 @@ export interface ProgramCampaign {
 
 /** oklch(0.62 0.15 h) → oklch(0.36 0.13 h) from the design, converted to sRGB. */
 const GRADIENTS = {
-  winter: ['#0093D0', '#004574'],
-  summer: ['#CE6234', '#711900'],
+  // The season slides take the season's own colours, from lib/season — the
+  // hero and the card below it were two different oranges before.
+  winter: SEASON_COLORS.winter,
+  summer: SEASON_COLORS.summer,
   teal: ['#00A194', '#005047'],
   violet: ['#7C6BEA', '#38268F'],
   // The create slide used to reuse the summer gradient, and on device the two
