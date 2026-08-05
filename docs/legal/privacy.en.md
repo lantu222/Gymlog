@@ -6,7 +6,7 @@ What Vinha stores, where it stays, and what never leaves your phone.
 
 ## The short version
 
-Vinha keeps your training data on your phone. There is no account, no cloud database and no analytics. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.
+Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.
 
 If you uninstall the app, that data is gone. There is no copy of it anywhere else.
 
@@ -55,7 +55,7 @@ You will be told in the app before online mode is ever switched on.
 - No analytics, telemetry or crash reporting. The app measures nothing about you.
 - No advertising and no ad networks.
 - No third-party trackers or social SDKs.
-- No account, no sign-up, no password, no email collection.
+- No advertising profile, and no identity attached to your training. Signing in and entering a competition are the only features that need an account, and they collect only what they need to work.
 - No access to location, contacts, camera, photos, microphone or your files.
 - Your data is never sold, rented or shared. There is no one to share it with.
 

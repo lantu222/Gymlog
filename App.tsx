@@ -3181,6 +3181,51 @@ function VinhaApp() {
     },
     [workout.templates],
   );
+  /**
+   * "For you" — the programs the recommendation engine actually picked, each
+   * with the reason it picked them.
+   *
+   * Only the two the waterfall gives a reason for. The scorer ranks every
+   * program, so a row of five is easy and three of them would arrive with no
+   * "why" — and a recommendation without a reason is the thing this app has
+   * repeatedly refused to ship. One or two cards that can explain themselves
+   * beat five that cannot.
+   *
+   * NOT labelled AI, deliberately. aiInfo.never.2 states that the model is
+   * "never used to pick your programme — that is a scored, testable decision",
+   * and it is: recommendationScoring plus a waterfall, covered by tests. An AI
+   * badge here would contradict the app's own privacy page.
+   */
+  const programsRecommendations = useMemo(
+    () => {
+      const waterfall = setupRecommendation?.waterfall;
+      if (!waterfall) {
+        return [];
+      }
+      const byId = new Map(workout.templates.map((template) => [template.id, template]));
+      return [
+        { id: waterfall.primaryProgramId, whyKey: waterfall.whyPrimary },
+        { id: waterfall.alternativeProgramId, whyKey: waterfall.whyAlternative },
+      ]
+        .filter((entry): entry is { id: string; whyKey: I18nKey } => Boolean(entry.id && entry.whyKey))
+        .map((entry, index) => {
+          const template = byId.get(entry.id);
+          return template
+            ? {
+                id: template.id,
+                name: formatWorkoutDisplayLabel(template.name),
+                goal: formatGoalLabel(template.goalType),
+                why: t(preferences.appLanguage, entry.whyKey),
+                days: template.daysPerWeek,
+                minutes: template.estimatedSessionDuration,
+                coverIndex: index % 5,
+              }
+            : null;
+        })
+        .filter((item): item is NonNullable<typeof item> => Boolean(item));
+    },
+    [preferences.appLanguage, setupRecommendation?.waterfall, workout.templates],
+  );
   const programsCustomItems = useMemo(
     () =>
       customWorkouts.map((template) => ({
@@ -4253,6 +4298,7 @@ function VinhaApp() {
         categoryCounts={programsCategoryCounts}
         categoryMembers={programsCategoryMembers}
         trendingItems={programsTrendingItems}
+        recommendations={programsRecommendations}
         customPrograms={programsCustomItems}
         exerciseLibraryCount={exerciseBrowserItems.length}
         exerciseLibraryEntries={exerciseBrowserItems}

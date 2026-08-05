@@ -99,4 +99,38 @@ module.exports = [
       assert.match(screen, /categoryCounts\[key\]/);
     },
   },
+  {
+    name: 'the "for you" row carries a reason per card, and never claims to be AI',
+    run() {
+      const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
+      const app = read('App.tsx');
+      const i18n = read('src', 'lib', 'i18n.ts');
+
+      // Only the programs the waterfall gives a reason for. The scorer ranks
+      // all 55, so a row of five is easy — and three of them would arrive with
+      // no "why", which is the thing this app keeps refusing to ship.
+      assert.match(app, /waterfall\.whyPrimary/);
+      assert.match(app, /waterfall\.whyAlternative/);
+      assert.match(app, /entry\.id && entry\.whyKey/);
+      assert.match(screen, /\{item\.why\}/);
+
+      // Empty rather than invented when the setup answers are missing.
+      assert.match(app, /if \(!waterfall\) \{\s*return \[\];/);
+      assert.match(screen, /recommendations\.length > 0 \? \(/);
+
+      // Never labelled AI. aiInfo.never.2 states the model is never used to
+      // pick a programme — it is recommendationScoring plus a waterfall, and
+      // an AI badge here would contradict the app's own privacy page.
+      const forYou = screen.slice(screen.indexOf("'programs.forYou'"), screen.indexOf("Seasons before the general browse"));
+      assert.doesNotMatch(forYou, /AI/, 'the recommendation row must not claim to be AI');
+      const lead = i18n
+        .split(String.fromCharCode(10))
+        .filter((line) => line.includes("'programs.forYou.lead':"));
+      assert.equal(lead.length, 2, 'both languages');
+      for (const line of lead) {
+        assert.doesNotMatch(line, /AI|tekoäly/i);
+      }
+      assert.match(i18n, /'aiInfo\.never\.2': 'Never to pick your programme/);
+    },
+  },
 ];

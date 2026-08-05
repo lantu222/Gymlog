@@ -161,6 +161,22 @@ interface ProgramsHomeScreenProps {
    * The row disappears rather than falling back: there is no honest fallback.
    */
   trendingItems: Array<{ id: string; name: string; weeks: number; starts: number }> | null;
+  /**
+   * The one or two programs the engine picked, each carrying its reason.
+   *
+   * Empty when the setup answers are missing — a recommendation with nothing
+   * behind it is worse than no row. Never labelled AI: aiInfo.never.2 says
+   * the model is never used to pick a programme, and it is not.
+   */
+  recommendations: Array<{
+    id: string;
+    name: string;
+    goal: string;
+    why: string;
+    days: number;
+    minutes: number;
+    coverIndex: number;
+  }>;
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
   onStartActiveSession: (sessionId: string) => void;
@@ -287,6 +303,7 @@ export function ProgramsHomeScreen({
   categoryCounts,
   categoryMembers,
   trendingItems,
+  recommendations,
   customPrograms,
   exerciseLibraryCount,
   onStartActiveSession,
@@ -484,6 +501,55 @@ export function ProgramsHomeScreen({
           </Svg>
           <Text style={styles.newProgramButtonText}>{t(language, 'csv.newProgram')}</Text>
         </Pressable>
+
+        {/* "For you" leads the browse: it is the only row that knows who is
+            reading it, and every card can say why it is there. */}
+        {recommendations.length > 0 ? (
+          <View>
+            <View style={styles.sectionHeadRow}>
+              <Text style={styles.sectionEyebrow}>{t(language, 'programs.forYou')}</Text>
+            </View>
+            <Text style={styles.seasonLead}>{t(language, 'programs.forYou.lead')}</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.exploreRow}
+              style={styles.exploreScroll}
+            >
+              {recommendations.map((item) => {
+                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
+                return (
+                  <Pressable
+                    key={item.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
+                    onPress={() => {
+                      const card = catalogItems.find((entry) => entry.id === item.id);
+                      if (card) {
+                        setPicked(card);
+                      }
+                    }}
+                    style={({ pressed }) => [styles.exploreCard, pressed && styles.pressed]}
+                  >
+                    <ProgramCover style={style} goal={item.goal} days={item.days} name={item.name} />
+                    <View style={styles.exploreBody}>
+                      {/* The reason, not a blurb. A card that cannot say why it
+                          is here does not belong in this row. */}
+                      <Text style={styles.forYouWhy} numberOfLines={3}>
+                        {item.why}
+                      </Text>
+                      <View style={styles.exploreMetaRow}>
+                        <Text style={styles.exploreMeta}>{item.days} days / week</Text>
+                        <View style={styles.metaDot} />
+                        <Text style={styles.exploreMeta}>~{item.minutes} min</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {/* Seasons before the general browse: the row that knows what month
             it is earns the higher position, and the switch rail below is the
@@ -1120,6 +1186,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 11.5,
     fontWeight: '700',
     color: theme.muted,
+  },
+  forYouWhy: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    lineHeight: 17,
+    color: theme.purple,
   },
   seasonCount: {
     fontSize: 12,

@@ -6,7 +6,7 @@ Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
 
 ## Lyhyesti
 
-Vinha pitää treenitietosi puhelimessasi. Ei tiliä, ei pilvitietokantaa, ei analytiikkaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.
+Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.
 
 Jos poistat sovelluksen, tiedot katoavat. Niistä ei ole kopiota missään muualla.
 
@@ -55,7 +55,7 @@ Saat tiedon sovelluksessa ennen kuin verkkotila kytketään päälle.
 - Ei analytiikkaa, telemetriaa eikä kaatumisraportointia. Sovellus ei mittaa sinusta mitään.
 - Ei mainoksia eikä mainosverkostoja.
 - Ei kolmannen osapuolen seurantaa eikä sosiaalisen median SDK:ita.
-- Ei tiliä, ei rekisteröitymistä, ei salasanaa, ei sähköpostin keräämistä.
+- Ei mainosprofiilia eikä henkilöllisyyttä kiinnitettynä treeneihisi. Kirjautuminen ja kilpailuun osallistuminen ovat ainoat toiminnot jotka tarvitsevat tilin, ja ne keräävät vain sen mitä toimiakseen tarvitsevat.
 - Ei pääsyä sijaintiin, yhteystietoihin, kameraan, kuviin, mikrofoniin tai tiedostoihisi.
 - Tietojasi ei myydä, vuokrata eikä jaeta. Ei ole ketään kenelle jakaa.
 

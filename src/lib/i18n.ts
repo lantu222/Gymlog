@@ -2120,6 +2120,10 @@ const EN = {
   // theme: October to March the sun is gone and training moves indoors.
   // Eight ways into 55 programs. Each one is derived from what a template
   // declares, so a new program lands in the right rows the day it is added.
+  'programs.forYou': 'FOR YOU',
+  // Not "AI picks": aiInfo.never.2 says the model never chooses a
+  // programme, and it does not — this is recommendationScoring.
+  'programs.forYou.lead': 'Chosen from your answers, and each one says why.',
   'programs.trending': 'MOST STARTED THIS WEEK',
   'programs.trending.meta': '{weeks} weeks · {starts} starts',
   'programs.cat.strength': 'Strength',
@@ -4404,6 +4408,8 @@ const FI: Record<I18nKey, string> = {
   'programs.adjustSchedule': 'Säädä aikataulua',
   'programs.noActive': 'Ei aktiivista ohjelmaa',
   'programs.noActiveSub': 'Valitse valmis ohjelma alta tai rakenna oma, niin saat viikkosuunnitelman.',
+  'programs.forYou': 'SINULLE',
+  'programs.forYou.lead': 'Valittu vastaustesi perusteella, ja jokainen kertoo miksi.',
   'programs.trending': 'ALOITETUIMMAT TÄLLÄ VIIKOLLA',
   'programs.trending.meta': '{weeks} viikkoa · {starts} aloitusta',
   'programs.cat.strength': 'Voima',
