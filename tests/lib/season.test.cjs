@@ -327,6 +327,54 @@ module.exports = [
     },
   },
   {
+    name: 'only the season program scores — the competition is one event',
+    run() {
+      const window = resolveSeasonWindow(at(2026, 4, 5));
+      const own = (day) => ({ id: `own-${day}`, workoutTemplateId: 'tpl_mine', performedAt: at(2026, 4, day).toISOString() });
+      const seasonSession = (day) => ({ id: `s-${day}`, workoutTemplateId: 'tpl_season', performedAt: at(2026, 4, day).toISOString() });
+
+      // Six workouts of their own beat three of the season program under the
+      // old rule. That is the exact unfairness one shared program exists to
+      // remove, and it would have leaked straight back in through whatever
+      // else the reader happened to be running.
+      const mine = computeSeasonProgress(
+        [own(1), own(2), own(3), own(4), own(5), own(6)],
+        window,
+        { weeklyTarget: 3, programId: 'tpl_season', now: at(2026, 4, 6) },
+      );
+      assert.equal(mine.points, 0);
+      assert.equal(mine.workouts, 0);
+
+      const theirs = computeSeasonProgress(
+        [seasonSession(1), seasonSession(3), seasonSession(5), own(2), own(4)],
+        window,
+        { weeklyTarget: 3, programId: 'tpl_season', now: at(2026, 4, 6) },
+      );
+      assert.equal(theirs.workouts, 3);
+      assert.equal(theirs.points, 3 * POINTS_PER_WORKOUT + POINTS_PER_FULL_WEEK);
+
+      // With no season program named, everything in the window counts — that
+      // is the shape the previous-season report needs.
+      const all = computeSeasonProgress([own(1), seasonSession(2)], window, { now: at(2026, 4, 6) });
+      assert.equal(all.workouts, 2);
+    },
+  },
+  {
+    name: 'the weekly target is the season program week, not the reader own',
+    run() {
+      // Measuring a three-day season against someone's own six-day split
+      // would call four workouts a missed week.
+      const app = read('App.tsx');
+      assert.match(app, /weeklyTarget: seasonProgramTemplate\?\.daysPerWeek \?\? null/);
+      assert.match(app, /programId: seasonProgramId/);
+      // And the copy says the rule, because a reader whose own workouts score
+      // nothing deserves to know why before they log one.
+      const i18n = read('src', 'lib', 'i18n.ts');
+      assert.match(i18n, /Kauden ohjelman ulkopuolinen työ ei pisteytä/);
+      assert.match(i18n, /eikä se vaihdu/);
+    },
+  },
+  {
     name: 'the leaderboard is the one part that waits for a server',
     run() {
       // Comment lines are skipped: this guard has been broken three times by

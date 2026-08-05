@@ -89,15 +89,31 @@ const BLOCK_LENGTHS = [7, 6, 7, 6];
 export function computeSeasonProgress(
   sessions: readonly WorkoutSession[],
   window: SeasonWindow,
-  options: { weeklyTarget?: number | null; now?: Date; records?: number } = {},
+  options: {
+    weeklyTarget?: number | null;
+    now?: Date;
+    records?: number;
+    /**
+     * The season's one program. Only work logged against IT scores.
+     *
+     * Without this the competition leaks: someone running a six-day program of
+     * their own would out-point someone running the three-day season program,
+     * which is the exact unfairness one shared program exists to remove. A
+     * season is one event, and points come from the event.
+     */
+    programId?: string | null;
+  } = {},
 ): SeasonProgress {
-  const { weeklyTarget = null, now = new Date(), records = 0 } = options;
+  const { weeklyTarget = null, now = new Date(), records = 0, programId = null } = options;
   const currentWeek = Math.max(1, seasonWeek(window, now));
 
   const perWeek = new Map<number, number>();
   let workouts = 0;
 
   for (const session of sessions) {
+    if (programId !== null && session.workoutTemplateId !== programId) {
+      continue;
+    }
     const stamp = Date.parse(session.performedAt);
     if (!Number.isFinite(stamp) || stamp < window.start.getTime() || stamp >= window.end.getTime()) {
       continue;

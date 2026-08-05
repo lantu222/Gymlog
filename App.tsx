@@ -4477,6 +4477,11 @@ function VinhaApp() {
      */
     const seasonWindow = resolveSeasonWindow();
     const seasonInView = route.season;
+    // THE season program: one per season, the same one for everyone, and it
+    // does not change mid-season. Ten of them meant ten different point
+    // ceilings and a ranking sorted by how many days a program prescribes.
+    const seasonProgramId = getSeasonProgramId(seasonInView);
+    const seasonProgramTemplate = workout.templates.find((template) => template.id === seasonProgramId);
     const seasonRecords = countSeasonRecords(
       trackedProgress.map((summary) => ({
         logs: summary.logs.map((log) => ({ weight: log.weight, performedAt: log.performedAt })),
@@ -4484,8 +4489,12 @@ function VinhaApp() {
       seasonWindow,
     );
     const seasonProgress = computeSeasonProgress(workoutSessions, seasonWindow, {
-      weeklyTarget: homeActivePlanCard?.sessions?.length ?? null,
+      // The target is the SEASON program's week, not whatever the reader
+      // happens to be running. Measuring a three-day season against someone's
+      // own six-day split would call four workouts a missed week.
+      weeklyTarget: seasonProgramTemplate?.daysPerWeek ?? null,
       records: seasonRecords,
+      programId: seasonProgramId,
     });
     const seasonBadges = resolveSeasonBadges(seasonProgress, {
       // The current window is by definition the one containing today, so it
@@ -4493,11 +4502,6 @@ function VinhaApp() {
       seasonEnded: false,
       personalRecords: seasonRecords,
     });
-    // THE season program: one per season, the same one for everyone. Ten of
-    // them meant ten different point ceilings and a ranking sorted by how many
-    // days a program prescribes.
-    const seasonProgramId = getSeasonProgramId(seasonInView);
-    const seasonProgramTemplate = workout.templates.find((template) => template.id === seasonProgramId);
     content = (
       <SeasonScreen
         season={seasonInView}
@@ -4517,21 +4521,16 @@ function VinhaApp() {
         running={homeActivePlanCard?.programId === seasonProgramId}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         onOpenProgram={handleOpenReadyProgramDetail}
-        onStartToday={
-          homeActivePlanCard
-            ? () => {
-                const sessionId = homeActivePlanCard.nextSession?.id;
-                if (!sessionId) {
-                  return;
-                }
-                if (homeActivePlanCard.programType === 'custom') {
-                  handleStartCustomProgramSession(homeActivePlanCard.programId, sessionId);
-                  return;
-                }
-                handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
-              }
-            : null
-        }
+        onStartToday={() => {
+          // Already on it: start today's session. Not on it yet: open the
+          // season program so joining is a deliberate choice rather than a
+          // button that silently replaces whatever they were running.
+          if (homeActivePlanCard?.programId === seasonProgramId && homeActivePlanCard.nextSession?.id) {
+            handleStartReadyProgramSession(seasonProgramId, homeActivePlanCard.nextSession.id);
+            return;
+          }
+          handleOpenReadyProgramDetail(seasonProgramId);
+        }}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'programs_home') {

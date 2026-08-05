@@ -83,7 +83,7 @@ interface SeasonScreenProps {
   running: boolean;
   onBack: () => void;
   onOpenProgram: (programId: string) => void;
-  onStartToday: (() => void) | null;
+  onStartToday: () => void;
 }
 
 function formatDay(date: Date, language: AppLanguage): string {
@@ -306,7 +306,9 @@ export function SeasonScreen({
             ))}
           </View>
         </Pressable>
-        <Text style={styles.oneProgramNote}>{t(language, 'season.oneProgram')}</Text>
+        <Text style={styles.oneProgramNote}>
+          {running ? t(language, 'season.oneProgram') : t(language, 'season.notIn')}
+        </Text>
 
         {/* Badges. Each condition is the reader's own log. */}
         <Text style={styles.sectionEyebrow}>
@@ -366,18 +368,18 @@ export function SeasonScreen({
         <Text style={styles.optOut}>{t(language, 'season.optOut')}</Text>
       </ScrollView>
 
-      {onStartToday ? (
-        <View style={styles.ctaBar}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'home.startWorkout')}
-            onPress={onStartToday}
-            style={({ pressed }) => [styles.cta, { backgroundColor: gradient[0] }, pressed && styles.pressed]}
-          >
-            <Text style={styles.ctaText}>{t(language, 'home.startWorkout')}</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      <View style={styles.ctaBar}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t(language, running ? 'home.startWorkout' : 'season.join')}
+          onPress={onStartToday}
+          style={({ pressed }) => [styles.cta, { backgroundColor: gradient[0] }, pressed && styles.pressed]}
+        >
+          <Text style={styles.ctaText}>
+            {t(language, running ? 'home.startWorkout' : 'season.join')}
+          </Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
