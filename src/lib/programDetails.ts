@@ -4,6 +4,7 @@ import { ProgramInsightSummary } from './programInsights';
 import { getRecommendationProgrammeSummary } from './recommendationProgramme';
 import { getReadyProgramContent, ReadyProgramContentSection } from './readyProgramContent';
 import { buildSessionGuidance, SessionGuidance } from './sessionGuidance';
+import type { AppLanguage } from '../types/models';
 
 export type ProgramDetailSource = 'ready' | 'custom';
 
@@ -59,8 +60,16 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return count === 1 ? singular : plural;
 }
 
+/**
+ * "4 × 3–5", the way a program is written down.
+ *
+ * It read "4 sets x 3-5 reps", which is two English words on every row of a
+ * Finnish screen — and longer than the thing it describes. The design writes
+ * it in numbers, which needs no language at all.
+ */
 function buildPrescription(repsMin: number, repsMax: number, sets: number) {
-  return `${sets} ${pluralize(sets, 'set')} x ${repsMin}-${repsMax} reps`;
+  const reps = repsMin === repsMax ? `${repsMin}` : `${repsMin}–${repsMax}`;
+  return `${sets} × ${reps}`;
 }
 
 function buildSessionPreview(exercises: Array<{ exerciseName: string }>) {
@@ -104,10 +113,18 @@ export function buildReadyProgramDetail(
    * and composed sessions — not the raw catalog template (truth-plan rule).
    */
   composedWeek?: ComposedProgramWeek | null,
+  /**
+   * The reader's language.
+   *
+   * This was omitted, so every program's summary came back in English and the
+   * detail screen could not show it in a Finnish app — the description simply
+   * was not rendered, which is a worse fix than passing the argument.
+   */
+  language: AppLanguage = 'en',
 ): ProgramDetailViewModel {
   const goal = titleCase(template.goalType);
   const level = titleCase(template.level);
-  const content = getReadyProgramContent(template.id);
+  const content = getReadyProgramContent(template.id, language);
   const programmeSummary = getRecommendationProgrammeSummary(template.id);
   const composed = composedWeek && composedWeek.sessions.length > 0 ? composedWeek : null;
   const daysPerWeek = composed ? composed.days : template.daysPerWeek;

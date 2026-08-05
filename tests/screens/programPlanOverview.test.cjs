@@ -6,6 +6,10 @@ const programDetailSource = fs.readFileSync(
   path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDetailScreen.tsx'),
   'utf8',
 );
+const programDetailsSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'lib', 'programDetails.ts'),
+  'utf8',
+);
 const appSource = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
 const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
 
@@ -19,25 +23,42 @@ module.exports = [
       assert.match(programDetailSource, /backgroundColor: theme.bg/);
       assert.match(programDetailSource, /PLAN_PURPLE = '#7C3AED'/);
       assert.match(programDetailSource, /PLAN_GREEN = '#16A34A'/);
-      // The copy moved into the key table; the screen is checked by key and
-      // the English wording is checked where it now lives.
-      assert.match(programDetailSource, /t\(language, 'detail\.planOverview'\)/);
-      assert.match(programDetailSource, /headerTitle[\s\S]*detail\.planOverview/);
-      assert.match(i18nSource, /'detail\.planOverview': 'Plan Overview'/);
-      assert.match(programDetailSource, /t\(language, 'detail\.yourPlan'\)/);
-      assert.match(programDetailSource, /t\(language, 'progress\.thisWeek'\)/);
+      // The screen leads with a hero that says what the program IS. It opened
+      // on a header, a photo slot and a stats card — three containers before a
+      // reader learned whether this was a strength program or a cut.
+      assert.match(programDetailSource, /styles\.hero\b/);
+      assert.match(programDetailSource, /heroBars\.map/);
+      assert.match(programDetailSource, /styles\.heroTitle/);
+      assert.doesNotMatch(programDetailSource, /styles\.headerTitle/);
+      assert.doesNotMatch(programDetailSource, /styles\.planCard\b/);
+      // Four numbers, so the commitment is legible before the button.
+      assert.match(programDetailSource, /'detail\.stat\.daysPerWeek'/);
+      assert.match(programDetailSource, /'detail\.stat\.total'/);
+      // The week is seven named chips. A dot-and-word list said
+      // "Treeni / Palautuminen" seven times and never named a session.
+      assert.match(programDetailSource, /styles\.rhythmDay\b/);
+      assert.match(programDetailSource, /shortSessionLabel\(session, language\)/);
+      assert.doesNotMatch(programDetailSource, /scheduleDot/);
+      // Every exercise says what it is FOR, read off the template's own role
+      // rather than written per program.
+      assert.match(programDetailSource, /ROLE_KEYS\[exercise\.role\]/);
+      assert.match(i18nSource, /'detail\.role\.primary': 'ANCHOR'/);
+      assert.match(i18nSource, /'detail\.role\.primary': 'ANKKURI'/);
+      // The summary comes back in the reader's language now. It was fetched
+      // without one, so every program's description was English and the screen
+      // simply did not render it.
+      assert.match(programDetailsSource, /getReadyProgramContent\(template\.id, language\)/);
+      assert.match(appSource, /preferences\.appLanguage,\s*\n\s*\)/);
+
       assert.match(programDetailSource, /t\(language, 'detail\.workouts'\)/);
       assert.match(programDetailSource, /t\(language, 'detail\.startNext'\)/);
       assert.match(i18nSource, /'detail\.startNext': 'Start next workout'/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);
-      assert.match(programDetailSource, /t\(language, 'detail\.day', \{ index: index \+ 1 \}\)/);
       assert.match(programDetailSource, /buildSessionContentSections/);
       assert.match(programDetailSource, /detail\.warmup/);
       assert.match(programDetailSource, /ai\.signal\.workout/);
       assert.match(programDetailSource, /detail\.cooldown/);
       assert.match(programDetailSource, /sessionContentSection/);
-      assert.match(programDetailSource, /progressFill/);
-      assert.match(programDetailSource, /scheduleDot/);
       assert.match(programDetailSource, /workoutCard/);
       assert.match(programDetailSource, /stickyFooter/);
       assert.match(programDetailSource, /onStartSession\(nextSession\.id\)/);
@@ -50,7 +71,6 @@ module.exports = [
       assert.doesNotMatch(programDetailSource, /SurfaceCard/);
       assert.doesNotMatch(programDetailSource, /accent="blue"/);
       assert.doesNotMatch(programDetailSource, /Start here/);
-      assert.doesNotMatch(programDetailSource, /<Text style=\{styles\.headerTitle\}[^>]*>\s*\{displayTitle\}\s*<\/Text>/);
       assert.doesNotMatch(programDetailSource, /styles\.screenEyebrow/);
       assert.doesNotMatch(programDetailSource, /Progress signals/);
       assert.doesNotMatch(programDetailSource, /inlineTip \?/);

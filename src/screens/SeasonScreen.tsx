@@ -160,13 +160,27 @@ function SeasonChart({
   // three-workout week does not draw as a full-height column.
   const peak = Math.max(POINTS_PER_WORKOUT * 3 + POINTS_PER_FULL_WEEK, ...points, 1);
 
+  /**
+   * Nothing logged yet: draw the shape, greyed out.
+   *
+   * With no points every bar was a 2px tick and the strip read as a broken
+   * line above a lot of empty space. A uniform half-height row is obviously
+   * not a measurement — no week differs from another — so it shows what the
+   * chart WILL be without pretending to be it.
+   */
+  const empty = points.every((value) => value === 0);
+
   return (
     <View style={styles.chartWrap}>
       <Svg width={width} height={height}>
         {Array.from({ length: SEASON_WEEKS }, (_, index) => {
           const earned = points[index] ?? 0;
           const reached = index < currentWeek;
-          const barHeight = earned > 0 ? Math.max(4, (earned / peak) * (height - 4)) : 2;
+          const barHeight = empty
+            ? height * 0.45
+            : earned > 0
+              ? Math.max(4, (earned / peak) * (height - 4))
+              : 2;
           return (
             <Rect
               key={index}
@@ -176,7 +190,7 @@ function SeasonChart({
               height={barHeight}
               rx={1.5}
               fill="#FFFFFF"
-              fillOpacity={earned > 0 ? 0.95 : reached ? 0.4 : 0.22}
+              fillOpacity={empty ? 0.16 : earned > 0 ? 0.95 : reached ? 0.4 : 0.22}
             />
           );
         })}

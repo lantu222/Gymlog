@@ -3751,6 +3751,7 @@ function VinhaApp() {
             preferences.recommendedProgramId === route.workoutTemplateId && setupSelection
               ? composeProgramWeekForSelection(setupSelection, route.workoutTemplateId)
               : null,
+            preferences.appLanguage,
           )
       : customTemplate
         ? buildCustomProgramDetail(customTemplate, programInsightsByTemplateId[route.workoutTemplateId])

@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
@@ -21,6 +22,37 @@ const DAY_KEYS: I18nKey[] = [
   'setup.day.sat',
   'setup.day.sun',
 ];
+
+const ROLE_KEYS: Record<string, I18nKey> = {
+  primary: 'detail.role.primary',
+  secondary: 'detail.role.secondary',
+  accessory: 'detail.role.accessory',
+};
+
+const ROLE_TINTS: Record<string, { bg: string; ink: string }> = {
+  primary: { bg: '#EDE4FF', ink: '#5B21B6' },
+  secondary: { bg: '#E4EEFF', ink: '#2C4E9A' },
+  accessory: { bg: '#F2F1F5', ink: '#7A7387' },
+};
+
+/**
+ * "Ylävartalo · raskas" becomes "YLÄ" on a 44px weekday chip.
+ *
+ * The first word up to the separator, capped — the chip has to say WHICH day
+ * it is, and "Treeni" seven times says nothing.
+ */
+function shortSessionLabel(name: string, language: AppLanguage) {
+  const localized = localizeSessionName(name, language);
+  const afterDay = localized.replace(/^[^:]*:\s*/, '');
+  const firstWord = afterDay.split(/[\s·|&]+/).filter(Boolean)[0] ?? afterDay;
+  return firstWord.slice(0, 3).toUpperCase();
+}
+
+const ROLE_LEVEL_KEYS: Record<string, I18nKey> = {
+  beginner: 'detail.level.beginner',
+  intermediate: 'detail.level.intermediate',
+  advanced: 'detail.level.advanced',
+};
 
 const PLAN_SURFACE = '#FFFFFF';
 const PLAN_SURFACE_SOFT = '#F2ECFF';
@@ -109,7 +141,14 @@ function buildSessionContentSections(session: ProgramDetailViewModel['sessions']
       titleKey: 'detail.warmup' as I18nKey,
       items: warmupExercises.length
         ? warmupExercises
-        : [{ id: `${session.id}:warmup`, name: 'Dynamic Warm-Up', prescription: '5-8 min' }],
+        : [
+            {
+              id: `${session.id}:warmup`,
+              name: 'Dynamic Warm-Up',
+              prescription: '5-8 min',
+              role: undefined,
+            },
+          ],
     },
     {
       titleKey: 'ai.signal.workout' as I18nKey,
@@ -119,7 +158,14 @@ function buildSessionContentSections(session: ProgramDetailViewModel['sessions']
       titleKey: 'detail.cooldown' as I18nKey,
       items: cooldownExercises.length
         ? cooldownExercises
-        : [{ id: `${session.id}:cooldown`, name: 'Cooldown Flow', prescription: '3-5 min' }],
+        : [
+            {
+              id: `${session.id}:cooldown`,
+              name: 'Cooldown Flow',
+              prescription: '3-5 min',
+              role: undefined,
+            },
+          ],
     },
   ].filter((section) => section.items.length > 0);
 }
@@ -153,10 +199,41 @@ export function ProgramDetailScreen({
 }: ProgramDetailScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const [confirmVisible, setConfirmVisible] = useState(false);
+  const { width: heroWidth } = useWindowDimensions();
   const displayTitle = formatWorkoutDisplayLabel(program.title, 'Workout plan');
+  /**
+   * The hero's bars: one per session, height from its exercise count.
+   *
+   * The same idea the browse covers draw, so a program looks like itself
+   * wherever it is met.
+   */
+  const heroBars = useMemo(() => {
+    const counts = program.sessions.map((session) => session.exerciseCount);
+    const peak = Math.max(1, ...counts);
+    return counts.map((count) => Math.max(0.3, count / peak));
+  }, [program.sessions]);
+  /** Goal and level, both translated — badges[0..1] are English. */
+  const heroPill = useMemo(() => {
+    const levelKey = ROLE_LEVEL_KEYS[(program.badges[1] ?? '').toLowerCase()];
+    return levelKey ? t(language, levelKey) : null;
+  }, [language, program.badges]);
+  const trainingDaySessions = useMemo(() => {
+    const map = new Map<number, string>();
+    const indexes = [...getTrainingDayIndexes(program.sessions.length)].sort((a, b) => a - b);
+    indexes.forEach((dayIndex, order) => {
+      const session = program.sessions[order];
+      if (session) {
+        map.set(dayIndex, session.name);
+      }
+    });
+    return map;
+  }, [program.sessions]);
   const nextSession = program.sessions[0] ?? null;
   const durationMinutes = parseMinutesFromBadges(program.badges);
-  const totalSessions = program.sessions.length * 8;
+  // Eight weeks is the catalog's default block; the strip states the same
+  // number the total is derived from rather than two numbers that disagree.
+  const blockWeeks = 8;
+  const totalSessions = program.sessions.length * blockWeeks;
   const completedSessions = Math.max(0, Math.round(((activePlanSummary?.progressPercent ?? 1) / 100) * totalSessions));
   const progressPercent = activePlanSummary?.progressPercent ?? 1;
   const weekLabel = activePlanSummary?.weekLabel ?? t(language, 'detail.weekFallback');
@@ -189,88 +266,140 @@ export function ProgramDetailScreen({
 
   return (
     <View style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable hitSlop={10} onPress={onBack} style={styles.backButton}>
-          <Text style={styles.backText}>{t(language, 'common.back')}</Text>
-        </Pressable>
-        <Text style={styles.headerTitle} numberOfLines={1} adjustsFontSizeToFit>
-          {t(language, 'detail.planOverview')}
-        </Text>
-        {program.source === 'custom' && onEdit ? (
-          <Pressable hitSlop={10} onPress={onEdit} style={styles.headerAction}>
-            <Text style={styles.headerActionText}>{t(language, 'plan.edit')}</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.headerActionSpacer} />
-        )}
-      </View>
-
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {program.source === 'ready' ? <ProgramPhotoSlot label={t(language, 'detail.photoSoon')} aspectRatio={16 / 9} /> : null}
-
-        <View style={styles.planCard}>
-          <View style={styles.planCardTop}>
-            <View style={styles.planCopy}>
-              <Text style={styles.cardEyebrow}>{t(language, 'detail.yourPlan')}</Text>
-              <Text style={styles.planTitle} numberOfLines={2} adjustsFontSizeToFit>
-                {displayTitle}
-              </Text>
-              <Text style={styles.planWeek}>{weekLabel}</Text>
-            </View>
-            <View style={styles.planChart}>
-              {[0.36, 0.58, 0.8, 1].map((height, index) => (
-                <View key={`plan-bar-${index}`} style={[styles.planChartBar, { height: 62 * height, opacity: 0.45 + index * 0.15 }]} />
-              ))}
-            </View>
+        {/* The hero says what the program IS before anything else.
+            The screen opened on a header, a photo slot and a stats card —
+            three containers before a reader learned whether this was a
+            strength program or a cut. */}
+        <View style={styles.hero}>
+          <Svg width={heroWidth} height={210} style={StyleSheet.absoluteFill}>
+            <Defs>
+              <SvgLinearGradient id="detailHero" x1="0" y1="0" x2="1" y2="1">
+                <Stop offset="0" stopColor="#7C7AD8" />
+                <Stop offset="1" stopColor="#3B2E91" />
+              </SvgLinearGradient>
+              <SvgLinearGradient id="detailHeroScrim" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor="#1E1246" stopOpacity={0} />
+                <Stop offset="1" stopColor="#1E1246" stopOpacity={0.62} />
+              </SvgLinearGradient>
+            </Defs>
+            <Rect x="0" y="0" width={heroWidth} height={210} fill="url(#detailHero)" />
+            {/* The program's week, as bars — the same fingerprint the browse
+                cards draw, so a program looks like itself wherever it is met. */}
+            {heroBars.map((ratio, index) => {
+              const slot = (heroWidth - 28) / Math.max(1, heroBars.length);
+              const barWidth = Math.max(6, slot - 6);
+              const barHeight = Math.max(10, ratio * 74);
+              return (
+                <Rect
+                  key={index}
+                  x={14 + index * slot + (slot - barWidth) / 2}
+                  y={210 - barHeight}
+                  width={barWidth}
+                  height={barHeight}
+                  rx={3}
+                  fill="#FFFFFF"
+                  fillOpacity={0.18}
+                />
+              );
+            })}
+            <Rect x="0" y="60" width={heroWidth} height={150} fill="url(#detailHeroScrim)" />
+          </Svg>
+          <View style={styles.heroTopRow}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, 'common.back')}
+              hitSlop={10}
+              onPress={onBack}
+              style={styles.heroGlass}
+            >
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path d="M15 6l-6 6 6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </Pressable>
+            {program.source === 'custom' && onEdit ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'plan.edit')}
+                hitSlop={10}
+                onPress={onEdit}
+                style={styles.heroGlass}
+              >
+                <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M4 20h16M6 16l9.5-9.5a2 2 0 0 0-3-3L3 13v3h3z"
+                    stroke="#FFFFFF"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </Pressable>
+            ) : null}
           </View>
-
-          <View style={styles.progressRow}>
-            <Text style={styles.progressLabel}>{t(language, 'progress.title')}</Text>
-            <View style={styles.progressTrack}>
-              <View style={[styles.progressFill, { width: `${Math.max(1, Math.min(100, progressPercent))}%` }]} />
-            </View>
-            <Text style={styles.progressPercent}>{progressPercent}%</Text>
-          </View>
-
-          <View style={styles.planStats}>
-            <View style={styles.planStat}>
-              <Text style={styles.planStatValue}>{completedSessions}</Text>
-              <Text style={styles.planStatLabel}>{t(language, 'detail.done')}</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.planStat}>
-              <Text style={styles.planStatValue}>{totalSessions}</Text>
-              <Text style={styles.planStatLabel}>{t(language, 'detail.sessions')}</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.planStat}>
-              <Text style={styles.planStatValue}>{sessionsPerWeek}</Text>
-              <Text style={styles.planStatLabel}>{t(language, 'detail.perWeek')}</Text>
-            </View>
-            <View style={styles.statDivider} />
-            <View style={styles.planStat}>
-              <Text style={styles.planStatValue}>{weeklyMinutes}</Text>
-              <Text style={styles.planStatLabel}>{t(language, 'detail.weekly')}</Text>
-            </View>
+          <View style={styles.heroBottom}>
+            {heroPill ? (
+              <View style={styles.heroPill}>
+                <Text style={styles.heroPillText}>{heroPill}</Text>
+              </View>
+            ) : null}
+            <Text style={styles.heroTitle} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.6}>
+              {displayTitle}
+            </Text>
           </View>
         </View>
 
+        {program.description ? (
+          <Text style={styles.leadCopy}>{program.description}</Text>
+        ) : null}
+
+        {/* Four numbers, so the commitment is legible before the button. */}
+        <View style={styles.statStrip}>
+          {[
+            { value: `${program.sessions.length}`, label: 'detail.stat.daysPerWeek' as I18nKey },
+            {
+              value: durationMinutes > 0 ? `~${durationMinutes}` : '—',
+              label: 'detail.stat.session' as I18nKey,
+            },
+            { value: `${blockWeeks}`, label: 'detail.stat.weeks' as I18nKey },
+            { value: `${totalSessions}`, label: 'detail.stat.total' as I18nKey },
+          ].map((stat, index) => (
+            <React.Fragment key={stat.label}>
+              {index > 0 ? <View style={styles.statStripDivider} /> : null}
+              <View style={styles.statStripItem}>
+                <Text style={styles.statStripValue}>{stat.value}</Text>
+                <Text style={styles.statStripLabel}>{t(language, stat.label)}</Text>
+              </View>
+            </React.Fragment>
+          ))}
+        </View>
+
+        {/* The week as seven chips: which days train, and what they are. A
+            dot-and-word list said "Treeni / Palautuminen" seven times and
+            never named a single session. */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t(language, 'progress.thisWeek')}</Text>
+          <Text style={styles.sectionTitle}>{t(language, 'detail.rhythm')}</Text>
           <Text style={styles.sectionMeta}>
             {t(language, 'detail.trainingDays', { count: program.sessions.length })}
           </Text>
         </View>
-        <View style={styles.scheduleCard}>
-          {scheduleSlots.map((slot) => (
-            <View key={slot.dayKey} style={styles.scheduleItem}>
-              <View style={[styles.scheduleDot, slot.isTraining ? styles.scheduleDotTraining : styles.scheduleDotRecovery]} />
-              <Text style={styles.scheduleDay}>{slot.day}</Text>
-              <Text style={[styles.scheduleLabel, slot.isTraining ? styles.scheduleLabelTraining : styles.scheduleLabelRecovery]}>
-                {t(language, slot.isTraining ? 'detail.train' : 'detail.recover')}
-              </Text>
-            </View>
-          ))}
+        <View style={styles.rhythmRow}>
+          {scheduleSlots.map((slot, index) => {
+            const session = slot.isTraining ? trainingDaySessions.get(index) : null;
+            return (
+              <View key={slot.dayKey} style={[styles.rhythmDay, slot.isTraining && styles.rhythmDayOn]}>
+                <Text style={[styles.rhythmDayName, slot.isTraining && styles.rhythmDayNameOn]}>
+                  {slot.day}
+                </Text>
+                <Text
+                  style={[styles.rhythmDayLabel, slot.isTraining && styles.rhythmDayLabelOn]}
+                  numberOfLines={1}
+                >
+                  {session ? shortSessionLabel(session, language) : t(language, 'detail.rest')}
+                </Text>
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.sectionHeader}>
@@ -318,6 +447,28 @@ export function ProgramDetailScreen({
                           <Text style={styles.sessionContentName} numberOfLines={1}>
                             {exerciseNameLabel(language, exercise.name)}
                           </Text>
+                          {/* What the exercise is FOR, read off the template's
+                              own role rather than written per program. The list
+                              gave five lifts equal weight, so the two that
+                              decide the session looked like the two that do
+                              not. */}
+                          {exercise.role && ROLE_KEYS[exercise.role] ? (
+                            <View
+                              style={[
+                                styles.roleTag,
+                                { backgroundColor: ROLE_TINTS[exercise.role]?.bg ?? PLAN_PURPLE_SOFT },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.roleTagText,
+                                  { color: ROLE_TINTS[exercise.role]?.ink ?? PLAN_PURPLE_DARK },
+                                ]}
+                              >
+                                {t(language, ROLE_KEYS[exercise.role])}
+                              </Text>
+                            </View>
+                          ) : null}
                           <Text style={styles.sessionContentMeta} numberOfLines={1}>
                             {exercise.prescription}
                           </Text>
@@ -374,159 +525,146 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     backgroundColor: theme.bg,
   },
-  header: {
+  hero: {
+    height: 210,
+    marginHorizontal: -20,
+    marginTop: -8,
+    overflow: 'hidden',
+    justifyContent: 'space-between',
+  },
+  heroTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.sm,
-    gap: spacing.sm,
+    justifyContent: 'space-between',
+    paddingHorizontal: 18,
+    paddingTop: 46,
   },
-  backButton: {
-    minWidth: 54,
-    minHeight: 40,
+  heroGlass: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  backText: {
-    color: PLAN_TEXT,
-    fontSize: 14,
-    fontWeight: '800',
+  heroBottom: {
+    paddingHorizontal: 18,
+    paddingBottom: 18,
   },
-  headerTitle: {
-    flex: 1,
+  heroPill: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  heroPillText: {
+    color: '#101828',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+  },
+  heroTitle: {
+    color: '#FFFFFF',
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '800',
+    letterSpacing: -0.9,
+    marginTop: 9,
+  },
+  leadCopy: {
     color: PLAN_TEXT,
-    fontSize: 24,
-    fontWeight: '900',
+    fontSize: 13.5,
+    lineHeight: 20,
+    fontWeight: '600',
+    marginTop: 14,
+  },
+  statStrip: {
+    flexDirection: 'row',
+    marginTop: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#EFEAFB',
+    backgroundColor: PLAN_SURFACE,
+    paddingVertical: 13,
+  },
+  statStripItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statStripDivider: {
+    width: 1,
+    backgroundColor: '#F1EBFC',
+    marginVertical: 3,
+  },
+  statStripValue: {
+    color: PLAN_TEXT,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
     letterSpacing: -0.3,
   },
-  headerAction: {
-    minWidth: 54,
-    minHeight: 40,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+  statStripLabel: {
+    color: '#9A93AC',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    marginTop: 3,
   },
-  headerActionSpacer: {
-    width: 54,
+  rhythmRow: {
+    flexDirection: 'row',
+    gap: 5,
   },
-  headerActionText: {
-    color: PLAN_PURPLE,
-    fontSize: 14,
-    fontWeight: '900',
+  rhythmDay: {
+    flex: 1,
+    borderRadius: 13,
+    backgroundColor: '#F2ECFF',
+    borderWidth: 1,
+    borderColor: '#E9E0FB',
+    paddingVertical: 9,
+    alignItems: 'center',
+  },
+  rhythmDayOn: {
+    backgroundColor: '#3F2A78',
+    borderColor: '#3F2A78',
+  },
+  rhythmDayName: {
+    color: '#9A93AC',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  rhythmDayNameOn: {
+    color: 'rgba(255,255,255,0.66)',
+  },
+  rhythmDayLabel: {
+    color: '#B6AEC8',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    marginTop: 6,
+  },
+  rhythmDayLabelOn: {
+    color: '#FFFFFF',
+  },
+  roleTag: {
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+  },
+  roleTagText: {
+    fontSize: 9,
+    lineHeight: 12,
+    fontWeight: '800',
+    letterSpacing: 0.6,
   },
   content: {
     paddingHorizontal: spacing.lg,
     paddingBottom: layout.bottomTabBarReserve + 82,
     gap: spacing.md,
-  },
-  planCard: {
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: PLAN_BORDER,
-    backgroundColor: PLAN_SURFACE,
-    padding: spacing.lg,
-    gap: spacing.md,
-    shadowColor: '#D8C7FF',
-    shadowOpacity: 0.32,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 10 },
-    elevation: 6,
-  },
-  planCardTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  planCopy: {
-    flex: 1,
-    gap: 5,
-  },
-  cardEyebrow: {
-    color: PLAN_PURPLE,
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-  },
-  planTitle: {
-    color: PLAN_TEXT,
-    fontSize: 23,
-    lineHeight: 28,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  planWeek: {
-    color: PLAN_TEXT_MUTED,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  planChart: {
-    width: 104,
-    minHeight: 70,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
-    gap: 8,
-  },
-  planChartBar: {
-    width: 18,
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
-    backgroundColor: '#A78BFA',
-  },
-  progressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  progressLabel: {
-    color: PLAN_TEXT_MUTED,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  progressTrack: {
-    flex: 1,
-    height: 10,
-    overflow: 'hidden',
-    borderRadius: radii.pill,
-    backgroundColor: '#EEF0F5',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: radii.pill,
-    backgroundColor: PLAN_PURPLE,
-  },
-  progressPercent: {
-    color: PLAN_PURPLE_DARK,
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  planStats: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    borderTopWidth: 1,
-    borderTopColor: PLAN_BORDER,
-    paddingTop: spacing.md,
-  },
-  planStat: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  planStatValue: {
-    color: PLAN_TEXT,
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  planStatLabel: {
-    color: PLAN_TEXT_MUTED,
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  statDivider: {
-    width: 1,
-    backgroundColor: PLAN_BORDER,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -545,46 +683,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: PLAN_TEXT_MUTED,
     fontSize: 12,
     fontWeight: '800',
-  },
-  scheduleCard: {
-    flexDirection: 'row',
-    borderRadius: radii.lg,
-    borderWidth: 1,
-    borderColor: PLAN_BORDER,
-    backgroundColor: PLAN_SURFACE,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.md,
-  },
-  scheduleItem: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
-  },
-  scheduleDot: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-  },
-  scheduleDotTraining: {
-    backgroundColor: PLAN_PURPLE,
-  },
-  scheduleDotRecovery: {
-    backgroundColor: PLAN_GREEN,
-  },
-  scheduleDay: {
-    color: PLAN_TEXT,
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  scheduleLabel: {
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  scheduleLabelTraining: {
-    color: PLAN_PURPLE,
-  },
-  scheduleLabelRecovery: {
-    color: PLAN_GREEN,
   },
   workoutList: {
     gap: spacing.sm,

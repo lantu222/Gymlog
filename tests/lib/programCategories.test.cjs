@@ -112,7 +112,11 @@ module.exports = [
       assert.match(app, /waterfall\.whyPrimary/);
       assert.match(app, /waterfall\.whyAlternative/);
       assert.match(app, /entry\.id && entry\.whyKey/);
-      assert.match(screen, /\{item\.why\}/);
+      // The reason moved to the program's own screen, where it has room to
+      // say why in a sentence. On a 186px card it was a fragment competing
+      // with the numbers above it, so the card carries a link instead.
+      assert.match(screen, /'programs\.more'/);
+      assert.match(app, /AFFINITY_REASON_KEYS\[match\.reason\]/);
 
       // No questionnaire is no longer an empty row. Choosing a ready program
       // off the catalog is a statement of intent every bit as strong as

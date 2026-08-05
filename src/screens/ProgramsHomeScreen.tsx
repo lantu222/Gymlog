@@ -1132,12 +1132,11 @@ export function ProgramsHomeScreen({
                     key={item.id}
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                    onPress={() => {
-                      const card = catalogItems.find((entry) => entry.id === item.id);
-                      if (card) {
-                        setPicked(card);
-                      }
-                    }}
+                    // The card says "Katso lisätietoja", so it opens the
+                    // program's own screen. It opened the switch-confirm sheet
+                    // instead: a label promising detail that produced a
+                    // decision.
+                    onPress={() => onOpenExploreProgram(item.id)}
                     style={({ pressed }) => [styles.recCard, pressed && styles.pressed]}
                   >
                     <ProgramCover
@@ -1162,11 +1161,11 @@ export function ProgramsHomeScreen({
                         {t(language, 'programs.card.days', { count: item.days })} · ~{item.minutes} min
                         {item.weeks > 0 ? ` · ${t(language, 'programs.weeks', { count: item.weeks })}` : ''}
                       </Text>
-                      {/* And the reason stays, as one short line with the
-                          number in it rather than a sentence. */}
-                      <Text style={styles.forYouWhy} numberOfLines={2}>
-                        {`★ ${item.why}`}
-                      </Text>
+                      {/* The reason moved to the program's own screen, where
+                          it has room to say why in a sentence. On a 186px card
+                          it was a fragment competing with the numbers above
+                          it. */}
+                      <Text style={styles.forYouWhy}>{t(language, 'programs.more')}</Text>
                     </View>
                   </Pressable>
                 );
