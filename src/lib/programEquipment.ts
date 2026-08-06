@@ -61,6 +61,12 @@ export function resolveProgramEquipment(exerciseNames: readonly string[]): Equip
 
   for (const name of exerciseNames) {
     const normalized = name.trim().toLowerCase();
+    // "Hip Thrust (Bodyweight)" matched the hip-thrust rule and claimed a
+    // bench, so a postpartum program that needs a floor was listed as needing
+    // gym furniture. When the name says bodyweight, it means it.
+    if (normalized.includes('bodyweight')) {
+      continue;
+    }
     for (const rule of EQUIPMENT_RULES_FOR_DISPLAY) {
       if (!normalized.includes(rule.pattern)) {
         continue;

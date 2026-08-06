@@ -28,6 +28,13 @@ module.exports = [
       // A program with no gear reports none rather than a default set — the
       // section then does not render at all.
       assert.deepEqual(gearFor('tpl_3_day_run_mobility_v1'), []);
+
+      // "Hip Thrust (Bodyweight)" matched the hip-thrust rule and claimed a
+      // bench, so a postpartum program that needs a floor was listed as
+      // needing gym furniture. When the name says bodyweight, it means it.
+      assert.deepEqual(resolveProgramEquipment(['Hip Thrust (Bodyweight)']), []);
+      assert.deepEqual(resolveProgramEquipment(['Barbell Hip Thrust']), ['Barbells', 'Bench']);
+      assert.ok(!gearFor('tpl_gainer_postpartum_recovery_v1').includes('Bench'));
     },
   },
   {
