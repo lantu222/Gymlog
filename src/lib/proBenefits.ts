@@ -39,6 +39,7 @@ export const PRO_LIVE_BENEFITS: ProBenefit[] = [
   { titleKey: 'pro.v2.read.analysis.t', bodyKey: 'pro.v2.read.analysis.b', gate: 'coachProUnlocked' },
   { titleKey: 'pro.v2.read.why.t', bodyKey: 'pro.v2.read.why.b', gate: 'proInsights' },
   { titleKey: 'pro.v2.read.records.t', bodyKey: 'pro.v2.read.records.b', gate: 'isRecordLocked' },
+  { titleKey: 'pro.v2.read.setlog.t', bodyKey: 'pro.v2.read.setlog.b', gate: 'isSetLogLocked' },
   { titleKey: 'pro.v2.read.recovery.t', bodyKey: 'pro.v2.read.recovery.b', gate: 'proInsights' },
   { titleKey: 'pro.v2.read.theme.t', bodyKey: 'pro.v2.read.theme.b', gate: 'resolveThemeName' },
 ];
@@ -84,6 +85,7 @@ export const PRO_UNLOCK_CARDS: ProUnlockCard[] = [
       'pro.v2.read.why.t',
       'pro.v2.read.recovery.t',
       'pro.v2.read.records.t',
+      'pro.v2.read.setlog.t',
     ],
   },
   {

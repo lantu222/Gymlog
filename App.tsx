@@ -122,7 +122,6 @@ import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
 import { resolveRecords } from './src/lib/personalRecords';
 import { getComparableLogSets } from './src/lib/exerciseLog';
-import { RecordsScreen } from './src/screens/RecordsScreen';
 import { TrainingCalendarScreen } from './src/screens/TrainingCalendarScreen';
 import { removeStrengthGoal, resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
@@ -505,7 +504,6 @@ function getBackRoute(route: AppRoute): AppRoute | null {
     route.tab === 'progress' &&
     (route.screen === 'detail' ||
       route.screen === 'bodyweight' ||
-      route.screen === 'records' ||
       route.screen === 'calendar')
   ) {
     return ROOT_ROUTES.progress;
@@ -4070,18 +4068,6 @@ function VinhaApp() {
         }}
       />
     );
-  } else if (route.tab === 'progress' && route.screen === 'records') {
-    content = (
-      <RecordsScreen
-        language={preferences.appLanguage}
-        records={personalRecords}
-        proUnlocked={coachProUnlocked}
-        onBack={() => navigateBack(ROOT_ROUTES.progress)}
-        onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
-        onOpenExercise={(exerciseKey) => navigate({ tab: 'progress', screen: 'detail', exerciseKey })}
-        onOpenPro={() => navigate({ tab: 'profile', screen: 'premium' })}
-      />
-    );
   } else if (route.tab === 'progress' && route.screen === 'calendar') {
     content = (
       <TrainingCalendarScreen
@@ -4138,7 +4124,9 @@ function VinhaApp() {
               ...personalRecords.volume.map((record) => record.key),
             ]).size
           }
-          onOpenRecords={() => navigate({ tab: 'progress', screen: 'records' })}
+          records={personalRecords}
+          setLogSources={recordSources}
+          onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
           onOpenCalendar={() => navigate({ tab: 'progress', screen: 'calendar' })}
           summaries={trackedProgress}
           bodyweightProgress={bodyweightProgress}

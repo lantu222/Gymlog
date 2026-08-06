@@ -12,7 +12,6 @@ import {
   formatCompactVolume,
   formatDate,
   formatDurationMinutes,
-  formatLogSetSummary,
   formatShortDate,
   formatTime,
   formatVolume,
@@ -26,18 +25,21 @@ import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
+import { SetLogSheet } from '../components/SetLogSheet';
+import { buildExerciseSetLog, ExerciseSetLog } from '../lib/exerciseSetLog';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import {
   isMeasureRangeLocked,
   isRecordLocked,
+  isSetLogLocked,
   isTrendRangeLocked,
   resolveMeasureRange,
   resolveTrendRange,
 } from '../lib/historyWindow';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
-import type { PersonalRecord } from '../lib/personalRecords';
-import { RecordRow } from './RecordsScreen';
+import type { PersonalRecord, RecordKind, RecordSource } from '../lib/personalRecords';
+import { RecordRow, RecordsList } from './RecordsScreen';
 import {
   BodyweightProgressSummary,
   ExerciseProgressSummary,
@@ -55,7 +57,7 @@ import {
   WorkoutSession,
 } from '../types/models';
 
-type ProgressSection = 'overview' | 'tracked' | 'measures';
+type ProgressSection = 'overview' | 'records' | 'tracked' | 'measures';
 type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
 type OverviewMetric = 'volume' | 'duration' | 'bodyweight';
 type OverviewRange = '1m' | '3m' | '6m' | 'all';
@@ -97,7 +99,11 @@ interface ProgressScreenProps {
    */
   topRecords?: PersonalRecord[];
   recordCount?: number;
-  onOpenRecords?: () => void;
+  /** Every lift's record, per kind — the Records tab's whole content. */
+  records?: Record<RecordKind, PersonalRecord[]>;
+  /** One entry per tracked lift, for the set log behind each curve. */
+  setLogSources?: RecordSource[];
+  onStartWorkout?: () => void;
   /**
    * The training calendar. The month below this is plan ADHERENCE — done,
    * missed, upcoming against the plan — which answers a different question
@@ -151,6 +157,7 @@ const calendarLegend = (theme: Theme): Array<{ key: string; labelKey: I18nKey; d
 
 const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey }> = [
   { key: 'overview', labelKey: 'progress.section.overview' },
+  { key: 'records', labelKey: 'progress.section.records' },
   { key: 'tracked', labelKey: 'progress.section.tracked' },
   { key: 'measures', labelKey: 'progress.section.measures' },
 ];
@@ -548,6 +555,14 @@ function SearchIcon({ color: colorProp, size = 17 }: { color?: string; size?: nu
   );
 }
 
+function ChevronRight({ color }: { color: string }) {
+  return (
+    <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+      <Path d="M9 6l6 6-6 6" stroke={color} strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
+    </Svg>
+  );
+}
+
 function ChevronDown({ open }: { open: boolean }) {
   const theme = useTheme();
 
@@ -737,7 +752,9 @@ export function ProgressScreen({
   selectedExerciseKey,
   topRecords = [],
   recordCount = 0,
-  onOpenRecords,
+  records = { weight: [], reps: [], volume: [] },
+  setLogSources = [],
+  onStartWorkout,
   onOpenCalendar,
   showBodyweightDetail,
   onAddBodyweight,
@@ -754,6 +771,7 @@ export function ProgressScreen({
   const styles = useThemedStyles(makeStyles);
   const [readSheetVisible, setReadSheetVisible] = useState(false);
   const [progressSection, setProgressSection] = useState<ProgressSection>(initialSection ?? 'overview');
+  const [setLogKey, setSetLogKey] = useState<string | null>(null);
   const [progressQuery, setProgressQuery] = useState('');
   const [progressFilter, setProgressFilter] = useState<ProgressFilter>('all');
   const [expandedKey, setExpandedKey] = useState<string | null>(selectedExerciseKey ?? null);
@@ -778,6 +796,14 @@ export function ProgressScreen({
   const [measureUnit, setMeasureUnit] = useState<MeasurementUnit>('cm');
   const [measureInput, setMeasureInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
+
+  const openSetLog: ExerciseSetLog | null = useMemo(() => {
+    if (setLogKey === null) {
+      return null;
+    }
+    const source = setLogSources.find((entry) => entry.key === setLogKey);
+    return source ? buildExerciseSetLog(source) : null;
+  }, [setLogKey, setLogSources]);
 
   useEffect(() => {
     if (initialSection) {
@@ -1277,12 +1303,12 @@ export function ProgressScreen({
           </View>
         </View>
 
-        {topRecords.length > 0 && onOpenRecords ? (
+        {topRecords.length > 0 ? (
           <>
             <SectionLabel
               label={t(language, 'pr.records')}
               right={
-                <Pressable onPress={onOpenRecords} hitSlop={8}>
+                <Pressable onPress={() => switchSection('records')} hitSlop={8}>
                   <Text style={styles.recordsLink}>
                     {t(language, 'pr.allRecords', { count: recordCount })}
                   </Text>
@@ -1418,6 +1444,19 @@ export function ProgressScreen({
     );
   }
 
+  function renderRecords() {
+    return (
+      <RecordsList
+        records={records}
+        language={language}
+        proUnlocked={proUnlocked}
+        onOpenPro={() => onOpenPremium?.()}
+        onStartWorkout={() => onStartWorkout?.()}
+        onOpenExercise={(key) => setSetLogKey(key)}
+      />
+    );
+  }
+
   function renderTracked() {
     return (
       <>
@@ -1475,7 +1514,14 @@ export function ProgressScreen({
               const delta = start !== null && latest !== null && points.length > 1 ? latest - start : null;
               return (
                 <View key={summary.key} style={styles.trackedCard}>
-                  <Pressable onPress={() => setExpandedKey(isOpen ? null : summary.key)} style={styles.trackedHead}>
+                  {/* The row opens the set log; the chevron still expands the
+                      chart in place, so the curve stays one tap away without
+                      going through the sheet. */}
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setSetLogKey(summary.key)}
+                    style={styles.trackedHead}
+                  >
                     <View style={styles.trackedCopy}>
                       <Text numberOfLines={1} style={styles.trackedName}>
                         {formatLiftDisplayLabel(exerciseNameLabel(language, summary.name))}
@@ -1490,7 +1536,14 @@ export function ProgressScreen({
                       </View>
                     </View>
                     <Sparkline values={points.map((point) => point.value)} color={signalDot} />
-                    <ChevronDown open={isOpen} />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityState={{ expanded: isOpen }}
+                      onPress={() => setExpandedKey(isOpen ? null : summary.key)}
+                      hitSlop={10}
+                    >
+                      <ChevronDown open={isOpen} />
+                    </Pressable>
                   </Pressable>
                   {isOpen ? (
                     <View style={styles.trackedDetail}>
@@ -1516,21 +1569,19 @@ export function ProgressScreen({
                           ),
                         })}
                       />
-                      {summary.logs.length ? (
-                        <View style={styles.trackedLogList}>
-                          {summary.logs.slice(0, 3).map((log) => (
-                            <View key={log.id} style={styles.trackedLogRow}>
-                              <View style={styles.trackedLogCopy}>
-                                <Text style={styles.trackedLogTitle}>{formatDate(log.performedAt)}</Text>
-                                <Text numberOfLines={1} style={styles.trackedLogMeta}>
-                                  {formatLogSetSummary(log, unitPreference)}
-                                </Text>
-                              </View>
-                              <Text style={styles.trackedLogValue}>{formatWeight(log.weight, unitPreference)}</Text>
-                            </View>
-                          ))}
-                        </View>
-                      ) : null}
+                      {/* The three most recent sessions used to be listed here
+                          with their sets. That is the set log, and it now
+                          lives on the sheet behind the Pro gate — leaving a
+                          free copy of it three rows deep would make the lock
+                          decorative. */}
+                      <Pressable
+                        accessibilityRole="button"
+                        onPress={() => setSetLogKey(summary.key)}
+                        style={({ pressed }) => [styles.trackedLogLink, pressed && { opacity: 0.85 }]}
+                      >
+                        <Text style={styles.trackedLogLinkText}>{t(language, 'setlog.open')}</Text>
+                        <ChevronRight color={theme.purple} />
+                      </Pressable>
                     </View>
                   ) : null}
                 </View>
@@ -1684,9 +1735,23 @@ export function ProgressScreen({
         contentContainerStyle={styles.content}
       >
         {progressSection === 'overview' ? renderOverview() : null}
+        {progressSection === 'records' ? renderRecords() : null}
         {progressSection === 'tracked' ? renderTracked() : null}
         {progressSection === 'measures' ? renderMeasures() : null}
       </ScrollView>
+
+      {/* One lift's sets, over the curve they belong to. */}
+      <SetLogSheet
+        visible={setLogKey !== null}
+        log={openSetLog}
+        language={language}
+        locked={isSetLogLocked(proUnlocked)}
+        onClose={() => setSetLogKey(null)}
+        onOpenPro={() => {
+          setSetLogKey(null);
+          onOpenPremium?.();
+        }}
+      />
 
       <ProMomentSheet
         visible={readSheetVisible}
@@ -2293,6 +2358,24 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
+  trackedLogLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
+  },
+  trackedLogLinkText: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
   trackedDetail: {
     marginTop: 12,
     paddingTop: 12,
@@ -2311,37 +2394,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     textAlign: 'right',
-  },
-  trackedLogList: {
-    gap: 0,
-  },
-  trackedLogRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 9,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  trackedLogCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  trackedLogTitle: {
-    color: theme.ink,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  trackedLogMeta: {
-    color: theme.muted,
-    fontSize: 11.5,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  trackedLogValue: {
-    color: theme.ink,
-    fontSize: 13.5,
-    fontWeight: '800',
   },
   emptyBlock: {
     alignItems: 'center',

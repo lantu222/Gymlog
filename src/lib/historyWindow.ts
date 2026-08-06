@@ -6,22 +6,25 @@
  * bought it because I wanted to be able to see more than just three months of
  * history data." So the window is worth charging for.
  *
- * But it is a window on the CHARTS, and on nothing else. The distinction is
- * the whole point and it is easy to get wrong:
+ * What is free and what is paid, and the line between them:
  *
  *   Free, forever, uncapped        Pro
- *   ─────────────────────────      ──────────────────────
- *   every session in History       the 6-month trend
- *   every set on a lift            the all-time trend
- *   CSV export                     measures past a year
- *                                  records older than 3 months
+ *   ─────────────────────────      ──────────────────────────────
+ *   every session in History       the 6-month and all-time trend
+ *   every set inside a session      measures past a year
+ *   CSV export                     records older than 3 months
+ *   the per-lift trend curve        the per-lift set log
  *
- * Capping the LOG would be the thing this app has spent its whole design
- * refusing to do, and the competitor who effectively did it — Strong's v6
- * update lost people years of saved workouts — is the cautionary tale, not the
- * model. A user on the free tier can still read, search and export every set
- * they have ever logged. What they cannot do is draw a line through five years
- * of it.
+ * The line is between YOUR LOG and a VIEW ASSEMBLED FROM IT. Capping the log
+ * would be the thing this app has spent its whole design refusing to do, and
+ * the competitor who effectively did it — Strong's v6 update lost people years
+ * of saved workouts — is the cautionary tale, not the model. A free user can
+ * still open any session they have ever logged and read every set in it, and
+ * export the lot.
+ *
+ * What Pro buys is the app doing the assembling: five sessions of one lift
+ * lined up side by side, five years drawn as one line, a record with the
+ * figure on it. The data is the user's either way.
  */
 
 export const FREE_TREND_MONTHS = 3;
@@ -77,6 +80,19 @@ export function resolveMeasureRange(
  * for two views of the same history is a rule nobody can hold in their head.
  */
 export const FREE_RECORD_MONTHS = FREE_TREND_MONTHS;
+
+/**
+ * The per-lift set log — every set of one exercise, session by session.
+ *
+ * Not a window but a whole view: free gets the curve over the same sessions,
+ * Pro gets the sets behind it. The session log stays free in both tiers, which
+ * is what keeps this a paywall on assembly rather than on the user's own data
+ * — a free user can still read every one of these sets by opening the sessions
+ * they belong to.
+ */
+export function isSetLogLocked(proUnlocked: boolean): boolean {
+  return !proUnlocked;
+}
 
 export function isRecordLocked(
   performedAt: string,

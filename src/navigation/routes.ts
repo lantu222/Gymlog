@@ -106,7 +106,7 @@ export type AppRoute =
   | {
       tab: 'progress';
       screen: 'list';
-      section?: 'overview' | 'tracked' | 'measures';
+      section?: 'overview' | 'records' | 'tracked' | 'measures';
     }
   | {
       tab: 'progress';
@@ -116,11 +116,6 @@ export type AppRoute =
   | {
       tab: 'progress';
       screen: 'bodyweight';
-    }
-  | {
-      /** Your bests: the heaviest set, the most reps, the hardest session. */
-      tab: 'progress';
-      screen: 'records';
     }
   | {
       /** The training month, and the day you tap in it. */

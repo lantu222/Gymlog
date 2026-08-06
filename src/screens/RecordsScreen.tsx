@@ -162,26 +162,28 @@ export function RecordRow({
   );
 }
 
-interface RecordsScreenProps {
+interface RecordsListProps {
   language?: AppLanguage;
   /** Every lift's record, per kind. Empty arrays are a real state. */
   records: Record<RecordKind, PersonalRecord[]>;
   proUnlocked: boolean;
-  onBack: () => void;
   onStartWorkout: () => void;
   onOpenExercise?: (key: string) => void;
   onOpenPro: () => void;
 }
 
-export function RecordsScreen({
+/**
+ * The records tab's body. A list rather than a screen: it lives inside
+ * Progress's own tabs, so it brings no header and no back button of its own.
+ */
+export function RecordsList({
   language = 'en',
   records,
   proUnlocked,
-  onBack,
   onStartWorkout,
   onOpenExercise,
   onOpenPro,
-}: RecordsScreenProps) {
+}: RecordsListProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
   const [kind, setKind] = useState<RecordKind>('weight');
@@ -193,162 +195,112 @@ export function RecordsScreen({
   ).length;
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'common.back')}
-          onPress={onBack}
-          hitSlop={10}
-          style={styles.backButton}
-        >
-          <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 6l-6 6 6 6" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
-        </Pressable>
-        <Text style={styles.headerTitle}>{t(language, 'pr.tab.records')}</Text>
+    <>
+      <View style={styles.kindRow}>
+        <View style={styles.segment}>
+          {KINDS.map((entry) => {
+            const on = kind === entry;
+            return (
+              <Pressable
+                key={entry}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                onPress={() => setKind(entry)}
+                style={[styles.segmentItem, on && styles.segmentItemOn]}
+              >
+                <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
+                  {t(language, KIND_LABELS[entry])}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {shown.length > 0 ? (
+          <Text style={styles.liftCount}>{t(language, 'pr.liftCount', { count: shown.length })}</Text>
+        ) : null}
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.kindRow}>
-          <View style={styles.segment}>
-            {KINDS.map((entry) => {
-              const on = kind === entry;
-              return (
-                <Pressable
-                  key={entry}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: on }}
-                  onPress={() => setKind(entry)}
-                  style={[styles.segmentItem, on && styles.segmentItemOn]}
-                >
-                  <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
-                    {t(language, KIND_LABELS[entry])}
-                  </Text>
-                </Pressable>
-              );
-            })}
+      {shown.length === 0 ? (
+        <View style={styles.emptyCard}>
+          <View style={styles.emptyIcon}>
+            <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M8 4h8v5a4 4 0 01-8 0z M8 6H5v1a3 3 0 003 3M16 6h3v1a3 3 0 01-3 3 M12 13v4M9 20h6"
+                stroke={theme.purple}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
           </View>
-          {shown.length > 0 ? (
-            <Text style={styles.liftCount}>{t(language, 'pr.liftCount', { count: shown.length })}</Text>
-          ) : null}
+          <Text style={styles.emptyTitle}>{t(language, 'pr.empty.title')}</Text>
+          <Text style={styles.emptyBody}>{t(language, 'pr.empty.body')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onStartWorkout}
+            style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}
+          >
+            <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
+          </Pressable>
         </View>
-
-        {shown.length === 0 ? (
-          <View style={styles.emptyCard}>
-            <View style={styles.emptyIcon}>
-              <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M8 4h8v5a4 4 0 01-8 0z M8 6H5v1a3 3 0 003 3M16 6h3v1a3 3 0 01-3 3 M12 13v4M9 20h6"
-                  stroke={theme.purple}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </View>
-            <Text style={styles.emptyTitle}>{t(language, 'pr.empty.title')}</Text>
-            <Text style={styles.emptyBody}>{t(language, 'pr.empty.body')}</Text>
+      ) : (
+        <>
+          {/* Stated once at the top, rather than left to be inferred from
+              the rows. */}
+          {lockedCount > 0 ? (
             <Pressable
               accessibilityRole="button"
-              onPress={onStartWorkout}
-              style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}
+              onPress={onOpenPro}
+              style={({ pressed }) => [styles.lockCard, pressed && styles.pressed]}
             >
-              <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
-            </Pressable>
-          </View>
-        ) : (
-          <>
-            {/* Stated once at the top, rather than left to be inferred from
-                the rows. */}
-            {lockedCount > 0 ? (
-              <Pressable
-                accessibilityRole="button"
-                onPress={onOpenPro}
-                style={({ pressed }) => [styles.lockCard, pressed && styles.pressed]}
-              >
-                <View style={styles.lockCardIcon}>
-                  <LockGlyph color={theme.purple} size={16} />
-                </View>
-                <View style={styles.lockCardCopy}>
-                  <Text style={styles.lockCardTitle}>
-                    {t(language, 'pr.locked.title', { count: lockedCount })}
-                  </Text>
-                  <Text style={styles.lockCardBody}>
-                    {t(language, 'pr.locked.body', { months: FREE_RECORD_MONTHS })}
-                  </Text>
-                </View>
-                <Text style={styles.lockCardCta}>{t(language, 'pr.locked.cta')}</Text>
-              </Pressable>
-            ) : null}
-            {groups.map((group) => (
-              <View key={`${group.year}-${group.month}`} style={styles.group}>
-                <Text style={styles.groupLabel}>
-                  {`${MONTHS[language][group.month]} ${group.year}`.toUpperCase()}
-                </Text>
-                <View style={styles.groupRows}>
-                  {group.records.map((record) => {
-                    const locked = isRecordLocked(record.performedAt, proUnlocked);
-                    return (
-                      <RecordRow
-                        key={`${record.key}-${record.kind}`}
-                        record={record}
-                        language={language}
-                        locked={locked}
-                        onPress={
-                          locked
-                            ? onOpenPro
-                            : onOpenExercise
-                              ? () => onOpenExercise(record.key)
-                              : undefined
-                        }
-                      />
-                    );
-                  })}
-                </View>
+              <View style={styles.lockCardIcon}>
+                <LockGlyph color={theme.purple} size={16} />
               </View>
-            ))}
-          </>
-        )}
-      </ScrollView>
-    </View>
+              <View style={styles.lockCardCopy}>
+                <Text style={styles.lockCardTitle}>
+                  {t(language, 'pr.locked.title', { count: lockedCount })}
+                </Text>
+                <Text style={styles.lockCardBody}>
+                  {t(language, 'pr.locked.body', { months: FREE_RECORD_MONTHS })}
+                </Text>
+              </View>
+              <Text style={styles.lockCardCta}>{t(language, 'pr.locked.cta')}</Text>
+            </Pressable>
+          ) : null}
+          {groups.map((group) => (
+            <View key={`${group.year}-${group.month}`} style={styles.group}>
+              <Text style={styles.groupLabel}>
+                {`${MONTHS[language][group.month]} ${group.year}`.toUpperCase()}
+              </Text>
+              <View style={styles.groupRows}>
+                {group.records.map((record) => {
+                  const locked = isRecordLocked(record.performedAt, proUnlocked);
+                  return (
+                    <RecordRow
+                      key={`${record.key}-${record.kind}`}
+                      record={record}
+                      language={language}
+                      locked={locked}
+                      onPress={
+                        locked
+                          ? onOpenPro
+                          : onOpenExercise
+                            ? () => onOpenExercise(record.key)
+                            : undefined
+                      }
+                    />
+                  );
+                })}
+              </View>
+            </View>
+          ))}
+        </>
+      )}
+    </>
   );
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 52,
-    paddingBottom: 12,
-  },
-  backButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    color: theme.ink,
-    fontSize: 20,
-    lineHeight: 26,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 132,
-  },
   pressed: {
     opacity: 0.85,
   },

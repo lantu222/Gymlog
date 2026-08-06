@@ -106,6 +106,7 @@ const GROUPS: Array<{ key: string; kickerKey: I18nKey; titleKey: I18nKey; leadKe
       { titleKey: 'pro.v2.read.analysis.t', bodyKey: 'pro.v2.read.analysis.b', icon: IC.doc },
       { titleKey: 'pro.v2.read.why.t', bodyKey: 'pro.v2.read.why.b', icon: IC.chart },
       { titleKey: 'pro.v2.read.records.t', bodyKey: 'pro.v2.read.records.b', icon: IC.chart },
+      { titleKey: 'pro.v2.read.setlog.t', bodyKey: 'pro.v2.read.setlog.b', icon: IC.doc },
       { titleKey: 'pro.v2.read.recovery.t', bodyKey: 'pro.v2.read.recovery.b', icon: IC.heart },
       { titleKey: 'pro.v2.read.theme.t', bodyKey: 'pro.v2.read.theme.b', icon: IC.moon },
       // Not built. The privacy policy two taps away says data stays on the
@@ -141,6 +142,10 @@ const ROWS: Array<{ labelKey: I18nKey; free: Cellv2; pro: Cellv2 }> = [
   // reason. The older ones are locked rather than removed: the lift and the
   // date stay readable so the free tier never states a record it has narrowed.
   { labelKey: 'pro.v2.row.records', free: 'pro.v2.val.threeMonths', pro: 'pro.v2.val.allTime' },
+  // The per-lift set log. The History row above stays All / All: a free user
+  // can still open any session and read every set in it. What Pro buys is the
+  // app lining those sessions up for one lift.
+  { labelKey: 'pro.v2.row.setLog', free: null, pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.guided', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.widget', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
   { labelKey: 'pro.v2.row.csv', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },

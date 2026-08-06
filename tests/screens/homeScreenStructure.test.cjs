@@ -459,7 +459,7 @@ module.exports = [
       // App-side: template + session persist before the summary route swap.
       assert.match(appSource, /const workoutTemplateId = await upsertWorkoutTemplate\(draft\);[\s\S]*await saveCompletedWorkoutSession\(\{[\s\S]*summaryExitRouteRef\.current = ROOT_ROUTES\.home;[\s\S]*replaceRoute\(\{ tab: 'workout', screen: 'summary' \}\);/);
 
-      assert.match(routesSource, /section\?: 'overview' \| 'tracked' \| 'measures'/);
+      assert.match(routesSource, /section\?: 'overview' \| 'records' \| 'tracked' \| 'measures'/);
       assert.match(progressScreenSource, /initialSection\?: ProgressSection/);
       assert.match(progressScreenSource, /recentSessions\?: HomeRecentSessionItem\[\]/);
       assert.match(progressScreenSource, /onOpenSessionHistory\?: \(\) => void/);
