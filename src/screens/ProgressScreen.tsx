@@ -27,6 +27,7 @@ import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { SetLogSheet } from '../components/SetLogSheet';
 import { buildExerciseSetLog, ExerciseSetLog } from '../lib/exerciseSetLog';
+import { weeklyTrainingStreak } from '../lib/trainingCalendar';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import {
@@ -797,6 +798,8 @@ export function ProgressScreen({
   const [measureInput, setMeasureInput] = useState('');
   const scrollRef = useRef<ScrollView>(null);
 
+  const trainingStreak = useMemo(() => weeklyTrainingStreak(workoutSessions), [workoutSessions]);
+
   const openSetLog: ExerciseSetLog | null = useMemo(() => {
     if (setLogKey === null) {
       return null;
@@ -1308,10 +1311,15 @@ export function ProgressScreen({
             <SectionLabel
               label={t(language, 'pr.records')}
               right={
-                <Pressable onPress={() => switchSection('records')} hitSlop={8}>
+                <Pressable
+                  onPress={() => switchSection('records')}
+                  hitSlop={8}
+                  style={styles.recordsLinkRow}
+                >
                   <Text style={styles.recordsLink}>
                     {t(language, 'pr.allRecords', { count: recordCount })}
                   </Text>
+                  <ChevronRight color={theme.purple} />
                 </Pressable>
               }
             />
@@ -1345,6 +1353,24 @@ export function ProgressScreen({
           }
         />
         <View style={styles.card}>
+          {/* The streak the calendar is really about, above the grid it is
+              counted from. The current week never breaks it — see
+              weeklyTrainingStreak. */}
+          <View style={styles.streakRow}>
+            <View style={styles.streakValueLine}>
+              <Text style={styles.streakValue}>{trainingStreak}</Text>
+              {/* Finnish takes the nominative after one and the partitive
+                  after anything else: "1 viikko", "2 viikkoa". */}
+              <Text style={styles.streakLabel}>
+                {t(language, trainingStreak === 1 ? 'cal.streakOne' : 'cal.streak')}
+              </Text>
+            </View>
+            <Text style={styles.streakCount}>
+              {monthStats.sessions === 1
+                ? t(language, 'cal.monthSessionsOne')
+                : t(language, 'cal.monthSessions', { count: monthStats.sessions })}
+            </Text>
+          </View>
           <View style={styles.calendarWeekdayRow}>
             {PROGRESS_WEEKDAY_KEYS.map((weekdayKey, index) => (
               <Text key={`${weekdayKey}:${index}`} style={styles.calendarWeekday}>
@@ -1747,6 +1773,14 @@ export function ProgressScreen({
         language={language}
         locked={isSetLogLocked(proUnlocked)}
         onClose={() => setSetLogKey(null)}
+        onStartWorkout={
+          onStartWorkout
+            ? () => {
+                setSetLogKey(null);
+                onStartWorkout();
+              }
+            : undefined
+        }
         onOpenPro={() => {
           setSetLogKey(null);
           onOpenPremium?.();
@@ -1908,6 +1942,41 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 6,
     paddingBottom: layout.bottomTabBarReserve,
+  },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginBottom: 13,
+  },
+  streakValueLine: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 7,
+  },
+  streakValue: {
+    color: theme.ink,
+    fontSize: 24,
+    lineHeight: 26,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  streakLabel: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  streakCount: {
+    color: theme.purple,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  recordsLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   recordsLink: {
     color: theme.purple,

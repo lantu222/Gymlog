@@ -21,19 +21,21 @@ const MONTH_LABELS: Record<AppLanguage, string[]> = {
     'November',
     'December',
   ],
+  // Lowercase, because Finnish writes month names lowercase even as a
+  // heading. These read under Finnish labels on Home and in the calendar.
   fi: [
-    'Tammikuu',
-    'Helmikuu',
-    'Maaliskuu',
-    'Huhtikuu',
-    'Toukokuu',
-    'Kesäkuu',
-    'Heinäkuu',
-    'Elokuu',
-    'Syyskuu',
-    'Lokakuu',
-    'Marraskuu',
-    'Joulukuu',
+    'tammikuu',
+    'helmikuu',
+    'maaliskuu',
+    'huhtikuu',
+    'toukokuu',
+    'kesäkuu',
+    'heinäkuu',
+    'elokuu',
+    'syyskuu',
+    'lokakuu',
+    'marraskuu',
+    'joulukuu',
   ],
 };
 // Month grid runs Monday-first to match weekdayIndex (0 = Monday) elsewhere.

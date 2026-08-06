@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { t } from '../lib/i18n';
+import { I18nKey, t } from '../lib/i18n';
 import {
   buildTrainingCalendar,
   summarizeTrainingMonth,
@@ -50,12 +50,31 @@ function formatVolume(kg: number, language: AppLanguage) {
   return `${Math.round(kg)} kg`;
 }
 
-/** "6. elokuu 2026" — the month label already carries the year and language. */
-function formatSelectedDay(day: TrainingCalendarDay | null, monthLabel: string) {
+/** "15.7.2026 · keskiviikko" — the date, then the day it fell on. */
+const FULL_WEEKDAY_KEYS: I18nKey[] = [
+  'cal.day.sun',
+  'cal.day.mon',
+  'cal.day.tue',
+  'cal.day.wed',
+  'cal.day.thu',
+  'cal.day.fri',
+  'cal.day.sat',
+];
+
+function formatSelectedDay(
+  day: TrainingCalendarDay | null,
+  monthLabel: string,
+  language: AppLanguage,
+) {
   if (!day) {
     return monthLabel;
   }
-  return `${day.dayOfMonth}. ${monthLabel}`;
+  const date = new Date(day.dayStart);
+  const stamp =
+    language === 'fi'
+      ? `${date.getDate()}.${date.getMonth() + 1}.${date.getFullYear()}`
+      : `${date.getDate()}/${date.getMonth() + 1}/${date.getFullYear()}`;
+  return `${stamp} · ${t(language, FULL_WEEKDAY_KEYS[date.getDay()])}`;
 }
 
 export function TrainingCalendarScreen({
@@ -151,7 +170,7 @@ export function TrainingCalendarScreen({
           <View style={styles.weekdayRow}>
             {calendar.weekdayLabels.map((label, index) => (
               <Text key={index} style={styles.weekdayLabel}>
-                {label}
+                {label.toLowerCase()}
               </Text>
             ))}
           </View>
@@ -204,7 +223,7 @@ export function TrainingCalendarScreen({
               {/* The day, not the month: the month is already the header two
                   inches above, and this card is about one square in it. */}
               <Text style={styles.sectionLabel}>
-                {formatSelectedDay(selected, calendar.monthLabel).toUpperCase()}
+                {formatSelectedDay(selected, calendar.monthLabel, language).toUpperCase()}
               </Text>
               <Pressable onPress={() => onOpenSession(detail.sessionId)} hitSlop={8}>
                 <Text style={styles.link}>{t(language, 'cal.openSession')}</Text>
@@ -390,6 +409,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   daySelected: {
     backgroundColor: '#5B21B6',
+    // A halo, so the selected day reads as selected next to the trained days
+    // it shares a colour family with.
+    borderWidth: 3,
+    borderColor: 'rgba(124, 58, 237, 0.22)',
   },
   dayToday: {
     backgroundColor: '#EFE7FF',

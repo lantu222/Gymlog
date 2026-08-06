@@ -56,8 +56,9 @@ module.exports = [
   {
     name: 'the month label follows the app language',
     run() {
-      assert.equal(getHomeMonthCalendar(JAN_31, 'fi', 0).monthLabel, 'Tammikuu 2026');
-      assert.equal(getHomeMonthCalendar(JAN_31, 'fi', 1).monthLabel, 'Helmikuu 2026');
+      // Lowercase: Finnish writes month names lowercase, headings included.
+      assert.equal(getHomeMonthCalendar(JAN_31, 'fi', 0).monthLabel, 'tammikuu 2026');
+      assert.equal(getHomeMonthCalendar(JAN_31, 'fi', 1).monthLabel, 'helmikuu 2026');
     },
   },
 ];

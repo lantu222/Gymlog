@@ -32,8 +32,8 @@ interface SetLogSheetProps {
   locked: boolean;
   onClose: () => void;
   onOpenPro: () => void;
-  /** Adds the lift to the workout being built, from the empty state. */
-  onAddToWorkout?: (key: string) => void;
+  /** The empty state's way out: there is nothing to read until you log one. */
+  onStartWorkout?: () => void;
 }
 
 function decimal(value: number, language: AppLanguage) {
@@ -181,7 +181,7 @@ export function SetLogSheet({
   locked,
   onClose,
   onOpenPro,
-  onAddToWorkout,
+  onStartWorkout,
 }: SetLogSheetProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -292,10 +292,10 @@ export function SetLogSheet({
             </View>
             <Text style={styles.emptyTitle}>{t(language, 'setlog.empty.title')}</Text>
             <Text style={styles.emptyBody}>{t(language, 'setlog.empty.body')}</Text>
-            {onAddToWorkout ? (
+            {onStartWorkout ? (
               <Pressable
                 accessibilityRole="button"
-                onPress={() => onAddToWorkout(log.key)}
+                onPress={onStartWorkout}
                 style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
               >
                 <Text style={styles.ctaText}>{t(language, 'setlog.empty.cta')}</Text>

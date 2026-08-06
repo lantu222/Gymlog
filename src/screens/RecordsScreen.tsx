@@ -506,7 +506,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   emptyIcon: {
     width: 62,
     height: 62,
-    borderRadius: 20,
+    borderRadius: 31,
     backgroundColor: '#EFE7FF',
     alignItems: 'center',
     justifyContent: 'center',
