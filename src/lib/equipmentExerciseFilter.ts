@@ -63,6 +63,14 @@ const EQUIPMENT_RULES: EquipmentRule[] = [
 ];
 
 /**
+ * Exposed so the program screen can read this table FORWARDS.
+ *
+ * It exists to swap exercises the reader cannot do; the same rules answer
+ * "what does this program need" without a second table to keep in sync.
+ */
+export const EQUIPMENT_RULES_FOR_DISPLAY: readonly EquipmentRule[] = EQUIPMENT_RULES;
+
+/**
  * Fallbacks tried in order; the first candidate the gear allows wins.
  *
  * Every name here must be a real catalog exercise — a swap that lands on a

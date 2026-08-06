@@ -9,6 +9,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
+import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { Theme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
@@ -91,6 +92,17 @@ interface ProgramDetailScreenProps {
   audience?: string | null;
   /** Training days the reader's own week has, when the setup says. */
   availableDays?: number | null;
+  /** Gear the program needs, derived from its exercises. */
+  equipment?: string[];
+  /** Gear the reader has; null when the setup never said. */
+  availableEquipment?: string[] | null;
+  /**
+   * Why this program, relative to the one being run.
+   *
+   * The reason was computed for the browse row and stopped there — the screen
+   * with room to explain it never received it.
+   */
+  fitReason?: string | null;
   activePlanSummary?: {
     weekLabel: string;
     progressPercent: number;
@@ -209,6 +221,9 @@ export function ProgramDetailScreen({
   progressionRules = null,
   audience = null,
   availableDays = null,
+  equipment = [],
+  availableEquipment = null,
+  fitReason = null,
   destructiveActionLabel,
   destructiveActionTitle,
   destructiveActionMessage,
@@ -224,6 +239,10 @@ export function ProgramDetailScreen({
    * room for it. Only shown when the setup actually says how many days the
    * reader has — guessing would turn a real warning into noise.
    */
+  const missingGear = useMemo(
+    () => missingEquipment(equipment as never, availableEquipment),
+    [availableEquipment, equipment],
+  );
   const daysWarning =
     availableDays != null && availableDays > 0 && program.sessions.length > availableDays
       ? t(language, 'detail.daysWarning', {
@@ -379,6 +398,21 @@ export function ProgramDetailScreen({
             </Text>
           </View>
         </View>
+
+        {fitReason ? (
+          <View style={styles.reasonCard}>
+            <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M12 3l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 15.4 7.2 17.9l.9-5.4L4.2 8.7l5.4-.8z"
+                stroke={PLAN_PURPLE}
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+            <Text style={styles.reasonText}>{fitReason}</Text>
+          </View>
+        ) : null}
 
         {program.description ? (
           <Text style={styles.leadCopy}>{program.description}</Text>
@@ -571,6 +605,48 @@ export function ProgramDetailScreen({
           </>
         ) : null}
 
+        {equipment.length > 0 ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{t(language, 'detail.equipment')}</Text>
+            </View>
+            {/* Derived from the program's own exercises, not from a sentence
+                someone wrote. The chips are the names the setup already
+                stores, so the two lists compare directly. */}
+            <View style={styles.chipWrap}>
+              {equipment.map((chip) => (
+                <View key={chip} style={styles.equipChip}>
+                  <Text style={styles.equipChipText}>
+                    {t(language, EQUIPMENT_CHIP_KEYS[chip] ?? 'detail.equipment')}
+                  </Text>
+                </View>
+              ))}
+            </View>
+            {availableEquipment !== null ? (
+              <View style={[styles.gymNote, missingGear.length === 0 && styles.gymNoteOk]}>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d={missingGear.length === 0 ? 'M4 12.5l5 5 11-11' : 'M12 4l9 16H3z M12 10v4M12 17v.01'}
+                    stroke={missingGear.length === 0 ? PLAN_GREEN : '#D97706'}
+                    strokeWidth={2.3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+                <Text style={[styles.gymNoteText, missingGear.length === 0 && styles.gymNoteTextOk]}>
+                  {missingGear.length === 0
+                    ? t(language, 'detail.equipmentOk')
+                    : t(language, 'detail.equipmentMissing', {
+                        items: missingGear
+                          .map((chip) => t(language, EQUIPMENT_CHIP_KEYS[chip] ?? 'detail.equipment'))
+                          .join(', '),
+                      })}
+                </Text>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
         {hasDestructiveAction ? (
           <Pressable onPress={() => setConfirmVisible(true)} style={styles.destructiveButton}>
             <Text style={styles.destructiveButtonText}>{destructiveActionLabel}</Text>
@@ -738,6 +814,70 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   rhythmDayLabelOn: {
     color: '#FFFFFF',
+  },
+  reasonCard: {
+    flexDirection: 'row',
+    gap: 9,
+    alignItems: 'flex-start',
+    marginTop: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E7DBFC',
+    backgroundColor: '#F4EFFE',
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+  },
+  reasonText: {
+    flex: 1,
+    color: '#5C5370',
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  chipWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  equipChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#EFEAFB',
+    backgroundColor: PLAN_SURFACE,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  equipChipText: {
+    color: '#3F3A4B',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  gymNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: '#F3E4CF',
+    backgroundColor: '#FFFBF3',
+    paddingHorizontal: 13,
+    paddingVertical: 12,
+  },
+  gymNoteOk: {
+    borderColor: '#CFEEDA',
+    backgroundColor: '#F0FBF3',
+  },
+  gymNoteText: {
+    flex: 1,
+    color: '#8A5C22',
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  gymNoteTextOk: {
+    color: '#276B41',
   },
   ruleCard: {
     borderRadius: radii.lg,

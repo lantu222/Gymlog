@@ -13,7 +13,8 @@ import Svg, { Circle, Path } from 'react-native-svg';
 
 import { VinhaIcon, VinhaIconName } from './VinhaIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
-import { t } from '../lib/i18n';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage, ExerciseBodyPart, ExerciseLibraryItem } from '../types/models';
@@ -43,7 +44,41 @@ function buildSearchHaystack(item: ExerciseLibraryItem) {
     .toLowerCase();
 }
 
-function formatFilterLabel(raw: string) {
+/**
+ * The library's own vocabulary, translated.
+ *
+ * Body parts, equipment and categories were title-cased straight from the
+ * data — "Back", "Biceps", "Bodyweight" — so every filter chip and every card
+ * subtitle in the library was English regardless of the app's language. There
+ * are only eighteen of them.
+ */
+const LIBRARY_LABEL_KEYS: Record<string, I18nKey> = {
+  all: 'lib.bodyPart.all',
+  back: 'lib.bodyPart.back',
+  biceps: 'lib.bodyPart.biceps',
+  chest: 'lib.bodyPart.chest',
+  core: 'lib.bodyPart.core',
+  'full body': 'lib.bodyPart.fullBody',
+  glutes: 'lib.bodyPart.glutes',
+  legs: 'lib.bodyPart.legs',
+  shoulders: 'lib.bodyPart.shoulders',
+  triceps: 'lib.bodyPart.triceps',
+  barbell: 'lib.equipment.barbell',
+  bodyweight: 'lib.equipment.bodyweight',
+  cable: 'lib.equipment.cable',
+  dumbbell: 'lib.equipment.dumbbell',
+  machine: 'lib.equipment.machine',
+  cardio: 'lib.category.cardio',
+  compound: 'lib.category.compound',
+  isolation: 'lib.category.isolation',
+};
+
+function formatFilterLabel(raw: string, language: AppLanguage = 'en') {
+  const key = LIBRARY_LABEL_KEYS[raw.toLowerCase()];
+  if (key) {
+    return t(language, key);
+  }
+  // Anything the data adds later reads as itself rather than as nothing.
   return raw
     .split(/[_\s/()-]+/)
     .filter(Boolean)
@@ -51,14 +86,8 @@ function formatFilterLabel(raw: string) {
     .join(' ');
 }
 
-function formatCompactBodyPartLabel(raw: string) {
-  if (raw === 'all') {
-    return 'All';
-  }
-  if (raw === 'full body') {
-    return 'Full body';
-  }
-  return formatFilterLabel(raw);
+function formatCompactBodyPartLabel(raw: string, language: AppLanguage = 'en') {
+  return formatFilterLabel(raw, language);
 }
 
 function getBodyPartIcon(bodyPart: ExerciseBodyPart | 'all'): VinhaIconName {
@@ -258,12 +287,14 @@ function FavoriteStar({ active, onPress, framed }: { active: boolean; onPress?: 
 function ExCard({
   item,
   tracked,
+  language,
   onOpen,
   onAdd,
   onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
   tracked: boolean;
+  language: AppLanguage;
   onOpen: () => void;
   onAdd?: () => void;
   onToggleFavorite?: () => void;
@@ -280,11 +311,11 @@ function ExCard({
       </View>
       <View style={styles.cardBody}>
         <Text numberOfLines={2} style={styles.cardTitle}>
-          {item.name}
+          {exerciseNameLabel(language, item.name)}
         </Text>
         <View style={styles.cardFooter}>
           <Text numberOfLines={1} style={styles.cardMeta}>
-            {formatFilterLabel(item.bodyPart)}
+            {formatFilterLabel(item.bodyPart, language)}
           </Text>
           <AddButton onPress={onAdd} />
         </View>
@@ -296,12 +327,14 @@ function ExCard({
 function ExRow({
   item,
   tracked,
+  language,
   onOpen,
   onAdd,
   onToggleFavorite,
 }: {
   item: ExerciseLibraryItem;
   tracked: boolean;
+  language: AppLanguage;
   onOpen: () => void;
   onAdd?: () => void;
   onToggleFavorite?: () => void;
@@ -313,10 +346,11 @@ function ExRow({
       <Thumb uri={getItemImage(item)} radius={11} width={52} height={52} />
       <View style={styles.rowCopy}>
         <Text numberOfLines={1} style={styles.rowTitle}>
-          {item.name}
+          {exerciseNameLabel(language, item.name)}
         </Text>
         <Text numberOfLines={1} style={styles.rowMeta}>
-          {formatFilterLabel(item.bodyPart)} · {formatFilterLabel(item.equipment)} · {formatFilterLabel(item.category)}
+          {formatFilterLabel(item.bodyPart, language)} · {formatFilterLabel(item.equipment, language)} ·{' '}
+          {formatFilterLabel(item.category, language)}
         </Text>
       </View>
       <FavoriteStar active={tracked} onPress={onToggleFavorite} />
@@ -439,7 +473,7 @@ export function ExerciseLibraryBrowser({
     : search.trim().length
       ? 'RESULTS'
       : bodyPartFilter !== 'all'
-        ? formatCompactBodyPartLabel(bodyPartFilter).toUpperCase()
+        ? formatCompactBodyPartLabel(bodyPartFilter, language).toUpperCase()
         : 'RESULTS';
 
   function handleOpen(item: ExerciseLibraryItem) {
@@ -467,7 +501,7 @@ export function ExerciseLibraryBrowser({
         contentContainerStyle={styles.rail}
       >
         {sectionItems.map((item) => (
-          <ExCard
+          <ExCard language={language}
             key={item.id}
             item={item}
             tracked={trackedSet.has(item.id)}
@@ -543,7 +577,7 @@ export function ExerciseLibraryBrowser({
                   >
                     <CategoryIcon option={option} color={selected ? '#FFFFFF' : theme.muted} />
                     <Text style={[styles.categoryChipText, selected && styles.categoryChipTextActive]}>
-                      {formatCompactBodyPartLabel(option)}
+                      {formatCompactBodyPartLabel(option, language)}
                     </Text>
                   </Pressable>
                 );
@@ -566,7 +600,7 @@ export function ExerciseLibraryBrowser({
                         style={[styles.filterChip, selected && styles.filterChipSelected]}
                       >
                         <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
-                          {option === 'all' ? 'All' : formatFilterLabel(option)}
+                          {formatFilterLabel(option, language)}
                         </Text>
                       </Pressable>
                     );
@@ -584,7 +618,7 @@ export function ExerciseLibraryBrowser({
                         style={[styles.filterChip, selected && styles.filterChipSelected]}
                       >
                         <Text style={[styles.filterChipText, selected && styles.filterChipTextSelected]}>
-                          {option === 'all' ? 'All' : formatFilterLabel(option)}
+                          {formatFilterLabel(option, language)}
                         </Text>
                       </Pressable>
                     );
@@ -637,7 +671,7 @@ export function ExerciseLibraryBrowser({
           </View>
         }
         renderItem={({ item }) => (
-          <ExRow
+          <ExRow language={language}
             item={item}
             tracked={trackedSet.has(item.id)}
             onOpen={() => handleOpen(item)}

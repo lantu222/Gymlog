@@ -116,6 +116,7 @@ import {
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
+import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
@@ -3772,6 +3773,35 @@ function VinhaApp() {
         }
         availableDays={
           preferences.setupAvailableDays.length > 0 ? preferences.setupAvailableDays.length : null
+        }
+        equipment={
+          readyTemplate
+            ? resolveProgramEquipment(
+                readyTemplate.sessions.flatMap((session) =>
+                  session.exercises.map((exercise) => exercise.exerciseName),
+                ),
+              )
+            : []
+        }
+        availableEquipment={availableEquipmentForDrills}
+        fitReason={
+          // Why this program, relative to the one being run. The reason was
+          // computed for the browse row and stopped there; the screen with
+          // room to explain it never received it.
+          readyTemplate && homeActivePlanCard?.programId
+            ? (() => {
+                const match = resolveProgramAffinity(
+                  workout.templates.find((entry) => entry.id === homeActivePlanCard.programId),
+                  workout.templates,
+                  8,
+                ).find((entry) => entry.templateId === readyTemplate.id);
+                return match
+                  ? t(preferences.appLanguage, AFFINITY_REASON_KEYS[match.reason], {
+                      days: readyTemplate.daysPerWeek,
+                    })
+                  : null;
+              })()
+            : null
         }
         activePlanSummary={
           homeActivePlanCard?.programId === route.workoutTemplateId && homeActivePlanCard.programType === route.programType
