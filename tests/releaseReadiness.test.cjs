@@ -114,6 +114,37 @@ module.exports = [
     },
   },
   {
+    name: 'release: the 7-day trial is back on before the app ships',
+    run() {
+      // The trial was switched off on purpose (2026-08-06) so the free tier
+      // could be walked end to end — with it on, every new account is a Pro
+      // account for a week and nobody ever sees a lock.
+      //
+      // Shipping it that way would mean selling something no new user has
+      // felt. Like the guard above, this one stays green on the demo and turns
+      // red at exactly the release step: flip extra.demoBuild to false and
+      // this names the switch that was left off.
+      const entitlement = read('src/lib/proEntitlement.ts');
+      const trialEnabled = /export const PRO_TRIAL_ENABLED = true;/.test(entitlement);
+      const demoBuild = readJson('app.json')?.expo?.extra?.demoBuild === true;
+
+      assert.ok(
+        trialEnabled || demoBuild,
+        'PRO_TRIAL_ENABLED is false and app.json no longer declares extra.demoBuild. ' +
+          'The trial was switched off to inspect the free tier; turn it back on before release.',
+      );
+
+      // And while it is off, the paywall must not still promise it.
+      if (!trialEnabled) {
+        assert.match(
+          read('src/screens/ProPaywallScreen.tsx'),
+          /trial \? 'paywall\.cta' : 'paywall\.cta\.noTrial'/,
+          'The trial is off but the paywall CTA does not switch copy, so it promises a week it will not grant.',
+        );
+      }
+    },
+  },
+  {
     name: 'release: nothing that needs a server ships pretending it has one',
     run() {
       // Two placeholders are allowed to exist while this is a demo, and both

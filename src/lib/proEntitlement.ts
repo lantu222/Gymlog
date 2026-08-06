@@ -73,7 +73,30 @@ export function resolveProgressionOptions(
  */
 export const PRO_TRIAL_DAYS = 7;
 
-export function resolveTrialProUntil(now: Date = new Date()): string {
+/**
+ * OFF, deliberately and temporarily.
+ *
+ * The trial made every new account a Pro account for its first week, which is
+ * the correct thing to ship — you cannot sell what nobody has felt — but it
+ * also meant nobody could see the free tier. Not the team, not the designer,
+ * not the person deciding whether the locks land where they should. So it is
+ * switched off while the free tier is walked end to end.
+ *
+ * It goes back on before release. `tests/releaseReadiness` fails the moment
+ * app.json stops declaring extra.demoBuild while this is still false, so the
+ * switch cannot reach a store by being forgotten.
+ *
+ * Turning it off is not enough on its own: the paywall's CTA says "Start 7
+ * days free", and a button that grants nothing while promising a week is worse
+ * than no button. ProPaywallScreen reads this flag and sells the year instead.
+ */
+export const PRO_TRIAL_ENABLED = false;
+
+/** The date Pro should run until, or null when the trial is switched off. */
+export function resolveTrialProUntil(now: Date = new Date()): string | null {
+  if (!PRO_TRIAL_ENABLED) {
+    return null;
+  }
   const until = new Date(now.getTime());
   until.setDate(until.getDate() + PRO_TRIAL_DAYS);
   return until.toISOString();

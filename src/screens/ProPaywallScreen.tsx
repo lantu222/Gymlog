@@ -4,6 +4,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, G, Path, Rect, 
 
 import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
 import { isDemoBuild } from '../lib/demoMode';
+import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
 import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 
@@ -104,6 +105,9 @@ export function ProPaywallScreen({
 }: ProPaywallScreenProps) {
   const [plan, setPlan] = useState<'year' | 'month'>('year');
   const showStats = isDemoBuild();
+  // The trial is switched off while the free tier is being walked. A CTA that
+  // still said "Start 7 days free" would grant nothing and promise a week.
+  const trial = PRO_TRIAL_ENABLED;
 
   const benefits: Array<[PwIconName, string, string]> = [
     ['trend', t(language, 'paywall.benefit.plateau.t'), t(language, 'paywall.benefit.plateau.b')],
@@ -366,16 +370,20 @@ export function ProPaywallScreen({
         </Svg>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t(language, 'paywall.cta')}
+          accessibilityLabel={t(language, trial ? 'paywall.cta' : 'paywall.cta.noTrial')}
           disabled={busy}
           onPress={onStartTrial}
           style={({ pressed }) => [styles.cta, pressed && styles.pressed, busy && styles.ctaBusy]}
         >
-          <Text style={styles.ctaText}>{t(language, 'paywall.cta')}</Text>
+          <Text style={styles.ctaText}>
+            {t(language, trial ? 'paywall.cta' : 'paywall.cta.noTrial')}
+          </Text>
           <PwIcon name="arrow" size={18} color="#FFFFFF" />
         </Pressable>
         <Text style={styles.ctaFoot}>
-          {t(language, plan === 'year' ? 'paywall.cta.footYear' : 'paywall.cta.footMonth')}
+          {trial
+            ? t(language, plan === 'year' ? 'paywall.cta.footYear' : 'paywall.cta.footMonth')
+            : t(language, plan === 'year' ? 'paywall.foot.noTrialYear' : 'paywall.foot.noTrialMonth')}
         </Text>
         <Pressable accessibilityRole="button" hitSlop={10} disabled={busy} onPress={onSkip} style={styles.later}>
           <Text style={styles.laterText}>{t(language, 'paywall.later')}</Text>

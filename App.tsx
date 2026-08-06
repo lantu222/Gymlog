@@ -2011,7 +2011,12 @@ function VinhaApp() {
     selection: FirstRunSetupSelection,
     recommendedProgramId: string,
   ) {
-    await updatePreferences({ promoProUntil: resolveTrialProUntil() });
+    // Null when the trial is switched off. Writing it would clear a promo the
+    // user might already be holding, so nothing is written at all.
+    const trialUntil = resolveTrialProUntil();
+    if (trialUntil !== null) {
+      await updatePreferences({ promoProUntil: trialUntil });
+    }
     await handleOnboardingCompleteToTraining(selection, recommendedProgramId);
   }
 
