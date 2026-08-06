@@ -118,6 +118,16 @@ export type AppRoute =
       screen: 'bodyweight';
     }
   | {
+      /** Your bests: the heaviest set, the most reps, the hardest session. */
+      tab: 'progress';
+      screen: 'records';
+    }
+  | {
+      /** The training month, and the day you tap in it. */
+      tab: 'progress';
+      screen: 'calendar';
+    }
+  | {
       tab: 'profile';
       screen: 'list';
     }

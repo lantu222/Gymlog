@@ -35,6 +35,8 @@ import {
   resolveTrendRange,
 } from '../lib/historyWindow';
 import { getProgressActivityDayStatus } from '../lib/progressActivity';
+import type { PersonalRecord } from '../lib/personalRecords';
+import { RecordRow } from './RecordsScreen';
 import {
   BodyweightProgressSummary,
   ExerciseProgressSummary,
@@ -86,6 +88,21 @@ interface ProgressScreenProps {
   unitPreference: UnitPreference;
   initialSection?: ProgressSection;
   selectedExerciseKey?: string;
+  /**
+   * The three most recent records, and how many there are in total.
+   *
+   * The overview shows the ones just set; the full list has its own screen,
+   * because three kinds of "best" do not fit a section.
+   */
+  topRecords?: PersonalRecord[];
+  recordCount?: number;
+  onOpenRecords?: () => void;
+  /**
+   * The training calendar. The month below this is plan ADHERENCE — done,
+   * missed, upcoming against the plan — which answers a different question
+   * from "when did I train and what did I do", so both exist.
+   */
+  onOpenCalendar?: () => void;
   showBodyweightDetail?: boolean;
   onAddBodyweight: (weightKg: number) => void;
   onAddMeasurement: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<void>;
@@ -577,13 +594,17 @@ function ArrowGlyph({ up, color }: { up: boolean; color: string }) {
 
 // ── shared light widgets ──
 
-function SectionLabel({ label, right }: { label: string; right?: string }) {
+function SectionLabel({ label, right }: { label: string; right?: React.ReactNode }) {
   const styles = useThemedStyles(makeStyles);
 
   return (
     <View style={styles.sectionHead}>
       <Text style={styles.sectionHeadLabel}>{label}</Text>
-      {right ? <Text style={styles.sectionHeadRight}>{right}</Text> : null}
+      {typeof right === 'string' ? (
+        <Text style={styles.sectionHeadRight}>{right}</Text>
+      ) : (
+        right ?? null
+      )}
     </View>
   );
 }
@@ -713,6 +734,10 @@ export function ProgressScreen({
   language = 'en',
   initialSection,
   selectedExerciseKey,
+  topRecords = [],
+  recordCount = 0,
+  onOpenRecords,
+  onOpenCalendar,
   showBodyweightDetail,
   onAddBodyweight,
   onAddMeasurement,
@@ -1251,7 +1276,38 @@ export function ProgressScreen({
           </View>
         </View>
 
-        <SectionLabel label={t(language, 'progress.section.activity')} right={calendarMonthLabel} />
+        {topRecords.length > 0 && onOpenRecords ? (
+          <>
+            <SectionLabel
+              label={t(language, 'pr.records')}
+              right={
+                <Pressable onPress={onOpenRecords} hitSlop={8}>
+                  <Text style={styles.recordsLink}>
+                    {t(language, 'pr.allRecords', { count: recordCount })}
+                  </Text>
+                </Pressable>
+              }
+            />
+            <View style={styles.recordsList}>
+              {topRecords.map((record) => (
+                <RecordRow key={`${record.key}-${record.kind}`} record={record} language={language} />
+              ))}
+            </View>
+          </>
+        ) : null}
+
+        <SectionLabel
+          label={t(language, 'progress.section.activity')}
+          right={
+            onOpenCalendar ? (
+              <Pressable onPress={onOpenCalendar} hitSlop={8}>
+                <Text style={styles.recordsLink}>{t(language, 'cal.open')}</Text>
+              </Pressable>
+            ) : (
+              calendarMonthLabel
+            )
+          }
+        />
         <View style={styles.card}>
           <View style={styles.calendarWeekdayRow}>
             {PROGRESS_WEEKDAY_KEYS.map((weekdayKey, index) => (
@@ -1777,6 +1833,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 6,
     paddingBottom: layout.bottomTabBarReserve,
+  },
+  recordsLink: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  recordsList: {
+    gap: 9,
+    marginBottom: 4,
   },
   sectionHead: {
     flexDirection: 'row',

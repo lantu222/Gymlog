@@ -120,6 +120,10 @@ import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
+import { resolveRecords } from './src/lib/personalRecords';
+import { getComparableLogSets } from './src/lib/exerciseLog';
+import { RecordsScreen } from './src/screens/RecordsScreen';
+import { TrainingCalendarScreen } from './src/screens/TrainingCalendarScreen';
 import { removeStrengthGoal, resolveGoalProgress, upsertStrengthGoal } from './src/lib/strengthGoals';
 import {
   countByCategory,
@@ -497,7 +501,13 @@ function getBackRoute(route: AppRoute): AppRoute | null {
     return WORKOUT_PLAN_ROUTE;
   }
 
-  if (route.tab === 'progress' && (route.screen === 'detail' || route.screen === 'bodyweight')) {
+  if (
+    route.tab === 'progress' &&
+    (route.screen === 'detail' ||
+      route.screen === 'bodyweight' ||
+      route.screen === 'records' ||
+      route.screen === 'calendar')
+  ) {
     return ROOT_ROUTES.progress;
   }
 
@@ -3275,6 +3285,39 @@ function VinhaApp() {
    * Every count is read off the same catalog the tiles filter, so a slide
    * cannot advertise a season that has nothing in it.
    */
+  /**
+   * Your bests, from the tracked lifts' own logs.
+   *
+   * Built through getComparableLogSets so the records agree with every other
+   * number the app derives from a set — a second reader would drift the first
+   * time the legacy shape came up.
+   */
+  const recordSources = useMemo(
+    () => {
+      const bodyPartByName = new Map(
+        exerciseBrowserItems.map((item) => [item.name.trim().toLowerCase(), item.bodyPart]),
+      );
+      return trackedProgress.map((summary) => ({
+        key: summary.key,
+        name: summary.name,
+        bodyPart: bodyPartByName.get(summary.name.trim().toLowerCase()) ?? null,
+        entries: summary.logs.map((log) => ({
+          performedAt: log.performedAt,
+          sets: getComparableLogSets(log).map((set) => ({ weight: set.weight, reps: set.reps })),
+        })),
+      }));
+    },
+    [exerciseBrowserItems, trackedProgress],
+  );
+  const personalRecords = useMemo(
+    () => ({
+      weight: resolveRecords(recordSources, 'weight'),
+      reps: resolveRecords(recordSources, 'reps'),
+      volume: resolveRecords(recordSources, 'volume'),
+    }),
+    [recordSources],
+  );
+
   const programsSeasonTileCounts = useMemo(
     () => ({
       winter: getSeasonProgramIds('winter').length,
@@ -4027,9 +4070,74 @@ function VinhaApp() {
         }}
       />
     );
+  } else if (route.tab === 'progress' && route.screen === 'records') {
+    content = (
+      <RecordsScreen
+        language={preferences.appLanguage}
+        records={personalRecords}
+        onBack={() => navigateBack(ROOT_ROUTES.progress)}
+        onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
+        onOpenExercise={(exerciseKey) => navigate({ tab: 'progress', screen: 'detail', exerciseKey })}
+      />
+    );
+  } else if (route.tab === 'progress' && route.screen === 'calendar') {
+    content = (
+      <TrainingCalendarScreen
+        language={preferences.appLanguage}
+        sessions={workoutSessions}
+        resolveDay={(sessionIds) => {
+          // The day's own record, from what the session stored. Two sessions
+          // on one date is real, and the first one is what the card shows.
+          const session = workoutSessions.find((entry) => entry.id === sessionIds[0]);
+          if (!session) {
+            return null;
+          }
+          const logs = getSessionLogs(session.id).filter((log) => !log.skipped);
+          let topLift: { name: string; weightKg: number; reps: number } | null = null;
+          for (const log of logs) {
+            for (const set of getComparableLogSets(log)) {
+              if (set.weight > 0 && (topLift === null || set.weight > topLift.weightKg)) {
+                topLift = {
+                  name: exerciseNameLabel(preferences.appLanguage, log.exerciseNameSnapshot),
+                  weightKg: set.weight,
+                  reps: set.reps,
+                };
+              }
+            }
+          }
+          return {
+            sessionId: session.id,
+            title: localizeSessionName(
+              formatWorkoutDisplayLabel(session.workoutNameSnapshot),
+              preferences.appLanguage,
+            ),
+            durationMinutes: session.durationMinutes ?? null,
+            exercises: session.exercisesCompleted ?? logs.length,
+            sets: session.setsCompleted ?? 0,
+            volumeKg: session.totalVolumeKg ?? 0,
+            topLift,
+            swaps: session.exercisesSwapped ?? 0,
+            note: session.sessionNotes?.trim() ? session.sessionNotes.trim() : null,
+          };
+        }}
+        onBack={() => navigateBack(ROOT_ROUTES.progress)}
+        onOpenSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
+        onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
+      />
+    );
   } else if (route.tab === 'progress') {
     content = (
         <ProgressScreen
+          topRecords={personalRecords.weight.slice(0, 3)}
+          recordCount={
+            new Set([
+              ...personalRecords.weight.map((record) => record.key),
+              ...personalRecords.reps.map((record) => record.key),
+              ...personalRecords.volume.map((record) => record.key),
+            ]).size
+          }
+          onOpenRecords={() => navigate({ tab: 'progress', screen: 'records' })}
+          onOpenCalendar={() => navigate({ tab: 'progress', screen: 'calendar' })}
           summaries={trackedProgress}
           bodyweightProgress={bodyweightProgress}
           measurementEntries={measurementEntries}

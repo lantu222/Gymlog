@@ -265,6 +265,7 @@ const EN = {
 
   // ── Progress ───────────────────────────────────────────────────────────
   // ── Records, calendar, set log ────────────────────────────────────────
+  'common.next': 'Next',
   'pr.tab.summary': 'Summary',
   'pr.tab.records': 'Records',
   'pr.tab.exercises': 'Exercises',
@@ -2869,6 +2870,7 @@ const FI: Record<I18nKey, string> = {
   'health.synced.row.dob': 'Syntymäaika',
   'health.synced.editNote': 'Jokin pielessä? Voit muokata kaikkia näitä seuraavalla ruudulla.',
 
+  'common.next': 'Seuraava',
   'pr.tab.summary': 'Yhteenveto',
   'pr.tab.records': 'Ennätykset',
   'pr.tab.exercises': 'Liikkeet',
