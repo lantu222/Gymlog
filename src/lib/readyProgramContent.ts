@@ -31,6 +31,329 @@ function buildFallbackReadyProgramContent(templateId: string): ReadyProgramConte
 }
 
 const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
+  // ── Vinha programs, written against what each one actually contains ──
+  tpl_gainer_dream_body_man_v1: {
+    summary:
+      'A five-day hypertrophy program designed to build a balanced, muscular physique through heavy compound lifts and targeted accessory work.',
+    audience:
+      'Designed for intermediate lifters who are comfortable with the main compound lifts and want to build muscle across the entire body.',
+    equipmentProfile:
+      'Requires access to a fully equipped gym with barbells, dumbbells, cable stations, and machines.',
+    whyItWorks:
+      'A combination of progressive overload, high-quality training volume, and balanced weekly frequency promotes consistent muscle growth and strength gains.',
+    sessionFocusById: {
+      day_1_chest_triceps: 'Anchored by Barbell Bench Press. 8 more exercises complete the day.',
+      day_2_back_biceps: 'Anchored by Weighted Pull-Up. 8 more exercises complete the day.',
+      day_3_legs: 'Anchored by Back Squat. 8 more exercises complete the day.',
+      day_4_shoulders_abs: 'Anchored by Standing Overhead Press. 8 more exercises complete the day.',
+      day_5_arms_weak_points: 'Anchored by Incline Dumbbell Curl. 8 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_beginner_bro_split_v1: {
+    summary:
+      'A classic four-day bodybuilding split where each major muscle group has its own training day, making workouts simple and easy to follow.',
+    audience:
+      'Built for beginners who want to learn the fundamentals of resistance training while building muscle with a structured routine.',
+    equipmentProfile:
+      'Requires standard gym equipment including barbells, dumbbells, cable stations, and resistance machines.',
+    whyItWorks:
+      'Training one muscle group at a time allows beginners to focus on technique while providing enough volume and recovery for steady progress.',
+    sessionFocusById: {
+      day_1_chest: 'Anchored by Barbell Bench Press. 6 more exercises complete the day.',
+      day_2_back: 'Anchored by Lat Pulldown. 6 more exercises complete the day.',
+      day_3_legs: 'Anchored by Back Squat. 6 more exercises complete the day.',
+      day_4_shoulders_arms: 'Anchored by Seated Dumbbell Press. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_advanced_ppl_v1: {
+    summary:
+      'An advanced six-day Push Pull Legs program featuring two weekly rotations to maximize muscle growth and overall performance.',
+    audience:
+      'Designed for advanced lifters who can recover from high training volume and want to maximize hypertrophy.',
+    equipmentProfile:
+      'Requires a fully equipped gym with free weights, cable stations, machines, and space for heavy compound lifts.',
+    whyItWorks:
+      'High weekly frequency, substantial training volume, and varied movement emphasis create a powerful stimulus for whole-body muscle growth.',
+    sessionFocusById: {
+      push_a_chest_focus: 'Anchored by Barbell Bench Press. 8 more exercises complete the day.',
+      pull_a_width_focus: 'Anchored by Deadlift. 8 more exercises complete the day.',
+      legs_a_quad_focus: 'Anchored by Back Squat. 8 more exercises complete the day.',
+      push_b_shoulder_focus: 'Anchored by Standing Overhead Press. 8 more exercises complete the day.',
+      pull_b_thickness_focus: 'Anchored by Pendlay Row. 8 more exercises complete the day.',
+      legs_b_posterior_focus: 'Anchored by Conventional Deadlift. 8 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_expert_powerbuilding_v1: {
+    summary:
+      'A powerbuilding program that combines competition-style powerlifting with bodybuilding-focused accessory training.',
+    audience:
+      'Built for experienced lifters who want to increase both maximal strength and muscular size.',
+    equipmentProfile:
+      'Requires a well-equipped gym with power racks, barbells, benches, and a full range of accessory equipment.',
+    whyItWorks:
+      'Heavy competition lifts build strength while targeted hypertrophy work increases muscle mass and supports long-term performance.',
+    sessionFocusById: {
+      bench_day: 'Anchored by Competition Bench Press. 7 more exercises complete the day.',
+      squat_day: 'Anchored by Competition Back Squat. 7 more exercises complete the day.',
+      pull_day: 'Anchored by Weighted Pull-Up. 7 more exercises complete the day.',
+      deadlift_day: 'Anchored by Competition Deadlift. 7 more exercises complete the day.',
+      press_hypertrophy_pump: 'Anchored by Standing Overhead Press. 8 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_lean_shred_v1: {
+    summary:
+      'A five-day program combining resistance training, HIIT, and full-body workouts to support fat loss while preserving muscle.',
+    audience:
+      'Designed for intermediate trainees looking to reduce body fat while maintaining strength and lean muscle mass.',
+    equipmentProfile:
+      'Requires access to a standard gym along with equipment suitable for high-intensity interval training.',
+    whyItWorks:
+      'Strength training helps preserve muscle while HIIT increases calorie expenditure and improves cardiovascular fitness.',
+    sessionFocusById: {
+      upper_push_hiit: 'Anchored by Barbell Bench Press. 7 more exercises complete the day.',
+      lower_hiit: 'Anchored by Back Squat. 7 more exercises complete the day.',
+      upper_pull_hiit: 'Anchored by Pull-Up. 7 more exercises complete the day.',
+      full_body_circuit: 'Anchored by Goblet Squat. 7 more exercises complete the day.',
+      hiit_cardio_core: 'Anchored by Hanging Leg Raise. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_dream_body_female_v1: {
+    summary:
+      'A five-day hypertrophy program focused on building strong glutes, sculpted legs, and a balanced upper body for a well-rounded physique.',
+    audience:
+      'Designed for intermediate lifters who want to prioritize glute and lower-body development while building upper-body strength and definition.',
+    equipmentProfile:
+      'Requires a fully equipped gym with barbells, dumbbells, cable stations, and resistance machines.',
+    whyItWorks:
+      'Frequent glute-focused training with varied loading stimulates muscle growth while maintaining balanced full-body development.',
+    sessionFocusById: {
+      glutes_hamstrings: 'Anchored by Hip Thrust. 7 more exercises complete the day.',
+      upper_body_sculpt: 'Anchored by Dumbbell Shoulder Press. 8 more exercises complete the day.',
+      quads_cardio: 'Anchored by Goblet Squat. 7 more exercises complete the day.',
+      back_core: 'Anchored by Cable Row. 8 more exercises complete the day.',
+      full_body_burn: 'Anchored by Hip Thrust. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_glute_foundations_v1: {
+    summary:
+      'A three-day beginner program that teaches proper glute activation and builds a strong foundation for long-term progress.',
+    audience:
+      'Ideal for beginners or those returning to training who want to improve glute strength, muscle growth, and exercise technique.',
+    equipmentProfile:
+      'Requires basic gym equipment along with resistance bands and light free weights.',
+    whyItWorks:
+      'The program progresses from activation to strength work, reinforcing proper movement patterns and effective glute engagement.',
+    sessionFocusById: {
+      glute_activation: 'Anchored by Banded Glute Bridge. 7 more exercises complete the day.',
+      lower_body_strength: 'Anchored by Goblet Squat. 6 more exercises complete the day.',
+      glute_hypertrophy: 'Anchored by Hip Thrust (Bodyweight or Light Bar). 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_advanced_glutes_v1: {
+    summary:
+      'An advanced five-day program using multiple training styles to maximize glute development and lower-body strength.',
+    audience:
+      'Designed for experienced lifters seeking maximum glute growth through higher training volume and varied exercise selection.',
+    equipmentProfile:
+      'Requires a fully equipped gym with free weights, cable stations, machines, and equipment for heavy hip thrusts.',
+    whyItWorks:
+      'Combining strength, volume, and pump-focused sessions creates a comprehensive stimulus for glute growth and performance.',
+    sessionFocusById: {
+      heavy_glutes_strength: 'Anchored by Barbell Hip Thrust. 6 more exercises complete the day.',
+      upper_body_sculpt: 'Anchored by Lat Pulldown. 7 more exercises complete the day.',
+      glute_volume_pump: 'Anchored by Banded Hip Thrust. 7 more exercises complete the day.',
+      quads_hamstrings: 'Anchored by Front Squat. 6 more exercises complete the day.',
+      glute_finisher: 'Anchored by Single-Leg Hip Thrust. 6 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_hourglass_shape_v1: {
+    summary:
+      'A four-day program emphasizing glutes, shoulders, and core to build a balanced and well-defined physique.',
+    audience:
+      'Designed for intermediate lifters looking to develop stronger glutes, broader shoulders, and improved core stability.',
+    equipmentProfile:
+      'Requires access to a standard gym with free weights, cable stations, and resistance machines.',
+    whyItWorks:
+      'Strategic training volume for the glutes and shoulders, combined with core work, supports balanced physique development.',
+    sessionFocusById: {
+      glutes_legs: 'Anchored by Barbell Hip Thrust. 6 more exercises complete the day.',
+      shoulders_back_width: 'Anchored by Dumbbell Shoulder Press. 7 more exercises complete the day.',
+      glutes_core: 'Anchored by Cable Pull-Through. 7 more exercises complete the day.',
+      upper_body_toning: 'Anchored by Incline Dumbbell Press. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_fat_burn_hiit_v1: {
+    summary:
+      'A four-day HIIT program combining full-body interval training to improve fitness and support fat loss.',
+    audience:
+      'Built for beginners who want to improve cardiovascular fitness, increase calorie burn, and learn effective interval training.',
+    equipmentProfile:
+      'Requires dumbbells and a kettlebell. The remaining exercises are done with bodyweight.',
+    whyItWorks:
+      'Short, high-intensity work intervals elevate heart rate efficiently while improving both aerobic and anaerobic fitness.',
+    sessionFocusById: {
+      upper_body_hiit: 'Anchored by Push-Up. 6 more exercises complete the day.',
+      lower_body_hiit: 'Anchored by Jump Squat. 6 more exercises complete the day.',
+      total_body_hiit: 'Anchored by Burpee. 7 more exercises complete the day.',
+      tabata_finisher: 'Anchored by Squat Jump (20s on / 10s off). 5 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_mobility_flow_v1: {
+    summary:
+      'A five-day mobility program designed to improve joint range of motion, reduce stiffness, and support recovery through daily movement.',
+    audience:
+      'Ideal for beginners and active individuals looking to improve mobility, reduce stiffness, and complement their regular training.',
+    equipmentProfile:
+      'No gym machines needed. A resistance band and an exercise mat are enough.',
+    whyItWorks:
+      'Consistent mobility work helps maintain joint function, improve movement quality, and reduce post-training stiffness.',
+    sessionFocusById: {
+      morning_mobility_full_body: 'Anchored by Cat-Cow. 7 more exercises complete the day.',
+      hip_opening_flow: 'Anchored by Pigeon Pose (each side). 7 more exercises complete the day.',
+      shoulder_mobility: 'Anchored by Wall Slide. 7 more exercises complete the day.',
+      spinal_flexibility: 'Anchored by Cat-Cow. 7 more exercises complete the day.',
+      deep_recovery_stretch: 'Anchored by Standing Forward Fold. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_at_home_beginner_v1: {
+    summary:
+      'A three-day full-body program that builds strength and muscular endurance using primarily bodyweight exercises at home.',
+    audience:
+      'Designed for beginners and home exercisers who want to start strength training without access to a gym.',
+    equipmentProfile:
+      'No equipment required. Every workout can be completed using bodyweight alone.',
+    whyItWorks:
+      'Fundamental movement patterns improve total-body strength, muscular endurance, and movement control without specialized equipment.',
+    sessionFocusById: {
+      upper_body_bodyweight: 'Anchored by Push-Up (or Knee Push-Up). 6 more exercises complete the day.',
+      lower_body_bodyweight: 'Anchored by Bodyweight Squat. 6 more exercises complete the day.',
+      full_body_circuit: 'Anchored by Burpee. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_calisthenics_mastery_v1: {
+    summary:
+      'An advanced calisthenics program focused on building strength, body control, and skills such as the muscle-up, handstand, and planche.',
+    audience:
+      'Designed for experienced athletes who have mastered the basics of bodyweight training and want to progress to advanced skills.',
+    equipmentProfile:
+      'Requires a pull-up bar, with gymnastics rings or similar equipment recommended for optimal progression.',
+    whyItWorks:
+      'Skill progressions combined with progressive bodyweight strength training develop strength, balance, and movement control simultaneously.',
+    sessionFocusById: {
+      push_handstand_planche_progressions: 'Anchored by Wall Handstand Hold. 7 more exercises complete the day.',
+      pull_muscle_up_front_lever: 'Anchored by Weighted Pull-Up. 7 more exercises complete the day.',
+      legs_pistol_squats_plyo: 'Anchored by Pistol Squat (each leg). 7 more exercises complete the day.',
+      skills_core: 'Anchored by Handstand Wall Walk. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_strength_5x5_v1: {
+    summary:
+      'A three-day 5x5 strength program centered around the major compound lifts and consistent progressive overload.',
+    audience:
+      'Perfect for beginners who want to build a solid strength foundation through simple and measurable progression.',
+    equipmentProfile:
+      'Requires a gym equipped with a barbell, weight plates, a squat rack, and a bench press station.',
+    whyItWorks:
+      'A small selection of compound lifts combined with straightforward progression promotes rapid technique improvements and steady strength gains.',
+    sessionFocusById: {
+      workout_a: 'Anchored by Back Squat. 4 more exercises complete the day.',
+      workout_b: 'Anchored by Back Squat. 4 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_athlete_conditioning_v1: {
+    summary:
+      'A five-day athletic performance program combining explosive power, speed, agility, and endurance training.',
+    audience:
+      'Designed for advanced trainees and athletes seeking to improve overall athletic performance rather than focusing solely on muscle growth.',
+    equipmentProfile:
+      'Requires a well-equipped gym along with space for sprinting, agility drills, and conditioning work.',
+    whyItWorks:
+      'Integrating strength, speed, and conditioning creates a well-rounded program that improves athletic performance across multiple physical qualities.',
+    sessionFocusById: {
+      explosive_lower: 'Anchored by Power Clean. 7 more exercises complete the day.',
+      athletic_upper: 'Anchored by Push Press. 7 more exercises complete the day.',
+      speed_agility: 'Anchored by Sprint 40m. 7 more exercises complete the day.',
+      strength_circuit: 'Anchored by Front Squat. 7 more exercises complete the day.',
+      endurance_conditioning: 'Anchored by Rowing Machine (500m intervals). 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_strong_lean_female_v1: {
+    summary:
+      'A four-day strength-focused program designed to build a strong, athletic physique through compound lifts and balanced hypertrophy training.',
+    audience:
+      'Designed for intermediate lifters who want to increase strength, build lean muscle, and improve full-body performance.',
+    equipmentProfile:
+      'Requires a standard gym with barbells, dumbbells, cable stations, and resistance machines.',
+    whyItWorks:
+      'Heavy compound lifts build strength while accessory exercises improve muscular balance and support long-term progress.',
+    sessionFocusById: {
+      upper_body_strength: 'Anchored by Barbell Bench Press. 7 more exercises complete the day.',
+      lower_body_strength: 'Anchored by Back Squat. 6 more exercises complete the day.',
+      push_core: 'Anchored by Incline Dumbbell Press. 7 more exercises complete the day.',
+      pull_conditioning: 'Anchored by Barbell Row. 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_joint_friendly_v1: {
+    summary:
+      'A three-day joint-friendly strength program that emphasizes controlled movements and safe resistance training.',
+    audience:
+      'Ideal for beginners, returning exercisers, or anyone looking to reduce joint stress while building strength.',
+    equipmentProfile:
+      'Primarily uses resistance machines along with light free weights for stable and controlled movement patterns.',
+    whyItWorks:
+      'Supported exercises reduce joint stress while improving strength, balance, and overall functional fitness.',
+    sessionFocusById: {
+      lower_body_supported: 'Anchored by Leg Press. 7 more exercises complete the day.',
+      upper_body_supported: 'Anchored by Machine Chest Press. 7 more exercises complete the day.',
+      full_body_balance: 'Anchored by Sit-to-Stand (Chair Squat). 8 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_prenatal_fitness_v1: {
+    summary:
+      'A three-day prenatal fitness program designed to support strength, mobility, and body control through safe exercise.',
+    audience:
+      'Designed for expectant mothers who have been cleared for exercise by a qualified healthcare professional.',
+    equipmentProfile:
+      'Requires dumbbells, a resistance band, an exercise mat, and gym equipment such as a cable station and a stationary bike.',
+    whyItWorks:
+      'Gentle strength work, mobility training, and pelvic floor awareness help maintain function and comfort throughout pregnancy.',
+    sessionFocusById: {
+      gentle_strength: 'Anchored by Goblet Squat (Light). 7 more exercises complete the day.',
+      mobility_pelvic_floor: 'Anchored by Cat-Cow. 7 more exercises complete the day.',
+      low_impact_cardio_stability: 'Anchored by Stationary Bike (Easy Pace). 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_postpartum_recovery_v1: {
+    summary:
+      'A three-day postpartum recovery program focused on rebuilding core function and gradually restoring full-body strength.',
+    audience:
+      'Designed for individuals returning to exercise after childbirth with approval from a healthcare professional.',
+    equipmentProfile:
+      'Requires light dumbbells, a resistance band, and open space for controlled movement.',
+    whyItWorks:
+      'The program progresses from breathing and core reconnection toward gradually rebuilding total-body strength.',
+    sessionFocusById: {
+      core_reconnection: 'Anchored by Diaphragmatic Breathing. 7 more exercises complete the day.',
+      gentle_full_body: 'Anchored by Bodyweight Squat. 7 more exercises complete the day.',
+      strength_rebuild: 'Anchored by Goblet Squat (Light). 7 more exercises complete the day.',
+    },
+  },
+  tpl_gainer_runners_strength_v1: {
+    summary:
+      'A three-day strength program for runners that develops lower-body power, stability, and core strength to support running performance.',
+    audience:
+      'Designed for intermediate runners who want to improve performance, reduce injury risk, and complement their running routine.',
+    equipmentProfile:
+      'Requires standard gym equipment including barbells, dumbbells, and space for mobility and stability exercises.',
+    whyItWorks:
+      'Single-leg strength, posterior chain development, and core training improve running efficiency while helping reduce injury risk.',
+    sessionFocusById: {
+      posterior_chain_power: 'Anchored by Romanian Deadlift. 7 more exercises complete the day.',
+      single_leg_stability: 'Anchored by Bulgarian Split Squat. 7 more exercises complete the day.',
+      core_mobility_for_runners: 'Anchored by Plank. 8 more exercises complete the day.',
+    },
+  },
+
   tpl_strong_elite_v1: {
     summary: 'A 12-week Pro strength block: five-set anchor lifts, heavy pressure days, and accessories that protect the next heavy session.',
     audience: 'Best for experienced lifters who recover well, know the main lifts cold, and want maximal strength as the clear priority.',

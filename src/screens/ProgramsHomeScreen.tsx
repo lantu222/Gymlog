@@ -1497,8 +1497,11 @@ export function ProgramsHomeScreen({
         icon={sheet?.kind === 'category' && sheetCategory ? sheetCategory.icon : LAYERS_MOTIF}
         items={sheetItems}
         onPick={(item) => {
+          // The row carries a chevron, which means "open". It opened the
+          // switch-confirm sheet instead — the same mismatch the Sinulle
+          // cards had, where a control promising detail produced a decision.
           setSheet(null);
-          setPicked(item);
+          onOpenExploreProgram(item.id);
         }}
       />
 

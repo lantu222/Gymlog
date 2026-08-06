@@ -58,4 +58,37 @@ module.exports = [
       assert.equal(localizeSessionName('Upper Body', 'fi'), 'Ylävartalo');
     },
   },
+  {
+    name: 'no session name is left half-English, which a same-string check misses',
+    run() {
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
+
+      // The obvious check — "did the string come back unchanged" — passes for
+      // "Morning Mobility (Full Body)" -> "Morning Mobility (Koko keho)",
+      // because the qualifier translated and the head did not. Fourteen names
+      // were sitting half-translated behind exactly that blind spot.
+      //
+      // Loanwords Finnish uses as-is are allowed; the rest must not survive.
+      const KEEP = new Set([
+        'hiit', 'tabata', 'emom', 'amrap', 'vinha', 'strong', 'huge', 'shred',
+        'fit', 'home', 'run', 'reset', 'powerbuild', 'focus', 'flow', 'plyo',
+        'planche', 'lever', 'muscle', 'muscle-up', 'front', 'day', 'ppl',
+      ]);
+
+      const leftovers = [];
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const session of template.sessions) {
+          const finnish = localizeSessionName(session.name, 'fi');
+          const source = new Set(session.name.toLowerCase().match(/[a-z-]{4,}/g) ?? []);
+          const survived = (finnish.toLowerCase().match(/[a-z-]{4,}/g) ?? []).filter(
+            (word) => source.has(word) && !KEEP.has(word),
+          );
+          if (survived.length > 0) {
+            leftovers.push(`${session.name} -> ${finnish}`);
+          }
+        }
+      }
+      assert.equal(leftovers.length, 0, `half-English: ${leftovers.slice(0, 5).join(' | ')}`);
+    },
+  },
 ];
