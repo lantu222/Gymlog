@@ -30,6 +30,7 @@ import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import {
   isMeasureRangeLocked,
+  isRecordLocked,
   isTrendRangeLocked,
   resolveMeasureRange,
   resolveTrendRange,
@@ -1289,9 +1290,18 @@ export function ProgressScreen({
               }
             />
             <View style={styles.recordsList}>
-              {topRecords.map((record) => (
-                <RecordRow key={`${record.key}-${record.kind}`} record={record} language={language} />
-              ))}
+              {topRecords.map((record) => {
+                const locked = isRecordLocked(record.performedAt, proUnlocked);
+                return (
+                  <RecordRow
+                    key={`${record.key}-${record.kind}`}
+                    record={record}
+                    language={language}
+                    locked={locked}
+                    onPress={locked ? onOpenPremium : undefined}
+                  />
+                );
+              })}
             </View>
           </>
         ) : null}

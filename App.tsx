@@ -4075,9 +4075,11 @@ function VinhaApp() {
       <RecordsScreen
         language={preferences.appLanguage}
         records={personalRecords}
+        proUnlocked={coachProUnlocked}
         onBack={() => navigateBack(ROOT_ROUTES.progress)}
         onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
         onOpenExercise={(exerciseKey) => navigate({ tab: 'progress', screen: 'detail', exerciseKey })}
+        onOpenPro={() => navigate({ tab: 'profile', screen: 'premium' })}
       />
     );
   } else if (route.tab === 'progress' && route.screen === 'calendar') {

@@ -50,6 +50,14 @@ function formatVolume(kg: number, language: AppLanguage) {
   return `${Math.round(kg)} kg`;
 }
 
+/** "6. elokuu 2026" — the month label already carries the year and language. */
+function formatSelectedDay(day: TrainingCalendarDay | null, monthLabel: string) {
+  if (!day) {
+    return monthLabel;
+  }
+  return `${day.dayOfMonth}. ${monthLabel}`;
+}
+
 export function TrainingCalendarScreen({
   language = 'en',
   sessions,
@@ -193,7 +201,11 @@ export function TrainingCalendarScreen({
         {detail ? (
           <View style={styles.daySection}>
             <View style={styles.dayHeadRow}>
-              <Text style={styles.sectionLabel}>{calendar.monthLabel.toUpperCase()}</Text>
+              {/* The day, not the month: the month is already the header two
+                  inches above, and this card is about one square in it. */}
+              <Text style={styles.sectionLabel}>
+                {formatSelectedDay(selected, calendar.monthLabel).toUpperCase()}
+              </Text>
               <Pressable onPress={() => onOpenSession(detail.sessionId)} hitSlop={8}>
                 <Text style={styles.link}>{t(language, 'cal.openSession')}</Text>
               </Pressable>

@@ -58,6 +58,7 @@ const suites = [
   ...require('./lib/programSlots.test.cjs'),
   ...require('./lib/programSeasons.test.cjs'),
   ...require('./lib/personalRecords.test.cjs'),
+  ...require('./lib/recordWindow.test.cjs'),
   ...require('./lib/programEquipment.test.cjs'),
   ...require('./lib/progressionRuleLabel.test.cjs'),
   ...require('./lib/programBrowse.test.cjs'),

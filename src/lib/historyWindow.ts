@@ -14,7 +14,7 @@
  *   every session in History       the 6-month trend
  *   every set on a lift            the all-time trend
  *   CSV export                     measures past a year
- *   personal records
+ *                                  records older than 3 months
  *
  * Capping the LOG would be the thing this app has spent its whole design
  * refusing to do, and the competitor who effectively did it — Strong's v6
@@ -60,4 +60,38 @@ export function resolveMeasureRange(
   proUnlocked: boolean,
 ): MeasureTrendRange {
   return isMeasureRangeLocked(range, proUnlocked) ? '3m' : range;
+}
+
+/**
+ * How far back your records read on the free tier.
+ *
+ * A record is by definition the best you have ever done, so a window on it is
+ * a sharper thing than a window on a chart: hide the older ones and the number
+ * left on screen is no longer your record, it is your best of the last three
+ * months, and the app would be stating it as the former. So the older records
+ * are LOCKED rather than dropped — the lift and the date it was set stay
+ * readable, only the figure sits behind the lock. Nothing on screen is wrong,
+ * and the reader can see exactly what they are being asked to pay for.
+ *
+ * The window matches the trend charts on purpose. Two different free depths
+ * for two views of the same history is a rule nobody can hold in their head.
+ */
+export const FREE_RECORD_MONTHS = FREE_TREND_MONTHS;
+
+export function isRecordLocked(
+  performedAt: string,
+  proUnlocked: boolean,
+  now: Date = new Date(),
+): boolean {
+  if (proUnlocked) {
+    return false;
+  }
+  const stamp = Date.parse(performedAt);
+  if (!Number.isFinite(stamp)) {
+    // An unreadable date cannot be shown to be old, and locking on a parse
+    // failure would hide a record the user set yesterday.
+    return false;
+  }
+  const cutoff = new Date(now.getFullYear(), now.getMonth() - FREE_RECORD_MONTHS, now.getDate());
+  return stamp < cutoff.getTime();
 }
