@@ -21,6 +21,7 @@ import {
   CoachContextChip,
   CoachNoticedItem,
   buildCoachContextChips,
+  buildCoachContextReadout,
   buildCoachNoticed,
   buildCoachOpeningLine,
 } from '../lib/coachChat';
@@ -114,11 +115,18 @@ export function AICoachChatScreen({
   const askToken = useRef(0);
 
   const chips = useMemo(() => buildCoachContextChips(intro, language), [intro, language]);
+  // Shown until the first question. It is the reader's own log, which is both
+  // the honest way to fill the screen and the claim Pro is sold on.
+  const readout = useMemo(
+    () => buildCoachContextReadout(trainingContext, language),
+    [language, trainingContext],
+  );
   const noticed = useMemo(
     () => (proUnlocked ? buildCoachNoticed(intro.weeklyRead, language) : []),
     [intro.weeklyRead, language, proUnlocked],
   );
   const openingLine = useMemo(() => buildCoachOpeningLine(intro, language), [intro, language]);
+  const showReadout = messages.length === 0 && readout.length > 0;
 
   /**
    * What the coach has read, and what today is — one line.
@@ -265,9 +273,23 @@ export function AICoachChatScreen({
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.thread}
+          contentContainerStyle={[styles.thread, showReadout && styles.threadTop]}
           keyboardShouldPersistTaps="handled"
         >
+          {showReadout ? (
+            <View style={styles.readoutCard}>
+              <Text style={styles.readoutTitle}>{t(language, 'coachChat.readout.title')}</Text>
+              {readout.map((row) => (
+                <View key={row.key} style={styles.readoutRow}>
+                  <Text style={styles.readoutLabel}>{row.label}</Text>
+                  <Text style={styles.readoutValue} numberOfLines={1}>
+                    {row.value}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
           {/* Pro's real difference: the coach opens the conversation. */}
           {noticed.length > 0 ? (
             <View style={styles.noticedCard}>
@@ -491,6 +513,48 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingTop: 18,
     paddingBottom: 14,
     gap: 20,
+  },
+  threadTop: {
+    justifyContent: 'flex-start',
+  },
+  readoutCard: {
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  readoutTitle: {
+    color: theme.faint,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  readoutRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingVertical: 6,
+  },
+  readoutLabel: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '700',
+    flexShrink: 0,
+  },
+  readoutValue: {
+    color: theme.ink,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '800',
+    flexShrink: 1,
+    textAlign: 'right',
   },
   noticedCard: {
     backgroundColor: PW.sheetTop,

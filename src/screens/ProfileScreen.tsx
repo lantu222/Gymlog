@@ -10,8 +10,6 @@ import { formatCompactVolume, formatWeight } from '../lib/format';
 import { LifetimeTrainingSummary } from '../lib/lifetimeSummary';
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import {
-  buildProfilePersonalRecords,
-  countPersonalRecords,
   formatRecordWhenLabel,
 } from '../lib/profileOverview';
 import { ExerciseProgressSummary } from '../lib/progression';
@@ -41,6 +39,10 @@ interface ProfileScreenProps {
   planFocusCaption?: string | null;
   planIsAiBuilt?: boolean;
   onOpenSettings: () => void;
+  /** Opens the Records tab on Progress, where the full list lives. */
+  onOpenRecords: () => void;
+  /** Lifts holding a record — the count the Records tab itself shows. */
+  recordCount: number;
   onManagePlan: () => void;
 }
 
@@ -207,6 +209,8 @@ export function ProfileScreen({
   planFocusCaption,
   planIsAiBuilt = false,
   onOpenSettings,
+  onOpenRecords,
+  recordCount,
   onManagePlan,
 }: ProfileScreenProps) {
   const theme = useTheme();
@@ -223,8 +227,9 @@ export function ProfileScreen({
     return map;
   }, [exerciseLibrary]);
 
-  const personalRecords = useMemo(() => buildProfilePersonalRecords(trackedProgress, 3), [trackedProgress]);
-  const prCount = useMemo(() => countPersonalRecords(trackedProgress), [trackedProgress]);
+  // The same number the Records tab shows, passed in rather than counted
+  // again here. Two definitions of "a record" put "0 ennätystä" on this screen
+  // next to a link to a list holding two of them.
 
   const identityStats = [
     {
@@ -237,7 +242,7 @@ export function ProfileScreen({
       value: `${lifetime.weeksActive}`,
       label: t(language, lifetime.weeksActive === 1 ? 'profile.stat.week' : 'profile.stat.weeks'),
     },
-    { key: 'prs', value: `${prCount}`, label: t(language, prCount === 1 ? 'profile.stat.pr' : 'profile.stat.prs') },
+    { key: 'prs', value: `${recordCount}`, label: t(language, recordCount === 1 ? 'profile.stat.pr' : 'profile.stat.prs') },
   ];
 
   const lifetimeStats = [
@@ -376,43 +381,39 @@ export function ProfileScreen({
           </Pressable>
         </View>
 
-        {/* PERSONAL RECORDS */}
+        {/* PERSONAL RECORDS — one number and a way in.
+
+            The full list lives on Progress, where it has three kinds, month
+            groups and a Pro window. A second, thinner copy here added no
+            information and could disagree with it — and did: this screen read
+            "0 records" while Progress listed two. */}
         <View style={settingsStyles.section}>
-          <SectionLabel label={t(language, 'profile.section.records')} />
-          <View style={settingsStyles.card}>
-            {personalRecords.length > 0 ? (
-              personalRecords.map((record, index) => {
-                const bodyPart = bodyPartByName.get(record.name.trim().toLowerCase());
-                return (
-                  <View
-                    key={record.key}
-                    style={[styles.recordRow, index === personalRecords.length - 1 && styles.recordRowLast]}
-                  >
-                    <View style={styles.recordTile}>
-                      <TrophyIcon />
-                    </View>
-                    <View style={styles.recordCopy}>
-                      <Text numberOfLines={1} style={styles.recordName}>
-                        {formatLiftDisplayLabel(exerciseNameLabel(language, record.name))}
-                      </Text>
-                      {bodyPart ? <Text style={styles.recordBodyPart}>{bodyPartLabel(language, bodyPart)}</Text> : null}
-                    </View>
-                    <View style={styles.recordValueBlock}>
-                      <Text style={styles.recordValue}>{formatWeight(record.weightKg, unitPreference)}</Text>
-                      <Text style={styles.recordMetaText}>
-                        × {record.reps} · {formatRecordWhenLabel(record.achievedAt, new Date(), language)}
-                      </Text>
-                    </View>
-                  </View>
-                );
-              })
-            ) : (
-              <View style={styles.emptyBlock}>
-                <Text style={styles.emptyTitle}>{t(language, 'profile.records.emptyTitle')}</Text>
-                <Text style={styles.emptyText}>{t(language, 'profile.records.emptyBody')}</Text>
-              </View>
-            )}
-          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onOpenRecords}
+            style={({ pressed }) => [settingsStyles.card, styles.recordsLinkCard, pressed && styles.pressedRow]}
+          >
+            <View style={styles.recordTile}>
+              <TrophyIcon />
+            </View>
+            <View style={styles.recordCopy}>
+              <Text style={styles.recordsLinkValue}>
+                {recordCount === 1
+                  ? t(language, 'profile.records.countOne')
+                  : t(language, 'profile.records.count', { count: recordCount })}
+              </Text>
+              <Text style={styles.recordBodyPart}>{t(language, 'profile.records.link')}</Text>
+            </View>
+            <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M9 6l6 6-6 6"
+                stroke={theme.faint}
+                strokeWidth={2.4}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </Svg>
+          </Pressable>
         </View>
 
         {/* LIFETIME */}
@@ -614,16 +615,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     marginTop: 12,
   },
-  recordRow: {
+  recordsLinkCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 14,
     paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
   },
-  recordRowLast: {
-    borderBottomWidth: 0,
+  recordsLinkValue: {
+    color: theme.ink,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  pressedRow: {
+    opacity: 0.85,
   },
   recordTile: {
     width: 34,
@@ -637,44 +644,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  recordName: {
-    color: theme.ink,
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
   recordBodyPart: {
     color: theme.muted,
     fontSize: 12,
     fontWeight: '700',
     marginTop: 1,
-  },
-  recordValueBlock: {
-    alignItems: 'flex-end',
-  },
-  recordValue: {
-    color: theme.ink,
-    fontSize: 15.5,
-    fontWeight: '800',
-  },
-  recordMetaText: {
-    color: theme.muted,
-    fontSize: 11.5,
-    fontWeight: '700',
-    marginTop: 1,
-  },
-  emptyBlock: {
-    paddingVertical: 18,
-  },
-  emptyTitle: {
-    color: theme.ink,
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
-  emptyText: {
-    color: theme.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    marginTop: 4,
   },
   statGrid: {
     flexDirection: 'row',

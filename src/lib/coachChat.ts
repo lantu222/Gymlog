@@ -1,6 +1,9 @@
 import { FatigueResult } from './fatigueModel';
+import { exerciseNameLabel } from './exerciseNameLabel';
+import { formatShortDate } from './format';
 import { t } from './i18n';
 import { WeeklyReadRow } from './proInsights';
+import { AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -37,6 +40,79 @@ export interface CoachChatIntroInput {
   sessionsThisWeek: number;
   weeklyRead: WeeklyReadRow[];
   fatigue: FatigueResult | null;
+}
+
+export interface CoachContextRow {
+  key: 'lastSession' | 'lift' | 'rhythm';
+  label: string;
+  value: string;
+}
+
+/**
+ * What the coach can already see, before you type anything.
+ *
+ * The tab opened onto most of a screen of nothing: the greeting sat at the
+ * bottom and the middle was empty. Filling it with an illustration would be
+ * noise in the one place there could be proof, so it is filled with the
+ * reader's own numbers instead â which is also the claim Pro is sold on.
+ *
+ * Every row is read from the log. A row whose data does not exist is left out
+ * rather than shown empty, so a fresh account gets a short readout or none,
+ * and never a made-up one.
+ */
+export function buildCoachContextReadout(
+  context: AICoachTrainingContext,
+  language: AppLanguage,
+): CoachContextRow[] {
+  const rows: CoachContextRow[] = [];
+
+  const session = context.recentCompletedSessions[0];
+  if (session) {
+    const detail = [
+      formatShortDate(session.performedAt, language),
+      session.setsCompleted !== null
+        ? session.setsCompleted === 1
+          ? t(language, 'coachChat.readout.setsOne')
+          : t(language, 'coachChat.readout.sets', { count: session.setsCompleted })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+    rows.push({
+      key: 'lastSession',
+      label: t(language, 'coachChat.readout.lastSession'),
+      value: [session.title, detail].filter(Boolean).join(' · '),
+    });
+  }
+
+  const topSet = context.latestTopSets[0];
+  if (topSet) {
+    // latestReps is every set's reps as a list ("5,5,5,5"). The top set is one
+    // set, so the row takes the first rather than printing the whole session.
+    const reps = `${topSet.reps}`.split(',')[0]?.trim();
+    const name = exerciseNameLabel(language, topSet.exerciseName);
+    rows.push({
+      key: 'lift',
+      label: t(language, 'coachChat.readout.lift'),
+      value:
+        topSet.weight !== null
+          ? `${name} · ${topSet.weight} ${context.unitPreference} × ${reps}`
+          : `${name} · ${reps}`,
+    });
+  }
+
+  if (context.sessionsLast30Days > 0) {
+    rows.push({
+      key: 'rhythm',
+      label: t(language, 'coachChat.readout.rhythm'),
+      value: t(language, 'coachChat.readout.rhythmValue', {
+        week: context.sessionsThisWeek,
+        month: context.sessionsLast30Days,
+      }),
+    });
+  }
+
+  return rows;
 }
 
 /**

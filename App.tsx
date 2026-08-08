@@ -3325,6 +3325,17 @@ function VinhaApp() {
     [recordSources],
   );
 
+  /** Lifts holding a record, counted once no matter how many kinds. */
+  const distinctRecordCount = useMemo(
+    () =>
+      new Set([
+        ...personalRecords.weight.map((record) => record.key),
+        ...personalRecords.reps.map((record) => record.key),
+        ...personalRecords.volume.map((record) => record.key),
+      ]).size,
+    [personalRecords],
+  );
+
   const programsSeasonTileCounts = useMemo(
     () => ({
       winter: getSeasonProgramIds('winter').length,
@@ -4145,13 +4156,7 @@ function VinhaApp() {
     content = (
         <ProgressScreen
           topRecords={personalRecords.weight.slice(0, 3)}
-          recordCount={
-            new Set([
-              ...personalRecords.weight.map((record) => record.key),
-              ...personalRecords.reps.map((record) => record.key),
-              ...personalRecords.volume.map((record) => record.key),
-            ]).size
-          }
+          recordCount={distinctRecordCount}
           records={personalRecords}
           setLogSources={recordSources}
           onStartWorkout={() => resetToRoute(ROOT_ROUTES.home)}
@@ -4594,6 +4599,8 @@ function VinhaApp() {
         planExerciseCount={profilePlanSummary.exerciseCount}
         planFocusCaption={profilePlanSummary.focusCaption}
         onOpenSettings={() => navigate({ tab: 'profile', screen: 'settings' })}
+        recordCount={distinctRecordCount}
+        onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
         onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
       />
     );
