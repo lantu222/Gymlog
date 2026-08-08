@@ -125,7 +125,17 @@ export interface WorkoutTemplate {
   sessions: WorkoutTemplateSessionRecord[];
   createdAt: string;
   updatedAt: string;
+  /**
+   * How this template came to exist.
+   *
+   * A freestyle session has to be stored against something, so logging one
+   * leaves a template behind — but the user did not author a program, and the
+   * free cap counts authoring. See `countAuthoredPrograms`.
+   */
+  origin: WorkoutTemplateOrigin;
 }
+
+export type WorkoutTemplateOrigin = 'authored' | 'freestyle';
 
 export interface ExerciseTemplate {
   id: string;
@@ -397,6 +407,8 @@ export interface WorkoutTemplateDraft {
   name: string;
   sessions: WorkoutTemplateSessionDraft[];
   exercises?: ExerciseTemplateDraft[];
+  /** Defaults to 'authored'; only freestyle logging passes 'freestyle'. */
+  origin?: WorkoutTemplateOrigin;
 }
 
 export interface WorkoutTemplateSessionDraft {

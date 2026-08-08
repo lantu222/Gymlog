@@ -21,6 +21,26 @@
 
 export const FREE_CUSTOM_PROGRAM_LIMIT = 3;
 
+/**
+ * How many of these templates the cap should count.
+ *
+ * A freestyle session has to be stored against a template, so every "empty
+ * workout" logged left one behind — and the cap counted it. Three ad-hoc
+ * sessions filled the free tier without the user authoring anything, and then
+ * the limit sheet said "this is a limit on building, not on training" while
+ * being, in that exact state, a limit on training. Worse: the check throws, so
+ * the fourth freestyle session could not be saved at all and its sets were
+ * lost.
+ *
+ * So the count is of AUTHORED programs, which is what the copy has always
+ * claimed and what the market evidence is actually about.
+ */
+export function countAuthoredPrograms(
+  templates: readonly { origin?: 'authored' | 'freestyle' }[],
+): number {
+  return templates.filter((template) => template.origin !== 'freestyle').length;
+}
+
 export interface ProgramSlots {
   used: number;
   /** Null when there is no limit — a Pro account. */

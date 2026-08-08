@@ -4,6 +4,7 @@ import { createEmptyDatabase } from '../data/seed';
 import { createId } from '../lib/ids';
 import { isProUnlocked } from '../lib/proEntitlement';
 import {
+  countAuthoredPrograms,
   FREE_CUSTOM_PROGRAM_LIMIT,
   ProgramLimitReachedError,
   ProgramSlots,
@@ -323,9 +324,12 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     // screen that forgets the check would quietly hand out a paid slot; this
     // cannot be forgotten. Editing is never blocked — only a NEW program past
     // the limit, so a user who is already over it keeps everything they built.
-    if (!existingTemplate) {
+    // Freestyle logging is exempt: it is not authoring, and throwing here
+    // would mean a user at the cap could not save a workout they had already
+    // performed.
+    if (!existingTemplate && draft.origin !== 'freestyle') {
       const slots = resolveProgramSlots(
-        current.workoutTemplates.length,
+        countAuthoredPrograms(current.workoutTemplates),
         isProUnlocked(current.preferences),
       );
       if (!slots.canCreate) {
@@ -370,6 +374,9 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       sessions: sessions.map(({ exercises: _, ...session }) => session),
       createdAt: existingTemplate?.createdAt ?? timestamp,
       updatedAt: timestamp,
+      // An edit never changes what a template is: a freestyle log opened in the
+      // editor stays freestyle, and vice versa.
+      origin: existingTemplate?.origin ?? draft.origin ?? 'authored',
     };
 
     let nextDatabase = workoutTemplateRepository.upsert(current, nextTemplate);
@@ -630,7 +637,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       updatePreferences,
       completeOnboarding,
       programSlots: resolveProgramSlots(
-        database.workoutTemplates.length,
+        countAuthoredPrograms(database.workoutTemplates),
         isProUnlocked(database.preferences),
       ),
       upsertWorkoutTemplate,

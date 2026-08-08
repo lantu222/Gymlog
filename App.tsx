@@ -1767,16 +1767,20 @@ function VinhaApp() {
    * reaches this button is by definition past "let me look around" and into
    * "I want it my way", which is the moment their paying users describe.
    */
-  function handleCopyReadyProgramToCustom() {
-    const card = homeActivePlanCard;
-    if (!card || card.programType !== 'ready') {
+  function handleCopyReadyProgramToCustom(programId?: string) {
+    // Defaults to the active program, which is where this started; the detail
+    // screen passes the one being looked at.
+    const resolvedId =
+      programId ??
+      (homeActivePlanCard?.programType === 'ready' ? homeActivePlanCard.programId : null);
+    if (!resolvedId) {
       return;
     }
     if (!programSlots.canCreate) {
       setProgramLimitVisible(true);
       return;
     }
-    const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === card.programId);
+    const template = WORKOUT_TEMPLATES_V1.find((item) => item.id === resolvedId);
     if (!template) {
       return;
     }
@@ -3860,6 +3864,11 @@ function VinhaApp() {
             : null
         }
         onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
+        onMakeOwnVersion={
+          route.programType === 'ready'
+            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
+            : undefined
+        }
         onPrimaryAction={() => {
           if (route.programType === 'ready') {
             handleStartReadyProgram(route.workoutTemplateId);
@@ -3924,7 +3933,21 @@ function VinhaApp() {
         onBack={() => navigateBack(ROOT_ROUTES.home)}
         onSave={async (draft, summary) => {
           try {
-            await finishLoggedWorkoutSave(draft, summary);
+            // Freestyle logging is not authoring: the template exists only so
+            // the session has something to hang on, so it carries the flag
+            // that keeps it out of the free cap. The date is what makes three
+            // of them tellable apart in a list.
+            await finishLoggedWorkoutSave(
+              {
+                ...draft,
+                name: `${draft.name.trim()} ${formatShortDate(
+                  summary.performedAt,
+                  preferences.appLanguage,
+                )}`,
+                origin: 'freestyle',
+              },
+              summary,
+            );
           } catch (error) {
             console.error('Failed to save freestyle workout', error);
             showToast(t(preferences.appLanguage, 'toast.saveWorkoutFailed'));

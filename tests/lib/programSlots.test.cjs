@@ -63,14 +63,20 @@ module.exports = [
       // One choke point. Five screens can ask for a program; a check on each
       // is a check that can be forgotten, and forgetting it hands out a paid
       // slot silently.
-      assert.match(provider, /if \(!existingTemplate\) \{[\s\S]{0,400}ProgramLimitReachedError/);
-      assert.match(provider, /resolveProgramSlots\(\s*current\.workoutTemplates\.length/);
+      assert.match(
+        provider,
+        /if \(!existingTemplate && draft\.origin !== 'freestyle'\) \{[\s\S]{0,400}ProgramLimitReachedError/,
+      );
+      // Counted over AUTHORED templates: a freestyle log leaves a template
+      // behind, and counting those meant three ad-hoc sessions filled the free
+      // tier without the user authoring anything.
+      assert.match(provider, /resolveProgramSlots\(\s*countAuthoredPrograms\(current\.workoutTemplates\)/);
       assert.match(provider, /isProUnlocked\(current\.preferences\)/);
 
       // Editing must never be blocked — the guard sits inside the
       // "no existing template" branch, which is the create case only.
       const gate = provider.slice(
-        provider.indexOf('if (!existingTemplate) {'),
+        provider.indexOf("if (!existingTemplate && draft.origin !== 'freestyle') {"),
         provider.indexOf('const workoutTemplateId ='),
       );
       assert.ok(gate.includes('ProgramLimitReachedError'), 'the throw belongs to the create branch');

@@ -103,6 +103,14 @@ interface ProgramDetailScreenProps {
    * with room to explain it never received it.
    */
   fitReason?: string | null;
+  /**
+   * Duplicates this ready program into one of the reader's own.
+   *
+   * The moment someone wants a ready program CHANGED is the documented buying
+   * moment, and until now it existed only for the program you were already
+   * running — browse the other fifty-four and the thought had nowhere to go.
+   */
+  onMakeOwnVersion?: () => void;
   activePlanSummary?: {
     weekLabel: string;
     progressPercent: number;
@@ -222,6 +230,7 @@ export function ProgramDetailScreen({
   audience = null,
   availableDays = null,
   equipment = [],
+  onMakeOwnVersion,
   availableEquipment = null,
   fitReason = null,
   destructiveActionLabel,
@@ -645,6 +654,19 @@ export function ProgramDetailScreen({
               </View>
             ) : null}
           </>
+        ) : null}
+
+        {onMakeOwnVersion ? (
+          <View style={styles.ownVersionBlock}>
+            <Text style={styles.ownVersionNote}>{t(language, 'detail.ownVersion.note')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onMakeOwnVersion}
+              style={({ pressed }) => [styles.ownVersionButton, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.ownVersionButtonText}>{t(language, 'detail.ownVersion.cta')}</Text>
+            </Pressable>
+          </View>
         ) : null}
 
         {hasDestructiveAction ? (
@@ -1071,6 +1093,30 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   sessionContentMeta: {
     color: PLAN_TEXT_MUTED,
     fontSize: 12,
+    fontWeight: '800',
+  },
+  ownVersionBlock: {
+    marginTop: 26,
+  },
+  ownVersionNote: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  ownVersionButton: {
+    height: 50,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ownVersionButtonText: {
+    color: theme.purple,
+    fontSize: 14.5,
+    lineHeight: 19,
     fontWeight: '800',
   },
   destructiveButton: {

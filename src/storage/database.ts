@@ -171,6 +171,11 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
           sessions,
           createdAt: typeof template?.createdAt === 'string' ? template.createdAt : new Date().toISOString(),
           updatedAt: typeof template?.updatedAt === 'string' ? template.updatedAt : new Date().toISOString(),
+          // Anything stored before this field existed was written by the
+          // editor or by freestyle logging, and there is no way to tell which
+          // after the fact. 'authored' is the safe default: it counts, which
+          // is how those rows already behaved.
+          origin: template?.origin === 'freestyle' ? 'freestyle' : 'authored',
         };
       })
     : [];

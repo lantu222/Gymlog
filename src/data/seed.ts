@@ -196,6 +196,7 @@ export function createSeedDatabase(): AppDatabase {
         ],
         createdAt: '2026-02-25T18:00:00+02:00',
         updatedAt: '2026-03-15T18:20:00+02:00',
+        origin: 'authored' as const,
       },
       {
         id: 'workout_lower',
@@ -216,6 +217,7 @@ export function createSeedDatabase(): AppDatabase {
         ],
         createdAt: '2026-02-25T18:00:00+02:00',
         updatedAt: '2026-03-11T18:25:00+02:00',
+        origin: 'authored' as const,
       },
       {
         id: 'workout_push',
@@ -236,6 +238,7 @@ export function createSeedDatabase(): AppDatabase {
         ],
         createdAt: '2026-02-27T18:00:00+02:00',
         updatedAt: '2026-03-13T18:18:00+02:00',
+        origin: 'authored' as const,
       },
     ],
     exerciseTemplates: [
