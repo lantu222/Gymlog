@@ -7,6 +7,7 @@ import { ProPill } from '../components/ProLockedCard';
 import { removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { PremiumHeroChart } from '../lib/premiumHeroChart';
+import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, UnitPreference } from '../types/models';
@@ -607,13 +608,19 @@ export function PremiumScreen({
               onPress={onTogglePreview}
               style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
             >
-              <Text style={styles.ctaButtonText}>{t(language, 'pro.v2.cta')}</Text>
+              {/* The trial can be switched off (PRO_TRIAL_ENABLED). When it
+                  is, this button must stop promising a week. */}
+              <Text style={styles.ctaButtonText}>
+                {t(language, PRO_TRIAL_ENABLED ? 'pro.v2.cta' : 'pro.v2.cta.noTrial')}
+              </Text>
             </Pressable>
             <Text style={styles.ctaFine}>
               {t(
                 language,
                 plan === 'yearly'
-                  ? 'pro.v2.ctaSubYearly'
+                  ? PRO_TRIAL_ENABLED
+                    ? 'pro.v2.ctaSubYearly'
+                    : 'pro.v2.ctaSubYearlyNoTrial'
                   : plan === 'monthly'
                     ? 'pro.v2.ctaSubMonthly'
                     : 'pro.v2.ctaSubLifetime',

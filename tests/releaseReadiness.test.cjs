@@ -134,12 +134,20 @@ module.exports = [
           'The trial was switched off to inspect the free tier; turn it back on before release.',
       );
 
-      // And while it is off, the paywall must not still promise it.
+      // And while it is off, NOTHING may still promise it. Covering only the
+      // onboarding paywall was the gap that let the Pro page keep advertising
+      // "Start 7-day free trial" for a whole session after the switch flipped —
+      // and the Pro page is where all twelve entry points lead.
       if (!trialEnabled) {
         assert.match(
           read('src/screens/ProPaywallScreen.tsx'),
           /trial \? 'paywall\.cta' : 'paywall\.cta\.noTrial'/,
-          'The trial is off but the paywall CTA does not switch copy, so it promises a week it will not grant.',
+          'The trial is off but the onboarding paywall CTA does not switch copy.',
+        );
+        assert.match(
+          read('src/screens/PremiumScreen.tsx'),
+          /PRO_TRIAL_ENABLED \? 'pro\.v2\.cta' : 'pro\.v2\.cta\.noTrial'/,
+          'The trial is off but the Pro page CTA does not switch copy, so it promises a week it will not grant.',
         );
       }
     },

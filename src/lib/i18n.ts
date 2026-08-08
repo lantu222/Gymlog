@@ -1615,6 +1615,8 @@ const EN = {
   'pro.v2.val.soon': 'Soon',
   'pro.v2.val.threeWeek': '3 / week',
 
+  'pro.v2.cta.noTrial': 'Get Pro',
+  'pro.v2.ctaSubYearlyNoTrial': '59,90 € / year (4,99 €/mo). Cancel anytime.',
   'pro.v2.cta': 'Start 7-day free trial',
   'pro.v2.ctaSubYearly': 'Then 59,90 € / year (4,99 €/mo). Cancel anytime.',
   'pro.v2.ctaSubMonthly': 'Then 9,90 € / month. Cancel anytime.',
@@ -4210,6 +4212,8 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.val.soon': 'Pian',
   'pro.v2.val.threeWeek': '3 / vk',
 
+  'pro.v2.cta.noTrial': 'Hanki Pro',
+  'pro.v2.ctaSubYearlyNoTrial': '59,90 € / vuosi (4,99 €/kk). Peru milloin vain.',
   'pro.v2.cta': 'Aloita 7 päivän ilmainen kokeilu',
   'pro.v2.ctaSubYearly': 'Sitten 59,90 € / vuosi (4,99 €/kk). Peru milloin vain.',
   'pro.v2.ctaSubMonthly': 'Sitten 9,90 € / kk. Peru milloin vain.',
