@@ -357,8 +357,106 @@ export function buildAiCoachPreviewAnswer(
     };
   }
 
-  // Default — no signals, no keywords matched
+  // "Analyse my last workout" is one of the app's own quick-ask chips, and it
+  // matched nothing — so tapping it spent a free question and answered "ask a
+  // clearer question". Everything below is read from the stored session.
+  if (
+    lower.includes('analys') ||
+    lower.includes('analyz') ||
+    lower.includes('viime treeni') ||
+    lower.includes('edellinen treeni') ||
+    lower.includes('last workout') ||
+    lower.includes('last session')
+  ) {
+    const session = context.recentCompletedSessions[0];
+    if (!session) {
+      return {
+        unanswered: true,
+        takeaway: t(language, 'coachPreview.lastSession.noneTakeaway'),
+        why: [t(language, 'coachPreview.lastSession.noneWhy')],
+        nextSteps: [t(language, 'coachPreview.lastSession.noneNext')],
+        plan: [],
+        assumptions: [previewAssumption(language)],
+        actions: buildAiCoachActions(prompt, context),
+      };
+    }
+
+    const shape = [
+      session.setsCompleted !== null
+        ? t(language, 'coachPreview.lastSession.sets', { count: session.setsCompleted })
+        : null,
+      session.durationMinutes !== null
+        ? t(language, 'coachPreview.lastSession.minutes', { count: session.durationMinutes })
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' \u00b7 ');
+
+    return {
+      takeaway: t(language, 'coachPreview.lastSession.takeaway', { title: session.title }),
+      why: [
+        shape || t(language, 'coachPreview.lastSession.noShape'),
+        topSetLine
+          ? t(language, 'coachPreview.lastSession.topSet', { line: topSetLine })
+          : t(language, 'coachPreview.lastSession.noTopSet'),
+        t(language, 'coachPreview.lastSession.rhythm', {
+          week: context.sessionsThisWeek,
+          month: context.sessionsLast30Days,
+        }),
+      ],
+      nextSteps: [
+        hasPlateau && primaryPlateau
+          ? t(language, 'coachPreview.lastSession.nextPlateau', { name: primaryPlateau.name })
+          : t(language, 'coachPreview.lastSession.next1'),
+        hasHighFatigue
+          ? t(language, 'coachPreview.lastSession.nextFatigue')
+          : t(language, 'coachPreview.lastSession.next2'),
+        session.swappedExercises > 0
+          ? t(language, 'coachPreview.lastSession.nextSwaps', { count: session.swappedExercises })
+          : t(language, 'coachPreview.lastSession.next3'),
+      ],
+      plan: [
+        t(language, 'coachPreview.lastSession.plan1'),
+        t(language, 'coachPreview.lastSession.plan2'),
+      ],
+      assumptions: [previewAssumption(language)],
+      actions: buildAiCoachActions(prompt, context),
+    };
+  }
+
+  // "How much protein?" — the other chip that matched nothing. Vinha does not
+  // track food, and the honest answer says so before it says anything else.
+  if (
+    lower.includes('proteiin') ||
+    lower.includes('protein') ||
+    lower.includes('ravinto') ||
+    lower.includes('kalori') ||
+    lower.includes('calorie') ||
+    lower.includes('nutrition') ||
+    lower.includes('sy\u00f6d')
+  ) {
+    return {
+      takeaway: t(language, 'coachPreview.protein.takeaway'),
+      why: [
+        t(language, 'coachPreview.protein.why1'),
+        t(language, 'coachPreview.protein.why2'),
+        t(language, 'coachPreview.protein.why3'),
+      ],
+      nextSteps: [
+        t(language, 'coachPreview.protein.next1'),
+        t(language, 'coachPreview.protein.next2'),
+        t(language, 'coachPreview.protein.next3'),
+      ],
+      plan: [t(language, 'coachPreview.protein.plan1'), t(language, 'coachPreview.protein.plan2')],
+      assumptions: [previewAssumption(language), t(language, 'coachPreview.protein.assume')],
+      actions: buildAiCoachActions(prompt, context),
+    };
+  }
+
+  // Default — no signals, no keywords matched. Flagged so the free tier does
+  // not spend one of its three weekly questions on "ask a clearer question".
   return {
+    unanswered: true,
     takeaway: t(language, 'coachPreview.default.takeaway'),
     why: [
       t(language, 'coachPreview.default.why1'),

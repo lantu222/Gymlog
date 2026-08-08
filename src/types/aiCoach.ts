@@ -176,6 +176,14 @@ export interface AICoachAdvice {
   plan: string[];
   assumptions: string[];
   actions?: AICoachAction[];
+  /**
+   * True when the coach could not answer and asked for a clearer question.
+   *
+   * The free tier is three questions a week, and one of those used to be spent
+   * on "ask one clear question" — including when the user had tapped a chip
+   * the app itself offered. An answer that answers nothing does not cost one.
+   */
+  unanswered?: boolean;
 }
 
 export interface AICoachAdviceRequest {

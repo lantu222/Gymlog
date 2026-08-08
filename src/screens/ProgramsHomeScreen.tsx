@@ -1016,7 +1016,10 @@ export function ProgramsHomeScreen({
                               : t(language, 'programs.continue.days', { count: item.daysSince })}
                         </Text>
                         <Text style={styles.continueMeta} numberOfLines={1}>
-                          {t(language, 'programs.continue.sessions', { count: item.sessionCount })}
+                          {/* Finnish takes the nominative after one. */}
+                          {item.sessionCount === 1
+                            ? t(language, 'programs.continue.sessionsOne')
+                            : t(language, 'programs.continue.sessions', { count: item.sessionCount })}
                         </Text>
                       </View>
                       <View style={styles.continuePlay}>

@@ -186,11 +186,6 @@ export function AICoachChatScreen({
         return;
       }
 
-      if (!proUnlocked) {
-        // Spent on send, not on answer: a failed upstream call still knocked.
-        onFreeQuestionUsed();
-      }
-
       setAsking(true);
       try {
         const result = await requestAiCoachAdvice({ prompt: trimmed, context: trainingContext, language });
@@ -198,6 +193,12 @@ export function AICoachChatScreen({
           return;
         }
         const answer = result.answer;
+        // Charged for an answer, not for a send. An answer that could only ask
+        // for a clearer question is free: three a week is too few to spend one
+        // on a chip the app itself offered and could not handle.
+        if (!proUnlocked && !answer.unanswered) {
+          onFreeQuestionUsed();
+        }
         const reply = [answer.takeaway, answer.nextSteps?.[0]].filter(Boolean).join(' ');
         setMessages((current) => [
           ...current,
@@ -210,6 +211,10 @@ export function AICoachChatScreen({
       } catch {
         if (token !== askToken.current) {
           return;
+        }
+        // An upstream failure still knocked: the call was made and it costs.
+        if (!proUnlocked) {
+          onFreeQuestionUsed();
         }
         setMessages((current) => [
           ...current,
