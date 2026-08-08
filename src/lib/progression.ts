@@ -8,7 +8,7 @@
   WorkoutSession,
   WorkoutTemplate,
 } from '../types/models';
-import { getComparableLogSets } from './exerciseLog';
+import { getComparableLogSets, logRecordedWork } from './exerciseLog';
 import { t } from './i18n';
 
 export interface ExerciseLogWithSession extends ExerciseLog {
@@ -235,7 +235,10 @@ export function getTrackedExerciseProgress(database: AppDatabase): ExerciseProgr
   const grouped = new Map<string, { name: string; logs: ExerciseLogWithSession[] }>();
 
   database.exerciseLogs.forEach((log) => {
-    if (!log.tracked || log.skipped) {
+    // An exercise that was listed but never performed is not a session on that
+    // lift. Without this, a workout you opened and abandoned reads as a day you
+    // lifted zero, and the lift's whole trend follows it down.
+    if (!log.tracked || log.skipped || !logRecordedWork(log)) {
       return;
     }
 

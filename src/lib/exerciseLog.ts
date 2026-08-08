@@ -117,6 +117,25 @@ export function getComparableLogSets(
   return workingSets.length > 0 ? workingSets : comparableSets;
 }
 
+/**
+ * Did this log record any work at all?
+ *
+ * An exercise that was put on the board and never performed still leaves a
+ * log: the rows exist, every set sits at zero, and the log's status stays
+ * `active`. Nothing removes it when the session is saved, so the progress
+ * layer used to read it as a session in which you lifted nothing — which
+ * turned a bench that had gone 80 kg into "0 kg × 0, below previous, −80 kg
+ * from the start", on the first screen of Progress.
+ *
+ * The test is REPS, not weight. A bodyweight set is genuinely zero kilos and
+ * has to keep counting; a set nobody did has no reps.
+ */
+export function logRecordedWork(
+  log: Pick<ExerciseLog, 'sets' | 'weight' | 'repsPerSet' | 'skipped'> | null | undefined,
+): boolean {
+  return getComparableLogSets(log).some((set) => set.reps > 0);
+}
+
 export function getLogSetStatusCounts(
   log: Pick<ExerciseLog, 'sets' | 'weight' | 'repsPerSet' | 'skipped'> | null | undefined,
 ) {
