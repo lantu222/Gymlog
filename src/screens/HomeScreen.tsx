@@ -427,8 +427,21 @@ export function HomeScreen({
   ) => (
     <Animated.View
       key={key}
-      style={[styles.secCard, rise(RISE_SEC_BASE + (key === 'warmup' ? 0 : key === 'workout' ? 1 : 2))]}
+      style={rise(RISE_SEC_BASE + (key === 'warmup' ? 0 : key === 'workout' ? 1 : 2))}
     >
+      {/* A3: the cut, but no speed line.
+          The design draws the line on OSIOT rows, which in its mock open a
+          screen. Ours is an accordion, and once expanded the line stopped
+          being a row marker and became a diagonal slash across a whole panel.
+          The design's own rule is that the line means "this goes forward" —
+          opening in place is not that. */}
+      <CutSurface
+        size="lg"
+        fill={theme.surface}
+        stroke={theme.border}
+        strokeWidth={1}
+        style={styles.secCard}
+      >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t(language, openSections[key] ? 'home.a11y.collapseSection' : 'home.a11y.expandSection', { title })}
@@ -488,6 +501,7 @@ export function HomeScreen({
           ) : null}
         </View>
       </Animated.View>
+      </CutSurface>
     </Animated.View>
   );
 
@@ -840,17 +854,23 @@ export function HomeScreen({
                       style={[styles.dayRow, styles.dayRowCut]}
                     >
                     {weekdayText ? (
-                      <View style={[styles.dayBadge, isToday && styles.dayBadgeToday]}>
+                      // Nesting is allowed when the inner element is off the
+                      // corner — the design names this badge as the example.
+                      <CutSurface
+                        size="chip"
+                        fill={isToday ? theme.purple : theme.bg}
+                        style={styles.dayBadge}
+                      >
                         <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
-                      </View>
+                      </CutSurface>
                     ) : null}
                     <Text style={styles.dayTitle} numberOfLines={1}>
                       {sessionTitle}
                     </Text>
                     {isToday ? (
-                      <View style={styles.todayPill}>
+                      <CutSurface size="chip" fill={theme.purple} style={styles.todayPill}>
                         <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
-                      </View>
+                      </CutSurface>
                     ) : null}
                     <Text style={styles.dayDuration}>{session.duration}</Text>
                     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
@@ -1431,10 +1451,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 10,
   },
   secCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
+    // The path paints the fill and the edge now.
+    backgroundColor: 'transparent',
     overflow: 'hidden',
     shadowColor: theme.purpleBright,
     shadowOffset: { width: 0, height: 4 },
@@ -1623,13 +1641,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   dayBadge: {
     width: 42,
     height: 32,
-    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.bg,
-  },
-  dayBadgeToday: {
-    backgroundColor: theme.purple,
   },
   dayBadgeText: {
     color: theme.muted,
@@ -1649,10 +1662,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   todayPill: {
-    borderRadius: 999,
-    backgroundColor: theme.purple,
     paddingHorizontal: 9,
     paddingVertical: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   todayPillText: {
     color: '#FFFFFF',

@@ -24,6 +24,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import { ProMomentContent, WeeklyReadRow } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
+import { CutSurface } from '../components/CutSurface';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { SetLogSheet } from '../components/SetLogSheet';
 import { buildExerciseSetLog, ExerciseSetLog } from '../lib/exerciseSetLog';
@@ -1736,22 +1737,35 @@ export function ProgressScreen({
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t(language, 'progress.title')}</Text>
         <Text style={styles.headerSubtitle}>{t(language, 'progress.subtitle')}</Text>
-        <View style={styles.tabsRow}>
+        {/* A3: the selector carries the cut, and so does the selected tab —
+            the design's VALITSIN. The inner tab sits inside the shell's
+            padding, so the two cuts are not in the same corner. */}
+        <CutSurface size="md" fill={theme.surfaceSoft} style={styles.tabsRow}>
           {PROGRESS_SECTIONS.map((section) => {
             const active = section.key === progressSection;
             return (
               <Pressable
                 key={section.key}
                 onPress={() => switchSection(section.key)}
-                style={[styles.tab, active && styles.tabActive]}
+                style={styles.tab}
               >
-                <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                  {t(language, section.labelKey)}
-                </Text>
+                {/* Both states are the same height, or the selected one grows
+                    the row and pushes itself out of the shell. */}
+                {active ? (
+                  <CutSurface size="sm" fill={theme.surface} style={[styles.tabInner, styles.tabActive]}>
+                    <Text style={[styles.tabText, styles.tabTextActive]}>
+                      {t(language, section.labelKey)}
+                    </Text>
+                  </CutSurface>
+                ) : (
+                  <View style={styles.tabInner}>
+                    <Text style={styles.tabText}>{t(language, section.labelKey)}</Text>
+                  </View>
+                )}
               </Pressable>
             );
           })}
-        </View>
+        </CutSurface>
       </View>
 
       <ScrollView
@@ -1911,19 +1925,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   tabsRow: {
     flexDirection: 'row',
-    backgroundColor: theme.surfaceSoft,
-    borderRadius: 12,
     padding: 3,
     marginTop: 14,
   },
   tab: {
     flex: 1,
+  },
+  tabInner: {
+    height: 36,
     alignItems: 'center',
-    paddingVertical: 9,
-    borderRadius: 9,
+    justifyContent: 'center',
   },
   tabActive: {
-    backgroundColor: theme.surface,
     shadowColor: '#5028A0',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.16,
