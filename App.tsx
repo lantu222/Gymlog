@@ -3521,16 +3521,16 @@ function VinhaApp() {
       customWorkouts.map((template) => ({
         id: template.id,
         name: formatWorkoutDisplayLabel(template.name),
-        subtitle: `${template.sessionCount} ${template.sessionCount === 1 ? 'session' : 'sessions'} · ${template.exerciseCount} exercises`,
+        // Built in English here, under a Finnish heading, on the tab that
+        // sells programs. The key existed the whole time.
+        subtitle: t(
+          preferences.appLanguage,
+          template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
+          { sessions: template.sessionCount, exercises: template.exerciseCount },
+        ),
       })),
-    [customWorkouts],
+    [customWorkouts, preferences.appLanguage],
   );
-  const customProgramBadgeLabel = customProgramCount > 0 ? 'Browse' : 'Start';
-  const customProgramTitle = 'Your workouts';
-  const customProgramSubtitle = selectedCustomProgram.workoutId
-    ? `${formatWorkoutDisplayLabel(selectedCustomProgram.title)} · ${selectedCustomProgram.meta}`
-    : 'Build your first split and keep it editable.';
-  const customProgramMeta = selectedCustomProgram.workoutId ? 'Latest split' : 'Start here';
   const customProgramCtaLabel = selectedCustomProgram.workoutId ? 'Browse workouts' : 'Open workouts';
 
   const editorDraft = useMemo<WorkoutTemplateDraft>(() => {

@@ -563,6 +563,7 @@ const EN = {
 
   // Custom programs: the title and blurb are inferred from the user's own name.
   'prog.custom.fallbackName': 'Template',
+  'prog.custom.countsOne': '1 session · {exercises} exercises',
   'prog.custom.counts': '{sessions} sessions · {exercises} exercises',
   'prog.custom.upperHeavy.title': 'Upper Heavy',
   'prog.custom.upperHeavy.sub': 'Big presses and upper-body compounds.',
@@ -3258,6 +3259,7 @@ const FI: Record<I18nKey, string> = {
   'prog.sub.fallback': '{days} treenipäivää {goal}-työn ympärille rakennettuna.',
 
   'prog.custom.fallbackName': 'Pohja',
+  'prog.custom.countsOne': '1 treeni · {exercises} liikettä',
   'prog.custom.counts': '{sessions} treeniä · {exercises} liikettä',
   'prog.custom.upperHeavy.title': 'Ylävartalo raskas',
   'prog.custom.upperHeavy.sub': 'Isot punnerrukset ja ylävartalon moninivelliikkeet.',
