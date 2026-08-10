@@ -406,7 +406,10 @@ module.exports = [
 
       // The old Home pro sheet is gone: one full page, moments elsewhere.
       assert.doesNotMatch(homeSource, /PRO_STATS|PRO_COMPARISON|proSheetVisible/);
-      assert.match(homeSource, /onPress=\{\(\) => onOpenPremium\?\.\(\)\}/);
+      // The PRO pill is gone from the header, so this is now the only place
+      // Home reaches the Pro page: the plateau moment's sheet. The prop and
+      // the route stay — twelve other surfaces use them.
+      assert.match(homeSource, /onSeePro=\{\(\) => \{[\s\S]{0,120}onOpenPremium\?\.\(\);/);
     },
   },
   {

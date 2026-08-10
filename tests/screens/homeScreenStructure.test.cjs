@@ -54,19 +54,29 @@ module.exports = [
       // The greeting is chosen by homeGreeting from what the log says, then
       // rendered through i18n — never a hardcoded "welcome back".
       assert.match(homeScreenSource, /t\(language, greeting\.titleKey, greeting\.titleVars\)/);
-      assert.match(homeScreenSource, /t\(language, greeting\.subtitleKey\)/);
+      // Home shows ONE line now (design 1C). The subtitle key stays part of
+      // selectHomeGreeting's contract; the surface simply stopped using it.
+      assert.doesNotMatch(homeScreenSource, /t\(language, greeting\.subtitleKey\)/);
       assert.match(homeScreenSource, /selectHomeGreeting\(\{/);
+      // A state greeting earned from the log outranks the clock.
+      assert.match(homeScreenSource, /if \(!isRotatingGreeting\(greeting\.titleKey\)\)/);
+      assert.match(homeScreenSource, /selectTimeGreetingKey\(\)/);
+      // Never "Hyvää aamua, " with nothing after it.
+      assert.match(homeScreenSource, /firstName\s*\?\s*t\(language, 'home\.greet\.time\.named'/);
       assert.doesNotMatch(homeScreenSource, /t\(language, 'home\.greeting\.title'\)/);
       assert.match(i18nSource, /'home\.greet\.first\.title': 'Welcome to Vinha'/);
       assert.match(i18nSource, /'home\.greet\.back1\.title': 'Tervetuloa takaisin'/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
-      assert.match(homeScreenSource, /greetingTitle:\s*\{[\s\S]*fontSize: 26/);
-      assert.match(homeScreenSource, /greetingSubtitle:\s*\{[\s\S]*fontSize: 13\.5/);
-      assert.match(homeScreenSource, /PRO/);
-      assert.match(homeScreenSource, /proBadge:\s*\{[\s\S]*backgroundColor: theme.green/);
-      assert.match(homeScreenSource, /proBadge:\s*\{\s*paddingVertical: 7,\s*paddingHorizontal: 13/);
-      // PRO pill opens the one full Pro page (the Home sheet is gone).
-      assert.match(homeScreenSource, /onPress=\{\(\) => onOpenPremium\?\.\(\)\}/);
+      assert.match(homeScreenSource, /greetingLine:\s*\{[\s\S]*fontSize: 13\.5/);
+      // The header bar is brand only. The PRO pill advertised a subscription
+      // to everyone including the people already paying, and the Pro page has
+      // twelve other ways in — the prop and the route stay for them.
+      assert.doesNotMatch(homeScreenSource, /proBadge/);
+      assert.match(homeScreenSource, /<VinhaWordmark size=\{27\}/);
+      assert.match(homeScreenSource, /speedRule:\s*\{[\s\S]*skewX: '-18deg'/);
+      // The date is stated once, on the greeting row — today's cell in the
+      // week strip is told apart by its highlight, not by different content.
+      assert.match(homeScreenSource, /const dayLabel = day\.weekdayLabel;/);
       assert.match(homeScreenSource, /const \[plateauSheetVisible, setPlateauSheetVisible\] = useState\(false\)/);
       // Week strip lives on a white card and expands into a Monday-first month
       // grid; the chevron rotates 180° and the panel height animates.
@@ -153,7 +163,10 @@ module.exports = [
       // is now one real action rather than four rows that closed it.
       assert.match(homeScreenSource, /adaptButton:\s*\{\s*flex: 1,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.border/);
       // Start workout is the green action: green border, label, and arrow.
-      assert.match(homeScreenSource, /startButton:\s*\{\s*flex: 1\.3,\s*height: 56,\s*borderRadius: 16,\s*borderWidth: 1\.5,\s*borderColor: theme.accent/);
+      // A3: the shape is drawn, and the green stays — this is the one button
+      // on the screen that is not purple, which is the point of it.
+      assert.match(homeScreenSource, /startButton:\s*\{\s*height: 56/);
+      assert.match(homeScreenSource, /stroke=\{theme\.accent\}/);
       // The start CTA reads `accent`, not `green`: green also means "done"
       // (completed sets, finished cardio), and the dark theme moves the action
       // accent to orange without moving those.
@@ -190,7 +203,10 @@ module.exports = [
       // opens the one full Pro page, and Home's paywall moment is the plateau
       // card whose blurred conclusion is the real text from proInsights.
       assert.doesNotMatch(homeScreenSource, /proSheetVisible|PRO_STATS|PRO_COMPARISON/);
-      assert.match(homeScreenSource, /onPress=\{\(\) => onOpenPremium\?\.\(\)\}/);
+      // The PRO pill is gone from the header, so this is now the only place
+      // Home reaches the Pro page: the plateau moment's sheet. The prop and
+      // the route stay — twelve other surfaces use them.
+      assert.match(homeScreenSource, /onSeePro=\{\(\) => \{[\s\S]{0,120}onOpenPremium\?\.\(\);/);
       assert.match(homeScreenSource, /pro\.plateau\.eyebrow/);
       assert.match(homeScreenSource, /<ProLockedCard/);
       assert.match(homeScreenSource, /<ProMomentSheet/);

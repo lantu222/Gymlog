@@ -25,6 +25,11 @@ const EN = {
   'tabs.profile': 'Profile',
 
   // ── Home ───────────────────────────────────────────────────────────────
+  'home.greet.time.morning': 'Good morning',
+  'home.greet.time.day': 'Good afternoon',
+  'home.greet.time.evening': 'Good evening',
+  'home.greet.time.night': 'Still up',
+  'home.greet.time.named': '{greeting}, {name}',
   'home.greet.first.title': 'Welcome to Vinha',
   'home.greet.first.sub': 'Your first session is the whole plan today.',
   'home.greet.back1.title': 'Welcome back',
@@ -43,7 +48,6 @@ const EN = {
   'home.greet.streak.sub': 'The streak is the hard part. You have it.',
   'home.greet.done.title': 'Session logged',
   'home.greet.done.sub': 'Rest counts as training too.',
-  'home.a11y.openPro': 'Open Vinha Pro',
   'home.a11y.expandCalendar': 'Expand month calendar',
   'home.a11y.collapseCalendar': 'Collapse month calendar',
   'home.a11y.expandSection': 'Expand {title}',
@@ -2740,6 +2744,11 @@ const FI: Record<I18nKey, string> = {
   'tabs.profile': 'Profiili',
 
   // ── Home ───────────────────────────────────────────────────────────────
+  'home.greet.time.morning': 'Hyvää aamua',
+  'home.greet.time.day': 'Hyvää päivää',
+  'home.greet.time.evening': 'Hyvää iltaa',
+  'home.greet.time.night': 'Vielä hereillä',
+  'home.greet.time.named': '{greeting}, {name}',
   'home.greet.first.title': 'Tervetuloa Vinhaan',
   'home.greet.first.sub': 'Ensimmäinen treeni on tämän päivän koko suunnitelma.',
   'home.greet.back1.title': 'Tervetuloa takaisin',
@@ -2758,7 +2767,6 @@ const FI: Record<I18nKey, string> = {
   'home.greet.streak.sub': 'Putki on se vaikea osa. Se sinulla on.',
   'home.greet.done.title': 'Treeni kirjattu',
   'home.greet.done.sub': 'Lepokin on osa treeniä.',
-  'home.a11y.openPro': 'Avaa Vinha Pro',
   'home.a11y.expandCalendar': 'Laajenna kuukausikalenteri',
   'home.a11y.collapseCalendar': 'Pienennä kuukausikalenteri',
   'home.a11y.expandSection': 'Laajenna {title}',

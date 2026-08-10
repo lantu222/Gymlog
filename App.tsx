@@ -4822,6 +4822,7 @@ function VinhaApp() {
     content = (
       <HomeScreen
         language={preferences.appLanguage}
+        profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
         availableEquipment={availableEquipmentForDrills}
         greetingState={homeGreetingState}

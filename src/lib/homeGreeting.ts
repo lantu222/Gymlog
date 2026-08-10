@@ -76,3 +76,33 @@ export function selectHomeGreeting({
 export function getGreetingRotation(now: Date = new Date()): number {
   return Math.floor(new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() / 86400000);
 }
+
+/**
+ * The clock's greeting, for when the state has nothing better to say.
+ *
+ * Home shows one line now, and a state greeting earned from the log — first
+ * visit, trained today, a streak — is worth more than the time of day. This is
+ * the fallback under those, replacing the rotating "welcome back" variants on
+ * the surface while they stay part of the contract.
+ *
+ * The night band runs across midnight, which is why it is the default rather
+ * than a fourth range: 23:00 and 04:00 are the same kind of hour.
+ */
+export function selectTimeGreetingKey(now: Date = new Date()): I18nKey {
+  const hour = now.getHours();
+  if (hour >= 5 && hour < 11) {
+    return 'home.greet.time.morning';
+  }
+  if (hour >= 11 && hour < 17) {
+    return 'home.greet.time.day';
+  }
+  if (hour >= 17 && hour < 23) {
+    return 'home.greet.time.evening';
+  }
+  return 'home.greet.time.night';
+}
+
+/** True when the greeting is one of the rotating "welcome back" fillers. */
+export function isRotatingGreeting(titleKey: I18nKey): boolean {
+  return RETURNING.some((entry) => entry.titleKey === titleKey);
+}

@@ -23,7 +23,12 @@ import {
   getDefaultWarmup,
   getSessionFocusTitle,
 } from '../lib/homeSessionHero';
-import { getGreetingRotation, selectHomeGreeting } from '../lib/homeGreeting';
+import {
+  getGreetingRotation,
+  isRotatingGreeting,
+  selectHomeGreeting,
+  selectTimeGreetingKey,
+} from '../lib/homeGreeting';
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -32,6 +37,7 @@ import { hasFixedWeekdays, resolveSessionWeekday, weekdayLabel } from '../lib/pl
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { CutButton } from '../components/CutButton';
+import { VinhaWordmark } from '../components/VinhaWordmark';
 import { CutSurface } from '../components/CutSurface';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
@@ -60,6 +66,19 @@ const RISE_EMPTY_ROW = 10;
 
 const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 const SECTION_EASING = Easing.bezier(0.4, 0, 0.2, 1);
+
+/**
+ * A colour per part of the session.
+ *
+ * Warm-up, work and cool-down are three different jobs and the cards were
+ * three identical white boxes. The accent is the card's edge and its count —
+ * never the title, so the three still read as one list.
+ */
+const SECTION_ACCENT: Record<SectionKey, (theme: Theme) => string> = {
+  warmup: (theme) => theme.gold,
+  workout: (theme) => theme.purpleBright,
+  cooldown: (theme) => theme.blue,
+};
 
 type SectionKey = 'warmup' | 'workout' | 'cooldown';
 
@@ -112,6 +131,8 @@ interface HomeScreenProps {
   onOpenCardio?: () => void;
   /** Where every Pro touchpoint leads — the full Pro page. */
   onOpenPremium?: () => void;
+  /** For the greeting's first name. Null when the profile has no name. */
+  profileName?: string | null;
   /** Paywall moment 2: a real stalled lift, or null when nothing is stalled. */
   plateau?: {
     headline: string;
@@ -199,6 +220,7 @@ export function HomeScreen({
   onOpenStatCard,
   trainingDayIndexes = [],
   language = 'en',
+  profileName = null,
   availableEquipment = null,
   greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
   widgetPrompt = null,
@@ -252,6 +274,32 @@ export function HomeScreen({
       }),
     [greetingState.totalSessions, greetingState.trainedToday, greetingState.weekStreak],
   );
+  /**
+   * One line, and the state's own greeting outranks the clock.
+   *
+   * A first visit, a session logged today or a real streak are claims earned
+   * from the log; "good morning" is true of everyone. The rotating "welcome
+   * back" fillers are the only ones the clock replaces.
+   */
+  const greetingLine = useMemo(() => {
+    if (!isRotatingGreeting(greeting.titleKey)) {
+      return t(language, greeting.titleKey, greeting.titleVars);
+    }
+    const timeGreeting = t(language, selectTimeGreetingKey());
+    const firstName = profileName?.trim() ? profileName.trim().split(/\s+/)[0] : null;
+    // Never "Hyvää aamua, " with nothing after it, and never a stand-in name.
+    return firstName
+      ? t(language, 'home.greet.time.named', { greeting: timeGreeting, name: firstName })
+      : timeGreeting;
+  }, [greeting, language, profileName]);
+
+  const todayStamp = useMemo(() => {
+    const today = topCalendarDays.find((day) => day.isToday);
+    const now = new Date();
+    const stamp = `${`${now.getDate()}`.padStart(2, '0')}.${`${now.getMonth() + 1}`.padStart(2, '0')}`;
+    return today ? `${today.weekdayLabel} ${stamp}` : stamp;
+  }, [topCalendarDays]);
+
   const warmup = getDefaultWarmup(focusTitle, language, availableEquipment);
   const cooldown = getDefaultCooldown(focusTitle, language, availableEquipment);
   // Computed where the whole session was still in hand (App.tsx): Home only
@@ -438,7 +486,7 @@ export function HomeScreen({
       <CutSurface
         size="lg"
         fill={theme.surface}
-        stroke={theme.border}
+        stroke={SECTION_ACCENT[key](theme)}
         strokeWidth={1}
         style={styles.secCard}
       >
@@ -448,8 +496,13 @@ export function HomeScreen({
         onPress={() => toggleSection(key)}
         style={styles.secBtn}
       >
+        {/* Each part of the session gets its own colour: the warm-up, the
+            work and the cool-down are three different things, and the card was
+            three identical white boxes. The accent is the edge and the count,
+            never the title — the titles still have to read as one list. */}
+        <View style={[styles.secTick, { backgroundColor: SECTION_ACCENT[key](theme) }]} />
         <Text style={styles.secTitle}>{title}</Text>
-        <Text style={styles.secCount}>{countLabel}</Text>
+        <Text style={[styles.secCount, { color: SECTION_ACCENT[key](theme) }]}>{countLabel}</Text>
         <Animated.View style={sectionStyles[key].chevron}>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
             <Path d="m6 9 6 6 6-6" stroke="#8B84A0" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
@@ -508,36 +561,31 @@ export function HomeScreen({
   return (
     <View style={styles.screenBackground}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Animated.View style={[styles.headerRow, rise(RISE_HEADER)]}>
-          <View style={styles.headerCopy}>
-            <AnimatedGreeting
-              text={t(language, greeting.titleKey, greeting.titleVars)}
-              style={styles.greetingTitle}
-              accentColor={theme.purpleBright}
-            />
-            <AnimatedGreeting
-              text={t(language, greeting.subtitleKey)}
-              style={styles.greetingSubtitle}
-              accentColor={theme.purpleBright}
-              staggerMs={28}
-            />
+        {/* 1C: mark, rule, greeting, week. The bar is brand only — the PRO
+            pill is gone from here. It advertised a subscription to everyone
+            including the people already paying, and the Pro page keeps its
+            twelve other ways in. */}
+        <Animated.View style={rise(RISE_HEADER)}>
+          <View style={styles.headerRow}>
+            <VinhaWordmark size={27} />
           </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'home.a11y.openPro')}
-            onPress={() => onOpenPremium?.()}
-            hitSlop={8}
-            style={({ pressed }) => [styles.proBadge, pressed && styles.pressed]}
-          >
-            {/* Split down the middle: the dark half is what the user has, the
-                orange half is what Pro adds. The pill shows the trade rather
-                than just shouting a brand colour. */}
-            <View style={styles.proBadgeHalves} pointerEvents="none">
-              <View style={[styles.proBadgeHalf, styles.proBadgeHalfFree]} />
-              <View style={[styles.proBadgeHalf, styles.proBadgeHalfPro]} />
-            </View>
-            <Text style={styles.proBadgeText}>PRO</Text>
-          </Pressable>
+
+          {/* Three brightnesses left to right, at the same −18° as the A3 cut.
+              No gradient: three plain views skewed as one row. */}
+          <View style={styles.speedRule}>
+            <View style={[styles.speedRuleHead, { backgroundColor: theme.purpleBright }]} />
+            <View style={[styles.speedRuleMid, { backgroundColor: theme.purpleBright }]} />
+            <View style={[styles.speedRuleTail, { backgroundColor: theme.purpleBright }]} />
+          </View>
+
+          <View style={styles.greetingRow}>
+            <AnimatedGreeting
+              text={greetingLine}
+              style={styles.greetingLine}
+              accentColor={theme.purpleBright}
+            />
+            <Text style={styles.greetingDate}>{todayStamp}</Text>
+          </View>
         </Animated.View>
 
         <Animated.View style={[styles.weekCard, rise(RISE_WEEK)]}>
@@ -549,7 +597,10 @@ export function HomeScreen({
           >
             {topCalendarDays.map((day) => {
               const isTrainingDay = trainingDayIndexes.includes(day.weekdayIndex);
-              const dayLabel = day.isToday ? day.dateLabel : day.weekdayLabel;
+              // The date appears once on this screen, up on the greeting row.
+              // Today's cell is told apart by its highlight, not by holding
+              // different content from its neighbours.
+              const dayLabel = day.weekdayLabel;
 
               return (
                 <View key={day.dayStart} style={[styles.weekStripItem, day.isToday && styles.weekStripItemToday]}>
@@ -799,12 +850,20 @@ export function HomeScreen({
             accessibilityRole="button"
             accessibilityLabel={t(language, 'home.a11y.startSession')}
             onPress={startTodaysSession}
-            style={({ pressed }) => [styles.startButton, pressed && styles.pressed]}
+            style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
           >
-            <Text style={styles.startButtonText}>{t(language, 'home.startWorkout')}</Text>
-            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-              <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
+            <CutSurface
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.accent}
+              strokeWidth={1.5}
+              style={styles.startButton}
+            >
+              <Text style={styles.startButtonText}>{t(language, 'home.startWorkout')}</Text>
+              <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </CutSurface>
           </Pressable>
         </Animated.View>
 
@@ -1188,56 +1247,49 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 16,
   },
-  headerCopy: {
+  // The skew is allowed to overhang: the scroll content already carries 20px
+  // of horizontal padding, so nothing clips.
+  speedRule: {
+    height: 3,
+    marginTop: 13,
+    marginLeft: 2,
+    flexDirection: 'row',
+    transform: [{ skewX: '-18deg' }],
+  },
+  speedRuleHead: {
+    width: 34,
+  },
+  speedRuleMid: {
+    width: 14,
+    opacity: 0.3,
+  },
+  speedRuleTail: {
     flex: 1,
-    gap: 3,
+    opacity: 0.12,
   },
-  greetingTitle: {
-    color: theme.ink,
-    fontSize: 26,
-    lineHeight: 31,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  greetingRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginTop: 11,
   },
-  greetingSubtitle: {
-    color: theme.muted,
+  greetingLine: {
+    flexShrink: 1,
     fontSize: 13.5,
     lineHeight: 18,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: theme.muted,
   },
-  proBadge: {
-    paddingVertical: 7,
-    paddingHorizontal: 13,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    backgroundColor: PRO_BADGE_INK,
+  greetingDate: {
+    fontFamily: 'JetBrainsMono-ExtraBold',
+    fontSize: 10.5,
+    letterSpacing: 1.05,
+    color: theme.faint,
+    flexShrink: 0,
   },
   // Two halves behind the label, clipped by the pill's own radius.
-  proBadgeHalves: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: 'row',
-  },
-  proBadgeHalf: {
-    flex: 1,
-  },
-  proBadgeHalfFree: {
-    backgroundColor: PRO_BADGE_INK,
-  },
-  proBadgeHalfPro: {
-    backgroundColor: PRO_BADGE_ORANGE,
-  },
-  proBadgeText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '800',
-    letterSpacing: 0.5,
-  },
   weekCard: {
     marginTop: 14,
     borderRadius: 18,
@@ -1466,6 +1518,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 12,
     padding: 16,
   },
+  secTick: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
+  },
   secTitle: {
     flex: 1,
     color: theme.ink,
@@ -1568,13 +1625,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 20,
     fontWeight: '800',
   },
-  startButton: {
+  startButtonWrap: {
     flex: 1.3,
+  },
+  cutPressed: {
+    transform: [{ translateY: 1 }, { scale: 0.985 }],
+  },
+  startButton: {
     height: 56,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: theme.accent,
-    backgroundColor: theme.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
