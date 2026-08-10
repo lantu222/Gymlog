@@ -30,7 +30,15 @@ module.exports = [
       // onboarding. They report a TONE rather than a boolean, because the
       // picker's top half turns white when the second program is chosen and
       // white icons would vanish into it.
-      assert.match(appSource, /const \[fullBleedReview, setFullBleedReview\] = useState<'light' \| 'dark' \| null>\(null\)/);
+      assert.match(appSource, /const \[fullBleedReviewRaw, setFullBleedReview\] = useState<'light' \| 'dark' \| null>\(null\)/);
+      // Read through onboardingActive: OnboardingScreen reports this from an
+      // effect with no cleanup, so finishing on the paywall left it at 'light'
+      // and Home's greeting drew under the status bar on the first screen.
+      assert.match(
+        appSource,
+        /const fullBleedReview =[\s\S]{0,40}onboardingActive \|\|/,
+        'the flag must not survive onboarding unmounting',
+      );
       assert.match(appSource, /fullBleedReview\s*\?\s*fullBleedReview/);
       assert.match(appSource, /onFullBleedReviewChange=\{setFullBleedReview\}/);
       assert.doesNotMatch(appSource, /#1D1C35/);

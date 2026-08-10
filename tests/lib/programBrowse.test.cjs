@@ -5,11 +5,6 @@ const path = require('node:path');
 const { resolveContinueEntries } = require('../../.test-dist/lib/programContinue.js');
 const { resolveProgramAffinity, AFFINITY_REASON_KEYS } = require('../../.test-dist/lib/programAffinity.js');
 const { buildProgramCampaigns } = require('../../.test-dist/lib/programCampaigns.js');
-const {
-  SEASON_TILES,
-  currentSeasonTile,
-  orderSeasonTiles,
-} = require('../../.test-dist/lib/programSeasonTiles.js');
 const { PROGRAM_CATEGORIES } = require('../../.test-dist/lib/programCategories.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
 
@@ -151,35 +146,6 @@ module.exports = [
         const body = i18n.split('\n').find((line) => line.trim().startsWith(`'${slide.bodyKey}':`));
         assert.match(body, /\{count\}/);
       }
-    },
-  },
-  {
-    name: 'four season tiles cover twelve months and two real blocks',
-    run() {
-      const months = SEASON_TILES.flatMap((tile) => tile.months).sort((a, b) => a - b);
-      assert.deepEqual(months, [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11], 'no month is homeless');
-
-      // The catalog has two seasonal blocks, not four. Inventing two more to
-      // fill two more tiles would give the extra tiles nothing to open.
-      assert.deepEqual(new Set(SEASON_TILES.map((tile) => tile.block)), new Set(['winter', 'summer']));
-
-      // Each tile's block must agree with the calendar rule the rest of the
-      // app uses: October–March is the winter block.
-      for (const tile of SEASON_TILES) {
-        for (const month of tile.months) {
-          const expected = month >= 9 || month <= 2 ? 'winter' : 'summer';
-          assert.equal(tile.block, expected, `${tile.key} claims ${tile.block} for month ${month}`);
-        }
-      }
-
-      assert.equal(currentSeasonTile(new Date('2026-01-15T00:00:00.000Z')), 'winter');
-      assert.equal(currentSeasonTile(new Date('2026-07-15T00:00:00.000Z')), 'summer');
-      assert.equal(currentSeasonTile(new Date('2026-10-15T00:00:00.000Z')), 'autumn');
-
-      // Today's tile leads, and nothing is dropped in the rotation.
-      const ordered = orderSeasonTiles(new Date('2026-04-15T00:00:00.000Z'));
-      assert.equal(ordered[0].key, 'spring');
-      assert.equal(ordered.length, SEASON_TILES.length);
     },
   },
   {

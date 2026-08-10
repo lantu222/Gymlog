@@ -1248,7 +1248,21 @@ function VinhaApp() {
    * reserves and paints the status-bar strip for onboarding, which would cut a
    * light band across either of them.
    */
-  const [fullBleedReview, setFullBleedReview] = useState<'light' | 'dark' | null>(null);
+  const [fullBleedReviewRaw, setFullBleedReview] = useState<'light' | 'dark' | null>(null);
+  /**
+   * Only meaningful while onboarding is on screen.
+   *
+   * OnboardingScreen reports this from an effect and had no cleanup, so
+   * finishing on the paywall left it at 'light' forever: the shell kept the
+   * full-bleed edges and the translucent status bar, and Home's greeting drew
+   * underneath the clock on the reader's very first screen. Reading it through
+   * onboardingActive means an unmount cannot leak, whatever the last stage
+   * happened to report.
+   */
+  const fullBleedReview =
+    onboardingActive || (route.tab === 'profile' && route.screen === 'setup')
+      ? fullBleedReviewRaw
+      : null;
 
   useEffect(() => {
     if (!hydrated || !preferences.onboardingCompleted) {
