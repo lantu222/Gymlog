@@ -23,6 +23,8 @@ interface CutSurfaceProps {
   /** Optional 2px inner border, for the outline button variant. */
   stroke?: string;
   strokeWidth?: number;
+  /** Dashes the outline — an "add" placeholder rather than a filled card. */
+  dashed?: boolean;
   /**
    * The diagonal highlight, drawn INSIDE the shape.
    *
@@ -49,6 +51,7 @@ export function CutSurface({
   fill,
   stroke,
   strokeWidth = 2,
+  dashed,
   sheen,
   speedLine,
   style,
@@ -86,6 +89,7 @@ export function CutSurface({
             // Half the width sits outside the path, so double it to keep the
             // visible line the requested thickness.
             strokeWidth={stroke ? strokeWidth * 2 : undefined}
+            strokeDasharray={dashed ? '7 5' : undefined}
           />
           {speedLine ? (
             <G clipPath="url(#cutClip)">

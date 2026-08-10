@@ -87,7 +87,10 @@ module.exports = [
       assert.match(programsHomeSource, /styles\.catTile\b/);
       assert.match(programsHomeSource, /d=\{entry\.icon\}/);
       assert.match(programsHomeSource, /stroke=\{entry\.tint\.ink\}/);
-      assert.match(programsHomeSource, /backgroundColor: entry\.tint\.bg/);
+      // A3: the tile is a drawn shape now, so the tint is the path's fill and
+      // its stroke rather than a background colour.
+      assert.match(programsHomeSource, /fill=\{entry\.tint\.bg\}/);
+      assert.match(programsHomeSource, /stroke=\{entry\.tint\.border\}/);
       // A tile that says 8 has to open 8: the count and the rail read the
       // same source.
       assert.match(programsHomeSource, /categoryCounts\[entry\.key\]/);

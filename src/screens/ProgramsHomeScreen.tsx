@@ -22,6 +22,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 
+import { CutSurface } from '../components/CutSurface';
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -511,9 +512,12 @@ function CampaignHero({
               <Text style={styles.campaignBody} numberOfLines={2}>
                 {t(language, campaign.bodyKey, { count: campaign.count })}
               </Text>
-              <View style={styles.campaignCta}>
+              {/* The hero itself stays a rounded content card — the design
+                  keeps images and big cards out of the gesture. Its button
+                  does not. */}
+              <CutSurface size="sm" fill="rgba(255,255,255,0.94)" style={styles.campaignCta}>
                 <Text style={styles.campaignCtaText}>{t(language, campaign.ctaKey)}</Text>
-              </View>
+              </CutSurface>
             </Pressable>
           );
         })}
@@ -942,11 +946,12 @@ export function ProgramsHomeScreen({
                 onPress={() => setSheet({ kind: 'category', key: entry.key })}
                 style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
               >
-                <View
-                  style={[
-                    styles.catTile,
-                    { backgroundColor: entry.tint.bg, borderColor: entry.tint.border },
-                  ]}
+                <CutSurface
+                  size="lg"
+                  fill={entry.tint.bg}
+                  stroke={entry.tint.border}
+                  strokeWidth={1}
+                  style={styles.catTile}
                 >
                   <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
                     <Path
@@ -960,7 +965,7 @@ export function ProgramsHomeScreen({
                   <View style={[styles.catTileCount, { backgroundColor: entry.tint.ink }]}>
                     <Text style={styles.catTileCountText}>{categoryCounts[entry.key]}</Text>
                   </View>
-                </View>
+                </CutSurface>
                 <Text style={styles.catTileLabel} numberOfLines={2}>
                   {t(language, entry.labelKey)}
                 </Text>
@@ -1228,7 +1233,13 @@ export function ProgramsHomeScreen({
                 <Text style={styles.sectionLink}>{t(language, 'programs.trending.all')}</Text>
               </Pressable>
             </View>
-            <View style={styles.trendingCard}>
+            <CutSurface
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.border}
+              strokeWidth={1}
+              style={styles.trendingCard}
+            >
               {trendingItems.map((item, index) => (
                 <Pressable
                   key={item.id}
@@ -1257,7 +1268,7 @@ export function ProgramsHomeScreen({
                   </View>
                 </Pressable>
               ))}
-            </View>
+            </CutSurface>
           </View>
         ) : null}
 
@@ -1268,8 +1279,16 @@ export function ProgramsHomeScreen({
             accessibilityRole="button"
             accessibilityLabel={t(language, 'programs.open', { name: program.name })}
             onPress={() => onOpenCustomProgram(program.id)}
-            style={({ pressed }) => [styles.customRow, pressed && styles.pressedRow]}
+            style={({ pressed }) => [styles.customRowWrap, pressed && styles.rowPressed]}
           >
+            <CutSurface
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.border}
+              strokeWidth={1}
+              speedLine={{ color: theme.purpleBright }}
+              style={styles.customRow}
+            >
             <GradientTile stops={SAVED_TILE} size={44} radius={12} />
             <View style={styles.customCopy}>
               <Text style={styles.customTitle} numberOfLines={1}>
@@ -1280,6 +1299,7 @@ export function ProgramsHomeScreen({
               </Text>
             </View>
             <Text style={styles.customAction}>{t(language, 'programs.openShort')}</Text>
+            </CutSurface>
           </Pressable>
         ))}
         {/* The only "new program" entry on the page now. It opens the sheet
@@ -1289,12 +1309,21 @@ export function ProgramsHomeScreen({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'programs.create')}
           onPress={() => setCreateOpen(true)}
-          style={({ pressed }) => [styles.createRow, pressed && styles.pressedRow]}
+          style={({ pressed }) => [pressed && styles.pressedRow]}
         >
+          <CutSurface
+            size="lg"
+            fill="transparent"
+            stroke={theme.border}
+            strokeWidth={1.5}
+            dashed
+            style={styles.createRow}
+          >
           <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
             <Path d="M12 5v14M5 12h14" stroke={theme.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
           <Text style={styles.createText}>{t(language, 'programs.create')}</Text>
+          </CutSurface>
         </Pressable>
 
         <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.library')}</Text>
@@ -1302,8 +1331,16 @@ export function ProgramsHomeScreen({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'programs.openLibrary')}
           onPress={onOpenLibrary}
-          style={({ pressed }) => [styles.libraryRow, pressed && styles.pressedRow]}
+          style={({ pressed }) => [pressed && styles.rowPressed]}
         >
+          <CutSurface
+            size="lg"
+            fill={theme.surface}
+            stroke={theme.border}
+            strokeWidth={1}
+            speedLine={{ color: theme.purpleBright }}
+            style={styles.libraryRow}
+          >
           <View style={styles.libraryIcon}>
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
               <Path d="M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10" stroke={theme.purple} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
@@ -1318,6 +1355,7 @@ export function ProgramsHomeScreen({
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
             <Path d="m9 6 6 6-6 6" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" />
           </Svg>
+          </CutSurface>
         </Pressable>
 
         <View style={styles.bottomSafeFade} />
@@ -1640,10 +1678,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   trendingCard: {
     marginBottom: 4,
-    borderRadius: 18,
-    backgroundColor: theme.surface,
-    borderWidth: 1.5,
-    borderColor: theme.border,
     overflow: 'hidden',
   },
   trendingRow: {
@@ -1753,8 +1787,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   campaignCta: {
     alignSelf: 'flex-start',
     marginTop: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.94)',
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 15,
     paddingVertical: 8,
   },
@@ -1818,8 +1852,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   catTile: {
     width: 70,
     height: 70,
-    borderRadius: 20,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2072,17 +2104,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     backgroundColor: theme.faint,
   },
+  customRowWrap: {
+    marginBottom: 10,
+  },
+  rowPressed: {
+    transform: [{ translateX: 3 }],
+  },
   customRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    paddingHorizontal: 14,
+    paddingRight: 14,
+    // Room for the speed line before the tile starts.
+    paddingLeft: 26,
     paddingVertical: 13,
-    marginBottom: 10,
   },
   customCopy: {
     flex: 1,
@@ -2113,10 +2148,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     height: 50,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    borderStyle: 'dashed',
   },
   createText: {
     color: theme.purple,
@@ -2128,11 +2159,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 13,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    paddingHorizontal: 15,
+    paddingRight: 15,
+    paddingLeft: 26,
     paddingVertical: 14,
   },
   libraryIcon: {
