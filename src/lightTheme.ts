@@ -48,6 +48,18 @@ export const HG = {
   onHighlight: '#FFFFFF',
   blue: '#0A84FF',
   gold: '#E4B14C',
+  // Caution and danger, as tokens rather than the fixed `PW`/inline hexes the
+  // screens used to carry. A "you may be missing a rack" note and a "delete
+  // this program" button are the same two moments in both themes; only the
+  // wash under them changes. Light values are the PW ones, so nothing moves
+  // here.
+  amber: '#D97706',
+  amberSoft: '#FDF3E3',
+  amberBorder: '#F0D3A2',
+  amberInk: '#7A5B32',
+  danger: '#DC2626',
+  dangerSoft: '#FEF2F2',
+  dangerBorder: '#FECACA',
   // Pro sheet gradient stops (dark violet).
   proSheetTop: '#241A3E',
   proSheetBottom: '#150E28',

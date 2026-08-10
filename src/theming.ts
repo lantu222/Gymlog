@@ -68,6 +68,15 @@ export interface Theme {
   onHighlight: string;
   blue: string;
   gold: string;
+  /** Caution: a missing piece of gear, a form warning, an "check this" note. */
+  amber: string;
+  amberSoft: string;
+  amberBorder: string;
+  amberInk: string;
+  /** Destructive: delete, reset, remove. */
+  danger: string;
+  dangerSoft: string;
+  dangerBorder: string;
   proSheetTop: string;
   proSheetBottom: string;
 }

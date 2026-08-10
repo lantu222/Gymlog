@@ -17,12 +17,19 @@ module.exports = [
   {
     name: 'program detail screen renders the light plan overview instead of the old session-flow hero',
     run() {
-      // The module constant is gone: a constant is evaluated once at import and
-      // cannot follow a theme, so the background is read in the style factory.
-      assert.doesNotMatch(programDetailSource, /PLAN_BACKGROUND/);
+      // Every module constant is gone: a constant is evaluated once at import
+      // and cannot follow a theme, so colours are read in the style factory.
+      //
+      // This assertion used to pin PLAN_PURPLE and PLAN_GREEN in place, two
+      // lines under a comment explaining why a pinned constant is the bug. The
+      // screen kept its whole light palette under the dark theme — white cards
+      // and near-black body copy on a near-black page — and the guard stayed
+      // green through exactly that.
+      assert.doesNotMatch(programDetailSource, /const PLAN_[A-Z_]* =/);
       assert.match(programDetailSource, /backgroundColor: theme.bg/);
-      assert.match(programDetailSource, /PLAN_PURPLE = '#7C3AED'/);
-      assert.match(programDetailSource, /PLAN_GREEN = '#16A34A'/);
+      // The one place a fixed colour is still right: white on the hero's own
+      // painted gradient, which does not change with the theme.
+      assert.match(programDetailSource, /heroTitle: \{\s*color: '#FFFFFF'/);
       // The screen leads with a hero that says what the program IS. It opened
       // on a header, a photo slot and a stats card — three containers before a
       // reader learned whether this was a strength program or a cut.

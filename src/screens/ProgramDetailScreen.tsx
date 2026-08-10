@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
@@ -11,7 +11,7 @@ import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
-import { Theme, useThemedStyles } from '../theming';
+import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import type { AppLanguage } from '../types/models';
@@ -32,11 +32,23 @@ const ROLE_KEYS: Record<string, I18nKey> = {
   accessory: 'detail.role.accessory',
 };
 
-const ROLE_TINTS: Record<string, { bg: string; ink: string }> = {
-  primary: { bg: '#EDE4FF', ink: '#5B21B6' },
-  secondary: { bg: '#E4EEFF', ink: '#2C4E9A' },
-  accessory: { bg: '#F2F1F5', ink: '#7A7387' },
-};
+/**
+ * The role tag's wash. Light keeps its three pastels; dark cannot — a pastel
+ * pill with dark ink is a lit chip on a near-black page, and there are up to
+ * seven per session card.
+ */
+const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
+  theme === darkTheme
+    ? {
+        primary: { bg: 'rgba(167, 139, 250, 0.16)', ink: '#C4B0FF' },
+        secondary: { bg: 'rgba(79, 168, 255, 0.14)', ink: '#8CC6FF' },
+        accessory: { bg: 'rgba(255, 255, 255, 0.07)', ink: theme.faint },
+      }
+    : {
+        primary: { bg: '#EDE4FF', ink: '#5B21B6' },
+        secondary: { bg: '#E4EEFF', ink: '#2C4E9A' },
+        accessory: { bg: '#F2F1F5', ink: '#7A7387' },
+      };
 
 /**
  * "Ylävartalo · raskas" becomes "YLÄ" on a 44px weekday chip.
@@ -57,16 +69,21 @@ const ROLE_LEVEL_KEYS: Record<string, I18nKey> = {
   advanced: 'detail.level.advanced',
 };
 
-const PLAN_SURFACE = '#FFFFFF';
-const PLAN_SURFACE_SOFT = '#F2ECFF';
-const PLAN_TEXT = '#101828';
-const PLAN_TEXT_MUTED = '#667085';
-const PLAN_BORDER = '#E4D8FF';
-const PLAN_PURPLE = '#7C3AED';
-const PLAN_PURPLE_DARK = '#5B21B6';
-const PLAN_PURPLE_SOFT = '#F1EAFF';
-// Green now means one thing only on this screen: a recovery day.
-const PLAN_GREEN = '#16A34A';
+/*
+ * This screen used to carry its own palette — nine PLAN_* constants and about
+ * thirty inline hexes, all light. Under the dark theme it kept every one of
+ * them: white cards, near-black body copy on a near-black page. The colours
+ * below now come from the theme, and the handful that stay fixed (the hero
+ * gradient, white on that gradient) are fixed because they sit on a painted
+ * surface that does not change.
+ */
+/**
+ * How far up the hero's left edge the seam cuts.
+ *
+ * Shallower than the browse card's 0.82: at 210px tall the same ratio would
+ * carve nearly forty pixels off the corner and start eating the back button.
+ */
+const HERO_SEAM_RATIO = 0.9;
 
 interface ProgramDetailScreenProps {
   program: ProgramDetailViewModel;
@@ -241,7 +258,9 @@ export function ProgramDetailScreen({
   activePlanSummary = null,
   language = 'en',
 }: ProgramDetailScreenProps) {
+  const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const tints = roleTints(theme);
   const [confirmVisible, setConfirmVisible] = useState(false);
   const { width: heroWidth } = useWindowDimensions();
   /**
@@ -334,6 +353,14 @@ export function ProgramDetailScreen({
         <View style={styles.hero}>
           <Svg width={heroWidth} height={210} style={StyleSheet.absoluteFill}>
             <Defs>
+              {/* The same seam the browse cards carry, at hero scale (design:
+                  GAINER Boost-tyyli, frame D). Clipped inside the SVG for the
+                  same reason: overflow clips to the rectangle, and the
+                  gradient, the bars and the scrim would all run past the
+                  slope. */}
+              <ClipPath id="detailHeroSeam">
+                <Path d={`M0 0 H${heroWidth} V210 L0 ${210 * HERO_SEAM_RATIO} Z`} />
+              </ClipPath>
               <SvgLinearGradient id="detailHero" x1="0" y1="0" x2="1" y2="1">
                 <Stop offset="0" stopColor="#7C7AD8" />
                 <Stop offset="1" stopColor="#3B2E91" />
@@ -343,6 +370,7 @@ export function ProgramDetailScreen({
                 <Stop offset="1" stopColor="#1E1246" stopOpacity={0.62} />
               </SvgLinearGradient>
             </Defs>
+            <G clipPath="url(#detailHeroSeam)">
             <Rect x="0" y="0" width={heroWidth} height={210} fill="url(#detailHero)" />
             {/* The program's week, as bars — the same fingerprint the browse
                 cards draw, so a program looks like itself wherever it is met. */}
@@ -364,6 +392,7 @@ export function ProgramDetailScreen({
               );
             })}
             <Rect x="0" y="60" width={heroWidth} height={150} fill="url(#detailHeroScrim)" />
+            </G>
           </Svg>
           <View style={styles.heroTopRow}>
             <Pressable
@@ -414,7 +443,7 @@ export function ProgramDetailScreen({
             <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
               <Path
                 d="M12 3l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 15.4 7.2 17.9l.9-5.4L4.2 8.7l5.4-.8z"
-                stroke={PLAN_PURPLE}
+                stroke={theme.purple}
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -531,13 +560,13 @@ export function ProgramDetailScreen({
                             <View
                               style={[
                                 styles.roleTag,
-                                { backgroundColor: ROLE_TINTS[exercise.role]?.bg ?? PLAN_PURPLE_SOFT },
+                                { backgroundColor: tints[exercise.role]?.bg ?? theme.purpleSoft },
                               ]}
                             >
                               <Text
                                 style={[
                                   styles.roleTagText,
-                                  { color: ROLE_TINTS[exercise.role]?.ink ?? PLAN_PURPLE_DARK },
+                                  { color: tints[exercise.role]?.ink ?? theme.purpleDark },
                                 ]}
                               >
                                 {t(language, ROLE_KEYS[exercise.role])}
@@ -602,7 +631,7 @@ export function ProgramDetailScreen({
                   <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                     <Path
                       d="M12 4l9 16H3z M12 10v4M12 17v.01"
-                      stroke="#D97706"
+                      stroke={theme.amber}
                       strokeWidth={2.2}
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -625,7 +654,7 @@ export function ProgramDetailScreen({
                 stores, so the two lists compare directly. */}
             <View style={styles.chipWrap}>
               {equipment.map((chip) => (
-                <CutSurface key={chip} size="chip" fill={PLAN_SURFACE} style={styles.equipChip}>
+                <CutSurface key={chip} size="chip" fill={theme.surface} style={styles.equipChip}>
                   <Text style={styles.equipChipText}>
                     {t(language, EQUIPMENT_CHIP_KEYS[chip] ?? 'detail.equipment')}
                   </Text>
@@ -637,7 +666,7 @@ export function ProgramDetailScreen({
                 <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                   <Path
                     d={missingGear.length === 0 ? 'M4 12.5l5 5 11-11' : 'M12 4l9 16H3z M12 10v4M12 17v.01'}
-                    stroke={missingGear.length === 0 ? PLAN_GREEN : '#D97706'}
+                    stroke={missingGear.length === 0 ? theme.green : theme.amber}
                     strokeWidth={2.3}
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -762,7 +791,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 9,
   },
   leadCopy: {
-    color: PLAN_TEXT,
+    color: theme.ink,
     fontSize: 13.5,
     lineHeight: 20,
     fontWeight: '600',
@@ -773,8 +802,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 14,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#EFEAFB',
-    backgroundColor: PLAN_SURFACE,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     paddingVertical: 13,
   },
   statStripItem: {
@@ -783,18 +812,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   statStripDivider: {
     width: 1,
-    backgroundColor: '#F1EBFC',
+    backgroundColor: theme.border,
     marginVertical: 3,
   },
   statStripValue: {
-    color: PLAN_TEXT,
+    color: theme.ink,
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '800',
     letterSpacing: -0.3,
   },
   statStripLabel: {
-    color: '#9A93AC',
+    color: theme.faint,
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '800',
@@ -808,18 +837,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   rhythmDay: {
     flex: 1,
     borderRadius: 13,
-    backgroundColor: '#F2ECFF',
+    backgroundColor: theme.surfaceSoft,
     borderWidth: 1,
-    borderColor: '#E9E0FB',
+    borderColor: theme.border,
     paddingVertical: 9,
     alignItems: 'center',
   },
   rhythmDayOn: {
-    backgroundColor: '#3F2A78',
-    borderColor: '#3F2A78',
+    backgroundColor: theme.purpleDark,
+    borderColor: theme.purpleDark,
   },
   rhythmDayName: {
-    color: '#9A93AC',
+    color: theme.faint,
     fontSize: 10,
     lineHeight: 13,
     fontWeight: '800',
@@ -829,7 +858,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: 'rgba(255,255,255,0.66)',
   },
   rhythmDayLabel: {
-    color: '#B6AEC8',
+    color: theme.muted,
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '800',
@@ -845,14 +874,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E7DBFC',
-    backgroundColor: '#F4EFFE',
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
     paddingHorizontal: 12,
     paddingVertical: 11,
   },
   reasonText: {
     flex: 1,
-    color: '#5C5370',
+    color: theme.muted,
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '700',
@@ -869,7 +898,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 7,
   },
   equipChipText: {
-    color: '#3F3A4B',
+    color: theme.ink,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
@@ -881,30 +910,30 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 10,
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: '#F3E4CF',
-    backgroundColor: '#FFFBF3',
+    borderColor: theme.amberBorder,
+    backgroundColor: theme.amberSoft,
     paddingHorizontal: 13,
     paddingVertical: 12,
   },
   gymNoteOk: {
-    borderColor: '#CFEEDA',
-    backgroundColor: '#F0FBF3',
+    borderColor: theme.green,
+    backgroundColor: theme.greenSoft,
   },
   gymNoteText: {
     flex: 1,
-    color: '#8A5C22',
+    color: theme.amberInk,
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '700',
   },
   gymNoteTextOk: {
-    color: '#276B41',
+    color: theme.greenInk,
   },
   ruleCard: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: '#EFEAFB',
-    backgroundColor: PLAN_SURFACE,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: 14,
   },
   ruleRow: {
@@ -914,28 +943,28 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   ruleRowDivider: {
     borderTopWidth: 1,
-    borderTopColor: '#F5F1FC',
+    borderTopColor: theme.border,
   },
   ruleIndex: {
     width: 14,
-    color: PLAN_PURPLE,
+    color: theme.purple,
     fontSize: 12.5,
     lineHeight: 19,
     fontWeight: '800',
   },
   ruleText: {
     flex: 1,
-    color: '#3F3A4B',
+    color: theme.ink,
     fontSize: 12.5,
     lineHeight: 19,
     fontWeight: '600',
   },
   ruleLead: {
-    color: PLAN_TEXT,
+    color: theme.ink,
     fontWeight: '800',
   },
   audienceText: {
-    color: '#3F3A4B',
+    color: theme.ink,
     fontSize: 13,
     lineHeight: 20,
     fontWeight: '600',
@@ -947,11 +976,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#F5F1FC',
+    borderTopColor: theme.border,
   },
   warnText: {
     flex: 1,
-    color: '#8A5C22',
+    color: theme.amberInk,
     fontSize: 12.5,
     lineHeight: 18,
     fontWeight: '700',
@@ -980,13 +1009,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: spacing.xs,
   },
   sectionTitle: {
-    color: PLAN_TEXT,
+    color: theme.ink,
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: -0.3,
   },
   sectionMeta: {
-    color: PLAN_TEXT_MUTED,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -996,8 +1025,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   workoutCard: {
     borderRadius: radii.lg,
     borderWidth: 1,
-    borderColor: PLAN_BORDER,
-    backgroundColor: PLAN_SURFACE,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
     padding: spacing.md,
     gap: spacing.sm,
   },
@@ -1012,10 +1041,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PLAN_SURFACE_SOFT,
+    backgroundColor: theme.surfaceSoft,
   },
   workoutIndexText: {
-    color: PLAN_PURPLE,
+    color: theme.purple,
     fontSize: 20,
     fontWeight: '900',
   },
@@ -1024,12 +1053,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 3,
   },
   workoutName: {
-    color: PLAN_TEXT,
+    color: theme.ink,
     fontSize: 17,
     fontWeight: '900',
   },
   workoutMeta: {
-    color: PLAN_TEXT_MUTED,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1039,15 +1068,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: radii.pill,
     justifyContent: 'center',
     // Actions wear the app purple; green here stays for recovery days only.
-    backgroundColor: PLAN_PURPLE_SOFT,
+    backgroundColor: theme.purpleSoft,
   },
   workoutActionText: {
-    color: PLAN_PURPLE,
+    color: theme.purple,
     fontSize: 13,
     fontWeight: '900',
   },
   workoutFocus: {
-    color: PLAN_TEXT_MUTED,
+    color: theme.muted,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
@@ -1056,16 +1085,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     overflow: 'hidden',
     borderRadius: radii.md,
     borderWidth: 1,
-    borderColor: PLAN_BORDER,
-    backgroundColor: '#FAF8FF',
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
   },
   sessionContentSection: {
     borderBottomWidth: 1,
-    borderBottomColor: PLAN_BORDER,
+    borderBottomColor: theme.border,
   },
   sessionContentTitle: {
-    backgroundColor: '#ECE7F2',
-    color: PLAN_TEXT,
+    backgroundColor: theme.surfaceSoft,
+    color: theme.ink,
     fontSize: 14,
     fontWeight: '900',
     paddingHorizontal: spacing.md,
@@ -1079,18 +1108,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: spacing.md,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    backgroundColor: PLAN_SURFACE,
+    backgroundColor: theme.surface,
     borderTopWidth: 1,
-    borderTopColor: '#F0E8FF',
+    borderTopColor: theme.border,
   },
   sessionContentName: {
     flex: 1,
-    color: PLAN_TEXT,
+    color: theme.ink,
     fontSize: 13,
     fontWeight: '800',
   },
   sessionContentMeta: {
-    color: PLAN_TEXT_MUTED,
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '800',
   },
@@ -1123,12 +1152,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FEF2F2',
+    backgroundColor: theme.dangerSoft,
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: theme.dangerBorder,
   },
   destructiveButtonText: {
-    color: '#DC2626',
+    color: theme.danger,
     fontSize: 14,
     fontWeight: '900',
   },
@@ -1140,17 +1169,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.lg,
-    backgroundColor: 'rgba(247, 243, 255, 0.96)',
+    backgroundColor: theme.bg,
     borderTopWidth: 1,
-    borderTopColor: PLAN_BORDER,
+    borderTopColor: theme.border,
   },
   primaryButton: {
     minHeight: 58,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: PLAN_PURPLE,
-    shadowColor: PLAN_PURPLE,
+    backgroundColor: theme.purple,
+    shadowColor: theme.purple,
     shadowOpacity: 0.3,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },

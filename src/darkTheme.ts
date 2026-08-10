@@ -24,22 +24,31 @@
  * `gold` is unchanged: it is already a dark-surface colour in COACH and reads
  * correctly on both backgrounds. The Pro sheet gradient stops are unchanged for
  * the same reason — they were always dark.
+ *
+ * 2026-08-10: the surfaces moved to the boost design's dark values. Two things
+ * changed and both are about depth. The page went deeper and bluer, so a card
+ * sitting on it reads as a card rather than as a slightly different grey. And
+ * the card outline became a translucent white hairline instead of an opaque
+ * violet one — on a near-black page an opaque border draws itself, while a
+ * hairline lets the surface do the separating. The text ramp and the orange
+ * action accent are unchanged: those were decided on their own evidence.
  */
 export const HG_DARK = {
-  bg: '#141021',
-  surface: '#1E1833',
-  surfaceSoft: '#261F40',
+  bg: '#0D0A20',
+  surface: '#191436',
+  surfaceSoft: '#201A42',
   // COACH's own text ramp, unchanged.
   ink: '#F4F1FF',
   muted: '#A79FC4',
-  faint: '#7C739E',
-  border: '#332A4E',
+  faint: '#8B83AE',
+  // A hairline, not a line. See the note above.
+  border: 'rgba(255, 255, 255, 0.09)',
   // A violet drop shadow is invisible on a dark background; black still reads.
   shadow: '#000000',
   // The light theme's purples are 4.5:1 against white and near-invisible
   // against #141021, so the whole accent ramp lifts rather than inverts.
   purple: '#9B6DFF',
-  purpleBright: '#B08CFF',
+  purpleBright: '#A78BFA',
   purpleDark: '#8B5CF6',
   purpleLight: '#2C2350',
   purpleSoft: '#2A2049',
@@ -59,6 +68,17 @@ export const HG_DARK = {
   onHighlight: '#241203',
   blue: '#4FA8FF',
   gold: '#E4B14C',
+  // The caution and danger washes invert: light's cream and pink become a
+  // tinted panel a shade off `surface`, with the ink brightened to carry the
+  // meaning instead. The light values (#FDF3E3, #FEF2F2) are all but white and
+  // would have read as two lit panels on a near-black page.
+  amber: '#F0A44E',
+  amberSoft: '#2E2216',
+  amberBorder: 'rgba(240, 164, 78, 0.30)',
+  amberInk: '#F3C68A',
+  danger: '#FF6B6B',
+  dangerSoft: '#331A1E',
+  dangerBorder: 'rgba(255, 107, 107, 0.30)',
   proSheetTop: '#241A3E',
   proSheetBottom: '#150E28',
 };
