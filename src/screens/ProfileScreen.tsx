@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-nati
 import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg';
 
 import { AnimatedGreeting } from '../components/AnimatedGreeting';
+import { CutSurface } from '../components/CutSurface';
 import { CARD_SHADOW, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
@@ -291,9 +292,17 @@ export function ProfileScreen({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'profile.a11y.settings')}
           onPress={onOpenSettings}
-          style={({ pressed }) => [styles.gearButton, pressed && styles.pressed]}
+          style={({ pressed }) => [pressed && styles.pressed]}
         >
-          <GearIcon />
+          <CutSurface
+            size="md"
+            fill={theme.surface}
+            stroke={theme.border}
+            strokeWidth={1}
+            style={styles.gearButton}
+          >
+            <GearIcon />
+          </CutSurface>
         </Pressable>
       </View>
 
@@ -320,10 +329,18 @@ export function ProfileScreen({
         <Pressable
           accessibilityRole="button"
           onPress={() => void handleInvite()}
-          style={({ pressed }) => [styles.inviteButton, pressed && styles.pressed]}
+          style={({ pressed }) => [pressed && styles.pressed]}
         >
-          <GiftIcon />
-          <Text style={styles.inviteButtonText}>{t(language, 'profile.invite')}</Text>
+          <CutSurface
+            size="lg"
+            fill={theme.surface}
+            stroke={theme.border}
+            strokeWidth={1}
+            style={styles.inviteButton}
+          >
+            <GiftIcon />
+            <Text style={styles.inviteButtonText}>{t(language, 'profile.invite')}</Text>
+          </CutSurface>
         </Pressable>
 
         {/* TRAINING PLAN */}
@@ -333,7 +350,15 @@ export function ProfileScreen({
             actionLabel={resolvedPlanName ? t(language, 'profile.manage') : undefined}
             onAction={onManagePlan}
           />
-          <Pressable onPress={onManagePlan} style={({ pressed }) => [settingsStyles.card, styles.planCard, pressed && styles.pressed]}>
+          <Pressable onPress={onManagePlan} style={({ pressed }) => [pressed && styles.pressedRow]}>
+            <CutSurface
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.border}
+              strokeWidth={1}
+              speedLine={{ color: theme.purpleBright }}
+              style={styles.planCard}
+            >
             <View style={styles.planTop}>
               <Text numberOfLines={1} style={styles.planName}>
                 {resolvedPlanName ?? t(language, 'profile.noPlan')}
@@ -378,6 +403,7 @@ export function ProfileScreen({
             ) : (
               <Text style={styles.planCaption}>{t(language, 'profile.noPlanCaption')}</Text>
             )}
+            </CutSurface>
           </Pressable>
         </View>
 
@@ -391,8 +417,16 @@ export function ProfileScreen({
           <Pressable
             accessibilityRole="button"
             onPress={onOpenRecords}
-            style={({ pressed }) => [settingsStyles.card, styles.recordsLinkCard, pressed && styles.pressedRow]}
+            style={({ pressed }) => [pressed && styles.pressedRow]}
           >
+            <CutSurface
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.border}
+              strokeWidth={1}
+              speedLine={{ color: theme.purpleBright }}
+              style={styles.recordsLinkCard}
+            >
             <View style={styles.recordTile}>
               <TrophyIcon />
             </View>
@@ -413,6 +447,7 @@ export function ProfileScreen({
                 strokeLinejoin="round"
               />
             </Svg>
+            </CutSurface>
           </Pressable>
         </View>
 
@@ -456,10 +491,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   gearButton: {
     width: 40,
     height: 40,
-    borderRadius: 13,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -523,16 +554,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   inviteButton: {
     height: 48,
-    borderRadius: 14,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginTop: 16,
-    ...CARD_SHADOW,
   },
   inviteButtonText: {
     color: theme.ink,
@@ -571,6 +597,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   planCard: {
     paddingVertical: 15,
+    paddingRight: 15,
+    // Room for the speed line before the plan name starts.
+    paddingLeft: 26,
   },
   planTop: {
     flexDirection: 'row',
@@ -619,7 +648,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    paddingHorizontal: 14,
+    paddingRight: 14,
+    paddingLeft: 26,
     paddingVertical: 13,
   },
   recordsLinkValue: {
