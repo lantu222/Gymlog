@@ -114,8 +114,12 @@ module.exports = [
       assert.match(app, /entry\.id && entry\.whyKey/);
       // The reason moved to the program's own screen, where it has room to
       // say why in a sentence. On a 186px card it was a fragment competing
-      // with the numbers above it, so the card carries a link instead.
-      assert.match(screen, /'programs\.more'/);
+      // with the numbers above it. The card now carries the boost anatomy
+      // instead of a link: name, what it is, two facts, and the one number
+      // worth comparing across cards.
+      assert.match(screen, /styles\.recFootValue/);
+      assert.match(screen, /LEVEL_LABEL_KEYS\[item\.level\]/);
+      assert.match(screen, /'programs\.weeksShort'/);
       assert.match(app, /AFFINITY_REASON_KEYS\[match\.reason\]/);
 
       // No questionnaire is no longer an empty row. Choosing a ready program

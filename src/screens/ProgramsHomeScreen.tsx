@@ -14,7 +14,9 @@ import {
 } from 'react-native';
 import Svg, {
   Circle,
+  ClipPath,
   Defs,
+  G,
   LinearGradient as SvgLinearGradient,
   Path,
   RadialGradient,
@@ -40,6 +42,14 @@ import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 // pre-converted to sRGB here (RN has no oklch). Each Explore card cycles a style
 // so the catalog stays visually distinct without photography.
 const LAYERS_MOTIF = 'M12 3l8 4.5-8 4.5-8-4.5 8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8 4.5 8-4.5';
+/**
+ * How far up the cover's left edge the seam cuts (design: 82%).
+ *
+ * Shallow on purpose: steeper and the card starts to read as broken rather
+ * than cut, and the shape has to survive at 104px tall as well as 176.
+ */
+const SEAM_RATIO = 0.82;
+
 const COVER_STYLES: Array<{ cover: [string, string]; tile: [string, string]; motif: string }> = [
   { cover: ['#7699FB', '#2D48C0'], tile: ['#82A1F6', '#4767D3'], motif: LAYERS_MOTIF }, // hue 268
   { cover: ['#00B1E0', '#0068A2'], tile: ['#15B6DF', '#0083B7'], motif: 'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10' }, // 222 barbell
@@ -298,10 +308,25 @@ function ProgramCover({
   const gid = `cover-${style.cover[0]}-${width}x${height}`.replace(/[^a-zA-Z0-9]/g, '');
   const shadeHeight = Math.min(78, height * 0.55);
   const barCeiling = Math.max(18, height * 0.42);
+  /**
+   * The seam (design: GAINER Boost-tyyli).
+   *
+   * The cover's bottom edge slopes rather than sitting square, so the card has
+   * an angle in it before any content does. It is the same diagonal the A3 cut
+   * and the speed line already use, at card scale — not a second language.
+   *
+   * Clipped in the SVG rather than by the parent: `overflow: hidden` clips to
+   * the rectangle, and the gradient, the bars and the shade would all have
+   * carried on past the slope.
+   */
+  const seam = `M0 0 H${width} V${height} L0 ${height * SEAM_RATIO} Z`;
   return (
     <View style={[styles.cover, { width, height }]}>
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
+          <ClipPath id={`${gid}-seam`}>
+            <Path d={seam} />
+          </ClipPath>
           <SvgLinearGradient id={gid} x1="0" y1="0" x2="0.7" y2="1">
             <Stop offset="0" stopColor={style.cover[0]} />
             <Stop offset="1" stopColor={style.cover[1]} />
@@ -315,6 +340,7 @@ function ProgramCover({
             <Stop offset="1" stopColor="#0C081A" stopOpacity={0} />
           </SvgLinearGradient>
         </Defs>
+        <G clipPath={`url(#${gid}-seam)`}>
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${gid})`} />
         <Rect x="0" y="0" width={width} height={height} fill={`url(#${gid}-hl)`} />
         {/* fine diagonal texture */}
@@ -350,15 +376,21 @@ function ProgramCover({
           <Path d={style.motif} stroke="#FFFFFF" strokeOpacity={0.16} strokeWidth={1.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
         </Svg>
         <Rect x="0" y={height - shadeHeight} width={width} height={shadeHeight} fill={`url(#${gid}-shade)`} />
+        </G>
       </Svg>
       {compact ? null : (
         <View style={styles.coverTag}>
           <Text style={styles.coverTagText}>{goal}</Text>
         </View>
       )}
-      <View style={styles.coverBadge}>
-        <Text style={styles.coverBadgeText}>{t(language, 'programs.card.daysShort', { count: days })}</Text>
-      </View>
+      {/* The days badge said what the first bullet says two lines lower, and
+          the seam crosses the bottom edge the name used to sit on. The cover
+          is the picture now; the words are all in the body. */}
+      {compact ? null : (
+        <View style={styles.coverBadge}>
+          <Text style={styles.coverBadgeText}>{t(language, 'programs.card.daysShort', { count: days })}</Text>
+        </View>
+      )}
       {/* Marks the slot where a real gym photo will land (shot later at 3:2, cropped 4:5). */}
       {compact ? null : (
         <View style={styles.coverPhotoMark}>
@@ -374,9 +406,11 @@ function ProgramCover({
           </Svg>
         </View>
       )}
-      <Text style={[styles.coverName, compact && styles.coverNameCompact]} numberOfLines={2}>
-        {name}
-      </Text>
+      {compact ? null : (
+        <Text style={styles.coverName} numberOfLines={2}>
+          {name}
+        </Text>
+      )}
     </View>
   );
 }
@@ -560,6 +594,13 @@ const LEVEL_STYLES: Record<WorkoutLevel, { bg: string; ink: string; key: I18nKey
   beginner: { bg: '#E8F7EE', ink: '#007633', key: 'programs.level.beginner' },
   intermediate: { bg: '#EFE7FF', ink: '#5B21B6', key: 'programs.level.intermediate' },
   advanced: { bg: '#FFE1DB', ink: '#A52A24', key: 'programs.level.advanced' },
+};
+
+/** The same three labels the filter row uses, keyed for a single card. */
+const LEVEL_LABEL_KEYS: Record<WorkoutLevel, I18nKey> = {
+  beginner: 'programs.level.beginner',
+  intermediate: 'programs.level.intermediate',
+  advanced: 'programs.level.advanced',
 };
 
 const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
@@ -1196,22 +1237,40 @@ export function ProgramsHomeScreen({
                       height={104}
                       compact
                     />
+                    {/* Boost anatomy: what it is called, what it is, two
+                        facts, and the one number worth comparing. The card
+                        used to be a single meta line and a link — everything
+                        at one weight, so nothing was the answer to "which of
+                        these". */}
                     <View style={styles.recBody}>
-                      {/* Two facts and a reason. The blurb sat here for a
-                          round and it is a generic fallback for most of the
-                          catalog — three lines of "Rakenteinen Vinha-ohjelma"
-                          buried the numbers that decide whether a card is
-                          worth a tap. It comes back when the programs have
-                          copy of their own. */}
-                      <Text style={styles.exploreMeta}>
-                        {t(language, 'programs.card.days', { count: item.days })} · ~{item.minutes} min
-                        {item.weeks > 0 ? ` · ${t(language, 'programs.weeks', { count: item.weeks })}` : ''}
+                      <Text style={styles.recName} numberOfLines={1}>
+                        {item.name}
                       </Text>
-                      {/* The reason moved to the program's own screen, where
-                          it has room to say why in a sentence. On a 186px card
-                          it was a fragment competing with the numbers above
-                          it. */}
-                      <Text style={styles.forYouWhy}>{t(language, 'programs.more')}</Text>
+                      <Text style={styles.recGoal} numberOfLines={1}>
+                        {item.goal}
+                      </Text>
+                      <View style={styles.recBullets}>
+                        <View style={styles.recBulletRow}>
+                          <View style={styles.recDot} />
+                          <Text style={styles.recBulletText} numberOfLines={1}>
+                            {t(language, 'programs.card.days', { count: item.days })} · ~{item.minutes} min
+                          </Text>
+                        </View>
+                        <View style={styles.recBulletRow}>
+                          <View style={styles.recDot} />
+                          <Text style={styles.recBulletText} numberOfLines={1}>
+                            {t(language, LEVEL_LABEL_KEYS[item.level])}
+                          </Text>
+                        </View>
+                      </View>
+                      {item.weeks > 0 ? (
+                        <View style={styles.recFoot}>
+                          <Text style={styles.recFootLabel}>{t(language, 'programs.card.lengthLabel')}</Text>
+                          <Text style={styles.recFootValue}>
+                            {t(language, 'programs.weeksShort', { count: item.weeks })}
+                          </Text>
+                        </View>
+                      ) : null}
                     </View>
                   </Pressable>
                 );
@@ -1929,9 +1988,71 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     overflow: 'hidden',
   },
   recBody: {
-    paddingHorizontal: 11,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingTop: 11,
+    paddingBottom: 12,
+  },
+  recName: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+    textTransform: 'uppercase',
+  },
+  recGoal: {
+    color: theme.ink,
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+    marginTop: 2,
+  },
+  recBullets: {
     gap: 6,
+    marginTop: 11,
+    marginBottom: 12,
+  },
+  recBulletRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  recDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: theme.purpleBright,
+  },
+  recBulletText: {
+    flex: 1,
+    color: theme.muted,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  // The one number worth comparing, under a hairline so it reads as the
+  // card's answer rather than a third bullet.
+  recFoot: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    paddingTop: 9,
+  },
+  recFootLabel: {
+    color: theme.faint,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '700',
+  },
+  recFootValue: {
+    color: theme.ink,
+    fontSize: 19,
+    lineHeight: 23,
+    fontWeight: '800',
+    letterSpacing: -0.4,
   },
   // ── Season tiles (168 × 150) ─────────────────────────────────────────
   seasonGrid: {
@@ -2079,13 +2200,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // A 21px title on a 104px cover eats the card; the small covers get their
   // own scale rather than the same one shrunk by luck.
-  coverNameCompact: {
-    fontSize: 14.5,
-    lineHeight: 17,
-    left: 11,
-    right: 11,
-    bottom: 9,
-  },
   exploreMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
