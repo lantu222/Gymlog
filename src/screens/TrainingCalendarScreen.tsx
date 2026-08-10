@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { CutSurface } from '../components/CutSurface';
 import { I18nKey, t } from '../lib/i18n';
 import {
   buildTrainingCalendar,
@@ -299,9 +300,11 @@ export function TrainingCalendarScreen({
             <Pressable
               accessibilityRole="button"
               onPress={onStartWorkout}
-              style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}
+              style={({ pressed }) => [pressed && styles.pressed]}
             >
-              <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
+              <CutSurface size="lg" fill={theme.purple} style={styles.emptyCta}>
+                <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
+              </CutSurface>
             </Pressable>
           </View>
         ) : null}
@@ -585,8 +588,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 18,
     height: 46,
     paddingHorizontal: 22,
-    borderRadius: 14,
-    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -6,6 +6,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { FREE_RECORD_MONTHS, isRecordLocked } from '../lib/historyWindow';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
+import { CutSurface } from '../components/CutSurface';
 import { groupRecordsByMonth, PersonalRecord, RecordKind } from '../lib/personalRecords';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
@@ -197,24 +198,33 @@ export function RecordsList({
   return (
     <>
       <View style={styles.kindRow}>
-        <View style={styles.segment}>
+        {/* A3: same shape as every other selector in the app. */}
+        <CutSurface size="sm" fill="#EEE8FA" style={styles.segment}>
           {KINDS.map((entry) => {
             const on = kind === entry;
+            const label = (
+              <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
+                {t(language, KIND_LABELS[entry])}
+              </Text>
+            );
             return (
               <Pressable
                 key={entry}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
                 onPress={() => setKind(entry)}
-                style={[styles.segmentItem, on && styles.segmentItemOn]}
               >
-                <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
-                  {t(language, KIND_LABELS[entry])}
-                </Text>
+                {on ? (
+                  <CutSurface size="chip" fill="#FFFFFF" style={styles.segmentItem}>
+                    {label}
+                  </CutSurface>
+                ) : (
+                  <View style={styles.segmentItem}>{label}</View>
+                )}
               </Pressable>
             );
           })}
-        </View>
+        </CutSurface>
         {shown.length > 0 ? (
           <Text style={styles.liftCount}>{t(language, 'pr.liftCount', { count: shown.length })}</Text>
         ) : null}
@@ -238,9 +248,11 @@ export function RecordsList({
           <Pressable
             accessibilityRole="button"
             onPress={onStartWorkout}
-            style={({ pressed }) => [styles.emptyCta, pressed && styles.pressed]}
+            style={({ pressed }) => [pressed && styles.pressed]}
           >
-            <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
+            <CutSurface size="lg" fill={theme.purple} style={styles.emptyCta}>
+              <Text style={styles.emptyCtaText}>{t(language, 'pr.empty.cta')}</Text>
+            </CutSurface>
           </Pressable>
         </View>
       ) : (
@@ -312,18 +324,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   segment: {
     flexDirection: 'row',
-    backgroundColor: '#EEE8FA',
-    borderRadius: 11,
     padding: 3,
     gap: 2,
   },
   segmentItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 13,
     paddingVertical: 6,
-    borderRadius: 8,
-  },
-  segmentItemOn: {
-    backgroundColor: '#FFFFFF',
   },
   segmentText: {
     color: theme.muted,
@@ -532,8 +540,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 18,
     height: 46,
     paddingHorizontal: 22,
-    borderRadius: 14,
-    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },

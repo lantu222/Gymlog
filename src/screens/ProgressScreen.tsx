@@ -706,18 +706,15 @@ function Seg<T extends string>({
   const theme = useTheme();
 
   return (
-    <View style={[styles.seg, grow && styles.segGrow]}>
+    // A3: the shell and the selected option both take the cut. Every selector
+    // in the app goes through this one component, so the shape lands on the
+    // metric switch, the trend range and the measure range at once.
+    <CutSurface size="sm" fill={theme.surfaceSoft} style={[styles.seg, grow && styles.segGrow]}>
       {options.map((option) => {
         const locked = lockedKeys?.includes(option.key) ?? false;
         const active = !locked && option.key === value;
-        return (
-          <Pressable
-            key={option.key}
-            accessibilityRole="button"
-            accessibilityState={{ selected: active, disabled: false }}
-            onPress={() => (locked ? onLockedPress?.() : onChange(option.key))}
-            style={[styles.segItem, grow && styles.segItemGrow, active && styles.segItemActive]}
-          >
+        const inner = (
+          <>
             {locked ? (
               <Svg width={11} height={11} viewBox="0 0 24 24" fill="none">
                 <Rect x={5} y={11} width={14} height={9} rx={2.5} stroke={theme.faint} strokeWidth={2.4} />
@@ -732,10 +729,28 @@ function Seg<T extends string>({
             <Text style={[styles.segText, active && styles.segTextActive, locked && styles.segTextLocked]}>
               {option.label}
             </Text>
+          </>
+        );
+
+        return (
+          <Pressable
+            key={option.key}
+            accessibilityRole="button"
+            accessibilityState={{ selected: active, disabled: false }}
+            onPress={() => (locked ? onLockedPress?.() : onChange(option.key))}
+            style={grow && styles.segItemGrow}
+          >
+            {active ? (
+              <CutSurface size="chip" fill={theme.surface} style={[styles.segItem, styles.segItemActive]}>
+                {inner}
+              </CutSurface>
+            ) : (
+              <View style={styles.segItem}>{inner}</View>
+            )}
           </Pressable>
         );
       })}
-    </View>
+    </CutSurface>
   );
 }
 
@@ -1507,14 +1522,18 @@ export function ProgressScreen({
           {PROGRESS_FILTERS.map((filter) => {
             const active = filter.key === progressFilter;
             return (
-              <Pressable
-                key={filter.key}
-                onPress={() => setProgressFilter(filter.key)}
-                style={[styles.filterChip, active && styles.filterChipActive]}
-              >
-                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                  {t(language, filter.labelKey)}
-                </Text>
+              <Pressable key={filter.key} onPress={() => setProgressFilter(filter.key)}>
+                <CutSurface
+                  size="chip"
+                  fill={active ? theme.purple : theme.surface}
+                  stroke={active ? theme.purple : theme.border}
+                  strokeWidth={1}
+                  style={styles.filterChip}
+                >
+                  <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                    {t(language, filter.labelKey)}
+                  </Text>
+                </CutSurface>
               </Pressable>
             );
           })}
@@ -2170,8 +2189,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   seg: {
     flexDirection: 'row',
-    backgroundColor: theme.surfaceSoft,
-    borderRadius: 10,
     padding: 3,
     gap: 2,
   },
@@ -2179,16 +2196,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignSelf: 'stretch',
   },
   segItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
     paddingHorizontal: 11,
     paddingVertical: 5,
-    borderRadius: 7,
   },
   segItemGrow: {
     flex: 1,
     alignItems: 'center',
   },
   segItemActive: {
-    backgroundColor: theme.surface,
     shadowColor: '#5028A0',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.14,
@@ -2385,16 +2404,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   filterChip: {
     height: 32,
     paddingHorizontal: 14,
-    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
   },
   filterChipActive: {
-    backgroundColor: theme.purple,
-    borderColor: theme.purple,
   },
   filterChipText: {
     color: theme.ink,

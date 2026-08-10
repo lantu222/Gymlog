@@ -6,6 +6,7 @@ import { ExerciseSetLog, SET_LOG_SESSIONS } from '../lib/exerciseSetLog';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { FREE_RECORD_MONTHS } from '../lib/historyWindow';
 import { I18nKey, t } from '../lib/i18n';
+import { CutSurface } from './CutSurface';
 import { libraryLabel } from '../lib/libraryLabel';
 import { PersonalRecord } from '../lib/personalRecords';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -296,9 +297,11 @@ export function SetLogSheet({
               <Pressable
                 accessibilityRole="button"
                 onPress={onStartWorkout}
-                style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
+                style={({ pressed }) => [pressed && styles.pressed]}
               >
-                <Text style={styles.ctaText}>{t(language, 'setlog.empty.cta')}</Text>
+                <CutSurface size="lg" fill={theme.purple} style={styles.cta}>
+                  <Text style={styles.ctaText}>{t(language, 'setlog.empty.cta')}</Text>
+                </CutSurface>
               </Pressable>
             ) : null}
           </View>
@@ -357,9 +360,11 @@ export function SetLogSheet({
               <Pressable
                 accessibilityRole="button"
                 onPress={onOpenPro}
-                style={({ pressed }) => [styles.cta, styles.ctaWide, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.ctaWide, pressed && styles.pressed]}
               >
-                <Text style={styles.ctaText}>{t(language, 'setlog.lock.cta')}</Text>
+                <CutSurface size="lg" fill={theme.purple} style={styles.cta}>
+                  <Text style={styles.ctaText}>{t(language, 'setlog.lock.cta')}</Text>
+                </CutSurface>
               </Pressable>
             </View>
           </View>
@@ -718,8 +723,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 16,
     height: 50,
     paddingHorizontal: 24,
-    borderRadius: 15,
-    backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },

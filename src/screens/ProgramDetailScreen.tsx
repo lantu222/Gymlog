@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -624,11 +625,11 @@ export function ProgramDetailScreen({
                 stores, so the two lists compare directly. */}
             <View style={styles.chipWrap}>
               {equipment.map((chip) => (
-                <View key={chip} style={styles.equipChip}>
+                <CutSurface key={chip} size="chip" fill={PLAN_SURFACE} style={styles.equipChip}>
                   <Text style={styles.equipChipText}>
                     {t(language, EQUIPMENT_CHIP_KEYS[chip] ?? 'detail.equipment')}
                   </Text>
-                </View>
+                </CutSurface>
               ))}
             </View>
             {availableEquipment !== null ? (
@@ -862,10 +863,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 7,
   },
   equipChip: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#EFEAFB',
-    backgroundColor: PLAN_SURFACE,
+    alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 7,
   },
