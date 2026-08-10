@@ -1557,6 +1557,23 @@ export function OnboardingScreen({
   const [selectedRecommendationProgramId, setSelectedRecommendationProgramId] = useState<string | null>(null);
   const [planReadyWorkoutPage, setPlanReadyWorkoutPage] = useState(0);
   const [planReadyView, setPlanReadyView] = useState<'overview' | 'day' | 'pro'>('overview');
+  /**
+   * The recommendation is the answer until the user gives another one.
+   *
+   * The days step drew the recommendation as if selected but kept the seed in
+   * state, so continuing without tapping would have built a different week
+   * from the one on screen. Committing it here keeps the two the same, and a
+   * tap on any count or any weekday overrides it as before.
+   */
+  useEffect(() => {
+    if (STAGES[stageIndex] !== 'days' || profileFrequencySelected) {
+      return;
+    }
+    const recommended = getRecommendedDaysForLevel(level);
+    setDaysPerWeek(recommended);
+    setAvailableDays(DEFAULT_RHYTHM_BY_DAYS[recommended]);
+  }, [level, profileFrequencySelected, stageIndex]);
+
   // Told from an effect, never during render: the parent turns it into shell
   // state, and setting parent state while rendering a child is a loop.
   useEffect(() => {
@@ -2788,7 +2805,15 @@ export function OnboardingScreen({
 
   function renderDays() {
     const recommendedDays = getRecommendedDaysForLevel(level);
-    const selectedDays = availableDays.length > 0 ? availableDays : DEFAULT_RHYTHM_BY_DAYS[daysPerWeek];
+    // Until a count is chosen the week shown IS the recommendation, so the
+    // chips have to draw the recommendation's rhythm. Falling back to
+    // daysPerWeek's default put three days on screen looking chosen, under a
+    // tile marked "4 — recommended", above a disabled button that said
+    // nothing about why.
+    const selectedDays =
+      availableDays.length > 0
+        ? availableDays
+        : DEFAULT_RHYTHM_BY_DAYS[profileFrequencySelected ? daysPerWeek : recommendedDays];
     const restCount = 7 - selectedDays.length;
 
     return renderOnboardingShell({
@@ -2803,7 +2828,11 @@ export function OnboardingScreen({
         <View style={styles.trainingProfileContent}>
           <View style={styles.daysChipRow}>
             {TRAINING_DAY_COUNT_OPTIONS.map((option) => {
-              const active = profileFrequencySelected && daysPerWeek === option;
+              // Before a choice, the recommendation is what the rest of the
+              // screen is showing, so it is what reads as selected.
+              const active = profileFrequencySelected
+                ? daysPerWeek === option
+                : option === recommendedDays;
               const recommended = option === recommendedDays;
 
               return (
@@ -3769,7 +3798,10 @@ export function OnboardingScreen({
       : stage === 'level'
       ? profileLevelSelected
       : stage === 'days'
-      ? profileFrequencySelected
+      ? // The recommendation counts as an answer: the screen shows it as the
+        // selection, so requiring a tap to confirm what is already on screen
+        // is a disabled button with no stated reason.
+        true
       : stage === 'planning'
       ? focusAreas.length > 0
       : true;

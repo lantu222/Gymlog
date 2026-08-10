@@ -154,7 +154,15 @@ module.exports = [
 
       const canContinueBlock = onboardingSource.slice(canContinueStart, locationStageActiveStart);
       assert.match(canContinueBlock, /stage === 'level'[\s\S]*profileLevelSelected/);
-      assert.match(canContinueBlock, /stage === 'days'[\s\S]*profileFrequencySelected/);
+      // The days step no longer requires a tap: the screen shows the
+      // recommendation as the selection and an effect commits it, so a
+      // disabled button there would be disabled over an answer already given.
+      assert.match(canContinueBlock, /stage === 'days'[\s\S]*true/);
+      assert.match(
+        onboardingSource,
+        /STAGES\[stageIndex\] !== 'days' \|\| profileFrequencySelected/,
+        'the recommendation is committed to state, so the saved week matches the shown one',
+      );
       assert.match(canContinueBlock, /stage === 'planning'[\s\S]*focusAreas\.length > 0/);
       assert.match(onboardingSource, /if \(!canContinue \|\| busy\)/);
       assert.match(onboardingSource, /disabled=\{!canContinue \|\| busy\}/);
@@ -425,9 +433,13 @@ module.exports = [
       // Light welcome: the copy lives in the i18n dictionary and the screen
       // renders every string through t(language, …).
       assert.match(i18nSource, /Train fast\. Get strong\./);
-      assert.match(i18nSource, /Continue with Google/);
-      assert.match(i18nSource, /Continue with Apple/);
-      assert.match(welcomeSource, /t\(language, 'welcome\.continueApple'\)/);
+      // The provider buttons are gone. Both called the same handler: there is
+      // no OAuth and no account, so they announced two companies' sign-in for
+      // a feature that does not exist — on the first screen, behind no guard.
+      assert.doesNotMatch(welcomeSource, /continueGoogle|continueApple/);
+      assert.doesNotMatch(welcomeSource, /GoogleMark|AppleMark/);
+      assert.match(welcomeSource, /t\(language, 'welcome\.start'\)/);
+      assert.match(welcomeSource, /t\(language, 'welcome\.noAccount'\)/);
       // The old Welcome CTA is gone. Scoped to a welcome.* value on purpose:
       // "Start free" is legitimate prose on the access-choice screen.
       assert.doesNotMatch(i18nSource, /'welcome\.[^']*': '[^']*Start free/);
@@ -437,7 +449,6 @@ module.exports = [
       // welcome.tagline as a headline. brand.tagline is the footer now.
       assert.match(welcomeSource, /t\(language, 'brand\.tagline'\)/);
       assert.match(welcomeSource, /<VinhaWordmark/);
-      assert.match(welcomeSource, /t\(language, 'welcome\.continueGoogle'\)/);
       assert.match(welcomeSource, /SUPPORTED_LANGUAGES/);
       // Reads the theme rather than copying a value: a local hex silently
       // drifts the moment the palette moves, which is exactly what happened.

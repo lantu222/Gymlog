@@ -186,7 +186,10 @@ export function ProPaywallScreen({
                     </View>
                   ))}
                 </View>
-                <Text style={styles.statSource}>{t(language, 'paywall.stat.source')}</Text>
+                {/* The cohort line is gone. It cited a study nobody ran
+                    ("n = 4 812"), which turns three demo figures into a
+                    fabricated source. The figures stay behind isDemoBuild;
+                    the citation does not come back. */}
               </>
             ) : null}
           </View>
@@ -418,8 +421,6 @@ const styles = StyleSheet.create({
   stat: { flex: 1 },
   statValue: { fontSize: 24, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.7, lineHeight: 25 },
   statLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.62)', marginTop: 5, lineHeight: 13 },
-  statSource: { fontSize: 9, fontWeight: '700', letterSpacing: 0.55, color: 'rgba(255,255,255,0.4)', marginTop: 12 },
-
   body: { paddingHorizontal: PAD, paddingTop: 18, gap: 22 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.6, color: PW.purple, marginBottom: 12 },
   card: { backgroundColor: PW.card, borderWidth: 1, borderColor: PW.border, borderRadius: 18, padding: 16 },

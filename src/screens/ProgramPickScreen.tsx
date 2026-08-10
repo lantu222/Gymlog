@@ -4,7 +4,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Pattern, Polygon, Rect, Stop } from 'react-native-svg';
 
 import { HG } from '../lightTheme';
-import { PROGRAM_FOCUS_COLORS, ProgramFocusSegment } from '../lib/programFocusSplit';
+import { PROGRAM_FOCUS_COLORS, ProgramFocusSegment,
+  getProgramFocusQualityLabel,
+} from '../lib/programFocusSplit';
 import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 
@@ -94,7 +96,11 @@ function FocusBar({ focus, light, language }: { focus: ProgramFocusSegment[]; li
           <View key={segment.quality} style={styles.splitLegendItem}>
             <View style={[styles.splitDot, { backgroundColor: PROGRAM_FOCUS_COLORS[segment.quality] }]} />
             <Text style={[styles.splitLegendText, light && styles.splitLegendTextLight]}>
-              {segment.quality} <Text style={[styles.splitPct, light && styles.splitPctLight]}>{segment.pct}%</Text>
+              {/* getProgramFocusQualityLabel exists and had no caller: the
+                  quality is an English identifier, and printing it put
+                  "Strength 97% · Conditioning 3%" on the plan-ready screen. */}
+              {getProgramFocusQualityLabel(segment.quality, language)}{' '}
+              <Text style={[styles.splitPct, light && styles.splitPctLight]}>{segment.pct}%</Text>
             </Text>
           </View>
         ))}

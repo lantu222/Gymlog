@@ -639,6 +639,10 @@ function buildSetupPreferencePatch(
 function buildSavedOnboardingPlan(
   selection: FirstRunSetupSelection,
   recommendedProgramId: string,
+  // The name is written into the template at creation time, so it has to be
+  // written in the reader's language. Omitting this defaulted to English and
+  // put "Strong Chest Advanced" on a Finnish Home screen.
+  language: AppLanguage,
   savedTemplateId?: string,
 ) {
   // Single source of truth with the onboarding previews (days-per-week truth):
@@ -651,7 +655,7 @@ function buildSavedOnboardingPlan(
     exercises: session.exercises,
   }));
   const draft: WorkoutTemplateDraft = {
-    name: buildFirstRunCustomProgramName(selection),
+    name: buildFirstRunCustomProgramName(selection, language),
     sessions: sessions.map((session) => ({
       id: session.id,
       name: session.name,
@@ -680,6 +684,7 @@ function buildSavedOnboardingWorkoutPlan(
   selection: FirstRunSetupSelection,
   workoutTemplateId: string,
   sessionIds: string[],
+  language: AppLanguage,
 ) {
   const days = selection.scheduleMode === 'self_managed' && selection.availableDays.length > 0
     ? selection.availableDays
@@ -689,7 +694,7 @@ function buildSavedOnboardingWorkoutPlan(
 
   return {
     id: planId,
-    name: buildFirstRunCustomProgramName(selection),
+    name: buildFirstRunCustomProgramName(selection, language),
     mode: 'rotation' as const,
     entries: Array.from({ length: Math.max(1, sessionIds.length) }, (_, index) => ({
       id: `${planId}_entry_${index + 1}`,
@@ -1989,12 +1994,17 @@ function VinhaApp() {
   ) {
     await waitForPlanSaveFeedback();
     await persistSetupSelection(selection, recommendedProgramId);
-    const savedPlan = buildSavedOnboardingPlan(selection, recommendedProgramId);
+    const savedPlan = buildSavedOnboardingPlan(
+      selection,
+      recommendedProgramId,
+      preferences.appLanguage,
+    );
     const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
     const activePlan = buildSavedOnboardingWorkoutPlan(
       selection,
       savedTemplateId,
       savedPlan.runtimeTemplate.sessions.map((session) => session.id),
+      preferences.appLanguage,
     );
     await upsertWorkoutPlan(activePlan);
     await updatePreferences({ activePlanId: activePlan.id });
@@ -2108,12 +2118,17 @@ function VinhaApp() {
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
     await waitForPlanSaveFeedback();
     await persistSetupSelection(selection, recommendedProgramId);
-    const savedPlan = buildSavedOnboardingPlan(selection, recommendedProgramId);
+    const savedPlan = buildSavedOnboardingPlan(
+      selection,
+      recommendedProgramId,
+      preferences.appLanguage,
+    );
     const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
     const activePlan = buildSavedOnboardingWorkoutPlan(
       selection,
       savedTemplateId,
       savedPlan.runtimeTemplate.sessions.map((session) => session.id),
+      preferences.appLanguage,
     );
     await upsertWorkoutPlan(activePlan);
     await updatePreferences({ activePlanId: activePlan.id });

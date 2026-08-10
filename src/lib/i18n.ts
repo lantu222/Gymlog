@@ -13,6 +13,8 @@ import { AppLanguage } from '../types/models';
 const EN = {
   // ── Welcome ────────────────────────────────────────────────────────────
   'brand.tagline': 'Train fast. Get strong.',
+  'welcome.start': 'Get started',
+  'welcome.noAccount': 'No account needed — everything stays on this phone.',
   'welcome.continueGoogle': 'Continue with Google',
   'welcome.continueApple': 'Continue with Apple',
 
@@ -57,7 +59,6 @@ const EN = {
   'paywall.stat2.l': 'training decisions automated',
   'paywall.stat3.v': '+34%',
   'paywall.stat3.l': 'more volume in 8 weeks',
-  'paywall.stat.source': 'PRO VS. FREE · 8-WEEK COHORT · n = 4,812',
   'paywall.built.label': 'BUILT FOR YOU',
   'paywall.built.title': 'Your goal: {goal}, {days} days',
   'paywall.built.sub': 'From your answers, Pro will:',
@@ -2727,6 +2728,8 @@ const FI: Record<I18nKey, string> = {
   // 'Vinhasti' is the real Finnish adverb the name comes from, so the tagline
   // ties the brand to its meaning — which is what the English line does too.
   'brand.tagline': 'Treenaa vinhasti. Tule vahvaksi.',
+  'welcome.start': 'Aloita',
+  'welcome.noAccount': 'Tiliä ei tarvita — kaikki pysyy tässä puhelimessa.',
   'welcome.continueGoogle': 'Jatka Googlella',
   'welcome.continueApple': 'Jatka Applella',
 
@@ -2770,7 +2773,6 @@ const FI: Record<I18nKey, string> = {
   'paywall.stat2.l': 'treenipäätöstä automaattisesti',
   'paywall.stat3.v': '+34 %',
   'paywall.stat3.l': 'enemmän volyymia 8 viikossa',
-  'paywall.stat.source': 'PRO VS. FREE · 8 VIIKON KOHORTTI · n = 4 812',
   'paywall.built.label': 'RÄÄTÄLÖITY SINULLE',
   'paywall.built.title': 'Tavoitteesi: {goal}, {days} päivää',
   'paywall.built.sub': 'Vastaustesi perusteella Pro:',
