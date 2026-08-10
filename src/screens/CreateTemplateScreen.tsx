@@ -18,6 +18,7 @@ import {
   WorkoutTemplateDraft,
 } from '../types/models';
 import { createId } from '../lib/ids';
+import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 
 type TemplateDayCount = 1 | 2 | 3 | 4 | 5;
 
@@ -151,10 +152,19 @@ function clampDayCount(value: number): TemplateDayCount {
   return value as TemplateDayCount;
 }
 
-function createBlankSession(index: number): TemplateSessionState {
+/**
+ * Session names are stored, not derived — whatever is written here ends up in
+ * the user's database and on every screen that shows it. They are written in
+ * the user's language for that reason: a Finnish user's own program should not
+ * be called "Day 3" forever because of the moment it was created.
+ *
+ * Names already stored in English still read correctly everywhere, because
+ * `localizeSessionName` translates them on the way out.
+ */
+function createBlankSession(index: number, language: AppLanguage): TemplateSessionState {
   return {
     localKey: createId('template_session'),
-    name: `Day ${index + 1}`,
+    name: `${t(language, 'tpl.dayWord')} ${index + 1}`,
     exercises: [],
   };
 }
@@ -177,7 +187,7 @@ function createExerciseFromLibraryItem(
   };
 }
 
-function mapDraftToSessions(draft: WorkoutTemplateDraft): TemplateSessionState[] {
+function mapDraftToSessions(draft: WorkoutTemplateDraft, language: AppLanguage): TemplateSessionState[] {
   if (Array.isArray(draft.sessions) && draft.sessions.length > 0) {
     return draft.sessions.map((session, index) => ({
       localKey: session.id ?? createId('template_session'),
@@ -190,7 +200,7 @@ function mapDraftToSessions(draft: WorkoutTemplateDraft): TemplateSessionState[]
     }));
   }
 
-  return [createBlankSession(0)];
+  return [createBlankSession(0, language)];
 }
 
 function buildTemplateDraft(
@@ -247,7 +257,7 @@ export function CreateTemplateScreen({
   const styles = useThemedStyles(makeStyles);
 
   const [templateName, setTemplateName] = useState(initialDraft.name);
-  const [sessions, setSessions] = useState<TemplateSessionState[]>(() => mapDraftToSessions(initialDraft));
+  const [sessions, setSessions] = useState<TemplateSessionState[]>(() => mapDraftToSessions(initialDraft, language));
   const [activeSessionKey, setActiveSessionKey] = useState<string | null>(null);
 
   const sessionCount = clampDayCount(sessions.length);
@@ -285,7 +295,7 @@ export function CreateTemplateScreen({
       if (nextCount > current.length) {
         return [
           ...current,
-          ...Array.from({ length: nextCount - current.length }, (_, index) => createBlankSession(current.length + index)),
+          ...Array.from({ length: nextCount - current.length }, (_, index) => createBlankSession(current.length + index, language)),
         ];
       }
 
@@ -305,7 +315,7 @@ export function CreateTemplateScreen({
         }
 
         return {
-          ...createBlankSession(index),
+          ...createBlankSession(index, language),
           name,
         };
       }),
@@ -446,7 +456,7 @@ export function CreateTemplateScreen({
               const previewImage = presetPreviewImages[preset.id];
 
               return (
-                <Pressable key={preset.id} onPress={() => applyPreset(preset.names)} style={styles.presetCard}>
+                <Pressable key={preset.id} onPress={() => applyPreset(preset.names.map((name) => localizeWorkoutFocus(name, language)))} style={styles.presetCard}>
                   <View style={styles.presetMedia}>
                     {previewImage ? (
                       <Image source={{ uri: previewImage }} style={styles.presetMediaImage} resizeMode="cover" />

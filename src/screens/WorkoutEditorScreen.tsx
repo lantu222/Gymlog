@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { CutButton } from '../components/CutButton';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
@@ -666,9 +667,13 @@ export function WorkoutEditorScreen({
             <Text style={styles.startTitle}>{t(language, 'editor.addFirst')}</Text>
             <Text style={styles.startBody}>{t(language, 'editor.addFirstBody')}</Text>
 
-            <Pressable onPress={openLibraryForAppend} style={styles.primaryAction}>
-              <Text style={styles.primaryActionText}>{t(language, 'editor.addExercise')}</Text>
-            </Pressable>
+            <CutButton
+              label={t(language, 'editor.addExercise')}
+              onPress={openLibraryForAppend}
+              variant="outline"
+              size="lg"
+              stretch
+            />
           </View>
         ) : (
           <>
@@ -841,9 +846,13 @@ export function WorkoutEditorScreen({
               })}
             </View>
 
-            <Pressable onPress={openLibraryForAppend} style={styles.addExercisesButton}>
-              <Text style={styles.addExercisesButtonText}>{t(language, 'editor.addExercises')}</Text>
-            </Pressable>
+            <CutButton
+              label={t(language, 'editor.addExercises')}
+              onPress={openLibraryForAppend}
+              variant="outline"
+              size="lg"
+              stretch
+            />
           </>
         )}
       </ScrollView>
@@ -930,19 +939,6 @@ const makeStyles = (theme: Theme) =>
       fontSize: 14,
       lineHeight: 21,
       fontWeight: '600',
-    },
-    primaryAction: {
-      minHeight: 58,
-      borderRadius: radii.lg,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.ink,
-      marginTop: spacing.xs,
-    },
-    primaryActionText: {
-      color: theme.surface,
-      fontSize: 16,
-      fontWeight: '800',
     },
     sessionStatsCard: {
       borderRadius: radii.lg,
@@ -1188,18 +1184,6 @@ const makeStyles = (theme: Theme) =>
     addSetButtonText: {
       color: theme.ink,
       fontSize: 16,
-      fontWeight: '800',
-    },
-    addExercisesButton: {
-      minHeight: 56,
-      borderRadius: radii.lg,
-      backgroundColor: theme.ink,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    addExercisesButtonText: {
-      color: theme.surface,
-      fontSize: 18,
       fontWeight: '800',
     },
     modalOverlay: {

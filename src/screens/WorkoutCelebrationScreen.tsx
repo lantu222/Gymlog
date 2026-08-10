@@ -1,6 +1,7 @@
 import React from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { CutButton } from '../components/CutButton';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -119,9 +120,7 @@ export function WorkoutCelebrationScreen({
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable onPress={onDone} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>{t(language, 'plan.done')}</Text>
-        </Pressable>
+        <CutButton label={t(language, 'plan.done')} onPress={onDone} size="lg" stretch />
         <Pressable onPress={onViewProgress} style={styles.secondaryButton}>
           <Text style={styles.secondaryButtonText}>{t(language, 'celebrate.viewProgress')}</Text>
         </Pressable>
@@ -254,18 +253,6 @@ const makeStyles = (theme: Theme) =>
       backgroundColor: theme.surface,
       borderTopWidth: 1,
       borderTopColor: theme.border,
-    },
-    primaryButton: {
-      minHeight: 56,
-      borderRadius: radii.lg,
-      backgroundColor: theme.ink,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    primaryButtonText: {
-      color: theme.surface,
-      fontSize: 17,
-      fontWeight: '800',
     },
     secondaryButton: {
       minHeight: 48,

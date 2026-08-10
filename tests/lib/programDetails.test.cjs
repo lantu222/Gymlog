@@ -150,7 +150,19 @@ module.exports = [
       assert.equal(detail.sessions.length, 1);
       assert.equal(detail.sessions[0].guidance, null);
       assert.equal(detail.infoSections.length, 0);
-      assert.ok(detail.badges.includes('Custom'));
+      assert.ok(detail.badges.includes('Own program'));
+
+      // Every string this builder returns follows the reader's language. It
+      // used to return English literals, so a Finnish user's own program was
+      // described to them in English on the screen that exists to describe it.
+      const fi = buildCustomProgramDetail(
+        { id: 'tpl_custom', name: 'Rintavoima', sessions: [{ id: 's1', name: 'Day 1', orderIndex: 0, exercises: [{ id: 'e1', name: 'Bench', targetSets: 3, repMin: 5, repMax: 5, restSeconds: 120, trackedDefault: true }] }] },
+        undefined,
+        'fi',
+      );
+      assert.ok(fi.badges.includes('Oma ohjelma'));
+      assert.match(fi.description, /omista treeneist/);
+      assert.equal(fi.primaryActionLabel, 'Aloita ensimmäinen treeni');
     },
   },
   {

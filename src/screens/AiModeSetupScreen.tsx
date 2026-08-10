@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { CutButton } from '../components/CutButton';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
 import { ScreenHeader } from '../components/ScreenHeader';
@@ -222,26 +223,30 @@ export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave
           </Text>
         </View>
 
-        <Pressable
-          disabled={!readyToSave}
-          onPress={() =>
-            onSave({
-              aiSetupCompleted: true,
-              aiPlannerGoal: goal,
-              aiPlannerDaysPerWeek: daysPerWeek,
-              aiPlannerExperience: experience,
-              aiPlannerSessionMinutes: sessionMinutes,
-              aiPlannerEquipment: equipment,
-              aiPlannerRecovery: recovery,
-              aiPlannerMustInclude: mustInclude.trim(),
-              aiPlannerAvoid: avoid.trim(),
-              aiPlannerLimitations: limitations.trim(),
-            })
+        <CutButton
+          label={t(language, 'aiSetup.save')}
+          onPress={
+            readyToSave
+              ? () =>
+                  onSave({
+                    aiSetupCompleted: true,
+                    aiPlannerGoal: goal,
+                    aiPlannerDaysPerWeek: daysPerWeek,
+                    aiPlannerExperience: experience,
+                    aiPlannerSessionMinutes: sessionMinutes,
+                    aiPlannerEquipment: equipment,
+                    aiPlannerRecovery: recovery,
+                    aiPlannerMustInclude: mustInclude.trim(),
+                    aiPlannerAvoid: avoid.trim(),
+                    aiPlannerLimitations: limitations.trim(),
+                  })
+              : undefined
           }
-          style={[styles.primaryButton, !readyToSave && styles.primaryButtonDisabled]}
-        >
-          <Text style={styles.primaryButtonText}>{t(language, 'aiSetup.save')}</Text>
-        </Pressable>
+          variant={readyToSave ? 'primary' : 'disabled'}
+          size="lg"
+          stretch
+          style={styles.primaryButton}
+        />
       </ScrollView>
     </>
   );
@@ -355,20 +360,7 @@ const makeStyles = (theme: Theme) =>
       fontWeight: '700',
     },
     primaryButton: {
-      minHeight: 56,
-      borderRadius: radii.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.ink,
       marginTop: spacing.sm,
       marginBottom: spacing.lg,
-    },
-    primaryButtonDisabled: {
-      opacity: 0.4,
-    },
-    primaryButtonText: {
-      color: theme.surface,
-      fontSize: 15,
-      fontWeight: '900',
     },
   });

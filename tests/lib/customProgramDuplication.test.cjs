@@ -42,4 +42,36 @@ module.exports = [
       assert.equal(draft.name, 'Upper Lower (copy 2)');
     },
   },
+  {
+    // Duplication is where catalog English entered the user's own database.
+    // Every viewer localises on the way out, so this showed through only in
+    // the template editor — the one screen that must display the stored name
+    // verbatim, because that is the name it will save.
+    name: 'duplicating into Finnish writes Finnish names, not catalog English',
+    run() {
+      const draft = buildDuplicatedCustomProgramDraft(
+        'Rintavoima',
+        [
+          { id: 'd1', name: 'Day 1: Upper (Heavy)', orderIndex: 0, exercises: [] },
+          { id: 'd4', name: 'Day 4: Lower (Growth)', orderIndex: 1, exercises: [] },
+        ],
+        [],
+        'fi',
+      );
+
+      assert.equal(draft.name, 'Rintavoima (kopio)');
+      assert.equal(draft.sessions[0].name, 'Päivä 1: Ylävartalo (raskas)');
+      assert.equal(draft.sessions[1].name, 'Päivä 4: Alavartalo (kasvu)');
+
+      // English stays English — the language decides, not the presence of a
+      // dictionary entry.
+      const en = buildDuplicatedCustomProgramDraft(
+        'Chest Power',
+        [{ id: 'd1', name: 'Day 1: Upper (Heavy)', orderIndex: 0, exercises: [] }],
+        [],
+        'en',
+      );
+      assert.equal(en.sessions[0].name, 'Day 1: Upper (Heavy)');
+    },
+  },
 ];

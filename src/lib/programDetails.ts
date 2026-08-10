@@ -1,4 +1,5 @@
 import { WorkoutRole, WorkoutRuntimeTemplate, WorkoutTemplateSession, WorkoutTemplateV1 } from '../features/workout/workoutTypes';
+import { t } from './i18n';
 import { ComposedProgramWeek } from './programDayComposer';
 import { ProgramInsightSummary } from './programInsights';
 import { getRecommendationProgrammeSummary } from './recommendationProgramme';
@@ -170,27 +171,40 @@ export function buildReadyProgramDetail(
   };
 }
 
+/**
+ * `language` is not optional here either. Every string this returned was an
+ * English literal, and the description is rendered as the lead paragraph of the
+ * detail screen — so a Finnish user's OWN program was introduced to them in
+ * English, on the screen that exists to describe it.
+ */
 export function buildCustomProgramDetail(
   template: WorkoutRuntimeTemplate,
   insights?: ProgramInsightSummary,
+  language: AppLanguage = 'en',
 ): ProgramDetailViewModel {
   const sessionCount = template.sessions.length;
   const exerciseCount = template.sessions.reduce((sum, session) => sum + session.exercises.length, 0);
   const hasExercises = exerciseCount > 0;
+  const counts = t(language, sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts', {
+    sessions: sessionCount,
+    exercises: exerciseCount,
+  });
 
   return {
     id: template.id,
     source: 'custom',
     title: template.name,
-    subtitle: `Custom program | ${sessionCount} ${pluralize(sessionCount, 'session')} | ${exerciseCount} ${pluralize(exerciseCount, 'exercise')}`,
-    description: 'Built from your own sessions and set ranges. Open it to edit, or start the exact session you want to log.',
-    badges: ['Custom', `${sessionCount} ${pluralize(sessionCount, 'session')}`, `${exerciseCount} ${pluralize(exerciseCount, 'exercise')}`],
+    subtitle: `${t(language, 'prog.custom.badge')} | ${counts}`,
+    description: t(language, 'prog.custom.detail.description'),
+    // badges[1] is read as a level slug by the detail screen; a custom program
+    // has no level, so it stays a count and simply does not match.
+    badges: [t(language, 'prog.custom.badge'), counts],
     tailoringBadges: [],
     highlights: insights?.highlights ?? [],
     infoSections: [],
     progressionSummary: null,
-    primaryActionLabel: hasExercises ? 'Start first session' : 'Edit template',
-    sessionActionLabel: hasExercises ? 'Start session' : 'Open session',
+    primaryActionLabel: t(language, hasExercises ? 'prog.custom.detail.startFirst' : 'prog.custom.detail.editTemplate'),
+    sessionActionLabel: t(language, hasExercises ? 'prog.custom.detail.startSession' : 'prog.custom.detail.openSession'),
     sessions: buildSessionItems(template.sessions, {}, insights?.sessionStatusById),
   };
 }

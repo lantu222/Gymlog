@@ -25,6 +25,7 @@ import {
   ExerciseEquipment,
   ExerciseLibraryItem,
 } from '../types/models';
+import { CutButton } from './CutButton';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { radii, spacing } from '../theme';
 
@@ -599,20 +600,20 @@ export function AddExerciseSheet({
                   ? t(language, 'sheet.selectSome')
                   : t(language, 'sheet.selectedCount', { count: pendingSelectedIds.length })}
               </Text>
-              <Pressable
-                onPress={handleConfirmSelection}
-                disabled={pendingSelectedIds.length === 0}
-                style={[styles.confirmButton, pendingSelectedIds.length === 0 && styles.confirmButtonDisabled]}
-              >
-                <Text style={styles.confirmButtonText}>
-                  {confirmActionLabel ??
-                    t(
-                      language,
-                      pendingSelectedIds.length === 1 ? 'sheet.addOne' : 'sheet.addCount',
-                      { count: pendingSelectedIds.length },
-                    )}
-                </Text>
-              </Pressable>
+              <CutButton
+                label={
+                  confirmActionLabel ??
+                  t(
+                    language,
+                    pendingSelectedIds.length === 1 ? 'sheet.addOne' : 'sheet.addCount',
+                    { count: pendingSelectedIds.length },
+                  )
+                }
+                onPress={pendingSelectedIds.length === 0 ? undefined : handleConfirmSelection}
+                variant={pendingSelectedIds.length === 0 ? 'disabled' : 'primary'}
+                size="lg"
+                stretch
+              />
             </View>
           ) : null}
         </View>
@@ -914,10 +915,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: theme.ink,
+    backgroundColor: theme.purpleBright,
   },
   gridActionPillSelected: {
-    backgroundColor: '#E8F6EC',
+    backgroundColor: theme.greenSoft,
   },
   gridActionText: {
     color: '#FFFFFF',
@@ -959,20 +960,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     textAlign: 'center',
-  },
-  confirmButton: {
-    minHeight: 54,
-    borderRadius: radii.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.ink,
-  },
-  confirmButtonDisabled: {
-    opacity: 0.45,
-  },
-  confirmButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '800',
   },
 });

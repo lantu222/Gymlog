@@ -1,21 +1,37 @@
+import { t } from './i18n';
+import { AppLanguage } from '../types/models';
+
 function collapseWhitespace(value: string | null | undefined) {
   return (value ?? '').trim().replace(/\s+/g, ' ');
 }
 
+/**
+ * Both suffix words, because a stored name can be either: English names were
+ * written before the suffix was translated, and both keep arriving from
+ * duplication. The matched word is carried out so canonicalising a Finnish
+ * name does not rewrite it into English.
+ *
+ * Regex literals rather than `new RegExp` on a template string: in a template
+ * literal `\s` is not an escape, so it collapses to a plain "s" and the pattern
+ * silently stops matching whitespace. Written that way this function returned
+ * null for every input and the suffix logic quietly did nothing.
+ */
 function parseCopySuffix(value: string) {
-  const modernMatch = value.match(/^(.*?)(?:\s*\(copy(?:\s+(\d+))?\))$/i);
+  const modernMatch = value.match(/^(.*?)(?:\s*\((copy|kopio)(?:\s+(\d+))?\))$/i);
   if (modernMatch) {
     return {
       core: collapseWhitespace(modernMatch[1]),
-      copyIndex: modernMatch[2] ? Number(modernMatch[2]) : 1,
+      word: modernMatch[2].toLowerCase(),
+      copyIndex: modernMatch[3] ? Number(modernMatch[3]) : 1,
     };
   }
 
-  const legacyMatch = value.match(/^(.*?)(?:\s+copy(?:\s+(\d+))?)$/i);
+  const legacyMatch = value.match(/^(.*?)(?:\s+(copy|kopio)(?:\s+(\d+))?)$/i);
   if (legacyMatch) {
     return {
       core: collapseWhitespace(legacyMatch[1]),
-      copyIndex: legacyMatch[2] ? Number(legacyMatch[2]) : 1,
+      word: legacyMatch[2].toLowerCase(),
+      copyIndex: legacyMatch[3] ? Number(legacyMatch[3]) : 1,
     };
   }
 
@@ -33,7 +49,7 @@ function normalizeDisplayKey(value: string) {
     return normalized;
   }
 
-  return `${copy.core} (copy${copy.copyIndex > 1 ? ` ${copy.copyIndex}` : ''})`;
+  return `${copy.core} (${copy.word}${copy.copyIndex > 1 ? ` ${copy.copyIndex}` : ''})`;
 }
 
 export function formatDisplayLabel(
@@ -58,7 +74,7 @@ export function formatDisplayLabel(
   }
 
   return copy
-    ? `${core} (copy${copy.copyIndex > 1 ? ` ${copy.copyIndex}` : ''})`
+    ? `${core} (${copy.word}${copy.copyIndex > 1 ? ` ${copy.copyIndex}` : ''})`
     : normalized;
 }
 
@@ -70,23 +86,33 @@ export function formatLiftDisplayLabel(value: string | null | undefined, fallbac
   return formatDisplayLabel(value, { fallback });
 }
 
+/**
+ * The name a duplicated program gets.
+ *
+ * `language` is not optional. The suffix and the fallback were English
+ * literals, so a Finnish user duplicating a program got "Rintavoima (copy)"
+ * written into their own data — visible on every screen that shows the name,
+ * and permanent, because the name is stored rather than derived.
+ */
 export function buildDisplayCopyName(
   baseName: string,
+  language: AppLanguage,
   existingNames: string[] = [],
-  fallback = 'Custom workout',
+  fallback?: string,
 ) {
-  const baseLabel = formatWorkoutDisplayLabel(baseName, fallback);
+  const suffix = t(language, 'common.copySuffix');
+  const baseLabel = formatWorkoutDisplayLabel(baseName, fallback ?? t(language, 'common.customWorkout'));
   const taken = new Set(existingNames.map(normalizeDisplayKey));
-  const initialCandidate = `${baseLabel} (copy)`;
+  const initialCandidate = `${baseLabel} (${suffix})`;
 
   if (!taken.has(normalizeDisplayKey(initialCandidate))) {
     return initialCandidate;
   }
 
   let index = 2;
-  while (taken.has(normalizeDisplayKey(`${baseLabel} (copy ${index})`))) {
+  while (taken.has(normalizeDisplayKey(`${baseLabel} (${suffix} ${index})`))) {
     index += 1;
   }
 
-  return `${baseLabel} (copy ${index})`;
+  return `${baseLabel} (${suffix} ${index})`;
 }

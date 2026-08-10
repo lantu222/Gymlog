@@ -124,6 +124,22 @@ const FOCUS_FI: Record<string, string> = {
   'easy run': 'Kevyt juoksu',
   'tempo run': 'Tempojuoksu',
   // Two-word focuses with no separator to split on.
+  // The block below is what the template editor's split presets write: they
+  // are stored as session names, so they arrive here rather than through a
+  // translation key. Decomposition cannot reach them — "Upper Heavy" has no
+  // separator and no parentheses, so it fell through as written.
+  'upper heavy': 'Ylävartalo raskas',
+  'lower heavy': 'Alavartalo raskas',
+  'upper pump': 'Ylävartalo pumppi',
+  'lower pump': 'Alavartalo pumppi',
+  'upper strength': 'Ylävartalon voima',
+  'lower strength': 'Alavartalon voima',
+  'push volume': 'Työntövolyymi',
+  'pull volume': 'Vetovolyymi',
+  'legs volume': 'Jalkavolyymi',
+  'full body a': 'Koko keho A',
+  'full body b': 'Koko keho B',
+  'full body c': 'Koko keho C',
   'upper power': 'Ylävartalon teho',
   'lower power': 'Alavartalon teho',
   'upper volume': 'Ylävartalon volyymi',
@@ -134,6 +150,8 @@ const FOCUS_FI: Record<string, string> = {
   growth: 'kasvu',
   pressure: 'kova',
   tempo: 'tempo',
+  pump: 'pumppi',
+  strength: 'voima',
 };
 
 const DICTIONARIES: Partial<Record<AppLanguage, Record<string, string>>> = { fi: FOCUS_FI };
@@ -163,9 +181,12 @@ export function localizeWorkoutFocus(focus: string, language: AppLanguage = 'en'
   const head = qualifierMatch ? qualifierMatch[1] : raw;
   const qualifier = qualifierMatch ? qualifierMatch[2] : null;
 
-  // Keep the separator the catalog used — "&" and "+" mean different things.
+  // Keep the separator the catalog used — "&", "+" and "/" mean different
+  // things, and "/" was missing: the editor's body-part presets are all
+  // "Chest / Triceps", "Legs / Glutes", so every one of them survived
+  // untranslated even though both halves were in the dictionary.
   const translatedHead = head
-    .split(/(\s*[&+]\s*)/)
+    .split(/(\s*[&+/]\s*)/)
     .map((part) => (/^\s*[&+]\s*$/.test(part) ? part : translateWord(part, dictionary)))
     .join('');
 
@@ -183,6 +204,14 @@ export function localizeSessionName(name: string, language: AppLanguage = 'en'):
   const raw = name.trim();
   if (language === 'en' || !raw) {
     return raw;
+  }
+
+  // A session created and never renamed is just "Day 3" — no colon, no focus.
+  // The pattern below requires the colon, so the placeholder name the editor
+  // writes was the one session name that stayed English everywhere.
+  const bareDay = raw.match(/^Day\s+(\d+)$/i);
+  if (bareDay) {
+    return language === 'fi' ? `Päivä ${bareDay[1]}` : raw;
   }
 
   const dayMatch = raw.match(/^(.*?)\bDay\s+(\d+)\s*:\s*(.*)$/i);

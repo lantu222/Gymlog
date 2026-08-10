@@ -587,6 +587,15 @@ const EN = {
   'prog.custom.fullBodyStrength.sub': 'Compounds first, accessories after.',
   'prog.custom.fullBodyVolume.title': 'Full Body Volume',
   'prog.custom.fullBodyVolume.sub': 'More total work across the whole body.',
+  'prog.custom.badge': 'Own program',
+  'prog.custom.detail.description':
+    'Built from your own sessions and set ranges. Open it to edit, or start the exact session you want to log.',
+  'prog.custom.detail.startFirst': 'Start first session',
+  'prog.custom.detail.editTemplate': 'Edit template',
+  'prog.custom.detail.startSession': 'Start session',
+  'prog.custom.detail.openSession': 'Open session',
+  'common.copySuffix': 'copy',
+  'common.customWorkout': 'Custom workout',
   'prog.custom.sub.fourPlus': 'A fuller weekly split with room to rotate focus.',
   'prog.custom.sub.three': 'A balanced weekly split you can repeat cleanly.',
 
@@ -2201,6 +2210,7 @@ const EN = {
   'sheet.addCount': 'Add {count} exercises',
   // ── Create template screen ────────────────────────────────────────────
   'tpl.createTitle': 'Create template',
+  'tpl.dayWord': 'Day',
   'tpl.editTitle': 'Edit template',
   'tpl.subtitle': 'Build a reusable weekly split. Add exercises now or keep the structure editable for later.',
   'tpl.name': 'Template name',
@@ -3285,6 +3295,15 @@ const FI: Record<I18nKey, string> = {
   'prog.custom.fullBodyStrength.sub': 'Moninivelliikkeet ensin, eristävät liikkeet perään.',
   'prog.custom.fullBodyVolume.title': 'Koko kehon volyymi',
   'prog.custom.fullBodyVolume.sub': 'Enemmän kokonaistyötä koko keholle.',
+  'prog.custom.badge': 'Oma ohjelma',
+  'prog.custom.detail.description':
+    'Rakennettu omista treeneistäsi ja sarjamääristäsi. Avaa muokataksesi tai aloita juuri se treeni, jonka haluat kirjata.',
+  'prog.custom.detail.startFirst': 'Aloita ensimmäinen treeni',
+  'prog.custom.detail.editTemplate': 'Muokkaa pohjaa',
+  'prog.custom.detail.startSession': 'Aloita treeni',
+  'prog.custom.detail.openSession': 'Avaa treeni',
+  'common.copySuffix': 'kopio',
+  'common.customWorkout': 'Oma treeni',
   'prog.custom.sub.fourPlus': 'Täydempi viikkojako, jossa on tilaa vaihdella painotusta.',
   'prog.custom.sub.three': 'Tasapainoinen viikkojako, jonka voi toistaa siististi.',
 
@@ -4832,6 +4851,7 @@ const FI: Record<I18nKey, string> = {
   'sheet.addCount': 'Lisää {count} liikettä',
   // ── Create template screen ────────────────────────────────────────────
   'tpl.createTitle': 'Luo pohja',
+  'tpl.dayWord': 'Päivä',
   'tpl.editTitle': 'Muokkaa pohjaa',
   'tpl.subtitle': 'Rakenna toistettava viikkojako. Lisää liikkeet nyt tai jätä rakenne muokattavaksi myöhemmin.',
   'tpl.name': 'Pohjan nimi',

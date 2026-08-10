@@ -1829,6 +1829,7 @@ function VinhaApp() {
         })),
       })),
       workoutTemplates.map((item) => item.name),
+      preferences.appLanguage,
     );
     Promise.resolve(upsertWorkoutTemplate(draft))
       .then((workoutTemplateId) => {
@@ -1855,6 +1856,7 @@ function VinhaApp() {
       template.name,
       getWorkoutTemplateSessions(template.id),
       workoutTemplates.map((item) => item.name),
+      preferences.appLanguage,
     );
 
     Promise.resolve(upsertWorkoutTemplate(draft))
@@ -3845,7 +3847,11 @@ function VinhaApp() {
             preferences.appLanguage,
           )
       : customTemplate
-        ? buildCustomProgramDetail(customTemplate, programInsightsByTemplateId[route.workoutTemplateId])
+        ? buildCustomProgramDetail(
+            customTemplate,
+            programInsightsByTemplateId[route.workoutTemplateId],
+            preferences.appLanguage,
+          )
         : null;
 
     content = program ? (
