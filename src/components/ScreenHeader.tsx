@@ -1,6 +1,8 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { t } from '../lib/i18n';
+import { AppLanguage } from '../types/models';
 import { spacing } from '../theme';
 import { Theme, useThemedStyles } from '../theming';
 
@@ -13,11 +15,19 @@ import { Theme, useThemedStyles } from '../theming';
  * it was a trap waiting for the thirteenth caller to fall into. The prop and
  * the unreachable branch are gone; the colours come from the shared palette
  * like everything else.
+ *
+ * `backLabel` was the same shape and outlived that fix: it defaulted to the
+ * English literal 'Back', no caller ever passed it, and `common.back` had a
+ * Finnish translation nobody could reach. Ten screens said "Back" in a Finnish
+ * app. It is derived from `language` now, and `language` is required — so the
+ * type checker, not a screenshot, is what catches the eleventh screen.
  */
 interface ScreenHeaderProps {
   title: string;
+  language: AppLanguage;
   subtitle?: string;
   onBack?: () => void;
+  /** Overrides the default "Takaisin"/"Back" — e.g. a named destination. */
   backLabel?: string;
   rightActionLabel?: string;
   onRightActionPress?: () => void;
@@ -25,9 +35,10 @@ interface ScreenHeaderProps {
 
 export function ScreenHeader({
   title,
+  language,
   subtitle,
   onBack,
-  backLabel = 'Back',
+  backLabel,
   rightActionLabel,
   onRightActionPress,
 }: ScreenHeaderProps) {
@@ -39,7 +50,7 @@ export function ScreenHeader({
         <View style={styles.titleRow}>
           {onBack ? (
             <Pressable hitSlop={10} onPress={onBack} style={styles.backButton}>
-              <Text style={styles.backText}>{backLabel}</Text>
+              <Text style={styles.backText}>{backLabel ?? t(language, 'common.back')}</Text>
             </Pressable>
           ) : null}
           <Text style={styles.title}>{title}</Text>

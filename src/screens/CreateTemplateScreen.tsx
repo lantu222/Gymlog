@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
+import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 
 import { AddExerciseSheet } from '../components/AddExerciseSheet';
@@ -374,6 +376,7 @@ export function CreateTemplateScreen({
   return (
     <View style={styles.screen}>
       <ScreenHeader
+        language={language}
         title={t(language, initialDraft.id ? 'tpl.editTitle' : 'tpl.createTitle')}
         subtitle={t(language, 'tpl.subtitle')}
         onBack={onBack}
@@ -384,14 +387,20 @@ export function CreateTemplateScreen({
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={[styles.card, styles.topCompactCard]}>
+        <CutSurface
+          size="lg"
+          fill={theme.surface}
+          stroke={theme.border}
+          strokeWidth={1}
+          style={[styles.card, styles.topCompactCard]}
+        >
           <Text style={styles.cardKicker}>{t(language, 'tpl.name')}</Text>
           <TextInput
             value={templateName}
             onChangeText={setTemplateName}
             placeholder={t(language, 'tpl.namePlaceholder')}
             placeholderTextColor={theme.faint}
-            selectionColor="#111111"
+            selectionColor={theme.purple}
             style={styles.nameInput}
           />
           <Text style={styles.supportingTextCompact}>
@@ -400,25 +409,35 @@ export function CreateTemplateScreen({
               exercises: totalExercises,
             })}
           </Text>
-        </View>
+        </CutSurface>
 
-        <View style={[styles.card, styles.topCompactCard, styles.daysCompactCard]}>
+        <CutSurface
+          size="lg"
+          fill={theme.surface}
+          stroke={theme.border}
+          strokeWidth={1}
+          style={[styles.card, styles.topCompactCard, styles.daysCompactCard]}
+        >
           <Text style={styles.cardKicker}>{t(language, 'tpl.daysPerWeek')}</Text>
           <View style={styles.dayRow}>
             {DAY_OPTIONS.map((option) => {
               const active = option === sessions.length;
               return (
-                <Pressable
-                  key={option}
-                  onPress={() => setSessionCount(option)}
-                  style={[styles.dayChip, active && styles.dayChipActive]}
-                >
-                  <Text style={[styles.dayChipText, active && styles.dayChipTextActive]}>{option}</Text>
+                <Pressable key={option} onPress={() => setSessionCount(option)}>
+                  <CutSurface
+                    size="chip"
+                    fill={active ? theme.purpleBright : theme.surface}
+                    stroke={active ? undefined : theme.border}
+                    strokeWidth={1}
+                    style={styles.dayChip}
+                  >
+                    <Text style={[styles.dayChipText, active && styles.dayChipTextActive]}>{option}</Text>
+                  </CutSurface>
                 </Pressable>
               );
             })}
           </View>
-        </View>
+        </CutSurface>
 
         <View style={[styles.card, styles.quickLayoutsCard]}>
           <Text style={styles.cardKicker}>{t(language, 'tpl.quickLayouts')}</Text>
@@ -461,7 +480,14 @@ export function CreateTemplateScreen({
 
         <View style={styles.sessionList}>
           {sessions.map((session, index) => (
-            <View key={session.localKey} style={styles.sessionCard}>
+            <CutSurface
+              key={session.localKey}
+              size="lg"
+              fill={theme.surface}
+              stroke={theme.border}
+              strokeWidth={1}
+              style={styles.sessionCard}
+            >
               <View style={styles.sessionHeader}>
                 <View style={styles.sessionHeaderCopy}>
                   <Text style={styles.cardKicker}>{t(language, 'tpl.day', { index: index + 1 })}</Text>
@@ -486,7 +512,7 @@ export function CreateTemplateScreen({
                 onChangeText={(value) => updateSessionName(session.localKey, value)}
                 placeholder={t(language, 'tpl.day', { index: index + 1 })}
                 placeholderTextColor={theme.faint}
-                selectionColor="#111111"
+                selectionColor={theme.purple}
                 style={styles.sessionNameInput}
               />
 
@@ -497,7 +523,12 @@ export function CreateTemplateScreen({
                     const previewImage = libraryItem?.imageUrls?.[0] ?? null;
 
                     return (
-                      <View key={exercise.localKey} style={styles.exerciseRow}>
+                      <CutSurface
+                        key={exercise.localKey}
+                        size="md"
+                        fill={theme.surfaceSoft}
+                        style={styles.exerciseRow}
+                      >
                         <View style={styles.exerciseLead}>
                           <View style={styles.exerciseThumb}>
                             {previewImage ? (
@@ -533,7 +564,7 @@ export function CreateTemplateScreen({
                         >
                           <Text style={styles.exerciseRemoveButtonText}>X</Text>
                         </Pressable>
-                      </View>
+                      </CutSurface>
                     );
                   })}
                 </View>
@@ -544,22 +575,29 @@ export function CreateTemplateScreen({
                 </View>
               )}
 
-              <Pressable onPress={() => openAddExercise(session.localKey)} style={styles.addExerciseButton}>
-                <Text style={styles.addExerciseButtonText}>{t(language, 'editor.addExercises')}</Text>
-              </Pressable>
-            </View>
+              {/* Outline, not filled. Adding an exercise is what you do
+                  repeatedly inside a day; saving the template is what ends the
+                  screen. As a solid black bar per day this was the loudest
+                  thing on the page, repeated once per day card, and Tallenna
+                  was quieter than all of them. */}
+              <CutButton
+                label={t(language, 'editor.addExercises')}
+                onPress={() => openAddExercise(session.localKey)}
+                variant="outline"
+                size="lg"
+                stretch
+              />
+            </CutSurface>
           ))}
         </View>
 
-        <Pressable
-          onPress={() => {
-            void handleSave();
-          }}
-          disabled={!canSave}
-          style={[styles.saveButton, !canSave && styles.saveButtonDisabled]}
-        >
-          <Text style={styles.saveButtonText}>{t(language, 'tpl.save')}</Text>
-        </Pressable>
+        <CutButton
+          label={t(language, 'tpl.save')}
+          onPress={canSave ? () => void handleSave() : undefined}
+          variant={canSave ? 'primary' : 'disabled'}
+          size="lg"
+          stretch
+        />
       </ScrollView>
 
       <AddExerciseSheet
@@ -583,28 +621,21 @@ export function CreateTemplateScreen({
 
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
+    // The page was `surface` — the same white the cards are. Every card was a
+    // hairline drawn on its own background, which is why the screen read as a
+    // list of outlines rather than as a stack of cards.
     screen: {
       flex: 1,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.bg,
     },
     content: {
       paddingHorizontal: spacing.lg,
       paddingBottom: layout.bottomTabBarReserve,
       gap: spacing.lg,
-      backgroundColor: theme.surface,
     },
     card: {
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
       padding: spacing.md,
       gap: spacing.xs,
-      shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.05,
-      shadowRadius: 12,
-      elevation: 2,
     },
     topCompactCard: {
       paddingTop: spacing.sm,
@@ -626,7 +657,7 @@ const makeStyles = (theme: Theme) =>
       borderRadius: radii.md,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.surfaceSoft,
       paddingHorizontal: spacing.sm + 2,
       color: theme.ink,
       fontSize: 17,
@@ -645,18 +676,10 @@ const makeStyles = (theme: Theme) =>
       gap: spacing.xs,
     },
     dayChip: {
-      width: 38,
-      height: 38,
-      borderRadius: radii.pill,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
+      width: 40,
+      height: 40,
       alignItems: 'center',
       justifyContent: 'center',
-    },
-    dayChipActive: {
-      backgroundColor: theme.ink,
-      borderColor: theme.ink,
     },
     dayChipText: {
       color: theme.ink,
@@ -664,11 +687,18 @@ const makeStyles = (theme: Theme) =>
       fontWeight: '800',
     },
     dayChipTextActive: {
-      color: theme.surface,
+      color: '#FFFFFF',
     },
+    // The one card that is not a CutSurface: it holds a horizontal scroller
+    // that runs to the screen edge, and a cut corner on a container whose
+    // content deliberately overflows it is a shape fighting its own content.
     quickLayoutsCard: {
       gap: spacing.sm,
       paddingVertical: spacing.md,
+      borderRadius: radii.lg,
+      borderWidth: 1,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
     },
     presetRow: {
       gap: spacing.sm,
@@ -684,7 +714,7 @@ const makeStyles = (theme: Theme) =>
     },
     presetMedia: {
       height: 126,
-      backgroundColor: theme.ink,
+      backgroundColor: theme.purpleDark,
       position: 'relative',
     },
     presetMediaImage: {
@@ -695,10 +725,10 @@ const makeStyles = (theme: Theme) =>
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.ink,
+      backgroundColor: theme.purpleDark,
     },
     presetMediaFallbackText: {
-      color: theme.surface,
+      color: '#FFFFFF',
       fontSize: 36,
       fontWeight: '900',
       letterSpacing: -1,
@@ -716,10 +746,11 @@ const makeStyles = (theme: Theme) =>
       paddingHorizontal: spacing.sm,
       alignItems: 'center',
       justifyContent: 'center',
+      // Sits on the media, which is painted violet in both themes.
       backgroundColor: 'rgba(255, 255, 255, 0.92)',
     },
     presetBadgeText: {
-      color: theme.ink,
+      color: '#17131F',
       fontSize: 12,
       fontWeight: '800',
       textTransform: 'uppercase',
@@ -753,10 +784,6 @@ const makeStyles = (theme: Theme) =>
       gap: spacing.md,
     },
     sessionCard: {
-      borderRadius: radii.lg,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
       padding: spacing.lg,
       gap: spacing.md,
     },
@@ -780,7 +807,7 @@ const makeStyles = (theme: Theme) =>
       justifyContent: 'center',
     },
     sessionRemoveButtonText: {
-      color: '#DC2626',
+      color: theme.danger,
       fontSize: 13,
       fontWeight: '700',
     },
@@ -789,7 +816,7 @@ const makeStyles = (theme: Theme) =>
       borderRadius: radii.md,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.surfaceSoft,
       paddingHorizontal: spacing.md,
       color: theme.ink,
       fontSize: 18,
@@ -799,15 +826,13 @@ const makeStyles = (theme: Theme) =>
     exerciseList: {
       gap: spacing.sm,
     },
+    // Filled rather than outlined: inside a card, a row that repeats five times
+    // reads better as a tinted band than as five more hairlines.
     exerciseRow: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       gap: spacing.sm,
-      borderRadius: radii.md,
-      borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
       padding: spacing.sm,
     },
     exerciseLead: {
@@ -822,7 +847,7 @@ const makeStyles = (theme: Theme) =>
       height: 52,
       borderRadius: 12,
       overflow: 'hidden',
-      backgroundColor: theme.surfaceSoft,
+      backgroundColor: theme.surface,
     },
     exerciseThumbImage: {
       width: '100%',
@@ -832,7 +857,7 @@ const makeStyles = (theme: Theme) =>
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.surfaceSoft,
+      backgroundColor: theme.surface,
     },
     exerciseThumbFallbackText: {
       color: theme.ink,
@@ -860,13 +885,13 @@ const makeStyles = (theme: Theme) =>
       height: 32,
       borderRadius: 999,
       borderWidth: 1,
-      borderColor: '#FCA5A5',
+      borderColor: theme.dangerBorder,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#FFF5F5',
+      backgroundColor: theme.dangerSoft,
     },
     exerciseRemoveButtonText: {
-      color: '#DC2626',
+      color: theme.danger,
       fontSize: 12,
       fontWeight: '900',
     },
@@ -874,7 +899,7 @@ const makeStyles = (theme: Theme) =>
       borderRadius: radii.md,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surfaceSoft,
+      backgroundColor: theme.bg,
       padding: spacing.md,
       gap: 4,
     },
@@ -888,34 +913,5 @@ const makeStyles = (theme: Theme) =>
       fontSize: 13,
       lineHeight: 18,
       fontWeight: '600',
-    },
-    addExerciseButton: {
-      minHeight: 48,
-      borderRadius: radii.md,
-      borderWidth: 1,
-      borderColor: theme.ink,
-      backgroundColor: theme.ink,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    addExerciseButtonText: {
-      color: theme.surface,
-      fontSize: 15,
-      fontWeight: '800',
-    },
-    saveButton: {
-      minHeight: 56,
-      borderRadius: radii.lg,
-      backgroundColor: theme.ink,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    saveButtonDisabled: {
-      opacity: 0.45,
-    },
-    saveButtonText: {
-      color: theme.surface,
-      fontSize: 16,
-      fontWeight: '800',
     },
   });

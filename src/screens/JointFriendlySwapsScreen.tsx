@@ -165,6 +165,7 @@ export function JointFriendlySwapsScreen({
   return (
     <>
       <ScreenHeader
+        language={language}
         title={t(language, 'planSet.jointSwaps')}
         subtitle={t(language, 'swaps.subtitle')}
         onBack={onBack}

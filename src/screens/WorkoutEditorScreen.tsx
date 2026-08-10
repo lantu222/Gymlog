@@ -651,6 +651,7 @@ export function WorkoutEditorScreen({
   return (
     <View style={styles.screen}>
       <ScreenHeader
+        language={language}
         title=""
         subtitle={hasExercises ? undefined : t(language, 'editor.startSubtitle')}
         onBack={onBack}

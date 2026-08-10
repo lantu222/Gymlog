@@ -57,6 +57,7 @@ export function WorkoutCelebrationScreen({
   return (
     <View style={styles.screen}>
       <ScreenHeader
+        language={language}
         title={t(language, 'celebrate.title')}
         subtitle={t(language, 'celebrate.subtitle')}
       />

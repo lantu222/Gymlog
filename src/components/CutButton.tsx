@@ -62,35 +62,41 @@ export function CutButton({
 
   const disabled = variant === 'disabled' || !onPress;
 
+  // `done`, `warn` and `disabled` used to be six fixed light hexes. A cream
+  // warn button and a near-white disabled button are both lit panels on a
+  // near-black page, and this component is shared — so the whole set was one
+  // migration, not six call-site fixes.
   const fill =
     variant === 'primary'
       ? theme.purpleBright
       : variant === 'done'
-        ? '#16A34A'
+        ? theme.green
         : variant === 'warn'
-          ? '#FDF3E3'
+          ? theme.amberSoft
           : variant === 'secondary'
             ? theme.surface
             : variant === 'disabled'
-              ? '#E4DEF2'
+              ? theme.surfaceSoft
               : 'transparent';
 
   const textColor =
     variant === 'primary' || variant === 'done'
-      ? '#FFFFFF'
+      ? // White on the app violet and on both greens. Not a token: it is what
+        // goes on THIS fill, and the fill is the same weight in both themes.
+        '#FFFFFF'
       : variant === 'warn'
-        ? '#7A5B32'
+        ? theme.amberInk
         : variant === 'secondary'
           ? theme.ink
           : variant === 'disabled'
-            ? '#A79FBC'
+            ? theme.faint
             : theme.purple;
 
   const stroke =
     variant === 'outline'
       ? theme.purpleBright
       : variant === 'warn'
-        ? '#F0D3A2'
+        ? theme.amberBorder
         : undefined;
 
   const sheen = SHEEN[size];
@@ -158,14 +164,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     elevation: 4,
   },
   doneShadow: {
-    shadowColor: '#16A34A',
+    shadowColor: theme.green,
     shadowOpacity: 0.3,
     shadowRadius: 14,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
   secondaryShadow: {
-    shadowColor: '#D8C7FF',
+    shadowColor: theme.shadow,
     shadowOpacity: 0.5,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },

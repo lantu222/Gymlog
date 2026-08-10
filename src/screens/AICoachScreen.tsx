@@ -302,6 +302,7 @@ export function AICoachScreen({
   return (
     <>
       <ScreenHeader
+        language={language}
         title="Vinha AI"
         subtitle={t(language, 'ai.subtitle')}
         onBack={onBack}

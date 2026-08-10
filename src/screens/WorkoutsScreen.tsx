@@ -421,6 +421,7 @@ export function WorkoutsScreen({
   return (
     <>
       <ScreenHeader
+        language={language}
         title={t(language, 'tabs.programs')}
         subtitle={t(language, 'ready.subtitle', { count: readyDiscoveryItems.length })}
       />

@@ -98,6 +98,7 @@ export function AiModeSetupScreen({ preferences, language = 'en', onBack, onSave
   return (
     <>
       <ScreenHeader
+        language={language}
         title={t(language, 'aiSetup.title')}
         subtitle={t(language, 'aiSetup.subtitle')}
         onBack={onBack}
