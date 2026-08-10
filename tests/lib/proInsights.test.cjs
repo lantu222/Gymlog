@@ -7,7 +7,6 @@ const {
   buildPlateauConclusion,
   buildPlateauMoment,
   buildNextSessionMoment,
-  buildLoggerMoment,
   buildWeeklyRead,
   pickCompletionLift,
   buildCompletionConclusion,
@@ -146,21 +145,6 @@ module.exports = [
       const conclusion = buildCompletionConclusion(lift, 'en', 'beginner');
       assert.match(conclusion.body, /67\.5 kg/);
       assert.match(conclusion.body, /top of its rep range/);
-    },
-  },
-  {
-    name: 'proInsights: logger moment reads slot history newest-first and returns null without data',
-    run() {
-      const entries = [
-        { sets: [{ loadKg: 70, reps: 5 }, { loadKg: 67.5, reps: 8 }] }, // newest
-        { sets: [{ loadKg: 67.5, reps: 8 }] },
-        { sets: [{ loadKg: 65, reps: 8 }] }, // oldest
-      ];
-      const moment = buildLoggerMoment(entries, 'Barbell Bench Press', 'en', 'beginner');
-      assert.deepEqual(moment.bars, [65, 67.5, 70]);
-      assert.equal(moment.nextValue, 72.5);
-
-      assert.equal(buildLoggerMoment([], 'Barbell Bench Press', 'en', 'beginner'), null);
     },
   },
   {

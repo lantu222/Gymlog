@@ -31,7 +31,6 @@ const ALLOWED = {
   EMPTY_SESSION_ADAPTATION: 'The empty value, pinned so its shape cannot drift.',
   fingerprintsMatch: 'Exposed for the test that keeps fingerprints distinct.',
   isCatalogExercise: 'Pool membership, pinned so the catalog and the filters cannot diverge.',
-  buildLoggerMoment: 'A Pro moment for the live logger, written and not yet placed (open decision).',
   getPlanWeekPhase: 'Plan phase wording, written ahead of the surface that will show it.',
   getProgramSeason: 'Season lookup by program, kept beside the seasons it answers for.',
   isSeasonActive: 'Season window predicate, kept beside resolveSeasonWindow.',

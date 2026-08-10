@@ -31,6 +31,8 @@ import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLab
 import { hasFixedWeekdays, resolveSessionWeekday, weekdayLabel } from '../lib/planWeekdays';
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
+import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
@@ -826,8 +828,17 @@ export function HomeScreen({
                       isToday ? `, ${t(language, 'programs.todayA11y')}` : ''
                     }`}
                     onPress={onOpenActivePlan}
-                    style={({ pressed }) => [styles.dayRow, isToday && styles.dayRowToday, pressed && styles.pressed]}
+                    // A3: the row slides right under the thumb rather than
+                    // dimming — the speed line it carries points that way.
+                    style={({ pressed }) => [pressed && styles.rowPressed]}
                   >
+                    <CutSurface
+                      size="lg"
+                      fill={theme.surface}
+                      stroke={isToday ? theme.purpleBright : undefined}
+                      speedLine={{ color: theme.purpleBright }}
+                      style={[styles.dayRow, styles.dayRowCut]}
+                    >
                     {weekdayText ? (
                       <View style={[styles.dayBadge, isToday && styles.dayBadgeToday]}>
                         <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
@@ -851,28 +862,28 @@ export function HomeScreen({
                         strokeLinejoin="round"
                       />
                     </Svg>
+                    </CutSurface>
                   </Pressable>
                 );
               })}
             </View>
+            {/* A3: the cut corner arrives on the pair the design mocks. */}
             <View style={styles.programActions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'programs.viewPlan')}
+              <CutButton
+                size="lg"
+                stretch
+                label={t(language, 'programs.viewPlan')}
                 onPress={onOpenActivePlan}
-                style={({ pressed }) => [styles.programPrimary, pressed && styles.pressed]}
-              >
-                <Text style={styles.programPrimaryText}>{t(language, 'programs.viewPlan')}</Text>
-              </Pressable>
+              />
               {onSetTrainingDays ? (
-                <Pressable
-                  accessibilityRole="button"
+                <CutButton
+                  size="lg"
+                  variant="secondary"
+                  label={t(language, 'programs.editDays')}
                   accessibilityLabel={t(language, 'programs.editDaysA11y')}
                   onPress={onSetTrainingDays}
-                  style={({ pressed }) => [styles.programSecondary, pressed && styles.pressed]}
-                >
-                  <Text style={styles.programSecondaryText}>{t(language, 'programs.editDays')}</Text>
-                </Pressable>
+                  style={styles.programSecondaryWidth}
+                />
               ) : null}
             </View>
           </Animated.View>
@@ -1655,6 +1666,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '600',
+  },
+  dayRowCut: {
+    // The surface paints the background now, and the speed line needs room to
+    // the left of the badge.
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    paddingLeft: 26,
+  },
+  rowPressed: {
+    transform: [{ translateX: 3 }],
+  },
+  programSecondaryWidth: {
+    flex: 0,
   },
   programActions: {
     flexDirection: 'row',

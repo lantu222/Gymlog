@@ -65,40 +65,6 @@ export interface ProMomentContent {
   bullets: string[];
 }
 
-/**
- * Paywall moment 4's sheet, from the live logger: the exercise's own slot
- * history (top set per past session) plus the honest next step. Null when the
- * exercise has no logged history to show — no bars, no sheet.
- */
-export function buildLoggerMoment(
-  entries: WorkoutSlotHistoryEntry[],
-  exerciseName: string,
-  language: AppLanguage,
-  level: SetupLevel | null | undefined,
-): ProMomentContent | null {
-  // Entries arrive newest-first; the chart reads oldest-first.
-  const topSets = [...entries]
-    .reverse()
-    .map((entry) => Math.max(0, ...entry.sets.map((set) => set.loadKg)))
-    .filter((weight) => weight > 0);
-  if (topSets.length === 0) {
-    return null;
-  }
-  const bars = topSets.slice(-5);
-  const latest = bars[bars.length - 1];
-  const tier = getProgressionTier(level ?? null);
-  const label = exerciseNameLabel(language, exerciseName);
-  return {
-    eyebrow: t(language, 'pro.sheet.next.eyebrow'),
-    title: t(language, 'pro.sheet.next.title'),
-    lead: t(language, 'pro.sheet.next.leadFlat', { lift: label, count: topSets.length }),
-    bars,
-    nextValue: latest + PROGRESSION_LEVEL_PARAMS[tier].loadIncrementKg,
-    barLabel: t(language, 'pro.sheet.next.barLabel', { lift: label.toUpperCase(), count: bars.length }),
-    bullets: [t(language, 'pro.sheet.bullet.adaptive'), t(language, 'pro.sheet.bullet.plateau')],
-  };
-}
-
 export type ReadTone = 'green' | 'amber' | 'red';
 
 export interface WeeklyReadRow {
