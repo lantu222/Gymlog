@@ -67,18 +67,6 @@ const RISE_EMPTY_ROW = 10;
 const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 const SECTION_EASING = Easing.bezier(0.4, 0, 0.2, 1);
 
-/**
- * A colour per part of the session.
- *
- * Warm-up, work and cool-down are three different jobs and the cards were
- * three identical white boxes. The accent is the card's edge and its count —
- * never the title, so the three still read as one list.
- */
-const SECTION_ACCENT: Record<SectionKey, (theme: Theme) => string> = {
-  warmup: (theme) => theme.gold,
-  workout: (theme) => theme.purpleBright,
-  cooldown: (theme) => theme.blue,
-};
 
 type SectionKey = 'warmup' | 'workout' | 'cooldown';
 
@@ -486,7 +474,7 @@ export function HomeScreen({
       <CutSurface
         size="lg"
         fill={theme.surface}
-        stroke={SECTION_ACCENT[key](theme)}
+        stroke={theme.border}
         strokeWidth={1}
         style={styles.secCard}
       >
@@ -496,13 +484,8 @@ export function HomeScreen({
         onPress={() => toggleSection(key)}
         style={styles.secBtn}
       >
-        {/* Each part of the session gets its own colour: the warm-up, the
-            work and the cool-down are three different things, and the card was
-            three identical white boxes. The accent is the edge and the count,
-            never the title — the titles still have to read as one list. */}
-        <View style={[styles.secTick, { backgroundColor: SECTION_ACCENT[key](theme) }]} />
         <Text style={styles.secTitle}>{title}</Text>
-        <Text style={[styles.secCount, { color: SECTION_ACCENT[key](theme) }]}>{countLabel}</Text>
+        <Text style={styles.secCount}>{countLabel}</Text>
         <Animated.View style={sectionStyles[key].chevron}>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
             <Path d="m6 9 6 6 6-6" stroke="#8B84A0" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
@@ -567,7 +550,7 @@ export function HomeScreen({
             twelve other ways in. */}
         <Animated.View style={rise(RISE_HEADER)}>
           <View style={styles.headerRow}>
-            <VinhaWordmark size={27} />
+            <VinhaWordmark size={34} />
           </View>
 
           {/* Three brightnesses left to right, at the same −18° as the A3 cut.
@@ -1286,7 +1269,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontFamily: 'JetBrainsMono-ExtraBold',
     fontSize: 10.5,
     letterSpacing: 1.05,
-    color: theme.faint,
+    color: theme.muted,
     flexShrink: 0,
   },
   // Two halves behind the label, clipped by the pill's own radius.
@@ -1517,11 +1500,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 16,
-  },
-  secTick: {
-    width: 4,
-    height: 20,
-    borderRadius: 2,
   },
   secTitle: {
     flex: 1,

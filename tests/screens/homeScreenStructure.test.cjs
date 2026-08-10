@@ -72,7 +72,7 @@ module.exports = [
       // to everyone including the people already paying, and the Pro page has
       // twelve other ways in — the prop and the route stay for them.
       assert.doesNotMatch(homeScreenSource, /proBadge/);
-      assert.match(homeScreenSource, /<VinhaWordmark size=\{27\}/);
+      assert.match(homeScreenSource, /<VinhaWordmark size=\{34\}/);
       assert.match(homeScreenSource, /speedRule:\s*\{[\s\S]*skewX: '-18deg'/);
       // The date is stated once, on the greeting row — today's cell in the
       // week strip is told apart by its highlight, not by different content.
