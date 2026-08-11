@@ -35,6 +35,12 @@ const ALLOWED = {
   getProgramSeason: 'Season lookup by program, kept beside the seasons it answers for.',
   isSeasonActive: 'Season window predicate, kept beside resolveSeasonWindow.',
   listPromoCodes: 'Lists live codes for a demo sheet that does not exist yet.',
+  // Written ahead of their Home wiring on purpose: a parallel session holds
+  // HomeScreen/App.tsx uncommitted, and two writers in one working tree is how
+  // edits vanish. The allowlist's second suite forces these OUT of this list
+  // the moment the wiring lands — that is the mechanism working, not a hole.
+  resolveCompletionCard: 'Program-completion card logic, wired to Home once the tree is free.',
+  countSessionsSince: 'Restart-boundary counting for "Uusi kierros", same wiring.',
 };
 
 const EXPORT_RE = /^export\s+(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/gm;
