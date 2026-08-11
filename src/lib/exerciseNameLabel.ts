@@ -421,7 +421,7 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Box Breathing': 'Laatikkohengitys',
   'Diaphragmatic Breathing': 'Palleahengitys',
   'Breathing Reset': 'Hengityspalautus',
-  'Cooldown Flow': 'Jäähdyttelysarja',
+  'Cooldown Flow': 'Palautumissarja',
   'Recovery Stretch': 'Palauttava venytys',
   'Dynamic Warm-Up': 'Dynaaminen lämmittely',
   'Mobility Warm-Up': 'Liikkuvuuslämmittely',
