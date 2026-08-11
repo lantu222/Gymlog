@@ -5,6 +5,10 @@ Owner intent (user, in Finnish): *"kaikki valinnat mitä tehdään oikeasti vaik
 treeniin, ja myös UI muuttuu sen mukaan — esim. 3 päivän ohjelma oikeasti näyttää UI:ssa
 3 päivän ohjelmaa eikä 4 päivää, home screenissä tai missään muuallakaan."*
 
+> **Note, 2026-08-11.** Where this plan mentions Health Connect, that step no
+> longer exists: it was removed from v1 along with the permissions and the
+> integration. Weight and height are typed on the About-you screen.
+
 ## Principle
 
 Two rules, applied to every onboarding choice:

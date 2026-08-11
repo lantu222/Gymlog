@@ -94,10 +94,7 @@ module.exports = [
         'a GAINER-era file is still in assets/branding',
       );
 
-      const referenced = [
-        path.join('src', 'screens', 'HealthConnectScreen.tsx'),
-        'app.json',
-      ];
+      const referenced = ['app.json'];
       for (const file of referenced) {
         const source = fs.readFileSync(path.join(root, file), 'utf8');
         assert.doesNotMatch(source, /gainer/i, `${file} still points at a GAINER asset`);

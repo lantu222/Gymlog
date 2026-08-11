@@ -34,12 +34,6 @@ Your device or Android backup settings may include app data in a system backup y
 
 Deleting the data is immediate and total: Settings → My data → reset, or uninstalling the app.
 
-## Health Connect
-
-If you connect Health Connect, the app asks Android for permission to read two things: your weight and your height. It reads the most recent value of each, to fill in your profile so you do not have to type it.
-
-It reads nothing else, it writes nothing back, and it does not run in the background. You can revoke the permission at any time in Android settings, and the app keeps working without it.
-
 ## The AI coach
 
 The AI coach has two modes, and today only the first one is active.

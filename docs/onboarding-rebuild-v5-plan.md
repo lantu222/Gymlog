@@ -17,6 +17,12 @@ deliberately does not follow, and keeping it invited copying the wrong structure
 from git history if a shared atom or token is ever needed:
 `git show 8007087:Design_handoff/design_handoff/design_handoff_gainer_redesign/designs/onb-main.jsx`.
 
+> **Superseded in part, 2026-08-11.** The `01c HealthConnect` and `01d HealthSynced`
+> steps described below were removed from v1 — the flow is now
+> Welcome → StartPath → AboutYou. Health returns in v2 under Settings, as an
+> export of finished workouts rather than an import of body stats. The rest of
+> this plan still describes the shipped flow.
+
 ## Already done (commit d565de2)
 
 01 Welcome auth stack · 01b StartPath 2-card selection · 01c HealthConnect · 01d HealthSynced ·

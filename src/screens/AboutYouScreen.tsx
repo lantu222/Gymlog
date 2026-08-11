@@ -4,7 +4,6 @@ import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { getHealthProviderLabel } from '../integrations/health';
 import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -29,7 +28,6 @@ export interface AboutYouValues {
 }
 
 interface AboutYouScreenProps {
-  healthConnected: boolean;
   language?: AppLanguage;
   initialValues?: Partial<AboutYouValues> | null;
   onContinue: (values: AboutYouValues) => void;
@@ -52,14 +50,6 @@ function getInitials(name: string) {
   const first = parts[0].charAt(0);
   const second = parts.length > 1 ? parts[parts.length - 1].charAt(0) : '';
   return (first + second).toUpperCase();
-}
-
-function CheckGlyph({ color = PURPLE }: { color?: string }) {
-  return (
-    <Svg width={15} height={15} viewBox="0 0 24 24" fill="none">
-      <Path d="M5 12l5 5L19 7" stroke={color} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-    </Svg>
-  );
 }
 
 function Stepper({
@@ -108,7 +98,6 @@ function Stepper({
 }
 
 export function AboutYouScreen({
-  healthConnected,
   language = 'en',
   initialValues,
   onContinue,
@@ -118,7 +107,6 @@ export function AboutYouScreen({
   const insets = useSafeAreaInsets();
   const [manropeLoaded] = useFonts({ Manrope: require('../../assets/fonts/Manrope.ttf') });
   const fontFamily = manropeLoaded ? 'Manrope' : undefined;
-  const providerLabel = getHealthProviderLabel();
 
   const [name, setName] = useState(initialValues?.name ?? '');
   const [gender, setGender] = useState<AboutYouGender>(initialValues?.gender ?? null);
@@ -194,16 +182,6 @@ export function AboutYouScreen({
           </View>
         </View>
 
-        {healthConnected ? (
-          <View style={styles.healthBanner}>
-            <View style={styles.healthBannerCheck}>
-              <CheckGlyph />
-            </View>
-            <Text style={[styles.healthBannerText, { fontFamily }]}>
-              {t(language, 'aboutYou.healthImport', { provider: providerLabel })}
-            </Text>
-          </View>
-        ) : null}
 
         <View style={styles.fieldCard}>
           <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.gender')}</Text>
@@ -420,33 +398,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 0,
     borderBottomWidth: 1.5,
     borderBottomColor: '#C9B6FF',
-  },
-  healthBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: PURPLE_LIGHT,
-    borderRadius: 15,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginTop: 14,
-  },
-  healthBannerCheck: {
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    backgroundColor: SURFACE,
-    borderWidth: 1.5,
-    borderColor: '#C9B6FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  healthBannerText: {
-    flex: 1,
-    color: '#5B21B6',
-    fontSize: 12.5,
-    lineHeight: 17,
-    fontWeight: '700',
   },
   fieldCard: {
     backgroundColor: SURFACE,

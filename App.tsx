@@ -143,8 +143,6 @@ import { AICoachScreen } from './src/screens/AICoachScreen';
 import { AiModeSetupScreen } from './src/screens/AiModeSetupScreen';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { CreateTemplateScreen } from './src/screens/CreateTemplateScreen';
-import { HealthConnectScreen } from './src/screens/HealthConnectScreen';
-import { HealthSyncedScreen } from './src/screens/HealthSyncedScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
 import { LaunchScreen } from './src/screens/LaunchScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -198,13 +196,6 @@ import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppData
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
 import { WorkoutRuntimeTemplate, WorkoutTemplateExercise } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
-import {
-  getAgeFromDateOfBirth,
-  getHealthProviderLabel,
-  hasAnyHealthBasics,
-  HealthBasics,
-  requestHealthBasics,
-} from './src/integrations/health';
 import {
   AppDatabase,
   AppLanguage,
@@ -1210,14 +1201,13 @@ function VinhaApp() {
   const onboardingActive = !preferences.onboardingCompleted;
   const entryFlowActive = onboardingActive && !preferences.entryFlowCompleted;
   // Pre-questionnaire flow: after Welcome the user picks a path (01b); the
-  // build path then runs Health connect (01c) → synced (01d) → about-you (01e)
-  // before the questionnaire. The ready path exits onboarding to the catalog.
+  // build path then runs about-you (01e) before the questionnaire. The ready
+  // path exits onboarding to the catalog.
   const [onboardingStep, setOnboardingStep] = useState<
-    'path' | 'health_connect' | 'health_synced' | 'about' | 'questionnaire' | 'ready_catalog'
+    'path' | 'about' | 'questionnaire' | 'ready_catalog'
   >('path');
-  // Both start paths share health + about (profile creation); they fork after.
+  // Both start paths share about-you (profile creation); they fork after.
   const [onboardingPath, setOnboardingPath] = useState<'build' | 'ready'>('build');
-  const [onboardingHealthBasics, setOnboardingHealthBasics] = useState<HealthBasics | null>(null);
   const [busySavingReadyPick, setBusySavingReadyPick] = useState(false);
 
   // The onboarding flow state lives in memory; when the gate closes (finished)
@@ -1227,7 +1217,6 @@ function VinhaApp() {
     if (preferences.onboardingCompleted || !preferences.entryFlowCompleted) {
       setOnboardingStep('path');
       setOnboardingPath('build');
-      setOnboardingHealthBasics(null);
       setAboutYouValues(null);
     }
   }, [preferences.entryFlowCompleted, preferences.onboardingCompleted]);
@@ -1959,48 +1948,6 @@ function VinhaApp() {
     await updatePreferences({
       entryFlowCompleted: false,
     });
-  }
-
-  // Profile → CONNECTIONS: same permission flow as the onboarding Health step.
-  // Imported basics only fill setup fields that are still empty.
-  async function handleProfileConnectHealth() {
-    const providerLabel = getHealthProviderLabel();
-    const result = await requestHealthBasics();
-    if (result.status !== 'connected') {
-      showToast(
-        result.status === 'denied'
-          ? t(preferences.appLanguage, 'health.link.denied')
-          : t(preferences.appLanguage, 'health.link.unavailable', { provider: providerLabel }),
-      );
-      return;
-    }
-
-    // A granted permission is not an import. Health Connect hands over nothing
-    // until some app writes to it, and saying "Connected" over an empty read
-    // is the success state arriving before the thing it claims.
-    if (!hasAnyHealthBasics(result.basics)) {
-      showToast(t(preferences.appLanguage, 'health.toast.nothing', { provider: providerLabel }));
-      return;
-    }
-
-    const patch: Partial<AppPreferences> = {};
-    if (result.basics.sex && !preferences.setupGender) {
-      patch.setupGender = result.basics.sex;
-    }
-    const healthAge = getAgeFromDateOfBirth(result.basics.dateOfBirth);
-    if (healthAge !== null && preferences.setupAge === null) {
-      patch.setupAge = healthAge;
-    }
-    if (result.basics.heightCm !== null && preferences.setupHeightCm === null) {
-      patch.setupHeightCm = result.basics.heightCm;
-    }
-    if (result.basics.weightKg !== null && preferences.setupCurrentWeightKg === null) {
-      patch.setupCurrentWeightKg = result.basics.weightKg;
-    }
-    if (Object.keys(patch).length > 0) {
-      await updatePreferences(patch);
-    }
-    showToast(t(preferences.appLanguage, 'health.toast.connected', { provider: providerLabel }));
   }
 
   function openRecommendedProgramDetail(recommendedProgramId: string) {
@@ -3703,70 +3650,38 @@ function VinhaApp() {
       content = (
         <StartPathScreen
           language={preferences.appLanguage}
+          // Both paths go straight to about-you. A Health Connect step used to
+          // sit here and was removed for v1 on 2026-08-11: it imported exactly
+          // two numbers that the next screen asks for anyway, and on a real
+          // Galaxy A54 it imported nothing at all — the break is between
+          // Samsung Health and Health Connect, outside this app, and only adb
+          // can see it. A user just taps and watches nothing happen, in the
+          // first minute, before the app has shown any value. Health returns in
+          // v2 under Settings, and as an export of finished workouts rather
+          // than an import of body stats.
           onGuidedOnboarding={() => {
             setOnboardingPath('build');
-            setOnboardingStep('health_connect');
+            setOnboardingStep('about');
           }}
           onBrowsePrograms={() => {
-            // The ready path also creates the profile (health + about) before
-            // opening the catalog — same front door, different fork.
+            // The ready path also creates the profile before opening the
+            // catalog — same front door, different fork.
             setOnboardingPath('ready');
-            setOnboardingStep('health_connect');
+            setOnboardingStep('about');
           }}
           onBack={() => void handleBackToEntry()}
         />
       );
-    } else if (onboardingStep === 'health_connect' || (onboardingStep === 'health_synced' && !onboardingHealthBasics)) {
-      content = (
-        <HealthConnectScreen
-          language={preferences.appLanguage}
-          onConnected={(basics) => {
-            setOnboardingHealthBasics(basics);
-            setOnboardingStep('health_synced');
-          }}
-          onSkip={() => {
-            setOnboardingHealthBasics(null);
-            setOnboardingStep('about');
-          }}
-        />
-      );
-    } else if (onboardingStep === 'health_synced' && onboardingHealthBasics) {
-      content = (
-        <HealthSyncedScreen
-          basics={onboardingHealthBasics}
-          language={preferences.appLanguage}
-          onContinue={() => setOnboardingStep('about')}
-          onBack={() => setOnboardingStep('health_connect')}
-        />
-      );
     } else if (onboardingStep === 'about') {
-      const healthAge = getAgeFromDateOfBirth(onboardingHealthBasics?.dateOfBirth ?? null);
       content = (
         <AboutYouScreen
-          // "We imported these" only when something was actually imported — a
-          // connection that read nothing must not claim otherwise.
-          healthConnected={hasAnyHealthBasics(onboardingHealthBasics)}
           language={preferences.appLanguage}
-          initialValues={
-            aboutYouValues ??
-            (onboardingHealthBasics
-              ? {
-                  gender: onboardingHealthBasics.sex,
-                  ...(healthAge !== null ? { age: healthAge } : null),
-                  ...(onboardingHealthBasics.heightCm !== null
-                    ? { heightCm: onboardingHealthBasics.heightCm }
-                    : null),
-                  ...(onboardingHealthBasics.weightKg !== null
-                    ? { weightKg: onboardingHealthBasics.weightKg }
-                    : null),
-                }
-              : null)
-          }
+          initialValues={aboutYouValues}
           onContinue={(values) => {
             setAboutYouValues(values);
             setOnboardingStep(onboardingPath === 'ready' ? 'ready_catalog' : 'questionnaire');
           }}
-          onBack={() => setOnboardingStep(onboardingHealthBasics ? 'health_synced' : 'path')}
+          onBack={() => setOnboardingStep('path')}
         />
       );
     } else if (onboardingStep === 'ready_catalog') {
@@ -4618,7 +4533,6 @@ function VinhaApp() {
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
         onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
-        onConnectHealth={() => void handleProfileConnectHealth()}
         onResetAllData={async () => {
           await resetAllData();
           setCompletionSummary(null);

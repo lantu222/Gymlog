@@ -34,12 +34,6 @@ Laitteesi tai Androidin varmuuskopiointiasetukset voivat sisällyttää sovellus
 
 Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → nollaus, tai sovelluksen poistaminen.
 
-## Health Connect
-
-Jos yhdistät Health Connectin, sovellus pyytää Androidilta luvan lukea kaksi asiaa: painosi ja pituutesi. Se lukee kummastakin viimeisimmän arvon täyttääkseen profiilisi, ettei sinun tarvitse kirjoittaa niitä käsin.
-
-Muuta se ei lue, mitään se ei kirjoita takaisin, eikä se toimi taustalla. Voit perua luvan milloin tahansa Androidin asetuksista, ja sovellus toimii ilman sitä.
-
 ## AI-valmentaja
 
 AI-valmentajalla on kaksi tilaa, ja tällä hetkellä vain ensimmäinen on käytössä.

@@ -5,7 +5,6 @@ import Svg, { Circle, Defs, LinearGradient, Path, Stop } from 'react-native-svg'
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel, ToggleSwitch } from '../components/SettingsUi';
-import { getHealthProviderLabel } from '../integrations/health';
 import { t } from '../lib/i18n';
 import { isDemoBuild } from '../lib/demoMode';
 import { resolveProEntitlement } from '../lib/proEntitlement';
@@ -38,7 +37,6 @@ interface SettingsScreenProps {
   onOpenFeatures: () => void;
   onOpenAiInfo: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
-  onConnectHealth: () => void;
   onResetAllData: () => void;
 }
 
@@ -219,7 +217,6 @@ export function SettingsScreen({
   onOpenFeatures,
   onOpenAiInfo,
   onOpenLegal,
-  onConnectHealth,
   onResetAllData,
 }: SettingsScreenProps) {
   const theme = useTheme();
@@ -366,22 +363,8 @@ export function SettingsScreen({
           <SectionLabel label={t(language, 'settings.section.training')} />
           <View style={styles.card}>
             {/* Smart progression removed — returns later as a Pro feature. */}
-            <Row
-              icon="heart"
-              iconColor="#FF2D55"
-              title={getHealthProviderLabel()}
-              sub={t(language, 'settings.health.sub')}
-              control={
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, 'settings.a11y.connectHealth', { provider: getHealthProviderLabel() })}
-                  onPress={onConnectHealth}
-                  style={({ pressed }) => [styles.connectPill, pressed && styles.pressed]}
-                >
-                  <Text style={styles.connectPillText}>{t(language, 'settings.health.connect')}</Text>
-                </Pressable>
-              }
-            />
+            {/* Health Connect removed for v1 — returns in v2 as a workout
+                export rather than a body-stats import. */}
             <Row
               icon="pause"
               title={t(language, 'settings.trainingBreak')}

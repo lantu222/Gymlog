@@ -106,13 +106,6 @@ const PRIVACY_EN: LegalSection[] = [
     ],
   },
   {
-    heading: 'Health Connect',
-    body: [
-      'If you connect Health Connect, the app asks Android for permission to read two things: your weight and your height. It reads the most recent value of each, to fill in your profile so you do not have to type it.',
-      'It reads nothing else, it writes nothing back, and it does not run in the background. You can revoke the permission at any time in Android settings, and the app keeps working without it.',
-    ],
-  },
-  {
     heading: 'The AI coach',
     body: [
       'The AI coach has two modes, and today only the first one is active.',
@@ -204,13 +197,6 @@ const PRIVACY_FI: LegalSection[] = [
       'Sovelluksen paikallisessa tallennustilassa laitteellasi, kahden avaimen alla. Niitä ei synkronoida meidän palvelimellemme, eikä meillä ole mitään keinoa lukea niitä etänä.',
       'Laitteesi tai Androidin varmuuskopiointiasetukset voivat sisällyttää sovellusdatan järjestelmän varmuuskopioon, jota sinä hallitset. Se varmuuskopio on sinun ja Googlen välinen — Vinha ei lähetä eikä vastaanota sitä.',
       'Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → nollaus, tai sovelluksen poistaminen.',
-    ],
-  },
-  {
-    heading: 'Health Connect',
-    body: [
-      'Jos yhdistät Health Connectin, sovellus pyytää Androidilta luvan lukea kaksi asiaa: painosi ja pituutesi. Se lukee kummastakin viimeisimmän arvon täyttääkseen profiilisi, ettei sinun tarvitse kirjoittaa niitä käsin.',
-      'Muuta se ei lue, mitään se ei kirjoita takaisin, eikä se toimi taustalla. Voit perua luvan milloin tahansa Androidin asetuksista, ja sovellus toimii ilman sitä.',
     ],
   },
   {
