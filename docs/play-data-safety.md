@@ -1,6 +1,6 @@
 # Google Play Data Safety Prep for Vinha
 
-Last reviewed: 26 March 2026
+Last reviewed: 11 August 2026
 Version reviewed: 1.1.0
 Package: app.vinha
 
@@ -16,6 +16,16 @@ Vinha currently:
 - does not implement analytics or crash reporting SDKs
 - does not implement ads, subscriptions, or payments
 - does not implement camera, microphone, contacts, or location features
+  - `RECORD_AUDIO` used to reach the manifest anyway, merged in from expo-audio's
+    own library manifest even though Vinha only plays cue sounds. Removed on
+    2026-08-11 via `tools:node="remove"` plus `recordAudioAndroid: false` on the
+    plugin. Verify it is still absent from any APK you submit — a microphone
+    permission on the Play listing contradicts the answers below.
+- does not read Health Connect or any platform health store. The Health Connect
+  integration was removed entirely on 2026-08-11 (commit b41f1f1) along with its
+  permissions, so no health-data declaration is required for this release.
+- schedules local notifications (`POST_NOTIFICATIONS`) and offers a home-screen
+  widget; neither sends anything off-device
 - includes an optional Vinha AI backend path:
   - preview mode when no endpoint is configured
   - live mode when the app calls your own endpoint and that endpoint calls Anthropic (Claude)
