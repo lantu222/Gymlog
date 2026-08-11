@@ -113,6 +113,20 @@ interface HomePlanCard {
   nextSession: HomeDaySessionSummary & {
     label: string;
   };
+  /**
+   * Present only when the plan's block is finished and unanswered. The card
+   * stays until one of its answers is taken — completion must not be missable
+   * by opening the app on the wrong day.
+   */
+  completion?: {
+    planId: string;
+    sessionsTotal: number;
+    nextLevelTemplateId: string | null;
+    /** Presentation title, resolved by App — Home has no catalog access. */
+    nextLevelTitle: string | null;
+    /** False when no plan record exists to reset (an unadopted recommendation). */
+    canRestart: boolean;
+  } | null;
 }
 
 export interface HomeOtherProgram {
@@ -136,6 +150,14 @@ interface HomeScreenProps {
   onRemoveOtherProgram?: (planId: string) => void;
   /** Adapt sheet: drop the programme Home is leading with. */
   onRemoveActivePlan?: () => void;
+  /** Completion card: adopt the step-up programme and lead with it. */
+  onCompletionStartNext?: (planId: string, templateId: string) => void;
+  /** Completion card: run the same block again from 0. */
+  onCompletionRestart?: (planId: string) => void;
+  /** Completion card: put the card away without choosing. */
+  onCompletionDismiss?: (planId: string) => void;
+  /** Completion card: dismiss and go browse the catalog. */
+  onCompletionBrowse?: (planId: string) => void;
   /** Adapt sheet: answer the onboarding questions again. */
   onRedoOnboarding?: () => void;
   onStartActivePlanSession?: (sessionId: string) => void;
@@ -219,6 +241,10 @@ export function HomeScreen({
   onOpenOtherProgram,
   onRemoveOtherProgram,
   onRemoveActivePlan,
+  onCompletionStartNext,
+  onCompletionRestart,
+  onCompletionDismiss,
+  onCompletionBrowse,
   onRedoOnboarding,
   onStartActivePlanSession,
   onCreateWorkoutFromExercises,
@@ -319,8 +345,11 @@ export function HomeScreen({
     return today ? `${today.weekdayLabel} ${stamp}` : stamp;
   }, [topCalendarDays]);
 
-  const warmup = getDefaultWarmup(focusTitle, language, availableEquipment);
-  const cooldown = getDefaultCooldown(focusTitle, language, availableEquipment);
+  // Classified in App.tsx from the full exercise list; the five rows below are
+  // not enough to work it out here.
+  const focusKind = nextPlanSession?.focusKind ?? 'general';
+  const warmup = getDefaultWarmup(focusKind, language, availableEquipment);
+  const cooldown = getDefaultCooldown(focusKind, language, availableEquipment);
   // Computed where the whole session was still in hand (App.tsx): Home only
   // receives the first five exercises, so a preview built here would quote a
   // shorter session than the one that starts.
@@ -799,6 +828,66 @@ export function HomeScreen({
               )}
             </View>
           </View>
+        ) : null}
+
+        {/* Completion card — above the hero, not instead of it. The rotation
+            keeps offering sessions below, so ignoring the card breaks nothing;
+            it simply waits for its answer. */}
+        {activePlan?.completion ? (
+          <CutSurface size="lg" fill={theme.proSheetTop} style={styles.completeCard}>
+            <Text style={styles.completeEyebrow}>{t(language, 'home.complete.eyebrow')}</Text>
+            <Text style={styles.completeTitle}>{activePlan.title}</Text>
+            <Text style={styles.completeMeta}>
+              {t(language, 'home.complete.sessions', { total: activePlan.completion.sessionsTotal })}
+            </Text>
+            {activePlan.completion.nextLevelTitle && activePlan.completion.nextLevelTemplateId ? (
+              <View style={styles.completeNext}>
+                <Text style={styles.completeNextLabel}>
+                  {t(language, 'programs.affinity.nextLevel')}
+                </Text>
+                <Text style={styles.completeNextTitle}>{activePlan.completion.nextLevelTitle}</Text>
+              </View>
+            ) : null}
+            <View style={styles.completeActions}>
+              {activePlan.completion.nextLevelTemplateId ? (
+                <CutButton
+                  label={t(language, 'home.complete.startNext')}
+                  onPress={() =>
+                    onCompletionStartNext?.(
+                      activePlan.completion!.planId,
+                      activePlan.completion!.nextLevelTemplateId!,
+                    )
+                  }
+                  variant="primary"
+                  size="md"
+                  stretch
+                />
+              ) : null}
+              {activePlan.completion.canRestart ? (
+                <CutButton
+                  label={t(language, 'home.complete.restart')}
+                  onPress={() => onCompletionRestart?.(activePlan.completion!.planId)}
+                  variant="secondary"
+                  size="md"
+                  stretch
+                />
+              ) : null}
+            </View>
+            <View style={styles.completeQuietRow}>
+              <Pressable
+                hitSlop={8}
+                onPress={() => onCompletionBrowse?.(activePlan.completion!.planId)}
+              >
+                <Text style={styles.completeQuiet}>{t(language, 'home.complete.browse')}</Text>
+              </Pressable>
+              <Pressable
+                hitSlop={8}
+                onPress={() => onCompletionDismiss?.(activePlan.completion!.planId)}
+              >
+                <Text style={styles.completeQuiet}>{t(language, 'home.complete.hide')}</Text>
+              </Pressable>
+            </View>
+          </CutSurface>
         ) : null}
 
         {/* Session hero (Home v4) — renders only with an active plan */}
@@ -1575,6 +1664,75 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
     fontSize: 12,
     lineHeight: 15,
+    fontWeight: '700',
+  },
+  // The completion card is a painted panel — the same fixed dark violet the
+  // Pro sheet uses in both themes, so its text colours are fixed too, exactly
+  // like white on the detail hero's gradient.
+  completeCard: {
+    marginTop: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  completeEyebrow: {
+    color: '#C4B0FF',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  completeTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginTop: 6,
+  },
+  completeMeta: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  completeNext: {
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.14)',
+    paddingTop: 12,
+  },
+  completeNextLabel: {
+    color: '#C4B0FF',
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  completeNextTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '800',
+    marginTop: 3,
+  },
+  completeActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  completeQuietRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 22,
+    marginTop: 13,
+  },
+  completeQuiet: {
+    color: 'rgba(255, 255, 255, 0.66)',
+    fontSize: 12.5,
+    lineHeight: 16,
     fontWeight: '700',
   },
   hero: {

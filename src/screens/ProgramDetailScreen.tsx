@@ -8,6 +8,12 @@ import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
+import {
+  classifySessionFocus,
+  getDefaultCooldown,
+  getDefaultWarmup,
+  SessionRoutineBlock,
+} from '../lib/homeSessionHero';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
@@ -15,6 +21,7 @@ import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import type { AppLanguage } from '../types/models';
+import type { WorkoutRole } from '../features/workout/workoutTypes';
 
 const DAY_KEYS: I18nKey[] = [
   'setup.day.mon',
@@ -175,51 +182,55 @@ function formatPlanSessionTitle(
   return `${t(language, 'detail.day', { index: index + 1 })}. ${localizeSessionName(sessionName, language)}`;
 }
 
-function isWarmupExercise(name: string) {
-  return /warm|prep|activation/i.test(name);
+interface SessionContentRow {
+  id: string;
+  name: string;
+  prescription: string;
+  role?: WorkoutRole;
+  /** Drill names arrive translated; template exercise names do not. */
+  localized?: boolean;
 }
 
-function isCooldownExercise(name: string) {
-  return /cooldown|stretch|breath|recovery/i.test(name);
-}
-
-function buildSessionContentSections(session: ProgramDetailViewModel['sessions'][number]) {
-  const warmupExercises = session.exercises.filter((exercise) => isWarmupExercise(exercise.name));
-  const cooldownExercises = session.exercises.filter((exercise) => isCooldownExercise(exercise.name));
-  const workoutExercises = session.exercises.filter(
-    (exercise) => !isWarmupExercise(exercise.name) && !isCooldownExercise(exercise.name),
-  );
+/**
+ * Warmup, workout, cooldown — from the same source the player runs.
+ *
+ * Both ends used to be guessed from exercise names (`/warm|prep|activation/`,
+ * `/cooldown|stretch|breath|recovery/`), which stole 17 real prescribed
+ * exercises out of the workout list: a postnatal program's "Pelvic Floor
+ * Activation (Kegel)" read as a warmup, and a mobility program's entire
+ * content read as a cooldown. When nothing matched, the screen invented a
+ * "Dynamic Warm-Up · 5-8 min" row that named no drill at all.
+ *
+ * Now both blocks come from `getDefaultWarmup`/`getDefaultCooldown` — the
+ * exact drills Home lists and the guided player counts down — so this screen
+ * and the session agree about what the session is.
+ */
+function buildSessionContentSections(
+  session: ProgramDetailViewModel['sessions'][number],
+  language: AppLanguage,
+  availableEquipment: string[] | null,
+) {
+  const focus = classifySessionFocus(session.exercises.map((exercise) => exercise.name));
+  const toRows = (block: SessionRoutineBlock, kind: string): SessionContentRow[] =>
+    block.drills.map((drill, index) => ({
+      id: `${session.id}:${kind}:${index}`,
+      name: drill.name,
+      prescription: drill.schemeLabel,
+      localized: true,
+    }));
 
   return [
     {
       titleKey: 'detail.warmup' as I18nKey,
-      items: warmupExercises.length
-        ? warmupExercises
-        : [
-            {
-              id: `${session.id}:warmup`,
-              name: 'Dynamic Warm-Up',
-              prescription: '5-8 min',
-              role: undefined,
-            },
-          ],
+      items: toRows(getDefaultWarmup(focus, language, availableEquipment), 'warmup'),
     },
     {
       titleKey: 'ai.signal.workout' as I18nKey,
-      items: workoutExercises,
+      items: session.exercises as SessionContentRow[],
     },
     {
       titleKey: 'detail.cooldown' as I18nKey,
-      items: cooldownExercises.length
-        ? cooldownExercises
-        : [
-            {
-              id: `${session.id}:cooldown`,
-              name: 'Cooldown Flow',
-              prescription: '3-5 min',
-              role: undefined,
-            },
-          ],
+      items: toRows(getDefaultCooldown(focus, language, availableEquipment), 'cooldown'),
     },
   ].filter((section) => section.items.length > 0);
 }
@@ -514,7 +525,7 @@ export function ProgramDetailScreen({
         </View>
         <View style={styles.workoutList}>
           {program.sessions.map((session, index) => {
-            const contentSections = buildSessionContentSections(session);
+            const contentSections = buildSessionContentSections(session, language, availableEquipment);
 
             return (
               <View key={session.id} style={styles.workoutCard}>
@@ -549,7 +560,7 @@ export function ProgramDetailScreen({
                       {section.items.map((exercise) => (
                         <View key={exercise.id} style={styles.sessionContentRow}>
                           <Text style={styles.sessionContentName} numberOfLines={1}>
-                            {exerciseNameLabel(language, exercise.name)}
+                            {exercise.localized ? exercise.name : exerciseNameLabel(language, exercise.name)}
                           </Text>
                           {/* What the exercise is FOR, read off the template's
                               own role rather than written per program. The list

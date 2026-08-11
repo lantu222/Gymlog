@@ -10,7 +10,10 @@
 
 import { exerciseNameLabel } from './exerciseNameLabel';
 import { parseNumberInput, removeTrailingZeros } from './format';
-import { SessionRoutineBlock } from './homeSessionHero';
+// Type-only on purpose: homeSessionHero reaches the catalog pools, which reach
+// back here for the library matcher. Keeping this erased at build time means
+// that loop stays a type relationship and never becomes a module cycle.
+import type { SessionRoutineBlock } from './homeSessionHero';
 import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
@@ -521,7 +524,8 @@ export function resolveGuidedSetTarget(
 
   const reps = previous?.actualReps ?? set.plannedRepsMax;
 
-  if (trackingMode === 'bodyweight') {
+  // A hold logs no weight either — its "reps" are seconds.
+  if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
     return {
       reps,
       loadKg: null,
@@ -764,7 +768,7 @@ export function formatGuidedCountdown(secondsLeft: number): string {
  * plan name, shortest wins). Returns the library index or null — never guesses
  * across ambiguous containment in both directions.
  */
-const GUIDED_LIBRARY_ALIASES: Record<string, string> = {
+export const GUIDED_LIBRARY_ALIASES: Record<string, string> = {
   'bench press': 'barbell bench press - medium grip',
   'incline bench press': 'barbell incline bench press - medium grip',
   'overhead press': 'standing military press',
@@ -783,7 +787,103 @@ const GUIDED_LIBRARY_ALIASES: Record<string, string> = {
   'push-up': 'pushups',
   'push-ups': 'pushups',
   'plank': 'plank',
+
+  // Names the catalogs qualify with a coaching cue. Each pair was checked
+  // against the library by hand: the containment heuristic reached "Seated
+  // Cable Rows" for a ring row and "Push Up to Side Plank" for a side plank,
+  // which is why stripped names are not allowed to use it.
+  'rows (bar or rings)': 'inverted row',
+  'seated cable row': 'seated cable rows',
+  'glute bridge': 'barbell glute bridge',
+  'step-up': 'step-up with knee raise',
+  vacuum: 'stomach vacuum',
+
+  // ── Names the library has under a different spelling ──────────────────
+  //
+  // Each pair was checked by hand against the library, on one rule: the
+  // entry must be the SAME MOVEMENT, so the photo and the instructions are
+  // right. Different gear for the same movement is fine and already the norm
+  // here ("Hip Thrust" has always resolved to the barbell version) — the
+  // position is what a user reads off a photo. A different movement is not
+  // fine, however close the name: "Plank-Up", "Plank to Pike" and "Skater
+  // Jump" are left unresolved rather than pointed at "Plank" and "Star Jump".
+  'chest-supported row': 'dumbbell incline row',
+  'chest-supported t-bar row': 'lying t-bar row',
+  'bulgarian split squat': 'split squats',
+  'machine chest press': 'leverage chest press',
+  'machine high row': 'leverage high row',
+  'hanging knee raise': 'hanging leg raise',
+  'weighted pull-up': 'weighted pull ups',
+  'weighted dips': 'parallel bar dip',
+  'standing overhead press': 'standing military press',
+  'incline barbell press': 'barbell incline bench press - medium grip',
+  'competition bench press': 'bench press - powerlifting',
+  'paused bench press': 'bench press - powerlifting',
+  'cable lateral raise': 'cable seated lateral raise',
+  'dumbbell lateral raise': 'side lateral raise',
+  'lateral raise superset': 'side lateral raise',
+  'cable front raise': 'front cable raise',
+  'dumbbell rear delt fly': 'reverse flyes',
+  'reverse pec deck': 'reverse machine flyes',
+  'single-arm dumbbell row': 'one-arm dumbbell row',
+  'dumbbell renegade row': 'alternating renegade row',
+  'cable triceps pushdown': 'triceps pushdown',
+  'rope pushdown': 'triceps pushdown - rope attachment',
+  'cable triceps kickback': 'tricep dumbbell kickback',
+  'reverse wrist curl': 'palms-down wrist curl over a bench',
+  'cable pullover': 'straight-arm dumbbell pullover',
+  'cable pull-through': 'pull through',
+  'dumbbell thruster': 'kettlebell thruster',
+  'battle rope slam': 'battling ropes',
+  'banded lateral walk': 'monster walk',
+  'wall push-up': 'incline push-up',
+  'cat-cow': 'cat stretch',
+  // A curtsy lunge is a crossover reverse lunge — same movement, and the
+  // library files that entry under 'back', which is its mistake, not ours.
+  'curtsy lunge': 'crossover reverse lunge',
+  // "Reverse Lunge" used to reach 'Crossover Reverse Lunge' by containment,
+  // which is a different movement AND filed under 'back' — so every leg day
+  // running one picked up a pull vote.
+  'reverse lunge': 'dumbbell rear lunge',
+  'bodyweight reverse lunge': 'dumbbell rear lunge',
+  'banded hip thrust': 'barbell hip thrust',
+  'single-leg hip thrust': 'single leg glute bridge',
+  'banded glute bridge': 'barbell glute bridge',
+  'glute bridge hold': 'barbell glute bridge',
+  'cable glute kickback': 'one-legged cable kickback',
+  'inchworm to push-up': 'inchworm',
+  // "each side" is a prescription, so the qualifier strip refuses this one.
+  // Same stand-in drillMedia already uses for the couch stretch.
+  'couch stretch (each side)': 'intermediate hip flexor and quad stretch',
 };
+
+/**
+ * A trailing parenthetical carrying a PRESCRIPTION, not a cue.
+ *
+ * These must never be stripped. "Air Bike (30s sprint)" is a fan bike; drop
+ * the qualifier and it resolves to the library's "Air Bike", which in this
+ * catalog is the ab exercise (see catalogExercisePools). A confidently wrong
+ * photo is worse than no photo.
+ */
+const PRESCRIPTION_QUALIFIER = /\d|each (side|leg|arm)|per side/i;
+
+/**
+ * "Seated Cable Row (Wide)" -> "seated cable row".
+ *
+ * The catalogs qualify names with coaching cues the library never spells:
+ * (Wide), (Light), (Banded), (Bodyweight), (or Knee Push-Up). Every one of
+ * them resolved to nothing, so 16 prescribed exercises reached the user with
+ * no photo, no demo and no swap pool. The qualifier stays on screen — this
+ * only affects what the name is matched against.
+ */
+function stripCoachingQualifier(normalized: string): string | null {
+  const match = normalized.match(/^(.*?)\s*\(([^)]*)\)$/);
+  if (!match || PRESCRIPTION_QUALIFIER.test(match[2])) {
+    return null;
+  }
+  const head = match[1].trim();
+  return head && head !== normalized ? head : null;
+}
 
 export function findGuidedLibraryIndex(
   exerciseName: string,
@@ -795,17 +895,20 @@ export function findGuidedLibraryIndex(
   }
   const lowerNames = libraryNames.map((name) => name.trim().toLowerCase());
 
-  const exact = lowerNames.indexOf(normalized);
-  if (exact >= 0) {
-    return exact;
-  }
-
-  const alias = GUIDED_LIBRARY_ALIASES[normalized];
-  if (alias) {
-    const aliasIndex = lowerNames.indexOf(alias);
-    if (aliasIndex >= 0) {
-      return aliasIndex;
+  const resolveExactOrAlias = (candidate: string): number | null => {
+    const exact = lowerNames.indexOf(candidate);
+    if (exact >= 0) {
+      return exact;
     }
+
+    const alias = GUIDED_LIBRARY_ALIASES[candidate];
+    const aliasIndex = alias ? lowerNames.indexOf(alias) : -1;
+    return aliasIndex >= 0 ? aliasIndex : null;
+  };
+
+  const direct = resolveExactOrAlias(normalized);
+  if (direct !== null) {
+    return direct;
   }
 
   let bestIndex: number | null = null;
@@ -816,7 +919,17 @@ export function findGuidedLibraryIndex(
       bestLength = name.length;
     }
   });
-  return bestIndex;
+  if (bestIndex !== null) {
+    return bestIndex;
+  }
+
+  // The stripped name gets exact and alias lookups but NOT containment.
+  // Dropping the qualifier makes a name shorter and more generic, and
+  // containment on a generic name is where it goes wrong: "rows" is inside
+  // "seated cable rows", "side plank" is inside "push up to side plank".
+  // Anything the strip should reach is worth naming in the alias table.
+  const stripped = stripCoachingQualifier(normalized);
+  return stripped ? resolveExactOrAlias(stripped) : null;
 }
 
 /** Oversized 2-letter initials for the brand-panel media fallback. */

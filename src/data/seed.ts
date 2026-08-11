@@ -89,6 +89,7 @@ const DEFAULT_PREFERENCES = {
   recommendedProgramId: null,
   trackedExerciseLibraryItemIds: [] as string[],
   dismissedTipIds: [] as string[],
+  dismissedCompletionPlanIds: [] as string[],
   activePlanId: 'plan_push_pull_legs',
   activePlanIds: ['plan_push_pull_legs'],
   programsTabEnabled: true,

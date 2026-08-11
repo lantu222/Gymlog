@@ -204,6 +204,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       trackedExerciseLibraryItemIds: [],
       strengthGoals: [],
       dismissedTipIds: [],
+      dismissedCompletionPlanIds: [],
       lastInsightSessionId: null,
       lastInsightType: null,
       activePlanId: null,

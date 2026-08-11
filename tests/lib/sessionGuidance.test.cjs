@@ -44,7 +44,9 @@ module.exports = [
       assert.match(guidanceById.run_mobility_easy.mainFocus, /Easy Run Blocks/i);
       assert.match(guidanceById.run_mobility_easy.progressionHint, /run work|blocks/i);
       assert.match(guidanceById.run_mobility_easy.firstAction, /Easy Run Blocks.*easy pace/i);
-      assert.match(guidanceById.run_mobility_reset.firstAction, /Recovery Stretch Flow/i);
+      // Names a real library exercise now, not the "Recovery Stretch Flow"
+      // block placeholder that used to stand in for one.
+      assert.match(guidanceById.run_mobility_reset.firstAction, /Seated Floor Hamstring Stretch/i);
     },
   },
   {

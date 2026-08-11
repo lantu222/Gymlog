@@ -146,8 +146,13 @@ module.exports = [
       // animated height + rotating chevron, agenda rows inside.
       // All three section accordions start collapsed (user preference).
       assert.match(homeScreenSource, /warmup: false,\s*workout: false,\s*cooldown: false/);
-      assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusTitle, language, availableEquipment\)/);
-      assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusTitle, language, availableEquipment\)/);
+      // The blocks are chosen by classified focus, never by the session title:
+      // the title is display text, and feeding it here is what made every
+      // Finnish session share one generic warmup.
+      assert.match(homeScreenSource, /const focusKind = nextPlanSession\?\.focusKind \?\? 'general'/);
+      assert.match(homeScreenSource, /const warmup = getDefaultWarmup\(focusKind, language, availableEquipment\)/);
+      assert.match(homeScreenSource, /const cooldown = getDefaultCooldown\(focusKind, language, availableEquipment\)/);
+      assert.doesNotMatch(homeScreenSource, /getDefault(Warmup|Cooldown)\(focusTitle/);
       // Accordion interpolations live in a useRef built once per mount — an
       // inline sectionAnims[key].interpolate() per render leaks native nodes
       // (Fabric disconnectAnimatedNodes crash).

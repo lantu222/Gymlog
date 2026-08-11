@@ -141,10 +141,10 @@ module.exports = [
   {
     name: 'workout content fit keeps beginner templates within manageable complexity',
     run() {
-      // The gainer xlsx templates carry Dynamic Warm-Up / Cooldown Flow rows
-      // inside each session, so raw per-session exercise counts overstate the
-      // real working density. Complexity is judged on working exercises only.
-      const isWarmupOrCooldownBlock = (exercise) => /warm-?up|cool ?down|cooldown/i.test(exercise.exerciseName);
+      // Every row in a session is now a working exercise: the gainer xlsx
+      // import's inert "Dynamic Warm-Up" / "Cooldown Flow" rows were removed
+      // from the catalog, so the raw count is the real working density and no
+      // longer has to be filtered before it can be judged.
       const beginnerTemplates = WORKOUT_TEMPLATES_V1.filter((template) => template.level === 'beginner');
 
       assert.ok(beginnerTemplates.length >= 6);
@@ -155,7 +155,7 @@ module.exports = [
         });
 
         const maxWorkingExercisesPerSession = Math.max(
-          ...template.sessions.map((session) => session.exercises.filter((exercise) => !isWarmupOrCooldownBlock(exercise)).length),
+          ...template.sessions.map((session) => session.exercises.length),
         );
 
         assert.equal(maxWorkingExercisesPerSession <= 7, true, template.id);

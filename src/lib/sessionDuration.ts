@@ -35,6 +35,13 @@ export interface DurationExerciseInput {
   sets: number;
   /** The top of the prescribed rep range — what the session is planned for. */
   reps: number;
+  /**
+   * `reps` is seconds under tension, not repetitions (trackingMode 'hold').
+   *
+   * Without this a 60-second plank costs 60 × 3.5 s = three and a half
+   * minutes of "work", and a mobility session quoted twice the time it takes.
+   */
+  timed?: boolean;
   /** Prescribed rest between sets, in seconds. */
   restSeconds: number;
   /** Skipped exercises cost nothing. */
@@ -48,9 +55,11 @@ export interface SessionDurationInput {
   cooldownSeconds?: number;
 }
 
-export function estimateWorkingSetSeconds(reps: number): number {
+export function estimateWorkingSetSeconds(reps: number, timed = false): number {
   const safeReps = Number.isFinite(reps) && reps > 0 ? reps : 8;
-  return Math.round(safeReps * SECONDS_PER_REP + SET_SETUP_SECONDS);
+  // A held position already IS its duration; only the getting-into-it costs
+  // extra. A rep count has to be multiplied out.
+  return Math.round((timed ? safeReps : safeReps * SECONDS_PER_REP) + SET_SETUP_SECONDS);
 }
 
 export function estimateSessionSeconds(input: SessionDurationInput): number {
@@ -58,7 +67,7 @@ export function estimateSessionSeconds(input: SessionDurationInput): number {
     if (exercise.skipped || exercise.sets <= 0) {
       return total;
     }
-    const setSeconds = estimateWorkingSetSeconds(exercise.reps) * exercise.sets;
+    const setSeconds = estimateWorkingSetSeconds(exercise.reps, exercise.timed) * exercise.sets;
     // No rest is counted after the final set of an exercise: what follows is
     // the walk to the next one, which the setup cost already pays for.
     const restSeconds = Math.max(0, exercise.sets - 1) * Math.max(0, exercise.restSeconds);

@@ -420,6 +420,11 @@ const EXERCISE_NAME_FI: Record<string, string> = {
   'Supported Single-Leg Balance': 'Tuettu yhden jalan tasapaino',
   'Box Breathing': 'Laatikkohengitys',
   'Diaphragmatic Breathing': 'Palleahengitys',
+  // No catalog prescribes these six any more — they were the xlsx import's
+  // inert warmup/cooldown rows and were removed from the programs. They stay
+  // translated because they are still in users' data: anyone who ran a gainer
+  // session before the removal has them in their logged history, and a
+  // dead-code sweep that deletes these turns that history back into English.
   'Breathing Reset': 'Hengityspalautus',
   'Cooldown Flow': 'Palautumissarja',
   'Recovery Stretch': 'Palauttava venytys',

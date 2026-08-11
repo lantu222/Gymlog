@@ -1,3 +1,4 @@
+import { SessionFocusKind } from './homeSessionHero';
 import { AppLanguage } from '../types/models';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -99,6 +100,12 @@ export interface HomeDaySessionSummary {
    * quote a shorter session than the one that starts.
    */
   trim?: { droppedSets: number; minutes: number } | null;
+  /**
+   * What the session trains, classified from its exercises — carried for the
+   * same reason `trim` is: Home sees five exercises and would classify a
+   * different session than the one that starts.
+   */
+  focusKind?: SessionFocusKind;
   exercises: Array<{
     name: string;
     setsLabel: string;

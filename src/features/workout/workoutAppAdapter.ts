@@ -1,5 +1,5 @@
 import { ExerciseLogDraft, ExerciseLogSet } from '../../types/models';
-import { WorkoutExerciseInstance, WorkoutSessionRuntime, WorkoutSetStatus } from './workoutTypes';
+import { WorkoutExerciseInstance, WorkoutSessionRuntime, WorkoutSetStatus, WorkoutTrackingMode } from './workoutTypes';
 
 export type LegacyWorkoutDataMismatch =
   | 'template_exercise_id_not_mapped';
@@ -23,6 +23,8 @@ export interface AdaptedCompletedWorkoutExercise {
   persistedExerciseTemplateId: string | null;
   exerciseName: string;
   tracked: boolean;
+  /** Carried so the finish screen can say "45 s" instead of "45 reps". */
+  trackingMode: WorkoutTrackingMode;
   orderIndex: number;
   skipped: boolean;
   sessionInserted: boolean;
@@ -88,6 +90,7 @@ function adaptExerciseForBridge(exercise: WorkoutExerciseInstance): AdaptedCompl
     persistedExerciseTemplateId: exercise.persistedExerciseTemplateId ?? null,
     exerciseName: exercise.exerciseName,
     tracked: isTrackedExercise(exercise),
+    trackingMode: exercise.trackingMode,
     orderIndex: exercise.orderIndex,
     skipped: exercise.status === 'skipped',
     sessionInserted: exercise.sessionInserted === true,

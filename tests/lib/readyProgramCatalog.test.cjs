@@ -31,17 +31,33 @@ module.exports = [
     },
   },
   {
-    name: 'gainer program catalog includes the current xlsx set with warmup and cooldown blocks',
+    name: 'no session carries a warmup or cooldown placeholder as a logged exercise',
     run() {
       const gainerTemplates = WORKOUT_TEMPLATES_V1.filter((template) => template.id.startsWith('tpl_gainer_'));
       assert.equal(gainerTemplates.length, 20);
 
-      gainerTemplates.forEach((template) => {
+      // The xlsx import wrote "Dynamic Warm-Up" as the first row and "Cooldown
+      // Flow" as the last row of all 81 gainer sessions. They were exercises
+      // in the data and nowhere else: no library entry, so no photo, no demo
+      // and no swap pool — and the app generates its own warmup and cooldown
+      // blocks anyway (homeSessionHero), so they were a second, inert copy of
+      // a block the user already gets. What they did do was show up as the
+      // first thing in the workout list.
+      const placeholder = /^(dynamic warm-up|cooldown flow|joint prep flow|mobility warm-up|breathing reset|recovery stretch)$/i;
+      const offenders = [];
+
+      WORKOUT_TEMPLATES_V1.forEach((template) => {
         template.sessions.forEach((session) => {
-          assert.equal(session.exercises[0].exerciseName, 'Dynamic Warm-Up', `${template.id} ${session.id}`);
-          assert.equal(session.exercises[session.exercises.length - 1].exerciseName, 'Cooldown Flow', `${template.id} ${session.id}`);
+          assert.ok(session.exercises.length >= 3, `${template.id} ${session.id} has too few exercises`);
+          session.exercises.forEach((exercise) => {
+            if (placeholder.test(exercise.exerciseName.trim())) {
+              offenders.push(`${template.id} ${session.id}: ${exercise.exerciseName}`);
+            }
+          });
         });
       });
+
+      assert.deepEqual(offenders, []);
     },
   },
   {
@@ -99,9 +115,12 @@ module.exports = [
       assert.ok(exerciseNames.includes('Bodyweight Squat'));
       assert.ok(exerciseNames.includes('Incline Push-Up'));
       assert.ok(exerciseNames.includes('Inverted Row'));
+      // What matters is that nothing asks for a weight. A plank is now 'hold'
+      // rather than 'bodyweight' — still unloaded, and still logged without a
+      // kilogram field.
       assert.equal(
         minimal.sessions.every((session) =>
-          session.exercises.every((exercise) => exercise.trackingMode === 'bodyweight'),
+          session.exercises.every((exercise) => ['bodyweight', 'hold'].includes(exercise.trackingMode)),
         ),
         true,
       );

@@ -1,3 +1,4 @@
+import { isTimedTrackingMode, isUnloadedTrackingMode } from '../features/workout/workoutTypes';
 import type { WorkoutTemplateExercise, WorkoutTemplateSession, WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 
 export interface SessionGuidance {
@@ -32,7 +33,9 @@ function hasLoadedPrimary(exercises: WorkoutTemplateExercise[]) {
 }
 
 function isBodyweightStrengthSession(exercises: WorkoutTemplateExercise[]) {
-  return exercises.every((exercise) => exercise.trackingMode === 'bodyweight') && exercises.some((exercise) => !isMobilityExercise(exercise));
+  // A plank is now 'hold' rather than 'bodyweight', and a bodyweight session
+  // with a plank in it is still a bodyweight session.
+  return exercises.every((exercise) => isUnloadedTrackingMode(exercise.trackingMode)) && exercises.some((exercise) => !isMobilityExercise(exercise));
 }
 
 function buildWarmup(exercises: WorkoutTemplateExercise[]) {
@@ -105,6 +108,10 @@ function buildFirstAction(exercises: WorkoutTemplateExercise[]) {
 
   if (isMobilityExercise(firstPrimary)) {
     return `Start with ${firstPrimary.exerciseName} and keep the first round easy.`;
+  }
+
+  if (isTimedTrackingMode(firstPrimary.trackingMode)) {
+    return `Start with ${firstPrimary.exerciseName} and hold the position rather than chasing the clock.`;
   }
 
   if (firstPrimary.trackingMode === 'bodyweight') {

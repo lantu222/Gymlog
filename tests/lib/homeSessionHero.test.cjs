@@ -108,7 +108,7 @@ module.exports = [
   {
     name: 'default warmup and cooldown blocks vary by focus and stay well-formed',
     run() {
-      const focuses = ['Strength', 'Push', 'Pull', 'Anything Else'];
+      const focuses = ['general', 'push', 'pull', 'upper', 'lower'];
       for (const focus of focuses) {
         const warmup = getDefaultWarmup(focus);
         const cooldown = getDefaultCooldown(focus);
@@ -121,8 +121,15 @@ module.exports = [
         }
       }
       // Focus-specific content actually differs.
-      assert.notDeepEqual(getDefaultWarmup('Push').drills, getDefaultWarmup('Pull').drills);
-      assert.notDeepEqual(getDefaultCooldown('Push').drills, getDefaultCooldown('Strength').drills);
+      assert.notDeepEqual(getDefaultWarmup('push').drills, getDefaultWarmup('pull').drills);
+      assert.notDeepEqual(getDefaultCooldown('push').drills, getDefaultCooldown('general').drills);
+      // A leg day does not end by stretching the chest. This is the drill the
+      // tester actually saw after "Pakarat & Jalat", and it was in the block
+      // even when the classification was right.
+      assert.deepEqual(
+        getDefaultCooldown('lower', 'en').drills.map((drill) => drill.name),
+        ['Couch stretch', 'Seated hamstring stretch'],
+      );
     },
   },
   {
@@ -131,7 +138,7 @@ module.exports = [
       // A bodyweight-only setup ([] = "I have nothing") must never be told to
       // warm up on a rowing machine or grab an empty bar / band / pull-up bar.
       const gated = ['Rowing machine', 'Empty-bar squats', 'Band pull-aparts', 'Scapular pull-ups', 'Band face pulls', 'Lat stretch on rack', 'Dead hang'];
-      for (const focus of ['Strength', 'Push', 'Pull', 'Anything Else']) {
+      for (const focus of ['general', 'push', 'pull', 'upper', 'lower']) {
         const names = [
           ...getDefaultWarmup(focus, 'en', []).drills,
           ...getDefaultCooldown(focus, 'en', []).drills,
@@ -142,8 +149,8 @@ module.exports = [
       }
 
       // Fallbacks swap in without shrinking the block.
-      const bodyweightPull = getDefaultWarmup('Pull Day', 'en', []);
-      assert.equal(bodyweightPull.drills.length, getDefaultWarmup('Pull Day', 'en', null).drills.length);
+      const bodyweightPull = getDefaultWarmup('pull', 'en', []);
+      assert.equal(bodyweightPull.drills.length, getDefaultWarmup('pull', 'en', null).drills.length);
       assert.deepEqual(
         bodyweightPull.drills.map((drill) => drill.name),
         ['Jumping jacks', 'Wall slides', 'Wall slides'].slice(0, bodyweightPull.drills.length),
@@ -151,13 +158,13 @@ module.exports = [
 
       // Partial gear keeps what it can: bands allow band work, no rower still
       // means no rowing machine.
-      const bandsOnly = getDefaultWarmup('Push', 'en', ['Resistance bands']).drills.map((drill) => drill.name);
+      const bandsOnly = getDefaultWarmup('push', 'en', ['Resistance bands']).drills.map((drill) => drill.name);
       assert.ok(bandsOnly.includes('Band pull-aparts'));
       assert.ok(!bandsOnly.includes('Rowing machine'));
 
       // null = the setup never said → the original full-gym defaults stand.
       assert.ok(
-        getDefaultWarmup('Strength', 'en', null).drills.some((drill) => drill.name === 'Rowing machine'),
+        getDefaultWarmup('lower', 'en', null).drills.some((drill) => drill.name === 'Rowing machine'),
       );
     },
   },

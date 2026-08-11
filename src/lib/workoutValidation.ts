@@ -1,5 +1,5 @@
 import { t } from './i18n';
-import { WorkoutTrackingMode } from '../features/workout/workoutTypes';
+import { isTimedTrackingMode, isUnloadedTrackingMode, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 
 function hasTextValue(value: string) {
@@ -11,7 +11,7 @@ export function canCompleteWorkoutSet(
   loadValue: string,
   repsValue: string,
 ) {
-  if (trackingMode === 'bodyweight') {
+  if (isUnloadedTrackingMode(trackingMode)) {
     return hasTextValue(repsValue);
   }
 
@@ -27,8 +27,11 @@ export function getWorkoutSetValidationMessage(
   const hasLoad = hasTextValue(loadValue);
   const hasReps = hasTextValue(repsValue);
 
-  if (trackingMode === 'bodyweight') {
-    return hasReps ? null : t(language, 'logger.validation.addReps');
+  if (isUnloadedTrackingMode(trackingMode)) {
+    if (hasReps) {
+      return null;
+    }
+    return t(language, isTimedTrackingMode(trackingMode) ? 'logger.validation.addSeconds' : 'logger.validation.addReps');
   }
 
   if (!hasLoad && !hasReps) {

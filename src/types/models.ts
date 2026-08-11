@@ -361,6 +361,14 @@ export interface AppPreferences {
   strengthGoals: StrengthGoal[];
   dismissedTipIds: string[];
   /**
+   * Plans whose completion card the reader has answered. Keyed by plan id, not
+   * template id, so restarting the same programme (a new plan round) earns a
+   * new card. The card stays until answered — no timer — because completion is
+   * the biggest moment the app has, and it must not be missable by opening the
+   * app on the wrong day.
+   */
+  dismissedCompletionPlanIds: string[];
+  /**
    * The programme Home leads with. Kept as the primary while `activePlanIds`
    * carries the full set, so every screen that only ever wanted one still has
    * one to read.

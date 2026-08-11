@@ -28,19 +28,15 @@ const LIB = path.join(ROOT, 'src', 'lib');
 const ALLOWED = {
   I18N_KEYS: 'The key list behind the I18nKey type: used by types, not by calls.',
   TRANSLATED_EXERCISE_NAMES: 'The translation table, exposed for the coverage test.',
+  HOLD_EXERCISE_NAME_LIST: 'The hold list, exposed for the test that keeps the catalog data and this list one truth in both directions.',
   EMPTY_SESSION_ADAPTATION: 'The empty value, pinned so its shape cannot drift.',
   fingerprintsMatch: 'Exposed for the test that keeps fingerprints distinct.',
   isCatalogExercise: 'Pool membership, pinned so the catalog and the filters cannot diverge.',
+  GUIDED_LIBRARY_ALIASES: 'The alias table, exposed so a test can prove every target is a real library entry — a misspelled target resolves to nothing and says so nowhere.',
   getPlanWeekPhase: 'Plan phase wording, written ahead of the surface that will show it.',
   getProgramSeason: 'Season lookup by program, kept beside the seasons it answers for.',
   isSeasonActive: 'Season window predicate, kept beside resolveSeasonWindow.',
   listPromoCodes: 'Lists live codes for a demo sheet that does not exist yet.',
-  // Written ahead of their Home wiring on purpose: a parallel session holds
-  // HomeScreen/App.tsx uncommitted, and two writers in one working tree is how
-  // edits vanish. The allowlist's second suite forces these OUT of this list
-  // the moment the wiring lands — that is the mechanism working, not a hole.
-  resolveCompletionCard: 'Program-completion card logic, wired to Home once the tree is free.',
-  countSessionsSince: 'Restart-boundary counting for "Uusi kierros", same wiring.',
 };
 
 const EXPORT_RE = /^export\s+(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$][\w$]*)/gm;

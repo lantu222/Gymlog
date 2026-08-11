@@ -1,5 +1,6 @@
 import { GENERATED_EXERCISE_LIBRARY } from '../data/generatedExerciseLibrary';
 import { findGuidedLibraryIndex } from './guidedPlayer';
+import { isHoldExerciseName } from './holdExercises';
 import { SetupFocusArea } from '../types/models';
 
 /**
@@ -51,12 +52,38 @@ export function resolveCatalogBodyPart(name: string) {
 }
 
 /**
+ * The library's own category for a name ("stretching", "strength", "cardio"…),
+ * resolved through the same matcher as the body part.
+ *
+ * Worth having because the alternative is guessing from the name, and that
+ * guess is wrong in both directions: "Child's Pose" and "Kneeling Hip Flexor"
+ * carry no mobility word, while a "Standing Chest Stretch" prescribed as a
+ * working set does. Returns null for names the library cannot place, so the
+ * caller can decide what to do with a name it has never seen.
+ */
+export function resolveCatalogSourceCategory(name: string): string | null {
+  const exact = byName.get(name.trim().toLowerCase());
+  if (exact) {
+    return exact.sourceCategory ?? null;
+  }
+
+  const index = findGuidedLibraryIndex(name, libraryNames);
+  return index === null ? null : GENERATED_EXERCISE_LIBRARY[index].sourceCategory ?? null;
+}
+
+/**
  * Whether the logger should ask for a weight. Reading the catalog's own
  * equipment beats guessing from the name: "Butt Lift (Bridge)" matches no
  * bodyweight keyword but is bodyweight, and asking a bodyweight-only user for
  * kilograms is the specific failure this replaces.
  */
-export function getCatalogTrackingMode(name: string): 'bodyweight' | 'load_and_reps' {
+export function getCatalogTrackingMode(name: string): 'bodyweight' | 'load_and_reps' | 'hold' {
+  // A hold is bodyweight too, so this has to be asked first or every plank
+  // would come back as reps.
+  if (isHoldExerciseName(name)) {
+    return 'hold';
+  }
+
   return byName.get(name.trim().toLowerCase())?.equipment === 'bodyweight'
     ? 'bodyweight'
     : 'load_and_reps';

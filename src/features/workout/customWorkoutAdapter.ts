@@ -8,6 +8,7 @@ import {
 } from './workoutTypes';
 
 import { WORKOUT_SUBSTITUTION_GROUPS } from './workoutCatalog';
+import { isHoldExerciseName } from '../../lib/holdExercises';
 
 function normalizeName(value: string) {
   return value.trim().toLowerCase();
@@ -34,6 +35,13 @@ function resolveSubstitutionGroup(exerciseName: string, fallbackId: string): str
 }
 
 function getTrackingMode(exercise: ExerciseTemplate, libraryItem?: ExerciseLibraryItem): WorkoutTrackingMode {
+  // Asked before the equipment check: a hold is bodyweight, so the branch
+  // below would swallow it and a plank in your own program would ask for
+  // repetitions while the same plank in a ready program asked for seconds.
+  if (isHoldExerciseName(libraryItem?.name ?? exercise.name)) {
+    return 'hold';
+  }
+
   if (libraryItem?.equipment === 'bodyweight') {
     return 'bodyweight';
   }

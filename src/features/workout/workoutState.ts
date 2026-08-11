@@ -7,6 +7,7 @@ import {
   startCardioSession,
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
+import { isUnloadedTrackingMode } from './workoutTypes';
 import { WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg } from '../../lib/progressionGate';
@@ -181,7 +182,7 @@ function resolveNamedHistoryDraft(
   const entry = findLatestEntryForExerciseName(history.slotHistory, exercise.exerciseName, {
     // 0 kg is a real answer for bodyweight work and a missing one for a loaded
     // lift — the guided player used to hide the weight field, so zeroes exist.
-    requireLoaded: exercise.trackingMode !== 'bodyweight',
+    requireLoaded: !isUnloadedTrackingMode(exercise.trackingMode),
   });
   const matched = findHistoricalSetForIndex(entry, setIndex);
   if (!entry || !matched) {
@@ -745,7 +746,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       }
 
       const actualLoadKg = resolveDraftLoadKg(set, action.payload.unitPreference);
-      if (exercise.trackingMode !== 'bodyweight' && (actualLoadKg === null || actualLoadKg === undefined)) {
+      if (!isUnloadedTrackingMode(exercise.trackingMode) && (actualLoadKg === null || actualLoadKg === undefined)) {
         return state;
       }
 
@@ -831,12 +832,12 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         .reverse()
         .find((item) => item.status === 'completed' && typeof item.actualReps === 'number');
 
-      if (!sourceSet || (exercise.trackingMode !== 'bodyweight' && typeof sourceSet.actualLoadKg !== 'number')) {
+      if (!sourceSet || (!isUnloadedTrackingMode(exercise.trackingMode) && typeof sourceSet.actualLoadKg !== 'number')) {
         return state;
       }
 
       targetSet.draftLoadText =
-        exercise.trackingMode === 'bodyweight'
+        isUnloadedTrackingMode(exercise.trackingMode)
           ? ''
           : formatWeightInputValue(sourceSet.actualLoadKg ?? 0, action.payload.unitPreference);
       targetSet.draftRepsText = String(sourceSet.actualReps ?? '');
@@ -1006,7 +1007,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
       // because the progression gate did not choose a weight for this lift and
       // the badge must not say it did.
       const swappedInEntry = findLatestEntryForExerciseName(state.history.slotHistory, action.payload.exerciseName, {
-        requireLoaded: exercise.trackingMode !== 'bodyweight',
+        requireLoaded: !isUnloadedTrackingMode(exercise.trackingMode),
       });
       // Sets logged before this moment were a different lift. Clearing their
       // drafts is not enough on its own: the logger also carries forward from

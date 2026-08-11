@@ -64,7 +64,7 @@ import {
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
-import { getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
+import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
 import { hasExercise3D } from '../components/exercise3d/exercisePose';
 import { formatShortDate, removeTrailingZeros } from '../lib/format';
@@ -79,7 +79,11 @@ import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
-import { WorkoutExerciseInstance } from '../features/workout/workoutTypes';
+import {
+  isTimedTrackingMode,
+  isUnloadedTrackingMode,
+  WorkoutExerciseInstance,
+} from '../features/workout/workoutTypes';
 
 /**
  * Duotone ramps: where black lands, and where white lands. Light theme keeps
@@ -783,13 +787,20 @@ export function GuidedPlayerScreen({
   // the user's language, the plan brand in front of it does not.
   const sessionTitle = localizeWorkoutFocus(getGuidedSessionTitle(session?.templateName ?? '', language), language);
 
+  // From the exercises, not from `sessionTitle` — that string is localized one
+  // line above, and feeding it to the classifier is exactly how every Finnish
+  // session ended up with the same generic warmup.
+  const focusKind = useMemo(
+    () => classifySessionFocus((session?.exercises ?? []).map((exercise) => exercise.exerciseName)),
+    [session?.exercises],
+  );
   const warmupDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultWarmup(sessionTitle, language, availableEquipment)),
-    [sessionTitle, language, availableEquipment],
+    () => buildGuidedDrillsFromBlock(getDefaultWarmup(focusKind, language, availableEquipment)),
+    [focusKind, language, availableEquipment],
   );
   const cooldownDrills = useMemo<GuidedDrill[]>(
-    () => buildGuidedDrillsFromBlock(getDefaultCooldown(sessionTitle, language, availableEquipment)),
-    [sessionTitle, language, availableEquipment],
+    () => buildGuidedDrillsFromBlock(getDefaultCooldown(focusKind, language, availableEquipment)),
+    [focusKind, language, availableEquipment],
   );
 
   const exercises = session?.exercises ?? [];
@@ -1187,6 +1198,7 @@ export function GuidedPlayerScreen({
     exercises: activeExercises.map((exercise) => ({
       sets: exercise.sets.length,
       reps: exercise.sets[0]?.plannedRepsMax ?? 8,
+      timed: isTimedTrackingMode(exercise.trackingMode),
       restSeconds: exercise.restSecondsMin,
     })),
     warmupSeconds: warmupSecondsTotal,
@@ -1278,7 +1290,9 @@ export function GuidedPlayerScreen({
                       } · ${t(language, 'guided.count.sets', { count: totalSets })}`,
                       rows: activeExercises.map((exercise) => ({
                         left: exercise.exerciseName,
-                        right: `${exercise.sets.length} × ${formatRepRangeLabel(exercise.sets[0])}`,
+                        right: `${exercise.sets.length} × ${formatRepRangeLabel(exercise.sets[0])}${
+                          isTimedTrackingMode(exercise.trackingMode) ? ' s' : ''
+                        }`,
                       })),
                     }
                   : null,
@@ -1850,7 +1864,10 @@ function SetStepView({
   const styles = useThemedStyles(makeStyles);
 
   const target = resolveTarget(step.slotId, step.setIndex);
-  const bodyweight = exercise?.trackingMode === 'bodyweight';
+  // A hold logs no weight either, so it takes the same wide layout — but its
+  // number is seconds, and seconds are dialled in fives, not ones.
+  const bodyweight = exercise ? isUnloadedTrackingMode(exercise.trackingMode) : false;
+  const timed = exercise ? isTimedTrackingMode(exercise.trackingMode) : false;
   const [edit, setEdit] = useState(false);
   const [reps, setReps] = useState(target?.reps ?? 8);
   const [kg, setKg] = useState(target?.loadKg ?? 0);
@@ -1949,11 +1966,19 @@ function SetStepView({
                     "1 SARJA 6× TOISTOT" — the multiplier attached to the wrong
                     side and the noun in the wrong case. */}
                 <TargetNumber value={reps} unit="" size={repsSize} />
-                <Text style={styles.setTargetLabel}>{t(language, 'guided.repsCount')}</Text>
+                <Text style={styles.setTargetLabel}>
+                  {t(language, timed ? 'guided.secondsCount' : 'guided.repsCount')}
+                </Text>
               </Pressable>
             ) : (
               <View style={{ alignSelf: 'stretch', gap: 12 }}>
-                <Stepper label={t(language, 'guided.reps')} value={reps} step={1} min={1} onChange={setReps} />
+                <Stepper
+                  label={t(language, timed ? 'guided.seconds' : 'guided.reps')}
+                  value={reps}
+                  step={timed ? 5 : 1}
+                  min={timed ? 5 : 1}
+                  onChange={setReps}
+                />
                 <Pressable onPress={() => setEdit(false)} hitSlop={10} style={{ alignSelf: 'center' }}>
                   <Text style={{ fontSize: 13.5, fontWeight: '800', color: theme.purple }}>
                     {t(language, 'guided.back')}

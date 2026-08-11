@@ -1,4 +1,6 @@
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
+import { resolveCatalogSourceCategory } from './catalogExercisePools';
+import { isUnloadedTrackingMode } from '../features/workout/workoutTypes';
 import type { WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import type { RecommendationGoalType, RecommendationSetupContext } from './recommendationProfile';
 
@@ -56,7 +58,7 @@ function flattenExercises(sessions: Array<{ exercises: WorkoutTemplateExercise[]
 
 function isBodyweightExercise(exercise: WorkoutTemplateExercise) {
   return (
-    exercise.trackingMode === 'bodyweight' ||
+    isUnloadedTrackingMode(exercise.trackingMode) ||
     exercise.exerciseName.includes('Push-Up') ||
     exercise.exerciseName.includes('Bodyweight') ||
     exercise.exerciseName === 'Inverted Row' ||
@@ -71,6 +73,16 @@ function isRunExercise(exercise: WorkoutTemplateExercise) {
 }
 
 function isMobilityExercise(exercise: WorkoutTemplateExercise) {
+  // The library's own category decides when it knows the exercise. The name
+  // regex below was the only rule, and it read "Sun Salutation Flow" as
+  // mobility while reading "Child's Pose" as resistance work — so replacing a
+  // block name with a real exercise made a yoga program look like strength
+  // training. The regex stays for names the library has never seen.
+  const category = resolveCatalogSourceCategory(exercise.exerciseName);
+  if (category !== null) {
+    return category === 'stretching';
+  }
+
   return /\b(mobility|stretch|yoga|breath|flow|reset)\b/i.test(exercise.exerciseName);
 }
 

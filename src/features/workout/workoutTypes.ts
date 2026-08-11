@@ -1,6 +1,9 @@
-import { SetupLevel, UnitPreference } from '../../types/models';
-import { ProgressionFatigueSignal } from '../../lib/progressionGate';
-import { ActiveCardioSession } from '../../lib/cardio';
+// Type-only, and explicitly so: this module now exports runtime predicates, and
+// format.ts imports them. Erasing these keeps workoutTypes a leaf at build time
+// instead of a node in a cycle through progressionGate and cardio.
+import type { SetupLevel, UnitPreference } from '../../types/models';
+import type { ProgressionFatigueSignal } from '../../lib/progressionGate';
+import type { ActiveCardioSession } from '../../lib/cardio';
 
 export type WorkoutGoalType = 'strength' | 'hypertrophy' | 'general';
 export type WorkoutLevel = 'beginner' | 'intermediate' | 'advanced';
@@ -9,7 +12,29 @@ export type WorkoutProgressionModel = 'double_progression';
 export type DefaultScheduleMode = 'rolling_sequence';
 export type WorkoutRole = 'primary' | 'secondary' | 'accessory';
 export type WorkoutProgressionPriority = 'high' | 'medium' | 'low';
-export type WorkoutTrackingMode = 'load_and_reps' | 'reps_first' | 'bodyweight';
+/**
+ * `hold` is a timed position: the rep numbers are SECONDS, not repetitions.
+ *
+ * The catalogs have prescribed holds this way from the start — "Plank 3x30-60",
+ * "Legs Up the Wall 1x180-300" — with nothing in the data to say so, so every
+ * screen read those numbers as reps and the app asked users for 300 repetitions
+ * of lying with their legs up a wall. The mode records what was already true;
+ * it does not introduce a new kind of set.
+ */
+export type WorkoutTrackingMode = 'load_and_reps' | 'reps_first' | 'bodyweight' | 'hold';
+
+/**
+ * No external load to log. A hold is bodyweight by definition, so every rule
+ * that used to ask `!== 'bodyweight'` before requiring a weight means this.
+ */
+export function isUnloadedTrackingMode(trackingMode: WorkoutTrackingMode) {
+  return trackingMode === 'bodyweight' || trackingMode === 'hold';
+}
+
+/** Whether this exercise's rep numbers are seconds. */
+export function isTimedTrackingMode(trackingMode: WorkoutTrackingMode) {
+  return trackingMode === 'hold';
+}
 export type WorkoutStatus = 'active' | 'paused' | 'completed';
 export type WorkoutExerciseStatus = 'pending' | 'active' | 'completed' | 'skipped' | 'swapped';
 export type WorkoutSetStatus = 'pending' | 'completed' | 'skipped';

@@ -117,6 +117,141 @@ module.exports = [
     },
   },
   {
+    name: 'a coaching qualifier in brackets does not hide an exercise from the library',
+    run() {
+      // "(Wide)", "(Light)", "(Banded)", "(or Knee Push-Up)" are cues, not
+      // different exercises, but the library never spells them — so every one
+      // of these reached the user with no photo, no demo and no swap pool.
+      assert.equal(resolveCatalogBodyPart('Seated Cable Row (Wide)'), 'back');
+      assert.equal(resolveCatalogBodyPart('Goblet Squat (Light)'), 'legs');
+      assert.equal(resolveCatalogBodyPart('Push-Up (or Knee Push-Up)'), 'chest');
+      assert.equal(resolveCatalogBodyPart('Dead Bug (Modified)'), 'core');
+      assert.equal(resolveCatalogBodyPart('Vacuum (Stomach)'), 'core');
+      // The qualifier is only dropped for matching; unqualified names are
+      // unaffected either way.
+      assert.equal(resolveCatalogBodyPart('Goblet Squat'), 'legs');
+    },
+  },
+  {
+    name: 'a bracket carrying a prescription is never stripped, and a stripped name never guesses',
+    run() {
+      const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+      const { findGuidedLibraryIndex } = require('../../.test-dist/lib/guidedPlayer.js');
+      const names = GENERATED_EXERCISE_LIBRARY.map((entry) => entry.name);
+      const resolved = (name) => {
+        const index = findGuidedLibraryIndex(name, names);
+        return index === null ? null : GENERATED_EXERCISE_LIBRARY[index].name;
+      };
+
+      // "Air Bike" in this library is the ab exercise, not a fan bike. Drop the
+      // prescription and the conditioning row gets a photo of a crunch — a
+      // confidently wrong photo, which is worse than none.
+      assert.equal(resolved('Air Bike (30s sprint)'), null);
+      assert.equal(resolved('Push-Up (20s on / 10s off)'), null);
+      assert.equal(resolved('Pistol Squat (each leg)'), null);
+
+      // A stripped name gets exact and alias lookups only. Containment on a
+      // shortened name is where it went wrong: "rows" sits inside "seated
+      // cable rows", "side plank" inside "push up to side plank".
+      assert.equal(resolved('Side Plank (Knees Down)'), null, 'the library has no side plank');
+      assert.equal(resolved('Rows (Bar or Rings)'), 'Inverted Row', 'a ring row is not a cable row');
+    },
+  },
+  {
+    name: 'no program prescribes a block name in place of an exercise',
+    run() {
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+
+      // "Mobility Flow", "Sun Salutation Flow", "Breath Reset" were rows in
+      // RESET, RESET Yoga and RUN's recovery day. They name a block, not a
+      // movement: nothing in the library matches them, so those sessions were
+      // four blank lines with no photo and nothing to swap. A session is
+      // allowed to be called "Day 1: Mobility Flow"; an exercise is not.
+      const blockName = /\b(flow|reset|circuit|blocks?|finishers?)\b/i;
+      const offenders = [];
+
+      WORKOUT_TEMPLATES_V1.forEach((template) => {
+        template.sessions.forEach((session) => {
+          session.exercises.forEach((exercise) => {
+            if (blockName.test(exercise.exerciseName) && resolveCatalogBodyPart(exercise.exerciseName) === null) {
+              offenders.push(`${template.name} / ${session.name}: ${exercise.exerciseName}`);
+            }
+          });
+        });
+      });
+
+      // The RUN programme's "Easy Run Blocks" / "Tempo Run Blocks" / "Stride
+      // Finishers" are the known remainder: running prescriptions the library
+      // has no entry for at all. Pinned so the number cannot grow quietly.
+      assert.deepEqual(offenders.sort(), [
+        'RUN / Day 1: Easy Run: Easy Run Blocks',
+        'RUN / Day 2: Tempo Run: Stride Finishers',
+        'RUN / Day 2: Tempo Run: Tempo Run Blocks',
+      ]);
+    },
+  },
+  {
+    name: 'every alias points at an exercise that actually exists',
+    run() {
+      const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+      const { GUIDED_LIBRARY_ALIASES } = require('../../.test-dist/lib/guidedPlayer.js');
+      const libraryNames = new Set(
+        GENERATED_EXERCISE_LIBRARY.map((entry) => entry.name.trim().toLowerCase()),
+      );
+
+      // A misspelled target is the worst kind of entry: the alias silently
+      // does nothing, the name goes on resolving to nothing, and the table
+      // reads as if the problem were handled.
+      const broken = Object.entries(GUIDED_LIBRARY_ALIASES)
+        .filter(([, target]) => !libraryNames.has(target))
+        .map(([source, target]) => `${source} -> ${target}`);
+
+      assert.deepEqual(broken, []);
+    },
+  },
+  {
+    name: 'an alias beats the containment guess, so a near-miss cannot win',
+    run() {
+      const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+      const { findGuidedLibraryIndex } = require('../../.test-dist/lib/guidedPlayer.js');
+      const names = GENERATED_EXERCISE_LIBRARY.map((entry) => entry.name);
+      const resolved = (name) => GENERATED_EXERCISE_LIBRARY[findGuidedLibraryIndex(name, names)].name;
+
+      // "Reverse Lunge" used to reach "Crossover Reverse Lunge" by
+      // containment — a different movement, filed under 'back', so every leg
+      // day running one quietly picked up a pull vote.
+      assert.equal(resolved('Reverse Lunge'), 'Dumbbell Rear Lunge');
+      assert.equal(resolveCatalogBodyPart('Reverse Lunge'), 'legs');
+      // The biggest single miss in the catalogs: 24 prescriptions.
+      assert.equal(resolved('Chest-Supported Row'), 'Dumbbell Incline Row');
+      assert.equal(resolveCatalogBodyPart('Chest-Supported Row'), 'back');
+    },
+  },
+  {
+    name: 'the share of catalog names the library cannot place only goes down',
+    run() {
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+
+      // A ratchet, not a target. An unresolvable name fails silently — the
+      // exercise still renders, just with no photo, no instructions and no
+      // swap pool — so only a count catches it drifting back up. Lower the
+      // ceiling whenever a batch of names is fixed.
+      const names = new Set();
+      WORKOUT_TEMPLATES_V1.forEach((template) =>
+        template.sessions.forEach((session) =>
+          session.exercises.forEach((exercise) => names.add(exercise.exerciseName)),
+        ),
+      );
+      const unresolved = [...names].filter((name) => resolveCatalogBodyPart(name) === null);
+
+      assert.ok(
+        unresolved.length <= 113,
+        `${unresolved.length}/${names.size} catalog names resolve to nothing (ceiling 113). ` +
+          `New ones: ${unresolved.slice(0, 8).join(', ')}`,
+      );
+    },
+  },
+  {
     name: 'affinity finds the day that already trains the area',
     run() {
       const upper = ['Barbell Bench Press - Medium Grip', 'Bent Over Two-Dumbbell Row', 'Triceps Pushdown'];

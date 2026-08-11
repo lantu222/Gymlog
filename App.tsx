@@ -8,7 +8,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
 import { getHomeSummary } from './src/lib/dashboard';
-import { formatDurationMinutes, formatRepRange, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
+import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import {
   buildFirstRunCustomProgramName,
@@ -82,7 +82,15 @@ import {
 import { recordCoachQuestion, resolveCoachQuota } from './src/lib/aiCoachQuota';
 import { buildHomePlanProgress } from './src/lib/homePlanProgress';
 import { buildHomeStatCardCatalog, buildHomeStatCards, resolveHomeStatCardKeys } from './src/lib/homeStatCards';
-import { buildSessionEquipmentLabel, getDefaultCooldown, getDefaultWarmup, getSessionBodyFocusLabel, getSessionFocusTitle } from './src/lib/homeSessionHero';
+import {
+  buildSessionEquipmentLabel,
+  classifySessionFocus,
+  getDefaultCooldown,
+  getDefaultWarmup,
+  getSessionBodyFocusLabel,
+  getSessionFocusTitle,
+  SessionFocusKind,
+} from './src/lib/homeSessionHero';
 import { estimateRoutineBlockSeconds } from './src/lib/guidedPlayer';
 import { estimateSessionMinutes } from './src/lib/sessionDuration';
 import { buildMuscleFocus, getTopSetLabel, getVolumeDeltaVsPrevious, MuscleFocusRow } from './src/lib/workoutCompleteView';
@@ -127,6 +135,7 @@ import {
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
+import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
@@ -205,7 +214,7 @@ import { WorkoutProvider, useWorkoutContext } from './src/features/workout/Worko
 import { adaptLegacyWorkoutTemplateToRuntimeTemplate } from './src/features/workout/customWorkoutAdapter';
 import { AdaptedCompletedWorkoutExercise, adaptCompletedWorkoutSessionForAppDatabase } from './src/features/workout/workoutAppAdapter';
 import { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } from './src/features/workout/workoutCatalog';
-import { WorkoutRuntimeTemplate, WorkoutTemplateExercise } from './src/features/workout/workoutTypes';
+import { isTimedTrackingMode, WorkoutRuntimeTemplate, WorkoutTemplateExercise } from './src/features/workout/workoutTypes';
 import { AppProvider, useAppContext } from './src/state/AppProvider';
 import {
   AppDatabase,
@@ -289,7 +298,7 @@ function buildCompletionCardsFromAdaptedSession({
       totalSets: Math.max(1, exercise.sets.length),
       totalVolumeKg,
       notes: exercise.notes,
-      topSetLabel: getTopSetLabel(exercise.sets, language),
+      topSetLabel: getTopSetLabel(exercise.sets, language, exercise.trackingMode),
     };
   });
 
@@ -1733,7 +1742,7 @@ function VinhaApp() {
    * Before this existed, `activePlanId` was written by the two onboarding
    * finishes and nowhere else, so a season could be opened but never joined.
    */
-  async function handleAdoptReadyProgram(workoutTemplateId: string) {
+  async function handleAdoptReadyProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
     const template = getWorkoutTemplateById(workoutTemplateId);
     if (!template) {
       return;
@@ -1783,11 +1792,43 @@ function VinhaApp() {
     const nextActivePlanIds = addActiveProgram(preferences.activePlanIds, plan.id);
     await updatePreferences({
       activePlanIds: nextActivePlanIds,
-      // Only lead with it when there was nothing to lead with. Joining a season
-      // must not quietly demote the programme already at the top of Home.
-      activePlanId: preferences.activePlanId ?? plan.id,
+      // Joining a season must not quietly demote the programme already at the
+      // top of Home — but stepping up FROM a finished programme is the reader
+      // explicitly choosing a new lead, so the completion flow passes `lead`.
+      activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
     });
     showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+  }
+
+  /**
+   * The completion card's three answers. Each one dismisses the card for this
+   * plan id — the card is a question, and every branch is an answer to it.
+   */
+  async function dismissCompletionCard(planId: string) {
+    if (preferences.dismissedCompletionPlanIds.includes(planId)) {
+      return;
+    }
+    await updatePreferences({
+      dismissedCompletionPlanIds: [...preferences.dismissedCompletionPlanIds, planId],
+    });
+  }
+
+  async function handleCompletionStartNext(planId: string, nextTemplateId: string) {
+    await dismissCompletionCard(planId);
+    await handleAdoptReadyProgram(nextTemplateId, { lead: true });
+  }
+
+  async function handleCompletionRestart(planId: string) {
+    const plan = database.workoutPlans.find((entry) => entry.id === planId);
+    if (!plan) {
+      return;
+    }
+    // A fresh `updatedAt` IS the restart: the hero counts sessions from the
+    // plan record's own boundary, so the new round begins at 0 of N without
+    // touching a single logged session.
+    await upsertWorkoutPlan({ ...plan, updatedAt: new Date().toISOString() });
+    await dismissCompletionCard(planId);
+    showToast(t(preferences.appLanguage, 'home.complete.restarted'));
   }
 
   /**
@@ -2495,17 +2536,14 @@ function VinhaApp() {
    * arithmetic on the same inputs, not two guesses that happen to be close.
    */
   const routineBlockSeconds = useCallback(
-    (sessionTitle: string, planTitle: string) => {
-      const focus = getSessionFocusTitle(sessionTitle, planTitle);
-      return {
-        warmupSeconds: estimateRoutineBlockSeconds(
-          getDefaultWarmup(focus, preferences.appLanguage, availableEquipmentForDrills),
-        ),
-        cooldownSeconds: estimateRoutineBlockSeconds(
-          getDefaultCooldown(focus, preferences.appLanguage, availableEquipmentForDrills),
-        ),
-      };
-    },
+    (focus: SessionFocusKind) => ({
+      warmupSeconds: estimateRoutineBlockSeconds(
+        getDefaultWarmup(focus, preferences.appLanguage, availableEquipmentForDrills),
+      ),
+      cooldownSeconds: estimateRoutineBlockSeconds(
+        getDefaultCooldown(focus, preferences.appLanguage, availableEquipmentForDrills),
+      ),
+    }),
     [preferences.appLanguage, availableEquipmentForDrills],
   );
   const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [preferences]);
@@ -2528,6 +2566,39 @@ function VinhaApp() {
   );
   const homeActivePlanCard = useMemo(() => {
     const completedPlanSessions = getCanonicalCompletedSessions(database);
+    // Both hero branches end in the same question — is this block finished,
+    // and what may the card claim? The display name is resolved here because
+    // Home has no catalog access, and the presentation title (not the raw
+    // template name) is what every other surface shows.
+    const buildCompletion = (
+      planId: string,
+      sessionsDone: number,
+      sessionsTotal: number,
+      activeTemplate: ReturnType<typeof getWorkoutTemplateById>,
+      canRestart: boolean,
+    ) => {
+      const card = resolveCompletionCard({
+        planId,
+        sessionsDone,
+        sessionsTotal,
+        activeTemplate,
+        catalog: WORKOUT_TEMPLATES_V1,
+        dismissedPlanIds: preferences.dismissedCompletionPlanIds,
+      });
+      if (!card) {
+        return null;
+      }
+      const nextTemplate = card.nextLevelTemplateId ? getWorkoutTemplateById(card.nextLevelTemplateId) : null;
+      return {
+        planId: card.planId,
+        sessionsTotal: card.sessionsTotal,
+        nextLevelTemplateId: card.nextLevelTemplateId,
+        nextLevelTitle: nextTemplate
+          ? getReadyTemplatePresentation(nextTemplate, preferences.appLanguage).title
+          : null,
+        canRestart,
+      };
+    };
     const activeWorkoutPlan = database.workoutPlans.find((plan) => plan.id === preferences.activePlanId) ?? null;
     if (activeWorkoutPlan?.entries.length) {
       const sortedEntries = [...activeWorkoutPlan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
@@ -2560,9 +2631,13 @@ function VinhaApp() {
           role: activeRuntimeExercises.get(exercise.id)?.role ?? 'accessory',
           sets: exercise.targetSets,
           reps: exercise.repMax,
+          timed: isTimedTrackingMode(activeRuntimeExercises.get(exercise.id)?.trackingMode ?? 'reps_first'),
           restSeconds: activeRuntimeExercises.get(exercise.id)?.restSecondsMin ?? 90,
         }));
-        const routineSeconds = routineBlockSeconds(session.name, activeTemplate?.name ?? '');
+        // Classified here, where the whole session is still in hand — Home
+        // receives only the first five exercises below.
+        const focusKind = classifySessionFocus(session.exercises.map((exercise) => exercise.name));
+        const routineSeconds = routineBlockSeconds(focusKind);
         const estimatedDuration = estimateSessionMinutes({
           exercises: durationInputs,
           ...routineSeconds,
@@ -2579,10 +2654,16 @@ function VinhaApp() {
           totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.targetSets, 0),
           durationMinutes: estimatedDuration,
           trim: previewSessionTrim(durationInputs, routineSeconds),
+          focusKind,
           exercises: session.exercises.slice(0, 5).map((exercise) => ({
             name: exercise.name,
             setsLabel: `${exercise.targetSets} sets`,
-            schemeLabel: `${exercise.targetSets} × ${formatRepRange(exercise.repMin, exercise.repMax)}`,
+            schemeLabel: formatSetScheme(
+              exercise.targetSets,
+              exercise.repMin,
+              exercise.repMax,
+              activeRuntimeExercises.get(exercise.id)?.trackingMode ?? 'reps_first',
+            ),
             slotId: activeRuntimeExercises.get(exercise.id)?.slotId,
             substitutionGroup: activeRuntimeExercises.get(exercise.id)?.substitutionGroup,
           })),
@@ -2593,7 +2674,15 @@ function VinhaApp() {
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
-        const completedSessionCount = completedPlanSessions.filter((session) => planTemplateIds.has(session.workoutTemplateId)).length;
+        // Counted from the plan record's own start, not all time. Plan records
+        // are only written at onboarding, adoption and restart, so `updatedAt`
+        // IS the block boundary — and without it "Uusi kierros" is impossible:
+        // an all-time count means a restarted plan is born complete.
+        const completedSessionCount = countSessionsSince(
+          completedPlanSessions,
+          planTemplateIds,
+          activeWorkoutPlan.updatedAt,
+        );
         // Onboarding-built plans promised a specific block length ("4-week
         // plan") — the Home hero must count the same total, not the generic
         // 8-week default.
@@ -2632,6 +2721,16 @@ function VinhaApp() {
             ...nextSession,
             label: 'Week 1 · Day 1',
           },
+          // The catalog lookup, not the DB one: a custom template has no goal
+          // or level for affinity to compare, so its card simply offers no
+          // step up. Restart is real here — a plan record exists to reset.
+          completion: buildCompletion(
+            activeWorkoutPlan.id,
+            planProgress.sessionsDone,
+            planProgress.sessionsTotal,
+            getWorkoutTemplateById(firstEntry.workoutTemplateId),
+            true,
+          ),
         };
       }
     }
@@ -2658,9 +2757,11 @@ function VinhaApp() {
         role: exercise.role,
         sets: exercise.sets,
         reps: exercise.repsMax,
+        timed: isTimedTrackingMode(exercise.trackingMode),
         restSeconds: exercise.restSecondsMin,
       }));
-      const routineSeconds = routineBlockSeconds(session.name, recommendedReadyTemplate.name);
+      const focusKind = classifySessionFocus(session.exercises.map((exercise) => exercise.exerciseName));
+      const routineSeconds = routineBlockSeconds(focusKind);
       // The catalog's `estimatedSessionDuration` describes the PROGRAM (its
       // longest day, hand-written). Today's session gets the same treatment
       // every other session gets, from its own sets and rests.
@@ -2671,11 +2772,12 @@ function VinhaApp() {
       duration: `~${durationMinutes} min`,
       durationMinutes,
       trim: previewSessionTrim(durationInputs, routineSeconds),
+      focusKind,
       totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.sets, 0),
       exercises: session.exercises.map((exercise) => ({
         name: exercise.exerciseName,
         setsLabel: `${exercise.sets} sets`,
-        schemeLabel: `${exercise.sets} × ${formatRepRange(exercise.repsMin, exercise.repsMax)}`,
+        schemeLabel: formatSetScheme(exercise.sets, exercise.repsMin, exercise.repsMax, exercise.trackingMode),
         // Carried so Home can offer the swap: a ready template's slot id is
         // the same one the session materializes with.
         slotId: exercise.slotId,
@@ -2705,6 +2807,18 @@ function VinhaApp() {
         exerciseLibrary,
       ),
       sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
+      // No plan record on this branch — the reader runs the recommendation
+      // without adopting it. The dismissal key is the id adoption WOULD use,
+      // so answering here and adopting the next programme cannot leave a
+      // second card behind. No restart either: with nothing to reset, a
+      // restarted "plan" would be born complete.
+      completion: buildCompletion(
+        buildReadyProgramPlanId(recommendedReadyTemplate.id),
+        planProgress.sessionsDone,
+        planProgress.sessionsTotal,
+        recommendedReadyTemplate,
+        false,
+      ),
       weeklyMinutes: `~${weeklyMinutes} min`,
       sessions: homeSessions,
       nextSession: {
@@ -2712,7 +2826,7 @@ function VinhaApp() {
         label: 'Week 1 · Day 1',
       },
     };
-  }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
+  }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const coachChatIntro = useMemo(
@@ -4911,6 +5025,13 @@ function VinhaApp() {
         language={preferences.appLanguage}
         profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
+        onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
+        onCompletionRestart={(planId) => void handleCompletionRestart(planId)}
+        onCompletionDismiss={(planId) => void dismissCompletionCard(planId)}
+        onCompletionBrowse={(planId) => {
+          void dismissCompletionCard(planId);
+          navigate(ROOT_ROUTES.workout);
+        }}
         otherPrograms={homeOtherPrograms}
         onOpenOtherProgram={(planId) => {
           const plan = database.workoutPlans.find((entry) => entry.id === planId);

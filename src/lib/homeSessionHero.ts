@@ -3,6 +3,7 @@
  * Focus title, body-focus label, week phase, equipment line, default
  * warmup/cooldown blocks, and the Adapt-sheet trim estimate.
  */
+import { resolveCatalogBodyPart, resolveCatalogSourceCategory } from './catalogExercisePools';
 import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
@@ -124,19 +125,135 @@ export function buildSessionEquipmentLabel(
   return `${labels.slice(0, -1).join(', ')} & ${labels[labels.length - 1]}`;
 }
 
-type FocusKind = 'lower' | 'push' | 'pull' | 'general';
+export type SessionFocusKind = 'lower' | 'push' | 'pull' | 'upper' | 'general';
 
-function classifyFocus(focusTitle: string): FocusKind {
-  const normalized = focusTitle.toLowerCase();
-  if (/(squat|leg|lower|glute|posterior)/.test(normalized)) {
+/**
+ * Catalog body part → the movement pattern whose prep and stretches it wants.
+ * `core` and `full body` are deliberately absent: they appear on every kind of
+ * day, so counting them would only blur the majority.
+ */
+const PATTERN_BY_BODY_PART: Record<string, 'push' | 'pull' | 'lower'> = {
+  chest: 'push',
+  shoulders: 'push',
+  triceps: 'push',
+  back: 'pull',
+  biceps: 'pull',
+  legs: 'lower',
+  glutes: 'lower',
+};
+
+/**
+ * Movement pattern from the exercise name, for the names the library cannot
+ * match. Two thirds of the ready catalogs' exercise names miss the library —
+ * "Chest-Supported Row" appears 24 times and resolves to nothing — and without
+ * this the classifier is blind on exactly the sessions it most needs to read.
+ *
+ * Matches on the MOVEMENT word, not the muscle: "Chest-Supported Row" is a row.
+ * Lower goes first so "Cable Pull-Through" lands as a hinge, not as a pull.
+ * Anything unmatched returns null and gets no vote — core, mobility flows and
+ * conditioning appear on every kind of day, so a guess there would only blur
+ * the majority. Same approach, and same reason, as
+ * `inferEquipmentFromExerciseName` above.
+ */
+function inferPatternFromExerciseName(name: string): 'push' | 'pull' | 'lower' | null {
+  const normalized = name.trim().toLowerCase();
+  // Same abstention the library category gives, for names it cannot place:
+  // "Lying Quad Stretch" and "Standing Forward Fold" are not quad and hinge
+  // training, and counting them made a stretching session read as a leg day.
+  if (/stretch|\bpose\b|mobility|\bflow\b|breath|\bfold\b|salutation|circles/.test(normalized)) {
+    return null;
+  }
+  if (
+    // "kickback" is qualified: a glute kickback is lower, a triceps kickback
+    // is not. "sled" beats the push regex below for the same reason.
+    /squat|lunge|deadlift|hip thrust|glute|bridge|calf|hamstring|quad|step-?up|leg press|leg curl|leg extension|leg raise|good morning|pull-through|glute kickback|nordic|box jump|skater|high knees|sprint|\bsled\b/.test(
+      normalized,
+    )
+  ) {
     return 'lower';
   }
-  if (/(push|chest|press|shoulder)/.test(normalized)) {
-    return 'push';
-  }
-  if (/(pull|back|row|width)/.test(normalized)) {
+  if (/\brow\b|rows|pulldown|pull-?up|chin-?up|curl|\blat\b|lats|face pull|shrug|rear delt|pullover|reverse pec/.test(normalized)) {
     return 'pull';
   }
+  if (/press|push|\bdip\b|dips|\bfly\b|flyes|lateral raise|front raise|overhead|tricep|pushdown|skullcrusher|thruster/.test(normalized)) {
+    return 'push';
+  }
+  return null;
+}
+
+/** A pattern owns the session at 70%; below that the day is genuinely mixed. */
+const MAJORITY = 0.7;
+
+/**
+ * What the session actually trains, read from its exercises.
+ *
+ * This used to be read from the session's title against English keywords
+ * ("squat|leg|lower|glute"). The title is display text: the moment the app
+ * spoke Finnish — and the moment a user's own program stored "Pakarat &
+ * Jalat" as its name — every session fell through to `general` and got the
+ * same warmup and the same stretches no matter what it trained. Nothing threw,
+ * because `general` is a valid answer.
+ *
+ * Exercise names are the stable id in this codebase (see exerciseNameLabel:
+ * stored, matched and filtered as English, translated only for display), so
+ * counting body parts is the one signal a rename or a translation cannot
+ * silently break.
+ *
+ * Pass the WHOLE session. A truncated list is a different session, and this
+ * will happily classify it as one.
+ */
+export function classifySessionFocus(exerciseNames: string[]): SessionFocusKind {
+  const counts = { push: 0, pull: 0, lower: 0 };
+  for (const name of exerciseNames) {
+    const inferred = inferPatternFromExerciseName(name);
+
+    // A stretch is not the stimulus, so it does not get a vote. Its body part
+    // is real — "Kneeling Hip Flexor" is legs — and counting it turned a
+    // mobility day into a leg day that opened with empty-bar squats.
+    //
+    // The name has a veto, because the library's category is not always right:
+    // it files "Split Squats" and "Crossover Reverse Lunge" as stretching, and
+    // those are what "Bulgarian Split Squat" and "Curtsy Lunge" resolve to. A
+    // category alone would have silently excluded 18 leg prescriptions.
+    if (!inferred && resolveCatalogSourceCategory(name) === 'stretching') {
+      continue;
+    }
+
+    // The name wins where the two disagree, because the library's body part
+    // answers a different question: it files "Deadlift" under back and
+    // "Curtsy Lunge" under back, which are true of the muscles worked and
+    // wrong about which day it is. Across the catalog they disagree 11 times
+    // and the name is right in 8; the three the library won are handled by
+    // the qualifiers above rather than by ranking.
+    const bodyPart = resolveCatalogBodyPart(name);
+    const pattern = inferred ?? (bodyPart ? PATTERN_BY_BODY_PART[bodyPart] : undefined);
+    if (pattern) {
+      counts[pattern] += 1;
+    }
+  }
+
+  const total = counts.push + counts.pull + counts.lower;
+  if (total === 0) {
+    // Nothing recognisable — a mobility or cardio day, or names the catalog
+    // has never heard of. `general` is the honest answer, not a fallback.
+    return 'general';
+  }
+
+  if (counts.lower / total >= MAJORITY) {
+    return 'lower';
+  }
+
+  const upper = counts.push + counts.pull;
+  if (upper / total >= MAJORITY) {
+    if (counts.push / upper >= MAJORITY) {
+      return 'push';
+    }
+    if (counts.pull / upper >= MAJORITY) {
+      return 'pull';
+    }
+    return 'upper';
+  }
+
   return 'general';
 }
 
@@ -164,7 +281,7 @@ const CARDIO_OPENER: DrillSpec = {
   fallbackScheme: '2 min',
 };
 
-const WARMUP_DRILLS: Record<FocusKind, DrillSpec[]> = {
+const WARMUP_DRILLS: Record<SessionFocusKind, DrillSpec[]> = {
   lower: [
     CARDIO_OPENER,
     { key: 'home.drill.hipOpeners', scheme: '2 × 8' },
@@ -201,19 +318,27 @@ const WARMUP_DRILLS: Record<FocusKind, DrillSpec[]> = {
       fallbackKey: 'home.drill.wallSlides',
     },
   ],
+  // Both halves of the body get prepped, because both are about to work.
+  upper: [
+    CARDIO_OPENER,
+    {
+      key: 'home.drill.bandPullAparts',
+      scheme: '2 × 12',
+      requires: [['Resistance bands']],
+      fallbackKey: 'home.drill.armCircles',
+    },
+    { key: 'home.drill.pushUps', scheme: '2 × 8' },
+  ],
+  // A mixed day, so the block is mixed too — hips and shoulders, not the
+  // lower-body block wearing a different name.
   general: [
     CARDIO_OPENER,
     { key: 'home.drill.hipOpeners', scheme: '2 × 8' },
-    {
-      key: 'home.drill.emptyBarSquats',
-      scheme: '2 × 10',
-      requires: [['Barbells', 'Barbell & plates']],
-      fallbackKey: 'home.drill.bodyweightSquats',
-    },
+    { key: 'home.drill.pushUps', scheme: '2 × 8' },
   ],
 };
 
-const COOLDOWN_DRILLS: Record<FocusKind, DrillSpec[]> = {
+const COOLDOWN_DRILLS: Record<SessionFocusKind, DrillSpec[]> = {
   push: [
     { key: 'home.drill.chestDoorwayStretch', scheme: '2 × 45s' },
     { key: 'home.drill.tricepsOverheadStretch', scheme: '2 × 30s' },
@@ -232,9 +357,21 @@ const COOLDOWN_DRILLS: Record<FocusKind, DrillSpec[]> = {
       fallbackKey: 'home.drill.childsPose',
     },
   ],
+  // Front of the thigh and back of it. The chest doorway stretch used to sit
+  // here, which is how a leg day ended by stretching the chest — the drill was
+  // never wrong, it was in the wrong block.
   lower: [
     { key: 'home.drill.couchStretch', scheme: '2 × 60s' },
+    { key: 'home.drill.seatedHamstringStretch', scheme: '2 × 45s' },
+  ],
+  upper: [
     { key: 'home.drill.chestDoorwayStretch', scheme: '2 × 45s' },
+    {
+      key: 'home.drill.latStretchOnRack',
+      scheme: '2 × 45s',
+      requires: [['Squat rack', 'Pull-up bar']],
+      fallbackKey: 'home.drill.standingLatStretch',
+    },
   ],
   general: [
     { key: 'home.drill.couchStretch', scheme: '2 × 60s' },
@@ -266,26 +403,31 @@ function resolveDrills(
   });
 }
 
-/** Deterministic default warmup for a session focus (no warmup data model yet). */
+/**
+ * Deterministic default warmup for a session focus (no warmup data model yet).
+ *
+ * Takes the classified focus rather than a title, so no caller can pass display
+ * text again — a session name is now a type error here, not a silent `general`.
+ */
 export function getDefaultWarmup(
-  focusTitle: string,
+  focus: SessionFocusKind,
   language: AppLanguage = 'en',
   availableEquipment: string[] | null = null,
 ): SessionRoutineBlock {
   return {
     minutes: 6,
-    drills: resolveDrills(WARMUP_DRILLS[classifyFocus(focusTitle)], language, availableEquipment),
+    drills: resolveDrills(WARMUP_DRILLS[focus], language, availableEquipment),
   };
 }
 
 /** Deterministic default cooldown for a session focus. */
 export function getDefaultCooldown(
-  focusTitle: string,
+  focus: SessionFocusKind,
   language: AppLanguage = 'en',
   availableEquipment: string[] | null = null,
 ): SessionRoutineBlock {
   return {
     minutes: 4,
-    drills: resolveDrills(COOLDOWN_DRILLS[classifyFocus(focusTitle)], language, availableEquipment),
+    drills: resolveDrills(COOLDOWN_DRILLS[focus], language, availableEquipment),
   };
 }

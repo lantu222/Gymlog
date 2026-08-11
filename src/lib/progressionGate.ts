@@ -1,4 +1,4 @@
-import { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
+import type { WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { SetupLevel } from '../types/models';
 
 /**
@@ -144,7 +144,8 @@ export function evaluateProgression(input: ProgressionGateInput): ProgressionDec
   }
   // Bodyweight progresses by reps and variation, never by load (ADR-004 §What
   // This Model Does Not Cover).
-  if (trackingMode === 'bodyweight') {
+  // A hold progresses in seconds, and there is no load to add either way.
+  if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
     return { recommendation: 'silent' };
   }
   if (history.length < params.minSessions) {

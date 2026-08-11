@@ -131,6 +131,13 @@ const EN = {
   'home.calendar.previousMonth': 'Previous month',
   'home.calendar.nextMonth': 'Next month',
   'home.hero.sessionsProgress': '{done} of {total} sessions',
+  'home.complete.eyebrow': 'Program complete',
+  'home.complete.sessions': '{total}/{total} sessions logged',
+  'home.complete.startNext': 'Start next program',
+  'home.complete.restart': 'New round',
+  'home.complete.restarted': 'New round started',
+  'home.complete.browse': 'Browse programs',
+  'home.complete.hide': 'Hide',
   'home.section.warmup': 'Warmup',
   'home.section.workout': 'Workout',
   'home.section.cooldown': 'Recovery',
@@ -203,6 +210,7 @@ const EN = {
   'home.drill.latStretchOnRack': 'Lat stretch on rack',
   'home.drill.deadHang': 'Dead hang',
   'home.drill.couchStretch': 'Couch stretch',
+  'home.drill.seatedHamstringStretch': 'Seated hamstring stretch',
   'home.drill.jumpingJacks': 'Jumping jacks',
   'home.drill.bodyweightSquats': 'Bodyweight squats',
   'home.drill.armCircles': 'Arm circles',
@@ -1099,6 +1107,7 @@ const EN = {
   // ── Active Workout logger (list view) ──────────────────────────────────
   // Previous column, bodyweight lift: no load to show, just what was done.
   'logger.repsValue': '{count} reps',
+  'logger.secondsValue': '{count} s',
   // A number column, headed the same way the freestyle logger heads it. The
   // word itself does not survive translation into a 32px column.
   'logger.effort.question': 'How did set {set} feel?',
@@ -1108,6 +1117,7 @@ const EN = {
   'logger.effort.hard': 'Hard',
   'logger.validation.addLoad': 'Add load to complete this set.',
   'logger.validation.addReps': 'Add reps to complete this set.',
+  'logger.validation.addSeconds': 'Add the seconds you held to complete this set.',
 
   // ── Guided Player ──────────────────────────────────────────────────────
   // Weekdays are indexed by Date#getDay() (0 = Sunday) for the entry eyebrow.
@@ -1167,6 +1177,8 @@ const EN = {
   'guided.setOfCount': 'Set {index}/{count}',
   'guided.numLabel.set': 'SET',
   'guided.reps': 'REPS',
+  'guided.seconds': 'SECONDS',
+  'guided.secondsCount': 'SECONDS',
   // Same word, but after a numeral Finnish takes the partitive, so the count
   // context needs its own key: "6 toistoa", not "6 toistot".
   'guided.repsCount': 'REPS',
@@ -2858,6 +2870,13 @@ const FI: Record<I18nKey, string> = {
   'home.calendar.previousMonth': 'Edellinen kuukausi',
   'home.calendar.nextMonth': 'Seuraava kuukausi',
   'home.hero.sessionsProgress': '{done}/{total} treeniä',
+  'home.complete.eyebrow': 'Ohjelma valmis',
+  'home.complete.sessions': '{total}/{total} treeniä kirjattu',
+  'home.complete.startNext': 'Aloita seuraava',
+  'home.complete.restart': 'Uusi kierros',
+  'home.complete.restarted': 'Uusi kierros aloitettu',
+  'home.complete.browse': 'Selaa ohjelmia',
+  'home.complete.hide': 'Piilota',
   'home.section.warmup': 'Lämmittely',
   'home.section.workout': 'Treeni',
   'home.section.cooldown': 'Palautuminen',
@@ -2923,6 +2942,7 @@ const FI: Record<I18nKey, string> = {
   'home.drill.latStretchOnRack': 'Leveän selän venytys telineessä',
   'home.drill.deadHang': 'Roikunta tangossa',
   'home.drill.couchStretch': 'Lonkankoukistajan venytys',
+  'home.drill.seatedHamstringStretch': 'Takareiden venytys istuen',
   'home.drill.jumpingJacks': 'Haaraperushypyt',
   'home.drill.bodyweightSquats': 'Kyykyt kehonpainolla',
   'home.drill.armCircles': 'Käsien pyöritykset',
@@ -3797,6 +3817,7 @@ const FI: Record<I18nKey, string> = {
 
   // ── Active Workout logger ──────────────────────────────────────────────
   'logger.repsValue': '{count} toistoa',
+  'logger.secondsValue': '{count} s',
   'logger.effort.question': 'Miltä sarja {set} tuntui?',
   'logger.effort.skip': 'Ohita',
   'logger.effort.easy': 'Helppo',
@@ -3804,6 +3825,7 @@ const FI: Record<I18nKey, string> = {
   'logger.effort.hard': 'Raskas',
   'logger.validation.addLoad': 'Lisää paino, niin sarja kirjautuu.',
   'logger.validation.addReps': 'Lisää toistot, niin sarja kirjautuu.',
+  'logger.validation.addSeconds': 'Lisää pidon kesto sekunteina, niin sarja kirjautuu.',
 
   // ── Guided Player ──────────────────────────────────────────────────────
   'guided.weekday.0': 'SUNNUNTAI',
@@ -3860,6 +3882,8 @@ const FI: Record<I18nKey, string> = {
   'guided.setOfCount': 'Sarja {index}/{count}',
   'guided.numLabel.set': 'SARJA',
   'guided.reps': 'TOISTOT',
+  'guided.seconds': 'SEKUNNIT',
+  'guided.secondsCount': 'SEKUNTIA',
   'guided.repsCount': 'TOISTOA',
   'guided.nextUp': 'SEURAAVAKSI',
   'guided.action.addSet': 'Lisää sarja',

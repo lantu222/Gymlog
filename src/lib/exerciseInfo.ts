@@ -1,7 +1,7 @@
 import { getComparableLogSets } from './exerciseLog';
 import { convertWeightFromKg, formatRepRange, formatShortDate, formatWeight, removeTrailingZeros } from './format';
 import { getBestComparableWorkingSet } from './workoutIntelligence';
-import { WorkoutExerciseInstance, WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
+import { isTimedTrackingMode, WorkoutExerciseInstance, WorkoutSlotHistoryEntry } from '../features/workout/workoutTypes';
 import { ExerciseBodyPart, ExerciseCategory, ExerciseEquipment, ExerciseLibraryItem, UnitPreference } from '../types/models';
 
 export type ExerciseInfoTheme = 'press' | 'pull' | 'legs' | 'hinge' | 'arms' | 'core' | 'flow' | 'run' | 'general';
@@ -162,7 +162,10 @@ function formatBestLabel(
   );
 
   if (!bestSet) {
-    return exercise.trackingMode === 'load_and_reps' ? 'No best yet' : 'No reps yet';
+    if (exercise.trackingMode === 'load_and_reps') {
+      return 'No best yet';
+    }
+    return isTimedTrackingMode(exercise.trackingMode) ? 'No holds yet' : 'No reps yet';
   }
 
   if (exercise.trackingMode === 'load_and_reps' && bestSet.weight > 0) {
@@ -222,8 +225,18 @@ function buildTrend(previousEntries: WorkoutSlotHistoryEntry[], exercise: Workou
 
   if (trendEntries.length === 0) {
     return {
-      metricLabel: exercise.trackingMode === 'load_and_reps' ? 'Top set' : 'Best reps',
-      unitLabel: exercise.trackingMode === 'load_and_reps' ? unitPreference : 'reps',
+      metricLabel:
+        exercise.trackingMode === 'load_and_reps'
+          ? 'Top set'
+          : isTimedTrackingMode(exercise.trackingMode)
+            ? 'Longest hold'
+            : 'Best reps',
+      unitLabel:
+        exercise.trackingMode === 'load_and_reps'
+          ? unitPreference
+          : isTimedTrackingMode(exercise.trackingMode)
+            ? 'sec'
+            : 'reps',
       points: [],
       latestLabel: 'No logs yet',
       bestLabel: 'No best yet',

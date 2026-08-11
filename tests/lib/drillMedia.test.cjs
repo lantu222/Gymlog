@@ -4,13 +4,13 @@ const { getDrillLibraryName } = require('../../.test-dist/lib/drillMedia');
 const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary');
 const { getDefaultCooldown, getDefaultWarmup } = require('../../.test-dist/lib/homeSessionHero');
 
-const FOCUS_TITLES = ['Full Body', 'Upper Body (Push)', 'Pull Day', 'Lower Body'];
+const FOCUS_KINDS = ['general', 'push', 'pull', 'upper', 'lower'];
 
 module.exports = [
   {
     name: 'every generated warmup and cooldown drill resolves to a library photo',
     run() {
-      for (const focus of FOCUS_TITLES) {
+      for (const focus of FOCUS_KINDS) {
         for (const language of ['en', 'fi']) {
           const drills = [
             ...getDefaultWarmup(focus, language).drills,

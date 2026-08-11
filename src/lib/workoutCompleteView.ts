@@ -4,6 +4,7 @@
  * previous session of the same workout.
  */
 
+import { isTimedTrackingMode, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 import { t } from './i18n';
 
@@ -42,8 +43,15 @@ const BODY_PART_LABELS: Record<string, string> = {
   'full body': 'Full body',
 };
 
-/** Heaviest completed set as "60 × 8"; bodyweight-only sets as "12 reps". */
-export function getTopSetLabel(sets: CompletedSetLike[], language: AppLanguage = 'en'): string | null {
+/**
+ * Heaviest completed set as "60 × 8"; bodyweight-only sets as "12 reps", and a
+ * hold as "45 s" — a 45-second plank read as "45 toistoa" on the finish screen.
+ */
+export function getTopSetLabel(
+  sets: CompletedSetLike[],
+  language: AppLanguage = 'en',
+  trackingMode: WorkoutTrackingMode = 'load_and_reps',
+): string | null {
   const completed = sets.filter(
     (set) => set.status === 'completed' && typeof set.reps === 'number' && set.reps > 0,
   );
@@ -59,6 +67,10 @@ export function getTopSetLabel(sets: CompletedSetLike[], language: AppLanguage =
     }
     return (right.reps ?? 0) - (left.reps ?? 0);
   })[0];
+
+  if (isTimedTrackingMode(trackingMode)) {
+    return t(language, 'logger.secondsValue', { count: top.reps ?? 0 });
+  }
 
   const weight = top.weightKg ?? 0;
   if (weight > 0) {

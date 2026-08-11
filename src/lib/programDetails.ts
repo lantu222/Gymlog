@@ -1,4 +1,11 @@
-import { WorkoutRole, WorkoutRuntimeTemplate, WorkoutTemplateSession, WorkoutTemplateV1 } from '../features/workout/workoutTypes';
+import {
+  isTimedTrackingMode,
+  WorkoutRole,
+  WorkoutRuntimeTemplate,
+  WorkoutTemplateSession,
+  WorkoutTemplateV1,
+  WorkoutTrackingMode,
+} from '../features/workout/workoutTypes';
 import { t } from './i18n';
 import { ComposedProgramWeek } from './programDayComposer';
 import { ProgramInsightSummary } from './programInsights';
@@ -68,9 +75,16 @@ function pluralize(count: number, singular: string, plural = `${singular}s`) {
  * Finnish screen — and longer than the thing it describes. The design writes
  * it in numbers, which needs no language at all.
  */
-function buildPrescription(repsMin: number, repsMax: number, sets: number) {
+function buildPrescription(
+  repsMin: number,
+  repsMax: number,
+  sets: number,
+  trackingMode: WorkoutTrackingMode,
+) {
   const reps = repsMin === repsMax ? `${repsMin}` : `${repsMin}–${repsMax}`;
-  return `${sets} × ${reps}`;
+  // A hold's numbers are seconds. Without the unit the catalog's own
+  // "Plank 3x30-60" read as sixty repetitions.
+  return isTimedTrackingMode(trackingMode) ? `${sets} × ${reps} s` : `${sets} × ${reps}`;
 }
 
 function buildSessionPreview(exercises: Array<{ exerciseName: string }>) {
@@ -98,7 +112,7 @@ function buildSessionItems(
         id: exercise.id,
         name: exercise.exerciseName,
         role: exercise.role,
-        prescription: buildPrescription(exercise.repsMin, exercise.repsMax, exercise.sets),
+        prescription: buildPrescription(exercise.repsMin, exercise.repsMax, exercise.sets, exercise.trackingMode),
       })),
     }));
 }

@@ -22,8 +22,14 @@ export const WORKOUT_SUBSTITUTION_GROUPS: WorkoutSubstitutionGroup[] = [
   { id: 'accessory_core', allowedExerciseNames: ['Cable Crunch', 'Hanging Knee Raise'] },
   { id: 'calves', allowedExerciseNames: ['Calf Raise', 'Standing Calf Raise', 'Seated Calf Raise'] },
   { id: 'accessory_hamstrings', allowedExerciseNames: ['Leg Curl', 'Seated Leg Curl', 'Lying Leg Curl'] },
-  { id: 'mobility_flow', allowedExerciseNames: ['Mobility Flow', 'Hip Mobility Flow', 'Recovery Stretch Flow'] },
-  { id: 'yoga_flow', allowedExerciseNames: ['Sun Salutation Flow', 'Yoga Balance Flow', 'Breath Reset'] },
+  // These two groups used to list "Mobility Flow", "Sun Salutation Flow",
+  // "Breath Reset" and the like: block names, not exercises. Nothing in the
+  // library matched them, so RESET, RESET Yoga and RUN's recovery day were
+  // made entirely of rows with no photo, no instructions and no swap pool —
+  // four blank lines a user was asked to train. Every name below is a real
+  // library entry with a photo.
+  { id: 'mobility_flow', allowedExerciseNames: ["World's Greatest Stretch", 'Kneeling Hip Flexor', 'Seated Floor Hamstring Stretch', 'Standing Hip Circles', 'IT Band and Glute Stretch', 'Dynamic Back Stretch', 'Intermediate Hip Flexor and Quad Stretch'] },
+  { id: 'yoga_flow', allowedExerciseNames: ['Cat Stretch', "Child's Pose", "World's Greatest Stretch", 'Standing Hip Circles', 'Standing Hamstring and Calf Stretch'] },
   { id: 'running_blocks', allowedExerciseNames: ['Easy Run Blocks', 'Tempo Run Blocks', 'Stride Finishers'] },
   { id: 'bodyweight_squat_pattern', allowedExerciseNames: ['Bodyweight Squat', 'Bodyweight Walking Lunge', 'Reverse Lunge'] },
   { id: 'bodyweight_press', allowedExerciseNames: ['Incline Push-Up', 'Push-Up Wide', 'Decline Push-Up'] },
@@ -204,7 +210,7 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
         ex({ id: 'minimal_full_body_a_bodyweight_squat', exerciseName: 'Bodyweight Squat', slotId: 'primary_squat_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 10, repsMax: 15, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_squat_pattern' }),
         ex({ id: 'minimal_full_body_a_incline_push_up', exerciseName: 'Incline Push-Up', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_press' }),
         ex({ id: 'minimal_full_body_a_inverted_row', exerciseName: 'Inverted Row', slotId: 'primary_pull_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 6, repsMax: 10, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_pull' }),
-        ex({ id: 'minimal_full_body_a_plank', exerciseName: 'Plank', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 20, repsMax: 40, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'bodyweight_core' }),
+        ex({ id: 'minimal_full_body_a_plank', exerciseName: 'Plank', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 20, repsMax: 40, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'bodyweight_core' }),
       ] }),
       session({ id: 'minimal_full_body_b', name: 'Day 2: Full Body', orderIndex: 2, exercises: [
         ex({ id: 'minimal_full_body_b_bodyweight_walking_lunge', exerciseName: 'Bodyweight Walking Lunge', slotId: 'primary_squat_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 75, restSecondsMax: 120, substitutionGroup: 'bodyweight_squat_pattern' }),
@@ -533,16 +539,16 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     },
     sessions: [
       session({ id: 'mobility_reset_a', name: 'Day 1: Mobility Flow', orderIndex: 1, exercises: [
-        ex({ id: 'mobility_reset_a_mobility_flow', exerciseName: 'Mobility Flow', slotId: 'mobility_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'mobility_reset_a_hip_mobility_flow', exerciseName: 'Hip Mobility Flow', slotId: 'mobility_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'mobility_reset_a_recovery_stretch_flow', exerciseName: 'Recovery Stretch Flow', slotId: 'mobility_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'mobility_reset_a_breath_reset', exerciseName: 'Breath Reset', slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 3, repsMax: 5, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'mobility_reset_a_mobility_flow', exerciseName: "World's Greatest Stretch", slotId: 'mobility_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'mobility_reset_a_hip_mobility_flow', exerciseName: 'Kneeling Hip Flexor', slotId: 'mobility_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'mobility_reset_a_recovery_stretch_flow', exerciseName: 'Seated Floor Hamstring Stretch', slotId: 'mobility_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'mobility_reset_a_breath_reset', exerciseName: "Child's Pose", slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
       ] }),
       session({ id: 'mobility_reset_b', name: 'Day 2: Mobility Flow', orderIndex: 2, exercises: [
-        ex({ id: 'mobility_reset_b_hip_mobility_flow', exerciseName: 'Hip Mobility Flow', slotId: 'mobility_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'mobility_reset_b_sun_salutation_flow', exerciseName: 'Sun Salutation Flow', slotId: 'mobility_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
-        ex({ id: 'mobility_reset_b_recovery_stretch_flow', exerciseName: 'Recovery Stretch Flow', slotId: 'mobility_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'mobility_reset_b_breath_reset', exerciseName: 'Breath Reset', slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 3, repsMax: 5, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'mobility_reset_b_hip_mobility_flow', exerciseName: 'Standing Hip Circles', slotId: 'mobility_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'mobility_reset_b_sun_salutation_flow', exerciseName: 'Cat Stretch', slotId: 'mobility_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'mobility_reset_b_recovery_stretch_flow', exerciseName: 'IT Band and Glute Stretch', slotId: 'mobility_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'mobility_reset_b_breath_reset', exerciseName: "Child's Pose", slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
       ] }),
     ],
   },
@@ -565,16 +571,16 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     },
     sessions: [
       session({ id: 'yoga_recovery_a', name: 'Day 1: Yoga Flow', orderIndex: 1, exercises: [
-        ex({ id: 'yoga_recovery_a_sun_salutation_flow', exerciseName: 'Sun Salutation Flow', slotId: 'flow_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
-        ex({ id: 'yoga_recovery_a_yoga_balance_flow', exerciseName: 'Yoga Balance Flow', slotId: 'flow_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 3, repsMax: 5, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
-        ex({ id: 'yoga_recovery_a_hip_mobility_flow', exerciseName: 'Hip Mobility Flow', slotId: 'flow_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'yoga_recovery_a_breath_reset', exerciseName: 'Breath Reset', slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 3, repsMax: 5, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'yoga_recovery_a_sun_salutation_flow', exerciseName: 'Cat Stretch', slotId: 'flow_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'yoga_recovery_a_yoga_balance_flow', exerciseName: "World's Greatest Stretch", slotId: 'flow_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'yoga_recovery_a_hip_mobility_flow', exerciseName: 'Kneeling Hip Flexor', slotId: 'flow_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'yoga_recovery_a_breath_reset', exerciseName: "Child's Pose", slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
       ] }),
       session({ id: 'yoga_recovery_b', name: 'Day 2: Yoga Flow', orderIndex: 2, exercises: [
-        ex({ id: 'yoga_recovery_b_yoga_balance_flow', exerciseName: 'Yoga Balance Flow', slotId: 'flow_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 3, repsMax: 5, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
-        ex({ id: 'yoga_recovery_b_recovery_stretch_flow', exerciseName: 'Recovery Stretch Flow', slotId: 'flow_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'yoga_recovery_b_mobility_flow', exerciseName: 'Mobility Flow', slotId: 'flow_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'yoga_recovery_b_breath_reset', exerciseName: 'Breath Reset', slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 3, repsMax: 5, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'yoga_recovery_b_yoga_balance_flow', exerciseName: 'Standing Hip Circles', slotId: 'flow_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 3, repsMax: 5, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'yoga_recovery_b_recovery_stretch_flow', exerciseName: 'Seated Floor Hamstring Stretch', slotId: 'flow_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'yoga_recovery_b_mobility_flow', exerciseName: 'Dynamic Back Stretch', slotId: 'flow_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'yoga_recovery_b_breath_reset', exerciseName: "Child's Pose", slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
       ] }),
     ],
   },
@@ -598,19 +604,19 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     sessions: [
       session({ id: 'run_mobility_easy', name: 'Day 1: Easy Run', orderIndex: 1, exercises: [
         ex({ id: 'run_mobility_easy_run_blocks', exerciseName: 'Easy Run Blocks', slotId: 'run_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'reps_first', sets: 4, repsMin: 3, repsMax: 5, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'running_blocks' }),
-        ex({ id: 'run_mobility_easy_mobility_flow', exerciseName: 'Mobility Flow', slotId: 'reset_1', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'run_mobility_easy_mobility_flow', exerciseName: "World's Greatest Stretch", slotId: 'reset_1', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
         ex({ id: 'run_mobility_easy_calf_raise', exerciseName: 'Calf Raise', slotId: 'reset_2', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 2, repsMin: 12, repsMax: 15, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'calves' }),
       ] }),
       session({ id: 'run_mobility_tempo', name: 'Day 2: Tempo Run', orderIndex: 2, exercises: [
         ex({ id: 'run_mobility_tempo_run_blocks', exerciseName: 'Tempo Run Blocks', slotId: 'run_1', role: 'primary', progressionPriority: 'medium', trackingMode: 'reps_first', sets: 5, repsMin: 2, repsMax: 4, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'running_blocks' }),
         ex({ id: 'run_mobility_tempo_stride_finishers', exerciseName: 'Stride Finishers', slotId: 'run_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'reps_first', sets: 4, repsMin: 2, repsMax: 3, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'running_blocks' }),
-        ex({ id: 'run_mobility_tempo_breath_reset', exerciseName: 'Breath Reset', slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 3, repsMax: 5, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'run_mobility_tempo_breath_reset', exerciseName: 'Standing Hamstring and Calf Stretch', slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
       ] }),
       session({ id: 'run_mobility_reset', name: 'Day 3: Recovery & Mobility', orderIndex: 3, exercises: [
-        ex({ id: 'run_mobility_reset_recovery_stretch_flow', exerciseName: 'Recovery Stretch Flow', slotId: 'reset_1', role: 'primary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'run_mobility_reset_hip_mobility_flow', exerciseName: 'Hip Mobility Flow', slotId: 'reset_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
-        ex({ id: 'run_mobility_reset_sun_salutation_flow', exerciseName: 'Sun Salutation Flow', slotId: 'reset_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 5, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
-        ex({ id: 'run_mobility_reset_breath_reset', exerciseName: 'Breath Reset', slotId: 'reset_4', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 3, repsMax: 5, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'run_mobility_reset_recovery_stretch_flow', exerciseName: 'Seated Floor Hamstring Stretch', slotId: 'reset_1', role: 'primary', progressionPriority: 'low', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'run_mobility_reset_hip_mobility_flow', exerciseName: 'Kneeling Hip Flexor', slotId: 'reset_2', role: 'secondary', progressionPriority: 'low', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 45, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'run_mobility_reset_sun_salutation_flow', exerciseName: 'Cat Stretch', slotId: 'reset_3', role: 'secondary', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 2, repsMin: 4, repsMax: 5, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'yoga_flow' }),
+        ex({ id: 'run_mobility_reset_breath_reset', exerciseName: "Child's Pose", slotId: 'reset_4', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'yoga_flow' }),
       ] }),
     ],
   },
@@ -1437,7 +1443,7 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
         ex({ id: 'fit_elite_lower_a_back_squat', exerciseName: 'Back Squat', slotId: 'primary_squat_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 4, repsMin: 6, repsMax: 8, restSecondsMin: 150, restSecondsMax: 210, substitutionGroup: 'squat_pattern' }),
         ex({ id: 'fit_elite_lower_a_romanian_deadlift', exerciseName: 'Romanian Deadlift', slotId: 'primary_hinge_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 10, restSecondsMin: 120, restSecondsMax: 150, substitutionGroup: 'hinge_pattern' }),
         ex({ id: 'fit_elite_lower_a_walking_lunge', exerciseName: 'Walking Lunge', slotId: 'secondary_single_leg_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 10, repsMax: 12, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'single_leg' }),
-        ex({ id: 'fit_elite_lower_a_plank', exerciseName: 'Plank', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 30, repsMax: 60, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'bodyweight_core' }),
+        ex({ id: 'fit_elite_lower_a_plank', exerciseName: 'Plank', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 60, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'bodyweight_core' }),
       ] }),
       session({ id: 'fit_elite_upper_b', name: 'Day 3: Upper Volume', orderIndex: 3, exercises: [
         ex({ id: 'fit_elite_upper_b_incline_dumbbell_press', exerciseName: 'Incline Dumbbell Press', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 10, restSecondsMin: 90, restSecondsMax: 150, substitutionGroup: 'horizontal_press' }),
@@ -1498,7 +1504,7 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
         ex({ id: 'shred_elite_day5_kettlebell_swing', exerciseName: 'Kettlebell Swing', slotId: 'primary_conditioning_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 4, repsMin: 15, repsMax: 20, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'gainer_general' }),
         ex({ id: 'shred_elite_day5_goblet_hold_lunge', exerciseName: 'Reverse Lunge', slotId: 'secondary_single_leg_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 10, repsMax: 12, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'single_leg' }),
         ex({ id: 'shred_elite_day5_treadmill_hiit', exerciseName: 'Treadmill HIIT (30s on / 30s off)', slotId: 'finisher_conditioning_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 10, repsMin: 30, repsMax: 30, restSecondsMin: 30, restSecondsMax: 60, substitutionGroup: 'gainer_conditioning' }),
-        ex({ id: 'shred_elite_day5_recovery_stretch_flow', exerciseName: 'Recovery Stretch Flow', slotId: 'cooldown_mobility_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 1, repsMin: 5, repsMax: 8, restSecondsMin: 0, restSecondsMax: 30, substitutionGroup: 'mobility_flow' }),
+        ex({ id: 'shred_elite_day5_recovery_stretch_flow', exerciseName: 'Intermediate Hip Flexor and Quad Stretch', slotId: 'cooldown_mobility_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 1, repsMin: 30, repsMax: 45, restSecondsMin: 0, restSecondsMax: 30, substitutionGroup: 'mobility_flow' }),
       ] }),
     ],
   },

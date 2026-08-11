@@ -1,4 +1,5 @@
 ﻿import { getComparableLogSets } from './exerciseLog';
+import { isTimedTrackingMode, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { AppLanguage, ExerciseLog, UnitPreference } from '../types/models';
 
 // The app is kg-only. The unit-preference params are kept on these signatures
@@ -119,6 +120,22 @@ export function formatRepRange(repMin: number, repMax: number) {
 
 export function formatTargetSets(targetSets: number, repMin: number, repMax: number) {
   return `${targetSets} x ${formatRepRange(repMin, repMax)}`;
+}
+
+/**
+ * "4 × 8-10" for reps, "3 × 30-60 s" for a hold.
+ *
+ * The unit is the whole point: the catalogs have always written a plank as
+ * "3x30-60", and every screen rendered that as sixty repetitions.
+ */
+export function formatSetScheme(
+  sets: number,
+  repMin: number,
+  repMax: number,
+  trackingMode: WorkoutTrackingMode,
+) {
+  const range = formatRepRange(repMin, repMax);
+  return isTimedTrackingMode(trackingMode) ? `${sets} × ${range} s` : `${sets} × ${range}`;
 }
 
 export function formatReps(repsPerSet: number[]) {
