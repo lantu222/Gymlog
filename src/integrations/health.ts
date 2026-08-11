@@ -29,6 +29,16 @@ export type HealthConnectResult =
   | { status: 'denied' }
   | { status: 'unavailable' };
 
+/**
+ * Whether this device can talk to Health Connect at all.
+ *
+ * Worth knowing *before* the screen offers to connect: a full-width CTA that
+ * cannot possibly work is a promise the device will break. `update_required`
+ * is separate from `unsupported` because it is the user's to fix — Health
+ * Connect is there, it is just older than the SDK we call.
+ */
+export type HealthAvailability = 'available' | 'update_required' | 'unsupported';
+
 /** True when the connection actually delivered at least one value. */
 export function hasAnyHealthBasics(basics: HealthBasics | null): boolean {
   return (
@@ -119,6 +129,53 @@ async function readHealthConnectBasics(): Promise<HealthConnectResult> {
     // user fills them in on the next screen.
     basics: { weightKg, heightCm, sex: null, dateOfBirth: null },
   };
+}
+
+export async function getHealthAvailability(): Promise<HealthAvailability> {
+  if (Platform.OS !== 'android') {
+    return 'unsupported';
+  }
+
+  try {
+    const healthConnect = require('react-native-health-connect') as typeof import('react-native-health-connect');
+    const { getSdkStatus, SdkAvailabilityStatus } = healthConnect;
+    const sdkStatus = await getSdkStatus();
+    if (sdkStatus === SdkAvailabilityStatus.SDK_AVAILABLE) {
+      return 'available';
+    }
+    if (sdkStatus === SdkAvailabilityStatus.SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED) {
+      return 'update_required';
+    }
+    return 'unsupported';
+  } catch (error) {
+    console.warn('Health Connect status check failed', error);
+    return 'unsupported';
+  }
+}
+
+/**
+ * Opens Health Connect's own settings.
+ *
+ * This is the only place a user can say which apps feed Health Connect —
+ * Vinha cannot enumerate or choose sources itself, it only reads whatever
+ * landed there. When we import nothing, this is the route out of the dead end:
+ * it is where Samsung Health gets switched on as a writer.
+ *
+ * Returns false when the screen has nowhere to send the user.
+ */
+export async function openHealthSettings(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return false;
+  }
+
+  try {
+    const healthConnect = require('react-native-health-connect') as typeof import('react-native-health-connect');
+    healthConnect.openHealthConnectSettings();
+    return true;
+  } catch (error) {
+    console.warn('Opening Health Connect settings failed', error);
+    return false;
+  }
 }
 
 export async function requestHealthBasics(): Promise<HealthConnectResult> {

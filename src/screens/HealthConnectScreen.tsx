@@ -4,7 +4,14 @@ import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-import { getHealthProviderLabel, HealthBasics, requestHealthBasics } from '../integrations/health';
+import {
+  getHealthAvailability,
+  getHealthProviderLabel,
+  HealthAvailability,
+  HealthBasics,
+  openHealthSettings,
+  requestHealthBasics,
+} from '../integrations/health';
 import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -125,6 +132,21 @@ export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: He
   const providerLabel = getHealthProviderLabel();
   const [busy, setBusy] = useState(false);
   const [errorNote, setErrorNote] = useState<string | null>(null);
+  // null while the check is still in flight — the CTA must not promise a
+  // connection before the device has said it can make one.
+  const [availability, setAvailability] = useState<HealthAvailability | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getHealthAvailability().then((status) => {
+      if (!cancelled) {
+        setAvailability(status);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleConnect() {
     if (busy) {
@@ -145,6 +167,13 @@ export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: He
       );
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleOpenSettings() {
+    const opened = await openHealthSettings();
+    if (!opened) {
+      setErrorNote(t(language, 'health.link.unsupported'));
     }
   }
 
@@ -184,24 +213,58 @@ export function HealthConnectScreen({ language = 'en', onConnected, onSkip }: He
           />
         </View>
 
+        {/* Names the mechanism. "Health Connect" means nothing to someone who
+            thinks of their data as living in Samsung Health — and the app
+            cannot choose sources, so the user has to know where they live. */}
+        <Text style={[styles.sourcesNote, { fontFamily }]}>{t(language, 'health.link.sources')}</Text>
+
+        {availability === 'update_required' ? (
+          <Text style={[styles.statusNote, { fontFamily }]}>{t(language, 'health.link.updateRequired')}</Text>
+        ) : null}
+        {availability === 'unsupported' ? (
+          <Text style={[styles.statusNote, { fontFamily }]}>{t(language, 'health.link.unsupported')}</Text>
+        ) : null}
+
         {errorNote ? <Text style={[styles.errorNote, { fontFamily }]}>{errorNote}</Text> : null}
       </View>
 
       <View style={styles.footer}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'health.link.title', { provider: providerLabel })}
-          onPress={() => void handleConnect()}
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-        >
-          {busy ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={[styles.ctaLabel, { fontFamily }]}>
-              {t(language, 'health.link.title', { provider: providerLabel })}
-            </Text>
-          )}
-        </Pressable>
+        {/* No connect button once the device has told us it cannot connect —
+            a CTA that only leads to an error is the promise being broken
+            after the tap rather than before it. */}
+        {availability === 'unsupported' ? null : (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={
+              availability === 'update_required'
+                ? t(language, 'health.link.openSettings')
+                : t(language, 'health.link.title', { provider: providerLabel })
+            }
+            onPress={() => void (availability === 'update_required' ? handleOpenSettings() : handleConnect())}
+            style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
+          >
+            {busy ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={[styles.ctaLabel, { fontFamily }]}>
+                {availability === 'update_required'
+                  ? t(language, 'health.link.openSettings')
+                  : t(language, 'health.link.title', { provider: providerLabel })}
+              </Text>
+            )}
+          </Pressable>
+        )}
+
+        {availability === 'available' ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'health.link.manageSources')}
+            onPress={() => void handleOpenSettings()}
+            style={({ pressed }) => [styles.manageLink, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={[styles.manageText, { fontFamily }]}>{t(language, 'health.link.manageSources')}</Text>
+          </Pressable>
+        ) : null}
 
         <Pressable
           accessibilityRole="button"
@@ -328,6 +391,34 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
+  },
+  sourcesNote: {
+    color: MUTED,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 26,
+    paddingHorizontal: 4,
+  },
+  statusNote: {
+    color: '#B54708',
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginTop: 14,
+  },
+  manageLink: {
+    alignSelf: 'center',
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  manageText: {
+    color: PURPLE,
+    fontSize: 14,
+    fontWeight: '800',
   },
   errorNote: {
     color: '#B42318',

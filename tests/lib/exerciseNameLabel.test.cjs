@@ -12,6 +12,9 @@ const {
   FOCUS_ACCESSORY_POOL,
   SUPPLEMENTAL_DAY_POOL,
 } = require('../../.test-dist/lib/catalogExercisePools');
+const {
+  GENERATED_EXERCISE_LIBRARY,
+} = require('../../.test-dist/data/generatedExerciseLibrary');
 
 function collectStrings(value, into) {
   if (typeof value === 'string') {
@@ -91,18 +94,54 @@ module.exports = [
     run() {
       assert.equal(exerciseNameLabel('en', 'Back Squat'), 'Back Squat');
       assert.equal(exerciseNameLabel('fi', 'Back Squat'), 'Takakyykky');
-      // A library exercise with no entry keeps its own name rather than guessing.
-      assert.equal(exerciseNameLabel('fi', 'Smith Machine Bent Over Row'), 'Smith Machine Bent Over Row');
+      // A name with no entry keeps its own rather than guessing. Every name
+      // IN the library has one now, so this has to be something invented.
+      assert.equal(exerciseNameLabel('fi', 'Quantum Deadlift'), 'Quantum Deadlift');
       assert.equal(exerciseNameLabel('fi', '  Plank  '), 'Lankku');
+    },
+  },
+  {
+    // The browsable library is 873 exercises. The reachable-names walk above
+    // covers what the catalogs and the composer prescribe; this covers what a
+    // user can simply scroll past in Liikekirjasto, which was 771 of them.
+    name: 'every exercise in the browsable library has a Finnish name',
+    run() {
+      const missing = GENERATED_EXERCISE_LIBRARY
+        .map((item) => item.name)
+        .filter((name) => !TRANSLATED_EXERCISE_NAMES[name.trim()]);
+
+      assert.deepEqual(
+        missing,
+        [],
+        `${missing.length} library exercises would read in English: ${missing.slice(0, 8).join(', ')}`,
+      );
     },
   },
   {
     name: 'no Finnish name is left as its English source',
     run() {
+      // Case-insensitive on purpose: "Muscle Up" → "Muscle up" is a copy, not
+      // a translation, and a case-sensitive check waves it through. Tightening
+      // it surfaced three entries that had been sitting here since before the
+      // library sweep.
+      //
+      // Which is why the loan words have to be listed: for these, the
+      // lower-cased form IS the Finnish one. Finnish gyms say "dead bug" and
+      // "muscle up"; inventing a Finnish word for them would be worse than
+      // the English, which is the same rule the module doc states.
+      const FINNISH_LOAN_WORDS = [
+        'Burpee',
+        'Hack Squat',
+        'Pec Deck',
+        'Dead Bug',
+        'Bird Dog',
+        'Dragon Flag',
+        'Muscle Up',
+        'London Bridges',
+      ];
       const unchanged = Object.entries(TRANSLATED_EXERCISE_NAMES)
-        .filter(([english, finnish]) => english === finnish)
-        // Loan words that are the same in both languages are fine.
-        .filter(([english]) => !['Burpee', 'Hack Squat', 'Pec Deck'].includes(english))
+        .filter(([english, finnish]) => english.toLowerCase() === finnish.toLowerCase())
+        .filter(([english]) => !FINNISH_LOAN_WORDS.includes(english))
         .map(([english]) => english);
 
       assert.deepEqual(unchanged, [], `left in English: ${unchanged.join(', ')}`);

@@ -1969,9 +1969,17 @@ function VinhaApp() {
     if (result.status !== 'connected') {
       showToast(
         result.status === 'denied'
-          ? `${providerLabel} permission was denied`
-          : `${providerLabel} isn't available on this device`,
+          ? t(preferences.appLanguage, 'health.link.denied')
+          : t(preferences.appLanguage, 'health.link.unavailable', { provider: providerLabel }),
       );
+      return;
+    }
+
+    // A granted permission is not an import. Health Connect hands over nothing
+    // until some app writes to it, and saying "Connected" over an empty read
+    // is the success state arriving before the thing it claims.
+    if (!hasAnyHealthBasics(result.basics)) {
+      showToast(t(preferences.appLanguage, 'health.toast.nothing', { provider: providerLabel }));
       return;
     }
 
@@ -1992,7 +2000,7 @@ function VinhaApp() {
     if (Object.keys(patch).length > 0) {
       await updatePreferences(patch);
     }
-    showToast(`Connected to ${providerLabel}`);
+    showToast(t(preferences.appLanguage, 'health.toast.connected', { provider: providerLabel }));
   }
 
   function openRecommendedProgramDetail(recommendedProgramId: string) {
