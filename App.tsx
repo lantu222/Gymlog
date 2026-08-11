@@ -1844,6 +1844,18 @@ function VinhaApp() {
       .filter((row): row is { planId: string; title: string; meta: string } => row !== null);
   }, [database.workoutPlans, preferences.activePlanIds, preferences.activePlanId, preferences.appLanguage]);
 
+  /**
+   * Start the questionnaire again, keeping everything already logged.
+   *
+   * There was no way back into onboarding once it had been finished, so a
+   * reader whose life changed had to live with the programme their first five
+   * minutes had chosen. entryFlowCompleted stays true — they have met the
+   * Welcome screen and do not need to again.
+   */
+  async function handleRedoOnboarding() {
+    await updatePreferences({ onboardingCompleted: false, setupCompleted: false });
+  }
+
   /** The reader dropping a programme — the only path that removes one. */
   async function handleRemoveActiveProgram(planId: string) {
     await updatePreferences({
@@ -4908,6 +4920,12 @@ function VinhaApp() {
           }
         }}
         onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
+        onRemoveActivePlan={
+          preferences.activePlanId
+            ? () => void handleRemoveActiveProgram(preferences.activePlanId as string)
+            : undefined
+        }
+        onRedoOnboarding={() => void handleRedoOnboarding()}
         availableEquipment={availableEquipmentForDrills}
         greetingState={homeGreetingState}
         widgetPrompt={

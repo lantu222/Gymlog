@@ -160,6 +160,11 @@ const EN = {
   'home.adaptSheet.shorter.explainNoEstimate':
     'Trims the accessory work. The main lift is untouched.',
   'home.adaptSheet.shorter.cta': 'Start the short version',
+  'home.adaptSheet.title': 'Adapt',
+  'home.adaptSheet.remove.title': 'Drop this programme',
+  'home.adaptSheet.remove.sub': 'Everything you have logged stays. Only the plan goes.',
+  'home.adaptSheet.redo.title': 'Answer the questions again',
+  'home.adaptSheet.redo.sub': 'Rebuild your programme from scratch. Your log is untouched.',
   'home.adaptSheet.cancel': 'Cancel',
   'home.swapSheet.title': 'Swap {name} for',
 
@@ -2873,6 +2878,11 @@ const FI: Record<I18nKey, string> = {
     'Noin {after} min {before} minuutin sijaan — {sets} sarjaa vähemmän, kaikki apuliikkeistä. Päänostoon ei kosketa.',
   'home.adaptSheet.shorter.explainNoEstimate': 'Karsii apuliikkeitä. Päänostoon ei kosketa.',
   'home.adaptSheet.shorter.cta': 'Aloita lyhennetty versio',
+  'home.adaptSheet.title': 'Mukauta',
+  'home.adaptSheet.remove.title': 'Poista tämä ohjelma',
+  'home.adaptSheet.remove.sub': 'Kaikki kirjaamasi säilyy. Vain ohjelma lähtee.',
+  'home.adaptSheet.redo.title': 'Vastaa kysymyksiin uudelleen',
+  'home.adaptSheet.redo.sub': 'Rakenna ohjelmasi alusta. Lokiisi ei kosketa.',
   'home.adaptSheet.cancel': 'Peruuta',
   'home.swapSheet.title': 'Vaihda {name}',
 

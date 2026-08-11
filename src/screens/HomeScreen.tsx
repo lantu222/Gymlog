@@ -131,6 +131,10 @@ interface HomeScreenProps {
   otherPrograms?: HomeOtherProgram[];
   onOpenOtherProgram?: (planId: string) => void;
   onRemoveOtherProgram?: (planId: string) => void;
+  /** Adapt sheet: drop the programme Home is leading with. */
+  onRemoveActivePlan?: () => void;
+  /** Adapt sheet: answer the onboarding questions again. */
+  onRedoOnboarding?: () => void;
   onStartActivePlanSession?: (sessionId: string) => void;
   onCreateWorkoutFromExercises: () => void;
   onOpenCardio?: () => void;
@@ -211,6 +215,8 @@ export function HomeScreen({
   otherPrograms = [],
   onOpenOtherProgram,
   onRemoveOtherProgram,
+  onRemoveActivePlan,
+  onRedoOnboarding,
   onStartActivePlanSession,
   onCreateWorkoutFromExercises,
   onOpenCardio,
@@ -1173,16 +1179,12 @@ export function HomeScreen({
           <Pressable style={styles.adaptScrim} onPress={() => setAdaptSheetVisible(false)} />
           <View style={styles.adaptSheet}>
             <View style={styles.adaptGrip} />
-            <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.shorter.title')}</Text>
-            <Text style={styles.adaptSub}>
-              {adaptTrim
-                ? t(language, 'home.adaptSheet.shorter.explain', {
-                    sets: adaptTrim.droppedSets,
-                    before: planDurationMinutes,
-                    after: adaptTrim.minutes,
-                  })
-                : t(language, 'home.adaptSheet.shorter.explainNoEstimate')}
-            </Text>
+            <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.title')}</Text>
+
+            {/* Three things a reader might mean by "adapt", smallest commitment
+                first: this session, this programme, the whole plan. Each states
+                what it does NOT touch, because every one of them looks like it
+                might cost you your log. */}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={t(language, 'home.adaptSheet.shorter.cta')}
@@ -1192,10 +1194,49 @@ export function HomeScreen({
                   onStartTrimmedSession?.(nextPlanSession.id);
                 }
               }}
-              style={({ pressed }) => [styles.adaptPrimary, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
             >
-              <Text style={styles.adaptPrimaryText}>{t(language, 'home.adaptSheet.shorter.cta')}</Text>
+              <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.shorter.cta')}</Text>
+              <Text style={styles.adaptOptionSub}>
+                {adaptTrim
+                  ? t(language, 'home.adaptSheet.shorter.explain', {
+                      sets: adaptTrim.droppedSets,
+                      before: planDurationMinutes,
+                      after: adaptTrim.minutes,
+                    })
+                  : t(language, 'home.adaptSheet.shorter.explainNoEstimate')}
+              </Text>
             </Pressable>
+
+            {onRemoveActivePlan ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'home.adaptSheet.remove.title')}
+                onPress={() => {
+                  setAdaptSheetVisible(false);
+                  onRemoveActivePlan();
+                }}
+                style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
+              >
+                <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.remove.title')}</Text>
+                <Text style={styles.adaptOptionSub}>{t(language, 'home.adaptSheet.remove.sub')}</Text>
+              </Pressable>
+            ) : null}
+
+            {onRedoOnboarding ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t(language, 'home.adaptSheet.redo.title')}
+                onPress={() => {
+                  setAdaptSheetVisible(false);
+                  onRedoOnboarding();
+                }}
+                style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
+              >
+                <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.redo.title')}</Text>
+                <Text style={styles.adaptOptionSub}>{t(language, 'home.adaptSheet.redo.sub')}</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               accessibilityRole="button"
               onPress={() => setAdaptSheetVisible(false)}
@@ -2017,6 +2058,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   adaptScrim: {
     ...StyleSheet.absoluteFillObject,
+  },
+  adaptOption: {
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    borderRadius: 16,
+    paddingVertical: 13,
+    paddingHorizontal: 15,
+    marginTop: 10,
+    gap: 3,
+  },
+  adaptOptionTitle: {
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  adaptOptionSub: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
   },
   adaptSheet: {
     maxHeight: '94%',
