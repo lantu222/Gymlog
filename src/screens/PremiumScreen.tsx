@@ -140,6 +140,13 @@ const ROWS: Array<{ labelKey: I18nKey; free: Cellv2; pro: Cellv2 }> = [
   // of your own on free, unlimited on Pro. The ready catalog above it stays
   // All / All, because the cap is on authoring and never on choosing.
   { labelKey: 'pro.v2.row.own', free: 'pro.v2.val.threePrograms', pro: 'pro.v2.val.unlimited' },
+  // Two caps, and they measure different things — which is exactly why they
+  // sit next to each other. Above: how many programmes you may AUTHOR
+  // (programSlots.ts, three free). Here: how many may RUN at once
+  // (activeProgramSet.ts, two free and five on Pro). Both are true at the
+  // same time — three of your own, two of them live — and a reader shown one
+  // number without the other reads the wall they hit as the wrong wall.
+  { labelKey: 'pro.v2.row.concurrent', free: 'pro.v2.val.twoPrograms', pro: 'pro.v2.val.fivePrograms' },
   // Two rows, deliberately, because this is the distinction the whole free
   // tier rests on and a reader will not infer it from one line.
   //

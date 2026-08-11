@@ -725,17 +725,32 @@ module.exports = [
       // rinta", which works until the body part is plural and the adjective
       // has to agree — "Vahvat olkapäät". Compounding sidesteps agreement and
       // is how the thing would actually be named.
+      //
+      // The TIER stays English on purpose (2026-08-11): "Konkari" reads as a
+      // claim about the person, and a tester said the word was the confusing
+      // part. This is the one deliberate exception to translating everything,
+      // so it is asserted rather than left to drift back.
       assert.equal(
         buildFirstRunCustomProgramName(plan('strength', ['chest']), 'fi'),
-        'Rintavoima · Aloittelija',
+        'Rintavoima · Amateur',
       );
       assert.equal(
         buildFirstRunCustomProgramName(plan('muscle', ['shoulders']), 'fi'),
-        'Olkapäämassa · Aloittelija',
+        'Olkapäämassa · Amateur',
       );
 
-      // No focus area: goal + tier, still Finnish.
-      assert.equal(buildFirstRunCustomProgramName(plan('strength', []), 'fi'), 'Voima · Aloittelija');
+      // Every tier keeps its English word in Finnish, not just the first.
+      assert.equal(
+        buildFirstRunCustomProgramName(plan('strength', ['chest'], 'advanced'), 'fi'),
+        'Rintavoima · Advanced',
+      );
+      assert.equal(
+        buildFirstRunCustomProgramName(plan('strength', ['chest'], 'pro'), 'fi'),
+        'Rintavoima · Pro',
+      );
+
+      // No focus area: goal + tier, the goal still Finnish.
+      assert.equal(buildFirstRunCustomProgramName(plan('strength', []), 'fi'), 'Voima · Amateur');
 
       // Every focus area must have a stem, or the name silently falls back to
       // the goal alone and the user's chosen focus disappears from it.

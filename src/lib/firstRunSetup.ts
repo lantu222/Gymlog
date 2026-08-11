@@ -717,9 +717,18 @@ const PROGRAM_NAME_TIERS: Record<SetupLevel, string> = {
   pro: 'Pro',
 };
 
+/**
+ * The Finnish names keep the English tier word — 2026-08-11, user's call.
+ *
+ * "Konkari" reads as a claim about the person rather than a tag on a
+ * programme, and a tester said the word was the confusing part. English keeps
+ * it neutral, so this map deliberately mirrors PROGRAM_NAME_TIERS instead of
+ * translating it. Do not "finish" the translation later: the Finnish words
+ * were removed on purpose.
+ */
 const PROGRAM_NAME_TIERS_FI: Record<SetupLevel, string> = {
-  beginner: 'Aloittelija',
-  advanced: 'Konkari',
+  beginner: 'Amateur',
+  advanced: 'Advanced',
   pro: 'Pro',
 };
 
