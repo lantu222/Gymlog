@@ -500,7 +500,11 @@ module.exports = [
       // tint follows the theme (2026-08-01) — violet in light, orange in dark,
       // alongside every other interactive element.
       assert.match(bottomTabBarSource, /shell:\s*\{\s*[\s\S]*position: 'absolute'/);
-      assert.match(bottomTabBarSource, /pill:\s*\{[\s\S]*backgroundColor: BAR\.pill/);
+      // The fill moved onto CutSurface when the bar took the A3 shape
+      // (2026-08-11): left in the style it would paint a rectangle behind the
+      // cut path. Same default, asserted where it now lives.
+      assert.match(bottomTabBarSource, /const pillBackground = themeName === 'dark' \? theme\.surfaceSoft : BAR\.pill/);
+      assert.match(bottomTabBarSource, /<CutSurface size="lg" fill=\{pillBackground\}/);
       assert.match(bottomTabBarSource, /activeTab: RootTabKey \| null/);
       assert.match(bottomTabBarSource, /activeKey === tab\.key/);
       assert.match(appSource, /activeTab=\{route\.tab === 'workout' && route\.screen === 'plans' \? null : route\.tab\}/);

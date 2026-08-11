@@ -10,6 +10,9 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { CardioIcon } from '../components/CardioIcon';
@@ -246,6 +249,8 @@ export function HomeScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
+  const insets = useSafeAreaInsets();
+  const [confirmingRemovePlan, setConfirmingRemovePlan] = useState(false);
   const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
   /** Which row's swap sheet is open, by slot id. */
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
@@ -510,7 +515,12 @@ export function HomeScreen({
         onPress={() => toggleSection(key)}
         style={styles.secBtn}
       >
-        <Text style={styles.secTitle}>{title}</Text>
+        {/* One line, always. "Palautuminen" is a syllable longer than
+            "Jäähdyttely" and wrapped the header, which pushed the count and
+            chevron out of alignment with the two sections above it. */}
+        <Text style={styles.secTitle} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>
+          {title}
+        </Text>
         <Text style={styles.secCount}>{countLabel}</Text>
         <Animated.View style={sectionStyles[key].chevron}>
           <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
@@ -1169,6 +1179,20 @@ export function HomeScreen({
           the one adaptation that belongs on Home — and it starts the session
           rather than storing a mode, because "how is today going" has no
           meaning tomorrow. */}
+      <ConfirmDialog
+        visible={confirmingRemovePlan}
+        destructive
+        title={t(language, 'home.adaptSheet.remove.confirmTitle')}
+        message={t(language, 'home.adaptSheet.remove.confirmMessage')}
+        confirmLabel={t(language, 'home.adaptSheet.remove.title')}
+        cancelLabel={t(language, 'home.adaptSheet.cancel')}
+        onCancel={() => setConfirmingRemovePlan(false)}
+        onConfirm={() => {
+          setConfirmingRemovePlan(false);
+          onRemoveActivePlan?.();
+        }}
+      />
+
       <Modal
         visible={adaptSheetVisible}
         transparent
@@ -1177,7 +1201,7 @@ export function HomeScreen({
       >
         <View style={styles.adaptOverlay}>
           <Pressable style={styles.adaptScrim} onPress={() => setAdaptSheetVisible(false)} />
-          <View style={styles.adaptSheet}>
+          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
             <View style={styles.adaptGrip} />
             <Text style={styles.adaptTitle}>{t(language, 'home.adaptSheet.title')}</Text>
 
@@ -1209,16 +1233,21 @@ export function HomeScreen({
             </Pressable>
 
             {onRemoveActivePlan ? (
+              /* Red, and it asks. It sits between two harmless options, and a
+                 thumb that misses by a row should not cost someone the plan
+                 their week is built on. */
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t(language, 'home.adaptSheet.remove.title')}
                 onPress={() => {
                   setAdaptSheetVisible(false);
-                  onRemoveActivePlan();
+                  setConfirmingRemovePlan(true);
                 }}
-                style={({ pressed }) => [styles.adaptOption, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.adaptOption, styles.adaptOptionDanger, pressed && styles.pressed]}
               >
-                <Text style={styles.adaptOptionTitle}>{t(language, 'home.adaptSheet.remove.title')}</Text>
+                <Text style={[styles.adaptOptionTitle, styles.adaptOptionTitleDanger]}>
+                  {t(language, 'home.adaptSheet.remove.title')}
+                </Text>
                 <Text style={styles.adaptOptionSub}>{t(language, 'home.adaptSheet.remove.sub')}</Text>
               </Pressable>
             ) : null}
@@ -1259,7 +1288,7 @@ export function HomeScreen({
       >
         <View style={styles.adaptOverlay}>
           <Pressable style={styles.adaptScrim} onPress={() => setSwapSlotId(null)} />
-          <View style={styles.adaptSheet}>
+          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
             <View style={styles.adaptGrip} />
             <Text style={styles.adaptTitle}>
               {t(language, 'home.swapSheet.title', {
@@ -2068,6 +2097,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 10,
     gap: 3,
   },
+  adaptOptionDanger: {
+    borderColor: '#F3C8C2',
+    backgroundColor: '#FDF4F3',
+  },
+  adaptOptionTitleDanger: {
+    color: '#B42318',
+  },
   adaptOptionTitle: {
     color: theme.ink,
     fontSize: 15,
@@ -2086,7 +2122,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surface,
     paddingHorizontal: 22,
     paddingTop: 12,
-    paddingBottom: 26,
+    // paddingBottom is applied at the call site from the safe-area inset:
+    // a fixed 26 put Cancel under the phone's own navigation buttons.
   },
   adaptGrip: {
     alignSelf: 'center',

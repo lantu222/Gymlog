@@ -1,3 +1,4 @@
+import { CutSurface } from './CutSurface';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   AccessibilityInfo,
@@ -279,7 +280,11 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
         },
       ]}
     >
-      <View style={[styles.pill, { backgroundColor: pillBackground }]}>
+      {/* A3: the bar wears the cut corner the rest of the app wears. Icons and
+          colours are untouched — only the silhouette changes, from a plain
+          30px pill to the same shape the CTAs and day rows use. The fill stays
+          on CutSurface so the dark-theme override still lands. */}
+      <CutSurface size="lg" fill={pillBackground} style={styles.pill}>
         <View style={styles.row}>
           <Animated.View
             pointerEvents="none"
@@ -334,7 +339,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
             />
           ))}
         </View>
-      </View>
+      </CutSurface>
     </Animated.View>
   );
 }
@@ -351,10 +356,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   pill: {
     // Overridden in dark — see the pill background note in the component.
-    backgroundColor: BAR.pill,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: BAR.pillBorder,
     paddingHorizontal: 6,
     shadowColor: '#0B0714',
     shadowOffset: { width: 0, height: 10 },
