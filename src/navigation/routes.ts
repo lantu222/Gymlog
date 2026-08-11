@@ -199,6 +199,13 @@ export type AppRoute =
   | {
       tab: 'profile';
       screen: 'premium';
+      /**
+       * Why the reader is here. The paywall sold automated progression to
+       * someone who had just been stopped by the programme cap and said
+       * nothing about programmes, so the moment that opened it now travels
+       * with the route.
+       */
+      reason?: 'program_cap';
     }
   | {
       tab: 'profile';

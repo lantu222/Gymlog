@@ -1760,7 +1760,7 @@ function VinhaApp() {
       // Full on the free tier is a sale; full on Pro is not, and sending a
       // paying reader to the paywall would be selling them what they own.
       if (decision.canUpgrade) {
-        navigate({ tab: 'profile', screen: 'premium' });
+        navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
         return;
       }
       showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
@@ -4434,6 +4434,7 @@ function VinhaApp() {
   } else if (route.tab === 'profile' && route.screen === 'premium') {
     content = (
       <PremiumScreen
+        reason={route.reason ?? null}
         language={preferences.appLanguage}
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
         proUnlocked={coachProUnlocked}

@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProPill } from '../components/ProLockedCard';
 import { removeTrailingZeros } from '../lib/format';
+import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
 import { I18nKey, t } from '../lib/i18n';
 import { PremiumHeroChart } from '../lib/premiumHeroChart';
 import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
@@ -25,6 +26,14 @@ import { AppLanguage, UnitPreference } from '../types/models';
  * and releaseReadiness.test.cjs holds the other end of it.
  */
 interface PremiumScreenProps {
+  /**
+   * What sent the reader here, when something specific did.
+   *
+   * A paywall that opens after a refusal and then talks about something else
+   * reads as a random toll gate. Naming the wall they just hit is the
+   * difference between a sale and an interruption.
+   */
+  reason?: 'program_cap' | null;
   /** State of the on-device preview switch, which is what the CTA toggles. */
   previewUnlocked: boolean;
   /** Whether Pro is actually on — the preview switch or a live promo code. */
@@ -96,6 +105,10 @@ const GROUPS: Array<{ key: string; kickerKey: I18nKey; titleKey: I18nKey; leadKe
       { titleKey: 'pro.v2.plan.coach.t', bodyKey: 'pro.v2.plan.coach.b', icon: IC.chat },
       // Free gets none, not one — openAiMode() sends free users to this page.
       { titleKey: 'pro.v2.plan.builder.t', bodyKey: 'pro.v2.plan.builder.b', icon: IC.layers },
+      // Cut from the v2 mock on 2026-08-01 because the app held exactly one
+      // programme. It holds a set now (activeProgramSet.ts, two free and five
+      // on Pro), so the claim is back — this time with a cap behind it.
+      { titleKey: 'pro.v2.plan.programs.t', bodyKey: 'pro.v2.plan.programs.b', icon: IC.layers },
     ],
   },
   {
@@ -269,6 +282,7 @@ function BenefitCard({
 }
 
 export function PremiumScreen({
+  reason = null,
   previewUnlocked,
   proUnlocked,
   heroChart,
@@ -308,6 +322,14 @@ export function PremiumScreen({
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        {reason === 'program_cap' ? (
+          <View style={styles.reasonBanner}>
+            <Text style={styles.reasonBannerText}>
+              {t(language, 'programs.cap.paywall', { cap: FREE_ACTIVE_PROGRAM_CAP })}
+            </Text>
+          </View>
+        ) : null}
+
         {/* HERO — the user's own numbers do the selling */}
         <View style={styles.hero}>
           <View style={styles.heroKickerRow}>
@@ -677,6 +699,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 18,
     paddingTop: 4,
     paddingBottom: 16,
+  },
+  reasonBanner: {
+    backgroundColor: PW.sheetLavender,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 14,
+  },
+  reasonBannerText: {
+    color: '#3B1E77',
+    fontSize: 13.5,
+    lineHeight: 19,
+    fontWeight: '800',
   },
   hero: {
     borderRadius: 22,
