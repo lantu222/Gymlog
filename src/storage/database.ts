@@ -79,6 +79,24 @@ function normalizeJointSwapPreference(rawValue: unknown, fallbackValue: 'neutral
   return fallbackValue;
 }
 
+/**
+ * The reader's set of running programmes, migrated forward.
+ *
+ * Databases written before programmes became a set have no `activePlanIds` at
+ * all — only the single `activePlanId`. Seeding the list from it means an
+ * existing reader opens the new build already running exactly the programme
+ * they were running before, with one slot of the cap used rather than zero.
+ */
+function normalizeActivePlanIds(rawValue: unknown, legacyActivePlanId: unknown): string[] {
+  if (Array.isArray(rawValue)) {
+    const ids = rawValue.filter((value: unknown): value is string => typeof value === 'string' && value.length > 0);
+    // Stored duplicates would silently eat a cap slot.
+    return Array.from(new Set(ids));
+  }
+
+  return typeof legacyActivePlanId === 'string' && legacyActivePlanId.length > 0 ? [legacyActivePlanId] : [];
+}
+
 function normalizeTemplateSessions(
   template: any,
   templateExercises: ExerciseTemplate[],
@@ -834,6 +852,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.activePlanId === 'string' || input?.preferences?.activePlanId === null
           ? input.preferences.activePlanId
           : fallback.preferences.activePlanId,
+      activePlanIds: normalizeActivePlanIds(
+        input?.preferences?.activePlanIds,
+        input?.preferences?.activePlanId,
+      ),
       programsTabEnabled:
         typeof input?.preferences?.programsTabEnabled === 'boolean'
           ? input.preferences.programsTabEnabled

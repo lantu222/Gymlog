@@ -207,6 +207,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       lastInsightSessionId: null,
       lastInsightType: null,
       activePlanId: null,
+      activePlanIds: [],
       programsTabEnabled: true,
     },
   });

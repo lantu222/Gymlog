@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { I18nKey, t } from '../lib/i18n';
-import type { ProgramSeason } from '../lib/programSeasons';
+import { getSeasonProgramTitleKey, type ProgramSeason } from '../lib/programSeasons';
 import {
   SEASON_BLOCK_WEEKS,
   SEASON_WEEKS,
@@ -73,6 +73,8 @@ interface SeasonScreenProps {
   onBack: () => void;
   onOpenProgram: (programId: string) => void;
   onStartToday: () => void;
+  /** Makes the season programme the active plan — what "Start season" says. */
+  onJoinSeason: () => void;
 }
 
 function formatDay(date: Date, language: AppLanguage): string {
@@ -213,6 +215,7 @@ export function SeasonScreen({
   onBack,
   onOpenProgram,
   onStartToday,
+  onJoinSeason,
 }: SeasonScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -374,10 +377,7 @@ export function SeasonScreen({
                   training in it is RUN — so tapping through to a screen that
                   says RUN is not a surprise. */}
               <Text style={styles.programName} numberOfLines={1}>
-                {t(
-                  language,
-                  season === 'winter' ? 'season.programTitle.winter' : 'season.programTitle.summer',
-                )}
+                {t(language, getSeasonProgramTitleKey(seasonProgram.id) ?? 'season.programTitle.summer')}
               </Text>
               <Text style={styles.programMeta}>
                 {seasonProgram.name}
@@ -411,10 +411,14 @@ export function SeasonScreen({
           {/* The action lives with the program instead of in a bar pinned
               over the tab pill. Two stacked bars took a fifth of the screen
               on a page nobody has to act on right now. */}
+          {/* Two jobs, no warning needed. Already in the season: start today.
+              Not in it: join — which ADDS the season programme alongside
+              whatever the reader is already running rather than evicting it,
+              so there is nothing to confirm away. */}
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, running ? 'home.startWorkout' : 'season.join')}
-            onPress={onStartToday}
+            onPress={running ? onStartToday : onJoinSeason}
             style={({ pressed }) => [styles.cta, { backgroundColor: gradient[0] }, pressed && styles.pressed]}
           >
             <Text style={styles.ctaText}>

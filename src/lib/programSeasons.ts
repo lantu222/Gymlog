@@ -113,6 +113,26 @@ export function getSeasonProgramId(season: ProgramSeason): string {
   return SEASON_PROGRAM_IDS[season];
 }
 
+/**
+ * The name a season programme goes by, for every surface that shows it.
+ *
+ * The season screen calls tpl_3_day_run_mobility_v1 "Kesäkunto" while the
+ * template itself is named "RUN", so the programme wears two names depending on
+ * where you meet it — and Home listed the raw one straight after the reader had
+ * joined something called Kesäkunto. Returns null for programmes that are not a
+ * season's, which keep their catalogue name.
+ *
+ * This is a bridge, not the destination: renaming the templates themselves is
+ * the real fix and would delete this function.
+ */
+export function getSeasonProgramTitleKey(templateId: string): 'season.programTitle.summer' | 'season.programTitle.winter' | null {
+  const season = getProgramSeason(templateId);
+  if (!season) {
+    return null;
+  }
+  return season === 'winter' ? 'season.programTitle.winter' : 'season.programTitle.summer';
+}
+
 export function getProgramSeason(templateId: string): ProgramSeason | null {
   return PROGRAM_SEASONS[templateId] ?? null;
 }

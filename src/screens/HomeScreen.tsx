@@ -112,8 +112,25 @@ interface HomePlanCard {
   };
 }
 
+export interface HomeOtherProgram {
+  planId: string;
+  title: string;
+  /** e.g. "RUN · 3 pv / viikko" — enough to tell two programmes apart. */
+  meta: string;
+}
+
 interface HomeScreenProps {
   activePlan?: HomePlanCard | null;
+  /**
+   * The programmes running alongside the one above.
+   *
+   * A season used to arrive by evicting whatever the reader had built their
+   * week around. It adds now, so Home has to show more than one — these sit
+   * under the lead programme rather than competing with it for the hero.
+   */
+  otherPrograms?: HomeOtherProgram[];
+  onOpenOtherProgram?: (planId: string) => void;
+  onRemoveOtherProgram?: (planId: string) => void;
   onStartActivePlanSession?: (sessionId: string) => void;
   onCreateWorkoutFromExercises: () => void;
   onOpenCardio?: () => void;
@@ -191,6 +208,9 @@ interface HomeScreenProps {
 
 export function HomeScreen({
   activePlan = null,
+  otherPrograms = [],
+  onOpenOtherProgram,
+  onRemoveOtherProgram,
   onStartActivePlanSession,
   onCreateWorkoutFromExercises,
   onOpenCardio,
@@ -948,6 +968,44 @@ export function HomeScreen({
                 />
               ) : null}
             </View>
+          </Animated.View>
+        ) : null}
+
+        {otherPrograms.length > 0 ? (
+          <Animated.View style={[styles.otherProgramsBlock, rise(RISE_DIVIDER)]}>
+            <Text style={styles.programEyebrow}>{t(language, 'home.otherPrograms')}</Text>
+            {otherPrograms.map((program) => (
+              <Pressable
+                key={program.planId}
+                accessibilityRole="button"
+                accessibilityLabel={program.title}
+                onPress={() => onOpenOtherProgram?.(program.planId)}
+                style={({ pressed }) => [styles.otherProgramRow, pressed && styles.pressed]}
+              >
+                <View style={styles.otherProgramCopy}>
+                  <Text style={styles.otherProgramTitle} numberOfLines={1}>
+                    {program.title}
+                  </Text>
+                  <Text style={styles.otherProgramMeta} numberOfLines={1}>
+                    {program.meta}
+                  </Text>
+                </View>
+                {/* The way back out of the cap. Without it, two programmes is a
+                    dead end and every later choice is a paywall the reader
+                    cannot dismiss by changing their mind. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'home.removeProgram', { program: program.title })}
+                  hitSlop={10}
+                  onPress={() => onRemoveOtherProgram?.(program.planId)}
+                  style={({ pressed }) => [styles.otherProgramRemove, pressed && styles.pressed]}
+                >
+                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
+                    <Path d="M6 6l12 12M18 6L6 18" stroke={theme.faint} strokeWidth={2.2} strokeLinecap="round" />
+                  </Svg>
+                </Pressable>
+              </Pressable>
+            ))}
           </Animated.View>
         ) : null}
 
@@ -1763,6 +1821,41 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 15,
     lineHeight: 19,
     fontWeight: '800',
+  },
+  otherProgramsBlock: {
+    marginTop: 22,
+    gap: 8,
+  },
+  otherProgramRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: theme.surface,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  otherProgramCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  otherProgramTitle: {
+    color: theme.ink,
+    fontSize: 14.5,
+    fontWeight: '800',
+  },
+  otherProgramMeta: {
+    color: theme.muted,
+    fontSize: 12.5,
+    fontWeight: '700',
+  },
+  otherProgramRemove: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sectionDivider: {
     height: 1,

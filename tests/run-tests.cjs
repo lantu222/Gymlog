@@ -128,6 +128,8 @@ const suites = [
   ...require('./lib/workoutEditorNaming.test.cjs'),
   ...require('./lib/workoutEditorTable.test.cjs'),
   ...require('./lib/plateMath.test.cjs'),
+  ...require('./lib/programAdoption.test.cjs'),
+  ...require('./lib/activeProgramSet.test.cjs'),
   ...require('./lib/emptyWorkoutSession.test.cjs'),
   ...require('./lib/sessionNameLabel.test.cjs'),
   ...require('./lib/readyProgramContentFi.test.cjs'),

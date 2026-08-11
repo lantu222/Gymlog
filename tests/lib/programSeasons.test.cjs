@@ -6,6 +6,7 @@ const {
   getSeasonForDate,
   getSeasonProgramIds,
   orderSeasons,
+  getSeasonProgramTitleKey,
 } = require('../../.test-dist/lib/programSeasons.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog');
 
@@ -116,6 +117,17 @@ module.exports = [
       // no entitlement check may appear on this path.
       const rows = app.slice(app.indexOf('const programsSeasonRows'), app.indexOf('const programsCustomItems'));
       assert.doesNotMatch(rows, /proUnlocked|isProUnlocked|programSlots/);
+    },
+  },
+  {
+    name: 'a season programme goes by the season name, others keep their own',
+    run() {
+      const assert = require('node:assert/strict');
+      const { SEASON_PROGRAM_IDS } = require('../../.test-dist/lib/programSeasons.js');
+      assert.equal(getSeasonProgramTitleKey(SEASON_PROGRAM_IDS.summer), 'season.programTitle.summer');
+      assert.equal(getSeasonProgramTitleKey(SEASON_PROGRAM_IDS.winter), 'season.programTitle.winter');
+      // Not a season programme: no rename, it keeps its catalogue name.
+      assert.equal(getSeasonProgramTitleKey('tpl_not_a_season'), null);
     },
   },
 ];

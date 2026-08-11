@@ -40,6 +40,16 @@ import {
 import { buildHomeWidgetPayload } from './src/lib/widgetPayload';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
+import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
+import {
+  addActiveProgram,
+  evaluateProgramAdoption,
+  removeActiveProgram,
+} from './src/lib/activeProgramSet';
+import {
+  buildReadyProgramPlanId,
+  buildReadyProgramWorkoutPlan,
+} from './src/lib/programAdoption';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
 import { computePostSessionInsight, PostSessionInsight } from './src/lib/postSessionInsight';
 import {
@@ -97,6 +107,7 @@ import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplic
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
   getSeasonForDate,
+  getSeasonProgramTitleKey,
   getSeasonProgramId,
   getSeasonProgramIds,
   orderSeasons,
@@ -1709,6 +1720,139 @@ function VinhaApp() {
 
   function handleStartReadyProgramSession(workoutTemplateId: string, sessionId: string, trimSets = false) {
     startReadyProgramSessionWithUnit(workoutTemplateId, sessionId, unitPreference, trimSets);
+  }
+
+  /**
+   * Take on a ready programme — what "Start season" promises.
+   *
+   * It ADDS. Nothing here ever drops a programme the reader already has: a
+   * season is another commitment, not a replacement for the week they built.
+   * The only thing standing between them and a fourth is the cap, and the only
+   * thing that removes a programme is the reader asking for it.
+   *
+   * Before this existed, `activePlanId` was written by the two onboarding
+   * finishes and nowhere else, so a season could be opened but never joined.
+   */
+  async function handleAdoptReadyProgram(workoutTemplateId: string) {
+    const template = getWorkoutTemplateById(workoutTemplateId);
+    if (!template) {
+      return;
+    }
+
+    // Already running this programme under some other plan id (an onboarding
+    // pick, say) — joining again would spend a cap slot on a duplicate.
+    if (activeProgramTemplateIds.includes(workoutTemplateId)) {
+      return;
+    }
+
+    const planId = buildReadyProgramPlanId(workoutTemplateId);
+    const decision = evaluateProgramAdoption({
+      activePlanIds: preferences.activePlanIds,
+      targetPlanId: planId,
+      proUnlocked: resolveProEntitlement(preferences).unlocked,
+    });
+
+    if (decision.kind === 'already_active') {
+      return;
+    }
+
+    if (decision.kind === 'blocked') {
+      // Full on the free tier is a sale; full on Pro is not, and sending a
+      // paying reader to the paywall would be selling them what they own.
+      if (decision.canUpgrade) {
+        navigate({ tab: 'profile', screen: 'premium' });
+        return;
+      }
+      showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
+      return;
+    }
+
+    const dayLabels = preferences.setupAvailableDays.length > 0
+      ? preferences.setupAvailableDays
+      : DEFAULT_RHYTHM_BY_DAYS[preferences.setupDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+
+    const plan = buildReadyProgramWorkoutPlan({
+      workoutTemplateId,
+      programName: formatWorkoutDisplayLabel(template.name),
+      sessionIds: template.sessions.map((session) => session.id),
+      dayLabels,
+      now: new Date().toISOString(),
+    });
+
+    await upsertWorkoutPlan(plan);
+    const nextActivePlanIds = addActiveProgram(preferences.activePlanIds, plan.id);
+    await updatePreferences({
+      activePlanIds: nextActivePlanIds,
+      // Only lead with it when there was nothing to lead with. Joining a season
+      // must not quietly demote the programme already at the top of Home.
+      activePlanId: preferences.activePlanId ?? plan.id,
+    });
+    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+  }
+
+  /**
+   * Which programmes the active plans actually point at.
+   *
+   * Plan ids are not programme ids: onboarding writes onboarding_plan_<id> and
+   * adoption writes ready_plan_<id>, so a reader who picked the season
+   * programme during onboarding holds a different plan id for the same
+   * programme. Membership has to be asked of the template, not the plan.
+   */
+  const activeProgramTemplateIds = useMemo(() => {
+    const byId = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
+    return preferences.activePlanIds
+      .map((planId) => byId.get(planId)?.entries[0]?.workoutTemplateId ?? null)
+      .filter((id): id is string => Boolean(id));
+  }, [database.workoutPlans, preferences.activePlanIds]);
+
+  /**
+   * The programmes running alongside the one Home leads with.
+   *
+   * Home's hero still belongs to a single plan; these are the rest, listed
+   * under it so a season the reader joined is visible rather than merely
+   * stored.
+   */
+  const homeOtherPrograms = useMemo(() => {
+    const byId = new Map(database.workoutPlans.map((plan) => [plan.id, plan]));
+    return preferences.activePlanIds
+      .filter((planId) => planId !== preferences.activePlanId)
+      .map((planId) => {
+        const plan = byId.get(planId);
+        const templateId = plan?.entries[0]?.workoutTemplateId ?? null;
+        const template = templateId ? getWorkoutTemplateById(templateId) : null;
+        if (!plan) {
+          return null;
+        }
+        const days = template?.daysPerWeek ?? plan.entries.length;
+        // A season programme goes by the season's name, not the template's:
+        // the reader joined "Kesäkunto" and the template is called "RUN".
+        // One helper decides that for every surface, because computing it
+        // separately per screen is what put three different names on one
+        // programme today.
+        const seasonTitleKey = templateId ? getSeasonProgramTitleKey(templateId) : null;
+        const title = seasonTitleKey
+          ? t(preferences.appLanguage, seasonTitleKey)
+          : template
+            ? getReadyTemplatePresentation(template, preferences.appLanguage, days).title
+            : formatWorkoutDisplayLabel(plan.name || '');
+        return {
+          planId,
+          title,
+          meta: t(preferences.appLanguage, 'programs.card.days', { count: days }),
+        };
+      })
+      .filter((row): row is { planId: string; title: string; meta: string } => row !== null);
+  }, [database.workoutPlans, preferences.activePlanIds, preferences.activePlanId, preferences.appLanguage]);
+
+  /** The reader dropping a programme — the only path that removes one. */
+  async function handleRemoveActiveProgram(planId: string) {
+    await updatePreferences({
+      activePlanIds: removeActiveProgram(preferences.activePlanIds, planId),
+      activePlanId:
+        preferences.activePlanId === planId
+          ? removeActiveProgram(preferences.activePlanIds, planId)[0] ?? null
+          : preferences.activePlanId,
+    });
   }
 
   function handleStartReadyProgram(workoutTemplateId: string) {
@@ -4663,13 +4807,15 @@ function VinhaApp() {
           days: seasonProgramTemplate?.daysPerWeek ?? 0,
           fingerprint: seasonProgramTemplate ? buildProgramFingerprint(seasonProgramTemplate) : [],
         }}
-        running={homeActivePlanCard?.programId === seasonProgramId}
+        // "Start season" used to open the season programme's page and stop
+        // there, so the button's own sentence was never true and the season
+        // could not be joined at all. It joins now, and joining ADDS: the
+        // reader's own programme stays exactly where it was.
+        running={activeProgramTemplateIds.includes(seasonProgramId)}
+        onJoinSeason={() => void handleAdoptReadyProgram(seasonProgramId)}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         onOpenProgram={handleOpenReadyProgramDetail}
         onStartToday={() => {
-          // Already on it: start today's session. Not on it yet: open the
-          // season program so joining is a deliberate choice rather than a
-          // button that silently replaces whatever they were running.
           if (homeActivePlanCard?.programId === seasonProgramId && homeActivePlanCard.nextSession?.id) {
             handleStartReadyProgramSession(seasonProgramId, homeActivePlanCard.nextSession.id);
             return;
@@ -4752,6 +4898,15 @@ function VinhaApp() {
         language={preferences.appLanguage}
         profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
+        otherPrograms={homeOtherPrograms}
+        onOpenOtherProgram={(planId) => {
+          const plan = database.workoutPlans.find((entry) => entry.id === planId);
+          const templateId = plan?.entries[0]?.workoutTemplateId;
+          if (templateId) {
+            handleOpenReadyProgramDetail(templateId);
+          }
+        }}
+        onRemoveOtherProgram={(planId) => void handleRemoveActiveProgram(planId)}
         availableEquipment={availableEquipmentForDrills}
         greetingState={homeGreetingState}
         widgetPrompt={

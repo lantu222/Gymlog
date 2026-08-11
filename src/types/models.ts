@@ -360,7 +360,23 @@ export interface AppPreferences {
    */
   strengthGoals: StrengthGoal[];
   dismissedTipIds: string[];
+  /**
+   * The programme Home leads with. Kept as the primary while `activePlanIds`
+   * carries the full set, so every screen that only ever wanted one still has
+   * one to read.
+   */
   activePlanId: string | null;
+  /**
+   * Every programme the reader is running, in the order they took them on.
+   *
+   * The app held exactly one programme until a season needed to arrive without
+   * evicting the reader's own. This is deliberately its own list rather than
+   * `workoutPlans.filter(isActive)`: onboarding never deactivated the plan it
+   * replaced, so old runs leave `isActive` plans lying in storage, and deriving
+   * the set would resurrect them all at once. Migrated from `activePlanId` on
+   * load — see normalizeDatabase.
+   */
+  activePlanIds: string[];
   /**
    * Feature flag for the Programs-tab redesign: when true the second tab lands
    * on ProgramsHomeScreen; when false it keeps the legacy exercise list.
