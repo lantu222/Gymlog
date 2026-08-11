@@ -521,10 +521,19 @@ export function HomeScreen({
                   {index + 1}
                 </Text>
               </View>
-              <Text style={styles.planExerciseName} numberOfLines={1}>
-                {row.name}
-              </Text>
-              <Text style={styles.planExerciseScheme}>{row.schemeLabel}</Text>
+              {/* The name gets the row to itself and the scheme sits under it.
+                  Side by side, "Tankosoutu kumarrettuna Smith-laitteessa" lost
+                  its ending to "3×10" — and the whole point of giving every
+                  exercise a Finnish name is that the reader can read it. The
+                  session total ("7 liikettä · 19 sarjaa") is already in the
+                  header above; per-row sets only become something to act on in
+                  the logger. */}
+              <View style={styles.planExerciseCopy}>
+                <Text style={styles.planExerciseName} numberOfLines={2}>
+                  {row.name}
+                </Text>
+                <Text style={styles.planExerciseScheme}>{row.schemeLabel}</Text>
+              </View>
               {/* Changing a lift belongs next to the lift, not behind a menu
                   that says "swap any exercise" while showing you none. Only on
                   rows whose slot can be identified — a button that cannot
@@ -1608,8 +1617,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   planExerciseNumberTextSwapped: { color: '#FFFFFF' },
-  planExerciseName: {
+  planExerciseCopy: {
     flex: 1,
+    gap: 1,
+  },
+  planExerciseName: {
     color: theme.ink,
     fontSize: 14.5,
     lineHeight: 19,
