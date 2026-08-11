@@ -14,6 +14,8 @@ import { appInfo, layout } from '../theme';
 import { AppLanguage, AppPreferences } from '../types/models';
 
 interface SettingsScreenProps {
+  /** Demo build only: create and adopt a one-session test programme. */
+  onCreateDemoProgram?: () => void;
   preferences: AppPreferences;
   /** ISO timestamp of the first completed session — the honest "member since". */
   firstSessionAt: string | null;
@@ -218,6 +220,7 @@ export function SettingsScreen({
   onOpenAiInfo,
   onOpenLegal,
   onResetAllData,
+  onCreateDemoProgram,
 }: SettingsScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -523,6 +526,20 @@ export function SettingsScreen({
                 }
               />
             </View>
+            {/* One real session, one real week: logging it once genuinely
+                completes the plan, so the completion card can be walked on a
+                device without faking a single number. */}
+            {onCreateDemoProgram ? (
+              <View style={[styles.card, styles.demoCardGap]}>
+                <Row
+                  icon="calendar"
+                  title={t(language, 'settings.demoOneSession')}
+                  sub={t(language, 'settings.demoOneSession.sub')}
+                  last
+                  onPress={onCreateDemoProgram}
+                />
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -584,6 +601,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     borderRadius: 18,
     ...CARD_SHADOW,
+  },
+  demoCardGap: {
+    marginTop: 10,
   },
   profileChip: {
     flexDirection: 'row',

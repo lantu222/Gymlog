@@ -25,6 +25,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { CutSurface } from '../components/CutSurface';
+import { LAYERS_MOTIF, PROGRAM_COVER_STYLES } from '../lib/programVisualIdentity';
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -41,7 +42,6 @@ import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 // as a gradient, with a single-stroke signature motif. oklch from the mock is
 // pre-converted to sRGB here (RN has no oklch). Each Explore card cycles a style
 // so the catalog stays visually distinct without photography.
-const LAYERS_MOTIF = 'M12 3l8 4.5-8 4.5-8-4.5 8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8 4.5 8-4.5';
 /**
  * How far up the cover's left edge the seam cuts (design: 82%).
  *
@@ -50,13 +50,9 @@ const LAYERS_MOTIF = 'M12 3l8 4.5-8 4.5-8-4.5 8-4.5z M4 12l8 4.5 8-4.5 M4 16.5l8
  */
 const SEAM_RATIO = 0.82;
 
-const COVER_STYLES: Array<{ cover: [string, string]; tile: [string, string]; motif: string }> = [
-  { cover: ['#7699FB', '#2D48C0'], tile: ['#82A1F6', '#4767D3'], motif: LAYERS_MOTIF }, // hue 268
-  { cover: ['#00B1E0', '#0068A2'], tile: ['#15B6DF', '#0083B7'], motif: 'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10' }, // 222 barbell
-  { cover: ['#D179CA', '#8D1A89'], tile: ['#D285CB', '#A644A0'], motif: 'M12 3a9 9 0 100 18 9 9 0 000-18z M12 8a4 4 0 100 8 4 4 0 000-8z' }, // 330 rings
-  { cover: ['#37B976', '#007322'], tile: ['#55BD82', '#008D44'], motif: 'M13 2L4 14h7l-1 8 9-12h-7z' }, // 156 bolt
-  { cover: ['#EB7A52', '#A71000'], tile: ['#E98664', '#BF4306'], motif: 'M3 10.5 12 3l9 7.5 M5 9.5V20h14V9.5' }, // 40 house
-];
+// The palette itself moved to lib/programVisualIdentity: the detail and day
+// heroes wear the same colour as the cover, so the values need one home.
+const COVER_STYLES = PROGRAM_COVER_STYLES;
 const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
 
 /** Seasons get the same header treatment as a category, in their own hue. */

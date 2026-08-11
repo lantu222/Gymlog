@@ -6,22 +6,18 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
 import { ProgramPhotoSlot } from '../components/ProgramPhotoSlot';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import {
-  classifySessionFocus,
-  getDefaultCooldown,
-  getDefaultWarmup,
-  SessionRoutineBlock,
 } from '../lib/homeSessionHero';
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
-import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
+import { EMPHASIS_AREA_KEYS, resolveProgramEmphasis } from '../lib/programEmphasis';
+import { programCoverStyle } from '../lib/programVisualIdentity';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import type { AppLanguage } from '../types/models';
-import type { WorkoutRole } from '../features/workout/workoutTypes';
 
 const DAY_KEYS: I18nKey[] = [
   'setup.day.mon',
@@ -32,30 +28,6 @@ const DAY_KEYS: I18nKey[] = [
   'setup.day.sat',
   'setup.day.sun',
 ];
-
-const ROLE_KEYS: Record<string, I18nKey> = {
-  primary: 'detail.role.primary',
-  secondary: 'detail.role.secondary',
-  accessory: 'detail.role.accessory',
-};
-
-/**
- * The role tag's wash. Light keeps its three pastels; dark cannot — a pastel
- * pill with dark ink is a lit chip on a near-black page, and there are up to
- * seven per session card.
- */
-const roleTints = (theme: Theme): Record<string, { bg: string; ink: string }> =>
-  theme === darkTheme
-    ? {
-        primary: { bg: 'rgba(167, 139, 250, 0.16)', ink: '#C4B0FF' },
-        secondary: { bg: 'rgba(79, 168, 255, 0.14)', ink: '#8CC6FF' },
-        accessory: { bg: 'rgba(255, 255, 255, 0.07)', ink: theme.faint },
-      }
-    : {
-        primary: { bg: '#EDE4FF', ink: '#5B21B6' },
-        secondary: { bg: '#E4EEFF', ink: '#2C4E9A' },
-        accessory: { bg: '#F2F1F5', ink: '#7A7387' },
-      };
 
 /**
  * "Ylävartalo · raskas" becomes "YLÄ" on a 44px weekday chip.
@@ -92,11 +64,27 @@ const ROLE_LEVEL_KEYS: Record<string, I18nKey> = {
  */
 const HERO_SEAM_RATIO = 0.9;
 
+/**
+ * The emphasis bar's fixed violet ramp (design: GAINER Hourglass Shape).
+ * Deliberately NOT the programme's identity hue: the bar is data tied to its
+ * legend, and four shades of one violet stay readable next to any hero
+ * colour. Order matters — the darkest shade goes to the largest slice.
+ */
+const EMPHASIS_RAMP: Record<string, string> = {
+  glutesLegs: '#7C3AED',
+  shouldersBack: '#A98BF0',
+  chestArms: '#CDBBF8',
+  core: '#E6DBFB',
+  other: '#C9C3D6',
+};
+
 interface ProgramDetailScreenProps {
   program: ProgramDetailViewModel;
   onBack: () => void;
   onPrimaryAction: () => void;
   onStartSession: (sessionId: string) => void;
+  /** The day row's destination — the day view (design screen 2). */
+  onOpenSession?: (sessionId: string) => void;
   onEdit?: () => void;
   destructiveActionLabel?: string;
   destructiveActionTitle?: string;
@@ -182,59 +170,6 @@ function formatPlanSessionTitle(
   return `${t(language, 'detail.day', { index: index + 1 })}. ${localizeSessionName(sessionName, language)}`;
 }
 
-interface SessionContentRow {
-  id: string;
-  name: string;
-  prescription: string;
-  role?: WorkoutRole;
-  /** Drill names arrive translated; template exercise names do not. */
-  localized?: boolean;
-}
-
-/**
- * Warmup, workout, cooldown — from the same source the player runs.
- *
- * Both ends used to be guessed from exercise names (`/warm|prep|activation/`,
- * `/cooldown|stretch|breath|recovery/`), which stole 17 real prescribed
- * exercises out of the workout list: a postnatal program's "Pelvic Floor
- * Activation (Kegel)" read as a warmup, and a mobility program's entire
- * content read as a cooldown. When nothing matched, the screen invented a
- * "Dynamic Warm-Up · 5-8 min" row that named no drill at all.
- *
- * Now both blocks come from `getDefaultWarmup`/`getDefaultCooldown` — the
- * exact drills Home lists and the guided player counts down — so this screen
- * and the session agree about what the session is.
- */
-function buildSessionContentSections(
-  session: ProgramDetailViewModel['sessions'][number],
-  language: AppLanguage,
-  availableEquipment: string[] | null,
-) {
-  const focus = classifySessionFocus(session.exercises.map((exercise) => exercise.name));
-  const toRows = (block: SessionRoutineBlock, kind: string): SessionContentRow[] =>
-    block.drills.map((drill, index) => ({
-      id: `${session.id}:${kind}:${index}`,
-      name: drill.name,
-      prescription: drill.schemeLabel,
-      localized: true,
-    }));
-
-  return [
-    {
-      titleKey: 'detail.warmup' as I18nKey,
-      items: toRows(getDefaultWarmup(focus, language, availableEquipment), 'warmup'),
-    },
-    {
-      titleKey: 'ai.signal.workout' as I18nKey,
-      items: session.exercises as SessionContentRow[],
-    },
-    {
-      titleKey: 'detail.cooldown' as I18nKey,
-      items: toRows(getDefaultCooldown(focus, language, availableEquipment), 'cooldown'),
-    },
-  ].filter((section) => section.items.length > 0);
-}
-
 function getTrainingDayIndexes(sessionCount: number) {
   if (sessionCount <= 1) {
     return new Set([0]);
@@ -254,6 +189,7 @@ export function ProgramDetailScreen({
   program,
   onBack,
   onStartSession,
+  onOpenSession,
   onEdit,
   progressionRules = null,
   audience = null,
@@ -271,7 +207,17 @@ export function ProgramDetailScreen({
 }: ProgramDetailScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const tints = roleTints(theme);
+  // The programme's own colour, the same one its browse cover wears.
+  const identity = programCoverStyle(program.id);
+  const emphasis = useMemo(
+    () =>
+      resolveProgramEmphasis(
+        program.sessions.map((session) => ({
+          exercises: session.exercises.map((exercise) => ({ name: exercise.name, sets: exercise.sets })),
+        })),
+      ),
+    [program.sessions],
+  );
   const [confirmVisible, setConfirmVisible] = useState(false);
   const { width: heroWidth } = useWindowDimensions();
   /**
@@ -373,8 +319,8 @@ export function ProgramDetailScreen({
                 <Path d={`M0 0 H${heroWidth} V210 L0 ${210 * HERO_SEAM_RATIO} Z`} />
               </ClipPath>
               <SvgLinearGradient id="detailHero" x1="0" y1="0" x2="1" y2="1">
-                <Stop offset="0" stopColor="#7C7AD8" />
-                <Stop offset="1" stopColor="#3B2E91" />
+                <Stop offset="0" stopColor={identity.hero[0]} />
+                <Stop offset="1" stopColor={identity.hero[1]} />
               </SvgLinearGradient>
               <SvgLinearGradient id="detailHeroScrim" x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor="#1E1246" stopOpacity={0} />
@@ -517,84 +463,86 @@ export function ProgramDetailScreen({
           })}
         </View>
 
+        {emphasis ? (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.emphasisTitle}>{t(language, 'detail.emphasis.title')}</Text>
+            </View>
+            <View style={styles.emphasisCard}>
+              <View style={styles.emphasisBar}>
+                {emphasis.slices.map((slice) => (
+                  <View
+                    key={slice.area}
+                    style={[
+                      styles.emphasisSegment,
+                      { flex: slice.sets, backgroundColor: EMPHASIS_RAMP[slice.area] },
+                    ]}
+                  />
+                ))}
+              </View>
+              <View style={styles.emphasisLegend}>
+                {emphasis.slices.map((slice) => (
+                  <View key={slice.area} style={styles.emphasisLegendItem}>
+                    <View style={[styles.emphasisDot, { backgroundColor: EMPHASIS_RAMP[slice.area] }]} />
+                    <Text style={styles.emphasisLegendText}>
+                      {t(language, EMPHASIS_AREA_KEYS[slice.area])}{' '}
+                      <Text style={styles.emphasisLegendPercent}>{slice.percent} %</Text>
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
+        ) : null}
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t(language, 'detail.workouts')}</Text>
           <Text style={styles.sectionMeta}>
             {t(language, 'detail.inRotation', { count: program.sessions.length })}
           </Text>
         </View>
+        {/* Compact rows now (design: "päivärivi vie tänne") — the full
+            content moved to the day view, where roles, rests and the warm-up
+            have the room the inline list never gave them. The row still keeps
+            its quick Aloita, because starting today's session is the most
+            common thing done here. */}
         <View style={styles.workoutList}>
-          {program.sessions.map((session, index) => {
-            const contentSections = buildSessionContentSections(session, language, availableEquipment);
-
-            return (
-              <View key={session.id} style={styles.workoutCard}>
-                <View style={styles.workoutTopRow}>
-                  <View style={styles.workoutIndexTile}>
-                    <Text style={styles.workoutIndexText}>{index + 1}</Text>
-                  </View>
-                  <View style={styles.workoutCopy}>
-                    <Text style={styles.workoutName} numberOfLines={1} adjustsFontSizeToFit>
-                      {formatPlanSessionTitle(session, index, displayTitle, language)}
-                    </Text>
-                    <Text style={styles.workoutMeta}>
-                      {durationMinutes > 0 ? `~${durationMinutes} min` : t(language, 'detail.flexible')} -{' '}
-                      {t(
-                        language,
-                        session.exerciseCount === 1 ? 'tpl.exerciseOne' : 'tpl.exerciseMany',
-                        { count: session.exerciseCount },
-                      )}
-                    </Text>
-                  </View>
-                  <Pressable onPress={() => onStartSession(session.id)} style={styles.workoutAction}>
-                    <Text style={styles.workoutActionText}>{t(language, 'detail.start')}</Text>
-                  </Pressable>
+          {program.sessions.map((session, index) => (
+            <Pressable
+              key={session.id}
+              onPress={() => (onOpenSession ?? onStartSession)(session.id)}
+              style={({ pressed }) => [styles.workoutCard, pressed && styles.workoutCardPressed]}
+            >
+              <View style={styles.workoutTopRow}>
+                <View style={styles.workoutIndexTile}>
+                  <Text style={styles.workoutIndexText}>{index + 1}</Text>
                 </View>
-                <Text style={styles.workoutFocus} numberOfLines={2}>
-                  {getWorkoutFocus(session, language)}
-                </Text>
-                <View style={styles.sessionContentList}>
-                  {contentSections.map((section) => (
-                    <View key={`${session.id}:${section.titleKey}`} style={styles.sessionContentSection}>
-                      <Text style={styles.sessionContentTitle}>{t(language, section.titleKey)}</Text>
-                      {section.items.map((exercise) => (
-                        <View key={exercise.id} style={styles.sessionContentRow}>
-                          <Text style={styles.sessionContentName} numberOfLines={1}>
-                            {exercise.localized ? exercise.name : exerciseNameLabel(language, exercise.name)}
-                          </Text>
-                          {/* What the exercise is FOR, read off the template's
-                              own role rather than written per program. The list
-                              gave five lifts equal weight, so the two that
-                              decide the session looked like the two that do
-                              not. */}
-                          {exercise.role && ROLE_KEYS[exercise.role] ? (
-                            <View
-                              style={[
-                                styles.roleTag,
-                                { backgroundColor: tints[exercise.role]?.bg ?? theme.purpleSoft },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.roleTagText,
-                                  { color: tints[exercise.role]?.ink ?? theme.purpleDark },
-                                ]}
-                              >
-                                {t(language, ROLE_KEYS[exercise.role])}
-                              </Text>
-                            </View>
-                          ) : null}
-                          <Text style={styles.sessionContentMeta} numberOfLines={1}>
-                            {exercise.prescription}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  ))}
+                <View style={styles.workoutCopy}>
+                  <Text style={styles.workoutName} numberOfLines={1} adjustsFontSizeToFit>
+                    {formatPlanSessionTitle(session, index, displayTitle, language)}
+                  </Text>
+                  <Text style={styles.workoutMeta}>
+                    {t(
+                      language,
+                      session.exerciseCount === 1 ? 'tpl.exerciseOne' : 'tpl.exerciseMany',
+                      { count: session.exerciseCount },
+                    )}
+                    {session.totalSets > 0 ? ` · ${session.totalSets} ${t(language, 'detail.day.sets').toLowerCase()}` : ''}
+                    {durationMinutes > 0 ? ` · ~${durationMinutes} min` : ''}
+                  </Text>
                 </View>
+                <Pressable hitSlop={6} onPress={() => onStartSession(session.id)} style={styles.workoutAction}>
+                  <Text style={styles.workoutActionText}>{t(language, 'detail.start')}</Text>
+                </Pressable>
+                <Svg viewBox="0 0 24 24" width={16} height={16}>
+                  <Path d="M9 6l6 6-6 6" stroke={theme.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                </Svg>
               </View>
-            );
-          })}
+              <Text style={styles.workoutFocus} numberOfLines={2}>
+                {getWorkoutFocus(session, language)}
+              </Text>
+            </Pressable>
+          ))}
         </View>
 
         {/* How the weight goes up.
@@ -1041,6 +989,60 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     padding: spacing.md,
     gap: spacing.sm,
   },
+  workoutCardPressed: {
+    transform: [{ scale: 0.985 }],
+  },
+  emphasisTitle: {
+    color: theme.faint,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+  },
+  emphasisCard: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    padding: 14,
+  },
+  emphasisBar: {
+    flexDirection: 'row',
+    height: 12,
+    borderRadius: 6,
+    overflow: 'hidden',
+    gap: 2,
+  },
+  emphasisSegment: {
+    height: '100%',
+  },
+  emphasisLegend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    columnGap: 14,
+    rowGap: 8,
+    marginTop: 11,
+  },
+  emphasisLegendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  emphasisDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 3,
+  },
+  emphasisLegendText: {
+    color: theme.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  emphasisLegendPercent: {
+    color: theme.ink,
+    fontWeight: '800',
+  },
   workoutTopRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1091,48 +1093,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
-  },
-  sessionContentList: {
-    overflow: 'hidden',
-    borderRadius: radii.md,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surfaceSoft,
-  },
-  sessionContentSection: {
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  sessionContentTitle: {
-    backgroundColor: theme.surfaceSoft,
-    color: theme.ink,
-    fontSize: 14,
-    fontWeight: '900',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  sessionContentRow: {
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    backgroundColor: theme.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  sessionContentName: {
-    flex: 1,
-    color: theme.ink,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  sessionContentMeta: {
-    color: theme.muted,
-    fontSize: 12,
-    fontWeight: '800',
   },
   ownVersionBlock: {
     marginTop: 26,

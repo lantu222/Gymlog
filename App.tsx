@@ -135,6 +135,7 @@ import {
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
+import { programCoverIndex } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
@@ -200,6 +201,7 @@ import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
 import { isAiCoachLiveConfigured } from './src/lib/aiCoachClient';
 import { ProgressScreen } from './src/screens/ProgressScreen';
+import { ProgramDayScreen } from './src/screens/ProgramDayScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
 import { ProgramsHomeScreen, ProgramsExploreItem } from './src/screens/ProgramsHomeScreen';
 import { SeasonScreen } from './src/screens/SeasonScreen';
@@ -502,6 +504,7 @@ function getBackRoute(route: AppRoute): AppRoute | null {
     route.tab === 'workout' &&
     (route.screen === 'plans' ||
       route.screen === 'program' ||
+      route.screen === 'programDay' ||
       route.screen === 'template' ||
       route.screen === 'editor' ||
       route.screen === 'guided' ||
@@ -1145,7 +1148,7 @@ function VinhaApp() {
 
     if (
       route.tab === 'workout' &&
-      route.screen === 'program' &&
+      (route.screen === 'program' || route.screen === 'programDay') &&
       ((route.programType === 'ready' && !workout.templates.some((template) => template.id === route.workoutTemplateId)) ||
         (route.programType === 'custom' && !workoutTemplates.some((template) => template.id === route.workoutTemplateId)))
     ) {
@@ -1816,6 +1819,52 @@ function VinhaApp() {
   async function handleCompletionStartNext(planId: string, nextTemplateId: string) {
     await dismissCompletionCard(planId);
     await handleAdoptReadyProgram(nextTemplateId, { lead: true });
+  }
+
+  /**
+   * Demo build only (the Settings row that calls this is behind isDemoBuild).
+   *
+   * One real session in a one-week block: logging it once genuinely reaches
+   * 1/1, so the completion card can be walked on a device without faking a
+   * single number. The plan id prefix is what makes the block one week —
+   * see the demo_plan_ branch where Home counts the plan's weeks.
+   */
+  async function handleCreateDemoCompletionProgram() {
+    const now = new Date().toISOString();
+    const templateId = await upsertWorkoutTemplate({
+      name: 'Demo: yksi treeni',
+      sessions: [
+        {
+          name: 'Day 1: Full Body',
+          exercises: [
+            { name: 'Goblet Squat', targetSets: 2, repMin: 8, repMax: 10, restSeconds: 60, trackedDefault: true, libraryItemId: null },
+            { name: 'Push-Up', targetSets: 2, repMin: 8, repMax: 12, restSeconds: 60, trackedDefault: true, libraryItemId: null },
+          ],
+        },
+      ],
+    });
+    const sessions = getWorkoutTemplateSessions(templateId);
+    const planId = `demo_plan_${templateId}`;
+    await upsertWorkoutPlan({
+      id: planId,
+      name: 'Demo: yksi treeni',
+      mode: 'rotation',
+      entries: sessions.map((session, index) => ({
+        id: `${planId}_entry_${index + 1}`,
+        workoutTemplateId: templateId,
+        workoutTemplateSessionId: session.id,
+        label: `Day ${index + 1}`,
+        orderIndex: index,
+      })),
+      isActive: true,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await updatePreferences({
+      activePlanIds: addActiveProgram(preferences.activePlanIds, planId),
+      activePlanId: planId,
+    });
+    resetToRoute(ROOT_ROUTES.home);
   }
 
   async function handleCompletionRestart(planId: string) {
@@ -2690,10 +2739,13 @@ function VinhaApp() {
           activeWorkoutPlan.id.startsWith('onboarding_plan_') && setupSelection && preferences.recommendedProgramId
             ? composeProgramWeekForSelection(setupSelection, preferences.recommendedProgramId)?.weeks
             : undefined;
+        // The demo tester's block is one week by construction — see
+        // handleCreateDemoCompletionProgram.
+        const demoBlockWeeks = activeWorkoutPlan.id.startsWith('demo_plan_') ? 1 : undefined;
         const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
           completedSessions: completedSessionCount,
           sessionsPerWeek: sortedEntries.length,
-          totalWeeks: onboardingBlockWeeks,
+          totalWeeks: demoBlockWeeks ?? onboardingBlockWeeks,
         });
 
         return {
@@ -3381,7 +3433,7 @@ function VinhaApp() {
             blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
             days: template.daysPerWeek,
             minutes: template.estimatedSessionDuration,
-            coverIndex: index % 5,
+            coverIndex: programCoverIndex(template.id),
             fingerprint: buildProgramFingerprint(template),
             level: template.level,
             weeks: getReadyProgramBlockWeeks(template),
@@ -3408,7 +3460,7 @@ function VinhaApp() {
         blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
         days: template.daysPerWeek,
         minutes: template.estimatedSessionDuration,
-        coverIndex: index % 5,
+        coverIndex: programCoverIndex(template.id),
         fingerprint: buildProgramFingerprint(template),
         level: template.level,
         weeks: getReadyProgramBlockWeeks(template),
@@ -3501,7 +3553,7 @@ function VinhaApp() {
                   }),
                   days: template.daysPerWeek,
                   minutes: template.estimatedSessionDuration,
-                  coverIndex: index % 5,
+                  coverIndex: programCoverIndex(template.id),
                   fingerprint: buildProgramFingerprint(template),
                   level: template.level,
                   weeks: getReadyProgramBlockWeeks(template),
@@ -3526,7 +3578,7 @@ function VinhaApp() {
                 why: t(preferences.appLanguage, entry.whyKey, { days: template.daysPerWeek }),
                 days: template.daysPerWeek,
                 minutes: template.estimatedSessionDuration,
-                coverIndex: index % 5,
+                coverIndex: programCoverIndex(template.id),
                 fingerprint: buildProgramFingerprint(template),
                 level: template.level,
                 weeks: getReadyProgramBlockWeeks(template),
@@ -3674,7 +3726,7 @@ function VinhaApp() {
               blurb: '',
               days: template.daysPerWeek,
               minutes: template.estimatedSessionDuration,
-              coverIndex: index % 5,
+              coverIndex: programCoverIndex(template.id),
               fingerprint: buildProgramFingerprint(template),
               level: template.level,
               weeks: getReadyProgramBlockWeeks(template),
@@ -3693,7 +3745,7 @@ function VinhaApp() {
                 blurb: '',
                 days: custom.sessionCount,
                 minutes: 0,
-                coverIndex: index % 5,
+                coverIndex: programCoverIndex(custom.id),
                 fingerprint: [],
                 // A program the reader built has no declared level and no
                 // block length. Saying "beginner, 4 weeks" would be inventing
@@ -4129,6 +4181,15 @@ function VinhaApp() {
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
+        onOpenSession={(sessionId) =>
+          navigate({
+            tab: 'workout',
+            screen: 'programDay',
+            programType: route.programType,
+            workoutTemplateId: route.workoutTemplateId,
+            sessionId,
+          })
+        }
         onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId }) : undefined}
         destructiveActionLabel={route.programType === 'custom' ? 'Delete' : undefined}
         destructiveActionTitle={route.programType === 'custom' ? 'Delete workout' : undefined}
@@ -4138,6 +4199,47 @@ function VinhaApp() {
             : undefined
         }
         onDestructiveAction={route.programType === 'custom' ? () => void handleDeleteCustomWorkout(route.workoutTemplateId) : undefined}
+      />
+    ) : (
+      <View />
+    );
+  } else if (route.tab === 'workout' && route.screen === 'programDay') {
+    const readyTemplate = route.programType === 'ready' ? getWorkoutTemplateById(route.workoutTemplateId) : null;
+    const customTemplate = route.programType === 'custom' ? customWorkoutRuntimeMap[route.workoutTemplateId] ?? null : null;
+    const program = readyTemplate
+      ? buildReadyProgramDetail(
+          readyTemplate,
+          programInsightsByTemplateId[route.workoutTemplateId],
+          null,
+          [],
+          preferences.recommendedProgramId === route.workoutTemplateId && setupSelection
+            ? composeProgramWeekForSelection(setupSelection, route.workoutTemplateId)
+            : null,
+          preferences.appLanguage,
+        )
+      : customTemplate
+        ? buildCustomProgramDetail(customTemplate, programInsightsByTemplateId[route.workoutTemplateId], preferences.appLanguage)
+        : null;
+    const daySession = program?.sessions.find((session) => session.id === route.sessionId) ?? null;
+    const dayIndex = daySession ? program!.sessions.findIndex((session) => session.id === route.sessionId) : -1;
+
+    content = program && daySession ? (
+      <ProgramDayScreen
+        language={preferences.appLanguage}
+        programTitle={program.title}
+        templateId={route.workoutTemplateId}
+        session={daySession}
+        dayNumber={dayIndex + 1}
+        dayCount={program.sessions.length}
+        availableEquipment={availableEquipmentForDrills}
+        onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
+        onStart={() => {
+          if (route.programType === 'ready') {
+            handleStartReadyProgramSession(route.workoutTemplateId, route.sessionId);
+            return;
+          }
+          handleStartCustomProgramSession(route.workoutTemplateId, route.sessionId);
+        }}
       />
     ) : (
       <View />
@@ -4782,6 +4884,7 @@ function VinhaApp() {
     content = (
       <SettingsScreen
         preferences={preferences}
+        onCreateDemoProgram={() => void handleCreateDemoCompletionProgram()}
         firstSessionAt={lifetimeSummary.firstSessionAt}
         onOpenEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}

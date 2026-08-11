@@ -76,6 +76,13 @@ export type AppRoute =
     }
   | {
       tab: 'workout';
+      screen: 'programDay';
+      programType: 'ready' | 'custom';
+      workoutTemplateId: string;
+      sessionId: string;
+    }
+  | {
+      tab: 'workout';
       screen: 'empty';
     }
   | {

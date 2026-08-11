@@ -26,7 +26,10 @@ export interface ProgramDetailExerciseItem {
   id: string;
   name: string;
   role: WorkoutRole;
+  sets: number;
   prescription: string;
+  /** "tauko"-less rest range, e.g. "45–105 s" or "1,5–2,5 min". */
+  restLabel: string;
 }
 
 export interface ProgramDetailSessionItem {
@@ -34,6 +37,7 @@ export interface ProgramDetailSessionItem {
   name: string;
   orderIndex: number;
   exerciseCount: number;
+  totalSets: number;
   preview: string;
   focus: string | null;
   guidance: SessionGuidance | null;
@@ -87,6 +91,23 @@ function buildPrescription(
   return isTimedTrackingMode(trackingMode) ? `${sets} × ${reps} s` : `${sets} × ${reps}`;
 }
 
+/**
+ * "tauko 45–105 s" / "tauko 1,5–2,5 min" — seconds until the minute reads
+ * cleaner, matching the design's day view.
+ */
+function buildRestLabel(minSeconds: number, maxSeconds: number): string {
+  const lo = Math.max(0, minSeconds);
+  const hi = Math.max(lo, maxSeconds);
+  if (hi < 120) {
+    return lo === hi ? `${lo} s` : `${lo}–${hi} s`;
+  }
+  const toMin = (value: number) => {
+    const minutes = value / 60;
+    return Number.isInteger(minutes) ? `${minutes}` : `${minutes.toFixed(1).replace('.', ',')}`;
+  };
+  return lo === hi ? `${toMin(lo)} min` : `${toMin(lo)}–${toMin(hi)} min`;
+}
+
 function buildSessionPreview(exercises: Array<{ exerciseName: string }>) {
   return exercises.slice(0, 3).map((exercise) => exercise.exerciseName).join(' | ');
 }
@@ -108,11 +129,14 @@ function buildSessionItems(
       focus: sessionFocusById[session.id] ?? null,
       guidance: template ? buildSessionGuidance(template, session) : null,
       statusLine: sessionStatusById[session.id] ?? null,
+      totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.sets, 0),
       exercises: session.exercises.map((exercise) => ({
         id: exercise.id,
         name: exercise.exerciseName,
         role: exercise.role,
+        sets: exercise.sets,
         prescription: buildPrescription(exercise.repsMin, exercise.repsMax, exercise.sets, exercise.trackingMode),
+        restLabel: buildRestLabel(exercise.restSecondsMin, exercise.restSecondsMax),
       })),
     }));
 }

@@ -214,7 +214,12 @@ module.exports = [
       // catalog row it fed; the category tiles are the way in now.
       assert.doesNotMatch(appSource, /const programsExploreItems = useMemo/);
       assert.match(appSource, /getReadyProgramContent\(template\.id, preferences\.appLanguage\)\?\.summary/);
-      assert.match(appSource, /coverIndex: index % 5/);
+      // Identity, not position: `index % 5` painted the same programme a
+      // different colour in every list it appeared in. The colour now hashes
+      // from the template id, so the browse cover, the detail hero and the
+      // day hero agree.
+      assert.doesNotMatch(appSource, /coverIndex: index % 5/);
+      assert.match(appSource, /coverIndex: programCoverIndex\(/);
       assert.match(appSource, /const programsCustomItems = useMemo/);
       // Continue is built from logged sessions, and never from the active
       // program — that one already owns the hero and the whole week above.

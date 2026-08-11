@@ -47,8 +47,16 @@ module.exports = [
       assert.match(programDetailSource, /shortSessionLabel\(session, language\)/);
       assert.doesNotMatch(programDetailSource, /scheduleDot/);
       // Every exercise says what it is FOR, read off the template's own role
-      // rather than written per program.
-      assert.match(programDetailSource, /ROLE_KEYS\[exercise\.role\]/);
+      // rather than written per program. The roles moved with the exercise
+      // list into the day view (design: GAINER Hourglass Shape screen 2) —
+      // the programme page shows compact day rows that open it.
+      const programDaySource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
+        'utf8',
+      );
+      assert.match(programDaySource, /ROLE_TAG_KEYS\[exercise\.role/);
+      assert.match(programDetailSource, /onOpenSession/);
+      assert.match(programDetailSource, /resolveProgramEmphasis/);
       assert.match(i18nSource, /'detail\.role\.primary': 'ANCHOR'/);
       assert.match(i18nSource, /'detail\.role\.primary': 'ANKKURI'/);
       // The summary comes back in the reader's language now. It was fetched
@@ -61,11 +69,15 @@ module.exports = [
       assert.match(programDetailSource, /t\(language, 'detail\.startNext'\)/);
       assert.match(i18nSource, /'detail\.startNext': 'Start next workout'/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);
-      assert.match(programDetailSource, /buildSessionContentSections/);
-      assert.match(programDetailSource, /detail\.warmup/);
-      assert.match(programDetailSource, /ai\.signal\.workout/);
-      assert.match(programDetailSource, /detail\.cooldown/);
-      assert.match(programDetailSource, /sessionContentSection/);
+      // The inline warmup/workout/cooldown listing left with the day view:
+      // the programme page shows compact rows, and the full session — the
+      // same generated warmup and cooldown Home shows — lives one tap in.
+      assert.doesNotMatch(programDetailSource, /buildSessionContentSections/);
+      assert.doesNotMatch(programDetailSource, /sessionContentSection/);
+      assert.match(programDaySource, /getDefaultWarmup/);
+      assert.match(programDaySource, /getDefaultCooldown/);
+      assert.match(programDaySource, /detail\.day\.warmup/);
+      assert.match(programDaySource, /detail\.day\.cooldown/);
       assert.match(programDetailSource, /workoutCard/);
 
       // How the weight goes up. The catalog carries four rules per template
