@@ -379,7 +379,9 @@ module.exports = [
       // And the copy says the rule, because a reader whose own workouts score
       // nothing deserves to know why before they log one.
       const i18n = read('src', 'lib', 'i18n.ts');
-      assert.match(i18n, /Kauden ohjelman ulkopuolinen työ ei pisteytä/);
+      // Reworded 2026-08-11 ("treeni" not "työ") when the rules became a
+      // worked example; the claim it guards is unchanged.
+      assert.match(i18n, /Kauden ohjelman ulkopuolinen treeni ei pisteytä/);
       assert.match(i18n, /eikä se vaihdu/);
     },
   },
