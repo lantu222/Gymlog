@@ -524,10 +524,16 @@ export function ProgramDetailScreen({
           })}
         </View>
         {rhythmIncomplete ? (
+          /* Both directions. The copy assumed a day had been removed, so
+             adding one first read "Valitse vielä -1 päivä". */
           <Text style={styles.rhythmHint}>
-            {t(language, 'detail.rhythm.pickAnother', {
-              count: committedDays.length - (draftDays?.length ?? 0),
-            })}
+            {t(
+              language,
+              (draftDays?.length ?? 0) < committedDays.length
+                ? 'detail.rhythm.pickAnother'
+                : 'detail.rhythm.dropOne',
+              { count: Math.abs(committedDays.length - (draftDays?.length ?? 0)) },
+            )}
           </Text>
         ) : null}
 
