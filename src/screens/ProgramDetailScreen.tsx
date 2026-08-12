@@ -272,17 +272,6 @@ export function ProgramDetailScreen({
     const levelKey = ROLE_LEVEL_KEYS[(program.badges[1] ?? '').toLowerCase()];
     return levelKey ? t(language, levelKey) : null;
   }, [language, program.badges]);
-  const trainingDaySessions = useMemo(() => {
-    const map = new Map<number, string>();
-    const indexes = [...getTrainingDayIndexes(program.sessions.length)].sort((a, b) => a - b);
-    indexes.forEach((dayIndex, order) => {
-      const session = program.sessions[order];
-      if (session) {
-        map.set(dayIndex, session.name);
-      }
-    });
-    return map;
-  }, [program.sessions]);
   const nextSession = program.sessions[0] ?? null;
   const durationMinutes = parseMinutesFromBadges(program.badges);
   // Eight weeks is the catalog's default block; the strip states the same
@@ -340,6 +329,17 @@ export function ProgramDetailScreen({
     }
     setDraftDays(next);
   };
+
+  const trainingDaySessions = useMemo(() => {
+    const map = new Map<number, string>();
+    shownDays.forEach((dayIndex, order) => {
+      const session = program.sessions[order];
+      if (session) {
+        map.set(dayIndex, session.name);
+      }
+    });
+    return map;
+  }, [program.sessions, shownDays]);
 
   const scheduleSlots = useMemo(
     () =>
@@ -788,6 +788,7 @@ export function ProgramDetailScreen({
 
       {hasDestructiveAction ? (
         <ConfirmDialog
+          language={language}
           visible={confirmVisible}
           title={destructiveActionTitle!}
           message={destructiveActionMessage!}

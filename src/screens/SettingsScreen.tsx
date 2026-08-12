@@ -547,6 +547,7 @@ export function SettingsScreen({
       </ScrollView>
 
       <ConfirmDialog
+        language={language}
         visible={resetVisible}
         title={t(language, 'settings.resetData')}
         message={t(language, 'settings.resetDialog.message')}

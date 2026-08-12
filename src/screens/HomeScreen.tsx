@@ -1269,6 +1269,7 @@ export function HomeScreen({
           rather than storing a mode, because "how is today going" has no
           meaning tomorrow. */}
       <ConfirmDialog
+        language={language}
         visible={confirmingRemovePlan}
         destructive
         title={t(language, 'home.adaptSheet.remove.confirmTitle')}

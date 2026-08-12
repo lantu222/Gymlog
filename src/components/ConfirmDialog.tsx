@@ -1,7 +1,9 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
+import { AppLanguage } from '../types/models';
 import { radii, spacing } from '../theme';
 
 interface ConfirmDialogProps {
@@ -9,6 +11,7 @@ interface ConfirmDialogProps {
   title: string;
   message: string;
   confirmLabel: string;
+  language: AppLanguage;
   cancelLabel?: string;
   destructive?: boolean;
   onCancel: () => void;
@@ -20,7 +23,8 @@ export function ConfirmDialog({
   title,
   message,
   confirmLabel,
-  cancelLabel = 'Cancel',
+  language,
+  cancelLabel,
   destructive,
   onCancel,
   onConfirm,
@@ -34,7 +38,7 @@ export function ConfirmDialog({
           <Text style={styles.message}>{message}</Text>
           <View style={styles.actions}>
             <Pressable onPress={onCancel} style={styles.secondaryButton}>
-              <Text style={styles.secondaryText}>{cancelLabel}</Text>
+              <Text style={styles.secondaryText}>{cancelLabel ?? t(language, 'common.cancel')}</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
