@@ -131,6 +131,7 @@ const suites = [
   ...require('./lib/workoutEditorTable.test.cjs'),
   ...require('./lib/plateMath.test.cjs'),
   ...require('./lib/programAdoption.test.cjs'),
+  ...require('./lib/planRotation.test.cjs'),
   ...require('./lib/programCompletion.test.cjs'),
   ...require('./lib/programEmphasis.test.cjs'),
   ...require('./lib/programEmphasisAdjust.test.cjs'),

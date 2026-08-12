@@ -347,7 +347,14 @@ module.exports = [
       assert.match(appSource, /sessionsTotal: planProgress\.sessionsTotal/);
       assert.match(appSource, /currentWeek: planProgress\.currentWeek/);
       assert.match(appSource, /planTotalWeeks: planProgress\.totalWeeks/);
-      assert.match(appSource, /focusLabel: getSessionBodyFocusLabel\(recommendedReadyTemplate\.splitType\)/);
+      // The hero's focus label used to come from the recommendation fallback,
+      // which impersonated an active plan whenever the reader had none: it
+      // hid a removed programme, an entry-less plan, and it started sessions
+      // against a programme nobody had adopted. The plan branch is the only
+      // source now, and a reader with no plan gets Home's no-plan state.
+      assert.doesNotMatch(appSource, /recommendedReadyTemplate\.splitType/);
+      assert.match(appSource, /focusLabel: getSessionBodyFocusLabel\(/);
+      assert.match(appSource, /resolveNextPlanEntryIndex\(sortedEntries, completedPlanSessions\)/);
       assert.match(appSource, /equipmentLabel: buildSessionEquipmentLabel\(/);
       assert.match(appSource, /totalSets: session\.exercises\.reduce/);
       assert.doesNotMatch(homeScreenSource, /planChartBars/);

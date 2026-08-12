@@ -135,6 +135,7 @@ import {
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
+import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import { programCoverIndex } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
@@ -1831,10 +1832,18 @@ function VinhaApp() {
    */
   async function handleCreateDemoCompletionProgram() {
     const now = new Date().toISOString();
+    // The session id is minted here rather than read back after the write:
+    // getWorkoutTemplateSessions reads the React `database` state, which is
+    // still the pre-write copy inside this handler, so the read returned []
+    // and the plan was created with no entries at all. Home skips an
+    // entry-less plan, which is why pressing this button appeared to do
+    // nothing.
+    const demoSessionId = createId('template_session');
     const templateId = await upsertWorkoutTemplate({
       name: 'Demo: yksi treeni',
       sessions: [
         {
+          id: demoSessionId,
           name: 'Day 1: Full Body',
           exercises: [
             { name: 'Goblet Squat', targetSets: 2, repMin: 8, repMax: 10, restSeconds: 60, trackedDefault: true, libraryItemId: null },
@@ -1843,19 +1852,20 @@ function VinhaApp() {
         },
       ],
     });
-    const sessions = getWorkoutTemplateSessions(templateId);
     const planId = `demo_plan_${templateId}`;
     await upsertWorkoutPlan({
       id: planId,
       name: 'Demo: yksi treeni',
       mode: 'rotation',
-      entries: sessions.map((session, index) => ({
-        id: `${planId}_entry_${index + 1}`,
-        workoutTemplateId: templateId,
-        workoutTemplateSessionId: session.id,
-        label: `Day ${index + 1}`,
-        orderIndex: index,
-      })),
+      entries: [
+        {
+          id: `${planId}_entry_1`,
+          workoutTemplateId: templateId,
+          workoutTemplateSessionId: demoSessionId,
+          label: 'Day 1',
+          orderIndex: 0,
+        },
+      ],
       isActive: true,
       createdAt: now,
       updatedAt: now,
@@ -2695,8 +2705,29 @@ function VinhaApp() {
     if (activeWorkoutPlan?.entries.length) {
       const sortedEntries = [...activeWorkoutPlan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
       const firstEntry = sortedEntries[0];
-      const activeTemplate = workoutTemplates.find((template) => template.id === firstEntry.workoutTemplateId) ?? null;
-      const activeTemplateSessions = activeTemplate ? getWorkoutTemplateSessions(activeTemplate.id) : [];
+      // A plan can point at either source. Only the database was resolved
+      // here, so an adopted READY programme found no template, rendered no
+      // hero, and fell through to the recommendation branch — which showed a
+      // different programme's day 1 and started it. Removing that fallback is
+      // what made this visible.
+      const dbTemplate = workoutTemplates.find((template) => template.id === firstEntry.workoutTemplateId) ?? null;
+      const readyPlanTemplate = dbTemplate ? null : getWorkoutTemplateById(firstEntry.workoutTemplateId);
+      const activeTemplate = dbTemplate ?? readyPlanTemplate;
+      const activePlanProgramType = dbTemplate ? ('custom' as const) : ('ready' as const);
+      const activeTemplateSessions = dbTemplate
+        ? getWorkoutTemplateSessions(dbTemplate.id)
+        : (readyPlanTemplate?.sessions ?? []).map((session) => ({
+            id: session.id,
+            name: session.name,
+            orderIndex: session.orderIndex,
+            exercises: session.exercises.map((exercise) => ({
+              id: exercise.id,
+              name: exercise.exerciseName,
+              targetSets: exercise.sets,
+              repMin: exercise.repsMin,
+              repMax: exercise.repsMax,
+            })),
+          }));
       const orderedPlanSessions = sortedEntries
         .map((entry) => {
           if (entry.workoutTemplateSessionId) {
@@ -2709,8 +2740,13 @@ function VinhaApp() {
       // The runtime template is where a custom exercise gets its slot id and
       // substitution group; read them from there rather than rebuilding the
       // rule here, so Home and the session cannot disagree about a slot.
+      // Catalog exercises already carry slot, role, tracking mode and rests,
+      // so a ready plan reads them straight off the template.
       const activeRuntimeExercises = new Map(
-        (activeTemplate ? customWorkoutRuntimeMap[activeTemplate.id]?.sessions ?? [] : [])
+        (dbTemplate
+          ? customWorkoutRuntimeMap[dbTemplate.id]?.sessions ?? []
+          : readyPlanTemplate?.sessions ?? []
+        )
           .flatMap((session) => session.exercises)
           .map((exercise) => [exercise.id, exercise] as const),
       );
@@ -2762,7 +2798,10 @@ function VinhaApp() {
           hiddenExerciseCount: Math.max(exerciseCount - 5, 0),
         };
       });
-      const nextSession = homeSessions[0] ?? null;
+      // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
+      // and the start button logged the wrong session against the plan.
+      const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedPlanSessions);
+      const nextSession = homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
@@ -2793,7 +2832,7 @@ function VinhaApp() {
 
         return {
           programId: activeTemplate.id,
-          programType: 'custom' as const,
+          programType: activePlanProgramType,
           eyebrow: `${sortedEntries.length} day custom plan`,
           goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
           title: formatWorkoutDisplayLabel(activeWorkoutPlan.name || activeTemplate.name, 'Workout plan'),
@@ -2830,97 +2869,20 @@ function VinhaApp() {
       }
     }
 
-    const nextSession = recommendedReadyTemplate?.sessions[0] ?? null;
-    if (!recommendedReadyTemplate || !nextSession) {
-      return null;
-    }
-
-    const weeklyMinutes = recommendedReadyTemplate.daysPerWeek * recommendedReadyTemplate.estimatedSessionDuration;
-    const completedSessionCount = completedPlanSessions.filter(
-      (session) => session.workoutTemplateId === recommendedReadyTemplate.id,
-    ).length;
-    const planProgress = buildHomePlanProgress({ language: preferences.appLanguage,
-      completedSessions: completedSessionCount,
-      sessionsPerWeek: recommendedReadyTemplate.daysPerWeek,
-      // Ready programs count their catalog block (4-12 wk by tier), not the
-      // generic 8-week default.
-      totalWeeks: getReadyProgramBlockWeeks(recommendedReadyTemplate),
-    });
-    const homeSessions = recommendedReadyTemplate.sessions.map((session) => {
-      const durationInputs = session.exercises.map((exercise) => ({
-        slotId: exercise.slotId,
-        role: exercise.role,
-        sets: exercise.sets,
-        reps: exercise.repsMax,
-        timed: isTimedTrackingMode(exercise.trackingMode),
-        restSeconds: exercise.restSecondsMin,
-      }));
-      const focusKind = classifySessionFocus(session.exercises.map((exercise) => exercise.exerciseName));
-      const routineSeconds = routineBlockSeconds(focusKind);
-      // The catalog's `estimatedSessionDuration` describes the PROGRAM (its
-      // longest day, hand-written). Today's session gets the same treatment
-      // every other session gets, from its own sets and rests.
-      const durationMinutes = estimateSessionMinutes({ exercises: durationInputs, ...routineSeconds });
-      return {
-      id: session.id,
-      title: formatHomeSessionTitle(session.name, session.exercises),
-      duration: `~${durationMinutes} min`,
-      durationMinutes,
-      trim: previewSessionTrim(durationInputs, routineSeconds),
-      focusKind,
-      totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.sets, 0),
-      exercises: session.exercises.map((exercise) => ({
-        name: exercise.exerciseName,
-        setsLabel: `${exercise.sets} sets`,
-        schemeLabel: formatSetScheme(exercise.sets, exercise.repsMin, exercise.repsMax, exercise.trackingMode),
-        // Carried so Home can offer the swap: a ready template's slot id is
-        // the same one the session materializes with.
-        slotId: exercise.slotId,
-        substitutionGroup: exercise.substitutionGroup,
-      })),
-      hiddenExerciseCount: Math.max(session.exercises.length - 5, 0),
-      };
-    });
-    const firstHomeSession = homeSessions[0];
-
-    return {
-      programId: recommendedReadyTemplate.id,
-      programType: 'ready' as const,
-      eyebrow: `${recommendedReadyTemplate.daysPerWeek} day ${formatSplitLabel(recommendedReadyTemplate.splitType)}`,
-      goalLabel: formatGoalLabel(recommendedReadyTemplate.goalType),
-      title: formatWorkoutDisplayLabel(recommendedReadyTemplate.name, 'Workout plan'),
-      subtitle: recommendedReadyContent?.summary ?? 'Your recommended plan is ready to run.',
-      weekLabel: planProgress.weekLabel,
-      progressPercent: planProgress.progressPercent,
-      sessionsDone: planProgress.sessionsDone,
-      sessionsTotal: planProgress.sessionsTotal,
-      currentWeek: planProgress.currentWeek,
-      planTotalWeeks: planProgress.totalWeeks,
-      focusLabel: getSessionBodyFocusLabel(recommendedReadyTemplate.splitType),
-      equipmentLabel: buildSessionEquipmentLabel(
-        (recommendedReadyTemplate.sessions[0]?.exercises ?? []).map((exercise) => exercise.exerciseName),
-        exerciseLibrary,
-      ),
-      sessionsPerWeek: `${recommendedReadyTemplate.daysPerWeek}`,
-      // No plan record on this branch — the reader runs the recommendation
-      // without adopting it. The dismissal key is the id adoption WOULD use,
-      // so answering here and adopting the next programme cannot leave a
-      // second card behind. No restart either: with nothing to reset, a
-      // restarted "plan" would be born complete.
-      completion: buildCompletion(
-        buildReadyProgramPlanId(recommendedReadyTemplate.id),
-        planProgress.sessionsDone,
-        planProgress.sessionsTotal,
-        recommendedReadyTemplate,
-        false,
-      ),
-      weeklyMinutes: `~${weeklyMinutes} min`,
-      sessions: homeSessions,
-      nextSession: {
-        ...firstHomeSession,
-        label: 'Week 1 · Day 1',
-      },
-    };
+    // No fallback to the recommended programme.
+    //
+    // This branch used to build the whole hero out of `recommendedProgramId`
+    // whenever the reader had no usable plan — which made three separate
+    // failures invisible. Removing your last programme left Home showing a
+    // programme ("poista ohjelma ei poista"), the demo plan's missing
+    // entries fell through to it, and the start button logged sessions
+    // against a programme the reader had never adopted.
+    //
+    // A suggestion is not a plan. Home's no-plan state is honest: no hero,
+    // and the start button opens a freestyle session. Picking a programme
+    // happens on the Programs tab, which is the one place that can say what
+    // adopting it means.
+    return null;
   }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
