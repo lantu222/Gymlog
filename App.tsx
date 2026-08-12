@@ -3156,7 +3156,16 @@ function VinhaApp() {
     const week = homeActivePlanCard?.currentWeek;
     return week ? t(preferences.appLanguage, 'guided.entry.eyebrow', { weekday, week }) : weekday;
   }, [homeActivePlanCard?.currentWeek, preferences.appLanguage]);
-  const guidedWeekProgress = useMemo(() => {
+  /**
+   * Sessions logged this week, and the label above them.
+   *
+   * `done` is deliberately NOT part of this: the two screens that show it sit
+   * on opposite sides of the save. The guided player's finish view renders
+   * before the session is written, so it has to add the one in hand; the
+   * summary renders after, where the same +1 counted it twice and printed
+   * "2/1" beside a Home that said 1/1. One base, two honest readings.
+   */
+  const weekProgressBase = useMemo(() => {
     if (!progressWeeklyTarget) {
       return null;
     }
@@ -3167,15 +3176,32 @@ function VinhaApp() {
       const performed = new Date(session.performedAt);
       return performed >= weekStart && performed < weekEnd;
     }).length;
-    // The in-flight session counts too — the finish screen shows before save.
     return {
       weekLabel: homeActivePlanCard
         ? t(preferences.appLanguage, 'guided.finish.week', { week: homeActivePlanCard.currentWeek })
         : t(preferences.appLanguage, 'guided.finish.thisWeek'),
-      done: savedThisWeek + 1,
+      savedThisWeek,
       target: progressWeeklyTarget,
     };
   }, [homeActivePlanCard, preferences.appLanguage, progressWeeklyTarget, workoutSessions]);
+
+  /** Before the save: the session in hand is not in the log yet. */
+  const guidedWeekProgress = weekProgressBase
+    ? {
+        weekLabel: weekProgressBase.weekLabel,
+        done: weekProgressBase.savedThisWeek + 1,
+        target: weekProgressBase.target,
+      }
+    : null;
+
+  /** After the save: the log already contains it. */
+  const completionWeekProgress = weekProgressBase
+    ? {
+        weekLabel: weekProgressBase.weekLabel,
+        done: weekProgressBase.savedThisWeek,
+        target: weekProgressBase.target,
+      }
+    : null;
   // Home history section: strength + cardio merged, newest first.
   const homeHistoryItems = useMemo(() => {
     const language = preferences.appLanguage;
@@ -4429,7 +4455,7 @@ function VinhaApp() {
     content = (
       <WorkoutCompletionScreen
         language={preferences.appLanguage}
-        weekProgress={guidedWeekProgress}
+        weekProgress={completionWeekProgress}
         nextUp={guidedNextUp}
         workoutName={completionSummary.workoutName}
         performedAt={completionSummary.performedAt}

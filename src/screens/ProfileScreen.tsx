@@ -63,15 +63,24 @@ function getInitials(name: string | null | undefined) {
 function GearIcon() {
   const theme = useTheme();
 
-  // The prototype's ray-style cog (psuite-screens1.jsx top bar).
+  /**
+   * A toothed cog, not the prototype's ray-style one.
+   *
+   * The rays version was a circle with eight spokes around it — the same
+   * construction as this app's own sun glyph (`IC_PATHS.sun` in Settings,
+   * which means light theme). At 21px the two are indistinguishable, so the
+   * one route into Settings read as a theme switch. Teeth cannot be mistaken
+   * for rays.
+   */
   return (
     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
-      <Circle cx={12} cy={12} r={3} stroke={theme.ink} strokeWidth={2} />
+      <Circle cx={12} cy={12} r={3.2} stroke={theme.ink} strokeWidth={2} />
       <Path
-        d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"
+        d="M19.1 14.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.55V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.55-1.03H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.56-1.11 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.08A1.7 1.7 0 0 0 10.13 3.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1.03 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.08a1.7 1.7 0 0 0 1.55 1.03H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.55 1.03z"
         stroke={theme.ink}
-        strokeWidth={2}
+        strokeWidth={1.8}
         strokeLinecap="round"
+        strokeLinejoin="round"
       />
     </Svg>
   );
