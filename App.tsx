@@ -4275,11 +4275,15 @@ function VinhaApp() {
           })
         }
         onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId }) : undefined}
-        destructiveActionLabel={route.programType === 'custom' ? 'Delete' : undefined}
-        destructiveActionTitle={route.programType === 'custom' ? 'Delete workout' : undefined}
+        destructiveActionLabel={
+          route.programType === 'custom' ? t(preferences.appLanguage, 'detail.delete') : undefined
+        }
+        destructiveActionTitle={
+          route.programType === 'custom' ? t(preferences.appLanguage, 'detail.delete.title') : undefined
+        }
         destructiveActionMessage={
           route.programType === 'custom'
-            ? `Delete ${program.title}? This removes the custom program from your workout list.`
+            ? t(preferences.appLanguage, 'detail.delete.message', { program: program.title })
             : undefined
         }
         onDestructiveAction={route.programType === 'custom' ? () => void handleDeleteCustomWorkout(route.workoutTemplateId) : undefined}

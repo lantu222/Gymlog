@@ -222,7 +222,7 @@ export function ProgramDayScreen({
           styles={styles}
           theme={theme}
           title={t(language, 'detail.day.exercises')}
-          count={t(language, 'detail.day.sets').toLowerCase() + ` ${session.totalSets}`}
+          count={`${session.totalSets} ${t(language, 'detail.day.sets').toLowerCase()}`}
           open={openSections.exercises}
           onToggle={() => setOpenSections((current) => ({ ...current, exercises: !current.exercises }))}
         >
@@ -400,7 +400,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.bg,
   },
   content: {
-    paddingBottom: layout.bottomTabBarReserve + 84,
+    // The dock is absolute; without room for it the last exercise row sat
+    // under the start button.
+    paddingBottom: layout.bottomTabBarReserve + 120,
   },
   hero: {
     height: HERO_HEIGHT,
@@ -557,6 +559,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   secTitle: {
     flex: 1,
     color: theme.ink,
+    textTransform: 'capitalize',
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '800',
@@ -608,8 +611,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   exerciseBottom: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 10,
-    marginTop: 9,
+    marginTop: 10,
   },
   swapButton: {
     borderRadius: 9,
@@ -732,13 +736,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: -0.1,
   },
   exerciseScheme: {
+    flex: 1,
     color: theme.ink,
     fontSize: 13.5,
     lineHeight: 18,
     fontWeight: '800',
     letterSpacing: -0.1,
-    marginTop: 9,
-    paddingLeft: 40,
   },
   exerciseRest: {
     color: theme.faint,
