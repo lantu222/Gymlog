@@ -89,7 +89,6 @@ module.exports = [
         assert.ok(content);
         assert.ok(content.summary.length > 20);
         assert.ok(content.audience.length > 20);
-        assert.ok(Object.keys(content.sessionFocusById).length > 0);
       });
     },
   },

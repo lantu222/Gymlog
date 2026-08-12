@@ -89,5 +89,11 @@ export const EMPHASIS_RAMP: Record<string, string> = {
   shouldersBack: '#A98BF0',
   chestArms: '#CDBBF8',
   core: '#E6DBFB',
+  // Conditioning and mobility are their own work, not a lighter shade of
+  // lifting, so they step out of the violet ramp. Half of every "other" slice
+  // in the catalog was running and intervals; a programme whose week is
+  // genuinely cardio deserves to be told so, not shown a grey bar.
+  conditioning: '#2E9E7B',
+  mobility: '#4FA8D8',
   other: '#C9C3D6',
 };

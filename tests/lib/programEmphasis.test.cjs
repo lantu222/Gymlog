@@ -38,23 +38,50 @@ module.exports = [
     },
   },
   {
-    // 'other' is an honest bucket, not a dumping ground: if a big share of a
-    // strength programme's sets cannot be placed, the classifier has stopped
-    // seeing the catalog, exactly like the general-focus collapse before it.
-    name: 'the unclassified bucket stays small across the catalog',
+    /**
+     * Every programme's week is named — none of it is "Other".
+     *
+     * "Where the week goes" is the design's promise that a reader can see what
+     * a programme trains before running it, and `other` breaks that promise
+     * silently: the bar still draws, the percentages still add to 100, and the
+     * largest slice says nothing. Mobility Flow's week was 51 % "Other", RUN's
+     * 45 %, Calisthenics Mastery's 44 % — the card was a shrug.
+     *
+     * Zero is the bar because a new exercise name that lands nowhere is
+     * exactly the drift this catches. Naming it costs one word in NAME_HINTS.
+     */
+    name: 'no programme has an unnamed slice in "where the week goes"',
     run() {
-      let total = 0;
-      let other = 0;
+      const offenders = [];
       for (const template of WORKOUT_TEMPLATES_V1) {
         const emphasis = resolveProgramEmphasis(toEmphasisSessions(template));
-        total += emphasis.totalSets;
-        other += emphasis.slices.find((slice) => slice.area === 'other')?.sets ?? 0;
+        const other = emphasis.slices.find((slice) => slice.area === 'other');
+        if (other) {
+          offenders.push(`${template.name}: ${other.percent} %`);
+        }
       }
-      const share = other / total;
-      assert.ok(
-        share <= 0.2,
-        `unclassified share is ${(share * 100).toFixed(1)} % of all catalog sets`,
-      );
+
+      assert.deepEqual(offenders, []);
+    },
+  },
+  {
+    name: 'every exercise the catalog prescribes lands in a named area',
+    run() {
+      const { emphasisAreaForExercise } = require('../../.test-dist/lib/programEmphasis.js');
+      const unplaced = new Set();
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const session of template.sessions) {
+          for (const exercise of session.exercises) {
+            if (emphasisAreaForExercise(exercise.exerciseName) === 'other') {
+              unplaced.add(exercise.exerciseName);
+            }
+          }
+        }
+      }
+
+      // Named per exercise rather than per programme, so the failure tells you
+      // which word to add instead of which programme to go hunting through.
+      assert.deepEqual([...unplaced].sort(), []);
     },
   },
   {

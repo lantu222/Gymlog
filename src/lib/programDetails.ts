@@ -42,7 +42,6 @@ export interface ProgramDetailSessionItem {
   exerciseCount: number;
   totalSets: number;
   preview: string;
-  focus: string | null;
   guidance: SessionGuidance | null;
   statusLine: string | null;
   exercises: ProgramDetailExerciseItem[];
@@ -117,7 +116,6 @@ function buildSessionPreview(exercises: Array<{ exerciseName: string }>) {
 
 function buildSessionItems(
   sessions: WorkoutTemplateSession[],
-  sessionFocusById: Record<string, string> = {},
   sessionStatusById: Record<string, string> = {},
   template?: WorkoutTemplateV1,
 ): ProgramDetailSessionItem[] {
@@ -129,7 +127,6 @@ function buildSessionItems(
       orderIndex: session.orderIndex,
       exerciseCount: session.exercises.length,
       preview: buildSessionPreview(session.exercises),
-      focus: sessionFocusById[session.id] ?? null,
       guidance: template ? buildSessionGuidance(template, session) : null,
       statusLine: sessionStatusById[session.id] ?? null,
       totalSets: session.exercises.reduce((sum, exercise) => sum + exercise.sets, 0),
@@ -212,7 +209,7 @@ export function buildReadyProgramDetail(
     // screen, so nothing showed it was untranslated.
     primaryActionLabel: t(language, 'detail.adopt'),
     sessionActionLabel: 'Start session',
-    sessions: buildSessionItems(detailSessions, content?.sessionFocusById, insights?.sessionStatusById, template),
+    sessions: buildSessionItems(detailSessions, insights?.sessionStatusById, template),
   };
 }
 
@@ -250,7 +247,7 @@ export function buildCustomProgramDetail(
     progressionSummary: null,
     primaryActionLabel: t(language, hasExercises ? 'prog.custom.detail.startFirst' : 'prog.custom.detail.editTemplate'),
     sessionActionLabel: t(language, hasExercises ? 'prog.custom.detail.startSession' : 'prog.custom.detail.openSession'),
-    sessions: buildSessionItems(template.sessions, {}, insights?.sessionStatusById),
+    sessions: buildSessionItems(template.sessions, insights?.sessionStatusById),
   };
 }
 

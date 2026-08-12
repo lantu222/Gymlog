@@ -59,7 +59,6 @@ module.exports = [
       // cheaper than noticing it on a device again.
       const { getReadyProgramContent } = require('../../.test-dist/lib/readyProgramContent');
       const placeholder = [];
-      const missingFocus = [];
       for (const template of WORKOUT_TEMPLATES_V1) {
         for (const language of ['en', 'fi']) {
           const content = getReadyProgramContent(template.id, language);
@@ -70,21 +69,9 @@ module.exports = [
           ) {
             placeholder.push(`${template.id}/${language}`);
           }
-          // The one line under each day on the program screen. Without it the
-          // day rows lose their description and nothing says so.
-          for (const session of template.sessions) {
-            if (!content.sessionFocusById[session.id]) {
-              missingFocus.push(`${template.id}/${session.id}/${language}`);
-            }
-          }
         }
       }
       assert.equal(placeholder.length, 0, `placeholder copy: ${placeholder.slice(0, 5).join(', ')}`);
-      assert.equal(
-        missingFocus.length,
-        0,
-        `sessions with no focus line: ${missingFocus.slice(0, 5).join(', ')}`,
-      );
     },
   },
   {

@@ -25,13 +25,6 @@ module.exports = [
           );
         }
 
-        // Session ids are data keys, not copy — they must match exactly or the
-        // day preview silently falls back to nothing.
-        assert.deepEqual(
-          Object.keys(finnish.sessionFocusById).sort(),
-          Object.keys(english.sessionFocusById).sort(),
-          `${templateId} session focus ids drifted from the English map`,
-        );
       }
     },
   },

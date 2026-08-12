@@ -1,4 +1,4 @@
-import { resolveCatalogBodyPart } from './catalogExercisePools';
+import { resolveCatalogBodyPart, resolveCatalogSourceCategory } from './catalogExercisePools';
 import { I18nKey } from './i18n';
 
 /**
@@ -10,13 +10,22 @@ import { I18nKey } from './i18n';
  * exercise list below it would be the seed-data lie again, one card up.
  */
 
-export type EmphasisArea = 'glutesLegs' | 'shouldersBack' | 'chestArms' | 'core' | 'other';
+export type EmphasisArea =
+  | 'glutesLegs'
+  | 'shouldersBack'
+  | 'chestArms'
+  | 'core'
+  | 'conditioning'
+  | 'mobility'
+  | 'other';
 
 export const EMPHASIS_AREA_KEYS: Record<EmphasisArea, I18nKey> = {
   glutesLegs: 'detail.emphasis.glutesLegs',
   shouldersBack: 'detail.emphasis.shouldersBack',
   chestArms: 'detail.emphasis.chestArms',
   core: 'detail.emphasis.core',
+  conditioning: 'detail.emphasis.conditioning',
+  mobility: 'detail.emphasis.mobility',
   other: 'detail.emphasis.other',
 };
 
@@ -33,16 +42,26 @@ const AREA_BY_BODY_PART: Record<string, EmphasisArea> = {
 };
 
 /**
- * Name fallback for lifts the catalog pools do not know. Deliberately short:
- * it exists so a squat pattern with an unusual name lands in the right area,
- * not to classify the whole library — anything it cannot place goes to
- * `other`, which the card shows honestly instead of hiding.
+ * Name fallback for lifts the catalog pools do not know.
+ *
+ * Conditioning and mobility come FIRST, because they are the two the body-part
+ * lookup cannot answer at all: the library files a stretch under the muscle it
+ * stretches and a sprint under `legs`, so asking it first would file half a
+ * mobility programme as leg training. Everything else keeps the old order.
  */
 const NAME_HINTS: Array<[RegExp, EmphasisArea]> = [
-  [/squat|lunge|deadlift|hip thrust|glute|hamstring|calf|leg |step-up|kyykky|maastaveto|lantionnosto|pakara|askel|pohje|reisi/i, 'glutesLegs'],
-  [/row|pull|lat |shoulder|press.*overhead|overhead.*press|lateral raise|face pull|shrug|soutu|veto|ylätalja|pystypunnerrus|sivunosto|olkapä|kohautus/i, 'shouldersBack'],
+  [
+    /hiit|interval|sprint|\brun\b|running|\bjog|treadmill|stair|rowing machine|\bbike\b|cycling|elliptical|burpee|mountain climber|high knees|jumping jack|jump rope|skater|battle rope|prowler|sled|shuttle|agility|cone drill|ladder drill|stride|pogo|box jump|broad jump|juoksu|tempojuoksu|intervalli|hyppynaru|kestävyys/i,
+    'conditioning',
+  ],
+  [
+    /stretch|\bpose\b|mobility|\bflow\b|breath|\bfold\b|salutation|circles|foam roll|-smr\b|thread the needle|dislocation|wall slide|legs up the wall|heel-to-toe|standing marching|venytys|liikkuvuus|avaus|hengitys|asento/i,
+    'mobility',
+  ],
+  [/squat|lunge|deadlift|hip thrust|glute|hamstring|calf|leg |step-up|pistol|shrimp|abduct|fire hydrant|frog pump|kyykky|maastaveto|lantionnosto|pakara|askel|pohje|reisi/i, 'glutesLegs'],
+  [/row|pull|lat |shoulder|press.*overhead|overhead.*press|lateral raise|face pull|shrug|muscle-?up|front lever|handstand|planche|soutu|veto|ylätalja|pystypunnerrus|sivunosto|olkapä|kohautus/i, 'shouldersBack'],
   [/bench|push-?up|chest|dip|curl|extension|tricep|bicep|fly|penkki|punnerrus|rinta|hauis|ojentaja|dippi/i, 'chestArms'],
-  [/plank|crunch|sit-?up|ab |core|dead bug|twist|lankku|rutistus|vatsa|keskivartalo|kierto/i, 'core'],
+  [/plank|crunch|sit-?up|ab |core|dead bug|bird ?dog|twist|hollow body|l-sit|dragon flag|v-up|toes-to-bar|pelvic floor|vacuum|transverse abdominis|heel slide|side bend|lankku|rutistus|vatsa|keskivartalo|kierto|lantionpohja/i, 'core'],
 ];
 
 export interface EmphasisSlice {
@@ -58,7 +77,25 @@ export interface ProgramEmphasis {
   slices: EmphasisSlice[];
 }
 
+/**
+ * The two areas the body-part lookup cannot answer, so the name decides them
+ * before it is asked. The library files a hamstring stretch under `legs` and a
+ * sprint under `legs` too — trusting it first would report a mobility
+ * programme's week as leg training.
+ */
+const NAME_WINS: ReadonlySet<EmphasisArea> = new Set(['conditioning', 'mobility']);
+
 function areaForExercise(name: string): EmphasisArea {
+  // The library's own `cardio` category is small and never wrong.
+  if (resolveCatalogSourceCategory(name) === 'cardio') {
+    return 'conditioning';
+  }
+  for (const [pattern, area] of NAME_HINTS) {
+    if (NAME_WINS.has(area) && pattern.test(name)) {
+      return area;
+    }
+  }
+
   const bodyPart = resolveCatalogBodyPart(name);
   if (bodyPart && AREA_BY_BODY_PART[bodyPart]) {
     return AREA_BY_BODY_PART[bodyPart];

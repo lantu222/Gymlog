@@ -10,7 +10,7 @@ const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/wo
 
 module.exports = [
   {
-    name: 'ready program detail exposes metadata, info sections, and session focus',
+    name: 'ready program detail exposes metadata and info sections',
     run() {
       const template = getWorkoutTemplateById('tpl_3_day_full_body_v1');
       const detail = buildReadyProgramDetail(template, {
@@ -29,7 +29,6 @@ module.exports = [
       assert.equal(detail.highlights[0].label, 'This week');
       assert.equal(detail.sessions[0].name, 'Day 1: Full Body');
       assert.ok(detail.sessions[0].preview.includes('Back Squat'));
-      assert.ok(detail.sessions[0].focus.includes('Squat + bench'));
       assert.match(detail.sessions[0].guidance.firstAction, /Back Squat.*first work set/i);
       assert.match(detail.sessions[0].guidance.restGuidance, /sec/i);
       assert.equal(detail.sessions[0].statusLine, 'Last done Mar 24');
