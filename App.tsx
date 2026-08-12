@@ -1830,8 +1830,46 @@ function VinhaApp() {
    * single number. The plan id prefix is what makes the block one week —
    * see the demo_plan_ branch where Home counts the plan's weeks.
    */
+  const DEMO_PROGRAM_NAME = 'Demo: yksi treeni';
+
   async function handleCreateDemoCompletionProgram() {
     const now = new Date().toISOString();
+    // Idempotent on purpose. Pressing this twice used to author a second
+    // template and then, at the free cap, `upsertWorkoutTemplate` threw
+    // ProgramLimitReachedError — which nothing caught, so the row did nothing
+    // and said nothing. A demo tool must be repeatable: an existing demo
+    // programme is reused and its plan rebuilt, which also repairs the
+    // entry-less plans the earlier build wrote.
+    const existing = workoutTemplates.find((item) => item.name === DEMO_PROGRAM_NAME) ?? null;
+    if (existing) {
+      const sessions = getWorkoutTemplateSessions(existing.id);
+      const planId = `demo_plan_${existing.id}`;
+      await upsertWorkoutPlan({
+        id: planId,
+        name: DEMO_PROGRAM_NAME,
+        mode: 'rotation',
+        entries: sessions.map((session, index) => ({
+          id: `${planId}_entry_${index + 1}`,
+          workoutTemplateId: existing.id,
+          workoutTemplateSessionId: session.id,
+          label: `Day ${index + 1}`,
+          orderIndex: index,
+        })),
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      });
+      await updatePreferences({
+        activePlanIds: addActiveProgram(preferences.activePlanIds, planId),
+        activePlanId: planId,
+        // A rebuilt round is a new block, so an answered completion card for
+        // this plan must not keep the new one hidden.
+        dismissedCompletionPlanIds: preferences.dismissedCompletionPlanIds.filter((id) => id !== planId),
+      });
+      resetToRoute(ROOT_ROUTES.home);
+      return;
+    }
+
     // The session id is minted here rather than read back after the write:
     // getWorkoutTemplateSessions reads the React `database` state, which is
     // still the pre-write copy inside this handler, so the read returned []
@@ -1840,7 +1878,7 @@ function VinhaApp() {
     // nothing.
     const demoSessionId = createId('template_session');
     const templateId = await upsertWorkoutTemplate({
-      name: 'Demo: yksi treeni',
+      name: DEMO_PROGRAM_NAME,
       sessions: [
         {
           id: demoSessionId,
@@ -1855,7 +1893,7 @@ function VinhaApp() {
     const planId = `demo_plan_${templateId}`;
     await upsertWorkoutPlan({
       id: planId,
-      name: 'Demo: yksi treeni',
+      name: DEMO_PROGRAM_NAME,
       mode: 'rotation',
       entries: [
         {
@@ -4894,7 +4932,18 @@ function VinhaApp() {
     content = (
       <SettingsScreen
         preferences={preferences}
-        onCreateDemoProgram={() => void handleCreateDemoCompletionProgram()}
+        onCreateDemoProgram={() => {
+          // upsertWorkoutTemplate THROWS at the program cap. Without this the
+          // row was a button that did nothing and said nothing.
+          handleCreateDemoCompletionProgram().catch((error) => {
+            if (error instanceof ProgramLimitReachedError) {
+              setProgramLimitVisible(true);
+              return;
+            }
+            console.error('Demo program failed', error);
+            showToast(t(preferences.appLanguage, 'toast.programCopyFailed'));
+          });
+        }}
         firstSessionAt={lifetimeSummary.firstSessionAt}
         onOpenEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
