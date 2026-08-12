@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
@@ -14,6 +14,7 @@ import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
 import { EmphasisSheet } from '../components/EmphasisSheet';
 import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
+import { WEEKDAY_KEYS } from '../lib/programTrainingDays';
 import { EMPHASIS_RAMP, programCoverStyle } from '../lib/programVisualIdentity';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
@@ -78,6 +79,10 @@ interface ProgramDetailScreenProps {
   onStartSession: (sessionId: string) => void;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
+  /** Monday-first indexes the plan currently trains on, when it names days. */
+  trainingDayIndexes?: number[] | null;
+  /** Commits a finished rhythm change. Absent = the strip is read-only. */
+  onSaveRhythm?: (dayIndexes: number[]) => void;
   /**
    * Writes new set counts (design screen 3). Present only for programmes whose
    * sets are the reader's to change — a catalog template is immutable at
@@ -185,6 +190,8 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onOpenSession,
+  trainingDayIndexes = null,
+  onSaveRhythm,
   onSaveEmphasis,
   onEdit,
   progressionRules = null,
@@ -291,17 +298,57 @@ export function ProgramDetailScreen({
     (durationMinutes > 0
       ? `~${durationMinutes * Math.max(1, program.sessions.length)} min`
       : t(language, 'detail.workoutCount', { count: program.sessions.length }));
-  const scheduleSlots = useMemo(
-    () => {
-      const trainingDayIndexes = getTrainingDayIndexes(program.sessions.length);
+  /**
+   * The rhythm the strip shows: the plan's own days when it names them, the
+   * derived spread otherwise.
+   */
+  const committedDays = useMemo(() => {
+    if (trainingDayIndexes && trainingDayIndexes.length > 0) {
+      return [...trainingDayIndexes].sort((left, right) => left - right);
+    }
+    return [...getTrainingDayIndexes(program.sessions.length)].sort((left, right) => left - right);
+  }, [program.sessions.length, trainingDayIndexes]);
 
-      return DAY_KEYS.map((dayKey, index) => ({
+  /**
+   * A half-finished move is never written.
+   *
+   * Moving a day is two taps: one off, one on. Between them the week is short
+   * a session, and a plan that trains three days must not be persisted as
+   * training two because a thumb left the screen. The draft lives here, is
+   * committed only when the count is whole again, and is dropped when the
+   * screen goes away — the reader gets Monday back rather than a week they
+   * never chose.
+   */
+  const [draftDays, setDraftDays] = useState<number[] | null>(null);
+  useEffect(() => () => setDraftDays(null), []);
+  const shownDays = draftDays ?? committedDays;
+  const rhythmIncomplete = draftDays !== null && draftDays.length !== committedDays.length;
+
+  const toggleRhythmDay = (index: number) => {
+    if (!onSaveRhythm) {
+      return;
+    }
+    const base = draftDays ?? committedDays;
+    const next = base.includes(index)
+      ? base.filter((day) => day !== index)
+      : [...base, index].sort((left, right) => left - right);
+
+    if (next.length === committedDays.length) {
+      setDraftDays(null);
+      onSaveRhythm(next);
+      return;
+    }
+    setDraftDays(next);
+  };
+
+  const scheduleSlots = useMemo(
+    () =>
+      DAY_KEYS.map((dayKey, index) => ({
         dayKey,
         day: t(language, dayKey).toUpperCase(),
-        isTraining: trainingDayIndexes.has(index),
-      }));
-    },
-    [language, program.sessions.length],
+        isTraining: shownDays.includes(index),
+      })),
+    [language, shownDays],
   );
   const hasDestructiveAction = Boolean(
     destructiveActionLabel && destructiveActionTitle && destructiveActionMessage && onDestructiveAction,
@@ -440,8 +487,8 @@ export function ProgramDetailScreen({
         <View style={styles.rhythmRow}>
           {scheduleSlots.map((slot, index) => {
             const session = slot.isTraining ? trainingDaySessions.get(index) : null;
-            return (
-              <View key={slot.dayKey} style={[styles.rhythmDay, slot.isTraining && styles.rhythmDayOn]}>
+            const chip = (
+              <>
                 <Text style={[styles.rhythmDayName, slot.isTraining && styles.rhythmDayNameOn]}>
                   {slot.day}
                 </Text>
@@ -451,10 +498,38 @@ export function ProgramDetailScreen({
                 >
                   {session ? shortSessionLabel(session, language) : t(language, 'detail.rest')}
                 </Text>
-              </View>
+              </>
+            );
+            if (!onSaveRhythm) {
+              return (
+                <View key={slot.dayKey} style={[styles.rhythmDay, slot.isTraining && styles.rhythmDayOn]}>
+                  {chip}
+                </View>
+              );
+            }
+            return (
+              <Pressable
+                key={slot.dayKey}
+                accessibilityRole="button"
+                onPress={() => toggleRhythmDay(index)}
+                style={({ pressed }) => [
+                  styles.rhythmDay,
+                  slot.isTraining && styles.rhythmDayOn,
+                  pressed && styles.rhythmDayPressed,
+                ]}
+              >
+                {chip}
+              </Pressable>
             );
           })}
         </View>
+        {rhythmIncomplete ? (
+          <Text style={styles.rhythmHint}>
+            {t(language, 'detail.rhythm.pickAnother', {
+              count: committedDays.length - (draftDays?.length ?? 0),
+            })}
+          </Text>
+        ) : null}
 
         {emphasis ? (
           <>
@@ -835,6 +910,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   rhythmDayOn: {
     backgroundColor: theme.purpleDark,
     borderColor: theme.purpleDark,
+  },
+  rhythmDayPressed: {
+    opacity: 0.7,
+  },
+  rhythmHint: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '700',
+    marginTop: 8,
   },
   rhythmDayName: {
     color: theme.faint,

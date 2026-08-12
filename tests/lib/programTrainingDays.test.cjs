@@ -1,6 +1,9 @@
 const assert = require('node:assert/strict');
 
-const { resolveProgramTrainingDays } = require('../../.test-dist/lib/programTrainingDays.js');
+const {
+  resolveProgramTrainingDays,
+  planWeekdayIndexes,
+} = require('../../.test-dist/lib/programTrainingDays.js');
 
 module.exports = [
   {
@@ -40,6 +43,17 @@ module.exports = [
     name: 'duplicates and out-of-range indexes are dropped',
     run() {
       assert.deepEqual(resolveProgramTrainingDays([2, 2, 9, -1, 0], 3), [0, 2]);
+    },
+  },
+  {
+    name: 'a plan that names weekdays is believed; one that names positions is not',
+    run() {
+      assert.deepEqual(planWeekdayIndexes([{ label: 'mon' }, { label: 'thu' }]), [0, 3]);
+      // "Day 1" is a position, not a weekday — returning 0 for it would put
+      // every position-labelled plan on Monday.
+      assert.deepEqual(planWeekdayIndexes([{ label: 'Day 1' }]), []);
+      assert.deepEqual(planWeekdayIndexes([{ label: 'mon' }, { label: 'Day 2' }]), []);
+      assert.deepEqual(planWeekdayIndexes([]), []);
     },
   },
 ];

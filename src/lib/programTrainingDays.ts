@@ -53,3 +53,31 @@ export function resolveProgramTrainingDays(
 
   return picked.sort((left, right) => left - right);
 }
+
+/** Monday-first index per stored weekday key. */
+export const WEEKDAY_INDEX: Record<string, number> = {
+  mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6,
+};
+export const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+
+/**
+ * The weekdays a plan's own entries name, when they name weekdays at all.
+ *
+ * Entry labels are written from `setupAvailableDays`, so an adopted plan
+ * already records which days it runs — but a plan built before that, or the
+ * demo's "Day 1", labels its entries by position. Those return nothing rather
+ * than a guess, and the caller falls back to deriving placement.
+ */
+export function planWeekdayIndexes(entries: ReadonlyArray<{ label?: string | null }>): number[] {
+  const indexes: number[] = [];
+  for (const entry of entries) {
+    const index = WEEKDAY_INDEX[(entry.label ?? '').trim().toLowerCase()];
+    if (index === undefined) {
+      return [];
+    }
+    if (!indexes.includes(index)) {
+      indexes.push(index);
+    }
+  }
+  return indexes.sort((left, right) => left - right);
+}

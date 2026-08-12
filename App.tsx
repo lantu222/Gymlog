@@ -136,7 +136,11 @@ import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
-import { resolveProgramTrainingDays } from './src/lib/programTrainingDays';
+import {
+  planWeekdayIndexes,
+  resolveProgramTrainingDays,
+  WEEKDAY_KEYS,
+} from './src/lib/programTrainingDays';
 import { programCoverIndex } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
@@ -1926,6 +1930,28 @@ function VinhaApp() {
    * counts is carried through unchanged, so this cannot become a rewrite of
    * the whole template disguised as an emphasis nudge.
    */
+  /**
+   * Writes a finished rhythm onto the plan's own entries.
+   *
+   * Entry labels already carry weekday keys, so this needs no new stored
+   * state — and the screen only calls it once the day count is whole again,
+   * so a plan can never be written mid-move.
+   */
+  async function handleSaveRhythm(workoutTemplateId: string, dayIndexes: number[]) {
+    const plan = database.workoutPlans.find(
+      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan || plan.entries.length !== dayIndexes.length) {
+      return;
+    }
+    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+    await upsertWorkoutPlan({
+      ...plan,
+      entries: ordered.map((entry, index) => ({ ...entry, label: WEEKDAY_KEYS[dayIndexes[index]] })),
+      updatedAt: plan.updatedAt,
+    });
+  }
+
   async function handleSaveEmphasis(
     workoutTemplateId: string,
     updates: Array<{ sessionId: string; exerciseId: string; sets: number }>,
@@ -2989,11 +3015,18 @@ function VinhaApp() {
     // Availability is not a plan. This marked every day the reader said they
     // COULD train, so a one-session-a-week programme lit three dots and the
     // strip claimed three workouts where the plan prescribes one.
+    // A plan that names its own weekdays is the answer; deriving over the top
+    // of it would silently undo a rhythm the reader set by hand.
+    const activePlan = database.workoutPlans.find((plan) => plan.id === preferences.activePlanId) ?? null;
+    const named = planWeekdayIndexes(activePlan?.entries ?? []);
+    if (named.length > 0) {
+      return named;
+    }
     const sessionsPerWeek = homeActivePlanCard
       ? Number.parseInt(homeActivePlanCard.sessionsPerWeek, 10) || open.length
       : open.length;
     return resolveProgramTrainingDays(open, sessionsPerWeek);
-  }, [homeActivePlanCard, preferences.setupAvailableDays]);
+  }, [database.workoutPlans, homeActivePlanCard, preferences.activePlanId, preferences.setupAvailableDays]);
   // What Android says about pinning the widget. Re-asked on every foreground,
   // because the user may have added or removed it while we were away.
   useEffect(() => {
@@ -4260,6 +4293,15 @@ function VinhaApp() {
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
+        trainingDayIndexes={planWeekdayIndexes(
+          database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
+            ?.entries ?? [],
+        )}
+        onSaveRhythm={
+          database.workoutPlans.some((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
+            ? (dayIndexes) => void handleSaveRhythm(route.workoutTemplateId, dayIndexes)
+            : undefined
+        }
         onSaveEmphasis={
           route.programType === 'custom'
             ? (updates) => void handleSaveEmphasis(route.workoutTemplateId, updates)
