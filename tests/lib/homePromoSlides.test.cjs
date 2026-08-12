@@ -1,9 +1,7 @@
 const assert = require('node:assert/strict');
 
-const {
-  buildHomePromoSlides,
-  UPCOMING_SEASON_ANNOUNCE_DAYS,
-} = require('../../.test-dist/lib/homePromoSlides.js');
+const { buildHomePromoSlides } = require('../../.test-dist/lib/homePromoSlides.js');
+const { SEASON_JOIN_WINDOW_DAYS } = require('../../.test-dist/lib/seasonEnrolment.js');
 
 const base = { seasons: [], recommendation: null, goalCount: 0, trackedLiftCount: 0 };
 
@@ -14,11 +12,11 @@ const running = {
   weeksLeft: 7,
   progress: 19 / 26,
   daysUntilStart: 0,
-  joined: false,
+  enrolled: false,
   rangeLabel: '1.4.–30.9.2026',
   endLabel: '30.9.',
   startLabel: '1.4.',
-  templateId: 'tpl_summer',
+  templateId: 'tpl_season_summer_v1',
 };
 
 const upcoming = {
@@ -27,12 +25,12 @@ const upcoming = {
   week: 0,
   weeksLeft: 26,
   progress: 0,
-  daysUntilStart: 49,
-  joined: false,
+  daysUntilStart: 30,
+  enrolled: false,
   rangeLabel: '1.10.2026–31.3.2027',
   endLabel: '31.3.',
   startLabel: '1.10.',
-  templateId: 'tpl_winter',
+  templateId: 'tpl_season_winter_v1',
 };
 
 module.exports = [
@@ -54,50 +52,74 @@ module.exports = [
     },
   },
   {
-    // Joining swaps the reader's active programme and the swap is explained on
-    // the season screen and nowhere else. Both buttons open something, so
-    // neither can do it from a promo strip by accident.
-    name: 'both season buttons open a destination, and both have one',
+    // Joining a season that is already running swaps the programme you are
+    // training TODAY, and the swap is explained on the season screen and
+    // nowhere else. Neither button on the card may do it.
+    name: 'a running season is never signed up for from the card',
     run() {
-      for (const season of [running, upcoming]) {
-        const [slide] = buildHomePromoSlides({ ...base, seasons: [season] });
+      for (const enrolled of [false, true]) {
+        const [slide] = buildHomePromoSlides({ ...base, seasons: [{ ...running, enrolled }] });
+        assert.equal(slide.season.canEnrolHere, false);
         assert.equal(slide.ctaKey, 'home.promo.season.cta');
         assert.equal(slide.secondaryCtaKey, 'home.promo.season.program');
-        assert.equal(slide.templateId, season.templateId);
+        assert.equal(slide.templateId, running.templateId);
       }
     },
   },
   {
-    // The design puts the coming season permanently second in the rail. At 148
-    // days out it is a fact nobody can act on, in the most valuable strip on
-    // the screen.
-    name: 'the next season appears only once it is close enough to plan for',
+    // Signing up early writes a row and changes nothing else, so one tap is
+    // the right cost for it.
+    name: 'a season that has not opened is signed up for in one tap',
     run() {
-      const near = buildHomePromoSlides({
-        ...base,
-        seasons: [{ ...upcoming, daysUntilStart: UPCOMING_SEASON_ANNOUNCE_DAYS }],
-      });
-      assert.deepEqual(near.map((slide) => slide.kind), ['season']);
-      assert.equal(near[0].badgeKey, 'season.upcoming');
-      assert.equal(near[0].badgeTone, 'ghost');
-      assert.equal(near[0].season.daysUntilStart, UPCOMING_SEASON_ANNOUNCE_DAYS);
-
-      const far = buildHomePromoSlides({
-        ...base,
-        seasons: [{ ...upcoming, daysUntilStart: UPCOMING_SEASON_ANNOUNCE_DAYS + 1 }],
-      });
-      assert.deepEqual(far, []);
+      const [slide] = buildHomePromoSlides({ ...base, seasons: [upcoming] });
+      assert.equal(slide.season.canEnrolHere, true);
+      assert.equal(slide.ctaKey, 'home.promo.season.enrol');
+      assert.equal(slide.secondaryCtaKey, 'home.promo.season.cta');
+      assert.equal(slide.badgeKey, 'season.upcoming');
+      assert.equal(slide.badgeTone, 'ghost');
     },
   },
   {
-    // A season card is a countdown, not a scoreboard, so it stays after
-    // joining — but a season with nothing left to score in is over.
-    name: 'a joined season still shows; a spent one does not',
+    // Once you are in, the card stops selling and starts reporting.
+    name: 'a signed-up season says so and stops offering to sign you up',
     run() {
-      assert.equal(
-        buildHomePromoSlides({ ...base, seasons: [{ ...running, joined: true }] }).length,
-        1,
-      );
+      const [slide] = buildHomePromoSlides({
+        ...base,
+        seasons: [{ ...upcoming, enrolled: true }],
+      });
+      assert.equal(slide.season.canEnrolHere, false);
+      assert.equal(slide.badgeKey, 'home.promo.season.in');
+      assert.equal(slide.badgeTone, 'solid');
+      assert.equal(slide.ctaKey, 'home.promo.season.cta');
+      assert.equal(slide.secondaryCtaKey, 'home.promo.season.program');
+    },
+  },
+  {
+    // The design pins the coming season in the rail permanently. At 148 days
+    // out it is a date nobody can act on, in the most valuable strip on the
+    // screen — and the button on it would have nothing to do.
+    name: 'the next season appears exactly when sign-ups open',
+    run() {
+      const inWindow = buildHomePromoSlides({
+        ...base,
+        seasons: [{ ...upcoming, daysUntilStart: SEASON_JOIN_WINDOW_DAYS }],
+      });
+      assert.deepEqual(inWindow.map((slide) => slide.kind), ['season']);
+      assert.equal(inWindow[0].season.daysUntilStart, SEASON_JOIN_WINDOW_DAYS);
+
+      const tooEarly = buildHomePromoSlides({
+        ...base,
+        seasons: [{ ...upcoming, daysUntilStart: SEASON_JOIN_WINDOW_DAYS + 1 }],
+      });
+      assert.deepEqual(tooEarly, []);
+    },
+  },
+  {
+    // A season card is a countdown, not a scoreboard, so it stays after you
+    // sign up — but a season with nothing left to score in is over, and the
+    // calendar has already moved the other one into place.
+    name: 'a spent season leaves the rail',
+    run() {
       assert.deepEqual(buildHomePromoSlides({ ...base, seasons: [{ ...running, weeksLeft: 0 }] }), []);
     },
   },

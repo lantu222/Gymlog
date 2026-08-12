@@ -621,6 +621,112 @@ export const WORKOUT_TEMPLATES_V1: WorkoutTemplateV1[] = [
     ],
   },
 
+  // --- The two season programmes ------------------------------------------
+  //
+  // A season is a 26-week window with ONE programme in it, and until now that
+  // programme was borrowed: summer pointed at RUN, winter at POWERBUILD. Both
+  // are fine programmes and neither was built for a season - RUN never lifts
+  // anything, POWERBUILD never gets you outside, and both sit in the catalog
+  // as ordinary choices a reader could also just pick without joining
+  // anything.
+  //
+  // These two are the season's own, and they answer the thing the calendar
+  // actually changes. Summer: it is light out and the gym is the least
+  // interesting room you could be in, so every session pairs a lift block with
+  // a run block and needs no barbell. Winter: it is dark at four, you are
+  // indoors anyway, so four days with a heavy anchor each - and a short
+  // conditioning finisher on the leg days, because the engine you built in
+  // summer is the thing winter quietly takes back.
+  //
+  // Nothing else in the catalog runs and lifts in the same session, and
+  // nothing else finishes a heavy leg day on a bike. That is deliberate: the
+  // season programme has to be worth joining a season for.
+  {
+    id: 'tpl_season_summer_v1',
+    name: 'Summer Conditioning',
+    goalType: 'general',
+    level: 'beginner',
+    splitType: 'full_body',
+    daysPerWeek: 3,
+    estimatedSessionDuration: 45,
+    progressionModel: 'double_progression',
+    defaultScheduleMode: 'rolling_sequence',
+    progressionRules: {
+      primary: 'Add reps inside the range before adding load. When the top of the range is clean on every set, add the smallest increment you have.',
+      secondary: 'Hold the load until the whole range is repeatable. A summer session should end with something left in you.',
+      accessory: 'Run blocks progress by adding one block, never by running the same block harder. Add the block only when the last one felt easy.',
+      failureHandling: 'If repsMin is missed, repeat the same session next time. If the same target is missed twice in a row, drop a set rather than the programme.',
+    },
+    sessions: [
+      session({ id: 'season_summer_push', name: 'Day 1: Push and Easy Run', orderIndex: 1, exercises: [
+        ex({ id: 'season_summer_push_pushup', exerciseName: 'Push-Up Wide', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 4, repsMin: 8, repsMax: 14, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'bodyweight_press' }),
+        ex({ id: 'season_summer_push_shoulder', exerciseName: 'Dumbbell Shoulder Press', slotId: 'secondary_press_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'vertical_press' }),
+        ex({ id: 'season_summer_push_run', exerciseName: 'Easy Run Blocks', slotId: 'run_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'reps_first', sets: 4, repsMin: 3, repsMax: 5, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'running_blocks' }),
+        ex({ id: 'season_summer_push_plank', exerciseName: 'Plank', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 3, repsMin: 30, repsMax: 60, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'bodyweight_core' }),
+      ] }),
+      session({ id: 'season_summer_pull', name: 'Day 2: Strength and Tempo Run', orderIndex: 2, exercises: [
+        ex({ id: 'season_summer_pull_row', exerciseName: 'Inverted Row', slotId: 'primary_pull_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 4, repsMin: 8, repsMax: 14, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'bodyweight_pull' }),
+        ex({ id: 'season_summer_pull_swing', exerciseName: 'Kettlebell Swing', slotId: 'secondary_hinge_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 4, repsMin: 12, repsMax: 18, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'gainer_general' }),
+        ex({ id: 'season_summer_pull_run', exerciseName: 'Tempo Run Blocks', slotId: 'run_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'reps_first', sets: 5, repsMin: 2, repsMax: 4, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'running_blocks' }),
+        ex({ id: 'season_summer_pull_hips', exerciseName: 'Kneeling Hip Flexor', slotId: 'reset_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'hold', sets: 2, repsMin: 30, repsMax: 45, restSecondsMin: 20, restSecondsMax: 30, substitutionGroup: 'mobility_flow' }),
+      ] }),
+      session({ id: 'season_summer_legs', name: 'Day 3: Legs and Strides', orderIndex: 3, exercises: [
+        ex({ id: 'season_summer_legs_lunge', exerciseName: 'Bodyweight Walking Lunge', slotId: 'primary_legs_1', role: 'primary', progressionPriority: 'high', trackingMode: 'bodyweight', sets: 4, repsMin: 10, repsMax: 16, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'bodyweight_squat_pattern' }),
+        ex({ id: 'season_summer_legs_bridge', exerciseName: 'Glute Bridge', slotId: 'secondary_hinge_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'bodyweight', sets: 3, repsMin: 12, repsMax: 18, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'bodyweight_hinge' }),
+        ex({ id: 'season_summer_legs_strides', exerciseName: 'Stride Finishers', slotId: 'run_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'reps_first', sets: 4, repsMin: 2, repsMax: 4, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'running_blocks' }),
+        ex({ id: 'season_summer_legs_calf', exerciseName: 'Calf Raise', slotId: 'accessory_calves_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 3, repsMin: 12, repsMax: 18, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'calves' }),
+      ] }),
+    ],
+  },
+
+  {
+    id: 'tpl_season_winter_v1',
+    name: 'Winter Build',
+    goalType: 'strength',
+    level: 'intermediate',
+    splitType: 'upper_lower',
+    daysPerWeek: 4,
+    estimatedSessionDuration: 60,
+    progressionModel: 'double_progression',
+    defaultScheduleMode: 'rolling_sequence',
+    progressionRules: {
+      primary: 'Use double progression on anchor lifts. When the last hard set reaches repsMax with clean form, increase load next time by the smallest practical increment.',
+      secondary: 'Same rule, slower. Twenty-six weeks is long enough that holding a load for three sessions costs you nothing.',
+      accessory: 'Add reps before load. The conditioning finisher is not progressed by load at all - keep the effort steady and let the leg work be the hard part.',
+      failureHandling: 'If repsMin is missed, repeat the same load once. If the same target is missed twice in a row, reduce load by 5-10% and rebuild.',
+    },
+    sessions: [
+      session({ id: 'season_winter_lower_a', name: 'Day 1: Lower, Heavy', orderIndex: 1, exercises: [
+        ex({ id: 'season_winter_lower_a_squat', exerciseName: 'Back Squat', slotId: 'primary_legs_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 4, repsMin: 4, repsMax: 6, restSecondsMin: 150, restSecondsMax: 210, substitutionGroup: 'squat_pattern' }),
+        ex({ id: 'season_winter_lower_a_rdl', exerciseName: 'Romanian Deadlift', slotId: 'secondary_hinge_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 6, repsMax: 9, restSecondsMin: 120, restSecondsMax: 150, substitutionGroup: 'hinge_pattern' }),
+        ex({ id: 'season_winter_lower_a_split', exerciseName: 'Bulgarian Split Squat', slotId: 'secondary_legs_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 90, restSecondsMax: 120, substitutionGroup: 'single_leg' }),
+        ex({ id: 'season_winter_lower_a_calf', exerciseName: 'Standing Calf Raise', slotId: 'accessory_calves_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 3, repsMin: 10, repsMax: 15, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'calves' }),
+        ex({ id: 'season_winter_lower_a_bike', exerciseName: 'Bike HIIT (45s sprint / 15s rest)', slotId: 'accessory_conditioning_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 6, repsMin: 45, repsMax: 45, restSecondsMin: 15, restSecondsMax: 30, substitutionGroup: 'gainer_conditioning' }),
+      ] }),
+      session({ id: 'season_winter_upper_a', name: 'Day 2: Upper, Press', orderIndex: 2, exercises: [
+        ex({ id: 'season_winter_upper_a_bench', exerciseName: 'Bench Press', slotId: 'primary_press_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 4, repsMin: 4, repsMax: 6, restSecondsMin: 150, restSecondsMax: 210, substitutionGroup: 'horizontal_press' }),
+        ex({ id: 'season_winter_upper_a_ohp', exerciseName: 'Overhead Press', slotId: 'secondary_press_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 6, repsMax: 9, restSecondsMin: 120, restSecondsMax: 150, substitutionGroup: 'vertical_press' }),
+        ex({ id: 'season_winter_upper_a_incline', exerciseName: 'Incline Dumbbell Press', slotId: 'secondary_press_2', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 90, restSecondsMax: 120, substitutionGroup: 'horizontal_press' }),
+        ex({ id: 'season_winter_upper_a_lateral', exerciseName: 'Lateral Raise', slotId: 'accessory_delts_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 3, repsMin: 12, repsMax: 16, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'accessory_delts' }),
+        ex({ id: 'season_winter_upper_a_triceps', exerciseName: 'Triceps Pushdown', slotId: 'accessory_arms_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 3, repsMin: 10, repsMax: 14, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'accessory_arms' }),
+      ] }),
+      session({ id: 'season_winter_lower_b', name: 'Day 3: Lower, Volume', orderIndex: 3, exercises: [
+        ex({ id: 'season_winter_lower_b_trap', exerciseName: 'Trap Bar Deadlift', slotId: 'primary_hinge_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 3, repsMin: 4, repsMax: 6, restSecondsMin: 150, restSecondsMax: 210, substitutionGroup: 'hinge_pattern' }),
+        ex({ id: 'season_winter_lower_b_press', exerciseName: 'Leg Press', slotId: 'secondary_legs_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 10, repsMax: 14, restSecondsMin: 90, restSecondsMax: 120, substitutionGroup: 'squat_pattern' }),
+        ex({ id: 'season_winter_lower_b_curl', exerciseName: 'Seated Leg Curl', slotId: 'accessory_hamstrings_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'reps_first', sets: 3, repsMin: 10, repsMax: 14, restSecondsMin: 60, restSecondsMax: 90, substitutionGroup: 'accessory_hamstrings' }),
+        ex({ id: 'season_winter_lower_b_knee', exerciseName: 'Hanging Knee Raise', slotId: 'accessory_core_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'bodyweight', sets: 3, repsMin: 8, repsMax: 14, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'accessory_core' }),
+        ex({ id: 'season_winter_lower_b_tread', exerciseName: 'Treadmill HIIT (30s on / 30s off)', slotId: 'accessory_conditioning_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 8, repsMin: 30, repsMax: 30, restSecondsMin: 30, restSecondsMax: 45, substitutionGroup: 'gainer_conditioning' }),
+      ] }),
+      session({ id: 'season_winter_upper_b', name: 'Day 4: Upper, Pull', orderIndex: 4, exercises: [
+        ex({ id: 'season_winter_upper_b_row', exerciseName: 'Barbell Row', slotId: 'primary_pull_1', role: 'primary', progressionPriority: 'high', trackingMode: 'load_and_reps', sets: 4, repsMin: 6, repsMax: 9, restSecondsMin: 120, restSecondsMax: 180, substitutionGroup: 'horizontal_pull' }),
+        ex({ id: 'season_winter_upper_b_pulldown', exerciseName: 'Lat Pulldown', slotId: 'secondary_pull_1', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 8, repsMax: 12, restSecondsMin: 90, restSecondsMax: 120, substitutionGroup: 'vertical_pull' }),
+        ex({ id: 'season_winter_upper_b_chest_row', exerciseName: 'Chest-Supported Row', slotId: 'secondary_pull_2', role: 'secondary', progressionPriority: 'medium', trackingMode: 'load_and_reps', sets: 3, repsMin: 10, repsMax: 14, restSecondsMin: 90, restSecondsMax: 120, substitutionGroup: 'horizontal_pull' }),
+        ex({ id: 'season_winter_upper_b_rear', exerciseName: 'Rear Delt Fly', slotId: 'accessory_delts_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 3, repsMin: 12, repsMax: 16, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'accessory_delts' }),
+        ex({ id: 'season_winter_upper_b_curl', exerciseName: 'Dumbbell Curl', slotId: 'accessory_arms_1', role: 'accessory', progressionPriority: 'low', trackingMode: 'reps_first', sets: 3, repsMin: 10, repsMax: 14, restSecondsMin: 45, restSecondsMax: 75, substitutionGroup: 'accessory_arms' }),
+      ] }),
+    ],
+  },
+
   // ─── 4-Day PPL+1 ─────────────────────────────────────────────────────────
   {
     id: 'tpl_4_day_ppl_plus_v1',

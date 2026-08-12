@@ -180,13 +180,18 @@ module.exports = [
         });
       });
 
-      // The RUN programme's "Easy Run Blocks" / "Tempo Run Blocks" / "Stride
-      // Finishers" are the known remainder: running prescriptions the library
-      // has no entry for at all. Pinned so the number cannot grow quietly.
+      // "Easy Run Blocks" / "Tempo Run Blocks" / "Stride Finishers" are the
+      // known remainder: running prescriptions the library has no entry for at
+      // all. RUN uses all three, and the summer season programme uses them
+      // too, because putting a run block in every session is the whole point
+      // of it. Pinned so the number cannot grow quietly.
       assert.deepEqual(offenders.sort(), [
         'RUN / Day 1: Easy Run: Easy Run Blocks',
         'RUN / Day 2: Tempo Run: Stride Finishers',
         'RUN / Day 2: Tempo Run: Tempo Run Blocks',
+        'Summer Conditioning / Day 1: Push and Easy Run: Easy Run Blocks',
+        'Summer Conditioning / Day 2: Strength and Tempo Run: Tempo Run Blocks',
+        'Summer Conditioning / Day 3: Legs and Strides: Stride Finishers',
       ]);
     },
   },

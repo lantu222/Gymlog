@@ -1,4 +1,5 @@
 import { I18nKey } from './i18n';
+import { isJoinWindowOpen } from './seasonEnrolment';
 
 /**
  * The carousel under "Aloita treeni" (design: GAINER Kausikaruselli).
@@ -12,12 +13,14 @@ import { I18nKey } from './i18n';
  * So the slides are built from state, not from a fixed list, and each one
  * disappears the moment its reason does.
  *
- * What the design asked for and this file deliberately does NOT build: a
- * participant count ("1 480 mukana", "412 ilmoittautunut") and pre-registration
- * for the season that has not opened. There is no server and there are no other
- * users — a number under a season card would be invented, and "ilmoittaudu"
- * would promise a roster that nothing writes to. The card counts down instead,
- * which is calendar arithmetic and checkable.
+ * What the design asked for and this file deliberately does NOT build: the
+ * participant count ("1 480 mukana", "412 ilmoittautunut"). There is no server
+ * and there are no other users, so a number under a season card would be
+ * invented.
+ *
+ * Signing up IS built, and it is the reader's own list — see
+ * lib/seasonEnrolment. "Ilmoittaudu" writes a row, which is why the button is
+ * allowed to say it.
  */
 
 export type HomePromoKind = 'season' | 'program' | 'goal';
@@ -36,8 +39,15 @@ export interface HomePromoSeason {
   daysUntilStart: number;
   /** The last day points can be scored, for the card's right-hand meta. */
   endLabel: string;
-  /** True once the season programme is the reader's active plan. */
-  joined: boolean;
+  /** True once the reader has signed up — see lib/seasonEnrolment. */
+  enrolled: boolean;
+  /**
+   * Whether the card's primary button signs you up, rather than opening a
+   * screen. True only for a season that has not started: signing up for one
+   * that has swaps the programme you are training today, and that belongs on
+   * the season screen next to the sentence explaining it.
+   */
+  canEnrolHere: boolean;
 }
 
 export interface HomePromoSlide {
@@ -76,7 +86,8 @@ export interface HomePromoSeasonInput {
   weeksLeft: number;
   progress: number;
   daysUntilStart: number;
-  joined: boolean;
+  /** True once the reader has signed up — see lib/seasonEnrolment. */
+  enrolled: boolean;
   /** "1.4.–30.9.2026", built by the caller because dates are language work. */
   rangeLabel: string;
   /** The season's last day, for "PISTEET 30.9.". */
@@ -106,21 +117,13 @@ const SEASON_TITLE: Record<'summer' | 'winter', I18nKey> = {
   winter: 'season.winter',
 };
 
-/**
- * How early the next season is worth a card on Home.
- *
- * The design puts the coming season permanently second in the rail. At 148
- * days out that card is a fact nobody can act on, sitting in the most valuable
- * strip on the screen. Two months is close enough that "which season am I
- * training into" is a real question.
- */
-export const UPCOMING_SEASON_ANNOUNCE_DAYS = 60;
-
 export function buildHomePromoSlides(input: HomePromoInput): HomePromoSlide[] {
   const slides: HomePromoSlide[] = [];
 
   for (const season of input.seasons) {
     if (season.state === 'running') {
+      // A season with nothing left to score in is over, and the calendar has
+      // already moved on to the next one.
       if (season.weeksLeft <= 0) {
         continue;
       }
@@ -130,15 +133,16 @@ export function buildHomePromoSlides(input: HomePromoInput): HomePromoSlide[] {
         // Week 9 / 26 is the SEASON's progress, not the reader's points. The
         // scoreboard stays on the season screen; this card only says how much
         // of the window is left to score in.
-        badgeKey: 'home.promo.season.running',
+        badgeKey: season.enrolled ? 'home.promo.season.in' : 'home.promo.season.running',
         badgeVars: { week: season.week, total: season.week + season.weeksLeft },
         badgeTone: 'solid',
         titleKey: SEASON_TITLE[season.season],
         subtitle: season.rangeLabel,
-        // The design's primary is "Liity kauteen". Joining swaps the reader's
-        // active programme, and the swap is explained on the season screen and
-        // nowhere else — a promo card is the wrong place to do it silently. So
-        // both buttons open something: the season, and the season's programme.
+        // The design's primary is "Liity kauteen". Joining a season that is
+        // ALREADY RUNNING swaps the programme you are training today, and the
+        // swap is explained on the season screen and nowhere else — a promo
+        // card is the wrong place to do it in one tap. So both buttons open
+        // something: the season, and the season's programme.
         ctaKey: 'home.promo.season.cta',
         secondaryCtaKey: 'home.promo.season.program',
         templateId: season.templateId,
@@ -150,25 +154,31 @@ export function buildHomePromoSlides(input: HomePromoInput): HomePromoSlide[] {
           progress: season.progress,
           daysUntilStart: 0,
           endLabel: season.endLabel,
-          joined: season.joined,
+          enrolled: season.enrolled,
+          canEnrolHere: false,
         },
       });
       continue;
     }
 
-    if (season.daysUntilStart > UPCOMING_SEASON_ANNOUNCE_DAYS) {
+    // The next season is a date on a calendar until sign-ups open. Before
+    // that the card has nothing to offer and no button that does anything.
+    if (!isJoinWindowOpen(season.daysUntilStart)) {
       continue;
     }
+    // Signing up early swaps nothing — it writes a row and nothing else — so
+    // unlike the running season, the card can do it in one tap.
+    const canEnrolHere = !season.enrolled;
     slides.push({
       id: `season-${season.season}`,
       kind: 'season',
-      badgeKey: 'season.upcoming',
+      badgeKey: season.enrolled ? 'home.promo.season.in' : 'season.upcoming',
       badgeVars: { date: season.startLabel },
-      badgeTone: 'ghost',
+      badgeTone: season.enrolled ? 'solid' : 'ghost',
       titleKey: SEASON_TITLE[season.season],
       subtitle: season.rangeLabel,
-      ctaKey: 'home.promo.season.cta',
-      secondaryCtaKey: 'home.promo.season.program',
+      ctaKey: canEnrolHere ? 'home.promo.season.enrol' : 'home.promo.season.cta',
+      secondaryCtaKey: canEnrolHere ? 'home.promo.season.cta' : 'home.promo.season.program',
       templateId: season.templateId,
       season: {
         season: season.season,
@@ -178,7 +188,8 @@ export function buildHomePromoSlides(input: HomePromoInput): HomePromoSlide[] {
         progress: 0,
         daysUntilStart: season.daysUntilStart,
         endLabel: season.endLabel,
-        joined: season.joined,
+        enrolled: season.enrolled,
+        canEnrolHere,
       },
     });
   }

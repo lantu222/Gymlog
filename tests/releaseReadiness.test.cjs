@@ -162,12 +162,24 @@ module.exports = [
       const demoBuild = readJson('app.json')?.expo?.extra?.demoBuild === true;
 
       // 1 · Trending. Social proof needs other people; this device only knows
-      //     what its owner did. Real numbers need a server that counts starts.
+      //     what its owner did. The invented counts are gone entirely — being
+      //     unreachable in a RELEASE build was never the point, because the
+      //     demo build is the one the reader holds. getTrendingEntries returns
+      //     null until a server counts starts.
       const trending = read('src/lib/programTrendingDemo.ts');
-      assert.match(
+      assert.doesNotMatch(
         trending,
-        /return isDemoBuild\(\) \? DEMO_TRENDING : null/,
-        'the invented start counts must be unreachable outside a demo build',
+        /starts:\s*\d/,
+        'a hard-coded start count is an invented number, demo build or not',
+      );
+
+      // 1b · The paywall's three hero figures went for the same reason:
+      //      "1,9x faster to a new PR" is an efficacy claim nobody measured.
+      const i18nAll = read('src/lib/i18n.ts');
+      assert.doesNotMatch(
+        i18nAll,
+        /'paywall\.stat[123]\.[vl]'/,
+        'the paywall efficacy figures must stay deleted, not re-added behind a flag',
       );
 
       // 2 · "Continue with Google" and "Continue with Apple". Both currently
@@ -223,22 +235,25 @@ module.exports = [
     name: 'release: the paywall does not quote a study nobody ran',
     run() {
       // "1.9x faster to a new PR · 200+ decisions automated · +34% more volume,
-      // n = 4,812" is a made-up cohort. The design it came from says so in its
-      // own note ("Hero numbers are still placeholders"), and it is the same
-      // class of claim the 2026-07-28 Pro audit already stripped once.
+      // n = 4,812" was a made-up cohort. The design it came from says so in its
+      // own note ("Hero numbers are still placeholders").
       //
-      // So the figures hang off the demo flag, and this asserts the wiring
-      // rather than the taste: a release build must not be able to render them.
+      // It used to hang off the demo flag and this test asserted that wiring.
+      // That was the wrong bar: the demo build is the one a reader holds, so
+      // "unreachable in a release build" made the claim unreachable by nobody.
+      // The figures are deleted. This asserts they are still deleted.
       const paywall = read('src/screens/ProPaywallScreen.tsx');
-      assert.match(
+      assert.doesNotMatch(
         paywall,
-        /const showStats = isDemoBuild\(\)/,
-        'the hero statistics must stay behind the demo flag until they are measured',
+        /HERO_STATS|showStats/,
+        'the hero statistics must stay deleted, not come back behind a flag',
       );
-      assert.match(
-        paywall,
-        /\{showStats \? \(/,
-        'the statistics block must be gated by showStats, not merely computed',
+      // The cohort citation lived in the dictionary, not the screen, so that
+      // is where it has to stay gone.
+      assert.doesNotMatch(
+        read('src/lib/i18n.ts'),
+        /paywall\.cohort|n = 4/,
+        'no cohort citation without a cohort',
       );
     },
   },

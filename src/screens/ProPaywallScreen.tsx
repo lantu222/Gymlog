@@ -3,7 +3,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, G, Path, Rect, Stop } from 'react-native-svg';
 
 import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
-import { isDemoBuild } from '../lib/demoMode';
 import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
 import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
@@ -43,11 +42,14 @@ const PW = {
  * the hero without them rather than shipping a made-up study. The headline and
  * the sub line stand on their own, because those describe what the app does.
  */
-const HERO_STATS: Array<{ valueKey: Parameters<typeof t>[1]; labelKey: Parameters<typeof t>[1] }> = [
-  { valueKey: 'paywall.stat1.v', labelKey: 'paywall.stat1.l' },
-  { valueKey: 'paywall.stat2.v', labelKey: 'paywall.stat2.l' },
-  { valueKey: 'paywall.stat3.v', labelKey: 'paywall.stat3.l' },
-];
+/*
+ * The three hero figures are gone: "1,9x nopeammin uuteen ennatykseen" and
+ * "+34 % volyymia 8 viikossa" are efficacy claims, and nobody measured them.
+ * They stood behind isDemoBuild, which made them unreachable in a release
+ * build without making them true — and the demo build is the one the reader
+ * holds. The cohort citation under them ("n = 4 812") went for the same
+ * reason. Nothing replaces them; the benefits below are things the app does.
+ */
 
 type PwIconName = 'trend' | 'heart' | 'trophy' | 'chat' | 'target' | 'dumbbell' | 'sparkle' | 'check' | 'arrow';
 
@@ -104,7 +106,6 @@ export function ProPaywallScreen({
   busy = false,
 }: ProPaywallScreenProps) {
   const [plan, setPlan] = useState<'year' | 'month'>('year');
-  const showStats = isDemoBuild();
   // The trial is switched off while the free tier is being walked. A CTA that
   // still said "Start 7 days free" would grant nothing and promise a week.
   const trial = PRO_TRIAL_ENABLED;
@@ -175,23 +176,6 @@ export function ProPaywallScreen({
             <Text style={styles.heroEyebrow}>{t(language, 'paywall.eyebrow')}</Text>
             <Text style={styles.heroTitle}>{t(language, 'paywall.title')}</Text>
             <Text style={styles.heroSub}>{t(language, 'paywall.sub')}</Text>
-
-            {showStats ? (
-              <>
-                <View style={styles.statRow}>
-                  {HERO_STATS.map((stat) => (
-                    <View key={stat.valueKey} style={styles.stat}>
-                      <Text style={styles.statValue}>{t(language, stat.valueKey)}</Text>
-                      <Text style={styles.statLabel}>{t(language, stat.labelKey)}</Text>
-                    </View>
-                  ))}
-                </View>
-                {/* The cohort line is gone. It cited a study nobody ran
-                    ("n = 4 812"), which turns three demo figures into a
-                    fabricated source. The figures stay behind isDemoBuild;
-                    the citation does not come back. */}
-              </>
-            ) : null}
           </View>
         </View>
 
@@ -417,10 +401,6 @@ const styles = StyleSheet.create({
     maxWidth: 250,
   },
   heroSub: { fontSize: 12.5, fontWeight: '600', color: 'rgba(255,255,255,0.74)', marginTop: 10, lineHeight: 17.5, maxWidth: 236 },
-  statRow: { flexDirection: 'row', gap: 10, marginTop: 18 },
-  stat: { flex: 1 },
-  statValue: { fontSize: 24, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.7, lineHeight: 25 },
-  statLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.62)', marginTop: 5, lineHeight: 13 },
   body: { paddingHorizontal: PAD, paddingTop: 18, gap: 22 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.6, color: PW.purple, marginBottom: 12 },
   card: { backgroundColor: PW.card, borderWidth: 1, borderColor: PW.border, borderRadius: 18, padding: 16 },

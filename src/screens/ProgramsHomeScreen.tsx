@@ -223,6 +223,8 @@ interface ProgramsHomeScreenProps {
     daysUntilStart: number;
     programName: string;
     current: boolean;
+    /** True once the reader has signed up for this season. */
+    enrolled: boolean;
     gradient: readonly [string, string];
   }>;
   onOpenSeason: (season: ProgramSeason) => void;
@@ -1189,11 +1191,16 @@ export function ProgramsHomeScreen({
                     clipPath={`url(#${gid}-c)`}
                   />
                 </Svg>
-                <View style={[styles.seasonPill, !card.current && styles.seasonPillMuted]}>
-                  <Text style={[styles.seasonPillText, !card.current && styles.seasonPillTextMuted]}>
-                    {card.current
-                      ? t(language, 'season.now', { count: card.weeksLeft })
-                      : t(language, 'season.upcoming', { date: card.startLabel })}
+                <View style={[styles.seasonPill, !card.current && !card.enrolled && styles.seasonPillMuted]}>
+                  <Text
+                    style={[styles.seasonPillText, !card.current && !card.enrolled && styles.seasonPillTextMuted]}
+                    numberOfLines={1}
+                  >
+                    {card.enrolled
+                      ? t(language, 'home.promo.season.in')
+                      : card.current
+                        ? t(language, 'season.now', { count: card.weeksLeft })
+                        : t(language, 'season.upcoming', { date: card.startLabel })}
                   </Text>
                 </View>
                 <View style={styles.seasonCardBody}>

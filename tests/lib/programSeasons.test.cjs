@@ -101,8 +101,11 @@ module.exports = [
       assert.match(screen, /seasonCards\.map\(\(card\) =>/);
       assert.match(screen, /onOpenSeason\(card\.season\)/);
       assert.match(app, /navigate\(\{ tab: 'workout', screen: 'season', season \}\)/);
-      // Two, never four: the row is "what is running and what is next".
-      assert.match(app, /return \[build\(current, true\), build\(next, false\)\];/);
+      // At most two, never four: the season running, and the one after it
+      // only once sign-ups are open. Outside that window the coming season is
+      // a date nobody can act on, so the row carries one card.
+      assert.match(app, /const cards = \[build\(current, true\)\];/);
+      assert.match(app, /isJoinWindowOpen\(daysUntil\(next\.start, now\)\)/);
       // "Poista suodatin" is gone with the rail it belonged to. With nothing
       // selected the section had no rail at all, so the link read as "remove
       // the seasons" — which is what the reader saw it do.

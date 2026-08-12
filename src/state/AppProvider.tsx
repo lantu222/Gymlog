@@ -203,6 +203,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       recommendedProgramId: null,
       trackedExerciseLibraryItemIds: [],
       strengthGoals: [],
+    seasonEnrolments: [],
       dismissedTipIds: [],
       dismissedCompletionPlanIds: [],
       dismissedCardSuggestionKeys: [],

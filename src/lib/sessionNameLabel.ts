@@ -37,6 +37,16 @@ const FOCUS_FI: Record<string, string> = {
   // Handstand & Planche Progressions" are sentences, not two nouns, and
   // word-by-word translation turns them into something a reader has to
   // decode. A whole-phrase hit wins over decomposition.
+  // The two season programmes. Whole phrases: "Push and Easy Run" is what the
+  // session IS, and decomposing it gives two nouns joined by a conjunction the
+  // dictionary would have to guess at.
+  'push and easy run': 'Työntö ja kevyt juoksu',
+  'strength and tempo run': 'Voima ja vauhtijuoksu',
+  'legs and strides': 'Jalat ja vedot',
+  'lower, heavy': 'Alavartalo, raskas',
+  'upper, press': 'Ylävartalo, työntö',
+  'lower, volume': 'Alavartalo, volyymi',
+  'upper, pull': 'Ylävartalo, veto',
   'athletic upper': 'Urheilullinen ylävartalo',
   'bench day': 'Penkkipäivä',
   'core reconnection': 'Keskivartalon herättely',

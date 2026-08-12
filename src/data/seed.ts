@@ -95,6 +95,7 @@ const DEFAULT_PREFERENCES = {
   activePlanIds: ['plan_push_pull_legs'],
   programsTabEnabled: true,
   strengthGoals: [],
+    seasonEnrolments: [],
 };
 
 function createLegacySeedExerciseLibrary(): ExerciseLibraryItem[] {

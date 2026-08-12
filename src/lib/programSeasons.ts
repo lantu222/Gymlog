@@ -64,6 +64,7 @@ export const PROGRAM_SEASONS: Readonly<Record<string, ProgramSeason>> = {
   tpl_gainer_dream_body_female_v1: 'winter',
   tpl_gainer_beginner_bro_split_v1: 'winter',
   tpl_gainer_advanced_ppl_v1: 'winter',
+  tpl_season_winter_v1: 'winter',
 
   // ── Summer: lean and outdoors ────────────────────────────────────────
   tpl_shred_v1: 'summer',
@@ -71,6 +72,7 @@ export const PROGRAM_SEASONS: Readonly<Record<string, ProgramSeason>> = {
   tpl_gainer_lean_shred_v1: 'summer',
   tpl_gainer_fat_burn_hiit_v1: 'summer',
   tpl_3_day_run_mobility_v1: 'summer',
+  tpl_season_summer_v1: 'summer',
   tpl_gainer_runners_strength_v1: 'summer',
   tpl_gainer_athlete_conditioning_v1: 'summer',
   tpl_gainer_calisthenics_mastery_v1: 'summer',
@@ -94,19 +96,22 @@ export const PROGRAM_SEASONS: Readonly<Record<string, ProgramSeason>> = {
  */
 export const SEASON_PROGRAM_IDS: Readonly<Record<ProgramSeason, string>> = {
   /**
-   * Summer is conditioning, and conditioning happens outdoors.
+   * Summer: lifts and run blocks in the same session, no barbell.
    *
-   * SHRED was the first pick and it was the wrong kind of summer: a cut is a
-   * gym program with a beach deadline, not a season. RUN is running and
-   * mobility — three days, beginner-reachable, and the one thing in the
-   * catalog you actually do because it is light outside.
+   * It used to point at RUN, which never lifts anything, after SHRED — a cut
+   * with a beach deadline, which is not a season. Both were borrowed. This one
+   * was built for the window: three days, outdoors where you want it, and a
+   * run block in every session so the summer half actually builds an engine.
    */
-  summer: 'tpl_3_day_run_mobility_v1',
+  summer: 'tpl_season_summer_v1',
   /**
-   * Winter is building, indoors, four days. POWERBUILD is the catalog's
-   * clearest statement of exactly that.
+   * Winter: four days indoors, a heavy anchor each, conditioning on the legs.
+   *
+   * It used to point at POWERBUILD, which is a good programme that never asks
+   * what month it is. This one keeps the engine alive through the dark half
+   * rather than handing it back.
    */
-  winter: 'tpl_4_day_powerbuilding_v1',
+  winter: 'tpl_season_winter_v1',
 };
 
 export function getSeasonProgramId(season: ProgramSeason): string {

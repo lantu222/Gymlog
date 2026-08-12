@@ -370,6 +370,28 @@ export const READY_PROGRAM_CONTENT_FI: Record<string, ReadyProgramContent> = {
       'Sen sijaan että jahtaisit heti pitkiä lenkkejä, ohjelma vuorottelee kevyitä ja tempotyylisiä juoksublokkeja oman palautuspäivän kanssa, jotta jalat ja lonkat pysyvät mukana.',
   },
 
+  tpl_season_summer_v1: {
+    summary:
+      'Kesäkauden ohjelma: kolme päivää, joissa jokaisessa on lyhyt voimaosuus ja juoksuosuus peräkkäin. Tankoa ei tarvita missään kohtaa.',
+    audience:
+      'Kesäkauteen osallistuville - ja kenelle tahansa, jonka salilla käyminen muuttuu epäsäännölliseksi huhtikuun ja syyskuun välillä.',
+    equipmentProfile:
+      'Käsipainopari tai kahvakuula, jokin tanko tai pöytä jonka alla soutaa, ja paikka juosta. Ei tankoa, ei laitteita.',
+    whyItWorks:
+      'Voima ja juoksu jaetaan yleensä eri päiville, ja sitten juoksu lakkaa hiljaa tapahtumasta. Kun juoksuosuus on jokaisen treenin lopussa, kunto karttuu niinä päivinä joina olit joka tapauksessa treenaamassa.',
+  },
+
+  tpl_season_winter_v1: {
+    summary:
+      'Talvikauden ohjelma: neljä päivää, ylä- ja alavartalo kahdesti, jokaisessa treenissä yksi raskas ankkuriliike ja jalkapäivien lopussa lyhyt kunto-osuus.',
+    audience:
+      'Talvikauteen osallistuville, jotka osaavat perusliikkeet jo ja haluavat että pimeä puolivuotinen jättää jotain käteen.',
+    equipmentProfile:
+      'Vaatii täyden salin. Tanko, käsipainot, ylätalja ja reisikoukistuslaite sekä pyörä tai juoksumatto loppuosuuksiin.',
+    whyItWorks:
+      '26 viikkoa on tarpeeksi pitkä aika ajaa yksi raskas ankkuriliike per treeni ilman että sitä tarvitsee pakottaa, ja kaksi lyhyttä kunto-osuutta pitää kesällä rakennetun kunnon tallella maaliskuuhun asti.',
+  },
+
   tpl_4_day_ppl_plus_v1: {
     summary:
       'Nelipäiväinen PPL+1-jako, joka lisää klassiseen työntö/veto/jalat-malliin oman ylävartalotreenin viikkovolyymin kasvattamiseksi ilman kuutta treenipäivää.',

@@ -336,6 +336,20 @@ const READY_PROGRAM_CONTENT: Record<string, ReadyProgramContent> = {
     whyItWorks: 'Instead of chasing long runs immediately, the plan alternates easy and tempo-style run blocks with a dedicated reset day so your legs and hips can keep up.',
   },
 
+  tpl_season_summer_v1: {
+    summary: 'The summer season programme: three days that each pair a short lift block with a run block, with no barbell anywhere in it.',
+    audience: 'Best for anyone training the summer season - and for anyone whose gym access gets unreliable between April and September.',
+    equipmentProfile: 'A pair of dumbbells or a kettlebell, something to row under, and somewhere to run. No barbell, no machines.',
+    whyItWorks: 'Lifting and running usually get split into different days and then the running quietly stops happening. Putting a run block at the end of every session means the engine gets built on the days you were training anyway.',
+  },
+
+  tpl_season_winter_v1: {
+    summary: 'The winter season programme: four days, upper and lower twice each, with a heavy anchor in every session and a conditioning finisher on the leg days.',
+    audience: 'Best for anyone training the winter season who already knows the main lifts and wants the dark half of the year to add something.',
+    equipmentProfile: 'Full gym. Barbell, dumbbells, a pulldown and a leg curl, plus a bike or treadmill for the finishers.',
+    whyItWorks: 'Twenty-six weeks is long enough to run one heavy anchor per session without forcing it, and the two short finishers keep the conditioning you built in summer from quietly disappearing by March.',
+  },
+
   tpl_4_day_ppl_plus_v1: {
     summary: 'A four-day PPL+1 split that adds a dedicated upper session to the classic push/pull/legs pattern for more weekly volume without training six days.',
     audience: 'Best for intermediate lifters who have outgrown three-day PPL but are not ready for a full six-day commitment.',

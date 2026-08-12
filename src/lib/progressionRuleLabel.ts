@@ -47,6 +47,18 @@ const FI: Record<string, string> = {
     'Käytä tuplaprogressiota päivän kahdessa ensimmäisessä liikkeessä ja lisää painoa kun toistoalueen yläpää toistuu hyvällä tekniikalla.',
   'Add reps before load. When repsMax is repeatable, use a small load increase; otherwise repeat the same load.':
     'Lisää toistoja ennen painoa. Kun toistoalueen yläpää toistuu, nosta painoa vähän; muuten toista sama paino.',
+  'Add reps inside the range before adding load. When the top of the range is clean on every set, add the smallest increment you have.':
+    'Lisää toistoja haarukan sisällä ennen kuin lisäät painoa. Kun haarukan yläpää menee puhtaasti joka sarjassa, lisää pienin korotus mikä sinulla on.',
+  'Hold the load until the whole range is repeatable. A summer session should end with something left in you.':
+    'Pidä paino samana kunnes koko haarukka toistuu. Kesätreenin pitäisi loppua niin että jotain jää jäljelle.',
+  'Run blocks progress by adding one block, never by running the same block harder. Add the block only when the last one felt easy.':
+    'Juoksuosuus etenee lisäämällä yksi osuus, ei juoksemalla samaa osuutta kovempaa. Lisää osuus vasta kun edellinen tuntui helpolta.',
+  'If repsMin is missed, repeat the same session next time. If the same target is missed twice in a row, drop a set rather than the programme.':
+    'Jos alarajaa ei saavuteta, toista sama treeni seuraavalla kerralla. Jos sama tavoite jää kahdesti peräkkäin, pudota sarja pois – älä ohjelmaa.',
+  'Same rule, slower. Twenty-six weeks is long enough that holding a load for three sessions costs you nothing.':
+    'Sama sääntö, hitaammin. 26 viikkoa on niin pitkä aika, ettei painon pitäminen samana kolme treeniä maksa mitään.',
+  'Add reps before load. The conditioning finisher is not progressed by load at all - keep the effort steady and let the leg work be the hard part.':
+    'Toistot ennen painoa. Loppuosuutta ei progressoida kuormalla lainkaan – pidä teho samana ja anna jalkatreenin olla se raskas osa.',
   'Treat the run work as clean interval blocks and add total blocks only after pacing feels stable.':
     'Kohtele juoksuosuutta puhtaina intervalliblokkeina ja lisää blokkeja vasta kun vauhti tuntuu vakaalta.',
   'Keep the movement smooth and repeat the full range before adding more total rounds.':

@@ -114,6 +114,7 @@ import {
 import { buildDuplicatedCustomProgramDraft } from './src/lib/customProgramDuplication';
 import { ProgramLimitReachedError } from './src/lib/programSlots';
 import {
+  ProgramSeason,
   getSeasonForDate,
   getSeasonProgramTitleKey,
   getSeasonProgramId,
@@ -151,6 +152,12 @@ import { programCoverIndex } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
+import {
+  addSeasonEnrolment,
+  daysUntil,
+  isEnrolled,
+  isJoinWindowOpen,
+} from './src/lib/seasonEnrolment';
 import { exerciseNameLabel } from './src/lib/exerciseNameLabel';
 import { buildProgramFingerprint } from './src/lib/programFingerprint';
 import { resolveRecords } from './src/lib/personalRecords';
@@ -3814,11 +3821,20 @@ function VinhaApp() {
           return template ? formatWorkoutDisplayLabel(template.name) : '';
         })(),
         current: isCurrent,
+        enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
         gradient: SEASON_COLORS[window.season],
       });
-      return [build(current, true), build(next, false)];
+      // The running season, and the next one only once sign-ups are open. A
+      // card counting down 148 days is a date nobody can act on, and when a
+      // season closes the calendar has already moved the other one into
+      // `current` — so the row swaps over on its own, both here and on Home.
+      const cards = [build(current, true)];
+      if (isJoinWindowOpen(daysUntil(next.start, now))) {
+        cards.push(build(next, false));
+      }
+      return cards;
     },
-    [preferences.appLanguage, workout.templates],
+    [preferences.appLanguage, preferences.seasonEnrolments, workout.templates],
   );
   /**
    * The strip under "Aloita treeni".
@@ -3836,25 +3852,22 @@ function VinhaApp() {
         ? `${date.getDate()}.${date.getMonth() + 1}.`
         : `${date.getDate()}/${date.getMonth() + 1}`;
     const lastDay = (window: SeasonWindow) => new Date(window.end.getTime() - 86_400_000);
-    const season = (window: SeasonWindow, state: 'running' | 'upcoming') => {
-      const programId = getSeasonProgramId(window.season);
-      return {
-        season: window.season,
-        state,
-        week: state === 'running' ? seasonWeek(window, now) : 0,
-        weeksLeft: state === 'running' ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
-        progress: state === 'running' ? seasonProgressRatio(window, now) : 0,
-        daysUntilStart:
-          state === 'running'
-            ? 0
-            : Math.max(0, Math.ceil((window.start.getTime() - now.getTime()) / 86_400_000)),
-        joined: activeProgramTemplateIds.includes(programId),
-        rangeLabel: `${label(window.start)}–${label(lastDay(window))}${lastDay(window).getFullYear()}`,
-        endLabel: label(lastDay(window)),
-        startLabel: label(window.start),
-        templateId: programId,
-      };
-    };
+    const season = (window: SeasonWindow, state: 'running' | 'upcoming') => ({
+      season: window.season,
+      state,
+      week: state === 'running' ? seasonWeek(window, now) : 0,
+      weeksLeft: state === 'running' ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
+      progress: state === 'running' ? seasonProgressRatio(window, now) : 0,
+      daysUntilStart: state === 'running' ? 0 : daysUntil(window.start, now),
+      // Signed up, not "is the season programme my active plan". The old
+      // reading un-joined you the moment you trained something else, and it
+      // could not tell a pre-registration from a programme swap at all.
+      enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
+      rangeLabel: `${label(window.start)}–${label(lastDay(window))}${lastDay(window).getFullYear()}`,
+      endLabel: label(lastDay(window)),
+      startLabel: label(window.start),
+      templateId: getSeasonProgramId(window.season),
+    });
     const recommendation = programsRecommendations.find(
       (item) => !activeProgramTemplateIds.includes(item.id),
     );
@@ -3867,10 +3880,31 @@ function VinhaApp() {
   }, [
     activeProgramTemplateIds,
     preferences.appLanguage,
+    preferences.seasonEnrolments,
     preferences.strengthGoals,
     programsRecommendations,
     trackedProgress,
   ]);
+
+  /**
+   * Signing up for a season — the whole act, in one place.
+   *
+   * It writes a row and nothing else. Adopting the season programme is a
+   * separate decision made on the season screen, because it replaces what you
+   * are training today and that needs the sentence next to it.
+   */
+  const handleEnrolSeason = useCallback(
+    (season: ProgramSeason, year: number) => {
+      void updatePreferences({
+        seasonEnrolments: addSeasonEnrolment(preferences.seasonEnrolments, {
+          season,
+          year,
+          joinedAt: new Date().toISOString(),
+        }),
+      });
+    },
+    [preferences.seasonEnrolments, updatePreferences],
+  );
 
   const programsCampaigns = useMemo(
     () =>
@@ -5245,7 +5279,13 @@ function VinhaApp() {
         // could not be joined at all. It joins now, and joining ADDS: the
         // reader's own programme stays exactly where it was.
         running={activeProgramTemplateIds.includes(seasonProgramId)}
-        onJoinSeason={() => void handleAdoptReadyProgram(seasonProgramId)}
+        onJoinSeason={() => {
+          // Two things, and they are genuinely two: the row that says you are
+          // in the season, and the programme swap that makes it trainable.
+          const window = resolveSeasonWindow();
+          handleEnrolSeason(window.season, window.year);
+          void handleAdoptReadyProgram(seasonProgramId);
+        }}
         onBack={() => navigateBack({ tab: 'workout', screen: 'programs_home' })}
         onOpenProgram={handleOpenReadyProgramDetail}
         onStartToday={() => {
@@ -5367,6 +5407,12 @@ function VinhaApp() {
         promoSlides={homePromoSlides}
         onPressPromo={(slide) => {
           if (slide.kind === 'season' && slide.season) {
+            // Signing up for a season that has not opened swaps nothing, so
+            // the card can do it in one tap. Everything else opens the screen.
+            if (slide.season.canEnrolHere) {
+              handleEnrolSeason(slide.season.season, nextSeasonWindow().year);
+              return;
+            }
             navigate({ tab: 'workout', screen: 'season', season: slide.season.season });
             return;
           }
@@ -5386,6 +5432,10 @@ function VinhaApp() {
         // The ghost button on the season card: its one programme, opened where
         // the week and the exercises are — not the season scoreboard again.
         onPressPromoSecondary={(slide) => {
+          if (slide.season?.canEnrolHere) {
+            navigate({ tab: 'workout', screen: 'season', season: slide.season.season });
+            return;
+          }
           if (slide.templateId) {
             navigate({
               tab: 'workout',

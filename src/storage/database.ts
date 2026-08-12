@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { createEmptyDatabase } from '../data/seed';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
@@ -844,6 +845,7 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
       // Hand-typed numbers in stored JSON: normalised rather than trusted,
       // so a corrupt entry cannot make a progress bar draw past its box.
       strengthGoals: normalizeStrengthGoals(input?.preferences?.strengthGoals),
+      seasonEnrolments: normalizeSeasonEnrolments(input?.preferences?.seasonEnrolments),
       dismissedTipIds:
         Array.isArray(input?.preferences?.dismissedTipIds)
           ? input.preferences.dismissedTipIds.filter((value: unknown): value is string => typeof value === 'string')
