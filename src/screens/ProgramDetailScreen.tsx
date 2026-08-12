@@ -130,7 +130,6 @@ interface ProgramDetailScreenProps {
    * moment, and until now it existed only for the program you were already
    * running — browse the other fifty-four and the thought had nowhere to go.
    */
-  onMakeOwnVersion?: () => void;
   activePlanSummary?: {
     weekLabel: string;
     progressPercent: number;
@@ -191,6 +190,7 @@ export function ProgramDetailScreen({
   program,
   onBack,
   onStartSession,
+  onPrimaryAction,
   onOpenSession,
   programBlockWeeks = null,
   trainingDayIndexes = null,
@@ -201,7 +201,6 @@ export function ProgramDetailScreen({
   audience = null,
   availableDays = null,
   equipment = [],
-  onMakeOwnVersion,
   availableEquipment = null,
   fitReason = null,
   destructiveActionLabel,
@@ -275,7 +274,6 @@ export function ProgramDetailScreen({
     const levelKey = ROLE_LEVEL_KEYS[(program.badges[1] ?? '').toLowerCase()];
     return levelKey ? t(language, levelKey) : null;
   }, [language, program.badges]);
-  const nextSession = program.sessions[0] ?? null;
   const durationMinutes = parseMinutesFromBadges(program.badges);
   // Eight weeks is the catalog's default block; the strip states the same
   // number the total is derived from rather than two numbers that disagree.
@@ -552,6 +550,21 @@ export function ProgramDetailScreen({
           </Text>
         ) : null}
 
+        {/* The one thing a reader comes to a programme page to do.
+            It used to live in a footer pinned to the bottom of the screen,
+            where the floating tab bar covered it completely: the button was
+            rendered, and all you could see of it was a violet sliver above the
+            nav pill. Here it sits in the flow, right after the week it
+            describes, and nothing can be painted on top of it. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={program.primaryActionLabel}
+          onPress={onPrimaryAction}
+          style={({ pressed }) => [styles.adoptButton, pressed && { opacity: 0.9 }]}
+        >
+          <Text style={styles.adoptButtonText}>{program.primaryActionLabel}</Text>
+        </Pressable>
+
         {emphasis ? (
           <>
             <View style={styles.sectionHeader}>
@@ -751,41 +764,17 @@ export function ProgramDetailScreen({
           </>
         ) : null}
 
-        {onMakeOwnVersion ? (
-          <View style={styles.ownVersionBlock}>
-            <Text style={styles.ownVersionNote}>{t(language, 'detail.ownVersion.note')}</Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onMakeOwnVersion}
-              style={({ pressed }) => [styles.ownVersionButton, pressed && { opacity: 0.85 }]}
-            >
-              <Text style={styles.ownVersionButtonText}>{t(language, 'detail.ownVersion.cta')}</Text>
-            </Pressable>
-          </View>
-        ) : null}
-
+        {/* "Make my own version" used to sit here. Removed on request: it was
+            the only action a reader could actually see on this screen, so a
+            programme page read as an invitation to fork rather than to train.
+            Home's Adapt sheet still offers the copy for a programme you are
+            already running. */}
         {hasDestructiveAction ? (
           <Pressable onPress={() => setConfirmVisible(true)} style={styles.destructiveButton}>
             <Text style={styles.destructiveButtonText}>{destructiveActionLabel}</Text>
           </Pressable>
         ) : null}
       </ScrollView>
-
-      <View style={styles.stickyFooter}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'detail.startNext')}
-          disabled={!nextSession}
-          onPress={() => {
-            if (nextSession) {
-              onStartSession(nextSession.id);
-            }
-          }}
-          style={[styles.primaryButton, !nextSession && styles.primaryButtonDisabled]}
-        >
-          <Text style={styles.primaryButtonText}>{t(language, 'detail.startNext')}</Text>
-        </Pressable>
-      </View>
 
       {onSaveEmphasis ? (
         <EmphasisSheet
@@ -1094,7 +1083,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: layout.bottomTabBarReserve + 82,
+    // The +82 was clearance for the pinned footer that used to sit here.
+    paddingBottom: layout.bottomTabBarReserve,
     gap: spacing.md,
   },
   sectionHeader: {
@@ -1218,30 +1208,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     fontWeight: '900',
   },
-  ownVersionBlock: {
-    marginTop: 26,
-  },
-  ownVersionNote: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  ownVersionButton: {
-    height: 50,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ownVersionButtonText: {
-    color: theme.purple,
-    fontSize: 14.5,
-    lineHeight: 19,
-    fontWeight: '800',
-  },
   destructiveButton: {
     minHeight: 48,
     borderRadius: radii.pill,
@@ -1256,23 +1222,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
   },
-  stickyFooter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
-    backgroundColor: theme.bg,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  primaryButton: {
-    minHeight: 58,
+  adoptButton: {
+    marginTop: 22,
+    minHeight: 62,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingHorizontal: spacing.lg,
     backgroundColor: theme.purple,
     shadowColor: theme.purple,
     shadowOpacity: 0.3,
@@ -1280,12 +1236,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 7,
   },
-  primaryButtonDisabled: {
-    opacity: 0.45,
-  },
-  primaryButtonText: {
+  adoptButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+    textAlign: 'center',
   },
 });

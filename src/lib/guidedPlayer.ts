@@ -368,6 +368,8 @@ export function getGuidedStepLabel(step: GuidedStep, language: AppLanguage = 'en
 
 export interface GuidedSetTarget {
   reps: number;
+  /** `reps` is seconds held, not repetitions — carried so every label agrees. */
+  timed?: boolean;
   loadKg: number | null;
   /**
    * Load this set carried before automated progression raised it, when the
@@ -402,7 +404,7 @@ function formatKg(value: number): string {
 
 export function formatGuidedTarget(target: GuidedSetTarget, language: AppLanguage = 'en'): string {
   if (target.loadKg === null) {
-    return t(language, 'guided.target.reps', { reps: target.reps });
+    return t(language, target.timed ? 'guided.target.seconds' : 'guided.target.reps', { reps: target.reps });
   }
   return `${target.reps} × ${formatKg(target.loadKg)} kg`;
 }
@@ -528,6 +530,8 @@ export function resolveGuidedSetTarget(
   if (trackingMode === 'bodyweight' || trackingMode === 'hold') {
     return {
       reps,
+      // Set only when true, so a bodyweight target keeps the shape it had.
+      ...(trackingMode === 'hold' ? { timed: true } : {}),
       loadKg: null,
       autoProgressedFromKg: null,
       prefilledFromPerformedAt: null,

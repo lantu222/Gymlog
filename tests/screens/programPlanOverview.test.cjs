@@ -66,8 +66,18 @@ module.exports = [
       assert.match(appSource, /preferences\.appLanguage,\s*\n\s*\)/);
 
       assert.match(programDetailSource, /t\(language, 'detail\.workouts'\)/);
-      assert.match(programDetailSource, /t\(language, 'detail\.startNext'\)/);
-      assert.match(i18nSource, /'detail\.startNext': 'Start next workout'/);
+      // The primary action is "adopt this programme", and it sits IN the page
+      // under the week rhythm — not in a footer pinned to the bottom, where
+      // the floating tab bar covered it and a reader reported there was no way
+      // to start a programme at all. A pinned footer here must stay gone.
+      assert.match(programDetailSource, /onPress=\{onPrimaryAction\}/);
+      assert.match(programDetailSource, /styles\.adoptButton/);
+      assert.doesNotMatch(programDetailSource, /stickyFooter/);
+      assert.match(i18nSource, /'detail\.adopt': 'Start this programme'/);
+      assert.match(i18nSource, /'detail\.adopt': 'Ota ohjelma käyttöön'/);
+      // The label comes from the view model, so it is translated at the source
+      // rather than hardcoded English that no screen ever showed.
+      assert.match(programDetailsSource, /primaryActionLabel: t\(language, 'detail\.adopt'\)/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);
       // The inline warmup/workout/cooldown listing left with the day view:
       // the programme page shows compact rows, and the full session — the
@@ -93,8 +103,8 @@ module.exports = [
       // reader has. Guessing would turn a real warning into noise.
       assert.match(programDetailSource, /availableDays != null && availableDays > 0/);
 
-      assert.match(programDetailSource, /stickyFooter/);
-      assert.match(programDetailSource, /onStartSession\(nextSession\.id\)/);
+      // The pinned footer and its "start the first session" shortcut are gone;
+      // the adopt button above replaced both. Session rows still open the day.
       assert.match(programDetailSource, /program\.sessions\.map/);
       assert.match(programDetailSource, /program\.source === 'custom'/);
 

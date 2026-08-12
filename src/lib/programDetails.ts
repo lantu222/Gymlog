@@ -208,7 +208,9 @@ export function buildReadyProgramDetail(
         ? [{ kicker: 'Why it fits', body: fitExplanation }]
         : [],
     progressionSummary: [programmeSummary, template.progressionRules.primary].filter(Boolean).join(' '),
-    primaryActionLabel: 'Start first session',
+    // Was the hardcoded English "Start first session" — and it never reached a
+    // screen, so nothing showed it was untranslated.
+    primaryActionLabel: t(language, 'detail.adopt'),
     sessionActionLabel: 'Start session',
     sessions: buildSessionItems(detailSessions, content?.sessionFocusById, insights?.sessionStatusById, template),
   };

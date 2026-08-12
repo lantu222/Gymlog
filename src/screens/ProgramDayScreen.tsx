@@ -2,7 +2,6 @@ import React, { useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
-import { CutButton } from '../components/CutButton';
 import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getDefaultCooldown, getDefaultWarmup, classifySessionFocus } from '../lib/homeSessionHero';
@@ -73,7 +72,6 @@ interface ProgramDayScreenProps {
   onSwapExercise?: (slotId: string, exerciseName: string) => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
-  onStart: () => void;
 }
 
 export function ProgramDayScreen({
@@ -88,7 +86,6 @@ export function ProgramDayScreen({
   onSwapExercise,
   tailoringPreferences,
   onBack,
-  onStart,
 }: ProgramDayScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -336,9 +333,7 @@ export function ProgramDayScreen({
         </View>
       </Modal>
 
-      <View style={styles.dock}>
-        <CutButton label={t(language, 'detail.day.start')} onPress={onStart} size="lg" stretch />
-      </View>
+      {/* The "Start this workout" dock was removed on request. */}
     </View>
   );
 }
@@ -746,17 +741,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   exerciseRest: {
     color: theme.faint,
     fontWeight: '700',
-  },
-  dock: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: layout.bottomTabBarReserve,
-    backgroundColor: theme.bg,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
   },
 });

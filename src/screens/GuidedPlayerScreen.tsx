@@ -1496,10 +1496,16 @@ export function GuidedPlayerScreen({
                   }
                   return (
                     <Text style={styles.positionPlan}>
-                      {t(language, 'guided.prescription', {
-                        sets: exercise.sets.length,
-                        reps: target.reps,
-                      })}
+                      {t(
+                        language,
+                        isTimedTrackingMode(exercise.trackingMode)
+                          ? 'guided.prescriptionHold'
+                          : 'guided.prescription',
+                        {
+                          sets: exercise.sets.length,
+                          reps: target.reps,
+                        },
+                      )}
                     </Text>
                   );
                 })()}

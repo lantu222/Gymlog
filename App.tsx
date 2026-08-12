@@ -4269,11 +4269,6 @@ function VinhaApp() {
             : null
         }
         onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
-        onMakeOwnVersion={
-          route.programType === 'ready'
-            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
-            : undefined
-        }
         onPrimaryAction={() => {
           if (route.programType === 'ready') {
             handleStartReadyProgram(route.workoutTemplateId);
@@ -4371,13 +4366,6 @@ function VinhaApp() {
         }
         tailoringPreferences={preferences}
         onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
-        onStart={() => {
-          if (route.programType === 'ready') {
-            handleStartReadyProgramSession(route.workoutTemplateId, route.sessionId);
-            return;
-          }
-          handleStartCustomProgramSession(route.workoutTemplateId, route.sessionId);
-        }}
       />
     ) : (
       <View />
