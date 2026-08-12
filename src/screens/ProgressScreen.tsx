@@ -63,7 +63,16 @@ type ProgressSection = 'overview' | 'records' | 'tracked' | 'measures';
 type ProgressFilter = 'all' | 'new_best' | 'moving_up' | 'building' | 'below_last';
 type OverviewMetric = 'volume' | 'duration' | 'bodyweight';
 type OverviewRange = '1m' | '3m' | '6m' | 'all';
-type MeasureKey = 'bodyweight' | 'bodyfat' | 'shoulders' | 'chest' | 'waist' | 'hips' | 'thighs';
+type MeasureKey =
+  | 'bodyweight'
+  | 'bodyfat'
+  | 'shoulders'
+  | 'chest'
+  | 'arms'
+  | 'waist'
+  | 'hips'
+  | 'thighs'
+  | 'calves';
 type MeasureRange = '3m' | '1y' | 'all';
 type MeasureIconName = 'scale' | 'drop' | 'tape';
 
@@ -204,9 +213,11 @@ const MEASURE_CONFIG: Array<{
   { key: 'bodyfat', labelKey: 'progress.measure.bodyfat', icon: 'drop', kind: 'bodyfat', lowerIsBetter: true },
   { key: 'shoulders', labelKey: 'progress.measure.shoulders', icon: 'tape', kind: 'shoulders', lowerIsBetter: false },
   { key: 'chest', labelKey: 'progress.measure.chest', icon: 'tape', kind: 'chest', lowerIsBetter: false },
+  { key: 'arms', labelKey: 'progress.measure.arms', icon: 'tape', kind: 'arms', lowerIsBetter: false },
   { key: 'waist', labelKey: 'progress.measure.waist', icon: 'tape', kind: 'waist', lowerIsBetter: true },
   { key: 'hips', labelKey: 'progress.measure.hips', icon: 'tape', kind: 'hips', lowerIsBetter: false },
   { key: 'thighs', labelKey: 'progress.measure.thighs', icon: 'tape', kind: 'thighs', lowerIsBetter: false },
+  { key: 'calves', labelKey: 'progress.measure.calves', icon: 'tape', kind: 'calves', lowerIsBetter: false },
 ];
 
 // Honest signal palette (light) keyed by getExerciseProgressSignal kinds.

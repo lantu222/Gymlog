@@ -65,14 +65,19 @@ module.exports = [
           'bodyfat',
           'shoulders',
           'chest',
+          // Arms and calves were missing from the model entirely, so the two
+          // tape readings a growth trainee takes most often could not be
+          // logged anywhere, let alone shown on Home.
+          'arms',
           'waist',
           'hips',
           'thighs',
+          'calves',
           'lift:takakyykky',
           'lift:penkki',
         ],
       );
-      assert.equal(catalog[7].label, 'Takakyykky');
+      assert.equal(catalog[9].label, 'Takakyykky');
     },
   },
   {

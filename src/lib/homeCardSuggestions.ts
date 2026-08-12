@@ -18,6 +18,8 @@ import { MeasurementKind, SetupFocusArea, SetupGoal } from '../types/models';
 const MEASUREMENT_BY_FOCUS_AREA: Partial<Record<SetupFocusArea, MeasurementKind>> = {
   chest: 'chest',
   shoulders: 'shoulders',
+  arms: 'arms',
+  calves: 'calves',
   glutes: 'hips',
   legs: 'thighs',
   quads: 'thighs',

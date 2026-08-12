@@ -136,6 +136,7 @@ import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
+import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import {
   planWeekdayIndexes,
@@ -5329,7 +5330,7 @@ function VinhaApp() {
             navigate({ tab: 'progress', screen: 'bodyweight' });
             return;
           }
-          if (key === 'bodyfat' || key === 'waist') {
+          if (isMeasurementCardKey(key)) {
             navigate({ tab: 'progress', screen: 'list', section: 'measures' });
             return;
           }

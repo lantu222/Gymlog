@@ -46,15 +46,30 @@ const MAX_LIFT_CATALOG_ITEMS = 8;
 export const DEFAULT_HOME_STAT_CARD_KEYS = ['bodyweight'];
 
 /** Tape measurements, in the order the measurement screen lists them. */
-const MEASUREMENT_CARD_KINDS: MeasurementKind[] = ['shoulders', 'chest', 'waist', 'hips', 'thighs'];
+export const MEASUREMENT_CARD_KINDS: MeasurementKind[] = [
+  'shoulders',
+  'chest',
+  'arms',
+  'waist',
+  'hips',
+  'thighs',
+  'calves',
+];
+
+/** Every card key whose data lives on the measurement screen. */
+export function isMeasurementCardKey(key: string): boolean {
+  return key === 'bodyfat' || (MEASUREMENT_CARD_KINDS as string[]).includes(key);
+}
 
 const MEASUREMENT_LABEL_KEYS: Record<MeasurementKind, I18nKey> = {
   bodyfat: 'progress.measure.bodyfat',
   shoulders: 'progress.measure.shoulders',
   chest: 'progress.measure.chest',
+  arms: 'progress.measure.arms',
   waist: 'progress.measure.waist',
   hips: 'progress.measure.hips',
   thighs: 'progress.measure.thighs',
+  calves: 'progress.measure.calves',
 };
 
 const LIFT_KEY_PREFIX = 'lift:';
@@ -165,7 +180,7 @@ export function buildHomeStatCards(
       continue;
     }
 
-    if (key === 'bodyfat' || (MEASUREMENT_CARD_KINDS as string[]).includes(key)) {
+    if (isMeasurementCardKey(key)) {
       const series = sortByRecordedAt(
         sources.measurementEntries.filter((entry) => entry.kind === key),
       )

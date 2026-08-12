@@ -98,7 +98,20 @@ export type ExerciseSetOutcome = 'completed' | 'failed' | 'skipped';
 export type ExerciseLogSetStatus = 'pending' | 'completed' | 'skipped';
 export type ExerciseLogSetEffort = 'easy' | 'good' | 'hard';
 export type ExerciseLogStatus = 'active' | 'completed' | 'skipped' | 'swapped';
-export type MeasurementKind = 'bodyfat' | 'shoulders' | 'chest' | 'waist' | 'hips' | 'thighs';
+/**
+ * Arms and calves were missing, so the two tape readings a growth trainee
+ * takes most often could not be logged at all — and picking "arms" as a focus
+ * area could never be answered with a card.
+ */
+export type MeasurementKind =
+  | 'bodyfat'
+  | 'shoulders'
+  | 'chest'
+  | 'arms'
+  | 'waist'
+  | 'hips'
+  | 'thighs'
+  | 'calves';
 export type MeasurementUnit = 'cm' | 'in' | '%';
 export type AiPlannerGoal = 'strength' | 'muscle' | 'fat_loss' | 'fitness';
 export type AiPlannerDaysPerWeek = 1 | 2 | 3 | 4;

@@ -93,14 +93,22 @@ function Sparkline({ series }: { series: number[] }) {
 
   const [width, setWidth] = useState(0);
 
-  if (series.length < 2) {
-    // One point draws no line — an empty strip keeps card heights identical.
-    return <View style={styles.sparkArea} onLayout={(event) => setWidth(event.nativeEvent.layout.width)} />;
-  }
-
   const min = Math.min(...series);
   const max = Math.max(...series);
   const span = max - min;
+
+  /**
+   * A sparkline needs a shape to be worth drawing.
+   *
+   * Two points make one straight line from edge to edge, and any number of
+   * identical readings makes a flat one — both read as decoration rather than
+   * as a trend, and the second is what "yksi pitkä viiva" was. The strip stays
+   * empty until there is a third point and something to see; the value and its
+   * delta above already carry the news until then.
+   */
+  if (series.length < 3 || span === 0) {
+    return <View style={styles.sparkArea} onLayout={(event) => setWidth(event.nativeEvent.layout.width)} />;
+  }
   const pad = 4;
 
   const points = series.map((value, index) => {
@@ -140,9 +148,11 @@ const SUGGEST_TITLE_KEYS: Record<string, I18nKey> = {
   bodyfat: 'cards.suggest.bodyfat',
   shoulders: 'cards.suggest.shoulders',
   chest: 'cards.suggest.chest',
+  arms: 'cards.suggest.arms',
   waist: 'cards.suggest.waist',
   hips: 'cards.suggest.hips',
   thighs: 'cards.suggest.thighs',
+  calves: 'cards.suggest.calves',
 };
 
 export function HomeStatCardsSection({
