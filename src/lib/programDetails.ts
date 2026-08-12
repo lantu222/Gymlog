@@ -30,6 +30,9 @@ export interface ProgramDetailExerciseItem {
   prescription: string;
   /** "tauko"-less rest range, e.g. "45–105 s" or "1,5–2,5 min". */
   restLabel: string;
+  /** Carried so the day view can offer the same swap the session honours. */
+  slotId?: string;
+  substitutionGroup?: string;
 }
 
 export interface ProgramDetailSessionItem {
@@ -137,6 +140,8 @@ function buildSessionItems(
         sets: exercise.sets,
         prescription: buildPrescription(exercise.repsMin, exercise.repsMax, exercise.sets, exercise.trackingMode),
         restLabel: buildRestLabel(exercise.restSecondsMin, exercise.restSecondsMax),
+        slotId: exercise.slotId,
+        substitutionGroup: exercise.substitutionGroup,
       })),
     }));
 }

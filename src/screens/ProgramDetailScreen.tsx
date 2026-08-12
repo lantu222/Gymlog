@@ -138,11 +138,6 @@ function parseMinutesFromBadges(badges: string[]) {
   return durationBadge ? Number.parseInt(durationBadge.replace(/\D/g, ''), 10) || 0 : 0;
 }
 
-function getWorkoutFocus(session: ProgramDetailViewModel['sessions'][number], language: AppLanguage) {
-  const copy = session.focus || session.preview;
-  return copy ? localizeWorkoutFocus(copy, language) : t(language, 'detail.defaultFocus');
-}
-
 function formatPlanSessionTitle(
   session: ProgramDetailViewModel['sessions'][number],
   index: number,
@@ -523,9 +518,9 @@ export function ProgramDetailScreen({
               style={({ pressed }) => [styles.workoutCard, pressed && styles.workoutCardPressed]}
             >
               <View style={styles.workoutTopRow}>
-                <View style={styles.workoutIndexTile}>
-                  <Text style={styles.workoutIndexText}>{index + 1}</Text>
-                </View>
+                {/* No index tile: the row's own title already says "Päivä 1",
+                    so the big numeral was the same fact twice, at the size of
+                    the more important one. */}
                 <View style={styles.workoutCopy}>
                   <Text style={styles.workoutName} numberOfLines={1} adjustsFontSizeToFit>
                     {formatPlanSessionTitle(session, index, displayTitle, language)}
@@ -556,9 +551,6 @@ export function ProgramDetailScreen({
                   <Circle cx={12} cy={12} r={2.6} stroke={theme.purple} strokeWidth={1.9} fill="none" />
                 </Svg>
               </View>
-              <Text style={styles.workoutFocus} numberOfLines={2}>
-                {getWorkoutFocus(session, language)}
-              </Text>
             </Pressable>
           ))}
         </View>
@@ -1092,19 +1084,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
   },
-  workoutIndexTile: {
-    width: 48,
-    height: 48,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.surfaceSoft,
-  },
-  workoutIndexText: {
-    color: theme.purple,
-    fontSize: 20,
-    fontWeight: '900',
-  },
   workoutCopy: {
     flex: 1,
     gap: 3,
@@ -1131,12 +1110,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.purple,
     fontSize: 13,
     fontWeight: '900',
-  },
-  workoutFocus: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
   },
   ownVersionBlock: {
     marginTop: 26,

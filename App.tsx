@@ -4316,6 +4316,11 @@ function VinhaApp() {
         dayNumber={dayIndex + 1}
         dayCount={program.sessions.length}
         availableEquipment={availableEquipmentForDrills}
+        sessionSwaps={sessionSwaps}
+        onSwapExercise={(slotId, exerciseName) =>
+          setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
+        }
+        tailoringPreferences={preferences}
         onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
         onStart={() => {
           if (route.programType === 'ready') {

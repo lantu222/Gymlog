@@ -1,13 +1,15 @@
-import React, { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getDefaultCooldown, getDefaultWarmup, classifySessionFocus } from '../lib/homeSessionHero';
 import { I18nKey, t } from '../lib/i18n';
 import { ProgramDetailSessionItem } from '../lib/programDetails';
 import { programCoverStyle } from '../lib/programVisualIdentity';
+import { buildSwapOptionsForSlot } from '../lib/tailoringFit';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
 import { Theme, darkTheme, useTheme, useThemedStyles } from '../theming';
@@ -66,6 +68,10 @@ interface ProgramDayScreenProps {
   dayCount: number;
   language?: AppLanguage;
   availableEquipment?: string[] | null;
+  /** Slot id -> chosen lift, shared with the session this screen starts. */
+  sessionSwaps?: Record<string, string>;
+  onSwapExercise?: (slotId: string, exerciseName: string) => void;
+  tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
   onStart: () => void;
 }
@@ -78,6 +84,9 @@ export function ProgramDayScreen({
   dayCount,
   language = 'en',
   availableEquipment = null,
+  sessionSwaps = {},
+  onSwapExercise,
+  tailoringPreferences,
   onBack,
   onStart,
 }: ProgramDayScreenProps) {
@@ -86,6 +95,29 @@ export function ProgramDayScreen({
   const tints = roleTints(theme);
   const { width: heroWidth } = useWindowDimensions();
   const identity = programCoverStyle(templateId);
+
+  // Warm-up and recovery closed by default: they are the same generated
+  // blocks on every session of this focus, and the lifts are what the reader
+  // came for.
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    warmup: false,
+    exercises: true,
+    cooldown: false,
+  });
+  const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
+
+  const swapRow = useMemo(() => {
+    const exercise = session.exercises.find((item) => item.slotId && item.slotId === swapSlotId);
+    if (!exercise?.slotId) {
+      return null;
+    }
+    const currentName = sessionSwaps[exercise.slotId] ?? exercise.name;
+    return {
+      slotId: exercise.slotId,
+      currentName,
+      options: buildSwapOptionsForSlot(exercise.substitutionGroup ?? '', currentName, tailoringPreferences),
+    };
+  }, [session.exercises, swapSlotId, sessionSwaps, tailoringPreferences]);
 
   const focusKind = useMemo(
     () => classifySessionFocus(session.exercises.map((exercise) => exercise.name)),
@@ -162,21 +194,38 @@ export function ProgramDayScreen({
           </View>
         ) : null}
 
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>{t(language, 'detail.day.warmup')}</Text>
-          <Text style={styles.sectionMeta}>{t(language, 'detail.day.warmupMeta')}</Text>
-        </View>
-        <View style={styles.noteCard}>
-          {warmup.drills.map((drill) => (
-            <Text key={drill.name} style={styles.noteLine}>
-              {drill.name} · {drill.schemeLabel}
-            </Text>
+        {/* Three accordions in Home's shape: the warm-up used to be a plain
+            paragraph card next to a list of exercise cards, which made the
+            same session look like two different screens. */}
+        <Section
+          styles={styles}
+          theme={theme}
+          title={t(language, 'detail.day.warmup')}
+          count={t(language, 'detail.day.warmupMeta')}
+          open={openSections.warmup}
+          onToggle={() => setOpenSections((current) => ({ ...current, warmup: !current.warmup }))}
+        >
+          {warmup.drills.map((drill, index) => (
+            <View key={drill.name} style={styles.drillRow}>
+              <View style={styles.drillChip}>
+                <Text style={styles.drillChipText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.drillName} numberOfLines={2}>
+                {drill.name}
+              </Text>
+              <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
+            </View>
           ))}
-        </View>
+        </Section>
 
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>{t(language, 'detail.day.exercises')}</Text>
-        </View>
+        <Section
+          styles={styles}
+          theme={theme}
+          title={t(language, 'detail.day.exercises')}
+          count={t(language, 'detail.day.sets').toLowerCase() + ` ${session.totalSets}`}
+          open={openSections.exercises}
+          onToggle={() => setOpenSections((current) => ({ ...current, exercises: !current.exercises }))}
+        >
         <View style={styles.exerciseList}>
           {session.exercises.map((exercise, index) => (
             <View key={exercise.id} style={[styles.exerciseCard, index === 0 && styles.exerciseCardAnchor]}>
@@ -187,7 +236,10 @@ export function ProgramDayScreen({
                   </Text>
                 </View>
                 <Text style={styles.exerciseName} numberOfLines={2}>
-                  {exerciseNameLabel(language, exercise.name)}
+                  {exerciseNameLabel(
+                    language,
+                    (exercise.slotId ? sessionSwaps[exercise.slotId] : undefined) ?? exercise.name,
+                  )}
                 </Text>
                 <View style={[styles.roleTag, { backgroundColor: tints[exercise.role]?.bg ?? theme.surfaceSoft }]}>
                   <Text style={[styles.roleTagText, { color: tints[exercise.role]?.ink ?? theme.muted }]}>
@@ -195,34 +247,150 @@ export function ProgramDayScreen({
                   </Text>
                 </View>
               </View>
-              <Text style={styles.exerciseScheme}>
-                {exercise.prescription}
-                <Text style={styles.exerciseRest}>
-                  {'  ·  '}
-                  {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+              <View style={styles.exerciseBottom}>
+                <Text style={styles.exerciseScheme}>
+                  {exercise.prescription}
+                  <Text style={styles.exerciseRest}>
+                    {'  ·  '}
+                    {t(language, 'detail.day.rest', { range: exercise.restLabel })}
+                  </Text>
                 </Text>
-              </Text>
+                {exercise.slotId && onSwapExercise ? (
+                  <Pressable
+                    hitSlop={6}
+                    onPress={() => setSwapSlotId(exercise.slotId ?? null)}
+                    style={({ pressed }) => [styles.swapButton, pressed && styles.swapOptionPressed]}
+                  >
+                    <Text style={styles.swapButtonText}>{t(language, 'home.swap')}</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           ))}
         </View>
 
-        <View style={styles.sectionHead}>
-          <Text style={styles.sectionTitle}>{t(language, 'detail.day.cooldown')}</Text>
-          <Text style={styles.sectionMeta}>{t(language, 'detail.day.cooldownMeta')}</Text>
-        </View>
-        <View style={styles.noteCard}>
-          {cooldown.drills.map((drill) => (
-            <Text key={drill.name} style={styles.noteLine}>
-              {drill.name} · {drill.schemeLabel}
-            </Text>
+        </Section>
+
+        <Section
+          styles={styles}
+          theme={theme}
+          title={t(language, 'detail.day.cooldown')}
+          count={t(language, 'detail.day.cooldownMeta')}
+          open={openSections.cooldown}
+          onToggle={() => setOpenSections((current) => ({ ...current, cooldown: !current.cooldown }))}
+        >
+          {cooldown.drills.map((drill, index) => (
+            <View key={drill.name} style={styles.drillRow}>
+              <View style={styles.drillChip}>
+                <Text style={styles.drillChipText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.drillName} numberOfLines={2}>
+                {drill.name}
+              </Text>
+              <Text style={styles.drillScheme}>{drill.schemeLabel}</Text>
+            </View>
           ))}
-        </View>
+        </Section>
       </ScrollView>
+
+      {/* The swap writes into the same map the session start reads, so what
+          you choose here is what you lift. */}
+      <Modal
+        visible={swapRow !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setSwapSlotId(null)}
+      >
+        <View style={styles.swapOverlay}>
+          <Pressable style={styles.swapScrim} onPress={() => setSwapSlotId(null)} />
+          <View style={styles.swapSheet}>
+            <View style={styles.swapGrip} />
+            <Text style={styles.swapTitle} numberOfLines={2}>
+              {t(language, 'home.swapSheet.title', {
+                name: exerciseNameLabel(language, swapRow?.currentName ?? ''),
+              })}
+            </Text>
+            <ScrollView style={styles.swapList} showsVerticalScrollIndicator={false}>
+              {(swapRow?.options ?? []).length === 0 ? (
+                <Text style={styles.swapEmpty}>{t(language, 'home.swapSheet.empty')}</Text>
+              ) : (
+                (swapRow?.options ?? []).map((option) => (
+                  <Pressable
+                    key={option.exerciseName}
+                    onPress={() => {
+                      if (swapRow) {
+                        onSwapExercise?.(swapRow.slotId, option.exerciseName);
+                      }
+                      setSwapSlotId(null);
+                    }}
+                    style={({ pressed }) => [styles.swapOption, pressed && styles.swapOptionPressed]}
+                  >
+                    <Text style={styles.swapOptionName} numberOfLines={1}>
+                      {exerciseNameLabel(language, option.exerciseName)}
+                    </Text>
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.dock}>
         <CutButton label={t(language, 'detail.day.start')} onPress={onStart} size="lg" stretch />
       </View>
     </View>
+  );
+}
+
+/**
+ * Home's section card, rebuilt here rather than imported: Home's version is
+ * wired to its own animation values and rise stagger, and lifting that out
+ * would drag half a screen with it. The shape — cut card, title, count,
+ * chevron, body — is the part that has to match.
+ */
+function Section({
+  styles,
+  theme,
+  title,
+  count,
+  open,
+  onToggle,
+  children,
+}: {
+  styles: ReturnType<typeof makeStyles>;
+  theme: Theme;
+  title: string;
+  count: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <CutSurface
+      size="lg"
+      fill={theme.surface}
+      stroke={theme.border}
+      strokeWidth={1}
+      style={styles.secCard}
+    >
+      <Pressable accessibilityRole="button" onPress={onToggle} style={styles.secHead}>
+        <Text style={styles.secTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        <Text style={styles.secCount}>{count}</Text>
+        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+          <Path
+            d={open ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'}
+            stroke={theme.faint}
+            strokeWidth={2.4}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </Svg>
+      </Pressable>
+      {open ? <View style={styles.secBody}>{children}</View> : null}
+    </CutSurface>
   );
 }
 
@@ -375,8 +543,149 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 19,
     fontWeight: '600',
   },
-  exerciseList: {
+  secCard: {
     marginHorizontal: spacing.lg,
+    marginTop: 12,
+    paddingHorizontal: 14,
+  },
+  secHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 15,
+  },
+  secTitle: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+    letterSpacing: -0.2,
+  },
+  secCount: {
+    color: theme.faint,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  secBody: {
+    paddingBottom: 12,
+  },
+  drillRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  drillChip: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: theme.surfaceSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  drillChipText: {
+    color: theme.purpleDark,
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  drillName: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '700',
+  },
+  drillScheme: {
+    color: theme.faint,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  exerciseBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 9,
+  },
+  swapButton: {
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  swapButtonText: {
+    color: theme.purple,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+  },
+  swapOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  swapScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(30, 18, 70, 0.42)',
+  },
+  swapSheet: {
+    backgroundColor: theme.bg,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: 28,
+    maxHeight: '70%',
+  },
+  swapGrip: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: theme.border,
+    marginTop: 10,
+    marginBottom: 14,
+  },
+  swapTitle: {
+    color: theme.ink,
+    fontSize: 16,
+    lineHeight: 21,
+    fontWeight: '800',
+    marginBottom: 10,
+  },
+  swapList: {
+    flexGrow: 0,
+  },
+  swapEmpty: {
+    color: theme.muted,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '600',
+    paddingVertical: 12,
+  },
+  swapOption: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 8,
+  },
+  swapOptionPressed: {
+    opacity: 0.7,
+  },
+  swapOptionName: {
+    color: theme.ink,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  exerciseList: {
     gap: 9,
   },
   exerciseCard: {

@@ -176,6 +176,8 @@ const EN = {
   'home.adaptSheet.redo.sub': 'Rebuild your programme from scratch. Your log is untouched.',
   'home.adaptSheet.cancel': 'Cancel',
   'home.swapSheet.title': 'Swap {name} for',
+  'home.swapSheet.empty': 'No swap for this slot yet — the program prescribes this lift.',
+  'home.swap': 'Swap',
 
   // ── Home · Pro sheet (placeholder marketing copy) ──────────────────────
 
@@ -2941,6 +2943,8 @@ const FI: Record<I18nKey, string> = {
   'home.adaptSheet.redo.sub': 'Rakenna ohjelmasi alusta. Lokiisi ei kosketa.',
   'home.adaptSheet.cancel': 'Peruuta',
   'home.swapSheet.title': 'Vaihda {name}',
+  'home.swapSheet.empty': 'Tälle paikalle ei ole vaihtoehtoa — ohjelma määrää tämän liikkeen.',
+  'home.swap': 'Vaihda',
 
   // ── Home · Pro sheet ───────────────────────────────────────────────────
 
