@@ -21,6 +21,12 @@ const SPARK_HEIGHT = 34;
 interface HomeStatCardsSectionProps {
   /** One computed card per catalog item, in Add-sheet display order. */
   catalogCards: HomeStatCard[];
+  /**
+   * Card keys worth offering, from what onboarding was told. Empty when there
+   * is nothing to offer — the row disappears rather than nagging.
+   */
+  suggestedKeys?: string[];
+  onDismissSuggestion?: (key: string) => void;
   pinnedKeys: string[];
   onChangePinnedKeys: (next: string[]) => void;
   /** Tap on a card outside edit mode — opens the card's tracking surface. */
@@ -130,6 +136,8 @@ function Sparkline({ series }: { series: number[] }) {
 
 export function HomeStatCardsSection({
   catalogCards,
+  suggestedKeys = [],
+  onDismissSuggestion,
   pinnedKeys,
   onChangePinnedKeys,
   onOpenCard,
@@ -173,6 +181,13 @@ export function HomeStatCardsSection({
     onChangePinnedKeys(pinnedKeys.filter((pinned) => pinned !== key));
   };
 
+  // One at a time, in the order the suggester ranked them: a stack of offers
+  // is a to-do list nobody asked for.
+  const suggestion = useMemo(() => {
+    const key = suggestedKeys.find((candidate) => !pinnedKeys.includes(candidate));
+    return key ? cardByKey.get(key) ?? null : null;
+  }, [suggestedKeys, pinnedKeys, cardByKey]);
+
   const addCard = (key: string) => {
     onChangePinnedKeys([...pinnedKeys, key]);
   };
@@ -192,6 +207,40 @@ export function HomeStatCardsSection({
           <Text style={styles.sectionAction}>{editing ? t(language, 'cards.done') : t(language, 'cards.edit')}</Text>
         </Pressable>
       </View>
+
+      {/* An offer, never an action. Onboarding asked which areas the reader
+          cares about and what they train for, and then nothing used the
+          answer; a Home that pinned cards on its own because of a form filled
+          in weeks ago would be unpredictable rather than helpful. */}
+      {suggestion ? (
+        <View style={styles.suggestCard}>
+          <View style={styles.suggestCopy}>
+            <Text style={styles.suggestTitle}>
+              {t(language, 'cards.suggest.title', { label: suggestion.label })}
+            </Text>
+            <Text style={styles.suggestBody}>{t(language, 'cards.suggest.body')}</Text>
+          </View>
+          <View style={styles.suggestActions}>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onDismissSuggestion?.(suggestion.key)}
+              style={({ pressed }) => [styles.suggestGhost, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.suggestGhostText}>{t(language, 'cards.suggest.no')}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                addCard(suggestion.key);
+                onDismissSuggestion?.(suggestion.key);
+              }}
+              style={({ pressed }) => [styles.suggestPrimary, pressed && { opacity: 0.85 }]}
+            >
+              <Text style={styles.suggestPrimaryText}>{t(language, 'cards.suggest.yes')}</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
 
       <View style={styles.grid}>
         {pinnedCards.map((card, index) => (
@@ -338,6 +387,55 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.highlight,
     fontSize: 13,
     fontWeight: '700',
+  },
+  suggestCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surfaceSoft,
+    padding: 14,
+    marginBottom: 12,
+    gap: 12,
+  },
+  suggestCopy: {
+    gap: 3,
+  },
+  suggestTitle: {
+    color: theme.ink,
+    fontSize: 14.5,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  suggestBody: {
+    color: theme.muted,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  suggestActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  suggestGhost: {
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  suggestGhostText: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  suggestPrimary: {
+    borderRadius: 10,
+    backgroundColor: theme.purpleBright,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+  },
+  suggestPrimaryText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '800',
   },
   grid: {
     flexDirection: 'row',

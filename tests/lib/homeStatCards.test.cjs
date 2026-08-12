@@ -54,11 +54,25 @@ module.exports = [
 
       const catalog = buildHomeStatCardCatalog(sources);
 
+      // Every measurement Progress tracks, not three of six: the Add sheet
+      // used to offer bodyweight, body fat and waist while the measurement
+      // screen logged shoulders, chest, hips and thighs too, so a reader who
+      // measures their chest could not put that number on Home.
       assert.deepEqual(
         catalog.map((item) => item.key),
-        ['bodyweight', 'bodyfat', 'waist', 'lift:takakyykky', 'lift:penkki'],
+        [
+          'bodyweight',
+          'bodyfat',
+          'shoulders',
+          'chest',
+          'waist',
+          'hips',
+          'thighs',
+          'lift:takakyykky',
+          'lift:penkki',
+        ],
       );
-      assert.equal(catalog[3].label, 'Takakyykky');
+      assert.equal(catalog[7].label, 'Takakyykky');
     },
   },
   {

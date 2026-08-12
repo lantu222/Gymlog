@@ -79,6 +79,8 @@ interface ProgramDetailScreenProps {
   onStartSession: (sessionId: string) => void;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
+  /** The catalog's declared block length. Null for a programme with none. */
+  programBlockWeeks?: number | null;
   /** Monday-first indexes the plan currently trains on, when it names days. */
   trainingDayIndexes?: number[] | null;
   /** Commits a finished rhythm change. Absent = the strip is read-only. */
@@ -190,6 +192,7 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onOpenSession,
+  programBlockWeeks = null,
   trainingDayIndexes = null,
   onSaveRhythm,
   onSaveEmphasis,
@@ -276,9 +279,17 @@ export function ProgramDetailScreen({
   const durationMinutes = parseMinutesFromBadges(program.badges);
   // Eight weeks is the catalog's default block; the strip states the same
   // number the total is derived from rather than two numbers that disagree.
-  const blockWeeks = 8;
-  const totalSessions = program.sessions.length * blockWeeks;
-  const completedSessions = Math.max(0, Math.round(((activePlanSummary?.progressPercent ?? 1) / 100) * totalSessions));
+  /**
+   * How long the block runs — only when the programme actually declares it.
+   *
+   * This was a hardcoded 8, so a one-week, one-session programme advertised
+   * "8 VIIKKOA · 8 TREENIÄ". A programme the reader built has no declared
+   * length: it runs until they stop. The strip drops both numbers rather than
+   * inventing a commitment, which is the same rule the description and the
+   * duration already follow.
+   */
+  const blockWeeks = programBlockWeeks ?? null;
+  const totalSessions = blockWeeks === null ? null : program.sessions.length * blockWeeks;
   const progressPercent = activePlanSummary?.progressPercent ?? 1;
   const weekLabel = activePlanSummary?.weekLabel ?? t(language, 'detail.weekFallback');
   const sessionsPerWeek = activePlanSummary?.sessionsPerWeek ?? `${program.sessions.length}`;
@@ -462,8 +473,12 @@ export function ProgramDetailScreen({
               value: durationMinutes > 0 ? `~${durationMinutes}` : '—',
               label: 'detail.stat.session' as I18nKey,
             },
-            { value: `${blockWeeks}`, label: 'detail.stat.weeks' as I18nKey },
-            { value: `${totalSessions}`, label: 'detail.stat.total' as I18nKey },
+            ...(blockWeeks !== null && totalSessions !== null
+              ? [
+                  { value: `${blockWeeks}`, label: 'detail.stat.weeks' as I18nKey },
+                  { value: `${totalSessions}`, label: 'detail.stat.total' as I18nKey },
+                ]
+              : [{ value: `${program.sessions.length}`, label: 'detail.stat.perWeek' as I18nKey }]),
           ].map((stat, index) => (
             <React.Fragment key={stat.label}>
               {index > 0 ? <View style={styles.statStripDivider} /> : null}

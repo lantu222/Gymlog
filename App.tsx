@@ -135,6 +135,7 @@ import {
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
+import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import {
   planWeekdayIndexes,
@@ -4293,6 +4294,7 @@ function VinhaApp() {
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
+        programBlockWeeks={readyTemplate ? getReadyProgramBlockWeeks(readyTemplate) : null}
         trainingDayIndexes={planWeekdayIndexes(
           database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
             ?.entries ?? [],
@@ -5308,6 +5310,17 @@ function VinhaApp() {
         }
         trainingDayIndexes={homeTrainingDayIndexes}
         statCatalogCards={homeStatCatalogCards}
+        suggestedStatCardKeys={suggestHomeStatCardKeys({
+          focusAreas: preferences.setupFocusAreas,
+          goals: [preferences.setupGoal, ...preferences.setupGoals],
+          pinnedKeys: homePinnedStatCardKeys,
+          dismissedKeys: preferences.dismissedCardSuggestionKeys,
+        })}
+        onDismissStatCardSuggestion={(key) =>
+          void updatePreferences({
+            dismissedCardSuggestionKeys: [...preferences.dismissedCardSuggestionKeys, key],
+          })
+        }
         pinnedStatCardKeys={homePinnedStatCardKeys}
         onChangePinnedStatCardKeys={(next) => void updatePreferences({ homeStatCardKeys: next })}
         onOpenStatCard={(key) => {

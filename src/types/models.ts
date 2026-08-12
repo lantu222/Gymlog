@@ -369,6 +369,11 @@ export interface AppPreferences {
    */
   dismissedCompletionPlanIds: string[];
   /**
+   * Card suggestions the reader has answered, accepted or put away. Keyed by
+   * card key, so an offer declined once never returns.
+   */
+  dismissedCardSuggestionKeys: string[];
+  /**
    * The programme Home leads with. Kept as the primary while `activePlanIds`
    * carries the full set, so every screen that only ever wanted one still has
    * one to read.

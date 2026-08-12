@@ -1,7 +1,7 @@
-import { t } from './i18n';
+import { I18nKey, t } from './i18n';
 import { getTopComparableSet } from './profileOverview';
 import { ExerciseProgressSummary } from './progression';
-import { AppLanguage, BodyweightEntry, MeasurementEntry } from '../types/models';
+import { AppLanguage, BodyweightEntry, MeasurementEntry, MeasurementKind } from '../types/models';
 
 /**
  * "Your cards" — user-pinned stat cards at the bottom of Home.
@@ -45,6 +45,18 @@ const MAX_LIFT_CATALOG_ITEMS = 8;
 
 export const DEFAULT_HOME_STAT_CARD_KEYS = ['bodyweight'];
 
+/** Tape measurements, in the order the measurement screen lists them. */
+const MEASUREMENT_CARD_KINDS: MeasurementKind[] = ['shoulders', 'chest', 'waist', 'hips', 'thighs'];
+
+const MEASUREMENT_LABEL_KEYS: Record<MeasurementKind, I18nKey> = {
+  bodyfat: 'progress.measure.bodyfat',
+  shoulders: 'progress.measure.shoulders',
+  chest: 'progress.measure.chest',
+  waist: 'progress.measure.waist',
+  hips: 'progress.measure.hips',
+  thighs: 'progress.measure.thighs',
+};
+
 const LIFT_KEY_PREFIX = 'lift:';
 
 function liftCardKey(progressKey: string) {
@@ -71,10 +83,23 @@ export function buildHomeStatCardCatalog(
       icon: 'lift' as const,
     }));
 
+  // Every measurement Progress tracks, not three of the six. The Add sheet
+  // offered bodyweight, body fat and waist while the measurement screen logged
+  // shoulders, chest, hips and thighs too — so a reader who measures their
+  // chest every week could not put that number on Home.
+  //
+  // Labels come from the measurement screen's own keys rather than a second
+  // set of `cards.*` strings, so the two surfaces cannot end up calling the
+  // same tape measure different things.
   return [
     { key: 'bodyweight', label: t(language, 'cards.bodyweight'), unit: 'kg', icon: 'scale' },
     { key: 'bodyfat', label: t(language, 'cards.bodyfat'), unit: '%', icon: 'drop' },
-    { key: 'waist', label: t(language, 'cards.waist'), unit: 'cm', icon: 'tape' },
+    ...MEASUREMENT_CARD_KINDS.map((kind) => ({
+      key: kind,
+      label: t(language, MEASUREMENT_LABEL_KEYS[kind]),
+      unit: 'cm',
+      icon: 'tape' as const,
+    })),
     ...lifts,
   ];
 }
@@ -140,7 +165,7 @@ export function buildHomeStatCards(
       continue;
     }
 
-    if (key === 'bodyfat' || key === 'waist') {
+    if (key === 'bodyfat' || (MEASUREMENT_CARD_KINDS as string[]).includes(key)) {
       const series = sortByRecordedAt(
         sources.measurementEntries.filter((entry) => entry.kind === key),
       )

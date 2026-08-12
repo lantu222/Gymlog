@@ -184,6 +184,8 @@ interface HomeScreenProps {
   onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
   statCatalogCards?: HomeStatCard[];
+  suggestedStatCardKeys?: string[];
+  onDismissStatCardSuggestion?: (key: string) => void;
   pinnedStatCardKeys?: string[];
   onChangePinnedStatCardKeys?: (next: string[]) => void;
   onOpenStatCard?: (key: string) => void;
@@ -258,6 +260,8 @@ export function HomeScreen({
   onOpenActivePlan,
   onSelectHistorySession,
   statCatalogCards = [],
+  suggestedStatCardKeys = [],
+  onDismissStatCardSuggestion,
   pinnedStatCardKeys = [],
   onChangePinnedStatCardKeys,
   onOpenStatCard,
@@ -1187,6 +1191,8 @@ export function HomeScreen({
           <Animated.View style={[styles.statCardsSection, rise(RISE_EMPTY_ROW)]}>
             <HomeStatCardsSection
               catalogCards={statCatalogCards}
+              suggestedKeys={suggestedStatCardKeys}
+              onDismissSuggestion={onDismissStatCardSuggestion}
               pinnedKeys={pinnedStatCardKeys}
               onChangePinnedKeys={onChangePinnedStatCardKeys}
               onOpenCard={(key) => onOpenStatCard?.(key)}

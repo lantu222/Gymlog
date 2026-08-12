@@ -858,6 +858,12 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
               (value: unknown): value is string => typeof value === 'string',
             )
           : fallback.preferences.dismissedCompletionPlanIds,
+      dismissedCardSuggestionKeys:
+        Array.isArray(input?.preferences?.dismissedCardSuggestionKeys)
+          ? input.preferences.dismissedCardSuggestionKeys.filter(
+              (value: unknown): value is string => typeof value === 'string',
+            )
+          : fallback.preferences.dismissedCardSuggestionKeys,
       activePlanIds: normalizeActivePlanIds(
         input?.preferences?.activePlanIds,
         input?.preferences?.activePlanId,

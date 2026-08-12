@@ -205,6 +205,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       strengthGoals: [],
       dismissedTipIds: [],
       dismissedCompletionPlanIds: [],
+      dismissedCardSuggestionKeys: [],
       lastInsightSessionId: null,
       lastInsightType: null,
       activePlanId: null,
