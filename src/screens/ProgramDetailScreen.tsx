@@ -12,8 +12,9 @@ import {
 import { ProgramDetailViewModel } from '../lib/programDetails';
 import { progressionRuleLabel } from '../lib/progressionRuleLabel';
 import { EQUIPMENT_CHIP_KEYS, missingEquipment } from '../lib/programEquipment';
-import { EMPHASIS_AREA_KEYS, resolveProgramEmphasis } from '../lib/programEmphasis';
-import { programCoverStyle } from '../lib/programVisualIdentity';
+import { EmphasisSheet } from '../components/EmphasisSheet';
+import { EMPHASIS_AREA_KEYS, emphasisAreaForExercise, resolveProgramEmphasis } from '../lib/programEmphasis';
+import { EMPHASIS_RAMP, programCoverStyle } from '../lib/programVisualIdentity';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { layout, radii, spacing } from '../theme';
@@ -64,19 +65,6 @@ const ROLE_LEVEL_KEYS: Record<string, I18nKey> = {
  */
 const HERO_SEAM_RATIO = 0.9;
 
-/**
- * The emphasis bar's fixed violet ramp (design: GAINER Hourglass Shape).
- * Deliberately NOT the programme's identity hue: the bar is data tied to its
- * legend, and four shades of one violet stay readable next to any hero
- * colour. Order matters — the darkest shade goes to the largest slice.
- */
-const EMPHASIS_RAMP: Record<string, string> = {
-  glutesLegs: '#7C3AED',
-  shouldersBack: '#A98BF0',
-  chestArms: '#CDBBF8',
-  core: '#E6DBFB',
-  other: '#C9C3D6',
-};
 
 interface ProgramDetailScreenProps {
   program: ProgramDetailViewModel;
@@ -85,6 +73,13 @@ interface ProgramDetailScreenProps {
   onStartSession: (sessionId: string) => void;
   /** The day row's destination — the day view (design screen 2). */
   onOpenSession?: (sessionId: string) => void;
+  /**
+   * Writes new set counts (design screen 3). Present only for programmes whose
+   * sets are the reader's to change — a catalog template is immutable at
+   * runtime, so a ready programme gets no stepper rather than a stepper that
+   * silently does nothing.
+   */
+  onSaveEmphasis?: (updates: Array<{ sessionId: string; exerciseId: string; sets: number }>) => void;
   onEdit?: () => void;
   destructiveActionLabel?: string;
   destructiveActionTitle?: string;
@@ -190,6 +185,7 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onOpenSession,
+  onSaveEmphasis,
   onEdit,
   progressionRules = null,
   audience = null,
@@ -209,6 +205,22 @@ export function ProgramDetailScreen({
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
   const identity = programCoverStyle(program.id);
+  const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
+  // Flat, in a fixed order: the sheet returns set counts by index, so this
+  // list is the contract between the two.
+  const emphasisRows = useMemo(
+    () =>
+      program.sessions.flatMap((session) =>
+        session.exercises.map((exercise) => ({
+          sessionId: session.id,
+          exerciseId: exercise.id,
+          area: emphasisAreaForExercise(exercise.name),
+          role: exercise.role as string,
+          sets: exercise.sets,
+        })),
+      ),
+    [program.sessions],
+  );
   const emphasis = useMemo(
     () =>
       resolveProgramEmphasis(
@@ -467,6 +479,11 @@ export function ProgramDetailScreen({
           <>
             <View style={styles.sectionHeader}>
               <Text style={styles.emphasisTitle}>{t(language, 'detail.emphasis.title')}</Text>
+              {onSaveEmphasis ? (
+                <Pressable hitSlop={8} onPress={() => setEmphasisSheetVisible(true)}>
+                  <Text style={styles.emphasisEdit}>{t(language, 'detail.emphasis.edit')}</Text>
+                </Pressable>
+              ) : null}
             </View>
             <View style={styles.emphasisCard}>
               <View style={styles.emphasisBar}>
@@ -680,6 +697,26 @@ export function ProgramDetailScreen({
           <Text style={styles.primaryButtonText}>{t(language, 'detail.startNext')}</Text>
         </Pressable>
       </View>
+
+      {onSaveEmphasis ? (
+        <EmphasisSheet
+          visible={emphasisSheetVisible}
+          language={language}
+          exercises={emphasisRows}
+          onClose={() => setEmphasisSheetVisible(false)}
+          onSave={(sets) => {
+            setEmphasisSheetVisible(false);
+            onSaveEmphasis(
+              emphasisRows
+                .map((row, index) => ({ ...row, sets: sets[index] ?? row.sets }))
+                // Only what actually changed: a save that rewrites every
+                // exercise touches rows the reader never moved.
+                .filter((row, index) => row.sets !== emphasisRows[index].sets)
+                .map((row) => ({ sessionId: row.sessionId, exerciseId: row.exerciseId, sets: row.sets })),
+            );
+          }}
+        />
+      ) : null}
 
       {hasDestructiveAction ? (
         <ConfirmDialog
@@ -991,6 +1028,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   workoutCardPressed: {
     transform: [{ scale: 0.985 }],
+  },
+  emphasisEdit: {
+    color: theme.purple,
+    fontSize: 12.5,
+    lineHeight: 16,
+    fontWeight: '800',
   },
   emphasisTitle: {
     color: theme.faint,

@@ -71,22 +71,25 @@ function areaForExercise(name: string): EmphasisArea {
   return 'other';
 }
 
-export function resolveProgramEmphasis(
-  sessions: ReadonlyArray<{ exercises: ReadonlyArray<{ name: string; sets: number }> }>,
+/**
+ * The share maths, split out because the editing sheet holds items that are
+ * ALREADY classified — passing them back through the name classifier would
+ * drop every one of them into `other`, and the sheet's preview bar would
+ * disagree with the card that opened it.
+ */
+export function summariseEmphasis(
+  items: ReadonlyArray<{ area: EmphasisArea; sets: number }>,
 ): ProgramEmphasis | null {
   const setsByArea = new Map<EmphasisArea, number>();
   let totalSets = 0;
 
-  for (const session of sessions) {
-    for (const exercise of session.exercises) {
-      const sets = Math.max(0, exercise.sets);
-      if (sets === 0) {
-        continue;
-      }
-      const area = areaForExercise(exercise.name);
-      setsByArea.set(area, (setsByArea.get(area) ?? 0) + sets);
-      totalSets += sets;
+  for (const item of items) {
+    const sets = Math.max(0, item.sets);
+    if (sets === 0) {
+      continue;
     }
+    setsByArea.set(item.area, (setsByArea.get(item.area) ?? 0) + sets);
+    totalSets += sets;
   }
 
   if (totalSets === 0) {
@@ -116,4 +119,19 @@ export function resolveProgramEmphasis(
     totalSets,
     slices: raw.map((slice, index) => ({ area: slice.area, sets: slice.sets, percent: floors[index] })),
   };
+}
+
+export function resolveProgramEmphasis(
+  sessions: ReadonlyArray<{ exercises: ReadonlyArray<{ name: string; sets: number }> }>,
+): ProgramEmphasis | null {
+  return summariseEmphasis(
+    sessions.flatMap((session) =>
+      session.exercises.map((exercise) => ({ area: areaForExercise(exercise.name), sets: exercise.sets })),
+    ),
+  );
+}
+
+/** The area an exercise's sets count towards — exposed for the editing sheet. */
+export function emphasisAreaForExercise(name: string): EmphasisArea {
+  return areaForExercise(name);
 }

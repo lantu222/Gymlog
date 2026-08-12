@@ -2,6 +2,9 @@ const assert = require('node:assert/strict');
 
 const { adaptCompletedWorkoutSessionForAppDatabase } = require('../../../.test-dist/features/workout/workoutAppAdapter.js');
 const { createCompletedSession, createExercise, createSet } = require('../../helpers/workoutFixtures.cjs');
+const {
+  adaptLegacyWorkoutTemplateToRuntimeTemplate,
+} = require('../../../.test-dist/features/workout/customWorkoutAdapter.js');
 
 module.exports = [
   {
@@ -129,6 +132,53 @@ module.exports = [
       assert.equal(adapted.performedAt, '2026-03-19T10:12:00.000Z');
       assert.equal(adapted.logs[0].sets[0].weight, 0);
       assert.equal(adapted.exercises[0].sets[0].performedAt, null);
+    },
+  },
+  {
+    /**
+     * The emphasis sheet writes new set counts back by exercise id, and the id
+     * it holds came through the detail view model from this adapter. If that
+     * id ever stopped being the stored ExerciseTemplate's id, the save would
+     * match nothing and do nothing — silently, with a success toast.
+     */
+    name: 'a custom runtime exercise keeps the stored template id it was built from',
+    run() {
+      const runtime = adaptLegacyWorkoutTemplateToRuntimeTemplate(
+        { id: 'tpl_1', name: 'Oma ohjelma', exerciseIds: [], sessions: [], createdAt: '', updatedAt: '', origin: 'authored' },
+        [
+          {
+            id: 'sess_1',
+            workoutTemplateId: 'tpl_1',
+            name: 'Day 1',
+            orderIndex: 0,
+            exerciseIds: ['ex_1'],
+            exercises: [
+              {
+                id: 'ex_1',
+                workoutTemplateId: 'tpl_1',
+                workoutTemplateSessionId: 'sess_1',
+                name: 'Back Squat',
+                targetSets: 4,
+                repMin: 5,
+                repMax: 8,
+                restSeconds: 120,
+                trackedDefault: true,
+                orderIndex: 0,
+                libraryItemId: null,
+              },
+            ],
+          },
+        ],
+        [],
+        90,
+      );
+
+      const exercise = runtime.sessions[0].exercises[0];
+      assert.equal(exercise.id, 'ex_1');
+      assert.equal(exercise.persistedExerciseTemplateId, 'ex_1');
+      // And the sets the emphasis card counts are the stored ones, not a
+      // default — a card computed from a fallback would describe no programme.
+      assert.equal(exercise.sets, 4);
     },
   },
 ];

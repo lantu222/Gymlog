@@ -75,3 +75,19 @@ export function programCoverIndex(templateId: string): number {
 export function programCoverStyle(templateId: string): ProgramCoverStyle {
   return PROGRAM_COVER_STYLES[programCoverIndex(templateId)];
 }
+
+/**
+ * The emphasis bar's fixed violet ramp (design: GAINER Hourglass Shape).
+ *
+ * Deliberately NOT the programme's identity hue: the bar is data tied to its
+ * own legend, and four shades of one violet stay readable next to any hero
+ * colour. Darkest goes to the largest slice. Shared because the detail card
+ * and the sheet that edits it must paint the same bar.
+ */
+export const EMPHASIS_RAMP: Record<string, string> = {
+  glutesLegs: '#7C3AED',
+  shouldersBack: '#A98BF0',
+  chestArms: '#CDBBF8',
+  core: '#E6DBFB',
+  other: '#C9C3D6',
+};

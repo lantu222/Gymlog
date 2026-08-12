@@ -1867,6 +1867,49 @@ function VinhaApp() {
     resetToRoute(ROOT_ROUTES.home);
   }
 
+  /**
+   * Emphasis save (design screen 3): new set counts, written to the reader's
+   * own template.
+   *
+   * Only custom programmes reach here — a catalog template is immutable at
+   * runtime, so the detail screen shows no stepper for a ready programme
+   * rather than one that silently does nothing. Everything except the set
+   * counts is carried through unchanged, so this cannot become a rewrite of
+   * the whole template disguised as an emphasis nudge.
+   */
+  async function handleSaveEmphasis(
+    workoutTemplateId: string,
+    updates: Array<{ sessionId: string; exerciseId: string; sets: number }>,
+  ) {
+    if (updates.length === 0) {
+      return;
+    }
+    const template = workoutTemplates.find((item) => item.id === workoutTemplateId);
+    if (!template) {
+      return;
+    }
+    const setsByExerciseId = new Map(updates.map((update) => [update.exerciseId, update.sets]));
+    await upsertWorkoutTemplate({
+      id: template.id,
+      name: template.name,
+      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
+        id: session.id,
+        name: session.name,
+        exercises: session.exercises.map((exercise) => ({
+          id: exercise.id,
+          name: exercise.name,
+          targetSets: setsByExerciseId.get(exercise.id) ?? exercise.targetSets,
+          repMin: exercise.repMin,
+          repMax: exercise.repMax,
+          restSeconds: exercise.restSeconds,
+          trackedDefault: exercise.trackedDefault,
+          libraryItemId: exercise.libraryItemId ?? null,
+        })),
+      })),
+    });
+    showToast(t(preferences.appLanguage, 'toast.emphasisSaved'));
+  }
+
   async function handleCompletionRestart(planId: string) {
     const plan = database.workoutPlans.find((entry) => entry.id === planId);
     if (!plan) {
@@ -4181,6 +4224,11 @@ function VinhaApp() {
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
+        onSaveEmphasis={
+          route.programType === 'custom'
+            ? (updates) => void handleSaveEmphasis(route.workoutTemplateId, updates)
+            : undefined
+        }
         onOpenSession={(sessionId) =>
           navigate({
             tab: 'workout',
