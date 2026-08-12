@@ -56,6 +56,15 @@ export type AppRoute =
       season: 'winter' | 'summer';
     }
   | {
+      /**
+       * Ready-made targets. Its own screen rather than a sheet on the Programs
+       * tab, because "what am I aiming at" is a decision, and a decision that
+       * arrives as a drawer over the thing you were reading gets dismissed.
+       */
+      tab: 'workout';
+      screen: 'goalPicker';
+    }
+  | {
       tab: 'workout';
       screen: 'list';
     }

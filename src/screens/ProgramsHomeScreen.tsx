@@ -32,7 +32,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import type { CampaignTarget, ProgramCampaign } from '../lib/programCampaigns';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
-import { isValidTarget, StrengthGoalProgress } from '../lib/strengthGoals';
+import { StrengthGoalProgress } from '../lib/strengthGoals';
 import type { ProgramSeason } from '../lib/programSeasons';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { WorkoutLevel } from '../features/workout/workoutTypes';
@@ -109,7 +109,8 @@ function RankMedal({ index }: { index: number }) {
 const CAMPAIGN_H = 216;
 
 // Two cards, one gap, inside the page's 20px gutters.
-const SEASON_CARD_W = Math.floor((Dimensions.get('window').width - 40 - 12) / 2);
+const SEASON_ROW_W = Dimensions.get('window').width - 40;
+const SEASON_CARD_W = Math.floor((SEASON_ROW_W - 12) / 2);
 const SEASON_CARD_H = 216;
 
 const COVER_W = 274;
@@ -193,8 +194,8 @@ interface ProgramsHomeScreenProps {
    */
   goals: StrengthGoalProgress[];
   /** Lifts with logged work: you cannot set a target on something never done. */
-  goalCandidates: Array<{ name: string; label: string; bestKg: number }>;
-  onSetGoal: (exerciseName: string, targetKg: number) => void;
+  /** Opens the ready-made targets page — see StrengthGoalPickerScreen. */
+  onOpenGoalPicker: () => void;
   onRemoveGoal: (exerciseName: string) => void;
   recommendations: Array<
     ProgramsExploreItem & {
@@ -862,8 +863,7 @@ export function ProgramsHomeScreen({
   seasonCards,
   onOpenSeason,
   goals,
-  goalCandidates,
-  onSetGoal,
+  onOpenGoalPicker,
   onRemoveGoal,
   customPrograms,
   exerciseLibraryCount,
@@ -896,8 +896,6 @@ export function ProgramsHomeScreen({
     | null
   >(null);
   // The goal sheet: which lift, and the number being typed.
-  const [goalLift, setGoalLift] = useState<{ name: string; label: string; bestKg: number } | null>(null);
-  const [goalTarget, setGoalTarget] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   // The tile row scrolls to four and a half categories; this shows all nine.
   const [allCategories, setAllCategories] = useState(false);
@@ -1087,15 +1085,17 @@ export function ProgramsHomeScreen({
             logged shows as not started rather than 0% — an empty bar reads as
             "you have made no progress" when the truth is "you have not
             begun". */}
-        {goals.length > 0 || goalCandidates.length > 0 ? (
+        {/* Always here. It used to appear only once a lift had been logged,
+            which hid the targets section from the one reader a target would
+            actually help. The picker offers ready-made numbers, so there is
+            always something to show. */}
+        {true ? (
           <View>
             <View style={styles.sectionHeadRow}>
               <Text style={styles.sectionEyebrow}>{t(language, 'programs.goals')}</Text>
-              {goalCandidates.length > 0 ? (
-                <Pressable onPress={() => setGoalLift(goalCandidates[0])} hitSlop={8}>
-                  <Text style={styles.sectionLink}>{t(language, 'programs.goals.add')}</Text>
-                </Pressable>
-              ) : null}
+              <Pressable onPress={onOpenGoalPicker} hitSlop={8}>
+                <Text style={styles.sectionLink}>{t(language, 'programs.goals.add')}</Text>
+              </Pressable>
             </View>
             {goals.length === 0 ? (
               <Text style={styles.seasonLead}>{t(language, 'programs.goals.empty')}</Text>
@@ -1154,15 +1154,16 @@ export function ProgramsHomeScreen({
         <View style={styles.seasonGrid}>
           {seasonCards.map((card) => {
             const gid = `seasoncard-${card.season}`;
+            const cardW = seasonCards.length > 1 ? SEASON_CARD_W : SEASON_ROW_W;
             return (
               <Pressable
                 key={card.season}
                 accessibilityRole="button"
                 accessibilityLabel={t(language, card.labelKey)}
                 onPress={() => onOpenSeason(card.season)}
-                style={({ pressed }) => [styles.seasonCard, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.seasonCard, { width: cardW }, pressed && styles.pressed]}
               >
-                <Svg width={SEASON_CARD_W} height={SEASON_CARD_H} style={StyleSheet.absoluteFill}>
+                <Svg width={cardW} height={SEASON_CARD_H} style={StyleSheet.absoluteFill}>
                   <Defs>
                     <SvgLinearGradient id={gid} x1="0" y1="0" x2="1" y2="1">
                       <Stop offset="0" stopColor={card.gradient[0]} />
@@ -1171,12 +1172,12 @@ export function ProgramsHomeScreen({
                     {/* Android lets an svg child walk out of the parent's
                         overflow:hidden, so the corner is cut here, not in CSS. */}
                     <ClipPath id={`${gid}-c`}>
-                      <Rect x="0" y="0" width={SEASON_CARD_W} height={SEASON_CARD_H} rx={22} ry={22} />
+                      <Rect x="0" y="0" width={cardW} height={SEASON_CARD_H} rx={22} ry={22} />
                     </ClipPath>
                   </Defs>
-                  <Rect x="0" y="0" width={SEASON_CARD_W} height={SEASON_CARD_H} rx={22} fill={`url(#${gid})`} />
+                  <Rect x="0" y="0" width={cardW} height={SEASON_CARD_H} rx={22} fill={`url(#${gid})`} />
                   <Rect
-                    x={SEASON_CARD_W - 63}
+                    x={cardW - 63}
                     y={-20}
                     width={88}
                     height={88}
@@ -1186,7 +1187,7 @@ export function ProgramsHomeScreen({
                     stroke="#FFFFFF"
                     strokeOpacity={0.1}
                     strokeWidth={8}
-                    origin={`${SEASON_CARD_W - 19}, 24`}
+                    origin={`${cardW - 19}, 24`}
                     rotation={45}
                     clipPath={`url(#${gid}-c)`}
                   />
@@ -1446,89 +1447,6 @@ export function ProgramsHomeScreen({
 
         <View style={styles.bottomSafeFade} />
       </ScrollView>
-
-      {/* Setting a target. Only lifts with logged work are offered — a target
-          on something never done cannot have a bar, and offering it would make
-          the row's first impression an empty one. */}
-      <Modal
-        visible={goalLift !== null}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setGoalLift(null)}
-      >
-        <View style={styles.sheetOverlay}>
-          <Pressable style={styles.sheetScrim} onPress={() => setGoalLift(null)} />
-          <View style={styles.sheet}>
-            <View style={styles.sheetGrip} />
-            {goalLift ? (
-              <>
-                <Text style={styles.sheetName}>
-                  {t(language, 'programs.goals.sheetTitle', { name: goalLift.label })}
-                </Text>
-                <Text style={styles.sheetExplainer}>
-                  {t(language, 'programs.goals.sheetBody', { best: goalLift.bestKg })}
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.categoryRow}
-                  style={styles.exploreScroll}
-                >
-                  {goalCandidates.map((candidate) => (
-                    <Pressable
-                      key={candidate.name}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: candidate.name === goalLift.name }}
-                      onPress={() => setGoalLift(candidate)}
-                      style={[
-                        styles.categoryChip,
-                        candidate.name === goalLift.name && styles.categoryChipOn,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.categoryChipText,
-                          candidate.name === goalLift.name && styles.categoryChipTextOn,
-                        ]}
-                      >
-                        {candidate.label}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-                <TextInput
-                  value={goalTarget}
-                  onChangeText={setGoalTarget}
-                  keyboardType="numeric"
-                  placeholder={`${Math.round(goalLift.bestKg + 10)}`}
-                  placeholderTextColor={theme.faint}
-                  style={styles.goalInput}
-                />
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!isValidTarget(Number(goalTarget.replace(',', '.')))}
-                  onPress={() => {
-                    const target = Number(goalTarget.replace(',', '.'));
-                    if (!isValidTarget(target)) {
-                      return;
-                    }
-                    onSetGoal(goalLift.name, target);
-                    setGoalTarget('');
-                    setGoalLift(null);
-                  }}
-                  style={({ pressed }) => [
-                    styles.sheetConfirm,
-                    !isValidTarget(Number(goalTarget.replace(',', '.'))) && { opacity: 0.5 },
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Text style={styles.sheetConfirmText}>{t(language, 'programs.goals.save')}</Text>
-                </Pressable>
-              </>
-            ) : null}
-          </View>
-        </View>
-      </Modal>
 
       <Modal visible={picked !== null} transparent animationType="slide" onRequestClose={() => setPicked(null)}>
         <View style={styles.sheetOverlay}>
@@ -2087,7 +2005,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 12,
   },
   seasonCard: {
-    width: SEASON_CARD_W,
     height: SEASON_CARD_H,
     borderRadius: 22,
     overflow: 'hidden',

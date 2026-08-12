@@ -88,17 +88,26 @@ module.exports = [
     },
   },
   {
-    name: 'the row is wired, and only offers lifts with logged work',
+    name: 'the row is wired, and targets are ready-made rather than typed',
     run() {
       const screen = read('src', 'screens', 'ProgramsHomeScreen.tsx');
       const app = read('App.tsx');
 
-      // Targets on lifts that were never done cannot have a bar, and offering
-      // them would make the row's first impression an empty one.
-      assert.match(app, /filter\(\(summary\) => \(summary\.bestWeight \?\? 0\) > 0\)/);
+      // The old sheet could only offer lifts already logged, so the reader a
+      // first target would help most was shown an empty list. The picker
+      // offers a fixed set of round numbers instead, and folds the reader's
+      // own bests in on top.
+      assert.doesNotMatch(app, /programsGoalCandidates/);
+      assert.match(app, /buildGoalPresetRows\(/);
       // Measured against the user's own bests, from the same summaries the
       // Progress tab draws.
-      assert.match(app, /new Map\(trackedProgress\.map\(\(summary\) => \[summary\.name, summary\.bestWeight\]\)\)/);
+      assert.match(
+        app,
+        /new Map\(trackedProgress\.map\(\(summary\) => \[summary\.name, summary\.bestWeight \?\? null\]\)\)/,
+      );
+      // Its own screen, reachable from both places that mention a target.
+      assert.match(app, /screen: 'goalPicker'/);
+      assert.match(screen, /onPress=\{onOpenGoalPicker\}/);
 
       // The bar renders the resolved ratio, and "not started" has its own copy.
       assert.match(screen, /entry\.currentKg === null/);

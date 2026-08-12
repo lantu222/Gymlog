@@ -1068,15 +1068,25 @@ export function HomeScreen({
                         <Text style={[styles.dayBadgeText, isToday && styles.dayBadgeTextToday]}>{weekdayText}</Text>
                       </CutSurface>
                     ) : null}
-                    <Text style={styles.dayTitle} numberOfLines={1}>
-                      {sessionTitle}
-                    </Text>
-                    {isToday ? (
-                      <CutSurface size="chip" fill={theme.purple} style={styles.todayPill}>
-                        <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
-                      </CutSurface>
-                    ) : null}
-                    <Text style={styles.dayDuration}>{session.duration}</Text>
+                    {/* Two lines, not one. On one line the title, the TODAY
+                        pill and the duration competed for the same width, and
+                        the title is the one that lost — "Päivä 1: Työntö ja
+                        kevyt juoksu" arrived as "Päivä 1: Työntö ja…". The
+                        title now owns the first line and the two labels that
+                        describe it sit under it. */}
+                    <View style={styles.dayCopy}>
+                      <Text style={styles.dayTitle} numberOfLines={2}>
+                        {sessionTitle}
+                      </Text>
+                      <View style={styles.dayMetaRow}>
+                        {isToday ? (
+                          <CutSurface size="chip" fill={theme.purple} style={styles.todayPill}>
+                            <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
+                          </CutSurface>
+                        ) : null}
+                        <Text style={styles.dayDuration}>{session.duration}</Text>
+                      </View>
+                    </View>
                     <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
                       <Path
                         d="m9 6 6 6-6 6"
@@ -1092,6 +1102,11 @@ export function HomeScreen({
               })}
             </View>
             {/* A3: the cut corner arrives on the pair the design mocks. */}
+            {/* Stacked, not side by side. Sharing a row, "Katso koko ohjelma"
+                and "Muokkaa päiviä" each got half the width and both clipped —
+                the Finnish labels are simply longer than the English ones the
+                row was measured against, and a flex ratio cannot fix a label
+                that needs the whole line. */}
             <View style={styles.programActions}>
               <CutButton
                 size="lg"
@@ -1102,11 +1117,11 @@ export function HomeScreen({
               {onSetTrainingDays ? (
                 <CutButton
                   size="lg"
+                  stretch
                   variant="secondary"
                   label={t(language, 'programs.editDays')}
                   accessibilityLabel={t(language, 'programs.editDaysA11y')}
                   onPress={onSetTrainingDays}
-                  style={styles.programSecondaryWidth}
                 />
               ) : null}
             </View>
@@ -1989,7 +2004,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 8,
   },
   dayRow: {
-    minHeight: 54,
+    // Twice the old 54: a session title is a sentence in Finnish, and the row
+    // has to hold it plus the two labels under it without either truncating.
+    minHeight: 108,
     borderRadius: 13,
     borderWidth: 1,
     borderColor: theme.border,
@@ -1998,6 +2015,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: 13,
+    paddingVertical: 14,
+  },
+  dayCopy: {
+    flex: 1,
+    gap: 8,
+  },
+  dayMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   dayRowToday: {
     borderColor: theme.purple,
@@ -2020,10 +2047,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
   },
   dayTitle: {
-    flex: 1,
     color: theme.ink,
-    fontSize: 15,
-    lineHeight: 20,
+    fontSize: 16,
+    lineHeight: 21,
     fontWeight: '800',
   },
   todayPill: {
@@ -2055,11 +2081,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   rowPressed: {
     transform: [{ translateX: 3 }],
   },
-  programSecondaryWidth: {
-    flex: 0,
-  },
   programActions: {
-    flexDirection: 'row',
     gap: 10,
     marginTop: 12,
   },

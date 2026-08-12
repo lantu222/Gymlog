@@ -14,6 +14,7 @@ import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect
 import { t } from '../lib/i18n';
 import { HomePromoSlide } from '../lib/homePromoSlides';
 import { SEASON_COLORS } from '../lib/season';
+import { SEASON_JOIN_WINDOW_DAYS } from '../lib/seasonEnrolment';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -39,6 +40,20 @@ const SLIDE_PAINT: Record<string, readonly [string, string]> = {
 const RADIUS = 24;
 const CARD_HEIGHT = 214;
 const GAP = 12;
+
+/**
+ * How full the bar is.
+ *
+ * A running season fills as it is spent. A coming one fills as it approaches,
+ * so the bar is "how close is this" and not "how long until you can stop
+ * waiting" — an empty bar 40 days out that stays empty says nothing.
+ */
+function trackRatio(season: NonNullable<HomePromoSlide['season']>): number {
+  if (season.state === 'running') {
+    return season.progress;
+  }
+  return Math.max(0, Math.min(1, 1 - season.daysUntilStart / SEASON_JOIN_WINDOW_DAYS));
+}
 
 function paintFor(slide: HomePromoSlide): readonly [string, string] {
   if (slide.season) {
@@ -175,32 +190,38 @@ export function HomePromoCarousel({
                   </Text>
                 ) : null}
 
-                {season && season.state === 'running' ? (
+                {/* Both season states share one shape: a bar, then two labels
+                    under it. The coming season used to carry a counter box
+                    with its own lead word instead, which made a third block in
+                    a card that already had four — and the two cards, swiped
+                    one after the other, did not look like the same object.
+
+                    The bar is what each season has to show: how much of the
+                    window is behind you, or how much of the run-up is. */}
+                {season ? (
                   <>
                     <View style={styles.track}>
-                      <View style={[styles.trackFill, { width: `${Math.round(season.progress * 100)}%` }]} />
+                      <View
+                        style={[
+                          styles.trackFill,
+                          { width: `${Math.round(trackRatio(season) * 100)}%` },
+                          season.state === 'upcoming' && styles.trackFillPending,
+                        ]}
+                      />
                     </View>
                     <View style={styles.metaRow}>
-                      <Text style={styles.meta}>
-                        {t(language, 'season.weeksLeft', { count: season.weeksLeft })}
+                      <Text style={styles.meta} numberOfLines={1}>
+                        {season.state === 'running'
+                          ? t(language, 'season.weeksLeft', { count: season.weeksLeft })
+                          : t(language, 'home.promo.season.opensIn', { count: season.daysUntilStart })}
                       </Text>
-                      <Text style={styles.meta}>
-                        {t(language, 'home.promo.season.pointsUntil', { date: season.endLabel })}
+                      <Text style={styles.meta} numberOfLines={1}>
+                        {season.state === 'running'
+                          ? t(language, 'home.promo.season.pointsUntil', { date: season.endLabel })
+                          : t(language, 'home.promo.season.length', { count: season.weeksLeft })}
                       </Text>
                     </View>
                   </>
-                ) : null}
-
-                {season && season.state === 'upcoming' ? (
-                  <View style={styles.countRow}>
-                    {/* Lead first: "ALKUUN 50 PV" is a sentence, "50 PV ALKAA"
-                        is two labels that happen to sit next to each other. */}
-                    <Text style={styles.countLead}>{t(language, 'home.promo.season.opensIn')}</Text>
-                    <View style={styles.countBox}>
-                      <Text style={styles.countNumber}>{season.daysUntilStart}</Text>
-                      <Text style={styles.countLabel}>{t(language, 'home.promo.season.daysUnit')}</Text>
-                    </View>
-                  </View>
                 ) : null}
 
                 <View style={styles.ctaRow}>
@@ -319,9 +340,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#FFFFFF',
   },
+  // A season that has not opened has not been trained, so its bar is not the
+  // same white as one you have been filling by showing up.
+  trackFillPending: {
+    backgroundColor: 'rgba(255,255,255,0.55)',
+  },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
     marginTop: 7,
   },
   meta: {
@@ -330,43 +358,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 13,
     fontWeight: '800',
     letterSpacing: 0.5,
-  },
-  countRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    marginTop: 12,
-  },
-  countBox: {
-    minWidth: 46,
-    alignItems: 'center',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.26)',
-  },
-  countNumber: {
-    color: '#FFFFFF',
-    fontSize: 17,
-    lineHeight: 21,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  countLabel: {
-    color: 'rgba(255,255,255,0.72)',
-    fontSize: 8.5,
-    lineHeight: 11,
-    fontWeight: '800',
-    letterSpacing: 0.7,
-  },
-  countLead: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 10.5,
-    lineHeight: 14,
-    fontWeight: '800',
-    letterSpacing: 0.6,
   },
   ctaRow: {
     flexDirection: 'row',

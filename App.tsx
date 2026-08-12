@@ -152,6 +152,8 @@ import { programCoverIndex } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
+import { buildGoalPresetRows } from './src/lib/strengthGoalPresets';
+import { StrengthGoalPickerScreen } from './src/screens/StrengthGoalPickerScreen';
 import {
   addSeasonEnrolment,
   daysUntil,
@@ -3998,16 +4000,20 @@ function VinhaApp() {
     [preferences.strengthGoals, trackedProgress],
   );
   /** Lifts with logged work, for the goal picker — you cannot aim at nothing. */
-  const programsGoalCandidates = useMemo(
+  /**
+   * The ready-made targets, with the reader's own bests folded in.
+   *
+   * Every preset is always offered — unlike the old sheet, which could only
+   * list lifts already logged and therefore showed nothing at all to the one
+   * person a first target would help.
+   */
+  const goalPresetRows = useMemo(
     () =>
-      trackedProgress
-        .filter((summary) => (summary.bestWeight ?? 0) > 0)
-        .map((summary) => ({
-          name: summary.name,
-          label: exerciseNameLabel(preferences.appLanguage, summary.name),
-          bestKg: summary.bestWeight ?? 0,
-        })),
-    [preferences.appLanguage, trackedProgress],
+      buildGoalPresetRows(
+        new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight ?? null])),
+        preferences.strengthGoals,
+      ),
+    [preferences.strengthGoals, trackedProgress],
   );
   const programsCustomItems = useMemo(
     () =>
@@ -5214,6 +5220,29 @@ function VinhaApp() {
     ) : (
       <View />
     );
+  } else if (route.tab === 'workout' && route.screen === 'goalPicker') {
+    content = (
+      <StrengthGoalPickerScreen
+        language={preferences.appLanguage}
+        rows={goalPresetRows}
+        unitLabel={preferences.unitPreference}
+        onBack={() => navigateBack(ROOT_ROUTES.workout)}
+        onPick={(exerciseName, targetKg) =>
+          void updatePreferences({
+            strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
+              exerciseName,
+              targetKg,
+              createdAt: new Date().toISOString(),
+            }),
+          })
+        }
+        onClear={(exerciseName) =>
+          void updatePreferences({
+            strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),
+          })
+        }
+      />
+    );
   } else if (route.tab === 'workout' && route.screen === 'season') {
     /**
      * The season screen.
@@ -5313,16 +5342,7 @@ function VinhaApp() {
         seasonCards={programsSeasonCards}
         onOpenSeason={(season) => navigate({ tab: 'workout', screen: 'season', season })}
         goals={programsGoals}
-        goalCandidates={programsGoalCandidates}
-        onSetGoal={(exerciseName, targetKg) =>
-          void updatePreferences({
-            strengthGoals: upsertStrengthGoal(preferences.strengthGoals, {
-              exerciseName,
-              targetKg,
-              createdAt: new Date().toISOString(),
-            }),
-          })
-        }
+        onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalPicker' })}
         onRemoveGoal={(exerciseName) =>
           void updatePreferences({
             strengthGoals: removeStrengthGoal(preferences.strengthGoals, exerciseName),
@@ -5425,9 +5445,10 @@ function VinhaApp() {
             });
             return;
           }
-          // The targets section lives on the Programs tab, and it is the one
-          // place that can say what setting a target means.
-          navigate(ROOT_ROUTES.workout);
+          // Ready-made targets, not the exercise library: the library is 873
+          // rows answering "what could I train", and a target answers a
+          // different question with about five candidates.
+          navigate({ tab: 'workout', screen: 'goalPicker' });
         }}
         // The ghost button on the season card: its one programme, opened where
         // the week and the exercises are — not the season scoreboard again.
