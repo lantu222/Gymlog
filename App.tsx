@@ -136,6 +136,7 @@ import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
+import { buildHomePromoSlides } from './src/lib/homePromoSlides';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
 import {
@@ -3806,6 +3807,31 @@ function VinhaApp() {
     },
     [preferences.appLanguage, workout.templates],
   );
+  /**
+   * The strip under "Aloita treeni".
+   *
+   * Every input is read from state that is true right now: the season window
+   * the calendar is actually in, a recommendation the reader is not already
+   * running, and a target only once there are lifts to measure one from.
+   */
+  const homePromoSlides = useMemo(() => {
+    const window = resolveSeasonWindow();
+    const seasonProgramId = getSeasonProgramId(window.season);
+    const recommendation = programsRecommendations.find(
+      (item) => !activeProgramTemplateIds.includes(item.id),
+    );
+    return buildHomePromoSlides({
+      season: {
+        kind: window.season,
+        weeksLeft: seasonWeeksLeft(window),
+        joined: seasonProgramId ? activeProgramTemplateIds.includes(seasonProgramId) : false,
+      },
+      recommendation: recommendation ? { templateId: recommendation.id, title: recommendation.name } : null,
+      goalCount: preferences.strengthGoals.length,
+      trackedLiftCount: trackedProgress.length,
+    });
+  }, [activeProgramTemplateIds, preferences.strengthGoals, programsRecommendations, trackedProgress]);
+
   const programsCampaigns = useMemo(
     () =>
       buildProgramCampaigns({
@@ -5298,6 +5324,25 @@ function VinhaApp() {
             : null
         }
         trainingDayIndexes={homeTrainingDayIndexes}
+        promoSlides={homePromoSlides}
+        onPressPromo={(slide) => {
+          if (slide.kind === 'season') {
+            navigate({ tab: 'workout', screen: 'season', season: resolveSeasonWindow().season });
+            return;
+          }
+          if (slide.kind === 'program' && slide.templateId) {
+            navigate({
+              tab: 'workout',
+              screen: 'program',
+              programType: 'ready',
+              workoutTemplateId: slide.templateId,
+            });
+            return;
+          }
+          // The targets section lives on the Programs tab, and it is the one
+          // place that can say what setting a target means.
+          navigate(ROOT_ROUTES.workout);
+        }}
         statCatalogCards={homeStatCatalogCards}
         suggestedStatCardKeys={suggestHomeStatCardKeys({
           focusAreas: preferences.setupFocusAreas,

@@ -40,8 +40,10 @@ import { hasFixedWeekdays, resolveSessionWeekday, weekdayLabel } from '../lib/pl
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { CutButton } from '../components/CutButton';
+import { HomePromoCarousel } from '../components/HomePromoCarousel';
 import { VinhaWordmark } from '../components/VinhaWordmark';
 import { CutSurface } from '../components/CutSurface';
+import { HomePromoSlide } from '../lib/homePromoSlides';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
@@ -183,6 +185,9 @@ interface HomeScreenProps {
   onOpenActivePlan?: () => void;
   onSelectHistorySession?: (sessionId: string) => void;
   /** "Your cards": one computed card per catalog item, Add-sheet order. */
+  /** Offers under the start button; empty means the strip does not render. */
+  promoSlides?: HomePromoSlide[];
+  onPressPromo?: (slide: HomePromoSlide) => void;
   statCatalogCards?: HomeStatCard[];
   suggestedStatCardKeys?: string[];
   onDismissStatCardSuggestion?: (key: string) => void;
@@ -259,6 +264,8 @@ export function HomeScreen({
   onSetTrainingDays,
   onOpenActivePlan,
   onSelectHistorySession,
+  promoSlides = [],
+  onPressPromo,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
   onDismissStatCardSuggestion,
@@ -986,6 +993,18 @@ export function HomeScreen({
               </Svg>
             </CutSurface>
           </Pressable>
+        </Animated.View>
+
+        {/* Offers, directly under the action they are an alternative to. Each
+            slide is built from state that is true right now — a running
+            season, a programme not already yours, a target you have the lifts
+            to set — so the strip disappears rather than filling with copy. */}
+        <Animated.View style={rise(RISE_BTNROW)}>
+          <HomePromoCarousel
+            slides={promoSlides}
+            language={language}
+            onPress={(slide) => onPressPromo?.(slide)}
+          />
         </Animated.View>
 
         {/* The active program.

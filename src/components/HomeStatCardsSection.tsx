@@ -241,7 +241,25 @@ export function HomeStatCardsSection({
                 "Seurataanko Rinta alkunäytöllä?" — a nominative where the
                 partitive belongs. */}
             <Text style={styles.suggestTitle}>{t(language, SUGGEST_TITLE_KEYS[suggestion.key])}</Text>
-            <Text style={styles.suggestBody}>{t(language, 'cards.suggest.body')}</Text>
+            {/* The card itself, not a description of it. "Lisää kortti" was a
+                promise; this is the sample — including the honest empty state,
+                which is the answer to "what would I actually get". */}
+            <View style={styles.suggestPreview}>
+              <Text numberOfLines={1} style={styles.suggestPreviewLabel}>
+                {suggestion.label}
+              </Text>
+              {suggestion.value !== null ? (
+                <View style={styles.suggestPreviewRow}>
+                  <Text style={styles.suggestPreviewValue}>{formatHomeStatValue(suggestion.value)}</Text>
+                  <Text style={styles.suggestPreviewUnit}>{suggestion.unit}</Text>
+                </View>
+              ) : (
+                <Text style={styles.suggestPreviewEmpty}>{t(language, 'cards.noData')}</Text>
+              )}
+            </View>
+            <Text style={styles.suggestBody}>
+              {t(language, suggestion.value !== null ? 'cards.suggest.body' : 'cards.suggest.bodyEmpty')}
+            </Text>
           </View>
           <View style={styles.suggestActions}>
             <Pressable
@@ -421,7 +439,47 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 12,
   },
   suggestCopy: {
-    gap: 3,
+    gap: 8,
+  },
+  suggestPreview: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.border,
+    backgroundColor: theme.surface,
+    paddingHorizontal: 13,
+    paddingVertical: 11,
+    gap: 2,
+  },
+  suggestPreviewLabel: {
+    color: theme.faint,
+    fontSize: 11.5,
+    lineHeight: 15,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
+  suggestPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
+  },
+  suggestPreviewValue: {
+    color: theme.ink,
+    fontSize: 24,
+    lineHeight: 29,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+  },
+  suggestPreviewUnit: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  suggestPreviewEmpty: {
+    color: theme.muted,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '700',
   },
   suggestTitle: {
     color: theme.ink,
