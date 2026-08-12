@@ -1,5 +1,6 @@
 ﻿import {
   AppDatabase,
+  AppLanguage,
   ExerciseLibraryItem,
   SetupCautionFlag,
   SetupFocusArea,
@@ -10,6 +11,10 @@
 import { GENERATED_EXERCISE_LIBRARY } from './generatedExerciseLibrary';
 
 const DEFAULT_PREFERENCES = {
+  // 'en' is the STRUCTURAL fallback, not the answer. A first install resolves
+  // the language from the device — see storage/deviceLocale — and passes it to
+  // createEmptyDatabase. Tests and fixtures call that with no argument and get
+  // this, which is what keeps their expectations stable.
   appLanguage: 'en' as const,
   unitPreference: 'kg' as const,
   defaultRestSeconds: 120,
@@ -149,7 +154,7 @@ function createSeedWorkoutPlans(): WorkoutPlan[] {
   ];
 }
 
-export function createEmptyDatabase(): AppDatabase {
+export function createEmptyDatabase(appLanguage: AppLanguage = DEFAULT_PREFERENCES.appLanguage): AppDatabase {
   return {
     workoutTemplates: [],
     exerciseTemplates: [],
@@ -162,6 +167,10 @@ export function createEmptyDatabase(): AppDatabase {
     measurementEntries: [],
     preferences: {
       ...DEFAULT_PREFERENCES,
+      // The argument, actually used. Spreading DEFAULT_PREFERENCES after it
+      // would put 'en' back — which is precisely what this function did on the
+      // first attempt: it took the language and ignored it.
+      appLanguage,
       activePlanId: null,
     },
   };

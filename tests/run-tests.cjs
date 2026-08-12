@@ -35,6 +35,7 @@ const suites = [
   ...require('./lib/homeCardSuggestions.test.cjs'),
   ...require('./lib/homePromoSlides.test.cjs'),
   ...require('./lib/seasonEnrolment.test.cjs'),
+  ...require('./lib/deviceLanguage.test.cjs'),
   ...require('./lib/i18n.test.cjs'),
   ...require('./lib/premiumHeroChart.test.cjs'),
   ...require('./lib/trainingRhythm.test.cjs'),

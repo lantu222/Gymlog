@@ -3891,11 +3891,19 @@ export function OnboardingScreen({
             locationStageActive && styles.locationFooter,
             stage === 'review' && styles.planReadyFixedFooter,
             {
+              // Every questionnaire step carries a "Takaisin" link under the
+              // CTA, and at spacing.xs it sat a few pixels above the system
+              // navigation bar — reachable, but a thumb aiming for it hits the
+              // bar instead. The review stage has no link under its button and
+              // keeps the tight value.
+              //
+              // locationStageActive is ALL SIX questionnaire steps, not just
+              // the location one: it is the shell they share. Raising the
+              // OTHER branch, as the first attempt did, changed nothing at all
+              // because no stage reaches it.
               paddingBottom: stage === 'review'
                 ? insets.bottom + spacing.xs
-                : locationStageActive
-                ? insets.bottom + spacing.xs
-                : spacing.md + insets.bottom,
+                : insets.bottom + spacing.lg,
             },
           ]}
         >

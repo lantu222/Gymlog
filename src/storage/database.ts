@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
 import { createEmptyDatabase } from '../data/seed';
+import { resolveDeviceLanguage } from './deviceLocale';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
@@ -891,7 +892,10 @@ export async function loadDatabase() {
   const raw = (await AsyncStorage.getItem(STORAGE_KEY)) ?? (await AsyncStorage.getItem(LEGACY_STORAGE_KEY));
 
   if (!raw) {
-    const empty = normalizeDatabase(createEmptyDatabase());
+    // Nothing stored means nobody has chosen a language yet, so the phone
+    // decides. A Finnish device used to open a Finnish-first app in English
+    // and the reader's first act was correcting it.
+    const empty = normalizeDatabase(createEmptyDatabase(resolveDeviceLanguage()));
     await saveDatabase(empty);
     return empty;
   }
@@ -901,7 +905,7 @@ export async function loadDatabase() {
   } catch {
     // Unreadable storage is a corrupt install, not a new one — but inventing
     // history to paper over it would be the same lie.
-    const empty = normalizeDatabase(createEmptyDatabase());
+    const empty = normalizeDatabase(createEmptyDatabase(resolveDeviceLanguage()));
     await saveDatabase(empty);
     return empty;
   }

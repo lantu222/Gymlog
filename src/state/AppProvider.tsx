@@ -1,6 +1,7 @@
 ﻿import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createEmptyDatabase } from '../data/seed';
+import { resolveDeviceLanguage } from '../storage/deviceLocale';
 import { createId } from '../lib/ids';
 import { isProUnlocked } from '../lib/proEntitlement';
 import {
@@ -126,7 +127,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     bodyweightEntries: [],
     measurementEntries: [],
     preferences: {
-      appLanguage: 'en',
+      appLanguage: resolveDeviceLanguage(),
       unitPreference: 'kg',
       defaultRestSeconds: 120,
       autoFocusNextInput: true,
@@ -239,7 +240,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       } catch (error) {
         console.error('Failed to hydrate database', error);
 
-        const fallbackDatabase = createEmptyDatabase();
+        const fallbackDatabase = createEmptyDatabase(resolveDeviceLanguage());
         if (cancelled) {
           return;
         }
