@@ -3082,10 +3082,7 @@ export function OnboardingScreen({
           {showProfessionalAdvisory ? (
             <View style={styles.avoidAdvisoryBox}>
               <CautionGlyph color="#D97706" size={18} />
-              <Text style={styles.avoidAdvisoryText}>
-                With this many trouble areas, we recommend checking in with a physio or doctor before you start. If
-                you continue, we keep loads light — take it very carefully.
-              </Text>
+              <Text style={styles.avoidAdvisoryText}>{t(language, 'onb.avoid.advisory')}</Text>
             </View>
           ) : null}
 
@@ -3103,18 +3100,10 @@ export function OnboardingScreen({
             </Pressable>
           ) : null}
 
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t(language, 'onb.nothingToNote')}
-            onPress={() => {
-              void haptics.select();
-              setCautionFlags([]);
-              setExpandedCautionArea(null);
-            }}
-            style={styles.avoidGhostRow}
-          >
-            <Text style={styles.avoidGhostText}>{t(language, 'onb.avoid.nothingToNote')}</Text>
-          </Pressable>
+          {/* "Ei huomautettavaa" was here. It cleared an already-empty list
+              and stayed on the step, so on a fresh run it did nothing at all —
+              and the primary button below already says "Ohita" when nothing is
+              selected. Two controls, one job, and the quieter one was broken. */}
         </View>
       ),
     });
@@ -5076,14 +5065,18 @@ const styles = StyleSheet.create({
   profileCheckBodyActive: {
     color: 'rgba(6,8,11,0.66)',
   },
+  // The progress bar is absolutely positioned at top: 54 and is 12 tall, so
+  // the copy has to start below 66. At 24 + 42 it started AT 66 and "VAIHE
+  // 6/6" sat on the last segment of its own progress bar. Matched to the
+  // equipment step, which is the same shell with room in it.
   focusAreaTopPane: {
-    height: 186,
+    height: 216,
     justifyContent: 'flex-start',
-    paddingTop: 24,
+    paddingTop: 36,
     paddingBottom: 8,
   },
   focusAreaTopCopy: {
-    paddingTop: 42,
+    paddingTop: 58,
     paddingBottom: 0,
     gap: 3,
   },

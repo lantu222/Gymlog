@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, G, Path, Rect, Stop } from 'react-native-svg';
 
 import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
@@ -106,6 +107,10 @@ export function ProPaywallScreen({
   busy = false,
 }: ProPaywallScreenProps) {
   const [plan, setPlan] = useState<'year' | 'month'>('year');
+  // AppShell drops the bottom safe-area edge for the whole onboarding flow,
+  // and every step adds it back in its own footer. This screen is part of that
+  // flow and did not, so its skip row landed under the navigation bar.
+  const insets = useSafeAreaInsets();
   // The trial is switched off while the free tier is being walked. A CTA that
   // still said "Start 7 days free" would grant nothing and promise a week.
   const trial = PRO_TRIAL_ENABLED;
@@ -344,7 +349,7 @@ export function ProPaywallScreen({
 
       {/* The CTA floats over the scroll from the first frame — the design is
           explicit that it must be visible without scrolling. */}
-      <View style={styles.footer} pointerEvents="box-none">
+      <View style={[styles.footer, { paddingBottom: 18 + insets.bottom }]} pointerEvents="box-none">
         <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
           <Defs>
             <SvgLinearGradient id="paywallFooterFade" x1="0" y1="0" x2="0" y2="1">
@@ -385,7 +390,7 @@ const PAD = 22;
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: PW.bg },
   scroll: { flex: 1 },
-  scrollContent: { paddingBottom: 210 },
+  scrollContent: { paddingBottom: 232 },
   flex1: { flex: 1, minWidth: 0 },
 
   hero: { height: 300, overflow: 'hidden' },

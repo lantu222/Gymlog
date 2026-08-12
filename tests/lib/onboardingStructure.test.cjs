@@ -202,8 +202,13 @@ module.exports = [
       assert.match(avoidBody, /titleLines: \[t\(language, 'onb\.stage\.avoid\.title1'\), t\(language, 'onb\.stage\.avoid\.title2'\)\]/);
       assert.match(avoidBody, /AVOID_AREA_OPTIONS\.map/);
       assert.match(avoidBody, /t\(language, 'onb\.avoid\.addOther'\)/);
-      assert.match(avoidBody, /t\(language, 'onb\.avoid\.nothingToNote'\)/);
-      assert.match(avoidBody, /setCautionFlags\(\[\]\)/);
+      // "Ei huomautettavaa" is gone. It cleared an already-empty list and
+      // stayed on the step, so on a fresh run it did nothing at all — and the
+      // primary button below already reads "Ohita" when nothing is selected.
+      assert.doesNotMatch(avoidBody, /nothingToNote/);
+      // The advisory was hardcoded English inside a Finnish questionnaire.
+      assert.match(avoidBody, /t\(language, 'onb\.avoid\.advisory'\)/);
+      assert.doesNotMatch(avoidBody, /we recommend checking in with a physio/);
 
       // Three colour-coded levels tint the tile, border, radio and title.
       assert.match(onboardingSource, /info: \{ ink: '#667085', soft: '#F1F0F4' \}/);
@@ -511,7 +516,11 @@ module.exports = [
       assert.match(onboardingSource, /const fixedTopPaneHeight = Math\.min\(380, Math\.round\(locationStageHeight \* 0\.34\) \+ 34\)/);
       assert.match(onboardingSource, /styles\.locationTopPane, \{ height: fixedTopPaneHeight \}, topPaneStyle/);
       assert.match(onboardingSource, /<View pointerEvents="none" style=\{styles\.locationProgressBarWrap\}>[\s\S]*<StepDots index=\{stageIndex\} \/>/);
-      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*height: 186/);
+      // The progress bar is absolute at top: 54 and 12 tall, so the copy has
+      // to start below 66. At 24 + 42 the focus step started AT 66 and "VAIHE
+      // 6/6" sat on the last segment of its own bar.
+      assert.match(onboardingSource, /focusAreaTopPane:\s*\{[\s\S]*?paddingTop: 36/);
+      assert.match(onboardingSource, /focusAreaTopCopy:\s*\{\s*paddingTop: 58/);
       assert.match(onboardingSource, /stage === 'planning'/);
       assert.match(onboardingSource, /scrollEnabled=\{!scrollLockedStage\}/);
       assert.match(onboardingSource, /bounces=\{allowScrollBounce\}/);

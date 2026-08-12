@@ -156,12 +156,15 @@ export function AboutYouScreen({
             </View>
           </View>
 
-          <Text
-            style={[styles.profileName, !hasName && styles.profileNamePlaceholder, { fontFamily }]}
-            numberOfLines={1}
-          >
-            {name.trim() || t(language, 'aboutYou.namePlaceholder')}
-          </Text>
+          {/* Only once the reader has typed one. Empty, the card printed
+              "Nimesi" as a preview, the field below it printed "NIMESI" as a
+              label and the input printed "Nimesi" as a placeholder — the same
+              word three times in one card, none of it their name. */}
+          {hasName ? (
+            <Text style={[styles.profileName, { fontFamily }]} numberOfLines={1}>
+              {name.trim()}
+            </Text>
+          ) : null}
           <Text style={[styles.profileHint, { fontFamily }]}>{t(language, 'aboutYou.freshProfile')}</Text>
 
           <View style={styles.cardDivider} />
@@ -340,9 +343,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.2,
     marginTop: 14,
-  },
-  profileNamePlaceholder: {
-    color: FAINT,
   },
   profileHint: {
     color: FAINT,
