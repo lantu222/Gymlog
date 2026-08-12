@@ -123,8 +123,11 @@ import {
 import {
   SEASON_COLORS,
   SEASON_WEEKS,
+  SeasonWindow,
   nextSeasonWindow,
   resolveSeasonWindow,
+  seasonProgressRatio,
+  seasonWeek,
   seasonWeeksLeft,
 } from './src/lib/season';
 import {
@@ -3791,13 +3794,23 @@ function VinhaApp() {
         )}${window.year !== window.end.getFullYear() ? window.end.getFullYear() : ''}`,
         startLabel: label(window.start),
         weeksLeft: isCurrent ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
+        progress: isCurrent ? seasonProgressRatio(window, now) : 0,
+        daysUntilStart: isCurrent
+          ? 0
+          : Math.max(0, Math.ceil((window.start.getTime() - now.getTime()) / 86_400_000)),
         // The card names the season's ONE program rather than counting ten.
         // A count was the right label when a season was a filter; it is the
         // wrong one now that the season is a thing you join.
         programName: (() => {
-          const template = workout.templates.find(
-            (entry) => entry.id === getSeasonProgramId(window.season),
-          );
+          const templateId = getSeasonProgramId(window.season);
+          // The name the season's programme goes by, not its catalogue id:
+          // this card said "RUN" under a card headed "Kesäkausi", while the
+          // season screen one tap away called the same programme "Kesäkunto".
+          const titleKey = getSeasonProgramTitleKey(templateId);
+          if (titleKey) {
+            return t(preferences.appLanguage, titleKey);
+          }
+          const template = workout.templates.find((entry) => entry.id === templateId);
           return template ? formatWorkoutDisplayLabel(template.name) : '';
         })(),
         current: isCurrent,
@@ -3815,22 +3828,49 @@ function VinhaApp() {
    * running, and a target only once there are lifts to measure one from.
    */
   const homePromoSlides = useMemo(() => {
-    const window = resolveSeasonWindow();
-    const seasonProgramId = getSeasonProgramId(window.season);
+    const now = new Date();
+    const current = resolveSeasonWindow(now);
+    const next = nextSeasonWindow(now);
+    const label = (date: Date) =>
+      preferences.appLanguage === 'fi'
+        ? `${date.getDate()}.${date.getMonth() + 1}.`
+        : `${date.getDate()}/${date.getMonth() + 1}`;
+    const lastDay = (window: SeasonWindow) => new Date(window.end.getTime() - 86_400_000);
+    const season = (window: SeasonWindow, state: 'running' | 'upcoming') => {
+      const programId = getSeasonProgramId(window.season);
+      return {
+        season: window.season,
+        state,
+        week: state === 'running' ? seasonWeek(window, now) : 0,
+        weeksLeft: state === 'running' ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
+        progress: state === 'running' ? seasonProgressRatio(window, now) : 0,
+        daysUntilStart:
+          state === 'running'
+            ? 0
+            : Math.max(0, Math.ceil((window.start.getTime() - now.getTime()) / 86_400_000)),
+        joined: activeProgramTemplateIds.includes(programId),
+        rangeLabel: `${label(window.start)}–${label(lastDay(window))}${lastDay(window).getFullYear()}`,
+        endLabel: label(lastDay(window)),
+        startLabel: label(window.start),
+        templateId: programId,
+      };
+    };
     const recommendation = programsRecommendations.find(
       (item) => !activeProgramTemplateIds.includes(item.id),
     );
     return buildHomePromoSlides({
-      season: {
-        kind: window.season,
-        weeksLeft: seasonWeeksLeft(window),
-        joined: seasonProgramId ? activeProgramTemplateIds.includes(seasonProgramId) : false,
-      },
+      seasons: [season(current, 'running'), season(next, 'upcoming')],
       recommendation: recommendation ? { templateId: recommendation.id, title: recommendation.name } : null,
       goalCount: preferences.strengthGoals.length,
       trackedLiftCount: trackedProgress.length,
     });
-  }, [activeProgramTemplateIds, preferences.strengthGoals, programsRecommendations, trackedProgress]);
+  }, [
+    activeProgramTemplateIds,
+    preferences.appLanguage,
+    preferences.strengthGoals,
+    programsRecommendations,
+    trackedProgress,
+  ]);
 
   const programsCampaigns = useMemo(
     () =>
@@ -5326,8 +5366,8 @@ function VinhaApp() {
         trainingDayIndexes={homeTrainingDayIndexes}
         promoSlides={homePromoSlides}
         onPressPromo={(slide) => {
-          if (slide.kind === 'season') {
-            navigate({ tab: 'workout', screen: 'season', season: resolveSeasonWindow().season });
+          if (slide.kind === 'season' && slide.season) {
+            navigate({ tab: 'workout', screen: 'season', season: slide.season.season });
             return;
           }
           if (slide.kind === 'program' && slide.templateId) {
@@ -5342,6 +5382,18 @@ function VinhaApp() {
           // The targets section lives on the Programs tab, and it is the one
           // place that can say what setting a target means.
           navigate(ROOT_ROUTES.workout);
+        }}
+        // The ghost button on the season card: its one programme, opened where
+        // the week and the exercises are — not the season scoreboard again.
+        onPressPromoSecondary={(slide) => {
+          if (slide.templateId) {
+            navigate({
+              tab: 'workout',
+              screen: 'program',
+              programType: 'ready',
+              workoutTemplateId: slide.templateId,
+            });
+          }
         }}
         statCatalogCards={homeStatCatalogCards}
         suggestedStatCardKeys={suggestHomeStatCardKeys({

@@ -188,6 +188,8 @@ interface HomeScreenProps {
   /** Offers under the start button; empty means the strip does not render. */
   promoSlides?: HomePromoSlide[];
   onPressPromo?: (slide: HomePromoSlide) => void;
+  /** The season card's ghost button — its programme, not the season screen. */
+  onPressPromoSecondary?: (slide: HomePromoSlide) => void;
   statCatalogCards?: HomeStatCard[];
   suggestedStatCardKeys?: string[];
   onDismissStatCardSuggestion?: (key: string) => void;
@@ -266,6 +268,7 @@ export function HomeScreen({
   onSelectHistorySession,
   promoSlides = [],
   onPressPromo,
+  onPressPromoSecondary,
   statCatalogCards = [],
   suggestedStatCardKeys = [],
   onDismissStatCardSuggestion,
@@ -1001,9 +1004,11 @@ export function HomeScreen({
             to set — so the strip disappears rather than filling with copy. */}
         <Animated.View style={rise(RISE_BTNROW)}>
           <HomePromoCarousel
+            gutter={20}
             slides={promoSlides}
             language={language}
             onPress={(slide) => onPressPromo?.(slide)}
+            onPressSecondary={(slide) => onPressPromoSecondary?.(slide)}
           />
         </Animated.View>
 

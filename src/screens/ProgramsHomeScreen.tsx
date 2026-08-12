@@ -217,6 +217,10 @@ interface ProgramsHomeScreenProps {
     rangeLabel: string;
     startLabel: string;
     weeksLeft: number;
+    /** 0..1 — how much of the running season is behind us. */
+    progress: number;
+    /** Whole days until an upcoming season opens; 0 for the running one. */
+    daysUntilStart: number;
     programName: string;
     current: boolean;
     gradient: readonly [string, string];
@@ -1162,19 +1166,28 @@ export function ProgramsHomeScreen({
                       <Stop offset="0" stopColor={card.gradient[0]} />
                       <Stop offset="1" stopColor={card.gradient[1]} />
                     </SvgLinearGradient>
+                    {/* Android lets an svg child walk out of the parent's
+                        overflow:hidden, so the corner is cut here, not in CSS. */}
+                    <ClipPath id={`${gid}-c`}>
+                      <Rect x="0" y="0" width={SEASON_CARD_W} height={SEASON_CARD_H} rx={22} ry={22} />
+                    </ClipPath>
                   </Defs>
                   <Rect x="0" y="0" width={SEASON_CARD_W} height={SEASON_CARD_H} rx={22} fill={`url(#${gid})`} />
-                  <Svg x={SEASON_CARD_W - 92} y={-26} width={150} height={150} viewBox="0 0 24 24">
-                    <Path
-                      d={LAYERS_MOTIF}
-                      stroke="#FFFFFF"
-                      strokeOpacity={0.16}
-                      strokeWidth={1.4}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      fill="none"
-                    />
-                  </Svg>
+                  <Rect
+                    x={SEASON_CARD_W - 63}
+                    y={-20}
+                    width={88}
+                    height={88}
+                    rx={15}
+                    ry={15}
+                    fill="none"
+                    stroke="#FFFFFF"
+                    strokeOpacity={0.1}
+                    strokeWidth={8}
+                    origin={`${SEASON_CARD_W - 19}, 24`}
+                    rotation={45}
+                    clipPath={`url(#${gid}-c)`}
+                  />
                 </Svg>
                 <View style={[styles.seasonPill, !card.current && styles.seasonPillMuted]}>
                   <Text style={[styles.seasonPillText, !card.current && styles.seasonPillTextMuted]}>
@@ -1189,6 +1202,17 @@ export function ProgramsHomeScreen({
                   <Text style={styles.seasonTileCount} numberOfLines={1}>
                     {card.programName}
                   </Text>
+                  {card.current ? (
+                    <View style={styles.seasonTrack}>
+                      <View
+                        style={[styles.seasonTrackFill, { width: `${Math.round(card.progress * 100)}%` }]}
+                      />
+                    </View>
+                  ) : (
+                    <Text style={styles.seasonDays}>
+                      {t(language, 'programs.season.daysUntil', { count: card.daysUntilStart })}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             );
@@ -2107,6 +2131,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 11.5,
     lineHeight: 15,
     marginTop: 2,
+  },
+  seasonTrack: {
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.24)',
+    marginTop: 10,
+    overflow: 'hidden',
+  },
+  seasonTrackFill: {
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  seasonDays: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 10,
+    lineHeight: 13,
+    fontWeight: '800',
+    letterSpacing: 0.7,
+    marginTop: 11,
   },
   sectionEyebrowStandalone: {
     color: theme.faint,
