@@ -15,6 +15,30 @@ const i18nSource = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib'
 
 module.exports = [
   {
+    /**
+     * "Ota ohjelma käyttöön" has to adopt the programme.
+     *
+     * It was wired to handleStartReadyProgram, which starts the first SESSION
+     * and never touches the active plan: press it and you trained one workout,
+     * then found Home still running whatever it ran before. The adopt function
+     * existed the whole time and was reachable only from the season screen.
+     *
+     * This is the sibling of the bug that left the button unrendered — the
+     * label and the wire have now disagreed twice, so both are pinned.
+     */
+    name: 'the adopt button adopts, rather than starting one session',
+    run() {
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const app = fs.readFileSync(path.join(__dirname, '..', '..', 'App.tsx'), 'utf8');
+      const branch = app.slice(app.indexOf('onPrimaryAction={() => {'), app.indexOf('onStartSession={(sessionId) => {'));
+      assert.ok(branch.length > 100, 'the primary action branch moved');
+      assert.match(branch, /handleAdoptReadyProgram\(route\.workoutTemplateId/);
+      assert.doesNotMatch(branch, /handleStartReadyProgram\(route\.workoutTemplateId\)/);
+    },
+  },
+
+  {
     name: 'program detail screen renders the light plan overview instead of the old session-flow hero',
     run() {
       // Every module constant is gone: a constant is evaluated once at import

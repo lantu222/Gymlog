@@ -93,7 +93,9 @@ module.exports = [
       assert.match(screen, /function RowCover/);
       assert.match(screen, /<RowCover style=\{style\} fingerprint=\{item\.fingerprint\} \/>/);
       // Built from the template, not from a card field that could drift.
-      assert.ok((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 4);
+      // Three rows build one now; the fourth went with "Jatka siitä mihin
+      // jäit", which answered the same question as "Omat ohjelmasi" below it.
+      assert.ok((app.match(/buildProgramFingerprint\(template\)/g) ?? []).length >= 3);
 
       // The bars scale with the cover. They were hard-coded to a 74px ceiling
       // against a 176px card; dropped onto a 92px continue cover unchanged

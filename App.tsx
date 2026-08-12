@@ -151,6 +151,7 @@ import { programCoverIndex } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
+import { backfillRecommendations } from './src/lib/recommendationBackfill';
 import { buildGoalPresetRows } from './src/lib/strengthGoalPresets';
 import { StrengthGoalPickerScreen } from './src/screens/StrengthGoalPickerScreen';
 import {
@@ -3658,50 +3659,49 @@ function VinhaApp() {
    * and it is: recommendationScoring plus a waterfall, covered by tests. An AI
    * badge here would contradict the app's own privacy page.
    */
+  /**
+   * "Sinulle" — two cards, and neither of them is something you already run.
+   *
+   * The questionnaire's two picks are the starting point, but adopting one
+   * used to leave it in the row, so the tab kept recommending a programme the
+   * reader was already training. A taken programme drops out and the gap is
+   * filled from the catalog, measured from what is being trained NOW — see
+   * lib/recommendationBackfill. The first reason the ranker reaches for is
+   * "same goal, one level up", so the replacement is usually a step harder.
+   */
   const programsRecommendations = useMemo(
     () => {
       const byId = new Map(workout.templates.map((template) => [template.id, template]));
       const waterfall = setupRecommendation?.waterfall;
-      if (!waterfall) {
-        // No questionnaire: recommend neighbours of the program being run.
-        const active = homeActivePlanCard?.programId ? byId.get(homeActivePlanCard.programId) : null;
-        return resolveProgramAffinity(active, workout.templates, 4)
-          .map((match, index) => {
-            const template = byId.get(match.templateId);
-            return template
-              ? {
-                  id: template.id,
-                  name: formatWorkoutDisplayLabel(template.name),
-                  goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-                  blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
-                  why: t(preferences.appLanguage, AFFINITY_REASON_KEYS[match.reason], {
-                    days: template.daysPerWeek,
-                  }),
-                  days: template.daysPerWeek,
-                  minutes: template.estimatedSessionDuration,
-                  coverIndex: programCoverIndex(template.id),
-                  fingerprint: buildProgramFingerprint(template),
-                  level: template.level,
-                  weeks: getReadyProgramBlockWeeks(template),
-                }
-              : null;
-          })
-          .filter((item): item is NonNullable<typeof item> => Boolean(item));
-      }
-      return [
-        { id: waterfall.primaryProgramId, whyKey: waterfall.whyPrimary },
-        { id: waterfall.alternativeProgramId, whyKey: waterfall.whyAlternative },
-      ]
-        .filter((entry): entry is { id: string; whyKey: I18nKey } => Boolean(entry.id && entry.whyKey))
-        .map((entry, index) => {
-          const template = byId.get(entry.id);
+      const anchor = homeActivePlanCard?.programId ? byId.get(homeActivePlanCard.programId) ?? null : null;
+      const picks = waterfall
+        ? [
+            { templateId: waterfall.primaryProgramId, whyKey: waterfall.whyPrimary },
+            { templateId: waterfall.alternativeProgramId, whyKey: waterfall.whyAlternative },
+          ].filter(
+            (entry): entry is { templateId: string; whyKey: I18nKey } =>
+              Boolean(entry.templateId && entry.whyKey),
+          )
+        : [];
+
+      return backfillRecommendations({
+        picks,
+        adoptedIds: activeProgramTemplateIds,
+        anchor,
+        catalog: workout.templates,
+        // Without a questionnaire there are no picks at all and the whole row
+        // is neighbours of the active programme, which is worth four cards.
+        limit: waterfall ? 2 : 4,
+      })
+        .map((slot) => {
+          const template = byId.get(slot.templateId);
           return template
             ? {
                 id: template.id,
                 name: formatWorkoutDisplayLabel(template.name),
                 goal: formatGoalLabel(template.goalType, preferences.appLanguage),
                 blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
-                why: t(preferences.appLanguage, entry.whyKey, { days: template.daysPerWeek }),
+                why: t(preferences.appLanguage, slot.whyKey, { days: template.daysPerWeek }),
                 days: template.daysPerWeek,
                 minutes: template.estimatedSessionDuration,
                 coverIndex: programCoverIndex(template.id),
@@ -3714,6 +3714,7 @@ function VinhaApp() {
         .filter((item): item is NonNullable<typeof item> => Boolean(item));
     },
     [
+      activeProgramTemplateIds,
       homeActivePlanCard?.programId,
       preferences.appLanguage,
       setupRecommendation?.waterfall,
@@ -4311,7 +4312,14 @@ function VinhaApp() {
         onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
         onPrimaryAction={() => {
           if (route.programType === 'ready') {
-            handleStartReadyProgram(route.workoutTemplateId);
+            // The button says "Ota ohjelma käyttöön" and it now does that. It
+            // called handleStartReadyProgram, which starts the first SESSION
+            // and never touches the active plan — so a reader who pressed it
+            // trained one workout and then found Home still running whatever
+            // it ran before. handleAdoptReadyProgram existed the whole time
+            // and was wired only to the season screen.
+            void handleAdoptReadyProgram(route.workoutTemplateId, { lead: true });
+            navigate(ROOT_ROUTES.home);
             return;
           }
 

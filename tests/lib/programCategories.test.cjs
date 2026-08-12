@@ -111,7 +111,7 @@ module.exports = [
       // no "why", which is the thing this app keeps refusing to ship.
       assert.match(app, /waterfall\.whyPrimary/);
       assert.match(app, /waterfall\.whyAlternative/);
-      assert.match(app, /entry\.id && entry\.whyKey/);
+      assert.match(app, /entry\.templateId && entry\.whyKey/);
       // The reason moved to the program's own screen, where it has room to
       // say why in a sentence. On a 186px card it was a fragment competing
       // with the numbers above it. The card now carries the boost anatomy
@@ -126,8 +126,15 @@ module.exports = [
       // off the catalog is a statement of intent every bit as strong as
       // answering a form, and it is more recent — the old row was permanently
       // empty for exactly the people who had already told us what they want.
-      assert.match(app, /resolveProgramAffinity\(active, workout\.templates, 4\)/);
-      assert.match(app, /AFFINITY_REASON_KEYS\[match\.reason\]/);
+      //
+      // And a programme you HAVE chosen leaves the row: the questionnaire's
+      // two picks used to stay forever, so the tab kept recommending what the
+      // reader was already training. The gap refills from the catalog,
+      // measured from the active programme, and the ranker's first reason is
+      // "same goal, one level up".
+      assert.match(app, /backfillRecommendations\(\{/);
+      assert.match(app, /adoptedIds: activeProgramTemplateIds/);
+      assert.match(app, /limit: waterfall \? 2 : 4/);
       assert.match(screen, /recommendations\.length > 0 \? \(/);
 
       // Never labelled AI. aiInfo.never.2 states the model is never used to

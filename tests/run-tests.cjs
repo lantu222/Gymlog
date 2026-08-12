@@ -106,6 +106,7 @@ const suites = [
   ...require('./lib/recommendationProgramme.test.cjs'),
   ...require('./lib/csvProgramImport.test.cjs'),
   ...require('./lib/recommendationScoring.test.cjs'),
+  ...require('./lib/recommendationBackfill.test.cjs'),
   ...require('./lib/recommendationWaterfall.test.cjs'),
   ...require('./lib/recommendationWaterfallCopy.test.cjs'),
   ...require('./lib/firstRunSetup.test.cjs'),
