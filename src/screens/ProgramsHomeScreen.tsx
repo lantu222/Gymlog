@@ -25,7 +25,8 @@ import Svg, {
 } from 'react-native-svg';
 
 import { CutSurface } from '../components/CutSurface';
-import { LAYERS_MOTIF, PROGRAM_COVER_STYLES } from '../lib/programVisualIdentity';
+import { LAYERS_MOTIF, PROGRAM_COVER_STYLES, programCoverStyle } from '../lib/programVisualIdentity';
+import { SEASON_WEEKS } from '../lib/season';
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
@@ -143,11 +144,6 @@ export interface ProgramsCustomItem {
   subtitle: string;
 }
 
-/** A program with real logged work behind it. See lib/programContinue. */
-export interface ProgramsContinueItem extends ProgramsExploreItem {
-  sessionCount: number;
-  daysSince: number;
-}
 
 interface ProgramsHomeScreenProps {
   /** The running program's name — the switch sheet says what you leave. */
@@ -205,8 +201,6 @@ interface ProgramsHomeScreenProps {
   >;
   /** The rotating hero. Empty hides it — see lib/programCampaigns. */
   campaigns: ProgramCampaign[];
-  /** Programs with logged work that are not the active one. */
-  continueItems: ProgramsContinueItem[];
   /**
    * The two seasons: the one running and the one after it, with their dates
    * and program counts. See lib/season — a season is a window, not a filter.
@@ -223,6 +217,8 @@ interface ProgramsHomeScreenProps {
     /** Whole days until an upcoming season opens; 0 for the running one. */
     daysUntilStart: number;
     programName: string;
+    /** Training days a week the season programme prescribes. */
+    programDays: number;
     current: boolean;
     /** True once the reader has signed up for this season. */
     enrolled: boolean;
@@ -546,7 +542,7 @@ function CampaignHero({
               <Text style={styles.campaignTitle} numberOfLines={2}>
                 {t(language, campaign.titleKey)}
               </Text>
-              <Text style={styles.campaignBody} numberOfLines={2}>
+              <Text style={styles.campaignBody} numberOfLines={3}>
                 {t(language, campaign.bodyKey, { count: campaign.count })}
               </Text>
               {/* The hero itself stays a rounded content card — the design
@@ -859,7 +855,6 @@ export function ProgramsHomeScreen({
   trendingItems,
   recommendations,
   campaigns,
-  continueItems,
   seasonCards,
   onOpenSeason,
   goals,
@@ -987,11 +982,15 @@ export function ProgramsHomeScreen({
                 onPress={() => setSheet({ kind: 'category', key: entry.key })}
                 style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
               >
+                {/* A near-black outline at 2.4, not the tint's own pale
+                    border at 1: nine pastel tiles side by side had nothing
+                    holding them apart, and the count badge sat ON the cut
+                    corner, which sliced the digit in half. */}
                 <CutSurface
                   size="lg"
                   fill={entry.tint.bg}
-                  stroke={entry.tint.border}
-                  strokeWidth={1}
+                  stroke={theme.ink}
+                  strokeWidth={2.4}
                   style={styles.catTile}
                 >
                   <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
@@ -1020,71 +1019,11 @@ export function ProgramsHomeScreen({
             eight-card shape, no way to narrow further, and nowhere to say what
             the category is FOR or what level its programs are. */}
 
-        {/* Pick up where you left off — built from logged sessions, so it is
-            empty on a fresh install and the row simply is not there. */}
-        {continueItems.length > 0 ? (
-          <View>
-            <Text style={styles.sectionEyebrowStandalone}>{t(language, 'programs.continue')}</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.exploreRow}
-              style={styles.exploreScroll}
-            >
-              {continueItems.map((item) => {
-                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
-                return (
-                  <Pressable
-                    key={item.id}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'programs.switchTo', { name: item.name })}
-                    onPress={() => setPicked(item)}
-                    style={({ pressed }) => [styles.continueCard, pressed && styles.pressed]}
-                  >
-                    <ProgramCover
-                      style={style}
-                      goal={item.goal}
-                      days={item.days}
-                      name={item.name}
-                      fingerprint={item.fingerprint}
-                      language={language}
-                      width={252}
-                      height={92}
-                      compact
-                    />
-                    <View style={styles.continueBody}>
-                      <View style={styles.continueCopy}>
-                        <Text style={styles.continueWhen}>
-                          {item.daysSince === 0
-                            ? t(language, 'programs.continue.today')
-                            : item.daysSince === 1
-                              ? t(language, 'programs.continue.yesterday')
-                              : t(language, 'programs.continue.days', { count: item.daysSince })}
-                        </Text>
-                        <Text style={styles.continueMeta} numberOfLines={1}>
-                          {/* Finnish takes the nominative after one. */}
-                          {item.sessionCount === 1
-                            ? t(language, 'programs.continue.sessionsOne')
-                            : t(language, 'programs.continue.sessions', { count: item.sessionCount })}
-                        </Text>
-                      </View>
-                      <View style={styles.continuePlay}>
-                        <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                          <Path d="M7 4.5v15l13-7.5z" fill={theme.onHighlight} />
-                        </Svg>
-                      </View>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-        ) : null}
+        {/* "Jatka siitä mihin jäit" was here. It listed programmes with
+            logged work as covers you could tap — which is what "Omat
+            ohjelmasi" further down already is, and what the active programme
+            on Home already is. Three answers to one question. */}
 
-        {/* Goals: only ever the reader's own numbers. A lift they have never
-            logged shows as not started rather than 0% — an empty bar reads as
-            "you have made no progress" when the truth is "you have not
-            begun". */}
         {/* Always here. It used to appear only once a lift had been logged,
             which hid the targets section from the one reader a target would
             actually help. The picker offers ready-made numbers, so there is
@@ -1100,41 +1039,67 @@ export function ProgramsHomeScreen({
             {goals.length === 0 ? (
               <Text style={styles.seasonLead}>{t(language, 'programs.goals.empty')}</Text>
             ) : (
-              <View style={styles.goalCard}>
-                {goals.map((entry, index) => (
-                  <Pressable
-                    key={entry.goal.exerciseName}
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'programs.goals.remove', {
-                      name: exerciseNameLabel(language, entry.goal.exerciseName),
-                    })}
-                    onLongPress={() => onRemoveGoal(entry.goal.exerciseName)}
-                    style={[styles.goalRow, index > 0 && styles.trendingRowDivider]}
-                  >
-                    <View style={styles.goalCopy}>
-                      <Text style={styles.goalTitle} numberOfLines={1}>
-                        {exerciseNameLabel(language, entry.goal.exerciseName)}
-                      </Text>
-                      <Text style={styles.goalMeta}>
-                        {entry.currentKg === null
-                          ? t(language, 'programs.goals.notStarted', { target: entry.goal.targetKg })
-                          : t(language, 'programs.goals.meta', {
-                              current: entry.currentKg,
-                              target: entry.goal.targetKg,
-                            })}
-                      </Text>
-                      <View style={styles.goalTrack}>
-                        <View
-                          style={[
-                            styles.goalFill,
-                            { width: `${Math.round((entry.ratio ?? 0) * 100)}%` },
-                            entry.reached && styles.goalFillReached,
-                          ]}
-                        />
-                      </View>
-                    </View>
-                  </Pressable>
-                ))}
+              <View style={styles.goalList}>
+                {goals.map((entry) => {
+                  // The same identity colour the lift's programmes wear, so a
+                  // target reads as part of the app rather than as a widget
+                  // bolted onto the bottom of the tab.
+                  const tint = programCoverStyle(entry.goal.exerciseName).tile;
+                  return (
+                    <Pressable
+                      key={entry.goal.exerciseName}
+                      accessibilityRole="button"
+                      accessibilityLabel={t(language, 'programs.goals.remove', {
+                        name: exerciseNameLabel(language, entry.goal.exerciseName),
+                      })}
+                      onPress={onOpenGoalPicker}
+                      onLongPress={() => onRemoveGoal(entry.goal.exerciseName)}
+                      style={({ pressed }) => [pressed && styles.pressed]}
+                    >
+                      <CutSurface
+                        size="lg"
+                        fill={theme.surface}
+                        stroke={theme.border}
+                        strokeWidth={1}
+                        speedLine={{ color: theme.purpleBright }}
+                        style={styles.goalRow}
+                      >
+                        <View style={[styles.goalTile, { backgroundColor: tint[0] }]}>
+                          <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                            <Path
+                              d="M12 3v18M4 9v6M20 9v6M7 7v10M17 7v10"
+                              stroke="#FFFFFF"
+                              strokeWidth={2}
+                              strokeLinecap="round"
+                            />
+                          </Svg>
+                        </View>
+                        <View style={styles.goalCopy}>
+                          <Text style={styles.goalTitle} numberOfLines={1}>
+                            {exerciseNameLabel(language, entry.goal.exerciseName)}
+                          </Text>
+                          <Text style={styles.goalMeta} numberOfLines={1}>
+                            {entry.currentKg === null
+                              ? t(language, 'programs.goals.notStarted', { target: entry.goal.targetKg })
+                              : t(language, 'programs.goals.meta', {
+                                  current: entry.currentKg,
+                                  target: entry.goal.targetKg,
+                                })}
+                          </Text>
+                          <View style={styles.goalTrack}>
+                            <View
+                              style={[
+                                styles.goalFill,
+                                { width: `${Math.round((entry.ratio ?? 0) * 100)}%` },
+                                entry.reached && styles.goalFillReached,
+                              ]}
+                            />
+                          </View>
+                        </View>
+                      </CutSurface>
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -1209,6 +1174,15 @@ export function ProgramsHomeScreen({
                   <Text style={styles.seasonCardTitle}>{t(language, card.labelKey)}</Text>
                   <Text style={styles.seasonTileCount} numberOfLines={1}>
                     {card.programName}
+                  </Text>
+                  {/* What the season actually asks of you. The card carried
+                      the dates and the programme's name and nothing about the
+                      commitment, which is the part worth reading. */}
+                  <Text style={styles.seasonTileLead} numberOfLines={2}>
+                    {t(language, 'programs.season.commitment', {
+                      weeks: SEASON_WEEKS,
+                      days: card.programDays,
+                    })}
                   </Text>
                   {card.current ? (
                     <View style={styles.seasonTrack}>
@@ -1648,11 +1622,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: theme.border,
     overflow: 'hidden',
   },
+  goalList: {
+    gap: 10,
+  },
   goalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     paddingVertical: 13,
-    paddingHorizontal: 14,
+    paddingLeft: 24,
+    paddingRight: 14,
+  },
+  goalTile: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   goalCopy: {
+    flex: 1,
     gap: 4,
   },
   goalTitle: {
@@ -1854,26 +1843,29 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
   },
   catTile: {
-    width: 70,
-    height: 70,
+    width: 74,
+    height: 74,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingBottom: 10,
   },
   catTileCount: {
+    // Bottom right, fully inside. Top right is where the A3 cut is, and the
+    // badge was drawn half outside the shape that was cutting it.
     position: 'absolute',
-    top: -5,
-    right: -4,
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
+    bottom: 5,
+    right: 6,
+    minWidth: 22,
+    height: 22,
+    borderRadius: 11,
     paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
   catTileCountText: {
     color: '#FFFFFF',
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '800',
   },
   catTileLabel: {
@@ -1885,44 +1877,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textAlign: 'center',
   },
   // ── Continue cards (252 × 92 cover) ──────────────────────────────────
-  continueCard: {
-    width: 252,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    overflow: 'hidden',
-  },
-  continueBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 13,
-    paddingVertical: 11,
-  },
-  continueCopy: {
-    flex: 1,
-  },
-  continueWhen: {
-    color: theme.ink,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
-  continueMeta: {
-    color: theme.muted,
-    fontSize: 11.5,
-    lineHeight: 15,
-    marginTop: 2,
-  },
-  continuePlay: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.highlight,
-  },
   // ── Recommendation cards (158 × 104 cover) ───────────────────────────
   recCard: {
     width: 186,
@@ -2055,6 +2009,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 11.5,
     lineHeight: 15,
     marginTop: 2,
+  },
+  seasonTileLead: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+    marginTop: 8,
   },
   seasonTrack: {
     height: 6,

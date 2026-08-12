@@ -81,9 +81,11 @@ module.exports = [
       // A cover that took no fingerprint would silently fall back to the
       // gradient alone, and the feature would be half-present. Every cover on
       // the page passes one — the count is not pinned, because rows come and
-      // go; what must hold is that none of them skips it.
+      // go; what must hold is that none of them skips it. ("Jatka siitä mihin
+      // jäit" was one of the two and is gone: it answered the same question as
+      // "Omat ohjelmasi" below it and the active programme on Home.)
       const covers = (screen.match(/<ProgramCover/g) ?? []).length;
-      assert.ok(covers >= 2, `only ${covers} covers on the page`);
+      assert.ok(covers >= 1, `only ${covers} covers on the page`);
       const passes = (screen.match(/fingerprint=\{item\.fingerprint\}/g) ?? []).length;
       assert.ok(passes >= covers, `${covers} covers but only ${passes} fingerprints`);
       // The sheet rows draw the same week at 74px. A row cover that skipped

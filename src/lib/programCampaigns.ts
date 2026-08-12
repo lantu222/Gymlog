@@ -55,8 +55,8 @@ const GRADIENTS = {
 
 export interface CampaignInputs {
   season: ProgramSeason;
-  /** Programs in the current season block. */
-  seasonCount: number;
+  /** Weeks the season runs — the same 26 for everyone, every season. */
+  seasonWeeks: number;
   /** Programs in the strength category — the catalog's biggest single promise. */
   strengthCount: number;
   exerciseCount: number;
@@ -78,7 +78,10 @@ export function buildProgramCampaigns(inputs: CampaignInputs): ProgramCampaign[]
       titleKey: isWinter ? 'programs.campaign.winterTitle' : 'programs.campaign.summerTitle',
       bodyKey: isWinter ? 'programs.campaign.winterBody' : 'programs.campaign.summerBody',
       ctaKey: 'programs.campaign.seasonCta',
-      count: inputs.seasonCount,
+      // Weeks, not a programme count. A season has exactly ONE programme —
+      // that is what makes it a competition — so "10 ohjelmaa kevyempään
+      // työhön" advertised a shelf the season does not have.
+      count: inputs.seasonWeeks,
       gradient: isWinter ? GRADIENTS.winter : GRADIENTS.summer,
       target: { kind: 'season', season: inputs.season },
     },

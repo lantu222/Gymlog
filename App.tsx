@@ -137,7 +137,6 @@ import {
   resolveSeasonBadges,
 } from './src/lib/seasonScoring';
 import { buildProgramCampaigns } from './src/lib/programCampaigns';
-import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
 import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { buildHomePromoSlides } from './src/lib/homePromoSlides';
@@ -3822,6 +3821,7 @@ function VinhaApp() {
           const template = workout.templates.find((entry) => entry.id === templateId);
           return template ? formatWorkoutDisplayLabel(template.name) : '';
         })(),
+        programDays: workout.templates.find((entry) => entry.id === getSeasonProgramId(window.season))?.daysPerWeek ?? 0,
         current: isCurrent,
         enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
         gradient: SEASON_COLORS[window.season],
@@ -3912,76 +3912,11 @@ function VinhaApp() {
     () =>
       buildProgramCampaigns({
         season: getSeasonForDate(),
-        seasonCount: programsSeasonTileCounts[getSeasonForDate()],
+        seasonWeeks: SEASON_WEEKS,
         strengthCount: programsCategoryCounts.strength ?? 0,
         exerciseCount: exerciseBrowserItems.length,
       }),
     [exerciseBrowserItems.length, programsCategoryCounts, programsSeasonTileCounts],
-  );
-  /**
-   * Programs with real logged work, most recently trained first.
-   *
-   * Built from completed sessions rather than from "programs you opened": a
-   * program you looked at is not one you left off.
-   */
-  const programsContinueItems = useMemo(
-    () => {
-      const byId = new Map(workout.templates.map((template) => [template.id, template]));
-      const customById = new Map(customWorkouts.map((template) => [template.id, template]));
-      return resolveContinueEntries(workoutSessions, {
-        excludeTemplateId: homeActivePlanCard?.programId ?? null,
-        limit: 6,
-      })
-        .map((entry, index) => {
-          const template = byId.get(entry.templateId);
-          if (template) {
-            return {
-              id: template.id,
-              name: formatWorkoutDisplayLabel(template.name),
-              goal: formatGoalLabel(template.goalType, preferences.appLanguage),
-              blurb: '',
-              days: template.daysPerWeek,
-              minutes: template.estimatedSessionDuration,
-              coverIndex: programCoverIndex(template.id),
-              fingerprint: buildProgramFingerprint(template),
-              level: template.level,
-              weeks: getReadyProgramBlockWeeks(template),
-              sessionCount: entry.sessionCount,
-              daysSince: entry.daysSince,
-            };
-          }
-          // A custom program the reader built. It has no ready-program content
-          // behind it, so the card carries only what the template really says.
-          const custom = customById.get(entry.templateId);
-          return custom
-            ? {
-                id: custom.id,
-                name: formatWorkoutDisplayLabel(custom.name),
-                goal: t(preferences.appLanguage, 'programs.yourPrograms'),
-                blurb: '',
-                days: custom.sessionCount,
-                minutes: 0,
-                coverIndex: programCoverIndex(custom.id),
-                fingerprint: [],
-                // A program the reader built has no declared level and no
-                // block length. Saying "beginner, 4 weeks" would be inventing
-                // both, so the row shows neither.
-                level: 'beginner' as const,
-                weeks: 0,
-                sessionCount: entry.sessionCount,
-                daysSince: entry.daysSince,
-              }
-            : null;
-        })
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-    },
-    [
-      customWorkouts,
-      homeActivePlanCard?.programId,
-      preferences.appLanguage,
-      workout.templates,
-      workoutSessions,
-    ],
   );
   /**
    * Goals with a bar that can move.
@@ -3999,7 +3934,6 @@ function VinhaApp() {
       ),
     [preferences.strengthGoals, trackedProgress],
   );
-  /** Lifts with logged work, for the goal picker — you cannot aim at nothing. */
   /**
    * The ready-made targets, with the reader's own bests folded in.
    *
@@ -5338,7 +5272,6 @@ function VinhaApp() {
         trendingItems={programsTrendingItems}
         recommendations={programsRecommendations}
         campaigns={programsCampaigns}
-        continueItems={programsContinueItems}
         seasonCards={programsSeasonCards}
         onOpenSeason={(season) => navigate({ tab: 'workout', screen: 'season', season })}
         goals={programsGoals}

@@ -2,7 +2,6 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { resolveContinueEntries } = require('../../.test-dist/lib/programContinue.js');
 const { resolveProgramAffinity, AFFINITY_REASON_KEYS } = require('../../.test-dist/lib/programAffinity.js');
 const { buildProgramCampaigns } = require('../../.test-dist/lib/programCampaigns.js');
 const { PROGRAM_CATEGORIES } = require('../../.test-dist/lib/programCategories.js');
@@ -12,51 +11,7 @@ function read(...segments) {
   return fs.readFileSync(path.join(__dirname, '..', '..', ...segments), 'utf8');
 }
 
-function session(templateId, performedAt) {
-  return { id: `${templateId}-${performedAt}`, workoutTemplateId: templateId, performedAt };
-}
-
-const NOW = new Date('2026-08-05T12:00:00.000Z');
-
 module.exports = [
-  {
-    name: 'continue is logged work, newest first — never programs you merely opened',
-    run() {
-      const entries = resolveContinueEntries(
-        [
-          session('a', '2026-08-01T10:00:00.000Z'),
-          session('a', '2026-07-28T10:00:00.000Z'),
-          session('b', '2026-08-04T10:00:00.000Z'),
-          session('active', '2026-08-05T06:00:00.000Z'),
-        ],
-        { excludeTemplateId: 'active', now: NOW },
-      );
-
-      assert.deepEqual(entries.map((entry) => entry.templateId), ['b', 'a']);
-      assert.equal(entries[1].sessionCount, 2, 'both sessions count, the newest sorts');
-      assert.equal(entries[0].daysSince, 1);
-      assert.equal(entries[1].daysSince, 4);
-
-      // The active program owns the hero and the whole week at the top of the
-      // screen. Offering it again two rows down makes the page look like it
-      // does not know what you are doing.
-      assert.ok(!entries.some((entry) => entry.templateId === 'active'));
-    },
-  },
-  {
-    name: 'a fresh install has nothing to continue, and says so by being absent',
-    run() {
-      assert.deepEqual(resolveContinueEntries([], {}), []);
-      // A corrupt timestamp cannot be sorted against; dropping that one row
-      // beats sorting the whole list by NaN.
-      const entries = resolveContinueEntries(
-        [session('a', 'not-a-date'), session('b', '2026-08-04T10:00:00.000Z')],
-        { now: NOW },
-      );
-      assert.deepEqual(entries.map((entry) => entry.templateId), ['b']);
-      assert.deepEqual(resolveContinueEntries([session('', '2026-08-04T10:00:00.000Z')], {}), []);
-    },
-  },
   {
     name: 'affinity reads the program you chose, and ranks the better reason first',
     run() {
@@ -114,7 +69,7 @@ module.exports = [
     run() {
       const slides = buildProgramCampaigns({
         season: 'winter',
-        seasonCount: 21,
+        seasonWeeks: 26,
         strengthCount: 12,
         exerciseCount: 873,
       });
@@ -127,13 +82,15 @@ module.exports = [
       assert.equal(gradients.size, slides.length, 'two slides share a gradient');
 
       // A slide that would claim "0 programs" is worse than one fewer slide.
+      // The season is the exception: it is 26 weeks whether or not anything
+      // else in the catalog is populated, so its slide cannot go to zero.
       const thin = buildProgramCampaigns({
         season: 'summer',
-        seasonCount: 0,
+        seasonWeeks: 26,
         strengthCount: 0,
         exerciseCount: 873,
       });
-      assert.deepEqual(thin.map((slide) => slide.key), ['library', 'create']);
+      assert.deepEqual(thin.map((slide) => slide.key), ['season-summer', 'library', 'create']);
 
       // And each one is a sentence in both languages.
       const i18n = read('src', 'lib', 'i18n.ts');

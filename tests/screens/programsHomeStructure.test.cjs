@@ -90,7 +90,11 @@ module.exports = [
       // A3: the tile is a drawn shape now, so the tint is the path's fill and
       // its stroke rather than a background colour.
       assert.match(programsHomeSource, /fill=\{entry\.tint\.bg\}/);
-      assert.match(programsHomeSource, /stroke=\{entry\.tint\.border\}/);
+      // Near-black at 2.4, not the tint's own pale border at 1: nine pastel
+      // tiles side by side had nothing holding them apart, and the count badge
+      // sat ON the cut corner, which sliced the digit in half.
+      assert.match(programsHomeSource, /stroke=\{theme\.ink\}[\s\S]{0,60}strokeWidth=\{2\.4\}/);
+      assert.match(programsHomeSource, /catTileCount: \{[\s\S]{0,200}bottom: 5,/);
       // A tile that says 8 has to open 8: the count and the rail read the
       // same source.
       assert.match(programsHomeSource, /categoryCounts\[entry\.key\]/);
@@ -124,7 +128,6 @@ module.exports = [
       assert.match(programsHomeSource, /setAllCategories\(\(value\) => !value\)/);
       assert.match(programsHomeSource, /setSheet\(\{ kind: 'all' \}\)/);
       assert.match(programsHomeSource, /\{level !== null \? \(/);
-      assert.match(programsHomeSource, /onPress=\{\(\) => setPicked\(item\)\}/);
 
       // The rotating hero, and the four season tiles.
       assert.match(programsHomeSource, /function CampaignHero/);
@@ -139,9 +142,11 @@ module.exports = [
       assert.match(programsHomeSource, /const handleCampaignTarget = \(target: CampaignTarget\)/);
       assert.doesNotMatch(programsHomeSource, /seasonOffset/);
 
-      // Continue: real logged work only.
-      assert.match(programsHomeSource, /continueItems\.length > 0/);
-      assert.match(programsHomeSource, /'programs\.continue\.sessions'/);
+      // "Jatka siitä mihin jäit" is gone. It listed programmes with logged
+      // work as covers you could tap, which is what "Omat ohjelmasi" below it
+      // already is and what the active programme on Home already is — three
+      // answers to one question.
+      assert.doesNotMatch(programsHomeSource, /'programs\.continue/);
 
       // Cards come in three sizes now. A page where five sections draw the
       // same 274×176 card has told the reader nothing about what matters.
@@ -223,11 +228,11 @@ module.exports = [
       assert.match(appSource, /const programsCustomItems = useMemo/);
       // Continue is built from logged sessions, and never from the active
       // program — that one already owns the hero and the whole week above.
-      assert.match(appSource, /resolveContinueEntries\(workoutSessions, \{/);
-      assert.match(appSource, /excludeTemplateId: homeActivePlanCard\?\.programId \?\? null/);
       // Campaign counts read the same catalog the tiles filter, so a slide
       // cannot advertise a season with nothing in it.
-      assert.match(appSource, /seasonCount: programsSeasonTileCounts\[getSeasonForDate\(\)\]/);
+      // Weeks, not a programme count: a season has exactly ONE programme, so
+      // "10 ohjelmaa kevyempään työhön" advertised a shelf it does not have.
+      assert.match(appSource, /seasonWeeks: SEASON_WEEKS/);
       assert.match(appSource, /exerciseCount: exerciseBrowserItems\.length/);
       // Handlers reuse existing navigation, nothing new invented.
       assert.match(appSource, /onOpenExploreProgram=\{handleOpenReadyProgramDetail\}/);
