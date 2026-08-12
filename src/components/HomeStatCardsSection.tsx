@@ -3,7 +3,7 @@ import { Animated, Easing, Modal, Pressable, ScrollView, StyleSheet, Text, View 
 import Svg, { Circle, Path, Polyline } from 'react-native-svg';
 
 import { formatHomeStatValue, HomeStatCard, HomeStatCardIcon } from '../lib/homeStatCards';
-import { t } from '../lib/i18n';
+import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -134,6 +134,17 @@ function Sparkline({ series }: { series: number[] }) {
   );
 }
 
+/** Only measurements are ever suggested, so this covers every case. */
+const SUGGEST_TITLE_KEYS: Record<string, I18nKey> = {
+  bodyweight: 'cards.suggest.bodyweight',
+  bodyfat: 'cards.suggest.bodyfat',
+  shoulders: 'cards.suggest.shoulders',
+  chest: 'cards.suggest.chest',
+  waist: 'cards.suggest.waist',
+  hips: 'cards.suggest.hips',
+  thighs: 'cards.suggest.thighs',
+};
+
 export function HomeStatCardsSection({
   catalogCards,
   suggestedKeys = [],
@@ -215,9 +226,11 @@ export function HomeStatCardsSection({
       {suggestion ? (
         <View style={styles.suggestCard}>
           <View style={styles.suggestCopy}>
-            <Text style={styles.suggestTitle}>
-              {t(language, 'cards.suggest.title', { label: suggestion.label })}
-            </Text>
+            {/* One sentence per measurement, not one sentence with the label
+                dropped in: Finnish inflects, so "{label}" produced
+                "Seurataanko Rinta alkunäytöllä?" — a nominative where the
+                partitive belongs. */}
+            <Text style={styles.suggestTitle}>{t(language, SUGGEST_TITLE_KEYS[suggestion.key])}</Text>
             <Text style={styles.suggestBody}>{t(language, 'cards.suggest.body')}</Text>
           </View>
           <View style={styles.suggestActions}>
