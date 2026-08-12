@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -47,10 +47,17 @@ export function EmphasisSheet({ visible, language, exercises, onClose, onSave }:
   // Reopening starts from the programme as it is now, not from the last
   // unsaved fiddle — a sheet that remembers a discarded edit is lying about
   // what the programme currently says.
+  //
+  // Keyed on the OPEN, not on `exercises`. The detail view model is rebuilt on
+  // every render of the screen, so the array identity changes constantly; with
+  // `exercises` in the deps every press was undone on the next frame — the bar
+  // jumped to 75 % and snapped back to 50 %.
+  const wasVisible = useRef(false);
   useEffect(() => {
-    if (visible) {
+    if (visible && !wasVisible.current) {
       setWorking(exercises.map((exercise) => exercise.sets));
     }
+    wasVisible.current = visible;
   }, [visible, exercises]);
 
   const withWorkingSets = useMemo(

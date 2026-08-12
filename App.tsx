@@ -136,6 +136,7 @@ import { buildProgramCampaigns } from './src/lib/programCampaigns';
 import { resolveContinueEntries } from './src/lib/programContinue';
 import { AFFINITY_REASON_KEYS, resolveProgramAffinity } from './src/lib/programAffinity';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
+import { resolveProgramTrainingDays } from './src/lib/programTrainingDays';
 import { programCoverIndex } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
@@ -2982,8 +2983,17 @@ function VinhaApp() {
   // (Monday-first indexes). Empty = unknown → no dots, no invented rhythm.
   const homeTrainingDayIndexes = useMemo(() => {
     const order: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
-    return preferences.setupAvailableDays.map((day) => order[day]).filter((index) => index !== undefined);
-  }, [preferences.setupAvailableDays]);
+    const open = preferences.setupAvailableDays
+      .map((day) => order[day])
+      .filter((index) => index !== undefined);
+    // Availability is not a plan. This marked every day the reader said they
+    // COULD train, so a one-session-a-week programme lit three dots and the
+    // strip claimed three workouts where the plan prescribes one.
+    const sessionsPerWeek = homeActivePlanCard
+      ? Number.parseInt(homeActivePlanCard.sessionsPerWeek, 10) || open.length
+      : open.length;
+    return resolveProgramTrainingDays(open, sessionsPerWeek);
+  }, [homeActivePlanCard, preferences.setupAvailableDays]);
   // What Android says about pinning the widget. Re-asked on every foreground,
   // because the user may have added or removed it while we were away.
   useEffect(() => {

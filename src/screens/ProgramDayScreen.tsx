@@ -21,7 +21,16 @@ import { AppLanguage } from '../types/models';
  * the two screens cannot describe different sessions.
  */
 
-const HERO_SEAM_RATIO = 0.88;
+/**
+ * The hero is a painted area, not a strip.
+ *
+ * At 172px it stopped just under the title and the stats sat on the page
+ * below it, so the colour read as a band that had been cut off. It now runs
+ * past the role card and under the first section heading — the seam lands in
+ * empty space rather than through a line of text.
+ */
+const HERO_HEIGHT = 292;
+const HERO_SEAM_RATIO = 0.93;
 
 const ROLE_TAG_KEYS: Record<string, I18nKey> = {
   primary: 'detail.role.primary',
@@ -96,18 +105,18 @@ export function ProgramDayScreen({
     <View style={styles.screen}>
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
-          <Svg width={heroWidth} height={172} style={StyleSheet.absoluteFill}>
+          <Svg width={heroWidth} height={HERO_HEIGHT} style={StyleSheet.absoluteFill}>
             <Defs>
               <SvgLinearGradient id="dayHero" x1="0" y1="0" x2="0.8" y2="1">
                 <Stop offset="0" stopColor={identity.hero[0]} />
                 <Stop offset="1" stopColor={identity.hero[1]} />
               </SvgLinearGradient>
               <ClipPath id="dayHeroSeam">
-                <Path d={`M0 0 H${heroWidth} V172 L0 ${172 * HERO_SEAM_RATIO} Z`} />
+                <Path d={`M0 0 H${heroWidth} V${HERO_HEIGHT} L0 ${HERO_HEIGHT * HERO_SEAM_RATIO} Z`} />
               </ClipPath>
             </Defs>
             <G clipPath="url(#dayHeroSeam)">
-              <Rect x="0" y="0" width={heroWidth} height={172} fill="url(#dayHero)" />
+              <Rect x="0" y="0" width={heroWidth} height={HERO_HEIGHT} fill="url(#dayHero)" />
             </G>
           </Svg>
           <View style={styles.heroTopRow}>
@@ -116,15 +125,14 @@ export function ProgramDayScreen({
                 <Path d="M15 6l-6 6 6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
               </Svg>
             </Pressable>
-            <Text style={styles.heroKick} numberOfLines={1}>
-              {t(language, 'detail.day.kick', {
-                program: programTitle.toUpperCase(),
-                day: dayNumber,
-                total: dayCount,
-              })}
-            </Text>
           </View>
+          {/* The programme's name, big. "PÄIVÄ 1 / 1" was a counter on a
+              one-day programme — a fraction that only ever reads 1/1 tells the
+              reader nothing they cannot see. */}
           <Text style={styles.heroTitle} numberOfLines={2}>
+            {programTitle}
+          </Text>
+          <Text style={styles.heroSession} numberOfLines={1}>
             {localizeSessionName(session.name, language).replace(/^[^:]*:\s*/, '')}
           </Text>
           <View style={styles.heroStats}>
@@ -168,7 +176,6 @@ export function ProgramDayScreen({
 
         <View style={styles.sectionHead}>
           <Text style={styles.sectionTitle}>{t(language, 'detail.day.exercises')}</Text>
-          <Text style={styles.sectionMeta}>{t(language, 'detail.day.exercisesMeta')}</Text>
         </View>
         <View style={styles.exerciseList}>
           {session.exercises.map((exercise, index) => (
@@ -228,7 +235,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve + 84,
   },
   hero: {
-    height: 172,
+    height: HERO_HEIGHT,
     justifyContent: 'flex-start',
     paddingHorizontal: 18,
     paddingTop: 46,
@@ -256,16 +263,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   heroTitle: {
     color: '#FFFFFF',
-    fontSize: 24,
-    lineHeight: 28,
+    fontSize: 30,
+    lineHeight: 35,
     fontWeight: '800',
-    letterSpacing: -0.6,
-    marginTop: 12,
+    letterSpacing: -0.9,
+    marginTop: 18,
+  },
+  heroSession: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
+    marginTop: 4,
   },
   heroStats: {
     flexDirection: 'row',
     gap: 22,
-    marginTop: 10,
+    marginTop: 18,
   },
   heroStatValue: {
     color: '#FFFFFF',
@@ -282,8 +296,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 0.8,
     marginTop: 1,
   },
+  // Pulled up onto the hero so the colour reads as a header the content sits
+  // on, rather than a band that stops.
   roleCard: {
-    marginTop: 14,
+    marginTop: -58,
     marginHorizontal: spacing.lg,
     borderRadius: radii.lg,
     borderWidth: 1,

@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import Svg, { ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, ClipPath, Defs, G, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { CutSurface } from '../components/CutSurface';
@@ -63,7 +63,12 @@ const ROLE_LEVEL_KEYS: Record<string, I18nKey> = {
  * Shallower than the browse card's 0.82: at 210px tall the same ratio would
  * carve nearly forty pixels off the corner and start eating the back button.
  */
-const HERO_SEAM_RATIO = 0.9;
+/**
+ * The programme hero. Raised from 210 so the painted area comes well down the
+ * page instead of ending just under the title.
+ */
+const HERO_HEIGHT = 262;
+const HERO_SEAM_RATIO = 0.92;
 
 
 interface ProgramDetailScreenProps {
@@ -320,7 +325,7 @@ export function ProgramDetailScreen({
             three containers before a reader learned whether this was a
             strength program or a cut. */}
         <View style={styles.hero}>
-          <Svg width={heroWidth} height={210} style={StyleSheet.absoluteFill}>
+          <Svg width={heroWidth} height={HERO_HEIGHT} style={StyleSheet.absoluteFill}>
             <Defs>
               {/* The same seam the browse cards carry, at hero scale (design:
                   GAINER Boost-tyyli, frame D). Clipped inside the SVG for the
@@ -328,7 +333,7 @@ export function ProgramDetailScreen({
                   gradient, the bars and the scrim would all run past the
                   slope. */}
               <ClipPath id="detailHeroSeam">
-                <Path d={`M0 0 H${heroWidth} V210 L0 ${210 * HERO_SEAM_RATIO} Z`} />
+                <Path d={`M0 0 H${heroWidth} V${HERO_HEIGHT} L0 ${HERO_HEIGHT * HERO_SEAM_RATIO} Z`} />
               </ClipPath>
               <SvgLinearGradient id="detailHero" x1="0" y1="0" x2="1" y2="1">
                 <Stop offset="0" stopColor={identity.hero[0]} />
@@ -340,7 +345,7 @@ export function ProgramDetailScreen({
               </SvgLinearGradient>
             </Defs>
             <G clipPath="url(#detailHeroSeam)">
-            <Rect x="0" y="0" width={heroWidth} height={210} fill="url(#detailHero)" />
+            <Rect x="0" y="0" width={heroWidth} height={HERO_HEIGHT} fill="url(#detailHero)" />
             {/* The program's week, as bars — the same fingerprint the browse
                 cards draw, so a program looks like itself wherever it is met. */}
             {heroBars.map((ratio, index) => {
@@ -351,7 +356,7 @@ export function ProgramDetailScreen({
                 <Rect
                   key={index}
                   x={14 + index * slot + (slot - barWidth) / 2}
-                  y={210 - barHeight}
+                  y={HERO_HEIGHT - barHeight}
                   width={barWidth}
                   height={barHeight}
                   rx={3}
@@ -375,25 +380,6 @@ export function ProgramDetailScreen({
                 <Path d="M15 6l-6 6 6 6" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
             </Pressable>
-            {program.source === 'custom' && onEdit ? (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={t(language, 'plan.edit')}
-                hitSlop={10}
-                onPress={onEdit}
-                style={styles.heroGlass}
-              >
-                <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M4 20h16M6 16l9.5-9.5a2 2 0 0 0-3-3L3 13v3h3z"
-                    stroke="#FFFFFF"
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </Pressable>
-            ) : null}
           </View>
           <View style={styles.heroBottom}>
             {heroPill ? (
@@ -514,9 +500,15 @@ export function ProgramDetailScreen({
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>{t(language, 'detail.workouts')}</Text>
-          <Text style={styles.sectionMeta}>
-            {t(language, 'detail.inRotation', { count: program.sessions.length })}
-          </Text>
+          {/* The hero's pencil is gone, but the template editor is only
+              reachable from here — dropping the affordance entirely would
+              orphan a whole screen. It is a quiet text action beside the list
+              it edits instead of a glass button over the artwork. */}
+          {program.source === 'custom' && onEdit ? (
+            <Pressable hitSlop={8} onPress={onEdit}>
+              <Text style={styles.emphasisEdit}>{t(language, 'plan.edit')}</Text>
+            </Pressable>
+          ) : null}
         </View>
         {/* Compact rows now (design: "päivärivi vie tänne") — the full
             content moved to the day view, where roles, rests and the warm-up
@@ -548,11 +540,20 @@ export function ProgramDetailScreen({
                     {durationMinutes > 0 ? ` · ~${durationMinutes} min` : ''}
                   </Text>
                 </View>
-                <Pressable hitSlop={6} onPress={() => onStartSession(session.id)} style={styles.workoutAction}>
-                  <Text style={styles.workoutActionText}>{t(language, 'detail.start')}</Text>
-                </Pressable>
-                <Svg viewBox="0 0 24 24" width={16} height={16}>
-                  <Path d="M9 6l6 6-6 6" stroke={theme.purple} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                {/* An eye, not a chevron and not a start button: the row is a
+                    look at the day, and the day view has the real start. Two
+                    starts a thumb-width apart is how you begin the wrong
+                    session. */}
+                <Svg viewBox="0 0 24 24" width={19} height={19}>
+                  <Path
+                    d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"
+                    stroke={theme.purple}
+                    strokeWidth={1.9}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                  <Circle cx={12} cy={12} r={2.6} stroke={theme.purple} strokeWidth={1.9} fill="none" />
                 </Svg>
               </View>
               <Text style={styles.workoutFocus} numberOfLines={2}>
@@ -739,7 +740,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.bg,
   },
   hero: {
-    height: 210,
+    height: HERO_HEIGHT,
     marginHorizontal: -20,
     marginTop: -8,
     overflow: 'hidden',
