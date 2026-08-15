@@ -30,6 +30,14 @@ import { queryReduceMotion } from '../utils/reduceMotion';
  *
  *   · One projected bar, not three. The app computes a single next step.
  *
+ *   · No composer. The mock ends the card with a "Message your coach…" pill,
+ *     which is a decoration — it takes no focus and opens no keyboard — and it
+ *     was the ~58dp that pushed the bottom of this hero under the fold on a
+ *     6.4" phone, behind the pinned plan footer. A conversation the reader can
+ *     watch already says the coach is something you talk to; an input that
+ *     does nothing says it again, below the fold, for the price of the whole
+ *     card fitting (user decision, measured on a Galaxy A54).
+ *
  * Under reduce motion the whole conversation is shown at once and nothing
  * animates — the content is never the thing the animation is hiding.
  */
@@ -347,8 +355,10 @@ export function ProChatHero({ script, language }: ProChatHeroProps) {
                     <Bars chart={beat.line.chart} styles={styles} />
                     <View style={styles.legend}>
                       <Text style={styles.legendText}>
+                        {/* The lift is named in the conversation directly
+                            above; repeating it here cost the legend a second
+                            line, and that line cost the card its fit. */}
                         {t(language, 'pro.v4.chart.label', {
-                          lift: script.liftName.toUpperCase(),
                           count: beat.line.chart.sessions,
                         })}
                       </Text>
@@ -363,21 +373,6 @@ export function ProChatHero({ script, language }: ProChatHeroProps) {
         })}
       </Animated.View>
 
-      {/* Not a real input — the coach lives one tap away, and this says so. */}
-      <View style={styles.composer}>
-        <Text style={styles.composerText}>{t(language, 'pro.v4.input')}</Text>
-        <View style={styles.composerSend}>
-          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-            <Path
-              d="M5 12h13M12 5l7 7-7 7"
-              stroke={BADGE_INK}
-              strokeWidth={2.6}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </Svg>
-        </View>
-      </View>
     </View>
   );
 }
@@ -453,13 +448,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 330,
     marginTop: 13,
     /**
-     * Bottom-anchored, so the newest bubble always sits just above the
-     * composer. A fixed box with a conversation that grows is empty somewhere
-     * for the ~1.6s the first question is alone; top-anchoring only moved that
+     * Bottom-anchored, so the newest bubble always sits at the bottom of the
+     * card. A fixed box with a conversation that grows is empty somewhere for
+     * the ~1.6s the first question is alone; top-anchoring only moved that
      * emptiness below the last bubble, where it read as a bigger dead slab
      * (both seen on a Galaxy A54). Down here the gap sits under the headline,
-     * on the darkest part of the gradient, and the message stays next to the
-     * input the way a chat that just started does.
+     * on the darkest part of the gradient.
      */
     justifyContent: 'flex-end',
     gap: 7,
@@ -561,33 +555,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     height: 7,
     borderRadius: 2,
     backgroundColor: theme.gold,
-  },
-  composer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    // Reported from the phone: at 13 the composer looked stuck to the bar
-    // below it rather than belonging to the card.
-    marginTop: 18,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    backgroundColor: 'rgba(0,0,0,0.24)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-  },
-  composerText: {
-    flex: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.4)',
-  },
-  composerSend: {
-    width: 22,
-    height: 22,
-    borderRadius: 999,
-    backgroundColor: theme.gold,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

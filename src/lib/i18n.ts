@@ -1839,9 +1839,8 @@ const EN = {
   // missing figure still reads as a sentence.
   'pro.v4.hero.title': 'Ask anything.',
   'pro.v4.hero.titleAccent': 'The answer is your own numbers.',
-  'pro.v4.input': 'Message your coach…',
   'pro.v4.example': 'EXAMPLE',
-  'pro.v4.chart.label': '{lift} · {count} SESSIONS',
+  'pro.v4.chart.label': '{count} SESSIONS',
   'pro.v4.chart.plan': '= PLAN',
   'pro.v4.line.stalled.q': '{lift} has sat at {weight} {unit} for {count} sessions now.',
   'pro.v4.line.stalled.a':
@@ -4726,9 +4725,8 @@ const FI: Record<I18nKey, string> = {
 
   'pro.v4.hero.title': 'Kysy mitä vain.',
   'pro.v4.hero.titleAccent': 'Vastaus sinun luvuistasi.',
-  'pro.v4.input': 'Kirjoita valmentajalle…',
   'pro.v4.example': 'ESIMERKKI',
-  'pro.v4.chart.label': '{lift} · {count} TREENIÄ',
+  'pro.v4.chart.label': '{count} TREENIÄ',
   'pro.v4.chart.plan': '= SUUNNITELMA',
   'pro.v4.line.stalled.q': '{lift} on jumittanut lukemaan {weight} {unit} jo {count} treeniä.',
   'pro.v4.line.stalled.a':

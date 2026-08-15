@@ -1,4 +1,5 @@
 import { SetupDaysPerWeek, UnitPreference } from '../types/models';
+import { removeTrailingZeros } from './format';
 import { I18nKey } from './i18n';
 import { PremiumHeroChart } from './premiumHeroChart';
 import { PLATEAU_STALL_SESSIONS } from './proInsights';
@@ -123,6 +124,16 @@ export function buildProChatHeroScript(
   // sample richer than their own.
   const days = personal ? daysPerWeek : EXAMPLE.daysPerWeek;
 
+  /**
+   * Weights go into the copy as already-formatted strings.
+   *
+   * i18n interpolation stringifies whatever it is given, so passing the raw
+   * number wrote "92.5 kg" into Finnish sentences while every other screen in
+   * the app said "92,5" — the decimal-mark fix went right past this file,
+   * because this file never called the formatter. Seen on the phone.
+   */
+  const weight = (value: number) => removeTrailingZeros(value);
+
   const stall = countTrailingStall(points);
   const stalled = stall >= PLATEAU_STALL_SESSIONS;
   const chart = buildChart(points, projectedNext);
@@ -132,12 +143,12 @@ export function buildProChatHeroScript(
         {
           who: 'user',
           key: 'pro.v4.line.stalled.q',
-          vars: { lift: liftName, weight: latest, unit: unitPreference, count: stall },
+          vars: { lift: liftName, weight: weight(latest), unit: unitPreference, count: stall },
         },
         {
           who: 'coach',
           key: 'pro.v4.line.stalled.a',
-          vars: { weight: latest, unit: unitPreference, next: projectedNext },
+          vars: { weight: weight(latest), unit: unitPreference, next: weight(projectedNext) },
           chart,
         },
       ]
@@ -151,11 +162,11 @@ export function buildProChatHeroScript(
           who: 'coach',
           key: 'pro.v4.line.rising.a',
           vars: {
-            from: points[0],
-            to: latest,
+            from: weight(points[0]),
+            to: weight(latest),
             unit: unitPreference,
             sessions: points.length,
-            next: projectedNext,
+            next: weight(projectedNext),
           },
           chart,
         },

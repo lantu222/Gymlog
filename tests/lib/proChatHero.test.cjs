@@ -7,6 +7,7 @@ const {
   buildProChatHeroScript,
   countTrailingStall,
 } = require('../../.test-dist/lib/proChatHero.js');
+const { setNumberLanguage } = require('../../.test-dist/lib/format.js');
 
 const chart = (points, projectedNext) => ({
   liftName: 'Bench press',
@@ -39,9 +40,17 @@ module.exports = [
       const opener = script.lines[0];
       assert.equal(opener.vars.lift, 'Bench press');
       const answer = script.lines[1];
-      assert.equal(answer.vars.from, 60);
-      assert.equal(answer.vars.to, 67.5);
-      assert.equal(answer.vars.next, 70);
+      // Formatted, not raw. i18n stringifies whatever it is given, so a raw
+      // 67.5 wrote "67.5 kg" into a Finnish sentence while every other screen
+      // said 67,5 — the whole point of routing these through the formatter.
+      setNumberLanguage('fi');
+      const fi = buildProChatHeroScript(chart([60, 62.5, 65, 67.5], 70), 'kg', 3, 'x');
+      assert.equal(fi.lines[1].vars.to, '67,5');
+      setNumberLanguage('en');
+
+      assert.equal(answer.vars.from, '60');
+      assert.equal(answer.vars.to, '67.5');
+      assert.equal(answer.vars.next, '70');
       assert.equal(answer.vars.unit, 'kg');
 
       // The follow-up quotes the frequency they gave in onboarding.
@@ -62,7 +71,7 @@ module.exports = [
       const stalled = buildProChatHeroScript(chart([80, 85, 85, 85], 87.5), 'kg', 2, 'x');
       assert.equal(stalled.lines[0].key, 'pro.v4.line.stalled.q');
       assert.equal(stalled.lines[0].vars.count, 3);
-      assert.equal(stalled.lines[0].vars.weight, 85);
+      assert.equal(stalled.lines[0].vars.weight, '85');
       assert.equal(stalled.lines[1].key, 'pro.v4.line.stalled.a');
     },
   },
