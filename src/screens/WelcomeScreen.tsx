@@ -129,8 +129,10 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
           <Text style={[styles.startLabel, { fontFamily }]}>{t(language, 'welcome.start')}</Text>
         </Pressable>
 
-        <Text style={[styles.startNote, { fontFamily }]}>{t(language, 'welcome.noAccount')}</Text>
-
+        {/* The "no account needed" reassurance is gone. It answered a worry
+            nobody has yet on the first screen — there is no sign-in form in
+            sight to be worried about — and the privacy promise it made is
+            stated properly in Settings, where it can be read in full. */}
         <Text style={[styles.tagline, { fontFamily }]}>{t(language, 'brand.tagline')}</Text>
       </Animated.View>
     </View>
@@ -166,6 +168,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#9A93AC',
     fontSize: 12,
     fontWeight: '800',
+    // FIN and ENG are both three letters but not the same width — the I is
+    // narrow — so chips that hug their text come out visibly different sizes.
+    // A fixed label width makes the two chips identical.
+    minWidth: 30,
+    textAlign: 'center',
   },
   langLabelActive: {
     color: '#5B21B6',
@@ -211,13 +218,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15.5,
     fontWeight: '800',
-  },
-  startNote: {
-    color: '#6B6480',
-    fontSize: 12.5,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginTop: 12,
+    // Uppercased here rather than in the string, so the translation stays
+    // readable and the accessibility label reads as a sentence.
+    textTransform: 'uppercase',
+    letterSpacing: 1.4,
   },
   providerButtonPressed: {
     opacity: 0.85,

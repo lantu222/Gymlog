@@ -213,7 +213,7 @@ export function ProgramDetailScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
-  const identity = programCoverStyle(program.id);
+  const identity = programCoverStyle(program.id, program.title);
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
   // Flat, in a fixed order: the sheet returns set counts by index, so this
   // list is the contract between the two.

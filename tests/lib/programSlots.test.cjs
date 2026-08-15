@@ -94,18 +94,28 @@ module.exports = [
     name: 'the cap is on authoring: the catalog and the log stay uncapped',
     run() {
       const premium = read('src', 'screens', 'PremiumScreen.tsx');
-      // The row that used to say "yes / yes" is the one real difference now.
+      // The Pro page (v3) dropped the free/premium table, so this no longer
+      // reads a row. It reads the thing that made the row trustworthy: the
+      // number in the sales copy is interpolated from the constant that
+      // enforces the cap, not typed next to it.
       assert.match(
         premium,
-        /'pro\.v2\.row\.own', free: 'pro\.v2\.val\.threePrograms', pro: 'pro\.v2\.val\.unlimited'/,
+        /titleKey: 'pro\.v3\.delta\.programs\.t',[\s\S]{0,200}?vars: \{ cap: FREE_CUSTOM_PROGRAM_LIMIT \}/,
+        'the programs row must take its free number from FREE_CUSTOM_PROGRAM_LIMIT',
       );
-      // Ready programs and logging stay identical in both columns. If either
-      // of these ever becomes a difference, it is a decision, not a drift.
-      assert.match(premium, /'pro\.v2\.row\.ready', free: 'pro\.v2\.val\.all', pro: 'pro\.v2\.val\.all'/);
-      assert.match(
-        premium,
-        /'pro\.v2\.row\.logging', free: 'pro\.v2\.val\.unlimited', pro: 'pro\.v2\.val\.unlimited'/,
-      );
+      const copy = read('src', 'lib', 'i18n.ts')
+        .split('\n')
+        .filter((line) => line.includes("'pro.v3.delta.programs.b':"));
+      assert.equal(copy.length, 2, 'both languages');
+      for (const line of copy) {
+        assert.match(line, /\{cap\}/, 'the cap must be a placeholder, never a typed digit');
+      }
+
+      // Ready programs and logging are identical in both tiers and the page
+      // no longer claims otherwise anywhere. If either ever becomes a
+      // difference, it is a decision, not a drift — so nothing on the Pro page
+      // may quietly start selling them.
+      assert.doesNotMatch(premium, /pro\.v3\.delta\.(ready|logging)/);
 
       // The wall says what it does not touch. "Three programs" alone reads as
       // a limit on training.

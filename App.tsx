@@ -17,6 +17,7 @@ import {
   DEFAULT_RHYTHM_BY_DAYS,
   DEFAULT_FIRST_RUN_SELECTION,
   FirstRunSetupSelection,
+  isSetupDaysPerWeek,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
 import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
@@ -66,7 +67,6 @@ import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import { getCalendarWeekStartTimestamp, getCanonicalCompletedSessions } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
-import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildFatigueModel } from './src/lib/fatigueModel';
 import { buildLiftHistories } from './src/lib/trainingHistory';
 import {
@@ -147,7 +147,7 @@ import {
   resolveProgramTrainingDays,
   WEEKDAY_KEYS,
 } from './src/lib/programTrainingDays';
-import { programCoverIndex } from './src/lib/programVisualIdentity';
+import { programCoverStyle } from './src/lib/programVisualIdentity';
 import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
@@ -214,6 +214,7 @@ import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { MembershipEndScreen } from './src/screens/MembershipEndScreen';
 import { SupportScreen } from './src/screens/SupportScreen';
+import { DesignDemoScreen } from './src/screens/DesignDemoScreen';
 import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
 import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
@@ -1352,10 +1353,6 @@ function VinhaApp() {
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
-  const premiumHeroChart = useMemo(
-    () => buildPremiumHeroChart(trackedProgress, unitPreference),
-    [trackedProgress, unitPreference],
-  );
   // The paywall-moments data layer: real lift histories → detections (free)
   // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
   const proLiftHistories = useMemo(
@@ -2250,8 +2247,47 @@ function VinhaApp() {
     }
     setBusySavingReadyPick(true);
     try {
-      // Profile was created on the About screen; persist its basics alongside
-      // the picked program. No questionnaire ran, so setup stays incomplete.
+      // Actually ADOPT the programme, don't just remember that it was suggested.
+      //
+      // This wrote `recommendedProgramId: programId, activePlanId: null`, and a
+      // recommendation is not a plan: Home reads the active plan, so a reader
+      // who picked a programme here landed on a Home that showed no programme
+      // at all and a Profile that said "no programme selected". The pick was
+      // stored, and invisible. Every other way into a ready programme —
+      // joining a season, stepping up after a completion — goes through
+      // handleAdoptReadyProgram and builds this plan record; onboarding was the
+      // one door that skipped it.
+      const template = getWorkoutTemplateById(programId);
+      // A template's day count is a plain number; the preference is a union of
+      // the five the questionnaire offers. Narrow rather than cast, so a
+      // catalog entry outside that range stores null instead of a value the
+      // rest of the app has no branch for.
+      const templateDaysPerWeek =
+        template && isSetupDaysPerWeek(template.daysPerWeek) ? template.daysPerWeek : null;
+      let adoptedPlanId: string | null = null;
+      if (template) {
+        // No questionnaire ran on this path, so there are no chosen weekdays to
+        // hang the sessions on. The programme's own day count is a fact about
+        // the thing the reader just picked, so the default rhythm for THAT
+        // count beats a global fallback.
+        const dayLabels = DEFAULT_RHYTHM_BY_DAYS[templateDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+        const plan = buildReadyProgramWorkoutPlan({
+          workoutTemplateId: programId,
+          programName: formatWorkoutDisplayLabel(template.name),
+          sessionIds: template.sessions.map((session) => session.id),
+          dayLabels,
+          now: new Date().toISOString(),
+        });
+        // upsertWorkoutPlan and completeOnboarding both run through the
+        // provider's serial queue, so awaiting in order is enough — the plan
+        // exists before any preference points at it.
+        await upsertWorkoutPlan(plan);
+        adoptedPlanId = plan.id;
+      }
+
+      // The ready path skips the About form, so every basic here is normally
+      // null — that is fine and deliberate. Guided onboarding is the path that
+      // fills them. No questionnaire ran either, so setup stays incomplete.
       await completeOnboarding({
         onboardingCompleted: true,
         setupCompleted: false,
@@ -2260,8 +2296,12 @@ function VinhaApp() {
         setupGender: aboutYouValues?.gender ?? null,
         setupHeightCm: aboutYouValues?.heightCm ?? null,
         setupCurrentWeightKg: aboutYouValues?.weightKg ?? null,
+        // Kept as well as the plan: the recommendation is what the catalog
+        // highlights on a later visit, the plan is what Home trains from.
         recommendedProgramId: programId,
-        activePlanId: null,
+        setupDaysPerWeek: templateDaysPerWeek,
+        activePlanId: adoptedPlanId,
+        activePlanIds: adoptedPlanId ? [adoptedPlanId] : [],
       });
       if (
         typeof aboutYouValues?.weightKg === 'number' &&
@@ -3560,7 +3600,7 @@ function VinhaApp() {
             blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
             days: template.daysPerWeek,
             minutes: template.estimatedSessionDuration,
-            coverIndex: programCoverIndex(template.id),
+            cover: programCoverStyle(template.id, template.name),
             fingerprint: buildProgramFingerprint(template),
             level: template.level,
             weeks: getReadyProgramBlockWeeks(template),
@@ -3587,7 +3627,7 @@ function VinhaApp() {
         blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
         days: template.daysPerWeek,
         minutes: template.estimatedSessionDuration,
-        coverIndex: programCoverIndex(template.id),
+        cover: programCoverStyle(template.id, template.name),
         fingerprint: buildProgramFingerprint(template),
         level: template.level,
         weeks: getReadyProgramBlockWeeks(template),
@@ -3704,7 +3744,7 @@ function VinhaApp() {
                 why: t(preferences.appLanguage, slot.whyKey, { days: template.daysPerWeek }),
                 days: template.daysPerWeek,
                 minutes: template.estimatedSessionDuration,
-                coverIndex: programCoverIndex(template.id),
+                cover: programCoverStyle(template.id, template.name),
                 fingerprint: buildProgramFingerprint(template),
                 level: template.level,
                 weeks: getReadyProgramBlockWeeks(template),
@@ -4141,10 +4181,15 @@ function VinhaApp() {
             setOnboardingStep('about');
           }}
           onBrowsePrograms={() => {
-            // The ready path also creates the profile before opening the
-            // catalog — same front door, different fork.
+            // Straight to the catalog. This fork used to detour through the
+            // About-you form first, which is the opposite of what the card
+            // promises ("choose the program you want yourself") — the reader
+            // asked to skip the questions and got a form. Nothing downstream
+            // needs the answers: handleOnboardingPickReadyProgram already
+            // reads every basic through `aboutYouValues?.` and stores null.
+            // The profile is filled in later, from Settings.
             setOnboardingPath('ready');
-            setOnboardingStep('about');
+            setOnboardingStep('ready_catalog');
           }}
           onBack={() => void handleBackToEntry()}
         />
@@ -4167,7 +4212,9 @@ function VinhaApp() {
           language={preferences.appLanguage}
           busy={busySavingReadyPick}
           onPick={(programId) => void handleOnboardingPickReadyProgram(programId)}
-          onBack={() => setOnboardingStep('about')}
+          // Back goes where the reader came from, which is the fork — not the
+          // About form they deliberately did not open.
+          onBack={() => setOnboardingStep('path')}
         />
       );
     } else {
@@ -4689,6 +4736,10 @@ function VinhaApp() {
           await addBodyweightEntry(weightKg);
           showToast(t(preferences.appLanguage, 'toast.bodyweightSaved'));
         }}
+        // The same height the questionnaire asks for and the profile stores —
+        // the BMI card edits that field rather than keeping a second copy.
+        heightCm={preferences.setupHeightCm}
+        onSaveHeight={(nextHeightCm) => void updatePreferences({ setupHeightCm: nextHeightCm })}
         onAddMeasurement={async (kind, value, unit) => {
           await addMeasurementEntry(kind, value, unit);
           showToast(t(preferences.appLanguage, 'toast.measurementSaved'));
@@ -4840,16 +4891,12 @@ function VinhaApp() {
         language={preferences.appLanguage}
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
         proUnlocked={coachProUnlocked}
-        heroChart={premiumHeroChart}
-        unitPreference={unitPreference}
-        sessionCount={database.workoutSessions.length}
-        coachSpecimen={proCoachSpecimen}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onTogglePreview={() => {
-          // The CTA sells a trial the app cannot deliver (demo build). What it
-          // actually does is flip the preview switch — and if that turns Pro
-          // ON, the unlock moment follows, which is the whole point of it.
+          // The CTA sells a subscription the app cannot take money for (demo
+          // build). What it actually does is flip the preview switch — and if
+          // that turns Pro ON, the unlock moment follows, which is the point.
           const turningOn = !preferences.adaptiveCoachPremiumUnlocked;
           void updatePreferences({ adaptiveCoachPremiumUnlocked: turningOn });
           if (turningOn) {
@@ -4994,6 +5041,13 @@ function VinhaApp() {
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
       />
     );
+  } else if (route.tab === 'profile' && route.screen === 'design_demo') {
+    content = (
+      <DesignDemoScreen
+        language={preferences.appLanguage}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'features') {
     content = (
       <FeatureRequestsScreen
@@ -5090,6 +5144,7 @@ function VinhaApp() {
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
+        onOpenDesignDemo={() => navigate({ tab: 'profile', screen: 'design_demo' })}
         onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
         onResetAllData={async () => {
@@ -5118,6 +5173,7 @@ function VinhaApp() {
         recordCount={distinctRecordCount}
         onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
         onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
+        onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'plans') {
@@ -5544,6 +5600,7 @@ function VinhaApp() {
       route.screen === 'support' ||
       route.screen === 'features' ||
       route.screen === 'ai_transparency' ||
+      route.screen === 'design_demo' ||
       route.screen === 'legal');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';

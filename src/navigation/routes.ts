@@ -197,6 +197,14 @@ export type AppRoute =
       screen: 'ai_transparency';
     }
   | {
+      /**
+       * Finished components that have no caller yet. Delete the route with the
+       * screen once the blurred preview and the rating ask are both wired.
+       */
+      tab: 'profile';
+      screen: 'design_demo';
+    }
+  | {
       tab: 'profile';
       screen: 'plan_settings';
     }

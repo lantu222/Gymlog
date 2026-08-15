@@ -12,9 +12,8 @@ import { AppLanguage } from '../types/models';
  */
 const EN = {
   // ── Welcome ────────────────────────────────────────────────────────────
-  'brand.tagline': 'Train fast. Get strong.',
-  'welcome.start': 'Get started',
-  'welcome.noAccount': 'No account needed — everything stays on this phone.',
+  'brand.tagline': 'Results, not guesswork.',
+  'welcome.start': "Let's begin",
   'welcome.continueGoogle': 'Continue with Google',
   'welcome.continueApple': 'Continue with Apple',
 
@@ -393,6 +392,28 @@ const EN = {
   'progress.metric.bodyweight': 'Bodyweight',
   'progress.range.all': 'All',
   'progress.measure.bodyweight': 'Body weight',
+
+  // ── Weight card + BMI gauge (Home Workout Report teardown, 2026-08-13) ──
+  'weightCard.title': 'Weight',
+  'weightCard.log': 'Log',
+  'weightCard.current': 'Current',
+  'weightCard.heaviest': 'Heaviest',
+  'weightCard.lightest': 'Lightest',
+  'weightCard.empty': 'Log your weight once and the curve starts here.',
+  'weightLog.title': 'Weight',
+  'bmi.title': 'BMI',
+  'bmi.edit': 'Edit',
+  'bmi.height': 'Height',
+  'bmi.needHeight': 'Add your height to see your BMI.',
+  'bmi.needWeight': 'Log your weight to see your BMI.',
+  'bmi.band.severe': 'Severe underweight',
+  'bmi.band.moderate': 'Moderate underweight',
+  'bmi.band.mild': 'Mild underweight',
+  'bmi.band.healthy': 'Healthy weight',
+  'bmi.band.over': 'Overweight',
+  'bmi.band.obese1': 'Obese',
+  'bmi.band.obese2': 'Severely obese',
+  'bmi.a11y.gauge': 'BMI {bmi}, {band}',
   'progress.measure.bodyfat': 'Body fat',
   'progress.measure.shoulders': 'Shoulders',
   'progress.measure.chest': 'Chest',
@@ -534,6 +555,25 @@ const EN = {
   'catalog.collection.focus.recommendedFor': 'Lifters who want to specialize or add volume beyond their main program.',
   'catalog.coverCaption': 'program cover',
   'catalog.cardMeta': '{days} days / week · {minutes} min',
+  // Ready Catalog v2: focus filter + the cover's goal line and day pill.
+  'catalog.focusArea': 'FOCUS AREA',
+  'catalog.focus.any': 'Any',
+  'catalog.focus.full': 'Full body',
+  'catalog.focus.upper': 'Upper',
+  'catalog.focus.lower': 'Lower',
+  'catalog.focus.cardio': 'Cardio',
+  'catalog.focus.mobility': 'Mobility',
+  'catalog.daysPill': '{days}d / wk',
+  'catalog.metaDays': '{days} days',
+  'catalog.metaMinutes': '~{minutes} min',
+  'catalog.goal.home': 'Minimal kit',
+  'catalog.goal.strong': 'Strength base',
+  'catalog.goal.huge': 'Muscle + size',
+  'catalog.goal.reset': 'Mobility reset',
+  'catalog.goal.fit': 'All-round fit',
+  'catalog.goal.shred': 'Lose fat',
+  'catalog.goal.run': 'Run + mobility',
+  'catalog.goal.focus': 'Muscle focus',
   'catalog.empty.title': 'No programs match',
   'catalog.empty.body': 'Try loosening the filters.',
   'catalog.cta': 'Save plan & start',
@@ -917,6 +957,8 @@ const EN = {
   'profile.stat.pr': 'PR',
   'profile.stat.prs': 'PRs',
   'profile.guestName': 'Guest athlete',
+  'profile.addName': 'Add your name',
+  'profile.editNameA11y': 'Edit profile, {name}',
   'profile.invite': 'Invite a friend to Vinha',
   'profile.inviteMessage':
     'Join me on Vinha — an honest strength-training companion.\nhttps://play.google.com/store/apps/details?id=app.vinha',
@@ -1005,6 +1047,8 @@ const EN = {
   'settings.contact.sub': 'Usually answered right away.',
   'settings.features': 'Feature requests',
   'settings.features.sub': 'Vote on what we build next.',
+  'settings.designDemo': 'Design demo',
+  'settings.designDemo.sub': 'Finished components with no caller yet.',
   'settings.privacy': 'Privacy policy',
   'settings.terms': 'Terms of service',
   'settings.analytics': 'No analytics',
@@ -1553,6 +1597,39 @@ const EN = {
   'coachChat.placeholderSpent': 'Ask anything — 0 left this week',
   'coachChat.thinking': 'Reading your log…',
 
+  // ── Store rating ask (RateAppSheet — built, deliberately not wired) ────
+  'rating.title': 'Is Vinha working for you?',
+  'rating.body':
+    'A rating on Google Play is the entire marketing budget of an app built by one person.',
+  'rating.hint': '5 stars means a lot!',
+  'rating.cta': 'Rate on Google Play',
+  'rating.notNow': 'Not now',
+  'rating.a11y.star': 'Give {count} out of 5 stars',
+
+  // ── Design demo (internal surface for unwired components) ─────────────
+  'designDemo.title': 'Design demo',
+  'designDemo.lead': 'Finished components with no caller yet. Nothing here writes to your data.',
+  'designDemo.blur.section': 'BLURRED PREVIEW',
+  'designDemo.blur.note':
+    'A real gaussian blur, drawn with SVG filters. No native module, no rebuild.',
+  'designDemo.blur.teaser': 'One fix, from your own 6 sessions',
+  'designDemo.blur.body':
+    'Your bench has stalled on recovery, not load: the reps in your later sets drop every '
+    + 'session. Hold 72.5 kg and cut one set for two weeks.',
+  'designDemo.blur.overlay': 'Your answer is ready',
+  'designDemo.bars.section': 'BLURRED CHART',
+  'designDemo.bars.teaser': 'Six weeks of squat volume',
+  'designDemo.bars.overlay': 'See the trend',
+  'designDemo.rating.section': 'RATING ASK',
+  'designDemo.rating.note':
+    'Every star opens the same link. Branching on the star would be rating gating, '
+    + 'which Google Play prohibits.',
+  'designDemo.rating.open': 'Open the rating sheet',
+  'designDemo.rating.openNudge': 'Open it with the 5-star nudge',
+  'designDemo.rating.picked': 'Picked {count}/5. A wired build opens the Play listing here.',
+  'designDemo.rating.gate': 'Gate: asked {asks}× · next verdict "{verdict}"',
+  'designDemo.rating.reset': 'Reset the gate',
+
   // ── Paywall moments (the finding is free, the conclusion is Pro) ──────
   'pro.locked.cta': 'See the recommendation',
   'pro.plateau.eyebrow': 'PLATEAU DETECTED',
@@ -1672,6 +1749,7 @@ const EN = {
   'pro.v2.free.body': 'Unlimited logging, three programs of your own, every ready-made program, the guided player and 3D demos, the widget, CSV export — and every set you have ever logged, readable and exportable forever. No ads, no time limit. Premium opens the long view and the coaching layer.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
+  'pro.v2.row.ads': 'Ads',
   'pro.v2.row.logging': 'Workout logging',
   'pro.v2.row.ready': 'Ready-made programs',
   'pro.v2.row.own': 'Programs of your own',
@@ -1693,6 +1771,7 @@ const EN = {
   'pro.v2.row.theme': 'Dark theme',
   'pro.v2.row.adaptSession': 'Recovery holds a load',
   'pro.v2.row.backup': 'Cloud backup',
+  'pro.v2.val.never': 'Never',
   'pro.v2.val.unlimited': 'Unlimited',
   'pro.v2.val.threePrograms': '3',
   'pro.v2.val.twoPrograms': '2',
@@ -1711,6 +1790,48 @@ const EN = {
   'pro.v2.ctaSubMonthly': 'Then 9,90 € / month. Cancel anytime.',
   'pro.v2.ctaSubLifetime': 'One payment of 119,00 €. Yours from then on.',
   'pro.v2.footer': 'Cancel anytime — your logs and data stay yours, Premium or not.',
+
+  // Vinha Pro v3 — the six-block page. Every {placeholder} below is filled from
+  // the constant that enforces the limit (FREE_CUSTOM_PROGRAM_LIMIT,
+  // FREE_COACH_QUESTIONS_PER_WEEK, FREE_TREND_MONTHS, and the lifetime price
+  // key), so no number on this page can drift away from the code that means it.
+  'pro.v3.hero.title': 'Get more out of\nevery session.',
+  'pro.v3.hero.body':
+    'Open up what Pro can do: the same log you already keep decides your next loads for you.',
+  'pro.v3.delta.label': 'WHAT PRO ADDS',
+  'pro.v3.delta.programs.t': 'Unlimited programs of your own',
+  'pro.v3.delta.programs.b': 'Free: {cap} programs of your own.',
+  'pro.v3.delta.progression.t': 'Automatic progression',
+  'pro.v3.delta.progression.b':
+    'You never have to work out when to add a plate — Vinha raises the load for you once the last session went through.',
+  'pro.v3.delta.coach.t': 'AI coach with no cap',
+  'pro.v3.delta.coach.b':
+    'Builds a program around your week and your equipment, answers questions, and writes out why a lift stalled. Free: {count} questions a week.',
+  'pro.v3.delta.history.t': 'All of your history and records',
+  'pro.v3.delta.history.b':
+    'Charts and records from your very first set. Free shows the last {months} months.',
+  'pro.v3.delta.support.t': 'You back a one-person project',
+  'pro.v3.delta.support.b':
+    'Vinha is made by one person. Pro keeps the work going — it helps enormously.',
+  'pro.v3.trust.private': 'No feed, no followers, no likes. Nobody else sees your training.',
+  'pro.v3.trust.offline':
+    'No sign-in. Logging, programs and history work in airplane mode — only the AI coach needs a connection.',
+  'pro.v3.trust.forever': 'Everything you log, on Free or on Pro, is kept forever.',
+  'pro.v3.faq.data.q': 'What happens to my data if I stop paying for Pro?',
+  'pro.v3.faq.data.a':
+    'Nothing is lost. Every set you logged stays readable and exportable as CSV — only the Pro layer closes. The charts fall back to {months} months; the history itself stays.',
+  'pro.v3.faq.cancel.q': 'Can I cancel any time?',
+  'pro.v3.faq.cancel.a':
+    'Yes. You cancel in Google Play and it takes effect at the end of the current period — you use Pro right to the end of it.',
+  'pro.v3.faq.lifetime.q': 'What does lifetime mean?',
+  'pro.v3.faq.lifetime.a':
+    'One payment of {price}, no recurring subscription. Pro stays with you on a new device too — open it from the “Restore purchase” link.',
+  'pro.v3.notice': 'Payments are not live yet — these prices are a preview of the store release.',
+  'pro.v3.unit.month': '/ month',
+  'pro.v3.unit.year': '/ year',
+  'pro.v3.unit.lifetime': 'one payment',
+  'pro.v3.fine.recurring': 'Cancel any time.',
+  'pro.v3.fine.lifetime': 'One payment, no recurring subscription.',
 
   'unlock.active': 'PREMIUM ACTIVE',
   'unlock.title': 'Here’s what’s different now',
@@ -1747,8 +1868,10 @@ const EN = {
   'pro.page.billedLifetime': 'One payment, no subscription',
   'pro.page.billedYearly': 'Billed 59,90 € / year',
   'pro.page.billedMonthly': 'Billed monthly',
-  'pro.page.save': 'SAVE 40%',
-  'pro.page.restore': 'Restore',
+  // 59,90 against 9,90 x 12 = 118,80 is 49.6% off. The badge said 40% for
+  // months — the retired price set's number, left behind when the prices moved.
+  'pro.page.save': 'Save 50%',
+  'pro.page.restore': 'Restore purchase',
   'pro.page.terms': 'Terms',
   'pro.page.privacy': 'Privacy',
 
@@ -1762,6 +1885,7 @@ const EN = {
   'proOffer.free.library': '{exercises} exercises with form guides',
   'proOffer.free.progress': 'Progress, records & measurements',
   'proOffer.free.cardio': 'Cardio and freestyle workouts',
+  'proOffer.free.noAds': 'No ads, ever — and no tracking',
   'proOffer.proLabel': 'VINHA PRO ADDS',
   'proOffer.pro.coach': 'Coach chat & session analysis',
   'proOffer.pro.coachBody': 'Ask about your own logged numbers, and open a written breakdown of any session.',
@@ -2823,9 +2947,8 @@ const FI: Record<I18nKey, string> = {
   // ── Welcome ────────────────────────────────────────────────────────────
   // 'Vinhasti' is the real Finnish adverb the name comes from, so the tagline
   // ties the brand to its meaning — which is what the English line does too.
-  'brand.tagline': 'Treenaa vinhasti. Tule vahvaksi.',
-  'welcome.start': 'Aloita',
-  'welcome.noAccount': 'Tiliä ei tarvita — kaikki pysyy tässä puhelimessa.',
+  'brand.tagline': 'Tuloksia, ei arvailua.',
+  'welcome.start': 'Aloitetaan',
   'welcome.continueGoogle': 'Jatka Googlella',
   'welcome.continueApple': 'Jatka Applella',
 
@@ -3190,6 +3313,27 @@ const FI: Record<I18nKey, string> = {
   'progress.metric.bodyweight': 'Kehonpaino',
   'progress.range.all': 'Kaikki',
   'progress.measure.bodyweight': 'Kehonpaino',
+
+  'weightCard.title': 'Paino',
+  'weightCard.log': 'Kirjaa',
+  'weightCard.current': 'Nyt',
+  'weightCard.heaviest': 'Raskain',
+  'weightCard.lightest': 'Kevyin',
+  'weightCard.empty': 'Kirjaa painosi kerran, niin käyrä alkaa tästä.',
+  'weightLog.title': 'Paino',
+  'bmi.title': 'BMI',
+  'bmi.edit': 'Muokkaa',
+  'bmi.height': 'Pituus',
+  'bmi.needHeight': 'Lisää pituutesi, niin näet BMI:n.',
+  'bmi.needWeight': 'Kirjaa painosi, niin näet BMI:n.',
+  'bmi.band.severe': 'Vaikea alipaino',
+  'bmi.band.moderate': 'Kohtalainen alipaino',
+  'bmi.band.mild': 'Lievä alipaino',
+  'bmi.band.healthy': 'Normaalipaino',
+  'bmi.band.over': 'Ylipaino',
+  'bmi.band.obese1': 'Lihavuus',
+  'bmi.band.obese2': 'Vaikea lihavuus',
+  'bmi.a11y.gauge': 'BMI {bmi}, {band}',
   'progress.measure.bodyfat': 'Rasvaprosentti',
   'progress.measure.shoulders': 'Hartiat',
   'progress.measure.chest': 'Rinta',
@@ -3334,6 +3478,24 @@ const FI: Record<I18nKey, string> = {
   'catalog.collection.focus.recommendedFor': 'Treenaajille, jotka haluavat erikoistua tai lisätä volyymia pääohjelmansa päälle.',
   'catalog.coverCaption': 'ohjelman kansi',
   'catalog.cardMeta': '{days} pv / viikko · {minutes} min',
+  'catalog.focusArea': 'PAINOPISTE',
+  'catalog.focus.any': 'Kaikki',
+  'catalog.focus.full': 'Koko keho',
+  'catalog.focus.upper': 'Ylävartalo',
+  'catalog.focus.lower': 'Alavartalo',
+  'catalog.focus.cardio': 'Kestävyys',
+  'catalog.focus.mobility': 'Liikkuvuus',
+  'catalog.daysPill': '{days} pv / vk',
+  'catalog.metaDays': '{days} päivää',
+  'catalog.metaMinutes': '~{minutes} min',
+  'catalog.goal.home': 'Vähällä välineellä',
+  'catalog.goal.strong': 'Voiman perusta',
+  'catalog.goal.huge': 'Lihasta ja kokoa',
+  'catalog.goal.reset': 'Liikkuvuuden nollaus',
+  'catalog.goal.fit': 'Yleiskunto',
+  'catalog.goal.shred': 'Rasvanpoltto',
+  'catalog.goal.run': 'Juoksu ja liikkuvuus',
+  'catalog.goal.focus': 'Lihasryhmän painotus',
   'catalog.empty.title': 'Ei osumia',
   'catalog.empty.body': 'Kokeile poistaa joitakin suodattimia.',
   'catalog.cta': 'Tallenna ja aloita',
@@ -3707,6 +3869,8 @@ const FI: Record<I18nKey, string> = {
   'profile.stat.pr': 'ennätys',
   'profile.stat.prs': 'ennätystä',
   'profile.guestName': 'Vieras',
+  'profile.addName': 'Lisää nimesi',
+  'profile.editNameA11y': 'Muokkaa profiilia, {name}',
   'profile.invite': 'Kutsu kaveri Vinhaan',
   'profile.inviteMessage':
     'Tule mukaan Vinhaan — rehellinen treenikaveri salille.\nhttps://play.google.com/store/apps/details?id=app.vinha',
@@ -3794,6 +3958,8 @@ const FI: Record<I18nKey, string> = {
   'settings.contact.sub': 'Vastaamme yleensä heti.',
   'settings.features': 'Ominaisuustoiveet',
   'settings.features.sub': 'Äänestä, mitä rakennamme seuraavaksi.',
+  'settings.designDemo': 'Design-demo',
+  'settings.designDemo.sub': 'Valmiita osia joilla ei ole vielä kutsujaa.',
   'settings.privacy': 'Tietosuojaseloste',
   'settings.terms': 'Käyttöehdot',
   'settings.analytics': 'Ei analytiikkaa',
@@ -4309,6 +4475,37 @@ const FI: Record<I18nKey, string> = {
   'coachChat.placeholderSpent': 'Kysy mitä vain — 0 jäljellä tällä viikolla',
   'coachChat.thinking': 'Luen lokiasi…',
 
+  'rating.title': 'Toimiiko Vinha sinulle?',
+  'rating.body':
+    'Arvio Google Playssa on yhden ihmisen tekemän sovelluksen koko markkinointibudjetti.',
+  'rating.hint': '5 tähteä merkitsee paljon!',
+  'rating.cta': 'Arvioi Google Playssa',
+  'rating.notNow': 'Ei nyt',
+  'rating.a11y.star': 'Anna {count}/5 tähteä',
+
+  'designDemo.title': 'Design-demo',
+  'designDemo.lead': 'Valmiita osia joilla ei ole vielä kutsujaa. Mikään täällä ei kirjoita tietojasi.',
+  'designDemo.blur.section': 'SUMENNETTU ESIKATSELU',
+  'designDemo.blur.note':
+    'Aito gaussin sumennus SVG-suotimilla. Ei natiivimoduulia, ei uudelleenkäännöstä.',
+  'designDemo.blur.teaser': 'Yksi korjaus, omista 6 treenistäsi',
+  'designDemo.blur.body':
+    'Penkkisi on jumissa palautumisesta, ei kuormasta: loppusarjojesi toistot putoavat joka '
+    + 'treenissä. Pidä 72,5 kg ja pudota yksi sarja kahdeksi viikoksi.',
+  'designDemo.blur.overlay': 'Vastauksesi on valmis',
+  'designDemo.bars.section': 'SUMENNETTU KUVAAJA',
+  'designDemo.bars.teaser': 'Kuusi viikkoa kyykyn volyymia',
+  'designDemo.bars.overlay': 'Katso kehityssuunta',
+  'designDemo.rating.section': 'ARVIOPYYNTÖ',
+  'designDemo.rating.note':
+    'Jokainen tähti avaa saman linkin. Tähden mukaan haarautuminen olisi arvioiden '
+    + 'suodattamista, jonka Google Play kieltää.',
+  'designDemo.rating.open': 'Avaa arvioruutu',
+  'designDemo.rating.openNudge': 'Avaa 5 tähden ohjauksella',
+  'designDemo.rating.picked': 'Valittu {count}/5. Kytketty versio avaisi tästä Play-sivun.',
+  'designDemo.rating.gate': 'Portti: kysytty {asks}× · seuraava tuomio ”{verdict}”',
+  'designDemo.rating.reset': 'Nollaa portti',
+
   'pro.locked.cta': 'Katso suositus',
   'pro.plateau.eyebrow': 'TASANNE HAVAITTU',
   'pro.plateau.headline': '{lift} ei ole liikkunut {count} treeniin.',
@@ -4417,6 +4614,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.free.body': 'Rajaton kirjaus, kolme omaa ohjelmaa, kaikki valmiit ohjelmat, ohjattu treenitila ja 3D-demot, widget, CSV-vienti — ja jokainen kirjaamasi sarja luettavissa ja vietävissä ikuisesti. Ei mainoksia, ei aikarajaa. Premium avaa pitkän näkymän ja valmennuskerroksen.',
 
   'pro.v2.compare': 'FREE VS PREMIUM',
+  'pro.v2.row.ads': 'Mainokset',
   'pro.v2.row.logging': 'Treenikirjaus',
   'pro.v2.row.ready': 'Valmiit ohjelmat',
   'pro.v2.row.own': 'Omat ohjelmat',
@@ -4438,6 +4636,7 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.row.theme': 'Tumma teema',
   'pro.v2.row.adaptSession': 'Palautuminen pitää kuorman',
   'pro.v2.row.backup': 'Pilvivarmuuskopio',
+  'pro.v2.val.never': 'Ei koskaan',
   'pro.v2.val.unlimited': 'Rajaton',
   'pro.v2.val.threePrograms': '3',
   'pro.v2.val.twoPrograms': '2',
@@ -4456,6 +4655,44 @@ const FI: Record<I18nKey, string> = {
   'pro.v2.ctaSubMonthly': 'Sitten 9,90 € / kk. Peru milloin vain.',
   'pro.v2.ctaSubLifetime': 'Yksi maksu, 119,00 €. Sen jälkeen se on sinun.',
   'pro.v2.footer': 'Peru milloin vain — lokisi ja datasi ovat sinun, Premium tai ei.',
+
+  'pro.v3.hero.title': 'Ota enemmän irti\njokaisesta treenistä.',
+  'pro.v3.hero.body':
+    'Avaa Pron täysi potentiaali: sama loki, jonka kirjaat jo nyt, päättää seuraavat kuormat puolestasi.',
+  'pro.v3.delta.label': 'MITÄ PRO LISÄÄ',
+  'pro.v3.delta.programs.t': 'Rajattomasti omia ohjelmia',
+  'pro.v3.delta.programs.b': 'Free: {cap} omaa ohjelmaa.',
+  'pro.v3.delta.progression.t': 'Automaattinen eteneminen',
+  'pro.v3.delta.progression.b':
+    'Sinun ei tarvitse miettiä milloin lisätä levyä — Vinha nostaa kuorman puolestasi, kun edellinen treeni meni läpi.',
+  'pro.v3.delta.coach.t': 'AI-valmentaja ilman rajaa',
+  'pro.v3.delta.coach.b':
+    'Rakentaa ohjelman viikkoosi ja välineisiisi, vastaa kysymyksiin ja kertoo kirjoitettuna miksi liike jumittui. Free: {count} kysymystä viikossa.',
+  'pro.v3.delta.history.t': 'Koko historia ja ennätykset',
+  'pro.v3.delta.history.b':
+    'Kuvaajat ja ennätykset ensimmäisestä sarjasta asti. Free näyttää viimeiset {months} kuukautta.',
+  'pro.v3.delta.support.t': 'Tuet yhden hengen projektia',
+  'pro.v3.delta.support.b':
+    'Vinhaa tekee yksi ihminen. Pro pitää kehityksen käynnissä — autat valtavasti.',
+  'pro.v3.trust.private': 'Ei syötettä, ei seuraajia, ei tykkäyksiä. Kukaan muu ei näe treenejäsi.',
+  'pro.v3.trust.offline':
+    'Ei kirjautumista. Kirjaus, ohjelmat ja historia toimivat myös lentotilassa — vain AI-valmentaja tarvitsee verkkoyhteyden.',
+  'pro.v3.trust.forever': 'Kaikki mitä kirjaat, Freessä tai Prossa, säilyy ikuisesti.',
+  'pro.v3.faq.data.q': 'Mitä datalleni tapahtuu jos lopetan Pron?',
+  'pro.v3.faq.data.a':
+    'Mikään ei katoa. Jokainen kirjaamasi sarja pysyy luettavissa ja vietävissä CSV:nä — Pro-kerros vain menee kiinni. Kuvaajat palaavat {months} kuukauteen, historia itsessään säilyy.',
+  'pro.v3.faq.cancel.q': 'Voinko peruuttaa milloin vain?',
+  'pro.v3.faq.cancel.a':
+    'Kyllä. Peruutus tehdään Google Playssa ja astuu voimaan nykyisen jakson lopussa — käytät Prota loppuun asti.',
+  'pro.v3.faq.lifetime.q': 'Mitä elinikäinen tarkoittaa?',
+  'pro.v3.faq.lifetime.a':
+    'Kertamaksu {price}, ei uusiutuvaa tilausta. Pro pysyy käytössä myös uudella laitteella — avaa se ”Palauta osto” -linkistä.',
+  'pro.v3.notice': 'Maksut eivät ole vielä käytössä — hinnat ovat ennakkokatsaus kaupan julkaisuun.',
+  'pro.v3.unit.month': '/ kk',
+  'pro.v3.unit.year': '/ vuosi',
+  'pro.v3.unit.lifetime': 'kertamaksu',
+  'pro.v3.fine.recurring': 'Peru milloin vain.',
+  'pro.v3.fine.lifetime': 'Kertamaksu, ei uusiutuvaa tilausta.',
 
   'unlock.active': 'PREMIUM AKTIIVINEN',
   'unlock.title': 'Tämä muuttui',
@@ -4488,8 +4725,8 @@ const FI: Record<I18nKey, string> = {
   'pro.page.billedLifetime': 'Yksi maksu, ei tilausta',
   'pro.page.billedYearly': 'Laskutus 59,90 € / vuosi',
   'pro.page.billedMonthly': 'Laskutetaan kuukausittain',
-  'pro.page.save': 'SÄÄSTÄ 40 %',
-  'pro.page.restore': 'Palauta',
+  'pro.page.save': 'Säästä 50 %',
+  'pro.page.restore': 'Palauta osto',
   'pro.page.terms': 'Ehdot',
   'pro.page.privacy': 'Tietosuoja',
 
@@ -4502,6 +4739,7 @@ const FI: Record<I18nKey, string> = {
   'proOffer.free.library': '{exercises} liikettä tekniikkaohjeineen',
   'proOffer.free.progress': 'Kehitys, ennätykset ja mitat',
   'proOffer.free.cardio': 'Cardio ja vapaat treenit',
+  'proOffer.free.noAds': 'Ei mainoksia, ei seurantaa — ei koskaan',
   'proOffer.proLabel': 'VINHA PRO LISÄÄ',
   'proOffer.pro.coach': 'Valmentajachat ja treenianalyysi',
   'proOffer.pro.coachBody': 'Kysy omista kirjatuista luvuistasi ja avaa kirjallinen erittely mistä tahansa treenistä.',

@@ -1,3 +1,18 @@
+/**
+ * NOT RENDERED TODAY.
+ *
+ * The Pro page's v2 hero charted the reader's own working weight with the
+ * coach's next step dashed on the end. v3 (design: "Vinha Pro v3 — tumma")
+ * replaced that hero with a statement, and the personal proof moved to the
+ * paywall moments on Home and in the coach chat, where the wall is actually
+ * hit. Nothing calls this function now.
+ *
+ * It is kept, tested and pure rather than deleted because the decision that
+ * orphaned it is a layout decision, not a claim that turned out false — if the
+ * chart comes back to the hero, or lands on the unlock moment, this is the
+ * module that draws it honestly. proSurfaces.test.cjs asserts App.tsx does not
+ * call it, so it cannot quietly become a value computed and never read.
+ */
 import { UnitPreference } from '../types/models';
 import { formatLiftDisplayLabel } from './displayLabel';
 import { convertWeightFromKg } from './format';

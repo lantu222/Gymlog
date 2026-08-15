@@ -34,6 +34,10 @@ const FREE_ROWS: I18nKey[] = [
   'proOffer.free.library',
   'proOffer.free.progress',
   'proOffer.free.cardio',
+  // Last, and in the FREE column, because it is a promise about the app rather
+  // than a feature Pro unlocks. Selling "no ads" as a paid benefit would be a
+  // claim the reader disproves the moment they decline and see no ads anyway.
+  'proOffer.free.noAds',
 ];
 
 const PRO_ROWS: Array<{ titleKey: I18nKey; bodyKey: I18nKey }> = [

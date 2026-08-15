@@ -162,60 +162,69 @@ module.exports = [
     },
   },
   {
-    name: 'the Pro page table draws the line where the code draws it',
+    name: 'the Pro page sells five reasons, and every one of them is wired',
     run() {
-      const table = premiumSource.match(/const ROWS[\s\S]*?\n\];/);
-      assert.ok(table, 'the free/premium comparison rows should be declared');
+      // v2 sold with a 22-row comparison table and twelve feature cards. v3
+      // deletes both (design: "Vinha Pro v3 — tumma"). The guard does not go
+      // with them — it narrows to the claims that are left, because a shorter
+      // page is only an improvement if the five survivors are all true.
+      const delta = premiumSource.match(/const DELTA: DeltaRow\[\][\s\S]*?\n\];/);
+      assert.ok(delta, 'the "what Pro adds" rows should be declared');
 
-      // Free in BOTH columns. Each of these was checked against the code on
-      // 2026-08-01: none of them has an isProUnlocked gate anywhere.
-      for (const key of ['logging', 'ready', 'own', 'records', 'guided', 'widget', 'csv']) {
+      // Exactly five. A sixth row is a decision, not a tidy-up.
+      assert.equal(
+        (delta[0].match(/titleKey: 'pro\.v3\.delta\./g) ?? []).length,
+        5,
+        'the pitch is five rows — adding one is a product decision, make it deliberately',
+      );
+
+      // Each row is a gate that exists. progression → resolveProgressionOptions,
+      // coach → aiCoachQuota, history → historyWindow, programs → programSlots.
+      for (const key of ['programs', 'progression', 'coach', 'history', 'support']) {
+        assert.match(delta[0], new RegExp(`titleKey: 'pro\\.v3\\.delta\\.${key}\\.t'`));
+      }
+
+      // Every free-tier number is interpolated from the constant that enforces
+      // it. This is the whole reason the table could go: a number typed into
+      // sales copy drifts silently, a number read from the gate cannot.
+      for (const [key, constant] of [
+        ['programs', 'FREE_CUSTOM_PROGRAM_LIMIT'],
+        ['coach', 'FREE_COACH_QUESTIONS_PER_WEEK'],
+        ['history', 'FREE_TREND_MONTHS'],
+      ]) {
         assert.match(
-          table[0],
-          new RegExp(`'pro\\.v2\\.row\\.${key}', free: 'pro\\.v2\\.val\\.[a-zA-Z]+'`),
-          `${key} is free and the table has to say so`,
+          delta[0],
+          new RegExp(`pro\\.v3\\.delta\\.${key}\\.[\\s\\S]{0,220}?${constant}`),
+          `${key} should read its free number from ${constant}`,
         );
       }
 
-      // History is never capped, in either tier — the page's trust row. An
-      // eight-week free limit was in the v2 mock and does not exist in code.
-      assert.match(table[0], /'pro\.v2\.row\.history', free: 'pro\.v2\.val\.allTime', pro: 'pro\.v2\.val\.allTime'/);
+      // Unbuilt things are not sold at all any more. Cloud backup used to wear
+      // a SOON badge here; a paywall that sells a roadmap has to be re-read
+      // every time the roadmap slips, so v3 simply does not mention it.
+      assert.doesNotMatch(premiumSource, /'pro\.v3\.[a-z.]*backup/i);
+      assert.doesNotMatch(premiumSource, /soon: true/);
+
+      // The one claim that could still read as a lie: "all of your history"
+      // next to "free shows 3 months". The log is never capped in either
+      // tier — only the charts and records are — so the body has to say which,
+      // and the trust block has to state the log outright.
+      const historyBody = i18nSource
+        .split('\n')
+        .filter((line) => line.includes("'pro.v3.delta.history.b':"));
+      assert.equal(historyBody.length, 2, 'both languages');
+      assert.match(premiumSource, /'pro\.v3\.trust\.forever'/);
       assert.doesNotMatch(premiumSource, /8 weeks|8 viikkoa/);
 
-      // The paywall-moments rule: the detection is free, the conclusion is Pro.
-      assert.match(table[0], /'pro\.v2\.row\.plateau', free: 'pro\.v2\.val\.yes'/);
-      for (const key of ['why', 'recovery', 'analysis']) {
-        assert.match(table[0], new RegExp(`'pro\\.v2\\.row\\.${key}', free: null`), `${key} is the Pro conclusion`);
-      }
-
-      // Genuinely gated in the app: resolveProgressionOptions and openAiMode.
-      for (const key of ['progression', 'builder', 'theme']) {
-        assert.match(table[0], new RegExp(`'pro\\.v2\\.row\\.${key}', free: null`), `${key} is Pro-gated in code`);
-      }
-      // The free coach quota the table promises is implemented (aiCoachQuota).
-      assert.match(table[0], /'pro\.v2\.row\.coachQ', free: 'pro\.v2\.val\.threeWeek'/);
-
-      // Unbuilt things wear 'Soon' rather than being sold as present.
-      assert.match(table[0], /'pro\.v2\.row\.backup', free: null, pro: 'pro\.v2\.val\.soon'/);
-      // adaptSession stopped wearing it: the progression gate's fatigue holds
-      // are wired to the ACWR model now, so the row is live. The claim was
-      // narrowed with it — "Session & weekly adaptation" promised a weekly
-      // half that still does not exist, so the row names only the half that
-      // ships. A row cannot be half live.
-      assert.match(table[0], /'pro\.v2\.row\.adaptSession', free: null, pro: 'pro\.v2\.val\.yes'/);
-      assert.doesNotMatch(i18nSource, /'pro\.v2\.(row\.adaptSession|coach\.session\.t)': '[^']*weekly/);
-
-      // Claims from the v2 mock that describe things this app does not do.
-      // Checked against the copy itself, not the screen — the screen's comments
-      // name the cut features on purpose.
-      const copy = i18nSource.match(/'pro\.v2\.[\s\S]*?'pro\.v2\.footer': '[^']*'/g)?.join('\n') ?? '';
-      assert.ok(copy.length > 0, 'the pro.v2 copy block should be findable');
+      // Claims from the mocks that describe things this app does not do.
+      const copy = i18nSource.match(/'pro\.v3\.[\s\S]*?'pro\.v3\.fine\.lifetime': '[^']*'/g)?.join('\n') ?? '';
+      assert.ok(copy.length > 0, 'the pro.v3 copy block should be findable');
       assert.ok(
         copy.length < 20000,
-        'the pro.v2 span ran past its own block — a pro.v2.* key was added after pro.v2.footer',
+        'the pro.v3 span ran past its own block — a pro.v3.* key was added after pro.v3.fine.lifetime',
       );
       assert.doesNotMatch(copy, /watch|wrist|kello|ranteest/i, 'there is no watch app');
-      assert.doesNotMatch(copy, /several active|useita aktiivisia/i, 'only one plan can be active');
+      assert.doesNotMatch(copy, /cloud|pilvi/i, 'cloud backup is unbuilt and is not sold here');
     },
   },
   {
@@ -310,29 +319,30 @@ module.exports = [
     },
   },
   {
-    name: 'the Pro page knows whether the reader already pays, and renders its one real asset',
+    name: 'the Pro page knows whether the reader already pays',
     run() {
-      // Two failures of the same kind: a value computed and never read.
-      //
-      // proUnlocked reached this screen and nothing looked at it, so an
-      // existing subscriber saw "start your free trial" — and the button ran
-      // onTogglePreview, which flips the switch OFF. The page's only button
-      // was a cancel button wearing a trial label.
+      // proUnlocked once reached this screen and nothing looked at it, so an
+      // existing subscriber saw the same buy button as everyone else — and the
+      // button ran onTogglePreview, which flips the switch OFF. The page's only
+      // button was a cancel button wearing a purchase label.
       assert.match(premiumSource, /\{proUnlocked \? \(/);
       assert.match(premiumSource, /t\(language, 'promo\.proOn'\)/);
+      // A subscriber must not be shown a price to select, either — the plan
+      // tiles live inside the not-yet-Pro branch, not above it.
+      assert.match(premiumSource, /\) : \([\s\S]{0,200}?styles\.planRow/);
       // A redeemed code cannot be turned off by the preview switch, so that
       // case must route to subscription management instead of toggling.
       assert.match(premiumSource, /promoOnly \? onManageSubscription : onTogglePreview/);
       assert.match(appSource, /onManageSubscription=\{\(\) => navigate\(\{ tab: 'profile', screen: 'subscription' \}\)\}/);
 
-      // coachSpecimen is proInsights' real read of this reader's own log. It
-      // was passed in and dropped: the hero charted their numbers and nothing
-      // said what they meant, which is the only thing the page is selling.
-      assert.match(premiumSource, /\{coachSpecimen \? \(/);
-      assert.match(premiumSource, /styles\.specimenText/);
-      // Blurred before you buy, plain after — never the other way round.
-      assert.match(premiumSource, /proUnlocked \? \([\s\S]{0,200}styles\.specimenText/);
-      assert.match(premiumSource, /styles\.specimenScrim/);
+      // v3 moved the personal proof off this page: the reader's own plateau
+      // and their own withheld coach answer are the paywall MOMENTS, on Home
+      // and in the chat, where the wall is actually hit. The page is the
+      // closer, not the demo — so nothing here may fake a specimen either.
+      assert.doesNotMatch(premiumSource, /coachSpecimen|heroChart/);
+      // …and App must not still be computing a chart nobody renders, which is
+      // the exact bug this suite was written for, one level up.
+      assert.doesNotMatch(appSource, /heroChart=|buildPremiumHeroChart/);
     },
   },
   {

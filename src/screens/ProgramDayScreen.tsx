@@ -91,7 +91,7 @@ export function ProgramDayScreen({
   const styles = useThemedStyles(makeStyles);
   const tints = roleTints(theme);
   const { width: heroWidth } = useWindowDimensions();
-  const identity = programCoverStyle(templateId);
+  const identity = programCoverStyle(templateId, programTitle);
 
   // Warm-up and recovery closed by default: they are the same generated
   // blocks on every session of this focus, and the lifts are what the reader

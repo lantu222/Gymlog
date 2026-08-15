@@ -109,6 +109,16 @@ export const DEFAULT_RHYTHM_BY_DAYS: Record<SetupDaysPerWeek, SetupWeekday[]> = 
   6: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat'],
 };
 
+/**
+ * A catalog template's `daysPerWeek` is a plain number; the preference is the
+ * five the questionnaire offers. Callers that carry one into the other need to
+ * narrow, not cast — a template outside the range must store null rather than a
+ * value nothing downstream has a branch for.
+ */
+export function isSetupDaysPerWeek(value: number): value is SetupDaysPerWeek {
+  return Object.prototype.hasOwnProperty.call(DEFAULT_RHYTHM_BY_DAYS, value);
+}
+
 const WEEKDAY_ORDER: SetupWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 export const DEFAULT_FIRST_RUN_SELECTION: FirstRunSetupSelection = {

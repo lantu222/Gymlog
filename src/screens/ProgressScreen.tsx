@@ -4,6 +4,9 @@ import Svg, { Circle, Path, Polyline, Rect } from 'react-native-svg';
 
 import { VinhaIcon } from '../components/VinhaIcon';
 import { SimpleLineChart } from '../components/SimpleLineChart';
+import { BmiEditSheet, WeightLogSheet } from '../components/MeasureRulerSheet';
+import { WeightBmiCards } from '../components/WeightBmiCards';
+import { buildBodyweightCardStats, buildWeightWindow } from '../lib/bodyweightCard';
 import type { HomeRecentSessionItem } from './HomeScreen';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import {
@@ -123,6 +126,9 @@ interface ProgressScreenProps {
   onOpenCalendar?: () => void;
   showBodyweightDetail?: boolean;
   onAddBodyweight: (weightKg: number) => void;
+  /** Stated height, in cm. Null until the reader gives one — BMI waits for it. */
+  heightCm?: number | null;
+  onSaveHeight?: (heightCm: number) => void;
   onAddMeasurement: (kind: MeasurementKind, value: number, unit: MeasurementUnit) => Promise<void>;
   recentSessions?: HomeRecentSessionItem[];
   onOpenSessionHistory?: () => void;
@@ -786,6 +792,8 @@ export function ProgressScreen({
   onOpenCalendar,
   showBodyweightDetail,
   onAddBodyweight,
+  heightCm = null,
+  onSaveHeight,
   onAddMeasurement,
   recentSessions = [],
   onOpenSessionHistory,
@@ -823,6 +831,23 @@ export function ProgressScreen({
   );
   const [measureUnit, setMeasureUnit] = useState<MeasurementUnit>('cm');
   const [measureInput, setMeasureInput] = useState('');
+  const [weightSheetVisible, setWeightSheetVisible] = useState(false);
+  const [bmiSheetVisible, setBmiSheetVisible] = useState(false);
+  const bodyweightStats = useMemo(
+    () => buildBodyweightCardStats(bodyweightProgress.entries),
+    [bodyweightProgress.entries],
+  );
+  const weightWindowDays = useMemo(
+    () => buildWeightWindow(bodyweightProgress.entries, Date.now()),
+    [bodyweightProgress.entries],
+  );
+  /**
+   * What the rulers open on. Not a default the reader has to correct: their
+   * last weigh-in, or the weight onboarding recorded, and only then a middle-
+   * of-the-range number that at least costs a short drag rather than a long one.
+   */
+  const rulerWeightKg = bodyweightStats.currentKg ?? 75;
+  const rulerHeightCm = heightCm ?? 175;
   const scrollRef = useRef<ScrollView>(null);
 
   const trainingStreak = useMemo(() => weeklyTrainingStreak(workoutSessions), [workoutSessions]);
@@ -1653,6 +1678,36 @@ export function ProgressScreen({
   function renderMeasures() {
     const model = selectedMeasureModel;
 
+    // Body weight gets the dedicated card pair (current + extremes + BMI
+    // gauge) instead of the generic measure detail. Every other measure keeps
+    // the numeric field: they have no BMI, no record-high/low worth naming,
+    // and a ruler for "waist, in cm" would be a dial with nothing to dial to.
+    if (model.kind === null) {
+      return (
+        <>
+          <View style={styles.measureDetailBlock}>
+            <WeightBmiCards
+              language={language}
+              currentKg={bodyweightStats.currentKg}
+              heaviestKg={bodyweightStats.heaviestKg}
+              lightestKg={bodyweightStats.lightestKg}
+              heightCm={heightCm}
+              chartDays={weightWindowDays}
+              onLogWeight={() => setWeightSheetVisible(true)}
+              onEditBmi={() => setBmiSheetVisible(true)}
+            />
+            {/* No range selector here, on purpose. The weight curve is a fixed
+                week centred on today — a 3-month window would put the reader's
+                first weigh-in against the right-hand edge instead of in the
+                middle, which is the whole point of the card. The long view is
+                one tab over: Summary → Trend → Body weight, where the range
+                selector still applies. */}
+          </View>
+          {renderMeasureList()}
+        </>
+      );
+    }
+
     return (
       <>
         <View style={styles.measureDetailBlock}>
@@ -1724,6 +1779,15 @@ export function ProgressScreen({
           </View>
         </View>
 
+        {renderMeasureList()}
+      </>
+    );
+  }
+
+  /** Shared by both measure layouts — the picker has to stay reachable. */
+  function renderMeasureList() {
+    return (
+      <>
         <SectionLabel label={t(language, 'progress.section.allMeasures')} />
         <View style={styles.measureList}>
           {measureModels.map((item) => {
@@ -1809,6 +1873,35 @@ export function ProgressScreen({
         {progressSection === 'tracked' ? renderTracked() : null}
         {progressSection === 'measures' ? renderMeasures() : null}
       </ScrollView>
+
+      <WeightLogSheet
+        visible={weightSheetVisible}
+        language={language}
+        initialKg={rulerWeightKg}
+        dateIso={new Date().toISOString()}
+        onCancel={() => setWeightSheetVisible(false)}
+        onSave={(weightKg) => {
+          onAddBodyweight(weightKg);
+          setWeightSheetVisible(false);
+        }}
+      />
+      <BmiEditSheet
+        visible={bmiSheetVisible}
+        language={language}
+        initialKg={rulerWeightKg}
+        initialHeightCm={rulerHeightCm}
+        onCancel={() => setBmiSheetVisible(false)}
+        onSave={({ weightKg, heightCm: nextHeight }) => {
+          onSaveHeight?.(nextHeight);
+          // Only writes a weigh-in when the reader actually moved the weight
+          // dial. Editing your height should not silently stamp today with a
+          // weight you did not step on a scale for.
+          if (Math.abs(weightKg - rulerWeightKg) >= 0.05) {
+            onAddBodyweight(weightKg);
+          }
+          setBmiSheetVisible(false);
+        }}
+      />
 
       {/* One lift's sets, over the curve they belong to. */}
       <SetLogSheet
