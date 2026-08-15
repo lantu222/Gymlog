@@ -332,7 +332,7 @@ module.exports = [
       assert.match(premiumSource, /\) : \([\s\S]{0,200}?styles\.planRow/);
       // A redeemed code cannot be turned off by the preview switch, so that
       // case must route to subscription management instead of toggling.
-      assert.match(premiumSource, /promoOnly \? onManageSubscription : onTogglePreview/);
+      assert.match(premiumSource, /promoOnly \? onManageSubscription : \(\) => onTogglePreview\(plan\)/);
       assert.match(appSource, /onManageSubscription=\{\(\) => navigate\(\{ tab: 'profile', screen: 'subscription' \}\)\}/);
 
       // v3 moved the personal proof off this page and v4 put it back, in the
@@ -496,7 +496,9 @@ module.exports = [
       // settle instantly under reduced motion — the animation is never the
       // thing hiding the content.
       assert.doesNotMatch(unlockSource, /MOMENT_MS|setShowMoment/);
-      assert.match(unlockSource, /Animated\.stagger\(ROW_STAGGER_MS/);
+      // Whitespace-tolerant: the point is that the stagger reads the named
+      // constant, not how prettier wrapped the call.
+      assert.match(unlockSource, /Animated\.stagger\(\s*ROW_STAGGER_MS/);
       // Asked through queryReduceMotion now, which cannot leave the screen
       // waiting on an answer that never comes (utils/reduceMotion.ts).
       assert.match(unlockSource, /queryReduceMotion()/);
@@ -509,7 +511,11 @@ module.exports = [
       assert.match(unlockSource, /coachSpecimen \? \(/);
 
       // Old lies stay dead: no history-restoration claims in the copy.
-      const block = i18nSource.match(/'unlock\.[\s\S]*?'unlock\.noBadge': '[^']*'/g);
+      // Anchored on the last key in the unlock block. unlock.noBadge used to
+      // end it and was retired with the promise it made: the Home header now
+      // carries a PRO pill, so "no Premium badge anywhere else" stopped being
+      // true (user decision).
+      const block = i18nSource.match(/'unlock\.[\s\S]*?'unlock\.trialBody': '[^']*'/g);
       const copy = block ? block.join('\n') : '';
       assert.ok(copy.length > 0, 'the unlock copy block should be findable');
       assert.doesNotMatch(copy, /logs are back|lokit ovat takaisin|months of logs/i);

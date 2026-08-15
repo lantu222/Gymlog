@@ -60,45 +60,70 @@ export interface ProUnlockCard {
   bodyKey: I18nKey;
   /** Where the feature lives, so "what happens next" answers itself. */
   placeKey: I18nKey;
+  /**
+   * The free-tier limit, struck through, and what replaced it.
+   *
+   * The old screen listed what Pro has. This states the *difference*, which is
+   * the only thing a reader who just paid is actually asking about — and it is
+   * checkable: every `was` is a number the code enforces, interpolated from
+   * the constant rather than typed.
+   */
+  wasKey: I18nKey;
+  nowKey: I18nKey;
   /** titleKeys of the PRO_LIVE_BENEFITS entries this card announces. */
   gates: I18nKey[];
 }
 
 export const PRO_UNLOCK_CARDS: ProUnlockCard[] = [
   {
-    titleKey: 'unlock.progression.t',
-    bodyKey: 'unlock.progression.b',
-    placeKey: 'unlock.progression.to',
-    gates: ['pro.v2.coach.progression.t', 'pro.v2.coach.session.t'],
-  },
-  {
     titleKey: 'unlock.ai.t',
     bodyKey: 'unlock.ai.b',
     placeKey: 'unlock.ai.to',
+    wasKey: 'unlock.ai.was',
+    nowKey: 'unlock.ai.now',
     gates: ['pro.v2.plan.coach.t', 'pro.v2.plan.builder.t'],
+  },
+  {
+    titleKey: 'unlock.progression.t',
+    bodyKey: 'unlock.progression.b',
+    placeKey: 'unlock.progression.to',
+    wasKey: 'unlock.progression.was',
+    nowKey: 'unlock.progression.now',
+    gates: ['pro.v2.coach.progression.t', 'pro.v2.coach.session.t'],
   },
   {
     titleKey: 'unlock.reads.t',
     bodyKey: 'unlock.reads.b',
     placeKey: 'unlock.reads.to',
-    gates: [
-      'pro.v2.read.analysis.t',
-      'pro.v2.read.why.t',
-      'pro.v2.read.recovery.t',
-      'pro.v2.read.records.t',
-      'pro.v2.read.setlog.t',
-    ],
+    wasKey: 'unlock.reads.was',
+    nowKey: 'unlock.reads.now',
+    gates: ['pro.v2.read.analysis.t', 'pro.v2.read.why.t', 'pro.v2.read.recovery.t'],
+  },
+  {
+    // Split out of the reads card, because the window is a different promise
+    // from the reading: the charts and records were narrowed, the reads were
+    // shut. One row cannot strike through two different limits.
+    titleKey: 'unlock.history.t',
+    bodyKey: 'unlock.history.b',
+    placeKey: 'unlock.history.to',
+    wasKey: 'unlock.history.was',
+    nowKey: 'unlock.history.now',
+    gates: ['pro.v2.read.records.t', 'pro.v2.read.setlog.t'],
   },
   {
     titleKey: 'unlock.programs.t',
     bodyKey: 'unlock.programs.b',
     placeKey: 'unlock.programs.to',
+    wasKey: 'unlock.programs.was',
+    nowKey: 'unlock.programs.now',
     gates: ['pro.v2.plan.programs.t'],
   },
   {
     titleKey: 'unlock.theme.t',
     bodyKey: 'unlock.theme.b',
     placeKey: 'unlock.theme.to',
+    wasKey: 'unlock.theme.was',
+    nowKey: 'unlock.theme.now',
     gates: ['pro.v2.read.theme.t'],
   },
 ];

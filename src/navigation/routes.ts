@@ -234,6 +234,12 @@ export type AppRoute =
   | {
       tab: 'profile';
       screen: 'premium_unlock';
+      /**
+       * Which package the reader picked on the paywall. Carried here because
+       * nothing else knows: there is no billing to ask, and the paywall's
+       * selection is local state that dies with the screen.
+       */
+      plan?: 'monthly' | 'yearly' | 'lifetime';
     }
   | {
       tab: 'profile';

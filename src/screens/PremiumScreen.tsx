@@ -64,7 +64,8 @@ interface PremiumScreenProps {
   chatScript: ProChatScript;
   language?: AppLanguage;
   onBack: () => void;
-  onTogglePreview: () => void;
+  /** Receives the package the reader had selected when they pressed buy. */
+  onTogglePreview: (plan: PlanId) => void;
   /** Where an existing subscriber goes instead of the buy CTA. */
   onManageSubscription: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
@@ -451,7 +452,7 @@ export function PremiumScreen({
             </View>
             <Pressable
               accessibilityRole="button"
-              onPress={promoOnly ? onManageSubscription : onTogglePreview}
+              onPress={promoOnly ? onManageSubscription : () => onTogglePreview(plan)}
               style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
             >
               <Text style={styles.manageButtonText}>
@@ -493,7 +494,7 @@ export function PremiumScreen({
             </View>
             <Pressable
               accessibilityRole="button"
-              onPress={onTogglePreview}
+              onPress={() => onTogglePreview(plan)}
               style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
             >
               {/* The trial can be switched off (PRO_TRIAL_ENABLED). When it

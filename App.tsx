@@ -4932,14 +4932,14 @@ function VinhaApp() {
         chatScript={premiumChatScript}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onTogglePreview={() => {
+        onTogglePreview={(plan) => {
           // The CTA sells a subscription the app cannot take money for (demo
           // build). What it actually does is flip the preview switch — and if
           // that turns Pro ON, the unlock moment follows, which is the point.
           const turningOn = !preferences.adaptiveCoachPremiumUnlocked;
           void updatePreferences({ adaptiveCoachPremiumUnlocked: turningOn });
           if (turningOn) {
-            navigate({ tab: 'profile', screen: 'premium_unlock' });
+            navigate({ tab: 'profile', screen: 'premium_unlock', plan });
           }
         }}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
@@ -4949,9 +4949,11 @@ function VinhaApp() {
     content = (
       <PremiumUnlockScreen
         language={preferences.appLanguage}
-        trialEndsAt={premiumTrialEndsAt}
+        plan={route.plan}
         // The reads just unlocked; this is the first one, from their own log.
         coachSpecimen={proCoachSpecimen}
+        onOpenAnalysis={() => navigate({ tab: 'progress', screen: 'list' })}
+        onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onDone={() => resetToRoute(ROOT_ROUTES.profile)}
       />
     );
