@@ -54,6 +54,8 @@ const REWIND = 900;
 const REST = 500;
 /** One tick. 60ms is four characters of typing — smooth enough, cheap enough. */
 const TICK = 60;
+/** How many bubbles the box holds. The fourth pushes the first out. */
+const VISIBLE_BEATS = 3;
 
 const HERO_W = 460;
 const HERO_H = 620;
@@ -227,9 +229,18 @@ export function ProChatHero({ script, language }: ProChatHeroProps) {
     }).start();
   }, [fade, reduceMotion, rewinding]);
 
-  const visible = reduceMotion
+  /**
+   * A rolling window, not the whole transcript.
+   *
+   * The thread is a fixed box, so the four beats have to fit or `overflow:
+   * hidden` cuts one. Showing the last three and letting the oldest fall out
+   * is what a chat does anyway, and it is the only version that neither clips
+   * a bubble nor leaves the box mostly empty on a tall phone.
+   */
+  const shown = reduceMotion
     ? timeline.beats
     : timeline.beats.filter((beat) => elapsed >= beat.show && elapsed < timeline.clearAt);
+  const visible = reduceMotion ? shown : shown.slice(-VISIBLE_BEATS);
 
   // One shared pop, replayed whenever a new bubble lands, so the newest message
   // arrives rather than appearing. Per-bubble values would mean N animations
@@ -435,6 +446,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
      */
     height: 330,
     marginTop: 13,
+    /**
+     * Bottom-anchored, so the newest bubble always sits just above the
+     * composer. A fixed box with a conversation that grows is empty somewhere
+     * for the ~1.6s the first question is alone; top-anchoring only moved that
+     * emptiness below the last bubble, where it read as a bigger dead slab
+     * (both seen on a Galaxy A54). Down here the gap sits under the headline,
+     * on the darkest part of the gradient, and the message stays next to the
+     * input the way a chat that just started does.
+     */
     justifyContent: 'flex-end',
     gap: 7,
     overflow: 'hidden',
