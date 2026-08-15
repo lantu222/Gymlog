@@ -335,14 +335,22 @@ module.exports = [
       assert.match(premiumSource, /promoOnly \? onManageSubscription : onTogglePreview/);
       assert.match(appSource, /onManageSubscription=\{\(\) => navigate\(\{ tab: 'profile', screen: 'subscription' \}\)\}/);
 
-      // v3 moved the personal proof off this page: the reader's own plateau
-      // and their own withheld coach answer are the paywall MOMENTS, on Home
-      // and in the chat, where the wall is actually hit. The page is the
-      // closer, not the demo — so nothing here may fake a specimen either.
-      assert.doesNotMatch(premiumSource, /coachSpecimen|heroChart/);
-      // …and App must not still be computing a chart nobody renders, which is
-      // the exact bug this suite was written for, one level up.
-      assert.doesNotMatch(appSource, /heroChart=|buildPremiumHeroChart/);
+      // v3 moved the personal proof off this page and v4 put it back, in the
+      // form the page is actually selling: the coach answering a question
+      // about the reader's own lift. The rule that outlived both versions is
+      // that the proof is REAL — the hero's script is built from the log, and
+      // a reader with nothing logged gets sample figures wearing a chip that
+      // says so, never sample figures presented as theirs.
+      assert.match(premiumSource, /<ProChatHero script=\{chatScript\}/);
+      assert.match(appSource, /chatScript=\{premiumChatScript\}/);
+      assert.match(appSource, /buildProChatHeroScript\(\s*premiumHeroChart/);
+
+      // And the chart it is built from is computed from real logs, not seeded.
+      assert.match(appSource, /buildPremiumHeroChart\(trackedProgress, unitPreference\)/);
+
+      // The blurred-specimen block is gone with v3's hero; nothing on the page
+      // may fake a coach read in its place.
+      assert.doesNotMatch(premiumSource, /coachSpecimen|specimenScrim/);
     },
   },
   {

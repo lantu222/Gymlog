@@ -198,6 +198,8 @@ import { ExerciseDetailScreen } from './src/screens/ExerciseDetailScreen';
 import { ExercisesScreen } from './src/screens/ExercisesScreen';
 import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen';
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
+import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
+import { buildProChatHeroScript } from './src/lib/proChatHero';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { PremiumUnlockScreen } from './src/screens/PremiumUnlockScreen';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
@@ -1353,6 +1355,28 @@ function VinhaApp() {
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
+  /**
+   * The Pro page's hero conversation, from this reader's own log.
+   *
+   * buildPremiumHeroChart came back for this: v3 had no chart and nothing
+   * called it, v4 needs the same series to say which lift the coach is talking
+   * about and what it has been doing. Null here is not a failure — the script
+   * falls back to sample figures and labels itself as one.
+   */
+  const premiumHeroChart = useMemo(
+    () => buildPremiumHeroChart(trackedProgress, unitPreference),
+    [trackedProgress, unitPreference],
+  );
+  const premiumChatScript = useMemo(
+    () =>
+      buildProChatHeroScript(
+        premiumHeroChart,
+        unitPreference,
+        preferences.setupDaysPerWeek,
+        t(preferences.appLanguage, 'pro.v4.example.lift'),
+      ),
+    [premiumHeroChart, preferences.appLanguage, preferences.setupDaysPerWeek, unitPreference],
+  );
   // The paywall-moments data layer: real lift histories → detections (free)
   // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
   const proLiftHistories = useMemo(
@@ -4891,6 +4915,7 @@ function VinhaApp() {
         language={preferences.appLanguage}
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
         proUnlocked={coachProUnlocked}
+        chatScript={premiumChatScript}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onTogglePreview={() => {

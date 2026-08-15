@@ -1833,6 +1833,30 @@ const EN = {
   'pro.v3.fine.recurring': 'Cancel any time.',
   'pro.v3.fine.lifetime': 'One payment, no recurring subscription.',
 
+  // Vinha Pro v4 — the hero is a conversation with the coach, played out on
+  // this reader's own lift. Every {placeholder} is filled by
+  // lib/proChatHero.ts from the log; nothing here may be phrased so that a
+  // missing figure still reads as a sentence.
+  'pro.v4.hero.title': 'Ask anything.',
+  'pro.v4.hero.titleAccent': 'The answer is your own numbers.',
+  'pro.v4.input': 'Message your coach…',
+  'pro.v4.example': 'EXAMPLE',
+  'pro.v4.chart.label': '{lift} · {count} SESSIONS',
+  'pro.v4.chart.plan': '= PLAN',
+  'pro.v4.line.stalled.q': '{lift} has sat at {weight} {unit} for {count} sessions now.',
+  'pro.v4.line.stalled.a':
+    'The load holds at {weight} {unit} until every working set reaches the top of its range — that is the signal, not the calendar. When it does, the next step is {next} {unit}.',
+  'pro.v4.line.rising.q': 'How is {lift} going?',
+  'pro.v4.line.rising.a':
+    'Up from {from} to {to} {unit} across {sessions} sessions. Clear the reps on this one and the next step is {next} {unit}.',
+  'pro.v4.line.days.q': 'I only get {days} sessions a week.',
+  'pro.v4.line.days.a':
+    'Then the program is built for {days}, not trimmed down from more. {lift} gets two of them, far enough apart to recover.',
+  'pro.v4.line.missed.q': 'What if I miss a session?',
+  'pro.v4.line.missed.a':
+    'Nothing resets. {lift} picks up at the load it left off at — a missed week moves the plan, it does not restart it.',
+  'pro.v4.example.lift': 'Bench press',
+
   'unlock.active': 'PREMIUM ACTIVE',
   'unlock.title': 'Here’s what’s different now',
   'unlock.lead': 'Nothing to configure — your plan already knows.',
@@ -4693,6 +4717,26 @@ const FI: Record<I18nKey, string> = {
   'pro.v3.unit.lifetime': 'kertamaksu',
   'pro.v3.fine.recurring': 'Peru milloin vain.',
   'pro.v3.fine.lifetime': 'Kertamaksu, ei uusiutuvaa tilausta.',
+
+  'pro.v4.hero.title': 'Kysy mitä vain.',
+  'pro.v4.hero.titleAccent': 'Vastaus sinun luvuistasi.',
+  'pro.v4.input': 'Kirjoita valmentajalle…',
+  'pro.v4.example': 'ESIMERKKI',
+  'pro.v4.chart.label': '{lift} · {count} TREENIÄ',
+  'pro.v4.chart.plan': '= SUUNNITELMA',
+  'pro.v4.line.stalled.q': '{lift} on jumittanut lukemaan {weight} {unit} jo {count} treeniä.',
+  'pro.v4.line.stalled.a':
+    'Kuorma pysyy lukemassa {weight} {unit} kunnes jokainen työsarja osuu kattoon — se on merkki, ei kalenteri. Kun se tapahtuu, seuraava askel on {next} {unit}.',
+  'pro.v4.line.rising.q': 'Miten {lift} etenee?',
+  'pro.v4.line.rising.a':
+    'Ylös lukemasta {from} lukemaan {to} {unit} {sessions} treenissä. Kun toistot tulevat täyteen tällä, seuraava askel on {next} {unit}.',
+  'pro.v4.line.days.q': 'Ehdin vain {days} kertaa viikossa.',
+  'pro.v4.line.days.a':
+    'Silloin ohjelma rakennetaan {days} kerralle, ei karsita suuremmasta. {lift} osuu niistä kahteen, tarpeeksi kaukana toisistaan.',
+  'pro.v4.line.missed.q': 'Entä jos treeni jää väliin?',
+  'pro.v4.line.missed.a':
+    'Mikään ei nollaudu. {lift} jatkaa siitä kuormasta mihin se jäi — väliin jäänyt viikko siirtää suunnitelmaa, ei aloita sitä alusta.',
+  'pro.v4.example.lift': 'Penkkipunnerrus',
 
   'unlock.active': 'PREMIUM AKTIIVINEN',
   'unlock.title': 'Tämä muuttui',

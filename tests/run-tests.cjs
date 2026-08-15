@@ -44,6 +44,7 @@ const suites = [
   ...require('./lib/deviceLanguage.test.cjs'),
   ...require('./lib/i18n.test.cjs'),
   ...require('./lib/premiumHeroChart.test.cjs'),
+  ...require('./lib/proChatHero.test.cjs'),
   ...require('./lib/trainingRhythm.test.cjs'),
   ...require('./lib/progressionAnalyzer.test.cjs'),
   ...require('./lib/fatigueModel.test.cjs'),

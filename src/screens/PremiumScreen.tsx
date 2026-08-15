@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ProChatHero } from '../components/ProChatHero';
 import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
 import { FREE_TREND_MONTHS } from '../lib/historyWindow';
 import { I18nKey, t } from '../lib/i18n';
+import { ProChatScript } from '../lib/proChatHero';
 import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
 import { FREE_CUSTOM_PROGRAM_LIMIT } from '../lib/programSlots';
 import { PW } from '../lightTheme';
@@ -14,11 +16,11 @@ import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 /**
- * The Pro full page (design: "Vinha Pro v3 — tumma").
+ * The Pro full page (design: "Vinha Pro v4 — AI-chat hero").
  *
  * Six blocks and a pinned foot:
  *
- *   1 hero — the only filled violet surface on the page
+ *   1 hero — a live conversation with the coach, on this reader's own lift
  *   2 what Pro adds — the only block with icons, five rows
  *   3 what the app is in either tier — three checked lines
  *   4 the three objections, as an FAQ
@@ -26,10 +28,12 @@ import { AppLanguage } from '../types/models';
  *   foot — three plan tiles and the CTA, fixed while the page scrolls
  *
  * v2 sold with a 22-row comparison table and twelve grouped feature cards. v3
- * deletes both: a reader who has to audit a table has already stopped reading,
- * and the personal proof (their own plateau, their own withheld coach answer)
- * is carried by the paywall *moments* on Home and Progress, which is where they
- * actually hit the wall. This page is the closer, not the tour.
+ * deleted both: a reader who has to audit a table has already stopped reading.
+ * v4 keeps that body and puts the personal proof back where v3 had removed it —
+ * not as a chart block, but as the coach answering a question about this
+ * reader's own lift, which is the thing being sold. See components/ProChatHero
+ * and lib/proChatHero. The withheld-conclusion moments on Home and in the chat
+ * still do the withholding; this page closes.
  *
  * Every free-tier number below is interpolated from the constant that enforces
  * it — FREE_CUSTOM_PROGRAM_LIMIT, FREE_COACH_QUESTIONS_PER_WEEK,
@@ -52,6 +56,13 @@ interface PremiumScreenProps {
   previewUnlocked: boolean;
   /** Whether Pro is actually on — the preview switch or a live promo code. */
   proUnlocked: boolean;
+  /**
+   * The hero's conversation, built from this reader's own log by
+   * buildProChatHeroScript. It carries its own `personal` flag, so a reader
+   * with nothing logged gets the same hero on sample figures with an EXAMPLE
+   * chip rather than a different screen.
+   */
+  chatScript: ProChatScript;
   language?: AppLanguage;
   onBack: () => void;
   onTogglePreview: () => void;
@@ -98,13 +109,19 @@ interface DeltaRow {
  * that has to be re-read every time the plan slips.
  */
 const DELTA: DeltaRow[] = [
+  // The coach leads, because the hero above is the coach. v3 opened on the
+  // programme cap and the first row contradicted the thing the reader had just
+  // watched — the list has to continue the hero's sentence, not change subject.
+  //
+  // The free quota is real and metered (aiCoachQuota.ts); out of quota the chat
+  // still answers, blurred, rather than refusing to talk.
   {
-    key: 'programs',
-    icon: IC.grid,
-    titleKey: 'pro.v3.delta.programs.t',
-    bodyKey: 'pro.v3.delta.programs.b',
-    vars: { cap: FREE_CUSTOM_PROGRAM_LIMIT },
-    quiet: true,
+    key: 'coach',
+    icon: IC.spark,
+    filled: true,
+    titleKey: 'pro.v3.delta.coach.t',
+    bodyKey: 'pro.v3.delta.coach.b',
+    vars: { count: FREE_COACH_QUESTIONS_PER_WEEK },
   },
   // progressionGate.ts, reached through resolveProgressionOptions — the free
   // tier gets the prefill turned off, not a worse increment.
@@ -114,15 +131,13 @@ const DELTA: DeltaRow[] = [
     titleKey: 'pro.v3.delta.progression.t',
     bodyKey: 'pro.v3.delta.progression.b',
   },
-  // The free quota is real and metered (aiCoachQuota.ts); out of quota the
-  // chat still answers, blurred, rather than refusing to talk.
   {
-    key: 'coach',
-    icon: IC.spark,
-    filled: true,
-    titleKey: 'pro.v3.delta.coach.t',
-    bodyKey: 'pro.v3.delta.coach.b',
-    vars: { count: FREE_COACH_QUESTIONS_PER_WEEK },
+    key: 'programs',
+    icon: IC.grid,
+    titleKey: 'pro.v3.delta.programs.t',
+    bodyKey: 'pro.v3.delta.programs.b',
+    vars: { cap: FREE_CUSTOM_PROGRAM_LIMIT },
+    quiet: true,
   },
   // Careful wording, and the trust block below backs it up: the LOG is never
   // capped in either tier. What free narrows is the charts and the records
@@ -224,19 +239,9 @@ const PLANS: Array<{
   },
 ];
 
-/** The hero is violet in both themes, so what sits on it is fixed, not themed. */
-const HERO_INK = '#FFFFFF';
-const HERO_INK_SOFT = 'rgba(255,255,255,0.72)';
+/** The save badge sits on gold in both themes, so its ink is fixed, not themed. */
 const BADGE_INK = '#241743';
 
-/**
- * The gradient is drawn into a fixed-size Svg behind the card rather than sized
- * from layout: a percentage-sized Svg under an Android `overflow: hidden` clip
- * renders empty on first paint. The card is wider than any phone, and the
- * parent clips it back.
- */
-const HERO_W = 460;
-const HERO_H = 300;
 
 function CheckGlyph({ color, size = 16 }: { color: string; size?: number }) {
   return (
@@ -306,6 +311,7 @@ export function PremiumScreen({
   reason = null,
   previewUnlocked,
   proUnlocked,
+  chatScript,
   language = 'en',
   onBack,
   onTogglePreview,
@@ -348,34 +354,9 @@ export function PremiumScreen({
           </View>
         ) : null}
 
-        {/* 1 · HERO — the only filled violet surface on the page */}
-        <View style={styles.hero}>
-          <Svg
-            style={StyleSheet.absoluteFill}
-            width={HERO_W}
-            height={HERO_H}
-            viewBox={`0 0 ${HERO_W} ${HERO_H}`}
-            // Stretch rather than letterbox: the card's aspect ratio follows
-            // however the copy wraps, and a gradient does not mind the skew,
-            // but a gap at the edge would show the page through the hero.
-            preserveAspectRatio="none"
-          >
-            <Defs>
-              <SvgLinearGradient id="proHeroGradient" x1="0" y1="0" x2="0.42" y2="1">
-                <Stop offset="0" stopColor={PW.sheetTop} />
-                <Stop offset="0.58" stopColor={PW.sheetMid} />
-                <Stop offset="1" stopColor={PW.sheetBottom} />
-              </SvgLinearGradient>
-            </Defs>
-            <Rect width={HERO_W} height={HERO_H} fill="url(#proHeroGradient)" />
-          </Svg>
-
-          <View style={styles.heroBadge}>
-            <Text style={styles.heroBadgeText}>{t(language, 'pro.page.eyebrow')}</Text>
-          </View>
-          <Text style={styles.heroTitle}>{t(language, 'pro.v3.hero.title')}</Text>
-          <Text style={styles.heroBody}>{t(language, 'pro.v3.hero.body')}</Text>
-        </View>
+        {/* 1 · HERO — the only filled violet surface, and the only thing on the
+            page that moves. It plays this reader's own lift back at them. */}
+        <ProChatHero script={chatScript} language={language} />
 
         {/* 2 · WHAT PRO ADDS — the only block with icons */}
         <Text style={styles.sectionLabel}>{t(language, 'pro.v3.delta.label')}</Text>
@@ -581,48 +562,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 19,
     fontWeight: '800',
-  },
-  hero: {
-    borderRadius: 22,
-    // The gradient is a child, so the corners have to clip it.
-    overflow: 'hidden',
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    // The card carries the page's only heavy shadow; everything below it is
-    // flat, which is what makes this read as the one raised surface.
-    shadowColor: '#000000',
-    shadowOpacity: 0.28,
-    shadowRadius: 22,
-    shadowOffset: { width: 0, height: 12 },
-    elevation: 6,
-  },
-  heroBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: theme.gold,
-    borderRadius: 999,
-    paddingVertical: 3,
-    paddingHorizontal: 9,
-  },
-  heroBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.9,
-    color: BADGE_INK,
-  },
-  heroTitle: {
-    fontSize: 27,
-    fontWeight: '800',
-    letterSpacing: -0.7,
-    lineHeight: 32,
-    color: HERO_INK,
-    marginTop: 13,
-  },
-  heroBody: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    lineHeight: 20,
-    color: HERO_INK_SOFT,
-    marginTop: 11,
   },
   sectionLabel: {
     fontSize: 11.5,
