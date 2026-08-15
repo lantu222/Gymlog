@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { parseNumberInput } from '../lib/format';
+import { applyDecimalSeparator, parseNumberInput } from '../lib/format';
 import { t } from '../lib/i18n';
 import { BAR_WEIGHT_KG, PLATE_COLORS, platesPerSide } from '../lib/plateMath';
 import { Theme, useThemedStyles } from '../theming';
@@ -15,7 +15,9 @@ interface PlatePopProps {
 }
 
 function formatPlate(plate: number) {
-  return `${plate}`;
+  // Not removeTrailingZeros: it rounds to one decimal and a 1.25 kg plate
+  // would print as 1,3. Plates are already exact.
+  return applyDecimalSeparator(`${plate}`);
 }
 
 /**

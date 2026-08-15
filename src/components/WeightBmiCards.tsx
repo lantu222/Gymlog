@@ -191,11 +191,11 @@ export function WeightBmiCards({
               style={styles.bmiHeadRow}
               accessible
               accessibilityLabel={t(language, 'bmi.a11y.gauge', {
-                bmi: bmi.toFixed(1),
+                bmi: removeTrailingZeros(Number(bmi.toFixed(1))),
                 band: t(language, band.labelKey),
               })}
             >
-              <Text style={styles.bmiValue}>{bmi.toFixed(1)}</Text>
+              <Text style={styles.bmiValue}>{removeTrailingZeros(Number(bmi.toFixed(1)))}</Text>
               <View style={styles.bandRow}>
                 <View style={[styles.bandDot, { backgroundColor: band.color }]} />
                 <Text style={styles.bandLabel}>{t(language, band.labelKey)}</Text>

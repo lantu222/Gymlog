@@ -2,6 +2,8 @@ import { buildAiCoachActions } from './aiCoachActions';
 import { t } from './i18n';
 import { AICoachAdvice, AICoachPlateauSummary, AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
+import { applyDecimalSeparator, removeTrailingZeros } from './format';
+import { exerciseNameLabel } from './exerciseNameLabel';
 
 /**
  * The offline coach.
@@ -21,7 +23,7 @@ function formatActiveContext(context: AICoachTrainingContext, language: AppLangu
   if (context.activeSession.nextExercise) {
     return t(language, 'coachPreview.nowNext', {
       title: context.activeSession.title,
-      next: context.activeSession.nextExercise,
+      next: exerciseNameLabel(language, context.activeSession.nextExercise),
     });
   }
   return t(language, 'coachPreview.now', { title: context.activeSession.title });
@@ -32,9 +34,9 @@ function formatLiftLine(context: AICoachTrainingContext, language: AppLanguage) 
   if (!firstLift) return null;
   const latest =
     firstLift.latestWeight !== null
-      ? `${firstLift.latestWeight} ${context.unitPreference}`
+      ? `${removeTrailingZeros(firstLift.latestWeight)} ${context.unitPreference}`
       : t(language, 'coachPreview.noLoad');
-  return `${firstLift.name}: ${latest} × ${firstLift.latestReps}`;
+  return `${exerciseNameLabel(language, firstLift.name)}: ${latest} × ${firstLift.latestReps}`;
 }
 
 function formatTopSetLine(context: AICoachTrainingContext, language: AppLanguage) {
@@ -42,9 +44,9 @@ function formatTopSetLine(context: AICoachTrainingContext, language: AppLanguage
   if (!latestTopSet) return null;
   const weight =
     latestTopSet.weight !== null
-      ? `${latestTopSet.weight} ${context.unitPreference}`
+      ? `${removeTrailingZeros(latestTopSet.weight)} ${context.unitPreference}`
       : t(language, 'coachPreview.noLoad');
-  return `${latestTopSet.exerciseName}: ${weight} × ${latestTopSet.reps}`;
+  return `${exerciseNameLabel(language, latestTopSet.exerciseName)}: ${weight} × ${latestTopSet.reps}`;
 }
 
 function formatRecentSessionLine(context: AICoachTrainingContext, language: AppLanguage) {
@@ -62,7 +64,9 @@ function findMatchingPlateau(lower: string, context: AICoachTrainingContext) {
 }
 
 function plateauWeight(p: AICoachPlateauSummary, unit: string, language: AppLanguage) {
-  return p.topWeightKg !== null ? `${p.topWeightKg} ${unit}` : t(language, 'coachPreview.sameWeight');
+  return p.topWeightKg !== null
+    ? `${removeTrailingZeros(p.topWeightKg)} ${unit}`
+    : t(language, 'coachPreview.sameWeight');
 }
 
 /** Finnish needs its own singular; one key per case is the only honest way. */
@@ -85,24 +89,24 @@ function buildCombinedResponse(
   const { acwr, recoveryScore, signal } = context.fatigue;
   const weight = plateauWeight(plateau, context.unitPreference, language);
   return {
-    takeaway: t(language, 'coachPreview.combined.takeaway', { lift: plateau.name }),
+    takeaway: t(language, 'coachPreview.combined.takeaway', { lift: exerciseNameLabel(language, plateau.name) }),
     why: [
       t(language, 'coachPreview.combined.why1', {
-        lift: plateau.name,
+        lift: exerciseNameLabel(language, plateau.name),
         weight,
         count: plateau.stagnantSessions,
       }),
-      t(language, 'coachPreview.combined.why2', { signal, acwr, recovery: recoveryScore }),
+      t(language, 'coachPreview.combined.why2', { signal, acwr: applyDecimalSeparator(`${acwr}`), recovery: recoveryScore }),
       t(language, 'coachPreview.combined.why3'),
     ],
     nextSteps: [
       t(language, 'coachPreview.combined.next1'),
-      t(language, 'coachPreview.combined.next2', { lift: plateau.name }),
+      t(language, 'coachPreview.combined.next2', { lift: exerciseNameLabel(language, plateau.name) }),
       t(language, 'coachPreview.combined.next3'),
     ],
     plan: [
       t(language, 'coachPreview.combined.plan1'),
-      t(language, 'coachPreview.combined.plan2', { lift: plateau.name }),
+      t(language, 'coachPreview.combined.plan2', { lift: exerciseNameLabel(language, plateau.name) }),
       t(language, 'coachPreview.combined.plan3'),
     ],
     assumptions: [previewAssumption(language), t(language, 'coachPreview.assume.deload')],
@@ -120,7 +124,7 @@ function buildPlateauResponse(
   const extraPlateaus = context.plateaus.length - 1;
   return {
     takeaway: t(language, 'coachPreview.plateau.takeaway', {
-      lift: plateau.name,
+      lift: exerciseNameLabel(language, plateau.name),
       count: plateau.stagnantSessions,
     }),
     why: [
@@ -133,7 +137,7 @@ function buildPlateauResponse(
         : t(language, 'coachPreview.plateau.why3None', { count: context.sessionsThisWeek }),
     ],
     nextSteps: [
-      t(language, 'coachPreview.plateau.next1', { lift: plateau.name }),
+      t(language, 'coachPreview.plateau.next1', { lift: exerciseNameLabel(language, plateau.name) }),
       t(language, 'coachPreview.plateau.next2'),
       t(language, 'coachPreview.plateau.next3'),
     ],
@@ -162,7 +166,7 @@ function buildHighFatigueResponse(
       signal === 'high' ? 'coachPreview.fatigue.takeawayHigh' : 'coachPreview.fatigue.takeawayElevated',
     ),
     why: [
-      t(language, 'coachPreview.fatigue.why1', { acwr, signal }),
+      t(language, 'coachPreview.fatigue.why1', { acwr: applyDecimalSeparator(`${acwr}`), signal }),
       t(language, 'coachPreview.fatigue.why2', { recovery: recoveryScore }),
       t(language, 'coachPreview.fatigue.why3', { sessions: sessionsWord(sessionCount7d, language) }),
     ],
@@ -332,7 +336,9 @@ export function buildAiCoachPreviewAnswer(
 
   // Program or split question — no urgent signals, give structural advice
   if (lower.includes('program') || lower.includes('ohjelma') || lower.includes('split') || lower.includes('treenijako')) {
-    const plateauNames = context.plateaus.map((p) => p.name).join(', ');
+    const plateauNames = context.plateaus
+      .map((p) => exerciseNameLabel(language, p.name))
+      .join(', ');
     return {
       takeaway: t(language, 'coachPreview.program.takeaway'),
       why: [
@@ -406,7 +412,7 @@ export function buildAiCoachPreviewAnswer(
       ],
       nextSteps: [
         hasPlateau && primaryPlateau
-          ? t(language, 'coachPreview.lastSession.nextPlateau', { name: primaryPlateau.name })
+          ? t(language, 'coachPreview.lastSession.nextPlateau', { name: exerciseNameLabel(language, primaryPlateau.name) })
           : t(language, 'coachPreview.lastSession.next1'),
         hasHighFatigue
           ? t(language, 'coachPreview.lastSession.nextFatigue')

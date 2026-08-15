@@ -7,6 +7,7 @@
 import { isTimedTrackingMode, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 import { t } from './i18n';
+import { removeTrailingZeros } from './format';
 
 export interface CompletedSetLike {
   status: 'completed' | 'skipped' | string;
@@ -74,7 +75,7 @@ export function getTopSetLabel(
 
   const weight = top.weightKg ?? 0;
   if (weight > 0) {
-    const weightLabel = Number.isInteger(weight) ? `${weight}` : `${Number(weight.toFixed(1))}`;
+    const weightLabel = removeTrailingZeros(weight);
     return `${weightLabel} × ${top.reps}`;
   }
   return t(language, 'logger.repsValue', { count: top.reps ?? 0 });

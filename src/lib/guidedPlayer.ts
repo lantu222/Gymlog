@@ -713,9 +713,9 @@ export function buildGuidedCoachMessage(
 ): GuidedCoachMessage {
   if (input.pr) {
     return {
-      message: t(language, 'guided.coach.pr', { kg: formatKg(input.pr.bestKg), name: input.pr.exerciseName }),
+      message: t(language, 'guided.coach.pr', { kg: formatKg(input.pr.bestKg), name: exerciseNameLabel(language, input.pr.exerciseName) }),
       sub: t(language, 'guided.coach.prSub', {
-        name: input.pr.exerciseName,
+        name: exerciseNameLabel(language, input.pr.exerciseName),
         kg: formatKg(input.pr.bestKg + 2.5),
       }),
     };
@@ -723,7 +723,7 @@ export function buildGuidedCoachMessage(
   if (input.topSet) {
     return {
       message: t(language, 'guided.coach.top', {
-        name: input.topSet.exerciseName,
+        name: exerciseNameLabel(language, input.topSet.exerciseName),
         kg: formatKg(input.topSet.loadKg),
       }),
       sub: t(language, 'guided.coach.topSub', {

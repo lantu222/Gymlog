@@ -10,6 +10,7 @@ import {
   topSetOf,
 } from './trainingHistory';
 import { AppLanguage, ExerciseLog, WorkoutSession } from '../types/models';
+import { removeTrailingZeros } from './format';
 
 /**
  * Content for the AI Coach sheet's three data modules, computed from what the
@@ -86,8 +87,8 @@ function roundVolume(value: number) {
 }
 
 function formatSigned(value: number) {
-  const rounded = Math.round(value * 10) / 10;
-  return rounded > 0 ? `+${rounded}` : `${rounded}`;
+  const rounded = removeTrailingZeros(Math.round(value * 10) / 10);
+  return value > 0 ? `+${rounded}` : rounded;
 }
 
 function buildFocus(
@@ -134,7 +135,7 @@ function buildFocus(
       highlights: [deltaText, periodText],
     },
     metrics: [
-      { value: `${Math.round(best.latest * 10) / 10} kg`, label: liftName },
+      { value: `${removeTrailingZeros(Math.round(best.latest * 10) / 10)} kg`, label: liftName },
       { value: deltaText, label: periodText },
     ],
   };
@@ -202,7 +203,7 @@ function buildAnalysis(
       }, 0);
 
     const liftName = exerciseNameLabel(language, heaviest.log.exerciseNameSnapshot);
-    const setText = `${Math.round(heaviest.weight * 10) / 10} kg × ${heaviest.reps}`;
+    const setText = `${removeTrailingZeros(Math.round(heaviest.weight * 10) / 10)} kg × ${heaviest.reps}`;
     // Beating the old best and equalling it are different results; calling a
     // new PR "matched" undersells what the user actually did.
     const beatBest = priorBest > 0 && heaviest.weight > priorBest;
@@ -249,7 +250,7 @@ function buildSuggestion(
     }
 
     const liftName = exerciseNameLabel(language, lift.name);
-    const weightText = `${Math.round(lift.latest.topSetWeightKg * 10) / 10} kg`;
+    const weightText = `${removeTrailingZeros(Math.round(lift.latest.topSetWeightKg * 10) / 10)} kg`;
     // The real run of flat sessions, not a capped "three" — a lift stuck for
     // six sessions is a different conversation from one stuck for three.
     const countText = `${lift.stalledSessions}`;

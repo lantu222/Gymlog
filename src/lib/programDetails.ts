@@ -13,6 +13,7 @@ import { getRecommendationProgrammeSummary } from './recommendationProgramme';
 import { getReadyProgramContent, ReadyProgramContentSection } from './readyProgramContent';
 import { buildSessionGuidance, SessionGuidance } from './sessionGuidance';
 import type { AppLanguage } from '../types/models';
+import { removeTrailingZeros } from './format';
 
 export type ProgramDetailSource = 'ready' | 'custom';
 
@@ -105,7 +106,7 @@ function buildRestLabel(minSeconds: number, maxSeconds: number): string {
   }
   const toMin = (value: number) => {
     const minutes = value / 60;
-    return Number.isInteger(minutes) ? `${minutes}` : `${minutes.toFixed(1).replace('.', ',')}`;
+    return Number.isInteger(minutes) ? `${minutes}` : removeTrailingZeros(Number(minutes.toFixed(1)));
   };
   return lo === hi ? `${toMin(lo)} min` : `${toMin(lo)}–${toMin(hi)} min`;
 }

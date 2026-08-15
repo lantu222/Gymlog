@@ -38,6 +38,7 @@ import type { ProgramSeason } from '../lib/programSeasons';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { WorkoutLevel } from '../features/workout/workoutTypes';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
+import { removeTrailingZeros } from '../lib/format';
 
 // Designed program covers (README "Program Covers"): a per-program hue rendered
 // as a gradient, with a single-stroke signature motif. oklch from the mock is
@@ -1087,10 +1088,10 @@ export function ProgramsHomeScreen({
                           </Text>
                           <Text style={styles.goalMeta} numberOfLines={1}>
                             {entry.currentKg === null
-                              ? t(language, 'programs.goals.notStarted', { target: entry.goal.targetKg })
+                              ? t(language, 'programs.goals.notStarted', { target: removeTrailingZeros(entry.goal.targetKg) })
                               : t(language, 'programs.goals.meta', {
-                                  current: entry.currentKg,
-                                  target: entry.goal.targetKg,
+                                  current: removeTrailingZeros(entry.currentKg),
+                                  target: removeTrailingZeros(entry.goal.targetKg),
                                 })}
                           </Text>
                           <View style={styles.goalTrack}>

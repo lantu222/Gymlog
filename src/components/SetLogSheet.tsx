@@ -11,6 +11,7 @@ import { libraryLabel } from '../lib/libraryLabel';
 import { PersonalRecord } from '../lib/personalRecords';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
+import { removeTrailingZeros } from '../lib/format';
 
 /**
  * One lift's set log, on a sheet over the exercise it belongs to.
@@ -38,8 +39,9 @@ interface SetLogSheetProps {
 }
 
 function decimal(value: number, language: AppLanguage) {
-  const rounded = Math.round(value * 10) / 10;
-  return language === 'fi' ? `${rounded}`.replace('.', ',') : `${rounded}`;
+  // The separator is format.ts's business now — it reads the app language
+  // once instead of every caller deciding again.
+  return removeTrailingZeros(Math.round(value * 10) / 10);
 }
 
 function thousands(value: number, language: AppLanguage) {

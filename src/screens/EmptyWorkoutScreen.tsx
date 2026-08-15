@@ -16,7 +16,7 @@ import { PlatePop } from '../components/PlatePop';
 import { RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
-import { parseNumberInput } from '../lib/format';
+import { parseNumberInput, removeTrailingZeros } from '../lib/format';
 import {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
   EmptyWorkoutMuscleFilter,
@@ -116,7 +116,7 @@ function formatSessionClock(totalSeconds: number) {
 }
 
 function formatVolumeLabel(volumeKg: number) {
-  return volumeKg % 1 ? volumeKg.toFixed(1) : `${volumeKg}`;
+  return removeTrailingZeros(volumeKg);
 }
 
 function buildSearchHaystack(item: ExerciseLibraryItem) {

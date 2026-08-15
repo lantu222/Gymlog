@@ -236,6 +236,18 @@ export function setNumberLanguage(language: AppLanguage) {
   decimalSeparator = language === 'en' ? '.' : ',';
 }
 
+/**
+ * The active decimal mark applied to a string the caller has already rounded.
+ *
+ * `removeTrailingZeros` rounds to one decimal, which is right for weights and
+ * wrong for anything that is legitimately finer: a 1.25 kg plate becomes "1,3"
+ * and an ACWR of 1.32 becomes "1,3". Those callers do their own rounding and
+ * only need the separator swapped.
+ */
+export function applyDecimalSeparator(text: string) {
+  return decimalSeparator === '.' ? text : text.replace('.', decimalSeparator);
+}
+
 export function removeTrailingZeros(value: number) {
   const text = value % 1 === 0 ? `${value}` : value.toFixed(1).replace(/\.0$/, '');
   return decimalSeparator === '.' ? text : text.replace('.', decimalSeparator);

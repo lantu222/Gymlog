@@ -4,7 +4,7 @@ import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'reac
 import { RulerPicker } from './RulerPicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { formatShortDate } from '../lib/format';
+import { formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -123,7 +123,7 @@ function BigValue({ value, suffix, decimals }: { value: number; suffix: string; 
 
   return (
     <View style={styles.bigRow}>
-      <Text style={styles.bigValue}>{value.toFixed(decimals)}</Text>
+      <Text style={styles.bigValue}>{removeTrailingZeros(Number(value.toFixed(decimals)))}</Text>
       <Text style={styles.bigSuffix}>{suffix}</Text>
     </View>
   );

@@ -14,7 +14,7 @@ import { CORE_WORKOUT_TEMPLATE_ID } from '../features/workout/workoutCatalog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { WorkoutExerciseInstance, WorkoutTemplateExercise } from '../features/workout/workoutTypes';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
-import { pluralize } from '../lib/format';
+import { pluralize, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { getReadyProgramContent } from '../lib/readyProgramContent';
 import { getCustomTemplatePresentation } from '../lib/templatePresentation';
@@ -206,7 +206,7 @@ function formatFlowExerciseMeta(exercise: WorkoutTemplateExercise | WorkoutExerc
       return '';
     }
     if (typeof firstSet.plannedLoadKg === 'number') {
-      return `${firstSet.plannedLoadKg} kg x ${formatReps(firstSet.plannedRepsMin, firstSet.plannedRepsMax)}`;
+      return `${removeTrailingZeros(firstSet.plannedLoadKg)} kg x ${formatReps(firstSet.plannedRepsMin, firstSet.plannedRepsMax)}`;
     }
     return `${exercise.sets.length} ${exercise.sets.length === 1 ? 'set' : 'sets'}`;
   }
