@@ -492,7 +492,9 @@ module.exports = [
       // thing hiding the content.
       assert.doesNotMatch(unlockSource, /MOMENT_MS|setShowMoment/);
       assert.match(unlockSource, /Animated\.stagger\(ROW_STAGGER_MS/);
-      assert.match(unlockSource, /isReduceMotionEnabled/);
+      // Asked through queryReduceMotion now, which cannot leave the screen
+      // waiting on an answer that never comes (utils/reduceMotion.ts).
+      assert.match(unlockSource, /queryReduceMotion()/);
 
       // One CTA, not two labels for the same navigation.
       assert.match(unlockSource, /onPress=\{onDone\}/);

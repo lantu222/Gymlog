@@ -7,6 +7,7 @@ import { ProChatChart, ProChatLine, ProChatScript } from '../lib/proChatHero';
 import { PW } from '../lightTheme';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 /**
  * The Pro page's hero: a short conversation with the coach that types itself
@@ -187,7 +188,7 @@ export function ProChatHero({ script, language }: ProChatHeroProps) {
 
   useEffect(() => {
     let cancelled = false;
-    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+    void queryReduceMotion().then((enabled) => {
       if (!cancelled) {
         setReduceMotion(enabled);
       }

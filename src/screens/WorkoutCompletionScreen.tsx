@@ -21,6 +21,7 @@ import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 // Workout Complete palette extensions (design_handoff_workout_complete).
 const GOLD = '#B7791F';
@@ -174,7 +175,7 @@ export function WorkoutCompletionScreen({
 
   useEffect(() => {
     let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
+    queryReduceMotion()
       .then((enabled) => {
         if (mounted) {
           setReduceMotion(Boolean(enabled));

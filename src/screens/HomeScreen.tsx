@@ -49,6 +49,7 @@ import { ProMomentSheet } from '../components/ProMomentSheet';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 // The Home Pro sheet is gone (design: Vinha Paywall Moments): contextual
 // sheets belong to the moments, and the comparison table lives on the ONE full
@@ -394,7 +395,7 @@ export function HomeScreen({
 
   useEffect(() => {
     let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
+    queryReduceMotion()
       .then((enabled) => {
         if (mounted) {
           setReduceMotion(Boolean(enabled));

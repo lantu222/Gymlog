@@ -17,6 +17,7 @@ import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 // EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
 // positioned so it floats low over the (light) app content — no light backdrop
@@ -191,7 +192,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
 
   useEffect(() => {
     let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
+    queryReduceMotion()
       .then((enabled) => {
         if (mounted) {
           setReduceMotion(Boolean(enabled));

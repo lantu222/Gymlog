@@ -102,6 +102,7 @@ import {
 } from '../types/models';
 import { AICoachAdvice } from '../types/aiCoach';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 interface OnboardingScreenProps {
   initialUnitPreference: UnitPreference;
@@ -1236,7 +1237,7 @@ function LevelStreaks({ levelIndex }: { levelIndex: number }) {
 
   useEffect(() => {
     let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+    queryReduceMotion().then((enabled) => {
       if (!cancelled) {
         setReduceMotion(enabled);
       }

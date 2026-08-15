@@ -98,7 +98,7 @@ module.exports = [
       assert.match(homeScreenSource, /calendarAnim\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 480\] \}\)/);
       // Entrance animations: staggered "rise" + progress fill, all skipped when
       // the user has reduced motion enabled (content must never stay hidden).
-      assert.match(homeScreenSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+      assert.match(homeScreenSource, /queryReduceMotion\(\)/);
       assert.match(homeScreenSource, /riseValues\.forEach\(\(value\) => value\.setValue\(1\)\)/);
       assert.match(homeScreenSource, /Easing\.bezier\(0\.22, 1, 0\.36, 1\)/);
       assert.match(homeScreenSource, /outputRange: \[16, 0\]/);
@@ -536,7 +536,7 @@ module.exports = [
       assert.match(bottomTabBarSource, /url\(#aiFill\)/);
       assert.match(bottomTabBarSource, /centerGlow:\s*\{[\s\S]*shadowColor: theme\.purpleBright/);
       assert.match(bottomTabBarSource, /aiCircle:\s*\{[\s\S]*width: AI_SIZE/);
-      assert.match(bottomTabBarSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+      assert.match(bottomTabBarSource, /queryReduceMotion\(\)/);
       assert.match(bottomTabBarSource, /fabPop\.setValue\(1\)/);
       assert.match(bottomTabBarSource, /Easing\.bezier\(0\.3, 1\.3, 0\.5, 1\)/);
       assert.match(bottomTabBarSource, /delay: 500/);

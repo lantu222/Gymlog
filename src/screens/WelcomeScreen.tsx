@@ -11,6 +11,7 @@ import Svg, { Path } from 'react-native-svg';
 import { SUPPORTED_LANGUAGES, t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 // Light design tokens (HG palette from the redesign handoff).
 const SURFACE = '#FFFFFF';
@@ -37,7 +38,7 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
 
   useEffect(() => {
     let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled().then((reduceMotion) => {
+    queryReduceMotion().then((reduceMotion) => {
       if (cancelled) {
         return;
       }

@@ -7,6 +7,7 @@ import { t } from '../lib/i18n';
 import { PRO_UNLOCK_CARDS } from '../lib/proBenefits';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 /**
  * What happens the moment Premium turns on (v2, user feedback 2026-08-02).
@@ -105,7 +106,7 @@ export function PremiumUnlockScreen({
 
   useEffect(() => {
     let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+    queryReduceMotion().then((enabled) => {
       if (!cancelled) {
         setReduceMotion(enabled);
       }
