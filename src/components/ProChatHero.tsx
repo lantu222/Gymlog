@@ -420,8 +420,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.gold,
   },
   thread: {
-    // Fixed, so the page below does not jump as bubbles land and clear.
-    height: 296,
+    /**
+     * Fixed, so the page below does not jump as bubbles land and clear — and
+     * tall enough that the fullest state (four bubbles, one carrying the
+     * chart) fits without `overflow: hidden` guillotining the oldest one
+     * mid-word. Measured on a 1080x2400 device in Finnish, which wraps longer
+     * than English: 270dp of content, 330 for the wrap that is one line worse.
+     *
+     * The design faded the top out with a CSS mask instead. RN has no
+     * mask-image and no masking library here, and an Svg gradient laid over
+     * the top does not work either: the hero gradient runs diagonally, so a
+     * single stop colour reads as a grey band rather than a fade (tried, seen
+     * on device, reverted). Fitting the content is the honest fix.
+     */
+    height: 330,
     marginTop: 13,
     justifyContent: 'flex-end',
     gap: 7,
