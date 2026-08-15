@@ -242,6 +242,9 @@ const PLANS: Array<{
 /** The save badge sits on gold in both themes, so its ink is fixed, not themed. */
 const BADGE_INK = '#241743';
 
+/** How far below the safe area the pinned footer's content sits. */
+const FOOT_DROP = 10;
+
 
 function CheckGlyph({ color, size = 16 }: { color: string; size?: number }) {
   return (
@@ -435,7 +438,16 @@ export function PremiumScreen({
         The tab bar is hidden on this route, so only the system inset sits
         under the button.
       */}
-      <View style={[styles.foot, { paddingBottom: insets.bottom + 8 }]}>
+      <View
+        style={[
+          styles.foot,
+          // The tiles, the CTA and the fine print all sit FOOT_DROP lower than
+          // the safe area alone would put them. Requested from the phone: the
+          // footer left a band of dead white under "Peru milloin vain." while
+          // the hero above it was fighting for points.
+          { paddingBottom: Math.max(0, insets.bottom + 8 - FOOT_DROP) },
+        ]}
+      >
         {/*
           proUnlocked was once computed and never read, so this page showed a
           subscriber the same buy button as everyone else — and pressing it ran
@@ -720,8 +732,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.border,
     paddingHorizontal: 14,
-    // The save badge overhangs the tile, so the foot needs headroom for it.
-    paddingTop: 17,
+    // The save badge overhangs the tile, so the foot needs headroom for it —
+    // plus FOOT_DROP, so shifting the content down does not shorten the bar.
+    paddingTop: 17 + FOOT_DROP,
     shadowColor: '#000000',
     shadowOpacity: 0.2,
     shadowRadius: 20,
