@@ -17,8 +17,12 @@ npm run slack:notify    # Post a note to a Slack channel (see docs/slack-workflo
 ### Slack notes
 
 Findings that are real but out of scope go to Slack rather than into the change
-in front of you. `#bugs` for defects, `#roadmap` for ideas, `#releases` for what
-shipped — full table and setup in [docs/slack-workflow.md](docs/slack-workflow.md).
+in front of you. `#bugs` for defects, `#marketing` for store copy and competitor
+notes, `#releases` for what shipped — setup in
+[docs/slack-workflow.md](docs/slack-workflow.md).
+
+The user logs bugs from their phone into `#bugs`. Read the channel through the
+Slack connector when asked, and work from it — that direction needs no webhook.
 
 ```powershell
 npm run slack:notify -- --channel bugs --text "Plan tiles clip at 320dp"

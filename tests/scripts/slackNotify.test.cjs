@@ -25,7 +25,10 @@ module.exports = [
       for (const channel of CHANNELS) {
         assert.equal(resolveChannel(channel.name).name, channel.name);
       }
-      assert.equal(CHANNELS.length, 5, 'adding a channel is a decision — update the docs with it');
+      // Three, matching the workspace. A fourth entry here means a fourth
+      // channel exists in Slack — a router that offers a destination nobody
+      // receives at loses the note and reports success.
+      assert.equal(CHANNELS.length, 3, 'adding a channel is a decision — update the docs with it');
     },
   },
   {
@@ -37,13 +40,8 @@ module.exports = [
       const expected = {
         bug: 'bugs',
         bugit: 'bugs',
-        tuotekehitys: 'roadmap',
-        updates: 'roadmap',
-        features: 'roadmap',
         markkinointi: 'marketing',
         julkaisut: 'releases',
-        yleinen: 'general',
-        misc: 'general',
       };
       for (const [alias, channel] of Object.entries(expected)) {
         assert.equal(resolveChannel(alias).name, channel, `${alias} should route to ${channel}`);
@@ -60,7 +58,7 @@ module.exports = [
     run() {
       assert.equal(normalizeChannelInput('#Bugs'), 'bugs');
       assert.equal(normalizeChannelInput('  BUGIT  '), 'bugit');
-      assert.equal(normalizeChannelInput('##general'), 'general');
+      assert.equal(normalizeChannelInput('##releases'), 'releases');
       assert.equal(resolveChannel('#Bugs').name, 'bugs');
       assert.equal(resolveChannel('  JULKAISUT ').name, 'releases');
     },
@@ -68,8 +66,8 @@ module.exports = [
   {
     name: 'slackNotify: an unknown channel fails loudly and never falls back',
     run() {
-      // There is no default channel on purpose. Routing a bug report to
-      // #general on a typo loses it just as thoroughly as dropping it, but
+      // There is no default channel on purpose. Routing a bug report to some
+      // catch-all on a typo loses it just as thoroughly as dropping it, but
       // lets the sender believe it landed.
       assert.throws(() => resolveChannel('buggs'), /Unknown channel "buggs"/);
       // The refusal has to name the alternatives — the caller is at a terminal
@@ -84,10 +82,8 @@ module.exports = [
     run() {
       const expected = {
         bugs: 'SLACK_WEBHOOK_BUGS',
-        roadmap: 'SLACK_WEBHOOK_ROADMAP',
         marketing: 'SLACK_WEBHOOK_MARKETING',
         releases: 'SLACK_WEBHOOK_RELEASES',
-        general: 'SLACK_WEBHOOK_GENERAL',
       };
       for (const [name, env] of Object.entries(expected)) {
         assert.equal(resolveChannel(name).env, env);
@@ -111,8 +107,8 @@ module.exports = [
       // An empty or blank value is the same failure as an absent one — this is
       // what an unset variable looks like after a shell expands it.
       assert.throws(
-        () => resolveWebhookUrl(resolveChannel('roadmap'), { SLACK_WEBHOOK_ROADMAP: '   ' }),
-        /SLACK_WEBHOOK_ROADMAP is not set/,
+        () => resolveWebhookUrl(resolveChannel('julkaisut'), { SLACK_WEBHOOK_RELEASES: '   ' }),
+        /SLACK_WEBHOOK_RELEASES is not set/,
       );
     },
   },

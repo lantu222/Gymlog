@@ -19,8 +19,12 @@
  * will type. Each channel reads its URL from its own environment variable, so
  * no webhook is ever committed:
  *
- *   SLACK_WEBHOOK_BUGS · SLACK_WEBHOOK_ROADMAP · SLACK_WEBHOOK_MARKETING
- *   SLACK_WEBHOOK_RELEASES · SLACK_WEBHOOK_GENERAL
+ *   SLACK_WEBHOOK_BUGS · SLACK_WEBHOOK_MARKETING · SLACK_WEBHOOK_RELEASES
+ *
+ * Three channels, matching the workspace exactly. An earlier table listed five;
+ * two of them existed only in this file, and a router that offers a destination
+ * nobody can receive at is worse than one that offers fewer. Add a channel here
+ * only once it exists in Slack.
  *
  * The routing half is exported and pure, so tests/scripts/slackNotify.test.cjs
  * can check every alias and every failure without a network or a real webhook.
@@ -36,14 +40,8 @@ const https = require('node:https');
  */
 const CHANNELS = [
   { name: 'bugs', aliases: ['bug', 'bugit'], env: 'SLACK_WEBHOOK_BUGS' },
-  {
-    name: 'roadmap',
-    aliases: ['tuotekehitys', 'updates', 'features'],
-    env: 'SLACK_WEBHOOK_ROADMAP',
-  },
   { name: 'marketing', aliases: ['markkinointi'], env: 'SLACK_WEBHOOK_MARKETING' },
   { name: 'releases', aliases: ['julkaisut'], env: 'SLACK_WEBHOOK_RELEASES' },
-  { name: 'general', aliases: ['yleinen', 'misc'], env: 'SLACK_WEBHOOK_GENERAL' },
 ];
 
 /** Every name and alias a caller may type, for error messages. */
@@ -66,7 +64,7 @@ function normalizeChannelInput(value) {
  * Name or alias → channel. Throws rather than guessing.
  *
  * There is deliberately no default channel. A typo that silently routes a bug
- * report into #general is worse than a typo that fails: the note is gone either
+ * report into the wrong channel is worse than one that fails: the note is gone either
  * way, but the silent one lets you believe it landed.
  */
 function resolveChannel(input) {
