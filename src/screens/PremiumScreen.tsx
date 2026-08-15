@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ProChatHero } from '../components/ProChatHero';
 import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
@@ -242,9 +241,6 @@ const PLANS: Array<{
 /** The save badge sits on gold in both themes, so its ink is fixed, not themed. */
 const BADGE_INK = '#241743';
 
-/** How far below the safe area the pinned footer's content sits. */
-const FOOT_DROP = 10;
-
 
 function CheckGlyph({ color, size = 16 }: { color: string; size?: number }) {
   return (
@@ -323,7 +319,6 @@ export function PremiumScreen({
 }: PremiumScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
   const [plan, setPlan] = useState<PlanId>('yearly');
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   // Pro via a redeemed code rather than the on-device preview switch: the
@@ -438,16 +433,7 @@ export function PremiumScreen({
         The tab bar is hidden on this route, so only the system inset sits
         under the button.
       */}
-      <View
-        style={[
-          styles.foot,
-          // The tiles, the CTA and the fine print all sit FOOT_DROP lower than
-          // the safe area alone would put them. Requested from the phone: the
-          // footer left a band of dead white under "Peru milloin vain." while
-          // the hero above it was fighting for points.
-          { paddingBottom: Math.max(0, insets.bottom + 8 - FOOT_DROP) },
-        ]}
-      >
+      <View style={styles.foot}>
         {/*
           proUnlocked was once computed and never read, so this page showed a
           subscriber the same buy button as everyone else — and pressing it ran
@@ -732,9 +718,23 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: theme.border,
     paddingHorizontal: 14,
-    // The save badge overhangs the tile, so the foot needs headroom for it —
-    // plus FOOT_DROP, so shifting the content down does not shorten the bar.
-    paddingTop: 17 + FOOT_DROP,
+    // The save badge overhangs the tile, so the foot needs headroom for it.
+    paddingTop: 24,
+    /**
+     * Its own breathing room, and nothing else.
+     *
+     * This used to be `insets.bottom + 8`, which counted the system bar twice:
+     * AppShell already wraps this route in a SafeAreaView with the bottom edge
+     * (App.tsx), so the drawable area stops above the navigation bar before
+     * this screen sees it — and useSafeAreaInsets still reports the full
+     * window inset regardless. On a gesture-navigation emulator the surplus is
+     * ~24dp and invisible. On a three-button phone it is ~48dp, and it is the
+     * band of dead white under "Peru milloin vain." that made this footer look
+     * like it was floating.
+     *
+     * A flat number means the bar is the same on both, which is the point.
+     */
+    paddingBottom: 20,
     shadowColor: '#000000',
     shadowOpacity: 0.2,
     shadowRadius: 20,
