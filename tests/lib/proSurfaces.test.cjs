@@ -345,8 +345,13 @@ module.exports = [
       assert.match(appSource, /chatScript=\{premiumChatScript\}/);
       assert.match(appSource, /buildProChatHeroScript\(\s*premiumHeroChart/);
 
-      // And the chart it is built from is computed from real logs, not seeded.
-      assert.match(appSource, /buildPremiumHeroChart\(trackedProgress, unitPreference\)/);
+      // And the chart it is built from is computed from real logs, not seeded —
+      // and carries the language, because the lift's name is shown in the
+      // conversation and must read the same as it does in the logger.
+      assert.match(
+        appSource,
+        /buildPremiumHeroChart\(trackedProgress, unitPreference, preferences\.appLanguage\)/,
+      );
 
       // The blurred-specimen block is gone with v3's hero; nothing on the page
       // may fake a coach read in its place.

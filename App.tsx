@@ -1378,8 +1378,8 @@ function VinhaApp() {
    * falls back to sample figures and labels itself as one.
    */
   const premiumHeroChart = useMemo(
-    () => buildPremiumHeroChart(trackedProgress, unitPreference),
-    [trackedProgress, unitPreference],
+    () => buildPremiumHeroChart(trackedProgress, unitPreference, preferences.appLanguage),
+    [preferences.appLanguage, trackedProgress, unitPreference],
   );
   const premiumChatScript = useMemo(
     () =>

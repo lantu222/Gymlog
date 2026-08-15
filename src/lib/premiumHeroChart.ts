@@ -13,8 +13,9 @@
  * module that draws it honestly. proSurfaces.test.cjs asserts App.tsx does not
  * call it, so it cannot quietly become a value computed and never read.
  */
-import { UnitPreference } from '../types/models';
+import { AppLanguage, UnitPreference } from '../types/models';
 import { formatLiftDisplayLabel } from './displayLabel';
+import { exerciseNameLabel } from './exerciseNameLabel';
 import { convertWeightFromKg } from './format';
 import { ExerciseProgressSummary } from './progression';
 import { getLoadIncrementKg } from './workoutIntelligence';
@@ -41,6 +42,14 @@ export interface PremiumHeroChart {
 export function buildPremiumHeroChart(
   summaries: ExerciseProgressSummary[],
   unitPreference: UnitPreference,
+  /**
+   * Needed because the name is shown, not just carried. Without it the Pro
+   * hero asked "Miten Barbell Bench Press - Medium Grip etenee?" in Finnish,
+   * quoting the raw library name while the logger and the workout summary two
+   * taps away both said "Penkkipunnerrus" (seen on the phone). Localizing here
+   * rather than at the call site means the next consumer cannot forget.
+   */
+  language: AppLanguage = 'en',
 ): PremiumHeroChart | null {
   let best: { summary: ExerciseProgressSummary; weightsKg: number[] } | null = null;
 
@@ -67,7 +76,7 @@ export function buildPremiumHeroChart(
   const latestKg = best.weightsKg[best.weightsKg.length - 1];
 
   return {
-    liftName: formatLiftDisplayLabel(best.summary.name),
+    liftName: exerciseNameLabel(language, formatLiftDisplayLabel(best.summary.name)),
     points,
     latest: points[points.length - 1],
     // The coach's real micro-progression step (2.5 kg, or 5 lb for lb users).
