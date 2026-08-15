@@ -41,12 +41,17 @@ interface ProChatHeroProps {
   language: AppLanguage;
 }
 
-/** Milliseconds per character while the coach "types". */
-const CPS = 16;
+/**
+ * Milliseconds per character while the coach "types".
+ *
+ * 16 read as a machine dumping text (reported from the phone). 24 is closer to
+ * someone composing an answer, which is the impression the hero is for.
+ */
+const CPS = 24;
 /** How long a user bubble sits before the coach starts. */
-const USER_BEAT = 850;
+const USER_BEAT = 950;
 /** The coach's thinking dots, before any text appears. */
-const THINK = 800;
+const THINK = 950;
 /** How long a finished answer is left readable. */
 const READ_BEAT = 2600;
 const READ_BEAT_CHART = 1900;
@@ -383,7 +388,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 16,
     paddingTop: 18,
-    paddingBottom: 16,
+    paddingBottom: 20,
     shadowColor: '#000000',
     shadowOpacity: 0.28,
     shadowRadius: 22,
@@ -539,12 +544,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     marginTop: 6,
+    // The lift name is the reader's own and can be long ("Penkkipunnerrus"),
+    // so the row wraps instead of pushing "= SUUNNITELMA" out of the bubble —
+    // reported from the phone, where it did exactly that.
+    flexWrap: 'wrap',
   },
   legendText: {
     fontSize: 9,
     fontWeight: '800',
     letterSpacing: 0.5,
     color: COACH_MUTED,
+    flexShrink: 1,
   },
   legendSwatch: {
     width: 7,
@@ -556,7 +566,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginTop: 13,
+    // Reported from the phone: at 13 the composer looked stuck to the bar
+    // below it rather than belonging to the card.
+    marginTop: 18,
     paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: 999,
