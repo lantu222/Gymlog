@@ -1842,18 +1842,18 @@ const EN = {
   'pro.v4.example': 'EXAMPLE',
   'pro.v4.chart.label': '{count} SESSIONS',
   'pro.v4.chart.plan': '= PLAN',
-  'pro.v4.line.stalled.q': '{lift} has sat at {weight} {unit} for {count} sessions now.',
+  'pro.v4.line.stalled.q': '{lift} is stuck: {weight} {unit} for {count} sessions straight.',
   'pro.v4.line.stalled.a':
-    'The load holds at {weight} {unit} until every working set reaches the top of its range — that is the signal, not the calendar. When it does, the next step is {next} {unit}.',
+    'The load holds — {weight} {unit} until every working set reaches the top of its rep range. That is the signal, not the calendar. Then the next one is {next} {unit}.',
   'pro.v4.line.rising.q': 'How is {lift} going?',
   'pro.v4.line.rising.a':
-    'Up from {from} to {to} {unit} across {sessions} sessions. Clear the reps on this one and the next step is {next} {unit}.',
+    'Well: {from} → {to} {unit} across {sessions} sessions. Clear the reps at this weight and the next one is {next} {unit}.',
   'pro.v4.line.days.q': 'I only get {days} sessions a week.',
   'pro.v4.line.days.a':
-    'Then the program is built for {days}, not trimmed down from more. {lift} gets two of them, far enough apart to recover.',
+    'Then the program is built for {days} sessions a week — not trimmed down from more. {lift} lands on two of them, far enough apart to recover.',
   'pro.v4.line.missed.q': 'What if I miss a session?',
   'pro.v4.line.missed.a':
-    'Nothing resets. {lift} picks up at the load it left off at — a missed week moves the plan, it does not restart it.',
+    'Nothing resets. {lift} picks up at the same load — a missed week moves the plan, it does not restart it.',
   'pro.v4.example.lift': 'Bench press',
 
   // Home's header pill. Gold offer for free, grey status for Pro — one label,
@@ -4728,18 +4728,18 @@ const FI: Record<I18nKey, string> = {
   'pro.v4.example': 'ESIMERKKI',
   'pro.v4.chart.label': '{count} TREENIÄ',
   'pro.v4.chart.plan': '= SUUNNITELMA',
-  'pro.v4.line.stalled.q': '{lift} on jumittanut lukemaan {weight} {unit} jo {count} treeniä.',
+  'pro.v4.line.stalled.q': '{lift} on jumissa: {weight} {unit} jo {count} treeniä putkeen.',
   'pro.v4.line.stalled.a':
-    'Kuorma pysyy lukemassa {weight} {unit} kunnes jokainen työsarja osuu kattoon — se on merkki, ei kalenteri. Kun se tapahtuu, seuraava askel on {next} {unit}.',
+    'Kuorma pysyy — {weight} {unit} niin kauan kunnes jokainen työsarja osuu toistohaarukan yläpäähän. Se on merkki, ei kalenteri. Sitten seuraava on {next} {unit}.',
   'pro.v4.line.rising.q': 'Miten {lift} etenee?',
   'pro.v4.line.rising.a':
-    'Ylös lukemasta {from} lukemaan {to} {unit} {sessions} treenissä. Kun toistot tulevat täyteen tällä, seuraava askel on {next} {unit}.',
+    'Hyvin: {from} → {to} {unit} {sessions} treenissä. Kun saat toistot täyteen tällä painolla, seuraava on {next} {unit}.',
   'pro.v4.line.days.q': 'Ehdin vain {days} kertaa viikossa.',
   'pro.v4.line.days.a':
-    'Silloin ohjelma rakennetaan {days} kerralle, ei karsita suuremmasta. {lift} osuu niistä kahteen, tarpeeksi kaukana toisistaan.',
+    'Silloin ohjelma tehdään {days} treenille viikossa — ei karsita isommasta. {lift} osuu niistä kahteen, tarpeeksi kaukana toisistaan.',
   'pro.v4.line.missed.q': 'Entä jos treeni jää väliin?',
   'pro.v4.line.missed.a':
-    'Mikään ei nollaudu. {lift} jatkaa siitä kuormasta mihin se jäi — väliin jäänyt viikko siirtää suunnitelmaa, ei aloita sitä alusta.',
+    'Mikään ei nollaudu. {lift} jatkaa samasta kuormasta — väliin jäänyt viikko siirtää suunnitelmaa, ei aloita sitä alusta.',
   'pro.v4.example.lift': 'Penkkipunnerrus',
 
   'home.proPill': 'PRO',

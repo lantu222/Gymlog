@@ -745,16 +745,27 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  /**
+   * Deliberately tall.
+   *
+   * These three are the decision the whole page builds to, and at the height
+   * they inherited from the mock they read as a segmented control — something
+   * you set, not something you choose. Reclaiming the double-counted inset
+   * made the disparity worse: the CTA and the hero both grew and the tiles
+   * stayed a strip. They get the room now.
+   */
   planTile: {
     flex: 1,
-    borderRadius: 14,
+    minHeight: 104,
+    borderRadius: 16,
     borderWidth: 2,
     borderColor: 'transparent',
     backgroundColor: theme.surfaceSoft,
-    paddingTop: 11,
-    paddingBottom: 10,
+    paddingTop: 16,
+    paddingBottom: 14,
     paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   planTileOn: {
     borderColor: theme.purple,
@@ -779,7 +790,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: BADGE_INK,
   },
   planName: {
-    fontSize: 10.5,
+    fontSize: 11.5,
     fontWeight: '800',
     letterSpacing: 0.4,
     color: theme.faint,
@@ -788,17 +799,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.purpleDark,
   },
   planPrice: {
-    fontSize: 16.5,
+    fontSize: 19,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
     color: theme.ink,
-    marginTop: 5,
+    marginTop: 9,
   },
   planUnit: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontWeight: '700',
     color: theme.muted,
-    marginTop: 2,
+    marginTop: 4,
   },
   ctaButton: {
     height: 52,
