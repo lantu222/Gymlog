@@ -208,8 +208,37 @@ export function parseNumberInput(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * The decimal mark every number in the UI is written with.
+ *
+ * Finnish writes 92,5 and English writes 92.5, and the app shipped dots to
+ * both — "92.5 kg" on every screen that states a weight, in an app whose first
+ * language is Finnish. Reported from the phone on the Pro page, but the Pro
+ * page was only where it was noticed.
+ *
+ * This is a module setting rather than a parameter because removeTrailingZeros
+ * has 41 call sites and most of them are nowhere near a `language`: pure lib
+ * functions, chart tick formatters, components that never took a language prop.
+ * Threading it through all of them to change one character would be a large
+ * mechanical diff across the whole app for a cross-cutting concern that every
+ * i18n library models as exactly this — a current locale.
+ *
+ * Finnish is the default, so forgetting to call the setter fails toward the
+ * app's own first language rather than toward English.
+ *
+ * NOT used by the CSV exports. They write raw numbers (workoutLogCsvExport
+ * passes `row.weight` straight to csvField), which is what keeps a decimal
+ * comma from turning a comma-separated file into nonsense. Keep it that way.
+ */
+let decimalSeparator = ',';
+
+export function setNumberLanguage(language: AppLanguage) {
+  decimalSeparator = language === 'en' ? '.' : ',';
+}
+
 export function removeTrailingZeros(value: number) {
-  return value % 1 === 0 ? `${value}` : value.toFixed(1).replace(/\.0$/, '');
+  const text = value % 1 === 0 ? `${value}` : value.toFixed(1).replace(/\.0$/, '');
+  return decimalSeparator === '.' ? text : text.replace('.', decimalSeparator);
 }
 
 export function pluralize(count: number, singular: string, plural = `${singular}s`) {

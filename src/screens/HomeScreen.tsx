@@ -165,6 +165,8 @@ interface HomeScreenProps {
   onOpenCardio?: () => void;
   /** Where every Pro touchpoint leads — the full Pro page. */
   onOpenPremium?: () => void;
+  /** Where an existing subscriber goes from the header pill. */
+  onOpenSubscription?: () => void;
   /** For the greeting's first name. Null when the profile has no name. */
   profileName?: string | null;
   /** Paywall moment 2: a real stalled lift, or null when nothing is stalled. */
@@ -257,6 +259,7 @@ export function HomeScreen({
   onCreateWorkoutFromExercises,
   onOpenCardio,
   onOpenPremium,
+  onOpenSubscription,
   plateau = null,
   proUnlocked = false,
   historyItems = [],
@@ -630,13 +633,39 @@ export function HomeScreen({
   return (
     <View style={styles.screenBackground}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* 1C: mark, rule, greeting, week. The bar is brand only — the PRO
-            pill is gone from here. It advertised a subscription to everyone
-            including the people already paying, and the Pro page keeps its
-            twelve other ways in. */}
+        {/*
+          1C: mark, rule, greeting, week — plus the PRO pill, which is back.
+          It was removed for advertising a subscription to people who already
+          paid, and that reason was right about the gold version only. The pill
+          now reads the entitlement and says two different things: gold is an
+          offer, grey is a status. A subscriber gets a way into their own
+          membership from the screen they open most, which is the thing the
+          removal took away along with the ad.
+        */}
         <Animated.View style={rise(RISE_HEADER)}>
           <View style={styles.headerRow}>
             <VinhaWordmark size={34} />
+            <View style={styles.headerSpacer} />
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t(language, proUnlocked ? 'home.proPill.manage' : 'home.proPill.get')}
+              onPress={() => (proUnlocked ? onOpenSubscription?.() : onOpenPremium?.())}
+              hitSlop={10}
+              style={({ pressed }) => [
+                styles.proPill,
+                proUnlocked ? styles.proPillActive : styles.proPillOffer,
+                pressed && styles.proPillPressed,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.proPillText,
+                  proUnlocked ? styles.proPillTextActive : styles.proPillTextOffer,
+                ]}
+              >
+                {t(language, 'home.proPill')}
+              </Text>
+            </Pressable>
           </View>
 
           {/* Three brightnesses left to right, at the same −18° as the A3 cut.
@@ -1500,6 +1529,40 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerSpacer: {
+    flex: 1,
+  },
+  proPill: {
+    paddingVertical: 4,
+    paddingHorizontal: 11,
+    borderRadius: 999,
+  },
+  // Free: gold, because it is an offer and gold is the one "this is Pro"
+  // highlight the paywall already uses.
+  proPillOffer: {
+    backgroundColor: theme.gold,
+  },
+  // Pro: grey, because it is a status. A subscriber who taps it lands on their
+  // membership, not on a page selling them what they have.
+  proPillActive: {
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
+  },
+  proPillPressed: {
+    opacity: 0.85,
+  },
+  proPillText: {
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+  },
+  proPillTextOffer: {
+    color: '#241743',
+  },
+  proPillTextActive: {
+    color: theme.muted,
   },
   // The skew is allowed to overhang: the scroll content already carries 20px
   // of horizontal padding, so nothing clips.

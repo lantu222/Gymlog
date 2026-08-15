@@ -275,6 +275,11 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
       style={[
         styles.shell,
         { paddingBottom: 4 + Math.min(insets.bottom, 4) },
+        // Sits BAR_DROP lower than the safe area would put it. Requested from
+        // the phone: the floating pill read as hovering too high above the
+        // system bar. Negative margin rather than a smaller paddingBottom
+        // because the padding only had 8 to give and the ask was 10.
+        { marginBottom: -BAR_DROP },
         {
           opacity: barRise,
           transform: [{ translateY: barRiseTranslate }],
@@ -344,6 +349,9 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
     </Animated.View>
   );
 }
+
+/** How far below the safe-area bottom the floating bar sits. */
+const BAR_DROP = 10;
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
   // Absolutely positioned so it floats low over the content (no backdrop strip).

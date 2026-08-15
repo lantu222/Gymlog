@@ -198,6 +198,7 @@ import { ExerciseDetailScreen } from './src/screens/ExerciseDetailScreen';
 import { ExercisesScreen } from './src/screens/ExercisesScreen';
 import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen';
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
+import { setNumberLanguage } from './src/lib/format';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildProChatHeroScript } from './src/lib/proChatHero';
 import { PremiumScreen } from './src/screens/PremiumScreen';
@@ -888,6 +889,19 @@ function VinhaApp() {
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
+
+  /**
+   * Numbers follow the app language, not the device.
+   *
+   * removeTrailingZeros writes every weight, volume and chart tick in the UI,
+   * and it reads a module setting rather than a parameter (see the note in
+   * lib/format.ts). This is the one place that setting is written, so it must
+   * run before anything renders a number and again whenever the language
+   * changes — which is why it is a layout effect and not a plain one.
+   */
+  useEffect(() => {
+    setNumberLanguage(preferences.appLanguage);
+  }, [preferences.appLanguage]);
 
   useEffect(() => {
     if (!appHydrated || preferences.hasOpenedAppBefore) {
@@ -5411,6 +5425,7 @@ function VinhaApp() {
     content = (
       <HomeScreen
         language={preferences.appLanguage}
+        onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
         onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}

@@ -1857,6 +1857,12 @@ const EN = {
     'Nothing resets. {lift} picks up at the load it left off at — a missed week moves the plan, it does not restart it.',
   'pro.v4.example.lift': 'Bench press',
 
+  // Home's header pill. Gold offer for free, grey status for Pro — one label,
+  // two meanings, and the accessibility label says which.
+  'home.proPill': 'PRO',
+  'home.proPill.get': 'Get Vinha Pro',
+  'home.proPill.manage': 'Your Pro membership',
+
   'unlock.active': 'PREMIUM ACTIVE',
   'unlock.title': 'Here’s what’s different now',
   'unlock.lead': 'Nothing to configure — your plan already knows.',
@@ -4737,6 +4743,10 @@ const FI: Record<I18nKey, string> = {
   'pro.v4.line.missed.a':
     'Mikään ei nollaudu. {lift} jatkaa siitä kuormasta mihin se jäi — väliin jäänyt viikko siirtää suunnitelmaa, ei aloita sitä alusta.',
   'pro.v4.example.lift': 'Penkkipunnerrus',
+
+  'home.proPill': 'PRO',
+  'home.proPill.get': 'Hanki Vinha Pro',
+  'home.proPill.manage': 'Pro-jäsenyytesi',
 
   'unlock.active': 'PREMIUM AKTIIVINEN',
   'unlock.title': 'Tämä muuttui',

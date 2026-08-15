@@ -68,10 +68,17 @@ module.exports = [
       assert.match(i18nSource, /'home\.greet\.back1\.title': 'Tervetuloa takaisin'/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
       assert.match(homeScreenSource, /greetingLine:\s*\{[\s\S]*fontSize: 13\.5/);
-      // The header bar is brand only. The PRO pill advertised a subscription
-      // to everyone including the people already paying, and the Pro page has
-      // twelve other ways in — the prop and the route stay for them.
-      assert.doesNotMatch(homeScreenSource, /proBadge/);
+      // The PRO pill is back, and it reads the entitlement. It was removed for
+      // advertising a subscription to people who already paid; that reason
+      // applied to the gold offer, not to a status badge. Gold goes to the Pro
+      // page, grey goes to the membership the reader already has — a
+      // subscriber must never be sent to a page selling them what they own.
+      assert.match(homeScreenSource, /proUnlocked \? onOpenSubscription\?\.\(\) : onOpenPremium\?\.\(\)/);
+      assert.match(homeScreenSource, /proUnlocked \? styles\.proPillActive : styles\.proPillOffer/);
+      assert.match(homeScreenSource, /proPillOffer:\s*\{[\s\S]{0,80}backgroundColor: theme\.gold/);
+      assert.match(homeScreenSource, /proPillActive:\s*\{[\s\S]{0,120}backgroundColor: theme\.surfaceSoft/);
+      // The label is one word; what it means is in the accessibility label.
+      assert.match(homeScreenSource, /proUnlocked \? 'home\.proPill\.manage' : 'home\.proPill\.get'/);
       assert.match(homeScreenSource, /<VinhaWordmark size=\{34\}/);
       assert.match(homeScreenSource, /speedRule:\s*\{[\s\S]*skewX: '-18deg'/);
       // The date is stated once, on the greeting row — today's cell in the
