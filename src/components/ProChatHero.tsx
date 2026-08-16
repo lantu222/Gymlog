@@ -521,12 +521,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   bars: {
     flexDirection: 'row',
     alignItems: 'flex-end',
+    // Left-aligned rather than stretched. With a full history the bars fill the
+    // row either way; with two logged workouts they used to spread into three
+    // wide blocks, which reads as a broken chart rather than a short one — and
+    // the reader who sees it is the new one, on their first look at the page.
+    justifyContent: 'flex-start',
     gap: 2.5,
     height: 30,
     marginTop: 9,
   },
   bar: {
     flex: 1,
+    /**
+     * Sparse data should look sparse, not inflated.
+     *
+     * The cap is set just above what a full series works out to on its own —
+     * ~15dp for sixteen bars in this bubble — so it never bites on the case it
+     * is not for. At two logged workouts it turns three 89dp slabs into three
+     * bars, which is what "not much history yet" should look like.
+     */
+    maxWidth: 18,
     borderRadius: 2,
     backgroundColor: BAR_HISTORY,
   },

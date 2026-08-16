@@ -113,3 +113,42 @@ export function countSessionsSince(
   }
   return count;
 }
+
+/**
+ * Sessions logged against the plan's templates inside one window — the count
+ * behind "VIIKKO 1 · 2/2".
+ *
+ * Reported from the phone: two freestyle workouts filled week 1 of a programme
+ * neither of them belonged to, and the green bar went full. The counter was
+ * reading every session in the week, which is the right rule for a streak and
+ * the wrong one for a plan: the label names the *programme's* week and the
+ * denominator is the programme's days, so the numerator has to be the
+ * programme's sessions.
+ *
+ * Same membership test as countSessionsSince, deliberately — a session belongs
+ * to the plan when it was logged against one of the plan's templates, and a
+ * freestyle session is saved against a template of its own. Two counters
+ * disagreeing about what "a session of this plan" means is how "2/2" appeared
+ * beside a plan with nothing done.
+ */
+export function countPlanSessionsInRange(
+  sessions: readonly WorkoutSession[],
+  templateIds: ReadonlySet<string>,
+  fromMs: number,
+  toMs: number,
+): number {
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+    return 0;
+  }
+  let count = 0;
+  for (const session of sessions) {
+    if (!session.workoutTemplateId || !templateIds.has(session.workoutTemplateId)) {
+      continue;
+    }
+    const stamp = Date.parse(session.performedAt);
+    if (Number.isFinite(stamp) && stamp >= fromMs && stamp < toMs) {
+      count += 1;
+    }
+  }
+  return count;
+}

@@ -1136,6 +1136,10 @@ const EN = {
   'complete.stat.setsOne': 'SET',
   'complete.stat.exercisesOne': 'EXERCISE',
   'complete.muscleFocus': 'MUSCLE FOCUS',
+  // The list heading, not the stat unit. Sharing 'complete.stat.exercises' put
+  // a quantity word ("EXERCISES", as in "2 exercises") over a list of what you
+  // actually did, three rows below the stat that uses it correctly.
+  'complete.section.exercises': 'WHAT YOU DID',
   'complete.exerciseSetsOne': '1 set',
   'complete.exerciseSetsMany': '{count} sets',
   'complete.topSet': 'TOP SET',
@@ -4091,6 +4095,7 @@ const FI: Record<I18nKey, string> = {
   'complete.stat.setsOne': 'SARJA',
   'complete.stat.exercisesOne': 'LIIKE',
   'complete.muscleFocus': 'LIHASFOKUS',
+  'complete.section.exercises': 'SUORITIT',
   'complete.exerciseSetsOne': '1 sarja',
   'complete.exerciseSetsMany': '{count} sarjaa',
   'complete.topSet': 'RASKAIN SARJA',

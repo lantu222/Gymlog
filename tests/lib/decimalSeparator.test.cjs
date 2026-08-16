@@ -76,6 +76,49 @@ module.exports = [
     },
   },
   {
+    name: 'decimal: the setting is written during render, not in an effect',
+    run() {
+      /**
+       * Writing it in an effect is a whole render too late.
+       *
+       * Much of the app's formatted text comes from useMemo blocks in App.tsx.
+       * An effect runs after render, so on the render where the language
+       * changed every one of those memos recomputed against the *previous*
+       * language's separator and then never recomputed again — their dependency
+       * on appLanguage had already fired. The Pro hero shipped "92.5 kg" to a
+       * Finnish reader that way.
+       *
+       * It only appears when the device language and the app language differ,
+       * which is why a Finnish phone cannot reproduce it and an en-US emulator
+       * can. Nothing about that is going to be obvious to whoever tidies this
+       * call back into an effect, so the guard says it instead.
+       */
+      const app = fs.readFileSync(path.join(root, 'App.tsx'), 'utf8');
+      const lines = app.split(String.fromCharCode(10));
+      const callIndex = lines.findIndex((line) =>
+        line.includes('setNumberLanguage(preferences.appLanguage)'),
+      );
+      assert.ok(callIndex >= 0, 'App must write the number language');
+
+      // A bare statement at the component body's own indentation. Inside any
+      // effect, callback or block it would be indented further.
+      assert.match(
+        lines[callIndex],
+        /^ {2}setNumberLanguage\(preferences\.appLanguage\);$/,
+        'setNumberLanguage must be a plain render-phase statement in the component body',
+      );
+
+      // ...and nothing hook-shaped may sit above it, or a hook that formats a
+      // number would run against the stale separator on the first render.
+      const before = lines.slice(0, callIndex).join(String.fromCharCode(10));
+      assert.doesNotMatch(
+        before,
+        /\buseMemo\(|\buseEffect\(|\buseScheduledNotifications\(/,
+        'setNumberLanguage must come before any hook that could format a number',
+      );
+    },
+  },
+  {
     name: 'decimal: the CSV exports keep writing raw numbers',
     run() {
       // A decimal comma inside a comma-separated file is the one way this

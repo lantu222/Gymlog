@@ -389,7 +389,7 @@ export function WorkoutCompletionScreen({
           ) : null}
 
           <Animated.View style={rise(5)}>
-            <Text style={styles.sectionLabel}>{t(language, 'complete.stat.exercises')}</Text>
+            <Text style={styles.sectionLabel}>{t(language, 'complete.section.exercises')}</Text>
             <View style={[styles.sectionCard, styles.exercisesCard]}>
               {exerciseCards.map((exercise, index) => (
                 <View key={exercise.id} style={[styles.exerciseRow, index > 0 && styles.exerciseRowDivided]}>

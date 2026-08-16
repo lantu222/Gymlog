@@ -148,7 +148,11 @@ import {
   WEEKDAY_KEYS,
 } from './src/lib/programTrainingDays';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
-import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
+import {
+  countPlanSessionsInRange,
+  countSessionsSince,
+  resolveCompletionCard,
+} from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
@@ -839,6 +843,32 @@ function VinhaApp() {
   } = useAppContext();
   const workout = useWorkoutContext();
 
+  /**
+   * Numbers follow the app language, not the device.
+   *
+   * Written during render, and placed above every hook that could format a
+   * number — that ordering is the whole point.
+   *
+   * removeTrailingZeros reads a module setting rather than a parameter (see the
+   * note in lib/format.ts), and much of the app's formatted text is produced by
+   * useMemo blocks in this file. This used to be an effect, which runs *after*
+   * render: on the render where the language changed, every one of those memos
+   * recomputed while the setting still held the previous language's separator —
+   * and then never recomputed again, because their dependency on appLanguage had
+   * already fired. The setting was corrected a moment later with nothing left to
+   * read it.
+   *
+   * It cost the Pro hero "92.5 kg" in front of a Finnish reader, and it needs two
+   * languages to show up: the device supplies the first render's language and the
+   * stored preference supplies the second. On a phone whose system language
+   * matches the app, the separator is never wrong to begin with, which is why
+   * five rounds on a Finnish phone never saw it and an en-US emulator did.
+   *
+   * The setter is idempotent, so running it every render — including StrictMode's
+   * double invoke — costs one comparison and cannot be observed.
+   */
+  setNumberLanguage(preferences.appLanguage);
+
   const [navigationState, setNavigationState] = useState<NavigationState>({
     route: ROOT_ROUTES.home,
     history: [],
@@ -889,19 +919,6 @@ function VinhaApp() {
   const workoutLogNavigationAllowedAtRef = useRef<number | null>(null);
   const route = navigationState.route;
   const appHydrated = hydrated && workout.hydrated;
-
-  /**
-   * Numbers follow the app language, not the device.
-   *
-   * removeTrailingZeros writes every weight, volume and chart tick in the UI,
-   * and it reads a module setting rather than a parameter (see the note in
-   * lib/format.ts). This is the one place that setting is written, so it must
-   * run before anything renders a number and again whenever the language
-   * changes — which is why it is a layout effect and not a plain one.
-   */
-  useEffect(() => {
-    setNumberLanguage(preferences.appLanguage);
-  }, [preferences.appLanguage]);
 
   useEffect(() => {
     if (!appHydrated || preferences.hasOpenedAppBefore) {
@@ -2991,6 +3008,11 @@ function VinhaApp() {
         return {
           programId: activeTemplate.id,
           programType: activePlanProgramType,
+          // The plan's own templates, so every counter that says "of this
+          // plan" can agree on what that means. The week counter used to read
+          // all sessions in the week and filled the programme's week with
+          // freestyle workouts.
+          planTemplateIds: [...planTemplateIds],
           eyebrow: `${sortedEntries.length} day custom plan`,
           goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
           title: formatWorkoutDisplayLabel(activeWorkoutPlan.name || activeTemplate.name, 'Workout plan'),
@@ -3308,10 +3330,16 @@ function VinhaApp() {
     const now = new Date();
     const weekStart = getStartOfWeek(now);
     const weekEnd = getEndOfWeek(now);
-    const savedThisWeek = workoutSessions.filter((session) => {
-      const performed = new Date(session.performedAt);
-      return performed >= weekStart && performed < weekEnd;
-    }).length;
+    // Only the plan's own sessions. This counted every session in the week,
+    // and the label above it names the programme's week while the denominator
+    // is the programme's days per week — so two freestyle workouts read as
+    // "VIIKKO 1 · 2/2" against a programme neither of them touched.
+    const savedThisWeek = countPlanSessionsInRange(
+      workoutSessions,
+      new Set(homeActivePlanCard?.planTemplateIds ?? []),
+      weekStart.getTime(),
+      weekEnd.getTime(),
+    );
     return {
       weekLabel: homeActivePlanCard
         ? t(preferences.appLanguage, 'guided.finish.week', { week: homeActivePlanCard.currentWeek })

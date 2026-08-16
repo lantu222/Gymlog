@@ -25,6 +25,7 @@ import {
   buildFreestyleFinish,
   exerciseInitials,
   freestyleDoneSetCount,
+  freestyleHasSetAfter,
   freestyleVolumeKg,
   matchesMuscleFilter,
 } from '../lib/emptyWorkoutSession';
@@ -537,10 +538,14 @@ export function EmptyWorkoutScreen({
     if (!set.done) {
       void haptics.success();
       sound.done();
-      const duration = exercise.restSeconds > 0 ? Math.round(exercise.restSeconds) : defaultRestSeconds;
-      const now = Date.now();
-      setNowMs(now);
-      setRest({ totalSeconds: duration, endsAtMs: now + duration * 1000 });
+      // No next set, no rest. The bar used to open on the last tick of the
+      // session, count down to nothing, and cover "Lopeta treeni" while it did.
+      if (freestyleHasSetAfter(exercises, exerciseKey, setKey)) {
+        const duration = exercise.restSeconds > 0 ? Math.round(exercise.restSeconds) : defaultRestSeconds;
+        const now = Date.now();
+        setNowMs(now);
+        setRest({ totalSeconds: duration, endsAtMs: now + duration * 1000 });
+      }
     }
 
     setExercises((current) =>
