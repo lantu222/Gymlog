@@ -7,7 +7,7 @@ import { t } from '../lib/i18n';
 import { PW } from '../lightTheme';
 import { Theme, useThemedStyles, useTheme } from '../theming';
 import { AppLanguage } from '../types/models';
-import { ProLockIcon, ProPill } from './ProLockedCard';
+import { ProLockIcon, ProPill } from './ProLockMarks';
 
 /**
  * A real gaussian blur, with no new native dependency.

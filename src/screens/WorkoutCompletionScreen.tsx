@@ -425,7 +425,11 @@ export function WorkoutCompletionScreen({
           {/* Paywall moment 1: one locked recommendation right after the free
               insight, while the data is fresh. Never shown without real data. */}
           {lockedInsight ? (
-            <Animated.View style={rise(5)}>
+            // The card had no margin at all, so it sat flush against the cards
+            // above and below while everything else in the list breathes. Same
+            // rhythm as the rest now: a section's worth of air above, a card's
+            // worth below.
+            <Animated.View style={[styles.lockedCardWrap, rise(5)]}>
               <ProLockedCard
                 language={language}
                 teaser={lockedInsight.teaser}
@@ -581,6 +585,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '600',
+  },
+  lockedCardWrap: {
+    marginTop: 20,
+    marginBottom: 12,
   },
   weekCard: {
     backgroundColor: theme.surface,

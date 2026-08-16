@@ -1030,6 +1030,32 @@ function VinhaApp() {
     );
   }
 
+  /**
+   * Leave a finished-workout screen: clear its data and move, in one commit.
+   *
+   * The single transition is the whole point. Every navigation helper here
+   * wraps setNavigationState in startTransition, which makes route changes
+   * non-urgent — so a plain `setCompletionSummary(null)` alongside them is
+   * urgent and lands *first*. That commits a frame where the route is still
+   * {workout, summary} while the summary data is already gone.
+   *
+   * The summary branch is guarded on `&& completionSummary`, so that frame
+   * matches no named workout screen and falls through to the tab's catch-all,
+   * which renders the exercise browser. Reported from the phone as "Ohjelmat
+   * flashes for a beat between the summary and Home".
+   *
+   * Clearing after navigating does not fix it: the clear would still be the
+   * urgent half. They have to be the same update.
+   */
+  function leaveFinishedWorkout(nextRoute: AppRoute) {
+    startTransition(() => {
+      setCompletionSummary(null);
+      setWorkoutCelebration(null);
+      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+      setNavigationState({ route: nextRoute, history: [] });
+    });
+  }
+
   function navigateToTab(tab: RootTabKey) {
     // Programs-tab redesign (flagged): the workout tab lands on the Programs
     // home instead of the legacy exercise list.
@@ -4699,11 +4725,8 @@ function VinhaApp() {
         }
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         onDone={() => {
-          setCompletionSummary(null);
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           workout.clearCompletedWorkout();
-          resetToRoute(ROOT_ROUTES.home);
+          leaveFinishedWorkout(ROOT_ROUTES.home);
         }}
       />
     );
@@ -4718,16 +4741,11 @@ function VinhaApp() {
         totalDurationMinutesThisWeek={workoutCelebration.totalDurationMinutesThisWeek}
         prCount={workoutCelebration.prCount}
         unitPreference={unitPreference}
-        onDone={() => {
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          resetToRoute(ROOT_ROUTES.home);
-        }}
-        onViewProgress={() => {
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          resetToRoute(ROOT_ROUTES.progress);
-        }}
+        // Same shape as the summary: the celebration branch is guarded on
+        // `&& workoutCelebration`, so clearing it urgently would drop through
+        // to the same catch-all on the way out.
+        onDone={() => leaveFinishedWorkout(ROOT_ROUTES.home)}
+        onViewProgress={() => leaveFinishedWorkout(ROOT_ROUTES.progress)}
       />
     );
   } else if (route.tab === 'progress' && route.screen === 'calendar') {
@@ -5466,7 +5484,20 @@ function VinhaApp() {
         onOpenLibrary={() => navigate({ tab: 'workout', screen: 'list' })}
       />
     );
-  } else if (route.tab === 'workout') {
+    /**
+     * Named, not a catch-all.
+     *
+     * This was `route.tab === 'workout'` with no screen check, which made the
+     * exercise browser the silent destination for *any* workout route that
+     * matched nothing above it — including a real one mid-transition. That is
+     * how the summary dismissal came out as a flash of the browser rather than
+     * as a visible routing bug: the fallback swallowed it and looked plausible.
+     *
+     * `list` is ROOT_ROUTES.workout, so this is still someone's real
+     * destination. Anything else now falls to the Home branch at the end,
+     * where the route guard above can correct it.
+     */
+  } else if (route.tab === 'workout' && route.screen === 'list') {
     content = (
       <ExercisesScreen
         language={preferences.appLanguage}

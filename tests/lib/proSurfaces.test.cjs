@@ -433,9 +433,36 @@ module.exports = [
     name: 'the paywall moments blur the real conclusion, never a feature list',
     run() {
       const locked = read('src', 'components', 'ProLockedCard.tsx');
-      // The blur is transparent ink + shadow over caller-provided REAL lines.
-      assert.match(locked, /color: 'transparent'/);
-      assert.match(locked, /textShadowRadius/);
+
+      /**
+       * The blur must be the real one, over a caller-provided REAL conclusion.
+       *
+       * This used to pin `color: 'transparent'` and `textShadowRadius` — the
+       * technique rather than the property. That was the best RN could do when
+       * the card was written, and it was already known to be weak: Android's
+       * text shadow is a mask filter, not a gaussian, so glyph shapes survive
+       * it. Reported from the phone as the recommendation being readable
+       * through the blur, which is the whole product given away by the screen
+       * that is supposed to be selling it.
+       *
+       * Pinning the implementation is what kept it: BlurredPreview had shipped
+       * a true gaussian (react-native-svg's FeGaussianBlur) months earlier, and
+       * this guard would have failed the day anyone switched to it.
+       */
+      assert.match(locked, /<BlurredPreview/);
+      assert.match(locked, /kind: 'text', text: body/);
+      assert.doesNotMatch(
+        locked,
+        /textShadowRadius/,
+        'the text-shadow blur is legible on Android — use BlurredPreview',
+      );
+
+      // And the gaussian it delegates to is still a gaussian.
+      const preview = read('src', 'components', 'BlurredPreview.tsx');
+      assert.match(preview, /FeGaussianBlur/);
+      // The scrim is the safety net: if a device ever no-ops the filter, the
+      // result has to be an unreadable block rather than the conclusion.
+      assert.match(preview, /styles\.scrim/);
 
       // Home: the detection card carries the plateau conclusion from
       // proInsights — the same sentence Pro reads unblurred in place. It is
