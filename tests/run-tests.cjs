@@ -53,6 +53,8 @@ const suites = [
   ...require('./lib/postSessionInsight.test.cjs'),
   ...require('./lib/proEntitlement.test.cjs'),
   ...require('./lib/proSurfaces.test.cjs'),
+  ...require('./lib/subscriptionView.test.cjs'),
+  ...require('./lib/cancelSurvey.test.cjs'),
   ...require('./lib/legalDocuments.test.cjs'),
   ...require('./lib/notificationPlan.test.cjs'),
   ...require('./lib/programCsvExport.test.cjs'),

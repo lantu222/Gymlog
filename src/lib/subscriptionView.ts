@@ -1,0 +1,264 @@
+import { I18nKey } from './i18n';
+import { ProEntitlement } from './proEntitlement';
+
+/**
+ * What the subscription screen may say, and where each sentence comes from.
+ *
+ * The screen has two kinds of fact on it and they must not be confused:
+ *
+ *   REAL — resolved from the entitlement. Whether Pro is on, why, and the date
+ *   a promo runs out. These the app actually knows.
+ *
+ *   MOCK — everything downstream of billing: which term the reader is on, when
+ *   the next charge lands, the card it lands on, and the receipts behind it.
+ *   None of it exists. There is no billing library installed, no store account
+ *   to ask, and no charge has ever been made.
+ *
+ * The mock half is here, in one module, with one name (`MOCK_BILLING`), so that
+ * the day billing lands the work is to delete this block and implement the same
+ * shape against the store — not to hunt interpolated strings through a screen.
+ * `tests/releaseReadiness` fails if this ships outside a demo build.
+ *
+ * Design source: "Vinha Tilaus - hallinta" (vinha-subs.jsx). Its own note is
+ * the rule the screen follows: no price list here, because a price list on a
+ * management screen is half a paywall in the wrong place. One route to Pro,
+ * and it goes where everyone else buys.
+ */
+
+export type SubscriptionTermKey = 'monthly' | 'yearly' | 'lifetime';
+
+/**
+ * The three terms, and what each one implies about renewal.
+ *
+ * `renews: false` on lifetime is the one that matters — it is not a shorter
+ * subscription, it is the absence of one, so every "next payment" line has to
+ * read differently rather than showing a date far away.
+ */
+export interface SubscriptionTerm {
+  key: SubscriptionTermKey;
+  nameKey: I18nKey;
+  labelKey: I18nKey;
+  ctaKey: I18nKey;
+  noteKey: I18nKey;
+  priceKey: I18nKey;
+  perKey: I18nKey;
+  renews: boolean;
+  /** Set only on yearly — the same 50% the paywall computes. */
+  badgeKey?: I18nKey;
+}
+
+export const SUBSCRIPTION_TERMS: Record<SubscriptionTermKey, SubscriptionTerm> = {
+  monthly: {
+    key: 'monthly',
+    nameKey: 'subs.term.monthly',
+    labelKey: 'subs.term.monthlyLabel',
+    ctaKey: 'subs.term.monthlyCta',
+    noteKey: 'subs.term.monthlyNote',
+    priceKey: 'paywall.plan.monthly.price',
+    perKey: 'pro.v3.unit.month',
+    renews: true,
+  },
+  yearly: {
+    key: 'yearly',
+    nameKey: 'subs.term.yearly',
+    labelKey: 'subs.term.yearlyLabel',
+    ctaKey: 'subs.term.yearlyCta',
+    noteKey: 'subs.term.yearlyNote',
+    priceKey: 'paywall.plan.yearly.price',
+    perKey: 'pro.v3.unit.year',
+    renews: true,
+    badgeKey: 'subs.term.yearlyBadge',
+  },
+  lifetime: {
+    key: 'lifetime',
+    nameKey: 'subs.term.lifetime',
+    labelKey: 'subs.term.lifetimeLabel',
+    ctaKey: 'subs.term.lifetimeCta',
+    noteKey: 'subs.term.lifetimeNote',
+    priceKey: 'pro.page.perLifetime',
+    perKey: 'pro.v3.unit.lifetime',
+    renews: false,
+  },
+};
+
+export const SUBSCRIPTION_TERM_ORDER: SubscriptionTermKey[] = ['yearly', 'monthly', 'lifetime'];
+
+export function isSubscriptionTermKey(value: unknown): value is SubscriptionTermKey {
+  return value === 'monthly' || value === 'yearly' || value === 'lifetime';
+}
+
+/**
+ * ── MOCK BILLING ─────────────────────────────────────────────────────────────
+ *
+ * Everything below this line is invented. It is here because the design calls
+ * for a management screen that looks like a management screen, and because a
+ * demo build is where you find out whether that screen reads right before you
+ * have a store to plug into.
+ *
+ * Two properties keep it from becoming a lie that ships:
+ *   1. It is reachable only while DEMO_BUILD is true (releaseReadiness guards).
+ *   2. It is one export. Deleting `MOCK_BILLING` breaks compilation everywhere
+ *      it is read, which is the point — no quiet survival into a real release.
+ */
+export interface MockPaymentMethod {
+  id: string;
+  titleKey: I18nKey;
+  subKey: I18nKey;
+  icon: 'card' | 'wallet';
+}
+
+export interface MockReceipt {
+  /** ISO, so the screen formats it in the reader's language. */
+  paidAt: string;
+  priceKey: I18nKey;
+  termKey: SubscriptionTermKey;
+}
+
+export const MOCK_BILLING = {
+  /** The card every "Maksutapa" row shows. */
+  methods: [
+    { id: 'card', titleKey: 'subs.pay.card', subKey: 'subs.pay.cardSub', icon: 'card' },
+    { id: 'gplay', titleKey: 'subs.pay.gplay', subKey: 'subs.pay.gplaySub', icon: 'wallet' },
+  ] as MockPaymentMethod[],
+  defaultMethodId: 'card',
+  /** When the reader supposedly joined — the "Jäsenenä" row. */
+  memberSince: '2025-08-15T00:00:00.000Z',
+  /** The charge the term rows count from. */
+  lastChargedAt: '2026-08-15T00:00:00.000Z',
+  receipts: {
+    yearly: [
+      { paidAt: '2026-08-15T00:00:00.000Z', priceKey: 'paywall.plan.yearly.price', termKey: 'yearly' },
+      { paidAt: '2025-08-15T00:00:00.000Z', priceKey: 'paywall.plan.yearly.price', termKey: 'yearly' },
+    ],
+    monthly: [
+      { paidAt: '2026-08-15T00:00:00.000Z', priceKey: 'paywall.plan.monthly.price', termKey: 'monthly' },
+      { paidAt: '2026-07-15T00:00:00.000Z', priceKey: 'paywall.plan.monthly.price', termKey: 'monthly' },
+      { paidAt: '2026-06-15T00:00:00.000Z', priceKey: 'paywall.plan.monthly.price', termKey: 'monthly' },
+    ],
+    lifetime: [
+      { paidAt: '2026-08-15T00:00:00.000Z', priceKey: 'pro.page.perLifetime', termKey: 'lifetime' },
+    ],
+  } as Record<SubscriptionTermKey, MockReceipt[]>,
+} as const;
+
+/**
+ * The next charge date, counted rather than written.
+ *
+ * This is the shape billing will have to fill: a purchase instant plus a period
+ * length, from which the date is *derived*. Writing "15.9.2026" into copy is
+ * exactly the bug #bugs logged against the unlock receipt, and it is worth
+ * making the mock have the right shape so the real thing slots in.
+ *
+ * Lifetime returns null, because it does not renew at all.
+ */
+export function nextChargeAt(term: SubscriptionTermKey, lastChargedAtIso: string): string | null {
+  if (!SUBSCRIPTION_TERMS[term].renews) {
+    return null;
+  }
+  const last = new Date(lastChargedAtIso);
+  if (Number.isNaN(last.getTime())) {
+    return null;
+  }
+  const next = new Date(last.getTime());
+  if (term === 'monthly') {
+    next.setMonth(next.getMonth() + 1);
+  } else {
+    next.setFullYear(next.getFullYear() + 1);
+  }
+  return next.toISOString();
+}
+
+/** ── end mock billing ──────────────────────────────────────────────────────── */
+
+export type SubscriptionState = 'active' | 'lapsed' | 'none';
+
+export interface SubscriptionView {
+  state: SubscriptionState;
+  /** Which term the active card describes. Null unless active. */
+  term: SubscriptionTermKey | null;
+  /** True when the reader has cancelled but Pro is still running. */
+  cancelled: boolean;
+  /**
+   * When Pro stops. For a promo this is the real expiry; for mock billing it is
+   * the derived next-charge date, which is also when a cancelled term lapses.
+   */
+  endsAt: string | null;
+  /** When the next charge lands. Null when cancelled, lifetime, or not active. */
+  nextChargeAt: string | null;
+  /**
+   * True when the source is a promo — nothing to manage, nothing to cancel, and
+   * no billing rows may be shown even in a demo build. A promo is real, so the
+   * screen must not dress it in an invented card and receipt history.
+   */
+  promoBacked: boolean;
+}
+
+/**
+ * The screen's whole state, from the entitlement plus the two mock switches.
+ *
+ * `lapsed` is the one state that is genuinely knowable today: a promoProUntil
+ * in the past means this reader really did have Pro and really did lose it. The
+ * app can say so without inventing anything, which is why it gets its own state
+ * rather than collapsing into `none`.
+ */
+export function resolveSubscriptionView(input: {
+  entitlement: ProEntitlement;
+  /** The reader's stored mock term. Ignored for promo-backed Pro. */
+  mockTerm: SubscriptionTermKey;
+  mockCancelled: boolean;
+  /** A promoProUntil that has already passed, if any. */
+  lapsedPromoUntil?: string | null;
+  now?: Date;
+}): SubscriptionView {
+  const { entitlement, mockTerm, mockCancelled, lapsedPromoUntil = null } = input;
+
+  if (entitlement.unlocked) {
+    // A promo is real Pro on a real clock. It has no term, no card and no
+    // receipts, and pretending otherwise would put invented billing on top of
+    // a fact the reader can check against the code they redeemed.
+    if (entitlement.source === 'promo') {
+      return {
+        state: 'active',
+        term: null,
+        cancelled: false,
+        endsAt: entitlement.promoUntil,
+        nextChargeAt: null,
+        promoBacked: true,
+      };
+    }
+
+    const charge = nextChargeAt(mockTerm, MOCK_BILLING.lastChargedAt);
+    return {
+      state: 'active',
+      term: mockTerm,
+      cancelled: mockCancelled,
+      endsAt: charge,
+      nextChargeAt: mockCancelled ? null : charge,
+      promoBacked: false,
+    };
+  }
+
+  const lapsedTime = lapsedPromoUntil ? new Date(lapsedPromoUntil).getTime() : Number.NaN;
+  const lapsed = Number.isFinite(lapsedTime);
+
+  return {
+    state: lapsed ? 'lapsed' : 'none',
+    term: null,
+    cancelled: false,
+    endsAt: lapsed ? lapsedPromoUntil : null,
+    nextChargeAt: null,
+    promoBacked: lapsed,
+  };
+}
+
+/**
+ * Whether the billing rows may render at all.
+ *
+ * Three things have to be true together: the reader has Pro, it did not come
+ * from a promo, and this is a demo build. The last one is the release valve —
+ * clearing extra.demoBuild takes every invented card and receipt off the screen
+ * in one move rather than requiring a screen edit.
+ */
+export function showsMockBilling(view: SubscriptionView, demoBuild: boolean): boolean {
+  return demoBuild && view.state === 'active' && !view.promoBacked;
+}

@@ -1,4 +1,8 @@
+import { FREE_ACTIVE_PROGRAM_CAP, PRO_ACTIVE_PROGRAM_CAP } from './activeProgramSet';
+import { FREE_COACH_QUESTIONS_PER_WEEK } from './aiCoachQuota';
+import { FREE_TREND_MONTHS } from './historyWindow';
 import { I18nKey } from './i18n';
+import { FREE_CUSTOM_PROGRAM_LIMIT } from './programSlots';
 
 /**
  * What Pro actually gives you today — the live half of the Pro page.
@@ -135,6 +139,25 @@ export const PRO_UNLOCK_CARDS: ProUnlockCard[] = [
  * back. A paid subscription would be neither: it lives in the store. Modelling
  * this as one enum keeps the screen from offering a button that does nothing.
  */
+/**
+ * The numbers behind the struck-through limits, from the modules that enforce
+ * them. A limit typed into copy is a limit that drifts the day someone changes
+ * the gate.
+ *
+ * Shared rather than owned by the unlock screen, because two screens now read
+ * the same pairs in opposite directions: the unlock screen says "3 questions a
+ * week → Unlimited", and the end-membership page says "Unlimited → 3 questions
+ * a week". One map means the arrow can reverse but the numbers cannot disagree.
+ */
+export const PRO_UNLOCK_LIMIT_VARS: Record<string, Record<string, string | number>> = {
+  'unlock.ai.was': { count: FREE_COACH_QUESTIONS_PER_WEEK },
+  'unlock.history.was': { months: FREE_TREND_MONTHS },
+  'unlock.programs.was': { active: FREE_ACTIVE_PROGRAM_CAP, own: FREE_CUSTOM_PROGRAM_LIMIT },
+  'unlock.programs.now': { proActive: PRO_ACTIVE_PROGRAM_CAP },
+  'unlock.programs.t': { proActive: PRO_ACTIVE_PROGRAM_CAP },
+  'unlock.programs.b': { active: FREE_ACTIVE_PROGRAM_CAP, proActive: PRO_ACTIVE_PROGRAM_CAP },
+};
+
 export type MembershipSource = 'promo' | 'preview' | 'none';
 
 export interface MembershipEndPlan {

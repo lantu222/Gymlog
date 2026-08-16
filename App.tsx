@@ -98,6 +98,9 @@ import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVi
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
+import { isDemoBuild } from './src/lib/demoMode';
+import { buildCancelSurveyAnswer } from './src/lib/cancelSurvey';
+import { MOCK_BILLING, nextChargeAt } from './src/lib/subscriptionView';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
@@ -5085,9 +5088,20 @@ function VinhaApp() {
     content = (
       <SubscriptionScreen
         language={preferences.appLanguage}
-        promoProUntil={preferences.promoProUntil}
+        entitlement={proEntitlement}
+        // Only an *expired* promo means "lapsed". A live one is active Pro and
+        // resolveSubscriptionView reads it from the entitlement instead.
+        lapsedPromoUntil={proEntitlement.unlocked ? null : preferences.promoProUntil}
+        mockTerm={preferences.mockSubscriptionTerm}
+        mockCancelled={preferences.mockSubscriptionCancelled}
+        onChangeMockTerm={(term) => void updatePreferences({ mockSubscriptionTerm: term })}
+        onChangeMockCancelled={(cancelled) =>
+          void updatePreferences({ mockSubscriptionCancelled: cancelled })
+        }
+        demoBuild={isDemoBuild()}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onManageMembership={() => navigate({ tab: 'profile', screen: 'membership_end' })}
+        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'membership_end') {
@@ -5098,11 +5112,18 @@ function VinhaApp() {
         // guess which of promo / demo switch is keeping Pro on.
         source={proEntitlement.source ?? 'none'}
         promoUntil={proEntitlement.promoUntil}
+        periodEndsAt={nextChargeAt(preferences.mockSubscriptionTerm, MOCK_BILLING.lastChargedAt)}
         onBack={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
-        onKeep={() => navigate({ tab: 'profile', screen: 'premium' })}
-        onEndNow={() => {
-          void updatePreferences({ adaptiveCoachPremiumUnlocked: false });
-          navigateBack({ tab: 'profile', screen: 'subscription' });
+        onKeep={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
+        // Cancelling leaves Pro switched ON until the period ends — that is what
+        // the page promises two lines above the button, so ending it on the spot
+        // would contradict the screen the reader is standing on.
+        onEndNow={() => void updatePreferences({ mockSubscriptionCancelled: true })}
+        onSurveyDone={(reasons, note) => {
+          const answer = buildCancelSurveyAnswer(reasons, note, new Date().toISOString());
+          if (answer) {
+            void updatePreferences({ cancelSurveyAnswer: answer });
+          }
         }}
       />
     );
@@ -5215,6 +5236,7 @@ function VinhaApp() {
         onOpenTrainingBreak={() => navigate({ tab: 'profile', screen: 'training_break' })}
         onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
+        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
         onOpenDesignDemo={() => navigate({ tab: 'profile', screen: 'design_demo' })}

@@ -154,7 +154,23 @@ module.exports = [
         settingsSource,
         /title=\{t\(language, 'settings\.darkTheme'\)\}[\s\S]{0,600}?themeRow\.locked \? \(/,
       );
-      assert.match(settingsSource, /onPress=\{themeRow\.locked \? onOpenSubscription : undefined\}/);
+      // The locked row goes to the Pro page, not to subscription management.
+      //
+      // This guard used to pin onOpenSubscription, which is what the row
+      // actually did — while the comment directly above it in SettingsScreen
+      // said "opens the Pro page". The code and its own comment had disagreed
+      // since the row was written, and the guard froze the wrong one of the two.
+      //
+      // The reason the Pro page is right: a free reader tapping a locked Pro
+      // feature is asking how to unlock it, and subscription management is a
+      // screen whose entire subject is a subscription they do not have. It also
+      // showed them a price list, which is the thing the redesign took out.
+      assert.match(settingsSource, /onPress=\{themeRow\.locked \? onOpenPremium : undefined\}/);
+      assert.doesNotMatch(
+        settingsSource,
+        /themeRow\.locked \? onOpenSubscription/,
+        'a locked Pro row must not route to subscription management',
+      );
       assert.match(settingsSource, /value=\{themeRow\.value\}/);
       assert.match(settingsSource, /onPreferencesChange\(\{ darkThemeEnabled: next \}\)/);
       // The subtitle no longer promises something unbuilt.
@@ -277,17 +293,21 @@ module.exports = [
       for (const shape of [/71[.,]99/, /69[.,]99/, /5[.,]99/, /9[.,]99/]) {
         assert.doesNotMatch(i18n, shape, `${shape} belongs to the retired price set`);
       }
-      // Every key here must be one a reader can actually reach. 'unlock.trialBody'
-      // used to sit in this set and had no call site at all — a dormant string
-      // from a retired version of the unlock screen, pinning a price onto a
-      // surface that could not render it. That is not a harmless extra: it is a
-      // guard line that stays green no matter what the live trial copy says on
-      // the day the trial comes back. Six other keys pin the same 59,90 from
-      // screens that exist, so deleting it cost this guard nothing.
+      // Every key here must be one a reader can actually reach.
+      //
+      // Three have now been dropped for failing that, and all three the same
+      // way: 'unlock.trialBody' was left behind by a retired version of the
+      // unlock screen, and 'subs.yearlyPrice' / 'subs.monthlyPrice' by the
+      // subscription screen's own price list, which the redesign removed
+      // (a price list on a management screen is half a paywall in the wrong
+      // place). Each was pinning a price onto a surface that could not render
+      // it — a guard line that stays green no matter what the live copy says.
+      //
+      // The prices lost nothing: five other keys pin 59,90 and two pin 9,90,
+      // all from screens that exist.
       const priced = {
         'pro.page.billedYearly': /59,90/,
         'coach.lock.fine': /59,90/,
-        'subs.yearlyPrice': /59,90/,
         'pro.v2.ctaSubYearly': /59,90/,
         'paywall.plan.yearly.price': /59,90/,
         'paywall.cta.footYear': /59,90/,
@@ -296,7 +316,6 @@ module.exports = [
         'paywall.plan.yearly.week': /1,15/,
         'pro.page.perMonthly': /9,90/,
         'paywall.plan.monthly.price': /9,90/,
-        'subs.monthlyPrice': /9,90/,
         'pro.page.perLifetime': /119,00/,
         'pro.v2.ctaSubLifetime': /119,00/,
       };

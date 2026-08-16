@@ -2,12 +2,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { FREE_ACTIVE_PROGRAM_CAP, PRO_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
-import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
-import { FREE_TREND_MONTHS } from '../lib/historyWindow';
 import { I18nKey, t } from '../lib/i18n';
-import { PRO_UNLOCK_CARDS } from '../lib/proBenefits';
-import { FREE_CUSTOM_PROGRAM_LIMIT } from '../lib/programSlots';
+import { PRO_UNLOCK_CARDS, PRO_UNLOCK_LIMIT_VARS } from '../lib/proBenefits';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
@@ -70,23 +66,6 @@ const IC: Record<string, { path: string; filled?: boolean }> = {
   'unlock.history.t': { path: 'M12 7v5l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
   'unlock.programs.t': { path: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
   'unlock.theme.t': { path: 'M20 14.5A8.5 8.5 0 019.5 4a8.5 8.5 0 1010.5 10.5z' },
-};
-
-/**
- * The numbers behind the struck-through limits, from the modules that enforce
- * them. A limit typed into copy is a limit that drifts the day someone changes
- * the gate.
- */
-const LIMIT_VARS: Record<string, Record<string, string | number>> = {
-  'unlock.ai.was': { count: FREE_COACH_QUESTIONS_PER_WEEK },
-  'unlock.history.was': { months: FREE_TREND_MONTHS },
-  'unlock.programs.was': { active: FREE_ACTIVE_PROGRAM_CAP, own: FREE_CUSTOM_PROGRAM_LIMIT },
-  'unlock.programs.now': { proActive: PRO_ACTIVE_PROGRAM_CAP },
-  // The prose named the caps too — "Viisi ohjelmaa rinnakkain", "Kahdesta tuli
-  // viisi" — which is the one thing this screen's own rule forbids: a number
-  // typed into copy outlives the gate that enforced it.
-  'unlock.programs.t': { proActive: PRO_ACTIVE_PROGRAM_CAP },
-  'unlock.programs.b': { active: FREE_ACTIVE_PROGRAM_CAP, proActive: PRO_ACTIVE_PROGRAM_CAP },
 };
 
 const RECEIPT: Record<string, { nameKey: I18nKey; priceKey: I18nKey; unitKey: I18nKey }> = {
@@ -181,7 +160,7 @@ export function PremiumUnlockScreen({
 
   const receipt = RECEIPT[plan] ?? RECEIPT.yearly;
   const rowVars = useMemo(
-    () => (key: I18nKey) => LIMIT_VARS[key as string],
+    () => (key: I18nKey) => PRO_UNLOCK_LIMIT_VARS[key as string],
     [],
   );
 

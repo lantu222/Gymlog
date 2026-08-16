@@ -35,6 +35,8 @@ interface SettingsScreenProps {
   onOpenTrainingBreak: () => void;
   onOpenPromo: () => void;
   onOpenSubscription: () => void;
+  /** The paywall — where a locked Pro row has to land. */
+  onOpenPremium: () => void;
   onOpenSupport: () => void;
   onOpenFeatures: () => void;
   /** Temporary: the shelf for finished components that have no caller yet. */
@@ -217,6 +219,7 @@ export function SettingsScreen({
   onOpenTrainingBreak,
   onOpenPromo,
   onOpenSubscription,
+  onOpenPremium,
   onOpenSupport,
   onOpenFeatures,
   onOpenDesignDemo,
@@ -305,7 +308,8 @@ export function SettingsScreen({
               // someone who has not. Once Pro is on it is the one line on the
               // row that says nothing about what the switch does.
               sub={t(language, themeRow.locked ? 'settings.darkTheme.sub' : 'settings.darkTheme.subPro')}
-              onPress={themeRow.locked ? onOpenSubscription : undefined}
+              // The Pro page, as the comment above has said all along.
+              onPress={themeRow.locked ? onOpenPremium : undefined}
               control={
                 themeRow.locked ? (
                   <View

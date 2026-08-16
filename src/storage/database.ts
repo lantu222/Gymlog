@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { normalizeSeasonEnrolments } from '../lib/seasonEnrolment';
 import { normalizeStrengthGoals } from '../lib/strengthGoals';
+import { normalizeCancelSurveyAnswer } from '../lib/cancelSurvey';
+import { isSubscriptionTermKey } from '../lib/subscriptionView';
 import { createEmptyDatabase } from '../data/seed';
 import { resolveDeviceLanguage } from './deviceLocale';
 import { normalizeExerciseLog } from '../lib/exerciseLog';
@@ -463,6 +465,14 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.promoProUntil === 'string'
           ? input.preferences.promoProUntil
           : fallback.preferences.promoProUntil,
+      mockSubscriptionTerm: isSubscriptionTermKey(input?.preferences?.mockSubscriptionTerm)
+        ? input.preferences.mockSubscriptionTerm
+        : fallback.preferences.mockSubscriptionTerm,
+      mockSubscriptionCancelled:
+        typeof input?.preferences?.mockSubscriptionCancelled === 'boolean'
+          ? input.preferences.mockSubscriptionCancelled
+          : fallback.preferences.mockSubscriptionCancelled,
+      cancelSurveyAnswer: normalizeCancelSurveyAnswer(input?.preferences?.cancelSurveyAnswer),
       featureVotedIds: Array.isArray(input?.preferences?.featureVotedIds)
         ? input.preferences.featureVotedIds.filter(
             (id: unknown): id is string => typeof id === 'string' && id.length > 0,

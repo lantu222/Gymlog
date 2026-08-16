@@ -35,6 +35,11 @@ const DEFAULT_PREFERENCES = {
   },
   trainingBreak: null as import('../types/models').TrainingBreak | null,
   promoProUntil: null as string | null,
+  // Demo-build only; see AppPreferences. Yearly is the paywall's own default,
+  // so the management screen opens describing the package most readers pick.
+  mockSubscriptionTerm: 'yearly' as import('../lib/subscriptionView').SubscriptionTermKey,
+  mockSubscriptionCancelled: false,
+  cancelSurveyAnswer: null as import('../lib/cancelSurvey').CancelSurveyAnswer | null,
   featureVotedIds: [] as string[],
   aiCoachFreeQuota: null as { weekStart: string; used: number } | null,
   adaptiveCoachPremiumUnlocked: false,
