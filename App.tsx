@@ -4982,7 +4982,11 @@ function VinhaApp() {
         coachSpecimen={proCoachSpecimen}
         onOpenAnalysis={() => navigate({ tab: 'progress', screen: 'list' })}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
-        onDone={() => resetToRoute(ROOT_ROUTES.profile)}
+        // "Takaisin treeniin" goes to Home, not back to the tab the purchase
+        // happened to start from. The route lives under `profile` because the
+        // paywall does, but the button names a destination and the reader takes
+        // it literally: Home is where training starts.
+        onDone={() => resetToRoute(ROOT_ROUTES.home)}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {

@@ -277,11 +277,17 @@ module.exports = [
       for (const shape of [/71[.,]99/, /69[.,]99/, /5[.,]99/, /9[.,]99/]) {
         assert.doesNotMatch(i18n, shape, `${shape} belongs to the retired price set`);
       }
+      // Every key here must be one a reader can actually reach. 'unlock.trialBody'
+      // used to sit in this set and had no call site at all — a dormant string
+      // from a retired version of the unlock screen, pinning a price onto a
+      // surface that could not render it. That is not a harmless extra: it is a
+      // guard line that stays green no matter what the live trial copy says on
+      // the day the trial comes back. Six other keys pin the same 59,90 from
+      // screens that exist, so deleting it cost this guard nothing.
       const priced = {
         'pro.page.billedYearly': /59,90/,
         'coach.lock.fine': /59,90/,
         'subs.yearlyPrice': /59,90/,
-        'unlock.trialBody': /59,90/,
         'pro.v2.ctaSubYearly': /59,90/,
         'paywall.plan.yearly.price': /59,90/,
         'paywall.cta.footYear': /59,90/,
@@ -511,12 +517,18 @@ module.exports = [
       assert.match(unlockSource, /coachSpecimen \? \(/);
 
       // Old lies stay dead: no history-restoration claims in the copy.
-      // Anchored on the last key in the unlock block. unlock.noBadge used to
-      // end it and was retired with the promise it made: the Home header now
-      // carries a PRO pill, so "no Premium badge anywhere else" stopped being
-      // true (user decision).
-      const block = i18nSource.match(/'unlock\.[\s\S]*?'unlock\.trialBody': '[^']*'/g);
-      const copy = block ? block.join('\n') : '';
+      //
+      // Every unlock.* line, rather than a span anchored on whichever key
+      // happens to sit last. That anchor has now moved twice — unlock.noBadge
+      // was retired with the promise it made (the Home header carries a PRO
+      // pill again, user decision), and unlock.trialBody went with the four
+      // other keys left behind by two earlier versions of this screen. Each
+      // move broke this guard for a reason that had nothing to do with what it
+      // guards, so it no longer depends on the order of the block.
+      const copy = i18nSource
+        .split(String.fromCharCode(10))
+        .filter((line) => /^\s*'unlock\.[^']*':/.test(line))
+        .join(String.fromCharCode(10));
       assert.ok(copy.length > 0, 'the unlock copy block should be findable');
       assert.doesNotMatch(copy, /logs are back|lokit ovat takaisin|months of logs/i);
       assert.doesNotMatch(copy, /8 weeks|8 viikkoa/);

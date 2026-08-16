@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FREE_ACTIVE_PROGRAM_CAP, PRO_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
@@ -83,6 +82,11 @@ const LIMIT_VARS: Record<string, Record<string, string | number>> = {
   'unlock.history.was': { months: FREE_TREND_MONTHS },
   'unlock.programs.was': { active: FREE_ACTIVE_PROGRAM_CAP, own: FREE_CUSTOM_PROGRAM_LIMIT },
   'unlock.programs.now': { proActive: PRO_ACTIVE_PROGRAM_CAP },
+  // The prose named the caps too — "Viisi ohjelmaa rinnakkain", "Kahdesta tuli
+  // viisi" — which is the one thing this screen's own rule forbids: a number
+  // typed into copy outlives the gate that enforced it.
+  'unlock.programs.t': { proActive: PRO_ACTIVE_PROGRAM_CAP },
+  'unlock.programs.b': { active: FREE_ACTIVE_PROGRAM_CAP, proActive: PRO_ACTIVE_PROGRAM_CAP },
 };
 
 const RECEIPT: Record<string, { nameKey: I18nKey; priceKey: I18nKey; unitKey: I18nKey }> = {
@@ -128,7 +132,6 @@ export function PremiumUnlockScreen({
 }: PremiumUnlockScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   // One value per row plus the header, the specimen and the receipt.
@@ -190,7 +193,7 @@ export function PremiumUnlockScreen({
     <View style={styles.screen}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingTop: insets.top + 10 }]}
+        contentContainerStyle={styles.content}
       >
         <Animated.View style={[styles.statusRow, ready && riseStyle(0)]}>
           <View style={styles.statusDot}>
@@ -227,7 +230,9 @@ export function PremiumUnlockScreen({
               </View>
               <View style={styles.rowBody}>
                 <View style={styles.rowHead}>
-                  <Text style={styles.rowTitle}>{t(language, row.titleKey)}</Text>
+                  <Text style={styles.rowTitle}>
+                    {t(language, row.titleKey, rowVars(row.titleKey))}
+                  </Text>
                   <Text style={styles.rowPlace}>{t(language, row.placeKey)}</Text>
                 </View>
                 <View style={styles.deltaRow}>
@@ -248,7 +253,7 @@ export function PremiumUnlockScreen({
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.rowText}>{t(language, row.bodyKey)}</Text>
+                <Text style={styles.rowText}>{t(language, row.bodyKey, rowVars(row.bodyKey))}</Text>
               </View>
             </Animated.View>
           ))}
@@ -288,7 +293,7 @@ export function PremiumUnlockScreen({
         </Animated.View>
       </ScrollView>
 
-      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+      <View style={styles.footer}>
         <Pressable
           accessibilityRole="button"
           onPress={onDone}
@@ -308,6 +313,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   content: {
     paddingHorizontal: 16,
+    // Flat, not `insets.top + 10`: AppShell wraps this route in a SafeAreaView
+    // with the top edge, so the drawable area already starts below the status
+    // bar — and useSafeAreaInsets reports the full window inset regardless. The
+    // same double count as the Pro footer (895c196), pointing the other way.
+    paddingTop: 10,
     paddingBottom: 24,
   },
   statusRow: {
@@ -504,6 +514,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderTopColor: theme.border,
     paddingHorizontal: 16,
     paddingTop: 13,
+    /**
+     * Its own breathing room, and nothing else — the same flat number the Pro
+     * footer settled on.
+     *
+     * This was `insets.bottom + 12`, which counted the system bar twice: the
+     * SafeAreaView above has already stopped the drawable area short of it.
+     * On a gesture-navigation emulator the surplus is ~24dp and reads as
+     * generous. On a three-button phone it is ~48dp of dead space under the
+     * button, which is what "the CTA sits too high" actually was.
+     */
+    paddingBottom: 20,
   },
   cta: {
     height: 52,
