@@ -39,6 +39,7 @@ const DEFAULT_PREFERENCES = {
   // so the management screen opens describing the package most readers pick.
   mockSubscriptionTerm: 'yearly' as import('../lib/subscriptionView').SubscriptionTermKey,
   mockSubscriptionCancelled: false,
+  mockSubscriptionPurchasedAt: null as string | null,
   cancelSurveyAnswer: null as import('../lib/cancelSurvey').CancelSurveyAnswer | null,
   featureVotedIds: [] as string[],
   aiCoachFreeQuota: null as { weekStart: string; used: number } | null,

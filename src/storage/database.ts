@@ -472,6 +472,10 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.mockSubscriptionCancelled === 'boolean'
           ? input.preferences.mockSubscriptionCancelled
           : fallback.preferences.mockSubscriptionCancelled,
+      mockSubscriptionPurchasedAt:
+        typeof input?.preferences?.mockSubscriptionPurchasedAt === 'string'
+          ? input.preferences.mockSubscriptionPurchasedAt
+          : fallback.preferences.mockSubscriptionPurchasedAt,
       cancelSurveyAnswer: normalizeCancelSurveyAnswer(input?.preferences?.cancelSurveyAnswer),
       featureVotedIds: Array.isArray(input?.preferences?.featureVotedIds)
         ? input.preferences.featureVotedIds.filter(

@@ -4989,7 +4989,16 @@ function VinhaApp() {
           // build). What it actually does is flip the preview switch — and if
           // that turns Pro ON, the unlock moment follows, which is the point.
           const turningOn = !preferences.adaptiveCoachPremiumUnlocked;
-          void updatePreferences({ adaptiveCoachPremiumUnlocked: turningOn });
+          void updatePreferences({
+            adaptiveCoachPremiumUnlocked: turningOn,
+            // The purchase instant and the chosen term, stored together. Every
+            // renewal date in the app is counted from these rather than written
+            // — the requirement #bugs locked after the receipt shipped a
+            // hardcoded "15.9.2026". Billing replaces this one write.
+            ...(turningOn
+              ? { mockSubscriptionPurchasedAt: new Date().toISOString(), mockSubscriptionTerm: plan }
+              : {}),
+          });
           if (turningOn) {
             navigate({ tab: 'profile', screen: 'premium_unlock', plan });
           }
@@ -5006,6 +5015,12 @@ function VinhaApp() {
         coachSpecimen={proCoachSpecimen}
         onOpenAnalysis={() => navigate({ tab: 'progress', screen: 'list' })}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
+        // Counted here, from the instant the purchase was recorded plus the
+        // term's own length. One function, shared with the subscription screen.
+        renewsAt={nextChargeAt(
+          route.plan ?? preferences.mockSubscriptionTerm,
+          preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
+        )}
         // "Takaisin treeniin" goes to Home, not back to the tab the purchase
         // happened to start from. The route lives under `profile` because the
         // paywall does, but the button names a destination and the reader takes
@@ -5120,6 +5135,7 @@ function VinhaApp() {
         lapsedPromoUntil={proEntitlement.unlocked ? null : preferences.promoProUntil}
         mockTerm={preferences.mockSubscriptionTerm}
         mockCancelled={preferences.mockSubscriptionCancelled}
+        purchasedAt={preferences.mockSubscriptionPurchasedAt}
         onChangeMockTerm={(term) => void updatePreferences({ mockSubscriptionTerm: term })}
         onChangeMockCancelled={(cancelled) =>
           void updatePreferences({ mockSubscriptionCancelled: cancelled })

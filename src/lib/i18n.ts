@@ -1889,6 +1889,10 @@ const EN = {
   'unlock.receipt.yearly': 'Yearly',
   'unlock.receipt.lifetime': 'Lifetime',
   'unlock.receipt.manage': 'Manage subscription · Settings',
+  // Counted from the purchase instant plus the term, never written. The caveat
+  // below it still says no money moves — the date is what it *would* be.
+  'unlock.receipt.renews': 'Renews {date} at {price}',
+  'unlock.receipt.noRenewal': 'One payment — no renewal',
   'unlock.cta': 'Back to training',
   'unlock.progression.t': 'Automated progression is on',
   'unlock.progression.b': 'Loads move up when you earn it — hit the top of the rep range on every set.',
@@ -4884,6 +4888,8 @@ const FI: Record<I18nKey, string> = {
   'unlock.receipt.yearly': 'Vuositilaus',
   'unlock.receipt.lifetime': 'Elinikäinen',
   'unlock.receipt.manage': 'Hallinnoi tilausta · Asetukset',
+  'unlock.receipt.renews': 'Uusiutuu {date} hintaan {price}',
+  'unlock.receipt.noRenewal': 'Kertamaksu — ei uusiutumista',
   'unlock.cta': 'Takaisin treeniin',
   'unlock.progression.t': 'Automaattinen eteneminen on päällä',
   'unlock.progression.b': 'Kuormat nousevat, kun ansaitset sen — osut toistohaarukan yläpäähän joka sarjassa.',

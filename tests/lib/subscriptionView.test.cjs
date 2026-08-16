@@ -81,6 +81,55 @@ module.exports = [
     },
   },
   {
+    name: 'subscription: the renewal date follows the reader’s own purchase instant',
+    run() {
+      // The requirement #bugs locked: store the purchase instant and the term,
+      // then COUNT the date. The receipt shipped a hardcoded "15.9.2026" once,
+      // which is the one kind of lie a reader can check against a calendar.
+      //
+      // This is also the single seam billing has to fill — the store supplies
+      // purchasedAt, and every renewal line in the app moves with it.
+      const march = resolveSubscriptionView({
+        entitlement: PREVIEW,
+        mockTerm: 'yearly',
+        mockCancelled: false,
+        purchasedAt: '2027-03-04T09:00:00.000Z',
+      });
+      assert.equal(march.nextChargeAt, '2028-03-04T09:00:00.000Z');
+
+      const monthly = resolveSubscriptionView({
+        entitlement: PREVIEW,
+        mockTerm: 'monthly',
+        mockCancelled: false,
+        purchasedAt: '2027-03-04T09:00:00.000Z',
+      });
+      assert.equal(monthly.nextChargeAt, '2027-04-04T09:00:00.000Z');
+
+      // No record — a reader who had Pro before the field existed — falls back
+      // to the mock instant rather than showing nothing.
+      const legacy = resolveSubscriptionView({ ...base, entitlement: PREVIEW });
+      assert.equal(legacy.nextChargeAt, nextChargeAt('yearly', MOCK_BILLING.lastChargedAt));
+    },
+  },
+  {
+    name: 'subscription: the period arithmetic survives DST and short months',
+    run() {
+      // Both of these were real: setMonth works in local time, so a March
+      // purchase renewed into April came out an hour early — invisible in a
+      // formatted date until the purchase sits near midnight, and then it is a
+      // whole day wrong. And JS rolls month overflow forward rather than
+      // clamping, so the 31st plus a month is the 3rd.
+      assert.equal(nextChargeAt('monthly', '2027-03-04T09:00:00.000Z'), '2027-04-04T09:00:00.000Z');
+      assert.equal(nextChargeAt('monthly', '2027-10-04T09:00:00.000Z'), '2027-11-04T09:00:00.000Z');
+      // 31 Jan + 1 month = 28 Feb, not 3 March.
+      assert.equal(nextChargeAt('monthly', '2027-01-31T09:00:00.000Z'), '2027-02-28T09:00:00.000Z');
+      // ...and the leap year gets its extra day.
+      assert.equal(nextChargeAt('monthly', '2028-01-31T09:00:00.000Z'), '2028-02-29T09:00:00.000Z');
+      // A leap day plus a year has nowhere to land either.
+      assert.equal(nextChargeAt('yearly', '2028-02-29T09:00:00.000Z'), '2029-02-28T09:00:00.000Z');
+    },
+  },
+  {
     name: 'subscription: cancelling keeps Pro until the period ends',
     run() {
       // The end-membership page promises Pro works until the date two lines

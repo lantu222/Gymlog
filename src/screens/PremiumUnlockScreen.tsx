@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { formatDate } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { PRO_UNLOCK_CARDS, PRO_UNLOCK_LIMIT_VARS } from '../lib/proBenefits';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -50,6 +51,18 @@ interface PremiumUnlockScreenProps {
   onOpenAnalysis?: () => void;
   /** Opens subscription management from the receipt. */
   onManageSubscription?: () => void;
+  /**
+   * When this package renews, ISO — counted from the purchase instant plus the
+   * term's length (lib/subscriptionView), never written. Null for lifetime,
+   * and null when there is no purchase record to count from.
+   *
+   * The design asked for "Renews 15.9.2026" and #bugs locked the requirement
+   * that the date be *derived*: a hardcoded one is a lie the reader can check
+   * against a calendar. This is that requirement met as far as it can be
+   * without billing — the arithmetic is real and the caveat below still says
+   * no money moves.
+   */
+  renewsAt?: string | null;
 }
 
 /** Gap between one row landing and the next — slow enough to watch. */
@@ -108,6 +121,7 @@ export function PremiumUnlockScreen({
   plan = 'yearly',
   onOpenAnalysis,
   onManageSubscription,
+  renewsAt = null,
 }: PremiumUnlockScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -265,6 +279,18 @@ export function PremiumUnlockScreen({
             <Text style={styles.receiptPrice}>{t(language, receipt.priceKey)}</Text>
           </View>
           <Text style={styles.receiptUnit}>{t(language, receipt.unitKey)}</Text>
+          {/*
+            The renewal line, counted rather than written. Lifetime says so
+            instead: it is not a renewal far away, it is the absence of one.
+          */}
+          <Text style={styles.receiptRenews}>
+            {plan === 'lifetime' || !renewsAt
+              ? t(language, 'unlock.receipt.noRenewal')
+              : t(language, 'unlock.receipt.renews', {
+                  date: formatDate(renewsAt, language),
+                  price: t(language, receipt.priceKey),
+                })}
+          </Text>
           <Text style={styles.receiptNote}>{t(language, 'pro.v3.notice')}</Text>
           <Pressable accessibilityRole="button" onPress={onManageSubscription} hitSlop={6}>
             <Text style={styles.receiptManage}>{t(language, 'unlock.receipt.manage')}</Text>
@@ -473,6 +499,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     color: theme.muted,
     marginTop: 2,
+  },
+  receiptRenews: {
+    color: theme.ink,
+    fontSize: 12.5,
+    fontWeight: '800',
+    marginTop: 7,
   },
   receiptNote: {
     fontSize: 11.5,

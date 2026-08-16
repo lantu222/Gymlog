@@ -149,6 +149,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       promoProUntil: null,
       mockSubscriptionTerm: 'yearly',
       mockSubscriptionCancelled: false,
+      mockSubscriptionPurchasedAt: null,
       cancelSurveyAnswer: null,
       featureVotedIds: [],
       aiCoachFreeQuota: null,

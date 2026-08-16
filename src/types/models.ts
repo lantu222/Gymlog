@@ -313,6 +313,16 @@ export interface AppPreferences {
   mockSubscriptionTerm: SubscriptionTermKey;
   mockSubscriptionCancelled: boolean;
   /**
+   * When Pro was turned on, ISO. The renewal date is COUNTED from this plus the
+   * term's length — never written into copy, which is the requirement #bugs
+   * locked after the unlock receipt shipped a hardcoded "15.9.2026".
+   *
+   * The one field real billing has to fill. Everything downstream already reads
+   * it through resolveSubscriptionView, so the store replaces this and nothing
+   * else changes.
+   */
+  mockSubscriptionPurchasedAt: string | null;
+  /**
    * Why the reader ended their membership, kept on the device. Null when the
    * survey was never answered or was skipped — a skip is not an empty answer.
    */

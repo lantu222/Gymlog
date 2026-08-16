@@ -159,11 +159,27 @@ export function nextChargeAt(term: SubscriptionTermKey, lastChargedAtIso: string
   if (Number.isNaN(last.getTime())) {
     return null;
   }
+  /**
+   * UTC arithmetic, not local.
+   *
+   * `setMonth`/`setFullYear` work in local time, so a period that crosses a
+   * daylight-saving boundary lands an hour off — a March purchase renewed into
+   * April came out 08:00 from an 09:00 purchase. An hour is invisible in a
+   * formatted date until the purchase sits near midnight, and then it is a
+   * whole day wrong.
+   */
   const next = new Date(last.getTime());
+  const day = next.getUTCDate();
   if (term === 'monthly') {
-    next.setMonth(next.getMonth() + 1);
+    next.setUTCMonth(next.getUTCMonth() + 1);
   } else {
-    next.setFullYear(next.getFullYear() + 1);
+    next.setUTCFullYear(next.getUTCFullYear() + 1);
+  }
+  // Month-end overflow: the 31st plus a month is the 3rd of the month after,
+  // because JS rolls forward rather than clamping. A subscription bought on the
+  // 31st renews on the last day of a short month, so clamp back into it.
+  if (next.getUTCDate() !== day) {
+    next.setUTCDate(0);
   }
   return next.toISOString();
 }
@@ -206,11 +222,21 @@ export function resolveSubscriptionView(input: {
   /** The reader's stored mock term. Ignored for promo-backed Pro. */
   mockTerm: SubscriptionTermKey;
   mockCancelled: boolean;
+  /**
+   * When this reader actually turned Pro on, ISO.
+   *
+   * The renewal date is counted from here plus the term's length. Falls back to
+   * MOCK_BILLING's fixed instant only for a reader who had Pro before the field
+   * existed — a real purchase always has one, and billing will fill exactly
+   * this.
+   */
+  purchasedAt?: string | null;
   /** A promoProUntil that has already passed, if any. */
   lapsedPromoUntil?: string | null;
   now?: Date;
 }): SubscriptionView {
-  const { entitlement, mockTerm, mockCancelled, lapsedPromoUntil = null } = input;
+  const { entitlement, mockTerm, mockCancelled, purchasedAt = null, lapsedPromoUntil = null } = input;
+  const chargedFrom = purchasedAt ?? MOCK_BILLING.lastChargedAt;
 
   if (entitlement.unlocked) {
     // A promo is real Pro on a real clock. It has no term, no card and no
@@ -227,7 +253,7 @@ export function resolveSubscriptionView(input: {
       };
     }
 
-    const charge = nextChargeAt(mockTerm, MOCK_BILLING.lastChargedAt);
+    const charge = nextChargeAt(mockTerm, chargedFrom);
     return {
       state: 'active',
       term: mockTerm,

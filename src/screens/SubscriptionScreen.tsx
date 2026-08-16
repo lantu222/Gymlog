@@ -27,6 +27,8 @@ interface SubscriptionScreenProps {
   lapsedPromoUntil: string | null;
   mockTerm: SubscriptionTermKey;
   mockCancelled: boolean;
+  /** When Pro was turned on, ISO. The renewal date is counted from it. */
+  purchasedAt: string | null;
   onChangeMockTerm: (term: SubscriptionTermKey) => void;
   onChangeMockCancelled: (cancelled: boolean) => void;
   /** False in a real release: every invented billing row disappears. */
@@ -98,6 +100,7 @@ export function SubscriptionScreen({
   lapsedPromoUntil,
   mockTerm,
   mockCancelled,
+  purchasedAt,
   onChangeMockTerm,
   onChangeMockCancelled,
   demoBuild,
@@ -117,6 +120,7 @@ export function SubscriptionScreen({
     entitlement,
     mockTerm,
     mockCancelled,
+    purchasedAt,
     lapsedPromoUntil,
   });
   const billing = showsMockBilling(model, demoBuild);
