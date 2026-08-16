@@ -1,7 +1,7 @@
 import React, { createContext, createElement, useContext, useMemo } from 'react';
 
-import { HG_DARK } from './darkTheme';
-import { HG } from './lightTheme';
+import { AW3_DARK, HG_DARK } from './darkTheme';
+import { AW3, AW3Palette, HG } from './lightTheme';
 
 /**
  * The runtime theme seam.
@@ -126,6 +126,27 @@ export function useTheme(): Theme {
  */
 export function useThemeName(): ThemeName {
   return useContext(ThemeContext) === darkTheme ? 'dark' : 'light';
+}
+
+/**
+ * The Active Workout field palette for a given theme.
+ *
+ * AW3 lives in lightTheme.ts and the logging surfaces imported it from there
+ * directly, which meant every field, hairline and placeholder in them stayed
+ * light under the dark theme — the logged-set row glowed white and the numbers
+ * in it went nearly invisible. Import this instead of AW3; the light half is
+ * the same object, so nothing about the light theme changes.
+ *
+ * Takes a theme rather than reading context, because most of these colours are
+ * consumed inside a `makeStyles(theme)` factory, and a factory cannot call a
+ * hook. `useAW3` is the same thing for the handful of inline uses.
+ */
+export function aw3ForTheme(theme: Theme): AW3Palette {
+  return theme === darkTheme ? AW3_DARK : AW3;
+}
+
+export function useAW3(): AW3Palette {
+  return aw3ForTheme(useTheme());
 }
 
 /**

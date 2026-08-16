@@ -33,8 +33,7 @@ import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems } from '../
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
-import { AW3 } from '../lightTheme';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles, aw3ForTheme, useAW3 } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { haptics } from '../utils/haptics';
@@ -174,6 +173,7 @@ function FadeInView({ style, children }: { style?: object; children: React.React
 /** Check button with the aw3Pop squash when a set flips to done. */
 function SetCheckButton({ done, label, onPress }: { done: boolean; label: string; onPress: () => void }) {
   const styles = useThemedStyles(makeStyles);
+  const AW3 = useAW3();
 
   const scale = useRef(new Animated.Value(1)).current;
   const wasDone = useRef(done);
@@ -233,6 +233,7 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddShe
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
+  const AW3 = useAW3();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<EmptyWorkoutMuscleFilter>('All');
@@ -446,6 +447,7 @@ export function EmptyWorkoutScreen({
 }: EmptyWorkoutScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const AW3 = useAW3();
   const [exercises, setExercises] = useState<FreestyleExerciseState[]>([]);
   const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -842,7 +844,9 @@ export function EmptyWorkoutScreen({
 
 // ── styles ───────────────────────────────────────────────────────────────
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
+const makeStyles = (theme: Theme) => {
+  const AW3 = aw3ForTheme(theme);
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
@@ -1503,4 +1507,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   sheetConfirmTextDisabled: {
     color: theme.faint,
   },
-});
+  });
+};

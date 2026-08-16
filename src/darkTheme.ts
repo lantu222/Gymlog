@@ -82,3 +82,29 @@ export const HG_DARK = {
   proSheetTop: '#241A3E',
   proSheetBottom: '#150E28',
 };
+
+/**
+ * AW3 under the dark theme.
+ *
+ * AW3 (lightTheme.ts) is the Active Workout v3 field palette, and the freestyle
+ * logger imported it straight from the light theme — so every field, hairline
+ * and placeholder in it stayed light whatever the app was wearing. Reported
+ * from the phone: the whole logged-set row glowed white on a dark screen and
+ * the numbers in it were near-invisible.
+ *
+ * A parallel palette rather than new Theme tokens, deliberately. Mapping these
+ * onto the tokens that already exist would have shifted the light theme too —
+ * `ghost` is a placeholder ink at #C0B8D4, much lighter than `faint` — and the
+ * report is about dark. Light stays exactly as it was; this is what dark gets.
+ */
+export const AW3_DARK = {
+  hair: HG_DARK.border,
+  // Quiet, but present. A placeholder has to sit below `muted` without
+  // disappearing into the field it is in.
+  ghost: HG_DARK.faint,
+  field: HG_DARK.surfaceSoft,
+  // A touch stronger than the card hairline: a field has to read as an input.
+  fieldBorder: 'rgba(255, 255, 255, 0.14)',
+  ink2: HG_DARK.muted,
+  danger: HG_DARK.danger,
+} as const;
