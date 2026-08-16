@@ -17,6 +17,9 @@ import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { queryReduceMotion } from '../utils/reduceMotion';
 
+/** The destructive fill, identical in both themes — see `endButton`. */
+const DANGER_FILL = '#DC2626';
+
 interface MembershipEndScreenProps {
   source: MembershipSource;
   /** ISO date a promo runs out on; null when Pro is not promo-based. */
@@ -452,8 +455,19 @@ const makeStyles = (theme: Theme) =>
       fontWeight: '700',
       textDecorationLine: 'line-through',
     },
+    /**
+     * Ink, not red.
+     *
+     * Six red values down the page turned the whole screen into a warning, and
+     * a page that shouts at every line is a page nobody reads to the bottom.
+     * The loss is already carried by structure — the old value struck through,
+     * an arrow, the new one — so the colour was saying a third time what the
+     * strikethrough had already said twice.
+     *
+     * Red is left to the one thing that is actually destructive: the button.
+     */
     lossNow: {
-      color: theme.danger,
+      color: theme.ink,
       fontSize: 14.5,
       fontWeight: '800',
     },
@@ -472,16 +486,30 @@ const makeStyles = (theme: Theme) =>
       paddingTop: 13,
       gap: 10,
     },
+    /**
+     * Filled rather than outlined: this is the one destructive control on the
+     * screen, and it is now the only red on it.
+     *
+     * The fill is fixed rather than themed, which is the opposite of the rule
+     * everywhere else in this app — so it is worth saying why. `theme.danger`
+     * is a *text* colour: deep red in light, and a much lighter coral in dark
+     * so it stays readable ON a dark background. Used as a fill that inverts
+     * the problem — white on the dark theme's coral is about 2.6:1, under the
+     * floor even for large bold text.
+     *
+     * A destructive button should also not get friendlier in dark mode. One
+     * saturated red in both themes, white on top at 4.8:1, and it reads as the
+     * same warning wherever you meet it.
+     */
     endButton: {
       height: 54,
       borderRadius: 16,
-      borderWidth: 1.5,
-      borderColor: theme.danger,
+      backgroundColor: DANGER_FILL,
       alignItems: 'center',
       justifyContent: 'center',
     },
     endButtonText: {
-      color: theme.danger,
+      color: '#FFFFFF',
       fontSize: 16.5,
       fontWeight: '800',
     },

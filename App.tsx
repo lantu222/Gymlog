@@ -99,6 +99,7 @@ import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
 import { isDemoBuild } from './src/lib/demoMode';
+import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
 import { buildCancelSurveyAnswer } from './src/lib/cancelSurvey';
 import { MOCK_BILLING, nextChargeAt } from './src/lib/subscriptionView';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
@@ -888,6 +889,8 @@ function VinhaApp() {
   // Settings' "Import plan (CSV)" opens the same sheet the Programs tab uses,
   // straight into its paste view. One importer, two doors.
   const [settingsImportVisible, setSettingsImportVisible] = useState(false);
+  /** The theme offer that follows a purchase — see the unlock screen's onDone. */
+  const [themeChoiceVisible, setThemeChoiceVisible] = useState(false);
   // null = still asking Android, or the device cannot pin widgets at all.
   const [homeWidgetState, setHomeWidgetState] = useState<{ supported: boolean; added: boolean } | null>(
     null,
@@ -4989,7 +4992,12 @@ function VinhaApp() {
         // happened to start from. The route lives under `profile` because the
         // paywall does, but the button names a destination and the reader takes
         // it literally: Home is where training starts.
-        onDone={() => resetToRoute(ROOT_ROUTES.home)}
+        //
+        // On the way, the theme offer. The unlock screen lists the dark theme
+        // as one of the six things that just changed, and without this the
+        // reader has to go and find it three rows into Settings — a perk you
+        // have to hunt for reads as one you did not really get.
+        onDone={() => setThemeChoiceVisible(true)}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {
@@ -5799,6 +5807,18 @@ function VinhaApp() {
         onSeePro={() => {
           setProgramLimitVisible(false);
           navigate({ tab: 'profile', screen: 'premium' });
+        }}
+      />
+      <ThemeChoiceDialog
+        visible={themeChoiceVisible}
+        language={preferences.appLanguage}
+        darkEnabled={preferences.darkThemeEnabled}
+        // Written straight to preferences, so the dialog repaints itself along
+        // with everything behind it. That IS the preview.
+        onChange={(dark) => void updatePreferences({ darkThemeEnabled: dark })}
+        onDone={() => {
+          setThemeChoiceVisible(false);
+          resetToRoute(ROOT_ROUTES.home);
         }}
       />
     </AppShell>
