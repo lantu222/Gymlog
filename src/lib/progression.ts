@@ -121,19 +121,6 @@ export function getLatestLogForTemplateExercise(database: AppDatabase, exerciseT
     .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())[0];
 }
 
-export function getRecentLogsForTemplateExercise(database: AppDatabase, exerciseTemplateId: string, limit = 2) {
-  const sessionsById = Object.fromEntries(
-    database.workoutSessions.map((session) => [session.id, session] as const),
-  );
-
-  return database.exerciseLogs
-    .filter((log) => log.exerciseTemplateId === exerciseTemplateId && !log.skipped)
-    .map((log) => attachSession(log, sessionsById))
-    .filter((log): log is ExerciseLogWithSession => Boolean(log))
-    .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())
-    .slice(0, limit);
-}
-
 export function getRecentLogsForExercise(database: AppDatabase, exerciseName: string, limit = 2) {
   const sessionsById = Object.fromEntries(
     database.workoutSessions.map((session) => [session.id, session] as const),
@@ -353,16 +340,6 @@ export function getExerciseProgressSignal(
   };
 }
 
-export function getLatestLogForExercise(database: AppDatabase, exerciseName: string) {
-  const progress = getTrackedExerciseProgress(database);
-  return progress.find((item) => item.key === normalizeExerciseKey(exerciseName))?.latestLog;
-}
-
-export function getBestWeightForExercise(database: AppDatabase, exerciseName: string) {
-  const progress = getTrackedExerciseProgress(database);
-  return progress.find((item) => item.key === normalizeExerciseKey(exerciseName))?.bestWeight ?? null;
-}
-
 export function getSessionSummary(database: AppDatabase, sessionId: string): SessionSummary | null {
   const session = database.workoutSessions.find((item) => item.id === sessionId);
   if (!session) {
@@ -391,10 +368,6 @@ export function getMostRecentSessionSummary(database: AppDatabase): SessionSumma
   }
 
   return getSessionSummary(database, latestSession.id);
-}
-
-export function getWorkoutTemplateMap(templates: WorkoutTemplate[]) {
-  return Object.fromEntries(templates.map((template) => [template.id, template] as const));
 }
 
 export function getActivePlan(database: AppDatabase): WorkoutPlan | null {

@@ -279,7 +279,7 @@ export function ExerciseInfoSheet({
             <Text style={styles.title}>{exercise.exerciseName}</Text>
           </View>
           <Pressable onPress={onClose} hitSlop={8} style={styles.closeButton}>
-            <Text style={styles.closeText}>Close</Text>
+            <Text style={styles.closeText}>{t(language, 'infoSheet.close')}</Text>
           </Pressable>
         </View>
 
@@ -297,7 +297,7 @@ export function ExerciseInfoSheet({
                   <Text style={styles.metaChipText}>{snapshot.equipmentLabel}</Text>
                 </View>
               </View>
-              <Text style={styles.heroTitle}>Today</Text>
+              <Text style={styles.heroTitle}>{t(language, 'infoSheet.today')}</Text>
               <Text style={styles.heroBody}>{t(language, 'infoSheet.heroBody')}</Text>
               {snapshot.noteLabel ? (
                 <View style={styles.notePill}>
@@ -316,18 +316,18 @@ export function ExerciseInfoSheet({
 
           <View style={styles.statRow}>
             <View style={styles.statCardWide}>
-              <Text style={styles.statLabel}>Target</Text>
+              <Text style={styles.statLabel}>{t(language, 'infoSheet.target')}</Text>
               <Text style={styles.statValue} numberOfLines={2}>
                 {snapshot.targetLabel}
               </Text>
               <Text style={styles.statMeta}>{snapshot.targetMeta}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Rest</Text>
+              <Text style={styles.statLabel}>{t(language, 'infoSheet.rest')}</Text>
               <Text style={styles.statValue}>{snapshot.restLabel}</Text>
             </View>
             <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Best</Text>
+              <Text style={styles.statLabel}>{t(language, 'infoSheet.best')}</Text>
               <Text style={styles.statValue}>{snapshot.bestLabel}</Text>
             </View>
           </View>
@@ -380,7 +380,7 @@ export function ExerciseInfoSheet({
           </View>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Cues</Text>
+            <Text style={styles.sectionTitle}>{t(language, 'infoSheet.cues')}</Text>
             <View style={styles.cueList}>
               {snapshot.cues.map((cue, index) => (
                 <View key={`${cue.label}-${index}`} style={styles.cueCard}>
@@ -406,11 +406,11 @@ export function ExerciseInfoSheet({
                 </View>
                 <View style={styles.trendMetricColumn}>
                   <View style={styles.trendMetricPill}>
-                    <Text style={styles.trendMetricLabel}>Latest</Text>
+                    <Text style={styles.trendMetricLabel}>{t(language, 'infoSheet.latest')}</Text>
                     <Text style={styles.trendMetricValue}>{snapshot.trend.latestLabel}</Text>
                   </View>
                   <View style={styles.trendMetricPill}>
-                    <Text style={styles.trendMetricLabel}>Best</Text>
+                    <Text style={styles.trendMetricLabel}>{t(language, 'infoSheet.best')}</Text>
                     <Text style={styles.trendMetricValue}>{snapshot.trend.bestLabel}</Text>
                   </View>
                 </View>

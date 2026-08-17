@@ -2,8 +2,12 @@ const assert = require('node:assert/strict');
 
 const {
   DEFAULT_FIRST_RUN_SELECTION,
-  resolveFirstRunRecommendation,
+  resolveFirstRunRecommendationWithTailoring,
 } = require('../../.test-dist/lib/firstRunSetup.js');
+
+// The sweep drives the recommendation with no tailoring preferences. src used
+// to export a wrapper that did exactly this and had no other caller.
+const resolveFirstRunRecommendation = (selection) => resolveFirstRunRecommendationWithTailoring(selection, null);
 const { composeProgramWeekForSelection } = require('../../.test-dist/lib/programDayComposer.js');
 const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog.js');
 const { isCatalogExercise, resolveCatalogBodyPart } = require('../../.test-dist/lib/catalogExercisePools.js');

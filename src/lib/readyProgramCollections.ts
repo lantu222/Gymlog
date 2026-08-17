@@ -132,11 +132,3 @@ export const READY_PROGRAM_COLLECTIONS: ReadyProgramCollection[] = [
     ],
   },
 ];
-
-export function getReadyProgramCollection(collectionKey: string | null | undefined) {
-  if (!collectionKey || collectionKey === 'all') {
-    return null;
-  }
-
-  return READY_PROGRAM_COLLECTIONS.find((collection) => collection.key === collectionKey) ?? null;
-}

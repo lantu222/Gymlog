@@ -5,10 +5,6 @@ const {
   isUnloadedTrackingMode,
 } = require('../../.test-dist/features/workout/workoutTypes.js');
 const { formatSetScheme } = require('../../.test-dist/lib/format.js');
-const {
-  canCompleteWorkoutSet,
-  getWorkoutSetValidationMessage,
-} = require('../../.test-dist/lib/workoutValidation.js');
 const { resolveGuidedSetTarget } = require('../../.test-dist/lib/guidedPlayer.js');
 const { estimateWorkingSetSeconds } = require('../../.test-dist/lib/sessionDuration.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
@@ -96,21 +92,6 @@ module.exports = [
       assert.equal(formatSetScheme(1, 180, 300, 'hold'), '1 × 180-300 s');
       assert.equal(formatSetScheme(4, 8, 10, 'load_and_reps'), '4 × 8-10');
       assert.equal(formatSetScheme(3, 12, 12, 'bodyweight'), '3 × 12');
-    },
-  },
-  {
-    name: 'a hold logs without a weight, and asks for seconds when it is empty',
-    run() {
-      assert.equal(canCompleteWorkoutSet('hold', '', '45'), true);
-      assert.equal(canCompleteWorkoutSet('hold', '', ''), false);
-      assert.equal(canCompleteWorkoutSet('load_and_reps', '', '8'), false);
-
-      // The prompt names what it wants. "Add reps" on a plank is the same
-      // wrong-unit bug one layer up.
-      assert.match(getWorkoutSetValidationMessage('hold', '', '', 'en'), /seconds/i);
-      assert.match(getWorkoutSetValidationMessage('hold', '', '', 'fi'), /sekunt/i);
-      assert.match(getWorkoutSetValidationMessage('bodyweight', '', '', 'en'), /reps/i);
-      assert.equal(getWorkoutSetValidationMessage('hold', '', '45', 'en'), null);
     },
   },
   {

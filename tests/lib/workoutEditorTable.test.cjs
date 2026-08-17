@@ -2,10 +2,8 @@ const assert = require('node:assert/strict');
 
 const {
   buildEditorExercisePatchFromLibraryItem,
-  buildEditorTableRows,
   buildExerciseHistoryLookup,
   parseDraftRepRangeInput,
-  resolveExerciseHistory,
 } = require('../../.test-dist/lib/workoutEditorTable.js');
 
 module.exports = [
@@ -51,10 +49,9 @@ module.exports = [
         unitPreference: 'kg',
       });
 
-      const history = resolveExerciseHistory({
-        name: 'Bench Press',
-        libraryItemId: 'lib_bench',
-      }, lookup);
+      // Read off the lookup itself. The resolver that used to sit in front of
+      // it was reachable only from the row builder, which had no caller.
+      const history = lookup.byLibraryItemId.lib_bench;
 
       assert.equal(history.lastWeight, '90 kg');
       assert.equal(history.lastReps, '6,6,5');
@@ -88,47 +85,12 @@ module.exports = [
         unitPreference: 'kg',
       });
 
-      const history = resolveExerciseHistory({
-        name: ' smith penkki ',
-        libraryItemId: null,
-      }, lookup);
+      // The lookup is keyed by the normalised name, which is what the fallback
+      // matched on.
+      const history = lookup.byName['smith penkki'];
 
       assert.equal(history.lastWeight, '55 kg');
       assert.equal(history.lastReps, '8,8,7');
-    },
-  },
-  {
-    name: 'editor table rows expose source and latest history values',
-    run() {
-      const lookup = {
-        byLibraryItemId: {
-          lib_row: {
-            lastWeight: '65 kg',
-            lastReps: '6,6,6',
-            performedAt: '2026-03-24T08:00:00.000Z',
-          },
-        },
-        byName: {},
-      };
-
-      const rows = buildEditorTableRows(
-        [
-          {
-            localKey: 'row_1',
-            name: 'Kulmasoutu',
-            targetSets: '3',
-            repRangeText: '6-8',
-            restSeconds: '120',
-            trackedDefault: true,
-            libraryItemId: 'lib_row',
-          },
-        ],
-        lookup,
-      );
-
-      assert.equal(rows[0].source, 'library-backed');
-      assert.equal(rows[0].history.lastWeight, '65 kg');
-      assert.equal(rows[0].history.lastReps, '6,6,6');
     },
   },
   {

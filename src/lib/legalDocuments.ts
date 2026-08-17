@@ -101,6 +101,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'Where it is stored',
     body: [
       'In the app’s local storage on your device, under two keys. It is not synced to a server we run, and we have no way to read it remotely.',
+      'If the app ever finds that storage unreadable, it moves the damaged copy aside under a third key instead of deleting it, and starts a fresh one — so a broken file is not the same thing as a lost training log. That copy stays on your device like everything else, and erasing the app’s data removes it too.',
       'Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Vinha has no backend and no sync, so this backup is the only way your history survives changing devices.',
       'That copy is between you and Google. We never see it, we cannot read it, and nothing is sent to any server we run. Google encrypts it, and on current Android versions the key is tied to your device PIN. You can switch it off at any time in Android settings under Google → Backup, and Vinha keeps working exactly the same.',
       'Deleting the data is immediate and total: Settings → My data → reset, or uninstalling the app.',
@@ -196,6 +197,7 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Missä tiedot ovat',
     body: [
       'Sovelluksen paikallisessa tallennustilassa laitteellasi, kahden avaimen alla. Niitä ei synkronoida meidän palvelimellemme, eikä meillä ole mitään keinoa lukea niitä etänä.',
+      'Jos sovellus joskus toteaa tallennuksen lukukelvottomaksi, se siirtää vaurioituneen kopion sivuun kolmannen avaimen alle sen sijaan että poistaisi sen, ja aloittaa uuden — rikkoutunut tiedosto ei ole sama asia kuin menetetty treeniloki. Kopio pysyy laitteellasi kuten kaikki muukin, ja sovelluksen tietojen poistaminen poistaa myös sen.',
       'Androidin varmuuskopiointi on tälle sovellukselle päällä. Se tarkoittaa, että laitteesi voi kopioida Vinhan paikallisen datan — treenilokin, paino- ja mittamerkinnät, ohjelmat ja asetukset — oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Vinhalla ei ole palvelinta eikä synkronointia, joten tämä varmuuskopio on ainoa tapa jolla historiasi selviää laitteen vaihdosta.',
       'Se kopio on sinun ja Googlen välinen. Me emme näe sitä emmekä voi lukea sitä, eikä mitään lähetetä millekään meidän palvelimellemme. Google salaa sen, ja nykyisissä Android-versioissa avain on sidottu laitteesi PIN-koodiin. Voit kytkeä sen pois milloin tahansa Androidin asetuksista kohdasta Google → Varmuuskopiointi, ja Vinha toimii täsmälleen samalla tavalla.',
       'Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → nollaus, tai sovelluksen poistaminen.',

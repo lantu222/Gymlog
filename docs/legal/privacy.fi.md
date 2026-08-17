@@ -30,6 +30,8 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa sinun s
 
 Sovelluksen paikallisessa tallennustilassa laitteellasi, kahden avaimen alla. Niitä ei synkronoida meidän palvelimellemme, eikä meillä ole mitään keinoa lukea niitä etänä.
 
+Jos sovellus joskus toteaa tallennuksen lukukelvottomaksi, se siirtää vaurioituneen kopion sivuun kolmannen avaimen alle sen sijaan että poistaisi sen, ja aloittaa uuden — rikkoutunut tiedosto ei ole sama asia kuin menetetty treeniloki. Kopio pysyy laitteellasi kuten kaikki muukin, ja sovelluksen tietojen poistaminen poistaa myös sen.
+
 Androidin varmuuskopiointi on tälle sovellukselle päällä. Se tarkoittaa, että laitteesi voi kopioida Vinhan paikallisen datan — treenilokin, paino- ja mittamerkinnät, ohjelmat ja asetukset — oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Vinhalla ei ole palvelinta eikä synkronointia, joten tämä varmuuskopio on ainoa tapa jolla historiasi selviää laitteen vaihdosta.
 
 Se kopio on sinun ja Googlen välinen. Me emme näe sitä emmekä voi lukea sitä, eikä mitään lähetetä millekään meidän palvelimellemme. Google salaa sen, ja nykyisissä Android-versioissa avain on sidottu laitteesi PIN-koodiin. Voit kytkeä sen pois milloin tahansa Androidin asetuksista kohdasta Google → Varmuuskopiointi, ja Vinha toimii täsmälleen samalla tavalla.

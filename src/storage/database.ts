@@ -64,6 +64,16 @@ const STORAGE_KEY = '@vinha/database/v1';
  * and the cost of being right is four lines.
  */
 const LEGACY_STORAGE_KEY = '@gymlog/database/v1';
+/**
+ * Where an unreadable database is put before an empty one takes its place.
+ *
+ * Overwriting is not optional — the app cannot open without a database — but
+ * throwing the old bytes away is. Whatever could not be parsed is still every
+ * workout that person logged, and a support mail can only ever be answered from
+ * the copy. One slot: a second corruption after the first is not a longer
+ * history to recover, and an unbounded pile of them is a storage leak.
+ */
+const CORRUPT_STORAGE_KEY = '@vinha/database/corrupt';
 
 function normalizeJointSwapPreference(rawValue: unknown, fallbackValue: 'neutral' | 'prefer' | 'prioritize') {
   if (rawValue === 'neutral' || rawValue === 'prefer' || rawValue === 'prioritize') {
@@ -905,6 +915,18 @@ export async function loadDatabase() {
   } catch {
     // Unreadable storage is a corrupt install, not a new one — but inventing
     // history to paper over it would be the same lie.
+    //
+    // The bytes are kept first. This branch used to write the empty database
+    // straight over the only copy of everything the reader had logged, so a
+    // half-written blob or one bad field cost them the lot with nothing left to
+    // read afterwards. Set the key aside and the loss is recoverable by hand;
+    // the app still opens either way, which is what the overwrite was for.
+    try {
+      await AsyncStorage.setItem(CORRUPT_STORAGE_KEY, raw);
+    } catch {
+      // Out of space, most likely — the same condition that truncated the
+      // write in the first place. Opening the app still matters more.
+    }
     const empty = normalizeDatabase(createEmptyDatabase(resolveDeviceLanguage()));
     await saveDatabase(empty);
     return empty;
@@ -925,7 +947,10 @@ export async function resetDatabase() {
   const empty = normalizeDatabase(createEmptyDatabase());
   await saveDatabase(empty);
   // Reset has to mean reset: leaving the pre-rename blob behind would let it
-  // come back if the new key were ever cleared on its own.
+  // come back if the new key were ever cleared on its own. The quarantined copy
+  // goes for a second reason — somebody who asks for their data to be erased is
+  // not asking for a copy of it to survive under another name.
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
+  await AsyncStorage.removeItem(CORRUPT_STORAGE_KEY);
   return empty;
 }

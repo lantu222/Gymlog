@@ -137,11 +137,14 @@ module.exports = [
       // The live keys are @vinha/*. Two @gymlog/* constants also remain — the
       // pre-rename fallback that loadDatabase/loadWorkoutBundle read once — and
       // they are the same two stores, so they are not a third thing to declare.
+      // Two live stores, plus the quarantine slot an unreadable database is
+      // moved to rather than deleted. The policy declares that one too, in
+      // "Where it is stored" — it holds the reader's own data.
       const keys = new Set(allSource.match(/@vinha\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
         [...keys].sort(),
-        ['@vinha/database/v1', '@vinha/workout/v1'],
-        'The policy says two storage keys. A new one needs a line in "What the app stores".',
+        ['@vinha/database/corrupt', '@vinha/database/v1', '@vinha/workout/v1'],
+        'The policy declares these storage keys. A new one needs a line in "Where it is stored".',
       );
       const legacy = new Set(allSource.match(/@gymlog\/[a-z0-9/]+/g) ?? []);
       assert.deepEqual(
@@ -256,8 +259,12 @@ module.exports = [
         for (const language of LANGUAGES) {
           const file = path.join(root, 'docs', 'legal', `${id}.${language}.md`);
           assert.ok(fs.existsSync(file), `Missing export: run node scripts/export-legal.cjs`);
+          // Line endings are git's business, not the document's: checked out on
+          // Windows these files are CRLF and the renderer emits LF, so a
+          // byte-for-byte comparison failed on every machine that has one —
+          // which is a guard nobody can read, not a guard.
           assert.equal(
-            fs.readFileSync(file, 'utf8'),
+            fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'),
             renderLegalDocumentMarkdown(buildLegalDocument(id, language)),
             `docs/legal/${id}.${language}.md is stale — re-run node scripts/export-legal.cjs`,
           );

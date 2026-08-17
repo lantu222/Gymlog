@@ -1,7 +1,6 @@
 import { SessionFocusKind } from './homeSessionHero';
 import { AppLanguage } from '../types/models';
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 // Sunday-first, matching Date#getDay().
 const WEEKDAY_LABELS: Record<AppLanguage, string[]> = {
   en: ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'],
@@ -150,7 +149,11 @@ export function getHomeCarouselCalendarDays(
 
   return Array.from({ length: totalDays }, (_, index) => {
     const offset = index - daysBefore;
-    const date = new Date(todayTimestamp + offset * DAY_MS);
+    // Calendar-arithmetic construction, like the month grid below. Stepped by
+    // DAY_MS this row crossed the October clock change and drew Sunday twice,
+    // dropping the Monday after it — and every day past the change carried the
+    // weekday before it, so the row offered the wrong session for a whole day.
+    const date = new Date(todayStart.getFullYear(), todayStart.getMonth(), todayStart.getDate() + offset);
     const weekdayLabel = WEEKDAY_LABELS[language][date.getDay()] ?? '';
     const isToday = date.getTime() === todayTimestamp;
 

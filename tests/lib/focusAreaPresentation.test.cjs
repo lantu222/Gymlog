@@ -1,15 +1,11 @@
 const assert = require('node:assert/strict');
 
-const {
-  getFocusAreaPresentationOptions,
-  getOnboardingFocusAreaPresentationOptions,
-} = require('../../.test-dist/lib/focusAreaPresentation.js');
+const { getOnboardingFocusAreaPresentationOptions } = require('../../.test-dist/lib/focusAreaPresentation.js');
 
 module.exports = [
   {
     name: 'focus area presentation exposes consistent Step 4 placeholder options',
     run() {
-      const options = getFocusAreaPresentationOptions();
       const onboardingOptions = getOnboardingFocusAreaPresentationOptions();
 
       assert.deepEqual(
@@ -27,9 +23,11 @@ module.exports = [
       assert.equal(onboardingOptions.some((option) => option.area === 'mobility'), true);
       assert.equal(onboardingOptions.some((option) => option.area === 'core' && option.title === 'Abs'), true);
       assert.equal(onboardingOptions.some((option) => option.area === 'conditioning'), false);
-      assert.equal(options.some((option) => option.area === 'conditioning' && option.group === 'legacy'), true);
-      assert.equal(options.every((option) => option.title.length > 0), true);
-      assert.equal(options.every((option) => option.accessibilityLabel.includes('focus')), true);
+      // Asserted on the onboarding list, which is the only one anything reads.
+      // The full table used to be reachable through a getter of its own; it had
+      // no caller outside this file and went with the sweep.
+      assert.equal(onboardingOptions.every((option) => option.title.length > 0), true);
+      assert.equal(onboardingOptions.every((option) => option.accessibilityLabel.includes('focus')), true);
     },
   },
 ];

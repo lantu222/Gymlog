@@ -134,9 +134,3 @@ export function buildSessionGuidance(template: WorkoutTemplateV1, session: Worko
     firstAction: buildFirstAction(session.exercises),
   };
 }
-
-export function buildSessionGuidanceById(template: WorkoutTemplateV1): Record<string, SessionGuidance> {
-  return Object.fromEntries(
-    template.sessions.map((session) => [session.id, buildSessionGuidance(template, session)]),
-  );
-}

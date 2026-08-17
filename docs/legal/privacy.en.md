@@ -30,6 +30,8 @@ Everything below is entered by you, or produced by the app from what you entered
 
 In the app’s local storage on your device, under two keys. It is not synced to a server we run, and we have no way to read it remotely.
 
+If the app ever finds that storage unreadable, it moves the damaged copy aside under a third key instead of deleting it, and starts a fresh one — so a broken file is not the same thing as a lost training log. That copy stays on your device like everything else, and erasing the app’s data removes it too.
+
 Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Vinha has no backend and no sync, so this backup is the only way your history survives changing devices.
 
 That copy is between you and Google. We never see it, we cannot read it, and nothing is sent to any server we run. Google encrypts it, and on current Android versions the key is tied to your device PIN. You can switch it off at any time in Android settings under Google → Backup, and Vinha keeps working exactly the same.

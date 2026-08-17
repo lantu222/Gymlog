@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
 
-const { READY_PROGRAM_COLLECTIONS, getReadyProgramCollection } = require('../../.test-dist/lib/readyProgramCollections.js');
+const { READY_PROGRAM_COLLECTIONS } = require('../../.test-dist/lib/readyProgramCollections.js');
+
+// src used to export a lookup for this. Every caller reads the table directly,
+// so the lookup went and the one line it was stayed here.
+const getReadyProgramCollection = (key) => READY_PROGRAM_COLLECTIONS.find((entry) => entry.key === key);
 
 module.exports = [
   {
@@ -19,13 +23,6 @@ module.exports = [
       assert.equal(muscle.label, 'Build muscle');
       assert.ok(muscle.templateIds.includes('tpl_3_day_push_pull_legs_v1'));
       assert.ok(READY_PROGRAM_COLLECTIONS.length >= 4);
-    },
-  },
-  {
-    name: 'missing ready program collection returns null',
-    run() {
-      assert.equal(getReadyProgramCollection('missing'), null);
-      assert.equal(getReadyProgramCollection('all'), null);
     },
   },
 ];

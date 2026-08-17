@@ -1150,9 +1150,6 @@ const EN = {
   'logger.effort.easy': 'Easy',
   'logger.effort.good': 'Good',
   'logger.effort.hard': 'Hard',
-  'logger.validation.addLoad': 'Add load to complete this set.',
-  'logger.validation.addReps': 'Add reps to complete this set.',
-  'logger.validation.addSeconds': 'Add the seconds you held to complete this set.',
 
   // ── Guided Player ──────────────────────────────────────────────────────
   // Weekdays are indexed by Date#getDay() (0 = Sunday) for the entry eyebrow.
@@ -2685,6 +2682,13 @@ const EN = {
   'infoSheet.recentTrend': 'Recent trend',
   'infoSheet.noTrend': 'No trend yet. Finish a few clean sets and this will start to move.',
   'infoSheet.backToSet': 'Back to set',
+  'infoSheet.close': 'Close',
+  'infoSheet.today': 'Today',
+  'infoSheet.target': 'Target',
+  'infoSheet.rest': 'Rest',
+  'infoSheet.best': 'Best',
+  'infoSheet.cues': 'Cues',
+  'infoSheet.latest': 'Latest',
   // The library's own vocabulary: 9 body parts, 5 equipment kinds, 4
   // categories. Eighteen strings that were title-cased from the data and
   // therefore always English, on every card and every filter chip.
@@ -2710,6 +2714,9 @@ const EN = {
   'library.title': 'Exercise library',
   'library.subtitle': 'Find and add exercises to your workouts.',
   'library.filtersSubtitle': 'Narrow the library by type or equipment.',
+  'library.filtersTitle': 'Filters',
+  'library.filterType': 'TYPE',
+  'library.filterEquipment': 'EQUIPMENT',
   'library.popular': 'POPULAR EXERCISES',
   'library.favorites': 'FAVORITES',
   'library.noFavorites': 'No favorites yet',
@@ -3929,9 +3936,6 @@ const FI: Record<I18nKey, string> = {
   'logger.effort.easy': 'Helppo',
   'logger.effort.good': 'Hyvä',
   'logger.effort.hard': 'Raskas',
-  'logger.validation.addLoad': 'Lisää paino, niin sarja kirjautuu.',
-  'logger.validation.addReps': 'Lisää toistot, niin sarja kirjautuu.',
-  'logger.validation.addSeconds': 'Lisää pidon kesto sekunteina, niin sarja kirjautuu.',
 
   // ── Guided Player ──────────────────────────────────────────────────────
   'guided.weekday.0': 'SUNNUNTAI',
@@ -5382,6 +5386,13 @@ const FI: Record<I18nKey, string> = {
   'infoSheet.recentTrend': 'Viimeaikainen trendi',
   'infoSheet.noTrend': 'Ei vielä trendiä. Tee muutama siisti sarja, niin tämä lähtee liikkeelle.',
   'infoSheet.backToSet': 'Takaisin sarjaan',
+  'infoSheet.close': 'Sulje',
+  'infoSheet.today': 'Tänään',
+  'infoSheet.target': 'Tavoite',
+  'infoSheet.rest': 'Palautus',
+  'infoSheet.best': 'Paras',
+  'infoSheet.cues': 'Muistisäännöt',
+  'infoSheet.latest': 'Viimeisin',
   'lib.bodyPart.all': 'Kaikki',
   'lib.bodyPart.back': 'Selkä',
   'lib.bodyPart.biceps': 'Hauis',
@@ -5404,6 +5415,9 @@ const FI: Record<I18nKey, string> = {
   'library.title': 'Liikekirjasto',
   'library.subtitle': 'Etsi ja lisää liikkeitä treeneihisi.',
   'library.filtersSubtitle': 'Rajaa kirjastoa tyypin tai välineiden mukaan.',
+  'library.filtersTitle': 'Rajaukset',
+  'library.filterType': 'TYYPPI',
+  'library.filterEquipment': 'VÄLINEET',
   'library.popular': 'SUOSITUT LIIKKEET',
   'library.favorites': 'SUOSIKIT',
   'library.noFavorites': 'Ei vielä suosikkeja',
