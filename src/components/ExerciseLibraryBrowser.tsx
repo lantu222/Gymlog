@@ -545,10 +545,10 @@ export function ExerciseLibraryBrowser({
 
             {filtersOpen ? (
               <View style={styles.filtersShell}>
-                <Text style={styles.filtersTitle}>Filters</Text>
+                <Text style={styles.filtersTitle}>{t(language, 'library.filtersTitle')}</Text>
                 <Text style={styles.filtersSubtitle}>{t(language, 'library.filtersSubtitle')}</Text>
 
-                <Text style={styles.filterSectionLabel}>TYPE</Text>
+                <Text style={styles.filterSectionLabel}>{t(language, 'library.filterType')}</Text>
                 <View style={styles.filterGrid}>
                   {categoryOptions.map((option) => {
                     const selected = categoryFilter === option;
@@ -566,7 +566,9 @@ export function ExerciseLibraryBrowser({
                   })}
                 </View>
 
-                <Text style={[styles.filterSectionLabel, styles.filterSectionLabelSpaced]}>EQUIPMENT</Text>
+                <Text style={[styles.filterSectionLabel, styles.filterSectionLabelSpaced]}>
+                  {t(language, 'library.filterEquipment')}
+                </Text>
                 <View style={styles.filterGrid}>
                   {equipmentOptions.map((option) => {
                     const selected = equipmentFilter === option;
