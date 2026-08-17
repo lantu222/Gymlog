@@ -43,7 +43,14 @@ export interface ProgramCategory {
    * `0.94/0.045`, `0.88/0.05` and `0.48/0.16` at the hue above.
    */
   tint: { bg: string; border: string; ink: string };
-  /** 24×24 stroke path, drawn in `ink`. */
+  /**
+   * 24-unit stroke path, drawn in white and knocked out of a solid `ink` disc.
+   *
+   * Every mark sits inside an 18–19 unit optical box so a row of nine carries one
+   * weight, and each is one idea: no dumbbell tucked inside the house, because at
+   * 30px that turns to mush. There is exactly one circle and one arc in the whole
+   * set — a silhouette that repeats inside a row stops being a silhouette.
+   */
   icon: string;
   /**
    * What the category is actually about, for the sheet header.
@@ -62,7 +69,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.strength',
     hue: 268,
     tint: { bg: '#DEEBFF', border: '#C9D7FA', ink: '#3853B6' },
-    icon: 'M4 9v6M7 7v10M17 7v10M20 9v6M7 12h10',
+    icon: 'M2.6 9.6v4.8M6.6 6.8v10.4M17.4 6.8v10.4M21.4 9.6v4.8M6.6 12h10.8',
   },
   {
     key: 'balanced',
@@ -70,7 +77,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.balanced',
     hue: 96,
     tint: { bg: '#F4ECCA', border: '#E1D8B3', ink: '#795900' },
-    icon: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12h8M12 8v8',
+    icon: 'M12 4.8v14.7M8 19.5h8M3.8 8.6h16.4M1.4 8.6q3 4.6 6 0M15.2 8.6q3 4.6 6 0',
   },
   {
     key: 'muscle',
@@ -78,7 +85,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.muscle',
     hue: 222,
     tint: { bg: '#CBF3FF', border: '#B4E0EF', ink: '#006D9D' },
-    icon: 'M5 20V10M12 20V4M19 20v-7',
+    icon: 'M4.8 19.5v-5.6M12 19.5v-8.6M19.2 19.5v-11.6',
   },
   {
     key: 'fatloss',
@@ -86,7 +93,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.fatloss',
     hue: 28,
     tint: { bg: '#FFE1DB', border: '#F7CCC5', ink: '#A52A24' },
-    icon: 'M12 3s5 4 5 9a5 5 0 01-10 0c0-2 1-3 1-3s0 2 2 2 2-4 2-8z',
+    icon: 'M12.8 3c.4 3.4 5.4 5.6 5.4 9.4a6.2 6.2 0 0 1-12.4 0c0-2.8 1.8-4.7 3.2-6.2-.2 2.6 1.2 3.4 2.2 2.7 1.6-1.1 2.3-3.4 1.6-5.9z',
   },
   {
     key: 'conditioning',
@@ -94,7 +101,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.conditioning',
     hue: 156,
     tint: { bg: '#D4F5DF', border: '#BEE2CA', ink: '#007633' },
-    icon: 'M3 12h4l2-6 3 12 2-6h5',
+    icon: 'M2.6 12.6h4l2-6.4 3.2 12.2 2.2-5.8h7.4',
   },
   {
     key: 'home',
@@ -102,7 +109,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.home',
     hue: 62,
     tint: { bg: '#FFE5CD', border: '#F0D1B7', ink: '#994000' },
-    icon: 'M3 10.5 12 3l9 7.5M5 9.5V20h14V9.5',
+    icon: 'M3.4 10.9 12 3.7l8.6 7.2M5.6 9.7V20h12.8V9.7',
   },
   {
     key: 'mobility',
@@ -110,7 +117,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.mobility',
     hue: 300,
     tint: { bg: '#EFE5FF', border: '#DCD1F4', ink: '#6D41A9' },
-    icon: 'M12 4a2 2 0 100 4 2 2 0 000-4zM12 8v6M8 20l4-6 4 6M8 11h8',
+    icon: 'M6.6 16V4.8M8 17.4 18.6 12.2M6.6 12.6A5.4 5.4 0 0 1 11.4 15.6M8 17.9a1.4 1.4 0 1 0-2.8 0 1.4 1.4 0 0 0 2.8 0',
   },
   {
     key: 'focus',
@@ -118,7 +125,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.focus',
     hue: 200,
     tint: { bg: '#C9F5F7', border: '#B2E2E4', ink: '#007581' },
-    icon: 'M12 21a9 9 0 100-18 9 9 0 000 18zM12 16a4 4 0 100-8 4 4 0 000 8z',
+    icon: 'M12 19.3a7.3 7.3 0 1 0 0-14.6 7.3 7.3 0 0 0 0 14.6M12 2.8v1.9M12 19.3v1.9M2.8 12h1.9M19.3 12h1.9M12 13.2a1.2 1.2 0 1 0 0-2.4 1.2 1.2 0 0 0 0 2.4',
   },
   {
     key: 'beginner',
@@ -126,7 +133,7 @@ export const PROGRAM_CATEGORIES: readonly ProgramCategory[] = [
     focusKey: 'programs.catFocus.beginner',
     hue: 12,
     tint: { bg: '#FFE0E3', border: '#F7CBCF', ink: '#A32745' },
-    icon: 'M12 4l2.3 4.7 5.2.8-3.8 3.7.9 5.1-4.6-2.4-4.6 2.4.9-5.1L4.5 9.5l5.2-.8z',
+    icon: 'M6.2 3.4v17.2M6.2 4.6h11.4l-2.3 4 2.3 4H6.2',
   },
 ];
 

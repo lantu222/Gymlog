@@ -86,15 +86,18 @@ module.exports = [
       // the first build quietly shipped nine identical grey pills instead.
       assert.match(programsHomeSource, /styles\.catTile\b/);
       assert.match(programsHomeSource, /d=\{entry\.icon\}/);
-      assert.match(programsHomeSource, /stroke=\{entry\.tint\.ink\}/);
-      // A3: the tile is a drawn shape now, so the tint is the path's fill and
-      // its stroke rather than a background colour.
-      assert.match(programsHomeSource, /fill=\{entry\.tint\.bg\}/);
-      // Near-black at 2.4, not the tint's own pale border at 1: nine pastel
-      // tiles side by side had nothing holding them apart, and the count badge
-      // sat ON the cut corner, which sliced the digit in half.
-      assert.match(programsHomeSource, /stroke=\{theme\.ink\}[\s\S]{0,60}strokeWidth=\{2\.4\}/);
-      assert.match(programsHomeSource, /catTileCount: \{[\s\S]{0,200}bottom: 5,/);
+      // The icon set replaced the pale tile with a solid disc in the category's
+      // own ink and the mark knocked out in white. The outline the pale version
+      // needed to hold nine pastels apart is gone with it — filled, the hue is
+      // the tile.
+      assert.match(programsHomeSource, /backgroundColor: entry\.tint\.ink/);
+      assert.match(programsHomeSource, /stroke="#FFFFFF"/);
+      assert.match(programsHomeSource, /strokeWidth=\{2\.05\}/);
+      assert.match(programsHomeSource, /catTile: \{[\s\S]{0,120}borderRadius: 37,/);
+      // On the disc's edge with a ring in the surface colour, which a circle can
+      // carry and the old cut corner could not without slicing the digit.
+      assert.match(programsHomeSource, /catTileCount: \{[\s\S]{0,300}bottom: -1,/);
+      assert.match(programsHomeSource, /borderColor: theme\.surface/);
       // A tile that says 8 has to open 8: the count and the rail read the
       // same source.
       assert.match(programsHomeSource, /categoryCounts\[entry\.key\]/);
