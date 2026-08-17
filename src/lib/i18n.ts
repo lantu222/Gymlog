@@ -117,6 +117,7 @@ const EN = {
   'home.a11y.adaptSession': "Adapt today's session",
   'home.a11y.swapExercise': 'Swap {name} for another exercise',
   'home.a11y.startSession': "Start today's workout",
+  'home.a11y.findProgram': 'Find a program',
   'home.a11y.startEmptyWorkout': 'Start empty workout',
   'home.a11y.openCardio': 'Open cardio workouts',
   'home.calendar.training': 'Training',
@@ -141,6 +142,9 @@ const EN = {
   'home.section.more': '+ {count} more',
   'home.adapt': 'Adapt',
   'home.startWorkout': 'Start workout',
+  // What the hero button says when there is no programme to start. Offering to
+  // start a workout there was offering to start nothing.
+  'home.findProgram': 'Find a program',
   'home.emptyWorkout.title': 'Empty workout',
   'home.emptyWorkout.meta': 'Log freestyle',
   'home.cardio.title': 'Cardio',
@@ -2934,6 +2938,7 @@ const FI: Record<I18nKey, string> = {
   'home.a11y.adaptSession': 'Mukauta tämän päivän treeniä',
   'home.a11y.swapExercise': 'Vaihda {name} toiseen liikkeeseen',
   'home.a11y.startSession': 'Aloita tämän päivän treeni',
+  'home.a11y.findProgram': 'Etsi ohjelma',
   'home.a11y.startEmptyWorkout': 'Aloita tyhjä treeni',
   'home.a11y.openCardio': 'Avaa cardiotreenit',
   'home.calendar.training': 'Treeni',
@@ -2958,6 +2963,7 @@ const FI: Record<I18nKey, string> = {
   'home.section.more': '+ {count} lisää',
   'home.adapt': 'Mukauta',
   'home.startWorkout': 'Aloita treeni',
+  'home.findProgram': 'Etsi ohjelma',
   'home.emptyWorkout.title': 'Tyhjä treeni',
   'home.emptyWorkout.meta': 'Kirjaa vapaasti',
   'home.cardio.title': 'Cardio',

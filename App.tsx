@@ -5534,6 +5534,9 @@ function VinhaApp() {
           handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
         }}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
+        // No programme to start: the hero button goes to the catalog instead of
+        // offering an empty session the "empty workout" row already offers.
+        onFindProgram={() => navigateToTab('workout')}
         onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}

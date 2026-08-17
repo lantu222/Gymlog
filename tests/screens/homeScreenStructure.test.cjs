@@ -176,8 +176,19 @@ module.exports = [
       // (completed sets, finished cardio), and the dark theme moves the action
       // accent to orange without moving those.
       assert.match(homeScreenSource, /startButtonText:\s*\{\s*color: theme.accent/);
-      assert.match(homeScreenSource, /t\(language, 'home\.startWorkout'\)/);
+      // The hero button says "Start workout" only when there is a session to
+      // start. With no programme it used to promise one anyway and open an empty
+      // workout — the same thing the row below it already offers — so the label
+      // and the action now both switch to finding a programme.
+      assert.match(
+        homeScreenSource,
+        /heroStartsSession \? 'home\.startWorkout' : 'home\.findProgram'/,
+      );
+      assert.match(homeScreenSource, /const heroStartsSession = Boolean\(nextPlanSession\)/);
+      assert.match(homeScreenSource, /if \(!nextPlanSession && onFindProgram\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
+      assert.match(i18nSource, /'home\.findProgram': 'Find a program'/);
+      assert.match(appSource, /onFindProgram=\{\(\) => navigateToTab\('workout'\)\}/);
       assert.match(i18nSource, /'home\.adaptSheet\.shorter\.title': 'Shorter session'/);
       // Minutes again, but only because there is now one formula. The sheet
       // and the player used to disagree about the same session (~35 vs ~50)
