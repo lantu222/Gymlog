@@ -236,14 +236,20 @@ module.exports = [
     },
   },
   {
-    name: 'widgetResources: the card is translucent, so it sits in the wallpaper',
+    name: 'widgetResources: the card is opaque, because the text cannot afford otherwise',
     run() {
-      // Chosen at 75% with the legibility risk stated, and checked on a device.
+      // A translucent card composites the wallpaper into itself. Measured worst
+      // case — a pale wallpaper under the dark palette — put the 9sp faint label
+      // at a contrast ratio of 1.59 against WCAG's 3.0 floor for large text.
+      // Opaque, that pair is 3.59, which is the app's own dark-theme floor.
       for (const theme of ['light', 'dark']) {
         const fill = FILES[`res/drawable/widget_card_${theme}.xml`].match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
-        assert.equal(fill.length, 9, `${theme} card fill has no alpha channel`);
-        const alpha = parseInt(fill.slice(1, 3), 16);
-        assert.ok(alpha > 0x99 && alpha < 0xff, `${theme} card alpha ${fill} is either opaque or too faint to read on`);
+        assert.equal(fill.length, 9, `${theme} card fill should state its alpha`);
+        assert.equal(
+          parseInt(fill.slice(1, 3), 16),
+          0xff,
+          `${theme} card is translucent again — re-measure the faint label before trusting it`,
+        );
       }
     },
   },

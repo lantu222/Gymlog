@@ -66,13 +66,23 @@ const UPDATE_PERIOD_MS = 1800000;
  * planned and free has to survive at 5dp on an unknown wallpaper.
  */
 /**
- * The card fill carries alpha. Every widget the phone ships with is
- * translucent, and ours read as a box lying on the wallpaper rather than a card
- * set into it. `BF` is 75%, which is what the reader chose after being told the
- * risk: a 5dp bar and a 9sp letter over a busy wallpaper is where this starts
- * to cost legibility. Verified on a device against a real wallpaper.
+ * The card fill is opaque, and it is opaque on evidence.
+ *
+ * Every widget the phone ships with is translucent, and at 75% ours did look
+ * like part of the home screen rather than a box on top of it. Then the numbers
+ * came in. A translucent card composites the wallpaper into itself, so the worst
+ * case is a pale wallpaper under the dark palette, and there the faint label —
+ * "SUGGESTED FOR YOU", the weekday letters — fell to a contrast ratio of 1.59.
+ * WCAG's floor for large text is 3.0. Opaque, the same pair is 3.59, which is
+ * the app's own dark-theme floor and as low as this palette goes anywhere.
+ *
+ * The reason the system's translucent widgets get away with it: their smallest
+ * type is a 12sp condition line, and ours has three 9sp all-caps labels.
+ *
+ * Keep the eight-digit form. `FF` states the intent, and the alpha channel is
+ * where a future experiment would go.
  */
-const CARD_ALPHA = 'BF';
+const CARD_ALPHA = 'FF';
 
 const LIGHT = {
   card: `#${CARD_ALPHA}FFFFFF`,
