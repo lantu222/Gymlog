@@ -1,7 +1,7 @@
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, View } from 'react-native';
+import { Alert, AppState, BackHandler, Linking, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -37,7 +37,8 @@ import {
   isHomeWidgetSupported,
   requestPinHomeWidget,
 } from './modules/home-widget';
-import { buildHomeWidgetPayload } from './src/lib/widgetPayload';
+import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } from './src/lib/widgetPayload';
+import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -63,7 +64,7 @@ import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
-import { getCalendarWeekStartTimestamp, getCanonicalCompletedSessions } from './src/lib/completedSessions';
+import { getCanonicalCompletedSessions, getRecentActivityStrip } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
@@ -3079,33 +3080,103 @@ function VinhaApp() {
   // Feeds the home-screen widget. The launcher redraws it on its own schedule,
   // so all this has to do is keep the file current. Placed after the plan card
   // and the picked days, because it is built from exactly what Home renders.
+  //
+  // The calendar reaches back two weeks, so the widget needs the days that were
+  // trained — not just this week's weekdays. 21 days covers two past weeks plus
+  // every day of the current one, whichever weekday today is.
+  const widgetCompletedDayStarts = useMemo(
+    () =>
+      getRecentActivityStrip(database, new Date(), 21)
+        .filter((day) => day.active)
+        .map((day) => day.dayStart),
+    [database],
+  );
   useEffect(() => {
     if (!appHydrated) {
       return;
     }
-    const nowMs = Date.now();
-    // Which weekdays already have a logged session this calendar week. The
-    // widget's bars need it to say "done" rather than only "training day".
-    const weekStart = getCalendarWeekStartTimestamp(new Date(nowMs));
-    const completedWeekdayIndexes = getCanonicalCompletedSessions(database)
-      .map((session) => new Date(session.performedAt))
-      .filter((date) => Number.isFinite(date.getTime()) && date.getTime() >= weekStart)
-      .map((date) => (date.getDay() === 0 ? 6 : date.getDay() - 1));
 
     writeHomeWidgetPayload(
       buildHomeWidgetPayload({
-        nowMs,
+        nowMs: Date.now(),
         language: preferences.appLanguage,
         // The widget shows whatever the app resolved, Pro gate included — it
         // cannot re-derive this, it is drawn in the launcher's process.
         theme: resolveThemeName(preferences),
         planName: homeActivePlanCard?.title ?? null,
         trainingDayIndexes: homeTrainingDayIndexes,
-        completedWeekdayIndexes,
+        completedDayStarts: widgetCompletedDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
       }),
     );
-  }, [appHydrated, preferences, database, homeActivePlanCard, homeTrainingDayIndexes]);
+  }, [appHydrated, preferences, homeActivePlanCard, homeTrainingDayIndexes, widgetCompletedDayStarts]);
+
+  // ── Widget taps ──────────────────────────────────────────────────────────
+  // A widget can only ask Android to open a URL, so each tap arrives as
+  // `vinha://widget/<target>` and is resolved here against live state. The
+  // widget's own file can be half an hour old; the workout it named is looked
+  // up again now, so a tap never opens yesterday's session.
+  const [pendingWidgetTarget, setPendingWidgetTarget] = useState<HomeWidgetTarget | null>(null);
+
+  useEffect(() => {
+    function handleUrl(url: string | null | undefined) {
+      const target = parseWidgetDeepLink(url);
+      if (target) {
+        setPendingWidgetTarget(target);
+      }
+    }
+
+    // Cold start: the URL is already waiting. Warm start: it arrives here.
+    void Linking.getInitialURL().then(handleUrl).catch(() => undefined);
+    const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    // Held until the database is loaded: resolving "the session you named"
+    // against an empty store would land on Home every time.
+    if (!appHydrated || !pendingWidgetTarget) {
+      return;
+    }
+    setPendingWidgetTarget(null);
+
+    if (pendingWidgetTarget === 'calendar') {
+      resetToRoute({ tab: 'progress', screen: 'calendar' });
+      return;
+    }
+    if (pendingWidgetTarget === 'programs') {
+      resetToRoute({ tab: 'workout', screen: 'programs_home' });
+      return;
+    }
+    if (pendingWidgetTarget === 'schedule') {
+      resetToRoute({ tab: 'profile', screen: 'training_plan', editSchedule: true });
+      return;
+    }
+    if (pendingWidgetTarget === 'home') {
+      resetToRoute(ROOT_ROUTES.home);
+      return;
+    }
+
+    const next = findHomeWidgetNextSession({
+      nowMs: Date.now(),
+      trainingDayIndexes: homeTrainingDayIndexes,
+      sessions: homeActivePlanCard?.sessions ?? [],
+      completedDayStarts: widgetCompletedDayStarts,
+    });
+    // No session to open any more — the plan changed while the widget was
+    // showing the old one. Home is the honest landing, not an empty screen.
+    if (!next || !homeActivePlanCard) {
+      resetToRoute(ROOT_ROUTES.home);
+      return;
+    }
+    resetToRoute({
+      tab: 'workout',
+      screen: 'programDay',
+      programType: homeActivePlanCard.programType,
+      workoutTemplateId: homeActivePlanCard.programId,
+      sessionId: next.session.id,
+    });
+  }, [appHydrated, homeActivePlanCard, homeTrainingDayIndexes, pendingWidgetTarget, widgetCompletedDayStarts]);
 
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content

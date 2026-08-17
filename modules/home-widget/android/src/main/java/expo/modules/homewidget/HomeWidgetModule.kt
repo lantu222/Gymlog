@@ -20,11 +20,25 @@ import expo.modules.kotlin.modules.ModuleDefinition
  */
 class HomeWidgetModule : Module() {
 
+  /**
+   * The one the app offers to add: the 4×2, which is what the offer's own copy
+   * describes. Its class name predates the family and is kept because widgets
+   * already on a home screen are bound to it.
+   */
   private val provider: ComponentName
-    get() = ComponentName(
-      appContext.reactContext!!.packageName,
-      appContext.reactContext!!.packageName + ".HomeWidgetProvider",
-    )
+    get() = componentFor("HomeWidgetProvider")
+
+  /**
+   * Every receiver in the family. `isAdded` has to check both, or adding the
+   * 2×2 would leave the app still offering to add a widget.
+   */
+  private val allProviders: List<ComponentName>
+    get() = listOf("HomeWidgetProvider", "WeekWidgetProvider").map(::componentFor)
+
+  private fun componentFor(className: String): ComponentName {
+    val packageName = appContext.reactContext!!.packageName
+    return ComponentName(packageName, "$packageName.$className")
+  }
 
   override fun definition() = ModuleDefinition {
     Name("HomeWidget")
@@ -41,12 +55,12 @@ class HomeWidgetModule : Module() {
       }
     }
 
-    /** True when at least one instance is already on a home screen. */
+    /** True when any of the family's widgets is already on a home screen. */
     AsyncFunction<Boolean>("isAdded") {
       val context = appContext.reactContext ?: return@AsyncFunction false
       try {
-        val ids = AppWidgetManager.getInstance(context)?.getAppWidgetIds(provider)
-        (ids?.size ?: 0) > 0
+        val manager = AppWidgetManager.getInstance(context) ?: return@AsyncFunction false
+        allProviders.any { (manager.getAppWidgetIds(it)?.size ?: 0) > 0 }
       } catch (error: Exception) {
         false
       }
