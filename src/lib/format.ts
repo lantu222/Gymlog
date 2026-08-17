@@ -36,12 +36,6 @@ export function formatShortDate(dateString: string, language?: AppLanguage) {
   }).format(new Date(dateString));
 }
 
-export function formatWeekday(dateString: string, language?: AppLanguage) {
-  return new Intl.DateTimeFormat(localeFor(language), {
-    weekday: 'long',
-  }).format(new Date(dateString));
-}
-
 export function formatSessionDate(dateString: string, language?: AppLanguage) {
   return new Intl.DateTimeFormat(localeFor(language), {
     weekday: 'short',
@@ -118,10 +112,6 @@ export function formatRepRange(repMin: number, repMax: number) {
   return repMin === repMax ? `${repMin}` : `${repMin}-${repMax}`;
 }
 
-export function formatTargetSets(targetSets: number, repMin: number, repMax: number) {
-  return `${targetSets} x ${formatRepRange(repMin, repMax)}`;
-}
-
 /**
  * "4 × 8-10" for reps, "3 × 30-60 s" for a hold.
  *
@@ -180,23 +170,6 @@ export function formatLogResult(
   return formatLogSetSummary(log, unitPreference);
 }
 
-export function formatWeightTrend(
-  latestWeight: number | null,
-  previousWeight: number | null,
-  unitPreference: UnitPreference,
-) {
-  if (latestWeight === null || previousWeight === null) {
-    return 'No previous weight';
-  }
-
-  const delta = convertWeightFromKg(latestWeight - previousWeight, unitPreference);
-  if (Math.abs(delta) < 0.05) {
-    return 'No change';
-  }
-
-  const direction = delta > 0 ? '+' : '';
-  return `${direction}${removeTrailingZeros(delta)} ${unitPreference}`;
-}
 
 export function parseNumberInput(value: string) {
   const normalized = value.replace(',', '.').trim();

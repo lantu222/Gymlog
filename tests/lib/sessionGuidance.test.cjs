@@ -1,7 +1,11 @@
 const assert = require('node:assert/strict');
 
 const { getWorkoutTemplateById, WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
-const { buildSessionGuidance, buildSessionGuidanceById } = require('../../.test-dist/lib/sessionGuidance.js');
+const { buildSessionGuidance } = require('../../.test-dist/lib/sessionGuidance.js');
+
+// The by-id map was exported from src and read only here.
+const buildSessionGuidanceById = (template) =>
+  Object.fromEntries(template.sessions.map((session) => [session.id, buildSessionGuidance(template, session)]));
 
 module.exports = [
   {

@@ -10,8 +10,6 @@ const suites = [
   ...require('./components/primaryCTAButton.test.cjs'),
   ...require('./integration/liveWorkoutSavePipeline.test.cjs'),
   ...require('./lib/workoutInput.test.cjs'),
-  ...require('./lib/workoutFlow.test.cjs'),
-  ...require('./lib/workoutValidation.test.cjs'),
   ...require('./lib/workoutContentFit.test.cjs'),
   ...require('./lib/sessionGuidance.test.cjs'),
   ...require('./lib/guidedPlayer.test.cjs'),

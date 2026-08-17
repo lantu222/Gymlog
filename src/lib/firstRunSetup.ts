@@ -250,19 +250,6 @@ export function getGuidanceModeLabel(mode: SetupGuidanceMode, language: AppLangu
   }
 }
 
-export function getGuidanceModeDescription(mode: SetupGuidanceMode) {
-  switch (mode) {
-    case 'done_for_me':
-      return 'One ready plan.';
-    case 'guided_editable':
-      return 'Recommend, then edit.';
-    case 'self_directed':
-      return 'Start from a base.';
-    default:
-      return 'Start with a base.';
-  }
-}
-
 export function getScheduleModeLabel(mode: SetupScheduleMode, language: AppLanguage = 'en') {
   switch (mode) {
     case 'app_managed':
@@ -271,17 +258,6 @@ export function getScheduleModeLabel(mode: SetupScheduleMode, language: AppLangu
       return t(language, 'setup.schedule.self');
     default:
       return t(language, 'setup.schedule.default');
-  }
-}
-
-export function getScheduleModeDescription(mode: SetupScheduleMode) {
-  switch (mode) {
-    case 'app_managed':
-      return 'Vinha places the week.';
-    case 'self_managed':
-      return 'You pick the days.';
-    default:
-      return 'Pick the week style.';
   }
 }
 
@@ -583,10 +559,6 @@ function buildLowEquipmentMismatchNote(selection: FirstRunSetupSelection) {
   return selection.guidanceMode === 'self_directed'
     ? `${base} You can still use it as the base for your own custom split.`
     : base;
-}
-
-export function resolveFirstRunRecommendation(selection: FirstRunSetupSelection): FirstRunRecommendation {
-  return resolveFirstRunRecommendationWithTailoring(selection, null);
 }
 
 function buildRecommendationMismatchNote(

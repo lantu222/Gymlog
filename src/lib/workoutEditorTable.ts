@@ -19,37 +19,8 @@ export interface EditorExerciseHistoryLookup {
   byName: Record<string, EditorExerciseHistorySummary>;
 }
 
-export interface EditorTableExerciseDraft {
-  localKey: string;
-  name: string;
-  targetSets: string;
-  repRangeText: string;
-  restSeconds: string;
-  trackedDefault: boolean;
-  libraryItemId?: string | null;
-}
-
-export interface EditorTableRow {
-  key: string;
-  source: 'custom' | 'library-backed';
-  exerciseName: string;
-  setsText: string;
-  repRangeText: string;
-  restSecondsText: string;
-  trackedDefault: boolean;
-  history: EditorExerciseHistorySummary;
-}
-
 function normalize(value: string) {
   return value.trim().toLowerCase();
-}
-
-function createEmptyHistory(): EditorExerciseHistorySummary {
-  return {
-    lastWeight: '-',
-    lastReps: '-',
-    performedAt: null,
-  };
 }
 
 function toHistorySummary(log: ExerciseLog, performedAt: string, unitPreference: UnitPreference): EditorExerciseHistorySummary {
@@ -113,22 +84,6 @@ export function buildExerciseHistoryLookup({
   };
 }
 
-export function resolveExerciseHistory(
-  exercise: Pick<EditorTableExerciseDraft, 'name' | 'libraryItemId'>,
-  lookup: EditorExerciseHistoryLookup,
-): EditorExerciseHistorySummary {
-  if (exercise.libraryItemId && lookup.byLibraryItemId[exercise.libraryItemId]) {
-    return lookup.byLibraryItemId[exercise.libraryItemId];
-  }
-
-  const normalizedName = normalize(exercise.name);
-  if (normalizedName && lookup.byName[normalizedName]) {
-    return lookup.byName[normalizedName];
-  }
-
-  return createEmptyHistory();
-}
-
 export function formatDraftRepRange(repMin: string, repMax: string) {
   const left = repMin.trim();
   const right = repMax.trim();
@@ -173,22 +128,6 @@ export function parseDraftRepRangeInput(value: string) {
     repMin: minValue,
     repMax: maxValue,
   };
-}
-
-export function buildEditorTableRows(
-  exercises: EditorTableExerciseDraft[],
-  lookup: EditorExerciseHistoryLookup,
-): EditorTableRow[] {
-  return exercises.map((exercise) => ({
-    key: exercise.localKey,
-    source: exercise.libraryItemId ? 'library-backed' : 'custom',
-    exerciseName: exercise.name,
-    setsText: exercise.targetSets,
-    repRangeText: exercise.repRangeText,
-    restSecondsText: exercise.restSeconds,
-    trackedDefault: exercise.trackedDefault,
-    history: resolveExerciseHistory(exercise, lookup),
-  }));
 }
 
 export function buildEditorExercisePatchFromLibraryItem(

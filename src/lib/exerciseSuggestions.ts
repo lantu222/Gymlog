@@ -117,31 +117,6 @@ export function getExerciseTemplateDefaults(item: ExerciseLibraryItem | undefine
   };
 }
 
-export function createSessionExerciseFromLibraryItem(
-  item: ExerciseLibraryItem,
-  workoutTemplateId: string,
-  workoutTemplateSessionId: string,
-  orderIndex: number,
-  defaultRestSeconds: number,
-): ExerciseTemplate {
-  const defaults = getExerciseTemplateDefaults(item, defaultRestSeconds);
-
-  return {
-    id: createId('session_exercise'),
-    persistedExerciseTemplateId: null,
-    workoutTemplateId,
-    workoutTemplateSessionId,
-    name: item.name,
-    targetSets: defaults.targetSets,
-    repMin: defaults.repMin,
-    repMax: defaults.repMax,
-    restSeconds: defaults.restSeconds,
-    trackedDefault: defaults.trackedDefault,
-    orderIndex,
-    libraryItemId: item.id,
-  };
-}
-
 export function getRecentExerciseLibraryItems({
   exerciseLibrary,
   exerciseLogs,

@@ -1150,9 +1150,6 @@ const EN = {
   'logger.effort.easy': 'Easy',
   'logger.effort.good': 'Good',
   'logger.effort.hard': 'Hard',
-  'logger.validation.addLoad': 'Add load to complete this set.',
-  'logger.validation.addReps': 'Add reps to complete this set.',
-  'logger.validation.addSeconds': 'Add the seconds you held to complete this set.',
 
   // ── Guided Player ──────────────────────────────────────────────────────
   // Weekdays are indexed by Date#getDay() (0 = Sunday) for the entry eyebrow.
@@ -3939,9 +3936,6 @@ const FI: Record<I18nKey, string> = {
   'logger.effort.easy': 'Helppo',
   'logger.effort.good': 'Hyvä',
   'logger.effort.hard': 'Raskas',
-  'logger.validation.addLoad': 'Lisää paino, niin sarja kirjautuu.',
-  'logger.validation.addReps': 'Lisää toistot, niin sarja kirjautuu.',
-  'logger.validation.addSeconds': 'Lisää pidon kesto sekunteina, niin sarja kirjautuu.',
 
   // ── Guided Player ──────────────────────────────────────────────────────
   'guided.weekday.0': 'SUNNUNTAI',

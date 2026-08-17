@@ -27,7 +27,7 @@ node tests/run-tests.cjs        # run all suites
 To run a single suite, require it directly:
 
 ```powershell
-node -e "const s = require('./tests/lib/workoutFlow.test.cjs'); s.forEach(t => t.run()); console.log('ok')"
+node -e "const s = require('./tests/lib/guidedPlayer.test.cjs'); s.forEach(t => t.run()); console.log('ok')"
 ```
 
 ## Architecture
@@ -80,7 +80,7 @@ Pure TypeScript functions with no React dependencies. This is where all business
 |---|---|
 | Recommendation & onboarding | `recommendationScoring`, `recommendationProfile`, `recommendationProgramme`, `firstRunSetup`, `onboardingStructure` |
 | Home decisions | `homePrimaryAction`, `homeProgramSelection`, `dashboard` |
-| Workout session | `workoutFlow`, `workoutValidation`, `workoutLoggingSessionBootstrap`, `workoutLoggerNavigation` |
+| Workout session | `guidedPlayer`, `sessionDuration`, `workoutLoggingSessionBootstrap`, `workoutLoggerNavigation` |
 | AI Coach | `aiCoachClient`, `aiCoachPreview`, `aiCoachActions`, `aiTrainingContext`, `aiCoachPlan` |
 | Progress & history | `historyView`, `progressionActivePlan`, `progressionSignal` |
 | Formatting | `format`, `displayLabel` |

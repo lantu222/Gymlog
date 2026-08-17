@@ -1055,8 +1055,8 @@ src/lib/aiCoachClient.ts         Intelligence layer: AI call orchestration
 src/lib/aiCoachPreview.ts        Intelligence layer: preview mode mock
 src/lib/aiCoachActions.ts        Intelligence layer: coaching action types
 src/lib/aiCoachPlan.ts           Intelligence layer: plan generation
-src/lib/workoutFlow.ts           Session layer: workout flow logic
-src/lib/workoutValidation.ts     Session layer: validation rules
+src/lib/guidedPlayer.ts          Session layer: guided step sequence
+src/lib/sessionDuration.ts       Session layer: session length estimates
 src/lib/dashboard.ts             Delivery layer: home screen data assembly
 src/lib/homePrimaryAction.ts     Delivery layer: primary action selection
 src/lib/format.ts                Delivery layer: formatting utilities

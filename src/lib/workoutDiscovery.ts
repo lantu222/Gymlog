@@ -72,10 +72,6 @@ export function getReadyProgramEquipmentBucket(item: ReadyDiscoveryItem): Exclud
   return 'full_gym';
 }
 
-export function getReadyProgramEquipmentLabel(item: ReadyDiscoveryItem) {
-  return getReadyProgramEquipmentBucket(item) === 'low_equipment' ? 'Low equipment' : 'Full gym';
-}
-
 export function getReadyProgramTradeoff(templateId: string) {
   return READY_PROGRAM_TRADEOFFS[templateId] ?? 'Tradeoff: this plan works best when your week matches the template closely.';
 }
@@ -131,8 +127,4 @@ export function filterAndSortReadyDiscoveryItems(
   preferences?: TailoringPreferencesInput | null,
 ) {
   return sortReadyDiscoveryItemsByTailoring(filterReadyDiscoveryItems(items, filters), preferences);
-}
-
-export function getDefaultReadyEquipmentFilter(preferences?: TailoringPreferencesInput | null) {
-  return getPreferredReadyEquipmentFilter(preferences);
 }

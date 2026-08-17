@@ -43,13 +43,6 @@ export function getComparableSuccessfulWorkingSets(
   }));
 }
 
-export function getLastComparableWorkingSet(
-  log?: Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'> | null,
-) {
-  const sets = getComparableSuccessfulWorkingSets(log);
-  return sets.length ? sets[sets.length - 1] : null;
-}
-
 export function getBestComparableWorkingSet(
   log?: Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'> | null,
 ) {
@@ -125,34 +118,4 @@ export function buildProgressionSuggestion(
     targetRepsMin: repMin,
     targetRepsMax: repMax,
   };
-}
-
-export function buildBeatLastTimeAction(
-  currentWeightKg: number,
-  currentReps: number,
-  previousLog?: Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'> | null,
-  unitPreference: UnitPreference = 'kg',
-) {
-  const lastComparable = getLastComparableWorkingSet(previousLog);
-  const bestComparable = getBestComparableWorkingSet(previousLog);
-
-  if (!lastComparable || !bestComparable) {
-    return null;
-  }
-
-  const increment = getLoadIncrementKg(unitPreference);
-
-  if (isClose(currentWeightKg, lastComparable.weight) && currentReps >= lastComparable.reps + 1) {
-    return 'beat-by-reps' as const;
-  }
-
-  if (currentWeightKg >= lastComparable.weight + increment - EPSILON && currentReps >= lastComparable.reps) {
-    return 'beat-by-load' as const;
-  }
-
-  if (isClose(currentWeightKg, bestComparable.weight) && currentReps === bestComparable.reps) {
-    return 'match-previous-best' as const;
-  }
-
-  return null;
 }

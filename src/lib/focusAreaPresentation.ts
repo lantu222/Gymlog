@@ -134,10 +134,6 @@ export function getFocusAreaLabel(area: SetupFocusArea, language: AppLanguage = 
   return t(language, FOCUS_AREA_LABEL_KEYS[area]);
 }
 
-export function getFocusAreaPresentationOptions() {
-  return FOCUS_AREA_PRESENTATION_OPTIONS;
-}
-
 export function getOnboardingFocusAreaPresentationOptions() {
   return FOCUS_AREA_PRESENTATION_OPTIONS.filter((option) => option.group === 'upper' || option.group === 'lower');
 }

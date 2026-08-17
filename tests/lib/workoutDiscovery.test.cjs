@@ -4,10 +4,10 @@ const {
   buildReadyProgramSearchText,
   filterAndSortReadyDiscoveryItems,
   filterReadyDiscoveryItems,
-  getDefaultReadyEquipmentFilter,
   getReadyProgramEquipmentBucket,
   getReadyProgramTimeBucket,
 } = require('../../.test-dist/lib/workoutDiscovery.js');
+const { getPreferredReadyEquipmentFilter } = require('../../.test-dist/lib/tailoringFit.js');
 const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog.js');
 const { getReadyProgramContent } = require('../../.test-dist/lib/readyProgramContent.js');
 
@@ -64,8 +64,10 @@ module.exports = [
   {
     name: 'ready discovery exposes the equipment default from tailoring',
     run() {
+      // Asserted on tailoringFit directly. workoutDiscovery re-exported this
+      // under a second name and nothing outside this file ever called it.
       assert.equal(
-        getDefaultReadyEquipmentFilter({
+        getPreferredReadyEquipmentFilter({
           setupEquipment: 'minimal',
           setupFreeWeightsPreference: 'neutral',
           setupBodyweightPreference: 'prefer',

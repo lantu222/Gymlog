@@ -6,9 +6,13 @@ const {
   buildFirstRunCustomProgramName,
   buildFirstRunPromptSuggestions,
   resolveProjectedTrainingDays,
-  resolveFirstRunRecommendation,
   resolveFirstRunRecommendationWithTailoring,
 } = require('../../.test-dist/lib/firstRunSetup.js');
+
+// Most of what is asserted here is the untailored recommendation. src used to
+// export a wrapper for it, which nothing but these tests ever called — so the
+// shorthand lives where it is used.
+const resolveFirstRunRecommendation = (selection) => resolveFirstRunRecommendationWithTailoring(selection, null);
 const { buildRecommendationInput } = require('../../.test-dist/lib/recommendationInput.js');
 const { getRecommendationProgramDefinition } = require('../../.test-dist/lib/recommendationCatalog.js');
 const { evaluateWorkoutContentFit } = require('../../.test-dist/lib/workoutContentFit.js');
