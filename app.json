@@ -24,9 +24,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "permissions": [
-        "android.permission.POST_NOTIFICATIONS",
-        "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.USE_EXACT_ALARM"
+        "android.permission.POST_NOTIFICATIONS"
       ],
       "package": "app.vinha"
     },

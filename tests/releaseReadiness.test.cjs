@@ -30,6 +30,25 @@ module.exports = [
     },
   },
   {
+    name: 'release: no exact-alarm permission is declared',
+    run() {
+      // USE_EXACT_ALARM is restricted to alarm clocks and calendars, and Play
+      // asks for a justification at upload; a training reminder does not
+      // qualify. SCHEDULE_EXACT_ALARM is denied by default from Android 14, so
+      // the app has to work without it anyway. expo-notifications checks
+      // canScheduleExactAlarms() and falls back to setAndAllowWhileIdle, which
+      // still fires through Doze — a reminder that lands a few minutes late is
+      // the whole cost of dropping both.
+      const permissions = readJson('app.json')?.expo?.android?.permissions ?? [];
+      for (const permission of ['android.permission.USE_EXACT_ALARM', 'android.permission.SCHEDULE_EXACT_ALARM']) {
+        assert.ok(
+          !permissions.includes(permission),
+          `${permission} is back in app.json — it turns a submission into a policy review.`,
+        );
+      }
+    },
+  },
+  {
     name: 'release: app.json and package.json agree on the version',
     run() {
       const app = readJson('app.json');
