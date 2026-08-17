@@ -140,4 +140,37 @@ module.exports = [
       assert.equal(view.ctaEyebrow, 'RECOVERY');
     },
   },
+  {
+    name: 'the day row crosses a clock change without repeating a day',
+    run() {
+      // Finland falls back on Sunday 25 October 2026, a 25-hour day. Stepped by
+      // a fixed 24 hours the row drew Sunday twice, never drew the Monday after
+      // it, and gave every later day the weekday before it — so Home offered
+      // the wrong session for a day it had already shown.
+      const originalTimezone = process.env.TZ;
+      process.env.TZ = 'Europe/Helsinki';
+
+      try {
+        const days = getHomeCarouselCalendarDays(new Date(2026, 9, 20, 12, 0, 0), {
+          daysBefore: 2,
+          daysAfter: 10,
+        });
+        const dates = days.map((day) => new Date(day.dayStart).getDate());
+
+        assert.deepEqual(dates, [18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30]);
+        days.forEach((day) => {
+          const date = new Date(day.dayStart);
+          assert.equal(date.getHours(), 0, `${date.getDate()} October does not start at midnight`);
+          // 0 = Monday, and it has to describe the day it is attached to.
+          assert.equal(day.weekdayIndex, date.getDay() === 0 ? 6 : date.getDay() - 1);
+        });
+      } finally {
+        if (originalTimezone === undefined) {
+          delete process.env.TZ;
+        } else {
+          process.env.TZ = originalTimezone;
+        }
+      }
+    },
+  },
 ];
