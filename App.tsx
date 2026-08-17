@@ -2670,7 +2670,12 @@ function VinhaApp() {
     }
 
     await updatePreferences(patch);
-    showToast(nextMode === 'app_managed' ? 'Vinha manages the week' : 'You manage the days');
+    showToast(
+      t(
+        preferences.appLanguage,
+        nextMode === 'app_managed' ? 'toast.scheduleAppManaged' : 'toast.scheduleSelfManaged',
+      ),
+    );
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
@@ -5056,15 +5061,20 @@ function VinhaApp() {
             ? () => openRecommendedProgramDetail((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!)
             : undefined
         }
-        onAskAiCoach={() =>
+        onAskAiCoach={() => {
+          // The coach answers in Finnish; the question it was handed was an
+          // English literal, and the chat shows it as the reader's own message.
+          const askProgramName = currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name;
           navigate({
             tab: 'home',
             screen: 'ai',
-            prompt: (currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name)
-              ? `Why does ${formatWorkoutDisplayLabel(currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? '')} fit me?`
-              : 'Why does this plan fit me?',
-          })
-        }
+            prompt: askProgramName
+              ? t(preferences.appLanguage, 'plan.askFit', {
+                  program: formatWorkoutDisplayLabel(askProgramName),
+                })
+              : t(preferences.appLanguage, 'plan.askFitGeneric'),
+          });
+        }}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'exercise_preferences') {

@@ -506,6 +506,9 @@ const EN = {
   'toast.workoutDuplicateFailed': 'Could not duplicate workout',
   'toast.workoutDeleted': 'Workout deleted',
   'toast.setupUpdated': 'Setup updated',
+  // Both were English literals inside App.tsx, shown in a Finnish app.
+  'toast.scheduleAppManaged': 'Vinha manages the week',
+  'toast.scheduleSelfManaged': 'You manage the days',
   'toast.workoutCreated': 'Workout created',
   'toast.cardioSaved': 'Cardio session saved',
   'toast.cardioSaveFailed': 'Could not save cardio session',
@@ -2220,6 +2223,10 @@ const EN = {
   'programLimit.count': '{used} / {limit} in use',
   'plan.settings': 'Plan settings',
   'plan.settingsSub': 'Equipment, swaps & progression.',
+  // Handed to the coach as the reader's own opening message, so it is theirs to
+  // read: it was an English literal built in App.tsx and shown verbatim.
+  'plan.askFit': 'Why does {program} fit me?',
+  'plan.askFitGeneric': 'Why does this plan fit me?',
   'plan.emptyTitle': 'No active plan',
   'plan.emptyBody': 'Create a plan and it shows up here with its schedule and sessions.',
   'plan.createNew': 'Create new plan',
@@ -3569,6 +3576,8 @@ const FI: Record<I18nKey, string> = {
   'toast.workoutDuplicateFailed': 'Treeniä ei voitu kopioida',
   'toast.workoutDeleted': 'Treeni poistettu',
   'toast.setupUpdated': 'Asetukset päivitetty',
+  'toast.scheduleAppManaged': 'Vinha hoitaa viikon',
+  'toast.scheduleSelfManaged': 'Sinä valitset päivät',
   'toast.workoutCreated': 'Treeni luotu',
   'toast.cardioSaved': 'Cardio-treeni tallennettu',
   'toast.cardioSaveFailed': 'Cardio-treeniä ei voitu tallentaa',
@@ -5198,6 +5207,8 @@ const FI: Record<I18nKey, string> = {
   'programLimit.count': '{used} / {limit} käytössä',
   'plan.settings': 'Ohjelman asetukset',
   'plan.settingsSub': 'Välineet, korvaavat liikkeet ja eteneminen.',
+  'plan.askFit': 'Miksi {program} sopii minulle?',
+  'plan.askFitGeneric': 'Miksi tämä ohjelma sopii minulle?',
   'plan.emptyTitle': 'Ei aktiivista ohjelmaa',
   'plan.emptyBody': 'Luo ohjelma, niin se näkyy täällä aikatauluineen ja treeneineen.',
   'plan.createNew': 'Luo uusi ohjelma',
