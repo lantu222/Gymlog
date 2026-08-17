@@ -12,7 +12,7 @@ const assert = require('node:assert/strict');
  *
  * It cannot tell you the layout looks right. That still needs the device.
  */
-const { widgetResources, PROVIDERS } = require('../../plugins/withHomeWidget.js');
+const { widgetResources, applyWidgetReceivers, PROVIDERS } = require('../../plugins/withHomeWidget.js');
 const {
   HOME_WIDGET_PAYLOAD_VERSION,
   HOME_WIDGET_CURRENT_WEEK_INDEX,
@@ -412,6 +412,56 @@ module.exports = [
         });
         assert.equal(error, null, `${entry} is not well-formed XML: ${error && error.message}`);
       }
+    },
+  },
+  {
+    name: 'widgetResources: an attribute past the closing bracket is not an attribute',
+    run() {
+      // Well-formed is not the same as correct. `...dp">${margin}${pad}` parses
+      // cleanly and reads right, but everything after the `>` is character
+      // data: aapt2 drops it without a word, and the bars lose the gap between
+      // them and the one under the date.
+      for (const entry of layoutPaths) {
+        assert.ok(
+          !/>\s*android:/.test(FILES[entry]),
+          `${entry} carries android: attributes as text, which never reach the layout`,
+        );
+      }
+      // And the spacing that goes through that path is really in the file.
+      const square = FILES['res/layout/home_widget_square.xml'];
+      assert.match(square, /android:paddingStart="[\d.]+dp"/);
+      assert.match(square, /android:layout_marginTop="[\d.]+dp"/);
+    },
+  },
+  {
+    name: 'widgetResources: a manifest built by an older version is brought up to date',
+    run() {
+      // prebuild merges into the manifest already there, so the interesting
+      // case is not the empty one. A tree from before the family had labels
+      // still carries the receiver, and skipping it left the picker showing
+      // rows with nothing but the app's name on them.
+      const application = {
+        receiver: [
+          { $: { 'android:name': '.HomeWidgetProvider', 'android:exported': 'true' } },
+          { $: { 'android:name': '.RetiredWidgetProvider', 'android:exported': 'true' } },
+        ],
+      };
+
+      applyWidgetReceivers(application);
+
+      const names = application.receiver.map((entry) => entry.$['android:name']);
+      assert.deepEqual(names.sort(), PROVIDERS.map((provider) => `.${provider.className}`).sort());
+      for (const provider of PROVIDERS) {
+        const entry = application.receiver.find((item) => item.$['android:name'] === `.${provider.className}`);
+        assert.equal(entry.$['android:label'], `@string/${provider.label}`);
+        assert.equal(entry['meta-data'][0].$['android:resource'], `@xml/${provider.infoFile}`);
+      }
+      // Every row answers to its own name, which is the whole point of a label.
+      assert.equal(new Set(application.receiver.map((entry) => entry.$['android:label'])).size, PROVIDERS.length);
+
+      // Running twice is running once — prebuild does.
+      applyWidgetReceivers(application);
+      assert.equal(application.receiver.length, PROVIDERS.length);
     },
   },
   {

@@ -298,9 +298,12 @@ function barStack(size, idPrefix, index, theme, { sidePadding = 0, marginTop = 0
                         android:contentDescription="@null"
                         android:background="@drawable/${off}" />`
     : '';
+  // The margin and the padding go inside the start tag. Emitted after the `>`
+  // they are character data, which aapt2 drops without a word: the bars run
+  // together and the date sits straight on top of them.
   return `                <FrameLayout
                     android:layout_width="match_parent"
-                    android:layout_height="${size.box}dp">${margin}${pad}
+                    android:layout_height="${size.box}dp"${margin}${pad}>
                     <ImageView
                         android:id="@+id/${idPrefix}_bar_${index}"
                         android:layout_width="match_parent"
@@ -1516,57 +1519,80 @@ function withHomeWidgetFiles(config) {
   ]);
 }
 
+/**
+ * Writes the family's receivers onto whatever `<application>` prebuild produced.
+ *
+ * Exported so a test can hand it a stale manifest. Being right about an empty
+ * one proves nothing: prebuild merges rather than rewrites, so the manifest
+ * this runs against is usually the last build's.
+ */
+function applyWidgetReceivers(application) {
+  const wanted = PROVIDERS.map((provider) => `.${provider.className}`);
+
+  // Prune first. `expo prebuild` merges into an existing manifest rather than
+  // rewriting it, so a receiver this plugin used to add stays behind after it
+  // is removed here — pointing at an @xml resource that no longer exists,
+  // which fails resource linking. Dropping a widget has to be as easy as
+  // adding one.
+  application.receiver = (application.receiver ?? []).filter((entry) => {
+    const name = entry.$?.['android:name'] ?? '';
+    const isWidgetReceiver = /WidgetProvider$/.test(name);
+    return !isWidgetReceiver || wanted.includes(name);
+  });
+
+  for (const provider of PROVIDERS) {
+    const name = `.${provider.className}`;
+    const attributes = {
+      'android:name': name,
+      // The launcher is a different app, so the receiver has to be exported
+      // for it to deliver APPWIDGET_UPDATE at all.
+      'android:exported': 'true',
+      // What the widget picker calls this one.
+      'android:label': `@string/${provider.label}`,
+    };
+    const intentFilter = [
+      {
+        action: [{ $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } }],
+      },
+    ];
+    const metaData = [
+      {
+        $: {
+          'android:name': 'android.appwidget.provider',
+          'android:resource': `@xml/${provider.infoFile}`,
+        },
+      },
+    ];
+
+    // Patch rather than skip. A tree prebuilt before this plugin grew labels
+    // already has the receiver, and left alone it keeps the attributes it was
+    // written with — a picker row with no name of its own. Same reason the
+    // prune above exists: what ends up in the manifest has to be what this
+    // file says, not what happened to be there first.
+    const existing = application.receiver.find((entry) => entry.$?.['android:name'] === name);
+    if (existing) {
+      existing.$ = { ...existing.$, ...attributes };
+      existing['intent-filter'] = intentFilter;
+      existing['meta-data'] = metaData;
+      continue;
+    }
+
+    application.receiver.push({
+      $: attributes,
+      'intent-filter': intentFilter,
+      'meta-data': metaData,
+    });
+  }
+
+  return application;
+}
+
 function withHomeWidgetReceivers(config) {
   return withAndroidManifest(config, (config) => {
     const application = config.modResults.manifest.application?.[0];
-    if (!application) {
-      return config;
+    if (application) {
+      applyWidgetReceivers(application);
     }
-
-    const wanted = PROVIDERS.map((provider) => `.${provider.className}`);
-
-    // Prune first. `expo prebuild` merges into an existing manifest rather than
-    // rewriting it, so a receiver this plugin used to add stays behind after it
-    // is removed here — pointing at an @xml resource that no longer exists,
-    // which fails resource linking. Dropping a widget has to be as easy as
-    // adding one.
-    application.receiver = (application.receiver ?? []).filter((entry) => {
-      const name = entry.$?.['android:name'] ?? '';
-      const isWidgetReceiver = /WidgetProvider$/.test(name);
-      return !isWidgetReceiver || wanted.includes(name);
-    });
-
-    for (const provider of PROVIDERS) {
-      const name = `.${provider.className}`;
-      if (application.receiver.some((entry) => entry.$['android:name'] === name)) {
-        continue;
-      }
-
-      application.receiver.push({
-        $: {
-          'android:name': name,
-          // The launcher is a different app, so the receiver has to be exported
-          // for it to deliver APPWIDGET_UPDATE at all.
-          'android:exported': 'true',
-          // What the widget picker calls this one.
-          'android:label': `@string/${provider.label}`,
-        },
-        'intent-filter': [
-          {
-            action: [{ $: { 'android:name': 'android.appwidget.action.APPWIDGET_UPDATE' } }],
-          },
-        ],
-        'meta-data': [
-          {
-            $: {
-              'android:name': 'android.appwidget.provider',
-              'android:resource': `@xml/${provider.infoFile}`,
-            },
-          },
-        ],
-      });
-    }
-
     return config;
   });
 }
@@ -1578,4 +1604,5 @@ module.exports = function withHomeWidget(config) {
 // Exported so a test can cross-check the generated XML against the Kotlin that
 // references it, which is cheaper than a 10-minute native build.
 module.exports.widgetResources = widgetResources;
+module.exports.applyWidgetReceivers = applyWidgetReceivers;
 module.exports.PROVIDERS = PROVIDERS;

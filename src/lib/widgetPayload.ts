@@ -132,6 +132,15 @@ export interface HomeWidgetInput {
    * mark a day free that the app calls trained.
    */
   completedDayStarts?: number[];
+  /**
+   * Day-start timestamps of completed *workouts* only. Narrower than the set
+   * above on purpose: the bars answer "did anything happen that day", and a run
+   * is an answer to that. Whether today's session is behind you is a different
+   * question, and a run is not an answer to it — counted there, a morning of
+   * cardio would make the widget name tomorrow's workout while Home still
+   * offers today's.
+   */
+  completedWorkoutDayStarts?: number[];
   sessions: HomeDaySessionSummary[];
 }
 
@@ -166,14 +175,16 @@ export interface HomeWidgetNextSession {
  *
  * Shared with the app so a tap on the widget opens the same workout the widget
  * was showing: the link says "the session you named", and this is what names
- * it. Today is skipped once it has been logged — pointing at a workout that is
- * already done is worse than pointing at the next one.
+ * it. Today is skipped once its workout has been logged — pointing at a session
+ * that is already done is worse than pointing at the next one. Workouts only:
+ * cardio marks the day on the calendar without finishing what was planned for
+ * it.
  */
 export function findHomeWidgetNextSession(input: {
   nowMs: number;
   trainingDayIndexes: number[];
   sessions: HomeDaySessionSummary[];
-  completedDayStarts?: number[];
+  completedWorkoutDayStarts?: number[];
 }): HomeWidgetNextSession | null {
   const { nowMs, trainingDayIndexes, sessions } = input;
   if (trainingDayIndexes.length === 0 || sessions.length === 0) {
@@ -181,7 +192,7 @@ export function findHomeWidgetNextSession(input: {
   }
 
   const now = new Date(nowMs);
-  const doneDays = new Set((input.completedDayStarts ?? []).map((ms) => toDayStartMs(new Date(ms))));
+  const doneDays = new Set((input.completedWorkoutDayStarts ?? []).map((ms) => toDayStartMs(new Date(ms))));
   const labels = getMondayFirstWeekdayLabels();
 
   for (let offset = 0; offset <= LOOKAHEAD_DAYS; offset += 1) {
@@ -331,7 +342,7 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
     nowMs,
     trainingDayIndexes,
     sessions,
-    completedDayStarts: input.completedDayStarts,
+    completedWorkoutDayStarts: input.completedWorkoutDayStarts,
   });
 
   if (!next) {

@@ -181,12 +181,30 @@ module.exports = [
   {
     name: 'widgetPayload: once today is logged it points at the next session',
     run() {
-      // Thursday is today, a training day, and done. Next is Tuesday.
-      const payload = build({ completedDayStarts: [at(2026, 7, 30, 7)] });
+      // Thursday is today, a training day, and done. Next is Tuesday. A logged
+      // workout lands in both sets — it is activity, and it is the session.
+      const payload = build({
+        completedDayStarts: [at(2026, 7, 30, 7)],
+        completedWorkoutDayStarts: [at(2026, 7, 30, 7)],
+      });
 
       assert.equal(payload.when, 'Tuesday');
       assert.equal(payload.cardTarget, 'home');
       assert.equal(payload.isPrompt, false);
+    },
+  },
+  {
+    name: 'widgetPayload: cardio marks the day without finishing the workout',
+    run() {
+      // A run on a training morning. It is activity, so the bar is done and it
+      // counts for the week — but the workout it was planned for is not, and
+      // the widget has to keep offering it while Home still does.
+      const payload = build({ completedDayStarts: [at(2026, 7, 30, 7)] });
+
+      assert.equal(payload.when, 'Today');
+      assert.equal(payload.cardTarget, 'session');
+      assert.equal(states(payload)[3], 'done');
+      assert.equal(payload.weekCount, '1/3');
     },
   },
   {
@@ -360,7 +378,7 @@ module.exports = [
 
       // Logged: the same call now names the following one instead — Thursday
       // the 30th to Tuesday the 4th.
-      const after = findHomeWidgetNextSession({ ...input, completedDayStarts: [at(2026, 7, 30, 7)] });
+      const after = findHomeWidgetNextSession({ ...input, completedWorkoutDayStarts: [at(2026, 7, 30, 7)] });
       assert.equal(after.offset, 5);
       assert.equal(after.weekdayIndex, 1);
     },

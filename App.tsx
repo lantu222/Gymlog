@@ -68,7 +68,11 @@ import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
-import { getCanonicalCompletedSessions, getRecentActivityStrip } from './src/lib/completedSessions';
+import {
+  getCalendarDayStartTimestamp,
+  getCanonicalCompletedSessions,
+  getRecentActivityStrip,
+} from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
@@ -3162,6 +3166,17 @@ function VinhaApp() {
         .map((day) => day.dayStart),
     [database],
   );
+  // The narrower set, for the one question the strip cannot answer: is today's
+  // session behind you. The strip counts cardio, and a run leaves the planned
+  // workout undone — fed to the skip, it would have the widget name tomorrow
+  // while Home still offers today.
+  const widgetCompletedWorkoutDayStarts = useMemo(
+    () =>
+      getCanonicalCompletedSessions(database).map((session) =>
+        getCalendarDayStartTimestamp(session.performedAt),
+      ),
+    [database],
+  );
   useEffect(() => {
     if (!appHydrated) {
       return;
@@ -3181,6 +3196,7 @@ function VinhaApp() {
         suggestion: widgetSuggestion,
         trainingDayIndexes: homeTrainingDayIndexes,
         completedDayStarts: widgetCompletedDayStarts,
+        completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
       }),
     );
@@ -3198,6 +3214,7 @@ function VinhaApp() {
     homeActivePlanCard,
     homeTrainingDayIndexes,
     widgetCompletedDayStarts,
+    widgetCompletedWorkoutDayStarts,
     widgetSuggestion,
   ]);
 
@@ -3267,7 +3284,7 @@ function VinhaApp() {
       nowMs: Date.now(),
       trainingDayIndexes: homeTrainingDayIndexes,
       sessions: homeActivePlanCard?.sessions ?? [],
-      completedDayStarts: widgetCompletedDayStarts,
+      completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
     });
     // No session to open any more — the plan changed while the widget was
     // showing the old one. Home is the honest landing, not an empty screen.
@@ -3288,7 +3305,7 @@ function VinhaApp() {
     homeTrainingDayIndexes,
     pendingWidgetTarget,
     recommendedReadyTemplate,
-    widgetCompletedDayStarts,
+    widgetCompletedWorkoutDayStarts,
   ]);
 
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
