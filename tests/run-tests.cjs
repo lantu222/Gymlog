@@ -150,6 +150,7 @@ const suites = [
   ...require('./lib/programAdoption.test.cjs'),
   ...require('./lib/planRotation.test.cjs'),
   ...require('./lib/programTrainingDays.test.cjs'),
+  ...require('./lib/trainingWeekSync.test.cjs'),
   ...require('./lib/programCompletion.test.cjs'),
   ...require('./lib/programEmphasis.test.cjs'),
   ...require('./lib/programEmphasisAdjust.test.cjs'),

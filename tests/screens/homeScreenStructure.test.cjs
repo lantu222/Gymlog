@@ -557,9 +557,13 @@ module.exports = [
       // weekdays: the ready-program path never asks, and neither does the
       // guided path when the app is left to decide. That left the calendar,
       // the week strip and the home widget blank with no route to fill them.
+      // Four writers, on purpose: onboarding, the weekday picker, the reset,
+      // and the rhythm strip on the programme screen — the last one added when
+      // the two halves of the week were joined, so moving a day there moves the
+      // reminders too. None of them fills an unknown week without being asked.
       const writes = appSource.match(/setupAvailableDays: [^,\r\n]+/g) ?? [];
       assert.ok(
-        writes.length <= 3,
+        writes.length <= 4,
         'a new setupAvailableDays writer appeared — check whether the empty-week prompt is still needed',
       );
 

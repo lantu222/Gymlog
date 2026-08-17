@@ -151,6 +151,7 @@ import {
   resolveProgramTrainingDays,
   WEEKDAY_KEYS,
 } from './src/lib/programTrainingDays';
+import { planLabelsFromWeekdays, weekdaysFromPlanLabels } from './src/lib/trainingWeekSync';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
 import {
   countPlanSessionsInRange,
@@ -260,8 +261,10 @@ import {
   ExerciseLogDraft,
   ExerciseTemplate,
   ExerciseTemplateDraft,
+  SetupDaysPerWeek,
   SetupEquipment,
   SetupScheduleMode,
+  SetupWeekday,
   SetupGender,
   SetupTrainingEnvironment,
   UnitPreference,
@@ -2044,9 +2047,68 @@ function VinhaApp() {
       return;
     }
     const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+    const entries = ordered.map((entry, index) => ({ ...entry, label: WEEKDAY_KEYS[dayIndexes[index]] }));
     await upsertWorkoutPlan({
       ...plan,
-      entries: ordered.map((entry, index) => ({ ...entry, label: WEEKDAY_KEYS[dayIndexes[index]] })),
+      entries,
+      updatedAt: plan.updatedAt,
+    });
+
+    // The other half of the same week. The plan's labels drive Home's strip and
+    // the calendar; availability drives the reminders, the widget and Profile's
+    // chips. Writing only the first left a reader who moved leg day here still
+    // being reminded on the day they moved it off.
+    const days = weekdaysFromPlanLabels(entries);
+    if (days.length > 0) {
+      await updatePreferences({
+        setupAvailableDays: days,
+        // Naming the days by hand IS self-managed; leaving the mode alone would
+        // let app_managed clear the list we just wrote.
+        setupScheduleMode: 'self_managed',
+        // Only when the count is an answer the questionnaire can hold. A
+        // one-session programme is a real rhythm but not a 2–6 answer, and
+        // clamping it up would tell the recommender something untrue.
+        ...(days.length >= 2 && days.length <= 6
+          ? { setupDaysPerWeek: days.length as SetupDaysPerWeek }
+          : {}),
+      });
+    }
+  }
+
+  /**
+   * The weekday picker in Profile, from the other side of the same week.
+   *
+   * Only the lead plan is rewritten. Availability is one list for the whole
+   * app, but a rhythm is per programme, and rewriting every active plan from
+   * one picker would move days on programmes this screen never showed.
+   */
+  async function handleChangeTrainingDays(days: SetupWeekday[]) {
+    // Same invariants as the onboarding day question: picking specific days
+    // makes the schedule self-managed and the count follows, 2–6.
+    const clamped = Math.min(6, Math.max(2, days.length)) as SetupDaysPerWeek;
+    await updatePreferences({
+      setupAvailableDays: days,
+      setupDaysPerWeek: clamped,
+      setupScheduleMode: 'self_managed',
+    });
+
+    const plan = database.workoutPlans.find((item) => item.id === preferences.activePlanId);
+    if (!plan) {
+      return;
+    }
+    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+    const labels = planLabelsFromWeekdays(ordered.length, days);
+    if (!labels) {
+      // Fewer days chosen than the programme has sessions. The availability is
+      // stored — reminders follow it — and the rhythm the reader already has is
+      // left alone rather than replaced by a week they did not choose.
+      return;
+    }
+    await upsertWorkoutPlan({
+      ...plan,
+      entries: ordered.map((entry, index) => ({ ...entry, label: labels[index] })),
+      // Untouched on purpose: the plan record's own boundary is what the week
+      // counter counts from, so moving days must not restart the block.
       updatedAt: plan.updatedAt,
     });
   }
@@ -5054,16 +5116,7 @@ function VinhaApp() {
         exerciseLibrary={exerciseBrowserItems}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onOpenPlanSettings={handleOpenPlanSettings}
-        onChangeTrainingDays={(days) => {
-          // Same invariants as the onboarding day question: picking specific
-          // days makes the schedule self-managed and the count follows, 2–6.
-          const clamped = Math.min(6, Math.max(2, days.length)) as 2 | 3 | 4 | 5 | 6;
-          void updatePreferences({
-            setupAvailableDays: days,
-            setupDaysPerWeek: clamped,
-            setupScheduleMode: 'self_managed',
-          });
-        }}
+        onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
         onEditCustomPlan={
           homeActivePlanCard?.programType === 'custom'
             ? () =>
