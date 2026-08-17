@@ -1,0 +1,37 @@
+# Typecheck + the full unit suite on every push and PR.
+#
+# Until this existed, green depended on whoever remembered to run the suite
+# locally — 887 tests and a typecheck that gated nothing. The runner's clock
+# is pinned to Europe/Helsinki because that is the timezone the app actually
+# ships into; the DST regression tests set their own TZ on top of this.
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+env:
+  TZ: Europe/Helsinki
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Compile test build
+        run: npx tsc -p tsconfig.test.json
+
+      - name: Unit tests
+        run: node tests/run-tests.cjs
