@@ -164,14 +164,20 @@ export function getSessionsLast30Days(database: AppDatabase, now = new Date()) {
 }
 
 export function getRecentActivityStrip(database: AppDatabase, now = new Date(), days = 16) {
-  const todayStart = getCalendarDayStartTimestamp(now);
+  const today = toDayStart(now);
+  const todayStart = today.getTime();
   const activeDays = new Set(
     getAllActivityTimestamps(database).map((performedAt) => getCalendarDayStartTimestamp(performedAt)),
   );
   const items = [];
 
   for (let index = days - 1; index >= 0; index -= 1) {
-    const date = new Date(todayStart - index * DAY_MS);
+    // Calendar stepping, not fixed 24-hour chunks. The day a clock changes is
+    // 23 or 25 hours long, so subtracting DAY_MS across one lands at 01:00 or
+    // 23:00 — a timestamp no logged day can equal, because `activeDays` holds
+    // real local midnights. Every bar before the change would read free, however
+    // much was trained.
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - index);
     const dayStart = date.getTime();
 
     items.push({
