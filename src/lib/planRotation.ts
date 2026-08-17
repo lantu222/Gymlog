@@ -49,6 +49,21 @@ export function resolveNextPlanEntryIndex(
     return 0;
   }
 
+  // A plan whose entries name no session — an older record, or one built by a
+  // path that labelled its days by position — cannot be matched: every entry
+  // stands for the whole template, so `findIndex` finds the first one every
+  // time and the plan offers entry 1 forever. That is the reported "after
+  // Monday, Home still offers Monday". With nothing to match on, the honest
+  // answer is the count: three logged sessions mean three days spent.
+  if (!entries.some((entry) => Boolean(entry.workoutTemplateSessionId))) {
+    const spent = completed.filter(
+      (session) =>
+        Number.isFinite(Date.parse(session.performedAt)) &&
+        entries.some((entry) => entryMatchesSession(entry, session)),
+    ).length;
+    return spent % entries.length;
+  }
+
   let latest: PlanRotationSession | null = null;
   let latestStamp = Number.NEGATIVE_INFINITY;
   for (const session of completed) {

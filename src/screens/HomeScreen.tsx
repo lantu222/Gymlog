@@ -36,7 +36,7 @@ import { AnimatedGreeting } from '../components/AnimatedGreeting';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { localizeSessionName, localizeWorkoutFocus } from '../lib/sessionNameLabel';
-import { hasFixedWeekdays, resolveSessionWeekday, weekdayLabel } from '../lib/planWeekdays';
+import { hasFixedWeekdays, resolveSessionWeekday, weekdayCodeForDate, weekdayLabel } from '../lib/planWeekdays';
 import { t } from '../lib/i18n';
 import { ProMomentContent } from '../lib/proInsights';
 import { CutButton } from '../components/CutButton';
@@ -306,6 +306,10 @@ export function HomeScreen({
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
   const topCalendarDays = getHomeMiniCalendarDays(new Date(), language).slice(0, 6);
+  // The calendar's answer to "which row is today", kept apart from the
+  // rotation's answer to "which row is next". They are different questions and
+  // the program rows used to ask only the second one.
+  const todayWeekdayCode = weekdayCodeForDate(new Date());
   const monthCalendar = useMemo(
     () => getHomeMonthCalendar(new Date(), language, monthOffset),
     [language, monthOffset],
@@ -1057,8 +1061,12 @@ export function HomeScreen({
             <View style={styles.programDays}>
               {activePlan.sessions.map((session, index, allSessions) => {
                 const anyFixed = hasFixedWeekdays(allSessions);
-                const isToday = activePlan.nextSession?.id === session.id;
                 const weekday = resolveSessionWeekday(session.dayLabel, index, allSessions.length, anyFixed);
+                // Two facts, two flags. The badge answers the calendar; the
+                // outline answers the plan. Merged into one they made the badge
+                // read TODAY on Thursday's row on a Monday.
+                const isNext = activePlan.nextSession?.id === session.id;
+                const isToday = weekday !== null && weekday === todayWeekdayCode;
                 // The badge is the weekday, and only when the plan really has
                 // one. Without a schedule it repeated the session number that
                 // the title already states, and cost the title the width it
@@ -1071,7 +1079,7 @@ export function HomeScreen({
                     accessibilityRole="button"
                     accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${
                       isToday ? `, ${t(language, 'programs.todayA11y')}` : ''
-                    }`}
+                    }${isNext ? `, ${t(language, 'plan.upNext').toLowerCase()}` : ''}`}
                     onPress={onOpenActivePlan}
                     // A3: the row slides right under the thumb rather than
                     // dimming — the speed line it carries points that way.
@@ -1080,7 +1088,7 @@ export function HomeScreen({
                     <CutSurface
                       size="lg"
                       fill={theme.surface}
-                      stroke={isToday ? theme.purpleBright : undefined}
+                      stroke={isNext ? theme.purpleBright : undefined}
                       speedLine={{ color: theme.purpleBright }}
                       style={[styles.dayRow, styles.dayRowCut]}
                     >
@@ -1106,9 +1114,21 @@ export function HomeScreen({
                         {sessionTitle}
                       </Text>
                       <View style={styles.dayMetaRow}>
+                        {/* TÄNÄÄN is the calendar's word and it may land on a
+                            row the plan is not offering — that is a true thing
+                            to say. SEURAAVAKSI names the row the plan does
+                            offer, so the two never leave the reader guessing
+                            which one the outline meant. */}
                         {isToday ? (
                           <CutSurface size="chip" fill={theme.purple} style={styles.todayPill}>
                             <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
+                          </CutSurface>
+                        ) : null}
+                        {isNext && !isToday ? (
+                          <CutSurface size="chip" fill={theme.bg} style={styles.todayPill}>
+                            <Text style={[styles.todayPillText, styles.nextPillText]}>
+                              {t(language, 'plan.upNext')}
+                            </Text>
                           </CutSurface>
                         ) : null}
                         <Text style={styles.dayDuration}>{session.duration}</Text>
@@ -2125,6 +2145,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 12,
     fontWeight: '900',
     letterSpacing: 0.8,
+  },
+  // The quieter of the two: the row it sits on already carries the outline.
+  nextPillText: {
+    color: theme.purple,
   },
   dayDuration: {
     color: theme.muted,

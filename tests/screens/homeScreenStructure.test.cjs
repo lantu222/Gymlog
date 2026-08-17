@@ -551,6 +551,25 @@ module.exports = [
     },
   },
   {
+    /**
+     * TÄNÄÄN is a claim about the calendar.
+     *
+     * The row computed `const isToday = activePlan.nextSession?.id ===
+     * session.id` — a variable named for the calendar and meaning "is next".
+     * No clock came near it, so the badge followed the rotation and was right
+     * only by coincidence.
+     */
+    name: 'the TODAY badge reads the calendar and the outline reads the plan',
+    run() {
+      assert.match(homeScreenSource, /const todayWeekdayCode = weekdayCodeForDate\(new Date\(\)\)/);
+      assert.match(homeScreenSource, /const isToday = weekday !== null && weekday === todayWeekdayCode/);
+      assert.match(homeScreenSource, /const isNext = activePlan\.nextSession\?\.id === session\.id/);
+      // The outline is the plan's mark, the pill is the calendar's.
+      assert.match(homeScreenSource, /stroke=\{isNext \? theme\.purpleBright : undefined\}/);
+      assert.doesNotMatch(homeScreenSource, /const isToday = activePlan\.nextSession/);
+    },
+  },
+  {
     name: 'an unknown training week asks for the days instead of guessing them',
     run() {
       // setupAvailableDays is only written when the user explicitly picks

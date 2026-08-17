@@ -48,6 +48,17 @@ function weekdayForSession(index: number, sessionCount: number) {
   return WEEKDAYS[spread[index] ?? Math.min(index, 6)];
 }
 
+/**
+ * The plan's own weekday vocabulary for a date, Monday first.
+ *
+ * Home's TODAY badge asked the rotation instead of the calendar — the variable
+ * was named `isToday` and meant "is next", so the badge sat on whichever row
+ * came next whatever day it was, and was right only by coincidence.
+ */
+export function weekdayCodeForDate(date: Date): string {
+  return WEEKDAYS[(date.getDay() + 6) % 7];
+}
+
 export function weekdayLabel(code: string, language: AppLanguage) {
   const key = WEEKDAY_DISPLAY_KEYS[code];
   return (key ? t(language, key) : code).toUpperCase();
