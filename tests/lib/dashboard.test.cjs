@@ -171,6 +171,37 @@ module.exports = [
     },
   },
   {
+    name: 'recent activity strip keeps a day trained before a clock change',
+    run() {
+      // Finland moves its clocks on 29 March 2026, so a strip ending 5 April
+      // spans a 23-hour day. Built from fixed 24-hour chunks, every day before
+      // the change lands at 01:00 instead of midnight and matches nothing.
+      const originalTimezone = process.env.TZ;
+      process.env.TZ = 'Europe/Helsinki';
+
+      try {
+        const database = createEmptyDatabase();
+        database.workoutSessions = [
+          createSession('session_before_dst', new Date(2026, 2, 20, 18, 0, 0).toISOString()),
+        ];
+        database.exerciseLogs = [createCompletedLog('session_before_dst')];
+
+        const strip = getRecentActivityStrip(database, new Date(2026, 3, 5, 12, 0, 0), 21);
+
+        assert.equal(strip.find((day) => day.dayNumber === 20)?.active, true);
+        strip.forEach((day) => {
+          assert.equal(new Date(day.dayStart).getHours(), 0);
+        });
+      } finally {
+        if (originalTimezone === undefined) {
+          delete process.env.TZ;
+        } else {
+          process.env.TZ = originalTimezone;
+        }
+      }
+    },
+  },
+  {
     name: 'active plan rotation advances by workout template session id',
     run() {
       const database = createEmptyDatabase();
