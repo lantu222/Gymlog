@@ -126,8 +126,10 @@ import {
   SEASON_COLORS,
   SEASON_WEEKS,
   SeasonWindow,
+  formatSeasonDateRange,
   nextSeasonWindow,
   resolveSeasonWindow,
+  seasonLastDay,
   seasonProgressRatio,
   seasonWeek,
   seasonWeeksLeft,
@@ -3869,9 +3871,9 @@ function VinhaApp() {
         season: window.season,
         labelKey: (window.season === 'winter' ? 'season.winter' : 'season.summer') as I18nKey,
         year: window.year,
-        rangeLabel: `${label(window.start)}${preferences.appLanguage === 'fi' ? '' : ''}–${label(
-          new Date(window.end.getTime() - 86_400_000),
-        )}${window.year !== window.end.getFullYear() ? window.end.getFullYear() : ''}`,
+        // These tiles sit under a year heading, so the range only spells a year
+        // out when the season crosses into the next one.
+        rangeLabel: formatSeasonDateRange(window, preferences.appLanguage, 'whenSpanning'),
         startLabel: label(window.start),
         weeksLeft: isCurrent ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
         progress: isCurrent ? seasonProgressRatio(window, now) : 0,
@@ -3925,7 +3927,7 @@ function VinhaApp() {
       preferences.appLanguage === 'fi'
         ? `${date.getDate()}.${date.getMonth() + 1}.`
         : `${date.getDate()}/${date.getMonth() + 1}`;
-    const lastDay = (window: SeasonWindow) => new Date(window.end.getTime() - 86_400_000);
+    const lastDay = (window: SeasonWindow) => seasonLastDay(window);
     const season = (window: SeasonWindow, state: 'running' | 'upcoming') => ({
       season: window.season,
       state,
@@ -3937,7 +3939,7 @@ function VinhaApp() {
       // reading un-joined you the moment you trained something else, and it
       // could not tell a pre-registration from a programme swap at all.
       enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
-      rangeLabel: `${label(window.start)}–${label(lastDay(window))}${lastDay(window).getFullYear()}`,
+      rangeLabel: formatSeasonDateRange(window, preferences.appLanguage),
       endLabel: label(lastDay(window)),
       startLabel: label(window.start),
       templateId: getSeasonProgramId(window.season),

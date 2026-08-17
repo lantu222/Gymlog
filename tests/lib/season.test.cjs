@@ -517,4 +517,54 @@ module.exports = [
       assert.throws(() => assert.doesNotMatch(`${code} const rank = 1;`, /rank|leaderboard|participant|opponent/i));
     },
   },
+  {
+    name: 'a season names the last day it is trained, not the day after',
+    run() {
+      const assert = require('node:assert/strict');
+      const { formatSeasonDateRange, resolveSeasonWindow, seasonLastDay } = require('../../.test-dist/lib/season.js');
+
+      // Summer 2026 runs 1 April to 30 September; `end` is 1 October.
+      const summer = resolveSeasonWindow(new Date(2026, 7, 17));
+      assert.equal(summer.end.getMonth(), 9);
+      assert.equal(summer.end.getDate(), 1);
+      const last = seasonLastDay(summer);
+      assert.equal(last.getMonth(), 8);
+      assert.equal(last.getDate(), 30);
+      assert.equal(last.getHours(), 0);
+    },
+  },
+  {
+    name: 'the season range separates the year in both languages',
+    run() {
+      const assert = require('node:assert/strict');
+      const { formatSeasonDateRange, resolveSeasonWindow } = require('../../.test-dist/lib/season.js');
+
+      const summer = resolveSeasonWindow(new Date(2026, 7, 17));
+
+      // The bug this replaces: two call sites glued the year straight onto the
+      // day, which reads correctly in Finnish (the day ends in a dot) and came
+      // out as "1/4–30/92026" in English.
+      assert.equal(formatSeasonDateRange(summer, 'fi'), '1.4.–30.9.2026');
+      assert.equal(formatSeasonDateRange(summer, 'en'), '1/4–30/9/2026');
+      assert.doesNotMatch(formatSeasonDateRange(summer, 'en'), /\d{5}/);
+    },
+  },
+  {
+    name: 'the year is dropped under a year heading, unless the season crosses one',
+    run() {
+      const assert = require('node:assert/strict');
+      const { formatSeasonDateRange, resolveSeasonWindow } = require('../../.test-dist/lib/season.js');
+
+      const summer = resolveSeasonWindow(new Date(2026, 7, 17));
+      assert.equal(formatSeasonDateRange(summer, 'fi', 'whenSpanning'), '1.4.–30.9.');
+      assert.equal(formatSeasonDateRange(summer, 'en', 'whenSpanning'), '1/4–30/9');
+
+      // Winter 2026 starts 1 October and ends 31 March 2027, so the second year
+      // is the whole point and stays even under a heading.
+      const winter = resolveSeasonWindow(new Date(2026, 10, 5));
+      assert.equal(winter.year, 2026);
+      assert.equal(formatSeasonDateRange(winter, 'fi', 'whenSpanning'), '1.10.–31.3.2027');
+      assert.equal(formatSeasonDateRange(winter, 'en', 'whenSpanning'), '1/10–31/3/2027');
+    },
+  },
 ];
