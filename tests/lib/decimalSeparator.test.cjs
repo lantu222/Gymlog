@@ -94,7 +94,11 @@ module.exports = [
        * call back into an effect, so the guard says it instead.
        */
       const app = fs.readFileSync(path.join(root, 'App.tsx'), 'utf8');
-      const lines = app.split(String.fromCharCode(10));
+      // Split on either ending. The repository stores LF, but core.autocrlf is
+      // on for Windows checkouts, so the working copy this reads carries CRLF —
+      // and a trailing \r made the anchored match below fail on a file nobody
+      // had touched.
+      const lines = app.split(/\r?\n/);
       const callIndex = lines.findIndex((line) =>
         line.includes('setNumberLanguage(preferences.appLanguage)'),
       );
