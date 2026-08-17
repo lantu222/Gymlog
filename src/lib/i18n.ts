@@ -1375,6 +1375,18 @@ const EN = {
   'widget.thisWeek': 'This week',
   'widget.noDays': 'Pick your training days',
   'widget.noSessions': 'Open the app to start a plan',
+  // The hand-off step: what onboarding offers before it lets go of the reader.
+  // Names are interpolated only after a "·" separator, never inside a sentence —
+  // Finnish would need the partitive there and a title string cannot be inflected.
+  'handoff.title': 'Two things before you start',
+  'handoff.body': 'Both take one tap. You can change either of them later in Settings.',
+  'handoff.widget.title': 'Your week on the home screen',
+  'handoff.widget.body': 'The calendar, without opening the app.',
+  'handoff.track.title': 'Follow your progress',
+  'handoff.track.body': '{focus} · a card on Home',
+  'handoff.track.bodyweight': 'Bodyweight · a card on Home',
+  'handoff.done': 'Done',
+  'handoff.skip': 'Not now',
   'widget.prompt.title': 'Put your week on the home screen',
   'widget.prompt.body':
     'The widget shows this week’s training days and your next session, without opening the app.',
@@ -4141,6 +4153,15 @@ const FI: Record<I18nKey, string> = {
   'widget.thisWeek': 'Tällä viikolla',
   'widget.noDays': 'Valitse treenipäivät',
   'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',
+  'handoff.title': 'Kaksi asiaa ennen kuin aloitat',
+  'handoff.body': 'Molemmat vievät yhden napautuksen. Voit muuttaa kumpaakin myöhemmin asetuksista.',
+  'handoff.widget.title': 'Viikkosi kotinäytölle',
+  'handoff.widget.body': 'Kalenteri, ilman että avaat sovellusta.',
+  'handoff.track.title': 'Seuraa kehitystäsi',
+  'handoff.track.body': '{focus} · kortti Kotiin',
+  'handoff.track.bodyweight': 'Paino · kortti Kotiin',
+  'handoff.done': 'Valmis',
+  'handoff.skip': 'Ei nyt',
   'widget.prompt.title': 'Ota viikko kotinäytölle',
   'widget.prompt.body':
     'Widget näyttää tämän viikon treenipäivät ja seuraavan treenin avaamatta sovellusta.',

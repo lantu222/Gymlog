@@ -154,6 +154,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       aiSetupCompleted: false,
       hasOpenedAppBefore: false,
       homeWidgetPromptDismissed: false,
+      setupHandoffCompleted: false,
       entryFlowCompleted: false,
       trainingFirstRunDismissed: false,
       selectedSignInMethod: null,

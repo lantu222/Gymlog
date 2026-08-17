@@ -17,6 +17,7 @@ import {
   DEFAULT_RHYTHM_BY_DAYS,
   DEFAULT_FIRST_RUN_SELECTION,
   FirstRunSetupSelection,
+  getFocusAreaTitle,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
 import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
@@ -40,6 +41,8 @@ import {
 } from './modules/home-widget';
 import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } from './src/lib/widgetPayload';
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
+import { planSetupHandoff } from './src/lib/setupHandoff';
+import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -3087,6 +3090,54 @@ function VinhaApp() {
   // The calendar reaches back two weeks, so the widget needs the days that were
   // trained — not just this week's weekdays. 21 days covers two past weeks plus
   // every day of the current one, whichever weekday today is.
+  // ── The hand-off after onboarding ────────────────────────────────────────
+  // Onboarding used to end by dropping the reader on Home with the widget
+  // unplaced and nothing being tracked. This offers both, once, while the app
+  // still remembers which body part they just named.
+  //
+  // It waits for `homeWidgetState`: until Android has answered whether it can
+  // pin a widget, showing the step would either hide an offer that was
+  // available or make one that is not.
+  const setupHandoffReady =
+    preferences.onboardingCompleted && !preferences.setupHandoffCompleted && homeWidgetState !== null;
+  const setupHandoffPlan = useMemo(
+    () =>
+      setupHandoffReady
+        ? planSetupHandoff({
+            canOfferWidget: Boolean(homeWidgetState?.supported) && !homeWidgetState?.added,
+            pinnedCardKeys: homePinnedStatCardKeys,
+            focusAreas: preferences.setupFocusAreas,
+          })
+        : null,
+    [homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
+  );
+  const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
+
+  // Nothing left to offer — a reader running onboarding a second time. Close the
+  // door rather than leave it to open on some later launch.
+  useEffect(() => {
+    if (setupHandoffReady && setupHandoffPlan && !setupHandoffPlan.shouldShow) {
+      void updatePreferences({ setupHandoffCompleted: true });
+    }
+  }, [setupHandoffPlan, setupHandoffReady, updatePreferences]);
+
+  const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
+    const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
+    // Asked here, so Home's one-time card must not ask again. Settings keeps its
+    // permanent row either way.
+    if (setupHandoffPlan?.offerWidget) {
+      patch.homeWidgetPromptDismissed = true;
+    }
+    if (choices.pinTrackingCard && setupHandoffPlan?.tracking) {
+      patch.homeStatCardKeys = [...homePinnedStatCardKeys, setupHandoffPlan.tracking.cardKey];
+    }
+    await updatePreferences(patch);
+    // The system dialog last, so it is not racing a state write.
+    if (choices.addWidget) {
+      await requestPinHomeWidget();
+    }
+  };
+
   // The programme the widget offers when there is none running: the app's own
   // recommendation, under its curated title, with one tag for what it costs.
   const widgetSuggestion = useMemo(() => {
@@ -4333,6 +4384,22 @@ function VinhaApp() {
         />
       );
     }
+  } else if (setupHandoffActive && setupHandoffPlan) {
+    // Between the last question and the app. The route behind this is already
+    // the one onboarding chose, so finishing here just uncovers it.
+    content = (
+      <SetupHandoffScreen
+        language={preferences.appLanguage}
+        plan={setupHandoffPlan}
+        focusLabel={
+          setupHandoffPlan.tracking?.focus
+            ? getFocusAreaTitle(setupHandoffPlan.tracking.focus, preferences.appLanguage)
+            : null
+        }
+        onDone={(choices) => void handleSetupHandoffDone(choices)}
+        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false })}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'setup') {
     content = (
       <OnboardingScreen
@@ -5626,6 +5693,9 @@ function VinhaApp() {
 
   const showTabBar =
     !onboardingActive &&
+    // The hand-off is the last step of onboarding wearing the app's clothes. A
+    // tab bar under it offers four ways out of a step that has one button.
+    !setupHandoffActive &&
     !(
       route.tab === 'workout' &&
       (route.screen === 'detail' ||
