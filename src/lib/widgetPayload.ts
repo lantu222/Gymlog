@@ -24,7 +24,7 @@ import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
 /** Bumped whenever the shape changes, so a stale file is ignored, not misread. */
-export const HOME_WIDGET_PAYLOAD_VERSION = 3;
+export const HOME_WIDGET_PAYLOAD_VERSION = 4;
 
 /** Two past weeks, this week, next week. */
 export const HOME_WIDGET_WEEK_COUNT = 4;
@@ -73,6 +73,18 @@ export interface HomeWidgetPayload {
   weekdayLabels: string[];
   /** Four rows of seven. Index `HOME_WIDGET_CURRENT_WEEK_INDEX` is this week. */
   weeks: HomeWidgetDay[][];
+  /**
+   * The one element that is clearly the largest: "2/3" — sessions logged this
+   * week against the days planned for it. Every widget on the phone anchors on
+   * one big number and ours had none, which is what made a card full of small
+   * even marks read as empty.
+   *
+   * Just the count ("2") when no days are planned: with no rhythm there is no
+   * denominator, and "2/0" is not a fraction.
+   */
+  weekCount: string;
+  /** "This week" — the label under it, pre-translated like everything else. */
+  weekCountLabel: string;
   /** "Today" / "Tomorrow" / "Wednesday", or the plan's name in the setup states. */
   when: string;
   /** The session's name — or, when `isPrompt`, what to go and do instead. */
@@ -228,12 +240,20 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
     }),
   );
 
+  // Counted off the row the widget draws, so the number and the bars can never
+  // disagree: whatever is green in this week's row is what the count counts.
+  const currentWeek = weeks[HOME_WIDGET_CURRENT_WEEK_INDEX] ?? [];
+  const doneThisWeek = currentWeek.filter((day) => day.state === 'done').length;
+  const plannedThisWeek = scheduleKnown ? trainingDayIndexes.length : 0;
+
   const base = {
     version: HOME_WIDGET_PAYLOAD_VERSION,
     updatedAt: new Date(nowMs).toISOString(),
     theme,
     weekdayLabels: [...getMondayFirstWeekdayLabels(language)],
     weeks,
+    weekCount: plannedThisWeek > 0 ? `${doneThisWeek}/${plannedThisWeek}` : `${doneThisWeek}`,
+    weekCountLabel: t(language, 'widget.thisWeek'),
   };
   const planName = input.planName?.trim() ?? '';
 

@@ -229,6 +229,33 @@ module.exports = [
     },
   },
   {
+    name: 'widgetPayload: the big number counts the same days the bars colour',
+    run() {
+      // Two logged days out of three planned, in the week the widget draws.
+      const payload = build({ completedDayStarts: [at(2026, 7, 28, 19), at(2026, 7, 30, 7)] });
+      assert.equal(payload.weekCount, '2/3');
+      assert.equal(payload.weekCountLabel, 'This week');
+      // The number is derived from the row, so it cannot disagree with it.
+      assert.equal(
+        Number(payload.weekCount.split('/')[0]),
+        states(payload).filter((state) => state === 'done').length,
+      );
+      assert.equal(build({ language: 'fi' }).weekCountLabel, 'Tällä viikolla');
+      assert.equal(build().weekCount, '0/3');
+    },
+  },
+  {
+    name: 'widgetPayload: with no rhythm there is no denominator',
+    run() {
+      // "2/0" is not a fraction. Days trained still count.
+      const payload = build({ trainingDayIndexes: [], completedDayStarts: [at(2026, 7, 28, 19)] });
+      assert.equal(payload.weekCount, '1');
+      assert.equal(build({ sessions: [], planName: null }).weekCount, '0');
+      // Last week's sessions belong to last week, not to this count.
+      assert.equal(build({ completedDayStarts: [at(2026, 7, 21)] }).weekCount, '0/3');
+    },
+  },
+  {
     name: 'widgetPayload: the resolved theme travels with the payload',
     run() {
       // The launcher cannot read the app's preference, so the answer has to be

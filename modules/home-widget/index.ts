@@ -12,6 +12,7 @@ declare class HomeWidgetNativeModule extends NativeModule {
   isSupported(): Promise<boolean>;
   isAdded(): Promise<boolean>;
   requestPin(): Promise<boolean>;
+  refresh(): Promise<boolean>;
 }
 
 const native = requireOptionalNativeModule<HomeWidgetNativeModule>('HomeWidget');
@@ -51,6 +52,30 @@ export async function requestPinHomeWidget(): Promise<boolean> {
   }
   try {
     return await native.requestPin();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Redraws the widgets now, instead of whenever Android next gets round to it.
+ *
+ * Android's own floor is 30 minutes, and that was documented as the price of
+ * having no native module at all. It is the wrong price to keep paying now that
+ * there is one: the widget spent that window insisting a reader with a full
+ * training history should "create your first program", because a payload
+ * version bump made the file it had unreadable and nothing asked it to look
+ * again.
+ *
+ * Broadcasting APPWIDGET_UPDATE from outside the app is blocked; sending it to
+ * our own receivers, by explicit component, is not.
+ */
+export async function refreshHomeWidget(): Promise<boolean> {
+  if (Platform.OS !== 'android' || !native) {
+    return false;
+  }
+  try {
+    return await native.refresh();
   } catch {
     return false;
   }

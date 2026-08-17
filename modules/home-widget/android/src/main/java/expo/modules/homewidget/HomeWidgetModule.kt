@@ -2,6 +2,7 @@ package expo.modules.homewidget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Build
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -83,6 +84,43 @@ class HomeWidgetModule : Module() {
           return@AsyncFunction false
         }
         manager.requestPinAppWidget(provider, null, null)
+      } catch (error: Exception) {
+        false
+      }
+    }
+
+    /**
+     * Redraws every widget of ours that is on a home screen, right now.
+     *
+     * Android will not update a widget more often than every 30 minutes on its
+     * own, and that delay used to be the accepted price of a file-only bridge.
+     * It stopped being acceptable the day a payload version bump left the widget
+     * telling a reader with months of history to create their first programme —
+     * for up to half an hour, with the correct file already on disk.
+     *
+     * Broadcasting APPWIDGET_UPDATE at large is a protected action. Sending it to
+     * our own receiver, named explicitly, is ours to send.
+     *
+     * Returns whether anything was asked to redraw: false means no widget is
+     * placed, which is not a failure.
+     */
+    AsyncFunction<Boolean>("refresh") {
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      try {
+        val manager = AppWidgetManager.getInstance(context) ?: return@AsyncFunction false
+        var asked = false
+        for (component in allProviders) {
+          val ids = manager.getAppWidgetIds(component)
+          if (ids == null || ids.isEmpty()) {
+            continue
+          }
+          val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+          intent.component = component
+          intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+          context.sendBroadcast(intent)
+          asked = true
+        }
+        asked
       } catch (error: Exception) {
         false
       }

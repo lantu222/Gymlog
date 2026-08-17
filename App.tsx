@@ -35,6 +35,7 @@ import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
   isHomeWidgetAdded,
   isHomeWidgetSupported,
+  refreshHomeWidget,
   requestPinHomeWidget,
 } from './modules/home-widget';
 import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } from './src/lib/widgetPayload';
@@ -3098,7 +3099,7 @@ function VinhaApp() {
       return;
     }
 
-    writeHomeWidgetPayload(
+    const written = writeHomeWidgetPayload(
       buildHomeWidgetPayload({
         nowMs: Date.now(),
         language: preferences.appLanguage,
@@ -3111,6 +3112,14 @@ function VinhaApp() {
         sessions: homeActivePlanCard?.sessions ?? [],
       }),
     );
+
+    // Ask the widget to read it now rather than within the next half hour. The
+    // delay used to be invisible because the content was day-granular; it stops
+    // being invisible the moment the file's shape changes, and the widget falls
+    // back to "create your first program" while the real file sits on disk.
+    if (written) {
+      void refreshHomeWidget();
+    }
   }, [appHydrated, preferences, homeActivePlanCard, homeTrainingDayIndexes, widgetCompletedDayStarts]);
 
   // ── Widget taps ──────────────────────────────────────────────────────────

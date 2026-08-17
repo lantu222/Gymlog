@@ -1367,6 +1367,9 @@ const EN = {
   'widget.weekdayOn.6': 'Sunday',
   'widget.noPlan': 'No plan yet',
   'widget.pickPlan': 'Pick a program',
+  // The label under the widget's one big number. Every widget on the phone has
+  // one element that is clearly the largest; ours had none.
+  'widget.thisWeek': 'This week',
   'widget.noDays': 'Pick your training days',
   'widget.noSessions': 'Open the app to start a plan',
   'widget.prompt.title': 'Put your week on the home screen',
@@ -4131,6 +4134,7 @@ const FI: Record<I18nKey, string> = {
   'widget.weekdayOn.6': 'Sunnuntaina',
   'widget.noPlan': 'Ei ohjelmaa',
   'widget.pickPlan': 'Valitse ohjelma',
+  'widget.thisWeek': 'Tällä viikolla',
   'widget.noDays': 'Valitse treenipäivät',
   'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',
   'widget.prompt.title': 'Ota viikko kotinäytölle',

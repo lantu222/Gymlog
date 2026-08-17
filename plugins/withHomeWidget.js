@@ -45,7 +45,7 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
 const PACKAGE = 'app.vinha';
 const PAYLOAD_FILE = 'vinha-widget.json';
 /** Must match HOME_WIDGET_PAYLOAD_VERSION in src/lib/widgetPayload.ts. */
-const PAYLOAD_VERSION = 3;
+const PAYLOAD_VERSION = 4;
 /** Must match HOME_WIDGET_CURRENT_WEEK_INDEX in src/lib/widgetPayload.ts. */
 const CURRENT_WEEK_INDEX = 2;
 const WEEK_COUNT = 4;
@@ -65,8 +65,17 @@ const UPDATE_PERIOD_MS = 1800000;
  * brand violet rather than the pale tint, because the difference between
  * planned and free has to survive at 5dp on an unknown wallpaper.
  */
+/**
+ * The card fill carries alpha. Every widget the phone ships with is
+ * translucent, and ours read as a box lying on the wallpaper rather than a card
+ * set into it. `BF` is 75%, which is what the reader chose after being told the
+ * risk: a 5dp bar and a 9sp letter over a busy wallpaper is where this starts
+ * to cost legibility. Verified on a device against a real wallpaper.
+ */
+const CARD_ALPHA = 'BF';
+
 const LIGHT = {
-  card: '#FFFFFF',
+  card: `#${CARD_ALPHA}FFFFFF`,
   border: '#D8CBEE',
   ink: '#17131F',
   muted: '#5E5670',
@@ -77,7 +86,7 @@ const LIGHT = {
 };
 
 const DARK = {
-  card: '#241D45',
+  card: `#${CARD_ALPHA}241D45`,
   border: '#332A4E',
   ink: '#F4F1FF',
   muted: '#A79FC4',
@@ -374,6 +383,48 @@ function textView(id, { size, style = 'bold', color, marginTop = 0, maxLines = 1
 // ── The four layouts ───────────────────────────────────────────────────────
 
 /**
+ * The one big number, and its label.
+ *
+ * Every widget the phone ships with anchors on one element that is clearly the
+ * largest — 21°, 1h 45m, 92. Ours had four type sizes within 6sp of each other,
+ * which is why a card full of accurate marks read as empty. This is that anchor:
+ * sessions logged this week over the days planned for it.
+ */
+function heroBlock(theme, { count, label, align = 'start', marginTop = 0, previewCount = null } = {}) {
+  const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
+  const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
+  const gravity = align === 'end' ? 'end' : 'start';
+  return `        <LinearLayout
+            android:id="@+id/widget_hero"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"${marginTop ? `\n            android:layout_marginTop="${marginTop}dp"` : ''}
+            android:orientation="vertical"
+            android:gravity="${gravity}">
+            <TextView
+                android:id="@+id/widget_count"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:textSize="${count}sp"
+                android:textStyle="bold"
+                android:textColor="${ink}"
+                android:text="${previewCount ? previewCount[0] : ''}" />
+            <TextView
+                android:id="@+id/widget_count_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:maxLines="1"
+                android:ellipsize="end"
+                android:textSize="${label}sp"
+                android:textStyle="bold"
+                android:textAllCaps="true"
+                android:letterSpacing="0.08"
+                android:textColor="${faint}"
+                android:text="${previewCount ? previewCount[1] : ''}" />
+        </LinearLayout>`;
+}
+
+/**
  * One row of a dated calendar: a date over a bar, seven times. The same cell the
  * 4×4 draws, which is why the 2×2 reads as a calendar rather than as a row of
  * coloured marks.
@@ -485,10 +536,16 @@ ${datedWeekRow(size, theme, {
 })}
         </LinearLayout>`;
 
+  const hero = heroBlock(theme, {
+    count: 26,
+    label: 9,
+    previewCount: previewLabels ? ['2/3', '@string/widget_preview_week'] : null,
+  });
+
   return root(theme, {
     gravity: 'center_vertical',
     padding: size.pad,
-    children: `${prompt}${calendar}`,
+    children: `${hero}\n${prompt}${calendar}`,
   });
 }
 
@@ -534,14 +591,42 @@ function dayLayout(theme, { previewLabels = null, previewWhen = null, previewTit
   const size = SIZES.day;
   const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
   const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
-  const children = [
-    textView('widget_when', { size: 10, color: faint, allCaps: true, letterSpacing: '0.1', text: previewWhen ?? '' }),
-    textView('widget_title', { size: 20, color: ink, marginTop: 2, maxLines: 2, weight: true, text: previewTitle ?? '' }),
-    // Same slot, smaller type: an instruction is not a workout's name.
-    textView('widget_prompt', { size: 17, color: ink, marginTop: 2, maxLines: 2, weight: true, visibility: 'gone' }),
-    weekStrip(size, theme, { labels: previewLabels }),
-  ].join('\n');
-  return root(theme, { padding: size.pad, children });
+
+  // Words on the left, the number on the right, the calendar along the bottom.
+  // The row takes the slack, which is what closed the hole this layout used to
+  // leave down its middle whenever the text was short — and it was always short
+  // in the state with no programme, the one state a reader sees every day.
+  // `center_vertical` on the row, not top: the row owns all the slack, and with
+  // its content pinned to the top edge a short state — "Pick a program", the one
+  // a reader without a programme sees every day — left a band of nothing across
+  // the middle of the card. Centred, the same content reads as a laid-out card.
+  const topRow = `        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+${textView('widget_when', { size: 10, color: faint, allCaps: true, letterSpacing: '0.1', text: previewWhen ?? '' })}
+${textView('widget_title', { size: 20, color: ink, marginTop: 2, maxLines: 2, text: previewTitle ?? '' })}
+${textView('widget_prompt', { size: 17, color: ink, marginTop: 2, maxLines: 2, visibility: 'gone' })}
+            </LinearLayout>
+${heroBlock(theme, {
+  count: 28,
+  label: 9,
+  align: 'end',
+  previewCount: previewLabels ? ['2/3', '@string/widget_preview_week'] : null,
+})}
+        </LinearLayout>`;
+
+  return root(theme, {
+    padding: size.pad,
+    children: `${topRow}\n${weekStrip(size, theme, { labels: previewLabels, marginTop: 10 })}`,
+  });
 }
 
 /**
@@ -637,8 +722,26 @@ ${cells}
             </LinearLayout>`;
   }).join('\n');
 
-  const children = `${textView('widget_title', { size: 18, color: ink, text: previewTitle ?? '' })}
+  const children = `        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="bottom">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+${textView('widget_title', { size: 18, color: ink, text: previewTitle ?? '' })}
 ${textView('widget_prompt', { size: 17, color: ink, maxLines: 2, visibility: 'gone' })}
+            </LinearLayout>
+${heroBlock(theme, {
+  count: 24,
+  label: 9,
+  align: 'end',
+  previewCount: previewLabels ? ['2/3', '@string/widget_preview_week'] : null,
+})}
+        </LinearLayout>
         <LinearLayout
             android:id="@+id/widget_axis"
             android:layout_width="match_parent"
@@ -796,6 +899,7 @@ const STRINGS = {
     widget_setup_short: 'Create a program',
     widget_preview_when: 'Today',
     widget_preview_title: 'Upper body A',
+    widget_preview_week: 'This week',
     widget_preview_axis: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
   },
   fi: {
@@ -807,6 +911,7 @@ const STRINGS = {
     widget_setup_short: 'Tee ohjelma',
     widget_preview_when: 'Tänään',
     widget_preview_title: 'Ylävartalo A',
+    widget_preview_week: 'Tällä viikolla',
     widget_preview_axis: ['MA', 'TI', 'KE', 'TO', 'PE', 'LA', 'SU'],
   },
 };
@@ -975,6 +1080,16 @@ ${paletteLiteral('dark', DARK, 'dark')}
             return views
         }
 
+        // The one big number. Every layout but the 4×1 row has room for it, and
+        // the row is the one size that does not.
+        if (layoutId != R.layout.home_widget_row) {
+            views.setViewVisibility(R.id.widget_hero, View.VISIBLE)
+            views.setTextViewText(R.id.widget_count, payload.optString("weekCount"))
+            views.setTextColor(R.id.widget_count, palette.ink)
+            views.setTextViewText(R.id.widget_count_label, payload.optString("weekCountLabel"))
+            views.setTextColor(R.id.widget_count_label, palette.faint)
+        }
+
         when (layoutId) {
             R.layout.home_widget_square -> renderSquare(context, views, payload, palette)
             R.layout.home_widget_row -> renderRow(context, views, payload, palette)
@@ -992,6 +1107,12 @@ ${paletteLiteral('dark', DARK, 'dark')}
     private fun renderSetup(context: Context, views: RemoteViews, layoutId: Int, palette: Palette) {
         val squareLayout = layoutId == R.layout.home_widget_square
         val text = context.getString(if (squareLayout) R.string.widget_setup_short else R.string.widget_setup)
+
+        // Nothing has been logged because the app has never run, so there is no
+        // number to be the anchor. An honest blank beats a confident zero.
+        if (layoutId != R.layout.home_widget_row) {
+            views.setViewVisibility(R.id.widget_hero, View.GONE)
+        }
 
         if (squareLayout) {
             views.setViewVisibility(R.id.widget_week, View.GONE)

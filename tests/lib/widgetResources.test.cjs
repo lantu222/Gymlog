@@ -127,7 +127,7 @@ module.exports = [
         // language rather than whatever was hardcoded here. Date numbers are
         // the exception: they are the same in every language.
         assert.ok(
-          texts.every((text) => text.startsWith('@string/') || /^\d{1,2}$/.test(text)),
+          texts.every((text) => text.startsWith('@string/') || /^\d{1,2}(\/\d{1,2})?$/.test(text)),
           `${entry} hardcodes copy instead of using @string/`,
         );
       }
@@ -211,6 +211,43 @@ module.exports = [
     },
   },
   {
+    name: 'widgetResources: every size with room for it has the one big number',
+    run() {
+      // The finding from a phone: every widget the system ships anchors on one
+      // clearly-largest element, and ours had four type sizes within 6sp of each
+      // other. The 4×1 row is the one size with nowhere to put it.
+      for (const entry of realLayouts) {
+        const hasHero = FILES[entry].includes('@+id/widget_count"');
+        assert.equal(
+          hasHero,
+          !entry.includes('home_widget_row'),
+          `${entry}: hero number ${hasHero ? 'should not be' : 'is not'} here`,
+        );
+      }
+      // And it is genuinely the largest thing on the card.
+      const day = FILES['res/layout/home_widget_day.xml'];
+      const sizeAfter = (id) =>
+        Number(day.slice(day.indexOf(`@+id/${id}"`)).match(/android:textSize="([\d.]+)sp"/)[1]);
+      assert.ok(
+        sizeAfter('widget_count') > sizeAfter('widget_title'),
+        'the workout name is still bigger than the number meant to anchor the card',
+      );
+      assert.ok(kotlin.includes('R.id.widget_hero'), 'the provider never fills or hides the hero');
+    },
+  },
+  {
+    name: 'widgetResources: the card is translucent, so it sits in the wallpaper',
+    run() {
+      // Chosen at 75% with the legibility risk stated, and checked on a device.
+      for (const theme of ['light', 'dark']) {
+        const fill = FILES[`res/drawable/widget_card_${theme}.xml`].match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
+        assert.equal(fill.length, 9, `${theme} card fill has no alpha channel`);
+        const alpha = parseInt(fill.slice(1, 3), 16);
+        assert.ok(alpha > 0x99 && alpha < 0xff, `${theme} card alpha ${fill} is either opaque or too faint to read on`);
+      }
+    },
+  },
+  {
     name: 'widgetResources: the size ladder tests height before width',
     run() {
       // Found by stretching a widget on a home screen: with the width test
@@ -263,13 +300,15 @@ module.exports = [
       // This is the failure that only showed up on a device last time: two pale
       // purples two steps apart are one colour on a 5dp bar.
       for (const theme of ['light', 'dark']) {
+        // The card fill carries alpha; the bars do not. Compare the RGB only.
+        const rgb = (value) => `#${value.slice(-6).toUpperCase()}`;
         const colorOf = (state) =>
-          FILES[`res/drawable/widget_bar_${state}_${theme}.xml`].match(/android:color="(#[0-9A-Fa-f]{6})"/)[1];
+          rgb(FILES[`res/drawable/widget_bar_${state}_${theme}.xml`].match(/android:color="(#[0-9A-Fa-f]{6,8})"/)[1]);
         const [plan, off, done, card] = [
           colorOf('plan'),
           colorOf('off'),
           colorOf('done'),
-          FILES[`res/drawable/widget_card_${theme}.xml`].match(/<solid android:color="(#[0-9A-Fa-f]{6})"/)[1],
+          rgb(FILES[`res/drawable/widget_card_${theme}.xml`].match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1]),
         ];
         assert.equal(new Set([plan, off, done, card]).size, 4, `${theme}: a bar state shares a colour`);
       }
