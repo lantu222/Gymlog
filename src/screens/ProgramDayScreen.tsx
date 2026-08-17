@@ -70,6 +70,10 @@ interface ProgramDayScreenProps {
   /** Slot id -> chosen lift, shared with the session this screen starts. */
   sessionSwaps?: Record<string, string>;
   onSwapExercise?: (slotId: string, exerciseName: string) => void;
+  /** Custom programmes only: opens the editor that can add a lift for real. */
+  onAddExercise?: () => void;
+  /** Ready programmes only: the copy that makes the day editable at all. */
+  onCopyToCustom?: () => void;
   tailoringPreferences?: Parameters<typeof buildSwapOptionsForSlot>[2];
   onBack: () => void;
 }
@@ -84,6 +88,8 @@ export function ProgramDayScreen({
   availableEquipment = null,
   sessionSwaps = {},
   onSwapExercise,
+  onAddExercise,
+  onCopyToCustom,
   tailoringPreferences,
   onBack,
 }: ProgramDayScreenProps) {
@@ -264,6 +270,51 @@ export function ProgramDayScreen({
               </View>
             </View>
           ))}
+          {/* The end of the list is where "and one more" is felt, and until now
+              the day could only swap what was already there. Which action
+              belongs here depends on whose programme it is: a custom day opens
+              the editor that can really add a lift, a fixed one offers the copy
+              that makes adding possible at all. Neither is a plus that shrugs. */}
+          {onAddExercise ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onAddExercise}
+              style={({ pressed }) => [styles.addRow, pressed && styles.swapOptionPressed]}
+            >
+              <View style={styles.addGlyph}>
+                <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M12 5v14M5 12h14"
+                    stroke={theme.purple}
+                    strokeWidth={2.4}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </View>
+              <Text style={styles.addRowText}>{t(language, 'editor.addExercise')}</Text>
+            </Pressable>
+          ) : onCopyToCustom ? (
+            <View style={styles.addFixedBlock}>
+              <Text style={styles.addFixedNote}>{t(language, 'detail.ownVersion.note')}</Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onCopyToCustom}
+                style={({ pressed }) => [styles.addRow, pressed && styles.swapOptionPressed]}
+              >
+                <View style={styles.addGlyph}>
+                  <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                    <Path
+                      d="M12 5v14M5 12h14"
+                      stroke={theme.purple}
+                      strokeWidth={2.4}
+                      strokeLinecap="round"
+                    />
+                  </Svg>
+                </View>
+                <Text style={styles.addRowText}>{t(language, 'detail.ownVersion.cta')}</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </View>
 
         </Section>
@@ -686,6 +737,43 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   exerciseList: {
     gap: 9,
+  },
+  // Same dashed affordance the empty workout already uses for "add a lift", so
+  // the one gesture looks the same wherever a list can grow.
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minHeight: 52,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1.6,
+    borderStyle: 'dashed',
+    borderColor: theme.border,
+  },
+  addGlyph: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.surfaceSoft,
+  },
+  addRowText: {
+    flex: 1,
+    color: theme.purpleDark,
+    fontSize: 14,
+    lineHeight: 19,
+    fontWeight: '800',
+  },
+  addFixedBlock: {
+    gap: 10,
+  },
+  addFixedNote: {
+    color: theme.faint,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   exerciseCard: {
     borderRadius: radii.lg,

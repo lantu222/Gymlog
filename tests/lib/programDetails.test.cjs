@@ -226,6 +226,20 @@ module.exports = [
     },
   },
   {
+    name: 'the primary action reads whether the programme is already the reader’s',
+    run() {
+      const template = getWorkoutTemplateById('tpl_3_day_full_body_v1');
+
+      const browsing = buildReadyProgramDetail(template, undefined, null, [], null, 'fi');
+      assert.equal(browsing.primaryActionLabel, 'Ota ohjelma käyttöön');
+
+      // Adoption returns early for a programme already held, so this label used
+      // to name a decision the button could not make.
+      const mine = buildReadyProgramDetail(template, undefined, null, [], null, 'fi', true);
+      assert.equal(mine.primaryActionLabel, 'Aloita seuraava treeni');
+    },
+  },
+  {
     name: 'ready session runtime template starts only one session at a time',
     run() {
       const template = getWorkoutTemplateById('tpl_4_day_upper_lower_v1');

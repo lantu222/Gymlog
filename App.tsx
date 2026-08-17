@@ -1843,6 +1843,25 @@ function VinhaApp() {
   }
 
   /**
+   * The session a programme's own plan offers next.
+   *
+   * Home resolves this for the plan it leads with; a programme running
+   * alongside has the same rotation and no one asking it. Same pure rule
+   * either way, so the two cannot drift.
+   */
+  function resolveNextSessionIdForTemplate(workoutTemplateId: string): string | null {
+    const plan = database.workoutPlans.find(
+      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan || plan.entries.length === 0) {
+      return null;
+    }
+    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+    const index = resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database));
+    return ordered[index]?.workoutTemplateSessionId ?? ordered[0]?.workoutTemplateSessionId ?? null;
+  }
+
+  /**
    * Take on a ready programme — what "Start season" promises.
    *
    * It ADDS. Nothing here ever drops a programme the reader already has: a
@@ -4440,6 +4459,11 @@ function VinhaApp() {
             }, tailoringPreferences).join(' ')
           : null;
       const readyProgramTailoringBadges = buildTailoringBadgeLabels(tailoringPreferences).slice(0, 3);
+      // Membership is asked of the template, not the plan id — a programme
+      // joined during onboarding carries a different plan id for the same
+      // programme, and it is no less the reader's own.
+      const readyProgramIsMine =
+        route.programType === 'ready' && activeProgramTemplateIds.includes(route.workoutTemplateId);
       const program = readyTemplate
         ? buildReadyProgramDetail(
             readyTemplate,
@@ -4452,6 +4476,7 @@ function VinhaApp() {
               ? composeProgramWeekForSelection(setupSelection, route.workoutTemplateId)
               : null,
             preferences.appLanguage,
+            readyProgramIsMine,
           )
       : customTemplate
         ? buildCustomProgramDetail(
@@ -4518,6 +4543,20 @@ function VinhaApp() {
         }
         onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
         onPrimaryAction={() => {
+          if (readyProgramIsMine) {
+            // Already the reader's. Adoption returns early for a programme it
+            // already holds, so this button used to read like a decision and do
+            // nothing but navigate Home. It now starts the session the rotation
+            // actually offers next — the label says so.
+            const nextSessionId = resolveNextSessionIdForTemplate(route.workoutTemplateId);
+            if (nextSessionId) {
+              handleStartReadyProgramSession(route.workoutTemplateId, nextSessionId);
+              return;
+            }
+            navigate(ROOT_ROUTES.home);
+            return;
+          }
+
           if (route.programType === 'ready') {
             // The button says "Ota ohjelma käyttöön" and it now does that. It
             // called handleStartReadyProgram, which starts the first SESSION
@@ -4545,6 +4584,15 @@ function VinhaApp() {
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
+        // Every ready programme, not only the one being run: wanting a
+        // programme changed is the buying moment, and it happens while
+        // browsing as often as while training. The cap check and the paywall
+        // live in the handler.
+        onCopyToCustom={
+          route.programType === 'ready'
+            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
+            : undefined
+        }
         programBlockWeeks={readyTemplate ? getReadyProgramBlockWeeks(readyTemplate) : null}
         trainingDayIndexes={planWeekdayIndexes(
           database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
@@ -4618,6 +4666,16 @@ function VinhaApp() {
         sessionSwaps={sessionSwaps}
         onSwapExercise={(slotId, exerciseName) =>
           setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
+        }
+        onAddExercise={
+          route.programType === 'custom'
+            ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId })
+            : undefined
+        }
+        onCopyToCustom={
+          route.programType === 'ready'
+            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
+            : undefined
         }
         tailoringPreferences={preferences}
         onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
