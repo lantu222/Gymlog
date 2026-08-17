@@ -982,30 +982,35 @@ export function ProgramsHomeScreen({
                 onPress={() => setSheet({ kind: 'category', key: entry.key })}
                 style={({ pressed }) => [styles.catTileWrap, pressed && styles.pressed]}
               >
-                {/* A near-black outline at 2.4, not the tint's own pale
-                    border at 1: nine pastel tiles side by side had nothing
-                    holding them apart, and the count badge sat ON the cut
-                    corner, which sliced the digit in half. */}
-                <CutSurface
-                  size="lg"
-                  fill={entry.tint.bg}
-                  stroke={theme.ink}
-                  strokeWidth={2.4}
-                  style={styles.catTile}
-                >
+                {/* One container decision, and this is it: a solid disc in the
+                    category's own ink with the mark knocked out in white.
+                    Nine pastel tiles behind a near-black outline needed the
+                    outline to hold them apart at all — the colour was doing no
+                    work. Filled, the hue is the tile, and the badge can sit on
+                    the edge because a circle has no cut corner to slice a
+                    digit in half. */}
+                <View style={[styles.catTile, { backgroundColor: entry.tint.ink }]}>
                   <Svg width={30} height={30} viewBox="0 0 24 24" fill="none">
                     <Path
                       d={entry.icon}
-                      stroke={entry.tint.ink}
-                      strokeWidth={1.9}
+                      stroke="#FFFFFF"
+                      // A hair heavier than the 1.9 hairline the pale tiles
+                      // used: knocked out of a colour, a stroke reads thinner
+                      // than the same stroke drawn on light.
+                      strokeWidth={2.05}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
                   </Svg>
-                  <View style={[styles.catTileCount, { backgroundColor: entry.tint.ink }]}>
+                  <View
+                    style={[
+                      styles.catTileCount,
+                      { backgroundColor: entry.tint.ink, borderColor: theme.surface },
+                    ]}
+                  >
                     <Text style={styles.catTileCountText}>{categoryCounts[entry.key]}</Text>
                   </View>
-                </CutSurface>
+                </View>
                 <Text style={styles.catTileLabel} numberOfLines={2}>
                   {t(language, entry.labelKey)}
                 </Text>
@@ -1845,19 +1850,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   catTile: {
     width: 74,
     height: 74,
+    borderRadius: 37,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingBottom: 10,
   },
   catTileCount: {
-    // Bottom right, fully inside. Top right is where the A3 cut is, and the
-    // badge was drawn half outside the shape that was cutting it.
+    // On the disc's edge rather than inside it, with a ring in the surface
+    // colour so the pill reads as a badge and not as a bite out of the circle.
     position: 'absolute',
-    bottom: 5,
-    right: 6,
+    bottom: -1,
+    right: -1,
     minWidth: 22,
     height: 22,
     borderRadius: 11,
+    borderWidth: 2.5,
     paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',

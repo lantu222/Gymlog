@@ -2,6 +2,7 @@ package expo.modules.homewidget
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
+import android.content.Intent
 import android.os.Build
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
@@ -20,11 +21,25 @@ import expo.modules.kotlin.modules.ModuleDefinition
  */
 class HomeWidgetModule : Module() {
 
+  /**
+   * The one the app offers to add: the 4×2, which is what the offer's own copy
+   * describes. Its class name predates the family and is kept because widgets
+   * already on a home screen are bound to it.
+   */
   private val provider: ComponentName
-    get() = ComponentName(
-      appContext.reactContext!!.packageName,
-      appContext.reactContext!!.packageName + ".HomeWidgetProvider",
-    )
+    get() = componentFor("HomeWidgetProvider")
+
+  /**
+   * Every receiver in the family. `isAdded` has to check both, or adding the
+   * 2×2 would leave the app still offering to add a widget.
+   */
+  private val allProviders: List<ComponentName>
+    get() = listOf("HomeWidgetProvider", "WeekWidgetProvider").map(::componentFor)
+
+  private fun componentFor(className: String): ComponentName {
+    val packageName = appContext.reactContext!!.packageName
+    return ComponentName(packageName, "$packageName.$className")
+  }
 
   override fun definition() = ModuleDefinition {
     Name("HomeWidget")
@@ -41,12 +56,12 @@ class HomeWidgetModule : Module() {
       }
     }
 
-    /** True when at least one instance is already on a home screen. */
+    /** True when any of the family's widgets is already on a home screen. */
     AsyncFunction<Boolean>("isAdded") {
       val context = appContext.reactContext ?: return@AsyncFunction false
       try {
-        val ids = AppWidgetManager.getInstance(context)?.getAppWidgetIds(provider)
-        (ids?.size ?: 0) > 0
+        val manager = AppWidgetManager.getInstance(context) ?: return@AsyncFunction false
+        allProviders.any { (manager.getAppWidgetIds(it)?.size ?: 0) > 0 }
       } catch (error: Exception) {
         false
       }
@@ -69,6 +84,43 @@ class HomeWidgetModule : Module() {
           return@AsyncFunction false
         }
         manager.requestPinAppWidget(provider, null, null)
+      } catch (error: Exception) {
+        false
+      }
+    }
+
+    /**
+     * Redraws every widget of ours that is on a home screen, right now.
+     *
+     * Android will not update a widget more often than every 30 minutes on its
+     * own, and that delay used to be the accepted price of a file-only bridge.
+     * It stopped being acceptable the day a payload version bump left the widget
+     * telling a reader with months of history to create their first programme —
+     * for up to half an hour, with the correct file already on disk.
+     *
+     * Broadcasting APPWIDGET_UPDATE at large is a protected action. Sending it to
+     * our own receiver, named explicitly, is ours to send.
+     *
+     * Returns whether anything was asked to redraw: false means no widget is
+     * placed, which is not a failure.
+     */
+    AsyncFunction<Boolean>("refresh") {
+      val context = appContext.reactContext ?: return@AsyncFunction false
+      try {
+        val manager = AppWidgetManager.getInstance(context) ?: return@AsyncFunction false
+        var asked = false
+        for (component in allProviders) {
+          val ids = manager.getAppWidgetIds(component)
+          if (ids == null || ids.isEmpty()) {
+            continue
+          }
+          val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
+          intent.component = component
+          intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
+          context.sendBroadcast(intent)
+          asked = true
+        }
+        asked
       } catch (error: Exception) {
         false
       }

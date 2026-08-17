@@ -316,6 +316,12 @@ export interface AppPreferences {
    * offer is shown once; Settings keeps a permanent entry for later.
    */
   homeWidgetPromptDismissed: boolean;
+  /**
+   * Whether the hand-off step after onboarding has had its turn. It offers the
+   * widget and a tracking card once; a reader who ran onboarding again has
+   * already been asked.
+   */
+  setupHandoffCompleted: boolean;
   entryFlowCompleted: boolean;
   trainingFirstRunDismissed: boolean;
   selectedSignInMethod: SignInMethod | null;

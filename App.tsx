@@ -1,7 +1,7 @@
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, View } from 'react-native';
+import { Alert, AppState, BackHandler, Linking, View } from 'react-native';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -17,6 +17,7 @@ import {
   DEFAULT_RHYTHM_BY_DAYS,
   DEFAULT_FIRST_RUN_SELECTION,
   FirstRunSetupSelection,
+  getFocusAreaTitle,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
 import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
@@ -35,9 +36,13 @@ import { writeHomeWidgetPayload } from './src/utils/homeWidget';
 import {
   isHomeWidgetAdded,
   isHomeWidgetSupported,
+  refreshHomeWidget,
   requestPinHomeWidget,
 } from './modules/home-widget';
-import { buildHomeWidgetPayload } from './src/lib/widgetPayload';
+import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } from './src/lib/widgetPayload';
+import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
+import { planSetupHandoff } from './src/lib/setupHandoff';
+import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -63,7 +68,11 @@ import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
 import { getReadyProgramContent } from './src/lib/readyProgramContent';
-import { getCalendarWeekStartTimestamp, getCanonicalCompletedSessions } from './src/lib/completedSessions';
+import {
+  getCalendarDayStartTimestamp,
+  getCanonicalCompletedSessions,
+  getRecentActivityStrip,
+} from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
 import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
@@ -125,8 +134,10 @@ import {
   SEASON_COLORS,
   SEASON_WEEKS,
   SeasonWindow,
+  formatSeasonDateRange,
   nextSeasonWindow,
   resolveSeasonWindow,
+  seasonLastDay,
   seasonProgressRatio,
   seasonWeek,
   seasonWeeksLeft,
@@ -3079,33 +3090,223 @@ function VinhaApp() {
   // Feeds the home-screen widget. The launcher redraws it on its own schedule,
   // so all this has to do is keep the file current. Placed after the plan card
   // and the picked days, because it is built from exactly what Home renders.
+  //
+  // The calendar reaches back two weeks, so the widget needs the days that were
+  // trained — not just this week's weekdays. 21 days covers two past weeks plus
+  // every day of the current one, whichever weekday today is.
+  // ── The hand-off after onboarding ────────────────────────────────────────
+  // Onboarding used to end by dropping the reader on Home with the widget
+  // unplaced and nothing being tracked. This offers both, once, while the app
+  // still remembers which body part they just named.
+  //
+  // It waits for `homeWidgetState`: until Android has answered whether it can
+  // pin a widget, showing the step would either hide an offer that was
+  // available or make one that is not.
+  const setupHandoffReady =
+    preferences.onboardingCompleted && !preferences.setupHandoffCompleted && homeWidgetState !== null;
+  const setupHandoffPlan = useMemo(
+    () =>
+      setupHandoffReady
+        ? planSetupHandoff({
+            canOfferWidget: Boolean(homeWidgetState?.supported) && !homeWidgetState?.added,
+            pinnedCardKeys: homePinnedStatCardKeys,
+            focusAreas: preferences.setupFocusAreas,
+          })
+        : null,
+    [homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
+  );
+  const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
+
+  // Nothing left to offer — a reader running onboarding a second time. Close the
+  // door rather than leave it to open on some later launch.
+  useEffect(() => {
+    if (setupHandoffReady && setupHandoffPlan && !setupHandoffPlan.shouldShow) {
+      void updatePreferences({ setupHandoffCompleted: true });
+    }
+  }, [setupHandoffPlan, setupHandoffReady, updatePreferences]);
+
+  const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
+    const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
+    // Asked here, so Home's one-time card must not ask again. Settings keeps its
+    // permanent row either way.
+    if (setupHandoffPlan?.offerWidget) {
+      patch.homeWidgetPromptDismissed = true;
+    }
+    if (choices.pinTrackingCard && setupHandoffPlan?.tracking) {
+      patch.homeStatCardKeys = [...homePinnedStatCardKeys, setupHandoffPlan.tracking.cardKey];
+    }
+    await updatePreferences(patch);
+    // The system dialog last, so it is not racing a state write.
+    if (choices.addWidget) {
+      await requestPinHomeWidget();
+    }
+  };
+
+  // The programme the widget offers when there is none running: the app's own
+  // recommendation, under its curated title, with one tag for what it costs.
+  const widgetSuggestion = useMemo(() => {
+    if (!recommendedReadyTemplate) {
+      return null;
+    }
+    const presentation = getReadyTemplatePresentation(recommendedReadyTemplate, preferences.appLanguage);
+    return {
+      title: presentation.title,
+      // What running it costs, not what it trains. The focus tag read "Full
+      // Body" next to a name that already says it, and the question a reader
+      // asks of an unfamiliar programme is how many days it wants.
+      meta: t(preferences.appLanguage, 'programs.card.days', {
+        count: recommendedReadyTemplate.daysPerWeek,
+      }),
+    };
+  }, [preferences.appLanguage, recommendedReadyTemplate]);
+  const widgetCompletedDayStarts = useMemo(
+    () =>
+      getRecentActivityStrip(database, new Date(), 21)
+        .filter((day) => day.active)
+        .map((day) => day.dayStart),
+    [database],
+  );
+  // The narrower set, for the one question the strip cannot answer: is today's
+  // session behind you. The strip counts cardio, and a run leaves the planned
+  // workout undone — fed to the skip, it would have the widget name tomorrow
+  // while Home still offers today.
+  const widgetCompletedWorkoutDayStarts = useMemo(
+    () =>
+      getCanonicalCompletedSessions(database).map((session) =>
+        getCalendarDayStartTimestamp(session.performedAt),
+      ),
+    [database],
+  );
   useEffect(() => {
     if (!appHydrated) {
       return;
     }
-    const nowMs = Date.now();
-    // Which weekdays already have a logged session this calendar week. The
-    // widget's bars need it to say "done" rather than only "training day".
-    const weekStart = getCalendarWeekStartTimestamp(new Date(nowMs));
-    const completedWeekdayIndexes = getCanonicalCompletedSessions(database)
-      .map((session) => new Date(session.performedAt))
-      .filter((date) => Number.isFinite(date.getTime()) && date.getTime() >= weekStart)
-      .map((date) => (date.getDay() === 0 ? 6 : date.getDay() - 1));
 
-    writeHomeWidgetPayload(
+    const written = writeHomeWidgetPayload(
       buildHomeWidgetPayload({
-        nowMs,
+        nowMs: Date.now(),
         language: preferences.appLanguage,
         // The widget shows whatever the app resolved, Pro gate included — it
         // cannot re-derive this, it is drawn in the launcher's process.
         theme: resolveThemeName(preferences),
         planName: homeActivePlanCard?.title ?? null,
+        // With no programme the widget names the one the app would recommend
+        // rather than asking an empty question. Presented here, because the
+        // catalog's curated titles live on this side of the bridge.
+        suggestion: widgetSuggestion,
         trainingDayIndexes: homeTrainingDayIndexes,
-        completedWeekdayIndexes,
+        completedDayStarts: widgetCompletedDayStarts,
+        completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
       }),
     );
-  }, [appHydrated, preferences, database, homeActivePlanCard, homeTrainingDayIndexes]);
+
+    // Ask the widget to read it now rather than within the next half hour. The
+    // delay used to be invisible because the content was day-granular; it stops
+    // being invisible the moment the file's shape changes, and the widget falls
+    // back to "create your first program" while the real file sits on disk.
+    if (written) {
+      void refreshHomeWidget();
+    }
+  }, [
+    appHydrated,
+    preferences,
+    homeActivePlanCard,
+    homeTrainingDayIndexes,
+    widgetCompletedDayStarts,
+    widgetCompletedWorkoutDayStarts,
+    widgetSuggestion,
+  ]);
+
+  // ── Widget taps ──────────────────────────────────────────────────────────
+  // A widget can only ask Android to open a URL, so each tap arrives as
+  // `vinha://widget/<target>` and is resolved here against live state. The
+  // widget's own file can be half an hour old; the workout it named is looked
+  // up again now, so a tap never opens yesterday's session.
+  const [pendingWidgetTarget, setPendingWidgetTarget] = useState<HomeWidgetTarget | null>(null);
+
+  useEffect(() => {
+    function handleUrl(url: string | null | undefined) {
+      const target = parseWidgetDeepLink(url);
+      if (target) {
+        setPendingWidgetTarget(target);
+      }
+    }
+
+    // Cold start: the URL is already waiting. Warm start: it arrives here.
+    void Linking.getInitialURL().then(handleUrl).catch(() => undefined);
+    const subscription = Linking.addEventListener('url', (event) => handleUrl(event.url));
+    return () => subscription.remove();
+  }, []);
+
+  useEffect(() => {
+    // Held until the database is loaded: resolving "the session you named"
+    // against an empty store would land on Home every time.
+    if (!appHydrated || !pendingWidgetTarget) {
+      return;
+    }
+    setPendingWidgetTarget(null);
+
+    if (pendingWidgetTarget === 'calendar') {
+      resetToRoute({ tab: 'progress', screen: 'calendar' });
+      return;
+    }
+    if (pendingWidgetTarget === 'programs') {
+      resetToRoute({ tab: 'workout', screen: 'programs_home' });
+      return;
+    }
+    if (pendingWidgetTarget === 'suggestion') {
+      // The programme the widget named, resolved again now — the catalog cannot
+      // change under it, but the recommendation can, and the widget's copy of it
+      // may be half an hour old.
+      if (recommendedReadyTemplate) {
+        resetToRoute({
+          tab: 'workout',
+          screen: 'program',
+          programType: 'ready',
+          workoutTemplateId: recommendedReadyTemplate.id,
+        });
+        return;
+      }
+      resetToRoute({ tab: 'workout', screen: 'programs_home' });
+      return;
+    }
+    if (pendingWidgetTarget === 'schedule') {
+      resetToRoute({ tab: 'profile', screen: 'training_plan', editSchedule: true });
+      return;
+    }
+    if (pendingWidgetTarget === 'home') {
+      resetToRoute(ROOT_ROUTES.home);
+      return;
+    }
+
+    const next = findHomeWidgetNextSession({
+      nowMs: Date.now(),
+      trainingDayIndexes: homeTrainingDayIndexes,
+      sessions: homeActivePlanCard?.sessions ?? [],
+      completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
+    });
+    // No session to open any more — the plan changed while the widget was
+    // showing the old one. Home is the honest landing, not an empty screen.
+    if (!next || !homeActivePlanCard) {
+      resetToRoute(ROOT_ROUTES.home);
+      return;
+    }
+    resetToRoute({
+      tab: 'workout',
+      screen: 'programDay',
+      programType: homeActivePlanCard.programType,
+      workoutTemplateId: homeActivePlanCard.programId,
+      sessionId: next.session.id,
+    });
+  }, [
+    appHydrated,
+    homeActivePlanCard,
+    homeTrainingDayIndexes,
+    pendingWidgetTarget,
+    recommendedReadyTemplate,
+    widgetCompletedWorkoutDayStarts,
+  ]);
 
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content
@@ -3798,9 +3999,9 @@ function VinhaApp() {
         season: window.season,
         labelKey: (window.season === 'winter' ? 'season.winter' : 'season.summer') as I18nKey,
         year: window.year,
-        rangeLabel: `${label(window.start)}${preferences.appLanguage === 'fi' ? '' : ''}–${label(
-          new Date(window.end.getTime() - 86_400_000),
-        )}${window.year !== window.end.getFullYear() ? window.end.getFullYear() : ''}`,
+        // These tiles sit under a year heading, so the range only spells a year
+        // out when the season crosses into the next one.
+        rangeLabel: formatSeasonDateRange(window, preferences.appLanguage, 'whenSpanning'),
         startLabel: label(window.start),
         weeksLeft: isCurrent ? seasonWeeksLeft(window, now) : SEASON_WEEKS,
         progress: isCurrent ? seasonProgressRatio(window, now) : 0,
@@ -3854,7 +4055,7 @@ function VinhaApp() {
       preferences.appLanguage === 'fi'
         ? `${date.getDate()}.${date.getMonth() + 1}.`
         : `${date.getDate()}/${date.getMonth() + 1}`;
-    const lastDay = (window: SeasonWindow) => new Date(window.end.getTime() - 86_400_000);
+    const lastDay = (window: SeasonWindow) => seasonLastDay(window);
     const season = (window: SeasonWindow, state: 'running' | 'upcoming') => ({
       season: window.season,
       state,
@@ -3866,7 +4067,7 @@ function VinhaApp() {
       // reading un-joined you the moment you trained something else, and it
       // could not tell a pre-registration from a programme swap at all.
       enrolled: isEnrolled(preferences.seasonEnrolments, window.season, window.year),
-      rangeLabel: `${label(window.start)}–${label(lastDay(window))}${lastDay(window).getFullYear()}`,
+      rangeLabel: formatSeasonDateRange(window, preferences.appLanguage),
       endLabel: label(lastDay(window)),
       startLabel: label(window.start),
       templateId: getSeasonProgramId(window.season),
@@ -4200,6 +4401,22 @@ function VinhaApp() {
         />
       );
     }
+  } else if (setupHandoffActive && setupHandoffPlan) {
+    // Between the last question and the app. The route behind this is already
+    // the one onboarding chose, so finishing here just uncovers it.
+    content = (
+      <SetupHandoffScreen
+        language={preferences.appLanguage}
+        plan={setupHandoffPlan}
+        focusLabel={
+          setupHandoffPlan.tracking?.focus
+            ? getFocusAreaTitle(setupHandoffPlan.tracking.focus, preferences.appLanguage)
+            : null
+        }
+        onDone={(choices) => void handleSetupHandoffDone(choices)}
+        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false })}
+      />
+    );
   } else if (route.tab === 'profile' && route.screen === 'setup') {
     content = (
       <OnboardingScreen
@@ -5463,6 +5680,9 @@ function VinhaApp() {
           handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId);
         }}
         onCreateWorkoutFromExercises={() => navigate({ tab: 'workout', screen: 'empty' })}
+        // No programme to start: the hero button goes to the catalog instead of
+        // offering an empty session the "empty workout" row already offers.
+        onFindProgram={() => navigateToTab('workout')}
         onOpenCardio={() => navigate({ tab: 'home', screen: 'cardio' })}
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         plateau={proPlateau ? { headline: proPlateau.detection.headline, meta: proPlateau.detection.meta, locked: proPlateau.conclusion, moment: proPlateau.moment } : null}
@@ -5490,6 +5710,9 @@ function VinhaApp() {
 
   const showTabBar =
     !onboardingActive &&
+    // The hand-off is the last step of onboarding wearing the app's clothes. A
+    // tab bar under it offers four ways out of a step that has one button.
+    !setupHandoffActive &&
     !(
       route.tab === 'workout' &&
       (route.screen === 'detail' ||

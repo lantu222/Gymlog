@@ -166,11 +166,43 @@ const calendarLegend = (theme: Theme): Array<{ key: string; labelKey: I18nKey; d
   { key: 'rest', labelKey: 'progress.legend.rest', dotStyle: { backgroundColor: theme.surfaceSoft } },
 ];
 
-const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey }> = [
-  { key: 'overview', labelKey: 'progress.section.overview' },
-  { key: 'records', labelKey: 'progress.section.records' },
-  { key: 'tracked', labelKey: 'progress.section.tracked' },
-  { key: 'measures', labelKey: 'progress.section.measures' },
+/**
+ * Four sections, four marks, no words.
+ *
+ * Four text labels in a 351px row means the selected state is read word by word;
+ * four marks are seen at a glance. The label survives as the accessibility name
+ * on every tab, which is the part a screen reader needs and the part the eye
+ * does not.
+ *
+ * Same 24-unit drawing language as the program category discs, in stroke-on-light
+ * at tab weight. The barbell appears in both families on purpose — it means
+ * "exercise" everywhere in this app, and the two rows never meet.
+ */
+const PROGRESS_SECTIONS: Array<{ key: ProgressSection; labelKey: I18nKey; icon: string }> = [
+  {
+    key: 'overview',
+    labelKey: 'progress.section.overview',
+    // A rising trend with a corner arrowhead: the summary answers one question.
+    icon: 'M3.4 17.4 9.2 11.4l3.4 3 7.6-7.4M20.6 6.4h-4.4M20.6 6.4v4.4',
+  },
+  {
+    key: 'records',
+    labelKey: 'progress.section.records',
+    // Trophy with both handles. A star would read as "favourite", and a medal
+    // disc collides with the crosshair in the category set.
+    icon: 'M7.8 4.2h8.4v3.2a4.2 4.2 0 0 1-8.4 0zM7.8 5.4H5.4a2.4 2.4 0 0 0 2.4 2.4M16.2 5.4h2.4a2.4 2.4 0 0 1-2.4 2.4M12 11.6v3.6M8.8 19.4h6.4',
+  },
+  {
+    key: 'tracked',
+    labelKey: 'progress.section.tracked',
+    icon: 'M3.6 9.8v4.4M7 7.8v8.4M17 7.8v8.4M20.4 9.8v4.4M7 12h10',
+  },
+  {
+    key: 'measures',
+    labelKey: 'progress.section.measures',
+    // A ruler edge, drawn open: a closed box fills in and goes solid at 22px.
+    icon: 'M2.6 10.2h18.8M6.2 10.2v3.8M10.6 10.2v2.3M15 10.2v3.8M19.4 10.2v2.3',
+  },
 ];
 
 const PROGRESS_FILTERS: Array<{ key: ProgressFilter; labelKey: I18nKey }> = [
@@ -1776,6 +1808,10 @@ export function ProgressScreen({
             return (
               <Pressable
                 key={section.key}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                // The word moved out of the tab, so it has to live here.
+                accessibilityLabel={t(language, section.labelKey)}
                 onPress={() => switchSection(section.key)}
                 style={styles.tab}
               >
@@ -1783,13 +1819,27 @@ export function ProgressScreen({
                     the row and pushes itself out of the shell. */}
                 {active ? (
                   <CutSurface size="sm" fill={theme.surface} style={[styles.tabInner, styles.tabActive]}>
-                    <Text style={[styles.tabText, styles.tabTextActive]}>
-                      {t(language, section.labelKey)}
-                    </Text>
+                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d={section.icon}
+                        stroke={theme.purpleDark}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
                   </CutSurface>
                 ) : (
                   <View style={styles.tabInner}>
-                    <Text style={styles.tabText}>{t(language, section.labelKey)}</Text>
+                    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d={section.icon}
+                        stroke={theme.muted}
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
                   </View>
                 )}
               </Pressable>

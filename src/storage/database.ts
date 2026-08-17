@@ -508,6 +508,16 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         typeof input?.preferences?.homeWidgetPromptDismissed === 'boolean'
           ? input.preferences.homeWidgetPromptDismissed
           : fallback.preferences.homeWidgetPromptDismissed,
+      // A stored install that predates this flag has already been through
+      // onboarding, so the hand-off has had its turn — without this, the flag
+      // reads false on the next launch and an old install gets ambushed by a
+      // step meant for a first run.
+      setupHandoffCompleted:
+        typeof input?.preferences?.setupHandoffCompleted === 'boolean'
+          ? input.preferences.setupHandoffCompleted
+          : input?.preferences?.onboardingCompleted === true
+            ? true
+            : fallback.preferences.setupHandoffCompleted,
       entryFlowCompleted:
         typeof input?.preferences?.entryFlowCompleted === 'boolean'
           ? input.preferences.entryFlowCompleted

@@ -3,6 +3,7 @@
     "name": "Vinha",
     "slug": "vinha",
     "version": "1.1.0",
+    "scheme": "vinha",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",

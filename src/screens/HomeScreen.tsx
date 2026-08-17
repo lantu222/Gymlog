@@ -164,6 +164,12 @@ interface HomeScreenProps {
   onRedoOnboarding?: () => void;
   onStartActivePlanSession?: (sessionId: string) => void;
   onCreateWorkoutFromExercises: () => void;
+  /**
+   * What the hero button does when there is no programme: go and find one.
+   * Without it the button falls back to an empty workout, which is what it
+   * used to offer under a label that said "Start workout".
+   */
+  onFindProgram?: () => void;
   onOpenCardio?: () => void;
   /** Where every Pro touchpoint leads — the full Pro page. */
   onOpenPremium?: () => void;
@@ -257,6 +263,7 @@ export function HomeScreen({
   onRedoOnboarding,
   onStartActivePlanSession,
   onCreateWorkoutFromExercises,
+  onFindProgram,
   onOpenCardio,
   onOpenPremium,
   plateau = null,
@@ -519,9 +526,23 @@ export function HomeScreen({
     }).start();
   };
 
-  const startTodaysSession = () => {
+  /**
+   * The hero button offers a workout only when there is one to offer.
+   *
+   * With no programme it used to say "Start workout" and open an empty session —
+   * the same thing the "empty workout" row below already does, under a label
+   * that promised a session the app did not have. Deleting a programme is
+   * exactly when the useful next step is finding another one.
+   */
+  const heroStartsSession = Boolean(nextPlanSession);
+
+  const pressHeroAction = () => {
     if (nextPlanSession && onStartActivePlanSession) {
       onStartActivePlanSession(nextPlanSession.id);
+      return;
+    }
+    if (!nextPlanSession && onFindProgram) {
+      onFindProgram();
       return;
     }
     onCreateWorkoutFromExercises();
@@ -979,8 +1000,8 @@ export function HomeScreen({
           ) : null}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t(language, 'home.a11y.startSession')}
-            onPress={startTodaysSession}
+            accessibilityLabel={t(language, heroStartsSession ? 'home.a11y.startSession' : 'home.a11y.findProgram')}
+            onPress={pressHeroAction}
             style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
           >
             <CutSurface
@@ -990,7 +1011,9 @@ export function HomeScreen({
               strokeWidth={1.5}
               style={styles.startButton}
             >
-              <Text style={styles.startButtonText}>{t(language, 'home.startWorkout')}</Text>
+              <Text style={styles.startButtonText}>
+                {t(language, heroStartsSession ? 'home.startWorkout' : 'home.findProgram')}
+              </Text>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
               </Svg>
