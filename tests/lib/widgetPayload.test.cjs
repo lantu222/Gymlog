@@ -205,6 +205,54 @@ module.exports = [
     },
   },
   {
+    name: 'widgetPayload: with no program it names the one the app recommends',
+    run() {
+      const payload = build({
+        sessions: [],
+        planName: null,
+        suggestion: { title: 'Strength · Base', meta: '3 days a week' },
+      });
+
+      // "Pick a program" asked a question the app could answer itself.
+      assert.equal(payload.when, 'Suggested for you');
+      assert.equal(payload.title, 'Strength · Base');
+      assert.equal(payload.meta, '3 days a week');
+      assert.equal(payload.isPrompt, true);
+      // And the tap opens that programme, not the catalog it came from.
+      assert.equal(payload.textTarget, 'suggestion');
+      assert.equal(payload.cardTarget, 'suggestion');
+      assert.equal(
+        build({ sessions: [], planName: null, suggestion: { title: 'X', meta: '' }, language: 'fi' }).when,
+        'Suositus sinulle',
+      );
+    },
+  },
+  {
+    name: 'widgetPayload: no recommendation means it asks instead of inventing one',
+    run() {
+      // Onboarding may never have produced one, and a widget that names a
+      // programme it was not given is worse than one that asks.
+      for (const suggestion of [null, undefined, { title: '   ', meta: 'x' }]) {
+        const payload = build({ sessions: [], planName: null, suggestion });
+        assert.equal(payload.title, 'Pick a program', `suggestion ${JSON.stringify(suggestion)}`);
+        assert.equal(payload.when, 'No plan yet');
+        assert.equal(payload.textTarget, 'programs');
+        assert.equal(payload.meta, '');
+      }
+    },
+  },
+  {
+    name: 'widgetPayload: the quiet second line stays empty everywhere else',
+    run() {
+      const suggestion = { title: 'Strength · Base', meta: '3 days a week' };
+      // A running programme, a plan with no rhythm, a plan with no sessions:
+      // none of them are a sales pitch, so none of them carry a meta line.
+      assert.equal(build({ suggestion }).meta, '');
+      assert.equal(build({ suggestion, trainingDayIndexes: [] }).meta, '');
+      assert.equal(build({ suggestion, sessions: [] }).meta, '');
+    },
+  },
+  {
     name: 'widgetPayload: a named plan with nothing in it keeps its name',
     run() {
       const payload = build({ sessions: [] });

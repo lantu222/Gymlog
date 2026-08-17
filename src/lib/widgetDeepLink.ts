@@ -19,7 +19,7 @@ import type { HomeWidgetTarget } from './widgetPayload';
  */
 export const WIDGET_LINK_PREFIX = 'vinha://widget/';
 
-const TARGETS: HomeWidgetTarget[] = ['session', 'calendar', 'home', 'programs', 'schedule'];
+const TARGETS: HomeWidgetTarget[] = ['session', 'suggestion', 'calendar', 'home', 'programs', 'schedule'];
 
 /**
  * The target a URL asks for, or null when the URL is not one of ours.

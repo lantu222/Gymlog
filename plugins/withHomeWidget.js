@@ -480,13 +480,25 @@ function squareLayout(theme, { previewLabels = null, previewPrompt = null, previ
   const muted = theme === 'light' ? LIGHT.muted : DARK.muted;
   const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
 
-  const prompt = textView('widget_prompt', {
+  // The eyebrow only appears in the prompt states, where the calendar is hidden
+  // and there is room for it. It is not decoration: without it a named
+  // recommendation reads as the programme the reader is already running.
+  const prompt = `${textView('widget_when', {
+    size: 9,
+    color: faint,
+    allCaps: true,
+    letterSpacing: '0.1',
+    marginTop: 2,
+    visibility: 'gone',
+  })}
+${textView('widget_prompt', {
     size: 14,
     color: ink,
     maxLines: 2,
     text: previewPrompt ?? '',
     visibility: previewPrompt ? null : 'gone',
-  });
+  })}
+${textView('widget_meta', { size: 11, style: 'normal', color: muted, marginTop: 3, visibility: 'gone' })}`;
 
   const axis = [0, 1, 2, 3, 4, 5, 6]
     .map(
@@ -590,6 +602,7 @@ ${weekStrip(size, theme, { width: '150dp', labels: previewLabels })}
 function dayLayout(theme, { previewLabels = null, previewWhen = null, previewTitle = null } = {}) {
   const size = SIZES.day;
   const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
+  const muted = theme === 'light' ? LIGHT.muted : DARK.muted;
   const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
 
   // Words on the left, the number on the right, the calendar along the bottom.
@@ -614,6 +627,7 @@ function dayLayout(theme, { previewLabels = null, previewWhen = null, previewTit
 ${textView('widget_when', { size: 10, color: faint, allCaps: true, letterSpacing: '0.1', text: previewWhen ?? '' })}
 ${textView('widget_title', { size: 20, color: ink, marginTop: 2, maxLines: 2, text: previewTitle ?? '' })}
 ${textView('widget_prompt', { size: 17, color: ink, marginTop: 2, maxLines: 2, visibility: 'gone' })}
+${textView('widget_meta', { size: 11, style: 'normal', color: muted, marginTop: 3, visibility: 'gone' })}
             </LinearLayout>
 ${heroBlock(theme, {
   count: 28,
@@ -734,6 +748,7 @@ ${cells}
                 android:orientation="vertical">
 ${textView('widget_title', { size: 18, color: ink, text: previewTitle ?? '' })}
 ${textView('widget_prompt', { size: 17, color: ink, maxLines: 2, visibility: 'gone' })}
+${textView('widget_meta', { size: 11, style: 'normal', color: muted, marginTop: 3, visibility: 'gone' })}
             </LinearLayout>
 ${heroBlock(theme, {
   count: 24,
@@ -1116,6 +1131,8 @@ ${paletteLiteral('dark', DARK, 'dark')}
 
         if (squareLayout) {
             views.setViewVisibility(R.id.widget_week, View.GONE)
+            views.setViewVisibility(R.id.widget_when, View.GONE)
+            views.setViewVisibility(R.id.widget_meta, View.GONE)
             views.setViewVisibility(R.id.widget_prompt, View.VISIBLE)
             views.setTextViewText(R.id.widget_prompt, text)
             views.setTextColor(R.id.widget_prompt, palette.ink)
@@ -1154,11 +1171,15 @@ ${paletteLiteral('dark', DARK, 'dark')}
         // With no schedule there is no calendar to draw, so the card stops being
         // a calendar and becomes the instruction instead.
         views.setViewVisibility(R.id.widget_prompt, if (prompt) View.VISIBLE else View.GONE)
+        views.setViewVisibility(R.id.widget_when, if (prompt) View.VISIBLE else View.GONE)
         views.setViewVisibility(R.id.widget_week, if (prompt) View.GONE else View.VISIBLE)
 
         if (prompt) {
+            views.setTextViewText(R.id.widget_when, payload.optString("when"))
+            views.setTextColor(R.id.widget_when, palette.faint)
             views.setTextViewText(R.id.widget_prompt, payload.optString("title"))
             views.setTextColor(R.id.widget_prompt, palette.ink)
+            paintMeta(views, payload, palette)
         } else {
             val labels = payload.optJSONArray("weekdayLabels")
             val week = currentWeek(payload)
@@ -1215,6 +1236,7 @@ ${paletteLiteral('dark', DARK, 'dark')}
         views.setViewVisibility(R.id.widget_prompt, if (prompt) View.VISIBLE else View.GONE)
         views.setTextViewText(if (prompt) R.id.widget_prompt else R.id.widget_title, payload.optString("title"))
         views.setTextColor(if (prompt) R.id.widget_prompt else R.id.widget_title, palette.ink)
+        paintMeta(views, payload, palette)
 
         // The empty week is drawn rather than hidden: an honest empty row says
         // more about a missing rhythm than a blank card does.
@@ -1243,6 +1265,7 @@ ${paletteLiteral('dark', DARK, 'dark')}
         views.setViewVisibility(R.id.widget_prompt, if (prompt) View.VISIBLE else View.GONE)
         views.setTextViewText(if (prompt) R.id.widget_prompt else R.id.widget_title, payload.optString("title"))
         views.setTextColor(if (prompt) R.id.widget_prompt else R.id.widget_title, palette.ink)
+        paintMeta(views, payload, palette)
         views.setViewVisibility(R.id.widget_axis, View.VISIBLE)
         views.setViewVisibility(R.id.widget_grid, View.VISIBLE)
 
@@ -1304,6 +1327,19 @@ ${paletteLiteral('dark', DARK, 'dark')}
         }
     }
 
+    /**
+     * The quiet second line. It exists for one state — the recommended
+     * programme's cost, under its name — and stays out of the way in the rest.
+     */
+    private fun paintMeta(views: RemoteViews, payload: JSONObject, palette: Palette) {
+        val meta = payload.optString("meta")
+        views.setViewVisibility(R.id.widget_meta, if (meta.isEmpty()) View.GONE else View.VISIBLE)
+        if (meta.isNotEmpty()) {
+            views.setTextViewText(R.id.widget_meta, meta)
+            views.setTextColor(R.id.widget_meta, palette.muted)
+        }
+    }
+
     private fun currentWeek(payload: JSONObject): JSONArray? =
         payload.optJSONArray("weeks")?.optJSONArray(CURRENT_WEEK_INDEX)
 
@@ -1351,6 +1387,7 @@ ${paletteLiteral('dark', DARK, 'dark')}
         "calendar" -> 2
         "programs" -> 3
         "schedule" -> 4
+        "suggestion" -> 6
         else -> 5
     }
 

@@ -1367,6 +1367,9 @@ const EN = {
   'widget.weekdayOn.6': 'Sunday',
   'widget.noPlan': 'No plan yet',
   'widget.pickPlan': 'Pick a program',
+  // With no programme the widget used to say "no plan yet" and stop there. It
+  // knows which programme the app would recommend, so it names it.
+  'widget.suggested': 'Suggested for you',
   // The label under the widget's one big number. Every widget on the phone has
   // one element that is clearly the largest; ours had none.
   'widget.thisWeek': 'This week',
@@ -4134,6 +4137,7 @@ const FI: Record<I18nKey, string> = {
   'widget.weekdayOn.6': 'Sunnuntaina',
   'widget.noPlan': 'Ei ohjelmaa',
   'widget.pickPlan': 'Valitse ohjelma',
+  'widget.suggested': 'Suositus sinulle',
   'widget.thisWeek': 'Tällä viikolla',
   'widget.noDays': 'Valitse treenipäivät',
   'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',

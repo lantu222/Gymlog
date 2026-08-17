@@ -51,7 +51,7 @@ export type HomeWidgetDayState = 'done' | 'plan' | 'off';
  * state when it opens, because the file the widget reads can be half an hour
  * old and an id baked into a link would be older still.
  */
-export type HomeWidgetTarget = 'session' | 'calendar' | 'home' | 'programs' | 'schedule';
+export type HomeWidgetTarget = 'session' | 'suggestion' | 'calendar' | 'home' | 'programs' | 'schedule';
 
 export interface HomeWidgetDay {
   /** Day of month, e.g. "30". */
@@ -89,6 +89,12 @@ export interface HomeWidgetPayload {
   when: string;
   /** The session's name — or, when `isPrompt`, what to go and do instead. */
   title: string;
+  /**
+   * A second, quieter line under the title. Empty in every state but one: with
+   * no programme the widget names the one the app would recommend, and a
+   * programme's name alone does not say what running it costs.
+   */
+  meta: string;
   /** True when `title` is an instruction rather than a workout. */
   isPrompt: boolean;
   /** Where tapping the named workout goes. */
@@ -109,6 +115,15 @@ export interface HomeWidgetInput {
   /** The theme the app actually resolved — already through the Pro gate. */
   theme: 'light' | 'dark';
   planName: string | null;
+  /**
+   * The programme the app would recommend, already presented — the curated
+   * title and one tag, resolved by the caller because the catalog and its
+   * presentation dictionary are not this function's business.
+   *
+   * Null when onboarding never produced a recommendation, and the empty state
+   * falls back to asking rather than naming something it does not have.
+   */
+  suggestion?: { title: string; meta: string } | null;
   /** Monday-first indexes from setupAvailableDays. Empty = unknown. */
   trainingDayIndexes: number[];
   /**
@@ -257,12 +272,28 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
   };
   const planName = input.planName?.trim() ?? '';
 
-  // No program: the plan name line has nothing to say, so it says that.
+  // No program. The widget knows which one the app would recommend, so it names
+  // that instead of asking an empty question — and the tap opens that programme
+  // rather than the catalog it came from.
+  const suggestion = input.suggestion?.title.trim() ? input.suggestion : null;
   if (sessions.length === 0 && !planName) {
+    if (suggestion) {
+      return {
+        ...base,
+        when: t(language, 'widget.suggested'),
+        title: suggestion.title,
+        meta: suggestion.meta,
+        isPrompt: true,
+        textTarget: 'suggestion',
+        cardTarget: 'suggestion',
+      };
+    }
+
     return {
       ...base,
       when: t(language, 'widget.noPlan'),
       title: t(language, 'widget.pickPlan'),
+      meta: '',
       isPrompt: true,
       textTarget: 'programs',
       cardTarget: 'programs',
@@ -275,6 +306,7 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
       ...base,
       when: planName,
       title: t(language, 'widget.noSessions'),
+      meta: '',
       isPrompt: true,
       textTarget: 'programs',
       cardTarget: 'programs',
@@ -288,6 +320,7 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
       ...base,
       when: planName || t(language, 'widget.noPlan'),
       title: t(language, 'widget.noDays'),
+      meta: '',
       isPrompt: true,
       textTarget: 'schedule',
       cardTarget: 'schedule',
@@ -306,6 +339,7 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
       ...base,
       when: planName || t(language, 'widget.noPlan'),
       title: t(language, 'widget.noSessions'),
+      meta: '',
       isPrompt: true,
       textTarget: 'programs',
       cardTarget: 'programs',
@@ -316,6 +350,7 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
     ...base,
     when: whenLabel(language, next.offset, next.weekdayIndex),
     title: next.session.title,
+    meta: '',
     isPrompt: false,
     textTarget: 'session',
     // The card has no words of its own, so it only offers a workout when the

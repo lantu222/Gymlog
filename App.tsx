@@ -3087,6 +3087,23 @@ function VinhaApp() {
   // The calendar reaches back two weeks, so the widget needs the days that were
   // trained — not just this week's weekdays. 21 days covers two past weeks plus
   // every day of the current one, whichever weekday today is.
+  // The programme the widget offers when there is none running: the app's own
+  // recommendation, under its curated title, with one tag for what it costs.
+  const widgetSuggestion = useMemo(() => {
+    if (!recommendedReadyTemplate) {
+      return null;
+    }
+    const presentation = getReadyTemplatePresentation(recommendedReadyTemplate, preferences.appLanguage);
+    return {
+      title: presentation.title,
+      // What running it costs, not what it trains. The focus tag read "Full
+      // Body" next to a name that already says it, and the question a reader
+      // asks of an unfamiliar programme is how many days it wants.
+      meta: t(preferences.appLanguage, 'programs.card.days', {
+        count: recommendedReadyTemplate.daysPerWeek,
+      }),
+    };
+  }, [preferences.appLanguage, recommendedReadyTemplate]);
   const widgetCompletedDayStarts = useMemo(
     () =>
       getRecentActivityStrip(database, new Date(), 21)
@@ -3107,6 +3124,10 @@ function VinhaApp() {
         // cannot re-derive this, it is drawn in the launcher's process.
         theme: resolveThemeName(preferences),
         planName: homeActivePlanCard?.title ?? null,
+        // With no programme the widget names the one the app would recommend
+        // rather than asking an empty question. Presented here, because the
+        // catalog's curated titles live on this side of the bridge.
+        suggestion: widgetSuggestion,
         trainingDayIndexes: homeTrainingDayIndexes,
         completedDayStarts: widgetCompletedDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
@@ -3120,7 +3141,14 @@ function VinhaApp() {
     if (written) {
       void refreshHomeWidget();
     }
-  }, [appHydrated, preferences, homeActivePlanCard, homeTrainingDayIndexes, widgetCompletedDayStarts]);
+  }, [
+    appHydrated,
+    preferences,
+    homeActivePlanCard,
+    homeTrainingDayIndexes,
+    widgetCompletedDayStarts,
+    widgetSuggestion,
+  ]);
 
   // ── Widget taps ──────────────────────────────────────────────────────────
   // A widget can only ask Android to open a URL, so each tap arrives as
@@ -3159,6 +3187,22 @@ function VinhaApp() {
       resetToRoute({ tab: 'workout', screen: 'programs_home' });
       return;
     }
+    if (pendingWidgetTarget === 'suggestion') {
+      // The programme the widget named, resolved again now — the catalog cannot
+      // change under it, but the recommendation can, and the widget's copy of it
+      // may be half an hour old.
+      if (recommendedReadyTemplate) {
+        resetToRoute({
+          tab: 'workout',
+          screen: 'program',
+          programType: 'ready',
+          workoutTemplateId: recommendedReadyTemplate.id,
+        });
+        return;
+      }
+      resetToRoute({ tab: 'workout', screen: 'programs_home' });
+      return;
+    }
     if (pendingWidgetTarget === 'schedule') {
       resetToRoute({ tab: 'profile', screen: 'training_plan', editSchedule: true });
       return;
@@ -3187,7 +3231,14 @@ function VinhaApp() {
       workoutTemplateId: homeActivePlanCard.programId,
       sessionId: next.session.id,
     });
-  }, [appHydrated, homeActivePlanCard, homeTrainingDayIndexes, pendingWidgetTarget, widgetCompletedDayStarts]);
+  }, [
+    appHydrated,
+    homeActivePlanCard,
+    homeTrainingDayIndexes,
+    pendingWidgetTarget,
+    recommendedReadyTemplate,
+    widgetCompletedDayStarts,
+  ]);
 
   // Settings → "Export plan (CSV)". The user's own plans, plus the ready
   // program they are actually running. The rest of the catalog is app content
