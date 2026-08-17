@@ -256,8 +256,12 @@ module.exports = [
         for (const language of LANGUAGES) {
           const file = path.join(root, 'docs', 'legal', `${id}.${language}.md`);
           assert.ok(fs.existsSync(file), `Missing export: run node scripts/export-legal.cjs`);
+          // Line endings are git's business, not the document's: checked out on
+          // Windows these files are CRLF and the renderer emits LF, so a
+          // byte-for-byte comparison failed on every machine that has one —
+          // which is a guard nobody can read, not a guard.
           assert.equal(
-            fs.readFileSync(file, 'utf8'),
+            fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n'),
             renderLegalDocumentMarkdown(buildLegalDocument(id, language)),
             `docs/legal/${id}.${language}.md is stale — re-run node scripts/export-legal.cjs`,
           );
