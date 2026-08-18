@@ -78,19 +78,30 @@ module.exports = [
     name: 'the log stays uncapped, and the table says both things separately',
     run() {
       const premium = read('src', 'screens', 'PremiumScreen.tsx');
-      // Two rows. One line cannot carry this distinction, and it is the one
-      // the whole free tier rests on.
+      const i18n = read('src', 'lib', 'i18n.ts');
+
+      // The Pro page (v3) has no table, so the distinction the whole free tier
+      // rests on has to survive in prose instead: the row that sells the
+      // window says CHARTS AND RECORDS, and a separate trust line states that
+      // the log itself is never capped in either tier. Losing either half
+      // turns "3 months" into a claim that the app deletes training.
       assert.match(
         premium,
-        /'pro\.v2\.row\.history', free: 'pro\.v2\.val\.allTime', pro: 'pro\.v2\.val\.allTime'/,
+        /titleKey: 'pro\.v3\.delta\.history\.t',[\s\S]{0,200}?vars: \{ months: FREE_TREND_MONTHS \}/,
+        'the history row must take its free window from FREE_TREND_MONTHS',
       );
-      assert.match(
-        premium,
-        /'pro\.v2\.row\.trends', free: 'pro\.v2\.val\.threeMonths', pro: 'pro\.v2\.val\.allTime'/,
-      );
+      const windowCopy = i18n.split('\n').filter((line) => line.includes("'pro.v3.delta.history.b':"));
+      assert.equal(windowCopy.length, 2, 'both languages');
+
+      const forever = i18n.split('\n').filter((line) => line.includes("'pro.v3.trust.forever':"));
+      assert.equal(forever.length, 2, 'the "kept forever" line must exist in both languages');
+      assert.match(premium, /'pro\.v3\.trust\.forever'/, 'the Pro page must still render it');
+
       // Export is what makes "your log is yours" checkable rather than a
-      // promise, so it must stay free too.
-      assert.match(premium, /'pro\.v2\.row\.csv', free: 'pro\.v2\.val\.yes', pro: 'pro\.v2\.val\.yes'/);
+      // promise, and the FAQ is where it is now stated — in the answer a
+      // reader who is about to cancel actually reads.
+      const faq = i18n.split('\n').filter((line) => line.includes("'pro.v3.faq.data.a':"));
+      assert.equal(faq.length, 2, 'both languages');
 
       // History, exercise detail and the session analysis read the log, not a
       // trend window — none of them may start asking about entitlement.
@@ -100,8 +111,9 @@ module.exports = [
       }
 
       // And the free-tier promise stops implying the charts go back forever
-      // while staying exact about what does.
-      const i18n = read('src', 'lib', 'i18n.ts');
+      // while staying exact about what does. (pro.v2.free.body no longer
+      // renders on the Pro page — it is still the copy the free tier is
+      // described with elsewhere, so the wording still has to hold.)
       const body = i18n.split(String.fromCharCode(10)).filter((line) => line.includes("'pro.v2.free.body':"));
       assert.equal(body.length, 2, 'both languages');
       assert.doesNotMatch(body[0], /full history, forever/);

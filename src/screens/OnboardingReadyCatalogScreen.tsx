@@ -1,14 +1,25 @@
 import React, { useMemo, useState } from 'react';
-import { Image, ImageSourcePropType, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LayoutChangeEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import Svg, { Defs, Path, Pattern as SvgPattern, Rect } from 'react-native-svg';
+import Svg, {
+  Defs,
+  G,
+  LinearGradient as SvgLinearGradient,
+  Path,
+  Pattern as SvgPattern,
+  RadialGradient as SvgRadialGradient,
+  Rect,
+  Stop,
+} from 'react-native-svg';
 
 import { PrimaryCTAButton } from '../components/PrimaryCTAButton';
 import { getWorkoutTemplateById } from '../features/workout/workoutCatalog';
 import { WorkoutTemplateV1 } from '../features/workout/workoutTypes';
 import { I18nKey, t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
+import { CATALOG_FOCUS_OPTIONS, CatalogFocusKey, matchesCatalogFocus } from '../lib/programCatalogFocus';
+import { programFamilyIdentity } from '../lib/programFamilyIdentity';
 import { getReadyProgramCollectionCopy, READY_PROGRAM_COLLECTIONS } from '../lib/readyProgramCollections';
 import { getReadyTemplatePresentation } from '../lib/templatePresentation';
 import { Theme, useThemedStyles } from '../theming';
@@ -22,8 +33,11 @@ const BORDER = '#E4D8FF';
 const PURPLE = '#7C3AED';
 const PURPLE_DARK = '#5B21B6';
 const SEGMENT_TRACK = '#EBE3FA';
-const STRIPE_LIGHT = '#F3EDFE';
-const STRIPE_DARK = '#ECE3FC';
+
+/** Cover height from the design. Tall enough for the name to sit on the scrim. */
+const COVER_HEIGHT = 132;
+/** The 24-unit motif drawn at 116px, per the design. */
+const MOTIF_SCALE = 116 / 24;
 
 // Template difficulty -> the same tier wording the questionnaire uses.
 const LEVEL_TIERS: Array<{ key: WorkoutTemplateV1['level'] | 'all'; labelKey: I18nKey }> = [
@@ -52,8 +66,6 @@ interface OnboardingReadyCatalogScreenProps {
   onPick: (programId: string) => void;
   onBack: () => void;
   busy?: boolean;
-  /** Optional per-program cover images; the striped placeholder is the fallback. */
-  coverImages?: Record<string, ImageSourcePropType>;
 }
 
 function BackChevron() {
@@ -64,17 +76,63 @@ function BackChevron() {
   );
 }
 
-// Diagonal light-purple stripes standing in for the real program cover.
-function CoverStripes({ patternId }: { patternId: string }) {
+/**
+ * The designed cover: family tone gradient, top-left highlight, hairline
+ * stripes, oversized signature motif, and a scrim the name sits on.
+ *
+ * Everything paintable lives in ONE Svg with a measured pixel width. `<Svg
+ * width="100%">` has broken gradients on Android in this codebase twice
+ * already (the season hero, then the records screen), and a cover whose
+ * gradient silently collapses to a flat block is exactly the failure the
+ * reader would read as "unfinished".
+ */
+function ProgramCover({ title, width }: { title: string; width: number }) {
+  const identity = programFamilyIdentity(title);
+  // Gradient ids must be unique per card: two <Defs> sharing an id resolve to
+  // whichever mounted first, so every cover would wear the first one's colour.
+  const uid = `cover_${identity.family}`;
+
   return (
-    <Svg style={StyleSheet.absoluteFill} pointerEvents="none">
+    <Svg width={width} height={COVER_HEIGHT} style={StyleSheet.absoluteFill}>
       <Defs>
-        <SvgPattern id={patternId} patternUnits="userSpaceOnUse" width={18} height={18} patternTransform="rotate(-45)">
-          <Rect x={0} y={0} width={18} height={18} fill={STRIPE_LIGHT} />
-          <Rect x={0} y={0} width={9} height={18} fill={STRIPE_DARK} />
+        {/* CSS 145deg, expressed as the equivalent corner-to-corner vector. */}
+        <SvgLinearGradient id={`${uid}_tone`} x1="0" y1="0" x2="0.7" y2="1">
+          <Stop offset="0" stopColor={identity.cover[0]} />
+          <Stop offset="1" stopColor={identity.cover[1]} />
+        </SvgLinearGradient>
+        <SvgRadialGradient id={`${uid}_glow`} cx="0.12" cy="0" r="0.78">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity={0.22} />
+          <Stop offset="0.55" stopColor="#FFFFFF" stopOpacity={0} />
+        </SvgRadialGradient>
+        <SvgPattern id={`${uid}_lines`} patternUnits="userSpaceOnUse" width={23} height={23} patternTransform="rotate(28)">
+          <Rect x={0} y={0} width={1} height={23} fill="#FFFFFF" fillOpacity={0.06} />
         </SvgPattern>
+        <SvgLinearGradient id={`${uid}_scrim`} x1="0" y1="1" x2="0" y2="0">
+          <Stop offset="0" stopColor="#0C081A" stopOpacity={0.46} />
+          <Stop offset="1" stopColor="#0C081A" stopOpacity={0} />
+        </SvgLinearGradient>
       </Defs>
-      <Rect x="0" y="0" width="100%" height="100%" fill={`url(#${patternId})`} />
+
+      <Rect x={0} y={0} width={width} height={COVER_HEIGHT} fill={`url(#${uid}_tone)`} />
+      <Rect x={0} y={0} width={width} height={COVER_HEIGHT} fill={`url(#${uid}_glow)`} />
+      <Rect x={0} y={0} width={width} height={COVER_HEIGHT} fill={`url(#${uid}_lines)`} />
+      {/* Signature glyph, oversized and hanging off the bottom-right corner.
+          Placed with an explicit transform rather than a nested <Svg x= y=>:
+          on device the nested form ignored both offsets and painted the glyph
+          at the origin, centred on the left half of the cover. The stroke is
+          scaled back down so the line stays hairline at 4.8x. */}
+      <G transform={`translate(${width - 102}, ${COVER_HEIGHT - 98}) scale(${MOTIF_SCALE})`}>
+        <Path
+          d={identity.motif}
+          stroke="#FFFFFF"
+          strokeOpacity={0.16}
+          strokeWidth={1.4 / MOTIF_SCALE}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+      </G>
+      <Rect x={0} y={COVER_HEIGHT - 72} width={width} height={72} fill={`url(#${uid}_scrim)`} />
     </Svg>
   );
 }
@@ -87,11 +145,16 @@ function SelectionCircle({ selected }: { selected: boolean }) {
   }
   return (
     <View style={styles.selectCircle}>
-      <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-        <Path d="M5 12l5 5L19 7" stroke="#FFFFFF" strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
+      <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
+        <Path d="M5 12l5 5L19 7" stroke={PURPLE} strokeWidth={3.2} strokeLinecap="round" strokeLinejoin="round" />
       </Svg>
     </View>
   );
+}
+
+function MetaDot() {
+  const styles = useThemedStyles(makeStyles);
+  return <View style={styles.metaDot} />;
 }
 
 export function OnboardingReadyCatalogScreen({
@@ -99,7 +162,6 @@ export function OnboardingReadyCatalogScreen({
   onPick,
   onBack,
   busy = false,
-  coverImages,
 }: OnboardingReadyCatalogScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
@@ -108,9 +170,17 @@ export function OnboardingReadyCatalogScreen({
 
   const [dayFilter, setDayFilter] = useState<number | 'all'>('all');
   const [levelFilter, setLevelFilter] = useState<WorkoutTemplateV1['level'] | 'all'>('all');
+  const [focusFilter, setFocusFilter] = useState<CatalogFocusKey>('all');
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // One measurement for the whole list: every card is the same full width.
+  const [cardWidth, setCardWidth] = useState(0);
 
-  const filtersActive = dayFilter !== 'all' || levelFilter !== 'all';
+  const filtersActive = dayFilter !== 'all' || levelFilter !== 'all' || focusFilter !== 'all';
+
+  const onMeasure = (event: LayoutChangeEvent) => {
+    const next = event.nativeEvent.layout.width;
+    setCardWidth((current) => (Math.abs(current - next) < 1 ? current : next));
+  };
 
   // Same section titles the Programs catalog already uses; a template renders
   // under its first matching collection only, so the list stays scannable.
@@ -124,6 +194,7 @@ export function OnboardingReadyCatalogScreen({
         .filter((template): template is WorkoutTemplateV1 => Boolean(template))
         .filter((template) => (dayFilter === 'all' ? true : template.daysPerWeek === dayFilter))
         .filter((template) => (levelFilter === 'all' ? true : template.level === levelFilter))
+        .filter((template) => matchesCatalogFocus(template, focusFilter))
         .map((template) => {
           seen.add(template.id);
           return { template, presentation: getReadyTemplatePresentation(template, language) };
@@ -131,7 +202,7 @@ export function OnboardingReadyCatalogScreen({
 
       return { collection, programs };
     }).filter((section) => section.programs.length > 0);
-  }, [dayFilter, levelFilter]);
+  }, [dayFilter, levelFilter, focusFilter, language]);
 
   const resultCount = sections.reduce((sum, section) => sum + section.programs.length, 0);
   const selectedProgram = selectedId
@@ -158,7 +229,6 @@ export function OnboardingReadyCatalogScreen({
         </Pressable>
 
         <Text style={[styles.title, { fontFamily }]}>{t(language, 'catalog.title')}</Text>
-        <Text style={[styles.subtitle, { fontFamily }]}>{t(language, 'catalog.sub')}</Text>
 
         <Text style={[styles.overline, { fontFamily }]}>{t(language, 'catalog.daysPerWeek')}</Text>
         <View style={styles.chipRow}>
@@ -176,11 +246,7 @@ export function OnboardingReadyCatalogScreen({
                     : t(language, 'catalog.a11y.days', { count: label })
                 }
                 onPress={() => setDayFilter(filter.key)}
-                style={[
-                  styles.chip,
-                  filter.key !== 'all' && styles.chipNumeric,
-                  active && styles.chipActive,
-                ]}
+                style={[styles.chip, filter.key !== 'all' && styles.chipNumeric, active && styles.chipActive]}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive, { fontFamily }]}>{label}</Text>
               </Pressable>
@@ -208,6 +274,26 @@ export function OnboardingReadyCatalogScreen({
           })}
         </View>
 
+        <Text style={[styles.overline, { fontFamily }]}>{t(language, 'catalog.focusArea')}</Text>
+        <View style={styles.chipRow}>
+          {CATALOG_FOCUS_OPTIONS.map((option) => {
+            const active = focusFilter === option.key;
+            const label = t(language, option.labelKey);
+            return (
+              <Pressable
+                key={option.key}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={label}
+                onPress={() => setFocusFilter(option.key)}
+                style={[styles.chip, active && styles.chipActive]}
+              >
+                <Text style={[styles.chipText, active && styles.chipTextActive, { fontFamily }]}>{label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
         <View style={styles.resultRow}>
           <Text style={[styles.resultCount, { fontFamily }]}>
             {resultCount === 1
@@ -221,6 +307,7 @@ export function OnboardingReadyCatalogScreen({
               onPress={() => {
                 setDayFilter('all');
                 setLevelFilter('all');
+                setFocusFilter('all');
               }}
               hitSlop={8}
             >
@@ -231,14 +318,16 @@ export function OnboardingReadyCatalogScreen({
 
         {sections.map(({ collection, programs }) => (
           <View key={collection.key} style={styles.section}>
-            <Text style={[styles.sectionLabel, { fontFamily }]}>
-              {getReadyProgramCollectionCopy(collection.key, language).label.toUpperCase()}
-            </Text>
-            <View style={styles.cardGrid}>
+            <View style={styles.sectionHeader}>
+              <Text style={[styles.sectionLabel, { fontFamily }]}>
+                {getReadyProgramCollectionCopy(collection.key, language).label.toUpperCase()}
+              </Text>
+              <Text style={[styles.sectionCount, { fontFamily }]}>{programs.length}</Text>
+            </View>
+            <View style={styles.cardList} onLayout={onMeasure}>
               {programs.map(({ template, presentation }) => {
                 const selected = selectedId === template.id;
-                const coverImage = coverImages?.[template.id];
-                const coverWord = presentation.title.trim().split(/\s+/)[0] ?? 'Vinha';
+                const identity = programFamilyIdentity(presentation.title);
 
                 return (
                   <Pressable
@@ -255,36 +344,37 @@ export function OnboardingReadyCatalogScreen({
                     style={[styles.card, selected && styles.cardSelected]}
                   >
                     <View style={styles.cover}>
-                      {coverImage ? (
-                        <Image source={coverImage} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                      ) : (
-                        <>
-                          <CoverStripes patternId={`cover_${template.id}`} />
-                          <Text numberOfLines={1} style={[styles.coverWord, { fontFamily }]}>
-                            {coverWord}
-                          </Text>
-                          <Text style={styles.coverCaption}>{t(language, 'catalog.coverCaption')}</Text>
-                        </>
-                      )}
-                      <View style={styles.levelBadge}>
-                        <Text style={[styles.levelBadgeText, { fontFamily }]}>
-                          {tierLabelFor(template.level, language).toUpperCase()}
+                      {cardWidth > 0 ? <ProgramCover title={presentation.title} width={cardWidth} /> : null}
+
+                      <View style={styles.daysPill}>
+                        <Text style={[styles.daysPillText, { fontFamily }]}>
+                          {t(language, 'catalog.daysPill', { days: template.daysPerWeek })}
                         </Text>
                       </View>
                       <View style={styles.selectSlot}>
                         <SelectionCircle selected={selected} />
                       </View>
+
+                      <View style={styles.coverCopy}>
+                        <Text numberOfLines={2} style={[styles.coverTitle, { fontFamily }]}>
+                          {presentation.title}
+                        </Text>
+                        <Text numberOfLines={1} style={[styles.coverGoal, { fontFamily }]}>
+                          {t(language, identity.goalKey)}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.cardBody}>
-                      <Text numberOfLines={1} style={[styles.cardTitle, { fontFamily }]}>
-                        {presentation.title}
+
+                    <View style={styles.metaRow}>
+                      <Text style={[styles.metaText, { fontFamily }]}>
+                        {t(language, 'catalog.metaDays', { days: template.daysPerWeek })}
                       </Text>
-                      <Text numberOfLines={1} style={[styles.cardMeta, { fontFamily }]}>
-                        {t(language, 'catalog.cardMeta', {
-                          days: template.daysPerWeek,
-                          minutes: template.estimatedSessionDuration,
-                        })}
+                      <MetaDot />
+                      <Text style={[styles.metaText, { fontFamily }]}>
+                        {t(language, 'catalog.metaMinutes', { minutes: template.estimatedSessionDuration })}
                       </Text>
+                      <MetaDot />
+                      <Text style={[styles.metaText, { fontFamily }]}>{tierLabelFor(template.level, language)}</Text>
                     </View>
                   </Pressable>
                 );
@@ -334,25 +424,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 2,
   },
   title: {
-    color: PURPLE,
+    color: INK,
     fontSize: 28,
-    lineHeight: 34,
+    lineHeight: 32,
     fontWeight: '800',
     letterSpacing: -0.5,
   },
-  subtitle: {
-    color: MUTED,
-    fontSize: 13.5,
-    lineHeight: 18,
-    fontWeight: '600',
-    marginTop: 4,
-  },
   overline: {
     color: FAINT,
-    fontSize: 10,
-    lineHeight: 13,
+    fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
-    letterSpacing: 1.2,
+    letterSpacing: 1.1,
     marginTop: 16,
     marginBottom: 7,
   },
@@ -367,7 +450,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderColor: BORDER,
     backgroundColor: SURFACE,
     paddingHorizontal: 13,
-    paddingVertical: 7,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -397,7 +480,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   segment: {
     flex: 1,
-    borderRadius: 9,
+    borderRadius: 10,
     paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -405,8 +488,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   segmentActive: {
     backgroundColor: SURFACE,
     shadowColor: '#1E1246',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
@@ -424,140 +507,164 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginTop: 14,
+    minHeight: 18,
   },
   resultCount: {
-    color: MUTED,
-    fontSize: 12.5,
+    color: FAINT,
+    fontSize: 12,
     fontWeight: '700',
   },
   clearFilters: {
     color: PURPLE,
-    fontSize: 12.5,
+    fontSize: 12,
     fontWeight: '800',
   },
   section: {
     marginTop: 18,
   },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    paddingHorizontal: 2,
+    paddingBottom: 11,
+  },
   sectionLabel: {
     color: FAINT,
-    fontSize: 10.5,
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.1,
-    marginBottom: 8,
   },
-  cardGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 10,
+  sectionCount: {
+    color: FAINT,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  cardList: {
+    gap: 12,
   },
   card: {
-    width: '48.4%',
-    borderRadius: 16,
+    borderRadius: 20,
     backgroundColor: SURFACE,
-    borderWidth: 2,
+    borderWidth: 1,
     borderColor: BORDER,
     overflow: 'hidden',
+    shadowColor: '#7850C8',
+    shadowOpacity: 0.09,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 2,
   },
   cardSelected: {
+    borderWidth: 2,
     borderColor: PURPLE,
     shadowColor: PURPLE,
-    shadowOpacity: 0.22,
-    shadowRadius: 24,
-    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.24,
+    shadowRadius: 26,
+    shadowOffset: { width: 0, height: 12 },
     elevation: 6,
   },
   cover: {
-    height: 108,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: COVER_HEIGHT,
     overflow: 'hidden',
   },
-  coverWord: {
-    color: 'rgba(124,58,237,0.20)',
-    fontSize: 26,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-    paddingHorizontal: 8,
-  },
-  coverCaption: {
-    color: FAINT,
-    fontSize: 8.5,
-    letterSpacing: 0.8,
-    fontFamily: 'monospace',
-    marginTop: 2,
-  },
-  levelBadge: {
+  daysPill: {
     position: 'absolute',
-    top: 8,
-    left: 8,
+    top: 11,
+    left: 12,
     borderRadius: 999,
-    backgroundColor: SURFACE,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
+    backgroundColor: 'rgba(255,255,255,0.20)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
   },
-  levelBadgeText: {
-    color: PURPLE_DARK,
-    fontSize: 9.5,
+  daysPillText: {
+    color: '#FFFFFF',
+    fontSize: 10,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
   selectSlot: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 10,
+    right: 11,
   },
   selectRing: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: 999,
     borderWidth: 2,
-    borderColor: 'rgba(124,58,237,0.35)',
-    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderColor: 'rgba(255,255,255,0.6)',
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   selectCircle: {
-    width: 22,
-    height: 22,
+    width: 24,
+    height: 24,
     borderRadius: 999,
-    backgroundColor: PURPLE_DARK,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: PURPLE,
-    shadowOpacity: 0.4,
-    shadowRadius: 6,
+    shadowColor: '#0C081A',
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
-  cardBody: {
-    paddingHorizontal: 11,
-    paddingTop: 8,
-    paddingBottom: 11,
-    gap: 2,
+  coverCopy: {
+    position: 'absolute',
+    left: 14,
+    right: 46,
+    bottom: 11,
   },
-  cardTitle: {
-    color: INK,
-    fontSize: 14.5,
+  coverTitle: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    lineHeight: 21,
     fontWeight: '800',
-    letterSpacing: -0.1,
+    letterSpacing: -0.3,
+    textShadowColor: 'rgba(0,0,0,0.28)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 8,
   },
-  cardMeta: {
-    color: MUTED,
+  coverGoal: {
+    color: 'rgba(255,255,255,0.9)',
     fontSize: 11.5,
-    fontWeight: '600',
+    fontWeight: '700',
+    marginTop: 3,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingTop: 11,
+    paddingBottom: 13,
+  },
+  metaText: {
+    color: PURPLE_DARK,
+    fontSize: 11.5,
+    fontWeight: '800',
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: FAINT,
   },
   emptyState: {
     alignItems: 'center',
-    marginTop: 48,
+    marginTop: 44,
     gap: 4,
   },
   emptyTitle: {
     color: INK,
-    fontSize: 16,
+    fontSize: 14.5,
     fontWeight: '800',
   },
   emptyBody: {
     color: MUTED,
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
   },
   footer: {

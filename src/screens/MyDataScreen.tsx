@@ -8,6 +8,7 @@ import { getSetupEquipmentTitle, getSetupGoalTitle } from '../lib/firstRunSetup'
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
+import { removeTrailingZeros } from '../lib/format';
 import {
   AppLanguage,
   AppPreferences,
@@ -185,7 +186,7 @@ export function MyDataScreen({
     {
       field: 'weight',
       label: t(language, 'myData.weight'),
-      value: preferences.setupCurrentWeightKg !== null ? `${preferences.setupCurrentWeightKg} kg` : null,
+      value: preferences.setupCurrentWeightKg !== null ? `${removeTrailingZeros(preferences.setupCurrentWeightKg)} kg` : null,
     },
   ];
 

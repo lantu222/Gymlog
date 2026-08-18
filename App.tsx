@@ -18,6 +18,7 @@ import {
   DEFAULT_FIRST_RUN_SELECTION,
   FirstRunSetupSelection,
   getFocusAreaTitle,
+  isSetupDaysPerWeek,
   resolveFirstRunRecommendationWithTailoring,
 } from './src/lib/firstRunSetup';
 import { getExerciseTemplateDefaults, getRecentExerciseLibraryItems } from './src/lib/exerciseSuggestions';
@@ -68,7 +69,6 @@ import {
 } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
 import { getTrainingRhythm } from './src/lib/trainingRhythm';
-import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
 import { buildFatigueModel } from './src/lib/fatigueModel';
 import { buildLiftHistories } from './src/lib/trainingHistory';
 import {
@@ -100,6 +100,10 @@ import { buildHomeQuickStats, buildHomeUpcomingSessions } from './src/lib/homeVi
 import { I18nKey, t } from './src/lib/i18n';
 import { buildCoachModules } from './src/lib/aiCoachModules';
 import { isProUnlocked, resolveProEntitlement, resolveProgressionOptions, resolveTrialProUntil } from './src/lib/proEntitlement';
+import { isDemoBuild } from './src/lib/demoMode';
+import { ThemeChoiceDialog } from './src/components/ThemeChoiceDialog';
+import { buildCancelSurveyAnswer } from './src/lib/cancelSurvey';
+import { MOCK_BILLING, nextChargeAt } from './src/lib/subscriptionView';
 import { toProgressionFatigueSignal } from './src/lib/progressionGate';
 import { resolveThemeName } from './src/lib/themePreference';
 import { localizeSessionName, localizeWorkoutFocus } from './src/lib/sessionNameLabel';
@@ -151,8 +155,13 @@ import {
   resolveProgramTrainingDays,
   WEEKDAY_KEYS,
 } from './src/lib/programTrainingDays';
-import { programCoverIndex } from './src/lib/programVisualIdentity';
-import { countSessionsSince, resolveCompletionCard } from './src/lib/programCompletion';
+import { planLabelsFromWeekdays, weekdaysFromPlanLabels } from './src/lib/trainingWeekSync';
+import { programCoverStyle } from './src/lib/programVisualIdentity';
+import {
+  countPlanSessionsInRange,
+  countSessionsSince,
+  resolveCompletionCard,
+} from './src/lib/programCompletion';
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
@@ -203,6 +212,9 @@ import { ExerciseDetailScreen } from './src/screens/ExerciseDetailScreen';
 import { ExercisesScreen } from './src/screens/ExercisesScreen';
 import { JointFriendlySwapsScreen } from './src/screens/JointFriendlySwapsScreen';
 import { PlanSettingsScreen } from './src/screens/PlanSettingsScreen';
+import { setNumberLanguage } from './src/lib/format';
+import { buildPremiumHeroChart } from './src/lib/premiumHeroChart';
+import { buildProChatHeroScript } from './src/lib/proChatHero';
 import { PremiumScreen } from './src/screens/PremiumScreen';
 import { PremiumUnlockScreen } from './src/screens/PremiumUnlockScreen';
 import { VinhaSplashScreen } from './src/screens/VinhaSplashScreen';
@@ -219,6 +231,7 @@ import { PromoCodeScreen } from './src/screens/PromoCodeScreen';
 import { SubscriptionScreen } from './src/screens/SubscriptionScreen';
 import { MembershipEndScreen } from './src/screens/MembershipEndScreen';
 import { SupportScreen } from './src/screens/SupportScreen';
+import { DesignDemoScreen } from './src/screens/DesignDemoScreen';
 import { FeatureRequestsScreen } from './src/screens/FeatureRequestsScreen';
 import { AiTransparencyScreen } from './src/screens/AiTransparencyScreen';
 import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
@@ -254,8 +267,10 @@ import {
   ExerciseLogDraft,
   ExerciseTemplate,
   ExerciseTemplateDraft,
+  SetupDaysPerWeek,
   SetupEquipment,
   SetupScheduleMode,
+  SetupWeekday,
   SetupGender,
   SetupTrainingEnvironment,
   UnitPreference,
@@ -856,6 +871,32 @@ function VinhaApp() {
     [preferences.programsTabEnabled],
   );
 
+  /**
+   * Numbers follow the app language, not the device.
+   *
+   * Written during render, and placed above every hook that could format a
+   * number — that ordering is the whole point.
+   *
+   * removeTrailingZeros reads a module setting rather than a parameter (see the
+   * note in lib/format.ts), and much of the app's formatted text is produced by
+   * useMemo blocks in this file. This used to be an effect, which runs *after*
+   * render: on the render where the language changed, every one of those memos
+   * recomputed while the setting still held the previous language's separator —
+   * and then never recomputed again, because their dependency on appLanguage had
+   * already fired. The setting was corrected a moment later with nothing left to
+   * read it.
+   *
+   * It cost the Pro hero "92.5 kg" in front of a Finnish reader, and it needs two
+   * languages to show up: the device supplies the first render's language and the
+   * stored preference supplies the second. On a phone whose system language
+   * matches the app, the separator is never wrong to begin with, which is why
+   * five rounds on a Finnish phone never saw it and an en-US emulator did.
+   *
+   * The setter is idempotent, so running it every render — including StrictMode's
+   * double invoke — costs one comparison and cannot be observed.
+   */
+  setNumberLanguage(preferences.appLanguage);
+
   const [navigationState, setNavigationState] = useState<NavigationState>({
     route: ROOT_ROUTES.home,
     history: [],
@@ -872,6 +913,8 @@ function VinhaApp() {
   // Settings' "Import plan (CSV)" opens the same sheet the Programs tab uses,
   // straight into its paste view. One importer, two doors.
   const [settingsImportVisible, setSettingsImportVisible] = useState(false);
+  /** The theme offer that follows a purchase — see the unlock screen's onDone. */
+  const [themeChoiceVisible, setThemeChoiceVisible] = useState(false);
   // null = still asking Android, or the device cannot pin widgets at all.
   const [homeWidgetState, setHomeWidgetState] = useState<{ supported: boolean; added: boolean } | null>(
     null,
@@ -1009,6 +1052,32 @@ function VinhaApp() {
         history: [],
       }),
     );
+  }
+
+  /**
+   * Leave a finished-workout screen: clear its data and move, in one commit.
+   *
+   * The single transition is the whole point. Every navigation helper here
+   * wraps setNavigationState in startTransition, which makes route changes
+   * non-urgent — so a plain `setCompletionSummary(null)` alongside them is
+   * urgent and lands *first*. That commits a frame where the route is still
+   * {workout, summary} while the summary data is already gone.
+   *
+   * The summary branch is guarded on `&& completionSummary`, so that frame
+   * matches no named workout screen and falls through to the tab's catch-all,
+   * which renders the exercise browser. Reported from the phone as "Ohjelmat
+   * flashes for a beat between the summary and Home".
+   *
+   * Clearing after navigating does not fix it: the clear would still be the
+   * urgent half. They have to be the same update.
+   */
+  function leaveFinishedWorkout(nextRoute: AppRoute) {
+    startTransition(() => {
+      setCompletionSummary(null);
+      setWorkoutCelebration(null);
+      setFinishSaveState({ status: 'idle', sessionId: null, message: null });
+      setNavigationState({ route: nextRoute, history: [] });
+    });
   }
 
   function navigateToTab(tab: RootTabKey) {
@@ -1295,9 +1364,27 @@ function VinhaApp() {
   const homeSummary = useMemo(() => getHomeSummary(database, unitPreference), [database, unitPreference]);
   const lifetimeSummary = useMemo(() => getLifetimeTrainingSummary(database), [database]);
   const progressTrainingRhythm = useMemo(() => getTrainingRhythm(database), [database]);
+  /**
+   * The Pro page's hero conversation, from this reader's own log.
+   *
+   * buildPremiumHeroChart came back for this: v3 had no chart and nothing
+   * called it, v4 needs the same series to say which lift the coach is talking
+   * about and what it has been doing. Null here is not a failure — the script
+   * falls back to sample figures and labels itself as one.
+   */
   const premiumHeroChart = useMemo(
-    () => buildPremiumHeroChart(trackedProgress, unitPreference),
-    [trackedProgress, unitPreference],
+    () => buildPremiumHeroChart(trackedProgress, unitPreference, preferences.appLanguage),
+    [preferences.appLanguage, trackedProgress, unitPreference],
+  );
+  const premiumChatScript = useMemo(
+    () =>
+      buildProChatHeroScript(
+        premiumHeroChart,
+        unitPreference,
+        preferences.setupDaysPerWeek,
+        t(preferences.appLanguage, 'pro.v4.example.lift'),
+      ),
+    [premiumHeroChart, preferences.appLanguage, preferences.setupDaysPerWeek, unitPreference],
   );
   // The paywall-moments data layer: real lift histories → detections (free)
   // and deterministic conclusions (Pro / blurred). Pure, from logged sets.
@@ -1703,6 +1790,25 @@ function VinhaApp() {
   }
 
   /**
+   * The session a programme's own plan offers next.
+   *
+   * Home resolves this for the plan it leads with; a programme running
+   * alongside has the same rotation and no one asking it. Same pure rule
+   * either way, so the two cannot drift.
+   */
+  function resolveNextSessionIdForTemplate(workoutTemplateId: string): string | null {
+    const plan = database.workoutPlans.find(
+      (item) => item.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan || plan.entries.length === 0) {
+      return null;
+    }
+    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+    const index = resolveNextPlanEntryIndex(ordered, getCanonicalCompletedSessions(database));
+    return ordered[index]?.workoutTemplateSessionId ?? ordered[0]?.workoutTemplateSessionId ?? null;
+  }
+
+  /**
    * Take on a ready programme — what "Start season" promises.
    *
    * It ADDS. Nothing here ever drops a programme the reader already has: a
@@ -1907,9 +2013,68 @@ function VinhaApp() {
       return;
     }
     const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+    const entries = ordered.map((entry, index) => ({ ...entry, label: WEEKDAY_KEYS[dayIndexes[index]] }));
     await upsertWorkoutPlan({
       ...plan,
-      entries: ordered.map((entry, index) => ({ ...entry, label: WEEKDAY_KEYS[dayIndexes[index]] })),
+      entries,
+      updatedAt: plan.updatedAt,
+    });
+
+    // The other half of the same week. The plan's labels drive Home's strip and
+    // the calendar; availability drives the reminders, the widget and Profile's
+    // chips. Writing only the first left a reader who moved leg day here still
+    // being reminded on the day they moved it off.
+    const days = weekdaysFromPlanLabels(entries);
+    if (days.length > 0) {
+      await updatePreferences({
+        setupAvailableDays: days,
+        // Naming the days by hand IS self-managed; leaving the mode alone would
+        // let app_managed clear the list we just wrote.
+        setupScheduleMode: 'self_managed',
+        // Only when the count is an answer the questionnaire can hold. A
+        // one-session programme is a real rhythm but not a 2–6 answer, and
+        // clamping it up would tell the recommender something untrue.
+        ...(days.length >= 2 && days.length <= 6
+          ? { setupDaysPerWeek: days.length as SetupDaysPerWeek }
+          : {}),
+      });
+    }
+  }
+
+  /**
+   * The weekday picker in Profile, from the other side of the same week.
+   *
+   * Only the lead plan is rewritten. Availability is one list for the whole
+   * app, but a rhythm is per programme, and rewriting every active plan from
+   * one picker would move days on programmes this screen never showed.
+   */
+  async function handleChangeTrainingDays(days: SetupWeekday[]) {
+    // Same invariants as the onboarding day question: picking specific days
+    // makes the schedule self-managed and the count follows, 2–6.
+    const clamped = Math.min(6, Math.max(2, days.length)) as SetupDaysPerWeek;
+    await updatePreferences({
+      setupAvailableDays: days,
+      setupDaysPerWeek: clamped,
+      setupScheduleMode: 'self_managed',
+    });
+
+    const plan = database.workoutPlans.find((item) => item.id === preferences.activePlanId);
+    if (!plan) {
+      return;
+    }
+    const ordered = [...plan.entries].sort((left, right) => left.orderIndex - right.orderIndex);
+    const labels = planLabelsFromWeekdays(ordered.length, days);
+    if (!labels) {
+      // Fewer days chosen than the programme has sessions. The availability is
+      // stored — reminders follow it — and the rhythm the reader already has is
+      // left alone rather than replaced by a week they did not choose.
+      return;
+    }
+    await upsertWorkoutPlan({
+      ...plan,
+      entries: ordered.map((entry, index) => ({ ...entry, label: labels[index] })),
+      // Untouched on purpose: the plan record's own boundary is what the week
+      // counter counts from, so moving days must not restart the block.
       updatedAt: plan.updatedAt,
     });
   }
@@ -2197,8 +2362,47 @@ function VinhaApp() {
     }
     setBusySavingReadyPick(true);
     try {
-      // Profile was created on the About screen; persist its basics alongside
-      // the picked program. No questionnaire ran, so setup stays incomplete.
+      // Actually ADOPT the programme, don't just remember that it was suggested.
+      //
+      // This wrote `recommendedProgramId: programId, activePlanId: null`, and a
+      // recommendation is not a plan: Home reads the active plan, so a reader
+      // who picked a programme here landed on a Home that showed no programme
+      // at all and a Profile that said "no programme selected". The pick was
+      // stored, and invisible. Every other way into a ready programme —
+      // joining a season, stepping up after a completion — goes through
+      // handleAdoptReadyProgram and builds this plan record; onboarding was the
+      // one door that skipped it.
+      const template = getWorkoutTemplateById(programId);
+      // A template's day count is a plain number; the preference is a union of
+      // the five the questionnaire offers. Narrow rather than cast, so a
+      // catalog entry outside that range stores null instead of a value the
+      // rest of the app has no branch for.
+      const templateDaysPerWeek =
+        template && isSetupDaysPerWeek(template.daysPerWeek) ? template.daysPerWeek : null;
+      let adoptedPlanId: string | null = null;
+      if (template) {
+        // No questionnaire ran on this path, so there are no chosen weekdays to
+        // hang the sessions on. The programme's own day count is a fact about
+        // the thing the reader just picked, so the default rhythm for THAT
+        // count beats a global fallback.
+        const dayLabels = DEFAULT_RHYTHM_BY_DAYS[templateDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+        const plan = buildReadyProgramWorkoutPlan({
+          workoutTemplateId: programId,
+          programName: formatWorkoutDisplayLabel(template.name),
+          sessionIds: template.sessions.map((session) => session.id),
+          dayLabels,
+          now: new Date().toISOString(),
+        });
+        // upsertWorkoutPlan and completeOnboarding both run through the
+        // provider's serial queue, so awaiting in order is enough — the plan
+        // exists before any preference points at it.
+        await upsertWorkoutPlan(plan);
+        adoptedPlanId = plan.id;
+      }
+
+      // The ready path skips the About form, so every basic here is normally
+      // null — that is fine and deliberate. Guided onboarding is the path that
+      // fills them. No questionnaire ran either, so setup stays incomplete.
       await completeOnboarding({
         onboardingCompleted: true,
         setupCompleted: false,
@@ -2207,8 +2411,12 @@ function VinhaApp() {
         setupGender: aboutYouValues?.gender ?? null,
         setupHeightCm: aboutYouValues?.heightCm ?? null,
         setupCurrentWeightKg: aboutYouValues?.weightKg ?? null,
+        // Kept as well as the plan: the recommendation is what the catalog
+        // highlights on a later visit, the plan is what Home trains from.
         recommendedProgramId: programId,
-        activePlanId: null,
+        setupDaysPerWeek: templateDaysPerWeek,
+        activePlanId: adoptedPlanId,
+        activePlanIds: adoptedPlanId ? [adoptedPlanId] : [],
       });
       if (
         typeof aboutYouValues?.weightKg === 'number' &&
@@ -2409,7 +2617,12 @@ function VinhaApp() {
     }
 
     await updatePreferences(patch);
-    showToast(nextMode === 'app_managed' ? 'Vinha manages the week' : 'You manage the days');
+    showToast(
+      t(
+        preferences.appLanguage,
+        nextMode === 'app_managed' ? 'toast.scheduleAppManaged' : 'toast.scheduleSelfManaged',
+      ),
+    );
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
@@ -2871,6 +3084,11 @@ function VinhaApp() {
         return {
           programId: activeTemplate.id,
           programType: activePlanProgramType,
+          // The plan's own templates, so every counter that says "of this
+          // plan" can agree on what that means. The week counter used to read
+          // all sessions in the week and filled the programme's week with
+          // freestyle workouts.
+          planTemplateIds: [...planTemplateIds],
           eyebrow: `${sortedEntries.length} day custom plan`,
           goalLabel: formatGoalLabel(preferences.aiPlannerGoal || preferences.setupGoal || 'general'),
           title: formatWorkoutDisplayLabel(activeWorkoutPlan.name || activeTemplate.name, 'Workout plan'),
@@ -3378,10 +3596,16 @@ function VinhaApp() {
     const now = new Date();
     const weekStart = getStartOfWeek(now);
     const weekEnd = getEndOfWeek(now);
-    const savedThisWeek = workoutSessions.filter((session) => {
-      const performed = new Date(session.performedAt);
-      return performed >= weekStart && performed < weekEnd;
-    }).length;
+    // Only the plan's own sessions. This counted every session in the week,
+    // and the label above it names the programme's week while the denominator
+    // is the programme's days per week — so two freestyle workouts read as
+    // "VIIKKO 1 · 2/2" against a programme neither of them touched.
+    const savedThisWeek = countPlanSessionsInRange(
+      workoutSessions,
+      new Set(homeActivePlanCard?.planTemplateIds ?? []),
+      weekStart.getTime(),
+      weekEnd.getTime(),
+    );
     return {
       weekLabel: homeActivePlanCard
         ? t(preferences.appLanguage, 'guided.finish.week', { week: homeActivePlanCard.currentWeek })
@@ -3698,7 +3922,7 @@ function VinhaApp() {
             blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
             days: template.daysPerWeek,
             minutes: template.estimatedSessionDuration,
-            coverIndex: programCoverIndex(template.id),
+            cover: programCoverStyle(template.id, template.name),
             fingerprint: buildProgramFingerprint(template),
             level: template.level,
             weeks: getReadyProgramBlockWeeks(template),
@@ -3725,7 +3949,7 @@ function VinhaApp() {
         blurb: getReadyProgramContent(template.id, preferences.appLanguage)?.summary ?? '',
         days: template.daysPerWeek,
         minutes: template.estimatedSessionDuration,
-        coverIndex: programCoverIndex(template.id),
+        cover: programCoverStyle(template.id, template.name),
         fingerprint: buildProgramFingerprint(template),
         level: template.level,
         weeks: getReadyProgramBlockWeeks(template),
@@ -3842,7 +4066,7 @@ function VinhaApp() {
                 why: t(preferences.appLanguage, slot.whyKey, { days: template.daysPerWeek }),
                 days: template.daysPerWeek,
                 minutes: template.estimatedSessionDuration,
-                coverIndex: programCoverIndex(template.id),
+                cover: programCoverStyle(template.id, template.name),
                 fingerprint: buildProgramFingerprint(template),
                 level: template.level,
                 weeks: getReadyProgramBlockWeeks(template),
@@ -4358,10 +4582,15 @@ function VinhaApp() {
             setOnboardingStep('about');
           }}
           onBrowsePrograms={() => {
-            // The ready path also creates the profile before opening the
-            // catalog — same front door, different fork.
+            // Straight to the catalog. This fork used to detour through the
+            // About-you form first, which is the opposite of what the card
+            // promises ("choose the program you want yourself") — the reader
+            // asked to skip the questions and got a form. Nothing downstream
+            // needs the answers: handleOnboardingPickReadyProgram already
+            // reads every basic through `aboutYouValues?.` and stores null.
+            // The profile is filled in later, from Settings.
             setOnboardingPath('ready');
-            setOnboardingStep('about');
+            setOnboardingStep('ready_catalog');
           }}
           onBack={() => void handleBackToEntry()}
         />
@@ -4384,7 +4613,9 @@ function VinhaApp() {
           language={preferences.appLanguage}
           busy={busySavingReadyPick}
           onPick={(programId) => void handleOnboardingPickReadyProgram(programId)}
-          onBack={() => setOnboardingStep('about')}
+          // Back goes where the reader came from, which is the fork — not the
+          // About form they deliberately did not open.
+          onBack={() => setOnboardingStep('path')}
         />
       );
     } else {
@@ -4466,6 +4697,11 @@ function VinhaApp() {
             }, tailoringPreferences).join(' ')
           : null;
       const readyProgramTailoringBadges = buildTailoringBadgeLabels(tailoringPreferences).slice(0, 3);
+      // Membership is asked of the template, not the plan id — a programme
+      // joined during onboarding carries a different plan id for the same
+      // programme, and it is no less the reader's own.
+      const readyProgramIsMine =
+        route.programType === 'ready' && activeProgramTemplateIds.includes(route.workoutTemplateId);
       const program = readyTemplate
         ? buildReadyProgramDetail(
             readyTemplate,
@@ -4478,6 +4714,7 @@ function VinhaApp() {
               ? composeProgramWeekForSelection(setupSelection, route.workoutTemplateId)
               : null,
             preferences.appLanguage,
+            readyProgramIsMine,
           )
       : customTemplate
         ? buildCustomProgramDetail(
@@ -4544,6 +4781,20 @@ function VinhaApp() {
         }
         onBack={() => navigateBack(workoutHomeRoute)}
         onPrimaryAction={() => {
+          if (readyProgramIsMine) {
+            // Already the reader's. Adoption returns early for a programme it
+            // already holds, so this button used to read like a decision and do
+            // nothing but navigate Home. It now starts the session the rotation
+            // actually offers next — the label says so.
+            const nextSessionId = resolveNextSessionIdForTemplate(route.workoutTemplateId);
+            if (nextSessionId) {
+              handleStartReadyProgramSession(route.workoutTemplateId, nextSessionId);
+              return;
+            }
+            navigate(ROOT_ROUTES.home);
+            return;
+          }
+
           if (route.programType === 'ready') {
             // The button says "Ota ohjelma käyttöön" and it now does that. It
             // called handleStartReadyProgram, which starts the first SESSION
@@ -4571,6 +4822,15 @@ function VinhaApp() {
 
           handleStartCustomProgramSession(route.workoutTemplateId, sessionId);
         }}
+        // Every ready programme, not only the one being run: wanting a
+        // programme changed is the buying moment, and it happens while
+        // browsing as often as while training. The cap check and the paywall
+        // live in the handler.
+        onCopyToCustom={
+          route.programType === 'ready'
+            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
+            : undefined
+        }
         programBlockWeeks={readyTemplate ? getReadyProgramBlockWeeks(readyTemplate) : null}
         trainingDayIndexes={planWeekdayIndexes(
           database.workoutPlans.find((plan) => plan.entries[0]?.workoutTemplateId === route.workoutTemplateId)
@@ -4596,9 +4856,6 @@ function VinhaApp() {
           })
         }
         onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId }) : undefined}
-        onCopyToCustom={
-          route.programType === 'ready' ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId) : undefined
-        }
         destructiveActionLabel={
           route.programType === 'custom' ? t(preferences.appLanguage, 'detail.delete') : undefined
         }
@@ -4647,6 +4904,16 @@ function VinhaApp() {
         sessionSwaps={sessionSwaps}
         onSwapExercise={(slotId, exerciseName) =>
           setSessionSwaps((current) => ({ ...current, [slotId]: exerciseName }))
+        }
+        onAddExercise={
+          route.programType === 'custom'
+            ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId })
+            : undefined
+        }
+        onCopyToCustom={
+          route.programType === 'ready'
+            ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId)
+            : undefined
         }
         tailoringPreferences={preferences}
         onBack={() => navigateBack({ tab: 'workout', screen: 'program', programType: route.programType, workoutTemplateId: route.workoutTemplateId })}
@@ -4816,11 +5083,8 @@ function VinhaApp() {
         }
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         onDone={() => {
-          setCompletionSummary(null);
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
           workout.clearCompletedWorkout();
-          resetToRoute(ROOT_ROUTES.home);
+          leaveFinishedWorkout(ROOT_ROUTES.home);
         }}
       />
     );
@@ -4835,16 +5099,11 @@ function VinhaApp() {
         totalDurationMinutesThisWeek={workoutCelebration.totalDurationMinutesThisWeek}
         prCount={workoutCelebration.prCount}
         unitPreference={unitPreference}
-        onDone={() => {
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          resetToRoute(ROOT_ROUTES.home);
-        }}
-        onViewProgress={() => {
-          setWorkoutCelebration(null);
-          setFinishSaveState({ status: 'idle', sessionId: null, message: null });
-          resetToRoute(ROOT_ROUTES.progress);
-        }}
+        // Same shape as the summary: the celebration branch is guarded on
+        // `&& workoutCelebration`, so clearing it urgently would drop through
+        // to the same catch-all on the way out.
+        onDone={() => leaveFinishedWorkout(ROOT_ROUTES.home)}
+        onViewProgress={() => leaveFinishedWorkout(ROOT_ROUTES.progress)}
       />
     );
   } else if (route.tab === 'progress' && route.screen === 'calendar') {
@@ -4926,6 +5185,10 @@ function VinhaApp() {
           await addBodyweightEntry(weightKg);
           showToast(t(preferences.appLanguage, 'toast.bodyweightSaved'));
         }}
+        // The same height the questionnaire asks for and the profile stores —
+        // the BMI card edits that field rather than keeping a second copy.
+        heightCm={preferences.setupHeightCm}
+        onSaveHeight={(nextHeightCm) => void updatePreferences({ setupHeightCm: nextHeightCm })}
         onAddMeasurement={async (kind, value, unit) => {
           await addMeasurementEntry(kind, value, unit);
           showToast(t(preferences.appLanguage, 'toast.measurementSaved'));
@@ -5061,15 +5324,20 @@ function VinhaApp() {
             ? () => openRecommendedProgramDetail((setupRecommendation?.featuredProgramId ?? preferences.recommendedProgramId)!)
             : undefined
         }
-        onAskAiCoach={() =>
+        onAskAiCoach={() => {
+          // The coach answers in Finnish; the question it was handed was an
+          // English literal, and the chat shows it as the reader's own message.
+          const askProgramName = currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name;
           navigate({
             tab: 'home',
             screen: 'ai',
-            prompt: (currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name)
-              ? `Why does ${formatWorkoutDisplayLabel(currentFitReadyTemplate?.name ?? recommendedReadyTemplate?.name ?? '')} fit me?`
-              : 'Why does this plan fit me?',
-          })
-        }
+            prompt: askProgramName
+              ? t(preferences.appLanguage, 'plan.askFit', {
+                  program: formatWorkoutDisplayLabel(askProgramName),
+                })
+              : t(preferences.appLanguage, 'plan.askFitGeneric'),
+          });
+        }}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'exercise_preferences') {
@@ -5106,20 +5374,26 @@ function VinhaApp() {
         language={preferences.appLanguage}
         previewUnlocked={preferences.adaptiveCoachPremiumUnlocked}
         proUnlocked={coachProUnlocked}
-        heroChart={premiumHeroChart}
-        unitPreference={unitPreference}
-        sessionCount={database.workoutSessions.length}
-        coachSpecimen={proCoachSpecimen}
+        chatScript={premiumChatScript}
         onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
-        onTogglePreview={() => {
-          // The CTA sells a trial the app cannot deliver (demo build). What it
-          // actually does is flip the preview switch — and if that turns Pro
-          // ON, the unlock moment follows, which is the whole point of it.
+        onTogglePreview={(plan) => {
+          // The CTA sells a subscription the app cannot take money for (demo
+          // build). What it actually does is flip the preview switch — and if
+          // that turns Pro ON, the unlock moment follows, which is the point.
           const turningOn = !preferences.adaptiveCoachPremiumUnlocked;
-          void updatePreferences({ adaptiveCoachPremiumUnlocked: turningOn });
+          void updatePreferences({
+            adaptiveCoachPremiumUnlocked: turningOn,
+            // The purchase instant and the chosen term, stored together. Every
+            // renewal date in the app is counted from these rather than written
+            // — the requirement #bugs locked after the receipt shipped a
+            // hardcoded "15.9.2026". Billing replaces this one write.
+            ...(turningOn
+              ? { mockSubscriptionPurchasedAt: new Date().toISOString(), mockSubscriptionTerm: plan }
+              : {}),
+          });
           if (turningOn) {
-            navigate({ tab: 'profile', screen: 'premium_unlock' });
+            navigate({ tab: 'profile', screen: 'premium_unlock', plan });
           }
         }}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
@@ -5129,10 +5403,27 @@ function VinhaApp() {
     content = (
       <PremiumUnlockScreen
         language={preferences.appLanguage}
-        trialEndsAt={premiumTrialEndsAt}
+        plan={route.plan}
         // The reads just unlocked; this is the first one, from their own log.
         coachSpecimen={proCoachSpecimen}
-        onDone={() => resetToRoute(ROOT_ROUTES.profile)}
+        onOpenAnalysis={() => navigate({ tab: 'progress', screen: 'list' })}
+        onManageSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
+        // Counted here, from the instant the purchase was recorded plus the
+        // term's own length. One function, shared with the subscription screen.
+        renewsAt={nextChargeAt(
+          route.plan ?? preferences.mockSubscriptionTerm,
+          preferences.mockSubscriptionPurchasedAt ?? MOCK_BILLING.lastChargedAt,
+        )}
+        // "Takaisin treeniin" goes to Home, not back to the tab the purchase
+        // happened to start from. The route lives under `profile` because the
+        // paywall does, but the button names a destination and the reader takes
+        // it literally: Home is where training starts.
+        //
+        // On the way, the theme offer. The unlock screen lists the dark theme
+        // as one of the six things that just changed, and without this the
+        // reader has to go and find it three rows into Settings — a perk you
+        // have to hunt for reads as one you did not really get.
+        onDone={() => setThemeChoiceVisible(true)}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'training_plan') {
@@ -5156,16 +5447,7 @@ function VinhaApp() {
         exerciseLibrary={exerciseBrowserItems}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onOpenPlanSettings={handleOpenPlanSettings}
-        onChangeTrainingDays={(days) => {
-          // Same invariants as the onboarding day question: picking specific
-          // days makes the schedule self-managed and the count follows, 2–6.
-          const clamped = Math.min(6, Math.max(2, days.length)) as 2 | 3 | 4 | 5 | 6;
-          void updatePreferences({
-            setupAvailableDays: days,
-            setupDaysPerWeek: clamped,
-            setupScheduleMode: 'self_managed',
-          });
-        }}
+        onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
         onEditCustomPlan={
           homeActivePlanCard?.programType === 'custom'
             ? () =>
@@ -5231,9 +5513,21 @@ function VinhaApp() {
     content = (
       <SubscriptionScreen
         language={preferences.appLanguage}
-        promoProUntil={preferences.promoProUntil}
+        entitlement={proEntitlement}
+        // Only an *expired* promo means "lapsed". A live one is active Pro and
+        // resolveSubscriptionView reads it from the entitlement instead.
+        lapsedPromoUntil={proEntitlement.unlocked ? null : preferences.promoProUntil}
+        mockTerm={preferences.mockSubscriptionTerm}
+        mockCancelled={preferences.mockSubscriptionCancelled}
+        purchasedAt={preferences.mockSubscriptionPurchasedAt}
+        onChangeMockTerm={(term) => void updatePreferences({ mockSubscriptionTerm: term })}
+        onChangeMockCancelled={(cancelled) =>
+          void updatePreferences({ mockSubscriptionCancelled: cancelled })
+        }
+        demoBuild={isDemoBuild()}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
         onManageMembership={() => navigate({ tab: 'profile', screen: 'membership_end' })}
+        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'membership_end') {
@@ -5244,11 +5538,18 @@ function VinhaApp() {
         // guess which of promo / demo switch is keeping Pro on.
         source={proEntitlement.source ?? 'none'}
         promoUntil={proEntitlement.promoUntil}
+        periodEndsAt={nextChargeAt(preferences.mockSubscriptionTerm, MOCK_BILLING.lastChargedAt)}
         onBack={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
-        onKeep={() => navigate({ tab: 'profile', screen: 'premium' })}
-        onEndNow={() => {
-          void updatePreferences({ adaptiveCoachPremiumUnlocked: false });
-          navigateBack({ tab: 'profile', screen: 'subscription' });
+        onKeep={() => navigateBack({ tab: 'profile', screen: 'subscription' })}
+        // Cancelling leaves Pro switched ON until the period ends — that is what
+        // the page promises two lines above the button, so ending it on the spot
+        // would contradict the screen the reader is standing on.
+        onEndNow={() => void updatePreferences({ mockSubscriptionCancelled: true })}
+        onSurveyDone={(reasons, note) => {
+          const answer = buildCancelSurveyAnswer(reasons, note, new Date().toISOString());
+          if (answer) {
+            void updatePreferences({ cancelSurveyAnswer: answer });
+          }
         }}
       />
     );
@@ -5257,6 +5558,13 @@ function VinhaApp() {
       <SupportScreen
         language={preferences.appLanguage}
         profileName={preferences.profileName}
+        onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
+      />
+    );
+  } else if (route.tab === 'profile' && route.screen === 'design_demo') {
+    content = (
+      <DesignDemoScreen
+        language={preferences.appLanguage}
         onBack={() => navigateBack({ tab: 'profile', screen: 'settings' })}
       />
     );
@@ -5357,6 +5665,7 @@ function VinhaApp() {
         onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
+        onOpenDesignDemo={() => navigate({ tab: 'profile', screen: 'design_demo' })}
         onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
         onResetAllData={async () => {
@@ -5385,6 +5694,7 @@ function VinhaApp() {
         recordCount={distinctRecordCount}
         onOpenRecords={() => navigate({ tab: 'progress', screen: 'list', section: 'records' })}
         onManagePlan={() => navigate({ tab: 'profile', screen: 'training_plan' })}
+        onEditProfile={() => navigate({ tab: 'profile', screen: 'edit_profile' })}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'plans') {
@@ -5588,7 +5898,20 @@ function VinhaApp() {
         onOpenLibrary={() => navigate({ tab: 'workout', screen: 'list' })}
       />
     );
-  } else if (route.tab === 'workout') {
+    /**
+     * Named, not a catch-all.
+     *
+     * This was `route.tab === 'workout'` with no screen check, which made the
+     * exercise browser the silent destination for *any* workout route that
+     * matched nothing above it — including a real one mid-transition. That is
+     * how the summary dismissal came out as a flash of the browser rather than
+     * as a visible routing bug: the fallback swallowed it and looked plausible.
+     *
+     * `list` is ROOT_ROUTES.workout, so this is still someone's real
+     * destination. Anything else now falls to the Home branch at the end,
+     * where the route guard above can correct it.
+     */
+  } else if (route.tab === 'workout' && route.screen === 'list') {
     content = (
       <ExercisesScreen
         language={preferences.appLanguage}
@@ -5611,6 +5934,7 @@ function VinhaApp() {
     content = (
       <HomeScreen
         language={preferences.appLanguage}
+        onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
         profileName={preferences.profileName}
         activePlan={homeActivePlanCard}
         onCompletionStartNext={(planId, templateId) => void handleCompletionStartNext(planId, templateId)}
@@ -5835,6 +6159,7 @@ function VinhaApp() {
       route.screen === 'support' ||
       route.screen === 'features' ||
       route.screen === 'ai_transparency' ||
+      route.screen === 'design_demo' ||
       route.screen === 'legal');
   const premiumActive = route.tab === 'profile' && route.screen === 'premium';
   const planSettingsActive = route.tab === 'profile' && route.screen === 'plan_settings';
@@ -5937,6 +6262,18 @@ function VinhaApp() {
         onSeePro={() => {
           setProgramLimitVisible(false);
           navigate({ tab: 'profile', screen: 'premium' });
+        }}
+      />
+      <ThemeChoiceDialog
+        visible={themeChoiceVisible}
+        language={preferences.appLanguage}
+        darkEnabled={preferences.darkThemeEnabled}
+        // Written straight to preferences, so the dialog repaints itself along
+        // with everything behind it. That IS the preview.
+        onChange={(dark) => void updatePreferences({ darkThemeEnabled: dark })}
+        onDone={() => {
+          setThemeChoiceVisible(false);
+          resetToRoute(ROOT_ROUTES.home);
         }}
       />
     </AppShell>

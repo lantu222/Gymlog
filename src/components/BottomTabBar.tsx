@@ -10,13 +10,13 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import { RootTabKey } from '../navigation/routes';
 import { I18nKey, t } from '../lib/i18n';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 // EXPERIMENT (2026-07-13): dark, detached "floating pill" tab bar. Absolutely
 // positioned so it floats low over the (light) app content — no light backdrop
@@ -152,7 +152,6 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
   const theme = useTheme();
   const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
 
   // The pill is a dark surface designed to float over LIGHT content. On the
   // dark theme that reads as a smudge — #1E1B2C over a #141021 background is
@@ -191,7 +190,7 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
 
   useEffect(() => {
     let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled()
+    queryReduceMotion()
       .then((enabled) => {
         if (mounted) {
           setReduceMotion(Boolean(enabled));
@@ -273,7 +272,22 @@ export function BottomTabBar({ activeTab, aiActive = false, onTabPress, onAiPres
       pointerEvents="box-none"
       style={[
         styles.shell,
-        { paddingBottom: 4 + Math.min(insets.bottom, 4) },
+        /**
+         * The bar's own breathing room, and nothing below the safe area.
+         *
+         * This used to add `marginBottom: -10` on top — a negative margin that
+         * put the floating pill two points *under* the boundary the system
+         * reserves for its own bar. It was asked for from the phone (473534f)
+         * during the double-counted-inset era, and it is the last plaster from
+         * it: 895c196 pulled the matching one off the Pro footer and left this
+         * one on, because they were on different screens.
+         *
+         * Reported from the phone again, the other way: the pill sat too close
+         * to the system buttons. Rendering below the safe area is what it means
+         * to sit too close to them, on any device — so the drop is gone rather
+         * than tuned, and the bar takes a flat 8.
+         */
+        { paddingBottom: 8 },
         {
           opacity: barRise,
           transform: [{ translateY: barRiseTranslate }],

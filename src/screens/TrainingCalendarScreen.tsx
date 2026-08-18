@@ -11,6 +11,7 @@ import {
 } from '../lib/trainingCalendar';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage, WorkoutSession } from '../types/models';
+import { removeTrailingZeros } from '../lib/format';
 
 /**
  * The training month.
@@ -46,7 +47,7 @@ interface TrainingCalendarScreenProps {
 function formatVolume(kg: number, language: AppLanguage) {
   if (kg >= 1000) {
     const tons = Math.round(kg / 100) / 10;
-    return language === 'fi' ? `${`${tons}`.replace('.', ',')} t` : `${tons} t`;
+    return `${removeTrailingZeros(tons)} t`;
   }
   return `${Math.round(kg)} kg`;
 }
@@ -256,7 +257,7 @@ export function TrainingCalendarScreen({
                     <Text style={styles.chipText}>
                       {t(language, 'cal.topLift', {
                         name: detail.topLift.name,
-                        weight: detail.topLift.weightKg,
+                        weight: removeTrailingZeros(detail.topLift.weightKg),
                         reps: detail.topLift.reps,
                       })}
                     </Text>

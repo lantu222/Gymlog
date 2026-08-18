@@ -76,8 +76,12 @@ module.exports = [
       assert.match(programsHomeSource, /<NewProgramSheet/);
 
       // Designed gradient covers (oklch pre-converted to sRGB), not photos.
+      // The screen no longer PICKS the style — it paints the one the item
+      // carries, chosen from the programme's family in App.tsx (2026-08-13).
+      // Picking here is what let the rail disagree with the catalog.
       assert.doesNotMatch(programsHomeSource, /EXPLORE PROGRAMS/);
-      assert.match(programsHomeSource, /const COVER_STYLES/);
+      assert.match(programsHomeSource, /const style = item\.cover;/);
+      assert.doesNotMatch(programsHomeSource, /COVER_STYLES\[/);
       assert.match(programsHomeSource, /function ProgramCover/);
       assert.match(programsHomeSource, /RadialGradient/);
 
@@ -223,11 +227,14 @@ module.exports = [
       assert.doesNotMatch(appSource, /const programsExploreItems = useMemo/);
       assert.match(appSource, /getReadyProgramContent\(template\.id, preferences\.appLanguage\)\?\.summary/);
       // Identity, not position: `index % 5` painted the same programme a
-      // different colour in every list it appeared in. The colour now hashes
-      // from the template id, so the browse cover, the detail hero and the
-      // day hero agree.
+      // different colour in every list it appeared in. Hashing the id fixed
+      // that but scattered each FAMILY across five colours and handed motifs
+      // to strangers, so the ready catalog and the Programs tab disagreed
+      // about the same programme. The style comes from the family now, with
+      // the hash left as the fallback for names that have none (2026-08-13).
       assert.doesNotMatch(appSource, /coverIndex: index % 5/);
-      assert.match(appSource, /coverIndex: programCoverIndex\(/);
+      assert.doesNotMatch(appSource, /coverIndex: programCoverIndex\(/);
+      assert.match(appSource, /cover: programCoverStyle\(template\.id, template\.name\)/);
       assert.match(appSource, /const programsCustomItems = useMemo/);
       // Continue is built from logged sessions, and never from the active
       // program — that one already owns the hero and the whole week above.

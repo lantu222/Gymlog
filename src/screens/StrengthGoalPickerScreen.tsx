@@ -12,6 +12,7 @@ import { StrengthGoalPresetRow } from '../lib/strengthGoalPresets';
 import { layout, spacing } from '../theme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { removeTrailingZeros } from '../lib/format';
 
 /**
  * "Valitse tavoite" — a page of ready-made targets.
@@ -78,7 +79,7 @@ export function StrengthGoalPickerScreen({
               <Text style={styles.groupMeta}>
                 {row.bestKg === null
                   ? t(language, 'goals.picker.noBest')
-                  : t(language, 'goals.picker.best', { kg: row.bestKg, unit: unitLabel })}
+                  : t(language, 'goals.picker.best', { kg: removeTrailingZeros(row.bestKg), unit: unitLabel })}
               </Text>
             </View>
             <View style={styles.optionRow}>

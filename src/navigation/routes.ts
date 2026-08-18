@@ -203,6 +203,14 @@ export type AppRoute =
       screen: 'ai_transparency';
     }
   | {
+      /**
+       * Finished components that have no caller yet. Delete the route with the
+       * screen once the blurred preview and the rating ask are both wired.
+       */
+      tab: 'profile';
+      screen: 'design_demo';
+    }
+  | {
       tab: 'profile';
       screen: 'plan_settings';
     }
@@ -232,6 +240,12 @@ export type AppRoute =
   | {
       tab: 'profile';
       screen: 'premium_unlock';
+      /**
+       * Which package the reader picked on the paywall. Carried here because
+       * nothing else knows: there is no billing to ask, and the paywall's
+       * selection is local state that dies with the screen.
+       */
+      plan?: 'monthly' | 'yearly' | 'lifetime';
     }
   | {
       tab: 'profile';

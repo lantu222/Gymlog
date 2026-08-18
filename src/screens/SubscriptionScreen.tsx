@@ -4,50 +4,234 @@ import Svg, { Path } from 'react-native-svg';
 
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
+import { SubscriptionSheet } from '../components/SubscriptionSheet';
 import { formatDate } from '../lib/format';
-import { CutSurface } from '../components/CutSurface';
 import { t } from '../lib/i18n';
+import { PRO_LIVE_BENEFITS } from '../lib/proBenefits';
+import { ProEntitlement } from '../lib/proEntitlement';
+import {
+  MOCK_BILLING,
+  SUBSCRIPTION_TERMS,
+  SUBSCRIPTION_TERM_ORDER,
+  SubscriptionTermKey,
+  resolveSubscriptionView,
+  showsMockBilling,
+} from '../lib/subscriptionView';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
 
 interface SubscriptionScreenProps {
-  /** ISO date the promo keeps Pro on until; null = no active Pro. */
-  promoProUntil: string | null;
+  entitlement: ProEntitlement;
+  /** A promoProUntil that has already passed — the only honest "lapsed" signal. */
+  lapsedPromoUntil: string | null;
+  mockTerm: SubscriptionTermKey;
+  mockCancelled: boolean;
+  /** When Pro was turned on, ISO. The renewal date is counted from it. */
+  purchasedAt: string | null;
+  onChangeMockTerm: (term: SubscriptionTermKey) => void;
+  onChangeMockCancelled: (cancelled: boolean) => void;
+  /** False in a real release: every invented billing row disappears. */
+  demoBuild: boolean;
   language?: AppLanguage;
   onBack: () => void;
-  /** Opens the what-you-lose screen. */
+  /** Opens the end-membership page. */
   onManageMembership: () => void;
+  /** Opens the paywall — the one route to Pro, and the same one everyone uses. */
+  onOpenPremium: () => void;
 }
 
-const GREEN = '#157A3A';
-const GREEN_SOFT = '#E4F6EA';
-const GREEN_DOT = '#1FA64E';
-const RED = '#C0392B';
-const RED_SOFT = '#FBEAE7';
-const RED_BORDER = '#F3CFC9';
+const ICONS: Record<string, string> = {
+  shield: 'M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6z',
+  shieldCheck: 'M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6zM8.5 12l2.5 2.5 4.5-4.5',
+  swap: 'M7 8h11l-3-3M17 16H6l3 3',
+  external: 'M14 4h6v6M20 4l-9 9M18 13v6H5V6h6',
+  list: 'M4 7h16M4 12h11M4 17h7',
+  warn: 'M12 4L2.6 20h18.8zM12 10v4.5M12 17.6v.4',
+  restore: 'M4 12a8 8 0 108-8M4 12V6M4 12h6',
+  chevron: 'M9 6l6 6-6 6',
+  card: 'M3 7h18v10H3zM3 11h18',
+  wallet: 'M4 7h13a3 3 0 013 3v4a3 3 0 01-3 3H4zM16 12h2',
+  receipt: 'M6 4h12v16l-3-2-3 2-3-2-3 2zM9 9h6M9 13h4',
+  settings: 'M4 7h16M4 12h16M4 17h16M9 5v4M15 10v4M11 15v4',
+  check: 'M5 13l4 4L19 7',
+};
+
+function Glyph({ name, color, size = 19 }: { name: string; color: string; size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d={ICONS[name] ?? ''}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 /**
- * Manage subscription — demo build. There is no billing integration yet; the
- * status reflects the redeemed promo when one is active, and the plan cards
- * are a preview of the intended pricing. "Manage in Google Play" opens the
- * real store subscriptions page.
+ * Manage subscription (design: "Vinha Tilaus - hallinta").
+ *
+ * The rule this screen follows, from the design's own note: there is no price
+ * list here. A price list on a management screen is half a paywall in the wrong
+ * place — it sells without being able to close, and it duplicates the one page
+ * that can. Everything that costs money routes to the paywall instead.
+ *
+ * Three states, and which one you see is decided by resolveSubscriptionView:
+ *
+ *   active  — Pro is on. The card describes it and the rows manage it.
+ *   lapsed  — Pro was on and ran out. The card says the data is still here.
+ *   none    — never subscribed. One route to Pro and two helper rows.
+ *
+ * `none` is not a dead state, which is worth writing down because it looks like
+ * one: Home's PRO pill does send a free reader to the paywall rather than here
+ * (HomeScreen). But Settings → Account → Subscription is an unconditional row,
+ * so a reader who has never paid arrives from there — and that is exactly who
+ * the old version showed a price list to.
+ *
+ * The billing rows (payment method, billing period, receipts) are invented; see
+ * MOCK_BILLING. showsMockBilling gates them on the demo build, so clearing
+ * extra.demoBuild takes them off the screen without anyone editing this file.
  */
 export function SubscriptionScreen({
-  promoProUntil,
+  entitlement,
+  lapsedPromoUntil,
+  mockTerm,
+  mockCancelled,
+  purchasedAt,
+  onChangeMockTerm,
+  onChangeMockCancelled,
+  demoBuild,
   language = 'en',
   onBack,
   onManageMembership,
+  onOpenPremium,
 }: SubscriptionScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const [plan, setPlan] = useState<'yearly' | 'monthly'>('yearly');
+  const [view, setView] = useState<'subs' | 'membership'>('subs');
+  const [sheet, setSheet] = useState<'term' | 'pay' | 'receipts' | 'includes' | null>(null);
+  const [payMethod, setPayMethod] = useState<string>(MOCK_BILLING.defaultMethodId);
+  const [termDraft, setTermDraft] = useState<SubscriptionTermKey>(mockTerm);
 
-  const promoActive = promoProUntil !== null && new Date(promoProUntil).getTime() > Date.now();
-  const endsDate = promoActive ? new Date(promoProUntil!) : null;
-  const activatedDate = endsDate ? new Date(endsDate.getTime() - 30 * 24 * 60 * 60 * 1000) : null;
-  const daysLeft = endsDate ? Math.max(0, Math.ceil((endsDate.getTime() - Date.now()) / (24 * 60 * 60 * 1000))) : 0;
-  const endingSoon = promoActive && daysLeft <= 5;
+  const model = resolveSubscriptionView({
+    entitlement,
+    mockTerm,
+    mockCancelled,
+    purchasedAt,
+    lapsedPromoUntil,
+  });
+  const billing = showsMockBilling(model, demoBuild);
+  const term = model.term ? SUBSCRIPTION_TERMS[model.term] : null;
+  const lifetime = model.term === 'lifetime';
+  const date = (iso: string | null) => (iso ? formatDate(iso, language) : '—');
+
+  const goBack = () => {
+    if (view === 'membership') {
+      setView('subs');
+      return;
+    }
+    onBack();
+  };
+
+  const openTermSheet = () => {
+    setTermDraft(mockTerm);
+    setSheet('term');
+  };
+
+  /** The status line under "Vinha Pro" — one sentence, four possible truths. */
+  const statusLine = () => {
+    if (model.state === 'lapsed') {
+      return t(language, 'subs.status.lapsed', { date: date(model.endsAt) });
+    }
+    if (model.state === 'none') {
+      return t(language, 'subs.none');
+    }
+    if (model.promoBacked) {
+      return t(language, 'subs.status.promo', { date: date(model.endsAt) });
+    }
+    if (model.cancelled) {
+      return t(language, 'subs.status.cancelled', { date: date(model.endsAt) });
+    }
+    return t(language, 'subs.status.activeOn', { term: t(language, term!.labelKey) });
+  };
+
+  const statusAccent =
+    model.state !== 'active' ? theme.faint : model.cancelled ? theme.amber : theme.green;
+  const statusTile =
+    model.state !== 'active'
+      ? theme.surfaceSoft
+      : model.cancelled
+        ? theme.amberSoft
+        : theme.greenSoft;
+
+  const MetaRow = ({
+    label,
+    value,
+    valueColor,
+    onPress,
+    last,
+  }: {
+    label: string;
+    value: string;
+    valueColor?: string;
+    onPress?: () => void;
+    last?: boolean;
+  }) => (
+    <Pressable
+      accessibilityRole={onPress ? 'button' : undefined}
+      disabled={!onPress}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.metaRow,
+        !last && styles.metaRowDivider,
+        pressed && onPress ? { opacity: 0.7 } : null,
+      ]}
+    >
+      <Text style={styles.metaKey}>{label}</Text>
+      <View style={styles.metaValueRow}>
+        <Text style={[styles.metaValue, valueColor ? { color: valueColor } : null]}>{value}</Text>
+        {onPress ? <Glyph name="chevron" color={theme.faint} size={15} /> : null}
+      </View>
+    </Pressable>
+  );
+
+  const Row = ({
+    icon,
+    title,
+    sub,
+    onPress,
+    danger,
+    divider,
+  }: {
+    icon: string;
+    title: string;
+    sub?: string;
+    onPress?: () => void;
+    danger?: boolean;
+    divider?: boolean;
+  }) => (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        divider && styles.rowDivider,
+        pressed && { opacity: 0.75 },
+      ]}
+    >
+      <View style={[styles.rowTile, danger && { backgroundColor: theme.dangerSoft }]}>
+        <Glyph name={icon} color={danger ? theme.danger : theme.purple} />
+      </View>
+      <View style={styles.rowCopy}>
+        <Text style={[styles.rowTitle, danger && { color: theme.danger }]}>{title}</Text>
+        {sub ? <Text style={styles.rowSub}>{sub}</Text> : null}
+      </View>
+      <Glyph name="chevron" color={theme.faint} size={16} />
+    </Pressable>
+  );
 
   return (
     <View style={styles.screen}>
@@ -55,446 +239,937 @@ export function SubscriptionScreen({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.back')}
-          onPress={onBack}
-          style={({ pressed }) => [pressed && styles.pressed]}
+          onPress={goBack}
+          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
         >
-          <CutSurface size="sm" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.backButton}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-              <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-          </CutSurface>
+          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+            <Path
+              d="M15 5l-7 7 7 7"
+              stroke={theme.ink}
+              strokeWidth={2.4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </Svg>
         </Pressable>
-        <ScreenHeaderTitle title={t(language, 'subs.title')} />
+        <ScreenHeaderTitle
+          title={t(language, view === 'membership' ? 'subs.header.membership' : 'subs.header.subs')}
+        />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-        {/* status */}
-        <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.statusCard]}>
-          <View style={styles.statusTopRow}>
-            <View style={styles.shieldTile}>
-              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6zM8.5 12l2.5 2.5 4.5-4.5"
-                  stroke={GREEN}
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </View>
-            <View style={styles.statusCopy}>
-              <View style={styles.statusNameRow}>
-                <Text style={styles.statusName}>Vinha Pro</Text>
-                {promoActive ? (
-                  <View style={styles.trialBadge}>
-                    <Text style={styles.trialBadgeText}>{t(language, 'subs.promo')}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <Text style={styles.statusSub}>
-                {t(language, promoActive ? 'subs.promoUnlock' : 'subs.none')}
-              </Text>
-            </View>
-            <View style={[styles.statusDot, { backgroundColor: promoActive ? GREEN_DOT : '#D8D2E6' }]} />
-          </View>
+        {view === 'membership' ? (
+          <>
+            {billing ? (
+              <>
+                <SectionLabel label={t(language, 'subs.section.paying')} />
+                <View style={styles.card}>
+                  <Row
+                    icon="card"
+                    title={t(language, 'subs.row.changeMethod')}
+                    sub={t(language, MOCK_BILLING.methods[0].titleKey)}
+                    onPress={() => setSheet('pay')}
+                    divider
+                  />
+                  <Row
+                    icon="swap"
+                    title={t(language, 'subs.row.changeTerm')}
+                    sub={t(language, 'subs.row.changeTermSub', {
+                      name: t(language, term!.nameKey),
+                      price: t(language, term!.priceKey),
+                      per: t(language, term!.perKey),
+                    })}
+                    onPress={openTermSheet}
+                    divider
+                  />
+                  <Row
+                    icon="receipt"
+                    title={t(language, 'subs.row.receipts')}
+                    sub={t(language, 'subs.row.receiptsSub')}
+                    onPress={() => setSheet('receipts')}
+                  />
+                </View>
+              </>
+            ) : null}
 
-          {promoActive ? (
-            <>
-              <View style={styles.divider} />
-              <View style={styles.metaRow}>
-                <Text style={styles.metaKey}>{t(language, 'subs.activated')}</Text>
-                <Text style={styles.metaValue}>{formatDate(activatedDate!.toISOString(), language)}</Text>
+            <SectionLabel label={t(language, 'subs.section.membership')} />
+            {lifetime ? (
+              <View style={[styles.card, styles.notePad]}>
+                <Text style={styles.noteTitle}>{t(language, 'subs.lifetime.title')}</Text>
+                <Text style={styles.noteBody}>{t(language, 'subs.lifetime.body')}</Text>
               </View>
-              <View style={styles.metaRow}>
-                <Text style={styles.metaKey}>{t(language, 'subs.ends')}</Text>
-                <Text style={[styles.metaValue, endingSoon && { color: RED }]}>
-                  {t(language, 'subs.endsValue', {
-                    date: formatDate(endsDate!.toISOString(), language),
-                    days: daysLeft,
+            ) : model.promoBacked ? (
+              <View style={[styles.card, styles.notePad]}>
+                <Text style={styles.noteBody}>{t(language, 'subs.promoNote')}</Text>
+              </View>
+            ) : model.cancelled ? (
+              <View style={styles.card}>
+                <Row
+                  icon="restore"
+                  title={t(language, 'subs.row.resume')}
+                  sub={t(language, 'subs.row.resumeSub', { date: date(model.endsAt) })}
+                  onPress={() => onChangeMockCancelled(false)}
+                />
+              </View>
+            ) : (
+              <View style={styles.card}>
+                <Row
+                  icon="warn"
+                  title={t(language, 'subs.row.end')}
+                  sub={t(language, 'subs.row.endSub', { date: date(model.endsAt) })}
+                  onPress={onManageMembership}
+                  danger
+                />
+              </View>
+            )}
+
+            <Text style={styles.footer}>
+              {t(
+                language,
+                model.promoBacked ? 'subs.foot.promo' : lifetime ? 'subs.foot.lifetime' : 'subs.foot.play',
+              )}
+            </Text>
+          </>
+        ) : (
+          <>
+            {/* status */}
+            <View style={[styles.card, styles.statusCard]}>
+              <View style={styles.statusTopRow}>
+                <View style={[styles.shieldTile, { backgroundColor: statusTile }]}>
+                  <Glyph
+                    name={model.state === 'active' && !model.cancelled ? 'shieldCheck' : 'shield'}
+                    color={statusAccent}
+                    size={22}
+                  />
+                </View>
+                <View style={styles.statusCopy}>
+                  <Text style={styles.statusName}>Vinha Pro</Text>
+                  <Text style={[styles.statusSub, { color: statusAccent }]}>{statusLine()}</Text>
+                </View>
+                <View style={[styles.statusDot, { backgroundColor: statusAccent }]} />
+              </View>
+
+              <View style={styles.divider} />
+
+              {model.state !== 'active' ? (
+                <Text style={styles.freeNote}>
+                  {t(language, model.state === 'lapsed' ? 'subs.lapsedNote' : 'subs.noneNote')}
+                </Text>
+              ) : model.promoBacked ? (
+                <>
+                  <MetaRow
+                    label={t(language, 'subs.meta.proEnds')}
+                    value={date(model.endsAt)}
+                    valueColor={statusAccent}
+                  />
+                  <MetaRow
+                    label={t(language, 'subs.meta.nextCharge')}
+                    value={t(language, 'subs.meta.nextChargeNone')}
+                    last
+                  />
+                </>
+              ) : model.cancelled ? (
+                <>
+                  <MetaRow
+                    label={t(language, 'subs.meta.proEnds')}
+                    value={date(model.endsAt)}
+                    valueColor={statusAccent}
+                  />
+                  <MetaRow
+                    label={t(language, 'subs.meta.nextCharge')}
+                    value={t(language, 'subs.meta.nextChargeNone')}
+                    valueColor={statusAccent}
+                  />
+                  <MetaRow
+                    label={t(language, 'subs.meta.method')}
+                    value={t(language, MOCK_BILLING.methods[0].titleKey)}
+                    onPress={billing ? () => setSheet('pay') : undefined}
+                    last
+                  />
+                  <View style={styles.warnBanner}>
+                    <Glyph name="warn" color={theme.amberInk} size={16} />
+                    <Text style={styles.warnText}>{t(language, 'subs.cancelledNote')}</Text>
+                  </View>
+                </>
+              ) : lifetime ? (
+                <>
+                  <MetaRow
+                    label={t(language, 'subs.meta.nextCharge')}
+                    value={t(language, 'subs.meta.noRenewal')}
+                  />
+                  <MetaRow
+                    label={t(language, 'subs.meta.paid')}
+                    value={t(language, 'subs.meta.paidValue', {
+                      date: date(MOCK_BILLING.lastChargedAt),
+                      price: t(language, term!.priceKey),
+                    })}
+                  />
+                  <MetaRow
+                    label={t(language, 'subs.meta.method')}
+                    value={t(language, MOCK_BILLING.methods[0].titleKey)}
+                    onPress={billing ? () => setSheet('pay') : undefined}
+                    last
+                  />
+                </>
+              ) : (
+                <>
+                  <MetaRow
+                    label={t(language, 'subs.meta.nextCharge')}
+                    value={t(language, 'subs.meta.nextChargeValue', {
+                      date: date(model.nextChargeAt),
+                      price: t(language, term!.priceKey),
+                    })}
+                    onPress={billing ? openTermSheet : undefined}
+                  />
+                  <MetaRow
+                    label={t(language, 'subs.meta.method')}
+                    value={t(language, MOCK_BILLING.methods[0].titleKey)}
+                    onPress={billing ? () => setSheet('pay') : undefined}
+                  />
+                  <MetaRow
+                    label={t(language, 'subs.meta.memberSince')}
+                    value={t(language, 'subs.meta.memberSinceValue', {
+                      date: date(MOCK_BILLING.memberSince),
+                    })}
+                    last
+                  />
+                </>
+              )}
+            </View>
+
+            {model.state === 'active' ? (
+              <>
+                <SectionLabel label={t(language, 'subs.section.yours')} />
+                <View style={styles.card}>
+                  {model.cancelled && billing ? (
+                    <Row
+                      icon="restore"
+                      title={t(language, 'subs.row.resume')}
+                      sub={t(language, 'subs.row.resumeSub', { date: date(model.endsAt) })}
+                      onPress={() => onChangeMockCancelled(false)}
+                      divider
+                    />
+                  ) : null}
+                  {/* The promo case has nothing to manage, so the row that
+                      would open an empty page is simply not rendered. */}
+                  {model.promoBacked ? null : (
+                    <Row
+                      icon="settings"
+                      title={t(language, 'subs.row.manageMembership')}
+                      sub={t(language, 'subs.row.manageMembershipSub')}
+                      onPress={() => setView('membership')}
+                      divider
+                    />
+                  )}
+                  <Row
+                    icon="list"
+                    title={t(language, 'subs.row.whatsIn')}
+                    sub={t(language, 'subs.row.whatsInSub')}
+                    onPress={() => setSheet('includes')}
+                    divider
+                  />
+                  <Row
+                    icon="external"
+                    title={t(language, 'subs.row.play')}
+                    sub={t(language, 'subs.row.playSub')}
+                    onPress={() =>
+                      void Linking.openURL('https://play.google.com/store/account/subscriptions')
+                    }
+                  />
+                </View>
+              </>
+            ) : (
+              <>
+                <SectionLabel label={t(language, 'subs.section.pro')} />
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onOpenPremium}
+                  style={({ pressed }) => [styles.proCard, pressed && { opacity: 0.85 }]}
+                >
+                  <Text style={styles.proTitle}>
+                    {t(
+                      language,
+                      model.state === 'lapsed' ? 'subs.cta.resumeTitle' : 'subs.cta.exploreTitle',
+                    )}
+                  </Text>
+                  <Text style={styles.proBody}>{t(language, 'subs.cta.body')}</Text>
+                  <View style={styles.proCta}>
+                    <Text style={styles.proCtaText}>{t(language, 'subs.cta.seePro')}</Text>
+                  </View>
+                </Pressable>
+
+                <SectionLabel label={t(language, 'subs.section.other')} />
+                <View style={styles.card}>
+                  <Row
+                    icon="restore"
+                    title={t(language, 'subs.row.restore')}
+                    sub={t(language, 'subs.row.restoreSub')}
+                    onPress={() =>
+                      void Linking.openURL('https://play.google.com/store/account/subscriptions')
+                    }
+                    divider
+                  />
+                  <Row
+                    icon="external"
+                    title={t(language, 'subs.row.play')}
+                    sub={t(language, 'subs.row.playSub')}
+                    onPress={() =>
+                      void Linking.openURL('https://play.google.com/store/account/subscriptions')
+                    }
+                  />
+                </View>
+              </>
+            )}
+
+            <Text style={styles.footer}>
+              {t(
+                language,
+                model.promoBacked && model.state === 'active'
+                  ? 'subs.foot.promo'
+                  : lifetime
+                    ? 'subs.foot.lifetime'
+                    : 'subs.foot.play',
+              )}
+            </Text>
+          </>
+        )}
+      </ScrollView>
+
+      {/* ── change billing period ── */}
+      <SubscriptionSheet
+        visible={sheet === 'term'}
+        title={t(language, 'subs.term.title')}
+        sub={t(language, 'subs.term.sub')}
+        footer={t(language, 'subs.term.foot')}
+        onClose={() => setSheet(null)}
+      >
+        <View style={styles.sheetList}>
+          {SUBSCRIPTION_TERM_ORDER.map((key) => {
+            const option = SUBSCRIPTION_TERMS[key];
+            const picked = termDraft === key;
+            const current = mockTerm === key;
+            return (
+              <Pressable
+                key={key}
+                accessibilityRole="button"
+                onPress={() => setTermDraft(key)}
+                style={[styles.optionRow, picked && styles.optionRowPicked]}
+              >
+                <View style={styles.optionCopy}>
+                  <View style={styles.optionNameRow}>
+                    <Text style={styles.optionName}>{t(language, option.nameKey)}</Text>
+                    {current ? (
+                      <View style={styles.currentBadge}>
+                        <Text style={styles.currentBadgeText}>{t(language, 'subs.term.current')}</Text>
+                      </View>
+                    ) : null}
+                    {option.badgeKey && !current ? (
+                      <View style={styles.saveBadge}>
+                        <Text style={styles.saveBadgeText}>{t(language, option.badgeKey)}</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <Text style={styles.optionPrice}>
+                    {t(language, option.priceKey)}{' '}
+                    <Text style={styles.optionPer}>{t(language, option.perKey)}</Text>
+                  </Text>
+                </View>
+                {picked ? (
+                  <View style={styles.checkCircle}>
+                    <Glyph name="check" color={theme.onHighlight} size={15} />
+                  </View>
+                ) : (
+                  <View style={styles.emptyCircle} />
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={styles.sheetNote}>
+          {t(
+            language,
+            termDraft === mockTerm ? 'subs.term.same' : SUBSCRIPTION_TERMS[termDraft].noteKey,
+          )}
+        </Text>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            if (termDraft !== mockTerm) {
+              onChangeMockTerm(termDraft);
+            }
+            setSheet(null);
+          }}
+          style={({ pressed }) => [
+            styles.sheetCta,
+            termDraft === mockTerm && styles.sheetCtaQuiet,
+            pressed && { opacity: 0.85 },
+          ]}
+        >
+          <Text
+            style={[styles.sheetCtaText, termDraft === mockTerm && styles.sheetCtaTextQuiet]}
+          >
+            {t(
+              language,
+              termDraft === mockTerm ? 'subs.term.close' : SUBSCRIPTION_TERMS[termDraft].ctaKey,
+            )}
+          </Text>
+        </Pressable>
+      </SubscriptionSheet>
+
+      {/* ── payment method ── */}
+      <SubscriptionSheet
+        visible={sheet === 'pay'}
+        title={t(language, 'subs.pay.title')}
+        sub={t(language, 'subs.pay.sub')}
+        footer={t(language, 'subs.pay.foot')}
+        onClose={() => setSheet(null)}
+      >
+        <View style={styles.sheetList}>
+          {MOCK_BILLING.methods.map((method) => {
+            const picked = payMethod === method.id;
+            return (
+              <Pressable
+                key={method.id}
+                accessibilityRole="button"
+                onPress={() => setPayMethod(method.id)}
+                style={[styles.optionRow, picked && styles.optionRowPicked]}
+              >
+                <View style={styles.methodTile}>
+                  <Glyph name={method.icon} color={theme.purple} />
+                </View>
+                <View style={styles.optionCopy}>
+                  <Text style={styles.optionName}>{t(language, method.titleKey)}</Text>
+                  <Text style={styles.optionPrice}>{t(language, method.subKey)}</Text>
+                </View>
+                {picked ? (
+                  <View style={styles.checkCircle}>
+                    <Glyph name="check" color={theme.onHighlight} size={15} />
+                  </View>
+                ) : (
+                  <View style={styles.emptyCircle} />
+                )}
+              </Pressable>
+            );
+          })}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              void Linking.openURL('https://play.google.com/store/paymentmethods')
+            }
+            style={({ pressed }) => [styles.addMethodRow, pressed && { opacity: 0.75 }]}
+          >
+            <View style={styles.methodTileQuiet}>
+              <Glyph name="card" color={theme.faint} />
+            </View>
+            <Text style={styles.addMethodText}>{t(language, 'subs.pay.add')}</Text>
+            <Glyph name="external" color={theme.faint} size={16} />
+          </Pressable>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setSheet(null)}
+          style={({ pressed }) => [styles.sheetCta, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.sheetCtaText}>{t(language, 'subs.pay.save')}</Text>
+        </Pressable>
+      </SubscriptionSheet>
+
+      {/* ── past payments ── */}
+      <SubscriptionSheet
+        visible={sheet === 'receipts'}
+        title={t(language, 'subs.receipts.title')}
+        sub={t(language, 'subs.receipts.sub')}
+        onClose={() => setSheet(null)}
+      >
+        <View style={styles.receiptCard}>
+          {(MOCK_BILLING.receipts[mockTerm] ?? []).map((receipt, index) => (
+            <View
+              key={receipt.paidAt}
+              style={[styles.receiptRow, index > 0 && styles.receiptRowDivider]}
+            >
+              <View style={styles.methodTile}>
+                <Glyph name="receipt" color={theme.purple} size={17} />
+              </View>
+              <View style={styles.optionCopy}>
+                <Text style={styles.receiptDate}>{date(receipt.paidAt)}</Text>
+                <Text style={styles.optionPrice}>
+                  {t(language, 'subs.receipts.line', {
+                    term: t(language, SUBSCRIPTION_TERMS[receipt.termKey].labelKey),
                   })}
                 </Text>
               </View>
-              <View style={styles.metaRow}>
-                <Text style={styles.metaKey}>{t(language, 'subs.autoRenew')}</Text>
-                <Text style={[styles.metaValue, { color: RED }]}>{t(language, 'subs.off')}</Text>
-              </View>
-              {endingSoon ? (
-                <View style={styles.warnBanner}>
-                  <Svg width={16} height={16} viewBox="0 0 24 24" fill="none">
-                    <Path
-                      d="M12 4L2 20h20L12 4zM12 10v5M12 17.5v.5"
-                      stroke={RED}
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </Svg>
-                  <Text style={styles.warnText}>{t(language, 'subs.endsSoon')}</Text>
-                </View>
-              ) : null}
-            </>
-          ) : (
-            <>
-              <View style={styles.divider} />
-              <Text style={styles.freeNote}>{t(language, 'subs.freeNote')}</Text>
-            </>
-          )}
-        </CutSurface>
-
-        {/* Prices, not a plan switcher. There is no subscription to switch, so
-            a CURRENT badge and a SWITCH pill were describing an account that
-            does not exist. Selecting a row is a preview of what it would cost,
-            and the caption says so. */}
-        <View style={styles.section}>
-          <SectionLabel label={t(language, 'subs.pricing')} />
-          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setPlan('yearly')}
-              style={[styles.planRow, plan === 'yearly' && styles.planRowCurrent]}
-            >
-              <View style={styles.planCopy}>
-                <View style={styles.planNameRow}>
-                  <Text style={styles.planName}>{t(language, 'subs.yearly')}</Text>
-                  {plan === 'yearly' ? (
-                    <CutSurface size="chip" fill={theme.purpleLight} style={styles.currentBadge}>
-                      <Text style={styles.currentBadgeText}>{t(language, 'subs.bestValue')}</Text>
-                    </CutSurface>
-                  ) : null}
-                </View>
-                <Text style={styles.planPrice}>{t(language, 'subs.yearlyPrice')}</Text>
-              </View>
-              {plan === 'yearly' ? (
-                <View style={styles.checkCircle}>
-                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                    <Path d="M5 12l5 5L19 7" stroke="#FFFFFF" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
-                </View>
-              ) : (
-                <View style={styles.emptyCircle} />
-              )}
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => setPlan('monthly')}
-              style={[styles.planRow, styles.planRowLast, plan === 'monthly' && styles.planRowCurrent]}
-            >
-              <View style={styles.planCopy}>
-                <View style={styles.planNameRow}>
-                  <Text style={styles.planName}>{t(language, 'subs.monthly')}</Text>
-                </View>
-                <Text style={styles.planPrice}>{t(language, 'subs.monthlyPrice')}</Text>
-              </View>
-              {plan === 'monthly' ? (
-                <View style={styles.checkCircle}>
-                  <Svg width={14} height={14} viewBox="0 0 24 24" fill="none">
-                    <Path d="M5 12l5 5L19 7" stroke="#FFFFFF" strokeWidth={2.8} strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
-                </View>
-              ) : (
-                <View style={styles.emptyCircle} />
-              )}
-            </Pressable>
-          </CutSurface>
-          <Text style={styles.caption}>{t(language, 'subs.changeCaption')}</Text>
+              <Text style={styles.receiptAmount}>{t(language, receipt.priceKey)}</Text>
+            </View>
+          ))}
         </View>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setSheet(null)}
+          style={({ pressed }) => [styles.sheetCtaQuietOnly, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.sheetCtaTextQuiet}>{t(language, 'subs.receipts.close')}</Text>
+        </Pressable>
+      </SubscriptionSheet>
 
-        {/* manage */}
-        <View style={styles.section}>
-          <SectionLabel label={t(language, 'subs.manage')} />
-          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => void Linking.openURL('https://play.google.com/store/account/subscriptions')}
-              style={({ pressed }) => [styles.manageRow, pressed && { opacity: 0.75 }]}
+      {/* ── what Pro includes ──
+          The design left this row without a destination. It gets one from
+          PRO_LIVE_BENEFITS, which is the same list the end-membership page
+          strikes through — so what Pro is said to include and what it is said
+          to take away cannot drift apart. */}
+      <SubscriptionSheet
+        visible={sheet === 'includes'}
+        title={t(language, 'subs.row.whatsIn')}
+        sub={t(language, 'subs.row.whatsInSub')}
+        onClose={() => setSheet(null)}
+      >
+        <View style={styles.receiptCard}>
+          {PRO_LIVE_BENEFITS.map((benefit, index) => (
+            <View
+              key={benefit.titleKey}
+              style={[styles.receiptRow, index > 0 && styles.receiptRowDivider]}
             >
-              <View style={styles.manageTile}>
-                <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M14 4h6v6M20 4l-9 9M18 13v6H5V6h6"
-                    stroke={GREEN}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
+              <View style={styles.checkTile}>
+                <Glyph name="check" color={theme.greenInk} size={14} />
               </View>
-              <View style={styles.manageCopy}>
-                <Text style={styles.manageTitle}>{t(language, 'subs.googlePlay')}</Text>
-                <Text style={styles.manageSub}>{t(language, 'subs.googlePlaySub')}</Text>
-              </View>
-            </Pressable>
-            {/* Replaces an inert Restore row. Restore needs a store account to
-                ask, and there is none — this goes somewhere and says something
-                true either way. */}
-            <Pressable
-              accessibilityRole="button"
-              onPress={onManageMembership}
-              style={({ pressed }) => [styles.manageRow, styles.manageRowLast, pressed && { opacity: 0.75 }]}
-            >
-              <View style={styles.manageTile}>
-                <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-                  <Path
-                    d="M12 3l8 3v6c0 4.5-3.4 7.5-8 9-4.6-1.5-8-4.5-8-9V6z"
-                    stroke={GREEN}
-                    strokeWidth={2}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </Svg>
-              </View>
-              <View style={styles.manageCopy}>
-                <Text style={styles.manageTitle}>{t(language, 'subs.manageMembership')}</Text>
-                <Text style={styles.manageSub}>{t(language, 'subs.manageMembershipSub')}</Text>
-              </View>
-            </Pressable>
-          </CutSurface>
+              <Text style={styles.includeTitle}>{t(language, benefit.titleKey)}</Text>
+            </View>
+          ))}
         </View>
-
-        <Text style={styles.footer}>{t(language, 'subs.footer')}</Text>
-      </ScrollView>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setSheet(null)}
+          style={({ pressed }) => [styles.sheetCtaQuietOnly, pressed && { opacity: 0.85 }]}
+        >
+          <Text style={styles.sheetCtaTextQuiet}>{t(language, 'subs.receipts.close')}</Text>
+        </Pressable>
+      </SubscriptionSheet>
     </View>
   );
 }
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: theme.bg,
-  },
-  header: {
-    height: 56,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: {
-    transform: [{ translateY: 1 }, { scale: 0.985 }],
-  },
-  body: {
-    paddingTop: 4,
-    paddingHorizontal: 18,
-    paddingBottom: layout.bottomTabBarReserve,
-  },
-  card: {
-    ...CARD_SHADOW,
-  },
-  statusCard: {
-    padding: 16,
-    marginTop: 4,
-  },
-  statusTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-  },
-  shieldTile: {
-    width: 44,
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: GREEN_SOFT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  statusCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  statusNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  statusName: {
-    color: theme.ink,
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  trialBadge: {
-    paddingVertical: 3,
-    paddingHorizontal: 9,
-    borderRadius: 999,
-    backgroundColor: GREEN_SOFT,
-  },
-  trialBadgeText: {
-    color: GREEN,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  statusSub: {
-    color: theme.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  statusDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: theme.border,
-    marginVertical: 13,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 5,
-  },
-  metaKey: {
-    color: theme.muted,
-    fontSize: 13.5,
-    fontWeight: '600',
-  },
-  metaValue: {
-    color: theme.ink,
-    fontSize: 13.5,
-    fontWeight: '800',
-  },
-  warnBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-    backgroundColor: RED_SOFT,
-    borderWidth: 1,
-    borderColor: RED_BORDER,
-    borderRadius: 12,
-    padding: 11,
-    marginTop: 10,
-  },
-  warnText: {
-    flex: 1,
-    color: RED,
-    fontSize: 12.5,
-    fontWeight: '700',
-  },
-  freeNote: {
-    color: theme.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 18,
-  },
-  section: {
-    marginTop: 22,
-  },
-  planRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  planRowLast: {
-    borderBottomWidth: 0,
-  },
-  // A literal light lilac here put theme.ink text on a near-white fill under
-  // the dark theme: the selected plan's name went invisible and only its price
-  // showed. Same shape of bug as every other copied hex in this app.
-  // No fill on the chosen row: the first row sits under the cut, and a
-  // filled row shows a square corner through it. The filled circle and the
-  // badge already say which one is chosen.
-  planRowCurrent: {},
-  planCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  planNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  planName: {
-    color: theme.ink,
-    fontSize: 15.5,
-    fontWeight: '800',
-  },
-  currentBadge: {
-    paddingVertical: 3,
-    paddingHorizontal: 9,
-  },
-  currentBadgeText: {
-    color: theme.purpleDark,
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  planPrice: {
-    color: theme.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    marginTop: 3,
-  },
-  checkCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyCircle: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-  },
-  caption: {
-    color: theme.faint,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 9,
-    paddingHorizontal: 2,
-  },
-  manageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 13,
-    padding: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  manageRowLast: {
-    borderBottomWidth: 0,
-  },
-  manageTile: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    backgroundColor: GREEN_SOFT,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manageCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  manageTitle: {
-    color: theme.ink,
-    fontSize: 14.5,
-    fontWeight: '800',
-  },
-  manageSub: {
-    color: theme.muted,
-    fontSize: 12,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  footer: {
-    color: theme.faint,
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 22,
-    paddingHorizontal: 8,
-  },
-});
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.bg,
+    },
+    header: {
+      height: 56,
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 12,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 12,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    body: {
+      paddingTop: 4,
+      paddingHorizontal: 18,
+      paddingBottom: layout.bottomTabBarReserve,
+    },
+    card: {
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 20,
+      ...CARD_SHADOW,
+    },
+    statusCard: {
+      padding: 16,
+      marginTop: 4,
+    },
+    statusTopRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+    },
+    shieldTile: {
+      width: 44,
+      height: 44,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    statusCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    statusName: {
+      color: theme.ink,
+      fontSize: 17.5,
+      fontWeight: '800',
+      letterSpacing: -0.35,
+    },
+    statusSub: {
+      fontSize: 12.5,
+      fontWeight: '700',
+      marginTop: 3,
+    },
+    statusDot: {
+      width: 10,
+      height: 10,
+      borderRadius: 5,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: theme.border,
+      marginTop: 14,
+      marginBottom: 2,
+    },
+    metaRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 12,
+      paddingVertical: 11,
+    },
+    metaRowDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    metaKey: {
+      color: theme.muted,
+      fontSize: 13,
+      fontWeight: '600',
+    },
+    metaValueRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      flexShrink: 1,
+    },
+    metaValue: {
+      color: theme.ink,
+      fontSize: 13,
+      fontWeight: '800',
+      textAlign: 'right',
+    },
+    warnBanner: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 9,
+      backgroundColor: theme.amberSoft,
+      borderWidth: 1,
+      borderColor: theme.amberBorder,
+      borderRadius: 13,
+      paddingVertical: 11,
+      paddingHorizontal: 12,
+      marginTop: 12,
+    },
+    warnText: {
+      flex: 1,
+      color: theme.amberInk,
+      fontSize: 12.5,
+      fontWeight: '700',
+      lineHeight: 18,
+    },
+    freeNote: {
+      color: theme.muted,
+      fontSize: 12.5,
+      fontWeight: '600',
+      lineHeight: 19,
+      marginTop: 12,
+    },
+    notePad: {
+      paddingVertical: 15,
+      paddingHorizontal: 16,
+    },
+    noteTitle: {
+      color: theme.ink,
+      fontSize: 14.5,
+      fontWeight: '800',
+    },
+    noteBody: {
+      color: theme.muted,
+      fontSize: 12.5,
+      fontWeight: '600',
+      lineHeight: 19,
+      marginTop: 5,
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 13,
+      paddingVertical: 14,
+      paddingHorizontal: 15,
+    },
+    rowDivider: {
+      borderBottomWidth: 1,
+      borderBottomColor: theme.border,
+    },
+    rowTile: {
+      width: 36,
+      height: 36,
+      borderRadius: 11,
+      backgroundColor: theme.purpleSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    rowCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    rowTitle: {
+      color: theme.ink,
+      fontSize: 14.5,
+      fontWeight: '800',
+      letterSpacing: -0.15,
+    },
+    rowSub: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: '600',
+      lineHeight: 17,
+      marginTop: 2,
+    },
+    proCard: {
+      backgroundColor: theme.purpleSoft,
+      borderWidth: 1,
+      borderColor: theme.purpleLight,
+      borderRadius: 20,
+      padding: 16,
+    },
+    proTitle: {
+      color: theme.ink,
+      fontSize: 16,
+      fontWeight: '800',
+      letterSpacing: -0.32,
+    },
+    proBody: {
+      color: theme.muted,
+      fontSize: 12.5,
+      fontWeight: '600',
+      lineHeight: 19,
+      marginTop: 6,
+    },
+    proCta: {
+      height: 48,
+      borderRadius: 14,
+      backgroundColor: theme.purple,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 13,
+    },
+    proCtaText: {
+      color: theme.onHighlight,
+      fontSize: 15.5,
+      fontWeight: '800',
+    },
+    footer: {
+      color: theme.faint,
+      fontSize: 11.5,
+      fontWeight: '600',
+      textAlign: 'center',
+      lineHeight: 18,
+      marginTop: 20,
+      paddingHorizontal: 6,
+    },
+    sheetList: {
+      gap: 9,
+      marginTop: 15,
+    },
+    optionRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      backgroundColor: theme.surfaceSoft,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+    },
+    optionRowPicked: {
+      backgroundColor: theme.purpleSoft,
+      borderColor: theme.purple,
+    },
+    optionCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    optionNameRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      flexWrap: 'wrap',
+    },
+    optionName: {
+      color: theme.ink,
+      fontSize: 15,
+      fontWeight: '800',
+    },
+    optionPrice: {
+      color: theme.muted,
+      fontSize: 12.5,
+      fontWeight: '700',
+      marginTop: 4,
+    },
+    optionPer: {
+      color: theme.faint,
+      fontWeight: '600',
+    },
+    currentBadge: {
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 5,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+    },
+    currentBadgeText: {
+      color: theme.faint,
+      fontSize: 9.5,
+      fontWeight: '800',
+      letterSpacing: 0.85,
+    },
+    saveBadge: {
+      backgroundColor: theme.gold,
+      borderRadius: 5,
+      paddingVertical: 2,
+      paddingHorizontal: 6,
+    },
+    saveBadgeText: {
+      color: '#241743',
+      fontSize: 9.5,
+      fontWeight: '800',
+      letterSpacing: 0.85,
+    },
+    checkCircle: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      backgroundColor: theme.purple,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    emptyCircle: {
+      width: 26,
+      height: 26,
+      borderRadius: 13,
+      borderWidth: 1.5,
+      borderColor: theme.border,
+    },
+    methodTile: {
+      width: 36,
+      height: 36,
+      borderRadius: 11,
+      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    methodTileQuiet: {
+      width: 36,
+      height: 36,
+      borderRadius: 11,
+      backgroundColor: theme.surfaceSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    checkTile: {
+      width: 26,
+      height: 26,
+      borderRadius: 8,
+      backgroundColor: theme.greenSoft,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    includeTitle: {
+      flex: 1,
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '700',
+    },
+    addMethodRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
+      borderRadius: 16,
+      borderWidth: 1.5,
+      borderStyle: 'dashed',
+      borderColor: theme.border,
+    },
+    addMethodText: {
+      flex: 1,
+      color: theme.muted,
+      fontSize: 14.5,
+      fontWeight: '800',
+    },
+    sheetNote: {
+      color: theme.muted,
+      fontSize: 12.5,
+      fontWeight: '600',
+      lineHeight: 19,
+      marginTop: 12,
+    },
+    sheetCta: {
+      height: 52,
+      borderRadius: 16,
+      backgroundColor: theme.purple,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 16,
+    },
+    sheetCtaQuiet: {
+      backgroundColor: theme.surfaceSoft,
+      borderWidth: 1,
+      borderColor: theme.border,
+    },
+    sheetCtaQuietOnly: {
+      height: 50,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: theme.border,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginTop: 16,
+    },
+    sheetCtaText: {
+      color: theme.onHighlight,
+      fontSize: 16,
+      fontWeight: '800',
+    },
+    sheetCtaTextQuiet: {
+      color: theme.muted,
+      fontSize: 15.5,
+      fontWeight: '800',
+    },
+    receiptCard: {
+      backgroundColor: theme.surfaceSoft,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 16,
+      overflow: 'hidden',
+      marginTop: 15,
+    },
+    receiptRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingVertical: 13,
+      paddingHorizontal: 14,
+    },
+    receiptRowDivider: {
+      borderTopWidth: 1,
+      borderTopColor: theme.border,
+    },
+    receiptDate: {
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+    receiptAmount: {
+      color: theme.ink,
+      fontSize: 14,
+      fontWeight: '800',
+    },
+  });

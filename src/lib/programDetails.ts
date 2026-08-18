@@ -13,6 +13,7 @@ import { getRecommendationProgrammeSummary } from './recommendationProgramme';
 import { getReadyProgramContent, ReadyProgramContentSection } from './readyProgramContent';
 import { buildSessionGuidance, SessionGuidance } from './sessionGuidance';
 import type { AppLanguage } from '../types/models';
+import { removeTrailingZeros } from './format';
 
 export type ProgramDetailSource = 'ready' | 'custom';
 
@@ -105,7 +106,7 @@ function buildRestLabel(minSeconds: number, maxSeconds: number): string {
   }
   const toMin = (value: number) => {
     const minutes = value / 60;
-    return Number.isInteger(minutes) ? `${minutes}` : `${minutes.toFixed(1).replace('.', ',')}`;
+    return Number.isInteger(minutes) ? `${minutes}` : removeTrailingZeros(Number(minutes.toFixed(1)));
   };
   return lo === hi ? `${toMin(lo)} min` : `${toMin(lo)}–${toMin(hi)} min`;
 }
@@ -162,6 +163,15 @@ export function buildReadyProgramDetail(
    * was not rendered, which is a worse fix than passing the argument.
    */
   language: AppLanguage = 'en',
+  /**
+   * Whether this programme is the one the reader is already running.
+   *
+   * The button said "Ota ohjelma käyttöön" whatever the state, so opening your
+   * own programme offered to adopt it again — and adoption returns early for a
+   * programme already active, leaving a button that reads like a decision and
+   * does nothing but send you Home.
+   */
+  isActivePlan = false,
 ): ProgramDetailViewModel {
   const goal = titleCase(template.goalType);
   const level = titleCase(template.level);
@@ -207,7 +217,7 @@ export function buildReadyProgramDetail(
     progressionSummary: [programmeSummary, template.progressionRules.primary].filter(Boolean).join(' '),
     // Was the hardcoded English "Start first session" — and it never reached a
     // screen, so nothing showed it was untranslated.
-    primaryActionLabel: t(language, 'detail.adopt'),
+    primaryActionLabel: t(language, isActivePlan ? 'detail.startNext' : 'detail.adopt'),
     sessionActionLabel: 'Start session',
     sessions: buildSessionItems(detailSessions, insights?.sessionStatusById, template),
   };

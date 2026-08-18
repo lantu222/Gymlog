@@ -14,6 +14,16 @@ const {
 } = require('../../.test-dist/lib/proInsights.js');
 const { buildLiftHistories } = require('../../.test-dist/lib/trainingHistory.js');
 
+/**
+ * These assert English copy, so they assert English number formatting with it.
+ * removeTrailingZeros reads a module-level decimal mark (lib/format.ts) that
+ * the app sets from preferences and that defaults to Finnish, so a suite that
+ * wants points rather than commas has to say so — otherwise it passes or fails
+ * on whichever suite ran before it.
+ */
+const { setNumberLanguage } = require('../../.test-dist/lib/format.js');
+setNumberLanguage('en');
+
 const DAY = 86400000;
 const NOW = Date.parse('2026-07-28T09:00:00.000Z');
 const at = (daysAgo) => new Date(NOW - daysAgo * DAY).toISOString();

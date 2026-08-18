@@ -45,6 +45,12 @@ interface ProfileScreenProps {
   /** Lifts holding a record — the count the Records tab itself shows. */
   recordCount: number;
   onManagePlan: () => void;
+  /**
+   * Opens the profile editor. The ready-programme path through onboarding
+   * never asks for a name, so this screen is where an unnamed reader is
+   * offered one — see the prompt under the identity name.
+   */
+  onEditProfile: () => void;
 }
 
 function getInitials(name: string | null | undefined) {
@@ -222,6 +228,7 @@ export function ProfileScreen({
   onOpenRecords,
   recordCount,
   onManagePlan,
+  onEditProfile,
 }: ProfileScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -328,11 +335,30 @@ export function ProfileScreen({
             ))}
           </View>
         </View>
-        <AnimatedGreeting
-          text={identityName ?? t(language, 'profile.guestName')}
-          style={styles.identityName}
-          accentColor={theme.purple}
-        />
+        {/* The name is a door, not a label. Onboarding's ready-programme path
+            never asks for one on purpose (the reader had just declined the
+            questionnaire), so an unnamed profile said "Vieras" and offered
+            nothing to do about it. The prompt appears only while the name is
+            missing; once it is set, tapping still opens the editor. */}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            identityName
+              ? t(language, 'profile.editNameA11y', { name: identityName })
+              : t(language, 'profile.addName')
+          }
+          onPress={onEditProfile}
+          style={({ pressed }) => [pressed && styles.pressed]}
+        >
+          <AnimatedGreeting
+            text={identityName ?? t(language, 'profile.guestName')}
+            style={styles.identityName}
+            accentColor={theme.purple}
+          />
+          {identityName ? null : (
+            <Text style={styles.identityPrompt}>{t(language, 'profile.addName')} →</Text>
+          )}
+        </Pressable>
 
         {/* INVITE */}
         <Pressable
@@ -560,6 +586,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.5,
     marginTop: 14,
+  },
+  identityPrompt: {
+    color: theme.highlight,
+    fontSize: 14,
+    fontWeight: '800',
+    marginTop: 4,
   },
   inviteButton: {
     height: 48,

@@ -130,6 +130,60 @@ module.exports = [
     },
   },
   {
+    name: 'completing the last set of a session starts no rest',
+    run() {
+      // Rest is the gap before the next set. Reported from the phone: the bar
+      // opened on the final tick, counted down to a set that did not exist,
+      // and covered the finish button while it did.
+      const lastSet = createSet({ setIndex: 0, status: 'pending', actualReps: null, completedAt: null });
+      const exercise = createExercise({ sets: [lastSet], status: 'active' });
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [exercise],
+      });
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, nowMs: 1000, activeSession },
+        {
+          type: 'set/complete',
+          payload: { slotId: exercise.slotId, setIndex: 0, nowMs: 1000, unitPreference: 'kg' },
+        },
+      );
+
+      assert.equal(nextState.activeSession.exercises[0].sets[0].status, 'completed');
+      assert.equal(nextState.activeSession.restTimer.status, 'idle');
+    },
+  },
+  {
+    name: 'completing a set with another still pending starts the rest',
+    run() {
+      const exercise = createExercise({
+        sets: [
+          createSet({ setIndex: 0, status: 'pending', actualReps: null, completedAt: null }),
+          createSet({ setIndex: 1, status: 'pending', actualReps: null, completedAt: null }),
+        ],
+        status: 'active',
+      });
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [exercise],
+      });
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, nowMs: 1000, activeSession },
+        {
+          type: 'set/complete',
+          payload: { slotId: exercise.slotId, setIndex: 0, nowMs: 1000, unitPreference: 'kg' },
+        },
+      );
+
+      assert.equal(nextState.activeSession.restTimer.status, 'running');
+      assert.equal(nextState.activeSession.restTimer.durationSeconds, exercise.restSecondsMin);
+    },
+  },
+  {
     name: 'timer override resets a running rest timer to the premium suggestion',
     run() {
       const activeSession = createCompletedSession({

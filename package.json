@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:unit": "node tests/run-tests.cjs",
     "exercise:sync": "node scripts/generate_free_exercise_library.mjs",
+    "slack:notify": "node scripts/slackNotify.cjs",
     "android:release": "node -e \"const cp=require('child_process');const path=require('path');const bin=process.platform==='win32'?path.join(process.cwd(),'android','gradlew.bat'):'./gradlew';const result=cp.spawnSync(bin,['assembleRelease'],{cwd:'android',stdio:'inherit',shell:true,env:{...process.env,CI:'1'}});process.exit(result.status ?? 1)\""
   },
   "dependencies": {

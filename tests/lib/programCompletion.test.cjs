@@ -4,6 +4,7 @@ const {
   isPlanComplete,
   resolveCompletionCard,
   countSessionsSince,
+  countPlanSessionsInRange,
 } = require('../../.test-dist/lib/programCompletion.js');
 const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
 
@@ -113,6 +114,47 @@ module.exports = [
       // An unreadable boundary must not mean "count everything" — a restarted
       // plan born complete is the bug this exists to prevent.
       assert.equal(countSessionsSince(sessions, templateIds, 'garbage'), 0);
+    },
+  },
+  {
+    name: 'the programme week counts only the programme’s own sessions',
+    run() {
+      // Reported from the phone: two freestyle workouts filled "VIIKKO 1 · 2/2"
+      // of a programme neither of them belonged to. A freestyle session is
+      // saved against a template of its own, so template membership is the
+      // whole test — the same one plan progress already uses.
+      const planTemplates = new Set(['tpl_plan']);
+      const weekStart = Date.parse('2026-08-10T00:00:00.000Z');
+      const weekEnd = Date.parse('2026-08-17T00:00:00.000Z');
+      const sessions = [
+        { workoutTemplateId: 'tpl_freestyle_1', performedAt: '2026-08-11T10:00:00.000Z' },
+        { workoutTemplateId: 'tpl_freestyle_2', performedAt: '2026-08-12T10:00:00.000Z' },
+        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-13T10:00:00.000Z' },
+      ];
+
+      assert.equal(countPlanSessionsInRange(sessions, planTemplates, weekStart, weekEnd), 1);
+      // The bar used to read 2 before the plan session existed at all.
+      assert.equal(countPlanSessionsInRange(sessions.slice(0, 2), planTemplates, weekStart, weekEnd), 0);
+    },
+  },
+  {
+    name: 'the week window excludes its own end and the weeks around it',
+    run() {
+      const planTemplates = new Set(['tpl_plan']);
+      const weekStart = Date.parse('2026-08-10T00:00:00.000Z');
+      const weekEnd = Date.parse('2026-08-17T00:00:00.000Z');
+      const sessions = [
+        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-09T23:59:59.000Z' },
+        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-10T00:00:00.000Z' },
+        { workoutTemplateId: 'tpl_plan', performedAt: '2026-08-17T00:00:00.000Z' },
+        { workoutTemplateId: 'tpl_plan', performedAt: 'not-a-date' },
+        { workoutTemplateId: null, performedAt: '2026-08-12T10:00:00.000Z' },
+      ];
+
+      assert.equal(countPlanSessionsInRange(sessions, planTemplates, weekStart, weekEnd), 1);
+      // No plan, no reading — an empty template set cannot mean "count all".
+      assert.equal(countPlanSessionsInRange(sessions, new Set(), weekStart, weekEnd), 0);
+      assert.equal(countPlanSessionsInRange(sessions, planTemplates, Number.NaN, weekEnd), 0);
     },
   },
 ];

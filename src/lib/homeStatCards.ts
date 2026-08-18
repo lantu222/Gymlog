@@ -2,6 +2,7 @@ import { I18nKey, t } from './i18n';
 import { getTopComparableSet } from './profileOverview';
 import { ExerciseProgressSummary } from './progression';
 import { AppLanguage, BodyweightEntry, MeasurementEntry, MeasurementKind } from '../types/models';
+import { removeTrailingZeros } from './format';
 
 /**
  * "Your cards" — user-pinned stat cards at the bottom of Home.
@@ -225,5 +226,5 @@ export function formatHomeStatValue(value: number | null): string {
   if (value === null) {
     return '—';
   }
-  return `${Math.round(value * 10) / 10}`;
+  return removeTrailingZeros(Math.round(value * 10) / 10);
 }

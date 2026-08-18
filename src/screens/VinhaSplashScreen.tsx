@@ -27,6 +27,7 @@ import {
 import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 /**
  * The launch sequence (spec: "Vinha — splash & welcome animation spec").
@@ -142,7 +143,7 @@ export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreen
 
   useEffect(() => {
     let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+    queryReduceMotion().then((enabled) => {
       if (!cancelled) {
         setReduceMotion(enabled);
       }

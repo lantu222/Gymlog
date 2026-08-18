@@ -154,9 +154,23 @@ module.exports = [
         settingsSource,
         /title=\{t\(language, 'settings\.darkTheme'\)\}[\s\S]{0,600}?themeRow\.locked \? \(/,
       );
-      // Interest in Pro goes to the Pro page, never to the management screen
-      // (seen on the phone: the PRO chip landed on "Manage subscription").
+      // The locked row goes to the Pro page, not to subscription management.
+      //
+      // This guard used to pin onOpenSubscription, which is what the row
+      // actually did — while the comment directly above it in SettingsScreen
+      // said "opens the Pro page". The code and its own comment had disagreed
+      // since the row was written, and the guard froze the wrong one of the two.
+      //
+      // The reason the Pro page is right: a free reader tapping a locked Pro
+      // feature is asking how to unlock it, and subscription management is a
+      // screen whose entire subject is a subscription they do not have. It also
+      // showed them a price list, which is the thing the redesign took out.
       assert.match(settingsSource, /onPress=\{themeRow\.locked \? onOpenPremium : undefined\}/);
+      assert.doesNotMatch(
+        settingsSource,
+        /themeRow\.locked \? onOpenSubscription/,
+        'a locked Pro row must not route to subscription management',
+      );
       assert.match(settingsSource, /onPress=\{proUnlocked \? onOpenSubscription : onOpenPremium\}/);
       assert.match(settingsSource, /value=\{themeRow\.value\}/);
       assert.match(settingsSource, /onPreferencesChange\(\{ darkThemeEnabled: next \}\)/);
@@ -165,60 +179,69 @@ module.exports = [
     },
   },
   {
-    name: 'the Pro page table draws the line where the code draws it',
+    name: 'the Pro page sells five reasons, and every one of them is wired',
     run() {
-      const table = premiumSource.match(/const ROWS[\s\S]*?\n\];/);
-      assert.ok(table, 'the free/premium comparison rows should be declared');
+      // v2 sold with a 22-row comparison table and twelve feature cards. v3
+      // deletes both (design: "Vinha Pro v3 — tumma"). The guard does not go
+      // with them — it narrows to the claims that are left, because a shorter
+      // page is only an improvement if the five survivors are all true.
+      const delta = premiumSource.match(/const DELTA: DeltaRow\[\][\s\S]*?\n\];/);
+      assert.ok(delta, 'the "what Pro adds" rows should be declared');
 
-      // Free in BOTH columns. Each of these was checked against the code on
-      // 2026-08-01: none of them has an isProUnlocked gate anywhere.
-      for (const key of ['logging', 'ready', 'own', 'records', 'guided', 'widget', 'csv']) {
+      // Exactly five. A sixth row is a decision, not a tidy-up.
+      assert.equal(
+        (delta[0].match(/titleKey: 'pro\.v3\.delta\./g) ?? []).length,
+        5,
+        'the pitch is five rows — adding one is a product decision, make it deliberately',
+      );
+
+      // Each row is a gate that exists. progression → resolveProgressionOptions,
+      // coach → aiCoachQuota, history → historyWindow, programs → programSlots.
+      for (const key of ['programs', 'progression', 'coach', 'history', 'support']) {
+        assert.match(delta[0], new RegExp(`titleKey: 'pro\\.v3\\.delta\\.${key}\\.t'`));
+      }
+
+      // Every free-tier number is interpolated from the constant that enforces
+      // it. This is the whole reason the table could go: a number typed into
+      // sales copy drifts silently, a number read from the gate cannot.
+      for (const [key, constant] of [
+        ['programs', 'FREE_CUSTOM_PROGRAM_LIMIT'],
+        ['coach', 'FREE_COACH_QUESTIONS_PER_WEEK'],
+        ['history', 'FREE_TREND_MONTHS'],
+      ]) {
         assert.match(
-          table[0],
-          new RegExp(`'pro\\.v2\\.row\\.${key}', free: 'pro\\.v2\\.val\\.[a-zA-Z]+'`),
-          `${key} is free and the table has to say so`,
+          delta[0],
+          new RegExp(`pro\\.v3\\.delta\\.${key}\\.[\\s\\S]{0,220}?${constant}`),
+          `${key} should read its free number from ${constant}`,
         );
       }
 
-      // History is never capped, in either tier — the page's trust row. An
-      // eight-week free limit was in the v2 mock and does not exist in code.
-      assert.match(table[0], /'pro\.v2\.row\.history', free: 'pro\.v2\.val\.allTime', pro: 'pro\.v2\.val\.allTime'/);
+      // Unbuilt things are not sold at all any more. Cloud backup used to wear
+      // a SOON badge here; a paywall that sells a roadmap has to be re-read
+      // every time the roadmap slips, so v3 simply does not mention it.
+      assert.doesNotMatch(premiumSource, /'pro\.v3\.[a-z.]*backup/i);
+      assert.doesNotMatch(premiumSource, /soon: true/);
+
+      // The one claim that could still read as a lie: "all of your history"
+      // next to "free shows 3 months". The log is never capped in either
+      // tier — only the charts and records are — so the body has to say which,
+      // and the trust block has to state the log outright.
+      const historyBody = i18nSource
+        .split('\n')
+        .filter((line) => line.includes("'pro.v3.delta.history.b':"));
+      assert.equal(historyBody.length, 2, 'both languages');
+      assert.match(premiumSource, /'pro\.v3\.trust\.forever'/);
       assert.doesNotMatch(premiumSource, /8 weeks|8 viikkoa/);
 
-      // The paywall-moments rule: the detection is free, the conclusion is Pro.
-      assert.match(table[0], /'pro\.v2\.row\.plateau', free: 'pro\.v2\.val\.yes'/);
-      for (const key of ['why', 'recovery', 'analysis']) {
-        assert.match(table[0], new RegExp(`'pro\\.v2\\.row\\.${key}', free: null`), `${key} is the Pro conclusion`);
-      }
-
-      // Genuinely gated in the app: resolveProgressionOptions and openAiMode.
-      for (const key of ['progression', 'builder', 'theme']) {
-        assert.match(table[0], new RegExp(`'pro\\.v2\\.row\\.${key}', free: null`), `${key} is Pro-gated in code`);
-      }
-      // The free coach quota the table promises is implemented (aiCoachQuota).
-      assert.match(table[0], /'pro\.v2\.row\.coachQ', free: 'pro\.v2\.val\.threeWeek'/);
-
-      // Unbuilt things wear 'Soon' rather than being sold as present.
-      assert.match(table[0], /'pro\.v2\.row\.backup', free: null, pro: 'pro\.v2\.val\.soon'/);
-      // adaptSession stopped wearing it: the progression gate's fatigue holds
-      // are wired to the ACWR model now, so the row is live. The claim was
-      // narrowed with it — "Session & weekly adaptation" promised a weekly
-      // half that still does not exist, so the row names only the half that
-      // ships. A row cannot be half live.
-      assert.match(table[0], /'pro\.v2\.row\.adaptSession', free: null, pro: 'pro\.v2\.val\.yes'/);
-      assert.doesNotMatch(i18nSource, /'pro\.v2\.(row\.adaptSession|coach\.session\.t)': '[^']*weekly/);
-
-      // Claims from the v2 mock that describe things this app does not do.
-      // Checked against the copy itself, not the screen — the screen's comments
-      // name the cut features on purpose.
-      const copy = i18nSource.match(/'pro\.v2\.[\s\S]*?'pro\.v2\.footer': '[^']*'/g)?.join('\n') ?? '';
-      assert.ok(copy.length > 0, 'the pro.v2 copy block should be findable');
+      // Claims from the mocks that describe things this app does not do.
+      const copy = i18nSource.match(/'pro\.v3\.[\s\S]*?'pro\.v3\.fine\.lifetime': '[^']*'/g)?.join('\n') ?? '';
+      assert.ok(copy.length > 0, 'the pro.v3 copy block should be findable');
       assert.ok(
         copy.length < 20000,
-        'the pro.v2 span ran past its own block — a pro.v2.* key was added after pro.v2.footer',
+        'the pro.v3 span ran past its own block — a pro.v3.* key was added after pro.v3.fine.lifetime',
       );
       assert.doesNotMatch(copy, /watch|wrist|kello|ranteest/i, 'there is no watch app');
-      assert.doesNotMatch(copy, /several active|useita aktiivisia/i, 'only one plan can be active');
+      assert.doesNotMatch(copy, /cloud|pilvi/i, 'cloud backup is unbuilt and is not sold here');
     },
   },
   {
@@ -273,11 +296,21 @@ module.exports = [
       for (const shape of [/71[.,]99/, /69[.,]99/, /5[.,]99/, /9[.,]99/]) {
         assert.doesNotMatch(i18n, shape, `${shape} belongs to the retired price set`);
       }
+      // Every key here must be one a reader can actually reach.
+      //
+      // Three have now been dropped for failing that, and all three the same
+      // way: 'unlock.trialBody' was left behind by a retired version of the
+      // unlock screen, and 'subs.yearlyPrice' / 'subs.monthlyPrice' by the
+      // subscription screen's own price list, which the redesign removed
+      // (a price list on a management screen is half a paywall in the wrong
+      // place). Each was pinning a price onto a surface that could not render
+      // it — a guard line that stays green no matter what the live copy says.
+      //
+      // The prices lost nothing: five other keys pin 59,90 and two pin 9,90,
+      // all from screens that exist.
       const priced = {
         'pro.page.billedYearly': /59,90/,
         'coach.lock.fine': /59,90/,
-        'subs.yearlyPrice': /59,90/,
-        'unlock.trialBody': /59,90/,
         'pro.v2.ctaSubYearly': /59,90/,
         'paywall.plan.yearly.price': /59,90/,
         'paywall.cta.footYear': /59,90/,
@@ -286,7 +319,6 @@ module.exports = [
         'paywall.plan.yearly.week': /1,15/,
         'pro.page.perMonthly': /9,90/,
         'paywall.plan.monthly.price': /9,90/,
-        'subs.monthlyPrice': /9,90/,
         'pro.page.perLifetime': /119,00/,
         'pro.v2.ctaSubLifetime': /119,00/,
       };
@@ -315,29 +347,43 @@ module.exports = [
     },
   },
   {
-    name: 'the Pro page knows whether the reader already pays, and renders its one real asset',
+    name: 'the Pro page knows whether the reader already pays',
     run() {
-      // Two failures of the same kind: a value computed and never read.
-      //
-      // proUnlocked reached this screen and nothing looked at it, so an
-      // existing subscriber saw "start your free trial" — and the button ran
-      // onTogglePreview, which flips the switch OFF. The page's only button
-      // was a cancel button wearing a trial label.
+      // proUnlocked once reached this screen and nothing looked at it, so an
+      // existing subscriber saw the same buy button as everyone else — and the
+      // button ran onTogglePreview, which flips the switch OFF. The page's only
+      // button was a cancel button wearing a purchase label.
       assert.match(premiumSource, /\{proUnlocked \? \(/);
       assert.match(premiumSource, /t\(language, 'promo\.proOn'\)/);
+      // A subscriber must not be shown a price to select, either — the plan
+      // tiles live inside the not-yet-Pro branch, not above it.
+      assert.match(premiumSource, /\) : \([\s\S]{0,200}?styles\.planRow/);
       // A redeemed code cannot be turned off by the preview switch, so that
       // case must route to subscription management instead of toggling.
-      assert.match(premiumSource, /promoOnly \? onManageSubscription : onTogglePreview/);
+      assert.match(premiumSource, /promoOnly \? onManageSubscription : \(\) => onTogglePreview\(plan\)/);
       assert.match(appSource, /onManageSubscription=\{\(\) => navigate\(\{ tab: 'profile', screen: 'subscription' \}\)\}/);
 
-      // coachSpecimen is proInsights' real read of this reader's own log. It
-      // was passed in and dropped: the hero charted their numbers and nothing
-      // said what they meant, which is the only thing the page is selling.
-      assert.match(premiumSource, /\{coachSpecimen \? \(/);
-      assert.match(premiumSource, /styles\.specimenText/);
-      // Blurred before you buy, plain after — never the other way round.
-      assert.match(premiumSource, /proUnlocked \? \([\s\S]{0,200}styles\.specimenText/);
-      assert.match(premiumSource, /styles\.specimenScrim/);
+      // v3 moved the personal proof off this page and v4 put it back, in the
+      // form the page is actually selling: the coach answering a question
+      // about the reader's own lift. The rule that outlived both versions is
+      // that the proof is REAL — the hero's script is built from the log, and
+      // a reader with nothing logged gets sample figures wearing a chip that
+      // says so, never sample figures presented as theirs.
+      assert.match(premiumSource, /<ProChatHero script=\{chatScript\}/);
+      assert.match(appSource, /chatScript=\{premiumChatScript\}/);
+      assert.match(appSource, /buildProChatHeroScript\(\s*premiumHeroChart/);
+
+      // And the chart it is built from is computed from real logs, not seeded —
+      // and carries the language, because the lift's name is shown in the
+      // conversation and must read the same as it does in the logger.
+      assert.match(
+        appSource,
+        /buildPremiumHeroChart\(trackedProgress, unitPreference, preferences\.appLanguage\)/,
+      );
+
+      // The blurred-specimen block is gone with v3's hero; nothing on the page
+      // may fake a coach read in its place.
+      assert.doesNotMatch(premiumSource, /coachSpecimen|specimenScrim/);
     },
   },
   {
@@ -390,9 +436,36 @@ module.exports = [
     name: 'the paywall moments blur the real conclusion, never a feature list',
     run() {
       const locked = read('src', 'components', 'ProLockedCard.tsx');
-      // The blur is transparent ink + shadow over caller-provided REAL lines.
-      assert.match(locked, /color: 'transparent'/);
-      assert.match(locked, /textShadowRadius/);
+
+      /**
+       * The blur must be the real one, over a caller-provided REAL conclusion.
+       *
+       * This used to pin `color: 'transparent'` and `textShadowRadius` — the
+       * technique rather than the property. That was the best RN could do when
+       * the card was written, and it was already known to be weak: Android's
+       * text shadow is a mask filter, not a gaussian, so glyph shapes survive
+       * it. Reported from the phone as the recommendation being readable
+       * through the blur, which is the whole product given away by the screen
+       * that is supposed to be selling it.
+       *
+       * Pinning the implementation is what kept it: BlurredPreview had shipped
+       * a true gaussian (react-native-svg's FeGaussianBlur) months earlier, and
+       * this guard would have failed the day anyone switched to it.
+       */
+      assert.match(locked, /<BlurredPreview/);
+      assert.match(locked, /kind: 'text', text: body/);
+      assert.doesNotMatch(
+        locked,
+        /textShadowRadius/,
+        'the text-shadow blur is legible on Android — use BlurredPreview',
+      );
+
+      // And the gaussian it delegates to is still a gaussian.
+      const preview = read('src', 'components', 'BlurredPreview.tsx');
+      assert.match(preview, /FeGaussianBlur/);
+      // The scrim is the safety net: if a device ever no-ops the filter, the
+      // result has to be an unreadable block rather than the conclusion.
+      assert.match(preview, /styles\.scrim/);
 
       // Home: the detection card carries the plateau conclusion from
       // proInsights — the same sentence Pro reads unblurred in place. It is
@@ -481,8 +554,12 @@ module.exports = [
       // settle instantly under reduced motion — the animation is never the
       // thing hiding the content.
       assert.doesNotMatch(unlockSource, /MOMENT_MS|setShowMoment/);
-      assert.match(unlockSource, /Animated\.stagger\(ROW_STAGGER_MS/);
-      assert.match(unlockSource, /isReduceMotionEnabled/);
+      // Whitespace-tolerant: the point is that the stagger reads the named
+      // constant, not how prettier wrapped the call.
+      assert.match(unlockSource, /Animated\.stagger\(\s*ROW_STAGGER_MS/);
+      // Asked through queryReduceMotion now, which cannot leave the screen
+      // waiting on an answer that never comes (utils/reduceMotion.ts).
+      assert.match(unlockSource, /queryReduceMotion()/);
 
       // One CTA, not two labels for the same navigation.
       assert.match(unlockSource, /onPress=\{onDone\}/);
@@ -492,8 +569,18 @@ module.exports = [
       assert.match(unlockSource, /coachSpecimen \? \(/);
 
       // Old lies stay dead: no history-restoration claims in the copy.
-      const block = i18nSource.match(/'unlock\.[\s\S]*?'unlock\.noBadge': '[^']*'/g);
-      const copy = block ? block.join('\n') : '';
+      //
+      // Every unlock.* line, rather than a span anchored on whichever key
+      // happens to sit last. That anchor has now moved twice — unlock.noBadge
+      // was retired with the promise it made (the Home header carries a PRO
+      // pill again, user decision), and unlock.trialBody went with the four
+      // other keys left behind by two earlier versions of this screen. Each
+      // move broke this guard for a reason that had nothing to do with what it
+      // guards, so it no longer depends on the order of the block.
+      const copy = i18nSource
+        .split(String.fromCharCode(10))
+        .filter((line) => /^\s*'unlock\.[^']*':/.test(line))
+        .join(String.fromCharCode(10));
       assert.ok(copy.length > 0, 'the unlock copy block should be findable');
       assert.doesNotMatch(copy, /logs are back|lokit ovat takaisin|months of logs/i);
       assert.doesNotMatch(copy, /8 weeks|8 viikkoa/);

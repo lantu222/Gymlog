@@ -11,7 +11,27 @@ npm run typecheck       # TypeScript type check (no emit)
 npm run test:unit       # Run all unit tests (requires .test-dist to be up to date)
 npm run android:release # Build signed Android APK via Gradle
 npm run exercise:sync   # Regenerate src/data/generatedExerciseLibrary.ts
+npm run slack:notify    # Post a note to a Slack channel (see docs/slack-workflow.md)
 ```
+
+### Slack notes
+
+Findings that are real but out of scope go to Slack rather than into the change
+in front of you. `#bugs` for defects, `#marketing` for store copy and competitor
+notes, `#releases` for what shipped — setup in
+[docs/slack-workflow.md](docs/slack-workflow.md).
+
+The user logs bugs from their phone into `#bugs`. Read the channel through the
+Slack connector when asked, and work from it — that direction needs no webhook.
+
+```powershell
+npm run slack:notify -- --channel bugs --text "Plan tiles clip at 320dp"
+```
+
+Two rules. Do not post on the user's behalf unless they asked — a webhook writes
+to a real channel other people read, so surface the note and let them send it.
+And never commit a webhook URL: they live in `SLACK_WEBHOOK_*` environment
+variables, and anyone holding one can post to that channel.
 
 ### Running tests
 

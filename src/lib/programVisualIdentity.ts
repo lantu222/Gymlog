@@ -10,6 +10,8 @@
  * that shows it, forever.
  */
 
+import { programFamilyIdentityOrNull } from './programFamilyIdentity';
+
 export interface ProgramCoverStyle {
   /** Browse-card cover gradient (light, lively). */
   cover: [string, string];
@@ -72,7 +74,24 @@ export function programCoverIndex(templateId: string): number {
   return Math.abs(hash) % PROGRAM_COVER_STYLES.length;
 }
 
-export function programCoverStyle(templateId: string): ProgramCoverStyle {
+/**
+ * The programme's colour and motif.
+ *
+ * Pass the NAME whenever you have it. The hash above is the fallback, and it
+ * was the whole system until 2026-08-13: it scattered every family across five
+ * colours (three STRONG programmes, three different violets) and handed motifs
+ * to strangers — the barbell rode HUGE's blue, the layers rode STRONG's violet.
+ * `programFamilyIdentity` fixes the assignment without changing the palette:
+ * its cover and tile ramps reproduce these five pairs exactly.
+ *
+ * The hash stays for names with no family — a user's own "Maanantain treeni"
+ * gets a stable colour rather than being forced into STRONG.
+ */
+export function programCoverStyle(templateId: string, name?: string | null): ProgramCoverStyle {
+  const family = programFamilyIdentityOrNull(name);
+  if (family) {
+    return { cover: family.cover, tile: family.tile, hero: family.hero, motif: family.motif };
+  }
   return PROGRAM_COVER_STYLES[programCoverIndex(templateId)];
 }
 

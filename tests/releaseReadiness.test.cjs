@@ -133,6 +133,57 @@ module.exports = [
     },
   },
   {
+    name: 'release: the invented card and receipts do not reach a real store',
+    run() {
+      /**
+       * The subscription screen shows a payment method, a next-charge date and
+       * a receipt history. None of it exists — see MOCK_BILLING in
+       * lib/subscriptionView. It is there because a management screen has to be
+       * walkable before there is a store to walk it against (user decision
+       * 2026-08-16, after the risk was put in front of them).
+       *
+       * That is fine in a demo build and indefensible in a real one: unlike
+       * most placeholder copy, a reader can *check* this. They open Google Play,
+       * find no subscription and no Visa ending 4242, and every other number in
+       * the app becomes suspect.
+       *
+       * Two ways to satisfy this guard, and only two: keep declaring
+       * extra.demoBuild, or wire real billing. Deleting MOCK_BILLING satisfies
+       * it as well, which is the third and best answer if the screen turns out
+       * not to be worth it.
+       */
+      const view = read('src/lib/subscriptionView.ts');
+      if (!/export const MOCK_BILLING/.test(view)) {
+        return;
+      }
+
+      const billingMarkers = ['react-native-iap', 'expo-in-app-purchases', 'revenuecat', 'purchases'];
+      const pkg = read('package.json').toLowerCase();
+      const billingExists = billingMarkers.some((marker) => pkg.includes(marker));
+      const demoBuild = readJson('app.json')?.expo?.extra?.demoBuild === true;
+
+      assert.ok(
+        billingExists || demoBuild,
+        'MOCK_BILLING still ships an invented payment method and receipt history, no ' +
+          'billing library is installed, and app.json no longer declares extra.demoBuild. ' +
+          'Wire billing or delete MOCK_BILLING — a reader can check this one against Google Play.',
+      );
+
+      // The gate is what makes the demo flag mean anything: without it the rows
+      // would render regardless of the flag and this guard would be decoration.
+      assert.match(
+        view,
+        /export function showsMockBilling/,
+        'showsMockBilling is the gate that ties the invented rows to the demo flag',
+      );
+      assert.match(
+        read('src/screens/SubscriptionScreen.tsx'),
+        /showsMockBilling\(model, demoBuild\)/,
+        'SubscriptionScreen must gate its billing rows on showsMockBilling',
+      );
+    },
+  },
+  {
     name: 'release: the 7-day trial is back on before the app ships',
     run() {
       // The trial was switched off on purpose (2026-08-06) so the free tier

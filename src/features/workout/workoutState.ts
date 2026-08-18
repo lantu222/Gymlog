@@ -787,14 +787,20 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         session.ui.activeSlotId = exercise.slotId;
         session.ui.activeSetIndex = action.payload.setIndex;
       }
-      session.restTimer = {
-        status: 'running',
-        exerciseSlotId: exercise.slotId,
-        setIndex: action.payload.setIndex,
-        startedAtMs: action.payload.nowMs,
-        endsAtMs: action.payload.nowMs + exercise.restSecondsMin * 1000,
-        durationSeconds: exercise.restSecondsMin,
-      };
+      // Rest is the gap before the next set. `nextTarget` is null only when
+      // nothing anywhere in the session is still pending, and starting a timer
+      // there counts down to a set that does not exist — while the floating bar
+      // sits over the finish button.
+      session.restTimer = nextTarget
+        ? {
+            status: 'running',
+            exerciseSlotId: exercise.slotId,
+            setIndex: action.payload.setIndex,
+            startedAtMs: action.payload.nowMs,
+            endsAtMs: action.payload.nowMs + exercise.restSecondsMin * 1000,
+            durationSeconds: exercise.restSecondsMin,
+          }
+        : createInitialTimer();
       session.ui.focusedField = null;
       session.updatedAt = new Date(action.payload.nowMs).toISOString();
 
@@ -869,14 +875,17 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         session.ui.activeSlotId = exercise.slotId;
         session.ui.activeSetIndex = action.payload.setIndex;
       }
-      session.restTimer = {
-        status: 'running',
-        exerciseSlotId: exercise.slotId,
-        setIndex: action.payload.setIndex,
-        startedAtMs: action.payload.nowMs,
-        endsAtMs: action.payload.nowMs + exercise.restSecondsMin * 1000,
-        durationSeconds: exercise.restSecondsMin,
-      };
+      // Same rule as set/logSet: no next set, no rest.
+      session.restTimer = nextTarget
+        ? {
+            status: 'running',
+            exerciseSlotId: exercise.slotId,
+            setIndex: action.payload.setIndex,
+            startedAtMs: action.payload.nowMs,
+            endsAtMs: action.payload.nowMs + exercise.restSecondsMin * 1000,
+            durationSeconds: exercise.restSecondsMin,
+          }
+        : createInitialTimer();
       session.ui.focusedField = null;
       session.updatedAt = new Date(action.payload.nowMs).toISOString();
 
