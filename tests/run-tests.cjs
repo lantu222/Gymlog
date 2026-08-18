@@ -120,6 +120,7 @@ const suites = [
   ...require('./lib/programCsvExport.test.cjs'),
   ...require('./lib/setupHandoff.test.cjs'),
   ...require('./lib/quickLayoutExercises.test.cjs'),
+  ...require('./lib/exerciseSearch.test.cjs'),
   ...require('./lib/widgetPayload.test.cjs'),
   ...require('./lib/widgetResources.test.cjs'),
   ...require('./lib/theming.test.cjs'),

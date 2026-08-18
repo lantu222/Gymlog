@@ -48,7 +48,7 @@ function publisher(): string {
 }
 
 /** Bumped whenever the wording changes in a way a user should re-read. */
-export const LEGAL_LAST_UPDATED = '2026-07-29';
+export const LEGAL_LAST_UPDATED = '2026-08-18';
 
 export type LegalDocumentId = 'privacy' | 'terms';
 
@@ -74,7 +74,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'The short version',
     body: [
       'Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.',
-      'If you uninstall the app, that data is gone. There is no copy of it anywhere else.',
+      'If you uninstall the app, that data is gone from the phone. The only copy that can exist elsewhere is the one your own Google account keeps in Android backup, if you have that turned on — we hold none.',
     ],
   },
   {
@@ -170,7 +170,7 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Lyhyesti',
     body: [
       'Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.',
-      'Jos poistat sovelluksen, tiedot katoavat. Niistä ei ole kopiota missään muualla.',
+      'Jos poistat sovelluksen, tiedot katoavat puhelimesta. Ainoa kopio, joka voi olla muualla, on oman Google-tilisi Android-varmuuskopio, jos se on käytössä — meillä ei ole mitään.',
     ],
   },
   {

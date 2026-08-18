@@ -3,6 +3,7 @@ import { exerciseNameLabel } from './exerciseNameLabel';
 import { formatShortDate } from './format';
 import { t } from './i18n';
 import { WeeklyReadRow } from './proInsights';
+import { localizeSessionName } from './sessionNameLabel';
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
@@ -81,7 +82,10 @@ export function buildCoachContextReadout(
     rows.push({
       key: 'lastSession',
       label: t(language, 'coachChat.readout.lastSession'),
-      value: [session.title, detail].filter(Boolean).join(' · '),
+      // The session's stored name is the catalog's English ("Day 2: Deadlift &
+      // Press"); the lift row below already translated its lift, and this row
+      // read English beside it. Same treatment History gives the same name.
+      value: [localizeSessionName(session.title, language), detail].filter(Boolean).join(' · '),
     });
   }
 

@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 
 const {
   buildCoachContextChips,
+  buildCoachContextReadout,
   buildCoachOpeningLine,
   buildCoachNoticed,
 } = require('../../.test-dist/lib/coachChat.js');
@@ -104,6 +105,43 @@ module.exports = [
     name: 'coachChat: nothing logged means nothing claimed',
     run() {
       assert.deepEqual(buildCoachNoticed([], 'en'), []);
+    },
+  },
+  {
+    name: 'coachChat: the last-session row names the session in the reader\'s language',
+    run() {
+      // Seen on a phone: "Rintavoima · Amateur - Day 2: Deadlift & Press"
+      // under a Finnish "Viime treeni" label, beside a lift row that had
+      // already translated its lift. The stored name is the catalog's English;
+      // the row now runs it through the same localiser History uses.
+      const context = {
+        unitPreference: 'kg',
+        activeSession: null,
+        recentCompletedSessions: [
+          {
+            sessionId: 's1',
+            title: 'Rintavoima · Amateur - Day 2: Deadlift & Press',
+            performedAt: '2026-08-18T09:00:00.000Z',
+            durationMinutes: 20,
+            setsCompleted: 1,
+            swappedExercises: 0,
+            noteCount: 0,
+          },
+        ],
+        trackedLifts: [],
+        latestTopSets: [],
+        sessionsThisWeek: 1,
+        sessionsLast30Days: 0,
+        rhythm: [],
+        readyProgramCount: 0,
+      };
+      const rows = buildCoachContextReadout(context, 'fi');
+      const last = rows.find((row) => row.key === 'lastSession');
+      assert.ok(last);
+      assert.match(last.value, /Päivä 2: Maastaveto & Pystypunnerrus/);
+      assert.doesNotMatch(last.value, /Deadlift/);
+      // English stays English.
+      assert.match(buildCoachContextReadout(context, 'en')[0].value, /Day 2: Deadlift & Press/);
     },
   },
 ];

@@ -1,6 +1,6 @@
 # Tietosuojaseloste
 
-*Päivitetty 29.7.2026*
+*Päivitetty 18.8.2026*
 
 Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
 
@@ -8,7 +8,7 @@ Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
 
 Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.
 
-Jos poistat sovelluksen, tiedot katoavat. Niistä ei ole kopiota missään muualla.
+Jos poistat sovelluksen, tiedot katoavat puhelimesta. Ainoa kopio, joka voi olla muualla, on oman Google-tilisi Android-varmuuskopio, jos se on käytössä — meillä ei ole mitään.
 
 ## Kuka vastaa
 

@@ -17,6 +17,7 @@ import {
   getSuggestedExerciseLibraryItems,
 } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
 import {
   AppLanguage,
@@ -106,13 +107,6 @@ function toLabel(value: string, language: AppLanguage) {
     .split(' ')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
-}
-
-function buildSearchHaystack(item: ExerciseLibraryItem, language: AppLanguage) {
-  // Both spellings, so a Finnish search term and an English one both land.
-  return [item.name, exerciseNameLabel(language, item.name), item.category, item.bodyPart, item.equipment]
-    .join(' ')
-    .toLowerCase();
 }
 
 interface FilterPillGroupProps<T extends string> {
@@ -245,7 +239,7 @@ export function AddExerciseSheet({
     const query = search.trim().toLowerCase();
 
     return items.filter((item) => {
-      if (query && !buildSearchHaystack(item, language).includes(query)) {
+      if (query && !exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query)) {
         return false;
       }
       if (category !== 'all' && item.category !== category) {
