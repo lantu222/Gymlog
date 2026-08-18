@@ -5,6 +5,7 @@ import Svg, { Path } from 'react-native-svg';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
+import { CutSurface } from '../components/CutSurface';
 import { t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
@@ -55,18 +56,20 @@ export function SubscriptionScreen({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
+          style={({ pressed }) => [pressed && styles.pressed]}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
+          <CutSurface size="sm" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.backButton}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </CutSurface>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'subs.title')} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
         {/* status */}
-        <View style={[styles.card, styles.statusCard]}>
+        <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.statusCard]}>
           <View style={styles.statusTopRow}>
             <View style={styles.shieldTile}>
               <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
@@ -136,7 +139,7 @@ export function SubscriptionScreen({
               <Text style={styles.freeNote}>{t(language, 'subs.freeNote')}</Text>
             </>
           )}
-        </View>
+        </CutSurface>
 
         {/* Prices, not a plan switcher. There is no subscription to switch, so
             a CURRENT badge and a SWITCH pill were describing an account that
@@ -144,7 +147,7 @@ export function SubscriptionScreen({
             and the caption says so. */}
         <View style={styles.section}>
           <SectionLabel label={t(language, 'subs.pricing')} />
-          <View style={styles.card}>
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
             <Pressable
               accessibilityRole="button"
               onPress={() => setPlan('yearly')}
@@ -154,9 +157,9 @@ export function SubscriptionScreen({
                 <View style={styles.planNameRow}>
                   <Text style={styles.planName}>{t(language, 'subs.yearly')}</Text>
                   {plan === 'yearly' ? (
-                    <View style={styles.currentBadge}>
+                    <CutSurface size="chip" fill={theme.purpleLight} style={styles.currentBadge}>
                       <Text style={styles.currentBadgeText}>{t(language, 'subs.bestValue')}</Text>
-                    </View>
+                    </CutSurface>
                   ) : null}
                 </View>
                 <Text style={styles.planPrice}>{t(language, 'subs.yearlyPrice')}</Text>
@@ -192,14 +195,14 @@ export function SubscriptionScreen({
                 <View style={styles.emptyCircle} />
               )}
             </Pressable>
-          </View>
+          </CutSurface>
           <Text style={styles.caption}>{t(language, 'subs.changeCaption')}</Text>
         </View>
 
         {/* manage */}
         <View style={styles.section}>
           <SectionLabel label={t(language, 'subs.manage')} />
-          <View style={styles.card}>
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
             <Pressable
               accessibilityRole="button"
               onPress={() => void Linking.openURL('https://play.google.com/store/account/subscriptions')}
@@ -245,7 +248,7 @@ export function SubscriptionScreen({
                 <Text style={styles.manageSub}>{t(language, 'subs.manageMembershipSub')}</Text>
               </View>
             </Pressable>
-          </View>
+          </CutSurface>
         </View>
 
         <Text style={styles.footer}>{t(language, 'subs.footer')}</Text>
@@ -268,12 +271,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    transform: [{ translateY: 1 }, { scale: 0.985 }],
   },
   body: {
     paddingTop: 4,
@@ -281,10 +283,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: layout.bottomTabBarReserve,
   },
   card: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
     ...CARD_SHADOW,
   },
   statusCard: {
@@ -401,9 +399,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   // A literal light lilac here put theme.ink text on a near-white fill under
   // the dark theme: the selected plan's name went invisible and only its price
   // showed. Same shape of bug as every other copied hex in this app.
-  planRowCurrent: {
-    backgroundColor: theme.purpleLight,
-  },
+  // No fill on the chosen row: the first row sits under the cut, and a
+  // filled row shows a square corner through it. The filled circle and the
+  // badge already say which one is chosen.
+  planRowCurrent: {},
   planCopy: {
     flex: 1,
     minWidth: 0,
@@ -421,8 +420,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   currentBadge: {
     paddingVertical: 3,
     paddingHorizontal: 9,
-    borderRadius: 999,
-    backgroundColor: theme.purpleLight,
   },
   currentBadgeText: {
     color: theme.purpleDark,

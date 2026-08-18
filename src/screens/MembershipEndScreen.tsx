@@ -6,6 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
+import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
 import { t } from '../lib/i18n';
 import { MembershipSource, PRO_LIVE_BENEFITS, resolveMembershipEndPlan } from '../lib/proBenefits';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -60,11 +62,13 @@ export function MembershipEndScreen({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
+          style={({ pressed }) => [pressed && styles.pressed]}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
+          <CutSurface size="sm" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.backButton}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </CutSurface>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'membership.end.header')} />
       </View>
@@ -84,7 +88,7 @@ export function MembershipEndScreen({
             you have to scroll to see is not a loss you feel. Every title
             stands on its own — Smart rest timing, Dark theme — so the body
             copy was explaining what the label already said. */}
-        <View style={styles.list}>
+        <CutSurface size="lg" fill={theme.surfaceSoft} style={styles.list}>
           {PRO_LIVE_BENEFITS.map((benefit, index) => (
             <View
               key={benefit.titleKey}
@@ -100,7 +104,7 @@ export function MembershipEndScreen({
               </Text>
             </View>
           ))}
-        </View>
+        </CutSurface>
 
         {/* The one thing that does NOT stop. It carries the reassurance now
             that the lead is a single sentence. */}
@@ -119,22 +123,19 @@ export function MembershipEndScreen({
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onKeep}
-          style={({ pressed }) => [styles.keepButton, pressed && { opacity: 0.85 }]}
-        >
-          <Text style={styles.keepButtonText}>{t(language, 'membership.end.keepCta')}</Text>
-        </Pressable>
+        <CutButton size="lg" label={t(language, 'membership.end.keepCta')} onPress={onKeep} stretch />
 
         {plan.canEndNow ? (
-          <Pressable
-            accessibilityRole="button"
+          // The destructive one is the set's warn variant, not a red of its own:
+          // amber on cream is how every "are you sure" already reads here.
+          <CutButton
+            size="md"
+            variant="warn"
+            label={t(language, 'membership.end.endCta')}
             onPress={onEndNow}
-            style={({ pressed }) => [styles.endButton, pressed && { opacity: 0.85 }]}
-          >
-            <Text style={styles.endButtonText}>{t(language, 'membership.end.endCta')}</Text>
-          </Pressable>
+            stretch
+            style={styles.endButton}
+          />
         ) : (
           // No button, because there is no action. A greyed-out "Cancel" here
           // would read as something the app is refusing to let you do.
@@ -166,12 +167,11 @@ const makeStyles = (theme: Theme) =>
     backButton: {
       width: 40,
       height: 40,
-      borderRadius: 12,
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border,
       alignItems: 'center',
       justifyContent: 'center',
+    },
+    pressed: {
+      transform: [{ translateY: 1 }, { scale: 0.985 }],
     },
     // Sized to land the whole list above the footer on a normal phone. The
     // ScrollView stays as a safety net for a large accessibility font, but on
@@ -199,8 +199,6 @@ const makeStyles = (theme: Theme) =>
     // between cards were costing more height than the rows themselves, and a
     // single block reads as one list instead of nine separate warnings.
     list: {
-      backgroundColor: theme.surfaceSoft,
-      borderRadius: 15,
       overflow: 'hidden',
     },
     row: {
@@ -257,30 +255,8 @@ const makeStyles = (theme: Theme) =>
     // violet = the brand. Purple resolves it in the light theme, orange in the
     // dark one, and onHighlight follows so the label stays legible on both —
     // a fixed #FFFFFF here would be white on orange.
-    keepButton: {
-      height: 50,
-      borderRadius: 15,
-      backgroundColor: theme.highlight,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    keepButtonText: {
-      color: theme.onHighlight,
-      fontSize: 15.5,
-      fontWeight: '800',
-    },
     endButton: {
-      height: 46,
-      borderRadius: 15,
-      backgroundColor: RED_SOFT,
-      alignItems: 'center',
-      justifyContent: 'center',
       marginTop: 8,
-    },
-    endButtonText: {
-      color: RED,
-      fontSize: 15,
-      fontWeight: '800',
     },
     noActionNote: {
       color: theme.faint,

@@ -1,9 +1,11 @@
 import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { CutButton } from './CutButton';
+import { CutSurface } from './CutSurface';
 import { t } from '../lib/i18n';
 import { ProgramSlots } from '../lib/programSlots';
-import { Theme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -18,6 +20,10 @@ import { AppLanguage } from '../types/models';
  * being the kind that holds your log hostage: every ready program stays open,
  * every logged set stays yours, and what is capped is how many of your own you
  * keep at once.
+ *
+ * A3: the card is the cut surface, the count is the cut chip, the CTA is the
+ * cut button — the same three shapes Home is built from, so the paywall
+ * moment reads as part of the app and not as a dialog dropped on top of it.
  */
 export function ProgramLimitSheet({
   visible,
@@ -33,32 +39,31 @@ export function ProgramLimitSheet({
   onSeePro: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.scrim} onPress={onClose}>
         {/* Stops a tap inside the card from closing it. */}
-        <Pressable style={styles.card} onPress={() => {}}>
-          <Text style={styles.title}>{t(language, 'programLimit.title')}</Text>
-          <Text style={styles.body}>{t(language, 'programLimit.body')}</Text>
-          <View style={styles.countPill}>
-            <Text style={styles.countText}>
-              {t(language, 'programLimit.count', {
-                used: slots.used,
-                limit: slots.limit ?? slots.used,
-              })}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={onSeePro}
-            style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
-          >
-            <Text style={styles.ctaText}>{t(language, 'programLimit.cta')}</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.later}>
-            <Text style={styles.laterText}>{t(language, 'programLimit.later')}</Text>
-          </Pressable>
+        <Pressable style={styles.cardWrap} onPress={() => {}}>
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
+            <Text style={styles.title}>{t(language, 'programLimit.title')}</Text>
+            <Text style={styles.body}>{t(language, 'programLimit.body')}</Text>
+            <CutSurface size="chip" fill={theme.purpleLight} style={styles.countPill}>
+              <Text style={styles.countText}>
+                {t(language, 'programLimit.count', {
+                  used: slots.used,
+                  limit: slots.limit ?? slots.used,
+                })}
+              </Text>
+            </CutSurface>
+            <View style={styles.actions}>
+              <CutButton size="lg" label={t(language, 'programLimit.cta')} onPress={onSeePro} stretch />
+              <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.later}>
+                <Text style={styles.laterText}>{t(language, 'programLimit.later')}</Text>
+              </Pressable>
+            </View>
+          </CutSurface>
         </Pressable>
       </Pressable>
     </Modal>
@@ -73,10 +78,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 26,
   },
-  card: {
+  cardWrap: {
     width: '100%',
-    backgroundColor: theme.surface,
-    borderRadius: 22,
+  },
+  card: {
     paddingHorizontal: 22,
     paddingTop: 24,
     paddingBottom: 16,
@@ -97,8 +102,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   countPill: {
     alignSelf: 'flex-start',
     marginTop: 14,
-    backgroundColor: theme.purpleLight,
-    borderRadius: 999,
     paddingVertical: 6,
     paddingHorizontal: 12,
   },
@@ -108,24 +111,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     letterSpacing: 0.3,
     color: theme.purple,
   },
-  cta: {
+  actions: {
     marginTop: 20,
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  pressed: {
-    opacity: 0.85,
+    gap: 6,
   },
   later: {
-    marginTop: 6,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',

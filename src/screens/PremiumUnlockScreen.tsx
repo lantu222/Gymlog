@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
 import { t } from '../lib/i18n';
 import { PRO_UNLOCK_CARDS } from '../lib/proBenefits';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -163,47 +165,45 @@ export function PremiumUnlockScreen({
 
         <View style={styles.cards}>
           {PRO_UNLOCK_CARDS.map((card, index) => (
-            <Animated.View key={card.titleKey} style={[styles.card, rowStyles[index]]}>
-              <View style={styles.cardHead}>
-                <Animated.View style={[styles.checkDot, checkStyles[index]]}>
-                  <Check color="#FFFFFF" size={13} />
-                </Animated.View>
-                <Text style={styles.cardTitle}>{t(language, card.titleKey)}</Text>
-              </View>
-              <Text style={styles.cardBody}>{t(language, card.bodyKey)}</Text>
-              <Text style={styles.cardTo}>{t(language, card.placeKey)}</Text>
+            <Animated.View key={card.titleKey} style={rowStyles[index]}>
+              <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
+                <View style={styles.cardHead}>
+                  <Animated.View style={[styles.checkDot, checkStyles[index]]}>
+                    <Check color="#FFFFFF" size={13} />
+                  </Animated.View>
+                  <Text style={styles.cardTitle}>{t(language, card.titleKey)}</Text>
+                </View>
+                <Text style={styles.cardBody}>{t(language, card.bodyKey)}</Text>
+                <Text style={styles.cardTo}>{t(language, card.placeKey)}</Text>
+              </CutSurface>
             </Animated.View>
           ))}
 
           {/* The payoff, and only when it is real: the reads just unlocked, so
               here is the first one — computed from their own log, not a sample. */}
           {coachSpecimen ? (
-            <Animated.View style={[styles.specimen, rowStyles[PRO_UNLOCK_CARDS.length]]}>
-              <Text style={styles.specimenKicker}>{t(language, 'unlock.specimen.kicker')}</Text>
-              <Text style={styles.specimenText}>{coachSpecimen}</Text>
-              <Text style={styles.specimenTo}>{t(language, 'unlock.reads.to')}</Text>
+            <Animated.View style={rowStyles[PRO_UNLOCK_CARDS.length]}>
+              <CutSurface size="lg" fill={theme.purpleLight} stroke={theme.border} strokeWidth={1} style={styles.specimen}>
+                <Text style={styles.specimenKicker}>{t(language, 'unlock.specimen.kicker')}</Text>
+                <Text style={styles.specimenText}>{coachSpecimen}</Text>
+                <Text style={styles.specimenTo}>{t(language, 'unlock.reads.to')}</Text>
+              </CutSurface>
             </Animated.View>
           ) : null}
         </View>
 
         {/* The trial end date up front — the thing that kills a day-7 surprise
             cancel. There is no billing yet; see PremiumScreen's CTA note. */}
-        <View style={styles.trial}>
+        <CutSurface size="md" fill={theme.surfaceSoft} stroke={theme.border} strokeWidth={1} style={styles.trial}>
           <Text style={styles.trialTitle}>{t(language, 'unlock.trialTitle', { date: trialDate })}</Text>
           <Text style={styles.trialBody}>{t(language, 'unlock.trialBody')}</Text>
-        </View>
+        </CutSurface>
 
         <Text style={styles.noBadge}>{t(language, 'unlock.noBadge')}</Text>
       </ScrollView>
 
       <Animated.View style={[styles.ctaBar, { opacity: ctaFade, paddingBottom: insets.bottom + 12 }]}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onDone}
-          style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
-        >
-          <Text style={styles.ctaText}>{t(language, 'unlock.cta')}</Text>
-        </Pressable>
+        <CutButton size="lg" label={t(language, 'unlock.cta')} onPress={onDone} stretch />
       </Animated.View>
     </View>
   );
@@ -259,10 +259,6 @@ const makeStyles = (theme: Theme) =>
       marginTop: 20,
     },
     card: {
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 16,
       paddingVertical: 14,
       paddingHorizontal: 15,
     },
@@ -304,10 +300,6 @@ const makeStyles = (theme: Theme) =>
       paddingLeft: 31,
     },
     specimen: {
-      backgroundColor: theme.purpleLight,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 16,
       paddingVertical: 14,
       paddingHorizontal: 15,
     },
@@ -333,10 +325,6 @@ const makeStyles = (theme: Theme) =>
     },
     trial: {
       marginTop: 18,
-      backgroundColor: theme.surfaceSoft,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 16,
       paddingVertical: 13,
       paddingHorizontal: 15,
     },
@@ -365,20 +353,5 @@ const makeStyles = (theme: Theme) =>
       backgroundColor: theme.surface,
       borderTopWidth: 1,
       borderTopColor: theme.border,
-    },
-    cta: {
-      height: 54,
-      borderRadius: 16,
-      backgroundColor: theme.highlight,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    ctaText: {
-      fontSize: 16.5,
-      fontWeight: '800',
-      color: theme.onHighlight,
-    },
-    pressed: {
-      opacity: 0.9,
     },
   });

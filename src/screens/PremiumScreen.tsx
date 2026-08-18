@@ -3,6 +3,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, Line, Path, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
 import { ProPill } from '../components/ProLockedCard';
 import { removeTrailingZeros } from '../lib/format';
 import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
@@ -261,33 +263,6 @@ function HeroChart({ chart, unitPreference }: { chart: PremiumHeroChart; unitPre
   );
 }
 
-function BenefitCard({
-  index,
-  title,
-  body,
-  children,
-}: {
-  index: number;
-  title: string;
-  body: string;
-  children: React.ReactNode;
-}) {
-  const styles = useThemedStyles(makeStyles);
-
-  return (
-    <View style={styles.benefitCard}>
-      <View style={styles.benefitHead}>
-        <View style={styles.benefitIndex}>
-          <Text style={styles.benefitIndexText}>{`0${index + 1}`}</Text>
-        </View>
-        <Text style={styles.benefitTitle}>{title}</Text>
-      </View>
-      <Text style={styles.benefitBody}>{body}</Text>
-      <View style={styles.benefitSpecimen}>{children}</View>
-    </View>
-  );
-}
-
 export function PremiumScreen({
   reason = null,
   previewUnlocked,
@@ -318,11 +293,13 @@ export function PremiumScreen({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
-          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
+          style={({ pressed }) => [pressed && styles.pressed]}
         >
-          <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-            <Path d="M6 6l12 12M18 6L6 18" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" />
-          </Svg>
+          <CutSurface size="sm" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.closeButton}>
+            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
+              <Path d="M6 6l12 12M18 6L6 18" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" />
+            </Svg>
+          </CutSurface>
         </Pressable>
         {/* Restore is required store copy once billing ships; inert until then. */}
         <Text style={styles.restore}>{t(language, 'pro.page.restore')}</Text>
@@ -330,15 +307,15 @@ export function PremiumScreen({
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {reason === 'program_cap' ? (
-          <View style={styles.reasonBanner}>
+          <CutSurface size="md" fill={PW.sheetLavender} style={styles.reasonBanner}>
             <Text style={styles.reasonBannerText}>
               {t(language, 'programs.cap.paywall', { cap: FREE_ACTIVE_PROGRAM_CAP })}
             </Text>
-          </View>
+          </CutSurface>
         ) : null}
 
         {/* HERO — the user's own numbers do the selling */}
-        <View style={styles.hero}>
+        <CutSurface size="lg" fill={PW.sheetMid} style={styles.hero}>
           <View style={styles.heroKickerRow}>
             <SparkGlyph color={PW.sheetLavender} />
             <Text style={styles.heroKicker}>{t(language, 'pro.page.eyebrow')}</Text>
@@ -354,19 +331,25 @@ export function PremiumScreen({
           </Text>
           <Text style={styles.heroBody}>{t(language, 'pro.page.heroBody')}</Text>
 
-          <View style={styles.heroChartCard}>
+          <CutSurface
+            size="md"
+            fill="rgba(255,255,255,0.1)"
+            stroke="rgba(255,255,255,0.16)"
+            strokeWidth={1}
+            style={styles.heroChartCard}
+          >
             {heroChart ? (
               <>
                 <View style={styles.heroChartHead}>
                   <Text style={styles.heroChartLabel}>
                     {t(language, 'pro.page.chartLabel', { lift: heroChart.liftName.toUpperCase() })}
                   </Text>
-                  <View style={styles.heroChartPill}>
+                  <CutSurface size="chip" fill="rgba(55,208,138,0.2)" style={styles.heroChartPill}>
                     <Svg width={9} height={9} viewBox="0 0 12 12">
                       <Path d="M6 3l4 5H2z" fill="#7DEBB4" />
                     </Svg>
                     <Text style={styles.heroChartPillText}>{`+${chartStep} ${unitPreference}`}</Text>
-                  </View>
+                  </CutSurface>
                 </View>
                 <HeroChart chart={heroChart} unitPreference={unitPreference} />
                 <View style={styles.heroChartFootRow}>
@@ -379,7 +362,7 @@ export function PremiumScreen({
             ) : (
               <Text style={styles.heroChartEmpty}>{t(language, 'pro.page.chartEmpty')}</Text>
             )}
-          </View>
+          </CutSurface>
 
           {/*
             The coach's actual sentence about the lift charted above —
@@ -407,7 +390,7 @@ export function PremiumScreen({
               )}
             </View>
           ) : null}
-        </View>
+        </CutSurface>
 
         {/* THREE GROUPS — the reason to buy, then why the price is fair */}
         {GROUPS.map((group) => (
@@ -417,7 +400,14 @@ export function PremiumScreen({
             <Text style={styles.groupLead}>{t(language, group.leadKey)}</Text>
             <View style={styles.groupItems}>
               {group.items.map((item) => (
-                <View key={item.titleKey} style={styles.itemCard}>
+                <CutSurface
+                  key={item.titleKey}
+                  size="lg"
+                  fill={theme.surface}
+                  stroke={theme.border}
+                  strokeWidth={1}
+                  style={styles.itemCard}
+                >
                   <View style={styles.itemIcon}>
                     <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
                       <Path
@@ -433,21 +423,21 @@ export function PremiumScreen({
                     <View style={styles.itemTitleRow}>
                       <Text style={styles.itemTitle}>{t(language, item.titleKey)}</Text>
                       {item.soon ? (
-                        <View style={styles.soonPill}>
+                        <CutSurface size="chip" fill={theme.surfaceSoft} style={styles.soonPill}>
                           <Text style={styles.soonPillText}>{t(language, 'pro.v2.soon')}</Text>
-                        </View>
+                        </CutSurface>
                       ) : null}
                     </View>
                     <Text style={styles.itemBody}>{t(language, item.bodyKey)}</Text>
                   </View>
-                </View>
+                </CutSurface>
               ))}
             </View>
           </View>
         ))}
 
         {/* Free stated plainly, before the price — trust first. */}
-        <View style={styles.freeCard}>
+        <CutSurface size="lg" fill={theme.surfaceSoft} stroke={theme.border} strokeWidth={1} style={styles.freeCard}>
           <View style={styles.freeHead}>
             <CheckGlyph color={theme.green} />
             <Text style={styles.freeTitle}>{t(language, 'pro.v2.free.title')}</Text>
@@ -482,7 +472,7 @@ export function PremiumScreen({
               </View>
             ))}
           </View>
-        </View>
+        </CutSurface>
 
         {/* PLAN — planned prices, labeled planned */}
         <Text style={styles.sectionLabel}>{t(language, 'pro.page.choosePlan')}</Text>
@@ -531,13 +521,15 @@ export function PremiumScreen({
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
                 onPress={() => setPlan(option.id)}
-                style={[styles.planCard, on && styles.planCardOn]}
+                style={({ pressed }) => [styles.planCardWrap, pressed && styles.pressed]}
               >
-                {option.save ? (
-                  <View style={styles.planSave}>
-                    <Text style={styles.planSaveText}>{t(language, 'pro.page.save')}</Text>
-                  </View>
-                ) : null}
+                <CutSurface
+                  size="lg"
+                  fill={on ? theme.purpleLight : theme.surface}
+                  stroke={on ? theme.purple : theme.border}
+                  strokeWidth={2}
+                  style={styles.planCard}
+                >
                 <View style={styles.planHeadRow}>
                   <View style={[styles.planRadio, on && styles.planRadioOn]}>
                     {on ? <View style={styles.planRadioDot} /> : null}
@@ -551,13 +543,21 @@ export function PremiumScreen({
                   ) : null}
                 </View>
                 <Text style={styles.planBilled}>{t(language, option.billedKey)}</Text>
+                </CutSurface>
+                {/* Outside the surface: the surface clips to its shape, and
+                    the badge sits over its top edge on purpose. */}
+                {option.save ? (
+                  <CutSurface size="chip" fill={theme.green} style={styles.planSave}>
+                    <Text style={styles.planSaveText}>{t(language, 'pro.page.save')}</Text>
+                  </CutSurface>
+                ) : null}
               </Pressable>
             );
           })}
         </View>
         {/* COMPARE — every cell is a phrase, not a tick nobody can read */}
         <Text style={styles.sectionLabel}>{t(language, 'pro.v2.compare')}</Text>
-        <View style={styles.table}>
+        <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.table}>
           <View style={styles.tableHeadRow}>
             <View style={styles.tableLabelCol} />
             <Text style={styles.tableHeadFree}>{t(language, 'pro.page.colFree')}</Text>
@@ -587,7 +587,7 @@ export function PremiumScreen({
               </View>
             </View>
           ))}
-        </View>
+        </CutSurface>
         <Text style={styles.tableFoot}>{t(language, 'pro.v2.footer')}</Text>
 
       </ScrollView>
@@ -620,29 +620,24 @@ export function PremiumScreen({
               <CheckGlyph color={theme.green} />
               <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
+            <CutButton
+              size="lg"
+              variant="secondary"
+              label={t(language, promoOnly ? 'subs.manageMembership' : 'settings.demoPro')}
               onPress={promoOnly ? onManageSubscription : onTogglePreview}
-              style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
-            >
-              <Text style={styles.manageButtonText}>
-                {t(language, promoOnly ? 'subs.manageMembership' : 'settings.demoPro')}
-              </Text>
-            </Pressable>
+              stretch
+            />
           </>
         ) : (
           <>
-            <Pressable
-              accessibilityRole="button"
+            {/* The trial can be switched off (PRO_TRIAL_ENABLED). When it
+                is, this button must stop promising a week. */}
+            <CutButton
+              size="lg"
+              label={t(language, PRO_TRIAL_ENABLED ? 'pro.v2.cta' : 'pro.v2.cta.noTrial')}
               onPress={onTogglePreview}
-              style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
-            >
-              {/* The trial can be switched off (PRO_TRIAL_ENABLED). When it
-                  is, this button must stop promising a week. */}
-              <Text style={styles.ctaButtonText}>
-                {t(language, PRO_TRIAL_ENABLED ? 'pro.v2.cta' : 'pro.v2.cta.noTrial')}
-              </Text>
-            </Pressable>
+              stretch
+            />
             <Text style={styles.ctaFine}>
               {t(
                 language,
@@ -687,15 +682,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   closeButton: {
     width: 38,
     height: 38,
-    borderRadius: 12,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pressed: {
-    opacity: 0.85,
+    transform: [{ translateY: 1 }, { scale: 0.985 }],
   },
   restore: {
     fontSize: 13.5,
@@ -708,8 +699,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 16,
   },
   reasonBanner: {
-    backgroundColor: PW.sheetLavender,
-    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 14,
@@ -721,11 +710,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
   },
   hero: {
-    borderRadius: 22,
     paddingHorizontal: 18,
     paddingTop: 20,
     paddingBottom: 18,
-    backgroundColor: PW.sheetMid,
   },
   heroKickerRow: {
     flexDirection: 'row',
@@ -799,25 +786,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     color: theme.ink,
   },
-  manageButton: {
-    height: 52,
-    borderRadius: 15,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  manageButtonText: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: theme.ink,
-  },
   heroChartCard: {
     marginTop: 16,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    borderRadius: 16,
     paddingHorizontal: 14,
     paddingTop: 13,
     paddingBottom: 11,
@@ -839,8 +809,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(55,208,138,0.2)',
-    borderRadius: 999,
     paddingVertical: 3,
     paddingHorizontal: 8,
   },
@@ -881,67 +849,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 11,
     paddingHorizontal: 2,
   },
-  benefitCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 20,
-    paddingHorizontal: 17,
-    paddingTop: 17,
-    paddingBottom: 15,
-  },
-  benefitHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 9,
-  },
-  benefitIndex: {
-    backgroundColor: theme.purpleLight,
-    borderRadius: 6,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-  },
-  benefitIndexText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: theme.purpleDark,
-  },
-  benefitTitle: {
-    flex: 1,
-    fontSize: 17.5,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  benefitBody: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: theme.muted,
-    lineHeight: 20,
-    marginTop: 9,
-  },
-  benefitSpecimen: {
-    marginTop: 14,
-    backgroundColor: theme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 14,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-  },
   table: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
     overflow: 'hidden',
   },
+  // No fill on the head row: a filled row would show a square corner
+  // through the cut, and the rule under it already marks it as the head.
   tableHeadRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 11,
     paddingHorizontal: 15,
-    backgroundColor: theme.surfaceSoft,
     borderBottomWidth: 1,
     borderBottomColor: theme.border,
   },
@@ -1041,10 +958,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 16,
     paddingVertical: 13,
     paddingHorizontal: 14,
   },
@@ -1074,8 +987,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   soonPill: {
     paddingVertical: 2,
     paddingHorizontal: 7,
-    borderRadius: 999,
-    backgroundColor: theme.surfaceSoft,
   },
   soonPillText: {
     fontSize: 9.5,
@@ -1092,10 +1003,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   freeCard: {
     marginTop: 24,
-    backgroundColor: theme.surfaceSoft,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
     paddingVertical: 15,
     paddingHorizontal: 16,
   },
@@ -1147,25 +1054,18 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     gap: 11,
   },
+  planCardWrap: {
+    flex: 1,
+  },
   planCard: {
     flex: 1,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
     paddingVertical: 15,
     paddingHorizontal: 15,
-  },
-  planCardOn: {
-    borderColor: theme.purple,
-    backgroundColor: theme.purpleLight,
   },
   planSave: {
     position: 'absolute',
     top: -10,
     right: 12,
-    backgroundColor: theme.green,
-    borderRadius: 999,
     paddingVertical: 3,
     paddingHorizontal: 9,
   },
@@ -1233,18 +1133,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.surface,
     borderTopWidth: 1,
     borderTopColor: theme.border,
-  },
-  ctaButton: {
-    height: 54,
-    borderRadius: 16,
-    backgroundColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ctaButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#FFFFFF',
   },
   ctaFine: {
     textAlign: 'center',
