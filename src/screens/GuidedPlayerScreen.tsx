@@ -707,46 +707,6 @@ function GhostBtn({
   );
 }
 
-function Stepper({
-  label,
-  value,
-  unit,
-  step,
-  min,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  unit?: string;
-  step: number;
-  min: number;
-  onChange: (next: number) => void;
-}) {
-  const theme = useTheme();
-
-  const styles = useThemedStyles(makeStyles);
-
-  return (
-    <View style={{ flex: 1, minWidth: 0, alignItems: 'center', gap: 8 }}>
-      <Text style={{ fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted }}>{label}</Text>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-        <Pressable style={styles.stepperBtn} onPress={() => onChange(Math.max(min, Number((value - step).toFixed(1))))}>
-          <Text style={styles.stepperBtnText}>−</Text>
-        </Pressable>
-        <View style={{ minWidth: 58, alignItems: 'center', flexDirection: 'row', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: theme.ink, fontVariant: ['tabular-nums'] }}>
-            {removeTrailingZeros(value)}
-          </Text>
-          {unit ? <Text style={{ fontSize: 12.5, fontWeight: '700', color: theme.muted, marginLeft: 2 }}>{unit}</Text> : null}
-        </View>
-        <Pressable style={styles.stepperBtn} onPress={() => onChange(Number((value + step).toFixed(1)))}>
-          <Text style={styles.stepperBtnText}>+</Text>
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
 /* ── bottom sheet ── */
 function GPSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const styles = useThemedStyles(makeStyles);
@@ -1579,7 +1539,6 @@ export function GuidedPlayerScreen({
               muted={muted}
               paused={paused}
               resolveTarget={resolveTarget}
-              nextName={getGuidedNextName(steps, stepIndex, language)}
               onToggleMute={() => onToggleSoundCues(!soundCuesEnabled)}
               onPause={() => {
                 setPaused(true);
@@ -1848,33 +1807,6 @@ function formatSessionClock(totalSeconds: number): string {
   return `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}:${seconds}`;
 }
 
-/**
- * One number + its unit in the v4 target block. Same hand as every other
- * figure in the player (ExtraBold, tabular, tight tracking) so the set screen
- * doesn't read as a different typeface from the countdowns and labels.
- */
-function TargetNumber({ value, unit, size }: { value: string | number; unit: string; size: number }) {
-  const theme = useTheme();
-
-  return (
-    <Text
-      style={{
-        fontSize: size,
-        fontWeight: '800',
-        letterSpacing: -size * 0.038,
-        color: theme.ink,
-        lineHeight: size * 1.05,
-        fontVariant: ['tabular-nums'],
-      }}
-    >
-      {value}
-      {unit ? (
-        <Text style={{ fontSize: size * 0.34, fontWeight: '800', color: theme.faint, letterSpacing: 0 }}>{unit}</Text>
-      ) : null}
-    </Text>
-  );
-}
-
 /* ── strength set step v4 (owns the reps/kg steppers) ── */
 function SetStepView({
   stepIndex,
@@ -1886,7 +1818,6 @@ function SetStepView({
   muted,
   paused,
   resolveTarget,
-  nextName,
   onToggleMute,
   onPause,
   onSwapExercise,
@@ -1901,7 +1832,6 @@ function SetStepView({
   muted: boolean;
   paused: boolean;
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
-  nextName: string | null;
   onToggleMute: () => void;
   onPause: () => void;
   /** Null when this exercise has no catalog alternatives. */
@@ -1917,12 +1847,10 @@ function SetStepView({
   // number is seconds, and seconds are dialled in fives, not ones.
   const bodyweight = exercise ? isUnloadedTrackingMode(exercise.trackingMode) : false;
   const timed = exercise ? isTimedTrackingMode(exercise.trackingMode) : false;
-  const [edit, setEdit] = useState(false);
   const [reps, setReps] = useState(target?.reps ?? 8);
   const [kg, setKg] = useState(target?.loadKg ?? 0);
 
   useEffect(() => {
-    setEdit(false);
     setReps(target?.reps ?? 8);
     setKg(target?.loadKg ?? 0);
     // Re-derive when the step changes — and when the exercise under the step
@@ -1934,8 +1862,6 @@ function SetStepView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIndex, step.exerciseName]);
 
-  // Reps carry the big figure; only a bodyweight lift gets the whole line.
-  const repsSize = bodyweight ? 98 : 84;
   /**
    * The weight the gate picked, shown as such only while the number on screen
    * is still that one — the moment the stepper moves it, it is the user's
@@ -2004,72 +1930,86 @@ function SetStepView({
         </View>
 
         <View style={styles.setTargetArea}>
-          <View style={styles.setTargetStack}>
-            {/* Reps are a correction you make after the set, so they stay the
-                headline and open their stepper on tap. */}
-            {!edit ? (
-              <Pressable onPress={() => setEdit(true)} style={styles.setTargetRow}>
-                <TargetNumber value={step.setIndex + 1} unit="" size={42} />
-                <Text style={styles.setTargetLabel}>{t(language, 'guided.numLabel.set')}</Text>
-                {/* The × used to hang off the reps number, so the row read
-                    "1 SARJA 6× TOISTOT" — the multiplier attached to the wrong
-                    side and the noun in the wrong case. */}
-                <TargetNumber value={reps} unit="" size={repsSize} />
-                <Text style={styles.setTargetLabel}>
-                  {t(language, timed ? 'guided.secondsCount' : 'guided.repsCount')}
+          {/* Two live dials, side by side: what you did and what was on the
+              bar. This used to be a "1 SARJA 6 TOISTOA" headline (the set
+              number repeating the "Sarja 1/3" above it) that opened a stepper
+              on tap — and that stepper, built for a row, was squeezed to
+              nothing in the column and drew its buttons over the number. No
+              modes now: both numbers are always steppers, so there is nothing
+              to open and nothing to collapse. */}
+          <View style={styles.setDialRow}>
+            <View style={[styles.setDialCard, bodyweight && styles.setDialCardWide]}>
+              <Text style={styles.setDialLabel}>{t(language, timed ? 'guided.seconds' : 'guided.reps')}</Text>
+              <View style={styles.setDialControls}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, timed ? 'guided.a11y.secondsDown' : 'guided.a11y.repsDown')}
+                  hitSlop={8}
+                  onPress={() => setReps((current) => Math.max(timed ? 5 : 1, current - (timed ? 5 : 1)))}
+                  style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={styles.setDialBtnText}>−</Text>
+                </Pressable>
+                <Text style={styles.setDialNumber} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
+                  {reps}
                 </Text>
-              </Pressable>
-            ) : (
-              <View style={{ alignSelf: 'stretch', gap: 12 }}>
-                <Stepper
-                  label={t(language, timed ? 'guided.seconds' : 'guided.reps')}
-                  value={reps}
-                  step={timed ? 5 : 1}
-                  min={timed ? 5 : 1}
-                  onChange={setReps}
-                />
-                <Pressable onPress={() => setEdit(false)} hitSlop={10} style={{ alignSelf: 'center' }}>
-                  <Text style={{ fontSize: 13.5, fontWeight: '800', color: theme.purple }}>
-                    {t(language, 'guided.back')}
-                  </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, timed ? 'guided.a11y.secondsUp' : 'guided.a11y.repsUp')}
+                  hitSlop={8}
+                  onPress={() => setReps((current) => current + (timed ? 5 : 1))}
+                  style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
+                >
+                  <Text style={styles.setDialBtnText}>+</Text>
                 </Pressable>
               </View>
-            )}
+            </View>
 
             {/* Weight is decided BEFORE the set, so it is a live control, not a
-                readout: it used to hide behind tapping the reps line, which
-                meant the one number you have to set to start was two taps and
-                a guess away. Loaded lifts always get it — an unset weight is a
-                faint zero to dial in, never a claim that the bar is empty. */}
+                readout. Loaded lifts always get it — an unset weight is a faint
+                zero to dial in, never a claim that the bar is empty. */}
             {!bodyweight ? (
-              <View style={styles.setWeightCard}>
-                <Text style={styles.setWeightCardLabel}>{t(language, 'guided.weight')}</Text>
-                <View style={styles.setWeightRow}>
+              <View style={styles.setDialCard}>
+                <Text style={styles.setDialLabel}>{t(language, 'guided.weight')}</Text>
+                <View style={styles.setDialControls}>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'guided.a11y.weightDown')}
                     hitSlop={8}
                     onPress={() => setKg((current) => Math.max(0, Number((current - 2.5).toFixed(1))))}
-                    style={({ pressed }) => [styles.setWeightBtn, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
                   >
-                    <Text style={styles.setWeightBtnText}>−</Text>
+                    <Text style={styles.setDialBtnText}>−</Text>
                   </Pressable>
-                  <View style={styles.setWeightValue}>
-                    <Text style={[styles.setWeightNumber, kg <= 0 && { color: theme.faint }]}>
+                  <View style={styles.setDialValue}>
+                    <Text
+                      style={[styles.setDialNumber, kg <= 0 && { color: theme.faint }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                      minimumFontScale={0.6}
+                    >
                       {removeTrailingZeros(kg)}
                     </Text>
-                    <Text style={styles.setWeightUnit}>kg</Text>
+                    <Text style={styles.setDialUnit}>kg</Text>
                   </View>
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={t(language, 'guided.a11y.weightUp')}
                     hitSlop={8}
                     onPress={() => setKg((current) => Number((current + 2.5).toFixed(1)))}
-                    style={({ pressed }) => [styles.setWeightBtn, pressed && { opacity: 0.7 }]}
+                    style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
                   >
-                    <Text style={styles.setWeightBtnText}>+</Text>
+                    <Text style={styles.setDialBtnText}>+</Text>
                   </Pressable>
                 </View>
+              </View>
+            ) : null}
+          </View>
+
+          {/* Badges about the weight sit under the row, not inside the card,
+              so a badge does not make one card taller than the other. */}
+          {!bodyweight ? (
+            <View style={styles.setBadgeRow}>
                 {/* Automated progression is Pro-gated upstream (resolveProgressionOptions),
                     so this badge only ever renders for an unlocked account — and only
                     when the load moved, which is the one case the user did not choose
@@ -2094,9 +2034,8 @@ function SetStepView({
                     <Text style={styles.setHoldBadgeText}>{t(language, 'guided.heldForRecovery')}</Text>
                   </View>
                 ) : null}
-              </View>
-            ) : null}
-          </View>
+            </View>
+          ) : null}
         </View>
 
         <View style={{ paddingHorizontal: 22 }}>
@@ -2145,8 +2084,9 @@ function SetStepView({
             </Pressable>
           ) : null}
         </View>
-
-        <NextLine text={nextName} dark={false} language={language} />
+        {/* No "Seuraava · …" line here: on a set it named the same lift's next
+            set, which the dots above already say. The drills keep theirs — a
+            next drill with its seconds is worth a line. */}
       </View>
     </StepIn>
   );
@@ -2451,44 +2391,55 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   setClockText: { fontSize: 19, fontWeight: '800', color: theme.muted, letterSpacing: -0.2, fontVariant: ['tabular-nums'] },
   setNameRow: { paddingTop: 6, paddingHorizontal: 24 },
   setName: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 24 },
-  setTargetArea: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
-  setTargetStack: { alignItems: 'center', gap: 14, maxWidth: '100%', alignSelf: 'stretch' },
-  setTargetRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  setTargetLabel: { fontSize: 21, fontWeight: '800', letterSpacing: -0.63, color: theme.ink, lineHeight: 23 },
-  setWeightCard: {
+  setTargetArea: { flex: 1, minHeight: 0, justifyContent: 'center', paddingHorizontal: 22, gap: 10 },
+  // Two dials of equal width. Each is a card, so the reps dial no longer
+  // floats as a bare headline over a boxed weight — same shape, same weight.
+  setDialRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  setDialCard: {
+    flex: 1,
+    minWidth: 0,
     alignItems: 'center',
-    gap: 6,
-    paddingTop: 11,
-    paddingBottom: 13,
-    paddingHorizontal: 18,
-    borderRadius: 24,
+    gap: 8,
+    paddingTop: 12,
+    paddingBottom: 12,
+    paddingHorizontal: 10,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: theme.border,
     backgroundColor: theme.surfaceSoft,
   },
-  setWeightCardLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
-  setWeightRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  setWeightBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  // A bodyweight lift has one dial; it takes the row rather than half of it.
+  setDialCardWide: { flex: 1 },
+  setDialLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
+  setDialControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  setDialBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: theme.surface,
     borderWidth: 1.5,
     borderColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  setWeightBtnText: { fontSize: 25, fontWeight: '800', color: theme.purple, lineHeight: 29 },
-  setWeightValue: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 3, minWidth: 108 },
-  setWeightNumber: {
-    fontSize: 44,
+  setDialBtnText: { fontSize: 22, fontWeight: '800', color: theme.purple, lineHeight: 26 },
+  // The value shrinks (flexShrink + adjustsFontSizeToFit on the number) rather
+  // than pushing the buttons out of the card: "100 kg" is a real weight and
+  // has to fit next to two 40dp buttons in half a screen.
+  setDialValue: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'center', gap: 2, flexShrink: 1, minWidth: 0 },
+  setDialNumber: {
+    flexShrink: 1,
+    fontSize: 38,
     fontWeight: '800',
-    letterSpacing: -1.6,
+    letterSpacing: -1.3,
     color: theme.ink,
-    lineHeight: 48,
+    lineHeight: 42,
     fontVariant: ['tabular-nums'],
+    textAlign: 'center',
+    minWidth: 44,
   },
-  setWeightUnit: { fontSize: 16, fontWeight: '800', color: theme.faint },
+  setDialUnit: { fontSize: 14, fontWeight: '800', color: theme.faint },
+  setBadgeRow: { alignItems: 'center', minHeight: 27 },
   setAutoBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2515,20 +2466,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.greenSoft,
   },
   setHoldBadgeText: { fontSize: 11.5, fontWeight: '900', letterSpacing: 0.4, color: theme.green },
+  // 64 → 52 and a lighter shadow: the button had the height of the two dials
+  // above it put together, and the shadow made it read taller still.
   setLogButton: {
-    height: 64,
-    borderRadius: 20,
+    height: 52,
+    borderRadius: 18,
     backgroundColor: theme.purple,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: theme.purple,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.32,
-    shadowRadius: 26,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 18,
+    elevation: 6,
   },
-  setLogButtonText: { fontSize: 19, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.19 },
-  setControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, paddingTop: 16, paddingBottom: 4 },
+  setLogButtonText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF', letterSpacing: -0.17 },
+  setControls: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 12, paddingTop: 14, paddingBottom: 10 },
   setListBtn: {
     height: 60,
     borderRadius: 999,
@@ -2586,17 +2539,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 8,
   },
   ghostBtnText: { fontSize: 14.5, fontWeight: '800', color: theme.ink },
-  stepperBtn: {
-    width: 38,
-    height: 42,
-    borderRadius: 12,
-    backgroundColor: theme.surface,
-    borderWidth: 1.5,
-    borderColor: '#E4DBF5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stepperBtnText: { fontSize: 20, fontWeight: '800', color: theme.purple },
 
   /* rest (light theme like every other in-workout screen) */
   // The ring itself carries the purple; label and figure stay ink so the
