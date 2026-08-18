@@ -100,8 +100,14 @@ module.exports = [
       assert.match(i18nSource, /'detail\.adopt': 'Start this programme'/);
       assert.match(i18nSource, /'detail\.adopt': 'Ota ohjelma käyttöön'/);
       // The label comes from the view model, so it is translated at the source
-      // rather than hardcoded English that no screen ever showed.
-      assert.match(programDetailsSource, /primaryActionLabel: t\(language, 'detail\.adopt'\)/);
+      // rather than hardcoded English that no screen ever showed — and it reads
+      // the state: adopting is only offered to a reader who does not already
+      // hold the programme, who gets the next session instead.
+      assert.match(
+        programDetailsSource,
+        /primaryActionLabel: t\(language, isActivePlan \? 'detail\.startNext' : 'detail\.adopt'\)/,
+      );
+      assert.match(i18nSource, /'detail\.startNext': 'Aloita seuraava treeni'/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);
       // The inline warmup/workout/cooldown listing left with the day view:
       // the programme page shows compact rows, and the full session — the
@@ -149,6 +155,36 @@ module.exports = [
       assert.match(appSource, /<ProgramDetailScreen/);
       assert.match(appSource, /onStartSession=\{\(sessionId\) => \{/);
       assert.doesNotMatch(appSource, /secondaryActionLabel=\{route\.programType === 'ready' \? 'Make it mine' : 'Duplicate'\}/);
+    },
+  },
+  {
+    /**
+     * "Tee tästä oma versio" reaches a screen.
+     *
+     * Both strings were translated for the programme page and rendered by
+     * nothing; the copy handler took a programme id whose only caller was the
+     * plan screen in Profile, three levels deep. Wanting a ready programme
+     * CHANGED is the documented buying moment, so the offer has to stand where
+     * the reader is when they want it — on the programme, and at the end of the
+     * day's list where "one more lift" is felt.
+     */
+    name: 'the offer to make a ready programme your own is rendered, not just translated',
+    run() {
+      const programDaySource = fs.readFileSync(
+        path.join(__dirname, '..', '..', 'src', 'screens', 'ProgramDayScreen.tsx'),
+        'utf8',
+      );
+
+      assert.match(programDetailSource, /detail\.ownVersion\.note/);
+      assert.match(programDetailSource, /detail\.ownVersion\.cta/);
+      assert.match(programDaySource, /detail\.ownVersion\.cta/);
+      // A plus that can really add belongs to a programme whose days are the
+      // reader's; a fixed one gets the copy instead of a shrug.
+      assert.match(programDaySource, /editor\.addExercise/);
+      assert.match(programDaySource, /onAddExercise \?/);
+
+      assert.match(appSource, /onCopyToCustom=\{[\s\S]{0,200}handleCopyReadyProgramToCustom\(route\.workoutTemplateId\)/);
+      assert.match(appSource, /onAddExercise=\{[\s\S]{0,200}screen: 'template'/);
     },
   },
 ];

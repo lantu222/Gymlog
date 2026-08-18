@@ -93,14 +93,6 @@ interface ProgramDetailScreenProps {
    */
   onSaveEmphasis?: (updates: Array<{ sessionId: string; exerciseId: string; sets: number }>) => void;
   onEdit?: () => void;
-  /**
-   * Ready programmes only: duplicate this catalog programme into one of the
-   * reader's own, where its sessions become editable. This is the documented
-   * buying moment ("I want it my way") and it has to be offered where the
-   * wanting happens — on the programme's own page — not three taps away on
-   * the Profile tab, and not only for the active programme.
-   */
-  onCopyToCustom?: () => void;
   destructiveActionLabel?: string;
   destructiveActionTitle?: string;
   destructiveActionMessage?: string;
@@ -137,7 +129,10 @@ interface ProgramDetailScreenProps {
    * The moment someone wants a ready program CHANGED is the documented buying
    * moment, and until now it existed only for the program you were already
    * running — browse the other fifty-four and the thought had nowhere to go.
+   *
+   * Absent for custom programmes: those are edited in place.
    */
+  onCopyToCustom?: () => void;
   activePlanSummary?: {
     weekLabel: string;
     progressPercent: number;
@@ -199,13 +194,13 @@ export function ProgramDetailScreen({
   onBack,
   onStartSession,
   onPrimaryAction,
+  onCopyToCustom,
   onOpenSession,
   programBlockWeeks = null,
   trainingDayIndexes = null,
   onSaveRhythm,
   onSaveEmphasis,
   onEdit,
-  onCopyToCustom,
   progressionRules = null,
   audience = null,
   availableDays = null,
@@ -222,7 +217,7 @@ export function ProgramDetailScreen({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   // The programme's own colour, the same one its browse cover wears.
-  const identity = programCoverStyle(program.id);
+  const identity = programCoverStyle(program.id, program.title);
   const [emphasisSheetVisible, setEmphasisSheetVisible] = useState(false);
   // Flat, in a fixed order: the sheet returns set counts by index, so this
   // list is the contract between the two.
@@ -621,13 +616,6 @@ export function ProgramDetailScreen({
             <Pressable hitSlop={8} onPress={onEdit}>
               <Text style={styles.emphasisEdit}>{t(language, 'plan.edit')}</Text>
             </Pressable>
-          ) : program.source === 'ready' && onCopyToCustom ? (
-            // The same quiet action in the same place, for the same reason:
-            // a ready programme cannot be edited, but a copy of it can, and
-            // this is where the reader is when they decide they want that.
-            <Pressable hitSlop={8} onPress={onCopyToCustom} accessibilityRole="button">
-              <Text style={styles.emphasisEdit}>{t(language, 'plan.copyToCustom')}</Text>
-            </Pressable>
           ) : null}
         </View>
         {/* Compact rows now (design: "päivärivi vie tänne") — the full
@@ -679,6 +667,25 @@ export function ProgramDetailScreen({
             </Pressable>
           ))}
         </View>
+
+        {/* The way out of a fixed programme, at the moment it is felt.
+            A ready programme's days cannot be edited, and the offer to copy it
+            into one of your own lived three levels deep in Profile — reachable
+            only by readers who already knew it existed. This copy was written
+            for this screen and never rendered; the handler has taken the
+            programme id the whole time and had no caller. */}
+        {onCopyToCustom ? (
+          <View style={styles.ownVersionBlock}>
+            <Text style={styles.ownVersionNote}>{t(language, 'detail.ownVersion.note')}</Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={onCopyToCustom}
+              style={({ pressed }) => [styles.ownVersionButton, pressed && { opacity: 0.75 }]}
+            >
+              <Text style={styles.ownVersionButtonText}>{t(language, 'detail.ownVersion.cta')}</Text>
+            </Pressable>
+          </View>
+        ) : null}
 
         {/* How the weight goes up.
             The catalog carries these four rules per template and the app had
@@ -1257,6 +1264,34 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '800',
+    textAlign: 'center',
+  },
+  ownVersionBlock: {
+    marginTop: 14,
+  },
+  // Outlined, not filled: the filled button on this screen is the one that
+  // starts training. Same shape as the copy action in Profile, which this
+  // replaces as the way in.
+  ownVersionNote: {
+    color: theme.faint,
+    fontSize: 12.5,
+    lineHeight: 18,
+    fontWeight: '600',
+  },
+  ownVersionButton: {
+    marginTop: 12,
+    minHeight: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  ownVersionButtonText: {
+    fontSize: 14.5,
+    fontWeight: '800',
+    color: theme.purple,
     textAlign: 'center',
   },
 });

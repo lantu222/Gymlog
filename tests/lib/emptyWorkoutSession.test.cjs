@@ -5,6 +5,7 @@ const {
   buildFreestyleFinish,
   exerciseInitials,
   freestyleDoneSetCount,
+  freestyleHasSetAfter,
   freestyleVolumeKg,
   matchesMuscleFilter,
 } = require('../../.test-dist/lib/emptyWorkoutSession.js');
@@ -160,6 +161,55 @@ module.exports = [
       assert.equal(summary.durationMinutes, 2);
       assert.equal(summary.prCards.length, 0);
       assert.equal(summary.logs[0].status, 'active');
+    },
+  },
+  {
+    name: 'rest is offered only when a set is still waiting',
+    run() {
+      // Reported from the phone: ticking the one set of a one-set session
+      // opened a 2:00 bar that counted down to nothing and covered "Lopeta
+      // treeni". The list is the pre-toggle state, because the caller decides
+      // before its own setState lands.
+      const single = makeExercise({
+        sets: [{ localKey: 'set_1', kg: '100', reps: '5', done: false }],
+      });
+      assert.equal(freestyleHasSetAfter([single], 'draft_1', 'set_1'), false);
+
+      // Two sets, ticking the first: the second is the reason to rest.
+      const pair = makeExercise();
+      assert.equal(freestyleHasSetAfter([pair], 'draft_1', 'set_2'), false);
+      assert.equal(
+        freestyleHasSetAfter(
+          [makeExercise({ sets: [
+            { localKey: 'set_1', kg: '100', reps: '5', done: false },
+            { localKey: 'set_2', kg: '100', reps: '5', done: false },
+          ] })],
+          'draft_1',
+          'set_1',
+        ),
+        true,
+      );
+    },
+  },
+  {
+    name: 'a pending set in another exercise still earns a rest',
+    run() {
+      // The next set does not have to be in the same exercise — walking off
+      // the last set of the squat into a pending bench is exactly when rest
+      // matters most.
+      const squat = makeExercise({
+        sets: [{ localKey: 'set_1', kg: '100', reps: '5', done: false }],
+      });
+      const bench = makeExercise({
+        localKey: 'draft_2',
+        name: 'Bench Press',
+        sets: [{ localKey: 'set_9', kg: '80', reps: '5', done: false }],
+      });
+
+      assert.equal(freestyleHasSetAfter([squat, bench], 'draft_1', 'set_1'), true);
+      // ...and once the bench is done too, the session has nothing left.
+      const benchDone = { ...bench, sets: [{ ...bench.sets[0], done: true }] };
+      assert.equal(freestyleHasSetAfter([squat, benchDone], 'draft_1', 'set_1'), false);
     },
   },
 ];

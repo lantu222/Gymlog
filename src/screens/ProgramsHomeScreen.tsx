@@ -25,7 +25,7 @@ import Svg, {
 } from 'react-native-svg';
 
 import { CutSurface } from '../components/CutSurface';
-import { LAYERS_MOTIF, PROGRAM_COVER_STYLES, programCoverStyle } from '../lib/programVisualIdentity';
+import { LAYERS_MOTIF, ProgramCoverStyle, programCoverStyle } from '../lib/programVisualIdentity';
 import { SEASON_WEEKS } from '../lib/season';
 import { NewProgramSheet } from '../components/NewProgramSheet';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
@@ -39,6 +39,7 @@ import type { ProgramSeason } from '../lib/programSeasons';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { WorkoutLevel } from '../features/workout/workoutTypes';
 import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
+import { removeTrailingZeros } from '../lib/format';
 
 // Designed program covers (README "Program Covers"): a per-program hue rendered
 // as a gradient, with a single-stroke signature motif. oklch from the mock is
@@ -53,8 +54,9 @@ import type { AppLanguage, WorkoutTemplateDraft } from '../types/models';
 const SEAM_RATIO = 0.82;
 
 // The palette itself moved to lib/programVisualIdentity: the detail and day
-// heroes wear the same colour as the cover, so the values need one home.
-const COVER_STYLES = PROGRAM_COVER_STYLES;
+// heroes wear the same colour as the cover, so the values need one home. The
+// choice of which style a programme gets moved out too — it is the family's
+// now, resolved in App.tsx and carried on the item.
 const SAVED_TILE: [string, string] = ['#00BAD1', '#0088A8'];
 
 /** Seasons get the same header treatment as a category, in their own hue. */
@@ -125,7 +127,13 @@ export interface ProgramsExploreItem {
   blurb: string;
   days: number;
   minutes: number;
-  coverIndex: number;
+  /**
+   * The programme's resolved colour and motif. Was an index into the palette,
+   * picked by hashing the id — so the same family wore five different colours
+   * across the rail. The style is chosen where the programme is built now
+   * (App.tsx), from its family, and travels with the item.
+   */
+  cover: ProgramCoverStyle;
   /** The program's week as bar heights — see lib/programFingerprint. */
   fingerprint: number[];
   /**
@@ -282,7 +290,7 @@ function ProgramCover({
   height = COVER_H,
   compact = false,
 }: {
-  style: (typeof COVER_STYLES)[number];
+  style: ProgramCoverStyle;
   goal: string;
   days: number;
   name: string;
@@ -617,7 +625,7 @@ const LEVEL_FILTERS: Array<{ level: WorkoutLevel | null; key: I18nKey }> = [
 ];
 
 /** The 74x74 cover on a sheet row: gradient plus the program's own week. */
-function RowCover({ style, fingerprint }: { style: (typeof COVER_STYLES)[number]; fingerprint: number[] }) {
+function RowCover({ style, fingerprint }: { style: ProgramCoverStyle; fingerprint: number[] }) {
   const gid = `row-${style.cover[0]}`.replace(/[^a-zA-Z0-9]/g, '');
   const size = 74;
   return (
@@ -774,7 +782,7 @@ function ProgramSheet({
               <Text style={styles.catSheetEmpty}>{t(language, 'programs.sheet.empty')}</Text>
             ) : (
               shown.map((item) => {
-                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
+                const style = item.cover;
                 const levelStyle = LEVEL_STYLES[item.level];
                 return (
                   <Pressable
@@ -932,7 +940,7 @@ export function ProgramsHomeScreen({
     }
   };
 
-  const pickedStyle = picked ? COVER_STYLES[picked.coverIndex % COVER_STYLES.length] : null;
+  const pickedStyle = picked ? picked.cover : null;
 
   // The open sheet's contents, drawn from the same sources the tiles count.
   const sheetCategory = sheet?.kind === 'category' ? PROGRAM_CATEGORIES.find((entry) => entry.key === sheet.key) : null;
@@ -1093,10 +1101,10 @@ export function ProgramsHomeScreen({
                           </Text>
                           <Text style={styles.goalMeta} numberOfLines={1}>
                             {entry.currentKg === null
-                              ? t(language, 'programs.goals.notStarted', { target: entry.goal.targetKg })
+                              ? t(language, 'programs.goals.notStarted', { target: removeTrailingZeros(entry.goal.targetKg) })
                               : t(language, 'programs.goals.meta', {
-                                  current: entry.currentKg,
-                                  target: entry.goal.targetKg,
+                                  current: removeTrailingZeros(entry.currentKg),
+                                  target: removeTrailingZeros(entry.goal.targetKg),
                                 })}
                           </Text>
                           <View style={styles.goalTrack}>
@@ -1251,7 +1259,7 @@ export function ProgramsHomeScreen({
               style={styles.exploreScroll}
             >
               {recommendations.map((item) => {
-                const style = COVER_STYLES[item.coverIndex % COVER_STYLES.length];
+                const style = item.cover;
                 return (
                   <Pressable
                     key={item.id}

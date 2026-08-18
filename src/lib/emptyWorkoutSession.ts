@@ -140,6 +140,29 @@ export function freestyleVolumeKg(exercises: FreestyleExerciseDraft[]) {
   );
 }
 
+/**
+ * Whether ticking this set leaves anything else to log.
+ *
+ * Rest is the time *before the next set*. Ticking the last one used to open
+ * the 2:00 bar anyway, which counted down to nothing and — because the bar
+ * floats — covered "Lopeta treeni" at the bottom of the screen, so the timer
+ * with no purpose was also standing in front of the only button left to press.
+ *
+ * Takes the pre-toggle list and the set being ticked, because the caller runs
+ * this before the state update lands.
+ */
+export function freestyleHasSetAfter(
+  exercises: readonly FreestyleExerciseDraft[],
+  exerciseKey: string,
+  setKey: string,
+): boolean {
+  return exercises.some((exercise) =>
+    exercise.sets.some(
+      (set) => !set.done && !(exercise.localKey === exerciseKey && set.localKey === setKey),
+    ),
+  );
+}
+
 /** Done-set count across the session, for the stat strip. */
 export function freestyleDoneSetCount(exercises: FreestyleExerciseDraft[]) {
   return exercises.reduce(

@@ -89,7 +89,12 @@ export function EditProfileScreen({ initialName, language = 'en', onBack, onSave
             <Circle cx={48} cy={48} r={44.5} fill="url(#editInner)" />
           </Svg>
           <View style={styles.avatarTextWrap} pointerEvents="none">
-            <Text style={styles.avatarText}>{getInitials(trimmed.length > 0 ? trimmed : 'G')}</Text>
+            {/* The empty-field placeholder was a hardcoded 'G' for "Guest", so
+                the Finnish app drew a G next to a profile it calls "Vieras".
+                Same guest name Profile uses, so the two avatars agree. */}
+            <Text style={styles.avatarText}>
+              {getInitials(trimmed.length > 0 ? trimmed : t(language, 'profile.guestName'))}
+            </Text>
           </View>
         </View>
 

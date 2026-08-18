@@ -10,6 +10,7 @@ import { CutSurface } from '../components/CutSurface';
 import { groupRecordsByMonth, PersonalRecord, RecordKind } from '../lib/personalRecords';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
+import { removeTrailingZeros } from '../lib/format';
 
 /**
  * Your bests, in three kinds.
@@ -44,9 +45,7 @@ const MONTHS: Record<AppLanguage, string[]> = {
 };
 
 function decimal(value: number, language: AppLanguage) {
-  const rounded = Math.round(value * 10) / 10;
-  const text = Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
-  return language === 'fi' ? text.replace('.', ',') : text;
+  return removeTrailingZeros(Math.round(value * 10) / 10);
 }
 
 function thousands(value: number, language: AppLanguage) {

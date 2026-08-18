@@ -68,10 +68,17 @@ module.exports = [
       assert.match(i18nSource, /'home\.greet\.back1\.title': 'Tervetuloa takaisin'/);
       assert.match(homeScreenSource, /content:\s*\{[\s\S]*paddingTop: 24/);
       assert.match(homeScreenSource, /greetingLine:\s*\{[\s\S]*fontSize: 13\.5/);
-      // The header bar is brand only. The PRO pill advertised a subscription
-      // to everyone including the people already paying, and the Pro page has
-      // twelve other ways in — the prop and the route stay for them.
-      assert.doesNotMatch(homeScreenSource, /proBadge/);
+      // The PRO pill is back, and it reads the entitlement. It was removed for
+      // advertising a subscription to people who already paid; that reason
+      // applied to the gold offer, not to a status badge. Gold goes to the Pro
+      // page, grey goes to the membership the reader already has — a
+      // subscriber must never be sent to a page selling them what they own.
+      assert.match(homeScreenSource, /proUnlocked \? onOpenSubscription\?\.\(\) : onOpenPremium\?\.\(\)/);
+      assert.match(homeScreenSource, /proUnlocked \? styles\.proPillActive : styles\.proPillOffer/);
+      assert.match(homeScreenSource, /proPillOffer:\s*\{[\s\S]{0,80}backgroundColor: theme\.gold/);
+      assert.match(homeScreenSource, /proPillActive:\s*\{[\s\S]{0,120}backgroundColor: theme\.surfaceSoft/);
+      // The label is one word; what it means is in the accessibility label.
+      assert.match(homeScreenSource, /proUnlocked \? 'home\.proPill\.manage' : 'home\.proPill\.get'/);
       assert.match(homeScreenSource, /<VinhaWordmark size=\{34\}/);
       assert.match(homeScreenSource, /speedRule:\s*\{[\s\S]*skewX: '-18deg'/);
       // The date is stated once, on the greeting row — today's cell in the
@@ -98,7 +105,7 @@ module.exports = [
       assert.match(homeScreenSource, /calendarAnim\.interpolate\(\{ inputRange: \[0, 1\], outputRange: \[0, 480\] \}\)/);
       // Entrance animations: staggered "rise" + progress fill, all skipped when
       // the user has reduced motion enabled (content must never stay hidden).
-      assert.match(homeScreenSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+      assert.match(homeScreenSource, /queryReduceMotion\(\)/);
       assert.match(homeScreenSource, /riseValues\.forEach\(\(value\) => value\.setValue\(1\)\)/);
       assert.match(homeScreenSource, /Easing\.bezier\(0\.22, 1, 0\.36, 1\)/);
       assert.match(homeScreenSource, /outputRange: \[16, 0\]/);
@@ -550,11 +557,30 @@ module.exports = [
       assert.match(bottomTabBarSource, /url\(#aiFill\)/);
       assert.match(bottomTabBarSource, /centerGlow:\s*\{[\s\S]*shadowColor: theme\.purpleBright/);
       assert.match(bottomTabBarSource, /aiCircle:\s*\{[\s\S]*width: AI_SIZE/);
-      assert.match(bottomTabBarSource, /AccessibilityInfo\.isReduceMotionEnabled\(\)/);
+      assert.match(bottomTabBarSource, /queryReduceMotion\(\)/);
       assert.match(bottomTabBarSource, /fabPop\.setValue\(1\)/);
       assert.match(bottomTabBarSource, /Easing\.bezier\(0\.3, 1\.3, 0\.5, 1\)/);
       assert.match(bottomTabBarSource, /delay: 500/);
       assert.match(bottomTabBarSource, /delay: 240/);
+    },
+  },
+  {
+    /**
+     * TÄNÄÄN is a claim about the calendar.
+     *
+     * The row computed `const isToday = activePlan.nextSession?.id ===
+     * session.id` — a variable named for the calendar and meaning "is next".
+     * No clock came near it, so the badge followed the rotation and was right
+     * only by coincidence.
+     */
+    name: 'the TODAY badge reads the calendar and the outline reads the plan',
+    run() {
+      assert.match(homeScreenSource, /const todayWeekdayCode = weekdayCodeForDate\(new Date\(\)\)/);
+      assert.match(homeScreenSource, /const isToday = weekday !== null && weekday === todayWeekdayCode/);
+      assert.match(homeScreenSource, /const isNext = activePlan\.nextSession\?\.id === session\.id/);
+      // The outline is the plan's mark, the pill is the calendar's.
+      assert.match(homeScreenSource, /stroke=\{isNext \? theme\.purpleBright : undefined\}/);
+      assert.doesNotMatch(homeScreenSource, /const isToday = activePlan\.nextSession/);
     },
   },
   {
@@ -564,9 +590,13 @@ module.exports = [
       // weekdays: the ready-program path never asks, and neither does the
       // guided path when the app is left to decide. That left the calendar,
       // the week strip and the home widget blank with no route to fill them.
+      // Four writers, on purpose: onboarding, the weekday picker, the reset,
+      // and the rhythm strip on the programme screen — the last one added when
+      // the two halves of the week were joined, so moving a day there moves the
+      // reminders too. None of them fills an unknown week without being asked.
       const writes = appSource.match(/setupAvailableDays: [^,\r\n]+/g) ?? [];
       assert.ok(
-        writes.length <= 3,
+        writes.length <= 4,
         'a new setupAvailableDays writer appeared — check whether the empty-week prompt is still needed',
       );
 

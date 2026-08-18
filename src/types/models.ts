@@ -1,5 +1,7 @@
+import { CancelSurveyAnswer } from '../lib/cancelSurvey';
 import { SeasonEnrolment } from '../lib/seasonEnrolment';
 import { StrengthGoal } from '../lib/strengthGoals';
+import { SubscriptionTermKey } from '../lib/subscriptionView';
 export type UnitPreference = 'kg' | 'lb';
 export type AppLanguage = 'en' | 'fi';
 export type SignInMethod = 'apple' | 'email' | 'local' | 'google';
@@ -299,6 +301,32 @@ export interface AppPreferences {
   trainingBreak: TrainingBreak | null;
   /** ISO date until which a redeemed promo keeps Pro unlocked; null = none. */
   promoProUntil: string | null;
+  /**
+   * Demo-build only: which term the subscription screen pretends the reader is
+   * on, and whether they have pretended to cancel it.
+   *
+   * Named `mock` on purpose, in the persisted database, where anyone reading a
+   * dump can see what they are. There is no billing — these exist so the
+   * management screen can be walked end to end before there is a store to walk
+   * it against, and they come out with MOCK_BILLING when billing lands.
+   */
+  mockSubscriptionTerm: SubscriptionTermKey;
+  mockSubscriptionCancelled: boolean;
+  /**
+   * When Pro was turned on, ISO. The renewal date is COUNTED from this plus the
+   * term's length — never written into copy, which is the requirement #bugs
+   * locked after the unlock receipt shipped a hardcoded "15.9.2026".
+   *
+   * The one field real billing has to fill. Everything downstream already reads
+   * it through resolveSubscriptionView, so the store replaces this and nothing
+   * else changes.
+   */
+  mockSubscriptionPurchasedAt: string | null;
+  /**
+   * Why the reader ended their membership, kept on the device. Null when the
+   * survey was never answered or was skipped — a skip is not an empty answer.
+   */
+  cancelSurveyAnswer: CancelSurveyAnswer | null;
   /** Feature-request ids this device has upvoted (local demo board). */
   featureVotedIds: string[];
   /**

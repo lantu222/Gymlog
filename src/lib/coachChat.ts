@@ -6,6 +6,7 @@ import { WeeklyReadRow } from './proInsights';
 import { localizeSessionName } from './sessionNameLabel';
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
+import { removeTrailingZeros } from './format';
 
 /**
  * The AI tab's opening state (design: Vinha AI Tab).
@@ -100,7 +101,7 @@ export function buildCoachContextReadout(
       label: t(language, 'coachChat.readout.lift'),
       value:
         topSet.weight !== null
-          ? `${name} · ${topSet.weight} ${context.unitPreference} × ${reps}`
+          ? `${name} · ${removeTrailingZeros(topSet.weight)} ${context.unitPreference} × ${reps}`
           : `${name} · ${reps}`,
     });
   }

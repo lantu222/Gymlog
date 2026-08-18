@@ -9,29 +9,55 @@ const {
 } = require('../../.test-dist/lib/proBenefits');
 
 const root = path.join(__dirname, '..', '..');
-const premiumSource = fs.readFileSync(path.join(root, 'src', 'screens', 'PremiumScreen.tsx'), 'utf8');
 const i18nSource = fs.readFileSync(path.join(root, 'src', 'lib', 'i18n.ts'), 'utf8');
+
+/** Every .ts/.tsx under src/, flattened, so a gate can be looked for by name. */
+function readSourceTree(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      return readSourceTree(full);
+    }
+    return /\.tsx?$/.test(entry.name) ? [fs.readFileSync(full, 'utf8')] : [];
+  });
+}
+
+const sourceTree = readSourceTree(path.join(root, 'src')).join('\n');
 
 module.exports = [
   {
-    name: 'the what-you-lose list only names benefits the Pro page ships today',
+    name: 'the what-you-lose list only names benefits the code really gates',
     run() {
       assert.ok(PRO_LIVE_BENEFITS.length > 0);
 
+      // This used to check that each benefit appeared in the Pro page's own
+      // feature list. The Pro page (v3) sells five reasons instead of twelve,
+      // so that anchor is gone — and it was always the weaker one. What makes
+      // a "you will lose this" line honest is not that a sales page repeats
+      // it, it is that a gate in the code enforces it. That is exactly what
+      // ProBenefit.gate names, so this reads the gate instead.
       for (const benefit of PRO_LIVE_BENEFITS) {
-        const entry = premiumSource.match(
-          new RegExp(`\\{ titleKey: '${benefit.titleKey.replace(/\./g, '\\.')}'[^}]*\\}`),
+        assert.ok(
+          sourceTree.includes(benefit.gate),
+          `${benefit.titleKey} claims to be gated by ${benefit.gate}, which is nowhere in src/`,
         );
-        assert.ok(entry, `${benefit.titleKey} is not on the Pro page at all`);
-        // A SOON item is not a loss — you cannot lose what never shipped, and
-        // striking it through turns the screen into a threat about nothing.
-        assert.doesNotMatch(
-          entry[0],
-          /soon: true/,
-          `${benefit.titleKey} is marked SOON on the Pro page but listed as a live loss`,
-        );
-        assert.match(i18nSource, new RegExp(`'${benefit.bodyKey.replace(/\./g, '\\.')}'`));
+        // Both halves of the copy still have to exist, in both languages —
+        // an unlock card announcing a missing key renders an empty row.
+        for (const key of [benefit.titleKey, benefit.bodyKey]) {
+          const lines = i18nSource
+            .split('\n')
+            .filter((line) => line.includes(`'${key}':`));
+          assert.equal(lines.length, 2, `${key} should exist in both languages`);
+        }
       }
+
+      // Cloud backup is the one thing the app promises and does not have. It
+      // left the Pro page with the SOON badge, and it must never wander into
+      // the list of things you lose — you cannot lose what never shipped.
+      assert.ok(
+        !PRO_LIVE_BENEFITS.some((benefit) => /backup/i.test(benefit.titleKey)),
+        'cloud backup is unbuilt and cannot be sold as a live benefit',
+      );
     },
   },
   {

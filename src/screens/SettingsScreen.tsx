@@ -44,6 +44,8 @@ interface SettingsScreenProps {
   onOpenPremium: () => void;
   onOpenSupport: () => void;
   onOpenFeatures: () => void;
+  /** Temporary: the shelf for finished components that have no caller yet. */
+  onOpenDesignDemo: () => void;
   onOpenAiInfo: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
   onResetAllData: () => void;
@@ -225,6 +227,7 @@ export function SettingsScreen({
   onOpenPremium,
   onOpenSupport,
   onOpenFeatures,
+  onOpenDesignDemo,
   onOpenAiInfo,
   onOpenLegal,
   onResetAllData,
@@ -310,6 +313,7 @@ export function SettingsScreen({
               // someone who has not. Once Pro is on it is the one line on the
               // row that says nothing about what the switch does.
               sub={t(language, themeRow.locked ? 'settings.darkTheme.sub' : 'settings.darkTheme.subPro')}
+              // The Pro page, as the comment above has said all along.
               onPress={themeRow.locked ? onOpenPremium : undefined}
               control={
                 themeRow.locked ? (
@@ -454,8 +458,17 @@ export function SettingsScreen({
               title={t(language, 'settings.features')}
               sub={t(language, 'settings.features.sub')}
               chevron
-              last
               onPress={onOpenFeatures}
+            />
+            {/* Temporary shelf — remove this row together with
+                DesignDemoScreen once both components have real callers. */}
+            <Row
+              icon="spark"
+              title={t(language, 'settings.designDemo')}
+              sub={t(language, 'settings.designDemo.sub')}
+              chevron
+              last
+              onPress={onOpenDesignDemo}
             />
           </View>
         </View>

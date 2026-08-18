@@ -17,7 +17,7 @@ import { RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
-import { parseNumberInput } from '../lib/format';
+import { parseNumberInput, removeTrailingZeros } from '../lib/format';
 import {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
   EmptyWorkoutMuscleFilter,
@@ -26,6 +26,7 @@ import {
   buildFreestyleFinish,
   exerciseInitials,
   freestyleDoneSetCount,
+  freestyleHasSetAfter,
   freestyleVolumeKg,
   matchesMuscleFilter,
 } from '../lib/emptyWorkoutSession';
@@ -33,8 +34,7 @@ import { getExerciseTemplateDefaults, getPopularExerciseLibraryItems } from '../
 import { bodyPartLabel, I18nKey, t } from '../lib/i18n';
 import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
-import { AW3 } from '../lightTheme';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles, aw3ForTheme, useAW3 } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
 import { useRestEndAlert } from '../hooks/useRestEndAlert';
 import { haptics } from '../utils/haptics';
@@ -117,7 +117,7 @@ function formatSessionClock(totalSeconds: number) {
 }
 
 function formatVolumeLabel(volumeKg: number) {
-  return volumeKg % 1 ? volumeKg.toFixed(1) : `${volumeKg}`;
+  return removeTrailingZeros(volumeKg);
 }
 
 // ── small shared pieces ──────────────────────────────────────────────────
@@ -170,6 +170,7 @@ function FadeInView({ style, children }: { style?: object; children: React.React
 /** Check button with the aw3Pop squash when a set flips to done. */
 function SetCheckButton({ done, label, onPress }: { done: boolean; label: string; onPress: () => void }) {
   const styles = useThemedStyles(makeStyles);
+  const AW3 = useAW3();
 
   const scale = useRef(new Animated.Value(1)).current;
   const wasDone = useRef(done);
@@ -229,6 +230,7 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddShe
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
+  const AW3 = useAW3();
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [filter, setFilter] = useState<EmptyWorkoutMuscleFilter>('All');
@@ -442,6 +444,7 @@ export function EmptyWorkoutScreen({
 }: EmptyWorkoutScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const AW3 = useAW3();
   const [exercises, setExercises] = useState<FreestyleExerciseState[]>([]);
   const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
@@ -534,10 +537,14 @@ export function EmptyWorkoutScreen({
     if (!set.done) {
       void haptics.success();
       sound.done();
-      const duration = exercise.restSeconds > 0 ? Math.round(exercise.restSeconds) : defaultRestSeconds;
-      const now = Date.now();
-      setNowMs(now);
-      setRest({ totalSeconds: duration, endsAtMs: now + duration * 1000 });
+      // No next set, no rest. The bar used to open on the last tick of the
+      // session, count down to nothing, and cover "Lopeta treeni" while it did.
+      if (freestyleHasSetAfter(exercises, exerciseKey, setKey)) {
+        const duration = exercise.restSeconds > 0 ? Math.round(exercise.restSeconds) : defaultRestSeconds;
+        const now = Date.now();
+        setNowMs(now);
+        setRest({ totalSeconds: duration, endsAtMs: now + duration * 1000 });
+      }
     }
 
     setExercises((current) =>
@@ -834,7 +841,9 @@ export function EmptyWorkoutScreen({
 
 // ── styles ───────────────────────────────────────────────────────────────
 
-const makeStyles = (theme: Theme) => StyleSheet.create({
+const makeStyles = (theme: Theme) => {
+  const AW3 = aw3ForTheme(theme);
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: theme.bg,
@@ -1495,4 +1504,5 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   sheetConfirmTextDisabled: {
     color: theme.faint,
   },
-});
+  });
+};

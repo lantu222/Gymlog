@@ -123,6 +123,28 @@ module.exports = [
         /const footerVisible = !\(stage === 'review' && \(planReadyView === 'pro' \|\| planReadyView === 'overview'\)\)/,
       );
 
+      // The ready-catalog pick ADOPTS the programme, it does not merely
+      // remember it. This wrote `activePlanId: null` next to a
+      // `recommendedProgramId`, so Home — which reads the active plan — showed
+      // no programme at all after the reader had just chosen one, and Profile
+      // said "no programme selected". Verified on device 2026-08-13.
+      // \r?\n throughout: App.tsx is CRLF on this checkout, and a \n-only
+      // terminator matches nothing at all rather than failing loudly.
+      const readyPick = appSource.match(
+        /async function handleOnboardingPickReadyProgram\(programId: string\)[\s\S]*?\r?\n {2}\}\r?\n/,
+      );
+      assert.ok(readyPick, 'handleOnboardingPickReadyProgram not found');
+      assert.match(readyPick[0], /buildReadyProgramWorkoutPlan\(/);
+      assert.match(readyPick[0], /await upsertWorkoutPlan\(plan\)/);
+      assert.match(readyPick[0], /activePlanId: adoptedPlanId/);
+      assert.match(readyPick[0], /activePlanIds: adoptedPlanId \? \[adoptedPlanId\] : \[\]/);
+      // Comments stripped first: the code block explains the old bug by quoting
+      // it, and a naive search would match the explanation instead of a relapse.
+      const readyPickCode = readyPick[0].replace(/^\s*\/\/.*$/gm, '');
+      assert.doesNotMatch(readyPickCode, /activePlanId: null/);
+      // And the fork reaches the catalog without the About form in between.
+      assert.match(appSource, /onBrowsePrograms=\{\(\) => \{[\s\S]*?setOnboardingStep\('ready_catalog'\)/);
+
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
       assert.match(appSource, /function waitForPlanSaveFeedback\(\)[\s\S]*setTimeout\(resolve, 3000\)/);
@@ -437,14 +459,26 @@ module.exports = [
 
       // Light welcome: the copy lives in the i18n dictionary and the screen
       // renders every string through t(language, …).
-      assert.match(i18nSource, /Train fast\. Get strong\./);
+      // The tagline promises an outcome, not an activity (2026-08-13). "Train
+      // fast. Get strong." was a pun on the name that told the reader nothing
+      // they could not guess from the app's category.
+      assert.match(i18nSource, /'brand\.tagline': 'Results, not guesswork\.'/);
+      assert.match(i18nSource, /'brand\.tagline': 'Tuloksia, ei arvailua\.'/);
       // The provider buttons are gone. Both called the same handler: there is
       // no OAuth and no account, so they announced two companies' sign-in for
       // a feature that does not exist — on the first screen, behind no guard.
       assert.doesNotMatch(welcomeSource, /continueGoogle|continueApple/);
       assert.doesNotMatch(welcomeSource, /GoogleMark|AppleMark/);
       assert.match(welcomeSource, /t\(language, 'welcome\.start'\)/);
-      assert.match(welcomeSource, /t\(language, 'welcome\.noAccount'\)/);
+      // "No account needed — everything stays on this phone." is gone
+      // (2026-08-13): it answered a worry the first screen does not raise,
+      // there being no sign-in form in sight, and the privacy promise is made
+      // properly in Settings where it can be read in full.
+      assert.doesNotMatch(welcomeSource, /welcome\.noAccount/);
+      assert.doesNotMatch(i18nSource, /welcome\.noAccount/);
+      // The CTA is uppercased by the stylesheet, not by the translation, so the
+      // string stays readable and the a11y label reads as a sentence.
+      assert.match(welcomeSource, /startLabel: \{[^}]*textTransform: 'uppercase'/s);
       // The old Welcome CTA is gone. Scoped to a welcome.* value on purpose:
       // "Start free" is legitimate prose on the access-choice screen.
       assert.doesNotMatch(i18nSource, /'welcome\.[^']*': '[^']*Start free/);

@@ -2,6 +2,16 @@ const assert = require('node:assert/strict');
 
 const { buildProgramInsightMap } = require('../../.test-dist/lib/programInsights.js');
 
+/**
+ * These assert English copy, so they assert English number formatting with it.
+ * removeTrailingZeros reads a module-level decimal mark (lib/format.ts) that
+ * the app sets from preferences and that defaults to Finnish, so a suite that
+ * wants points rather than commas has to say so — otherwise it passes or fails
+ * on whichever suite ran before it.
+ */
+const { setNumberLanguage } = require('../../.test-dist/lib/format.js');
+setNumberLanguage('en');
+
 module.exports = [
   {
     name: 'program insights expose next session, top set, and session statuses',

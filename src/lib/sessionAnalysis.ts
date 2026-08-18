@@ -11,6 +11,7 @@ import {
   topSetOf,
 } from './trainingHistory';
 import { AppLanguage, ExerciseLog, ExerciseLogSetEffort, WorkoutSession } from '../types/models';
+import { removeTrailingZeros } from './format';
 
 /**
  * The written-out post-workout analysis behind the coach sheet's
@@ -215,7 +216,7 @@ export function buildSessionAnalysis({
   if (heaviest) {
     keyNumbers.push({
       labelKey: 'analysis.key.topSet',
-      value: `${round(heaviest.weight)} kg × ${heaviest.reps}`,
+      value: `${removeTrailingZeros(round(heaviest.weight))} kg × ${heaviest.reps}`,
       sub: exerciseNameLabel(language, heaviest.log.exerciseNameSnapshot),
     });
   }
@@ -243,7 +244,7 @@ export function buildSessionAnalysis({
 
     const reps = completedReps(log);
     const repLabel = reps.every((count) => count === reps[0]) ? `${reps[0]}` : reps.join('/');
-    const detail = `${reps.length} × ${repLabel} · ${round(log.weight)} kg`;
+    const detail = `${reps.length} × ${repLabel} · ${removeTrailingZeros(round(log.weight))} kg`;
 
     // Compare against the most recent earlier session of the same lift.
     const earlier =
@@ -258,9 +259,9 @@ export function buildSessionAnalysis({
       detail,
       // With a single set the detail line already is the top set; repeating it
       // reads as "1 × 5 · 102.5 kg · 102.5 kg × 5".
-      topSet: reps.length > 1 ? `${round(top.weight)} kg × ${top.reps}` : null,
+      topSet: reps.length > 1 ? `${removeTrailingZeros(round(top.weight))} kg × ${top.reps}` : null,
       trend: delta === null ? null : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat',
-      trendLabel: delta === null ? null : delta === 0 ? '=' : `${delta > 0 ? '+' : ''}${delta} kg`,
+      trendLabel: delta === null ? null : delta === 0 ? '=' : `${delta > 0 ? '+' : ''}${removeTrailingZeros(delta)} kg`,
     });
   }
 
@@ -301,7 +302,7 @@ export function buildSessionAnalysis({
 
   if (heaviest) {
     const liftName = exerciseNameLabel(language, heaviest.log.exerciseNameSnapshot);
-    const nextWeight = `${round(heaviest.weight + 2.5)} kg`;
+    const nextWeight = `${removeTrailingZeros(round(heaviest.weight + 2.5))} kg`;
     nextActions.push({
       text: t(language, 'analysis.next.progress', { lift: liftName, weight: nextWeight }),
       highlights: [nextWeight],

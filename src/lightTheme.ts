@@ -107,6 +107,9 @@ export const AW3 = {
 
 export type AW3Token = keyof typeof AW3;
 
+/** The same keys, widened — a themed palette fills them with its own values. */
+export type AW3Palette = { readonly [K in AW3Token]: string };
+
 
 /**
  * The AI Coach surface (design_handoff_ai_coach). Deliberately dark and gold

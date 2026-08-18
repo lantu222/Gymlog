@@ -1,31 +1,46 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Line, Path, Polygon, Polyline, Text as SvgText } from 'react-native-svg';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
-import { CutButton } from '../components/CutButton';
-import { CutSurface } from '../components/CutSurface';
-import { ProPill } from '../components/ProLockedCard';
-import { removeTrailingZeros } from '../lib/format';
+import { ProChatHero } from '../components/ProChatHero';
 import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
+import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
+import { FREE_TREND_MONTHS } from '../lib/historyWindow';
 import { I18nKey, t } from '../lib/i18n';
-import { PremiumHeroChart } from '../lib/premiumHeroChart';
+import { ProChatScript } from '../lib/proChatHero';
 import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
+import { FREE_CUSTOM_PROGRAM_LIMIT } from '../lib/programSlots';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
-import { AppLanguage, UnitPreference } from '../types/models';
+import { AppLanguage } from '../types/models';
 
 /**
- * The Pro full page (design: Vinha Premium v2 / premium2-app.jsx).
+ * The Pro full page (design: "Vinha Pro v4 — AI-chat hero").
  *
- * Structure: own-data hero → three grouped reasons → the free tier stated
- * plainly → plan select → a free/premium table where every cell is a phrase →
- * pinned CTA. The hero is still the user's own numbers with an honest empty
- * state, and every claim below it was checked against the code (see the note
- * above GROUPS).
+ * Six blocks and a pinned foot:
  *
- * The CTA advertises a trial that does not exist. That is a demo-only decision
- * and releaseReadiness.test.cjs holds the other end of it.
+ *   1 hero — a live conversation with the coach, on this reader's own lift
+ *   2 what Pro adds — the only block with icons, five rows
+ *   3 what the app is in either tier — three checked lines
+ *   4 the three objections, as an FAQ
+ *   5 fine print
+ *   foot — three plan tiles and the CTA, fixed while the page scrolls
+ *
+ * v2 sold with a 22-row comparison table and twelve grouped feature cards. v3
+ * deleted both: a reader who has to audit a table has already stopped reading.
+ * v4 keeps that body and puts the personal proof back where v3 had removed it —
+ * not as a chart block, but as the coach answering a question about this
+ * reader's own lift, which is the thing being sold. See components/ProChatHero
+ * and lib/proChatHero. The withheld-conclusion moments on Home and in the chat
+ * still do the withholding; this page closes.
+ *
+ * Every free-tier number below is interpolated from the constant that enforces
+ * it — FREE_CUSTOM_PROGRAM_LIMIT, FREE_COACH_QUESTIONS_PER_WEEK,
+ * FREE_TREND_MONTHS — so the sales copy cannot drift from the gate.
+ *
+ * The CTA sells a subscription billing does not exist for. That is a demo-only
+ * decision and releaseReadiness.test.cjs holds the other end of it; the notice
+ * in block 5 says so on screen rather than only in a comment.
  */
 interface PremiumScreenProps {
   /**
@@ -40,226 +55,255 @@ interface PremiumScreenProps {
   previewUnlocked: boolean;
   /** Whether Pro is actually on — the preview switch or a live promo code. */
   proUnlocked: boolean;
-  heroChart: PremiumHeroChart | null;
-  unitPreference: UnitPreference;
-  /** Real session count behind the hero headline. */
-  sessionCount: number;
-  /** Deterministic coach read of the user's own log; null with no data. */
-  coachSpecimen: string | null;
+  /**
+   * The hero's conversation, built from this reader's own log by
+   * buildProChatHeroScript. It carries its own `personal` flag, so a reader
+   * with nothing logged gets the same hero on sample figures with an EXAMPLE
+   * chip rather than a different screen.
+   */
+  chatScript: ProChatScript;
   language?: AppLanguage;
   onBack: () => void;
-  onTogglePreview: () => void;
-  /** Where an existing subscriber goes instead of the trial CTA. */
+  /** Receives the package the reader had selected when they pressed buy. */
+  onTogglePreview: (plan: PlanId) => void;
+  /** Where an existing subscriber goes instead of the buy CTA. */
   onManageSubscription: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
 }
 
-/**
- * Every line on this page was checked against the code on 2026-08-01. Claims
- * from the v2 mock that described things this app does not do were cut rather
- * than shipped: a watch app, several active programs, an eight-week cap on free
- * history, and a free tier that gets one AI build. What is left is either live
- * or wears a SOON badge.
- */
 const IC = {
-  spark: 'M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z',
-  clock: 'M12 21a8 8 0 100-16 8 8 0 000 16zM12 13V9M9 3h6',
-  lines: 'M4 7h16M4 12h10M4 17h7',
-  chart: 'M4 19V5M4 19h16M8 15l3-4 3 2 4-6',
-  chat: 'M20 15a3 3 0 01-3 3H8l-4 3V6a3 3 0 013-3h10a3 3 0 013 3z',
-  layers: 'M12 3l8 4.5-8 4.5-8-4.5 8-4.5zM4 12l8 4.5 8-4.5',
-  doc: 'M7 3h7l4 4v14H7zM14 3v4h4',
-  heart: 'M12 20S4 14 4 9a4 4 0 017.5-2A4 4 0 0120 9c0 5-8 11-8 11z',
-  moon: 'M20 14a8 8 0 01-10-10 8 8 0 1010 10z',
-  cloud: 'M7 18a4 4 0 010-8 5 5 0 019.6-1.4A3.5 3.5 0 1117.5 18z',
+  grid: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z',
+  arrow: 'M7 17L17 7M9 7h8v8',
+  spark: 'M12 2.5l2.1 5.6L19.5 10l-5.4 1.9L12 17.5l-2.1-5.6L4.5 10l5.4-1.9z',
+  clock: 'M12 7v5l3.5 2M21 12a9 9 0 11-18 0 9 9 0 0118 0z',
+  heart: 'M12 20s-7-4.4-7-9a4 4 0 017-2.6A4 4 0 0119 11c0 4.6-7 9-7 9z',
 };
 
-interface ProItem {
+interface DeltaRow {
+  key: string;
+  icon: string;
+  /** The one filled glyph in the set. Everything else is a 2.1pt stroke. */
+  filled?: boolean;
   titleKey: I18nKey;
   bodyKey: I18nKey;
-  soon?: boolean;
-  icon: string;
+  vars?: Record<string, string | number>;
+  /**
+   * Rows whose whole body is the free tier's number rather than a Pro promise.
+   * They sit a shade quieter, so the block reads as five gains and not as five
+   * limits with a price attached.
+   */
+  quiet?: boolean;
 }
 
-const GROUPS: Array<{ key: string; kickerKey: I18nKey; titleKey: I18nKey; leadKey: I18nKey; items: ProItem[] }> = [
+/**
+ * Five rows, and no sixth.
+ *
+ * v2 listed twelve. Cutting to five is the design decision this page turns on:
+ * a reader buys on one reason, and every row after the one that convinced them
+ * is a row that can raise a doubt. Everything cut is still true, still gated
+ * and still announced at the unlock moment (PRO_LIVE_BENEFITS) — it is just no
+ * longer part of the pitch.
+ *
+ * Cloud backup left with them, and that one is a gain: it was the only claim on
+ * this page wearing a SOON badge, and a paywall that sells a plan is a paywall
+ * that has to be re-read every time the plan slips.
+ */
+const DELTA: DeltaRow[] = [
+  // The coach leads, because the hero above is the coach. v3 opened on the
+  // programme cap and the first row contradicted the thing the reader had just
+  // watched — the list has to continue the hero's sentence, not change subject.
+  //
+  // The free quota is real and metered (aiCoachQuota.ts); out of quota the chat
+  // still answers, blurred, rather than refusing to talk.
   {
     key: 'coach',
-    kickerKey: 'pro.v2.group.coach.kicker',
-    titleKey: 'pro.v2.group.coach.title',
-    leadKey: 'pro.v2.group.coach.lead',
-    items: [
-      // progressionGate.ts; +2.5 kg is the beginner tier's real increment,
-      // not a round number chosen for the page. The adaptive set coach and the
-      // smart rest timing used to head this group; they were removed with the
-      // list logger they lived in (user decision 2026-08-02), so they are not
-      // sold here any more.
-      { titleKey: 'pro.v2.coach.progression.t', bodyKey: 'pro.v2.coach.progression.b', icon: IC.chart },
-      { titleKey: 'pro.v2.coach.session.t', bodyKey: 'pro.v2.coach.session.b', icon: IC.lines },
-    ],
+    icon: IC.spark,
+    filled: true,
+    titleKey: 'pro.v3.delta.coach.t',
+    bodyKey: 'pro.v3.delta.coach.b',
+    vars: { count: FREE_COACH_QUESTIONS_PER_WEEK },
+  },
+  // progressionGate.ts, reached through resolveProgressionOptions — the free
+  // tier gets the prefill turned off, not a worse increment.
+  {
+    key: 'progression',
+    icon: IC.arrow,
+    titleKey: 'pro.v3.delta.progression.t',
+    bodyKey: 'pro.v3.delta.progression.b',
   },
   {
-    key: 'plan',
-    kickerKey: 'pro.v2.group.plan.kicker',
-    titleKey: 'pro.v2.group.plan.title',
-    leadKey: 'pro.v2.group.plan.lead',
-    items: [
-      // The free quota is real: 3 coach questions a week (aiCoachQuota.ts).
-      { titleKey: 'pro.v2.plan.coach.t', bodyKey: 'pro.v2.plan.coach.b', icon: IC.chat },
-      // Free gets none, not one — openAiMode() sends free users to this page.
-      { titleKey: 'pro.v2.plan.builder.t', bodyKey: 'pro.v2.plan.builder.b', icon: IC.layers },
-      // Cut from the v2 mock on 2026-08-01 because the app held exactly one
-      // programme. It holds a set now (activeProgramSet.ts, two free and five
-      // on Pro), so the claim is back — this time with a cap behind it.
-      { titleKey: 'pro.v2.plan.programs.t', bodyKey: 'pro.v2.plan.programs.b', icon: IC.layers },
-    ],
+    key: 'programs',
+    icon: IC.grid,
+    titleKey: 'pro.v3.delta.programs.t',
+    bodyKey: 'pro.v3.delta.programs.b',
+    vars: { cap: FREE_CUSTOM_PROGRAM_LIMIT },
+    quiet: true,
   },
+  // Careful wording, and the trust block below backs it up: the LOG is never
+  // capped in either tier. What free narrows is the charts and the records
+  // (historyWindow.ts), and the body says exactly that.
   {
-    key: 'read',
-    kickerKey: 'pro.v2.group.read.kicker',
-    titleKey: 'pro.v2.group.read.title',
-    leadKey: 'pro.v2.group.read.lead',
-    items: [
-      { titleKey: 'pro.v2.read.analysis.t', bodyKey: 'pro.v2.read.analysis.b', icon: IC.doc },
-      { titleKey: 'pro.v2.read.why.t', bodyKey: 'pro.v2.read.why.b', icon: IC.chart },
-      { titleKey: 'pro.v2.read.records.t', bodyKey: 'pro.v2.read.records.b', icon: IC.chart },
-      { titleKey: 'pro.v2.read.setlog.t', bodyKey: 'pro.v2.read.setlog.b', icon: IC.doc },
-      { titleKey: 'pro.v2.read.recovery.t', bodyKey: 'pro.v2.read.recovery.b', icon: IC.heart },
-      { titleKey: 'pro.v2.read.theme.t', bodyKey: 'pro.v2.read.theme.b', icon: IC.moon },
-      // Not built. The privacy policy two taps away says data stays on the
-      // phone, so this cannot be a live promise — only a stated intention.
-      { titleKey: 'pro.v2.read.backup.t', bodyKey: 'pro.v2.read.backup.b', soon: true, icon: IC.cloud },
-    ],
+    key: 'history',
+    icon: IC.clock,
+    titleKey: 'pro.v3.delta.history.t',
+    bodyKey: 'pro.v3.delta.history.b',
+    vars: { months: FREE_TREND_MONTHS },
+  },
+  // Not a feature, and it earns its row anyway. It is the one reason on the
+  // page that a competitor with a larger team cannot copy.
+  {
+    key: 'support',
+    icon: IC.heart,
+    titleKey: 'pro.v3.delta.support.t',
+    bodyKey: 'pro.v3.delta.support.b',
   },
 ];
 
-/** A cell is either a phrase, or a dash meaning "not in this tier". */
-type Cellv2 = I18nKey | null;
+/**
+ * What the app is regardless of tier.
+ *
+ * Each line is the loudest complaint about the market leader — the social feed
+ * people say they hate, the connection Hevy needs for everything, and the
+ * update that lost Strong users years of saved workouts. They cost nothing to
+ * state because the app already works this way; not stating them was the only
+ * thing wrong. No account exists anywhere in the code, there is exactly one
+ * outbound request in the app (the AI coach), and nothing ever deletes a set.
+ */
+const TRUST: I18nKey[] = ['pro.v3.trust.private', 'pro.v3.trust.offline', 'pro.v3.trust.forever'];
 
-const ROWS: Array<{ labelKey: I18nKey; free: Cellv2; pro: Cellv2 }> = [
-  { labelKey: 'pro.v2.row.logging', free: 'pro.v2.val.unlimited', pro: 'pro.v2.val.unlimited' },
-  { labelKey: 'pro.v2.row.ready', free: 'pro.v2.val.all', pro: 'pro.v2.val.all' },
-  // The one row that is now a real difference rather than a courtesy: three
-  // of your own on free, unlimited on Pro. The ready catalog above it stays
-  // All / All, because the cap is on authoring and never on choosing.
-  { labelKey: 'pro.v2.row.own', free: 'pro.v2.val.threePrograms', pro: 'pro.v2.val.unlimited' },
-  // Two caps, and they measure different things — which is exactly why they
-  // sit next to each other. Above: how many programmes you may AUTHOR
-  // (programSlots.ts, three free). Here: how many may RUN at once
-  // (activeProgramSet.ts, two free and five on Pro). Both are true at the
-  // same time — three of your own, two of them live — and a reader shown one
-  // number without the other reads the wall they hit as the wrong wall.
-  { labelKey: 'pro.v2.row.concurrent', free: 'pro.v2.val.twoPrograms', pro: 'pro.v2.val.fivePrograms' },
-  // Two rows, deliberately, because this is the distinction the whole free
-  // tier rests on and a reader will not infer it from one line.
-  //
-  // The LOG is never capped in either tier — every session, every set,
-  // searchable and exportable forever. That row stays All / All and is stated
-  // rather than hidden: the competitor whose update lost people five years of
-  // saved workouts is the cautionary tale here, not the model.
-  //
-  // The TREND CHARTS are the paid window. Three months free, all time on Pro.
-  // Hevy's paying users name exactly this, unprompted, as what they bought.
-  { labelKey: 'pro.v2.row.history', free: 'pro.v2.val.allTime', pro: 'pro.v2.val.allTime' },
-  { labelKey: 'pro.v2.row.trends', free: 'pro.v2.val.threeMonths', pro: 'pro.v2.val.allTime' },
-  // Records follow the same three-month window as the trends, and for the same
-  // reason. The older ones are locked rather than removed: the lift and the
-  // date stay readable so the free tier never states a record it has narrowed.
-  { labelKey: 'pro.v2.row.records', free: 'pro.v2.val.threeMonths', pro: 'pro.v2.val.allTime' },
-  // The per-lift set log. The History row above stays All / All: a free user
-  // can still open any session and read every set in it. What Pro buys is the
-  // app lining those sessions up for one lift.
-  { labelKey: 'pro.v2.row.setLog', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.guided', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.widget', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.csv', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
-  // Detection is free — the conclusion is Pro (the paywall-moments rule).
-  { labelKey: 'pro.v2.row.plateau', free: 'pro.v2.val.yes', pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.coachQ', free: 'pro.v2.val.threeWeek', pro: 'pro.v2.val.unlimited' },
-  { labelKey: 'pro.v2.row.builder', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.progression', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.why', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.recovery', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.analysis', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.theme', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.adaptSession', free: null, pro: 'pro.v2.val.yes' },
-  { labelKey: 'pro.v2.row.backup', free: null, pro: 'pro.v2.val.soon' },
+/**
+ * The three questions, answered before they are asked.
+ *
+ * The first one is the whole objection: a reader who suspects their history is
+ * hostage will not subscribe, and will not ask either. It leads on purpose.
+ */
+const FAQ: Array<{ key: string; q: I18nKey; a: I18nKey; vars?: Record<string, string | number> }> = [
+  { key: 'data', q: 'pro.v3.faq.data.q', a: 'pro.v3.faq.data.a', vars: { months: FREE_TREND_MONTHS } },
+  { key: 'cancel', q: 'pro.v3.faq.cancel.q', a: 'pro.v3.faq.cancel.a' },
+  { key: 'lifetime', q: 'pro.v3.faq.lifetime.q', a: 'pro.v3.faq.lifetime.a' },
 ];
 
+type PlanId = 'monthly' | 'yearly' | 'lifetime';
 
-function fmt(value: number) {
-  return removeTrailingZeros(Number(value.toFixed(1)));
-}
+/**
+ * Prices live in the dictionary, not here. Two string literals in this array
+ * are how the app once shipped 71,99 €/yr on this page and 59,90 €/yr on the
+ * onboarding paywall in the same build: the guard that exists to catch exactly
+ * that reads i18n.ts, so a price typed into a screen is a price nothing checks.
+ *
+ * Order is monthly · yearly · lifetime with the year pre-selected, so the
+ * recommended tile sits in the middle where the thumb already is.
+ */
+const PLANS: Array<{
+  id: PlanId;
+  nameKey: I18nKey;
+  priceKey: I18nKey;
+  unitKey: I18nKey;
+  badgeKey: I18nKey | null;
+  fineKey: I18nKey;
+  /** Used only while PRO_TRIAL_ENABLED — the "then …" line, not the flat one. */
+  trialFineKey: I18nKey;
+}> = [
+  {
+    id: 'monthly',
+    nameKey: 'pro.page.monthly',
+    priceKey: 'paywall.plan.monthly.price',
+    unitKey: 'pro.v3.unit.month',
+    badgeKey: null,
+    fineKey: 'pro.v3.fine.recurring',
+    trialFineKey: 'pro.v2.ctaSubMonthly',
+  },
+  {
+    id: 'yearly',
+    nameKey: 'pro.page.yearly',
+    priceKey: 'paywall.plan.yearly.price',
+    unitKey: 'pro.v3.unit.year',
+    // 59,90 against 9,90 x 12 = 118,80 is 49.6% off. The badge said 40% for
+    // months, which was the retired price set's number left behind.
+    badgeKey: 'pro.page.save',
+    fineKey: 'pro.v3.fine.recurring',
+    trialFineKey: 'pro.v2.ctaSubYearly',
+  },
+  // Both leaders in this category sell one, it is the loudest thing their
+  // paying users say they wanted, and it fits an app whose whole posture is
+  // that it does not hold anything of yours hostage. Priced at ~2x the year
+  // rather than the market's ~3x: a deliberate two-year payback.
+  {
+    id: 'lifetime',
+    nameKey: 'pro.page.lifetime',
+    priceKey: 'pro.page.perLifetime',
+    unitKey: 'pro.v3.unit.lifetime',
+    badgeKey: null,
+    fineKey: 'pro.v3.fine.lifetime',
+    trialFineKey: 'pro.v2.ctaSubLifetime',
+  },
+];
 
-function SparkGlyph({ color, size = 16 }: { color: string; size?: number }) {
+/** The save badge sits on gold in both themes, so its ink is fixed, not themed. */
+const BADGE_INK = '#241743';
+
+
+function CheckGlyph({ color, size = 16 }: { color: string; size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
-      <Path d="M12 2l2.2 5.8L20 10l-5.8 2.2L12 18l-2.2-5.8L4 10l5.8-2.2z" fill={color} />
+      <Path
+        d="M5 13l4 4L19 7"
+        stroke={color}
+        strokeWidth={2.8}
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 }
 
-function CheckGlyph({ color }: { color: string }) {
+function DeltaIcon({ row, color }: { row: DeltaRow; color: string }) {
   return (
     <Svg width={17} height={17} viewBox="0 0 24 24">
-      <Path d="M5 13l4 4L19 7" stroke={color} strokeWidth={2.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+      {row.filled ? (
+        <Path d={row.icon} fill={color} />
+      ) : (
+        <Path
+          d={row.icon}
+          stroke={color}
+          strokeWidth={2.1}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
     </Svg>
   );
 }
 
-function HeroChart({ chart, unitPreference }: { chart: PremiumHeroChart; unitPreference: UnitPreference }) {
-  const W = 300;
-  const H = 118;
-  const padL = 8;
-  const padR = 46;
-  const padT = 16;
-  const padB = 18;
-
-  const { points, projectedNext } = chart;
-  const all = [...points, projectedNext];
-  const rawMin = Math.min(...all);
-  const rawMax = Math.max(...all);
-  const span = Math.max(rawMax - rawMin, 1);
-  const domMin = rawMin - span * 0.2;
-  const domMax = rawMax + span * 0.12;
-
-  const total = points.length + 1; // history points + one projected step
-  const x = (index: number) => padL + (index / (total - 1)) * (W - padL - padR);
-  const y = (value: number) => padT + (1 - (value - domMin) / (domMax - domMin)) * (H - padT - padB);
-
-  const lastIndex = points.length - 1;
-  const historyLine = points.map((value, index) => `${x(index)},${y(value)}`).join(' ');
-  const area = `${x(0)},${H - padB} ${historyLine} ${x(lastIndex)},${H - padB}`;
-
-  const gridValues = [rawMax, (rawMin + rawMax) / 2, rawMin].map((value) => Math.round(value));
+function FaqRow({
+  question,
+  answer,
+  open,
+  onToggle,
+}: {
+  question: string;
+  answer: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
 
   return (
-    <Svg width="100%" height={118} viewBox={`0 0 ${W} ${H}`}>
-      {gridValues.map((value) => (
-        <React.Fragment key={value}>
-          <Line x1={padL} x2={W - padR} y1={y(value)} y2={y(value)} stroke="rgba(255,255,255,0.14)" strokeWidth={1} />
-          <SvgText x={W - padR + 6} y={y(value) + 3.5} fontSize={9.5} fontWeight="700" fill="rgba(255,255,255,0.5)">
-            {value}
-          </SvgText>
-        </React.Fragment>
-      ))}
-      <Polygon points={area} fill="rgba(255,255,255,0.12)" />
-      <Polyline points={historyLine} fill="none" stroke="#FFFFFF" strokeWidth={2.6} strokeLinejoin="round" strokeLinecap="round" />
-      <Line
-        x1={x(lastIndex)}
-        y1={y(points[lastIndex])}
-        x2={x(total - 1)}
-        y2={y(projectedNext)}
-        stroke="#37D08A"
-        strokeWidth={2.6}
-        strokeDasharray="3 3"
-        strokeLinecap="round"
-      />
-      <Circle cx={x(lastIndex)} cy={y(points[lastIndex])} r={3.4} fill="#FFFFFF" />
-      <Circle cx={x(total - 1)} cy={y(projectedNext)} r={5} fill="#37D08A" stroke="#241743" strokeWidth={2.5} />
-      <SvgText x={x(total - 1) - 6} y={y(projectedNext) - 9} fontSize={11} fontWeight="800" fill="#FFFFFF" textAnchor="end">
-        {`${fmt(projectedNext)} ${unitPreference}`}
-      </SvgText>
-    </Svg>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      onPress={onToggle}
+      style={[styles.faqCard, open && styles.faqCardOpen]}
+    >
+      <View style={styles.faqHead}>
+        <Text style={styles.faqQuestion}>{question}</Text>
+        {/* One glyph for both states: a plus that becomes a close. */}
+        <Text style={[styles.faqSign, open && styles.faqSignOpen]}>+</Text>
+      </View>
+      {open ? <Text style={styles.faqAnswer}>{answer}</Text> : null}
+    </Pressable>
   );
 }
 
@@ -267,10 +311,7 @@ export function PremiumScreen({
   reason = null,
   previewUnlocked,
   proUnlocked,
-  heroChart,
-  unitPreference,
-  sessionCount,
-  coachSpecimen,
+  chatScript,
   language = 'en',
   onBack,
   onTogglePreview,
@@ -279,12 +320,12 @@ export function PremiumScreen({
 }: PremiumScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const insets = useSafeAreaInsets();
-  const [plan, setPlan] = useState<'yearly' | 'monthly' | 'lifetime'>('yearly');
+  const [plan, setPlan] = useState<PlanId>('yearly');
+  const [openFaq, setOpenFaq] = useState<string | null>(null);
   // Pro via a redeemed code rather than the on-device preview switch: the
   // switch cannot turn that off, so the page must not offer to.
   const promoOnly = proUnlocked && !previewUnlocked;
-  const chartStep = heroChart ? fmt(heroChart.projectedNext - heroChart.latest) : null;
+  const selectedPlan = PLANS.find((option) => option.id === plan) ?? PLANS[1];
 
   return (
     <View style={styles.screen}>
@@ -293,13 +334,11 @@ export function PremiumScreen({
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
-          style={({ pressed }) => [pressed && styles.pressed]}
+          style={({ pressed }) => [styles.closeButton, pressed && styles.pressed]}
         >
-          <CutSurface size="sm" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.closeButton}>
-            <Svg width={19} height={19} viewBox="0 0 24 24" fill="none">
-              <Path d="M6 6l12 12M18 6L6 18" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" />
-            </Svg>
-          </CutSurface>
+          <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+            <Path d="M6 6l12 12M18 6L6 18" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round" />
+          </Svg>
         </Pressable>
         {/* Restore is required store copy once billing ships; inert until then. */}
         <Text style={styles.restore}>{t(language, 'pro.page.restore')}</Text>
@@ -307,312 +346,103 @@ export function PremiumScreen({
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {reason === 'program_cap' ? (
-          <CutSurface size="md" fill={PW.sheetLavender} style={styles.reasonBanner}>
+          <View style={styles.reasonBanner}>
             <Text style={styles.reasonBannerText}>
               {t(language, 'programs.cap.paywall', { cap: FREE_ACTIVE_PROGRAM_CAP })}
             </Text>
-          </CutSurface>
+          </View>
         ) : null}
 
-        {/* HERO — the user's own numbers do the selling */}
-        <CutSurface size="lg" fill={PW.sheetMid} style={styles.hero}>
-          <View style={styles.heroKickerRow}>
-            <SparkGlyph color={PW.sheetLavender} />
-            <Text style={styles.heroKicker}>{t(language, 'pro.page.eyebrow')}</Text>
-          </View>
-          {/* Finnish needs its own singular: "1 treeniä" is wrong, and one
-              plural key cannot cover both cases. */}
-          <Text style={styles.heroTitle}>
-            {sessionCount === 0
-              ? t(language, 'pro.page.heroTitleFresh')
-              : sessionCount === 1
-                ? t(language, 'pro.page.heroTitleOne')
-                : t(language, 'pro.page.heroTitle', { count: sessionCount })}
-          </Text>
-          <Text style={styles.heroBody}>{t(language, 'pro.page.heroBody')}</Text>
+        {/* 1 · HERO — the only filled violet surface, and the only thing on the
+            page that moves. It plays this reader's own lift back at them. */}
+        <ProChatHero script={chatScript} language={language} />
 
-          <CutSurface
-            size="md"
-            fill="rgba(255,255,255,0.1)"
-            stroke="rgba(255,255,255,0.16)"
-            strokeWidth={1}
-            style={styles.heroChartCard}
-          >
-            {heroChart ? (
-              <>
-                <View style={styles.heroChartHead}>
-                  <Text style={styles.heroChartLabel}>
-                    {t(language, 'pro.page.chartLabel', { lift: heroChart.liftName.toUpperCase() })}
-                  </Text>
-                  <CutSurface size="chip" fill="rgba(55,208,138,0.2)" style={styles.heroChartPill}>
-                    <Svg width={9} height={9} viewBox="0 0 12 12">
-                      <Path d="M6 3l4 5H2z" fill="#7DEBB4" />
-                    </Svg>
-                    <Text style={styles.heroChartPillText}>{`+${chartStep} ${unitPreference}`}</Text>
-                  </CutSurface>
-                </View>
-                <HeroChart chart={heroChart} unitPreference={unitPreference} />
-                <View style={styles.heroChartFootRow}>
-                  <View style={styles.heroChartDash} />
-                  <Text style={styles.heroChartFoot}>
-                    {t(language, 'pro.page.chartNext', { step: `${chartStep} ${unitPreference}` })}
-                  </Text>
-                </View>
-              </>
-            ) : (
-              <Text style={styles.heroChartEmpty}>{t(language, 'pro.page.chartEmpty')}</Text>
-            )}
-          </CutSurface>
-
-          {/*
-            The coach's actual sentence about the lift charted above —
-            proInsights, computed from this reader's own log, never a sample.
-            It was passed into this screen and dropped on the floor; the chart
-            showed the numbers and nothing said what they meant, which is the
-            one thing the page is asking to be paid for.
-
-            Blurred before you buy, plain after. Same technique as
-            ProLockedCard (transparent ink, soft shadow, scrim on top) but its
-            scrim is lavender for a light card — here the hero is #3A1F7A, and
-            a light scrim would read as a pale rectangle rather than as text
-            you cannot quite make out.
-          */}
-          {coachSpecimen ? (
-            <View style={styles.specimen}>
-              <Text style={styles.specimenKicker}>{t(language, 'unlock.specimen.kicker')}</Text>
-              {proUnlocked ? (
-                <Text style={styles.specimenText}>{coachSpecimen}</Text>
-              ) : (
-                <View style={styles.specimenBlurBlock}>
-                  <Text style={styles.specimenBlurText}>{coachSpecimen}</Text>
-                  <View style={styles.specimenScrim} pointerEvents="none" />
-                </View>
-              )}
-            </View>
-          ) : null}
-        </CutSurface>
-
-        {/* THREE GROUPS — the reason to buy, then why the price is fair */}
-        {GROUPS.map((group) => (
-          <View key={group.key} style={styles.group}>
-            <Text style={styles.groupKicker}>{t(language, group.kickerKey)}</Text>
-            <Text style={styles.groupTitle}>{t(language, group.titleKey)}</Text>
-            <Text style={styles.groupLead}>{t(language, group.leadKey)}</Text>
-            <View style={styles.groupItems}>
-              {group.items.map((item) => (
-                <CutSurface
-                  key={item.titleKey}
-                  size="lg"
-                  fill={theme.surface}
-                  stroke={theme.border}
-                  strokeWidth={1}
-                  style={styles.itemCard}
-                >
-                  <View style={styles.itemIcon}>
-                    <Svg width={21} height={21} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d={item.icon}
-                        stroke={theme.purple}
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </Svg>
-                  </View>
-                  <View style={styles.itemCopy}>
-                    <View style={styles.itemTitleRow}>
-                      <Text style={styles.itemTitle}>{t(language, item.titleKey)}</Text>
-                      {item.soon ? (
-                        <CutSurface size="chip" fill={theme.surfaceSoft} style={styles.soonPill}>
-                          <Text style={styles.soonPillText}>{t(language, 'pro.v2.soon')}</Text>
-                        </CutSurface>
-                      ) : null}
-                    </View>
-                    <Text style={styles.itemBody}>{t(language, item.bodyKey)}</Text>
-                  </View>
-                </CutSurface>
-              ))}
-            </View>
-          </View>
-        ))}
-
-        {/* Free stated plainly, before the price — trust first. */}
-        <CutSurface size="lg" fill={theme.surfaceSoft} stroke={theme.border} strokeWidth={1} style={styles.freeCard}>
-          <View style={styles.freeHead}>
-            <CheckGlyph color={theme.green} />
-            <Text style={styles.freeTitle}>{t(language, 'pro.v2.free.title')}</Text>
-          </View>
-          <Text style={styles.freeBody}>{t(language, 'pro.v2.free.body')}</Text>
-          {/*
-            Three things that were already true and said nowhere.
-            
-            Each one is the loudest complaint about the market leader — the
-            social feed people say they hate, the connection Hevy needs for
-            everything, and the update that lost Strong users years of saved
-            workouts. They cost nothing to state because the app already works
-            this way; not stating them was the only thing wrong.
-            
-            Verified before shipping, which is how the export claim was caught:
-            the app had no log export at all, so "yours to take" was false
-            until it was built. No social graph exists anywhere in the code,
-            and the app makes exactly one outbound request anywhere — the AI
-            coach — which falls back to a local answer with no endpoint set.
-          */}
-          <View style={styles.standRow}>
-            {(
-              [
-                'pro.page.stand.noSocial',
-                'pro.page.stand.offline',
-                'pro.page.stand.yours',
-              ] as I18nKey[]
-            ).map((key) => (
-              <View key={key} style={styles.standItem}>
-                <CheckGlyph color={theme.green} />
-                <Text style={styles.standText}>{t(language, key)}</Text>
+        {/* 2 · WHAT PRO ADDS — the only block with icons */}
+        <Text style={styles.sectionLabel}>{t(language, 'pro.v3.delta.label')}</Text>
+        <View style={styles.deltaCard}>
+          {DELTA.map((row, index) => (
+            <View key={row.key} style={[styles.deltaRow, index > 0 && styles.deltaRowDivided]}>
+              <View style={styles.deltaIcon}>
+                <DeltaIcon row={row} color={theme.purple} />
               </View>
-            ))}
-          </View>
-        </CutSurface>
-
-        {/* PLAN — planned prices, labeled planned */}
-        <Text style={styles.sectionLabel}>{t(language, 'pro.page.choosePlan')}</Text>
-        <View style={styles.planRow}>
-          {(
-            [
-              // Prices live in the dictionary, not here. Two string literals
-              // in this array are how the app shipped 71,99 €/yr on this page
-              // and 59,90 €/yr on the onboarding paywall in the same build:
-              // the guard that exists to catch exactly that reads i18n.ts.
-              {
-                id: 'yearly' as const,
-                perKey: 'pro.page.perYearly' as I18nKey,
-                nameKey: 'pro.page.yearly' as I18nKey,
-                billedKey: 'pro.page.billedYearly' as I18nKey,
-                save: true,
-                perMonth: true,
-              },
-              {
-                id: 'monthly' as const,
-                perKey: 'pro.page.perMonthly' as I18nKey,
-                nameKey: 'pro.page.monthly' as I18nKey,
-                billedKey: 'pro.page.billedMonthly' as I18nKey,
-                save: false,
-                perMonth: true,
-              },
-              // Both leaders in this category sell one, it is the loudest
-              // thing their paying users say they wanted, and it fits an app
-              // whose whole posture is that it does not hold anything of
-              // yours hostage. Priced at ~2x the year rather than the market's
-              // ~3x: a deliberate two-year payback (user decision).
-              {
-                id: 'lifetime' as const,
-                perKey: 'pro.page.perLifetime' as I18nKey,
-                nameKey: 'pro.page.lifetime' as I18nKey,
-                billedKey: 'pro.page.billedLifetime' as I18nKey,
-                save: false,
-                perMonth: false,
-              },
-            ]
-          ).map((option) => {
-            const on = plan === option.id;
-            return (
-              <Pressable
-                key={option.id}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-                onPress={() => setPlan(option.id)}
-                style={({ pressed }) => [styles.planCardWrap, pressed && styles.pressed]}
-              >
-                <CutSurface
-                  size="lg"
-                  fill={on ? theme.purpleLight : theme.surface}
-                  stroke={on ? theme.purple : theme.border}
-                  strokeWidth={2}
-                  style={styles.planCard}
-                >
-                <View style={styles.planHeadRow}>
-                  <View style={[styles.planRadio, on && styles.planRadioOn]}>
-                    {on ? <View style={styles.planRadioDot} /> : null}
-                  </View>
-                  <Text style={styles.planName}>{t(language, option.nameKey)}</Text>
-                </View>
-                <View style={styles.planPriceRow}>
-                  <Text style={styles.planPrice}>{t(language, option.perKey)}</Text>
-                  {option.perMonth ? (
-                    <Text style={styles.planPer}>{t(language, 'pro.page.perMonth')}</Text>
-                  ) : null}
-                </View>
-                <Text style={styles.planBilled}>{t(language, option.billedKey)}</Text>
-                </CutSurface>
-                {/* Outside the surface: the surface clips to its shape, and
-                    the badge sits over its top edge on purpose. */}
-                {option.save ? (
-                  <CutSurface size="chip" fill={theme.green} style={styles.planSave}>
-                    <Text style={styles.planSaveText}>{t(language, 'pro.page.save')}</Text>
-                  </CutSurface>
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </View>
-        {/* COMPARE — every cell is a phrase, not a tick nobody can read */}
-        <Text style={styles.sectionLabel}>{t(language, 'pro.v2.compare')}</Text>
-        <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.table}>
-          <View style={styles.tableHeadRow}>
-            <View style={styles.tableLabelCol} />
-            <Text style={styles.tableHeadFree}>{t(language, 'pro.page.colFree')}</Text>
-            <Text style={styles.tableHeadPro}>{t(language, 'pro.page.colPro')}</Text>
-          </View>
-          {ROWS.map((row, index) => (
-            <View
-              key={row.labelKey}
-              style={[styles.tableRow, index === ROWS.length - 1 && styles.tableRowLast]}
-            >
-              <Text style={styles.tableRowLabel}>{t(language, row.labelKey)}</Text>
-              <View style={styles.tableCell}>
-                {row.free ? (
-                  <Text style={styles.cellFree}>{t(language, row.free)}</Text>
-                ) : (
-                  <View style={styles.cellDash} />
-                )}
-              </View>
-              <View style={styles.tableCell}>
-                {row.pro ? (
-                  <Text style={row.pro === 'pro.v2.val.soon' ? styles.cellSoon : styles.cellPro}>
-                    {t(language, row.pro)}
-                  </Text>
-                ) : (
-                  <View style={styles.cellDash} />
-                )}
+              <View style={styles.deltaCopy}>
+                <Text style={styles.deltaTitle}>{t(language, row.titleKey)}</Text>
+                <Text style={[styles.deltaBody, row.quiet && styles.deltaBodyQuiet]}>
+                  {t(language, row.bodyKey, row.vars)}
+                </Text>
               </View>
             </View>
           ))}
-        </CutSurface>
-        <Text style={styles.tableFoot}>{t(language, 'pro.v2.footer')}</Text>
+        </View>
 
+        {/* 3 · TRUST — true in both tiers, which is why it carries no price */}
+        <View style={styles.trustBlock}>
+          {TRUST.map((key) => (
+            <View key={key} style={styles.trustRow}>
+              <View style={styles.trustCheck}>
+                <CheckGlyph color={theme.green} />
+              </View>
+              <Text style={styles.trustText}>{t(language, key)}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* 4 · FAQ */}
+        <View style={styles.faqBlock}>
+          {FAQ.map((entry) => (
+            <FaqRow
+              key={entry.key}
+              question={t(language, entry.q)}
+              answer={t(language, entry.a, {
+                ...entry.vars,
+                // The lifetime answer quotes the price, and quotes it from the
+                // same dictionary entry the tile above it reads.
+                price: t(language, 'pro.page.perLifetime'),
+              })}
+              open={openFaq === entry.key}
+              onToggle={() => setOpenFaq(openFaq === entry.key ? null : entry.key)}
+            />
+          ))}
+        </View>
+
+        {/* 5 · FINE PRINT */}
+        <View style={styles.finePrint}>
+          <Text style={styles.noticeText}>{t(language, 'pro.v3.notice')}</Text>
+          <View style={styles.legalRow}>
+            <Pressable accessibilityRole="button" onPress={() => onOpenLegal('terms')} hitSlop={8}>
+              <Text style={styles.legalText}>{t(language, 'pro.page.terms')}</Text>
+            </Pressable>
+            <View style={styles.legalDot} />
+            <Pressable accessibilityRole="button" onPress={() => onOpenLegal('privacy')} hitSlop={8}>
+              <Text style={styles.legalText}>{t(language, 'pro.page.privacy')}</Text>
+            </Pressable>
+          </View>
+        </View>
       </ScrollView>
 
       {/*
-        PINNED CTA. This button does not sell anything — billing does not exist.
-        It is here because this is a demo build (user decision 2026-08-01) and
-        the preview switch that used to live here read as a broken feature.
+        PINNED FOOT. The plan tiles are here rather than in the scroll because
+        the price is the one thing a reader looks for twice, and a page that
+        makes them hunt for it a second time has already lost them.
 
+        This button does not sell anything — billing does not exist. It is here
+        because this is a demo build (user decision 2026-08-01) and the preview
+        switch that used to live here read as a broken feature.
         releaseReadiness.test.cjs fails while this copy is present and billing
         still is not, so the demo cannot become the release by forgetting.
+
+        The tab bar is hidden on this route, so only the system inset sits
+        under the button.
       */}
-      {/* Sits on the gesture bar with only the system inset under it. The fine
-          print and the legal links are what push the button up, so they are
-          tight — every point spent below the CTA is a point of the page you
-          cannot see. */}
-      <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 2 }]}>
+      <View style={styles.foot}>
         {/*
-          proUnlocked was computed and never read, so this page showed a
-          subscriber the same "start your free trial" button as everyone else
-          — and pressing it ran onTogglePreview, which flips the switch OFF.
-          The one button on the page was a cancel button wearing a trial
-          label. A reader who already pays gets a status line and a way to
-          manage instead; a promo unlock gets no toggle at all, because the
-          preview switch cannot turn a redeemed code off.
+          proUnlocked was once computed and never read, so this page showed a
+          subscriber the same buy button as everyone else — and pressing it ran
+          onTogglePreview, which flips the switch OFF. The one button on the
+          page was a cancel button wearing a purchase label. A reader who
+          already pays gets a status line and a way to manage instead; a promo
+          unlock gets no toggle at all, because the preview switch cannot turn
+          a redeemed code off.
         */}
         {proUnlocked ? (
           <>
@@ -620,45 +450,64 @@ export function PremiumScreen({
               <CheckGlyph color={theme.green} />
               <Text style={styles.activeText}>{t(language, 'promo.proOn')}</Text>
             </View>
-            <CutButton
-              size="lg"
-              variant="secondary"
-              label={t(language, promoOnly ? 'subs.manageMembership' : 'settings.demoPro')}
-              onPress={promoOnly ? onManageSubscription : onTogglePreview}
-            />
+            <Pressable
+              accessibilityRole="button"
+              onPress={promoOnly ? onManageSubscription : () => onTogglePreview(plan)}
+              style={({ pressed }) => [styles.manageButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.manageButtonText}>
+                {t(language, promoOnly ? 'subs.manageMembership' : 'settings.demoPro')}
+              </Text>
+            </Pressable>
           </>
         ) : (
           <>
-            {/* The trial can be switched off (PRO_TRIAL_ENABLED). When it
-                is, this button must stop promising a week. */}
-            <CutButton
-              size="lg"
-              label={t(language, PRO_TRIAL_ENABLED ? 'pro.v2.cta' : 'pro.v2.cta.noTrial')}
-              onPress={onTogglePreview}
-            />
+            <View style={styles.planRow}>
+              {PLANS.map((option) => {
+                const on = option.id === plan;
+                return (
+                  <Pressable
+                    key={option.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: on }}
+                    onPress={() => setPlan(option.id)}
+                    style={[styles.planTile, on && styles.planTileOn]}
+                  >
+                    {option.badgeKey ? (
+                      // An absolutely positioned child does not inherit the
+                      // parent's alignItems, so the pill is centred by a
+                      // full-width anchor rather than by alignSelf.
+                      <View style={styles.planBadgeAnchor} pointerEvents="none">
+                        <View style={styles.planBadge}>
+                          <Text style={styles.planBadgeText}>{t(language, option.badgeKey)}</Text>
+                        </View>
+                      </View>
+                    ) : null}
+                    <Text style={[styles.planName, on && styles.planNameOn]}>
+                      {t(language, option.nameKey)}
+                    </Text>
+                    <Text style={styles.planPrice}>{t(language, option.priceKey)}</Text>
+                    <Text style={styles.planUnit}>{t(language, option.unitKey)}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => onTogglePreview(plan)}
+              style={({ pressed }) => [styles.ctaButton, pressed && styles.pressed]}
+            >
+              {/* The trial can be switched off (PRO_TRIAL_ENABLED). When it
+                  is, this button must stop promising a week. */}
+              <Text style={styles.ctaButtonText}>
+                {t(language, PRO_TRIAL_ENABLED ? 'pro.v2.cta' : 'pro.v2.cta.noTrial')}
+              </Text>
+            </Pressable>
             <Text style={styles.ctaFine}>
-              {t(
-                language,
-                plan === 'yearly'
-                  ? PRO_TRIAL_ENABLED
-                    ? 'pro.v2.ctaSubYearly'
-                    : 'pro.v2.ctaSubYearlyNoTrial'
-                  : plan === 'monthly'
-                    ? 'pro.v2.ctaSubMonthly'
-                    : 'pro.v2.ctaSubLifetime',
-              )}
+              {t(language, PRO_TRIAL_ENABLED ? selectedPlan.trialFineKey : selectedPlan.fineKey)}
             </Text>
           </>
         )}
-        <View style={styles.legalRow}>
-          <Pressable accessibilityRole="button" onPress={() => onOpenLegal('terms')} hitSlop={8}>
-            <Text style={styles.legalText}>{t(language, 'pro.page.terms')}</Text>
-          </Pressable>
-          <View style={styles.legalDot} />
-          <Pressable accessibilityRole="button" onPress={() => onOpenLegal('privacy')} hitSlop={8}>
-            <Text style={styles.legalText}>{t(language, 'pro.page.privacy')}</Text>
-          </Pressable>
-        </View>
       </View>
     </View>
   );
@@ -673,30 +522,36 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     paddingTop: 2,
-    paddingBottom: 6,
+    paddingBottom: 8,
   },
   closeButton: {
-    width: 38,
-    height: 38,
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: theme.surfaceSoft,
+    borderWidth: 1,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   pressed: {
-    transform: [{ translateY: 1 }, { scale: 0.985 }],
+    opacity: 0.85,
   },
   restore: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '800',
     color: theme.purple,
   },
   content: {
-    paddingHorizontal: 18,
-    paddingTop: 4,
-    paddingBottom: 16,
+    paddingHorizontal: 16,
+    paddingTop: 0,
+    paddingBottom: 22,
   },
   reasonBanner: {
+    backgroundColor: PW.sheetLavender,
+    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 14,
@@ -707,70 +562,275 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     lineHeight: 19,
     fontWeight: '800',
   },
-  hero: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 18,
-  },
-  heroKickerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  heroKicker: {
+  sectionLabel: {
     fontSize: 11.5,
     fontWeight: '800',
-    letterSpacing: 1.3,
-    color: PW.sheetLavender,
+    letterSpacing: 1.2,
+    color: theme.faint,
+    marginTop: 26,
+    marginBottom: 11,
+    paddingHorizontal: 2,
   },
-  heroTitle: {
-    fontSize: 26,
+  deltaCard: {
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 15,
+  },
+  deltaRowDivided: {
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+  },
+  deltaIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 11,
+    backgroundColor: theme.purpleLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  deltaCopy: {
+    flex: 1,
+    minWidth: 0,
+    paddingTop: 1,
+  },
+  deltaTitle: {
+    fontSize: 14.5,
     fontWeight: '800',
-    color: '#FFFFFF',
-    lineHeight: 31,
+    letterSpacing: -0.2,
+    color: theme.ink,
+  },
+  deltaBody: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 18,
+    color: theme.muted,
+    marginTop: 3,
+  },
+  deltaBodyQuiet: {
+    color: theme.faint,
+  },
+  trustBlock: {
+    marginTop: 24,
+    gap: 12,
+    paddingHorizontal: 2,
+  },
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  trustCheck: {
+    marginTop: 1,
+  },
+  trustText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    color: theme.ink,
+  },
+  faqBlock: {
+    marginTop: 26,
+    gap: 9,
+  },
+  faqCard: {
+    backgroundColor: theme.surface,
+    borderWidth: 1,
+    borderColor: theme.border,
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  faqCardOpen: {
+    borderColor: theme.purple,
+  },
+  faqHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  faqQuestion: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '800',
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    color: theme.ink,
+  },
+  faqSign: {
+    fontSize: 19,
+    fontWeight: '700',
+    lineHeight: 22,
+    color: theme.faint,
+  },
+  faqSignOpen: {
+    color: theme.purple,
+    transform: [{ rotate: '45deg' }],
+  },
+  faqAnswer: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    lineHeight: 19,
+    color: theme.muted,
+    marginTop: 9,
+  },
+  finePrint: {
+    marginTop: 24,
+    alignItems: 'center',
+  },
+  noticeText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    lineHeight: 18,
+    color: theme.faint,
+    textAlign: 'center',
+  },
+  legalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginTop: 8,
+  },
+  legalText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    color: theme.muted,
+    // These open the real documents, so they have to look like links.
+    textDecorationLine: 'underline',
+  },
+  legalDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: theme.faint,
+  },
+  foot: {
+    backgroundColor: theme.surface,
+    borderTopWidth: 1,
+    borderTopColor: theme.border,
+    paddingHorizontal: 14,
+    // The save badge overhangs the tile, so the foot needs headroom for it.
+    paddingTop: 24,
+    /**
+     * Its own breathing room, and nothing else.
+     *
+     * This used to be `insets.bottom + 8`, which counted the system bar twice:
+     * AppShell already wraps this route in a SafeAreaView with the bottom edge
+     * (App.tsx), so the drawable area stops above the navigation bar before
+     * this screen sees it — and useSafeAreaInsets still reports the full
+     * window inset regardless. On a gesture-navigation emulator the surplus is
+     * ~24dp and invisible. On a three-button phone it is ~48dp, and it is the
+     * band of dead white under "Peru milloin vain." that made this footer look
+     * like it was floating.
+     *
+     * A flat number means the bar is the same on both, which is the point.
+     */
+    paddingBottom: 20,
+    shadowColor: '#000000',
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -8 },
+    elevation: 12,
+  },
+  planRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  /**
+   * Deliberately tall.
+   *
+   * These three are the decision the whole page builds to, and at the height
+   * they inherited from the mock they read as a segmented control — something
+   * you set, not something you choose. Reclaiming the double-counted inset
+   * made the disparity worse: the CTA and the hero both grew and the tiles
+   * stayed a strip. They get the room now.
+   */
+  planTile: {
+    flex: 1,
+    minHeight: 104,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    backgroundColor: theme.surfaceSoft,
+    paddingTop: 16,
+    paddingBottom: 14,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planTileOn: {
+    borderColor: theme.purple,
+    backgroundColor: theme.purpleLight,
+  },
+  planBadgeAnchor: {
+    position: 'absolute',
+    top: -9,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  planBadge: {
+    backgroundColor: theme.gold,
+    borderRadius: 999,
+    paddingVertical: 2,
+    paddingHorizontal: 7,
+  },
+  planBadgeText: {
+    fontSize: 9.5,
+    fontWeight: '800',
+    color: BADGE_INK,
+  },
+  planName: {
+    fontSize: 11.5,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    color: theme.faint,
+  },
+  planNameOn: {
+    color: theme.purpleDark,
+  },
+  planPrice: {
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: theme.ink,
+    marginTop: 9,
+  },
+  planUnit: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: theme.muted,
+    marginTop: 4,
+  },
+  ctaButton: {
+    height: 52,
+    borderRadius: 16,
+    backgroundColor: theme.purple,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginTop: 12,
   },
-  heroBody: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.75)',
-    lineHeight: 20,
-    marginTop: 10,
-  },
-  specimen: {
-    marginTop: 15,
-  },
-  specimenKicker: {
-    fontSize: 9.5,
-    fontWeight: '900',
-    letterSpacing: 1.1,
-    color: 'rgba(255,255,255,0.5)',
-  },
-  specimenText: {
-    marginTop: 7,
-    fontSize: 13.5,
-    fontWeight: '700',
-    lineHeight: 20,
+  ctaButtonText: {
+    fontSize: 16.5,
+    fontWeight: '800',
     color: '#FFFFFF',
   },
-  specimenBlurBlock: {
-    marginTop: 7,
-    position: 'relative',
-  },
-  specimenBlurText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    lineHeight: 20,
-    color: 'transparent',
-    textShadowColor: 'rgba(255,255,255,0.8)',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 11,
-  },
-  specimenScrim: {
-    ...StyleSheet.absoluteFillObject,
-    // Matches the hero (#3A1F7A) rather than ProLockedCard's lavender: the
-    // scrim has to be the colour it sits on or it reads as a panel, not a blur.
-    backgroundColor: 'rgba(58,31,122,0.72)',
+  ctaFine: {
+    textAlign: 'center',
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: theme.muted,
+    marginTop: 9,
   },
   activeRow: {
     flexDirection: 'row',
@@ -784,383 +844,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     color: theme.ink,
   },
-  heroChartCard: {
-    marginTop: 16,
-    paddingHorizontal: 14,
-    paddingTop: 13,
-    paddingBottom: 11,
-  },
-  heroChartHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  heroChartLabel: {
-    flex: 1,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-    color: 'rgba(255,255,255,0.6)',
-  },
-  heroChartPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-  },
-  heroChartPillText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#7DEBB4',
-  },
-  heroChartFootRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    marginTop: 6,
-  },
-  heroChartDash: {
-    width: 14,
-    borderTopWidth: 2,
-    borderColor: '#37D08A',
-    borderStyle: 'dashed',
-  },
-  heroChartFoot: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.66)',
-  },
-  heroChartEmpty: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.7)',
-    lineHeight: 19,
-  },
-  sectionLabel: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 1,
-    color: theme.faint,
-    marginTop: 24,
-    marginBottom: 11,
-    paddingHorizontal: 2,
-  },
-  table: {
-    overflow: 'hidden',
-  },
-  // No fill on the head row: a filled row would show a square corner
-  // through the cut, and the rule under it already marks it as the head.
-  tableHeadRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  tableLabelCol: {
-    flex: 1,
-  },
-  tableHeadFree: {
-    width: 58,
-    textAlign: 'center',
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: theme.muted,
-  },
-  tableHeadPro: {
-    width: 66,
-    textAlign: 'center',
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: theme.purple,
-  },
-  // Both pills sit on a themed fill, so their labels have to be themed too.
-  // PW's fixed pair put a dark-purple "Pro" on theme.purpleLight — fine on the
-  // light tint, invisible once that tint went dark.
-  tableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 11,
-    paddingHorizontal: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: theme.border,
-  },
-  tableRowLabel: {
-    flex: 1,
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.ink,
-    paddingRight: 6,
-  },
-  tableCell: {
-    width: 58,
-    alignItems: 'center',
-  },
-  cellDash: {
-    width: 12,
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: theme.faint,
-  },
-  cellFree: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: theme.muted,
-    textAlign: 'center',
-  },
-  cellPro: {
-    fontSize: 11.5,
-    fontWeight: '800',
-    color: theme.purple,
-    textAlign: 'center',
-  },
-  // Soon is deliberately quiet: it is a plan, not a feature you are buying.
-  cellSoon: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: theme.faint,
-    textAlign: 'center',
-  },
-  group: {
-    marginTop: 24,
-  },
-  groupKicker: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    color: theme.purple,
-  },
-  groupTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    letterSpacing: -0.4,
-    color: theme.ink,
-    marginTop: 6,
-    lineHeight: 24,
-  },
-  groupLead: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: theme.muted,
-    marginTop: 5,
-    lineHeight: 19,
-  },
-  groupItems: {
-    gap: 9,
-    marginTop: 13,
-  },
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    paddingVertical: 13,
-    paddingHorizontal: 14,
-  },
-  itemIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.purpleLight,
+  manageButton: {
+    height: 52,
+    borderRadius: 15,
+    borderWidth: 1.5,
+    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  itemCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  itemTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  itemTitle: {
-    fontSize: 14.5,
+  manageButtonText: {
+    fontSize: 15,
     fontWeight: '800',
     color: theme.ink,
-    flexShrink: 1,
-  },
-  soonPill: {
-    paddingVertical: 2,
-    paddingHorizontal: 7,
-  },
-  soonPillText: {
-    fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-    color: theme.muted,
-  },
-  itemBody: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: theme.muted,
-    marginTop: 3,
-    lineHeight: 18.5,
-  },
-  freeCard: {
-    marginTop: 24,
-    paddingVertical: 15,
-    paddingHorizontal: 16,
-  },
-  freeHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  freeTitle: {
-    fontSize: 14.5,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  standRow: {
-    marginTop: 14,
-    gap: 9,
-  },
-  standItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  standText: {
-    flex: 1,
-    fontSize: 12.5,
-    fontWeight: '700',
-    lineHeight: 17,
-    color: theme.ink,
-  },
-  freeBody: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: theme.muted,
-    marginTop: 6,
-    lineHeight: 19,
-  },
-  tableRowLast: {
-    borderBottomWidth: 0,
-  },
-  tableFoot: {
-    paddingVertical: 13,
-    paddingHorizontal: 15,
-    fontSize: 12,
-    fontWeight: '600',
-    color: theme.muted,
-    lineHeight: 18,
-  },
-  planRow: {
-    flexDirection: 'row',
-    gap: 11,
-  },
-  planCardWrap: {
-    flex: 1,
-  },
-  // flexGrow, not flex: the surface sits in a Pressable whose height comes
-  // from the row (the two cards stretch to the taller one). flex: 1 gives
-  // it a zero basis and it collapses; flexGrow keeps the content height and
-  // grows into whatever the row adds.
-  planCard: {
-    flexGrow: 1,
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-  },
-  planSave: {
-    position: 'absolute',
-    top: -10,
-    right: 12,
-    paddingVertical: 3,
-    paddingHorizontal: 9,
-  },
-  planSaveText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  planHeadRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  planRadio: {
-    width: 19,
-    height: 19,
-    borderRadius: 999,
-    borderWidth: 2,
-    borderColor: theme.faint,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planRadioOn: {
-    borderColor: theme.purple,
-  },
-  planRadioDot: {
-    width: 9,
-    height: 9,
-    borderRadius: 999,
-    backgroundColor: theme.purple,
-  },
-  planName: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  planPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 3,
-    marginTop: 11,
-  },
-  planPrice: {
-    fontSize: 27,
-    fontWeight: '800',
-    color: theme.ink,
-  },
-  planPer: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: theme.muted,
-  },
-  planBilled: {
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: theme.muted,
-    marginTop: 4,
-  },
-  // The tab bar is hidden on this route, so the CTA sits on the real bottom
-  // edge and the page keeps a bar's worth of height it used to reserve for a
-  // control that was floating over the button anyway.
-  ctaBar: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    backgroundColor: theme.surface,
-    borderTopWidth: 1,
-    borderTopColor: theme.border,
-  },
-  ctaFine: {
-    textAlign: 'center',
-    fontSize: 11.5,
-    fontWeight: '600',
-    color: theme.muted,
-    marginTop: 7,
-  },
-  legalRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-    marginTop: 6,
-  },
-  legalText: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: theme.faint,
-    // These open the real documents now, so they have to look like links.
-    textDecorationLine: 'underline',
-  },
-  legalDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: theme.faint,
   },
 });

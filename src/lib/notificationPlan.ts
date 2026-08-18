@@ -25,6 +25,7 @@ import { getCalendarWeekStartTimestamp } from './completedSessions';
 import { formatCompactVolume, formatVolume } from './format';
 import { t } from './i18n';
 import { AppLanguage, NotificationLevel, NotificationPrefs, SetupWeekday } from '../types/models';
+import { exerciseNameLabel } from './exerciseNameLabel';
 
 export type NotificationCategory = 'record' | 'comeback' | 'reminder' | 'weekly';
 
@@ -247,7 +248,7 @@ function buildRecordNote(input: NotificationPlanInput): PlannedNotification | nu
     category: 'record',
     title: t(language, 'notif.msg.recordTitle'),
     body: t(language, 'notif.msg.recordBody', {
-      exercise: latestPr.exerciseName,
+      exercise: exerciseNameLabel(language, latestPr.exerciseName),
       // A lift is never tonnes — formatVolume keeps "92.5 kg" as written.
       weight: formatVolume(latestPr.weightKg),
       reps: latestPr.reps,

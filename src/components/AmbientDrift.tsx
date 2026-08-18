@@ -3,6 +3,7 @@ import { AccessibilityInfo, Animated, Easing, StyleSheet, View, useWindowDimensi
 
 import { DRIFT, scaleY } from './vinhaMotion';
 import { Theme, useThemedStyles } from '../theming';
+import { queryReduceMotion } from '../utils/reduceMotion';
 
 /**
  * Objects sweeping left to right behind the first screens.
@@ -54,7 +55,7 @@ export function AmbientDrift() {
 
   useEffect(() => {
     let cancelled = false;
-    AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+    queryReduceMotion().then((enabled) => {
       if (!cancelled) {
         setReduceMotion(enabled);
       }
