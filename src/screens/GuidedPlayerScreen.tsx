@@ -806,7 +806,7 @@ function DialCard({
   const number = (
     <View style={styles.setDialValue}>
       <Text
-        style={[styles.setDialNumber, faint && { color: theme.faint }]}
+        style={[styles.setDialNumber, open && styles.setDialNumberOpen, faint && { color: theme.faint }]}
         numberOfLines={1}
         adjustsFontSizeToFit
         minimumFontScale={0.6}
@@ -2033,7 +2033,15 @@ function SetStepView({
 
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
-      <View style={{ flex: 1, minHeight: 0 }}>
+      {/* The whole screen is the "close the dial" target: a tap that no
+          card, button or control claims lands here and shuts whichever dial
+          is open. Nested Pressables take their own taps first, so this only
+          ever sees the empty space. */}
+      <Pressable
+        style={{ flex: 1, minHeight: 0 }}
+        onPress={dial ? () => setDial(null) : undefined}
+        accessible={false}
+      >
         <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" language={language} />
 
         {/* set counter + dots on the left, session clock on the right */}
@@ -2203,7 +2211,7 @@ function SetStepView({
         {/* No "Seuraava · …" line here: on a set it named the same lift's next
             set, which the dots above already say. The drills keep theirs — a
             next drill with its seconds is worth a line. */}
-      </View>
+      </Pressable>
     </StepIn>
   );
 }
@@ -2559,6 +2567,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     textAlign: 'center',
     minWidth: 44,
   },
+  // Open, the number shares the row with two buttons and is sized so that
+  // "72.5" fits at this size outright — with the size auto-fitting, "72.5"
+  // shrank and "75" did not, and the number jumped on every other tap. One
+  // size for every value up to four characters; the auto-fit stays only as a
+  // safety net for "102.5".
+  setDialNumberOpen: { fontSize: 28, lineHeight: 32, letterSpacing: -1 },
   setDialUnit: { fontSize: 14, fontWeight: '800', color: theme.faint },
   setBadgeRow: { alignItems: 'center', minHeight: 27 },
   setAutoBadge: {
