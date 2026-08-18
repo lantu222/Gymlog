@@ -93,6 +93,26 @@ Current decision:
    returns a preview fallback rather than an error at the user.
 6. App renders either live or preview advice, plus a note when fallback is used.
 
+## Compose mode (the "AI assisted" programme)
+
+The same endpoint accepts `{ "mode": "compose", "prompt": "<the user's brief>",
+"context": {...}, "language": "fi" }`. It runs under the same key, rate limit
+and budget, with a different tool (`ai_coach_programme`) and different rules:
+return ONE week of sessions as common English exercise NAMES, follow the brief
+first and the context second, never invent a name.
+
+Two things differ from advice:
+
+- **No fallback in the response.** The deterministic composer needs the
+  exercise library, which is on the device. Every failure (`MISSING_API_KEY`,
+  budget, timeout, invalid payload) is a plain error and the app composes
+  locally from the same brief. In preview builds the app never calls this at
+  all.
+- **The app does the sweep.** Every name Claude returns goes through the
+  library alias matcher (`programmeBrief.resolveLiveProposal`); a name that
+  does not resolve is dropped and listed to the user, and a session left empty
+  is dropped. The endpoint validates shape only, never that a name exists.
+
 ## Deploy runbook (Vercel, in this order)
 
 The endpoint is a plain `(req, res)` handler under `api/`, which is Vercel's

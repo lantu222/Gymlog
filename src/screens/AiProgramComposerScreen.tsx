@@ -1,0 +1,290 @@
+import React, { useMemo, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+
+import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
+import { ScreenHeader } from '../components/ScreenHeader';
+import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { I18nKey, t } from '../lib/i18n';
+import { ProgrammeProposal } from '../lib/programmeBrief';
+import { localizeSessionName } from '../lib/sessionNameLabel';
+import { layout, spacing } from '../theme';
+import { Theme, useTheme, useThemedStyles } from '../theming';
+import { AppLanguage, AppPreferences } from '../types/models';
+
+/**
+ * "AI assisted" — one text field (feedback round 2, #3).
+ *
+ * The reader says what they want in their own words. What the app already
+ * knows from onboarding is shown as chips under the field so nothing has to be
+ * typed twice, and the proposal that comes back begins with what was READ from
+ * the brief — days, lifts, cautions — so the reader can see it was heard before
+ * scrolling to the week. Every exercise in the week is a library exercise;
+ * anything the composer could not fit or resolve is listed, not hidden.
+ *
+ * Saving makes a programme of the reader's own. Nothing runs from here.
+ */
+
+interface AiProgramComposerScreenProps {
+  language: AppLanguage;
+  preferences: AppPreferences;
+  /** True when a coach server is configured; the footnote says which composer answered. */
+  liveConfigured: boolean;
+  compose: (brief: string) => Promise<ProgrammeProposal>;
+  onSave: (proposal: ProgrammeProposal) => Promise<void> | void;
+  onBack: () => void;
+}
+
+const LEVEL_KEYS: Record<NonNullable<AppPreferences['setupLevel']>, I18nKey> = {
+  beginner: 'myData.level.beginner',
+  advanced: 'myData.level.advanced',
+  pro: 'myData.level.pro',
+};
+
+const EQUIPMENT_KEYS: Record<NonNullable<AppPreferences['setupEquipment']>, I18nKey> = {
+  gym: 'setup.equip.gym',
+  home: 'setup.equip.home',
+  minimal: 'setup.equip.minimal',
+};
+
+export function AiProgramComposerScreen({
+  language,
+  preferences,
+  liveConfigured,
+  compose,
+  onSave,
+  onBack,
+}: AiProgramComposerScreenProps) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const [brief, setBrief] = useState('');
+  const [busy, setBusy] = useState<'idle' | 'composing' | 'saving'>('idle');
+  const [proposal, setProposal] = useState<ProgrammeProposal | null>(null);
+
+  // What travels with the brief without being asked again.
+  const knownChips = useMemo(() => {
+    const chips: string[] = [];
+    if (preferences.setupDaysPerWeek) {
+      chips.push(t(language, 'aiCompose.known.days', { count: preferences.setupDaysPerWeek }));
+    }
+    if (preferences.setupLevel) {
+      chips.push(t(language, LEVEL_KEYS[preferences.setupLevel]));
+    }
+    if (preferences.setupEquipment) {
+      chips.push(t(language, EQUIPMENT_KEYS[preferences.setupEquipment]));
+    }
+    for (const flag of preferences.setupCautionFlags) {
+      if (flag.level !== 'info') {
+        chips.push(t(language, `onb.area.${flag.area}` as I18nKey));
+      }
+    }
+    return chips;
+  }, [language, preferences.setupCautionFlags, preferences.setupDaysPerWeek, preferences.setupEquipment, preferences.setupLevel]);
+
+  const canCompose = brief.trim().length >= 3 && busy === 'idle';
+
+  const handleCompose = async () => {
+    if (!canCompose) {
+      return;
+    }
+    setBusy('composing');
+    try {
+      const next = await compose(brief.trim());
+      setProposal(next);
+    } finally {
+      setBusy('idle');
+    }
+  };
+
+  const handleSave = async () => {
+    if (!proposal || busy !== 'idle') {
+      return;
+    }
+    setBusy('saving');
+    try {
+      await onSave(proposal);
+    } finally {
+      setBusy('idle');
+    }
+  };
+
+  // The line that proves the brief was read. Only what was actually found —
+  // an empty read is stated as such rather than padded.
+  const readLine = useMemo(() => {
+    if (!proposal) {
+      return null;
+    }
+    const parts: string[] = [];
+    const { signals } = proposal;
+    if (signals.daysPerWeek) {
+      parts.push(t(language, 'aiCompose.read.days', { count: signals.daysPerWeek }));
+    }
+    if (signals.lifts.length) {
+      parts.push(signals.lifts.map((lift) => exerciseNameLabel(language, lift)).join(', '));
+    }
+    if (signals.cautions.length) {
+      parts.push(
+        t(language, 'aiCompose.read.cautions', {
+          areas: signals.cautions.map((area) => t(language, `aiCompose.caution.${area.replace(' ', '_')}` as I18nKey)).join(', '),
+        }),
+      );
+    }
+    if (signals.sessionMinutes) {
+      parts.push(`~${signals.sessionMinutes} min`);
+    }
+    return parts.length ? parts.join(' · ') : t(language, 'aiCompose.read.nothing');
+  }, [language, proposal]);
+
+  return (
+    <View style={styles.screen}>
+      <ScreenHeader language={language} title={t(language, 'aiCompose.title')} onBack={onBack} />
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <Text style={styles.lead}>{t(language, 'aiCompose.lead')}</Text>
+
+        <TextInput
+          value={brief}
+          onChangeText={(next) => {
+            setBrief(next);
+            if (proposal) {
+              // A changed brief is a new question; the old answer must not sit
+              // under it as if it still applied.
+              setProposal(null);
+            }
+          }}
+          multiline
+          numberOfLines={4}
+          placeholder={t(language, 'aiCompose.placeholder')}
+          placeholderTextColor={theme.faint}
+          style={styles.input}
+          textAlignVertical="top"
+          accessibilityLabel={t(language, 'aiCompose.title')}
+        />
+
+        {knownChips.length ? (
+          <View style={styles.knownBlock}>
+            <Text style={styles.knownLabel}>{t(language, 'aiCompose.known')}</Text>
+            <View style={styles.chipRow}>
+              {knownChips.map((chip) => (
+                <View key={chip} style={styles.chip}>
+                  <Text style={styles.chipText}>{chip}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : null}
+
+        <CutButton
+          label={busy === 'composing' ? t(language, 'aiCompose.composing') : t(language, 'aiCompose.compose')}
+          variant={canCompose ? 'primary' : 'disabled'}
+          onPress={handleCompose}
+          stretch
+        />
+
+        {busy === 'composing' ? <ActivityIndicator color={theme.purple} style={styles.spinner} /> : null}
+
+        {proposal ? (
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.proposal}>
+            <Text style={styles.readEyebrow}>{t(language, 'aiCompose.read')}</Text>
+            <Text style={styles.readLine}>{readLine}</Text>
+
+            <Text style={styles.proposalTitle}>{proposal.title}</Text>
+            {proposal.sessions.map((session, index) => (
+              <View key={`${session.name}-${index}`} style={styles.session}>
+                <Text style={styles.sessionName}>{localizeSessionName(session.name, language)}</Text>
+                {session.exercises.map((exercise) => (
+                  <View key={exercise.libraryItemId} style={styles.exerciseRow}>
+                    <Text style={styles.exerciseName} numberOfLines={2}>
+                      {exerciseNameLabel(language, exercise.name)}
+                    </Text>
+                    <Text style={styles.exerciseScheme}>
+                      {exercise.sets} × {exercise.repsMin === exercise.repsMax ? exercise.repsMin : `${exercise.repsMin}–${exercise.repsMax}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ))}
+
+            {proposal.unmetLifts.length ? (
+              <Text style={styles.note}>
+                {t(language, 'aiCompose.unmet', {
+                  lifts: proposal.unmetLifts.map((lift) => exerciseNameLabel(language, lift)).join(', '),
+                })}
+              </Text>
+            ) : null}
+            {proposal.unresolvedNames.length ? (
+              <Text style={styles.note}>{t(language, 'aiCompose.unresolved', { names: proposal.unresolvedNames.join(', ') })}</Text>
+            ) : null}
+
+            <View style={styles.actions}>
+              <CutButton
+                label={busy === 'saving' ? t(language, 'aiCompose.saving') : t(language, 'aiCompose.save')}
+                variant={busy === 'idle' ? 'primary' : 'disabled'}
+                onPress={handleSave}
+                stretch
+              />
+              <Pressable onPress={handleCompose} hitSlop={8} style={styles.again} disabled={busy !== 'idle'}>
+                <Text style={styles.againText}>{t(language, 'aiCompose.again')}</Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.source}>
+              {t(language, proposal.source === 'live' ? 'aiCompose.source.live' : 'aiCompose.source.preview')}
+            </Text>
+          </CutSurface>
+        ) : null}
+
+        {!proposal ? (
+          <Text style={styles.footnote}>
+            {t(language, liveConfigured ? 'aiCompose.footnote.live' : 'aiCompose.footnote.preview')}
+          </Text>
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+const makeStyles = (theme: Theme) =>
+  StyleSheet.create({
+    screen: { flex: 1, backgroundColor: theme.bg },
+    content: {
+      paddingHorizontal: spacing.lg,
+      paddingTop: spacing.md,
+      paddingBottom: layout.bottomTabBarReserve,
+      gap: spacing.md,
+    },
+    lead: { color: theme.muted, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+    input: {
+      minHeight: 116,
+      borderWidth: 1,
+      borderColor: theme.border,
+      borderRadius: 14,
+      backgroundColor: theme.surface,
+      color: theme.ink,
+      paddingHorizontal: 14,
+      paddingVertical: 12,
+      fontSize: 16,
+      lineHeight: 22,
+      fontWeight: '600',
+    },
+    knownBlock: { gap: 8 },
+    knownLabel: { color: theme.faint, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
+    chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+    chip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: theme.purpleLight },
+    chipText: { color: theme.purpleDark, fontSize: 12, fontWeight: '700' },
+    spinner: { marginTop: 4 },
+    proposal: { padding: spacing.md, gap: 10 },
+    readEyebrow: { color: theme.purple, fontSize: 11, fontWeight: '800', letterSpacing: 1.2, textTransform: 'uppercase' },
+    readLine: { color: theme.ink, fontSize: 14, lineHeight: 20, fontWeight: '600' },
+    proposalTitle: { color: theme.ink, fontSize: 20, lineHeight: 26, fontWeight: '800', letterSpacing: -0.3, marginTop: 6 },
+    session: { gap: 6, marginTop: 6 },
+    sessionName: { color: theme.ink, fontSize: 15, fontWeight: '800' },
+    exerciseRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+    exerciseName: { flex: 1, color: theme.ink, fontSize: 14, lineHeight: 19, fontWeight: '600' },
+    exerciseScheme: { color: theme.muted, fontSize: 13, lineHeight: 19, fontWeight: '700' },
+    note: { color: theme.muted, fontSize: 13, lineHeight: 18, fontWeight: '600', marginTop: 4 },
+    actions: { gap: 10, marginTop: 8 },
+    again: { alignSelf: 'center', paddingVertical: 6 },
+    againText: { color: theme.purple, fontSize: 14, fontWeight: '800' },
+    source: { color: theme.faint, fontSize: 11.5, lineHeight: 15, fontWeight: '600', marginTop: 2 },
+    footnote: { color: theme.faint, fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  });

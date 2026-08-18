@@ -1,0 +1,500 @@
+import { buildAiCoachPlanSchema } from './aiCoachPlan';
+import { findGuidedLibraryIndex } from './guidedPlayer';
+import { AICoachPlanSchema } from '../types/aiCoachPlan';
+import {
+  AiPlannerDaysPerWeek,
+  AiPlannerEquipment,
+  AiPlannerGoal,
+  AppPreferences,
+  ExerciseLibraryItem,
+  SetupFocusArea,
+  WorkoutTemplateDraft,
+} from '../types/models';
+
+/**
+ * "AI assisted" — the programme you describe in your own words.
+ *
+ * The old branch was a form behind the Pro gate that asked the onboarding
+ * questions again (goal, days, level, equipment, recovery) and ran a
+ * deterministic composer over the answers. It was not AI and it was not
+ * assisted: the reader typed what the app already knew.
+ *
+ * The rebuild (feedback round 2, #3): ONE text field. "3 päivää, penkki
+ * painopisteenä, olkapää kipeä." What the app already knows from onboarding
+ * — days, level, equipment, cautions — travels as context without being asked
+ * again. This module reads the brief for the signals the composer can act on,
+ * lays them over the stored preferences, and composes.
+ *
+ * Two paths, one contract:
+ *  - Preview (the shipped default): the brief is parsed here and the same
+ *    deterministic composer the app already trusts builds the week.
+ *  - Live: the brief and context go to the coach endpoint and Claude returns
+ *    a proposal. Every exercise name it returns is forced through the library
+ *    alias matcher; a name that does not resolve is DROPPED and listed, never
+ *    shown as if it were a lift. This is the plan composer's own rule
+ *    (invented exercise names reached the user once already) applied at the
+ *    boundary where the risk actually is.
+ *
+ * Nothing here is an estimate. The proposal is a week of real library
+ * exercises with sets and reps; the reader saves it as a programme of their
+ * own — which is what the free-tier cap counts, and is meant to.
+ */
+
+export interface ProgrammeBriefSignals {
+  daysPerWeek: AiPlannerDaysPerWeek | null;
+  sessionMinutes: number | null;
+  goal: AiPlannerGoal | null;
+  equipment: AiPlannerEquipment | null;
+  /** Canonical lift names the brief asked for ("Bench Press"). */
+  lifts: string[];
+  /** Setup focus areas the brief leans towards ('chest', 'arms'). */
+  focusBodyParts: SetupFocusArea[];
+  /** Body parts the brief says hurt ('shoulder'); drives the avoid list. */
+  cautions: string[];
+  /** Name fragments the composer must not pick ("overhead press"). */
+  avoidTerms: string[];
+}
+
+const LIFT_KEYWORDS: ReadonlyArray<{ pattern: RegExp; lift: string; exclude?: RegExp }> = [
+  { pattern: /penkki|penkkipunnerru|bench/i, lift: 'Bench Press' },
+  // Plain squat only: goblet, front and split squats are their own lifts, and
+  // a brief naming one of those must not be read as a back squat.
+  { pattern: /(?:^|[^a-zäö-])(?:taka)?kyykky|(?:back |barbell )?squat/i, lift: 'Back Squat', exclude: /goblet|etukyykky|front|split|bulgarian|askel/i },
+  { pattern: /maastave|\bmave\b|deadlift/i, lift: 'Deadlift' },
+  { pattern: /pystypunnerru|overhead|\bohp\b|military|olkapääpunnerru|shoulder press/i, lift: 'Overhead Press' },
+  { pattern: /kulmasoutu|tankosoutu|barbell row|bent[- ]over row/i, lift: 'Barbell Row' },
+  { pattern: /leuanve|leukoja|leuat|pull[- ]?ups?|chin[- ]?ups?/i, lift: 'Pullups' },
+  { pattern: /lantionnosto|hip thrust/i, lift: 'Hip Thrust' },
+  { pattern: /jalkapr[äa]ssi|leg press/i, lift: 'Leg Press' },
+  // "punnerrus" alone is the push-up; "penkkipunnerrus" and "pystypunnerrus"
+  // carry their own prefix and are matched above.
+  { pattern: /(?:^|[^a-zäö])punnerru|push[- ]?ups?/i, lift: 'Pushups' },
+  { pattern: /dipp|\bdips?\b/i, lift: 'Dips - Triceps Version' },
+];
+
+const BODY_PART_KEYWORDS: ReadonlyArray<{ pattern: RegExp; part: SetupFocusArea; caution: string; avoid: string[] }> = [
+  {
+    pattern: /rinta|rinnat|chest|pecs?/i,
+    part: 'chest',
+    caution: 'chest',
+    avoid: ['bench press', 'dips', 'fly'],
+  },
+  {
+    pattern: /selk[äa]|back(?! squat)|lats?\b/i,
+    part: 'back',
+    caution: 'back',
+    avoid: ['deadlift', 'good morning', 'bent over', 'back extension'],
+  },
+  {
+    pattern: /olkap[äa]|hartia|shoulder|delts?\b/i,
+    part: 'shoulders',
+    caution: 'shoulder',
+    avoid: ['overhead press', 'shoulder press', 'upright row', 'behind the neck', 'dips'],
+  },
+  {
+    pattern: /jala|jalka|reisi|reidet|legs?\b|quads?\b|hamstring/i,
+    part: 'legs',
+    caution: 'knee',
+    avoid: ['jump', 'box jump', 'lunge', 'leg extension'],
+  },
+  {
+    pattern: /polvi|polve|knee/i,
+    part: 'legs',
+    caution: 'knee',
+    avoid: ['jump', 'box jump', 'lunge', 'leg extension', 'pistol'],
+  },
+  {
+    pattern: /pakara|glute|butt/i,
+    part: 'glutes',
+    caution: 'hip',
+    avoid: [],
+  },
+  {
+    pattern: /hauis|bicep|k[äa]det|k[äa]sivar|\barms?\b/i,
+    part: 'arms',
+    caution: 'elbow',
+    avoid: ['skullcrusher', 'close-grip', 'triceps extension'],
+  },
+  {
+    pattern: /ojentaja|tricep/i,
+    part: 'arms',
+    caution: 'elbow',
+    avoid: ['skullcrusher', 'close-grip', 'triceps extension'],
+  },
+  {
+    pattern: /kyyn[äa]rp[äa]|elbow/i,
+    part: 'arms',
+    caution: 'elbow',
+    avoid: ['skullcrusher', 'close-grip', 'triceps extension', 'preacher'],
+  },
+  {
+    pattern: /vatsa|keskivartalo|core|abs\b|abdominal/i,
+    part: 'core',
+    caution: 'lower back',
+    avoid: ['sit-up', 'good morning'],
+  },
+  {
+    pattern: /alasel|lower back|lanne/i,
+    part: 'back',
+    caution: 'lower back',
+    avoid: ['deadlift', 'good morning', 'bent over', 'back extension', 'sit-up'],
+  },
+];
+
+// "pain" is bounded: Finnish "painopiste" (focus) and "paino" (weight) contain
+// it, and a brief that says "penkki painopisteenä" is the opposite of a caution.
+const PAIN = /kipe|kipu|s[äa]rke|vamma|(?:^|\s)arka|hurt|(?:^|\s)pain(?:ful|s)?(?=\s|$|[.,!?])|sore|injur|tender|ei kest/i;
+
+const FINNISH_NUMBERS: Record<string, number> = {
+  yksi: 1,
+  yhden: 1,
+  kaksi: 2,
+  kahden: 2,
+  kahdesti: 2,
+  kolme: 3,
+  kolmen: 3,
+  kolmesti: 3,
+  neljä: 4,
+  neljän: 4,
+  neljästi: 4,
+  viisi: 5,
+  viiden: 5,
+  kuusi: 6,
+  one: 1,
+  two: 2,
+  twice: 2,
+  three: 3,
+  four: 4,
+  five: 5,
+  six: 6,
+};
+
+/** Sentences, so "olkapää kipeä" only taints the shoulder, not the whole brief. */
+function splitSentences(brief: string): string[] {
+  return brief
+    .split(/[.!?;\n]+|,\s*(?=[^,]*(?:mutta|but)\b)/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function parseDays(brief: string): AiPlannerDaysPerWeek | null {
+  const lower = brief.toLowerCase();
+  const numeric = lower.match(/(\d)\s*(?:x|×|krt|kertaa|kerta|pv|päiv|day|d\b|treeni|sessio|session|treenipäiv)/);
+  let days: number | null = numeric ? Number(numeric[1]) : null;
+  if (days === null) {
+    for (const [word, value] of Object.entries(FINNISH_NUMBERS)) {
+      // No \b: JavaScript's word boundary is ASCII, and "neljä" ends in a
+      // letter it does not know. "kolmesti" / "twice" already mean "times",
+      // so they need no unit after them.
+      const impliesTimes = word.endsWith('sti') || word === 'twice';
+      const wordMatch = new RegExp(
+        `(?:^|\\s)${word}(?:\\s*(?:kertaa|krt|päivää|päivä|pv|treeniä|days?|times|sessions?)|${impliesTimes ? '(?=\\s|$)' : '(?!)'})`,
+        'i',
+      );
+      if (wordMatch.test(lower)) {
+        days = value;
+        break;
+      }
+    }
+  }
+  if (days === null) {
+    return null;
+  }
+  // The composer plans 1–4 sessions; more days than that become 4 rather
+  // than an invented fifth split.
+  const clamped = Math.max(1, Math.min(4, days));
+  return clamped as AiPlannerDaysPerWeek;
+}
+
+function parseMinutes(brief: string): number | null {
+  const match = brief.toLowerCase().match(/(\d{2,3})\s*(?:min|minuut)/);
+  if (!match) {
+    return null;
+  }
+  const minutes = Number(match[1]);
+  return Number.isFinite(minutes) && minutes >= 15 && minutes <= 180 ? minutes : null;
+}
+
+function parseGoal(brief: string): AiPlannerGoal | null {
+  const lower = brief.toLowerCase();
+  if (/rasva|laihdu|painonpudo|pudottaa|kiinte|fat|lean|cut\b|lose weight/.test(lower)) {
+    return 'fat_loss';
+  }
+  if (/voima|vahv|maksimi|strength|strong|1rm/.test(lower)) {
+    return 'strength';
+  }
+  if (/massa|lihas|kokoa|kasvat|hypertrof|muscle|size|bigger|bulk/.test(lower)) {
+    return 'muscle';
+  }
+  if (/kunto|yleiskunto|jaksa|fitness|conditioning|health|terveys/.test(lower)) {
+    return 'fitness';
+  }
+  return null;
+}
+
+function parseEquipment(brief: string): AiPlannerEquipment | null {
+  const lower = brief.toLowerCase();
+  if (/kehonpaino|ilman välineitä|ei välineitä|bodyweight|no equipment|calisthenic/.test(lower)) {
+    return 'bodyweight';
+  }
+  if (/kuminauh|vastuskumi|band/.test(lower) && !/sali|gym/.test(lower)) {
+    return 'minimal';
+  }
+  if (/kotisali|kotona|home/.test(lower)) {
+    return 'home_gym';
+  }
+  if (/salilla|sali\b|kuntosali|gym/.test(lower)) {
+    return 'full_gym';
+  }
+  return null;
+}
+
+/**
+ * Read the brief. Deterministic, sentence-aware, and deliberately narrow: a
+ * word the dictionary does not know is simply not a signal. The composer
+ * fills the rest from the stored preferences, so a brief of "3 päivää" is a
+ * complete instruction.
+ */
+export function parseProgrammeBrief(brief: string): ProgrammeBriefSignals {
+  const lifts: string[] = [];
+  const focusBodyParts: SetupFocusArea[] = [];
+  const cautions: string[] = [];
+  const avoidTerms: string[] = [];
+
+  for (const sentence of splitSentences(brief)) {
+    const painful = PAIN.test(sentence);
+    for (const entry of BODY_PART_KEYWORDS) {
+      if (!entry.pattern.test(sentence)) {
+        continue;
+      }
+      if (painful) {
+        if (!cautions.includes(entry.caution)) {
+          cautions.push(entry.caution);
+        }
+        for (const term of entry.avoid) {
+          if (!avoidTerms.includes(term)) {
+            avoidTerms.push(term);
+          }
+        }
+      } else if (!focusBodyParts.includes(entry.part)) {
+        focusBodyParts.push(entry.part);
+      }
+    }
+    if (!painful) {
+      for (const entry of LIFT_KEYWORDS) {
+        if (entry.exclude?.test(sentence)) {
+          continue;
+        }
+        if (entry.pattern.test(sentence) && !lifts.includes(entry.lift)) {
+          lifts.push(entry.lift);
+        }
+      }
+    }
+  }
+
+  // A lift the reader asked for is never also avoided because a body part in
+  // another sentence hurts — the explicit ask wins, and the caution stays in
+  // the notes for the reader to see.
+  const requestedLower = lifts.map((lift) => lift.toLowerCase());
+  const filteredAvoid = avoidTerms.filter((term) => !requestedLower.some((lift) => lift.includes(term)));
+
+  return {
+    daysPerWeek: parseDays(brief),
+    sessionMinutes: parseMinutes(brief),
+    goal: parseGoal(brief),
+    equipment: parseEquipment(brief),
+    lifts,
+    focusBodyParts,
+    cautions,
+    avoidTerms: filteredAvoid,
+  };
+}
+
+/** The lift's exact library name, so the composer's substring search hits it and nothing longer. */
+function resolveLiftToLibraryName(lift: string, library: ExerciseLibraryItem[]): string | null {
+  const index = findGuidedLibraryIndex(lift, library.map((item) => item.name));
+  return index === null ? null : library[index].name;
+}
+
+/**
+ * The brief laid over the stored preferences. Only what the brief actually
+ * said is overridden; everything else stays what onboarding recorded.
+ */
+export function applyBriefToPreferences(
+  preferences: AppPreferences,
+  signals: ProgrammeBriefSignals,
+  library: ExerciseLibraryItem[],
+): AppPreferences {
+  const mustInclude = signals.lifts
+    .map((lift) => resolveLiftToLibraryName(lift, library))
+    .filter((name): name is string => Boolean(name));
+  const focus = signals.focusBodyParts[0];
+  return {
+    ...preferences,
+    aiPlannerGoal: signals.goal ?? preferences.aiPlannerGoal,
+    aiPlannerDaysPerWeek: signals.daysPerWeek ?? preferences.aiPlannerDaysPerWeek,
+    aiPlannerSessionMinutes: signals.sessionMinutes ?? preferences.aiPlannerSessionMinutes,
+    aiPlannerEquipment: signals.equipment ?? preferences.aiPlannerEquipment,
+    aiPlannerMustInclude: mustInclude.join(', '),
+    aiPlannerAvoid: signals.avoidTerms.join(', '),
+    aiPlannerLimitations: signals.cautions.join(', '),
+    setupFocusAreas: focus ? [focus] : preferences.setupFocusAreas,
+  };
+}
+
+export interface ProposedExercise {
+  name: string;
+  libraryItemId: string;
+  sets: number;
+  repsMin: number;
+  repsMax: number;
+  restSeconds: number;
+}
+
+export interface ProposedSession {
+  name: string;
+  focus: string;
+  exercises: ProposedExercise[];
+}
+
+export interface ProgrammeProposal {
+  source: 'preview' | 'live';
+  title: string;
+  sessions: ProposedSession[];
+  signals: ProgrammeBriefSignals;
+  /** Lifts the brief asked for that the week could not fit. Shown, not hidden. */
+  unmetLifts: string[];
+  /** Live only: names the model returned that resolve to nothing. Dropped, and shown. */
+  unresolvedNames: string[];
+}
+
+function planToProposal(
+  plan: AICoachPlanSchema,
+  signals: ProgrammeBriefSignals,
+  library: ExerciseLibraryItem[],
+  source: 'preview' | 'live',
+): ProgrammeProposal {
+  const sessions: ProposedSession[] = plan.sessions.map((session) => ({
+    name: session.name,
+    focus: session.focus,
+    exercises: session.exercises
+      .filter((exercise): exercise is typeof exercise & { libraryItemId: string } => Boolean(exercise.libraryItemId))
+      .map((exercise) => ({
+        name: exercise.name,
+        libraryItemId: exercise.libraryItemId,
+        sets: exercise.sets,
+        repsMin: exercise.repsMin,
+        repsMax: exercise.repsMax,
+        restSeconds: exercise.restSeconds,
+      })),
+  }));
+  const includedIds = new Set(sessions.flatMap((session) => session.exercises.map((exercise) => exercise.libraryItemId)));
+  const unmetLifts = signals.lifts.filter((lift) => {
+    const name = resolveLiftToLibraryName(lift, library);
+    const item = name ? library.find((entry) => entry.name === name) : null;
+    return !item || !includedIds.has(item.id);
+  });
+  return { source, title: plan.title, sessions, signals, unmetLifts, unresolvedNames: [] };
+}
+
+/** The preview path: parse here, compose with the deterministic composer. */
+export function composeProgrammePreview(
+  brief: string,
+  preferences: AppPreferences,
+  library: ExerciseLibraryItem[],
+): ProgrammeProposal {
+  const signals = parseProgrammeBrief(brief);
+  const overlaid = applyBriefToPreferences(preferences, signals, library);
+  const plan = buildAiCoachPlanSchema(overlaid, library);
+  return planToProposal(plan, signals, library, 'preview');
+}
+
+/** What the live endpoint is asked to return — names, not ids; the client resolves. */
+export interface LiveProgrammeProposal {
+  title: string;
+  sessions: Array<{
+    name: string;
+    focus?: string;
+    exercises: Array<{ name: string; sets: number; repsMin: number; repsMax: number; restSeconds?: number }>;
+  }>;
+}
+
+/**
+ * The sweep. Every name the model returned goes through the library alias
+ * matcher; what does not resolve is dropped and listed. A session left with
+ * no exercises is dropped too — an empty day is not a day.
+ */
+export function resolveLiveProposal(
+  raw: LiveProgrammeProposal,
+  brief: string,
+  library: ExerciseLibraryItem[],
+  defaultRestSeconds: number,
+): ProgrammeProposal {
+  const names = library.map((item) => item.name);
+  const unresolvedNames: string[] = [];
+  const sessions: ProposedSession[] = [];
+  for (const session of raw.sessions) {
+    const exercises: ProposedExercise[] = [];
+    for (const exercise of session.exercises) {
+      const index = findGuidedLibraryIndex(exercise.name, names);
+      if (index === null) {
+        if (!unresolvedNames.includes(exercise.name)) {
+          unresolvedNames.push(exercise.name);
+        }
+        continue;
+      }
+      const item = library[index];
+      const repsMin = Math.max(1, Math.round(exercise.repsMin || 1));
+      exercises.push({
+        name: item.name,
+        libraryItemId: item.id,
+        sets: Math.max(1, Math.min(8, Math.round(exercise.sets || 3))),
+        repsMin,
+        repsMax: Math.max(repsMin, Math.round(exercise.repsMax || repsMin)),
+        restSeconds:
+          exercise.restSeconds && exercise.restSeconds > 0 ? Math.round(exercise.restSeconds) : defaultRestSeconds,
+      });
+    }
+    if (exercises.length > 0) {
+      sessions.push({ name: session.name, focus: session.focus ?? '', exercises });
+    }
+  }
+  const signals = parseProgrammeBrief(brief);
+  const includedIds = new Set(sessions.flatMap((session) => session.exercises.map((exercise) => exercise.libraryItemId)));
+  const unmetLifts = signals.lifts.filter((lift) => {
+    const name = resolveLiftToLibraryName(lift, library);
+    const item = name ? library.find((entry) => entry.name === name) : null;
+    return !item || !includedIds.has(item.id);
+  });
+  return { source: 'live', title: raw.title.trim() || 'Vinha AI', sessions, signals, unmetLifts, unresolvedNames };
+}
+
+/**
+ * The proposal as a programme of the reader's own. Session names come from
+ * the composer in English ("Upper A"); they are stored as-is and localised on
+ * display like every other custom session name.
+ */
+export function buildProgrammeDraft(proposal: ProgrammeProposal, existingNames: readonly string[]): WorkoutTemplateDraft {
+  const taken = new Set(existingNames.map((name) => name.trim().toLowerCase()));
+  let name = proposal.title.trim() || 'Vinha AI';
+  let suffix = 2;
+  while (taken.has(name.toLowerCase())) {
+    name = `${proposal.title.trim() || 'Vinha AI'} ${suffix}`;
+    suffix += 1;
+  }
+  return {
+    name,
+    sessions: proposal.sessions.map((session) => ({
+      name: session.name,
+      exercises: session.exercises.map((exercise) => ({
+        name: exercise.name,
+        targetSets: exercise.sets,
+        repMin: exercise.repsMin,
+        repMax: exercise.repsMax,
+        restSeconds: exercise.restSeconds,
+        trackedDefault: false,
+        libraryItemId: exercise.libraryItemId,
+      })),
+    })),
+  };
+}

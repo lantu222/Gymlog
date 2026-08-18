@@ -45,6 +45,73 @@ const CLAUDE_MAX_TOKENS = BUDGET_LIMITS.maxOutputTokens;
 let budgetState: BudgetState = createBudgetState(Date.now(), BUDGET_LIMITS);
 
 const ADVICE_TOOL_NAME = 'ai_coach_advice';
+const PROGRAMME_TOOL_NAME = 'ai_coach_programme';
+
+/**
+ * The composer's answer: a week as exercise NAMES. The app resolves every
+ * name against its own library and drops what does not resolve, so the
+ * schema asks for common English names and nothing else that would need
+ * inventing (no ids, no muscle groups, no equipment tags).
+ */
+const AI_COACH_PROGRAMME_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['title', 'sessions'],
+  properties: {
+    title: { type: 'string', description: 'A short programme name in the language the athlete wrote in.' },
+    sessions: {
+      type: 'array',
+      minItems: 1,
+      maxItems: 6,
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['name', 'exercises'],
+        properties: {
+          name: { type: 'string', description: 'The session name, e.g. "Day 1: Upper".' },
+          focus: { type: 'string', description: 'One or two words on what the day is for.' },
+          exercises: {
+            type: 'array',
+            minItems: 3,
+            maxItems: 8,
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['name', 'sets', 'repsMin', 'repsMax'],
+              properties: {
+                name: {
+                  type: 'string',
+                  description:
+                    'The common English gym name of a real exercise, e.g. "Barbell Bench Press", "Romanian Deadlift", "Lat Pulldown". Never invent a name.',
+                },
+                sets: { type: 'integer', minimum: 1, maximum: 8 },
+                repsMin: { type: 'integer', minimum: 1, maximum: 30 },
+                repsMax: { type: 'integer', minimum: 1, maximum: 30 },
+                restSeconds: { type: 'integer', minimum: 30, maximum: 300 },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
+const COMPOSER_SYSTEM_RULES = [
+  'You are the programme composer inside a strength and hypertrophy logging app.',
+  '',
+  '# Task',
+  '- The user describes, in their own words, the programme they want. The training context is what the app already knows: their level, days available, equipment, cautions, and their log.',
+  '- Return ONE week of sessions that follows the brief first and the context second. If the brief names a number of days, plan exactly that many (1-6). If it names lifts, they are in the week as the main lift of a session. If it names something that hurts, do not program lifts that load it.',
+  '- Sets and reps follow the goal: strength 3-5 sets of 3-6, hypertrophy 3-4 sets of 8-12, fitness 2-3 sets of 10-15. Rest 60-180 s.',
+  '',
+  '# Names - these outrank everything',
+  '- Use only the common English gym name of a real exercise (the app translates). Never invent, brand, or compound names. If unsure whether an exercise exists under a name, choose a more common exercise instead.',
+  '- Only equipment the context says the user has.',
+  '',
+  '# Do not',
+  '- Do not explain, do not add notes, do not address the user. Return the programme through the tool and nothing else.',
+].join('\n');
 
 const AI_COACH_RESPONSE_SCHEMA = {
   type: 'object',
@@ -156,13 +223,15 @@ function checkRateLimit(ip: string) {
   return { limited: false };
 }
 
-function parseBody(body: unknown): AICoachAdviceRequest | null {
+type ParsedBody = AICoachAdviceRequest & { mode: 'advice' | 'compose' };
+
+function parseBody(body: unknown): ParsedBody | null {
   const parsed = typeof body === 'string' ? JSON.parse(body) : body;
   if (!parsed || typeof parsed !== 'object') {
     return null;
   }
 
-  const candidate = parsed as Partial<AICoachAdviceRequest>;
+  const candidate = parsed as Partial<AICoachAdviceRequest> & { mode?: unknown };
   if (typeof candidate.prompt !== 'string' || !candidate.prompt.trim() || !candidate.context || typeof candidate.context !== 'object') {
     return null;
   }
@@ -170,6 +239,8 @@ function parseBody(body: unknown): AICoachAdviceRequest | null {
   return {
     prompt: candidate.prompt.trim(),
     context: candidate.context as AICoachAdviceRequest['context'],
+    language: candidate.language === 'fi' || candidate.language === 'en' ? candidate.language : undefined,
+    mode: candidate.mode === 'compose' ? 'compose' : 'advice',
   };
 }
 
@@ -207,7 +278,7 @@ function validateAnswer(payload: unknown): AICoachAdvice | null {
  * The answer arrives as a forced tool call, so the schema is enforced by the
  * API rather than by asking the model nicely for JSON.
  */
-export function extractToolInput(payload: unknown) {
+export function extractToolInput(payload: unknown, toolName: string = ADVICE_TOOL_NAME) {
   if (!payload || typeof payload !== 'object') {
     return null;
   }
@@ -222,7 +293,7 @@ export function extractToolInput(payload: unknown) {
       continue;
     }
     const record = block as Record<string, unknown>;
-    if (record.type === 'tool_use' && record.name === ADVICE_TOOL_NAME) {
+    if (record.type === 'tool_use' && record.name === toolName) {
       return record.input ?? null;
     }
   }
@@ -341,6 +412,130 @@ async function requestClaude(input: AICoachAdviceRequest) {
   }
 }
 
+/** Shape-checks the composer's tool output; anything off is an INVALID_RESPONSE, not a partial programme. */
+export function validateProgramme(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+  const record = payload as { title?: unknown; sessions?: unknown };
+  if (typeof record.title !== 'string' || !Array.isArray(record.sessions) || record.sessions.length === 0) {
+    return null;
+  }
+  const sessions = [];
+  for (const session of record.sessions) {
+    if (!session || typeof session !== 'object') {
+      return null;
+    }
+    const entry = session as { name?: unknown; focus?: unknown; exercises?: unknown };
+    if (typeof entry.name !== 'string' || !Array.isArray(entry.exercises)) {
+      return null;
+    }
+    const exercises = [];
+    for (const exercise of entry.exercises) {
+      if (!exercise || typeof exercise !== 'object') {
+        return null;
+      }
+      const item = exercise as { name?: unknown; sets?: unknown; repsMin?: unknown; repsMax?: unknown; restSeconds?: unknown };
+      if (
+        typeof item.name !== 'string' ||
+        typeof item.sets !== 'number' ||
+        typeof item.repsMin !== 'number' ||
+        typeof item.repsMax !== 'number'
+      ) {
+        return null;
+      }
+      exercises.push({
+        name: item.name.trim(),
+        sets: item.sets,
+        repsMin: item.repsMin,
+        repsMax: item.repsMax,
+        restSeconds: typeof item.restSeconds === 'number' ? item.restSeconds : undefined,
+      });
+    }
+    sessions.push({ name: entry.name.trim(), focus: typeof entry.focus === 'string' ? entry.focus : undefined, exercises });
+  }
+  return { title: record.title.trim(), sessions };
+}
+
+/**
+ * The compose mode. Same key, same budget, same rate limit as advice; a
+ * different tool and different rules. There is no preview fallback in the
+ * response - the deterministic composer needs the exercise library, which is
+ * on the device - so every failure is an error the client answers locally.
+ */
+async function requestClaudeProgramme(input: ParsedBody) {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    return createError({ code: 'MISSING_API_KEY', message: 'ANTHROPIC_API_KEY is not configured.' });
+  }
+  const contextText = `# Training context\n\n${buildAiCoachSystemContext(input.context)}`;
+  const now = Date.now();
+  const budget = checkBudget(
+    { promptChars: input.prompt.length, contextChars: contextText.length + COMPOSER_SYSTEM_RULES.length },
+    budgetState,
+    now,
+    BUDGET_LIMITS,
+  );
+  if (!budget.allowed) {
+    const rejection = budget.rejection;
+    return createError({
+      code: rejection?.reason === 'budget_exhausted' ? 'RATE_LIMIT' : 'BAD_REQUEST',
+      message: rejection?.reason === 'budget_exhausted' ? 'Coach budget for this window is spent.' : 'Request is larger than the coach endpoint accepts.',
+    });
+  }
+  budgetState = recordSpend(budgetState, budget.estimatedTokens, now, BUDGET_LIMITS);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), CLAUDE_TIMEOUT_MS);
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: CLAUDE_MODEL,
+        max_tokens: CLAUDE_MAX_TOKENS,
+        system: [
+          { type: 'text', text: COMPOSER_SYSTEM_RULES },
+          { type: 'text', text: contextText, cache_control: { type: 'ephemeral' } },
+        ],
+        tools: [
+          {
+            name: PROGRAMME_TOOL_NAME,
+            description: 'Return one week of training sessions for the athlete described in the training context.',
+            input_schema: AI_COACH_PROGRAMME_SCHEMA,
+          },
+        ],
+        tool_choice: { type: 'tool', name: PROGRAMME_TOOL_NAME },
+        messages: [{ role: 'user', content: input.prompt }],
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      console.error('AI composer upstream request failed', response.status, body.slice(0, 400));
+      return createError({ code: 'UPSTREAM_ERROR', message: 'Claude request failed.' });
+    }
+    const payload = (await response.json()) as unknown;
+    const proposal = validateProgramme(extractToolInput(payload, PROGRAMME_TOOL_NAME));
+    if (!proposal) {
+      return createError({ code: 'INVALID_RESPONSE', message: 'Claude returned an invalid programme payload.' });
+    }
+    return { ok: true as const, source: 'live' as const, proposal };
+  } catch (error) {
+    const isAbort = error instanceof Error && error.name === 'AbortError';
+    return createError({
+      code: isAbort ? 'UPSTREAM_TIMEOUT' : 'UPSTREAM_ERROR',
+      message: isAbort ? 'Claude request timed out.' : 'Claude request failed.',
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export default async function handler(req: ApiRequest, res: ApiResponse) {
   setCors(res);
 
@@ -354,7 +549,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     return;
   }
 
-  let input: AICoachAdviceRequest | null = null;
+  let input: ParsedBody | null = null;
   try {
     input = parseBody(req.body);
   } catch {
@@ -376,6 +571,18 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         'Pyyntoraja tayttyi hetkeksi. Preview-vastaus palautettiin.',
       ),
     );
+    return;
+  }
+
+  if (input.mode === 'compose') {
+    const composed = await requestClaudeProgramme(input);
+    if (composed.ok) {
+      res.status(200).json(composed);
+      return;
+    }
+    const composeStatus =
+      composed.error.code === 'UPSTREAM_TIMEOUT' ? 504 : composed.error.code === 'RATE_LIMIT' ? 429 : composed.error.code === 'BAD_REQUEST' ? 400 : 502;
+    res.status(composeStatus).json(composed);
     return;
   }
 

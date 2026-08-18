@@ -57,13 +57,6 @@ import {
 } from './src/lib/programAdoption';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
 import { computePostSessionInsight, PostSessionInsight } from './src/lib/postSessionInsight';
-import {
-  buildAiCoachRuntimeTemplate,
-  buildAiCoachSetupHash,
-  buildAiCoachWorkoutDraft,
-  getAiCoachNextSessionId,
-  getAiCoachTemplateId,
-} from './src/lib/aiCoachPlan';
 import { composeProgramWeekForSelection } from './src/lib/programDayComposer';
 import { resolveAvailableEquipment } from './src/lib/equipmentExerciseFilter';
 import { getReadyProgramBlockWeeks } from './src/lib/readyProgramDuration';
@@ -163,7 +156,8 @@ import { countSessionsSince, resolveCompletionCard } from './src/lib/programComp
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
-import { buildGoalPresetRows } from './src/lib/strengthGoalPresets';
+import { buildGoalPresetRows, STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
+import { describeGoalCoverage, GoalProgrammeSuggestionView, rankProgrammesForLift } from './src/lib/goalProgramme';
 import { StrengthGoalPickerScreen } from './src/screens/StrengthGoalPickerScreen';
 import {
   addSeasonEnrolment,
@@ -193,7 +187,7 @@ import { AppRoute, ROOT_ROUTES, RootTabKey, WORKOUT_PLAN_ROUTE } from './src/nav
 import { SessionAnalysisScreen } from './src/screens/SessionAnalysisScreen';
 import { buildSessionAnalysis } from './src/lib/sessionAnalysis';
 import { AICoachScreen } from './src/screens/AICoachScreen';
-import { AiModeSetupScreen } from './src/screens/AiModeSetupScreen';
+import { AiProgramComposerScreen } from './src/screens/AiProgramComposerScreen';
 import { AboutYouScreen, AboutYouValues } from './src/screens/AboutYouScreen';
 import { CreateTemplateScreen } from './src/screens/CreateTemplateScreen';
 import { HistoryScreen } from './src/screens/HistoryScreen';
@@ -231,7 +225,8 @@ import { LegalDocumentScreen } from './src/screens/LegalDocumentScreen';
 import { ProOfferScreen } from './src/screens/ProOfferScreen';
 import { AICoachChatScreen } from './src/screens/AICoachChatScreen';
 import { buildCoachContextChips } from './src/lib/coachChat';
-import { isAiCoachLiveConfigured } from './src/lib/aiCoachClient';
+import { isAiCoachLiveConfigured, requestProgrammeComposition } from './src/lib/aiCoachClient';
+import { buildProgrammeDraft, composeProgrammePreview, resolveLiveProposal } from './src/lib/programmeBrief';
 import { ProgressScreen } from './src/screens/ProgressScreen';
 import { ProgramDayScreen } from './src/screens/ProgramDayScreen';
 import { ProgramDetailScreen } from './src/screens/ProgramDetailScreen';
@@ -1031,84 +1026,6 @@ function VinhaApp() {
   function navigateToGuidedWorkout(workoutTemplateId: string) {
     workoutLogNavigationAllowedAtRef.current = Date.now();
     navigate({ tab: 'workout', screen: 'guided', workoutTemplateId });
-  }
-
-  async function openAiMode(preferencesPatch?: Partial<AppPreferences>) {
-    const nextPreferences = preferencesPatch ? { ...preferences, ...preferencesPatch } : preferences;
-    // The AI program builder is Pro (the Pro page table says so, so it must be
-    // true). Free users land on the Pro page instead of a generator they
-    // cannot run.
-    if (!isProUnlocked(nextPreferences)) {
-      navigate({ tab: 'profile', screen: 'premium' });
-      return;
-    }
-    if (!nextPreferences.aiSetupCompleted) {
-      navigate({ tab: 'home', screen: 'ai_setup' });
-      return;
-    }
-
-    if (navigateToActiveWorkout()) {
-      return;
-    }
-
-    try {
-      const templateId = getAiCoachTemplateId(nextPreferences);
-      const setupHash = buildAiCoachSetupHash(nextPreferences);
-      const currentRuntimeTemplate = customWorkoutRuntimeMap[templateId] ?? null;
-      const shouldRegenerate = !currentRuntimeTemplate || nextPreferences.aiCoachSetupHash !== setupHash;
-
-      let runtimeTemplate = currentRuntimeTemplate;
-      let persistedTemplateId = templateId;
-
-      if (shouldRegenerate) {
-        const draft = buildAiCoachWorkoutDraft(nextPreferences, exerciseLibrary);
-        runtimeTemplate = buildAiCoachRuntimeTemplate(draft, exerciseLibrary, nextPreferences.defaultRestSeconds);
-        persistedTemplateId = await upsertWorkoutTemplate(draft);
-        await updatePreferences({
-          aiCoachTemplateId: persistedTemplateId,
-          aiCoachSetupHash: setupHash,
-          aiCoachPlanGeneratedAt: new Date().toISOString(),
-          trainingFirstRunDismissed: true,
-        });
-      }
-
-      if (!runtimeTemplate) {
-        navigate({
-          tab: 'home',
-          screen: 'ai',
-          prompt: 'Build my next progressive workout.',
-        });
-        return;
-      }
-
-      const completedSessionCount = workoutSessions.filter(
-        (session) => session.workoutTemplateId === persistedTemplateId,
-      ).length;
-      const nextSessionId = getAiCoachNextSessionId(
-        persistedTemplateId,
-        runtimeTemplate,
-        completedSessionCount,
-      );
-
-      const aiRuntimeTemplate = runtimeTemplate;
-      guardStrengthStartOverCardio(() => {
-        workout.startCustomWorkout(
-          buildCustomSessionRuntimeTemplate(aiRuntimeTemplate, nextSessionId),
-          nextPreferences.unitPreference,
-          { ...resolveProgressionOptions(nextPreferences), fatigueSignal: progressionFatigueSignal },
-        );
-        navigateToGuidedWorkout(persistedTemplateId);
-        showToast(shouldRegenerate ? 'Vinha AI plan ready' : 'Vinha AI next workout loaded');
-      });
-    } catch (error) {
-      console.error('Failed to open Vinha AI workout flow', error);
-      showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
-      navigate({
-        tab: 'home',
-        screen: 'ai',
-        prompt: 'Build my next progressive workout.',
-      });
-    }
   }
 
   function navigateBack(fallback: AppRoute | null = null) {
@@ -2645,6 +2562,16 @@ function VinhaApp() {
   );
   const proEntitlement = resolveProEntitlement(preferences);
   const coachProUnlocked = proEntitlement.unlocked;
+  // The AI composer is Pro (the Pro page table says so, so it must be true).
+  // Every entry into it already gates, but the route itself must too — a
+  // stale history entry or an entitlement that lapsed while the screen was
+  // open would otherwise leave a free reader on a screen they cannot use.
+  useEffect(() => {
+    if (route.tab === 'home' && route.screen === 'ai_setup' && !coachProUnlocked) {
+      navigate({ tab: 'profile', screen: 'premium' });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coachProUnlocked, route]);
   // Seven days out. There is no billing, so this is the demo story the paywall
   // already tells rather than a date anything will act on.
   const premiumTrialEndsAt = useMemo(() => {
@@ -4161,6 +4088,80 @@ function VinhaApp() {
       ),
     [preferences.strengthGoals, trackedProgress],
   );
+  /**
+   * The programme behind each goal lift (feedback round 2, #1: a target always
+   * has a programme that goes towards it).
+   *
+   * Computed for every preset lift, not only the goals set, so the picker can
+   * answer the moment a target is tapped. "Covered" means one of the ACTIVE
+   * programmes — ready or the reader's own — trains the lift; otherwise the
+   * best ready programme that does is suggested, ordered by how central the
+   * lift is there and then by the setup recommendation. No fit is invented:
+   * a lift no ready programme trains says so and points at the editor.
+   */
+  const goalProgrammeSuggestions = useMemo(() => {
+    const libraryNames = exerciseLibrary.map((item) => item.name);
+    const activeCandidates = activeProgramTemplateIds
+      .map((id) => getWorkoutTemplateById(id) ?? customWorkoutRuntimeMap[id] ?? null)
+      .filter((template): template is NonNullable<typeof template> => Boolean(template));
+    const activeIds = new Set(activeProgramTemplateIds);
+    const preferredOrder = programsRecommendations.map((item) => item.id);
+    const titleOf = (id: string) => {
+      const ready = getWorkoutTemplateById(id);
+      if (ready) {
+        return getReadyTemplatePresentation(ready, preferences.appLanguage).title;
+      }
+      const custom = customWorkoutRuntimeMap[id];
+      return custom ? formatWorkoutDisplayLabel(custom.name) : id;
+    };
+    const result: Record<string, GoalProgrammeSuggestionView> = {};
+    for (const preset of STRENGTH_GOAL_PRESETS) {
+      const lift = preset.exerciseName;
+      const coverage = describeGoalCoverage(
+        { exerciseName: lift, targetKg: 1, createdAt: '' },
+        activeCandidates,
+        libraryNames,
+      );
+      if (coverage.status === 'covered' && coverage.coveredBy) {
+        const active = activeCandidates.find((template) => template.id === coverage.coveredBy);
+        const match = rankProgrammesForLift(active ? [active] : [], lift, { libraryNames })[0];
+        result[lift] = {
+          status: 'covered',
+          programme: {
+            id: coverage.coveredBy,
+            title: titleOf(coverage.coveredBy),
+            sessionCount: match?.sessionCount ?? 0,
+            totalSessions: active?.sessions.length ?? 0,
+          },
+        };
+        continue;
+      }
+      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { preferredOrder, libraryNames }).filter(
+        (match) => !activeIds.has(match.id),
+      );
+      const best = ranked[0];
+      const template = best ? getWorkoutTemplateById(best.id) : null;
+      result[lift] =
+        best && template
+          ? {
+              status: 'suggest',
+              programme: {
+                id: best.id,
+                title: getReadyTemplatePresentation(template, preferences.appLanguage).title,
+                sessionCount: best.sessionCount,
+                totalSessions: template.sessions.length,
+              },
+            }
+          : { status: 'none', programme: null };
+    }
+    return result;
+  }, [
+    activeProgramTemplateIds,
+    customWorkoutRuntimeMap,
+    exerciseLibrary,
+    preferences.appLanguage,
+    programsRecommendations,
+  ]);
   // Programmes the reader built, not every template in the database: a
   // freestyle log writes a template of its own to hang the session on, and
   // "Omat ohjelmasi" was listing each of those as a programme. Those sessions
@@ -4947,20 +4948,49 @@ function VinhaApp() {
       />
     );
   } else if (route.tab === 'home' && route.screen === 'ai_setup') {
+    // "AI assisted", rebuilt as one text field (feedback round 2, #3). Live
+    // when a coach server is configured, the deterministic composer
+    // otherwise — the same proposal shape either way, and every exercise in
+    // it a library exercise. Saving makes a programme of the reader's own,
+    // which the free-tier cap counts like any other.
     content = (
-      <AiModeSetupScreen
+      <AiProgramComposerScreen
         language={preferences.appLanguage}
         preferences={preferences}
+        liveConfigured={isAiCoachLiveConfigured()}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
-        onSave={async (patch) => {
-          const nextPatch: Partial<AppPreferences> = {
-            ...patch,
-            aiCoachSetupHash: null,
-            aiCoachPlanGeneratedAt: null,
-          };
-          await updatePreferences(nextPatch);
-          showToast(t(preferences.appLanguage, 'toast.aiSetupSaved'));
-          await openAiMode(nextPatch);
+        compose={async (brief) => {
+          const live = await requestProgrammeComposition({
+            brief,
+            context: aiCoachTrainingContext,
+            language: preferences.appLanguage,
+          });
+          if (live) {
+            return resolveLiveProposal(live, brief, exerciseLibrary, preferences.defaultRestSeconds);
+          }
+          return composeProgrammePreview(brief, preferences, exerciseLibrary);
+        }}
+        onSave={async (proposal) => {
+          if (!programSlots.canCreate) {
+            setProgramLimitVisible(true);
+            return;
+          }
+          const draft = buildProgrammeDraft(
+            proposal,
+            workoutTemplates.map((item) => item.name),
+          );
+          try {
+            const workoutTemplateId = await upsertWorkoutTemplate(draft);
+            showToast(t(preferences.appLanguage, 'toast.aiProgrammeSaved'));
+            navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+          } catch (error) {
+            if (error instanceof ProgramLimitReachedError) {
+              setProgramLimitVisible(true);
+              return;
+            }
+            console.error('Failed to save composed programme', error);
+            showToast(t(preferences.appLanguage, 'toast.aiBuildFailed'));
+          }
         }}
       />
     );
@@ -5404,6 +5434,19 @@ function VinhaApp() {
         language={preferences.appLanguage}
         rows={goalPresetRows}
         unitLabel={preferences.unitPreference}
+        suggestions={goalProgrammeSuggestions}
+        // Stays on the picker: the panel flips to "your current programme
+        // trains this" by itself once the adoption lands, and a blocked
+        // adoption (cap) routes to the paywall on its own.
+        onAdoptProgramme={(templateId) => void handleAdoptReadyProgram(templateId, { lead: true })}
+        onOpenProgramme={(templateId) =>
+          navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: templateId })
+        }
+        onBuildOwn={() =>
+          programSlots.canCreate
+            ? navigate({ tab: 'workout', screen: 'template' })
+            : setProgramLimitVisible(true)
+        }
         onBack={() => navigateBack(ROOT_ROUTES.workout)}
         onPick={(exerciseName, targetKg) =>
           void updatePreferences({
@@ -5519,6 +5562,7 @@ function VinhaApp() {
         seasonCards={programsSeasonCards}
         onOpenSeason={(season) => navigate({ tab: 'workout', screen: 'season', season })}
         goals={programsGoals}
+        goalProgrammes={goalProgrammeSuggestions}
         onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalPicker' })}
         onRemoveGoal={(exerciseName) =>
           void updatePreferences({

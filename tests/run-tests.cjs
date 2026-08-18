@@ -122,6 +122,8 @@ const suites = [
   ...require('./lib/quickLayoutExercises.test.cjs'),
   ...require('./lib/exerciseSearch.test.cjs'),
   ...require('./lib/libraryLabel.test.cjs'),
+  ...require('./lib/goalProgramme.test.cjs'),
+  ...require('./lib/programmeBrief.test.cjs'),
   ...require('./lib/widgetPayload.test.cjs'),
   ...require('./lib/widgetResources.test.cjs'),
   ...require('./lib/theming.test.cjs'),

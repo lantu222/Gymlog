@@ -47,7 +47,10 @@ module.exports = [
   {
     name: 'the system rules carry the constraints the app depends on',
     run() {
-      const rules = source.slice(source.indexOf('COACH_SYSTEM_RULES = ['), source.indexOf("].join('\\n')"));
+      // The composer's rules sit above the coach's in the file, so the slice
+      // must end at the join that closes THIS array, not the first join.
+      const rulesStart = source.indexOf('COACH_SYSTEM_RULES = [');
+      const rules = source.slice(rulesStart, source.indexOf("].join('\\n')", rulesStart));
 
       // Anti-fabrication is the whole premise of the coach surfaces.
       assert.match(rules, /Never state a number, session, exercise, or date that does not appear in it/);

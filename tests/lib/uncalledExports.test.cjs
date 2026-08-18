@@ -43,7 +43,9 @@ const EXPORT_RE = /^export\s+(?:async\s+)?(?:function|const|class)\s+([A-Za-z_$]
 
 function walk(dir, exts, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (['node_modules', '.test-dist', '.git', 'android', 'ios', 'tests'].includes(entry.name)) {
+    // .claude holds worktree copies of the whole repo: a reference found there
+    // is a reference to itself, and it hid five dead exports for a day.
+    if (['node_modules', '.test-dist', '.git', '.claude', 'android', 'ios', 'tests'].includes(entry.name)) {
       continue;
     }
     const full = path.join(dir, entry.name);
