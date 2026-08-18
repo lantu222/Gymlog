@@ -3148,7 +3148,7 @@ function VinhaApp() {
     // happens on the Programs tab, which is the one place that can say what
     // adopting it means.
     return null;
-  }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
+  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const coachChatIntro = useMemo(
@@ -3202,7 +3202,7 @@ function VinhaApp() {
       }),
       weekStreak: homeSummary.streak.currentWeekStreak,
     };
-  }, [database, homeSummary.streak.currentWeekStreak]);
+  }, [database.workoutSessions, database.exerciseLogs, homeSummary.streak.currentWeekStreak]);
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   // Week-strip training dots from the days the user actually picked
