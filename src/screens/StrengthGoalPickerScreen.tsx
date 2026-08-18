@@ -4,7 +4,9 @@ import Svg, { Path } from 'react-native-svg';
 
 import { CutSurface } from '../components/CutSurface';
 import { ScreenHeader } from '../components/ScreenHeader';
+import { CutButton } from '../components/CutButton';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { GoalProgrammeSuggestionView } from '../lib/goalProgramme';
 import { t } from '../lib/i18n';
 import { StrengthGoalPresetRow } from '../lib/strengthGoalPresets';
 import { layout, spacing } from '../theme';
@@ -22,25 +24,39 @@ import { AppLanguage } from '../types/models';
  * A target already reached still shows, marked. Hiding it would leave a lift
  * with three options one day and two the next, and "you already did this" is
  * worth reading next to "you have not".
+ *
+ * A target always comes with a programme (feedback round 2, #1). Under a lift
+ * with a target set, the page says which programme goes towards it: the active
+ * one if it trains the lift, the best ready one that does if not, and — for a
+ * lift no ready programme trains — that plainly, with the way to build one.
  */
 
 interface StrengthGoalPickerScreenProps {
   language: AppLanguage;
   rows: StrengthGoalPresetRow[];
   unitLabel: string;
+  /** Keyed by the preset's exerciseName. Missing means nothing to say. */
+  suggestions: Record<string, GoalProgrammeSuggestionView>;
   onBack: () => void;
   onPick: (exerciseName: string, targetKg: number) => void;
   /** Clears the target for a lift — tapping the one already set. */
   onClear: (exerciseName: string) => void;
+  onAdoptProgramme: (templateId: string) => void;
+  onOpenProgramme: (templateId: string) => void;
+  onBuildOwn: () => void;
 }
 
 export function StrengthGoalPickerScreen({
   language,
   rows,
   unitLabel,
+  suggestions,
   onBack,
   onPick,
   onClear,
+  onAdoptProgramme,
+  onOpenProgramme,
+  onBuildOwn,
 }: StrengthGoalPickerScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const theme = useTheme();
@@ -110,6 +126,15 @@ export function StrengthGoalPickerScreen({
             {row.currentTargetKg !== null ? (
               <Text style={styles.groupHint}>{t(language, 'goals.picker.clearHint')}</Text>
             ) : null}
+            {row.currentTargetKg !== null && suggestions[row.exerciseName] ? (
+              <ProgrammePanel
+                language={language}
+                suggestion={suggestions[row.exerciseName]}
+                onAdopt={onAdoptProgramme}
+                onOpen={onOpenProgramme}
+                onBuildOwn={onBuildOwn}
+              />
+            ) : null}
           </View>
         ))}
 
@@ -119,6 +144,77 @@ export function StrengthGoalPickerScreen({
         <Text style={styles.footnote}>{t(language, 'goals.picker.footnote')}</Text>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * The programme under a set target. Three states, one card, no projection:
+ * the copy says which programme contains the lift and how often, never how
+ * soon it would reach the number.
+ */
+function ProgrammePanel({
+  language,
+  suggestion,
+  onAdopt,
+  onOpen,
+  onBuildOwn,
+}: {
+  language: AppLanguage;
+  suggestion: GoalProgrammeSuggestionView;
+  onAdopt: (templateId: string) => void;
+  onOpen: (templateId: string) => void;
+  onBuildOwn: () => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
+  const programme = suggestion.programme;
+
+  return (
+    <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.panel}>
+      <Text style={styles.panelEyebrow}>{t(language, 'goals.picker.programme.title')}</Text>
+      {suggestion.status === 'covered' && programme ? (
+        <>
+          <Text style={styles.panelBody}>
+            {t(language, 'goals.picker.programme.coveredBody', { programme: programme.title })}
+          </Text>
+          <View style={styles.panelActions}>
+            <CutButton
+              label={t(language, 'goals.picker.programme.open')}
+              variant="secondary"
+              onPress={() => onOpen(programme.id)}
+            />
+          </View>
+        </>
+      ) : suggestion.status === 'suggest' && programme ? (
+        <>
+          <Text style={styles.panelBody}>
+            {t(language, 'goals.picker.programme.suggestBody', {
+              programme: programme.title,
+              count: programme.sessionCount,
+              total: programme.totalSessions,
+            })}
+          </Text>
+          <View style={styles.panelActions}>
+            <CutButton
+              label={t(language, 'goals.picker.programme.adopt')}
+              onPress={() => onAdopt(programme.id)}
+            />
+            <CutButton
+              label={t(language, 'goals.picker.programme.open')}
+              variant="secondary"
+              onPress={() => onOpen(programme.id)}
+            />
+          </View>
+        </>
+      ) : (
+        <>
+          <Text style={styles.panelBody}>{t(language, 'goals.picker.programme.noneBody')}</Text>
+          <View style={styles.panelActions}>
+            <CutButton label={t(language, 'goals.picker.programme.build')} variant="secondary" onPress={onBuildOwn} />
+          </View>
+        </>
+      )}
+    </CutSurface>
   );
 }
 
@@ -213,5 +309,28 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '600',
+  },
+  panel: {
+    padding: spacing.md,
+    gap: 8,
+  },
+  panelEyebrow: {
+    color: theme.purple,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+  },
+  panelBody: {
+    color: theme.ink,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  panelActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
   },
 });

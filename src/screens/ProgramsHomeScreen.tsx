@@ -33,6 +33,7 @@ import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { I18nKey, t } from '../lib/i18n';
 import type { CampaignTarget, ProgramCampaign } from '../lib/programCampaigns';
 import { PROGRAM_CATEGORIES, ProgramCategoryKey } from '../lib/programCategories';
+import { GoalProgrammeSuggestionView } from '../lib/goalProgramme';
 import { StrengthGoalProgress } from '../lib/strengthGoals';
 import type { ProgramSeason } from '../lib/programSeasons';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -189,6 +190,12 @@ interface ProgramsHomeScreenProps {
    * had nothing behind it before this.
    */
   goals: StrengthGoalProgress[];
+  /**
+   * The programme each goal goes towards, keyed by exerciseName. A goal
+   * always has one (feedback round 2, #1): the row says which, or says that
+   * the current programme does not train the lift.
+   */
+  goalProgrammes: Record<string, GoalProgrammeSuggestionView>;
   /** Lifts with logged work: you cannot set a target on something never done. */
   /** Opens the ready-made targets page — see StrengthGoalPickerScreen. */
   onOpenGoalPicker: () => void;
@@ -858,6 +865,7 @@ export function ProgramsHomeScreen({
   seasonCards,
   onOpenSeason,
   goals,
+  goalProgrammes,
   onOpenGoalPicker,
   onRemoveGoal,
   customPrograms,
@@ -1100,6 +1108,29 @@ export function ProgramsHomeScreen({
                               ]}
                             />
                           </View>
+                          {(() => {
+                            // The programme line. Which programme trains this
+                            // lift, or the fact that the current one does not —
+                            // never a projection of when the number arrives.
+                            const suggestion = goalProgrammes[entry.goal.exerciseName];
+                            if (!suggestion) {
+                              return null;
+                            }
+                            const label =
+                              suggestion.status === 'covered' && suggestion.programme
+                                ? t(language, 'goals.programme.covered', { programme: suggestion.programme.title })
+                                : suggestion.status === 'suggest' && suggestion.programme
+                                  ? t(language, 'goals.programme.suggest', { programme: suggestion.programme.title })
+                                  : t(language, 'goals.programme.none');
+                            return (
+                              <Text
+                                style={[styles.goalProgramme, suggestion.status !== 'covered' && styles.goalProgrammeOpen]}
+                                numberOfLines={1}
+                              >
+                                {label}
+                              </Text>
+                            );
+                          })()}
                         </View>
                       </CutSurface>
                     </Pressable>
@@ -1673,6 +1704,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   goalFillReached: {
     backgroundColor: theme.green,
+  },
+  goalProgramme: {
+    marginTop: 6,
+    color: theme.muted,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '700',
+  },
+  goalProgrammeOpen: {
+    color: theme.purple,
   },
   trendingCard: {
     marginBottom: 4,

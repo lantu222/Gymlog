@@ -163,7 +163,8 @@ import { countSessionsSince, resolveCompletionCard } from './src/lib/programComp
 import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
-import { buildGoalPresetRows } from './src/lib/strengthGoalPresets';
+import { buildGoalPresetRows, STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
+import { describeGoalCoverage, GoalProgrammeSuggestionView, rankProgrammesForLift } from './src/lib/goalProgramme';
 import { StrengthGoalPickerScreen } from './src/screens/StrengthGoalPickerScreen';
 import {
   addSeasonEnrolment,
@@ -4161,6 +4162,80 @@ function VinhaApp() {
       ),
     [preferences.strengthGoals, trackedProgress],
   );
+  /**
+   * The programme behind each goal lift (feedback round 2, #1: a target always
+   * has a programme that goes towards it).
+   *
+   * Computed for every preset lift, not only the goals set, so the picker can
+   * answer the moment a target is tapped. "Covered" means one of the ACTIVE
+   * programmes — ready or the reader's own — trains the lift; otherwise the
+   * best ready programme that does is suggested, ordered by how central the
+   * lift is there and then by the setup recommendation. No fit is invented:
+   * a lift no ready programme trains says so and points at the editor.
+   */
+  const goalProgrammeSuggestions = useMemo(() => {
+    const libraryNames = exerciseLibrary.map((item) => item.name);
+    const activeCandidates = activeProgramTemplateIds
+      .map((id) => getWorkoutTemplateById(id) ?? customWorkoutRuntimeMap[id] ?? null)
+      .filter((template): template is NonNullable<typeof template> => Boolean(template));
+    const activeIds = new Set(activeProgramTemplateIds);
+    const preferredOrder = programsRecommendations.map((item) => item.id);
+    const titleOf = (id: string) => {
+      const ready = getWorkoutTemplateById(id);
+      if (ready) {
+        return getReadyTemplatePresentation(ready, preferences.appLanguage).title;
+      }
+      const custom = customWorkoutRuntimeMap[id];
+      return custom ? formatWorkoutDisplayLabel(custom.name) : id;
+    };
+    const result: Record<string, GoalProgrammeSuggestionView> = {};
+    for (const preset of STRENGTH_GOAL_PRESETS) {
+      const lift = preset.exerciseName;
+      const coverage = describeGoalCoverage(
+        { exerciseName: lift, targetKg: 1, createdAt: '' },
+        activeCandidates,
+        libraryNames,
+      );
+      if (coverage.status === 'covered' && coverage.coveredBy) {
+        const active = activeCandidates.find((template) => template.id === coverage.coveredBy);
+        const match = rankProgrammesForLift(active ? [active] : [], lift, { libraryNames })[0];
+        result[lift] = {
+          status: 'covered',
+          programme: {
+            id: coverage.coveredBy,
+            title: titleOf(coverage.coveredBy),
+            sessionCount: match?.sessionCount ?? 0,
+            totalSessions: active?.sessions.length ?? 0,
+          },
+        };
+        continue;
+      }
+      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { preferredOrder, libraryNames }).filter(
+        (match) => !activeIds.has(match.id),
+      );
+      const best = ranked[0];
+      const template = best ? getWorkoutTemplateById(best.id) : null;
+      result[lift] =
+        best && template
+          ? {
+              status: 'suggest',
+              programme: {
+                id: best.id,
+                title: getReadyTemplatePresentation(template, preferences.appLanguage).title,
+                sessionCount: best.sessionCount,
+                totalSessions: template.sessions.length,
+              },
+            }
+          : { status: 'none', programme: null };
+    }
+    return result;
+  }, [
+    activeProgramTemplateIds,
+    customWorkoutRuntimeMap,
+    exerciseLibrary,
+    preferences.appLanguage,
+    programsRecommendations,
+  ]);
   // Programmes the reader built, not every template in the database: a
   // freestyle log writes a template of its own to hang the session on, and
   // "Omat ohjelmasi" was listing each of those as a programme. Those sessions
@@ -5404,6 +5479,19 @@ function VinhaApp() {
         language={preferences.appLanguage}
         rows={goalPresetRows}
         unitLabel={preferences.unitPreference}
+        suggestions={goalProgrammeSuggestions}
+        // Stays on the picker: the panel flips to "your current programme
+        // trains this" by itself once the adoption lands, and a blocked
+        // adoption (cap) routes to the paywall on its own.
+        onAdoptProgramme={(templateId) => void handleAdoptReadyProgram(templateId, { lead: true })}
+        onOpenProgramme={(templateId) =>
+          navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId: templateId })
+        }
+        onBuildOwn={() =>
+          programSlots.canCreate
+            ? navigate({ tab: 'workout', screen: 'template' })
+            : setProgramLimitVisible(true)
+        }
         onBack={() => navigateBack(ROOT_ROUTES.workout)}
         onPick={(exerciseName, targetKg) =>
           void updatePreferences({
@@ -5519,6 +5607,7 @@ function VinhaApp() {
         seasonCards={programsSeasonCards}
         onOpenSeason={(season) => navigate({ tab: 'workout', screen: 'season', season })}
         goals={programsGoals}
+        goalProgrammes={goalProgrammeSuggestions}
         onOpenGoalPicker={() => navigate({ tab: 'workout', screen: 'goalPicker' })}
         onRemoveGoal={(exerciseName) =>
           void updatePreferences({
