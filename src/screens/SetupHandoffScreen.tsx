@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { CutButton } from '../components/CutButton';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { t } from '../lib/i18n';
-import type { SetupHandoffPlan } from '../lib/setupHandoff';
+import { countSetupHandoffOffers, type SetupHandoffPlan } from '../lib/setupHandoff';
 import { radii, spacing } from '../theme';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import type { AppLanguage } from '../types/models';
@@ -59,10 +59,15 @@ export function SetupHandoffScreen({
     return t(language, 'handoff.track.body', { focus: focusLabel });
   }, [focusLabel, language, plan.tracking]);
 
+  // The heading counts what is on the screen. With the widget already placed
+  // (any phone that has had the app before) only the card is offered, and
+  // "Two things · both take one tap" was a promise the screen did not keep.
+  const single = countSetupHandoffOffers(plan) === 1;
+
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>{t(language, 'handoff.title')}</Text>
-      <Text style={styles.body}>{t(language, 'handoff.body')}</Text>
+      <Text style={styles.title}>{t(language, single ? 'handoff.titleOne' : 'handoff.title')}</Text>
+      <Text style={styles.body}>{t(language, single ? 'handoff.bodyOne' : 'handoff.body')}</Text>
 
       {plan.offerWidget ? (
         <OfferRow

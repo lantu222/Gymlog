@@ -5671,6 +5671,8 @@ function VinhaApp() {
           }
           handleStartReadyProgramSession(homeActivePlanCard.programId, sessionId, true);
         }}
+        // Paused counts: it is still a session the button resumes.
+        hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
         onStartActivePlanSession={(sessionId) => {
           if (!homeActivePlanCard) {
             return;

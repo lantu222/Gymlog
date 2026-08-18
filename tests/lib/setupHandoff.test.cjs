@@ -3,7 +3,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { planSetupHandoff, resolveSetupTrackingOffer } = require('../../.test-dist/lib/setupHandoff.js');
+const {
+  countSetupHandoffOffers,
+  planSetupHandoff,
+  resolveSetupTrackingOffer,
+} = require('../../.test-dist/lib/setupHandoff.js');
 
 module.exports = [
   {
@@ -109,6 +113,24 @@ module.exports = [
       assert.equal(both.shouldShow, true);
       assert.equal(both.offerWidget, true);
       assert.deepEqual(both.tracking, { cardKey: 'hips', focus: 'glutes' });
+    },
+  },
+  {
+    name: 'the heading counts the offers actually on the screen',
+    run() {
+      // Seen on a phone with the widget already placed: "Kaksi asiaa ennen
+      // kuin aloitat · Molemmat vievät yhden napautuksen" over one card. The
+      // screen picks its heading from this count.
+      const cardOnly = planSetupHandoff({ canOfferWidget: false, pinnedCardKeys: ['bodyweight'], focusAreas: ['glutes'] });
+      const both = planSetupHandoff({ canOfferWidget: true, pinnedCardKeys: [], focusAreas: ['glutes'] });
+      const widgetOnly = planSetupHandoff({ canOfferWidget: true, pinnedCardKeys: ['hips'], focusAreas: ['glutes'] });
+      assert.equal(countSetupHandoffOffers(cardOnly), 1);
+      assert.equal(countSetupHandoffOffers(widgetOnly), 1);
+      assert.equal(countSetupHandoffOffers(both), 2);
+      // And the copy exists in both languages for the single case.
+      const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
+      assert.match(i18n, /'handoff\.titleOne': 'One thing before you start'/);
+      assert.match(i18n, /'handoff\.titleOne': 'Yksi asia ennen kuin aloitat'/);
     },
   },
 ];

@@ -133,6 +133,28 @@ module.exports = [
     },
   },
   {
+    name: 'a block says how long its own drills take, not a constant',
+    run() {
+      // Seen on a phone: Home said "Palautuminen · 4 min" over two stretches
+      // (90 s + 60 s) while the player's entry screen said ~3 for the same
+      // block. The minutes were the literals 6 and 4. Now they come from the
+      // drills through the same estimate the player uses.
+      const { estimateRoutineBlockSeconds } = require('../../.test-dist/lib/guidedPlayer.js');
+      for (const focus of ['general', 'push', 'pull', 'upper', 'lower']) {
+        for (const block of [getDefaultWarmup(focus), getDefaultCooldown(focus)]) {
+          const expected = Math.max(1, Math.round(estimateRoutineBlockSeconds(block) / 60));
+          assert.equal(block.minutes, expected, `${focus}: minutes disagree with the block's own drills`);
+        }
+      }
+      // And the number is not the same for every block — a warm-up with a
+      // 3-minute row is longer than a cool-down of two stretches.
+      const minutes = new Set(
+        ['general', 'push', 'lower'].flatMap((focus) => [getDefaultWarmup(focus).minutes, getDefaultCooldown(focus).minutes]),
+      );
+      assert.ok(minutes.size > 1, 'every block reports the same minutes — is it a constant again?');
+    },
+  },
+  {
     name: 'drills respect the equipment the user actually has',
     run() {
       // A bodyweight-only setup ([] = "I have nothing") must never be told to

@@ -40,6 +40,7 @@ import {
   GuidedDrill,
   GuidedStep,
   GuidedSetTarget,
+  GUIDED_READY_SECONDS,
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
   getGuidedStepPlanKey,
@@ -262,6 +263,7 @@ function MediaZone({
   mode = 'drill',
   showActions = true,
   fit = 'contain',
+  language = 'en',
 }: {
   name: string;
   library: ExerciseLibraryItem[];
@@ -271,6 +273,7 @@ function MediaZone({
   showActions?: boolean;
   /** v4 fills the set card edge to edge; other steps keep the whole frame. */
   fit?: 'contain' | 'cover';
+  language?: AppLanguage;
 }) {
   const theme = useTheme();
 
@@ -304,7 +307,7 @@ function MediaZone({
         <>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`Watch how ${name} is done`}
+            accessibilityLabel={t(language, 'guided.a11y.watchHowTo', { name: exerciseNameLabel(language, name) })}
             onPress={() => setSheetOpen(true)}
             style={styles.media3dButton}
             hitSlop={8}
@@ -1193,8 +1196,10 @@ export function GuidedPlayerScreen({
   const cooldownStart = findGuidedPhaseStart(steps, 'cooldown');
   const activeExercises = exercises.filter((exercise) => exercise.status !== 'skipped' && exercise.sets.length > 0);
   const totalSets = activeExercises.reduce((sum, exercise) => sum + exercise.sets.length, 0);
-  const warmupSecondsTotal = warmupDrills.reduce((sum, drill) => sum + drill.seconds + 3, 0);
-  const cooldownSecondsTotal = cooldownDrills.reduce((sum, drill) => sum + drill.seconds + 3, 0);
+  // The named constant, not a literal 3 — this is the same ready-countdown
+  // estimateRoutineBlockSeconds adds for Home, and the two have to move together.
+  const warmupSecondsTotal = warmupDrills.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
+  const cooldownSecondsTotal = cooldownDrills.reduce((sum, drill) => sum + drill.seconds + GUIDED_READY_SECONDS, 0);
   // The one session-length formula, shared with Home — this screen used to add
   // up its own steps at a flat 35 s per set and land on a different number
   // than the screen the user had just come from.
@@ -1385,7 +1390,9 @@ export function GuidedPlayerScreen({
             video={
               step.type === 'set'
                 ? {
-                    label: t(language, 'guided.a11y.watchHowTo', { name: step.exerciseName }),
+                    // Screen readers heard "Katso, miten Chest-Supported Row
+                    // tehdään" while the screen showed Rintatuettu soutu.
+                    label: t(language, 'guided.a11y.watchHowTo', { name: exerciseNameLabel(language, step.exerciseName) }),
                     onPress: () =>
                       hasExercise3D(step.exerciseName) ? setSetVideoOpen(true) : setHowtoOpen(true),
                   }
@@ -1435,7 +1442,7 @@ export function GuidedPlayerScreen({
           {step.type === 'drill' && (
             <StepIn stepKey={`drill-${stepIndex}`}>
               <View style={{ flex: 1, minHeight: 0 }}>
-                <MediaZone name={step.drillName} library={exerciseLibrary} height={270} mode="drill" />
+                <MediaZone name={step.drillName} library={exerciseLibrary} height={270} mode="drill" language={language} />
                 <View style={{ height: 20 }} />
                 <NameBlock
                   name={step.drillName}
@@ -1677,9 +1684,29 @@ export function GuidedPlayerScreen({
           <Text style={styles.sheetTitle}>{t(language, 'guided.exit.title')}</Text>
           <View style={{ gap: 10 }}>
             <BigBtn label={t(language, 'guided.exit.keep')} onPress={() => setExitOpen(false)} />
+            {completedSetCount > 0 ? (
+              // Leaving the gym after three of six lifts used to mean either
+              // skipping through the rest to reach the finish step, or losing
+              // the three. This is the same save the finish step runs — the
+              // session ends where it is, and what was logged is kept.
+              <GhostBtn
+                icon="check"
+                label={t(language, 'guided.exit.finishSave')}
+                onPress={() => {
+                  setExitOpen(false);
+                  onFinishSession();
+                }}
+              />
+            ) : null}
             <GhostBtn icon="x" label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
           </View>
-          <Text style={styles.sheetFootnote}>{t(language, 'guided.exit.footnote')}</Text>
+          <Text style={styles.sheetFootnote}>
+            {completedSetCount > 0
+              ? t(language, completedSetCount === 1 ? 'guided.exit.footnoteSavedOne' : 'guided.exit.footnoteSavedMany', {
+                  count: completedSetCount,
+                })
+              : t(language, 'guided.exit.footnote')}
+          </Text>
         </GPSheet>
       )}
 
@@ -1929,7 +1956,7 @@ function SetStepView({
   return (
     <StepIn stepKey={`set-${stepIndex}`}>
       <View style={{ flex: 1, minHeight: 0 }}>
-        <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" />
+        <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" language={language} />
 
         {/* set counter + dots on the left, session clock on the right */}
         <View style={styles.setMetaRow}>

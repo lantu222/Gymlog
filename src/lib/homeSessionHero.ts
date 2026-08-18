@@ -4,6 +4,7 @@
  * warmup/cooldown blocks, and the Adapt-sheet trim estimate.
  */
 import { resolveCatalogBodyPart, resolveCatalogSourceCategory } from './catalogExercisePools';
+import { estimateRoutineBlockSeconds } from './guidedPlayer';
 import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
@@ -404,6 +405,16 @@ function resolveDrills(
 }
 
 /**
+ * A block's minutes, from the drills it actually holds — the same arithmetic
+ * the guided player runs on the same drills. These used to be the literals 6
+ * and 4, so Home said "Palautuminen · 4 min" over two stretches that take
+ * two and a half, while the player's entry screen said ~3 for the same block.
+ */
+function routineBlockMinutes(drills: SessionRoutineBlock['drills']): number {
+  return Math.max(1, Math.round(estimateRoutineBlockSeconds({ minutes: 0, drills }) / 60));
+}
+
+/**
  * Deterministic default warmup for a session focus (no warmup data model yet).
  *
  * Takes the classified focus rather than a title, so no caller can pass display
@@ -414,10 +425,8 @@ export function getDefaultWarmup(
   language: AppLanguage = 'en',
   availableEquipment: string[] | null = null,
 ): SessionRoutineBlock {
-  return {
-    minutes: 6,
-    drills: resolveDrills(WARMUP_DRILLS[focus], language, availableEquipment),
-  };
+  const drills = resolveDrills(WARMUP_DRILLS[focus], language, availableEquipment);
+  return { minutes: routineBlockMinutes(drills), drills };
 }
 
 /** Deterministic default cooldown for a session focus. */
@@ -426,8 +435,6 @@ export function getDefaultCooldown(
   language: AppLanguage = 'en',
   availableEquipment: string[] | null = null,
 ): SessionRoutineBlock {
-  return {
-    minutes: 4,
-    drills: resolveDrills(COOLDOWN_DRILLS[focus], language, availableEquipment),
-  };
+  const drills = resolveDrills(COOLDOWN_DRILLS[focus], language, availableEquipment);
+  return { minutes: routineBlockMinutes(drills), drills };
 }

@@ -179,12 +179,15 @@ module.exports = [
       // The hero button says "Start workout" only when there is a session to
       // start. With no programme it used to promise one anyway and open an empty
       // workout — the same thing the row below it already offers — so the label
-      // and the action now both switch to finding a programme.
-      assert.match(
-        homeScreenSource,
-        /heroStartsSession \? 'home\.startWorkout' : 'home\.findProgram'/,
-      );
+      // and the action now both switch to finding a programme. And with a
+      // workout already in progress it says so: the tap resumed it all along,
+      // but the label read "Aloita treeni" over a session left mid-warm-up.
+      assert.match(homeScreenSource, /hasActiveSession\s*\?\s*'home\.resumeWorkout'\s*:\s*'home\.startWorkout'/);
+      assert.match(homeScreenSource, /:\s*'home\.findProgram'/);
       assert.match(homeScreenSource, /const heroStartsSession = Boolean\(nextPlanSession\)/);
+      assert.match(i18nSource, /'home\.resumeWorkout': 'Resume workout'/);
+      assert.match(i18nSource, /'home\.resumeWorkout': 'Jatka treeniä'/);
+      assert.match(appSource, /hasActiveSession=\{workout\.activeSession !== null && workout\.activeSession\.status !== 'completed'\}/);
       assert.match(homeScreenSource, /if \(!nextPlanSession && onFindProgram\)/);
       assert.match(i18nSource, /'home\.startWorkout': 'Start workout'/);
       assert.match(i18nSource, /'home\.findProgram': 'Find a program'/);
