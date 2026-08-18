@@ -12,7 +12,11 @@ import { AppState, Modal, PanResponder, Pressable, ScrollView, StyleSheet, Text,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { exerciseNameLabel } from '../../lib/exerciseNameLabel';
+import { t } from '../../lib/i18n';
+import { libraryLabel } from '../../lib/libraryLabel';
 import { Theme, useTheme, useThemedStyles } from '../../theming';
+import { AppLanguage } from '../../types/models';
 import { ExerciseScene } from './ExerciseScene';
 import { getExercisePose } from './exercisePose';
 
@@ -20,15 +24,18 @@ import { getExercisePose } from './exercisePose';
 const T_MEMORY = new Map<string, number>();
 
 interface Exercise3DSheetProps {
+  /** The exercise's stored English name — the pose lookup key. Displayed translated. */
   name: string;
+  /** The library's raw primary muscle ("quadriceps"). Displayed translated. */
   muscle?: string | null;
+  language: AppLanguage;
   /** Step-by-step cues shown under the animation (the how-to lives here now). */
   instructions?: string[];
   visible: boolean;
   onClose: () => void;
 }
 
-export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }: Exercise3DSheetProps) {
+export function Exercise3DSheet({ name, muscle, language, instructions, visible, onClose }: Exercise3DSheetProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const pose = useMemo(() => getExercisePose(name), [name]);
@@ -91,11 +98,11 @@ export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }
       <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
         <View style={styles.header}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.eyebrow}>HOW IT'S DONE</Text>
+            <Text style={styles.eyebrow}>{t(language, 'guided.3d.eyebrow')}</Text>
             <Text style={styles.title} numberOfLines={1}>
-              {name}
+              {exerciseNameLabel(language, name)}
             </Text>
-            {muscle ? <Text style={styles.muscle}>{muscle[0].toUpperCase() + muscle.slice(1)}</Text> : null}
+            {muscle ? <Text style={styles.muscle}>{libraryLabel(muscle, language)}</Text> : null}
           </View>
           <Pressable onPress={onClose} style={styles.closeBtn} hitSlop={8}>
             <Svg width={19} height={19} viewBox="0 0 24 24" fill="none" stroke={theme.ink} strokeWidth={2.2} strokeLinecap="round">
@@ -129,8 +136,8 @@ export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }
 
             <View style={{ flex: 1 }}>
               <View style={styles.labelRow}>
-                <Text style={styles.label}>TOP</Text>
-                <Text style={styles.label}>BOTTOM</Text>
+                <Text style={styles.label}>{t(language, 'guided.3d.top')}</Text>
+                <Text style={styles.label}>{t(language, 'guided.3d.bottom')}</Text>
               </View>
               <View
                 style={styles.track}
@@ -147,11 +154,11 @@ export function Exercise3DSheet({ name, muscle, instructions, visible, onClose }
             <Text style={styles.pct}>{pct}%</Text>
           </View>
 
-          <Text style={styles.hint}>Drag the slider to inspect any point of the lift.</Text>
+          <Text style={styles.hint}>{t(language, 'guided.3d.hint')}</Text>
 
           {instructions?.length ? (
             <View style={styles.howTo}>
-              <Text style={styles.howToLabel}>HOW TO</Text>
+              <Text style={styles.howToLabel}>{t(language, 'guided.3d.howTo')}</Text>
               {instructions.map((step, index) => (
                 <View key={index} style={styles.howToRow}>
                   <View style={styles.howToNumber}>

@@ -4595,6 +4595,9 @@ function VinhaApp() {
           })
         }
         onEdit={route.programType === 'custom' ? () => navigate({ tab: 'workout', screen: 'template', workoutTemplateId: route.workoutTemplateId }) : undefined}
+        onCopyToCustom={
+          route.programType === 'ready' ? () => handleCopyReadyProgramToCustom(route.workoutTemplateId) : undefined
+        }
         destructiveActionLabel={
           route.programType === 'custom' ? t(preferences.appLanguage, 'detail.delete') : undefined
         }

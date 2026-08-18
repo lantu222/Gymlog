@@ -2,16 +2,20 @@ import { I18nKey, t } from './i18n';
 import type { AppLanguage } from '../types/models';
 
 /**
- * Body parts, equipment and categories, in the reader's language.
+ * Body parts, equipment, categories, muscles and levels, in the reader's
+ * language.
  *
  * These strings arrive from the generated library as lowercase English keys
  * and used to be title-cased on the way to the screen — so every filter chip
  * and card subtitle read "Back", "Chest", "Bodyweight" no matter the app's
- * language. There are only eighteen of them.
+ * language. The muscle names went the same way for longer: the exercise detail
+ * card and the how-to sheet showed "Quadriceps" and "Hamstrings" in a Finnish
+ * app because nothing ever mapped them.
  *
  * This lives in lib/ rather than beside one screen because more than one
- * surface renders them now: the library browser, and the records list. Two
- * copies of the map is two places for a body part to stay English.
+ * surface renders them now: the library browser, the records list, the
+ * template editor, the exercise detail card. Two copies of the map is two
+ * places for a body part to stay English.
  */
 const LIBRARY_LABEL_KEYS: Record<string, I18nKey> = {
   all: 'lib.bodyPart.all',
@@ -32,6 +36,39 @@ const LIBRARY_LABEL_KEYS: Record<string, I18nKey> = {
   cardio: 'lib.category.cardio',
   compound: 'lib.category.compound',
   isolation: 'lib.category.isolation',
+  // primaryMuscles / secondaryMuscles — the source's seventeen muscle names.
+  // Body-part words that double as muscle names (chest, glutes, shoulders,
+  // biceps, triceps) already resolve above.
+  abdominals: 'lib.muscle.abdominals',
+  abductors: 'lib.muscle.abductors',
+  adductors: 'lib.muscle.adductors',
+  calves: 'lib.muscle.calves',
+  forearms: 'lib.muscle.forearms',
+  hamstrings: 'lib.muscle.hamstrings',
+  lats: 'lib.muscle.lats',
+  'lower back': 'lib.muscle.lowerBack',
+  'middle back': 'lib.muscle.middleBack',
+  neck: 'lib.muscle.neck',
+  quadriceps: 'lib.muscle.quadriceps',
+  traps: 'lib.muscle.traps',
+  // sourceEquipment — the raw source field the detail card prefers over the
+  // normalised `equipment`, because it keeps kettlebells and bands apart from
+  // "other".
+  bands: 'lib.equipment.bands',
+  'body only': 'lib.equipment.bodyOnly',
+  'e-z curl bar': 'lib.equipment.ezCurlBar',
+  'exercise ball': 'lib.equipment.exerciseBall',
+  'foam roll': 'lib.equipment.foamRoll',
+  kettlebells: 'lib.equipment.kettlebells',
+  'medicine ball': 'lib.equipment.medicineBall',
+  other: 'lib.equipment.other',
+  // sourceLevel — three source levels onto the app's own three-step scale
+  // (Amateur / Advanced / Pro, deliberately English everywhere), so the detail
+  // card does not introduce a fourth word for the middle step.
+  beginner: 'myData.level.beginner',
+  intermediate: 'myData.level.advanced',
+  advanced: 'myData.level.advanced',
+  expert: 'myData.level.pro',
 };
 
 export function libraryLabel(raw: string, language: AppLanguage = 'en'): string {

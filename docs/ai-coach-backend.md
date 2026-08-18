@@ -93,9 +93,41 @@ Current decision:
    returns a preview fallback rather than an error at the user.
 6. App renders either live or preview advice, plus a note when fallback is used.
 
+## Deploy runbook (Vercel, in this order)
+
+The endpoint is a plain `(req, res)` handler under `api/`, which is Vercel's
+zero-config shape. Nothing here needs a `vercel.json`. Every step is manual and
+needs your accounts; none can be done from the repo.
+
+1. **Set the spend cap first.** Anthropic Console → Billing → usage limit. This
+   is the only hard ceiling (the request-size and per-instance budgets in
+   `aiCoachBudget.ts` are brakes, not caps — see A2 above). Do not skip to step 2
+   without it: the moment the URL is public, the tap is open.
+2. **Deploy.** `npx vercel` from the repo root, link or create the project, and
+   in Vercel → Settings → Environment Variables set `ANTHROPIC_API_KEY`
+   (production). The optional tuning variables above can wait; the defaults are
+   the measured ones.
+3. **Smoke it.** `curl -X POST https://<project>.vercel.app/api/ai-coach -H
+   'content-type: application/json' -d '{"prompt":"hei","context":{}}'` should
+   answer with the JSON envelope, not a 500. A `MISSING_API_KEY` in the body
+   means step 2's variable did not reach production.
+4. **Point the app at it.** `EXPO_PUBLIC_AI_COACH_API_URL=https://<project>.vercel.app/api/ai-coach`
+   in the build environment (`.env` for local `npm run start`, EAS secret or the
+   Gradle env for a release build). Without it the app stays in preview mode —
+   which is the intended fallback, not an error.
+5. **Prove the live path beats the baseline.** `node scripts/eval-ai-coach.cjs
+   --live` against the deployed URL. Preview scores 84 % (21/25) and fails only
+   the two cases that need the history read; live has to clear that or the
+   endpoint is not earning its cost.
+
+Rollback is step 4 in reverse: unset the URL and rebuild, and every install is
+back on preview. The endpoint can stay up; nothing calls it.
+
 ## Important
 This is a minimal Beta backend path.
 If you enable it for public Play release, update:
-- privacy policy
+- privacy policy (it already describes the online mode — "only training numbers
+  are sent, never your identity" — and names no third party; add Anthropic as
+  the processor when the endpoint goes live)
 - Data Safety declarations
 - any user-facing Beta disclosures

@@ -93,6 +93,14 @@ interface ProgramDetailScreenProps {
    */
   onSaveEmphasis?: (updates: Array<{ sessionId: string; exerciseId: string; sets: number }>) => void;
   onEdit?: () => void;
+  /**
+   * Ready programmes only: duplicate this catalog programme into one of the
+   * reader's own, where its sessions become editable. This is the documented
+   * buying moment ("I want it my way") and it has to be offered where the
+   * wanting happens — on the programme's own page — not three taps away on
+   * the Profile tab, and not only for the active programme.
+   */
+  onCopyToCustom?: () => void;
   destructiveActionLabel?: string;
   destructiveActionTitle?: string;
   destructiveActionMessage?: string;
@@ -197,6 +205,7 @@ export function ProgramDetailScreen({
   onSaveRhythm,
   onSaveEmphasis,
   onEdit,
+  onCopyToCustom,
   progressionRules = null,
   audience = null,
   availableDays = null,
@@ -611,6 +620,13 @@ export function ProgramDetailScreen({
           {program.source === 'custom' && onEdit ? (
             <Pressable hitSlop={8} onPress={onEdit}>
               <Text style={styles.emphasisEdit}>{t(language, 'plan.edit')}</Text>
+            </Pressable>
+          ) : program.source === 'ready' && onCopyToCustom ? (
+            // The same quiet action in the same place, for the same reason:
+            // a ready programme cannot be edited, but a copy of it can, and
+            // this is where the reader is when they decide they want that.
+            <Pressable hitSlop={8} onPress={onCopyToCustom} accessibilityRole="button">
+              <Text style={styles.emphasisEdit}>{t(language, 'plan.copyToCustom')}</Text>
             </Pressable>
           ) : null}
         </View>
