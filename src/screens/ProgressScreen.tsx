@@ -950,11 +950,18 @@ export function ProgressScreen({
 
   const overviewChart = useMemo(() => {
     const start = getOverviewRangeStart(resolvedOverviewRange);
+    // Seen with the clock 100 days ahead of one logged session: the 3-month
+    // window held nothing, and the chart said "no volume data yet" over a log
+    // that had some. "Yet" is the empty account's word. When the range is the
+    // only thing empty, the chart says that instead — which is also the one
+    // honest place to hint at what the longer ranges are for.
+    const isBefore = (iso: string) => Boolean(start) && new Date(iso) < (start as Date);
 
     if (overviewMetric === 'bodyweight') {
       const entries = [...bodyweightProgress.entries]
         .filter((entry) => !start || new Date(entry.recordedAt) >= start)
         .reverse();
+      const olderEntriesExist = !entries.length && bodyweightProgress.entries.some((entry) => isBefore(entry.recordedAt));
 
       const points = bucketOverviewPointsByRange(
         entries.map((entry) => ({
@@ -979,7 +986,7 @@ export function ProgressScreen({
             unitPreference,
           )}`,
         }),
-        emptyLabel: t(language, 'progress.noBodyweight'),
+        emptyLabel: t(language, olderEntriesExist ? 'progress.noEntriesRange' : 'progress.noBodyweight'),
       };
     }
 
@@ -1005,6 +1012,7 @@ export function ProgressScreen({
     const rows = [...grouped.values()].sort(
       (left, right) => new Date(left.performedAt).getTime() - new Date(right.performedAt).getTime(),
     );
+    const olderSessionsExist = !rows.length && workoutSessions.some((session) => isBefore(session.performedAt));
 
     if (overviewMetric === 'duration') {
       const points = bucketOverviewPointsByRange(
@@ -1027,7 +1035,7 @@ export function ProgressScreen({
           title: formatDate(point.label, language),
           value: formatDurationMinutes(point.value),
         }),
-        emptyLabel: t(language, 'progress.noDurations'),
+        emptyLabel: t(language, olderSessionsExist ? 'progress.noSessionsRange' : 'progress.noDurations'),
       };
     }
 
@@ -1056,7 +1064,7 @@ export function ProgressScreen({
           unitPreference,
         ),
       }),
-      emptyLabel: t(language, 'progress.noVolume'),
+      emptyLabel: t(language, olderSessionsExist ? 'progress.noSessionsRange' : 'progress.noVolume'),
     };
   }, [bodyweightProgress.entries, bodyweightProgress.latest?.weight, overviewMetric, resolvedOverviewRange, unitPreference, workoutSessions]);
 
