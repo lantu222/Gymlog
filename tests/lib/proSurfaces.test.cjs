@@ -154,7 +154,10 @@ module.exports = [
         settingsSource,
         /title=\{t\(language, 'settings\.darkTheme'\)\}[\s\S]{0,600}?themeRow\.locked \? \(/,
       );
-      assert.match(settingsSource, /onPress=\{themeRow\.locked \? onOpenSubscription : undefined\}/);
+      // Interest in Pro goes to the Pro page, never to the management screen
+      // (seen on the phone: the PRO chip landed on "Manage subscription").
+      assert.match(settingsSource, /onPress=\{themeRow\.locked \? onOpenPremium : undefined\}/);
+      assert.match(settingsSource, /onPress=\{proUnlocked \? onOpenSubscription : onOpenPremium\}/);
       assert.match(settingsSource, /value=\{themeRow\.value\}/);
       assert.match(settingsSource, /onPreferencesChange\(\{ darkThemeEnabled: next \}\)/);
       // The subtitle no longer promises something unbuilt.
