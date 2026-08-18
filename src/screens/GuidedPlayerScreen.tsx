@@ -49,6 +49,7 @@ import {
   findGuidedSessionPr,
   findGuidedTopSet,
   buildGuidedCoachMessage,
+  dialHoldIntervalMs,
   formatGuidedCountdown,
   formatGuidedTarget,
   getGuidedBackTargetIndex,
@@ -191,6 +192,8 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
       </>
     ),
     plus: <Path d="M12 5v14M5 12h14" />,
+    // Pencil: the "this card opens" mark on a closed dial.
+    edit: <Path d="M4 20h4l10.5-10.5a2.1 2.1 0 00-3-3L5 17v3zM13.5 6.5l3 3" />,
     arrowUp: <Path d="M12 19V5M6 11l6-6 6 6" />,
     list: <Path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
     video: (
@@ -703,6 +706,144 @@ function GhostBtn({
     >
       {icon ? <GPIcon name={icon} size={17} color={dark ? GPD.ink : theme.ink} /> : null}
       <Text style={[styles.ghostBtnText, dark ? { color: GPD.ink } : null]}>{label}</Text>
+    </Pressable>
+  );
+}
+
+/* ── set-screen dial ── */
+
+/**
+ * A −/+ button that steps once on tap and runs while held, speeding up.
+ *
+ * Pressable's onLongPress fires instead of onPress when the finger stays
+ * down, so a tap is exactly one step and a hold is one step plus a run that
+ * ends on release. The run schedules itself with setTimeout rather than
+ * setInterval so the interval can shorten mid-hold (dialHoldIntervalMs).
+ */
+function DialButton({
+  glyph,
+  accessibilityLabel,
+  onStep,
+}: {
+  glyph: '−' | '+';
+  accessibilityLabel: string;
+  onStep: () => void;
+}) {
+  const styles = useThemedStyles(makeStyles);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const ticksRef = useRef(0);
+  const onStepRef = useRef(onStep);
+  onStepRef.current = onStep;
+
+  const stopRun = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    ticksRef.current = 0;
+  }, []);
+
+  const runTick = useCallback(() => {
+    onStepRef.current();
+    ticksRef.current += 1;
+    timerRef.current = setTimeout(runTick, dialHoldIntervalMs(ticksRef.current));
+  }, []);
+
+  // A hold that outlives the button (step change, unmount) must not keep
+  // stepping a number nobody can see.
+  useEffect(() => stopRun, [stopRun]);
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      hitSlop={8}
+      onPress={() => onStepRef.current()}
+      onLongPress={runTick}
+      delayLongPress={350}
+      onPressOut={stopRun}
+      style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
+    >
+      <Text style={styles.setDialBtnText}>{glyph}</Text>
+    </Pressable>
+  );
+}
+
+/**
+ * One dial: a label, a number, and −/+ that only exist while the card is
+ * open. Closed, the whole card is one tap target that opens it; open, the
+ * number sits between two buttons and the card reads as active.
+ */
+function DialCard({
+  label,
+  value,
+  unit,
+  open,
+  onToggle,
+  onStep,
+  downLabel,
+  upLabel,
+  editHint,
+  wide,
+  faint,
+}: {
+  label: string;
+  value: string;
+  unit: string | null;
+  open: boolean;
+  onToggle: () => void;
+  onStep: (direction: -1 | 1) => void;
+  downLabel: string;
+  upLabel: string;
+  /** Screen-reader hint on the closed card. */
+  editHint: string;
+  wide: boolean;
+  faint: boolean;
+}) {
+  const theme = useTheme();
+  const styles = useThemedStyles(makeStyles);
+
+  const number = (
+    <View style={styles.setDialValue}>
+      <Text
+        style={[styles.setDialNumber, faint && { color: theme.faint }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.6}
+      >
+        {value}
+      </Text>
+      {unit ? <Text style={styles.setDialUnit}>{unit}</Text> : null}
+    </View>
+  );
+
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${label} ${value}${unit ? ` ${unit}` : ''}`}
+      accessibilityHint={editHint}
+      accessibilityState={{ expanded: open }}
+      onPress={onToggle}
+      style={({ pressed }) => [
+        styles.setDialCard,
+        wide && styles.setDialCardWide,
+        open && styles.setDialCardOpen,
+        pressed && !open && { opacity: 0.85 },
+      ]}
+    >
+      <View style={styles.setDialLabelRow}>
+        <Text style={[styles.setDialLabel, open && { color: theme.purple }]}>{label}</Text>
+        {!open ? <GPIcon name="edit" size={13} color={theme.faint} sw={2.2} /> : null}
+      </View>
+      {open ? (
+        <View style={styles.setDialControls}>
+          <DialButton glyph="−" accessibilityLabel={downLabel} onStep={() => onStep(-1)} />
+          {number}
+          <DialButton glyph="+" accessibilityLabel={upLabel} onStep={() => onStep(1)} />
+        </View>
+      ) : (
+        <View style={styles.setDialControls}>{number}</View>
+      )}
     </Pressable>
   );
 }
@@ -1849,8 +1990,11 @@ function SetStepView({
   const timed = exercise ? isTimedTrackingMode(exercise.trackingMode) : false;
   const [reps, setReps] = useState(target?.reps ?? 8);
   const [kg, setKg] = useState(target?.loadKg ?? 0);
+  /** Which dial is open for editing; null = both locked. */
+  const [dial, setDial] = useState<'reps' | 'weight' | null>(null);
 
   useEffect(() => {
+    setDial(null);
     setReps(target?.reps ?? 8);
     setKg(target?.loadKg ?? 0);
     // Re-derive when the step changes — and when the exercise under the step
@@ -1930,79 +2074,48 @@ function SetStepView({
         </View>
 
         <View style={styles.setTargetArea}>
-          {/* Two live dials, side by side: what you did and what was on the
-              bar. This used to be a "1 SARJA 6 TOISTOA" headline (the set
-              number repeating the "Sarja 1/3" above it) that opened a stepper
-              on tap — and that stepper, built for a row, was squeezed to
-              nothing in the column and drew its buttons over the number. No
-              modes now: both numbers are always steppers, so there is nothing
-              to open and nothing to collapse. */}
-          <View style={styles.setDialRow}>
-            <View style={[styles.setDialCard, bodyweight && styles.setDialCardWide]}>
-              <Text style={styles.setDialLabel}>{t(language, timed ? 'guided.seconds' : 'guided.reps')}</Text>
-              <View style={styles.setDialControls}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, timed ? 'guided.a11y.secondsDown' : 'guided.a11y.repsDown')}
-                  hitSlop={8}
-                  onPress={() => setReps((current) => Math.max(timed ? 5 : 1, current - (timed ? 5 : 1)))}
-                  style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
-                >
-                  <Text style={styles.setDialBtnText}>−</Text>
-                </Pressable>
-                <Text style={styles.setDialNumber} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.6}>
-                  {reps}
-                </Text>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={t(language, timed ? 'guided.a11y.secondsUp' : 'guided.a11y.repsUp')}
-                  hitSlop={8}
-                  onPress={() => setReps((current) => current + (timed ? 5 : 1))}
-                  style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
-                >
-                  <Text style={styles.setDialBtnText}>+</Text>
-                </Pressable>
-              </View>
-            </View>
+          {/* Two dials, side by side: what you did and what was on the bar.
+              This used to be a "1 SARJA 6 TOISTOA" headline (the set number
+              repeating the "Sarja 1/3" above it) that opened a stepper on tap
+              — and that stepper, built for a row, was squeezed to nothing in
+              the column and drew its buttons over the number.
 
-            {/* Weight is decided BEFORE the set, so it is a live control, not a
-                readout. Loaded lifts always get it — an unset weight is a faint
-                zero to dial in, never a claim that the bar is empty. */}
+              The dials are locked until tapped: with the −/+ always live, a
+              thumb resting on the screen between sets changed the number
+              without anyone meaning it to. Tap a card to open it, tap again
+              or log the set to close it. Hold a button to run. */}
+          <View style={styles.setDialRow}>
+            <DialCard
+              label={t(language, timed ? 'guided.seconds' : 'guided.reps')}
+              value={String(reps)}
+              unit={null}
+              open={dial === 'reps'}
+              onToggle={() => setDial((current) => (current === 'reps' ? null : 'reps'))}
+              onStep={(direction) => setReps((current) => Math.max(timed ? 5 : 1, current + direction * (timed ? 5 : 1)))}
+              downLabel={t(language, timed ? 'guided.a11y.secondsDown' : 'guided.a11y.repsDown')}
+              upLabel={t(language, timed ? 'guided.a11y.secondsUp' : 'guided.a11y.repsUp')}
+              editHint={t(language, 'guided.a11y.tapToEdit')}
+              wide={bodyweight}
+              faint={false}
+            />
+
+            {/* Weight is decided BEFORE the set. Loaded lifts always get it —
+                an unset weight is a faint zero to dial in, never a claim that
+                the bar is empty. */}
             {!bodyweight ? (
-              <View style={styles.setDialCard}>
-                <Text style={styles.setDialLabel}>{t(language, 'guided.weight')}</Text>
-                <View style={styles.setDialControls}>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'guided.a11y.weightDown')}
-                    hitSlop={8}
-                    onPress={() => setKg((current) => Math.max(0, Number((current - 2.5).toFixed(1))))}
-                    style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
-                  >
-                    <Text style={styles.setDialBtnText}>−</Text>
-                  </Pressable>
-                  <View style={styles.setDialValue}>
-                    <Text
-                      style={[styles.setDialNumber, kg <= 0 && { color: theme.faint }]}
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.6}
-                    >
-                      {removeTrailingZeros(kg)}
-                    </Text>
-                    <Text style={styles.setDialUnit}>kg</Text>
-                  </View>
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={t(language, 'guided.a11y.weightUp')}
-                    hitSlop={8}
-                    onPress={() => setKg((current) => Number((current + 2.5).toFixed(1)))}
-                    style={({ pressed }) => [styles.setDialBtn, pressed && { opacity: 0.7 }]}
-                  >
-                    <Text style={styles.setDialBtnText}>+</Text>
-                  </Pressable>
-                </View>
-              </View>
+              <DialCard
+                label={t(language, 'guided.weight')}
+                value={removeTrailingZeros(kg)}
+                unit="kg"
+                open={dial === 'weight'}
+                onToggle={() => setDial((current) => (current === 'weight' ? null : 'weight'))}
+                onStep={(direction) => setKg((current) => Math.max(0, Number((current + direction * 2.5).toFixed(1))))}
+                downLabel={t(language, 'guided.a11y.weightDown')}
+                upLabel={t(language, 'guided.a11y.weightUp')}
+                editHint={t(language, 'guided.a11y.tapToEdit')}
+                wide={false}
+                faint={kg <= 0}
+              />
             ) : null}
           </View>
 
@@ -2042,7 +2155,10 @@ function SetStepView({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t(language, 'guided.logSet')}
-            onPress={() => onConfirm(step.slotId, step.setIndex, reps, bodyweight ? null : kg)}
+            onPress={() => {
+              setDial(null);
+              onConfirm(step.slotId, step.setIndex, reps, bodyweight ? null : kg);
+            }}
             style={({ pressed }) => [styles.setLogButton, pressed && { opacity: 0.9 }]}
           >
             <Text style={styles.setLogButtonText}>{t(language, 'guided.logSet')}</Text>
@@ -2410,8 +2526,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   // A bodyweight lift has one dial; it takes the row rather than half of it.
   setDialCardWide: { flex: 1 },
+  // Open: the border says which card the buttons belong to.
+  setDialCardOpen: { borderColor: theme.purple, backgroundColor: theme.surface },
+  setDialLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   setDialLabel: { fontSize: 11.5, fontWeight: '800', letterSpacing: 1.1, color: theme.muted },
-  setDialControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  // Same height open or closed — the number does not jump when the buttons
+  // appear beside it.
+  setDialControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 42 },
   setDialBtn: {
     width: 40,
     height: 40,
