@@ -106,3 +106,61 @@ export async function requestAiCoachAdvice(input: AICoachAdviceRequest, upstream
     cleanup();
   }
 }
+
+/**
+ * The composer's live path: the brief and the training context go to the
+ * same endpoint with `mode: 'compose'`, and Claude returns a week as NAMES.
+ * Resolving those names to the library is the caller's job
+ * (programmeBrief.resolveLiveProposal), so this function stays a transport.
+ *
+ * Returns null whenever the live path cannot answer — not configured, refused,
+ * timed out, or the payload is not a proposal — and the caller composes
+ * locally. There is no fallback proposal in the response the way advice has
+ * one: the deterministic composer needs the exercise library, which lives on
+ * the device, not on the server.
+ */
+export interface LiveProgrammeProposalPayload {
+  title: string;
+  sessions: Array<{
+    name: string;
+    focus?: string;
+    exercises: Array<{ name: string; sets: number; repsMin: number; repsMax: number; restSeconds?: number }>;
+  }>;
+}
+
+function isProposalPayload(value: unknown): value is { ok: true; proposal: LiveProgrammeProposalPayload } {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const record = value as { ok?: unknown; proposal?: { title?: unknown; sessions?: unknown } };
+  return (
+    record.ok === true &&
+    Boolean(record.proposal) &&
+    typeof record.proposal?.title === 'string' &&
+    Array.isArray(record.proposal?.sessions)
+  );
+}
+
+export async function requestProgrammeComposition(
+  input: { brief: string; context: AICoachAdviceRequest['context']; language?: 'fi' | 'en' },
+  upstreamSignal?: AbortSignal,
+): Promise<LiveProgrammeProposalPayload | null> {
+  if (!AI_COACH_API_URL) {
+    return null;
+  }
+  const { signal, cleanup } = getAbortSignal(REQUEST_TIMEOUT_MS, upstreamSignal);
+  try {
+    const response = await fetch(AI_COACH_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: 'compose', prompt: input.brief, context: input.context, language: input.language }),
+      signal,
+    });
+    const payload = (await response.json()) as unknown;
+    return response.ok && isProposalPayload(payload) ? payload.proposal : null;
+  } catch {
+    return null;
+  } finally {
+    cleanup();
+  }
+}

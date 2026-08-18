@@ -234,8 +234,10 @@ module.exports = [
       assert.match(chat, /buildAiCoachPreviewAnswer\(trimmed, trainingContext, language\)/);
       assert.match(chat, /lockedBody: \[withheld\.takeaway/);
 
-      // "AI program builder — Pro": the generator and both entries gate on Pro.
-      assert.match(appSource, /if \(!isProUnlocked\(nextPreferences\)\) \{/);
+      // "AI program builder — Pro": the composer route and both entries gate on
+      // Pro. The route gate is an effect, because the entries are not the only
+      // way onto a route (history, a lapsed entitlement mid-screen).
+      assert.match(appSource, /route\.screen === 'ai_setup' && !coachProUnlocked\) \{\s*navigate\(\{ tab: 'profile', screen: 'premium' \}\);/);
       assert.equal(
         (appSource.match(/onAiAssisted=\{\(\) => navigate\(coachProUnlocked \? \{ tab: 'home', screen: 'ai_setup' \} : \{ tab: 'profile', screen: 'premium' \}\)\}/g) ?? []).length,
         2,
@@ -422,10 +424,13 @@ module.exports = [
         /automatedProgressionEnabled: (preferences|nextPreferences)\.automatedProgressionEnabled/,
         'a start call passing the raw toggle would hand a free user the paid prefill',
       );
+      // Two start paths now: ready and custom. The AI branch no longer starts
+      // a workout of its own — it composes a programme that is saved as a
+      // custom one and starts through the custom path like any other.
       assert.equal(
         (appSource.match(/resolveProgressionOptions\((preferences|nextPreferences)\)/g) ?? []).length,
-        3,
-        'the ready, custom, and AI start paths must all resolve through the entitlement',
+        2,
+        'the ready and custom start paths must both resolve through the entitlement',
       );
 
       // There used to be a fourth path — the list logger's own bootstrap —

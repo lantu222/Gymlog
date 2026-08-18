@@ -4,20 +4,8 @@ import {
   ExerciseCategory,
   ExerciseEquipment,
   ExerciseLibraryItem,
-  ExerciseTemplateDraft,
-  WorkoutTemplateDraft,
-  WorkoutTemplateSessionDraft,
 } from '../types/models';
 import { AICoachPlanSchema, AICoachPlannedExercise, AICoachPlannedSession } from '../types/aiCoachPlan';
-import {
-  WorkoutProgressionPriority,
-  WorkoutRole,
-  WorkoutRuntimeTemplate,
-  WorkoutTemplateExercise,
-  WorkoutTrackingMode,
-} from '../features/workout/workoutTypes';
-
-const AI_COACH_TEMPLATE_ID = 'ai_coach_template';
 
 type PlannedExerciseVariant = 'warmup' | 'primary' | 'secondary' | 'accessory';
 
@@ -744,35 +732,6 @@ function appendUnplacedMustIncludes(args: {
   }
 }
 
-export function buildAiCoachSetupHash(preferences: AppPreferences) {
-  return JSON.stringify({
-    setupGoal: preferences.setupGoal,
-    setupGoals: [...preferences.setupGoals].sort(),
-    setupLevel: preferences.setupLevel,
-    setupEquipment: preferences.setupEquipment,
-    setupFocusAreas: [...preferences.setupFocusAreas].sort(),
-    setupDaysPerWeek: preferences.setupDaysPerWeek,
-    setupTrainingFeel: preferences.setupTrainingFeel,
-    setupWorkoutVariety: preferences.setupWorkoutVariety,
-    setupFreeWeightsPreference: preferences.setupFreeWeightsPreference,
-    setupBodyweightPreference: preferences.setupBodyweightPreference,
-    setupMachinesPreference: preferences.setupMachinesPreference,
-    setupShoulderFriendlySwaps: preferences.setupShoulderFriendlySwaps,
-    setupElbowFriendlySwaps: preferences.setupElbowFriendlySwaps,
-    setupKneeFriendlySwaps: preferences.setupKneeFriendlySwaps,
-    bodyweightGoalKg: preferences.bodyweightGoalKg,
-    aiPlannerGoal: preferences.aiPlannerGoal,
-    aiPlannerDaysPerWeek: preferences.aiPlannerDaysPerWeek,
-    aiPlannerExperience: preferences.aiPlannerExperience,
-    aiPlannerSessionMinutes: preferences.aiPlannerSessionMinutes,
-    aiPlannerEquipment: preferences.aiPlannerEquipment,
-    aiPlannerRecovery: preferences.aiPlannerRecovery,
-    aiPlannerMustInclude: normalize(preferences.aiPlannerMustInclude),
-    aiPlannerAvoid: normalize(preferences.aiPlannerAvoid),
-    aiPlannerLimitations: normalize(preferences.aiPlannerLimitations),
-  });
-}
-
 export function buildAiCoachPlanSchema(preferences: AppPreferences, exerciseLibrary: ExerciseLibraryItem[]): AICoachPlanSchema {
   const goal = mapSetupGoalToAiGoal(preferences);
   const daysPerWeek = mapSetupDays(preferences);
@@ -869,135 +828,4 @@ export function buildAiCoachPlanSchema(preferences: AppPreferences, exerciseLibr
     sessionMinutes,
     sessions,
   };
-}
-
-export function buildAiCoachWorkoutDraft(preferences: AppPreferences, exerciseLibrary: ExerciseLibraryItem[]): WorkoutTemplateDraft {
-  const plan = buildAiCoachPlanSchema(preferences, exerciseLibrary);
-  const templateId = preferences.aiCoachTemplateId ?? AI_COACH_TEMPLATE_ID;
-
-  return {
-    id: templateId,
-    name: plan.title,
-    sessions: plan.sessions.map((session) => ({
-      id: `${templateId}_${slugify(session.key)}`,
-      name: session.name,
-      exercises: session.exercises.map((exercise) => ({
-        id: `${templateId}_${slugify(session.key)}_${slugify(exercise.key)}`,
-        name: exercise.name,
-        targetSets: exercise.sets,
-        repMin: exercise.repsMin,
-        repMax: exercise.repsMax,
-        restSeconds: exercise.restSeconds,
-        trackedDefault: exercise.tracked,
-        libraryItemId: exercise.libraryItemId,
-      })),
-    })),
-  };
-}
-
-function getTrackingMode(libraryItem: ExerciseLibraryItem | null, exercise: ExerciseTemplateDraft): WorkoutTrackingMode {
-  if (libraryItem?.equipment === 'bodyweight') {
-    return 'bodyweight';
-  }
-
-  if (libraryItem?.category === 'core' || libraryItem?.category === 'cardio') {
-    return 'reps_first';
-  }
-
-  return 'load_and_reps';
-}
-
-function getRole(index: number, libraryItem: ExerciseLibraryItem | null): WorkoutRole {
-  if (index === 0) {
-    return 'primary';
-  }
-
-  if (index <= 2 || libraryItem?.category === 'compound') {
-    return 'secondary';
-  }
-
-  return 'accessory';
-}
-
-function getPriority(role: WorkoutRole): WorkoutProgressionPriority {
-  if (role === 'primary') {
-    return 'high';
-  }
-
-  if (role === 'secondary') {
-    return 'medium';
-  }
-
-  return 'low';
-}
-
-function buildRuntimeExercise(
-  templateId: string,
-  sessionId: string,
-  exercise: ExerciseTemplateDraft,
-  index: number,
-  exerciseLibrary: ExerciseLibraryItem[],
-  defaultRestSeconds: number,
-): WorkoutTemplateExercise {
-  const libraryItem =
-    (exercise.libraryItemId ? exerciseLibrary.find((item) => item.id === exercise.libraryItemId) ?? null : null) ??
-    exerciseLibrary.find((item) => normalize(item.name) === normalize(exercise.name)) ??
-    null;
-  const role = getRole(index, libraryItem);
-
-  return {
-    id: exercise.id ?? `${templateId}_${sessionId}_${index + 1}`,
-    persistedExerciseTemplateId: exercise.id ?? null,
-    exerciseName: exercise.name,
-    slotId: `${templateId}_${sessionId}_slot_${index + 1}`,
-    role,
-    progressionPriority: getPriority(role),
-    trackingMode: getTrackingMode(libraryItem, exercise),
-    sets: Math.max(1, exercise.targetSets),
-    repsMin: Math.max(1, exercise.repMin),
-    repsMax: Math.max(exercise.repMin, exercise.repMax),
-    restSecondsMin: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : defaultRestSeconds,
-    restSecondsMax: exercise.restSeconds && exercise.restSeconds > 0 ? exercise.restSeconds : defaultRestSeconds,
-    substitutionGroup: `${templateId}_${sessionId}_${slugify(exercise.name)}`,
-  };
-}
-
-export function buildAiCoachRuntimeTemplate(
-  draft: WorkoutTemplateDraft,
-  exerciseLibrary: ExerciseLibraryItem[],
-  defaultRestSeconds: number,
-): WorkoutRuntimeTemplate {
-  return {
-    id: draft.id ?? AI_COACH_TEMPLATE_ID,
-    name: draft.name,
-    defaultScheduleMode: 'rolling_sequence',
-    sessions: draft.sessions.map((session, sessionIndex) => {
-      const sessionId = session.id ?? `${draft.id ?? AI_COACH_TEMPLATE_ID}_session_${sessionIndex + 1}`;
-      return {
-        id: sessionId,
-        name: session.name,
-        orderIndex: sessionIndex,
-        exercises: session.exercises.map((exercise, exerciseIndex) =>
-          buildRuntimeExercise(draft.id ?? AI_COACH_TEMPLATE_ID, sessionId, exercise, exerciseIndex, exerciseLibrary, defaultRestSeconds),
-        ),
-      };
-    }),
-  };
-}
-
-export function getAiCoachNextSessionId(
-  templateId: string,
-  runtimeTemplate: WorkoutRuntimeTemplate,
-  completedTemplateSessionCount: number,
-) {
-  if (runtimeTemplate.sessions.length === 0) {
-    throw new Error(`Vinha AI template ${templateId} has no sessions.`);
-  }
-
-  const nextIndex = completedTemplateSessionCount % runtimeTemplate.sessions.length;
-  return runtimeTemplate.sessions[nextIndex]?.id ?? runtimeTemplate.sessions[0].id;
-}
-
-export function getAiCoachTemplateId(preferences: AppPreferences) {
-  return preferences.aiCoachTemplateId ?? AI_COACH_TEMPLATE_ID;
 }

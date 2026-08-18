@@ -52,11 +52,10 @@ import { AppLanguage } from '../types/models';
 
 // The Home Pro sheet is gone (design: Vinha Paywall Moments): contextual
 // sheets belong to the moments, and the comparison table lives on the ONE full
-// Pro page. The PRO pill now opens that page directly.
-
-// PRO pill: half "what you have" ink, half "what Pro adds" orange.
-const PRO_BADGE_INK = '#1C1830';
-const PRO_BADGE_ORANGE = '#F97316';
+// Pro page. The PRO pill went with the top bar redesign (e039b7b, design 1C:
+// wordmark, rule, one line) — it advertised a subscription on every visit,
+// including to the people already paying. Home still reaches the Pro page
+// from the plateau moment; the Profile tab has the rest of the ways in.
 
 // Entrance stagger (Home v4 "rise"): translateY 16 -> 0 + fade, 500ms,
 // cubic-bezier(.22,1,.36,1). Indices name each animated section.
