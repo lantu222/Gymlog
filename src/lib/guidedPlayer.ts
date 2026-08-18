@@ -144,6 +144,22 @@ export function estimateRoutineBlockSeconds(block: SessionRoutineBlock): number 
 }
 
 /**
+ * How long to wait before the next step while a dial button is held, given
+ * how many steps the hold has already produced. Slow enough at first to stop
+ * on a number, then quick — 100 kg from zero in 2.5 kg steps is forty ticks,
+ * and forty ticks at 140 ms is a long time to hold a button.
+ */
+export function dialHoldIntervalMs(ticksSoFar: number): number {
+  if (ticksSoFar < 6) {
+    return 140;
+  }
+  if (ticksSoFar < 16) {
+    return 80;
+  }
+  return 45;
+}
+
+/**
  * Whether the guided plan should leave an exercise out — no steps, no dots.
  *
  * Two different questions share the word "skipped". The session's status

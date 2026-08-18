@@ -25,6 +25,7 @@ const {
   isGuidedExerciseOut,
   getGuidedStepAnchor,
   findGuidedStepIndexByAnchor,
+  dialHoldIntervalMs,
   GUIDED_POSITION_SECONDS,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
@@ -528,6 +529,24 @@ module.exports = [
       // No anchor at all (a session persisted before this existed): the index
       // still works as before.
       assert.equal(resolveGuidedResumeIndex(before, 3, none, null), 3);
+    },
+  },
+  {
+    name: 'a held dial button speeds up but never stops slowing enough to land on a number',
+    run() {
+      // Slow at first, so a short hold can stop on the number wanted; fast
+      // later, because 100 kg from zero is forty ticks and forty ticks at the
+      // opening pace is a long hold. Monotone: it never speeds up and then
+      // slows down again mid-hold, which would feel like a stutter.
+      const schedule = Array.from({ length: 40 }, (_, tick) => dialHoldIntervalMs(tick));
+      for (let index = 1; index < schedule.length; index += 1) {
+        assert.ok(schedule[index] <= schedule[index - 1], `interval rose at tick ${index}`);
+      }
+      assert.ok(schedule[0] >= 120, 'the first repeats are too fast to stop on a number');
+      assert.ok(schedule[schedule.length - 1] <= 60, 'a long hold never gets quick');
+      // Zero to 100 kg in 2.5 kg steps, held: under 4 seconds all told.
+      const totalMs = schedule.reduce((sum, ms) => sum + ms, 0);
+      assert.ok(totalMs < 4000, `forty ticks take ${totalMs} ms`);
     },
   },
   {
