@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { CutSurface } from '../components/CutSurface';
 import { ProChatHero } from '../components/ProChatHero';
 import { FREE_ACTIVE_PROGRAM_CAP } from '../lib/activeProgramSet';
 import { FREE_COACH_QUESTIONS_PER_WEEK } from '../lib/aiCoachQuota';
@@ -346,11 +347,11 @@ export function PremiumScreen({
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         {reason === 'program_cap' ? (
-          <View style={styles.reasonBanner}>
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.reasonBanner}>
             <Text style={styles.reasonBannerText}>
               {t(language, 'programs.cap.paywall', { cap: FREE_ACTIVE_PROGRAM_CAP })}
             </Text>
-          </View>
+          </CutSurface>
         ) : null}
 
         {/* 1 · HERO — the only filled violet surface, and the only thing on the
@@ -359,7 +360,7 @@ export function PremiumScreen({
 
         {/* 2 · WHAT PRO ADDS — the only block with icons */}
         <Text style={styles.sectionLabel}>{t(language, 'pro.v3.delta.label')}</Text>
-        <View style={styles.deltaCard}>
+        <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.deltaCard}>
           {DELTA.map((row, index) => (
             <View key={row.key} style={[styles.deltaRow, index > 0 && styles.deltaRowDivided]}>
               <View style={styles.deltaIcon}>
@@ -373,7 +374,7 @@ export function PremiumScreen({
               </View>
             </View>
           ))}
-        </View>
+        </CutSurface>
 
         {/* 3 · TRUST — true in both tiers, which is why it carries no price */}
         <View style={styles.trustBlock}>
@@ -550,8 +551,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 22,
   },
   reasonBanner: {
-    backgroundColor: PW.sheetLavender,
-    borderRadius: 14,
     paddingVertical: 12,
     paddingHorizontal: 14,
     marginBottom: 14,
@@ -571,13 +570,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginBottom: 11,
     paddingHorizontal: 2,
   },
-  deltaCard: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 20,
-    overflow: 'hidden',
-  },
+  // Empty on purpose: everything this card drew — fill, border, corner — is
+  // the surface's now, and the rows inside carry their own padding.
+  deltaCard: {},
   deltaRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',

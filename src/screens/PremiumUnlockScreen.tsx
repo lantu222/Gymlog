@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 
 import Svg, { Path } from 'react-native-svg';
 
 import { formatDate } from '../lib/format';
+import { CutSurface } from '../components/CutSurface';
 import { I18nKey, t } from '../lib/i18n';
 import { PRO_UNLOCK_CARDS, PRO_UNLOCK_LIMIT_VARS } from '../lib/proBenefits';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -203,7 +204,7 @@ export function PremiumUnlockScreen({
           {t(language, 'unlock.body')}
         </Animated.Text>
 
-        <View style={styles.card}>
+        <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
           {PRO_UNLOCK_CARDS.map((row, index) => (
             <Animated.View
               key={row.titleKey}
@@ -250,7 +251,7 @@ export function PremiumUnlockScreen({
               </View>
             </Animated.View>
           ))}
-        </View>
+        </CutSurface>
 
         {/*
           Proof rather than a promise: the reads just opened, and this is the
@@ -359,13 +360,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.muted,
     marginTop: 8,
   },
+  // The surface draws the shape, the fill and the border. overflow:hidden is
+  // gone with them: it clips to the rectangle, not to the cut path, so it was
+  // never what kept the rows inside.
   card: {
     marginTop: 20,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 20,
-    overflow: 'hidden',
   },
   row: {
     flexDirection: 'row',
