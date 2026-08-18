@@ -2185,6 +2185,9 @@ const EN = {
   'subs.section.membership': 'MEMBERSHIP',
   'subs.row.manageMembership': 'Manage membership',
   'subs.row.manageMembershipSub': 'Payment method, billing period, past payments.',
+  // A promo has none of those three. The row still opens — the page says
+  // why there is nothing there — but it must not promise them.
+  'subs.row.manageMembershipSubPromo': 'What the promo covers, and when it ends.',
   'subs.row.whatsIn': 'What Pro includes',
   'subs.row.whatsInSub': 'Everything the membership keeps switched on.',
   'subs.row.play': 'Manage in Google Play',
@@ -5286,6 +5289,7 @@ const FI: Record<I18nKey, string> = {
   'subs.section.membership': 'JÄSENYYS',
   'subs.row.manageMembership': 'Hallinnoi jäsenyyttä',
   'subs.row.manageMembershipSub': 'Maksutapa, laskutusväli, edelliset maksut.',
+  'subs.row.manageMembershipSubPromo': 'Mitä kampanja kattaa ja koska se päättyy.',
   'subs.row.whatsIn': 'Mitä Pro sisältää',
   'subs.row.whatsInSub': 'Kaikki toiminnot, jotka jäsenyys pitää päällä.',
   'subs.row.play': 'Hallinnoi Google Playssa',

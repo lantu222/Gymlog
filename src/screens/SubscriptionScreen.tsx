@@ -324,12 +324,14 @@ export function SubscriptionScreen({
               </CutSurface>
             )}
 
-            <Text style={styles.footer}>
-              {t(
-                language,
-                model.promoBacked ? 'subs.foot.promo' : lifetime ? 'subs.foot.lifetime' : 'subs.foot.play',
-              )}
-            </Text>
+            {/* The promo card above already says there is nothing to manage.
+                Repeating it as a footer put the same sentence twice on an
+                otherwise empty page. */}
+            {model.promoBacked ? null : (
+              <Text style={styles.footer}>
+                {t(language, lifetime ? 'subs.foot.lifetime' : 'subs.foot.play')}
+              </Text>
+            )}
           </>
         ) : (
           <>
@@ -451,17 +453,24 @@ export function SubscriptionScreen({
                       divider
                     />
                   ) : null}
-                  {/* The promo case has nothing to manage, so the row that
-                      would open an empty page is simply not rendered. */}
-                  {model.promoBacked ? null : (
-                    <Row
-                      icon="settings"
-                      title={t(language, 'subs.row.manageMembership')}
-                      sub={t(language, 'subs.row.manageMembershipSub')}
-                      onPress={() => setView('membership')}
-                      divider
-                    />
-                  )}
+                  {/* Shown for a promo too (user decision 2026-08-18). The
+                      page behind it is not empty — it states that a promo has
+                      nothing to manage and runs out on its own, which is the
+                      answer someone opening this row came for. The subtitle
+                      changes with it, because a promo has no payment method,
+                      no billing period and no receipts to name. */}
+                  <Row
+                    icon="settings"
+                    title={t(language, 'subs.row.manageMembership')}
+                    sub={t(
+                      language,
+                      model.promoBacked
+                        ? 'subs.row.manageMembershipSubPromo'
+                        : 'subs.row.manageMembershipSub',
+                    )}
+                    onPress={() => setView('membership')}
+                    divider
+                  />
                   <Row
                     icon="list"
                     title={t(language, 'subs.row.whatsIn')}
