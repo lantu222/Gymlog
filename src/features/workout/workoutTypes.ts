@@ -184,6 +184,23 @@ export interface WorkoutRestTimerState {
   durationSeconds: number;
 }
 
+/**
+ * What the guided player was showing, in terms that survive the plan being
+ * rebuilt. The step list changes shape whenever a lift is skipped or the app
+ * updates, and an index into the old list then points at a different step —
+ * "Jatka treeniä · Penkkipunnerrus sarja 2" for a session that had never
+ * touched the bench. A set is identified by its slot and index, a drill by
+ * its phase and name; the resume looks the step up again in whatever list
+ * exists now.
+ */
+export interface GuidedResumeAnchor {
+  type: 'splash' | 'ready' | 'drill' | 'position' | 'set' | 'rest' | 'finish';
+  phase: 'warmup' | 'work' | 'cooldown' | null;
+  slotId?: string;
+  setIndex?: number;
+  drillName?: string;
+}
+
 export interface WorkoutUiState {
   activeSlotId: string | null;
   activeSetIndex: number;
@@ -192,8 +209,13 @@ export interface WorkoutUiState {
   swapSheetSlotId: string | null;
   expandedSlotIds: string[];
   finishSummaryOpen: boolean;
-  /** Guided-player resume position (index into the built step list). */
+  /**
+   * Guided-player resume position (index into the built step list). Kept for
+   * sessions persisted before the anchor existed; the anchor wins when both
+   * are present.
+   */
   guidedStepIndex?: number;
+  guidedResumeAnchor?: GuidedResumeAnchor;
 }
 
 export interface WorkoutSessionRuntime {

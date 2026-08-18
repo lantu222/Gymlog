@@ -58,6 +58,7 @@ import {
   getGuidedPhaseLabel,
   getGuidedSessionTitle,
   getGuidedSkipTargetIndex,
+  getGuidedStepAnchor,
   getGuidedStepLabel,
   isGuidedExerciseOut,
   resolveGuidedResumeIndex,
@@ -940,7 +941,9 @@ export function GuidedPlayerScreen({
       firedRef.current = false;
       lastBeepSecondRef.current = null;
       setStepIndex(clamped);
-      workout.setGuidedStep(clamped);
+      // Index for old readers, anchor for the resume: the index goes stale
+      // the moment the plan is rebuilt, the anchor does not.
+      workout.setGuidedStep(clamped, getGuidedStepAnchor(target));
       if (target.type === 'drill') {
         cue('go');
       } else if (target.type === 'finish') {
@@ -1073,7 +1076,12 @@ export function GuidedPlayerScreen({
     goTo(index);
   };
 
-  const resumeIndex = resolveGuidedResumeIndex(steps, session.ui.guidedStepIndex ?? null, isSetCompleted);
+  const resumeIndex = resolveGuidedResumeIndex(
+    steps,
+    session.ui.guidedStepIndex ?? null,
+    isSetCompleted,
+    session.ui.guidedResumeAnchor ?? null,
+  );
   const showResume = resumeIndex > 0 && steps[resumeIndex]?.type !== 'finish';
 
   const confirmSet = (slotId: string, setIndex: number, reps: number, loadKg: number | null) => {
