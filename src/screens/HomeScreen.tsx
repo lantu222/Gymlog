@@ -163,6 +163,13 @@ interface HomeScreenProps {
   /** Adapt sheet: answer the onboarding questions again. */
   onRedoOnboarding?: () => void;
   onStartActivePlanSession?: (sessionId: string) => void;
+  /**
+   * True while a workout is in progress. The hero button already resumes it
+   * — App routes any start into the live session — but it read "Aloita
+   * treeni" over a session the reader had left mid-warm-up, while the entry
+   * screen one tap later said "Jatka treeniä". The button says so now too.
+   */
+  hasActiveSession?: boolean;
   onCreateWorkoutFromExercises: () => void;
   /**
    * What the hero button does when there is no programme: go and find one.
@@ -262,6 +269,7 @@ export function HomeScreen({
   onCompletionBrowse,
   onRedoOnboarding,
   onStartActivePlanSession,
+  hasActiveSession = false,
   onCreateWorkoutFromExercises,
   onFindProgram,
   onOpenCardio,
@@ -1000,7 +1008,14 @@ export function HomeScreen({
           ) : null}
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={t(language, heroStartsSession ? 'home.a11y.startSession' : 'home.a11y.findProgram')}
+            accessibilityLabel={t(
+              language,
+              heroStartsSession
+                ? hasActiveSession
+                  ? 'home.a11y.resumeSession'
+                  : 'home.a11y.startSession'
+                : 'home.a11y.findProgram',
+            )}
             onPress={pressHeroAction}
             style={({ pressed }) => [styles.startButtonWrap, pressed && styles.cutPressed]}
           >
@@ -1012,7 +1027,14 @@ export function HomeScreen({
               style={styles.startButton}
             >
               <Text style={styles.startButtonText}>
-                {t(language, heroStartsSession ? 'home.startWorkout' : 'home.findProgram')}
+                {t(
+                  language,
+                  heroStartsSession
+                    ? hasActiveSession
+                      ? 'home.resumeWorkout'
+                      : 'home.startWorkout'
+                    : 'home.findProgram',
+                )}
               </Text>
               <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
                 <Path d="M5 12h14M13 6l6 6-6 6" stroke={theme.accent} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />

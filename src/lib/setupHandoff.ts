@@ -94,3 +94,13 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
     tracking,
   };
 }
+
+/**
+ * How many offers the step actually shows — what the heading has to agree
+ * with. It read "Two things before you start · Both take one tap" over a
+ * single card whenever the widget was already on the home screen, which on a
+ * phone that has had the app before is the usual case.
+ */
+export function countSetupHandoffOffers(plan: Pick<SetupHandoffPlan, 'offerWidget' | 'tracking'>): number {
+  return (plan.offerWidget ? 1 : 0) + (plan.tracking ? 1 : 0);
+}

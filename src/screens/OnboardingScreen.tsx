@@ -1831,8 +1831,8 @@ export function OnboardingScreen({
     [recommendedProgramPresentation],
   );
   const projectedRhythm = useMemo(() => {
-    return resolveProjectedTrainingDays(selection, projectedDaysPerWeek).map((day) => getWeekdayShortLabel(day));
-  }, [projectedDaysPerWeek, selection]);
+    return resolveProjectedTrainingDays(selection, projectedDaysPerWeek).map((day) => getWeekdayShortLabel(day, language));
+  }, [language, projectedDaysPerWeek, selection]);
   const weeklyMinuteOptions = useMemo(
     () => getWeeklyMinuteOptions(projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration ?? null),
     [projectedDaysPerWeek, recommendedProgram?.estimatedSessionDuration],
@@ -1851,8 +1851,8 @@ export function OnboardingScreen({
     setGoals([nextGoal]);
   }
   const availableDayLabels = useMemo(
-    () => availableDays.map((day) => getWeekdayShortLabel(day)),
-    [availableDays],
+    () => availableDays.map((day) => getWeekdayShortLabel(day, language)),
+    [availableDays, language],
   );
   const projectedSessions = useMemo(
     () =>
@@ -2839,7 +2839,9 @@ export function OnboardingScreen({
                 <View key={option} style={styles.daysChipColumn}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`${option} days per week${recommended ? ', recommended for your level' : ''}`}
+                    accessibilityLabel={`${t(language, 'setup.a11y.daysPerWeek', { count: option })}${
+                      recommended ? t(language, 'setup.a11y.daysRecommended') : ''
+                    }`}
                     accessibilityState={{ selected: active }}
                     onPress={() => selectTrainingDaysCount(option)}
                     style={[
@@ -2877,7 +2879,9 @@ export function OnboardingScreen({
                 <Pressable
                   key={day}
                   accessibilityRole="button"
-                  accessibilityLabel={`${getWeekdayShortLabel(day)}${dayActive ? ', training day' : ', rest day'}`}
+                  accessibilityLabel={`${getWeekdayShortLabel(day, language)}${
+                    dayActive ? t(language, 'setup.a11y.trainingDay') : t(language, 'setup.a11y.restDay')
+                  }`}
                   accessibilityState={{ selected: dayActive }}
                   onPress={() => toggleTrainingDay(day)}
                   style={[styles.daysWeekCell, dayActive && styles.daysWeekCellActive]}
@@ -3341,9 +3345,9 @@ export function OnboardingScreen({
                   accessibilityState={{ selected: active }}
                   accessibilityLabel={`${getFocusAreaLabel(option.area, language)}${
                     caution === 'avoid'
-                      ? ', flagged avoid entirely'
+                      ? t(language, 'setup.a11y.flaggedAvoid')
                       : caution === 'careful'
-                        ? ', flagged be careful'
+                        ? t(language, 'setup.a11y.flaggedCareful')
                         : ''
                   }`}
                   onPress={() => {
@@ -3423,11 +3427,17 @@ export function OnboardingScreen({
       ...secondaryOutcomeLabels.slice(0, 1),
       ...focusAreaLabels.slice(0, 1),
     ].slice(0, 3);
-    const recommendationFlowItems = projectedSessions.slice(0, 3).map((session, index) => ({
+    const flowSessions = projectedSessions.slice(0, 3);
+    const recommendationFlowItems = flowSessions.map((session, index) => ({
       id: session.id,
-      day: projectedRhythm[index] ?? `Day ${index + 1}`,
+      day: projectedRhythm[index] ?? t(language, 'onb.flow.dayFallback', { index: index + 1 }),
       title: formatWorkoutDisplayLabel(session.name, 'Workout'),
-      label: index === 0 ? 'Start here' : index === projectedSessions.slice(0, 3).length - 1 ? 'Finish' : 'Then',
+      label:
+        index === 0
+          ? t(language, 'onb.flow.startHere')
+          : index === flowSessions.length - 1
+            ? t(language, 'onb.flow.finish')
+            : t(language, 'onb.flow.then'),
     }));
 
     function renderRecommendationRefinementPanel() {
@@ -3500,7 +3510,7 @@ export function OnboardingScreen({
                   {WEEKDAY_OPTIONS.map((day) => (
                     <ChoiceChip
                       key={day}
-                      label={getWeekdayShortLabel(day)}
+                      label={getWeekdayShortLabel(day, language)}
                       active={availableDays.includes(day)}
                       onPress={() => toggleAvailableDay(day)}
                     />
