@@ -35,6 +35,13 @@ interface SettingsScreenProps {
   onOpenTrainingBreak: () => void;
   onOpenPromo: () => void;
   onOpenSubscription: () => void;
+  /**
+   * The ONE Pro page. Every place a reader shows interest in Pro — the
+   * locked theme row, the subscription row before there is a subscription
+   * — goes here, not to the management screen with its price rows.
+   * Management is for people who already pay.
+   */
+  onOpenPremium: () => void;
   onOpenSupport: () => void;
   onOpenFeatures: () => void;
   onOpenAiInfo: () => void;
@@ -215,6 +222,7 @@ export function SettingsScreen({
   onOpenTrainingBreak,
   onOpenPromo,
   onOpenSubscription,
+  onOpenPremium,
   onOpenSupport,
   onOpenFeatures,
   onOpenAiInfo,
@@ -302,7 +310,7 @@ export function SettingsScreen({
               // someone who has not. Once Pro is on it is the one line on the
               // row that says nothing about what the switch does.
               sub={t(language, themeRow.locked ? 'settings.darkTheme.sub' : 'settings.darkTheme.subPro')}
-              onPress={themeRow.locked ? onOpenSubscription : undefined}
+              onPress={themeRow.locked ? onOpenPremium : undefined}
               control={
                 themeRow.locked ? (
                   <View
@@ -392,7 +400,14 @@ export function SettingsScreen({
             />
             <Row icon="body" title={t(language, 'settings.myData')} sub={t(language, 'settings.myData.sub')} chevron onPress={onOpenMyData} />
             <Row icon="tag" title={t(language, 'settings.promo')} chevron onPress={onOpenPromo} />
-            <Row icon="card" title={t(language, 'settings.subscription')} chevron last onPress={onOpenSubscription} />
+            {/* Before Pro the row is the way to Pro; after, it manages it. */}
+            <Row
+              icon="card"
+              title={t(language, proUnlocked ? 'settings.subscription' : 'settings.pro')}
+              chevron
+              last
+              onPress={proUnlocked ? onOpenSubscription : onOpenPremium}
+            />
           </View>
         </View>
 

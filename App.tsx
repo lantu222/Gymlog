@@ -5354,6 +5354,7 @@ function VinhaApp() {
         onOpenTrainingBreak={() => navigate({ tab: 'profile', screen: 'training_break' })}
         onOpenPromo={() => navigate({ tab: 'profile', screen: 'promo' })}
         onOpenSubscription={() => navigate({ tab: 'profile', screen: 'subscription' })}
+        onOpenPremium={() => navigate({ tab: 'profile', screen: 'premium' })}
         onOpenSupport={() => navigate({ tab: 'profile', screen: 'support' })}
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
         onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
