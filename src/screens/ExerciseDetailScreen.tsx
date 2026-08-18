@@ -6,6 +6,7 @@ import { SimpleLineChart } from '../components/SimpleLineChart';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
+import { libraryLabel } from '../lib/libraryLabel';
 import { ExerciseProgressSummary } from '../lib/progression';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
@@ -30,9 +31,6 @@ const DETAIL_LABEL_KEYS: Record<string, I18nKey> = {
   compound: 'facet.compound',
   isolation: 'facet.isolation',
   cardio: 'facet.cardio',
-  beginner: 'myData.level.beginner',
-  advanced: 'myData.level.advanced',
-  expert: 'myData.level.pro',
 };
 
 interface ExerciseDetailScreenProps {
@@ -56,11 +54,10 @@ function toLabel(value: string | null | undefined, language: AppLanguage) {
     return t(language, key);
   }
 
-  return value
-    .split(/[_\s/()-]+/)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(' ');
+  // Muscles, the raw source equipment ("kettlebells", "body only") and the
+  // middle source level are not in this screen's own facet map; the shared
+  // library map knows them. Anything neither knows still capitalises itself.
+  return libraryLabel(value, language);
 }
 
 function formatLastDone(iso: string, language: AppLanguage) {

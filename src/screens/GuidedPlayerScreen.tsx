@@ -67,6 +67,7 @@ import {
 } from '../lib/guidedPlayer';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { libraryLabel } from '../lib/libraryLabel';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 import { classifySessionFocus, getDefaultCooldown, getDefaultWarmup } from '../lib/homeSessionHero';
 import { Exercise3DSheet } from '../components/exercise3d/Exercise3DSheet';
@@ -324,6 +325,7 @@ function MediaZone({
           <Exercise3DSheet
             name={name}
             muscle={muscle}
+            language={language}
             instructions={match?.instructions ?? undefined}
             visible={sheetOpen}
             onClose={() => setSheetOpen(false)}
@@ -1765,6 +1767,7 @@ export function GuidedPlayerScreen({
         <Exercise3DSheet
           name={step.exerciseName}
           muscle={libraryFor(step.exerciseName)?.primaryMuscles?.[0] ?? null}
+          language={language}
           instructions={libraryFor(step.exerciseName)?.instructions ?? undefined}
           visible={setVideoOpen}
           onClose={() => setSetVideoOpen(false)}
@@ -1781,6 +1784,7 @@ export function GuidedPlayerScreen({
                 : null
           }
           fallbackName={getGuidedStepLabel(step, language)}
+          language={language}
           onClose={() => {
             setHowtoOpen(false);
           }}
@@ -2270,22 +2274,28 @@ function FinishView({
 function HowToSheetView({
   libraryItem,
   fallbackName,
+  language,
   onClose,
 }: {
   libraryItem: ExerciseLibraryItem | null;
+  /** The step's own label, already in the reader's language. */
   fallbackName: string;
+  language: AppLanguage;
   onClose: () => void;
 }) {
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
 
+  // The sheet is titled with the same name the step showed, not the library
+  // row's English — the two read differently ("Takakyykky" over "Barbell Full
+  // Squat") and the user tapped the former.
   return (
     <GPSheet onClose={onClose}>
-      <Text style={{ fontSize: 20, fontWeight: '800', color: theme.ink }}>{libraryItem?.name ?? fallbackName}</Text>
+      <Text style={{ fontSize: 20, fontWeight: '800', color: theme.ink }}>{fallbackName}</Text>
       {libraryItem?.primaryMuscles?.[0] ? (
         <Text style={{ fontSize: 13, fontWeight: '700', color: theme.purple, marginTop: 4 }}>
-          {libraryItem.primaryMuscles[0][0].toUpperCase() + libraryItem.primaryMuscles[0].slice(1)}
+          {libraryLabel(libraryItem.primaryMuscles[0], language)}
         </Text>
       ) : null}
       <ScrollView style={{ maxHeight: 380 }} showsVerticalScrollIndicator={false}>

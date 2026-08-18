@@ -10,6 +10,7 @@ import { ScreenHeader } from '../components/ScreenHeader';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { getExerciseTemplateDefaults } from '../lib/exerciseSuggestions';
 import { I18nKey, t } from '../lib/i18n';
+import { libraryLabel } from '../lib/libraryLabel';
 import { layout, radii, spacing } from '../theme';
 import {
   AppLanguage,
@@ -218,13 +219,6 @@ function buildTemplateDraft(
       exercises: session.exercises.map(({ localKey: _localKey, ...exercise }) => exercise),
     })),
   };
-}
-
-function toTitleCase(value: string) {
-  return value
-    .split(' ')
-    .map((part) => (part ? part[0].toUpperCase() + part.slice(1) : part))
-    .join(' ');
 }
 
 function resolvePresetPreviewImage(preset: SplitPreset, exerciseLibrary: ExerciseLibraryItem[]) {
@@ -577,7 +571,7 @@ export function CreateTemplateScreen({
                             </Text>
                             <Text numberOfLines={1} style={styles.exerciseMeta}>
                               {libraryItem
-                                ? `${toTitleCase(libraryItem.bodyPart)} · ${toTitleCase(libraryItem.equipment)}`
+                                ? `${libraryLabel(libraryItem.bodyPart, language)} · ${libraryLabel(libraryItem.equipment, language)}`
                                 : t(language, 'tpl.setsReps', {
                                     sets: exercise.targetSets,
                                     repMin: exercise.repMin,

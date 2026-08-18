@@ -26,14 +26,27 @@ const ALLOWED = new Set(['Vinha AI', 'Vinha Pro', 'Vinha']);
 // interpolation, a number or a punctuation run is not copy.
 const JSX_TEXT = />([A-Z][a-zA-Z',!?.\- ]{3,60})</g;
 
+// Recursive: `components/exercise3d/` sat under the guard for a release cycle
+// with an English eyebrow and hint because the scan stopped at depth one.
+function listTsx(directory) {
+  const files = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listTsx(full));
+    } else if (entry.name.endsWith('.tsx')) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
 function collect() {
   const found = [];
   for (const directory of DIRECTORIES) {
-    for (const name of fs.readdirSync(directory)) {
-      if (!name.endsWith('.tsx')) {
-        continue;
-      }
-      const source = fs.readFileSync(path.join(directory, name), 'utf8');
+    for (const file of listTsx(directory)) {
+      const name = path.relative(directory, file);
+      const source = fs.readFileSync(file, 'utf8');
       for (const [, text] of source.matchAll(JSX_TEXT)) {
         const copy = text.trim();
         if (copy && !ALLOWED.has(copy)) {
