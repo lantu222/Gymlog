@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { buildDraftFromCsvPreview, CsvLibraryEntry, parseCsvProgram } from '../lib/csvProgramImport';
 import { I18nKey, t } from '../lib/i18n';
@@ -87,6 +88,10 @@ export function NewProgramSheet({
 }: NewProgramSheetProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // The sheet sits on the system navigation bar. Its own 28dp used to be the
+  // whole bottom padding, so on a phone with three-button navigation the last
+  // option ("Tuo CSV") sat under the buttons.
+  const insets = useSafeAreaInsets();
   const [view, setView] = useState<'menu' | 'csv'>(initialView);
   const [csvText, setCsvText] = useState('');
   const defaultProgramName = t(language, 'csv.defaultName');
@@ -127,7 +132,7 @@ export function NewProgramSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
       <Pressable style={styles.scrim} onPress={handleClose} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.panelWrap} pointerEvents="box-none">
-        <View style={[styles.panel, view === 'csv' && styles.panelTall]}>
+        <View style={[styles.panel, view === 'csv' && styles.panelTall, { paddingBottom: 28 + insets.bottom }]}>
           <View style={styles.grabHandle} />
           <View style={styles.headerRow}>
             {view !== initialView ? (

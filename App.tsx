@@ -513,7 +513,7 @@ const DEFAULT_HOME_AI_PROMPT_SUGGESTIONS = [
   '30-day run challenge?',
 ];
 
-function getBackRoute(route: AppRoute): AppRoute | null {
+function getBackRoute(route: AppRoute, workoutHome: AppRoute): AppRoute | null {
   if (
     route.tab === 'home' &&
     (route.screen === 'ai' ||
@@ -543,7 +543,7 @@ function getBackRoute(route: AppRoute): AppRoute | null {
       route.screen === 'summary' ||
       route.screen === 'celebration')
   ) {
-    return WORKOUT_PLAN_ROUTE;
+    return workoutHome;
   }
 
   if (
@@ -845,6 +845,21 @@ function VinhaApp() {
     saveCardioSession,
   } = useAppContext();
   const workout = useWorkoutContext();
+
+  /**
+   * Where "back to the programmes" lands.
+   *
+   * Three routes used to stand in for this: the tab bar opened Programs home,
+   * the logger's fallback opened the exercise list, and deleting a programme —
+   * along with leaving a summary and every missing-template fallback — opened
+   * the pre-redesign catalog list, a screen nothing else in the app leads to.
+   * Delete a programme and you were somewhere you could not get back to.
+   * One answer now, and it is the same one the tab gives.
+   */
+  const workoutHomeRoute = useMemo<AppRoute>(
+    () => (preferences.programsTabEnabled ? { tab: 'workout', screen: 'programs_home' } : WORKOUT_PLAN_ROUTE),
+    [preferences.programsTabEnabled],
+  );
 
   const [navigationState, setNavigationState] = useState<NavigationState>({
     route: ROOT_ROUTES.home,
@@ -1167,7 +1182,7 @@ function VinhaApp() {
       !workout.templates.some((template) => template.id === route.workoutTemplateId) &&
       !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
     ) {
-      replaceRoute(WORKOUT_PLAN_ROUTE);
+      replaceRoute(workoutHomeRoute);
     }
 
       if (
@@ -1184,7 +1199,7 @@ function VinhaApp() {
       ((route.programType === 'ready' && !workout.templates.some((template) => template.id === route.workoutTemplateId)) ||
         (route.programType === 'custom' && !workoutTemplates.some((template) => template.id === route.workoutTemplateId)))
     ) {
-      replaceRoute(WORKOUT_PLAN_ROUTE);
+      replaceRoute(workoutHomeRoute);
     }
 
     if (
@@ -1193,7 +1208,7 @@ function VinhaApp() {
       route.workoutTemplateId &&
       !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
     ) {
-      replaceRoute(WORKOUT_PLAN_ROUTE);
+      replaceRoute(workoutHomeRoute);
     }
 
     if (
@@ -1202,7 +1217,7 @@ function VinhaApp() {
       route.workoutTemplateId &&
       !workoutTemplates.some((template) => template.id === route.workoutTemplateId)
     ) {
-      replaceRoute(WORKOUT_PLAN_ROUTE);
+      replaceRoute(workoutHomeRoute);
     }
 
     if (
@@ -1237,7 +1252,7 @@ function VinhaApp() {
       finishSaveState.status !== 'saving' &&
       !summaryNavigationPendingRef.current
     ) {
-      const nextRoute = summaryExitRouteRef.current ?? WORKOUT_PLAN_ROUTE;
+      const nextRoute = summaryExitRouteRef.current ?? workoutHomeRoute;
       summaryExitRouteRef.current = null;
       replaceRoute(nextRoute);
     }
@@ -1340,7 +1355,7 @@ function VinhaApp() {
     }
 
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      const nextRoute = getBackRoute(route);
+      const nextRoute = getBackRoute(route, workoutHomeRoute);
       if (!nextRoute && navigationState.history.length === 0) {
         return false;
       }
@@ -1349,7 +1364,7 @@ function VinhaApp() {
         setCompletionSummary(null);
         setFinishSaveState({ status: 'idle', sessionId: null, message: null });
         workout.clearCompletedWorkout();
-        navigateBack(summaryExitRouteRef.current ?? WORKOUT_PLAN_ROUTE);
+        navigateBack(summaryExitRouteRef.current ?? workoutHomeRoute);
         return true;
       }
 
@@ -1669,7 +1684,7 @@ function VinhaApp() {
         return;
 
       case 'browse_ready_plans':
-        navigate(WORKOUT_PLAN_ROUTE);
+        navigate(workoutHomeRoute);
         return;
 
       case 'open_recommended_program': {
@@ -1682,7 +1697,7 @@ function VinhaApp() {
             workoutTemplateId: recommendedProgramId,
           });
         } else {
-          navigate(WORKOUT_PLAN_ROUTE);
+          navigate(workoutHomeRoute);
         }
         return;
       }
@@ -2256,7 +2271,7 @@ function VinhaApp() {
   async function handleDeleteCustomWorkout(workoutTemplateId: string) {
     await deleteWorkoutTemplate(workoutTemplateId);
     showToast(t(preferences.appLanguage, 'toast.workoutDeleted'));
-    navigate(WORKOUT_PLAN_ROUTE);
+    navigate(workoutHomeRoute);
   }
 
   async function handleOnboardingPickReadyProgram(programId: string) {
@@ -2506,7 +2521,7 @@ function VinhaApp() {
     showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
     const template = getWorkoutTemplateById(recommendedProgramId);
     if (!template) {
-      navigate(WORKOUT_PLAN_ROUTE);
+      navigate(workoutHomeRoute);
       return;
     }
 
@@ -2551,6 +2566,7 @@ function VinhaApp() {
           sessionCount: getWorkoutTemplateSessions(template.id).length,
           exerciseCount: getWorkoutExercises(template.id).length,
           updatedAt: template.updatedAt,
+          origin: template.origin,
         })),
     [getWorkoutExercises, getWorkoutTemplateSessions, workoutTemplates],
   );
@@ -3739,7 +3755,6 @@ function VinhaApp() {
     ? `Recommended now · ${recommendedReadyTemplate.estimatedSessionDuration} min sessions`
     : 'Browse';
   const readyProgramCtaLabel = 'Browse ready plans';
-  const customProgramCount = customWorkouts.length;
   /**
    * The season rows.
    *
@@ -4155,19 +4170,25 @@ function VinhaApp() {
       ),
     [preferences.strengthGoals, trackedProgress],
   );
+  // Programmes the reader built, not every template in the database: a
+  // freestyle log writes a template of its own to hang the session on, and
+  // "Omat ohjelmasi" was listing each of those as a programme. Those sessions
+  // live in History; the same rule the programme cap already uses.
   const programsCustomItems = useMemo(
     () =>
-      customWorkouts.map((template) => ({
-        id: template.id,
-        name: formatWorkoutDisplayLabel(template.name),
-        // Built in English here, under a Finnish heading, on the tab that
-        // sells programs. The key existed the whole time.
-        subtitle: t(
-          preferences.appLanguage,
-          template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
-          { sessions: template.sessionCount, exercises: template.exerciseCount },
-        ),
-      })),
+      customWorkouts
+        .filter((template) => template.origin !== 'freestyle')
+        .map((template) => ({
+          id: template.id,
+          name: formatWorkoutDisplayLabel(template.name),
+          // Built in English here, under a Finnish heading, on the tab that
+          // sells programs. The key existed the whole time.
+          subtitle: t(
+            preferences.appLanguage,
+            template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
+            { sessions: template.sessionCount, exercises: template.exerciseCount },
+          ),
+        })),
     [customWorkouts, preferences.appLanguage],
   );
   const customProgramCtaLabel = selectedCustomProgram.workoutId ? 'Browse workouts' : 'Open workouts';
@@ -4530,7 +4551,7 @@ function VinhaApp() {
               }
             : null
         }
-        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
+        onBack={() => navigateBack(workoutHomeRoute)}
         onPrimaryAction={() => {
           if (route.programType === 'ready') {
             // The button says "Ota ohjelma käyttöön" and it now does that. It
@@ -4648,7 +4669,7 @@ function VinhaApp() {
         exerciseLibrary={exerciseBrowserItems}
         recentExerciseLibraryItems={recentExerciseBrowserItems}
         defaultRestSeconds={preferences.defaultRestSeconds}
-        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
+        onBack={() => navigateBack(workoutHomeRoute)}
         onSave={async (draft) => {
           const isEditing = Boolean(draft.id);
           const workoutTemplateId = await upsertWorkoutTemplate(draft);
@@ -4704,8 +4725,8 @@ function VinhaApp() {
         unitPreference={unitPreference}
         exerciseHistoryLookup={editorExerciseHistoryLookup}
         exercisePrLookup={exercisePrLookup}
-        onBack={() => navigateBack(WORKOUT_PLAN_ROUTE)}
-        onUseTemplate={() => navigate(WORKOUT_PLAN_ROUTE)}
+        onBack={() => navigateBack(workoutHomeRoute)}
+        onUseTemplate={() => navigate(workoutHomeRoute)}
         onSave={async (draft, summary: WorkoutEditorFinishSummary) => {
           const isNew = !draft.id;
           try {
@@ -4905,6 +4926,7 @@ function VinhaApp() {
           language={preferences.appLanguage}
           selectedExerciseKey={route.screen === 'detail' ? route.exerciseKey : undefined}
         initialSection={route.screen === 'list' ? route.section : undefined}
+        initialMeasure={route.screen === 'list' ? route.measure : undefined}
         showBodyweightDetail={route.screen === 'bodyweight'}
         onAddBodyweight={async (weightKg) => {
           await addBodyweightEntry(weightKg);
@@ -5649,7 +5671,9 @@ function VinhaApp() {
             return;
           }
           if (isMeasurementCardKey(key)) {
-            navigate({ tab: 'progress', screen: 'list', section: 'measures' });
+            // The card's own measurement, selected and ready to log — not
+            // the section on whatever was picked last.
+            navigate({ tab: 'progress', screen: 'list', section: 'measures', measure: key });
             return;
           }
           if (key.startsWith('lift:')) {

@@ -19,7 +19,6 @@ import {
 import {
   buildHistorySessionViewModel,
   filterHistorySessionViewModels,
-  HistoryFilter,
   HistorySessionViewModel,
 } from '../lib/historyView';
 import { I18nKey, t } from '../lib/i18n';
@@ -55,12 +54,6 @@ interface HistoryScreenProps {
   onBack: () => void;
 }
 
-const HISTORY_FILTERS: Array<{ key: HistoryFilter; labelKey: I18nKey }> = [
-  { key: 'all', labelKey: 'history.filter.all' },
-  { key: 'needs_review', labelKey: 'history.filter.review' },
-  { key: 'tracked', labelKey: 'history.filter.tracked' },
-];
-
 /** Count-driven copy: Finnish has its own plural, so each case is a key. */
 function countLabel(language: AppLanguage, count: number, one: I18nKey, many: I18nKey) {
   return count === 1 ? t(language, one) : t(language, many, { count });
@@ -76,19 +69,6 @@ function formatTopLift(session: HistorySessionViewModel, unitPreference: UnitPre
   }
   const name = exerciseNameLabel(language, formatLiftDisplayLabel(session.topLiftName));
   return `${name} ${formatWeight(session.topLiftWeightKg, unitPreference)}`;
-}
-
-function getReviewLabel(session: HistorySessionViewModel, language: AppLanguage) {
-  if (session.legacyMismatchCount > 0) {
-    return t(language, 'history.badge.legacy');
-  }
-  if (session.skippedExercises > 0 || session.partialExercises > 0) {
-    return t(language, 'history.badge.needsReview');
-  }
-  if (session.trackedExercises > 0) {
-    return t(language, 'history.badge.tracked');
-  }
-  return undefined;
 }
 
 function SectionLabel({ label }: { label: string }) {
@@ -152,7 +132,6 @@ function SessionRow({
 }) {
   const styles = useThemedStyles(makeStyles);
 
-  const badge = getReviewLabel(session, language);
   const topLift = formatTopLift(session, unitPreference, language);
   const meta = [
     formatShortDate(session.performedAt, language),
@@ -168,7 +147,6 @@ function SessionRow({
         <Text style={styles.sessionCardTitle} numberOfLines={1}>
           {sessionTitle(session.workoutName, language)}
         </Text>
-        {badge ? <Badge label={badge} tone={session.legacyMismatchCount > 0 ? 'warn' : 'purple'} /> : null}
       </View>
       <Text style={styles.sessionCardMeta}>{meta}</Text>
       <View style={styles.sessionCardFooter}>
@@ -197,7 +175,6 @@ export function HistoryScreen({
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
-  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>('all');
   const selectedSession = sessions.find((session) => session.id === selectedSessionId);
 
   const sessionViewModels = useMemo(
@@ -208,10 +185,10 @@ export function HistoryScreen({
     [getSessionLogs, sessions],
   );
   const filteredSessions = useMemo(
-    () => filterHistorySessionViewModels(sessionViewModels, { query: searchQuery, filter: historyFilter }),
-    [historyFilter, searchQuery, sessionViewModels],
+    () => filterHistorySessionViewModels(sessionViewModels, { query: searchQuery, filter: 'all' }),
+    [searchQuery, sessionViewModels],
   );
-  const filtersActive = historyFilter !== 'all' || searchQuery.trim().length > 0;
+  const filtersActive = searchQuery.trim().length > 0;
 
   /* ── session detail ─────────────────────────────────────────────────── */
   if (selectedSession) {
@@ -375,9 +352,6 @@ export function HistoryScreen({
   }
 
   /* ── session list ───────────────────────────────────────────────────── */
-  const reviewCount = sessionViewModels.filter(
-    (session) => session.skippedExercises > 0 || session.partialExercises > 0,
-  ).length;
 
   return (
     <View style={styles.screen}>
@@ -401,29 +375,12 @@ export function HistoryScreen({
                 selectionColor={theme.purple}
                 style={styles.searchInput}
               />
-              <View style={styles.filterRow}>
-                {HISTORY_FILTERS.map((filter) => {
-                  const active = filter.key === historyFilter;
-                  return (
-                    <Pressable
-                      key={filter.key}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => setHistoryFilter(filter.key)}
-                      style={[styles.filterChip, active && styles.filterChipActive]}
-                    >
-                      <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                        {t(language, filter.labelKey)}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              {/* A list of what happened, and a search over it. The review /
+                  tracked filter chips and their "N tarkistettavaa" count are
+                  gone: they were a triage layer over a history, and a history
+                  is not a to-do list. */}
               <Text style={styles.browseMeta}>
-                {t(language, 'history.browse.meta', {
-                  sessions: filteredSessions.length,
-                  review: reviewCount,
-                })}
+                {t(language, 'history.browse.meta', { sessions: filteredSessions.length })}
               </Text>
             </View>
 
@@ -534,31 +491,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 14.5,
     fontWeight: '700',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterChip: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: HAIRLINE,
-    backgroundColor: theme.bg,
-  },
-  filterChipActive: {
-    backgroundColor: theme.purpleSoft,
-    borderColor: theme.purple,
-  },
-  filterChipText: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '800',
-  },
-  filterChipTextActive: {
-    color: theme.purple,
   },
   browseMeta: {
     color: theme.faint,
