@@ -155,7 +155,11 @@ import {
   resolveProgramTrainingDays,
   WEEKDAY_KEYS,
 } from './src/lib/programTrainingDays';
-import { planLabelsFromWeekdays, weekdaysFromPlanLabels } from './src/lib/trainingWeekSync';
+import {
+  planLabelsForProgramme,
+  planLabelsFromWeekdays,
+  weekdaysFromPlanLabels,
+} from './src/lib/trainingWeekSync';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
 import {
   countPlanSessionsInRange,
@@ -1853,9 +1857,14 @@ function VinhaApp() {
       return;
     }
 
-    const dayLabels = preferences.setupAvailableDays.length > 0
-      ? preferences.setupAvailableDays
-      : DEFAULT_RHYTHM_BY_DAYS[preferences.setupDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+    // The programme's own week leads. This read availability alone and fell
+    // back to a three-day default, and the plan then dealt sessions round-robin
+    // across whatever labels it got — so a six-session programme ran on three
+    // days, twice over, and every programme became a three-day programme.
+    const dayLabels = planLabelsForProgramme(
+      template.sessions.length,
+      preferences.setupAvailableDays,
+    );
 
     const plan = buildReadyProgramWorkoutPlan({
       workoutTemplateId,

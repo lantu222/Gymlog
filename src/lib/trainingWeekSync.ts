@@ -19,6 +19,7 @@
  * letting the app derive them.
  */
 
+import { DEFAULT_RHYTHM_BY_DAYS } from './firstRunSetup';
 import { SetupWeekday } from '../types/models';
 import { WEEKDAY_INDEX, WEEKDAY_KEYS, resolveProgramTrainingDays } from './programTrainingDays';
 
@@ -69,4 +70,37 @@ export function planLabelsFromWeekdays(
   }
 
   return placed.map((index) => WEEKDAY_KEYS[index]);
+}
+
+/**
+ * The weekdays a programme should run on when it is taken into use.
+ *
+ * Adoption used to read the reader's availability and nothing else, falling
+ * back to a hardcoded three-day rhythm when the setup had never asked. The
+ * plan then dealt sessions round-robin across those labels, so a six-session
+ * programme got Mon/Wed/Fri twice and ran as a three-day programme. Every
+ * programme became a three-day programme, whatever its own week said.
+ *
+ * The session count leads now. Availability places the days when it can hold
+ * them; when it cannot — too few days chosen, or none — the programme's own
+ * count picks the rhythm, because halving a programme silently is a worse
+ * answer than starting it on days the reader can still move.
+ */
+export function planLabelsForProgramme(
+  sessionCount: number,
+  availableDays: readonly SetupWeekday[],
+): SetupWeekday[] {
+  const sessions = Math.max(1, Math.min(7, Math.round(sessionCount) || 1));
+  const placed = planLabelsFromWeekdays(sessions, availableDays);
+  if (placed) {
+    return placed;
+  }
+  if (sessions === 1) {
+    // One session: the reader's first open day, or Monday.
+    return [availableDays[0] ?? 'mon'];
+  }
+  if (sessions === 7) {
+    return ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  }
+  return [...DEFAULT_RHYTHM_BY_DAYS[sessions as 2 | 3 | 4 | 5 | 6]];
 }
