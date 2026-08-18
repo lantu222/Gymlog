@@ -23,6 +23,8 @@ const {
   findGuidedLibraryIndex,
   getGuidedInitials,
   isGuidedExerciseOut,
+  getGuidedStepAnchor,
+  findGuidedStepIndexByAnchor,
   GUIDED_POSITION_SECONDS,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
@@ -477,6 +479,55 @@ module.exports = [
       assert.equal(resolveGuidedResumeIndex(steps, null, allDone), 17);
       assert.equal(steps[17].type, 'splash');
       assert.equal(findGuidedPhaseStart(steps, 'cooldown'), 17);
+    },
+  },
+  {
+    name: 'resume: the anchor finds the same step after the plan changes shape',
+    run() {
+      // Seen on a phone: a session left on Takakyykky set 2, then Takakyykky
+      // skipped and the app relaunched. The plan was rebuilt without it, the
+      // stored index now pointed inside the next lift, and the entry screen
+      // offered "Jatka treeniä · Penkkipunnerrus sarja 2" for a session that
+      // had never touched the bench. The anchor names the step, not its seat.
+      const before = buildPlan().steps;
+      const bSet1 = before.findIndex((s) => s.type === 'set' && s.slotId === 'b' && s.setIndex === 1);
+      const anchor = getGuidedStepAnchor(before[bSet1]);
+      assert.deepEqual(anchor, { type: 'set', phase: 'work', slotId: 'b', setIndex: 1 });
+
+      // Now lift a is skipped: the plan is shorter and every later index shifts.
+      const after = buildGuidedSteps({
+        warmup: WARMUP,
+        exercises: [{ ...EXERCISES[0], skipped: true }, EXERCISES[1]],
+        cooldown: COOLDOWN,
+      }).steps;
+      const none = () => false;
+      const resumed = resolveGuidedResumeIndex(after, bSet1, none, anchor);
+      assert.equal(after[resumed].type, 'set');
+      assert.equal(after[resumed].slotId, 'b');
+      assert.equal(after[resumed].setIndex, 1);
+      // The bare index would have landed somewhere else entirely.
+      assert.notEqual(resumed, bSet1);
+
+      // Anchored to a step that left the plan → neither the anchor nor the
+      // stale index is trusted; land from the sets like a fresh resume.
+      const aSet2 = before.findIndex((s) => s.type === 'set' && s.slotId === 'a' && s.setIndex === 2);
+      const goneAnchor = getGuidedStepAnchor(before[aSet2]);
+      assert.equal(findGuidedStepIndexByAnchor(after, goneAnchor), null);
+      assert.equal(resolveGuidedResumeIndex(after, aSet2, none, goneAnchor), 0);
+      // With b:0 done it lands on b's next set instead.
+      const bDone0 = (slotId, setIndex) => slotId === 'b' && setIndex === 0;
+      const landed = resolveGuidedResumeIndex(after, aSet2, bDone0, goneAnchor);
+      assert.equal(after[landed].type, 'set');
+      assert.equal(after[landed].setIndex, 1);
+
+      // Drills anchor by name, and survive an exercise leaving too.
+      const drill = before.findIndex((s) => s.type === 'drill');
+      const drillAnchor = getGuidedStepAnchor(before[drill]);
+      assert.equal(after[findGuidedStepIndexByAnchor(after, drillAnchor)].drillName, before[drill].drillName);
+
+      // No anchor at all (a session persisted before this existed): the index
+      // still works as before.
+      assert.equal(resolveGuidedResumeIndex(before, 3, none, null), 3);
     },
   },
   {

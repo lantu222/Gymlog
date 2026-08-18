@@ -15,6 +15,7 @@ import { parseNumberInput, removeTrailingZeros } from './format';
 // that loop stays a type relationship and never becomes a module cycle.
 import type { SessionRoutineBlock } from './homeSessionHero';
 import { t } from './i18n';
+import type { GuidedResumeAnchor } from '../features/workout/workoutTypes';
 import { AppLanguage } from '../types/models';
 
 export type GuidedPhase = 'warmup' | 'work' | 'cooldown';
@@ -588,14 +589,69 @@ export function resolveGuidedSetTarget(
 }
 
 /**
- * Where to resume. A stored index wins (clamped, rolled forward past sets that
- * were completed meanwhile, e.g. in list view). With no stored index: the
- * first incomplete set when some sets are already logged, else the start.
+ * A step in terms that survive the plan being rebuilt — the thing to persist
+ * instead of (as well as) its index. See GuidedResumeAnchor.
+ */
+export function getGuidedStepAnchor(step: GuidedStep): GuidedResumeAnchor {
+  switch (step.type) {
+    case 'finish':
+      return { type: 'finish', phase: null };
+    case 'splash':
+      return { type: 'splash', phase: step.phase };
+    case 'ready':
+    case 'drill':
+      return { type: step.type, phase: step.phase, drillName: step.drillName };
+    case 'position':
+      return { type: 'position', phase: 'work', slotId: step.slotId };
+    case 'set':
+    case 'rest':
+      return { type: step.type, phase: 'work', slotId: step.slotId, setIndex: step.setIndex };
+  }
+}
+
+/** The index of the step an anchor names in *this* list, or null if it is gone. */
+export function findGuidedStepIndexByAnchor(steps: GuidedStep[], anchor: GuidedResumeAnchor): number | null {
+  const index = steps.findIndex((step) => {
+    if (step.type !== anchor.type) {
+      return false;
+    }
+    switch (step.type) {
+      case 'finish':
+        return true;
+      case 'splash':
+        return step.phase === anchor.phase;
+      case 'ready':
+      case 'drill':
+        return step.phase === anchor.phase && step.drillName === anchor.drillName;
+      case 'position':
+        return step.slotId === anchor.slotId;
+      case 'set':
+      case 'rest':
+        return step.slotId === anchor.slotId && step.setIndex === anchor.setIndex;
+    }
+  });
+  return index >= 0 ? index : null;
+}
+
+/**
+ * Where to resume. An anchor wins when its step still exists (rolled forward
+ * past sets completed meanwhile). Failing that a stored index (clamped, rolled
+ * forward). With neither: the first incomplete set when some sets are already
+ * logged, else the start.
+ *
+ * The anchor is what makes this survive a rebuilt plan. Skipping a lift, or
+ * updating the app, changes the step list's shape; an index into the old list
+ * then names a different step, and the entry screen offered to resume
+ * "Penkkipunnerrus sarja 2" in a session that had never touched the bench.
+ * When the anchored step is gone — the lift it belonged to left the plan —
+ * the index is not trusted either: it points into a list that no longer
+ * exists. The first incomplete set is the honest place to land.
  */
 export function resolveGuidedResumeIndex(
   steps: GuidedStep[],
   storedIndex: number | null | undefined,
   isSetCompleted: (slotId: string, setIndex: number) => boolean,
+  anchor?: GuidedResumeAnchor | null,
 ): number {
   const lastIndex = steps.length - 1;
   const rollForward = (from: number) => {
@@ -615,7 +671,14 @@ export function resolveGuidedResumeIndex(
     return cursor;
   };
 
-  if (typeof storedIndex === 'number' && Number.isFinite(storedIndex) && storedIndex > 0) {
+  if (anchor) {
+    const anchored = findGuidedStepIndexByAnchor(steps, anchor);
+    if (anchored !== null) {
+      return rollForward(anchored);
+    }
+    // Anchored step gone → the index is stale too. Fall through to the
+    // set-based landing below.
+  } else if (typeof storedIndex === 'number' && Number.isFinite(storedIndex) && storedIndex > 0) {
     return rollForward(storedIndex);
   }
 

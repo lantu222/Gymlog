@@ -106,6 +106,15 @@ function normalizeActiveSession(input: unknown): WorkoutSessionRuntime | null {
       noteEditorSlotId: remapSlotId(session.ui.noteEditorSlotId),
       swapSheetSlotId: remapSlotId(session.ui.swapSheetSlotId),
       expandedSlotIds: session.ui.expandedSlotIds.map((slotId) => remapSlotId(slotId) ?? slotId),
+      // The resume anchor names a slot too, and has to follow the same rename
+      // as every other slot reference here or it points at nothing.
+      guidedResumeAnchor:
+        session.ui.guidedResumeAnchor?.slotId !== undefined
+          ? {
+              ...session.ui.guidedResumeAnchor,
+              slotId: remapSlotId(session.ui.guidedResumeAnchor.slotId) ?? session.ui.guidedResumeAnchor.slotId,
+            }
+          : session.ui.guidedResumeAnchor,
     },
   };
 }

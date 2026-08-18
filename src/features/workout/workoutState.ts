@@ -8,7 +8,7 @@ import {
 } from '../../lib/cardio';
 import { CardioActivityType } from '../../types/models';
 import { isUnloadedTrackingMode } from './workoutTypes';
-import { WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
+import { GuidedResumeAnchor, WorkoutTemplateExercise, WorkoutExerciseInsertInput, WorkoutExerciseInstance, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRestTimerState, WorkoutRuntimeTemplate, WorkoutSessionMaterializeOptions, WorkoutSessionRuntime, WorkoutSessionSummary, WorkoutSetDraftInput, WorkoutSetEffort, WorkoutSetInstance, WorkoutSlotHistoryEntry, WorkoutSlotHistorySet, WorkoutStatus, WorkoutUiState, WorkoutExerciseStatus } from './workoutTypes';
 import { getWorkoutTemplateById } from './workoutCatalog';
 import { resolveProgressedLoadKg } from '../../lib/progressionGate';
 import { findHistoricalSetForIndex, findLatestEntryForExerciseName } from '../../lib/exerciseHistoryLookup';
@@ -75,7 +75,7 @@ export type WorkoutAction =
   | { type: 'timer/resume'; payload: { nowMs: number } }
   | { type: 'timer/override'; payload: { durationSeconds: number; nowMs: number } }
   | { type: 'timer/clear' }
-  | { type: 'session/setGuidedStep'; payload: { stepIndex: number } }
+  | { type: 'session/setGuidedStep'; payload: { stepIndex: number; anchor?: GuidedResumeAnchor } }
   | { type: 'cardio/start'; payload: { activityType: CardioActivityType; nowMs: number } }
   | { type: 'cardio/pause'; payload: { nowMs: number } }
   | { type: 'cardio/resume'; payload: { nowMs: number } }
@@ -1162,8 +1162,14 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         },
       };
 
-    case 'session/setGuidedStep':
-      if (!state.activeSession || state.activeSession.ui.guidedStepIndex === action.payload.stepIndex) {
+    case 'session/setGuidedStep': {
+      if (!state.activeSession) {
+        return state;
+      }
+      const { ui } = state.activeSession;
+      const sameAnchor =
+        JSON.stringify(ui.guidedResumeAnchor ?? null) === JSON.stringify(action.payload.anchor ?? null);
+      if (ui.guidedStepIndex === action.payload.stepIndex && sameAnchor) {
         return state;
       }
       return {
@@ -1171,11 +1177,13 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         activeSession: {
           ...state.activeSession,
           ui: {
-            ...state.activeSession.ui,
+            ...ui,
             guidedStepIndex: action.payload.stepIndex,
+            guidedResumeAnchor: action.payload.anchor,
           },
         },
       };
+    }
 
     case 'cardio/start':
       return {

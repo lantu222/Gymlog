@@ -4,7 +4,7 @@ import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_TEMPLATES_V1, getWorkoutTemplateById, getWorkoutTemplateSessions } from './workoutCatalog';
 import { loadWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
-import { WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
+import { GuidedResumeAnchor, WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
 import {
   WorkoutFeatureState,
   workoutInitialState,
@@ -55,7 +55,7 @@ interface WorkoutContextValue {
     unitPreference: UnitPreference,
   ) => void;
   updateNotes: (slotId: string, notes: string) => void;
-  setGuidedStep: (stepIndex: number) => void;
+  setGuidedStep: (stepIndex: number, anchor?: GuidedResumeAnchor) => void;
   activeCardio: ActiveCardioSession | null;
   startCardio: (activityType: CardioActivityType) => void;
   pauseCardio: () => void;
@@ -224,8 +224,8 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       updateNotes(slotId, notes) {
         dispatch({ type: 'exercise/updateNotes', payload: { slotId, notes } });
       },
-      setGuidedStep(stepIndex) {
-        dispatch({ type: 'session/setGuidedStep', payload: { stepIndex } });
+      setGuidedStep(stepIndex, anchor) {
+        dispatch({ type: 'session/setGuidedStep', payload: { stepIndex, anchor } });
       },
       activeCardio: state.activeCardio,
       startCardio(activityType) {
