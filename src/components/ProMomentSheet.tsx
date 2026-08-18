@@ -1,6 +1,9 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import React, { useEffect, useRef, useState } from 'react';
+import { Animated, Easing, LayoutChangeEvent, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
+
+import { CutSurface } from './CutSurface';
+import { CUT_BY_SIZE, cutCornerPath } from '../lib/cutCorner';
 
 import { ProMomentContent } from '../lib/proInsights';
 import { formatWeight } from '../lib/format';
@@ -16,6 +19,10 @@ import { AppLanguage } from '../types/models';
  *
  * The CTA is honest: billing is not live, so it says what Pro does and routes
  * to the Pro page instead of promising a trial that does not exist.
+ *
+ * A3: the sheet keeps its gradient but takes the cut — the gradient is drawn
+ * inside the cut path rather than a rounded rect, so the corner is the same
+ * gesture as every card on Home. The chart panel and the CTA are cut surfaces.
  */
 interface ProMomentSheetProps {
   visible: boolean;
@@ -27,6 +34,13 @@ interface ProMomentSheetProps {
 
 export function ProMomentSheet({ visible, content, language, onClose, onSeePro }: ProMomentSheetProps) {
   const styles = useThemedStyles(makeStyles);
+  const [box, setBox] = useState({ width: 0, height: 0 });
+  const onLayout = (event: LayoutChangeEvent) => {
+    const { width, height } = event.nativeEvent.layout;
+    if (width !== box.width || height !== box.height) {
+      setBox({ width, height });
+    }
+  };
   const slide = useRef(new Animated.Value(0)).current;
   const slideTranslate = useRef(slide.interpolate({ inputRange: [0, 1], outputRange: [420, 0] })).current;
 
@@ -51,17 +65,22 @@ export function ProMomentSheet({ visible, content, language, onClose, onSeePro }
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.scrim} onPress={onClose}>
         <Animated.View style={{ transform: [{ translateY: slideTranslate }] }}>
-          <Pressable onPress={() => undefined} style={styles.sheet}>
-            <Svg style={StyleSheet.absoluteFill} width="100%" height="100%">
-              <Defs>
-                <SvgLinearGradient id="pwSheetGradient" x1="0" y1="0" x2="0.4" y2="1">
-                  <Stop offset="0" stopColor={PW.sheetTop} />
-                  <Stop offset="0.62" stopColor={PW.sheetMid} />
-                  <Stop offset="1" stopColor={PW.sheetBottom} />
-                </SvgLinearGradient>
-              </Defs>
-              <Rect width="100%" height="100%" rx={28} fill="url(#pwSheetGradient)" />
-            </Svg>
+          <Pressable onPress={() => undefined} style={styles.sheet} onLayout={onLayout}>
+            {box.width > 0 && box.height > 0 ? (
+              <Svg style={StyleSheet.absoluteFill} width={box.width} height={box.height} pointerEvents="none">
+                <Defs>
+                  <SvgLinearGradient id="pwSheetGradient" x1="0" y1="0" x2="0.4" y2="1">
+                    <Stop offset="0" stopColor={PW.sheetTop} />
+                    <Stop offset="0.62" stopColor={PW.sheetMid} />
+                    <Stop offset="1" stopColor={PW.sheetBottom} />
+                  </SvgLinearGradient>
+                </Defs>
+                {/* The sheet runs off the bottom of the screen, so only the
+                    top edge is ever seen: the cut on the left, the matching
+                    radius on the right. */}
+                <Path d={cutCornerPath(box.width, box.height + 40, CUT_BY_SIZE.lg)} fill="url(#pwSheetGradient)" />
+              </Svg>
+            ) : null}
 
             <View style={styles.grip} />
             <View style={styles.eyebrowRow}>
@@ -73,9 +92,15 @@ export function ProMomentSheet({ visible, content, language, onClose, onSeePro }
             <Text style={styles.title}>{content.title}</Text>
             <Text style={styles.lead}>{content.lead}</Text>
 
-            <View style={styles.chartCard}>
+            <CutSurface
+              size="md"
+              fill="rgba(255,255,255,0.07)"
+              stroke="rgba(255,255,255,0.12)"
+              strokeWidth={1}
+              style={styles.chartCard}
+            >
               <BarsBlock content={content} language={language} />
-            </View>
+            </CutSurface>
 
             <View style={styles.bullets}>
               {content.bullets.map((bullet) => (
@@ -91,9 +116,13 @@ export function ProMomentSheet({ visible, content, language, onClose, onSeePro }
             <Pressable
               accessibilityRole="button"
               onPress={onSeePro}
-              style={({ pressed }) => [styles.cta, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.ctaWrap, pressed && styles.pressed]}
             >
-              <Text style={styles.ctaText}>{t(language, 'pro.sheet.cta')}</Text>
+              {/* White on the gradient, so not the purple CutButton — the same
+                  cut, the sheen the primary carries, this sheet's own colour. */}
+              <CutSurface size="lg" fill="#FFFFFF" sheen={{ left: 15, width: 13, opacity: 0.35 }} style={styles.cta}>
+                <Text style={styles.ctaText}>{t(language, 'pro.sheet.cta')}</Text>
+              </CutSurface>
             </Pressable>
             <Text style={styles.fine}>{t(language, 'pro.sheet.fine')}</Text>
             <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8}>
@@ -156,9 +185,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    overflow: 'hidden',
     paddingTop: 12,
     paddingHorizontal: 20,
     paddingBottom: 22,
@@ -198,10 +224,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   chartCard: {
     marginTop: 18,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 18,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
@@ -271,16 +293,16 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '700',
     color: 'rgba(255,255,255,0.9)',
   },
-  cta: {
+  ctaWrap: {
     marginTop: 18,
+  },
+  cta: {
     height: 54,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   pressed: {
-    opacity: 0.88,
+    transform: [{ translateY: 1 }, { scale: 0.985 }],
   },
   ctaText: {
     fontSize: 16,

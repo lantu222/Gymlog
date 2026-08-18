@@ -2,9 +2,10 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 
+import { CutSurface } from './CutSurface';
 import { t } from '../lib/i18n';
 import { PW } from '../lightTheme';
-import { Theme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
 /**
@@ -15,6 +16,10 @@ import { AppLanguage } from '../types/models';
  * (src/lib/proInsights.ts) — never a generic feature list. RN has no CSS blur
  * for text, so the blur is transparent ink + a soft text shadow, which reads
  * the same and stays selectable-proof.
+ *
+ * A3: the card is a dashed cut surface — dashed is the set's word for "an
+ * opening, not a card" (the Create-programme row uses it the same way), and a
+ * locked conclusion is exactly that. The PRO badge is the cut chip.
  */
 export function ProLockIcon({ color = PW.proInk, size = 13 }: { color?: string; size?: number }) {
   return (
@@ -27,11 +32,12 @@ export function ProLockIcon({ color = PW.proInk, size = 13 }: { color?: string; 
 
 export function ProPill({ label = 'PRO' }: { label?: string }) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
 
   return (
-    <View style={styles.pill}>
+    <CutSurface size="chip" fill={theme.purple} style={styles.pill}>
       <Text style={styles.pillText}>{label}</Text>
-    </View>
+    </CutSurface>
   );
 }
 
@@ -49,14 +55,23 @@ interface ProLockedCardProps {
 
 export function ProLockedCard({ language, teaser, body, cta, compact, onPress }: ProLockedCardProps) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
 
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={teaser}
       onPress={onPress}
-      style={({ pressed }) => [styles.card, compact && styles.cardCompact, pressed && styles.pressed]}
+      style={({ pressed }) => [pressed && styles.pressed]}
     >
+      <CutSurface
+        size="md"
+        fill={theme.purpleLight}
+        stroke={theme.purple}
+        strokeWidth={1.5}
+        dashed
+        style={[styles.card, compact && styles.cardCompact]}
+      >
       <View style={styles.headRow}>
         <ProLockIcon />
         <Text style={styles.teaser} numberOfLines={2}>
@@ -76,17 +91,13 @@ export function ProLockedCard({ language, teaser, body, cta, compact, onPress }:
         <View style={styles.hiddenScrim} pointerEvents="none" />
       </View>
       <Text style={styles.cta}>{cta ?? t(language, 'pro.locked.cta')} →</Text>
+      </CutSurface>
     </Pressable>
   );
 }
 
 const makeStyles = (theme: Theme) => StyleSheet.create({
   card: {
-    backgroundColor: theme.purpleLight,
-    borderWidth: 1.5,
-    borderColor: theme.purple,
-    borderStyle: 'dashed',
-    borderRadius: 14,
     paddingVertical: 13,
     paddingHorizontal: 14,
   },
@@ -95,7 +106,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 13,
   },
   pressed: {
-    opacity: 0.85,
+    transform: [{ translateY: 1 }, { scale: 0.985 }],
   },
   headRow: {
     flexDirection: 'row',
@@ -109,8 +120,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: PW.proInk,
   },
   pill: {
-    backgroundColor: theme.purple,
-    borderRadius: 6,
     paddingVertical: 3,
     paddingHorizontal: 7,
   },

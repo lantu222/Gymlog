@@ -5,6 +5,8 @@ import Svg, { Path } from 'react-native-svg';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
+import { CutButton } from '../components/CutButton';
+import { CutSurface } from '../components/CutSurface';
 import { t } from '../lib/i18n';
 import { redeemPromoCode } from '../lib/promoCodes';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -48,11 +50,13 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
           accessibilityRole="button"
           accessibilityLabel={t(language, 'common.back')}
           onPress={onBack}
-          style={({ pressed }) => [styles.backButton, pressed && { opacity: 0.75 }]}
+          style={({ pressed }) => [pressed && styles.pressed]}
         >
-          <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
-            <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
-          </Svg>
+          <CutSurface size="sm" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.backButton}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+              <Path d="M15 5l-7 7 7 7" stroke={theme.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </CutSurface>
         </Pressable>
         <ScreenHeaderTitle title={t(language, 'promo.title')} />
       </View>
@@ -76,7 +80,7 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
         </View>
 
         {promoActive ? (
-          <View style={[styles.card, styles.activeCard]}>
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.activeCard]}>
             <View style={styles.activeCheck}>
               <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                 <Path d="M5 12l5 5L19 7" stroke="#157A3A" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" />
@@ -86,9 +90,9 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
             <Text style={styles.activeSub}>
               {t(language, 'promo.proUntil', { date: formatDate(promoProUntil!, language) })}
             </Text>
-          </View>
+          </CutSurface>
         ) : (
-          <View style={[styles.card, styles.redeemCard]}>
+          <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.redeemCard]}>
             <TextInput
               value={code}
               onChangeText={(next) => {
@@ -101,19 +105,13 @@ export function PromoCodeScreen({ promoProUntil, language = 'en', onBack, onRede
               autoCorrect={false}
               style={styles.input}
             />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: code.trim().length === 0 }}
+            <CutButton
+              size="md"
+              variant={code.trim().length === 0 ? 'disabled' : 'primary'}
+              label={t(language, 'promo.apply')}
               onPress={handleApply}
-              style={({ pressed }) => [
-                styles.applyButton,
-                code.trim().length === 0 && styles.applyButtonDisabled,
-                pressed && code.trim().length > 0 && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={styles.applyButtonText}>{t(language, 'promo.apply')}</Text>
-            </Pressable>
-          </View>
+            />
+          </CutSurface>
         )}
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
       </ScrollView>
@@ -135,12 +133,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   backButton: {
     width: 40,
     height: 40,
-    borderRadius: 12,
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pressed: {
+    transform: [{ translateY: 1 }, { scale: 0.985 }],
   },
   body: {
     paddingTop: 4,
@@ -173,10 +170,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 4,
   },
   card: {
-    backgroundColor: theme.surface,
-    borderWidth: 1,
-    borderColor: theme.border,
-    borderRadius: 18,
     ...CARD_SHADOW,
   },
   redeemCard: {
@@ -194,22 +187,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     color: theme.ink,
     fontSize: 14.5,
     fontWeight: '700',
-  },
-  applyButton: {
-    height: 46,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    backgroundColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  applyButtonDisabled: {
-    backgroundColor: '#D8D2E6',
-  },
-  applyButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14.5,
-    fontWeight: '800',
   },
   errorText: {
     color: '#C0392B',

@@ -177,7 +177,6 @@ export function AiProgramComposerScreen({
           label={busy === 'composing' ? t(language, 'aiCompose.composing') : t(language, 'aiCompose.compose')}
           variant={canCompose ? 'primary' : 'disabled'}
           onPress={handleCompose}
-          stretch
         />
 
         {busy === 'composing' ? <ActivityIndicator color={theme.purple} style={styles.spinner} /> : null}
@@ -220,7 +219,6 @@ export function AiProgramComposerScreen({
                 label={busy === 'saving' ? t(language, 'aiCompose.saving') : t(language, 'aiCompose.save')}
                 variant={busy === 'idle' ? 'primary' : 'disabled'}
                 onPress={handleSave}
-                stretch
               />
               <Pressable onPress={handleCompose} hitSlop={8} style={styles.again} disabled={busy !== 'idle'}>
                 <Text style={styles.againText}>{t(language, 'aiCompose.again')}</Text>

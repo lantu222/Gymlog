@@ -5,6 +5,7 @@ import Svg, { Circle, Defs, LinearGradient as SvgLinearGradient, G, Path, Rect, 
 
 import { WORKOUT_TEMPLATES_V1 } from '../features/workout/workoutCatalog';
 import { PRO_TRIAL_ENABLED } from '../lib/proEntitlement';
+import { CutSurface } from '../components/CutSurface';
 import { t } from '../lib/i18n';
 import { AppLanguage } from '../types/models';
 
@@ -188,7 +189,7 @@ export function ProPaywallScreen({
           {/* Built for you — quotes the questionnaire's own answers back. */}
           <View>
             <PwLabel>{t(language, 'paywall.built.label')}</PwLabel>
-            <View style={[styles.card, styles.builtCard]}>
+            <CutSurface size="lg" fill="#241B4A" stroke={PW.border} strokeWidth={1} style={styles.card}>
               <View style={styles.builtHead}>
                 <View style={styles.builtIcon}>
                   <PwIcon name="target" size={21} />
@@ -208,13 +209,13 @@ export function ProPaywallScreen({
                   </View>
                 ))}
               </View>
-            </View>
+            </CutSurface>
           </View>
 
           {/* What you get */}
           <View>
             <PwLabel>{t(language, 'paywall.benefits.label')}</PwLabel>
-            <View style={[styles.card, styles.benefitCard]}>
+            <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.benefitCard]}>
               {benefits.map(([icon, title, body], index) => (
                 <View key={title} style={[styles.benefitRow, index > 0 && styles.benefitRowDivided]}>
                   <View style={styles.benefitIcon}>
@@ -226,13 +227,16 @@ export function ProPaywallScreen({
                   </View>
                 </View>
               ))}
-            </View>
+            </CutSurface>
           </View>
 
           {/* Free vs Pro */}
           <View>
             <PwLabel>{t(language, 'paywall.vs.label')}</PwLabel>
-            <View style={styles.compareFrame}>
+            {/* One fill for the whole frame. The per-column fills went: a filled
+                cell shows a square corner through the cut, and the head text
+                plus the check already tell the two columns apart. */}
+            <CutSurface size="lg" fill={PW.surface} stroke={PW.border} strokeWidth={1} style={styles.compareFrame}>
               <View style={styles.compareRow}>
                 <Text style={[styles.compareHeadCell, styles.compareFreeHead]}>{t(language, 'paywall.vs.free')}</Text>
                 <Text style={[styles.compareHeadCell, styles.compareProHead]}>{t(language, 'paywall.vs.pro')}</Text>
@@ -246,13 +250,13 @@ export function ProPaywallScreen({
                   </View>
                 </View>
               ))}
-            </View>
+            </CutSurface>
           </View>
 
           {/* Your first month */}
           <View>
             <PwLabel>{t(language, 'paywall.month.label')}</PwLabel>
-            <View style={[styles.card, styles.journeyCard]}>
+            <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.journeyCard]}>
               <View style={styles.journeyRow}>
                 {journey.map(([icon, step, note], index) => (
                   <React.Fragment key={step}>
@@ -271,7 +275,7 @@ export function ProPaywallScreen({
                   </React.Fragment>
                 ))}
               </View>
-            </View>
+            </CutSurface>
           </View>
 
           {/* Plans */}
@@ -280,11 +284,15 @@ export function ProPaywallScreen({
               accessibilityRole="button"
               accessibilityState={{ selected: plan === 'year' }}
               onPress={() => setPlan('year')}
-              style={[styles.planCard, plan === 'year' && styles.planCardOn]}
+              style={({ pressed }) => [styles.planCardWrap, pressed && styles.pressed]}
             >
-              <View style={styles.planBadge}>
-                <Text style={styles.planBadgeText}>{t(language, 'paywall.plan.save')}</Text>
-              </View>
+              <CutSurface
+                size="lg"
+                fill={plan === 'year' ? 'rgba(155,109,255,0.14)' : PW.surface}
+                stroke={plan === 'year' ? PW.purple : PW.border}
+                strokeWidth={1.5}
+                style={styles.planCard}
+              >
               <Text style={[styles.planTitle, plan === 'year' && styles.planTitleOn]}>
                 {t(language, 'paywall.plan.yearly')}
               </Text>
@@ -295,17 +303,30 @@ export function ProPaywallScreen({
               <Text style={[styles.planNote, plan === 'year' && styles.planNoteOn]}>
                 {t(language, 'paywall.plan.yearly.note')}
               </Text>
-              <View style={styles.planWeek}>
+              <CutSurface size="chip" fill={PW.purpleSoft} style={styles.planWeek}>
                 <Text style={styles.planWeekText}>{t(language, 'paywall.plan.yearly.week')}</Text>
-              </View>
+              </CutSurface>
+              </CutSurface>
+              {/* Outside the surface, which clips to its shape: the badge
+                  sits over the top edge on purpose. */}
+              <CutSurface size="chip" fill="#7C3AED" style={styles.planBadge}>
+                <Text style={styles.planBadgeText}>{t(language, 'paywall.plan.save')}</Text>
+              </CutSurface>
             </Pressable>
 
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ selected: plan === 'month' }}
               onPress={() => setPlan('month')}
-              style={[styles.planCard, plan === 'month' && styles.planCardOn]}
+              style={({ pressed }) => [styles.planCardWrap, pressed && styles.pressed]}
             >
+              <CutSurface
+                size="lg"
+                fill={plan === 'month' ? 'rgba(155,109,255,0.14)' : PW.surface}
+                stroke={plan === 'month' ? PW.purple : PW.border}
+                strokeWidth={1.5}
+                style={styles.planCard}
+              >
               <Text style={[styles.planTitle, plan === 'month' && styles.planTitleOn]}>
                 {t(language, 'paywall.plan.monthly')}
               </Text>
@@ -316,6 +337,7 @@ export function ProPaywallScreen({
               <Text style={[styles.planNote, plan === 'month' && styles.planNoteOn]}>
                 {t(language, 'paywall.plan.monthly.note')}
               </Text>
+              </CutSurface>
             </Pressable>
           </View>
 
@@ -365,12 +387,17 @@ export function ProPaywallScreen({
           accessibilityLabel={t(language, trial ? 'paywall.cta' : 'paywall.cta.noTrial')}
           disabled={busy}
           onPress={onStartTrial}
-          style={({ pressed }) => [styles.cta, pressed && styles.pressed, busy && styles.ctaBusy]}
+          style={({ pressed }) => [styles.ctaWrap, pressed && styles.pressed, busy && styles.ctaBusy]}
         >
-          <Text style={styles.ctaText}>
-            {t(language, trial ? 'paywall.cta' : 'paywall.cta.noTrial')}
-          </Text>
-          <PwIcon name="arrow" size={18} color="#FFFFFF" />
+          {/* The A3 primary with its sheen, built here rather than CutButton
+              because it keeps the arrow — this is the one button on the page
+              that goes somewhere. */}
+          <CutSurface size="lg" fill="#7C3AED" sheen={{ left: 15, width: 13 }} style={styles.cta}>
+            <Text style={styles.ctaText}>
+              {t(language, trial ? 'paywall.cta' : 'paywall.cta.noTrial')}
+            </Text>
+            <PwIcon name="arrow" size={18} color="#FFFFFF" />
+          </CutSurface>
         </Pressable>
         <Text style={styles.ctaFoot}>
           {trial
@@ -408,9 +435,8 @@ const styles = StyleSheet.create({
   heroSub: { fontSize: 12.5, fontWeight: '600', color: 'rgba(255,255,255,0.74)', marginTop: 10, lineHeight: 17.5, maxWidth: 236 },
   body: { paddingHorizontal: PAD, paddingTop: 18, gap: 22 },
   sectionLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 1.6, color: PW.purple, marginBottom: 12 },
-  card: { backgroundColor: PW.card, borderWidth: 1, borderColor: PW.border, borderRadius: 18, padding: 16 },
+  card: { padding: 16 },
 
-  builtCard: { backgroundColor: '#241B4A' },
   builtHead: { flexDirection: 'row', gap: 13 },
   builtIcon: {
     width: 40,
@@ -440,21 +466,20 @@ const styles = StyleSheet.create({
   benefitTitle: { fontSize: 14.5, fontWeight: '800', color: PW.ink, letterSpacing: -0.15 },
   benefitBody: { fontSize: 12, fontWeight: '600', color: PW.muted, marginTop: 3, lineHeight: 16.8 },
 
-  compareFrame: { borderWidth: 1, borderColor: PW.border, borderRadius: 18, overflow: 'hidden' },
+  compareFrame: { overflow: 'hidden' },
   compareRow: { flexDirection: 'row' },
   compareRowDivided: { borderTopWidth: 1, borderTopColor: PW.border },
   compareHeadCell: { flex: 1, paddingVertical: 9, paddingHorizontal: 14, fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5 },
-  compareFreeHead: { color: PW.faint, backgroundColor: PW.surface },
-  compareProHead: { color: '#FFFFFF', backgroundColor: '#7C3AED' },
+  compareFreeHead: { color: PW.faint },
+  compareProHead: { color: '#C4B5FD' },
   compareCell: { flex: 1, paddingVertical: 11, paddingHorizontal: 14 },
   compareFreeCell: {
     fontSize: 12,
     fontWeight: '600',
     color: PW.faint,
-    backgroundColor: PW.surface,
     textDecorationLine: 'line-through',
   },
-  compareProCell: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(155,109,255,0.10)' },
+  compareProCell: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   compareProText: { flex: 1, fontSize: 12, fontWeight: '800', color: PW.ink },
 
   journeyCard: { paddingHorizontal: 12 },
@@ -476,25 +501,20 @@ const styles = StyleSheet.create({
   journeyArrow: { width: 12, alignItems: 'center', paddingTop: 14 },
 
   planRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  planCardWrap: { flex: 1 },
+  // flexGrow, not flex — see PremiumScreen.planCard.
   planCard: {
-    flex: 1,
-    borderRadius: 18,
+    flexGrow: 1,
     paddingTop: 14,
     paddingBottom: 15,
     paddingHorizontal: 14,
-    backgroundColor: PW.surface,
-    borderWidth: 1.5,
-    borderColor: PW.border,
   },
-  planCardOn: { backgroundColor: 'rgba(155,109,255,0.14)', borderColor: PW.purple },
   planBadge: {
     position: 'absolute',
     top: -9,
     right: 12,
-    backgroundColor: '#7C3AED',
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 999,
   },
   planBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.9, color: '#FFFFFF' },
   planTitle: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: PW.faint },
@@ -507,10 +527,8 @@ const styles = StyleSheet.create({
   planWeek: {
     alignSelf: 'flex-start',
     marginTop: 10,
-    backgroundColor: PW.purpleSoft,
     paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 999,
   },
   planWeekText: { fontSize: 10.5, fontWeight: '800', color: '#DDD1FF' },
 
@@ -533,24 +551,24 @@ const styles = StyleSheet.create({
 
   topScrim: { position: 'absolute', left: 0, right: 0, top: 0, height: 74 },
   footer: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: PAD, paddingTop: 22, paddingBottom: 18 },
-  cta: {
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: '#7C3AED',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 9,
+  ctaWrap: {
     shadowColor: '#6D28D9',
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.5,
     shadowRadius: 34,
     elevation: 10,
   },
+  cta: {
+    height: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+  },
   ctaBusy: { opacity: 0.6 },
   ctaText: { fontSize: 17, fontWeight: '800', color: '#FFFFFF' },
   ctaFoot: { fontSize: 11.5, fontWeight: '600', color: PW.faint, textAlign: 'center', marginTop: 10 },
   later: { alignSelf: 'center', marginTop: 11 },
   laterText: { fontSize: 12.5, fontWeight: '700', color: PW.muted },
-  pressed: { opacity: 0.9 },
+  pressed: { transform: [{ translateY: 1 }, { scale: 0.985 }] },
 });
