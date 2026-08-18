@@ -58,7 +58,7 @@ export function ProgramLimitSheet({
               </Text>
             </CutSurface>
             <View style={styles.actions}>
-              <CutButton size="lg" label={t(language, 'programLimit.cta')} onPress={onSeePro} stretch />
+              <CutButton size="lg" label={t(language, 'programLimit.cta')} onPress={onSeePro} />
               <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8} style={styles.later}>
                 <Text style={styles.laterText}>{t(language, 'programLimit.later')}</Text>
               </Pressable>

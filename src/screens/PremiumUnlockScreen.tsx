@@ -203,7 +203,7 @@ export function PremiumUnlockScreen({
       </ScrollView>
 
       <Animated.View style={[styles.ctaBar, { opacity: ctaFade, paddingBottom: insets.bottom + 12 }]}>
-        <CutButton size="lg" label={t(language, 'unlock.cta')} onPress={onDone} stretch />
+        <CutButton size="lg" label={t(language, 'unlock.cta')} onPress={onDone} />
       </Animated.View>
     </View>
   );

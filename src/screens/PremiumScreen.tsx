@@ -625,7 +625,6 @@ export function PremiumScreen({
               variant="secondary"
               label={t(language, promoOnly ? 'subs.manageMembership' : 'settings.demoPro')}
               onPress={promoOnly ? onManageSubscription : onTogglePreview}
-              stretch
             />
           </>
         ) : (
@@ -636,7 +635,6 @@ export function PremiumScreen({
               size="lg"
               label={t(language, PRO_TRIAL_ENABLED ? 'pro.v2.cta' : 'pro.v2.cta.noTrial')}
               onPress={onTogglePreview}
-              stretch
             />
             <Text style={styles.ctaFine}>
               {t(
@@ -1057,8 +1055,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   planCardWrap: {
     flex: 1,
   },
+  // flexGrow, not flex: the surface sits in a Pressable whose height comes
+  // from the row (the two cards stretch to the taller one). flex: 1 gives
+  // it a zero basis and it collapses; flexGrow keeps the content height and
+  // grows into whatever the row adds.
   planCard: {
-    flex: 1,
+    flexGrow: 1,
     paddingVertical: 15,
     paddingHorizontal: 15,
   },

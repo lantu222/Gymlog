@@ -502,8 +502,9 @@ const styles = StyleSheet.create({
 
   planRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
   planCardWrap: { flex: 1 },
+  // flexGrow, not flex — see PremiumScreen.planCard.
   planCard: {
-    flex: 1,
+    flexGrow: 1,
     paddingTop: 14,
     paddingBottom: 15,
     paddingHorizontal: 14,

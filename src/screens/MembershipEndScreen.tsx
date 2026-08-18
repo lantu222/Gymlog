@@ -123,7 +123,7 @@ export function MembershipEndScreen({
       </ScrollView>
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
-        <CutButton size="lg" label={t(language, 'membership.end.keepCta')} onPress={onKeep} stretch />
+        <CutButton size="lg" label={t(language, 'membership.end.keepCta')} onPress={onKeep} />
 
         {plan.canEndNow ? (
           // The destructive one is the set's warn variant, not a red of its own:
@@ -133,7 +133,6 @@ export function MembershipEndScreen({
             variant="warn"
             label={t(language, 'membership.end.endCta')}
             onPress={onEndNow}
-            stretch
             style={styles.endButton}
           />
         ) : (
