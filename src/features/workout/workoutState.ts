@@ -492,12 +492,25 @@ function buildSummary(session: WorkoutSessionRuntime): WorkoutSessionSummary {
   };
 }
 
+/**
+ * The exercise's status, derived from its sets.
+ *
+ * `skipped` means nothing was done — every set skipped. An exercise with one
+ * logged set and the rest skipped is *done*, not skipped: the set happened,
+ * and downstream `skipped` is what drops a log from volume, set counts and
+ * records. That distinction used to be lost on "skip this exercise", which
+ * hard-set `skipped` regardless of what had been logged, so a set the
+ * completion screen celebrated as a record was gone from every stat ten
+ * seconds later.
+ */
 function finalizeExerciseStatus(exercise: WorkoutExerciseInstance): WorkoutExerciseStatus {
   if (exercise.sets.every((set) => set.status === 'skipped')) {
     return 'skipped';
   }
 
-  if (exercise.sets.every((set) => set.status === 'completed')) {
+  const hasPendingSet = exercise.sets.some((set) => set.status === 'pending');
+  if (!hasPendingSet) {
+    // Every set is settled and at least one was completed.
     return exercise.status === 'swapped' ? 'swapped' : 'completed';
   }
 
@@ -955,7 +968,10 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
               skippedReason: action.payload.reason ?? 'Skipped by user',
             },
       );
-      exercise.status = 'skipped';
+      // Derived, not hard-set: a set logged before the skip keeps the
+      // exercise out of `skipped`, and with it out of the filter that would
+      // drop that set from every stat.
+      exercise.status = finalizeExerciseStatus(exercise);
       session.restTimer = createInitialTimer();
       advanceAfterMutation(session, exerciseIndex);
       session.updatedAt = new Date().toISOString();

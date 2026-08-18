@@ -142,6 +142,30 @@ export function estimateRoutineBlockSeconds(block: SessionRoutineBlock): number 
   );
 }
 
+/**
+ * Whether the guided plan should leave an exercise out — no steps, no dots.
+ *
+ * Two different questions share the word "skipped". The session's status
+ * answers "did anything get done here", and drives what is saved: an
+ * exercise with one logged set and the rest skipped is *completed* there, so
+ * the set survives into volume and records. The plan asks "is there anything
+ * left to do here that the user did not walk away from" — and for that same
+ * exercise the answer is no: the user pressed skip. So it leaves the plan,
+ * exactly as it did when the status alone said so, while its logged set
+ * stays a set.
+ */
+export function isGuidedExerciseOut(exercise: {
+  status: string;
+  sets: ReadonlyArray<{ status: string }>;
+}): boolean {
+  if (exercise.status === 'skipped') {
+    return true;
+  }
+  const nothingPending = exercise.sets.every((set) => set.status !== 'pending');
+  const somethingSkipped = exercise.sets.some((set) => set.status === 'skipped');
+  return exercise.sets.length > 0 && nothingPending && somethingSkipped;
+}
+
 function formatBlockLength(totalSeconds: number): string {
   if (totalSeconds < 90) {
     return `~${Math.max(5, Math.round(totalSeconds / 5) * 5)} sec`;
@@ -159,7 +183,13 @@ export function buildGuidedSteps(
 ): GuidedStepPlan {
   const steps: GuidedStep[] = [];
   const groups: GuidedGroup[] = [];
-  const exercises = input.exercises.filter((exercise) => !exercise.skipped && exercise.setCount > 0);
+  // Every lift the session had, skipped ones included: this is what the
+  // header counts over. Skipped lifts get no steps, but they keep their place
+  // in the numbering — otherwise skipping two of six turned the third into
+  // "EXERCISE 1 OF 4", and the last one into "1 OF 1", because the plan is
+  // rebuilt after every skip and used to number the survivors from one.
+  const roster = input.exercises.filter((exercise) => exercise.setCount > 0);
+  const exercises = roster.filter((exercise) => !exercise.skipped);
   const totalSets = exercises.reduce((sum, exercise) => sum + exercise.setCount, 0);
 
   if (input.warmup.length > 0) {
@@ -203,8 +233,10 @@ export function buildGuidedSteps(
       sub: `${exerciseCount} · ${t(language, 'guided.count.sets', { count: totalSets })}`,
       doneLabel: input.warmup.length > 0 ? t(language, 'guided.done.warmup') : null,
     });
-    exercises.forEach((exercise, exerciseIndex) => {
+    exercises.forEach((exercise, activeIndex) => {
       const groupIndex = groups.length;
+      // Position in the full roster, not among the survivors.
+      const exerciseIndex = roster.indexOf(exercise);
       groups.push({ phase: 'work', setCount: exercise.setCount });
       steps.push({
         type: 'position',
@@ -214,7 +246,7 @@ export function buildGuidedSteps(
         seconds: GUIDED_POSITION_SECONDS,
         groupIndex,
         exerciseIndex,
-        exerciseCount: exercises.length,
+        exerciseCount: roster.length,
       });
       for (let setIndex = 0; setIndex < exercise.setCount; setIndex += 1) {
         steps.push({
@@ -226,9 +258,9 @@ export function buildGuidedSteps(
           setCount: exercise.setCount,
           groupIndex,
           exerciseIndex,
-          exerciseCount: exercises.length,
+          exerciseCount: roster.length,
         });
-        const isFinalSetOfSession = exerciseIndex === exercises.length - 1 && setIndex === exercise.setCount - 1;
+        const isFinalSetOfSession = activeIndex === exercises.length - 1 && setIndex === exercise.setCount - 1;
         if (!isFinalSetOfSession) {
           steps.push({
             type: 'rest',

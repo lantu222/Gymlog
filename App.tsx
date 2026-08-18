@@ -1561,7 +1561,11 @@ function VinhaApp() {
         durationMinutes: summary.durationMinutes,
         setsCompleted: summary.setsCompleted,
         totalVolume: summary.totalVolume,
-        exercisesLogged: summary.exercisesLogged,
+        // The tile counts lifts that were done, and it counts them off the
+        // same cards the list below draws — so the two cannot disagree.
+        // summary.exercisesLogged is every persisted entry, skipped included:
+        // "6 LIIKETTÄ" above five rows of "0 sarjaa" was that number.
+        exercisesLogged: completionCards.exerciseCards.filter((card) => card.completedSets > 0).length,
         volumeDeltaKg: getVolumeDeltaVsPrevious(
           {
             sessionId: adaptedSession.sessionId,
