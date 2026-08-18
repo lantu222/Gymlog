@@ -390,16 +390,25 @@ export function WorkoutCompletionScreen({
           <Animated.View style={rise(5)}>
             <Text style={styles.sectionLabel}>{t(language, 'complete.stat.exercises')}</Text>
             <View style={[styles.sectionCard, styles.exercisesCard]}>
-              {exerciseCards.map((exercise, index) => (
+              {exerciseCards.map((exercise, index) => {
+                // A row with no logged set was skipped, and reads so. Every
+                // row used to get the green check — five skipped lifts ticked
+                // as done next to a tile that said 0 sets.
+                const wasDone = exercise.completedSets > 0;
+                return (
                 <View key={exercise.id} style={[styles.exerciseRow, index > 0 && styles.exerciseRowDivided]}>
-                  <View style={styles.exerciseCheckTile}>
-                    <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
-                      <Path d="M5 12.5l4.5 4.5L19 7" stroke={theme.green} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
-                    </Svg>
+                  <View style={[styles.exerciseCheckTile, !wasDone && styles.exerciseSkippedTile]}>
+                    {wasDone ? (
+                      <Svg width={17} height={17} viewBox="0 0 24 24" fill="none">
+                        <Path d="M5 12.5l4.5 4.5L19 7" stroke={theme.green} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+                      </Svg>
+                    ) : (
+                      <View style={styles.exerciseSkippedDash} />
+                    )}
                   </View>
                   <View style={styles.exerciseCopy}>
                     <View style={styles.exerciseNameRow}>
-                      <Text style={styles.exerciseName} numberOfLines={1}>
+                      <Text style={[styles.exerciseName, !wasDone && styles.exerciseNameSkipped]} numberOfLines={1}>
                         {exerciseNameLabel(language, exercise.name)}
                       </Text>
                       {exercise.isPr ? (
@@ -408,7 +417,11 @@ export function WorkoutCompletionScreen({
                         </View>
                       ) : null}
                     </View>
-                    <Text style={styles.exerciseSets}>{t(language, exercise.completedSets === 1 ? 'complete.exerciseSetsOne' : 'complete.exerciseSetsMany', { count: exercise.completedSets })}</Text>
+                    <Text style={styles.exerciseSets}>
+                      {wasDone
+                        ? t(language, exercise.completedSets === 1 ? 'complete.exerciseSetsOne' : 'complete.exerciseSetsMany', { count: exercise.completedSets })
+                        : t(language, 'complete.exerciseSkipped')}
+                    </Text>
                   </View>
                   {exercise.topSetLabel ? (
                     <View style={styles.exerciseTopSet}>
@@ -417,7 +430,8 @@ export function WorkoutCompletionScreen({
                     </View>
                   ) : null}
                 </View>
-              ))}
+                );
+              })}
             </View>
           </Animated.View>
 
@@ -848,6 +862,19 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: GREEN_SOFT,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  exerciseSkippedTile: {
+    backgroundColor: theme.border,
+  },
+  exerciseSkippedDash: {
+    width: 12,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: theme.muted,
+  },
+  exerciseNameSkipped: {
+    color: theme.muted,
+    fontWeight: '600',
   },
   exerciseCopy: {
     flex: 1,

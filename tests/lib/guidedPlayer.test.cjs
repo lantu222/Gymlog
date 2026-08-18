@@ -22,6 +22,7 @@ const {
   formatGuidedTarget,
   findGuidedLibraryIndex,
   getGuidedInitials,
+  isGuidedExerciseOut,
   GUIDED_POSITION_SECONDS,
 } = require('../../.test-dist/lib/guidedPlayer.js');
 
@@ -129,6 +130,52 @@ module.exports = [
       );
       // No warmup → the work splash has no "complete" chip.
       assert.equal(steps[0].doneLabel, null);
+    },
+  },
+  {
+    name: 'a skipped exercise keeps its place in the header numbering',
+    run() {
+      // Seen on a phone: skip two of six and the third read "EXERCISE 1 OF 4",
+      // the last "1 OF 1". The plan is rebuilt after every skip and numbered
+      // the survivors from one. Skipped lifts get no steps, but the count is
+      // over the whole session and the position is the lift's real place.
+      const { steps } = buildGuidedSteps({
+        warmup: [],
+        exercises: [
+          { slotId: 'a', name: 'Squat', restSeconds: 120, setCount: 1, skipped: true },
+          { slotId: 'b', name: 'Bench', restSeconds: 120, setCount: 1, skipped: true },
+          { slotId: 'c', name: 'Row', restSeconds: 90, setCount: 1, skipped: false },
+          { slotId: 'd', name: 'Curl', restSeconds: 60, setCount: 1, skipped: false },
+        ],
+        cooldown: [],
+      });
+      const setSteps = steps.filter((step) => step.type === 'set');
+      assert.deepEqual(
+        setSteps.map((step) => getGuidedPhaseLabel(step)),
+        ['WORKOUT · EXERCISE 3 OF 4', 'WORKOUT · EXERCISE 4 OF 4'],
+      );
+      // The work splash still counts what is left to do.
+      assert.equal(steps[0].sub, '2 exercises · 2 sets');
+      // And the last surviving set is still the last set of the session — no
+      // rest step after it.
+      assert.equal(steps[steps.length - 2].type, 'set');
+      assert.equal(steps[steps.length - 1].type, 'finish');
+    },
+  },
+  {
+    name: 'an exercise leaves the plan when nothing is left and something was skipped',
+    run() {
+      // The plan and the save answer different questions with the same word.
+      // A lift with one logged set and the rest skipped is completed for the
+      // save (the set counts) and out of the plan (nothing left to do).
+      const set = (status) => ({ status });
+      assert.equal(isGuidedExerciseOut({ status: 'skipped', sets: [set('skipped'), set('skipped')] }), true);
+      assert.equal(isGuidedExerciseOut({ status: 'completed', sets: [set('completed'), set('skipped')] }), true);
+      // Cleanly finished: stays, so the walk back through it still works.
+      assert.equal(isGuidedExerciseOut({ status: 'completed', sets: [set('completed'), set('completed')] }), false);
+      // Still in progress: stays.
+      assert.equal(isGuidedExerciseOut({ status: 'active', sets: [set('completed'), set('pending')] }), false);
+      assert.equal(isGuidedExerciseOut({ status: 'active', sets: [set('skipped'), set('pending')] }), false);
     },
   },
   {

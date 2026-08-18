@@ -6,6 +6,9 @@ const {
   workoutInitialState,
 } = require('../../../.test-dist/features/workout/workoutState.js');
 const { createCompletedSession, createExercise, createSet } = require('../../helpers/workoutFixtures.cjs');
+const {
+  buildExerciseLogDraftsFromWorkoutSession,
+} = require('../../../.test-dist/features/workout/workoutAppAdapter.js');
 
 module.exports = [
   {
@@ -409,6 +412,85 @@ module.exports = [
 
       // Reps stay empty either way — entering them is what logs the set.
       assert.equal(sets[0].draftRepsText, '');
+    },
+  },
+  {
+    name: 'a set logged before "skip this exercise" survives into the saved log',
+    run() {
+      // Seen on a phone: one set of squats logged, then "Ohita tämä liike" to
+      // move on. The completion screen celebrated a new record; Progress said
+      // 0 kg, 0 sets; Ennätykset said no records. The skip had marked the
+      // whole exercise `skipped`, and `skipped` is what drops a log from every
+      // stat. The set that happened has to stay a set.
+      const pending = (setIndex) =>
+        createSet({
+          setIndex,
+          status: 'pending',
+          actualLoadKg: null,
+          actualReps: null,
+          completedAt: undefined,
+          draftRepsText: '',
+          edited: false,
+        });
+      const exercise = createExercise({
+        slotId: 'slot_squat',
+        exerciseName: 'Back Squat',
+        status: 'active',
+        sets: [
+          createSet({ setIndex: 0, actualLoadKg: 20, actualReps: 6 }),
+          pending(1),
+          pending(2),
+          pending(3),
+        ],
+      });
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [exercise],
+      });
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, activeSession },
+        { type: 'exercise/skip', payload: { slotId: 'slot_squat' } },
+      );
+
+      const skipped = nextState.activeSession.exercises[0];
+      // The remaining sets are skipped; the logged one is untouched.
+      assert.deepEqual(
+        skipped.sets.map((set) => set.status),
+        ['completed', 'skipped', 'skipped', 'skipped'],
+      );
+      // And the exercise is done, not skipped — one set was.
+      assert.equal(skipped.status, 'completed');
+
+      // What reaches the database carries the set and is not filtered out.
+      const [draft] = buildExerciseLogDraftsFromWorkoutSession(nextState.activeSession);
+      assert.equal(draft.skipped, false);
+      assert.equal(draft.sets.filter((set) => set.outcome === 'completed').length, 1);
+      assert.equal(draft.sets[0].weight, 20);
+    },
+  },
+  {
+    name: 'skipping an exercise with nothing logged still marks it skipped',
+    run() {
+      // The other half of the rule: no set done, the exercise reads skipped
+      // and stays out of the stats — as before.
+      const pending = (setIndex) =>
+        createSet({ setIndex, status: 'pending', actualLoadKg: null, actualReps: null, completedAt: undefined, edited: false });
+      const activeSession = createCompletedSession({
+        status: 'active',
+        completedAt: undefined,
+        exercises: [createExercise({ slotId: 'slot_bench', status: 'active', sets: [pending(0), pending(1)] })],
+      });
+
+      const nextState = workoutReducer(
+        { ...workoutInitialState, activeSession },
+        { type: 'exercise/skip', payload: { slotId: 'slot_bench' } },
+      );
+
+      assert.equal(nextState.activeSession.exercises[0].status, 'skipped');
+      const [draft] = buildExerciseLogDraftsFromWorkoutSession(nextState.activeSession);
+      assert.equal(draft.skipped, true);
     },
   },
 ];

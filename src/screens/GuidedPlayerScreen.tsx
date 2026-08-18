@@ -58,6 +58,7 @@ import {
   getGuidedSessionTitle,
   getGuidedSkipTargetIndex,
   getGuidedStepLabel,
+  isGuidedExerciseOut,
   resolveGuidedResumeIndex,
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
@@ -809,7 +810,10 @@ export function GuidedPlayerScreen({
     name: exercise.exerciseName,
     restSeconds: exercise.restSecondsMin,
     setCount: exercise.sets.length,
-    skipped: exercise.status === 'skipped',
+    // Not `status === 'skipped'`: a lift with one logged set and the rest
+    // skipped is `completed` for saving (the set counts) but still out of the
+    // plan (nothing left to do). See isGuidedExerciseOut.
+    skipped: isGuidedExerciseOut(exercise),
   }));
   const stepPlan = useMemo(
     () =>
@@ -1289,7 +1293,11 @@ export function GuidedPlayerScreen({
                           : t(language, 'guided.count.exerciseMany', { count: activeExercises.length })
                       } · ${t(language, 'guided.count.sets', { count: totalSets })}`,
                       rows: activeExercises.map((exercise) => ({
-                        left: exercise.exerciseName,
+                        // Through the same translation every other name on
+                        // this screen goes through — this row listed "Back
+                        // Squat" under a Finnish heading while the player
+                        // itself said Takakyykky.
+                        left: exerciseNameLabel(language, exercise.exerciseName),
                         right: `${exercise.sets.length} × ${formatRepRangeLabel(exercise.sets[0])}${
                           isTimedTrackingMode(exercise.trackingMode) ? ' s' : ''
                         }`,
@@ -1300,7 +1308,7 @@ export function GuidedPlayerScreen({
                   ? {
                       key: 'cooldown',
                       label: t(language, 'guided.phase.cooldown'),
-                      sub: `${t(language, 'guided.count.stretchMany', { count: cooldownDrills.length })} · ${cooldownSecondsTotal < 90 ? `~${Math.round(cooldownSecondsTotal / 5) * 5} sec` : t(language, 'guided.entry.duration', { min: Math.round(cooldownSecondsTotal / 60) })}`,
+                      sub: `${t(language, 'guided.count.stretchMany', { count: cooldownDrills.length })} · ${cooldownSecondsTotal < 90 ? `~${t(language, 'logger.secondsValue', { count: Math.round(cooldownSecondsTotal / 5) * 5 })}` : t(language, 'guided.entry.duration', { min: Math.round(cooldownSecondsTotal / 60) })}`,
                       rows: cooldownDrills.map((drill) => ({ left: drill.name, right: formatDrillLength(drill.seconds) })),
                     }
                   : null,
