@@ -1,6 +1,6 @@
 # Privacy policy
 
-*Updated 29 July 2026*
+*Updated 18 August 2026*
 
 What Vinha stores, where it stays, and what never leaves your phone.
 
@@ -8,7 +8,7 @@ What Vinha stores, where it stays, and what never leaves your phone.
 
 Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.
 
-If you uninstall the app, that data is gone. There is no copy of it anywhere else.
+If you uninstall the app, that data is gone from the phone. The only copy that can exist elsewhere is the one your own Google account keeps in Android backup, if you have that turned on — we hold none.
 
 ## Who is responsible
 

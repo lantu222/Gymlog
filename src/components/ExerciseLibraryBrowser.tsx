@@ -14,6 +14,7 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { VinhaIcon, VinhaIconName } from './VinhaIcon';
 import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -30,19 +31,6 @@ interface ExerciseLibraryBrowserProps {
   onOpenItem?: (item: ExerciseLibraryItem) => void;
   onToggleTracked?: (item: ExerciseLibraryItem) => void;
   onAddToWorkout?: (item: ExerciseLibraryItem) => void;
-}
-
-function buildSearchHaystack(item: ExerciseLibraryItem) {
-  return [
-    item.name,
-    item.bodyPart,
-    item.category,
-    item.equipment,
-    ...(item.primaryMuscles ?? []),
-    ...(item.secondaryMuscles ?? []),
-  ]
-    .join(' ')
-    .toLowerCase();
 }
 
 function formatCompactBodyPartLabel(raw: string, language: AppLanguage = 'en') {
@@ -385,7 +373,7 @@ export function ExerciseLibraryBrowser({
   const filteredItems = useMemo(() => {
     const query = search.trim().toLowerCase();
     return items.filter((item) => {
-      if (query.length && !buildSearchHaystack(item).includes(query)) {
+      if (query.length && !exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query)) {
         return false;
       }
       if (bodyPartFilter !== 'all' && item.bodyPart !== bodyPartFilter) {
@@ -399,7 +387,7 @@ export function ExerciseLibraryBrowser({
       }
       return true;
     });
-  }, [items, search, bodyPartFilter, categoryFilter, equipmentFilter]);
+  }, [items, language, search, bodyPartFilter, categoryFilter, equipmentFilter]);
 
   const { commonOrder, orderedItems } = useOrderedExercises(items, filteredItems);
   const hasModalFilters = categoryFilter !== 'all' || equipmentFilter !== 'all';
@@ -427,13 +415,14 @@ export function ExerciseLibraryBrowser({
     [orderedItems, showDashboardSections],
   );
 
+  // Keyed, both of them: "RESULTS" sat over a Finnish list of Finnish names.
   const resultsLabel = showDashboardSections
-    ? 'ALL EXERCISES'
+    ? t(language, 'library.allExercises')
     : search.trim().length
-      ? 'RESULTS'
+      ? t(language, 'library.results')
       : bodyPartFilter !== 'all'
         ? formatCompactBodyPartLabel(bodyPartFilter, language).toUpperCase()
-        : 'RESULTS';
+        : t(language, 'library.results');
 
   function handleOpen(item: ExerciseLibraryItem) {
     onOpenItem?.(item);
@@ -489,10 +478,24 @@ export function ExerciseLibraryBrowser({
                 <Text style={styles.subtitle}>{t(language, 'library.subtitle')}</Text>
               </View>
               <View style={styles.headerActions}>
-                <Pressable onPress={() => searchRef.current?.focus()} style={styles.iconButton}>
+                {/* Named: two icon-only buttons with no label were invisible to
+                    a screen reader — and to the walkthrough that could not
+                    find the filter panel. */}
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'library.a11y.search')}
+                  onPress={() => searchRef.current?.focus()}
+                  style={styles.iconButton}
+                >
                   <SearchIcon color={theme.purpleDark} size={19} />
                 </Pressable>
-                <Pressable onPress={() => setFiltersOpen((current) => !current)} style={styles.iconButton}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t(language, 'library.a11y.filters')}
+                  accessibilityState={{ expanded: filtersOpen }}
+                  onPress={() => setFiltersOpen((current) => !current)}
+                  style={styles.iconButton}
+                >
                   <FilterIcon />
                   {activeFilterCount > 0 ? (
                     <View style={styles.filterBadge}>
@@ -620,7 +623,9 @@ export function ExerciseLibraryBrowser({
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>{resultsLabel}</Text>
               <Text style={styles.summaryCount}>
-                {orderedItems.length} {orderedItems.length === 1 ? 'exercise' : 'exercises'}
+                {t(language, orderedItems.length === 1 ? 'library.exerciseCountOne' : 'library.exerciseCountMany', {
+                  count: orderedItems.length,
+                })}
               </Text>
             </View>
           </View>

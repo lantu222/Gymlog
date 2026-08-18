@@ -16,6 +16,7 @@ import { PlatePop } from '../components/PlatePop';
 import { RestBar } from '../components/RestBar';
 import { formatLiftDisplayLabel } from '../lib/displayLabel';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
 import { parseNumberInput } from '../lib/format';
 import {
   EMPTY_WORKOUT_MUSCLE_FILTERS,
@@ -117,10 +118,6 @@ function formatSessionClock(totalSeconds: number) {
 
 function formatVolumeLabel(volumeKg: number) {
   return volumeKg % 1 ? volumeKg.toFixed(1) : `${volumeKg}`;
-}
-
-function buildSearchHaystack(item: ExerciseLibraryItem) {
-  return [item.name, item.category, item.bodyPart, item.equipment].join(' ').toLowerCase();
 }
 
 // ── small shared pieces ──────────────────────────────────────────────────
@@ -254,9 +251,9 @@ function AddExerciseSheetHG({ visible, items, language, onClose, onAdd }: AddShe
       items.filter(
         (item) =>
           matchesMuscleFilter(item.bodyPart, filter) &&
-          (!normalizedQuery || buildSearchHaystack(item).includes(normalizedQuery)),
+          (!normalizedQuery || exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), normalizedQuery)),
       ),
-    [filter, items, normalizedQuery],
+    [filter, items, language, normalizedQuery],
   );
 
   const popularItems = useMemo(() => {

@@ -3746,15 +3746,6 @@ function VinhaApp() {
     [getSessionLogs, preferences.appLanguage, unitPreference, workoutSessions],
   );
   const dismissedTipIds = preferences.dismissedTipIds ?? [];
-  const readyProgramBadgeLabel = 'Browse';
-  const readyProgramTitle = 'Ready plans';
-  const readyProgramSubtitle = recommendedReadyTemplate
-    ? `${recommendedReadyTemplate.name} · ${formatGoalLabel(recommendedReadyTemplate.goalType)} · ${recommendedReadyTemplate.daysPerWeek} days`
-    : 'Browse the full ready-program library.';
-  const readyProgramMeta = recommendedReadyTemplate
-    ? `Recommended now · ${recommendedReadyTemplate.estimatedSessionDuration} min sessions`
-    : 'Browse';
-  const readyProgramCtaLabel = 'Browse ready plans';
   /**
    * The season rows.
    *
@@ -4191,7 +4182,6 @@ function VinhaApp() {
         })),
     [customWorkouts, preferences.appLanguage],
   );
-  const customProgramCtaLabel = selectedCustomProgram.workoutId ? 'Browse workouts' : 'Open workouts';
 
   const editorDraft = useMemo<WorkoutTemplateDraft>(() => {
     if (route.tab !== 'workout' || route.screen !== 'editor') {
