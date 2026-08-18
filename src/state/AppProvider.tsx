@@ -19,7 +19,7 @@ import {
   getLatestLogForTemplateExercise,
   getTrackedExerciseProgress,
 } from '../lib/progression';
-import { loadDatabase, resetDatabase, saveDatabase } from '../storage/database';
+import { loadDatabase, resetDatabase, saveDatabase, savePreferences } from '../storage/database';
 import {
   bodyweightRepository,
   exerciseLogRepository,
@@ -290,16 +290,29 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   }
   const runExclusive = runExclusiveRef.current;
 
+  /**
+   * Preferences are the one mutation that does not pay for the whole database.
+   *
+   * This used to go through commit, which serializes every session, set and
+   * measurement the reader owns before the write lands — so changing the theme
+   * or the language cost the price of the entire training history, on the JS
+   * thread, and got slower with every workout logged. They have their own key
+   * now; the in-memory database stays the single source of truth, and the next
+   * full save carries the same values into the blob.
+   */
   function updatePreferences(patch: Partial<AppPreferences>) {
     return runExclusive(async () => {
       const current = databaseRef.current;
-      await commit({
+      const next = {
         ...current,
         preferences: {
           ...current.preferences,
           ...patch,
         },
-      });
+      };
+      databaseRef.current = next;
+      setDatabase(next);
+      await savePreferences(next.preferences);
     });
   }
 

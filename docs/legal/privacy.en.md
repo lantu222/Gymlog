@@ -28,7 +28,7 @@ Everything below is entered by you, or produced by the app from what you entered
 
 ## Where it is stored
 
-In the app’s local storage on your device, under two keys. It is not synced to a server we run, and we have no way to read it remotely.
+In the app’s local storage on your device, under three keys — one for your training log, one for the workout you have in progress, and one small one for your settings. It is not synced to a server we run, and we have no way to read it remotely.
 
 If the app ever finds that storage unreadable, it moves the damaged copy aside under a third key instead of deleting it, and starts a fresh one — so a broken file is not the same thing as a lost training log. That copy stays on your device like everything else, and erasing the app’s data removes it too.
 

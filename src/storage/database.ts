@@ -10,6 +10,7 @@ import { normalizeExerciseLog } from '../lib/exerciseLog';
 import { buildLegacyTemplateSessions, getLegacyTemplateSessionId } from '../lib/workoutTemplateSessions';
 import {
   AppDatabase,
+  AppPreferences,
   ExerciseTemplate,
   MeasurementEntry,
   SetupCautionFlag,
@@ -76,6 +77,19 @@ const LEGACY_STORAGE_KEY = '@gymlog/database/v1';
  * history to recover, and an unbounded pile of them is a storage leak.
  */
 const CORRUPT_STORAGE_KEY = '@vinha/database/corrupt';
+/**
+ * Preferences, on their own key.
+ *
+ * Everything used to live in one blob, so changing the theme or the language —
+ * one field — serialized every logged session, set and measurement the reader
+ * owned, on the JS thread, before the toggle could settle. The cost grew with
+ * the training history, which is why the app felt fine at first and slow later.
+ *
+ * The blob still carries a copy: a full save writes the whole database and the
+ * preferences it holds are current, so nothing there goes stale. This key is
+ * simply the newer one, and the load overlays it on top.
+ */
+const PREFERENCES_STORAGE_KEY = '@vinha/preferences/v1';
 
 function normalizeJointSwapPreference(rawValue: unknown, fallbackValue: 'neutral' | 'prefer' | 'prioritize') {
   if (rawValue === 'neutral' || rawValue === 'prefer' || rawValue === 'prioritize') {
@@ -935,7 +949,8 @@ export async function loadDatabase() {
   }
 
   try {
-    return normalizeDatabase(JSON.parse(raw) as Partial<AppDatabase>);
+    const database = normalizeDatabase(JSON.parse(raw) as Partial<AppDatabase>);
+    return { ...database, preferences: await loadStoredPreferences(database.preferences) };
   } catch {
     // Unreadable storage is a corrupt install, not a new one — but inventing
     // history to paper over it would be the same lie.
@@ -957,6 +972,40 @@ export async function loadDatabase() {
   }
 }
 
+/**
+ * The preferences key, when it has been written, over the ones the blob holds.
+ *
+ * A missing key is the normal case for an install that predates the split, and
+ * an unreadable one is not worth losing a whole database over — both fall back
+ * to the blob's own copy, which a full save keeps current.
+ */
+async function loadStoredPreferences(fallback: AppPreferences): Promise<AppPreferences> {
+  try {
+    const raw = await AsyncStorage.getItem(PREFERENCES_STORAGE_KEY);
+    if (!raw) {
+      return fallback;
+    }
+    // Reuses the one normalizer rather than a second copy of the same field
+    // defaults: an empty database carrying these preferences comes back with
+    // every missing field filled the same way a stored one would.
+    const parsed = JSON.parse(raw) as Partial<AppPreferences>;
+    return normalizeDatabase({ preferences: { ...fallback, ...parsed } }).preferences;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * One field's worth of writing, for the changes that are one field.
+ *
+ * The caller keeps the in-memory database as the single source of truth; this
+ * only makes the small write cheap. Anything that touches sessions, logs or
+ * templates still goes through saveDatabase.
+ */
+export async function savePreferences(preferences: AppPreferences) {
+  await AsyncStorage.setItem(PREFERENCES_STORAGE_KEY, JSON.stringify(preferences));
+}
+
 export async function saveDatabase(database: AppDatabase) {
   await AsyncStorage.setItem(
     STORAGE_KEY,
@@ -976,5 +1025,8 @@ export async function resetDatabase() {
   // not asking for a copy of it to survive under another name.
   await AsyncStorage.removeItem(LEGACY_STORAGE_KEY);
   await AsyncStorage.removeItem(CORRUPT_STORAGE_KEY);
+  // The preferences key outlives the blob otherwise, and a reset that leaves
+  // the old language and theme behind is not the reset that was asked for.
+  await AsyncStorage.removeItem(PREFERENCES_STORAGE_KEY);
   return empty;
 }
