@@ -18,6 +18,7 @@ import {
   WorkoutTemplateDraft,
 } from '../types/models';
 import { createId } from '../lib/ids';
+import { resolveQuickLayoutExercises } from '../lib/quickLayoutExercises';
 import { localizeWorkoutFocus } from '../lib/sessionNameLabel';
 
 type TemplateDayCount = 1 | 2 | 3 | 4 | 5;
@@ -276,7 +277,11 @@ export function CreateTemplateScreen({
     [sessions],
   );
 
-  const canSave = sessions.length > 0;
+  // A programme with an empty day is not a programme; the button waits until
+  // every day has at least one lift. It used to accept three named, empty
+  // days, which then showed up on Home as a session with nothing in it.
+  const emptyDayCount = sessions.filter((session) => session.exercises.length === 0).length;
+  const canSave = sessions.length > 0 && emptyDayCount === 0;
   const activeSession = sessions.find((session) => session.localKey === activeSessionKey) ?? null;
   const activeSessionLibraryIds = useMemo(
     () =>
@@ -303,20 +308,31 @@ export function CreateTemplateScreen({
     });
   }
 
-  function applyPreset(names: string[]) {
+  /**
+   * A layout is days *with lifts in them*. It used to set three names on three
+   * empty days and call that "Push / Pull / Legs" — a layout in name only,
+   * with every exercise still to be found. Each day the layout names now opens
+   * with the two to four lifts a programme for that focus starts from. A day
+   * the reader has already filled keeps what they put there; only empty days
+   * are filled, so re-applying a layout never overwrites work.
+   */
+  function applyPreset(englishNames: string[]) {
     setSessions((current) =>
-      names.map((name, index) => {
+      englishNames.map((englishName, index) => {
+        const name = localizeWorkoutFocus(englishName, language);
         const existing = current[index];
-        if (existing) {
-          return {
-            ...existing,
-            name,
-          };
+        const base = existing ? { ...existing, name } : { ...createBlankSession(index, language), name };
+        if (base.exercises.length > 0) {
+          return base;
         }
-
         return {
-          ...createBlankSession(index, language),
-          name,
+          ...base,
+          exercises: resolveQuickLayoutExercises(englishName, exerciseLibrary).map(({ name: liftName, item }) => ({
+            ...createExerciseFromLibraryItem(item, defaultRestSeconds),
+            // The catalog's name, not the library variant's: "Back Squat"
+            // translates and matches history the way the ready programmes do.
+            name: liftName,
+          })),
         };
       }),
     );
@@ -390,10 +406,11 @@ export function CreateTemplateScreen({
         title={t(language, initialDraft.id ? 'tpl.editTitle' : 'tpl.createTitle')}
         subtitle={t(language, 'tpl.subtitle')}
         onBack={onBack}
-        rightActionLabel={t(language, 'common.save')}
-        onRightActionPress={() => {
-          void handleSave();
-        }}
+        // Same gate as the button at the bottom: while a day is empty there is
+        // no save action, so the header shows none rather than a word that
+        // does nothing when tapped.
+        rightActionLabel={canSave ? t(language, 'common.save') : undefined}
+        onRightActionPress={canSave ? () => void handleSave() : undefined}
       />
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -456,7 +473,7 @@ export function CreateTemplateScreen({
               const previewImage = presetPreviewImages[preset.id];
 
               return (
-                <Pressable key={preset.id} onPress={() => applyPreset(preset.names.map((name) => localizeWorkoutFocus(name, language)))} style={styles.presetCard}>
+                <Pressable key={preset.id} onPress={() => applyPreset(preset.names)} style={styles.presetCard}>
                   <View style={styles.presetMedia}>
                     {previewImage ? (
                       <Image source={{ uri: previewImage }} style={styles.presetMediaImage} resizeMode="cover" />
@@ -479,7 +496,9 @@ export function CreateTemplateScreen({
                     <Text style={styles.presetTitle}>{t(language, preset.labelKey)}</Text>
                     <Text style={styles.presetBody}>{t(language, preset.descriptionKey)}</Text>
                     <Text numberOfLines={1} style={styles.presetMeta}>
-                      {preset.names.join(' · ')}
+                      {/* The days as the reader will see them, not the
+                          English tokens they are stored as. */}
+                      {preset.names.map((name) => localizeWorkoutFocus(name, language)).join(' · ')}
                     </Text>
                   </View>
                 </Pressable>

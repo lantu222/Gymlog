@@ -123,6 +123,12 @@ export type AppRoute =
       tab: 'progress';
       screen: 'list';
       section?: 'overview' | 'records' | 'tracked' | 'measures';
+      /**
+       * Which measurement the measures section opens on. A Home stat card for
+       * body fat used to open the section on whatever was selected last, and
+       * the reader had to find body fat again to log it.
+       */
+      measure?: string;
     }
   | {
       tab: 'progress';

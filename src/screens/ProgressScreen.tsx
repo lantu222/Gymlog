@@ -101,6 +101,8 @@ interface ProgressScreenProps {
   weeklyTargetSessions?: number | null;
   unitPreference: UnitPreference;
   initialSection?: ProgressSection;
+  /** The measurement the measures section should select on arrival. */
+  initialMeasure?: string;
   selectedExerciseKey?: string;
   /**
    * The three most recent records, and how many there are in total.
@@ -809,6 +811,7 @@ export function ProgressScreen({
   unitPreference,
   language = 'en',
   initialSection,
+  initialMeasure,
   selectedExerciseKey,
   topRecords = [],
   recordCount = 0,
@@ -1122,6 +1125,16 @@ export function ProgressScreen({
     });
   }, [bodyweightProgress.entries, measurementEntries, unitPreference]);
 
+  // A stat card names its measurement; arriving from one selects it, so the
+  // input the reader came to use is the one on screen. Only keys this screen
+  // knows are honoured — an unknown one leaves the selection alone.
+  useEffect(() => {
+    if (initialMeasure && measureModels.some((model) => model.key === initialMeasure)) {
+      setSelectedMeasure(initialMeasure as MeasureKey);
+    }
+    // measureModels is stable per language; the key is what changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialMeasure]);
   const selectedMeasureModel = measureModels.find((model) => model.key === selectedMeasure) ?? measureModels[0];
 
   useEffect(() => {

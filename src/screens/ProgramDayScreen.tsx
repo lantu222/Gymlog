@@ -395,9 +395,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     backgroundColor: theme.bg,
   },
   content: {
-    // The dock is absolute; without room for it the last exercise row sat
-    // under the start button.
-    paddingBottom: layout.bottomTabBarReserve + 120,
+    // The start dock this once cleared is gone (removed on request), but its
+    // 120dp of room stayed — a blank stretch between the last block and the
+    // tab bar on every day page. Just the tab bar's reserve now.
+    paddingBottom: layout.bottomTabBarReserve,
   },
   hero: {
     height: HERO_HEIGHT,
