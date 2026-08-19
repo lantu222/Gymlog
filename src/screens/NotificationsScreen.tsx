@@ -36,6 +36,17 @@ const LEVELS: Array<{ key: NotificationLevel; titleKey: I18nKey; subKey: I18nKey
   { key: 'motivating', titleKey: 'notif.level.motivating', subKey: 'notif.level.motivatingSub' },
 ];
 
+// Rest & alerts (design: Background Timer). The first section on the page:
+// the workout timer is the one notification every reader meets, and it is not
+// gated on the marketing-style "push" master switch below — a rest alert is
+// the app doing its job, not the app asking for attention.
+const REST_TOGGLES: Array<{ key: keyof NotificationPrefs; titleKey: I18nKey; subKey: I18nKey }> = [
+  { key: 'restAlerts', titleKey: 'notif.rest.alerts', subKey: 'notif.rest.alertsSub' },
+  { key: 'restWarning', titleKey: 'notif.rest.warning', subKey: 'notif.rest.warningSub' },
+  { key: 'sessionOngoing', titleKey: 'notif.rest.ongoing', subKey: 'notif.rest.ongoingSub' },
+  { key: 'idleNudge', titleKey: 'notif.rest.idle', subKey: 'notif.rest.idleSub' },
+];
+
 const TRAINING_TOGGLES: Array<{ key: keyof NotificationPrefs; titleKey: I18nKey; subKey: I18nKey }> = [
   { key: 'personalRecords', titleKey: 'notif.records', subKey: 'notif.recordsSub' },
   { key: 'weeklySummary', titleKey: 'notif.weekly', subKey: 'notif.weeklySub' },
@@ -154,6 +165,25 @@ export function NotificationsScreen({
         {prefs.pushEnabled && onTrainingBreak ? (
           <Text style={styles.note}>{t(language, 'notif.breakNote')}</Text>
         ) : null}
+
+        <View style={styles.section}>
+          <SectionLabel label={t(language, 'notif.rest.section')} />
+          <View style={styles.card}>
+            {REST_TOGGLES.map((item, index) => (
+              <View key={item.key} style={[styles.row, index !== REST_TOGGLES.length - 1 && styles.rowDivider]}>
+                <View style={styles.rowCopy}>
+                  <Text style={styles.rowTitle}>{t(language, item.titleKey)}</Text>
+                  <Text style={styles.rowSub}>{t(language, item.subKey)}</Text>
+                </View>
+                <ToggleSwitch
+                  label={t(language, item.titleKey)}
+                  value={Boolean(prefs[item.key])}
+                  onChange={(next) => onChange({ [item.key]: next } as Partial<NotificationPrefs>)}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
 
         <View style={styles.dimmable} pointerEvents={prefs.pushEnabled ? 'auto' : 'none'}>
           <View style={prefs.pushEnabled ? null : styles.dimmed}>

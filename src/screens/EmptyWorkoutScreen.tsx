@@ -36,7 +36,14 @@ import { createId } from '../lib/ids';
 import { ExercisePrLookup } from '../lib/workoutCompletionSummary';
 import { Theme, useTheme, useThemedStyles, aw3ForTheme, useAW3 } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, WorkoutTemplateDraft } from '../types/models';
-import { useRestEndAlert } from '../hooks/useRestEndAlert';
+import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
+import { RestAlertsSheet } from '../components/RestAlertsSheet';
+import { describeRest } from '../lib/restSchedule';
+import {
+  RestAlertPermission,
+  getRestAlertPermission,
+  requestRestAlertPermission,
+} from '../utils/sessionNotifications';
 import { haptics } from '../utils/haptics';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { sound } from '../utils/sound';
@@ -64,6 +71,12 @@ interface EmptyWorkoutScreenProps {
   language?: AppLanguage;
   onBack: () => void;
   onSave: (draft: WorkoutTemplateDraft, summary: FreestyleFinishSummary) => Promise<void> | void;
+  /** Rest & alerts settings (design: Background Timer). */
+  restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean; asked: boolean };
+  /** The in-app permission sheet was answered; remember so it is never shown twice. */
+  onRestAlertsAsked?: () => void;
+  /** The denied banner's "Turn on" — opens system settings. */
+  onOpenSystemSettings?: () => void;
 }
 
 const TAG_KEYS: Record<string, I18nKey> = {
@@ -441,6 +454,9 @@ export function EmptyWorkoutScreen({
   language = 'en',
   onBack,
   onSave,
+  restAlerts = { alerts: true, warning: true, ongoing: true, asked: false },
+  onRestAlertsAsked,
+  onOpenSystemSettings,
 }: EmptyWorkoutScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -466,28 +482,114 @@ export function EmptyWorkoutScreen({
   }, [hasExercises]);
 
   const elapsedSeconds = startedAtMs === null ? 0 : Math.max(0, Math.floor((nowMs - startedAtMs) / 1000));
-  const restRemaining = rest ? Math.ceil((rest.endsAtMs - nowMs) / 1000) : null;
+  // Rule 01: derived from the clock, never accumulated. A rest that ended while
+  // the phone was in a pocket comes back as DONE with its overrun — not as a
+  // frozen countdown, and not silently gone.
+  const restStatus = rest ? describeRest(rest.endsAtMs, nowMs) : null;
+  const restRemaining = restStatus ? restStatus.remainingSeconds : null;
+  const restDoneCuedRef = useRef(false);
 
   useEffect(() => {
-    // The countdown ran out — clear the bar and cue "back to work".
-    if (rest && restRemaining !== null && restRemaining <= 0) {
-      setRest(null);
+    // The countdown ran out — cue "back to work" once, but KEEP the bar: it
+    // flips to the done state and counts how long ago, until the set is
+    // logged or the bar is dismissed (design: "coming back").
+    if (restStatus?.phase === 'done' && !restDoneCuedRef.current) {
+      restDoneCuedRef.current = true;
       void haptics.impactMedium();
       sound.rest();
     }
-  }, [rest, restRemaining]);
+    if (!rest) {
+      restDoneCuedRef.current = false;
+    }
+  }, [rest, restStatus?.phase]);
+
+  const doneSetCount = freestyleDoneSetCount(exercises);
+  const volumeKg = freestyleVolumeKg(exercises);
+  const totalSetCount = exercises.reduce((sum, entry) => sum + entry.sets.length, 0);
+
+  // What the lock-screen card says between rests: the session and where it is.
+  const sessionCard = useMemo(() => {
+    if (!hasExercises || startedAtMs === null) {
+      return null;
+    }
+    const started = new Date(startedAtMs);
+    const time = `${String(started.getHours()).padStart(2, '0')}:${String(started.getMinutes()).padStart(2, '0')}`;
+    const current = exercises.find((entry) => entry.sets.some((item) => !item.done)) ?? exercises[exercises.length - 1];
+    return {
+      title: t(language, 'rest.notify.sessionTitle', {
+        session: t(language, 'emptyWorkout.title'),
+        exercise: current?.name ?? '',
+      }),
+      body: t(language, 'rest.notify.sessionBody', { done: doneSetCount, total: totalSetCount, time }),
+    };
+  }, [doneSetCount, exercises, hasExercises, language, startedAtMs, totalSetCount]);
 
   // The in-app cue cannot play while Android has our JS suspended, so the
-  // deadline also goes to the OS as a scheduled alert. Clearing the bar —
-  // expiry, skip or leaving the screen — retires it.
-  const syncRestAlert = useRestEndAlert(language);
-  const restEndsAtMs = rest?.endsAtMs ?? null;
+  // deadline also goes to the OS as the alert ladder, and the ongoing card
+  // says what is happening. Clearing the bar — skip, log, leaving — retires it.
+  const syncRestAlert = useRestEndAlert(language, {
+    warning: restAlerts.warning,
+    ongoing: restAlerts.ongoing,
+    session: sessionCard,
+  });
+  // Only a RUNNING rest is mirrored; once done, the alert has fired and the
+  // card should say the session again.
+  const restEndsAtMs = rest && restStatus?.phase === 'running' && restAlerts.alerts ? rest.endsAtMs : null;
   useEffect(() => {
     void syncRestAlert(restEndsAtMs);
   }, [restEndsAtMs, syncRestAlert]);
 
-  const doneSetCount = freestyleDoneSetCount(exercises);
-  const volumeKg = freestyleVolumeKg(exercises);
+  // The permission moment (rule 05): at the first rest, in context, once.
+  const [alertPermission, setAlertPermission] = useState<RestAlertPermission>('undetermined');
+  const [permissionSheetOpen, setPermissionSheetOpen] = useState(false);
+  const [deniedBannerShown, setDeniedBannerShown] = useState(false);
+  useEffect(() => {
+    void getRestAlertPermission().then(setAlertPermission);
+  }, []);
+  useEffect(() => {
+    if (!rest || restStatus?.phase !== 'running') {
+      return;
+    }
+    if (alertPermission === 'undetermined' && !restAlerts.asked) {
+      setPermissionSheetOpen(true);
+    } else if (alertPermission === 'denied' && restAlerts.alerts) {
+      setDeniedBannerShown(true);
+    }
+    // Once per rest start, on purpose.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rest?.endsAtMs]);
+
+  const allowAlerts = async () => {
+    setPermissionSheetOpen(false);
+    onRestAlertsAsked?.();
+    const next = await requestRestAlertPermission();
+    setAlertPermission(next);
+    // The rest that prompted this is still running: hand it to the OS now.
+    if (next === 'granted' && rest && describeRest(rest.endsAtMs, Date.now()).phase === 'running') {
+      void syncRestAlert(rest.endsAtMs);
+    }
+  };
+  const laterAlerts = () => {
+    setPermissionSheetOpen(false);
+    onRestAlertsAsked?.();
+  };
+
+  // Lock-screen actions land in App and come here over the bus.
+  useEffect(
+    () =>
+      subscribeRestActions((action) => {
+        if (action.kind === 'extend') {
+          adjustRest(action.seconds);
+        } else if (action.kind === 'skip') {
+          setRest(null);
+        }
+        // 'logSet' and 'finish' just open the app to this screen; the next
+        // tap is the reader's.
+      }),
+    // adjustRest is recreated each render but closes over nothing stale.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const quickItems = useMemo(() => {
     const source = recentExerciseLibraryItems.length > 0 ? recentExerciseLibraryItems : getPopularExerciseLibraryItems(exerciseLibrary, 8);
@@ -700,6 +802,26 @@ export function EmptyWorkoutScreen({
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Denied: say plainly what breaks, at the moment it matters — the
+              start of a rest — with a route to fix it. Once per session. */}
+          {deniedBannerShown && alertPermission === 'denied' ? (
+            <View style={styles.deniedBanner}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.deniedTitle}>{t(language, 'rest.denied.title')}</Text>
+                <Text style={styles.deniedBody}>{t(language, 'rest.denied.body')}</Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  setDeniedBannerShown(false);
+                  onOpenSystemSettings?.();
+                }}
+                hitSlop={8}
+              >
+                <Text style={styles.deniedAction}>{t(language, 'rest.denied.action')}</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {exercises.map((exercise, exerciseIndex) => {
             const activeIndex = exercise.sets.findIndex((set) => !set.done);
             return (
@@ -818,15 +940,26 @@ export function EmptyWorkoutScreen({
         </ScrollView>
       )}
 
-      {rest && restRemaining !== null && restRemaining > 0 && !sheetVisible ? (
+      {rest && restRemaining !== null && !sheetVisible ? (
         <RestBar
           totalSeconds={rest.totalSeconds}
           remainingSeconds={restRemaining}
+          endsAtMs={rest.endsAtMs}
+          overrunSeconds={restStatus?.phase === 'done' ? restStatus.overrunSeconds : null}
           onAdjust={adjustRest}
           onSkip={() => setRest(null)}
+          onLogSet={() => setRest(null)}
           language={language}
         />
       ) : null}
+
+
+      <RestAlertsSheet
+        visible={permissionSheetOpen}
+        language={language}
+        onAllow={() => void allowAlerts()}
+        onLater={laterAlerts}
+      />
 
       <AddExerciseSheetHG
         visible={sheetVisible}
@@ -1033,6 +1166,22 @@ const makeStyles = (theme: Theme) => {
 
   // logging state
   loggingContent: {},
+  // Amber, not red: nothing is broken, one thing is off.
+  deniedBanner: {
+    marginTop: 14,
+    marginHorizontal: 14,
+    padding: 13,
+    borderRadius: 16,
+    backgroundColor: '#FEF3E2',
+    borderWidth: 1,
+    borderColor: 'rgba(217,119,6,0.2)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  deniedTitle: { fontSize: 13.5, fontWeight: '800', color: '#D97706' },
+  deniedBody: { fontSize: 12.5, fontWeight: '700', color: '#3B3550', marginTop: 3, lineHeight: 17 },
+  deniedAction: { fontSize: 13, fontWeight: '800', color: '#D97706' },
   exerciseBlock: {
     paddingTop: 15,
     paddingBottom: 8,

@@ -3,6 +3,7 @@ import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-nativ
 import Svg, { Circle, Path } from 'react-native-svg';
 
 import { t } from '../lib/i18n';
+import { formatClock as formatTimer, formatEndsAt } from '../lib/restSchedule';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 
@@ -12,12 +13,25 @@ interface RestBarProps {
   onAdjust: (deltaSeconds: number) => void;
   onSkip: () => void;
   language?: AppLanguage;
+  /**
+   * The wall-clock end, when known. The eyebrow then reads "REST · ENDS 18:42"
+   * — checkable against the gym clock, which a countdown alone never is after
+   * any gap (design: Background Timer, "wall-clock bar").
+   */
+  endsAtMs?: number | null;
+  /**
+   * Seconds past the end. When set and > 0 the bar is in its DONE state: "REST
+   * DONE · 2:14 AGO" with one action, log the set. Overrun is data, not an
+   * error — the phone was in a pocket, and this is how long the rest really was.
+   */
+  overrunSeconds?: number | null;
+  /** The done state's one action. */
+  onLogSet?: () => void;
+  /** What the done state names, e.g. "Set 3 · 60 kg × 8". */
+  doneLabel?: string | null;
 }
 
-function formatClock(seconds: number) {
-  const safe = Math.max(0, seconds);
-  return `${Math.floor(safe / 60)}:${`${safe % 60}`.padStart(2, '0')}`;
-}
+const formatClock = formatTimer;
 
 /**
  * Slim floating rest bar (AW3 design language): purpleDark pill above the
@@ -25,7 +39,17 @@ function formatClock(seconds: number) {
  * progress line. Shared by the freestyle logger; Active Workout v3 will
  * reuse it.
  */
-export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, language = 'en' }: RestBarProps) {
+export function RestBar({
+  totalSeconds,
+  remainingSeconds,
+  onAdjust,
+  onSkip,
+  language = 'en',
+  endsAtMs = null,
+  overrunSeconds = null,
+  onLogSet,
+  doneLabel = null,
+}: RestBarProps) {
   const styles = useThemedStyles(makeStyles);
   const slideIn = useRef(new Animated.Value(0)).current;
   // Interpolated once: the bar re-renders every second while the timer runs,
@@ -44,6 +68,39 @@ export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, lang
   }, [slideIn]);
 
   const fraction = totalSeconds > 0 ? Math.max(0, Math.min(1, remainingSeconds / totalSeconds)) : 0;
+  const done = typeof overrunSeconds === 'number' && overrunSeconds >= 0 && remainingSeconds <= 0;
+
+  if (done) {
+    return (
+      <Animated.View
+        style={[
+          styles.bar,
+          styles.barDone,
+          { opacity: slideIn, transform: [{ translateY: slideInTranslate }] },
+        ]}
+      >
+        <View style={styles.row}>
+          <View style={styles.copy}>
+            <Text style={[styles.eyebrow, styles.eyebrowDone]}>
+              {t(language, 'rest.bar.doneAgo', { ago: formatClock(overrunSeconds ?? 0) })}
+            </Text>
+            <Text style={styles.time} numberOfLines={1}>
+              {doneLabel ?? t(language, 'rest.notify.plain')}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'rest.bar.logSet')}
+            onPress={onLogSet ?? onSkip}
+            style={[styles.pill, styles.pillDone]}
+          >
+            <Text style={[styles.pillText, styles.pillTextSolid]}>{t(language, 'rest.bar.logSet')}</Text>
+          </Pressable>
+        </View>
+        <View style={[styles.progressTrack, styles.progressTrackDone]} />
+      </Animated.View>
+    );
+  }
 
   return (
     <Animated.View
@@ -67,6 +124,14 @@ export function RestBar({ totalSeconds, remainingSeconds, onAdjust, onSkip, lang
         <View style={styles.copy}>
           <Text style={styles.eyebrow}>{t(language, 'rest.eyebrow')}</Text>
           <Text style={styles.time}>{formatClock(remainingSeconds)}</Text>
+          {/* The wall-clock end on its own line: the copy column is narrow
+              next to three pills, and "REST · ENDS 18:42" as one eyebrow wrapped
+              to three lines on a 360dp phone. */}
+          {endsAtMs ? (
+            <Text style={styles.endsAt} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+              {t(language, 'rest.bar.ends', { time: formatEndsAt(endsAtMs) })}
+            </Text>
+          ) : null}
         </View>
         <View style={styles.pillRow}>
           <Pressable accessibilityRole="button" accessibilityLabel={t(language, 'rest.a11y.shorten')} onPress={() => onAdjust(-15)} style={styles.pill}>
@@ -103,6 +168,25 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     shadowRadius: 34,
     elevation: 12,
   },
+  // Done: dark field, green edge — the same bar after the phone was in a
+  // pocket. Not an alarm colour: the rest is over, nothing is wrong.
+  barDone: {
+    backgroundColor: '#1D1630',
+    borderWidth: 1,
+    borderColor: 'rgba(22,163,74,0.35)',
+    shadowColor: '#140C28',
+  },
+  eyebrowDone: {
+    color: '#22C55E',
+  },
+  pillDone: {
+    backgroundColor: '#16A34A',
+    height: 40,
+    paddingHorizontal: 16,
+  },
+  progressTrackDone: {
+    backgroundColor: '#16A34A',
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -122,6 +206,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 1.05,
     color: 'rgba(255,255,255,0.65)',
+  },
+  endsAt: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+    color: 'rgba(255,255,255,0.62)',
+    marginTop: 2,
   },
   time: {
     fontSize: 21,
