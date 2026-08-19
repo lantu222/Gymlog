@@ -11,6 +11,9 @@ const {
   pickCompletionLift,
   buildCompletionConclusion,
   nextStepKg,
+  horizonStepKg,
+  liftCadenceDays,
+  HORIZON_DAYS,
 } = require('../../.test-dist/lib/proInsights.js');
 const { buildLiftHistories } = require('../../.test-dist/lib/trainingHistory.js');
 
@@ -165,6 +168,82 @@ module.exports = [
       assert.ok(detectPlateau(lifts), 'three sessions at one top set already reads as stalled');
       const next = buildNextSessionMoment(lifts[0], 'en', null);
       assert.ok(next.bars.length > 0);
+    },
+  },
+
+  {
+    name: 'the month-out bar follows the cadence this lift is actually trained at',
+    run() {
+      // The fixture logs every 4 days, so four weeks is seven more sessions.
+      const lifts = history({ weights: [80, 82.5, 85, 87.5] });
+      const lift = lifts[0];
+      assert.equal(liftCadenceDays(lift), 4);
+      assert.equal(HORIZON_DAYS, 28);
+
+      const next = nextStepKg(lift, null);
+      const horizon = horizonStepKg(lift, null);
+      assert.equal(horizon.sessions, 7);
+      const step = next - lift.latest.topSetWeightKg;
+      assert.ok(step > 0, 'a next step exists to project from');
+      // The same per-session step the app applies, repeated — no other maths.
+      assert.equal(horizon.kg, lift.latest.topSetWeightKg + step * 7);
+      assert.ok(horizon.kg > next, 'a month out is always past next session');
+    },
+  },
+  {
+    name: 'one logged session projects at a weekly pace instead of dividing by zero',
+    run() {
+      const lift = history({ weights: [60] })[0];
+      assert.equal(liftCadenceDays(lift), 7);
+      assert.equal(horizonStepKg(lift, null).sessions, 4);
+    },
+  },
+  {
+    name: 'a long layoff cannot squash the projection below two sessions',
+    run() {
+      // Two sessions 60 days apart: the gap is clamped to a fortnight, so the
+      // far bar stays two steps out instead of collapsing onto the next one.
+      const sessions = [];
+      const logs = [];
+      [0, 1].forEach((index) => {
+        const id = `g${index}`;
+        sessions.push({
+          id,
+          workoutTemplateId: 'tpl',
+          workoutNameSnapshot: 'Day 1: Push',
+          performedAt: at(index === 0 ? 60 : 0),
+          durationMinutes: 50,
+          setsCompleted: 9,
+        });
+        logs.push({
+          id: `${id}-log`,
+          sessionId: id,
+          exerciseTemplateId: null,
+          exerciseNameSnapshot: 'Barbell Back Squat',
+          weight: 100 + index * 2.5,
+          repsPerSet: [8, 8, 8],
+          tracked: true,
+          orderIndex: 0,
+        });
+      });
+      const lift = buildLiftHistories(sessions, logs)[0];
+      assert.equal(liftCadenceDays(lift), 14);
+      assert.equal(horizonStepKg(lift, null).sessions, 2);
+    },
+  },
+  {
+    name: 'both pro moments hand the sheet a month-out bar',
+    run() {
+      const climbing = history({ weights: [80, 82.5, 85, 87.5] })[0];
+      const nextMoment = buildNextSessionMoment(climbing, 'en', null);
+      assert.equal(nextMoment.horizonValue, horizonStepKg(climbing, null).kg);
+      assert.equal(nextMoment.horizonSessions, 7);
+      assert.ok(nextMoment.horizonValue > nextMoment.nextValue);
+
+      const stalled = history({ weights: [80, 82.5, 82.5, 82.5] })[0];
+      const plateauMoment = buildPlateauMoment(stalled, 'en', null);
+      assert.equal(plateauMoment.horizonValue, horizonStepKg(stalled, null).kg);
+      assert.ok(plateauMoment.horizonValue > plateauMoment.nextValue);
     },
   },
 ];
