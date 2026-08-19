@@ -12,7 +12,7 @@ If you uninstall the app, that data is gone from the phone. The only copy that c
 
 ## Who is responsible
 
-Santeri Ylönen (Finland) publishes Vinha and is the data controller for the limited processing described below.
+Santeri Ylönen (Finland) publishes Vinha Fitness (“Vinha”) and is the data controller for the limited processing described below.
 
 Questions about this policy or your data: santeriylonen@gmail.com.
 

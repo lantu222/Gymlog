@@ -12,7 +12,7 @@ Jos poistat sovelluksen, tiedot katoavat puhelimesta. Ainoa kopio, joka voi olla
 
 ## Kuka vastaa
 
-Santeri Ylönen (Suomi) julkaisee Vinhan ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.
+Santeri Ylönen (Suomi) julkaisee Vinha Fitness -sovelluksen (”Vinha”) ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.
 
 Kysymykset tästä selosteesta tai tiedoistasi: santeriylonen@gmail.com.
 

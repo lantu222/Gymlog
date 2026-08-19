@@ -3702,7 +3702,7 @@ export function OnboardingScreen({
               onPress={() => toggleRecommendationRefinement('custom')}
             />
             <ChoiceChip
-              label="Vinha AI"
+              label={t(language, 'brand.coach')}
               active={activeRecommendationRefinement === 'ai'}
               onPress={() => toggleRecommendationRefinement('ai')}
             />

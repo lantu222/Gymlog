@@ -473,11 +473,12 @@ module.exports = [
 
       // Light welcome: the copy lives in the i18n dictionary and the screen
       // renders every string through t(language, …).
-      // The tagline promises an outcome, not an activity (2026-08-13). "Train
-      // fast. Get strong." was a pun on the name that told the reader nothing
-      // they could not guess from the app's category.
-      assert.match(i18nSource, /'brand\.tagline': 'Results, not guesswork\.'/);
-      assert.match(i18nSource, /'brand\.tagline': 'Tuloksia, ei arvailua\.'/);
+      // The tagline is the brand package's main claim (2026-08-19): one line
+      // that carries the name (speed) and the product (automatic progression).
+      // It replaced "Results, not guesswork", which promised an outcome but
+      // said nothing about what the app does differently.
+      assert.match(i18nSource, /'brand\.tagline': 'Training that moves forward\.'/);
+      assert.match(i18nSource, /'brand\.tagline': 'Treeni, joka etenee\.'/);
       // The provider buttons are gone. Both called the same handler: there is
       // no OAuth and no account, so they announced two companies' sign-in for
       // a feature that does not exist — on the first screen, behind no guard.
