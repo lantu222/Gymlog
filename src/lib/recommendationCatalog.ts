@@ -304,6 +304,143 @@ export const RECOMMENDATION_PROGRAMS: RecommendationProgramDefinition[] = [
     secondaryOutcomeTags: ['muscle'],
     focusAreaTags: ['glutes', 'hamstrings', 'legs'],
   }),
+  // ── The top of each family ──────────────────────────────────────────────
+  // These existed in the catalog with written copy and were reachable only by
+  // browsing: nothing registered them here, so no set of onboarding answers
+  // could ever produce them. That left the "pro" level with nothing above the
+  // intermediate tier to hand out — it behaved exactly like "advanced".
+  defineProgram('tpl_strong_elite_v1', {
+    familyId: 'strength_base',
+    supportedGoals: ['strength'],
+    backupGoals: ['muscle', 'general_fitness'],
+    supportedLevels: ['pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['heavy'],
+    secondaryOutcomeTags: ['strength'],
+    focusAreaTags: ['back', 'legs', 'chest'],
+  }),
+  defineProgram('tpl_fit_elite_v1', {
+    familyId: 'athletic_recomp',
+    supportedGoals: ['general', 'general_fitness'],
+    backupGoals: ['lean_athletic', 'muscle'],
+    supportedLevels: ['pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['balanced', 'conditioning'],
+    secondaryOutcomeTags: ['conditioning', 'strength'],
+    focusAreaTags: ['core', 'legs', 'back'],
+  }),
+  defineProgram('tpl_shred_elite_v1', {
+    familyId: 'athletic_recomp',
+    supportedGoals: ['lean_athletic', 'general_fitness'],
+    backupGoals: ['general', 'muscle'],
+    supportedLevels: ['pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['conditioning', 'balanced'],
+    secondaryOutcomeTags: ['conditioning'],
+    focusAreaTags: ['core', 'legs'],
+  }),
+  defineProgram('tpl_6_day_arnold_v1', {
+    familyId: 'mass_hypertrophy',
+    supportedGoals: ['muscle'],
+    backupGoals: ['general_fitness'],
+    supportedLevels: ['pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['pump', 'heavy'],
+    secondaryOutcomeTags: ['muscle'],
+    focusAreaTags: ['chest', 'back', 'arms', 'shoulders'],
+  }),
+  defineProgram('tpl_gainer_expert_powerbuilding_v1', {
+    familyId: 'powerbuilding',
+    supportedGoals: ['strength', 'muscle'],
+    backupGoals: ['general_fitness'],
+    supportedLevels: ['pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['heavy', 'pump'],
+    secondaryOutcomeTags: ['strength', 'muscle'],
+    focusAreaTags: ['back', 'legs', 'chest'],
+  }),
+  defineProgram('tpl_gainer_athlete_conditioning_v1', {
+    familyId: 'athletic_recomp',
+    supportedGoals: ['lean_athletic', 'general_fitness'],
+    backupGoals: ['general', 'run_mobility'],
+    supportedLevels: ['pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['conditioning', 'balanced'],
+    secondaryOutcomeTags: ['conditioning'],
+    focusAreaTags: ['core', 'legs'],
+  }),
+  defineProgram('tpl_gainer_calisthenics_mastery_v1', {
+    familyId: 'low_equipment',
+    supportedGoals: ['muscle', 'general_fitness'],
+    backupGoals: ['lean_athletic', 'general'],
+    supportedLevels: ['pro'],
+    // The one advanced program that needs no gym: without it a home lifter
+    // past the beginner tier had nothing but beginner content.
+    equipmentTier: 'low_equipment',
+    recoveryDemand: 'moderate',
+    styleTags: ['balanced', 'pump'],
+    secondaryOutcomeTags: ['muscle', 'consistency'],
+    focusAreaTags: ['core', 'arms', 'chest', 'back'],
+  }),
+
+  // ── The high-frequency middle of HUGE ───────────────────────────────────
+  // Four, five and six sessions a week existed with nothing registered to
+  // serve them, so asking for five days got a four-day program every time.
+  defineProgram('tpl_4_day_ppl_plus_v1', {
+    familyId: 'mass_hypertrophy',
+    supportedGoals: ['muscle'],
+    backupGoals: ['general_fitness', 'strength'],
+    supportedLevels: ['advanced', 'pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['pump', 'heavy'],
+    secondaryOutcomeTags: ['muscle'],
+    focusAreaTags: ['chest', 'back', 'legs'],
+  }),
+  defineProgram('tpl_5_day_ppl_v1', {
+    familyId: 'mass_hypertrophy',
+    supportedGoals: ['muscle'],
+    backupGoals: ['general_fitness'],
+    supportedLevels: ['advanced', 'pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['pump'],
+    secondaryOutcomeTags: ['muscle'],
+    focusAreaTags: ['chest', 'back', 'legs', 'arms'],
+  }),
+  defineProgram('tpl_5_day_upper_lower_full_v1', {
+    familyId: 'mass_hypertrophy',
+    supportedGoals: ['muscle', 'strength'],
+    backupGoals: ['general_fitness'],
+    supportedLevels: ['advanced', 'pro'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'high',
+    styleTags: ['pump', 'heavy'],
+    secondaryOutcomeTags: ['muscle', 'strength'],
+    focusAreaTags: ['back', 'legs', 'chest'],
+  }),
+
+  // ── Joint-friendly, for the mobility branch that asks for this family ────
+  defineProgram('tpl_gainer_joint_friendly_v1', {
+    familyId: 'joint_friendly',
+    supportedGoals: ['general', 'general_fitness'],
+    backupGoals: ['muscle', 'run_mobility'],
+    supportedLevels: ['beginner'],
+    equipmentTier: 'full_gym',
+    recoveryDemand: 'low',
+    styleTags: ['balanced', 'recovery'],
+    secondaryOutcomeTags: ['mobility', 'consistency'],
+    focusAreaTags: ['core', 'legs', 'back'],
+    lowFriction: true,
+    jointFriendly: true,
+  }),
+
   ...Vinha_PROGRAM_RECOMMENDATIONS.map((program) => defineProgram(program.programId, program)),
 ];
 

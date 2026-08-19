@@ -198,6 +198,7 @@ const suites = [
   ...require('./lib/recommendationScoring.test.cjs'),
   ...require('./lib/recommendationBackfill.test.cjs'),
   ...require('./lib/recommendationWaterfall.test.cjs'),
+  ...require('./lib/recommendationReach.test.cjs'),
   ...require('./lib/recommendationWaterfallCopy.test.cjs'),
   ...require('./lib/firstRunSetup.test.cjs'),
   ...require('./lib/focusAreaPresentation.test.cjs'),

@@ -57,6 +57,12 @@ function pickClosestWithPenalty(
       // Prefer level-targeted programs for experienced users when days tie.
       penalty += 1;
     }
+    if (input.level === 'pro' && definition.supportedLevels.includes('advanced')) {
+      // The same rule one rung up. Without it "pro" and "advanced" produced
+      // identical results — every program that served one served the other, so
+      // the top level of the setup changed nothing at all.
+      penalty += 1;
+    }
     if (definition.targetGender !== 'unisex') {
       // Matching gender-targeted content wins day-count ties; mismatched loses hard.
       penalty += definition.targetGender === input.gender ? -1 : 30;
@@ -70,9 +76,16 @@ function pickClosestWithPenalty(
       && definition.equipmentTier === 'low_equipment'
       && input.goal !== 'run_mobility'
       && definition.familyId !== 'full_body_minimal'
+      && definition.familyId !== 'joint_friendly'
     ) {
       // Gym users get gym content unless the goal is inherently low-equipment.
       // The minimal full-body starter is exempt: it doubles as the universal 2-day base.
+      // Joint-friendly is exempt too: that family is only ever picked because
+      // the reader asked for mobility, and a mat-based session is not the
+      // wrong answer for someone who also owns a gym card. Without this, a
+      // full-gym three-day program outbid the two-day mobility reset for a
+      // reader who had asked for two days — 15 points of equipment beat 10
+      // points of "that is not the week you said you had".
       penalty += 15;
     }
     if (penalty < bestPenalty) {

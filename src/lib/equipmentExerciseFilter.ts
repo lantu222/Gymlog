@@ -151,14 +151,26 @@ export function isExerciseAllowedWithEquipment(exerciseName: string, available: 
   );
 }
 
-function findEquipmentFallback(exerciseName: string, available: string[]): string | null {
+/**
+ * `taken` is what the session already holds. Two exercises whose equipment is
+ * missing often share a fallback list — a weighted pull-up and an explosive
+ * pull-up both land on the inverted row for someone with no bar — and picking
+ * per-exercise put the same movement in one session twice. The next allowed
+ * candidate is taken instead, and only when the list is exhausted does the
+ * exercise go.
+ */
+function findEquipmentFallback(
+  exerciseName: string,
+  available: string[],
+  taken: ReadonlySet<string> = new Set(),
+): string | null {
   const normalized = normalize(exerciseName);
   for (const [pattern, candidates] of EQUIPMENT_FALLBACKS) {
     if (!normalized.includes(pattern)) {
       continue;
     }
     for (const candidate of candidates) {
-      if (isExerciseAllowedWithEquipment(candidate, available)) {
+      if (!taken.has(candidate) && isExerciseAllowedWithEquipment(candidate, available)) {
         return candidate;
       }
     }
@@ -182,6 +194,13 @@ export function applyEquipmentToExercises(
 
   const removed: string[] = [];
   const swapped: Array<{ from: string; to: string }> = [];
+  // Everything the session already holds, so a fallback never repeats a
+  // movement that is staying or one an earlier swap already claimed.
+  const taken = new Set(
+    exercises
+      .filter((exercise) => isExerciseAllowedWithEquipment(exercise.exerciseName, available))
+      .map((exercise) => exercise.exerciseName),
+  );
 
   const adjusted = exercises
     .map((exercise) => {
@@ -189,11 +208,12 @@ export function applyEquipmentToExercises(
         return exercise;
       }
 
-      const fallback = findEquipmentFallback(exercise.exerciseName, available);
+      const fallback = findEquipmentFallback(exercise.exerciseName, available, taken);
       if (!fallback) {
         removed.push(exercise.exerciseName);
         return null;
       }
+      taken.add(fallback);
 
       swapped.push({ from: exercise.exerciseName, to: fallback });
       return {
