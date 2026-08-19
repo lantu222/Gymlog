@@ -1,4 +1,3 @@
-import { trace } from './src/lib/perfTrace';
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -1035,7 +1034,6 @@ function VinhaApp() {
   }, [appHydrated, fontsLoaded, minimumSplashElapsed, nativeSplashHidden]);
 
   function navigate(nextRoute: AppRoute) {
-    trace(`nav → ${nextRoute.tab}/${'screen' in nextRoute ? nextRoute.screen : 'root'}`);
     startTransition(() =>
       setNavigationState((current) => ({
         route: nextRoute,
@@ -2509,14 +2507,11 @@ function VinhaApp() {
     // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
     // The saving state is shown for as long as saving actually takes, which is
     // the same rule the workout save already follows.
-    // TEMP instrumentation — splits the finish into its two halves.
-    const perfComposeStart = Date.now();
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
-    const perfComposed = Date.now();
     // One save, not four. Preferences, the template, its exercises and the plan
     // used to be four awaited mutations in a row, each one serializing the whole
     // database through the same queue — at the end of onboarding, where the wait
@@ -2539,9 +2534,6 @@ function VinhaApp() {
         ),
       activate: (planId) => ({ activePlanId: planId }),
     });
-    console.log(
-      `[onb] compose=${perfComposed - perfComposeStart}ms save=${Date.now() - perfComposed}ms`,
-    );
     if (
       typeof selection.currentWeightKg === 'number' &&
       selection.currentWeightKg > 0 &&
@@ -2667,14 +2659,11 @@ function VinhaApp() {
     // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
     // The saving state is shown for as long as saving actually takes, which is
     // the same rule the workout save already follows.
-    // TEMP instrumentation — splits the finish into its two halves.
-    const perfComposeStart = Date.now();
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
-    const perfComposed = Date.now();
     // One save, not four. Preferences, the template, its exercises and the plan
     // used to be four awaited mutations in a row, each one serializing the whole
     // database through the same queue — at the end of onboarding, where the wait
@@ -2697,9 +2686,6 @@ function VinhaApp() {
         ),
       activate: (planId) => ({ activePlanId: planId }),
     });
-    console.log(
-      `[onb] compose=${perfComposed - perfComposeStart}ms save=${Date.now() - perfComposed}ms`,
-    );
     if (
       typeof selection.currentWeightKg === 'number' &&
       selection.currentWeightKg > 0 &&
