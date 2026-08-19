@@ -13,6 +13,8 @@
  * apart on its own.
  */
 
+import { bestForLift } from './liftIdentity';
+
 export interface StrengthGoal {
   /** Matches ExerciseProgressSummary.name — the stored English name. */
   exerciseName: string;
@@ -67,12 +69,22 @@ export function normalizeStrengthGoals(value: unknown): StrengthGoal[] {
  * started" rather than drawing an empty bar, because an empty bar reads as
  * "you have made no progress" when the truth is "you have not begun".
  */
+/**
+ * @param matches decides whether a logged exercise is the goal's lift. Passed
+ *   in rather than imported so this module stays free of the programme layer;
+ *   without it the lookup is by exact name, which is what it used to be and
+ *   what left a deadlift target reading "not logged yet" for someone who had
+ *   been pulling the catalog's "Conventional Deadlift" all along.
+ */
 export function resolveGoalProgress(
   goals: readonly StrengthGoal[],
   bests: ReadonlyMap<string, number | null>,
+  matches?: (loggedName: string, liftName: string) => boolean,
 ): StrengthGoalProgress[] {
   return goals.map((goal) => {
-    const currentKg = bests.get(goal.exerciseName) ?? null;
+    const currentKg = matches
+      ? bestForLift(goal.exerciseName, bests, matches)
+      : bests.get(goal.exerciseName) ?? null;
     if (currentKg === null || !(currentKg > 0)) {
       return { goal, currentKg: null, ratio: null, reached: false };
     }

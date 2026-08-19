@@ -67,17 +67,23 @@ module.exports = [
     name: 'every goal preset has a ready programme that trains its lift as a main lift',
     run() {
       // The rule is "a goal always has a programme". The catalog spells the
-      // deadlift "Deadlift" where the preset says "Barbell Deadlift" — the
-      // library alias matcher is what makes those the same lift, which is why
-      // ranking is given the library names. Without them the deadlift goal
-      // would honestly, and wrongly, report no programme.
+      // deadlift six ways where the preset says "Barbell Deadlift"; the
+      // same-lift groups are what make those one lift.
       for (const preset of STRENGTH_GOAL_PRESETS) {
         const lift = preset.exerciseName;
         const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { libraryNames });
         assert.ok(ranked.length > 0, `${lift}: no ready programme`);
         assert.ok(ranked[0].primary, `${lift}: best programme should train it as a main lift, got ${ranked[0].id}`);
       }
-      assert.deepEqual(rankProgrammesForLift(WORKOUT_TEMPLATES_V1, 'Barbell Deadlift'), [], 'name-only match misses the catalog spelling');
+      // This used to assert the opposite: without the library, "Barbell
+      // Deadlift" matched nothing and the goal reported no programme at all.
+      // The same-lift groups now carry the five goal lifts on their own, so
+      // the deadlift resolves with or without the library — and the library is
+      // still what resolves everything outside those five.
+      assert.ok(
+        rankProgrammesForLift(WORKOUT_TEMPLATES_V1, 'Barbell Deadlift').length > 0,
+        'the goal lifts resolve without needing the library',
+      );
     },
   },
   {
@@ -92,6 +98,50 @@ module.exports = [
       assert.equal(describeGoalCoverage(goal('Bench Press'), [bench]).status, 'covered');
       assert.equal(describeGoalCoverage(goal('Bench Press'), [bench]).coveredBy, 'b');
       assert.equal(describeGoalCoverage(goal('Back Squat'), [bench]).status, 'uncovered');
+    },
+  },
+
+  {
+    name: 'the programme suggested for a target is one the reader can actually run',
+    run() {
+      // Ranked on deadlift sessions alone, everyone was pointed at the six-day
+      // advanced split because it pulls twice a week — including a beginner
+      // who trains three times.
+      const programmes = [
+        {
+          id: 'six_day_advanced',
+          level: 'advanced',
+          daysPerWeek: 6,
+          sessions: [
+            { exercises: [{ exerciseName: 'Deadlift', role: 'primary' }] },
+            { exercises: [{ exerciseName: 'Deadlift', role: 'primary' }] },
+          ],
+        },
+        {
+          id: 'three_day_beginner',
+          level: 'beginner',
+          daysPerWeek: 3,
+          sessions: [{ exercises: [{ exerciseName: 'Conventional Deadlift', role: 'primary' }] }],
+        },
+      ];
+
+      assert.equal(
+        rankProgrammesForLift(programmes, 'Barbell Deadlift')[0].id,
+        'six_day_advanced',
+        'without a reader the heaviest dose still wins',
+      );
+      assert.equal(
+        rankProgrammesForLift(programmes, 'Barbell Deadlift', {
+          reader: { level: 'beginner', daysPerWeek: 3 },
+        })[0].id,
+        'three_day_beginner',
+      );
+      assert.equal(
+        rankProgrammesForLift(programmes, 'Barbell Deadlift', {
+          reader: { level: 'pro', daysPerWeek: 6 },
+        })[0].id,
+        'six_day_advanced',
+      );
     },
   },
 ];
