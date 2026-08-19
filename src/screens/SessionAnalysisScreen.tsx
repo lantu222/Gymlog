@@ -23,7 +23,9 @@ function toneColor(trend: SessionTrend) {
 }
 
 function toneMark(trend: SessionTrend) {
-  return trend === 'up' ? '▲' : trend === 'down' ? '▼' : '=';
+  // Flat has no mark: its label is a word, and an "=" in front of it read as a
+  // stutter ("= =") when the label was one too.
+  return trend === 'up' ? '▲' : trend === 'down' ? '▼' : '';
 }
 
 export function SessionAnalysisScreen({
@@ -101,7 +103,7 @@ export function SessionAnalysisScreen({
               <Text style={styles.sectionLabel}>{t(language, 'analysis.key.label')}</Text>
               <View style={styles.metricRow}>
                 {analysis.keyNumbers.map((metric) => (
-                  <View key={metric.labelKey} style={styles.metricCell}>
+                  <View key={metric.labelKey} style={[styles.metricCell, { flex: metric.grow }]}>
                     <Text style={styles.metricKey}>{t(language, metric.labelKey)}</Text>
                     {/* "60 kg × 8" is one reading, so it never wraps; if the
                         cell is too narrow the type shrinks instead. */}
@@ -185,9 +187,11 @@ export function SessionAnalysisScreen({
                   </View>
                   {row.trend && row.trendLabel ? (
                     <View style={styles.trendPill}>
-                      <Text style={[styles.trendMark, { color: toneColor(row.trend) }]}>
-                        {toneMark(row.trend)}
-                      </Text>
+                      {toneMark(row.trend) ? (
+                        <Text style={[styles.trendMark, { color: toneColor(row.trend) }]}>
+                          {toneMark(row.trend)}
+                        </Text>
+                      ) : null}
                       <Text style={[styles.trendText, { color: toneColor(row.trend) }]}>
                         {row.trendLabel}
                       </Text>

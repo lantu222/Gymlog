@@ -1762,8 +1762,11 @@ function VinhaApp() {
     navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
   }
 
-  function handleOpenCustomProgramDetail(workoutTemplateId: string) {
-    navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+  function handleOpenCustomProgramDetail(
+    workoutTemplateId: string,
+    programType: 'ready' | 'custom' = 'custom',
+  ) {
+    navigate({ tab: 'workout', screen: 'program', programType, workoutTemplateId });
   }
 
   function handleOpenAICoach(prompt: string) {
@@ -4584,23 +4587,42 @@ function VinhaApp() {
   // freestyle log writes a template of its own to hang the session on, and
   // "Omat ohjelmasi" was listing each of those as a programme. Those sessions
   // live in History; the same rule the programme cap already uses.
-  const programsCustomItems = useMemo(
-    () =>
-      customWorkouts
-        .filter((template) => template.origin !== 'freestyle')
-        .map((template) => ({
-          id: template.id,
-          name: formatWorkoutDisplayLabel(template.name),
-          // Built in English here, under a Finnish heading, on the tab that
-          // sells programs. The key existed the whole time.
-          subtitle: t(
-            preferences.appLanguage,
-            template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
-            { sessions: template.sessionCount, exercises: template.exerciseCount },
-          ),
-        })),
-    [customWorkouts, preferences.appLanguage],
-  );
+  const programsCustomItems = useMemo(() => {
+    const authored = customWorkouts
+      .filter((template) => template.origin !== 'freestyle')
+      .map((template) => ({
+        id: template.id,
+        name: formatWorkoutDisplayLabel(template.name),
+        // Built in English here, under a Finnish heading, on the tab that
+        // sells programs. The key existed the whole time.
+        subtitle: t(
+          preferences.appLanguage,
+          template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
+          { sessions: template.sessionCount, exercises: template.exerciseCount },
+        ),
+        active: homeActivePlanCard?.programId === template.id,
+        programType: 'custom' as const,
+      }));
+
+    // The plan you are actually training belongs on this list even when it is
+    // a ready programme rather than one you wrote: onboarding's second button
+    // adopts the catalog programme without authoring anything, so the reader
+    // trained a programme that appeared nowhere under "your programmes".
+    const activeIsAuthored = authored.some((item) => item.active);
+    if (!homeActivePlanCard || activeIsAuthored) {
+      return authored;
+    }
+    return [
+      {
+        id: homeActivePlanCard.programId,
+        name: formatWorkoutDisplayLabel(homeActivePlanCard.title),
+        subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
+        active: true,
+        programType: homeActivePlanCard.programType,
+      },
+      ...authored,
+    ];
+  }, [customWorkouts, homeActivePlanCard, preferences.appLanguage]);
 
   const editorDraft = useMemo<WorkoutTemplateDraft>(() => {
     if (route.tab !== 'workout' || route.screen !== 'editor') {

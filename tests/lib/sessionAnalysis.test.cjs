@@ -156,7 +156,9 @@ module.exports = [
 
       const bench = result.exercises.find((row) => /Bench|Penkki/.test(row.name));
       assert.equal(bench.trend, 'flat');
-      assert.equal(bench.trendLabel, '=');
+      // A word, not '=': the row already carries an '=' marker beside it, and
+      // the two together printed "= =".
+      assert.equal(bench.trendLabel, 'unchanged');
 
       const firstTime = buildSessionAnalysis({
         sessionId: 's1',
@@ -249,6 +251,10 @@ module.exports = [
       assert.ok(!/0\s*%/.test(everything), `a zero percentage survived: ${everything}`);
       // The number itself is what reassures, so the verdict names it.
       assert.match(result.verdict.text, /480 kg/);
+      // The per-exercise row said it twice: an "=" marker beside an "=" label.
+      const bench = result.exercises.find((row) => /Bench/.test(row.name));
+      assert.equal(bench.trend, 'flat');
+      assert.equal(bench.trendLabel, 'unchanged');
       assert.equal(result.verdictTagKey, 'analysis.verdict.steady');
     },
   },

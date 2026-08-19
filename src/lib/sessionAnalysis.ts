@@ -39,6 +39,12 @@ export interface AnalysisMetric {
   labelKey: I18nKey;
   value: string;
   sub: string | null;
+  /**
+   * Share of the row this cell takes. Equal thirds broke the heaviest set's
+   * exercise name across a word ("Penkkipunner|rus"), so the cells are sized
+   * to what they hold: a lift name needs room, a set count does not.
+   */
+  grow: number;
 }
 
 export interface AnalysisVolumeBar {
@@ -234,6 +240,7 @@ export function buildSessionAnalysis({
       labelKey: 'analysis.key.volume',
       value: `${Math.round(volume)} kg`,
       sub: volumeChange ? volumeChange.text : null,
+      grow: 1,
     });
   }
 
@@ -250,6 +257,7 @@ export function buildSessionAnalysis({
       labelKey: 'analysis.key.topSet',
       value: `${removeTrailingZeros(round(heaviest.weight))} kg × ${heaviest.reps}`,
       sub: exerciseNameLabel(language, heaviest.log.exerciseNameSnapshot),
+      grow: 1.35,
     });
   }
 
@@ -258,6 +266,7 @@ export function buildSessionAnalysis({
       labelKey: 'analysis.key.sets',
       value: `${setCount}`,
       sub: t(language, 'analysis.key.setsSub', { count: sessionLogs.length }),
+      grow: 0.85,
     });
   }
 
@@ -293,7 +302,15 @@ export function buildSessionAnalysis({
       // reads as "1 × 5 · 102.5 kg · 102.5 kg × 5".
       topSet: reps.length > 1 ? `${removeTrailingZeros(round(top.weight))} kg × ${top.reps}` : null,
       trend: delta === null ? null : delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat',
-      trendLabel: delta === null ? null : delta === 0 ? '=' : `${delta > 0 ? '+' : ''}${removeTrailingZeros(delta)} kg`,
+      // Held the same: the marker already says "=", so repeating it as the
+      // label printed "= =". The word carries it, like every other unchanged
+      // reading on this screen.
+      trendLabel:
+        delta === null
+          ? null
+          : delta === 0
+            ? t(language, 'analysis.change.flat')
+            : `${delta > 0 ? '+' : ''}${removeTrailingZeros(delta)} kg`,
     });
   }
 
