@@ -164,6 +164,33 @@ export function freestyleHasSetAfter(
 }
 
 /** Done-set count across the session, for the stat strip. */
+/**
+ * The set the reader is coming back to, for the rest bar's done state.
+ *
+ * The design puts a concrete set on that line — "Set 3 · 60 kg × 8" — not a
+ * slogan. Empty fields carry the last logged set's numbers forward, which is
+ * what the logger itself does when the reader taps in.
+ */
+export function freestyleNextSetTarget(
+  exercises: FreestyleExerciseDraft[],
+): { setNumber: number; kg: string; reps: string } | null {
+  for (const exercise of exercises) {
+    const index = exercise.sets.findIndex((set) => !set.done);
+    if (index === -1) {
+      continue;
+    }
+    const set = exercise.sets[index];
+    // Carried forward from the nearest logged set above, the way the inputs do.
+    const previous = [...exercise.sets.slice(0, index)].reverse().find((entry) => entry.done);
+    return {
+      setNumber: index + 1,
+      kg: set.kg.trim() || previous?.kg.trim() || '',
+      reps: set.reps.trim() || previous?.reps.trim() || '',
+    };
+  }
+  return null;
+}
+
 export function freestyleDoneSetCount(exercises: FreestyleExerciseDraft[]) {
   return exercises.reduce(
     (total, exercise) => total + exercise.sets.filter((set) => set.done).length,

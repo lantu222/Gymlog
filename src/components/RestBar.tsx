@@ -85,7 +85,7 @@ export function RestBar({
               {t(language, 'rest.bar.doneAgo', { ago: formatClock(overrunSeconds ?? 0) })}
             </Text>
             <Text style={styles.time} numberOfLines={1}>
-              {doneLabel ?? t(language, 'rest.notify.plain')}
+              {doneLabel ?? t(language, 'rest.bar.logSet')}
             </Text>
           </View>
           <Pressable
@@ -94,7 +94,7 @@ export function RestBar({
             onPress={onLogSet ?? onSkip}
             style={[styles.pill, styles.pillDone]}
           >
-            <Text style={[styles.pillText, styles.pillTextSolid]}>{t(language, 'rest.bar.logSet')}</Text>
+            <Text style={[styles.pillText, styles.pillTextOnGreen]}>{t(language, 'rest.bar.logSet')}</Text>
           </Pressable>
         </View>
         <View style={[styles.progressTrack, styles.progressTrackDone]} />
@@ -243,6 +243,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   pillTextSolid: {
     color: theme.purpleDark,
+  },
+  // The done pill is green, not white: purpleDark on green is barely legible.
+  pillTextOnGreen: {
+    color: '#FFFFFF',
   },
   progressTrack: {
     height: 4,

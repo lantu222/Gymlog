@@ -6,6 +6,7 @@ const {
   exerciseInitials,
   freestyleDoneSetCount,
   freestyleHasSetAfter,
+  freestyleNextSetTarget,
   freestyleVolumeKg,
   matchesMuscleFilter,
 } = require('../../.test-dist/lib/emptyWorkoutSession.js');
@@ -210,6 +211,43 @@ module.exports = [
       // ...and once the bench is done too, the session has nothing left.
       const benchDone = { ...bench, sets: [{ ...bench.sets[0], done: true }] };
       assert.equal(freestyleHasSetAfter([squat, benchDone], 'draft_1', 'set_1'), false);
+    },
+  },
+
+  {
+    name: 'the done rest bar names the set you came back to log',
+    run() {
+      const draft = (sets) => [
+        { localKey: 'e1', name: 'Bench', libraryItemId: null, imageUrl: null, repMin: 6, repMax: 8, restSeconds: 120, trackedDefault: true, sets },
+      ];
+      // The pending set is empty, so it carries the last logged set forward —
+      // exactly what the reader sees when they tap into the fields.
+      assert.deepEqual(
+        freestyleNextSetTarget(draft([
+          { localKey: 's1', kg: '60', reps: '8', done: true },
+          { localKey: 's2', kg: '', reps: '', done: false },
+        ])),
+        { setNumber: 2, kg: '60', reps: '8' },
+      );
+      // Values already typed into the pending set win over the carried ones.
+      assert.deepEqual(
+        freestyleNextSetTarget(draft([
+          { localKey: 's1', kg: '60', reps: '8', done: true },
+          { localKey: 's2', kg: '65', reps: '6', done: false },
+        ])),
+        { setNumber: 2, kg: '65', reps: '6' },
+      );
+      // Nothing logged yet and nothing typed: a set number is still a label.
+      assert.deepEqual(
+        freestyleNextSetTarget(draft([{ localKey: 's1', kg: '', reps: '', done: false }])),
+        { setNumber: 1, kg: '', reps: '' },
+      );
+      // Everything logged — no label, and the bar has nothing to point at.
+      assert.equal(
+        freestyleNextSetTarget(draft([{ localKey: 's1', kg: '60', reps: '8', done: true }])),
+        null,
+      );
+      assert.equal(freestyleNextSetTarget([]), null);
     },
   },
 ];

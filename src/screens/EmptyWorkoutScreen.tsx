@@ -27,6 +27,7 @@ import {
   exerciseInitials,
   freestyleDoneSetCount,
   freestyleHasSetAfter,
+  freestyleNextSetTarget,
   freestyleVolumeKg,
   matchesMuscleFilter,
 } from '../lib/emptyWorkoutSession';
@@ -507,6 +508,17 @@ export function EmptyWorkoutScreen({
   const volumeKg = freestyleVolumeKg(exercises);
   const totalSetCount = exercises.reduce((sum, entry) => sum + entry.sets.length, 0);
 
+  // The done bar names the set you came back to log, not a slogan.
+  const nextSetLabel = useMemo(() => {
+    const target = freestyleNextSetTarget(exercises);
+    if (!target) {
+      return null;
+    }
+    return target.kg && target.reps
+      ? t(language, 'rest.bar.doneSet', { n: target.setNumber, kg: target.kg, reps: target.reps })
+      : t(language, 'rest.bar.doneSetPlain', { n: target.setNumber });
+  }, [exercises, language]);
+
   // What the lock-screen card says between rests: the session and where it is.
   const sessionCard = useMemo(() => {
     if (!hasExercises || startedAtMs === null) {
@@ -949,6 +961,7 @@ export function EmptyWorkoutScreen({
           onAdjust={adjustRest}
           onSkip={() => setRest(null)}
           onLogSet={() => setRest(null)}
+          doneLabel={nextSetLabel}
           language={language}
         />
       ) : null}

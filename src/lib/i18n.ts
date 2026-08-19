@@ -1175,6 +1175,8 @@ const EN = {
   'rest.bar.ends': 'ENDS {time}',
   'rest.bar.doneAgo': 'REST DONE · {ago} AGO',
   'rest.bar.logSet': 'Log set',
+  'rest.bar.doneSet': 'Set {n} · {kg} kg × {reps}',
+  'rest.bar.doneSetPlain': 'Set {n}',
   // Settings · Rest & alerts
   'notif.rest.section': 'Rest & alerts',
   'notif.rest.alerts': 'Rest alerts',
@@ -4411,6 +4413,8 @@ const FI: Record<I18nKey, string> = {
   'rest.bar.ends': 'PÄÄTTYY {time}',
   'rest.bar.doneAgo': 'LEPO OHI · {ago} SITTEN',
   'rest.bar.logSet': 'Kirjaa sarja',
+  'rest.bar.doneSet': 'Sarja {n} · {kg} kg × {reps}',
+  'rest.bar.doneSetPlain': 'Sarja {n}',
   'notif.rest.section': 'Lepo ja hälytykset',
   'notif.rest.alerts': 'Lepohälytykset',
   'notif.rest.alertsSub': 'Ilmoitus ja ääni kun lepo päättyy',
