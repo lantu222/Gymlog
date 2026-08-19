@@ -2,6 +2,20 @@ import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, AppState, BackHandler, Linking, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { emitRestAction } from './src/hooks/useRestEndAlert';
+import { IDLE_NUDGE_MINUTES, idleNudgeAtMs } from './src/lib/restSchedule';
+import {
+  ACTION_EXTEND_30,
+  ACTION_EXTEND_60,
+  ACTION_FINISH,
+  ACTION_SKIP_REST,
+  ACTION_STILL_GOING,
+  SESSION_NOTIFICATION_MARKER,
+  cancelIdleNudge,
+  clearAllSessionNotifications,
+  scheduleIdleNudge,
+} from './src/utils/sessionNotifications';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 
@@ -946,6 +960,96 @@ function VinhaApp() {
   // comeback nudge, the Sunday summary and the morning-after record note.
   useScheduledNotifications(database);
 
+  /* ---------------- Background timer: the app-level half ---------------- */
+  // The rest ladder and the ongoing card are owned by the screen that holds the
+  // rest (useRestEndAlert). What belongs here is everything that outlives a
+  // screen: lock-screen action responses, the idle nudge, cleanup when the
+  // session ends, and the truth about a session restored after a cold start.
+
+  const activeSessionId = workout.activeSession?.sessionId ?? null;
+  const activeSessionStatus = workout.activeSession?.status ?? null;
+  const navigateToActiveWorkoutRef = useRef<() => boolean>(() => false);
+  const finishFromNotificationRef = useRef<() => void>(() => {});
+
+  // Lock-screen actions. Every action opens the app; the running rest is then
+  // told over the bus, because it lives in screen state.
+  useEffect(() => {
+    const subscription = Notifications.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data ?? {};
+      if (data[SESSION_NOTIFICATION_MARKER] !== true) {
+        return;
+      }
+      const action = response.actionIdentifier;
+      // Bring the session to the front first; the screen that owns the rest
+      // mounts its bus listener on render.
+      navigateToActiveWorkoutRef.current();
+      setTimeout(() => {
+        if (action === ACTION_EXTEND_30) {
+          emitRestAction({ kind: 'extend', seconds: 30 });
+        } else if (action === ACTION_EXTEND_60) {
+          emitRestAction({ kind: 'extend', seconds: 60 });
+        } else if (action === ACTION_SKIP_REST) {
+          emitRestAction({ kind: 'skip' });
+        } else if (action === ACTION_FINISH) {
+          finishFromNotificationRef.current();
+        } else if (action === ACTION_STILL_GOING) {
+          // Handled by the idle effect below: opening the app counts as activity.
+        }
+      }, 350);
+    });
+    return () => subscription.remove();
+  }, []);
+
+  // Session ended or was discarded: nothing of ours stays in the shade.
+  useEffect(() => {
+    if (!activeSessionId || activeSessionStatus !== 'active') {
+      void clearAllSessionNotifications();
+    }
+  }, [activeSessionId, activeSessionStatus]);
+
+  // The idle nudge: 25 minutes after the last logged set, one question. Keyed
+  // on the count of completed sets so every logged set pushes it forward, and
+  // on the app coming to the foreground, which also counts as being there.
+  const completedSetCount = useMemo(
+    () =>
+      (workout.activeSession?.exercises ?? []).reduce(
+        (sum, exercise) => sum + exercise.sets.filter((set) => set.status === 'completed').length,
+        0,
+      ),
+    [workout.activeSession?.exercises],
+  );
+  useEffect(() => {
+    if (!activeSessionId || activeSessionStatus !== 'active' || !preferences.notificationPrefs.idleNudge) {
+      void cancelIdleNudge();
+      return;
+    }
+    const language = preferences.appLanguage;
+    const sessionName = localizeSessionName(
+      formatWorkoutDisplayLabel(workout.activeSession?.templateName ?? ''),
+      language,
+    );
+    void scheduleIdleNudge({
+      atMs: idleNudgeAtMs(Date.now()),
+      title: t(language, 'rest.notify.idleTitle', { minutes: IDLE_NUDGE_MINUTES }),
+      body: t(language, 'rest.notify.idleBody', { session: sessionName, done: completedSetCount }),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSessionId, activeSessionStatus, completedSetCount, preferences.notificationPrefs.idleNudge, preferences.appLanguage]);
+
+  // After a cold start the session comes back from stored timestamps: elapsed
+  // is real and a rest that expired meanwhile is already resolved. Say so once.
+  const restoredToastShownRef = useRef(false);
+  useEffect(() => {
+    if (!workout.hydrated || restoredToastShownRef.current) {
+      return;
+    }
+    restoredToastShownRef.current = true;
+    if (workout.activeSession?.status === 'active') {
+      showToast(t(preferences.appLanguage, 'rest.notify.restoredToast'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workout.hydrated]);
+
   const exerciseBrowserItems = useMemo(
     () => exerciseLibrary.filter((item) => !item.id.startsWith('lib_')),
     [exerciseLibrary],
@@ -1491,6 +1595,13 @@ function VinhaApp() {
     return true;
   }
 
+  navigateToActiveWorkoutRef.current = () => navigateToActiveWorkout();
+  finishFromNotificationRef.current = () => {
+    // "Finish workout" from the lock screen opens the session; ending it is a
+    // confirmed step on that screen, not a silent write from a notification.
+    navigateToActiveWorkout();
+  };
+
   function getWorkoutLoggerFallbackRoute() {
     return resolveWorkoutLoggerFallbackRoute({
       activeWorkoutTemplateId: workout.activeSession?.templateId ?? null,
@@ -1651,8 +1762,11 @@ function VinhaApp() {
     navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
   }
 
-  function handleOpenCustomProgramDetail(workoutTemplateId: string) {
-    navigate({ tab: 'workout', screen: 'program', programType: 'custom', workoutTemplateId });
+  function handleOpenCustomProgramDetail(
+    workoutTemplateId: string,
+    programType: 'ready' | 'custom' = 'custom',
+  ) {
+    navigate({ tab: 'workout', screen: 'program', programType, workoutTemplateId });
   }
 
   function handleOpenAICoach(prompt: string) {
@@ -4473,23 +4587,42 @@ function VinhaApp() {
   // freestyle log writes a template of its own to hang the session on, and
   // "Omat ohjelmasi" was listing each of those as a programme. Those sessions
   // live in History; the same rule the programme cap already uses.
-  const programsCustomItems = useMemo(
-    () =>
-      customWorkouts
-        .filter((template) => template.origin !== 'freestyle')
-        .map((template) => ({
-          id: template.id,
-          name: formatWorkoutDisplayLabel(template.name),
-          // Built in English here, under a Finnish heading, on the tab that
-          // sells programs. The key existed the whole time.
-          subtitle: t(
-            preferences.appLanguage,
-            template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
-            { sessions: template.sessionCount, exercises: template.exerciseCount },
-          ),
-        })),
-    [customWorkouts, preferences.appLanguage],
-  );
+  const programsCustomItems = useMemo(() => {
+    const authored = customWorkouts
+      .filter((template) => template.origin !== 'freestyle')
+      .map((template) => ({
+        id: template.id,
+        name: formatWorkoutDisplayLabel(template.name),
+        // Built in English here, under a Finnish heading, on the tab that
+        // sells programs. The key existed the whole time.
+        subtitle: t(
+          preferences.appLanguage,
+          template.sessionCount === 1 ? 'prog.custom.countsOne' : 'prog.custom.counts',
+          { sessions: template.sessionCount, exercises: template.exerciseCount },
+        ),
+        active: homeActivePlanCard?.programId === template.id,
+        programType: 'custom' as const,
+      }));
+
+    // The plan you are actually training belongs on this list even when it is
+    // a ready programme rather than one you wrote: onboarding's second button
+    // adopts the catalog programme without authoring anything, so the reader
+    // trained a programme that appeared nowhere under "your programmes".
+    const activeIsAuthored = authored.some((item) => item.active);
+    if (!homeActivePlanCard || activeIsAuthored) {
+      return authored;
+    }
+    return [
+      {
+        id: homeActivePlanCard.programId,
+        name: formatWorkoutDisplayLabel(homeActivePlanCard.title),
+        subtitle: t(preferences.appLanguage, 'programs.activeSubtitle'),
+        active: true,
+        programType: homeActivePlanCard.programType,
+      },
+      ...authored,
+    ];
+  }, [customWorkouts, homeActivePlanCard, preferences.appLanguage]);
 
   const editorDraft = useMemo<WorkoutTemplateDraft>(() => {
     if (route.tab !== 'workout' || route.screen !== 'editor') {
@@ -5031,6 +5164,18 @@ function VinhaApp() {
         defaultRestSeconds={preferences.defaultRestSeconds}
         keepScreenAwake={preferences.keepScreenAwakeDuringWorkout}
         exercisePrLookup={exercisePrLookup}
+        restAlerts={{
+          alerts: preferences.notificationPrefs.restAlerts,
+          warning: preferences.notificationPrefs.restWarning,
+          ongoing: preferences.notificationPrefs.sessionOngoing,
+          asked: preferences.notificationPrefs.restAlertsAsked,
+        }}
+        onRestAlertsAsked={() =>
+          void updatePreferences({
+            notificationPrefs: { ...preferences.notificationPrefs, restAlertsAsked: true },
+          })
+        }
+        onOpenSystemSettings={() => void Linking.openSettings()}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
         onSave={async (draft, summary) => {
           try {
@@ -5135,6 +5280,11 @@ function VinhaApp() {
         onEndSession={() => void handleDiscardWorkout()}
         onFinishSession={() => void handleConfirmFinishWorkout()}
         isSavingWorkout={finishSaveState.status === 'saving'}
+        restAlerts={{
+          alerts: preferences.notificationPrefs.restAlerts,
+          warning: preferences.notificationPrefs.restWarning,
+          ongoing: preferences.notificationPrefs.sessionOngoing,
+        }}
       />
     );
   } else if (route.tab === 'workout' && route.screen === 'summary' && completionSummary) {

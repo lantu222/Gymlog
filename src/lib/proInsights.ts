@@ -61,6 +61,14 @@ export interface ProMomentContent {
   bars: number[];
   /** The dashed next-step bar; null when no honest step exists. */
   nextValue: number | null;
+  /**
+   * The month-out bar. "Next session" alone shows one step; the pitch is the
+   * direction, so the chart also carries where that pace lands in four weeks.
+   * Null whenever nextValue is.
+   */
+  horizonValue: number | null;
+  /** Sessions the horizon assumes, at this lift's own observed cadence. */
+  horizonSessions: number;
   barLabel: string;
   bullets: string[];
 }
@@ -167,6 +175,52 @@ export function nextStepKg(lift: LiftHistory, level: SetupLevel | null | undefin
   return lift.latest.topSetWeightKg + PROGRESSION_LEVEL_PARAMS[tier].loadIncrementKg;
 }
 
+/** The window the far bar looks ahead to. Four weeks reads as "a month". */
+export const HORIZON_DAYS = 28;
+/**
+ * How often one lift can plausibly come round: twice a week at the fastest,
+ * once a fortnight at the slowest. A single odd gap in the log — a holiday, a
+ * double session — must not stretch or squash the whole projection.
+ */
+const MIN_GAP_DAYS = 3.5;
+const MAX_GAP_DAYS = 14;
+const DEFAULT_GAP_DAYS = 7;
+
+/** The typical gap between this lift's sessions, in days. Median, not mean. */
+export function liftCadenceDays(lift: LiftHistory): number {
+  const times = lift.points.map((point) => point.time).filter((time) => Number.isFinite(time));
+  if (times.length < 2) {
+    return DEFAULT_GAP_DAYS;
+  }
+  const gaps = times
+    .slice(1)
+    .map((time, index) => (time - times[index]) / 86_400_000)
+    .filter((gap) => gap > 0)
+    .sort((a, b) => a - b);
+  if (gaps.length === 0) {
+    return DEFAULT_GAP_DAYS;
+  }
+  const middle = Math.floor(gaps.length / 2);
+  const median = gaps.length % 2 === 1 ? gaps[middle] : (gaps[middle - 1] + gaps[middle]) / 2;
+  return Math.min(MAX_GAP_DAYS, Math.max(MIN_GAP_DAYS, median));
+}
+
+/**
+ * Where the current pace lands in four weeks: the same per-session step the
+ * app's own progression applies, repeated for as many sessions as this lift
+ * actually gets in that window.
+ *
+ * It is an estimate and the sheet says so — the step lands when the reps are
+ * hit, not automatically. Stating the assumption is what keeps it honest.
+ */
+export function horizonStepKg(lift: LiftHistory, level: SetupLevel | null | undefined): { kg: number; sessions: number } {
+  const tier = getProgressionTier(level ?? null);
+  const increment = PROGRESSION_LEVEL_PARAMS[tier].loadIncrementKg;
+  // At least two, so the far bar is never the same height as the next one.
+  const sessions = Math.max(2, Math.round(HORIZON_DAYS / liftCadenceDays(lift)));
+  return { kg: lift.latest.topSetWeightKg + increment * sessions, sessions };
+}
+
 export function buildPlateauMoment(
   lift: LiftHistory,
   language: AppLanguage,
@@ -174,12 +228,15 @@ export function buildPlateauMoment(
 ): ProMomentContent {
   const liftLabel = exerciseNameLabel(language, lift.name);
   const bars = lastBars(lift.points.map((point) => point.topSetWeightKg));
+  const horizon = horizonStepKg(lift, level);
   return {
     eyebrow: t(language, 'pro.sheet.plateau.eyebrow', { lift: liftLabel.toUpperCase() }),
     title: t(language, 'pro.sheet.plateau.title'),
     lead: t(language, 'pro.sheet.plateau.lead', { count: lift.stalledSessions }),
     bars,
     nextValue: nextStepKg(lift, level),
+    horizonValue: horizon.kg,
+    horizonSessions: horizon.sessions,
     barLabel: t(language, 'pro.sheet.plateau.barLabel', {
       lift: liftLabel.toUpperCase(),
       count: bars.length,
@@ -196,6 +253,7 @@ export function buildNextSessionMoment(
   const liftLabel = exerciseNameLabel(language, lift.name);
   const bars = lastBars(lift.points.map((point) => point.topSetWeightKg));
   const climbed = lift.weightChangeKg > 0;
+  const horizon = horizonStepKg(lift, level);
   return {
     eyebrow: t(language, 'pro.sheet.next.eyebrow'),
     title: t(language, 'pro.sheet.next.title'),
@@ -209,6 +267,8 @@ export function buildNextSessionMoment(
       : t(language, 'pro.sheet.next.leadFlat', { lift: liftLabel, count: lift.points.length }),
     bars,
     nextValue: nextStepKg(lift, level),
+    horizonValue: horizon.kg,
+    horizonSessions: horizon.sessions,
     barLabel: t(language, 'pro.sheet.next.barLabel', {
       lift: liftLabel.toUpperCase(),
       count: bars.length,

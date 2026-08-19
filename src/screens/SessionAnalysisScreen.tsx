@@ -4,7 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { CoachHighlightedText } from '../components/CoachHighlightedText';
 import { t } from '../lib/i18n';
-import { SessionAnalysis, SessionTrend } from '../lib/sessionAnalysis';
+import { SessionAnalysis, SessionTrend, describeVolumeChange } from '../lib/sessionAnalysis';
 import { COACH } from '../lightTheme';
 import { layout } from '../theme';
 import { AppLanguage } from '../types/models';
@@ -23,7 +23,9 @@ function toneColor(trend: SessionTrend) {
 }
 
 function toneMark(trend: SessionTrend) {
-  return trend === 'up' ? '▲' : trend === 'down' ? '▼' : '=';
+  // Flat has no mark: its label is a word, and an "=" in front of it read as a
+  // stutter ("= =") when the label was one too.
+  return trend === 'up' ? '▲' : trend === 'down' ? '▼' : '';
 }
 
 export function SessionAnalysisScreen({
@@ -33,6 +35,7 @@ export function SessionAnalysisScreen({
   onAskCoach,
 }: SessionAnalysisScreenProps) {
   const bars = analysis?.volumeBars ?? [];
+  const volumeChange = describeVolumeChange(analysis?.volumeChangePercent ?? null, language);
   // Scale from just under the smallest bar rather than zero: on real training
   // data every bar is a large number, and a zero baseline flattens the very
   // trend the chart exists to show.
@@ -100,10 +103,18 @@ export function SessionAnalysisScreen({
               <Text style={styles.sectionLabel}>{t(language, 'analysis.key.label')}</Text>
               <View style={styles.metricRow}>
                 {analysis.keyNumbers.map((metric) => (
-                  <View key={metric.labelKey} style={styles.metricCell}>
+                  <View key={metric.labelKey} style={[styles.metricCell, { flex: metric.grow }]}>
                     <Text style={styles.metricKey}>{t(language, metric.labelKey)}</Text>
-                    <Text style={styles.metricValue}>{metric.value}</Text>
-                    {metric.sub ? <Text style={styles.metricSub}>{metric.sub}</Text> : null}
+                    {/* "60 kg × 8" is one reading, so it never wraps; if the
+                        cell is too narrow the type shrinks instead. */}
+                    <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                      {metric.value}
+                    </Text>
+                    {metric.sub ? (
+                      <Text style={styles.metricSub} numberOfLines={2}>
+                        {metric.sub}
+                      </Text>
+                    ) : null}
                   </View>
                 ))}
               </View>
@@ -115,21 +126,22 @@ export function SessionAnalysisScreen({
             <View style={styles.section}>
               <View style={styles.sectionHeadRow}>
                 <Text style={styles.sectionLabel}>{t(language, 'analysis.volumeLabel')}</Text>
-                {analysis.volumeChangePercent !== null ? (
+                {volumeChange ? (
                   <View
                     style={[
                       styles.changePill,
-                      analysis.volumeChangePercent < 0 && styles.changePillDown,
+                      volumeChange.kind === 'down' && styles.changePillDown,
+                      volumeChange.kind === 'flat' && styles.changePillFlat,
                     ]}
                   >
                     <Text
                       style={[
                         styles.changePillText,
-                        analysis.volumeChangePercent < 0 && styles.changePillTextDown,
+                        volumeChange.kind === 'down' && styles.changePillTextDown,
+                        volumeChange.kind === 'flat' && styles.changePillTextFlat,
                       ]}
                     >
-                      {analysis.volumeChangePercent > 0 ? '+' : ''}
-                      {analysis.volumeChangePercent}%
+                      {volumeChange.text}
                     </Text>
                   </View>
                 ) : null}
@@ -175,9 +187,11 @@ export function SessionAnalysisScreen({
                   </View>
                   {row.trend && row.trendLabel ? (
                     <View style={styles.trendPill}>
-                      <Text style={[styles.trendMark, { color: toneColor(row.trend) }]}>
-                        {toneMark(row.trend)}
-                      </Text>
+                      {toneMark(row.trend) ? (
+                        <Text style={[styles.trendMark, { color: toneColor(row.trend) }]}>
+                          {toneMark(row.trend)}
+                        </Text>
+                      ) : null}
                       <Text style={[styles.trendText, { color: toneColor(row.trend) }]}>
                         {row.trendLabel}
                       </Text>
@@ -432,6 +446,11 @@ const styles = StyleSheet.create({
   changePillDown: {
     backgroundColor: 'rgba(224,146,47,0.14)',
   },
+  // Nothing changed, so nothing is claimed: the badge goes quiet rather than
+  // wearing the green that promises growth.
+  changePillFlat: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+  },
   changePillText: {
     color: COACH.good,
     fontFamily: 'JetBrainsMono',
@@ -439,6 +458,9 @@ const styles = StyleSheet.create({
   },
   changePillTextDown: {
     color: COACH.warn,
+  },
+  changePillTextFlat: {
+    color: COACH.muted,
   },
   barRow: {
     flexDirection: 'row',

@@ -151,6 +151,14 @@ export interface ProgramsCustomItem {
   id: string;
   name: string;
   subtitle: string;
+  /**
+   * The plan you are actually training. A ready programme adopted from the
+   * catalog is not an authored template, so it appeared nowhere on this tab —
+   * the one programme the reader came here to find was the one missing.
+   */
+  active?: boolean;
+  /** Ready programmes open the catalog page, authored ones the editor's. */
+  programType?: 'ready' | 'custom';
 }
 
 
@@ -243,7 +251,7 @@ interface ProgramsHomeScreenProps {
   customPrograms: ProgramsCustomItem[];
   exerciseLibraryCount: number;
   onOpenExploreProgram: (programId: string) => void;
-  onOpenCustomProgram: (programId: string) => void;
+  onOpenCustomProgram: (programId: string, programType: 'ready' | 'custom') => void;
   onCreateProgram: () => void;
   onAiAssisted: () => void;
   onImportProgram: (draft: WorkoutTemplateDraft) => Promise<void> | void;
@@ -1383,7 +1391,7 @@ export function ProgramsHomeScreen({
             key={program.id}
             accessibilityRole="button"
             accessibilityLabel={t(language, 'programs.open', { name: program.name })}
-            onPress={() => onOpenCustomProgram(program.id)}
+            onPress={() => onOpenCustomProgram(program.id, program.programType ?? 'custom')}
             style={({ pressed }) => [styles.customRowWrap, pressed && styles.rowPressed]}
           >
             <CutSurface
@@ -1396,9 +1404,14 @@ export function ProgramsHomeScreen({
             >
             <GradientTile stops={SAVED_TILE} size={44} radius={12} />
             <View style={styles.customCopy}>
-              <Text style={styles.customTitle} numberOfLines={1}>
-                {program.name}
-              </Text>
+              <View style={styles.customTitleRow}>
+                <Text style={styles.customTitle} numberOfLines={1}>
+                  {program.name}
+                </Text>
+                {program.active ? (
+                  <Text style={styles.customActiveTag}>{t(language, 'programs.activeTag')}</Text>
+                ) : null}
+              </View>
               <Text style={styles.customSubtitle} numberOfLines={1}>
                 {program.subtitle}
               </Text>
@@ -2217,11 +2230,28 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  customTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   customTitle: {
     color: theme.ink,
     fontSize: 14.5,
     lineHeight: 19,
     fontWeight: '800',
+    flexShrink: 1,
+  },
+  customActiveTag: {
+    color: theme.highlight,
+    fontSize: 9.5,
+    fontWeight: '800',
+    letterSpacing: 0.9,
+    backgroundColor: theme.highlightSoft,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: 'hidden',
   },
   customSubtitle: {
     marginTop: 2,

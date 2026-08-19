@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const { buildSessionAnalysis } = require('../../.test-dist/lib/sessionAnalysis.js');
+const { buildSessionAnalysis, describeVolumeChange } = require('../../.test-dist/lib/sessionAnalysis.js');
 
 function session(id, name, daysAgo, totalVolumeKg, durationMinutes) {
   return {
@@ -156,7 +156,9 @@ module.exports = [
 
       const bench = result.exercises.find((row) => /Bench|Penkki/.test(row.name));
       assert.equal(bench.trend, 'flat');
-      assert.equal(bench.trendLabel, '=');
+      // A word, not '=': the row already carries an '=' marker beside it, and
+      // the two together printed "= =".
+      assert.equal(bench.trendLabel, 'unchanged');
 
       const firstTime = buildSessionAnalysis({
         sessionId: 's1',
@@ -210,6 +212,61 @@ module.exports = [
       }
       // And it must not invent an RPE scale the app never collects.
       assert.doesNotMatch(code, /\bRPE\b/);
+    },
+  },
+
+  {
+    name: 'no change is written as a word, never as 0 %',
+    run() {
+      // A percentage is reserved for change. "0 %" beside a "0 %" badge reads
+      // as missing data on the one screen whose job is proving the numbers.
+      assert.deepEqual(describeVolumeChange(0, 'en'), { kind: 'flat', text: 'unchanged' });
+      assert.deepEqual(describeVolumeChange(0, 'fi'), { kind: 'flat', text: 'ennallaan' });
+      assert.deepEqual(describeVolumeChange(8, 'en'), { kind: 'up', text: '+8%' });
+      assert.deepEqual(describeVolumeChange(-8, 'en'), { kind: 'down', text: '-8%' });
+      assert.equal(describeVolumeChange(null, 'en'), null);
+    },
+  },
+  {
+    name: 'an identical session states its volume instead of three zeros',
+    run() {
+      // Same name, same volume both times: the old build printed 0 % in the
+      // key number, the observation and the verdict.
+      const sessions = [
+        session('b1', 'Day 1: Full Body', 8, 480, 34),
+        session('b2', 'Day 1: Full Body', 1, 480, 34),
+      ];
+      const logs = [log('b1', 'Bench Press', 60, [8]), log('b2', 'Bench Press', 60, [8])];
+      const result = buildSessionAnalysis({ sessionId: 'b2', sessions, logs, language: 'en' });
+
+      assert.equal(result.volumeChangePercent, 0);
+      const volumeKey = result.keyNumbers.find((metric) => metric.labelKey === 'analysis.key.volume');
+      assert.equal(volumeKey.sub, 'unchanged');
+
+      const everything = [
+        result.verdict.text,
+        ...result.observations.map((entry) => entry.body.text),
+        ...result.keyNumbers.map((metric) => metric.sub ?? ''),
+      ].join(' | ');
+      assert.ok(!/0\s*%/.test(everything), `a zero percentage survived: ${everything}`);
+      // The number itself is what reassures, so the verdict names it.
+      assert.match(result.verdict.text, /480 kg/);
+      // The per-exercise row said it twice: an "=" marker beside an "=" label.
+      const bench = result.exercises.find((row) => /Bench/.test(row.name));
+      assert.equal(bench.trend, 'flat');
+      assert.equal(bench.trendLabel, 'unchanged');
+      assert.equal(result.verdictTagKey, 'analysis.verdict.steady');
+    },
+  },
+  {
+    name: 'one logged set reads "1 set", not "1 sets"',
+    run() {
+      const sessions = [session('o1', 'Day 1: Full Body', 1, 480, 34)];
+      const logs = [log('o1', 'Bench Press', 60, [8])];
+      const en = buildSessionAnalysis({ sessionId: 'o1', sessions, logs, language: 'en' });
+      assert.ok(en.metaParts.includes('1 set'), en.metaParts.join(' · '));
+      const fi = buildSessionAnalysis({ sessionId: 'o1', sessions, logs, language: 'fi' });
+      assert.ok(fi.metaParts.includes('1 sarja'), fi.metaParts.join(' · '));
     },
   },
 ];

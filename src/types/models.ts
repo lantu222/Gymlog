@@ -60,6 +60,20 @@ export interface NotificationPrefs {
   sessionReminders: boolean;
   /** Local time of day for session reminders, 24h "HH:MM". */
   reminderTime: string;
+  /**
+   * Rest & alerts (design: Background Timer). Defaults assume a noisy gym —
+   * each is defeatable here, none is a marketing push.
+   */
+  /** The alert ladder when a rest ends: end tone + one repeat 30 s later. */
+  restAlerts: boolean;
+  /** The haptic-only tick 10 s before a rest ends. */
+  restWarning: boolean;
+  /** The ongoing lock-screen card while a workout is live. */
+  sessionOngoing: boolean;
+  /** One nudge after 25 minutes without a logged set. */
+  idleNudge: boolean;
+  /** The in-app permission sheet has been shown once; asked in context, never twice. */
+  restAlertsAsked: boolean;
 }
 
 export type TrainingBreakReason = 'injury' | 'holiday' | 'other';

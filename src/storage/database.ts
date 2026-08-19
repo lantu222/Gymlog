@@ -175,6 +175,10 @@ function mergeExerciseLibrary(
   return Array.from(merged.values());
 }
 
+function boolOr(value: unknown, fallbackValue: boolean): boolean {
+  return typeof value === 'boolean' ? value : fallbackValue;
+}
+
 function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppDatabase {
   // Defaults for missing fields only. The empty database is the right source:
   // the demo seed's fabricated plan id would otherwise become the fallback for
@@ -473,6 +477,11 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
         )
           ? (input!.preferences!.notificationPrefs!.reminderTime as string)
           : fallback.preferences.notificationPrefs.reminderTime,
+        restAlerts: boolOr(input?.preferences?.notificationPrefs?.restAlerts, fallback.preferences.notificationPrefs.restAlerts),
+        restWarning: boolOr(input?.preferences?.notificationPrefs?.restWarning, fallback.preferences.notificationPrefs.restWarning),
+        sessionOngoing: boolOr(input?.preferences?.notificationPrefs?.sessionOngoing, fallback.preferences.notificationPrefs.sessionOngoing),
+        idleNudge: boolOr(input?.preferences?.notificationPrefs?.idleNudge, fallback.preferences.notificationPrefs.idleNudge),
+        restAlertsAsked: boolOr(input?.preferences?.notificationPrefs?.restAlertsAsked, fallback.preferences.notificationPrefs.restAlertsAsked),
       },
       trainingBreak:
         input?.preferences?.trainingBreak &&

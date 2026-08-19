@@ -76,7 +76,7 @@ import { formatShortDate, removeTrailingZeros } from '../lib/format';
 import { estimateSessionMinutes } from '../lib/sessionDuration';
 import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
-import { useRestEndAlert } from '../hooks/useRestEndAlert';
+import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
 import { sound, type CueSound } from '../utils/sound';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
@@ -168,6 +168,8 @@ interface GuidedPlayerScreenProps {
   onEndSession: () => void;
   onFinishSession: () => void;
   isSavingWorkout: boolean;
+  /** Rest & alerts settings (design: Background Timer). */
+  restAlerts?: { alerts: boolean; warning: boolean; ongoing: boolean };
 }
 
 /* ── icons ── */
@@ -884,6 +886,7 @@ export function GuidedPlayerScreen({
   onEndSession,
   onFinishSession,
   isSavingWorkout,
+  restAlerts = { alerts: true, warning: true, ongoing: true },
 }: GuidedPlayerScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
@@ -988,6 +991,8 @@ export function GuidedPlayerScreen({
   const [expandedPhases, setExpandedPhases] = useState<string[]>([]);
   const [stepIndex, setStepIndex] = useState(0);
   const step: GuidedStep = steps[Math.min(stepIndex, steps.length - 1)] ?? { type: 'finish' };
+  const stepRef = useRef(step);
+  stepRef.current = step;
 
   /* ── timers ── */
   const [remainingMs, setRemainingMs] = useState(0);
@@ -1007,7 +1012,50 @@ export function GuidedPlayerScreen({
    * deadline is handed to the system as a scheduled notification too. Dropped
    * the moment the rest is skipped, paused, adjusted or finished in-app.
    */
-  const syncRestNotification = useRestEndAlert(language);
+  // What the lock-screen card says between rests: the session and its lift.
+  const sessionCard = useMemo(() => {
+    if (!session) {
+      return null;
+    }
+    const started = new Date(session.startedAt);
+    const time = `${String(started.getHours()).padStart(2, '0')}:${String(started.getMinutes()).padStart(2, '0')}`;
+    const total = session.exercises.reduce((sum, ex) => sum + ex.sets.length, 0);
+    const done = session.exercises.reduce(
+      (sum, ex) => sum + ex.sets.filter((set) => set.status === 'completed').length,
+      0,
+    );
+    const current = session.exercises.find((ex) => ex.sets.some((set) => set.status !== 'completed' && set.status !== 'skipped'));
+    return {
+      title: t(language, 'rest.notify.sessionTitle', {
+        session: sessionTitle,
+        exercise: current ? exerciseNameLabel(language, current.exerciseName) : '',
+      }),
+      body: t(language, 'rest.notify.sessionBody', { done, total, time }),
+    };
+  }, [language, session, sessionTitle]);
+  const syncRestNotification = useRestEndAlert(language, {
+    warning: restAlerts.warning,
+    ongoing: restAlerts.ongoing,
+    session: sessionCard,
+  });
+
+  // Lock-screen actions land in App and come here over the bus. The guided
+  // rest is a timed step, so "+30 s" is the same move as the +15s button and
+  // "skip" is the same as advancing.
+  useEffect(
+    () =>
+      subscribeRestActions((action) => {
+        if (stepRef.current?.type !== 'rest') {
+          return;
+        }
+        if (action.kind === 'extend') {
+          adjustRemainingRef.current(action.seconds * 1000);
+        } else if (action.kind === 'skip') {
+          advanceRef.current();
+        }
+      }),
+    [],
+  );
 
   const [paused, setPaused] = useState(false);
   const [howtoOpen, setHowtoOpen] = useState(false);
@@ -1094,6 +1142,8 @@ export function GuidedPlayerScreen({
 
   const goToRef = useRef(goTo);
   goToRef.current = goTo;
+  const adjustRemainingRef = useRef(adjustRemaining);
+  adjustRemainingRef.current = adjustRemaining;
   const advance = useCallback(() => {
     goToRef.current(Math.min(stepIndex + 1, steps.length - 1));
   }, [stepIndex, steps.length]);

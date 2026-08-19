@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, LayoutChangeEvent, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Stop } from 'react-native-svg';
 
 import { CutSurface } from './CutSurface';
@@ -34,6 +35,7 @@ interface ProMomentSheetProps {
 
 export function ProMomentSheet({ visible, content, language, onClose, onSeePro }: ProMomentSheetProps) {
   const styles = useThemedStyles(makeStyles);
+  const insets = useSafeAreaInsets();
   const [box, setBox] = useState({ width: 0, height: 0 });
   const onLayout = (event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
@@ -65,7 +67,11 @@ export function ProMomentSheet({ visible, content, language, onClose, onSeePro }
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.scrim} onPress={onClose}>
         <Animated.View style={{ transform: [{ translateY: slideTranslate }] }}>
-          <Pressable onPress={() => undefined} style={styles.sheet} onLayout={onLayout}>
+          <Pressable
+            onPress={() => undefined}
+            style={[styles.sheet, { paddingBottom: insets.bottom + 22 }]}
+            onLayout={onLayout}
+          >
             {box.width > 0 && box.height > 0 ? (
               <Svg style={StyleSheet.absoluteFill} width={box.width} height={box.height} pointerEvents="none">
                 <Defs>
@@ -125,7 +131,7 @@ export function ProMomentSheet({ visible, content, language, onClose, onSeePro }
               </CutSurface>
             </Pressable>
             <Text style={styles.fine}>{t(language, 'pro.sheet.fine')}</Text>
-            <Pressable accessibilityRole="button" onPress={onClose} hitSlop={8}>
+            <Pressable accessibilityRole="button" onPress={onClose} hitSlop={12} style={styles.notNowHit}>
               <Text style={styles.notNow}>{t(language, 'pro.sheet.notNow')}</Text>
             </Pressable>
           </Pressable>
@@ -140,7 +146,11 @@ function BarsBlock({ content, language }: { content: ProMomentContent; language:
   const styles = useThemedStyles(makeStyles);
 
   const values = content.bars;
-  const all = content.nextValue === null ? values : [...values, content.nextValue];
+  // Every bar that is drawn has to be in the scale, projections included —
+  // leaving one out lets it compute a height past the row and spill out.
+  const all = [values, content.nextValue, content.horizonValue]
+    .flat()
+    .filter((value): value is number => typeof value === 'number');
   if (all.length === 0) {
     return null;
   }
@@ -150,7 +160,9 @@ function BarsBlock({ content, language }: { content: ProMomentContent; language:
 
   return (
     <View>
-      <Text style={styles.barLabel}>{content.barLabel}</Text>
+      <Text style={styles.barLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        {content.barLabel}
+      </Text>
       <View style={styles.barRow}>
         {values.map((value, index) => (
           <View key={index} style={styles.barCol}>
@@ -159,8 +171,18 @@ function BarsBlock({ content, language }: { content: ProMomentContent; language:
         ))}
         {content.nextValue !== null ? (
           <View style={styles.barCol}>
-            <Text style={styles.nextValueText}>{formatWeight(content.nextValue, 'kg')}</Text>
+            <Text style={styles.nextValueText} numberOfLines={1}>
+              {formatWeight(content.nextValue, 'kg').replace(/\s*kg$/, '')}
+            </Text>
             <View style={[styles.bar, styles.barNext, { height: height(content.nextValue) }]} />
+          </View>
+        ) : null}
+        {content.horizonValue !== null ? (
+          <View style={styles.barCol}>
+            <Text style={[styles.nextValueText, styles.horizonValueText]} numberOfLines={1}>
+              {formatWeight(content.horizonValue, 'kg').replace(/\s*kg$/, '')}
+            </Text>
+            <View style={[styles.bar, styles.barNext, styles.barHorizon, { height: height(content.horizonValue) }]} />
           </View>
         ) : null}
       </View>
@@ -173,7 +195,14 @@ function BarsBlock({ content, language }: { content: ProMomentContent; language:
         {content.nextValue !== null ? (
           <Text style={[styles.barCaption, styles.barCaptionNext]}>{t(language, 'pro.sheet.nextBar')}</Text>
         ) : null}
+        {content.horizonValue !== null ? (
+          <Text style={[styles.barCaption, styles.barCaptionNext]}>{t(language, 'pro.sheet.horizonBar')}</Text>
+        ) : null}
       </View>
+      {/* The assumption, stated. Two of these bars have not happened yet. */}
+      {content.horizonValue !== null ? (
+        <Text style={styles.projectionNote}>{t(language, 'pro.sheet.projectionNote')}</Text>
+      ) : null}
     </View>
   );
 }
@@ -242,6 +271,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   barCol: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 6,
@@ -261,6 +292,26 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800',
     color: PW.sheetLavender,
+  },
+  // Still dashed — it has not happened either — but brighter: it is the point.
+  barHorizon: {
+    backgroundColor: 'rgba(201,182,255,0.26)',
+    borderColor: '#FFFFFF',
+  },
+  horizonValueText: {
+    color: '#FFFFFF',
+  },
+  projectionNote: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.45)',
+    lineHeight: 15,
+    marginTop: 10,
+  },
+  notNowHit: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
   },
   barCaptionRow: {
     flexDirection: 'row',
