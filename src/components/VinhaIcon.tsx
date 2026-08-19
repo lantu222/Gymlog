@@ -26,6 +26,7 @@ export type VinhaIconName =
   | 'moon'
   | 'plus'
   | 'progress'
+  | 'scale'
   | 'profile'
   | 'recovery'
   | 'restDay'
@@ -220,6 +221,14 @@ function renderIcon(name: VinhaIconName, color: string) {
         <>
           <Path d="M4.4 18.8h15.2M4.7 15.2l4.6-4.5 3.2 2.7 6.2-6.5" stroke={color} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
           <Path d="M15.8 6.9h2.9v2.9" stroke={color} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
+        </>
+      );
+    case 'scale':
+      // A bathroom scale: the platform, and the dial's needle.
+      return (
+        <>
+          <Path d="M5 4.5h14a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-11a2 2 0 0 1 2-2Z" stroke={color} strokeWidth={2.1} strokeLinejoin="round" />
+          <Path d="M8 9.5a4.6 4.6 0 0 1 8 0M12 9.5l2.4-2.2" stroke={color} strokeWidth={2.1} strokeLinecap="round" strokeLinejoin="round" />
         </>
       );
     case 'check':

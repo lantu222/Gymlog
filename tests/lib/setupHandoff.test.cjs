@@ -124,9 +124,13 @@ module.exports = [
       const cardOnly = planSetupHandoff({ canOfferWidget: false, pinnedCardKeys: ['bodyweight'], focusAreas: ['glutes'] });
       const both = planSetupHandoff({ canOfferWidget: true, pinnedCardKeys: [], focusAreas: ['glutes'] });
       const widgetOnly = planSetupHandoff({ canOfferWidget: true, pinnedCardKeys: ['hips'], focusAreas: ['glutes'] });
-      assert.equal(countSetupHandoffOffers(cardOnly), 1);
-      assert.equal(countSetupHandoffOffers(widgetOnly), 1);
-      assert.equal(countSetupHandoffOffers(both), 2);
+      // The bodyweight card joined as a second card (user, 2026-08-19), offered
+      // whenever the focus card is not bodyweight and bodyweight is not pinned.
+      assert.equal(countSetupHandoffOffers(cardOnly), 1);   // bodyweight pinned, so only the focus card
+      assert.equal(countSetupHandoffOffers(widgetOnly), 2); // widget + bodyweight
+      assert.equal(countSetupHandoffOffers(both), 3);       // widget + focus card + bodyweight
+      assert.equal(both.offerBodyweight, true);
+      assert.equal(cardOnly.offerBodyweight, false);
       // And the copy exists in both languages for the single case.
       const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
       assert.match(i18n, /'handoff\.titleOne': 'One thing before you start'/);

@@ -38,7 +38,7 @@ import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { convertWeightToKg, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { OnboardingBackButton } from '../components/OnboardingBackButton';
-import { cautionRefinementLabel, equipmentItemLabel, I18nKey, t } from '../lib/i18n';
+import { equipmentItemLabel, I18nKey, t } from '../lib/i18n';
 import {
   buildScheduleFitNote,
   buildFirstRunCustomProgramName,
@@ -400,8 +400,6 @@ const CAUTION_LEVEL_COLORS: Record<SetupCautionLevel, { ink: string; soft: strin
   avoid: { ink: '#DC2626', soft: '#FEE2E2' },
 };
 
-const CAUTION_REFINEMENT_FALLBACK = ['Old injury', 'Chronic pain', 'Recent surgery'];
-
 // Plan-review progression card. Copy honesty (truth plan P7): every bullet
 // describes something the app actually does today — no promised deloads or
 // auto-progressing weights the engine doesn't ship yet.
@@ -412,16 +410,6 @@ const PROGRESSION_BULLET_KEYS: I18nKey[] = [
   'onb.progression.b3',
 ];
 
-const CAUTION_REFINEMENT_OPTIONS: Partial<Record<SetupCautionArea, string[]>> = {
-  shoulders: ['Old injury', 'Impingement', 'Limited mobility'],
-  lower_back: ['Old injury', 'Lower-back pain', 'Disc issues'],
-  knees: ['Old injury', 'Knee pain', 'Post-surgery'],
-  elbows: ['Old injury', 'Tennis elbow', 'Tendon pain'],
-  wrists: ['Old injury', 'Wrist pain', 'Limited mobility'],
-  hips: ['Old injury', 'Hip pain', 'Limited mobility'],
-  neck: ['Old injury', 'Neck pain', 'Limited mobility'],
-  ankles: ['Old injury', 'Ankle pain', 'Instability'],
-};
 
 function CautionGlyph({ color, size = 18 }: { color: string; size?: number }) {
   return (
@@ -1539,7 +1527,6 @@ export function OnboardingScreen({
   );
   const [focusAreas, setFocusAreas] = useState<SetupFocusArea[]>(setupSeed.focusAreas);
   const [cautionFlags, setCautionFlags] = useState<SetupCautionFlag[]>(setupSeed.cautionFlags ?? []);
-  const [expandedCautionArea, setExpandedCautionArea] = useState<SetupCautionArea | null>(null);
   const [avoidExtraVisible, setAvoidExtraVisible] = useState(() =>
     (setupSeed.cautionFlags ?? []).some((flag) =>
       AVOID_EXTRA_AREA_OPTIONS.some((option) => option.area === flag.area),
@@ -2690,7 +2677,7 @@ export function OnboardingScreen({
             <View style={styles.levelLogoRow}>
               {/* Onboarding is light-only and paints from its own constants,
                   so the mark takes them rather than the theme's near-matches. */}
-              <VinhaWordmark size={62} color={ONBOARDING_TEXT} accentColor={ONBOARDING_PRIMARY} />
+              <VinhaWordmark size={44} fitness color={ONBOARDING_TEXT} accentColor={ONBOARDING_PRIMARY} />
             </View>
           </View>
 
@@ -2920,13 +2907,11 @@ export function OnboardingScreen({
         ? current
         : [...current, { area, level: 'careful', refinements: [] }],
     );
-    setExpandedCautionArea(area);
   }
 
   function removeCautionFlag(area: SetupCautionArea) {
     void haptics.select();
     setCautionFlags((current) => current.filter((flag) => flag.area !== area));
-    setExpandedCautionArea((current) => (current === area ? null : current));
   }
 
   function setCautionLevel(area: SetupCautionArea, level: SetupCautionLevel) {
@@ -2934,31 +2919,20 @@ export function OnboardingScreen({
     setCautionFlags((current) => current.map((flag) => (flag.area === area ? { ...flag, level } : flag)));
   }
 
-  function toggleCautionRefinement(area: SetupCautionArea, refinement: string) {
-    void haptics.select();
-    setCautionFlags((current) =>
-      current.map((flag) => {
-        if (flag.area !== area) {
-          return flag;
-        }
-        const refinements = flag.refinements.includes(refinement)
-          ? flag.refinements.filter((item) => item !== refinement)
-          : [...flag.refinements, refinement];
-        return { ...flag, refinements };
-      }),
-    );
-  }
 
   function renderCautionRow(option: { area: SetupCautionArea; labelKey: I18nKey }) {
     const areaLabel = t(language, option.labelKey);
     const flag = cautionFlags.find((item) => item.area === option.area) ?? null;
-    const expanded = flag !== null && expandedCautionArea === option.area;
+    // A flagged area shows its levels; tapping the header again un-flags it.
+    // There used to be a separate expand/collapse, a REFINE chip row and a
+    // "Remove" link under the levels — three controls where the card itself
+    // was enough (user, 2026-08-19): on/off is the card, the level is inside.
+    const expanded = flag !== null;
     const colors = flag ? CAUTION_LEVEL_COLORS[flag.level] : null;
     const levelLabelKey = flag
       ? CAUTION_LEVEL_OPTIONS.find((item) => item.level === flag.level)?.labelKey ?? null
       : null;
     const levelLabel = levelLabelKey ? t(language, levelLabelKey) : null;
-    const refinementOptions = CAUTION_REFINEMENT_OPTIONS[option.area] ?? CAUTION_REFINEMENT_FALLBACK;
 
     return (
       <View
@@ -2976,7 +2950,7 @@ export function OnboardingScreen({
               flagCautionArea(option.area);
               return;
             }
-            setExpandedCautionArea((current) => (current === option.area ? null : option.area));
+            removeCautionFlag(option.area);
           }}
           style={styles.avoidRowHeader}
         >
@@ -3034,38 +3008,6 @@ export function OnboardingScreen({
               })}
             </View>
 
-            <Text style={styles.avoidRefineLabel}>{t(language, 'onb.avoid.refine')}</Text>
-            <View style={styles.avoidRefineRow}>
-              {refinementOptions.map((refinement) => {
-                const active = flag.refinements.includes(refinement);
-                // Stored as its English text; only the chip label translates.
-                const refinementText = cautionRefinementLabel(language, refinement);
-
-                return (
-                  <Pressable
-                    key={refinement}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
-                    accessibilityLabel={refinementText}
-                    onPress={() => toggleCautionRefinement(option.area, refinement)}
-                    style={[styles.avoidRefineChip, active && styles.avoidRefineChipActive]}
-                  >
-                    <Text style={[styles.avoidRefineChipText, active && styles.avoidRefineChipTextActive]}>
-                      {refinementText}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t(language, 'onb.avoid.a11y.remove', { area: areaLabel })}
-              onPress={() => removeCautionFlag(option.area)}
-              style={styles.avoidRemoveLink}
-            >
-              <Text style={styles.avoidRemoveText}>{t(language, 'onb.avoid.remove')}</Text>
-            </Pressable>
           </View>
         ) : null}
       </View>
@@ -4638,51 +4580,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     lineHeight: 15,
     fontWeight: '600',
-  },
-  avoidRefineLabel: {
-    color: ONBOARDING_TEXT_MUTED,
-    fontSize: 10.5,
-    lineHeight: 13,
-    fontWeight: '800',
-    letterSpacing: 1,
-    marginTop: 2,
-  },
-  avoidRefineRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-  },
-  avoidRefineChip: {
-    borderRadius: 999,
-    borderWidth: 1.5,
-    borderColor: ONBOARDING_BORDER,
-    backgroundColor: ONBOARDING_CARD,
-    paddingVertical: 6,
-    paddingHorizontal: 11,
-  },
-  avoidRefineChipActive: {
-    borderColor: ONBOARDING_BORDER_ACTIVE,
-    backgroundColor: ONBOARDING_CARD_ACTIVE,
-  },
-  avoidRefineChipText: {
-    color: ONBOARDING_TEXT_SOFT,
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '700',
-  },
-  avoidRefineChipTextActive: {
-    color: '#5B21B6',
-    fontWeight: '800',
-  },
-  avoidRemoveLink: {
-    alignSelf: 'flex-start',
-    paddingVertical: 4,
-    paddingHorizontal: 2,
-  },
-  avoidRemoveText: {
-    color: ONBOARDING_TEXT_MUTED,
-    fontSize: 12.5,
-    fontWeight: '700',
   },
   avoidGhostRow: {
     borderWidth: 1.5,

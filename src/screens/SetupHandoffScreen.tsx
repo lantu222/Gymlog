@@ -12,6 +12,7 @@ import type { AppLanguage } from '../types/models';
 export interface SetupHandoffChoices {
   addWidget: boolean;
   pinTrackingCard: boolean;
+  pinBodyweightCard: boolean;
 }
 
 interface SetupHandoffScreenProps {
@@ -48,6 +49,9 @@ export function SetupHandoffScreen({
   const styles = useThemedStyles(makeStyles);
   const [addWidget, setAddWidget] = useState(true);
   const [pinTrackingCard, setPinTrackingCard] = useState(true);
+  // Off by default: the focus card is the one the questionnaire earned; this
+  // one is offered, not assumed.
+  const [pinBodyweightCard, setPinBodyweightCard] = useState(false);
 
   const trackingBody = useMemo(() => {
     if (!plan.tracking) {
@@ -62,12 +66,14 @@ export function SetupHandoffScreen({
   // The heading counts what is on the screen. With the widget already placed
   // (any phone that has had the app before) only the card is offered, and
   // "Two things · both take one tap" was a promise the screen did not keep.
-  const single = countSetupHandoffOffers(plan) === 1;
+  const offerCount = countSetupHandoffOffers(plan);
+  const titleKey = offerCount === 1 ? 'handoff.titleOne' : offerCount === 2 ? 'handoff.title' : 'handoff.titleMany';
+  const bodyKey = offerCount === 1 ? 'handoff.bodyOne' : offerCount === 2 ? 'handoff.body' : 'handoff.bodyMany';
 
   return (
     <ScrollView style={styles.screen} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <Text style={styles.title}>{t(language, single ? 'handoff.titleOne' : 'handoff.title')}</Text>
-      <Text style={styles.body}>{t(language, single ? 'handoff.bodyOne' : 'handoff.body')}</Text>
+      <Text style={styles.title}>{t(language, titleKey)}</Text>
+      <Text style={styles.body}>{t(language, bodyKey)}</Text>
 
       {plan.offerWidget ? (
         <OfferRow
@@ -89,6 +95,19 @@ export function SetupHandoffScreen({
         />
       ) : null}
 
+      {plan.offerBodyweight ? (
+        <OfferRow
+          icon="scale"
+          title={t(language, 'handoff.weight.title')}
+          body={t(language, 'handoff.track.bodyweight')}
+          selected={pinBodyweightCard}
+          onToggle={() => setPinBodyweightCard((current) => !current)}
+        />
+      ) : null}
+
+      {/* No "Not now" (user, 2026-08-19): every row is its own on/off, so
+          Done with everything off already is "not now", and a second exit under
+          the first was a choice that did not exist. */}
       <CutButton
         label={t(language, 'handoff.done')}
         size="lg"
@@ -98,17 +117,10 @@ export function SetupHandoffScreen({
           onDone({
             addWidget: plan.offerWidget && addWidget,
             pinTrackingCard: plan.tracking !== null && pinTrackingCard,
+            pinBodyweightCard: plan.offerBodyweight && pinBodyweightCard,
           })
         }
       />
-      <Pressable
-        accessibilityRole="button"
-        onPress={onSkip}
-        hitSlop={8}
-        style={({ pressed }) => [styles.skip, pressed && styles.pressed]}
-      >
-        <Text style={styles.skipText}>{t(language, 'handoff.skip')}</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -120,7 +132,7 @@ function OfferRow({
   selected,
   onToggle,
 }: {
-  icon: 'clock' | 'progress';
+  icon: 'clock' | 'progress' | 'scale';
   title: string;
   body: string;
   selected: boolean;

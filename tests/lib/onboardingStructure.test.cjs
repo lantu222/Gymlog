@@ -252,8 +252,13 @@ module.exports = [
       assert.match(onboardingSource, /avoid: \{ ink: '#DC2626', soft: '#FEE2E2' \}/);
       assert.match(rowBody, /CAUTION_LEVEL_OPTIONS\.map/);
       assert.match(rowBody, /setCautionLevel\(option\.area, levelOption\.level\)/);
-      assert.match(rowBody, /toggleCautionRefinement\(option\.area, refinement\)/);
-      assert.match(rowBody, /t\(language, 'onb\.avoid\.refine'\)/);
+      // The REFINE chips and the "Remove" link are gone (user, 2026-08-19): the
+      // card header is the on/off, and a flagged card shows its levels.
+      assert.doesNotMatch(rowBody, /toggleCautionRefinement/);
+      assert.doesNotMatch(rowBody, /onb\.avoid\.remove/);
+      assert.match(rowBody, /removeCautionFlag\(option\.area\)/);
+      assert.match(rowBody, /const expanded = flag !== null/);
+      assert.doesNotMatch(rowBody, /onb\.avoid\.refine/);
       // Copy lives in the dictionary; the catalog carries the keys.
       assert.match(onboardingSource, /labelKey: 'onb\.caution\.info\.label'/);
       assert.match(onboardingSource, /labelKey: 'onb\.caution\.careful\.label'/);
