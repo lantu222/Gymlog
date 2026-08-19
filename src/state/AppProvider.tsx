@@ -20,6 +20,7 @@ import {
   getTrackedExerciseProgress,
 } from '../lib/progression';
 import { loadDatabase, resetDatabase, saveDatabase, savePreferences } from '../storage/database';
+import { trace } from '../lib/perfTrace';
 import {
   bodyweightRepository,
   exerciseLogRepository,
@@ -309,6 +310,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
    */
   function updatePreferences(patch: Partial<AppPreferences>) {
     return runExclusive(async () => {
+      trace(`prefs start ${Object.keys(patch).join(',')}`);
       const current = databaseRef.current;
       const next = {
         ...current,
@@ -320,6 +322,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       databaseRef.current = next;
       setDatabase(next);
       await savePreferences(next.preferences);
+      trace('prefs written');
     });
   }
 
@@ -456,6 +459,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     activate: (planId: string) => Partial<AppPreferences>;
   }) {
     return runExclusive(async () => {
+      trace('onboarding save start');
       const built = buildTemplateUpsert(input.templateDraft);
       const plan = input.buildPlan(
         built.workoutTemplateId,
@@ -478,6 +482,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
           ...input.activate(plan.id),
         },
       });
+      trace('onboarding save done');
       return { workoutTemplateId: built.workoutTemplateId, planId: plan.id };
     });
   }
@@ -676,6 +681,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
 
   function resetAllData() {
     return runExclusive(async () => {
+      trace('reset start');
       const cleared = await resetDatabase();
       databaseRef.current = cleared;
       setDatabase(cleared);

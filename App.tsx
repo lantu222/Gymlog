@@ -1,3 +1,4 @@
+import { trace } from './src/lib/perfTrace';
 import './src/globalFont';
 
 import React, { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -828,6 +829,7 @@ function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; 
   return getExerciseFocusName(primaryName);
 }
 
+
 function VinhaApp() {
   const theme = useTheme();
   const {
@@ -1033,6 +1035,7 @@ function VinhaApp() {
   }, [appHydrated, fontsLoaded, minimumSplashElapsed, nativeSplashHidden]);
 
   function navigate(nextRoute: AppRoute) {
+    trace(`nav → ${nextRoute.tab}/${'screen' in nextRoute ? nextRoute.screen : 'root'}`);
     startTransition(() =>
       setNavigationState((current) => ({
         route: nextRoute,
@@ -2506,11 +2509,14 @@ function VinhaApp() {
     // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
     // The saving state is shown for as long as saving actually takes, which is
     // the same rule the workout save already follows.
+    // TEMP instrumentation — splits the finish into its two halves.
+    const perfComposeStart = Date.now();
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
+    const perfComposed = Date.now();
     // One save, not four. Preferences, the template, its exercises and the plan
     // used to be four awaited mutations in a row, each one serializing the whole
     // database through the same queue — at the end of onboarding, where the wait
@@ -2533,6 +2539,9 @@ function VinhaApp() {
         ),
       activate: (planId) => ({ activePlanId: planId }),
     });
+    console.log(
+      `[onb] compose=${perfComposed - perfComposeStart}ms save=${Date.now() - perfComposed}ms`,
+    );
     if (
       typeof selection.currentWeightKg === 'number' &&
       selection.currentWeightKg > 0 &&
@@ -2658,11 +2667,14 @@ function VinhaApp() {
     // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
     // The saving state is shown for as long as saving actually takes, which is
     // the same rule the workout save already follows.
+    // TEMP instrumentation — splits the finish into its two halves.
+    const perfComposeStart = Date.now();
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
+    const perfComposed = Date.now();
     // One save, not four. Preferences, the template, its exercises and the plan
     // used to be four awaited mutations in a row, each one serializing the whole
     // database through the same queue — at the end of onboarding, where the wait
@@ -2685,6 +2697,9 @@ function VinhaApp() {
         ),
       activate: (planId) => ({ activePlanId: planId }),
     });
+    console.log(
+      `[onb] compose=${perfComposed - perfComposeStart}ms save=${Date.now() - perfComposed}ms`,
+    );
     if (
       typeof selection.currentWeightKg === 'number' &&
       selection.currentWeightKg > 0 &&
@@ -2949,8 +2964,31 @@ function VinhaApp() {
     }),
     [preferences.appLanguage, availableEquipmentForDrills],
   );
-  const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [preferences]);
-  const tailoringPreferences = useMemo(() => buildTailoringPreferences(preferences), [preferences]);
+  // Both used to depend on the whole preferences object, so a theme or sound
+  // toggle handed them a new object and they rebuilt — and everything
+  // downstream of the setup selection (the recommendation, the programme
+  // rankings, the goal-programme suggestions) rebuilt with them. Measured: that
+  // chain was the ~4.9s behind every settings switch. A key over the fields
+  // each one actually reads is what "changed" should have meant all along.
+  const setupSelectionKey = JSON.stringify([
+    preferences.automatedProgressionEnabled, preferences.bodyweightGoalKg, preferences.profileName,
+    preferences.setupAge, preferences.setupAgeRange, preferences.setupAvailableDays,
+    preferences.setupCautionFlags, preferences.setupCompleted, preferences.setupCurrentWeightKg,
+    preferences.setupDaysPerWeek, preferences.setupEquipment, preferences.setupEquipmentItems,
+    preferences.setupFocusAreas, preferences.setupGender, preferences.setupGoal, preferences.setupGoals,
+    preferences.setupGuidanceMode, preferences.setupHeightCm, preferences.setupLevel,
+    preferences.setupScheduleMode, preferences.setupSecondaryOutcomes, preferences.setupTrainingEnvironment,
+    preferences.setupWeeklyMinutes, preferences.unitPreference,
+  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [setupSelectionKey]);
+  const tailoringKey = JSON.stringify([
+    preferences.setupBodyweightPreference, preferences.setupElbowFriendlySwaps, preferences.setupEquipment,
+    preferences.setupFreeWeightsPreference, preferences.setupKneeFriendlySwaps, preferences.setupMachinesPreference,
+    preferences.setupShoulderFriendlySwaps,
+  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tailoringPreferences = useMemo(() => buildTailoringPreferences(preferences), [tailoringKey]);
   const setupRecommendation = useMemo(
     () => (setupSelection ? resolveFirstRunRecommendationWithTailoring(setupSelection, tailoringPreferences) : null),
     [setupSelection, tailoringPreferences],
@@ -4373,8 +4411,10 @@ function VinhaApp() {
    * lift is there and then by the setup recommendation. No fit is invented:
    * a lift no ready programme trains says so and points at the editor.
    */
+  // One array per library, so the goal-programme resolver's cache can key on it
+  // instead of being defeated by a fresh `.map` every render.
+  const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
   const goalProgrammeSuggestions = useMemo(() => {
-    const libraryNames = exerciseLibrary.map((item) => item.name);
     const activeCandidates = activeProgramTemplateIds
       .map((id) => getWorkoutTemplateById(id) ?? customWorkoutRuntimeMap[id] ?? null)
       .filter((template): template is NonNullable<typeof template> => Boolean(template));
@@ -4432,7 +4472,7 @@ function VinhaApp() {
   }, [
     activeProgramTemplateIds,
     customWorkoutRuntimeMap,
-    exerciseLibrary,
+    libraryNames,
     preferences.appLanguage,
     programsRecommendations,
   ]);
