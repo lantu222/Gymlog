@@ -1,5 +1,7 @@
 const assert = require('node:assert/strict');
 
+const { getRecommendationProgramDefinition } = require('../../.test-dist/lib/recommendationCatalog.js');
+
 const { buildRecommendationInput } = require('../../.test-dist/lib/recommendationInput.js');
 const { recommendPrograms } = require('../../.test-dist/lib/recommendationScoring.js');
 
@@ -74,16 +76,14 @@ module.exports = [
       );
 
       assert.equal(result.featuredProgramId, 'tpl_gainer_at_home_beginner_v1');
-      assert.equal(
-        result.scoredCandidates.every((candidate) =>
-          candidate.programId.startsWith('tpl_2_day_') ||
-          candidate.programId === 'tpl_3_day_run_mobility_v1' ||
-          candidate.programId.startsWith('tpl_gainer_at_home_') ||
-          candidate.programId === 'tpl_gainer_fat_burn_hiit_v1' ||
-          candidate.programId === 'tpl_gainer_mobility_flow_v1',
-        ),
-        true,
-      );
+      // The claim is a property, not a guest list: no full-gym program may be
+      // scored for someone training at home. Pinning ids meant every new
+      // low-equipment program broke a test it had done nothing wrong to.
+      const gymLeaks = result.scoredCandidates
+        .map((candidate) => getRecommendationProgramDefinition(candidate.programId))
+        .filter((definition) => definition && definition.equipmentTier !== 'low_equipment')
+        .map((definition) => definition.programId);
+      assert.deepEqual(gymLeaks, [], `full-gym programs offered to a home setup: ${gymLeaks.join(', ')}`);
     },
   },
   {
