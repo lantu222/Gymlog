@@ -564,7 +564,11 @@ export function EmptyWorkoutScreen({
     }
     if (alertPermission === 'undetermined' && !restAlerts.asked) {
       setPermissionSheetOpen(true);
-    } else if (alertPermission === 'denied' && restAlerts.alerts) {
+    } else if (alertPermission !== 'granted' && restAlerts.alerts) {
+      // Anything that is not a granted permission after the ask — "Not now",
+      // or alerts switched off in system settings later — is a rest that will
+      // not reach the user. Rule 05: say so at the start of every rest rather
+      // than run a timer that silently cannot fire.
       setDeniedBannerShown(true);
     }
     // Once per rest start, on purpose.
@@ -816,7 +820,7 @@ export function EmptyWorkoutScreen({
         >
           {/* Denied: say plainly what breaks, at the moment it matters — the
               start of a rest — with a route to fix it. Once per session. */}
-          {deniedBannerShown && alertPermission === 'denied' ? (
+          {deniedBannerShown && alertPermission !== 'granted' ? (
             <View style={styles.deniedBanner}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.deniedTitle}>{t(language, 'rest.denied.title')}</Text>

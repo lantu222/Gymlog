@@ -160,7 +160,9 @@ function BarsBlock({ content, language }: { content: ProMomentContent; language:
 
   return (
     <View>
-      <Text style={styles.barLabel}>{content.barLabel}</Text>
+      <Text style={styles.barLabel} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+        {content.barLabel}
+      </Text>
       <View style={styles.barRow}>
         {values.map((value, index) => (
           <View key={index} style={styles.barCol}>
@@ -169,14 +171,16 @@ function BarsBlock({ content, language }: { content: ProMomentContent; language:
         ))}
         {content.nextValue !== null ? (
           <View style={styles.barCol}>
-            <Text style={styles.nextValueText}>{formatWeight(content.nextValue, 'kg')}</Text>
+            <Text style={styles.nextValueText} numberOfLines={1}>
+              {formatWeight(content.nextValue, 'kg').replace(/\s*kg$/, '')}
+            </Text>
             <View style={[styles.bar, styles.barNext, { height: height(content.nextValue) }]} />
           </View>
         ) : null}
         {content.horizonValue !== null ? (
           <View style={styles.barCol}>
-            <Text style={[styles.nextValueText, styles.horizonValueText]}>
-              {formatWeight(content.horizonValue, 'kg')}
+            <Text style={[styles.nextValueText, styles.horizonValueText]} numberOfLines={1}>
+              {formatWeight(content.horizonValue, 'kg').replace(/\s*kg$/, '')}
             </Text>
             <View style={[styles.bar, styles.barNext, styles.barHorizon, { height: height(content.horizonValue) }]} />
           </View>
@@ -267,6 +271,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   barCol: {
     flex: 1,
+    flexShrink: 1,
+    minWidth: 0,
     alignItems: 'center',
     justifyContent: 'flex-end',
     gap: 6,
