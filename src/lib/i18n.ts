@@ -3330,7 +3330,7 @@ const FI: Record<I18nKey, string> = {
   'paywall.plan.monthly.price': '9,90 €',
   'paywall.plan.monthly.per': '/ kk',
   'paywall.plan.monthly.note': 'Peru milloin vain',
-  'paywall.plan.lifetime': 'ELINIKÄINEN',
+  'paywall.plan.lifetime': 'IKUINEN',
   'paywall.plan.lifetime.price': '119,00 €',
   'paywall.plan.lifetime.per': 'kerran',
   'paywall.plan.lifetime.note': 'Maksa kerran, pidä',

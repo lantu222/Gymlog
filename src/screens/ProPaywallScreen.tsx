@@ -546,7 +546,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingTop: 14,
     paddingBottom: 15,
-    paddingHorizontal: 14,
+    paddingHorizontal: 11,
   },
   planBadge: {
     position: 'absolute',
@@ -556,11 +556,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   planBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.9, color: '#FFFFFF' },
-  planTitle: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: PW.faint },
+  // Three cards in the row since the lifetime plan joined: 1.5 tracking at 10.5pt
+  // broke ELINIKÄINEN across two lines and the price ran out of width.
+  planTitle: { fontSize: 10, fontWeight: '800', letterSpacing: 0.9, color: PW.faint },
   planTitleOn: { color: '#C4B5FD' },
-  planPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 7 },
-  planPrice: { fontSize: 22, fontWeight: '800', color: PW.ink, letterSpacing: -0.7 },
-  planPer: { fontSize: 12, fontWeight: '700', color: PW.muted },
+  planPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3, marginTop: 7, flexWrap: 'wrap' },
+  planPrice: { fontSize: 19, fontWeight: '800', color: PW.ink, letterSpacing: -0.6 },
+  planPer: { fontSize: 11, fontWeight: '700', color: PW.muted },
   planNote: { fontSize: 12, fontWeight: '700', color: PW.faint, marginTop: 5 },
   planNoteOn: { color: PW.purple },
   planWeek: {
