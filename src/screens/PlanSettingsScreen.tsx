@@ -526,7 +526,7 @@ export function PlanSettingsScreen({
 
           {onAskAiCoach ? (
             <Pressable onPress={onAskAiCoach} style={styles.actionCard}>
-              <Text style={styles.actionKicker}>Vinha AI</Text>
+              <Text style={styles.actionKicker}>{t(language, 'brand.coach')}</Text>
               <Text style={styles.actionTitle}>{t(language, 'planSet.askWhy')}</Text>
               <Text style={styles.actionBody}>{t(language, 'planSet.askWhyBody')}</Text>
             </Pressable>

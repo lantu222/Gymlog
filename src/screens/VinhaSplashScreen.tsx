@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { VinhaWordmark } from '../components/VinhaWordmark';
 import {
   EASE_ARRIVE,
@@ -57,6 +59,9 @@ interface VinhaSplashScreenProps {
 export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const { width, height } = useWindowDimensions();
+  // The slogan sat at a fixed distance from the bottom EDGE and the Android
+  // navigation bar covered it. Welcome's tagline already adds the inset.
+  const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   // Held in a ref: the parent passes a fresh closure every render, and
   // depending on it restarted the hand-off timer each time.
@@ -79,9 +84,9 @@ export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreen
     () => ({
       slotFrom: markSlotTop(height, MARK_CENTER_SPLASH),
       slotTo: markSlotTop(height, MARK_CENTER_WELCOME),
-      sloganBottom: scaleY(height, 34),
+      sloganBottom: scaleY(height, 34) + insets.bottom,
     }),
-    [height],
+    [height, insets.bottom],
   );
 
   const streakSweeps = useMemo(
@@ -136,8 +141,6 @@ export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreen
   const handoffX = useRef(
     handoff.interpolate({ inputRange: [0, 1], outputRange: [0, HANDOFF_NUDGE] }),
   ).current;
-  const tagX = useRef(handoff.interpolate({ inputRange: [0, 1], outputRange: [0, 150] })).current;
-  const tagFade = useRef(handoff.interpolate({ inputRange: [0, 1], outputRange: [1, 0] })).current;
   const sloganOut = useRef(handoff.interpolate({ inputRange: [0, 0.29, 1], outputRange: [1, 0, 0] })).current;
   const sloganOpacity = useRef(Animated.multiply(slogan, sloganOut)).current;
 
@@ -276,7 +279,7 @@ export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreen
               >
                 <VinhaWordmark
                   size={MARK_SIZE}
-                  showAppTag
+                  fitness
                   color={styles.ghostInk.color}
                   accentColor={styles.ghostAccent.color}
                 />
@@ -290,11 +293,9 @@ export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreen
             transform: [{ translateX: markX }, { translateX: handoffX }, { skewX: markSkew }],
           }}
         >
-          <VinhaWordmark
-            size={MARK_SIZE}
-            showAppTag
-            appTagStyle={{ opacity: tagFade, transform: [{ translateX: tagX }] }}
-          />
+          {/* The full lockup (brand variant A): this is the first time the
+              name is said, so it is said in full. Inside the app it is "Vinha". */}
+          <VinhaWordmark size={MARK_SIZE} fitness />
         </Animated.View>
       </Animated.View>
 

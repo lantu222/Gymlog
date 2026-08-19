@@ -19,22 +19,25 @@ export const MARK_CENTER_SPLASH = 247;
 export const MARK_CENTER_WELCOME = 201;
 
 /**
- * Wordmark base size. The spec says 64; the user asked for ~15% more, and the
- * lockup derives the "app" tag and the gap from this number, so scaling the
- * base keeps every proportion the spec set.
+ * Wordmark base size.
+ *
+ * Was 74 for the short "Vinha" mark. The brand package (2026-08-19) puts the
+ * full lockup — "Vinha Fitness" — on the splash and the welcome screen, and at
+ * 74 that runs past a 360dp phone. 52 is the largest size at which the lockup
+ * (≈6.4 em wide at −0,045 em tracking) clears the canvas with the same side
+ * margins the short mark had. Every other distance here scales from it.
  */
-export const MARK_SIZE = 74;
+export const MARK_SIZE = 52;
 
 /**
- * How far the mark slides right as the "app" tag leaves.
+ * How far the mark slides right during the hand-off.
  *
- * The tag still occupies its slot while it flies off — only its transform and
- * opacity animate — so without this the lockup stays centred around a token
- * that is no longer visible, and the mark lands a few points left of where
- * Welcome draws it. The spec's 18 is measured at a 64 mark, so it scales with
- * the size like every other number here.
+ * This existed for the "app" tag that used to fly off the splash and leave the
+ * mark off-centre. The tag is gone — "Fitness" is part of the name now and
+ * stays — so the lockup is already centred where Welcome draws it. Kept at
+ * zero rather than removed so the hand-off maths stays one expression.
  */
-export const HANDOFF_NUDGE = (18 * MARK_SIZE) / 64;
+export const HANDOFF_NUDGE = 0;
 
 export function scaleY(height: number, value: number) {
   return (value / CANVAS_HEIGHT) * height;

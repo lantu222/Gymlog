@@ -278,13 +278,18 @@ module.exports = [
 
       assert.match(locationBody, /titleLines: \[t\(language, 'onb\.stage\.location\.title1'\), t\(language, 'onb\.stage\.location\.title2'\)\]/);
       assert.doesNotMatch(locationBody, /Where do you train\?/);
-      // Selected setup expands into toggle chips with a live count; the other
-      // setups collapse into compact rows under OR CHOOSE ANOTHER.
-      assert.match(locationBody, /EQUIPMENT_CHIP_CATALOG\[selectedSetup\.id\]/);
+      // The cards keep their order and the selected one expands IN PLACE into
+      // toggle chips with a live count; its header toggles it open and closed.
+      // It used to jump to the top and list the rest under "or choose another",
+      // which moved the card away from under the thumb and left no way to close
+      // it except picking a different one (user, 2026-08-19).
+      assert.match(locationBody, /LOCATION_SELECTION_OPTIONS\.map\(\(option\) => \{/);
+      assert.match(locationBody, /const isSelected = option\.id === selectedLocationOptionId/);
+      assert.match(locationBody, /EQUIPMENT_CHIP_CATALOG\[option\.id\]/);
       assert.match(locationBody, /t\(language, 'onb\.equip\.selectedCount', \{ count: equipmentItems\.length \}\)/);
-      assert.match(locationBody, /t\(language, 'onb\.equip\.orChoose'\)/);
-      assert.match(locationBody, /toggleEquipmentItem\(selectedSetup, item\)/);
-      assert.match(locationBody, /compact/);
+      assert.match(locationBody, /setEquipmentCardOpen\(\(open\) => !open\)/);
+      assert.match(locationBody, /toggleEquipmentItem\(option, item\)/);
+      assert.doesNotMatch(locationBody, /onb\.equip\.orChoose/);
       assert.match(onboardingSource, /const EQUIPMENT_CHIP_CATALOG/);
       assert.match(onboardingSource, /const EQUIPMENT_DEFAULT_ITEMS/);
       // Three setups only; heavy home gear decides home_gym vs minimal_equipment.
@@ -473,11 +478,12 @@ module.exports = [
 
       // Light welcome: the copy lives in the i18n dictionary and the screen
       // renders every string through t(language, …).
-      // The tagline promises an outcome, not an activity (2026-08-13). "Train
-      // fast. Get strong." was a pun on the name that told the reader nothing
-      // they could not guess from the app's category.
-      assert.match(i18nSource, /'brand\.tagline': 'Results, not guesswork\.'/);
-      assert.match(i18nSource, /'brand\.tagline': 'Tuloksia, ei arvailua\.'/);
+      // The tagline is the brand package's main claim (2026-08-19): one line
+      // that carries the name (speed) and the product (automatic progression).
+      // It replaced "Results, not guesswork", which promised an outcome but
+      // said nothing about what the app does differently.
+      assert.match(i18nSource, /'brand\.tagline': 'Training that moves forward\.'/);
+      assert.match(i18nSource, /'brand\.tagline': 'Treeni, joka etenee\.'/);
       // The provider buttons are gone. Both called the same handler: there is
       // no OAuth and no account, so they announced two companies' sign-in for
       // a feature that does not exist — on the first screen, behind no guard.

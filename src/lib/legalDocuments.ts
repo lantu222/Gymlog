@@ -80,7 +80,7 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Who is responsible',
     body: [
-      `${publisher()} (${LEGAL_ENTITY.country}) publishes Vinha and is the data controller for the limited processing described below.`,
+      `${publisher()} (${LEGAL_ENTITY.country}) publishes Vinha Fitness (“Vinha”) and is the data controller for the limited processing described below.`,
       `Questions about this policy or your data: ${LEGAL_ENTITY.email}.`,
     ],
   },
@@ -176,7 +176,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Kuka vastaa',
     body: [
-      `${publisher()} (${LEGAL_ENTITY.countryFi}) julkaisee Vinhan ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.`,
+      `${publisher()} (${LEGAL_ENTITY.countryFi}) julkaisee Vinha Fitness -sovelluksen (”Vinha”) ja toimii rekisterinpitäjänä siinä rajatussa käsittelyssä, joka kuvataan alla.`,
       `Kysymykset tästä selosteesta tai tiedoistasi: ${LEGAL_ENTITY.email}.`,
     ],
   },

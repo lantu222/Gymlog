@@ -107,7 +107,7 @@ export function ProPaywallScreen({
   onSkip,
   busy = false,
 }: ProPaywallScreenProps) {
-  const [plan, setPlan] = useState<'year' | 'month'>('year');
+  const [plan, setPlan] = useState<'year' | 'month' | 'life'>('year');
   // AppShell drops the bottom safe-area edge for the whole onboarding flow,
   // and every step adds it back in its own footer. This screen is part of that
   // flow and did not, so its skip row landed under the navigation bar.
@@ -339,6 +339,35 @@ export function ProPaywallScreen({
               </Text>
               </CutSurface>
             </Pressable>
+
+            {/* Third plan, same card. This screen showed two of the three and
+                the lifetime was reachable only after onboarding, on the Pro
+                page — user decision 2026-08-19 to sell all three here. */}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: plan === 'life' }}
+              onPress={() => setPlan('life')}
+              style={({ pressed }) => [styles.planCardWrap, pressed && styles.pressed]}
+            >
+              <CutSurface
+                size="lg"
+                fill={plan === 'life' ? 'rgba(155,109,255,0.14)' : PW.surface}
+                stroke={plan === 'life' ? PW.purple : PW.border}
+                strokeWidth={1.5}
+                style={styles.planCard}
+              >
+              <Text style={[styles.planTitle, plan === 'life' && styles.planTitleOn]}>
+                {t(language, 'paywall.plan.lifetime')}
+              </Text>
+              <View style={styles.planPriceRow}>
+                <Text style={styles.planPrice}>{t(language, 'paywall.plan.lifetime.price')}</Text>
+                <Text style={styles.planPer}>{t(language, 'paywall.plan.lifetime.per')}</Text>
+              </View>
+              <Text style={[styles.planNote, plan === 'life' && styles.planNoteOn]}>
+                {t(language, 'paywall.plan.lifetime.note')}
+              </Text>
+              </CutSurface>
+            </Pressable>
           </View>
 
           {/* Trust */}
@@ -401,8 +430,18 @@ export function ProPaywallScreen({
         </Pressable>
         <Text style={styles.ctaFoot}>
           {trial
-            ? t(language, plan === 'year' ? 'paywall.cta.footYear' : 'paywall.cta.footMonth')
-            : t(language, plan === 'year' ? 'paywall.foot.noTrialYear' : 'paywall.foot.noTrialMonth')}
+            ? t(
+                language,
+                plan === 'year' ? 'paywall.cta.footYear' : plan === 'month' ? 'paywall.cta.footMonth' : 'paywall.cta.footLifetime',
+              )
+            : t(
+                language,
+                plan === 'year'
+                  ? 'paywall.foot.noTrialYear'
+                  : plan === 'month'
+                    ? 'paywall.foot.noTrialMonth'
+                    : 'paywall.foot.noTrialLifetime',
+              )}
         </Text>
         <Pressable accessibilityRole="button" hitSlop={10} disabled={busy} onPress={onSkip} style={styles.later}>
           <Text style={styles.laterText}>{t(language, 'paywall.later')}</Text>
@@ -507,7 +546,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingTop: 14,
     paddingBottom: 15,
-    paddingHorizontal: 14,
+    paddingHorizontal: 11,
   },
   planBadge: {
     position: 'absolute',
@@ -517,11 +556,13 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   planBadgeText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.9, color: '#FFFFFF' },
-  planTitle: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.5, color: PW.faint },
+  // Three cards in the row since the lifetime plan joined: 1.5 tracking at 10.5pt
+  // broke ELINIKÄINEN across two lines and the price ran out of width.
+  planTitle: { fontSize: 10, fontWeight: '800', letterSpacing: 0.9, color: PW.faint },
   planTitleOn: { color: '#C4B5FD' },
-  planPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4, marginTop: 7 },
-  planPrice: { fontSize: 22, fontWeight: '800', color: PW.ink, letterSpacing: -0.7 },
-  planPer: { fontSize: 12, fontWeight: '700', color: PW.muted },
+  planPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3, marginTop: 7, flexWrap: 'wrap' },
+  planPrice: { fontSize: 19, fontWeight: '800', color: PW.ink, letterSpacing: -0.6 },
+  planPer: { fontSize: 11, fontWeight: '700', color: PW.muted },
   planNote: { fontSize: 12, fontWeight: '700', color: PW.faint, marginTop: 5 },
   planNoteOn: { color: PW.purple },
   planWeek: {

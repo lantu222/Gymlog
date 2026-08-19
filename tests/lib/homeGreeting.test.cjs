@@ -37,10 +37,14 @@ module.exports = [
     },
   },
   {
-    name: 'greeting: training today is acknowledged over the streak',
+    name: 'greeting: training today no longer replaces the greeting with a receipt',
     run() {
+      // "Treeni kirjattu" sat on Home for the rest of the day after a session.
+      // The hero already shows the session is done; the streak and the
+      // returning lines carry on (user decision 2026-08-19).
       const done = greeting({ trainedToday: true, weekStreak: 8 });
-      assert.equal(done.titleKey, 'home.greet.done.title');
+      assert.notEqual(done.titleKey, 'home.greet.done.title');
+      assert.equal(done.titleKey, 'home.greet.streak.title');
     },
   },
   {

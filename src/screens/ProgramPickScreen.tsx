@@ -201,7 +201,18 @@ export function ProgramPickScreen({
                 justifyContent: selected ? 'flex-start' : 'center',
                 paddingTop: insets.top + 78,
               }
-            : { bottom: CTA_ROOM, height: `${bottomSafePct}%`, justifyContent: selected ? 'flex-end' : 'center' },
+            : {
+                // Anchored to its TOP edge, not sized from the bottom. As
+                // `bottom: CTA_ROOM` + `height: N%`, the box was lifted by the
+                // CTA's 116pt on top of the safe fraction — so its top sat
+                // 116pt above the seam and the second programme's title landed
+                // under the recommended card's slant, hard to read (reported
+                // 2026-08-18). Top-anchoring keeps the safe rectangle safe and
+                // lets CTA_ROOM only trim the bottom.
+                top: `${100 - bottomSafePct}%`,
+                bottom: CTA_ROOM,
+                justifyContent: selected ? 'flex-end' : 'center',
+              },
         ]}
       >
         {/* box-none here too: the outer container passes touches through, but a

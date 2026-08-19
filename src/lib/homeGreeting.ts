@@ -56,9 +56,10 @@ export function selectHomeGreeting({
     return { titleKey: 'home.greet.first.title', subtitleKey: 'home.greet.first.sub' };
   }
 
-  if (trainedToday) {
-    return { titleKey: 'home.greet.done.title', subtitleKey: 'home.greet.done.sub' };
-  }
+  // "Treeni kirjattu" used to replace the greeting for the rest of the day
+  // after a session. The hero under it already says the session is done and
+  // Home's job after a workout is the next one, not a receipt — user decision
+  // 2026-08-19. The streak and the returning lines carry the day instead.
 
   if (weekStreak >= STREAK_WEEKS_WORTH_SAYING) {
     return {

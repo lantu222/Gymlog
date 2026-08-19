@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -129,7 +130,9 @@ export function AboutYouScreen({
   }
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 14 }]}>
+    // Top padding = inset + the back chevron (10 + 40) + a gap, so the title
+    // starts under the button instead of behind it.
+    <View style={[styles.screen, { paddingTop: insets.top + 10 + 40 + 22, paddingBottom: insets.bottom + 14 }]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -137,38 +140,13 @@ export function AboutYouScreen({
         showsVerticalScrollIndicator={false}
       >
         <Text style={[styles.title, { fontFamily }]}>{t(language, 'aboutYou.title')}</Text>
-        <Text style={[styles.subtitle, { fontFamily }]}>{t(language, 'aboutYou.sub')}</Text>
+        {/* The sub-line ("add your details… change everything later"), the
+            "?" avatar and the three zero counters are gone (user, 2026-08-19).
+            A profile card that says 0 · 0 · 0 and "fresh profile" before the
+            reader has typed a letter is a receipt for nothing; the step is a
+            form, and the form is enough. */}
 
         <View style={styles.identityCard}>
-          <View style={styles.profileTopRow}>
-            <View style={[styles.avatar, hasName ? styles.avatarFilled : styles.avatarEmpty]}>
-              <Text style={[hasName ? styles.avatarInitials : styles.avatarPlaceholder, { fontFamily }]}>
-                {hasName ? initials : '?'}
-              </Text>
-            </View>
-            <View style={styles.profileStatsRow}>
-              {(['aboutYou.stat.workouts', 'aboutYou.stat.prs', 'aboutYou.stat.lifted'] as const).map((key) => (
-                <View key={key} style={styles.profileStat}>
-                  <Text style={[styles.profileStatValue, { fontFamily }]}>0</Text>
-                  <Text style={[styles.profileStatLabel, { fontFamily }]}>{t(language, key)}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {/* Only once the reader has typed one. Empty, the card printed
-              "Nimesi" as a preview, the field below it printed "NIMESI" as a
-              label and the input printed "Nimesi" as a placeholder — the same
-              word three times in one card, none of it their name. */}
-          {hasName ? (
-            <Text style={[styles.profileName, { fontFamily }]} numberOfLines={1}>
-              {name.trim()}
-            </Text>
-          ) : null}
-          <Text style={[styles.profileHint, { fontFamily }]}>{t(language, 'aboutYou.freshProfile')}</Text>
-
-          <View style={styles.cardDivider} />
-
           <View>
             <Text style={[styles.fieldLabel, { fontFamily }]}>{t(language, 'aboutYou.label.name')}</Text>
             <TextInput
@@ -265,15 +243,8 @@ export function AboutYouScreen({
         >
           <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'common.continue')}</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'common.back')}
-          onPress={onBack}
-          style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
-        >
-          <Text style={[styles.backText, { fontFamily }]}>{t(language, 'common.back')}</Text>
-        </Pressable>
       </View>
+      <OnboardingBackButton language={language} onPress={onBack} />
     </View>
   );
 }

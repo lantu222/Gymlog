@@ -96,8 +96,8 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
           the top and the other from the centre is what made the mark jump
           between the two screens. */}
       <View style={[styles.markSlot, { top: markSlotTop(windowHeight, MARK_CENTER_WELCOME), height: MARK_SIZE }]}>
-        {/* No 'app' tag here: the splash carried it, and it left. */}
-        <VinhaWordmark size={MARK_SIZE} fontFamily={fontFamily} />
+        {/* Same lockup the splash arrived with — the name in full, once. */}
+        <VinhaWordmark size={MARK_SIZE} fitness fontFamily={fontFamily} />
       </View>
 
       <Animated.View
