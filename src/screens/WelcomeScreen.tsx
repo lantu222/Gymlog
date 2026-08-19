@@ -70,7 +70,7 @@ export function WelcomeScreen({ language, onChangeLanguage, onContinue }: Welcom
   return (
     <View style={styles.screen}>
       {/* The same objects that streaked past on the splash, still going. */}
-      <AmbientDrift />
+      {/* BISECT: AmbientDrift off */}
       {onChangeLanguage ? (
         <View style={[styles.langRow, { paddingTop: insets.top + 10 }]}>
           {SUPPORTED_LANGUAGES.map((option) => {
