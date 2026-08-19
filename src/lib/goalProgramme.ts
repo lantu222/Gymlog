@@ -1,4 +1,5 @@
 import { findGuidedLibraryIndex } from './guidedPlayer';
+import { isSameLiftByGroup, liftGroupOf } from './liftIdentity';
 import { StrengthGoal } from './strengthGoals';
 
 /**
@@ -29,6 +30,48 @@ export interface GoalProgrammeSession {
 export interface GoalProgrammeCandidate {
   id: string;
   sessions: GoalProgrammeSession[];
+  /** Catalog level, when known. Absent on a programme the reader wrote. */
+  level?: 'beginner' | 'intermediate' | 'advanced';
+  /** Sessions a week, when known. */
+  daysPerWeek?: number;
+}
+
+/** Who the suggestion is for. Without it the ranking is level-blind. */
+export interface GoalProgrammeReader {
+  /** Setup level, which maps onto the catalog's three tiers. */
+  level?: 'beginner' | 'advanced' | 'pro' | null;
+  daysPerWeek?: number | null;
+}
+
+const CATALOG_LEVEL_FOR_SETUP: Record<string, GoalProgrammeCandidate['level']> = {
+  beginner: 'beginner',
+  advanced: 'intermediate',
+  pro: 'advanced',
+};
+
+/**
+ * How badly a programme fits the reader — lower is better, 0 is a match.
+ *
+ * A target answers "which programme gets me there", and the honest answer has
+ * to be a programme they can actually run. Ranking on deadlift sessions alone
+ * offered a six-day advanced split to someone training three days as a
+ * beginner: more of the lift, in a week that is not theirs.
+ */
+function fitPenalty(candidate: GoalProgrammeCandidate, reader: GoalProgrammeReader | undefined): number {
+  if (!reader) {
+    return 0;
+  }
+  let penalty = 0;
+  const wanted = reader.level ? CATALOG_LEVEL_FOR_SETUP[reader.level] : undefined;
+  if (wanted && candidate.level && candidate.level !== wanted) {
+    // One tier away is a stretch; two is a different training life.
+    const order: NonNullable<GoalProgrammeCandidate['level']>[] = ['beginner', 'intermediate', 'advanced'];
+    penalty += Math.abs(order.indexOf(candidate.level) - order.indexOf(wanted)) * 2;
+  }
+  if (reader.daysPerWeek && candidate.daysPerWeek) {
+    penalty += Math.abs(candidate.daysPerWeek - reader.daysPerWeek);
+  }
+  return penalty;
 }
 
 export interface GoalProgrammeMatch {
@@ -90,6 +133,20 @@ export function isSameLift(left: string, right: string, libraryNames?: readonly 
   if (a === b) {
     return true;
   }
+  // Spelled differently, same lift. Checked before the library because the
+  // library resolves "Conventional Deadlift" and "Barbell Deadlift" to two
+  // different entries — correctly, for a browser; wrongly, for a target.
+  if (isSameLiftByGroup(left, right)) {
+    return true;
+  }
+  // ...and the reverse: two names in DIFFERENT groups are different lifts, so
+  // the library must not merge them. A Romanian deadlift resolving near a
+  // deadlift would otherwise fill a deadlift target.
+  const leftGroup = liftGroupOf(left);
+  const rightGroup = liftGroupOf(right);
+  if (leftGroup !== null && rightGroup !== null && leftGroup !== rightGroup) {
+    return false;
+  }
   if (!libraryNames || libraryNames.length === 0) {
     return false;
   }
@@ -126,19 +183,24 @@ export function matchProgrammeToLift(
 /**
  * The programmes that train the lift, best fit first.
  *
- * Order: the lift as a primary lift beats it as an accessory; more sessions of
- * it beat fewer; ties fall back to `preferredOrder` — the caller's own ranking
- * (the setup recommendation, the reader's level), so two equally squat-heavy
- * programmes sort the way the rest of the app already sorts them — and then to
+ * Order: the lift as a primary lift beats it as an accessory; then how well
+ * the programme fits the reader's level and week, because a programme they
+ * cannot run is not an answer; then more sessions of the lift beat fewer; ties
+ * fall back to `preferredOrder` — the caller's own ranking — and then to
  * catalog order, so the result is stable.
  */
 export function rankProgrammesForLift(
   programmes: readonly GoalProgrammeCandidate[],
   liftName: string,
-  options: { preferredOrder?: readonly string[]; libraryNames?: readonly string[] } = {},
+  options: {
+    preferredOrder?: readonly string[];
+    libraryNames?: readonly string[];
+    reader?: GoalProgrammeReader;
+  } = {},
 ): GoalProgrammeMatch[] {
   const preference = new Map((options.preferredOrder ?? []).map((id, index) => [id, index]));
   const catalogIndex = new Map(programmes.map((programme, index) => [programme.id, index]));
+  const fit = new Map(programmes.map((programme) => [programme.id, fitPenalty(programme, options.reader)]));
   const matches: GoalProgrammeMatch[] = [];
   for (const programme of programmes) {
     const match = matchProgrammeToLift(programme, liftName, options.libraryNames);
@@ -149,6 +211,11 @@ export function rankProgrammesForLift(
   return matches.sort((left, right) => {
     if (left.primary !== right.primary) {
       return left.primary ? -1 : 1;
+    }
+    const leftFit = fit.get(left.id) ?? 0;
+    const rightFit = fit.get(right.id) ?? 0;
+    if (leftFit !== rightFit) {
+      return leftFit - rightFit;
     }
     if (left.sessionCount !== right.sessionCount) {
       return right.sessionCount - left.sessionCount;

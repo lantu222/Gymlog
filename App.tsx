@@ -184,7 +184,7 @@ import { resolveProgramEquipment } from './src/lib/programEquipment';
 import { getTrendingEntries } from './src/lib/programTrendingDemo';
 import { backfillRecommendations } from './src/lib/recommendationBackfill';
 import { buildGoalPresetRows, STRENGTH_GOAL_PRESETS } from './src/lib/strengthGoalPresets';
-import { describeGoalCoverage, GoalProgrammeSuggestionView, rankProgrammesForLift } from './src/lib/goalProgramme';
+import { describeGoalCoverage, GoalProgrammeSuggestionView, isSameLift, rankProgrammesForLift } from './src/lib/goalProgramme';
 import { StrengthGoalPickerScreen } from './src/screens/StrengthGoalPickerScreen';
 import {
   addSeasonEnrolment,
@@ -4476,6 +4476,8 @@ function VinhaApp() {
       }),
     [exerciseBrowserItems.length, programsCategoryCounts, programsSeasonTileCounts],
   );
+  const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
+
   /**
    * Goals with a bar that can move.
    *
@@ -4489,8 +4491,11 @@ function VinhaApp() {
       resolveGoalProgress(
         preferences.strengthGoals,
         new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight])),
+        // Same rule the coverage row uses, so "your program trains this" and
+        // "you have lifted this" can never disagree about what the lift is.
+        (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
       ),
-    [preferences.strengthGoals, trackedProgress],
+    [libraryNames, preferences.strengthGoals, trackedProgress],
   );
   /**
    * The ready-made targets, with the reader's own bests folded in.
@@ -4504,8 +4509,9 @@ function VinhaApp() {
       buildGoalPresetRows(
         new Map(trackedProgress.map((summary) => [summary.name, summary.bestWeight ?? null])),
         preferences.strengthGoals,
+        (loggedName, liftName) => isSameLift(loggedName, liftName, libraryNames),
       ),
-    [preferences.strengthGoals, trackedProgress],
+    [libraryNames, preferences.strengthGoals, trackedProgress],
   );
   /**
    * The programme behind each goal lift (feedback round 2, #1: a target always
@@ -4520,7 +4526,6 @@ function VinhaApp() {
    */
   // One array per library, so the goal-programme resolver's cache can key on it
   // instead of being defeated by a fresh `.map` every render.
-  const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
   const goalProgrammeSuggestions = useMemo(() => {
     const activeCandidates = activeProgramTemplateIds
       .map((id) => getWorkoutTemplateById(id) ?? customWorkoutRuntimeMap[id] ?? null)
@@ -4557,7 +4562,12 @@ function VinhaApp() {
         };
         continue;
       }
-      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, { preferredOrder, libraryNames }).filter(
+      const ranked = rankProgrammesForLift(WORKOUT_TEMPLATES_V1, lift, {
+        preferredOrder,
+        libraryNames,
+        // The suggestion has to be a programme this reader can actually run.
+        reader: { level: preferences.setupLevel, daysPerWeek: preferences.setupDaysPerWeek },
+      }).filter(
         (match) => !activeIds.has(match.id),
       );
       const best = ranked[0];
@@ -4581,6 +4591,8 @@ function VinhaApp() {
     customWorkoutRuntimeMap,
     libraryNames,
     preferences.appLanguage,
+    preferences.setupDaysPerWeek,
+    preferences.setupLevel,
     programsRecommendations,
   ]);
   // Programmes the reader built, not every template in the database: a

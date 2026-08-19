@@ -1,3 +1,4 @@
+import { bestForLift } from './liftIdentity';
 import { StrengthGoal } from './strengthGoals';
 
 /**
@@ -63,11 +64,19 @@ export interface StrengthGoalPresetRow {
 export function buildGoalPresetRows(
   bests: ReadonlyMap<string, number | null>,
   goals: readonly StrengthGoal[],
+  /**
+   * Same lift matcher the goals row uses. Without it this screen said "not
+   * logged yet" beside a lift the row behind it was already showing progress
+   * for — one of them reading the log by exact name, the other by lift.
+   */
+  matches?: (loggedName: string, liftName: string) => boolean,
 ): StrengthGoalPresetRow[] {
   const targetByName = new Map(goals.map((goal) => [goal.exerciseName, goal.targetKg]));
 
   return STRENGTH_GOAL_PRESETS.map((preset) => {
-    const best = bests.get(preset.exerciseName) ?? null;
+    const best = matches
+      ? bestForLift(preset.exerciseName, bests, matches)
+      : bests.get(preset.exerciseName) ?? null;
     const currentTargetKg = targetByName.get(preset.exerciseName) ?? null;
     return {
       exerciseName: preset.exerciseName,
