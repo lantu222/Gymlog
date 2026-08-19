@@ -1644,12 +1644,6 @@ function VinhaApp() {
     }
   }
 
-  function waitForPlanSaveFeedback() {
-    return new Promise<void>((resolve) => {
-      setTimeout(resolve, 3000);
-    });
-  }
-
 
   function handleOpenReadyProgramDetail(workoutTemplateId: string) {
     navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
@@ -2506,7 +2500,11 @@ function VinhaApp() {
     selection: FirstRunSetupSelection,
     recommendedProgramId: string,
   ) {
-    await waitForPlanSaveFeedback();
+    // Was three seconds of setTimeout before any of this ran, so finishing
+    // onboarding took the real work plus a flat 3s of nothing — reported from
+    // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
+    // The saving state is shown for as long as saving actually takes, which is
+    // the same rule the workout save already follows.
     await persistSetupSelection(selection, recommendedProgramId);
     const savedPlan = buildSavedOnboardingPlan(
       selection,
@@ -2635,7 +2633,11 @@ function VinhaApp() {
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
-    await waitForPlanSaveFeedback();
+    // Was three seconds of setTimeout before any of this ran, so finishing
+    // onboarding took the real work plus a flat 3s of nothing — reported from
+    // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
+    // The saving state is shown for as long as saving actually takes, which is
+    // the same rule the workout save already follows.
     await persistSetupSelection(selection, recommendedProgramId);
     const savedPlan = buildSavedOnboardingPlan(
       selection,
