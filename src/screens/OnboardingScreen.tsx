@@ -37,6 +37,7 @@ import { getFitnessPhotoVariant } from '../assets/fitnessPhotos';
 import { formatWorkoutDisplayLabel } from '../lib/displayLabel';
 import { convertWeightToKg, formatWeight, formatWeightInputValue, parseNumberInput } from '../lib/format';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { cautionRefinementLabel, equipmentItemLabel, I18nKey, t } from '../lib/i18n';
 import {
   buildScheduleFitNote,
@@ -1508,6 +1509,9 @@ export function OnboardingScreen({
   const [trainingEnvironment, setTrainingEnvironment] = useState<SetupTrainingEnvironment>(
     setupSeed.trainingEnvironment,
   );
+  // Whether the selected equipment card shows its chips. Selecting opens it;
+  // tapping its header again closes it without un-selecting (user, 2026-08-19).
+  const [equipmentCardOpen, setEquipmentCardOpen] = useState(true);
   const [selectedLocationOptionId, setSelectedLocationOptionId] = useState<LocationSelectionOptionId | null>(() =>
     initialSelection || editMode
       ? getDefaultLocationOptionId(setupSeed.equipment, setupSeed.trainingEnvironment)
@@ -2357,6 +2361,7 @@ export function OnboardingScreen({
     void haptics.select();
     const defaults = EQUIPMENT_DEFAULT_ITEMS[option.id] ?? [];
     setSelectedLocationOptionId(option.id);
+    setEquipmentCardOpen(true);
     setEquipmentItems(defaults);
     applyEquipmentEnvironment(option, defaults);
   }
@@ -2371,87 +2376,87 @@ export function OnboardingScreen({
   }
 
   function renderLocation() {
-    const selectedSetup = LOCATION_SELECTION_OPTIONS.find((option) => option.id === selectedLocationOptionId) ?? null;
-    const otherSetups = LOCATION_SELECTION_OPTIONS.filter((option) => option.id !== selectedLocationOptionId);
-    const selectedChips = selectedSetup ? EQUIPMENT_CHIP_CATALOG[selectedSetup.id] ?? [] : [];
-
     return renderOnboardingShell({
       stepLabel: getQuestionnaireStepLabel('location', language),
       titleLines: [t(language, 'onb.stage.location.title1'), t(language, 'onb.stage.location.title2')],
       topPaneStyle: styles.locationEquipmentTopPane,
       topCopyStyle: styles.locationEquipmentTopCopy,
       titleStyle: styles.locationEquipmentHeadline,
-      children: selectedSetup ? (
+      children: (
         <View style={styles.locationCardList}>
-          <View style={styles.equipmentExpandedCard}>
-            <View style={styles.equipmentExpandedHeader}>
-              <OnboardingOptionIcon name={selectedSetup.icon} />
-              <View style={styles.equipmentExpandedCopy}>
-                <Text style={styles.equipmentExpandedTitle}>{t(language, selectedSetup.labelKey)}</Text>
-                <Text style={styles.equipmentExpandedCount}>
-                  {selectedChips.length > 0
-                    ? t(language, 'onb.equip.selectedCount', { count: equipmentItems.length })
-                    : t(language, selectedSetup.subtitleKey)}
-                </Text>
+          {/* The cards keep their order. Selecting used to lift the chosen one
+              to the top as an expanded card and list the rest under "or
+              choose" — so the card you tapped jumped away from under your
+              thumb, and the only way to close it was to pick another. Now
+              each card expands where it is, and its header toggles it. */}
+          {LOCATION_SELECTION_OPTIONS.map((option) => {
+            const isSelected = option.id === selectedLocationOptionId;
+            if (!isSelected) {
+              return (
+                <LocationChoiceCard
+                  key={option.id}
+                  label={t(language, option.labelKey)}
+                  subtitle={t(language, option.subtitleKey)}
+                  icon={option.icon}
+                  focusLabel={option.focusLabelKey ? t(language, option.focusLabelKey) : undefined}
+                  focusTone={option.focusTone}
+                  active={false}
+                  onPress={() => selectEquipmentSetup(option)}
+                />
+              );
+            }
+            const chips = EQUIPMENT_CHIP_CATALOG[option.id] ?? [];
+            return (
+              <View key={option.id} style={styles.equipmentExpandedCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: true, expanded: equipmentCardOpen }}
+                  onPress={() => {
+                    void haptics.select();
+                    setEquipmentCardOpen((open) => !open);
+                  }}
+                  style={styles.equipmentExpandedHeader}
+                >
+                  <OnboardingOptionIcon name={option.icon} />
+                  <View style={styles.equipmentExpandedCopy}>
+                    <Text style={styles.equipmentExpandedTitle}>{t(language, option.labelKey)}</Text>
+                    <Text style={styles.equipmentExpandedCount}>
+                      {chips.length > 0
+                        ? t(language, 'onb.equip.selectedCount', { count: equipmentItems.length })
+                        : t(language, option.subtitleKey)}
+                    </Text>
+                  </View>
+                  <View style={styles.equipmentExpandedCheck}>
+                    <VinhaIcon name="check" size={13} color="#FFFFFF" />
+                  </View>
+                </Pressable>
+                {equipmentCardOpen && chips.length > 0 ? (
+                  <>
+                    <Text style={styles.equipmentChipsPrompt}>{t(language, 'onb.equip.prompt')}</Text>
+                    <View style={styles.equipmentChipsWrap}>
+                      {chips.map((item) => {
+                        const active = equipmentItems.includes(item);
+                        // The English item is the stored id; only its label moves.
+                        const label = equipmentItemLabel(language, item);
+                        return (
+                          <Pressable
+                            key={item}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            accessibilityLabel={label}
+                            onPress={() => toggleEquipmentItem(option, item)}
+                            style={[styles.equipmentChip, active && styles.equipmentChipActive]}
+                          >
+                            <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{label}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </>
+                ) : null}
               </View>
-              <View style={styles.equipmentExpandedCheck}>
-                <VinhaIcon name="check" size={13} color="#FFFFFF" />
-              </View>
-            </View>
-            {selectedChips.length > 0 ? (
-              <>
-                <Text style={styles.equipmentChipsPrompt}>{t(language, 'onb.equip.prompt')}</Text>
-                <View style={styles.equipmentChipsWrap}>
-                  {selectedChips.map((item) => {
-                    const active = equipmentItems.includes(item);
-                    // The English item is the stored id; only its label moves.
-                    const label = equipmentItemLabel(language, item);
-
-                    return (
-                      <Pressable
-                        key={item}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: active }}
-                        accessibilityLabel={label}
-                        onPress={() => toggleEquipmentItem(selectedSetup, item)}
-                        style={[styles.equipmentChip, active && styles.equipmentChipActive]}
-                      >
-                        <Text style={[styles.equipmentChipText, active && styles.equipmentChipTextActive]}>{label}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </>
-            ) : null}
-          </View>
-
-          <Text style={styles.equipmentOrChooseLabel}>{t(language, 'onb.equip.orChoose')}</Text>
-          {otherSetups.map((option) => (
-            <LocationChoiceCard
-              key={option.id}
-              label={t(language, option.labelKey)}
-              subtitle={t(language, option.subtitleKey)}
-              icon={option.icon}
-              active={false}
-              compact
-              onPress={() => selectEquipmentSetup(option)}
-            />
-          ))}
-        </View>
-      ) : (
-        <View style={styles.locationCardList}>
-          {LOCATION_SELECTION_OPTIONS.map((option) => (
-            <LocationChoiceCard
-              key={option.id}
-              label={t(language, option.labelKey)}
-              subtitle={t(language, option.subtitleKey)}
-              icon={option.icon}
-              focusLabel={option.focusLabelKey ? t(language, option.focusLabelKey) : undefined}
-              focusTone={option.focusTone}
-              active={false}
-              onPress={() => selectEquipmentSetup(option)}
-            />
-          ))}
+            );
+          })}
         </View>
       ),
     });
@@ -3865,9 +3870,32 @@ export function OnboardingScreen({
     return renderReview();
   }
 
+  // One back control, top-left, like every other screen — the footer link it
+  // replaces is below. Where it goes is the same decision the link made.
+  const goBack = () => {
+    if (stage === 'review') {
+      if (planReadyView === 'pro') {
+        setPlanReadyView('overview');
+      } else {
+        setStageIndex(getStageIndex('planning'));
+      }
+      return;
+    }
+    if (stage === 'location') {
+      if (editMode) {
+        void runAction(() => onCancel?.());
+      } else {
+        void runAction(onBackToEntry ?? onSkip);
+      }
+      return;
+    }
+    setStageIndex((current) => Math.max(0, current - 1));
+  };
+
   return (
     <View style={[styles.root, styles.rootLight]}>
       {locationStageActive ? <View pointerEvents="none" style={[styles.locationTopSafeArea, { height: insets.top }]} /> : null}
+      <OnboardingBackButton language={language} onPress={goBack} disabled={busy} />
       <ScrollView
         key={stage}
         ref={onboardingScrollRef}
@@ -3964,36 +3992,7 @@ export function OnboardingScreen({
               style={styles.onboardingPrimaryCTA}
             />
 
-            {stage === 'review' ? (
-              planReadyView === 'pro' ? (
-                <Pressable onPress={() => setPlanReadyView('overview')} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
-                </Pressable>
-              ) : planReadyView === 'overview' ? (
-                <Pressable onPress={() => setStageIndex(getStageIndex('planning'))} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
-                </Pressable>
-              ) : null
-            ) : stage === 'location' ? (
-              editMode ? (
-                <Pressable onPress={() => runAction(() => onCancel?.())} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.cancel')}</Text>
-                </Pressable>
-              ) : (
-                <Pressable onPress={() => runAction(onBackToEntry ?? onSkip)} disabled={busy}>
-                  <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
-                </Pressable>
-              )
-            ) : (
-              <Pressable
-                onPress={() => {
-                  setStageIndex((current) => Math.max(0, current - 1));
-                }}
-                disabled={busy}
-              >
-                <Text style={[styles.secondaryText, styles.secondaryTextDark, styles.footerBackText]}>{t(language, 'common.back')}</Text>
-              </Pressable>
-            )}
+            {/* The "Takaisin" link that sat here moved to the top-left chevron. */}
           </>
           {busy ? <ActivityIndicator color={ONBOARDING_TEXT} size="small" /> : null}
         </View>
@@ -4148,6 +4147,11 @@ const styles = StyleSheet.create({
   },
   locationTopPane: {
     backgroundColor: ONBOARDING_TOP,
+    // The back chevron sits in the corner above this pane (40 tall + its gap).
+    // Every stage's bar and title used to start level with it once the footer
+    // "Takaisin" link moved up there; the whole pane steps down instead, so no
+    // stage needs its own offset.
+    marginTop: 48,
     justifyContent: 'flex-end',
     paddingHorizontal: spacing.lg * 2,
     paddingTop: spacing.xl + spacing.sm,

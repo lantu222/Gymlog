@@ -4,6 +4,7 @@ import { useFonts } from 'expo-font';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
+import { OnboardingBackButton } from '../components/OnboardingBackButton';
 import { t } from '../lib/i18n';
 import { Theme, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
@@ -122,9 +123,12 @@ export function StartPathScreen({
   const [selected, setSelected] = useState<StartPath>('build');
 
   return (
-    <View style={[styles.screen, { paddingTop: insets.top + 32, paddingBottom: insets.bottom + 14 }]}>
+    // Top padding = inset + the back chevron (10 + 40) + a gap, so the title
+    // starts under the button instead of behind it.
+    <View style={[styles.screen, { paddingTop: insets.top + 10 + 40 + 22, paddingBottom: insets.bottom + 14 }]}>
       <Text style={[styles.heading, { fontFamily }]}>{t(language, 'startPath.heading')}</Text>
-      <Text style={[styles.subheading, { fontFamily }]}>{t(language, 'startPath.sub')}</Text>
+      {/* "You can change your mind later" is gone (user, 2026-08-19): it
+          hedged a choice that the app already lets you revisit. */}
 
       <View style={styles.cardStack}>
         <PathCard
@@ -163,15 +167,8 @@ export function StartPathScreen({
         >
           <Text style={[styles.ctaLabel, { fontFamily }]}>{t(language, 'common.continue')}</Text>
         </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t(language, 'common.back')}
-          onPress={onBack}
-          style={({ pressed }) => [styles.backLink, pressed && { opacity: 0.7 }]}
-        >
-          <Text style={[styles.backText, { fontFamily }]}>{t(language, 'common.back')}</Text>
-        </Pressable>
       </View>
+      <OnboardingBackButton language={language} onPress={onBack} />
     </View>
   );
 }
