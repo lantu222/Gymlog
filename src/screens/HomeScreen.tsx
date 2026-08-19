@@ -2307,6 +2307,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   emptyWorkoutTitle: {
     flex: 1,
+    flexShrink: 1,
     color: theme.ink,
     fontSize: 15.5,
     lineHeight: 20,
@@ -2317,6 +2318,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '600',
+    // Text in a row does not shrink by default, so "Juoksu, pyöräily ja
+    // kävely" ran past the card's edge and the card clipped it — the last word
+    // went first, which is why "kävely" kept vanishing on narrow widths.
+    flexShrink: 1,
+    textAlign: 'right',
   },
   historyHeaderRow: {
     flexDirection: 'row',

@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 import { VinhaWordmark } from '../components/VinhaWordmark';
 import {
   EASE_ARRIVE,
@@ -57,6 +59,9 @@ interface VinhaSplashScreenProps {
 export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreenProps) {
   const styles = useThemedStyles(makeStyles);
   const { width, height } = useWindowDimensions();
+  // The slogan sat at a fixed distance from the bottom EDGE and the Android
+  // navigation bar covered it. Welcome's tagline already adds the inset.
+  const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
   // Held in a ref: the parent passes a fresh closure every render, and
   // depending on it restarted the hand-off timer each time.
@@ -79,9 +84,9 @@ export function VinhaSplashScreen({ language = 'en', onDone }: VinhaSplashScreen
     () => ({
       slotFrom: markSlotTop(height, MARK_CENTER_SPLASH),
       slotTo: markSlotTop(height, MARK_CENTER_WELCOME),
-      sloganBottom: scaleY(height, 34),
+      sloganBottom: scaleY(height, 34) + insets.bottom,
     }),
-    [height],
+    [height, insets.bottom],
   );
 
   const streakSweeps = useMemo(

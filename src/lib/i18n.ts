@@ -101,6 +101,15 @@ const EN = {
   'paywall.plan.monthly.price': '9,90 €',
   'paywall.plan.monthly.per': '/ mo',
   'paywall.plan.monthly.note': 'Cancel anytime',
+  // The onboarding paywall showed two of the three plans. Lifetime is sold on
+  // the Pro page and in Settings; leaving it off the first sale made the
+  // cheapest long-run option invisible at the one moment most people decide.
+  'paywall.plan.lifetime': 'LIFETIME',
+  'paywall.plan.lifetime.price': '119,00 €',
+  'paywall.plan.lifetime.per': 'once',
+  'paywall.plan.lifetime.note': 'Pay once, keep it',
+  'paywall.cta.footLifetime': 'One payment of 119,00 € — no renewal',
+  'paywall.foot.noTrialLifetime': '119,00 € once · no renewal',
   'paywall.trust.programs': '{count} programs free',
   'paywall.trust.cancel': 'Cancel anytime',
   'paywall.trust.export': 'Export all data',
@@ -3321,6 +3330,12 @@ const FI: Record<I18nKey, string> = {
   'paywall.plan.monthly.price': '9,90 €',
   'paywall.plan.monthly.per': '/ kk',
   'paywall.plan.monthly.note': 'Peru milloin vain',
+  'paywall.plan.lifetime': 'ELINIKÄINEN',
+  'paywall.plan.lifetime.price': '119,00 €',
+  'paywall.plan.lifetime.per': 'kerran',
+  'paywall.plan.lifetime.note': 'Maksa kerran, pidä',
+  'paywall.cta.footLifetime': 'Yksi maksu 119,00 € — ei uusiutumista',
+  'paywall.foot.noTrialLifetime': '119,00 € kerran · ei uusiutumista',
   'paywall.trust.programs': '{count} ohjelmaa ilmaiseksi',
   'paywall.trust.cancel': 'Peru milloin vain',
   'paywall.trust.export': 'Vie kaikki tiedot',
