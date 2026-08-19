@@ -1495,12 +1495,15 @@ const EN = {
   'handoff.title': 'Two things before you start',
   'handoff.body': 'Both take one tap. You can change either of them later in Settings.',
   'handoff.titleOne': 'One thing before you start',
+  'handoff.titleMany': 'Before you start',
+  'handoff.bodyMany': 'Each takes one tap. You can change them later in Settings.',
   'handoff.bodyOne': 'It takes one tap. You can change it later in Settings.',
   'handoff.widget.title': 'Your week on the home screen',
   'handoff.widget.body': 'The calendar, without opening the app.',
   'handoff.track.title': 'Follow your progress',
   'handoff.track.body': '{focus} · a card on Home',
   'handoff.track.bodyweight': 'Bodyweight · a card on Home',
+  'handoff.weight.title': 'Track your weight',
   'handoff.done': 'Done',
   'handoff.skip': 'Not now',
   'widget.prompt.title': 'Put your week on the home screen',
@@ -3926,22 +3929,24 @@ const FI: Record<I18nKey, string> = {
   'prog.custom.sub.fourPlus': 'Täydempi viikkojako, jossa on tilaa vaihdella painotusta.',
   'prog.custom.sub.three': 'Tasapainoinen viikkojako, jonka voi toistaa siististi.',
 
-  'onb.goal.strength.title': 'Tule vahvemmaksi',
+  // Answers to "Mitä haluat eniten?" — infinitives, so the title reads as the
+  // answer to the question above it (user, 2026-08-19).
+  'onb.goal.strength.title': 'Tulla vahvemmaksi',
   'onb.goal.strength.body': 'Keskity raskaisiin nostoihin ja voiman kasvuun.',
   'onb.goal.strength.tag1': 'Vähemmän toistoja',
   'onb.goal.strength.tag2': 'Pidempi palautus',
   'onb.goal.strength.tag3': 'Voimapainotus',
-  'onb.goal.muscle.title': 'Kasvata lihasta',
+  'onb.goal.muscle.title': 'Kasvattaa lihasta',
   'onb.goal.muscle.body': 'Enemmän volyymia koon ja muodon rakentamiseen.',
   'onb.goal.muscle.tag1': 'Hypertrofia',
   'onb.goal.muscle.tag2': 'Maltilliset toistot',
   'onb.goal.muscle.tag3': 'Enemmän volyymia',
-  'onb.goal.lean_athletic.title': 'Kiinteä & atleettinen',
+  'onb.goal.lean_athletic.title': 'Kiinteytyä',
   'onb.goal.lean_athletic.body': 'Pysy kiinteänä ja rakenna samalla voimaa ja suorituskykyä.',
   'onb.goal.lean_athletic.tag1': 'Hybriditreeni',
   'onb.goal.lean_athletic.tag2': 'Kunto',
   'onb.goal.lean_athletic.tag3': 'Vähemmän väsymystä',
-  'onb.goal.general_fitness.title': 'Yleiskunto',
+  'onb.goal.general_fitness.title': 'Parantaa yleiskuntoa',
   'onb.goal.general_fitness.body': 'Tasapainoista treeniä terveyden ja säännöllisyyden tueksi.',
   'onb.goal.general_fitness.tag1': 'Aloittelijaystävällinen',
   'onb.goal.general_fitness.tag2': 'Kestävä',
@@ -4008,7 +4013,7 @@ const FI: Record<I18nKey, string> = {
   'onb.caution.info.label': 'Vain tiedoksi',
   'onb.caution.info.body': 'Pidämme sen mielessä.',
   'onb.caution.careful.label': 'Ole varovainen',
-  'onb.caution.careful.body': 'Nivelystävälliset vaihdot tälle alueelle.',
+  'onb.caution.careful.body': 'Nivelystävälliset liikkeet tälle alueelle.',
   'onb.caution.avoid.label': 'Vältä kokonaan',
   'onb.caution.avoid.body': 'Jätämme tämän alueen pois ohjelmastasi.',
 
@@ -4648,12 +4653,15 @@ const FI: Record<I18nKey, string> = {
   'handoff.title': 'Kaksi asiaa ennen kuin aloitat',
   'handoff.body': 'Molemmat vievät yhden napautuksen. Voit muuttaa kumpaakin myöhemmin asetuksista.',
   'handoff.titleOne': 'Yksi asia ennen kuin aloitat',
+  'handoff.titleMany': 'Ennen kuin aloitat',
+  'handoff.bodyMany': 'Jokainen vie yhden napautuksen. Voit muuttaa ne myöhemmin asetuksista.',
   'handoff.bodyOne': 'Se vie yhden napautuksen. Voit muuttaa sen myöhemmin asetuksista.',
   'handoff.widget.title': 'Viikkosi kotinäytölle',
   'handoff.widget.body': 'Kalenteri, ilman että avaat sovellusta.',
   'handoff.track.title': 'Seuraa kehitystäsi',
   'handoff.track.body': '{focus} · kortti Kotiin',
   'handoff.track.bodyweight': 'Paino · kortti Kotiin',
+  'handoff.weight.title': 'Seuraa painoasi',
   'handoff.done': 'Valmis',
   'handoff.skip': 'Ei nyt',
   'widget.prompt.title': 'Ota viikko kotinäytölle',
@@ -6366,6 +6374,3 @@ export function equipmentItemLabel(language: AppLanguage, item: string): string 
   return storedValueLabel(language, 'onb.equip.', item);
 }
 
-export function cautionRefinementLabel(language: AppLanguage, refinement: string): string {
-  return storedValueLabel(language, 'onb.refine.', refinement);
-}

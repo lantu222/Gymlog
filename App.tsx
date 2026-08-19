@@ -3371,8 +3371,15 @@ function VinhaApp() {
     if (setupHandoffPlan?.offerWidget) {
       patch.homeWidgetPromptDismissed = true;
     }
+    const pinned = [...homePinnedStatCardKeys];
     if (choices.pinTrackingCard && setupHandoffPlan?.tracking) {
-      patch.homeStatCardKeys = [...homePinnedStatCardKeys, setupHandoffPlan.tracking.cardKey];
+      pinned.push(setupHandoffPlan.tracking.cardKey);
+    }
+    if (choices.pinBodyweightCard && setupHandoffPlan?.offerBodyweight && !pinned.includes('bodyweight')) {
+      pinned.push('bodyweight');
+    }
+    if (pinned.length !== homePinnedStatCardKeys.length) {
+      patch.homeStatCardKeys = pinned;
     }
     await updatePreferences(patch);
     // The system dialog last, so it is not racing a state write.
@@ -4737,7 +4744,7 @@ function VinhaApp() {
             : null
         }
         onDone={(choices) => void handleSetupHandoffDone(choices)}
-        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false })}
+        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false, pinBodyweightCard: false })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'setup') {

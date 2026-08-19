@@ -186,98 +186,9 @@ export function ProPaywallScreen({
         </View>
 
         <View style={styles.body}>
-          {/* Built for you — quotes the questionnaire's own answers back. */}
-          <View>
-            <PwLabel>{t(language, 'paywall.built.label')}</PwLabel>
-            <CutSurface size="lg" fill="#241B4A" stroke={PW.border} strokeWidth={1} style={styles.card}>
-              <View style={styles.builtHead}>
-                <View style={styles.builtIcon}>
-                  <PwIcon name="target" size={21} />
-                </View>
-                <View style={styles.flex1}>
-                  <Text style={styles.builtTitle}>
-                    {t(language, 'paywall.built.title', { goal: goalLabel, days: daysPerWeek })}
-                  </Text>
-                  <Text style={styles.builtSub}>{t(language, 'paywall.built.sub')}</Text>
-                </View>
-              </View>
-              <View style={styles.builtRows}>
-                {builtRows.map((row) => (
-                  <View key={row} style={styles.builtRow}>
-                    <PwIcon name="check" size={15} color={PW.green} />
-                    <Text style={styles.builtRowText}>{row}</Text>
-                  </View>
-                ))}
-              </View>
-            </CutSurface>
-          </View>
-
-          {/* What you get */}
-          <View>
-            <PwLabel>{t(language, 'paywall.benefits.label')}</PwLabel>
-            <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.benefitCard]}>
-              {benefits.map(([icon, title, body], index) => (
-                <View key={title} style={[styles.benefitRow, index > 0 && styles.benefitRowDivided]}>
-                  <View style={styles.benefitIcon}>
-                    <PwIcon name={icon} size={19} />
-                  </View>
-                  <View style={styles.flex1}>
-                    <Text style={styles.benefitTitle}>{title}</Text>
-                    <Text style={styles.benefitBody}>{body}</Text>
-                  </View>
-                </View>
-              ))}
-            </CutSurface>
-          </View>
-
-          {/* Free vs Pro */}
-          <View>
-            <PwLabel>{t(language, 'paywall.vs.label')}</PwLabel>
-            {/* One fill for the whole frame. The per-column fills went: a filled
-                cell shows a square corner through the cut, and the head text
-                plus the check already tell the two columns apart. */}
-            <CutSurface size="lg" fill={PW.surface} stroke={PW.border} strokeWidth={1} style={styles.compareFrame}>
-              <View style={styles.compareRow}>
-                <Text style={[styles.compareHeadCell, styles.compareFreeHead]}>{t(language, 'paywall.vs.free')}</Text>
-                <Text style={[styles.compareHeadCell, styles.compareProHead]}>{t(language, 'paywall.vs.pro')}</Text>
-              </View>
-              {compare.map(([free, pro], index) => (
-                <View key={free} style={[styles.compareRow, index > 0 || true ? styles.compareRowDivided : null]}>
-                  <Text style={[styles.compareCell, styles.compareFreeCell]}>{free}</Text>
-                  <View style={[styles.compareCell, styles.compareProCell]}>
-                    <PwIcon name="check" size={13} color={PW.green} />
-                    <Text style={styles.compareProText}>{pro}</Text>
-                  </View>
-                </View>
-              ))}
-            </CutSurface>
-          </View>
-
-          {/* Your first month */}
-          <View>
-            <PwLabel>{t(language, 'paywall.month.label')}</PwLabel>
-            <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.journeyCard]}>
-              <View style={styles.journeyRow}>
-                {journey.map(([icon, step, note], index) => (
-                  <React.Fragment key={step}>
-                    <View style={styles.journeyStep}>
-                      <View style={[styles.journeyIcon, index === 0 && styles.journeyIconNow]}>
-                        <PwIcon name={icon} size={19} color={index === 0 ? '#FFFFFF' : PW.purple} />
-                      </View>
-                      <Text style={styles.journeyStepLabel}>{step}</Text>
-                      <Text style={styles.journeyStepNote}>{note}</Text>
-                    </View>
-                    {index < journey.length - 1 ? (
-                      <View style={styles.journeyArrow}>
-                        <PwIcon name="arrow" size={12} color={PW.faint} />
-                      </View>
-                    ) : null}
-                  </React.Fragment>
-                ))}
-              </View>
-            </CutSurface>
-          </View>
-
+          {/* Plans first, straight after the hero (user, 2026-08-19): the price is
+              the question this page exists to answer, and it sat under four
+              sections of argument. */}
           {/* Plans */}
           <View style={styles.planRow}>
             <Pressable
@@ -368,6 +279,99 @@ export function ProPaywallScreen({
               </Text>
               </CutSurface>
             </Pressable>
+          </View>
+
+
+          {/* Built for you — quotes the questionnaire's own answers back. */}
+          <View>
+            <PwLabel>{t(language, 'paywall.built.label')}</PwLabel>
+            <CutSurface size="lg" fill="#241B4A" stroke={PW.border} strokeWidth={1} style={styles.card}>
+              <View style={styles.builtHead}>
+                <View style={styles.builtIcon}>
+                  <PwIcon name="target" size={21} />
+                </View>
+                <View style={styles.flex1}>
+                  <Text style={styles.builtTitle}>
+                    {t(language, 'paywall.built.title', { goal: goalLabel, days: daysPerWeek })}
+                  </Text>
+                  <Text style={styles.builtSub}>{t(language, 'paywall.built.sub')}</Text>
+                </View>
+              </View>
+              <View style={styles.builtRows}>
+                {builtRows.map((row) => (
+                  <View key={row} style={styles.builtRow}>
+                    <PwIcon name="check" size={15} color={PW.green} />
+                    <Text style={styles.builtRowText}>{row}</Text>
+                  </View>
+                ))}
+              </View>
+            </CutSurface>
+          </View>
+
+          {/* What you get */}
+          <View>
+            <PwLabel>{t(language, 'paywall.benefits.label')}</PwLabel>
+            <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.benefitCard]}>
+              {benefits.map(([icon, title, body], index) => (
+                <View key={title} style={[styles.benefitRow, index > 0 && styles.benefitRowDivided]}>
+                  <View style={styles.benefitIcon}>
+                    <PwIcon name={icon} size={19} />
+                  </View>
+                  <View style={styles.flex1}>
+                    <Text style={styles.benefitTitle}>{title}</Text>
+                    <Text style={styles.benefitBody}>{body}</Text>
+                  </View>
+                </View>
+              ))}
+            </CutSurface>
+          </View>
+
+          {/* Free vs Pro */}
+          <View>
+            <PwLabel>{t(language, 'paywall.vs.label')}</PwLabel>
+            {/* One fill for the whole frame. The per-column fills went: a filled
+                cell shows a square corner through the cut, and the head text
+                plus the check already tell the two columns apart. */}
+            <CutSurface size="lg" fill={PW.surface} stroke={PW.border} strokeWidth={1} style={styles.compareFrame}>
+              <View style={styles.compareRow}>
+                <Text style={[styles.compareHeadCell, styles.compareFreeHead]}>{t(language, 'paywall.vs.free')}</Text>
+                <Text style={[styles.compareHeadCell, styles.compareProHead]}>{t(language, 'paywall.vs.pro')}</Text>
+              </View>
+              {compare.map(([free, pro], index) => (
+                <View key={free} style={[styles.compareRow, index > 0 || true ? styles.compareRowDivided : null]}>
+                  <Text style={[styles.compareCell, styles.compareFreeCell]}>{free}</Text>
+                  <View style={[styles.compareCell, styles.compareProCell]}>
+                    <PwIcon name="check" size={13} color={PW.green} />
+                    <Text style={styles.compareProText}>{pro}</Text>
+                  </View>
+                </View>
+              ))}
+            </CutSurface>
+          </View>
+
+          {/* Your first month */}
+          <View>
+            <PwLabel>{t(language, 'paywall.month.label')}</PwLabel>
+            <CutSurface size="lg" fill={PW.card} stroke={PW.border} strokeWidth={1} style={[styles.card, styles.journeyCard]}>
+              <View style={styles.journeyRow}>
+                {journey.map(([icon, step, note], index) => (
+                  <React.Fragment key={step}>
+                    <View style={styles.journeyStep}>
+                      <View style={[styles.journeyIcon, index === 0 && styles.journeyIconNow]}>
+                        <PwIcon name={icon} size={19} color={index === 0 ? '#FFFFFF' : PW.purple} />
+                      </View>
+                      <Text style={styles.journeyStepLabel}>{step}</Text>
+                      <Text style={styles.journeyStepNote}>{note}</Text>
+                    </View>
+                    {index < journey.length - 1 ? (
+                      <View style={styles.journeyArrow}>
+                        <PwIcon name="arrow" size={12} color={PW.faint} />
+                      </View>
+                    ) : null}
+                  </React.Fragment>
+                ))}
+              </View>
+            </CutSurface>
           </View>
 
           {/* Trust */}

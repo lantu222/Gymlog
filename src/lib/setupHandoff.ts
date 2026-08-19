@@ -74,6 +74,12 @@ export interface SetupHandoffPlan {
   offerWidget: boolean;
   /** Null when the card this reader would be offered is already on Home. */
   tracking: SetupTrackingOffer | null;
+  /**
+   * The bodyweight card as a second offer, when the focus card is not already
+   * bodyweight and bodyweight is not already on Home. One number every reader
+   * has; asked for by the user (2026-08-19) as the obvious second card.
+   */
+  offerBodyweight: boolean;
 }
 
 /**
@@ -88,10 +94,14 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
   const offer = resolveSetupTrackingOffer(input.focusAreas);
   const tracking = input.pinnedCardKeys.includes(offer.cardKey) ? null : offer;
 
+  const offerBodyweight =
+    offer.cardKey !== 'bodyweight' && !input.pinnedCardKeys.includes('bodyweight');
+
   return {
-    shouldShow: input.canOfferWidget || tracking !== null,
+    shouldShow: input.canOfferWidget || tracking !== null || offerBodyweight,
     offerWidget: input.canOfferWidget,
     tracking,
+    offerBodyweight,
   };
 }
 
@@ -101,6 +111,8 @@ export function planSetupHandoff(input: SetupHandoffInput): SetupHandoffPlan {
  * single card whenever the widget was already on the home screen, which on a
  * phone that has had the app before is the usual case.
  */
-export function countSetupHandoffOffers(plan: Pick<SetupHandoffPlan, 'offerWidget' | 'tracking'>): number {
-  return (plan.offerWidget ? 1 : 0) + (plan.tracking ? 1 : 0);
+export function countSetupHandoffOffers(
+  plan: Pick<SetupHandoffPlan, 'offerWidget' | 'tracking' | 'offerBodyweight'>,
+): number {
+  return (plan.offerWidget ? 1 : 0) + (plan.tracking ? 1 : 0) + (plan.offerBodyweight ? 1 : 0);
 }

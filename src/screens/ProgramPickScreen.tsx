@@ -35,7 +35,9 @@ const CUT_BOTTOM: [number, number] = [0.44, 0.36];
  * bottom padding and a gap, so the last line of the chosen card never runs
  * under it.
  */
-const CTA_ROOM = 116;
+// 116 put "KATSO VIIKKO" right against the pill when the lower programme was
+// the selected one — its block bottom-aligns into this gap (user, 2026-08-19).
+const CTA_ROOM = 140;
 
 export interface ProgramPickOption {
   id: string;
