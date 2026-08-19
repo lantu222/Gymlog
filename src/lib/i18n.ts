@@ -3941,7 +3941,7 @@ const FI: Record<I18nKey, string> = {
   'onb.goal.muscle.tag1': 'Hypertrofia',
   'onb.goal.muscle.tag2': 'Maltilliset toistot',
   'onb.goal.muscle.tag3': 'Enemmän volyymia',
-  'onb.goal.lean_athletic.title': 'Kiinteytyä & olla atleettinen',
+  'onb.goal.lean_athletic.title': 'Kiinteytyä',
   'onb.goal.lean_athletic.body': 'Pysy kiinteänä ja rakenna samalla voimaa ja suorituskykyä.',
   'onb.goal.lean_athletic.tag1': 'Hybriditreeni',
   'onb.goal.lean_athletic.tag2': 'Kunto',
