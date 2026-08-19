@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 
 const {
+  planLabelsForProgramme,
   planLabelsFromWeekdays,
   weekdaysFromPlanLabels,
 } = require('../../.test-dist/lib/trainingWeekSync.js');
@@ -64,6 +65,30 @@ module.exports = [
         weekdaysFromPlanLabels(labels.map((label) => ({ label }))),
         days,
       );
+    },
+  },
+  {
+    name: 'a programme keeps its own number of days when it is taken into use',
+    run() {
+      // The bug this pins: adoption read availability alone and fell back to a
+      // three-day default, so every programme — one session or six — ran as a
+      // three-day programme.
+      assert.equal(planLabelsForProgramme(6, []).length, 6);
+      assert.equal(planLabelsForProgramme(1, []).length, 1);
+      assert.equal(planLabelsForProgramme(4, []).length, 4);
+      // No day is ever repeated to make the count fit.
+      const six = planLabelsForProgramme(6, []);
+      assert.equal(new Set(six).size, 6);
+    },
+  },
+  {
+    name: 'availability places the days when it can hold the programme',
+    run() {
+      assert.deepEqual(planLabelsForProgramme(2, ['tue', 'thu', 'sat']), ['tue', 'sat']);
+      assert.deepEqual(planLabelsForProgramme(1, ['wed', 'sun']), ['wed']);
+      // Three open days cannot hold six sessions, so the programme's own week
+      // wins rather than being halved in silence.
+      assert.equal(planLabelsForProgramme(6, ['mon', 'wed', 'fri']).length, 6);
     },
   },
 ];

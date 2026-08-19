@@ -27,7 +27,7 @@ module.exports = [
 
       // The catch that recovers from a failed parse, up to the point where it
       // writes: the quarantine has to happen inside it, before saveDatabase.
-      const branch = code.slice(code.indexOf('return normalizeDatabase(JSON.parse(raw)'));
+      const branch = code.slice(code.indexOf('normalizeDatabase(JSON.parse(raw)'));
       const quarantine = branch.indexOf('setItem(CORRUPT_STORAGE_KEY, raw)');
       const overwrite = branch.indexOf('await saveDatabase(empty)');
 

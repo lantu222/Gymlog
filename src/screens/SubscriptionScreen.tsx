@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
+import { CutSurface } from '../components/CutSurface';
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
 import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
 import { SubscriptionSheet } from '../components/SubscriptionSheet';
@@ -263,7 +264,7 @@ export function SubscriptionScreen({
             {billing ? (
               <>
                 <SectionLabel label={t(language, 'subs.section.paying')} />
-                <View style={styles.card}>
+                <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
                   <Row
                     icon="card"
                     title={t(language, 'subs.row.changeMethod')}
@@ -288,31 +289,31 @@ export function SubscriptionScreen({
                     sub={t(language, 'subs.row.receiptsSub')}
                     onPress={() => setSheet('receipts')}
                   />
-                </View>
+                </CutSurface>
               </>
             ) : null}
 
             <SectionLabel label={t(language, 'subs.section.membership')} />
             {lifetime ? (
-              <View style={[styles.card, styles.notePad]}>
+              <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.notePad]}>
                 <Text style={styles.noteTitle}>{t(language, 'subs.lifetime.title')}</Text>
                 <Text style={styles.noteBody}>{t(language, 'subs.lifetime.body')}</Text>
-              </View>
+              </CutSurface>
             ) : model.promoBacked ? (
-              <View style={[styles.card, styles.notePad]}>
+              <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.notePad]}>
                 <Text style={styles.noteBody}>{t(language, 'subs.promoNote')}</Text>
-              </View>
+              </CutSurface>
             ) : model.cancelled ? (
-              <View style={styles.card}>
+              <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
                 <Row
                   icon="restore"
                   title={t(language, 'subs.row.resume')}
                   sub={t(language, 'subs.row.resumeSub', { date: date(model.endsAt) })}
                   onPress={() => onChangeMockCancelled(false)}
                 />
-              </View>
+              </CutSurface>
             ) : (
-              <View style={styles.card}>
+              <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
                 <Row
                   icon="warn"
                   title={t(language, 'subs.row.end')}
@@ -320,20 +321,22 @@ export function SubscriptionScreen({
                   onPress={onManageMembership}
                   danger
                 />
-              </View>
+              </CutSurface>
             )}
 
-            <Text style={styles.footer}>
-              {t(
-                language,
-                model.promoBacked ? 'subs.foot.promo' : lifetime ? 'subs.foot.lifetime' : 'subs.foot.play',
-              )}
-            </Text>
+            {/* The promo card above already says there is nothing to manage.
+                Repeating it as a footer put the same sentence twice on an
+                otherwise empty page. */}
+            {model.promoBacked ? null : (
+              <Text style={styles.footer}>
+                {t(language, lifetime ? 'subs.foot.lifetime' : 'subs.foot.play')}
+              </Text>
+            )}
           </>
         ) : (
           <>
             {/* status */}
-            <View style={[styles.card, styles.statusCard]}>
+            <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={[styles.card, styles.statusCard]}>
               <View style={styles.statusTopRow}>
                 <View style={[styles.shieldTile, { backgroundColor: statusTile }]}>
                   <Glyph
@@ -435,12 +438,12 @@ export function SubscriptionScreen({
                   />
                 </>
               )}
-            </View>
+            </CutSurface>
 
             {model.state === 'active' ? (
               <>
                 <SectionLabel label={t(language, 'subs.section.yours')} />
-                <View style={styles.card}>
+                <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
                   {model.cancelled && billing ? (
                     <Row
                       icon="restore"
@@ -450,17 +453,24 @@ export function SubscriptionScreen({
                       divider
                     />
                   ) : null}
-                  {/* The promo case has nothing to manage, so the row that
-                      would open an empty page is simply not rendered. */}
-                  {model.promoBacked ? null : (
-                    <Row
-                      icon="settings"
-                      title={t(language, 'subs.row.manageMembership')}
-                      sub={t(language, 'subs.row.manageMembershipSub')}
-                      onPress={() => setView('membership')}
-                      divider
-                    />
-                  )}
+                  {/* Shown for a promo too (user decision 2026-08-18). The
+                      page behind it is not empty — it states that a promo has
+                      nothing to manage and runs out on its own, which is the
+                      answer someone opening this row came for. The subtitle
+                      changes with it, because a promo has no payment method,
+                      no billing period and no receipts to name. */}
+                  <Row
+                    icon="settings"
+                    title={t(language, 'subs.row.manageMembership')}
+                    sub={t(
+                      language,
+                      model.promoBacked
+                        ? 'subs.row.manageMembershipSubPromo'
+                        : 'subs.row.manageMembershipSub',
+                    )}
+                    onPress={() => setView('membership')}
+                    divider
+                  />
                   <Row
                     icon="list"
                     title={t(language, 'subs.row.whatsIn')}
@@ -476,7 +486,7 @@ export function SubscriptionScreen({
                       void Linking.openURL('https://play.google.com/store/account/subscriptions')
                     }
                   />
-                </View>
+                </CutSurface>
               </>
             ) : (
               <>
@@ -499,7 +509,7 @@ export function SubscriptionScreen({
                 </Pressable>
 
                 <SectionLabel label={t(language, 'subs.section.other')} />
-                <View style={styles.card}>
+                <CutSurface size="lg" fill={theme.surface} stroke={theme.border} strokeWidth={1} style={styles.card}>
                   <Row
                     icon="restore"
                     title={t(language, 'subs.row.restore')}
@@ -517,7 +527,7 @@ export function SubscriptionScreen({
                       void Linking.openURL('https://play.google.com/store/account/subscriptions')
                     }
                   />
-                </View>
+                </CutSurface>
               </>
             )}
 
@@ -774,11 +784,9 @@ const makeStyles = (theme: Theme) =>
       paddingHorizontal: 18,
       paddingBottom: layout.bottomTabBarReserve,
     },
+    // Shape, fill and border belong to CutSurface now; the shadow is the
+    // only thing the wrapper still carries.
     card: {
-      backgroundColor: theme.surface,
-      borderWidth: 1,
-      borderColor: theme.border,
-      borderRadius: 20,
       ...CARD_SHADOW,
     },
     statusCard: {

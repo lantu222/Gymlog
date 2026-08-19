@@ -52,6 +52,35 @@ function normalize(name: string): string {
  * library's names, both sides resolve through the alias matcher the guided
  * player already uses, so a variant of the lift still counts as the lift.
  */
+/**
+ * Per-library memo of the alias matcher.
+ *
+ * `findGuidedLibraryIndex` lower-cases every one of the ~870 library names on
+ * every call. Ranking the catalog for one lift calls it twice per exercise per
+ * programme — thousands of times — and the goal-programme memo in App ran that
+ * for three lifts. Measured on a Galaxy A54: 4.8 seconds, on every preference
+ * change, because the memo sat downstream of the setup selection. The
+ * resolution of a name against a given library never changes, so it is looked
+ * up once and kept for as long as that library array lives.
+ */
+const resolverCache = new WeakMap<readonly string[], { names: string[]; byName: Map<string, number | null> }>();
+
+function resolveLibraryIndex(name: string, libraryNames: readonly string[]): number | null {
+  let entry = resolverCache.get(libraryNames);
+  if (!entry) {
+    entry = { names: [...libraryNames], byName: new Map() };
+    resolverCache.set(libraryNames, entry);
+  }
+  const key = normalize(name);
+  const cached = entry.byName.get(key);
+  if (cached !== undefined) {
+    return cached;
+  }
+  const index = findGuidedLibraryIndex(name, entry.names);
+  entry.byName.set(key, index);
+  return index;
+}
+
 export function isSameLift(left: string, right: string, libraryNames?: readonly string[]): boolean {
   const a = normalize(left);
   const b = normalize(right);
@@ -64,9 +93,8 @@ export function isSameLift(left: string, right: string, libraryNames?: readonly 
   if (!libraryNames || libraryNames.length === 0) {
     return false;
   }
-  const names = [...libraryNames];
-  const leftIndex = findGuidedLibraryIndex(left, names);
-  const rightIndex = findGuidedLibraryIndex(right, names);
+  const leftIndex = resolveLibraryIndex(left, libraryNames);
+  const rightIndex = resolveLibraryIndex(right, libraryNames);
   return leftIndex !== null && leftIndex === rightIndex;
 }
 

@@ -147,11 +147,25 @@ module.exports = [
 
       // App-side save truthfulness: persist the plan and activate it before
       // landing on Home (no auto-started workout in the light flow).
-      assert.match(appSource, /function waitForPlanSaveFeedback\(\)[\s\S]*setTimeout\(resolve, 3000\)/);
+      // The rule is the ORDER, not a wait. This used to pin a flat three-second
+      // setTimeout in front of the save, which is not save truthfulness — it is
+      // three seconds of nothing, and it read on the phone as a five-second
+      // freeze on the last button of onboarding. The saving state now lasts as
+      // long as the save does.
+      assert.doesNotMatch(appSource, /setTimeout\(resolve, 3000\)/);
       // Save path shares the composed week with the onboarding previews
       // (days-per-week truth): what was shown is exactly what is saved.
       assert.match(appSource, /function buildSavedOnboardingPlan\([\s\S]*composeProgramWeekForSelection\(selection, recommendedProgramId\)/);
-      assert.match(appSource, /handleOnboardingCompleteToTraining[\s\S]*waitForPlanSaveFeedback\(\)[\s\S]*persistSetupSelection\(selection, recommendedProgramId\)[\s\S]*upsertWorkoutTemplate\(savedPlan\.draft\)[\s\S]*upsertWorkoutPlan\(activePlan\)[\s\S]*updatePreferences\(\{ activePlanId: activePlan\.id \}\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/);
+      // The rule is still the order — saved and activated BEFORE Home — but it
+      // is now one write instead of four. The template, its exercises, the plan
+      // and the preferences land in a single commit, and the plan is built
+      // inside that lock from the id the template upsert generates.
+      assert.match(
+        appSource,
+        /handleOnboardingCompleteToTraining[\s\S]*saveOnboardingResult\(\{[\s\S]*onboardingCompleted: true[\s\S]*templateDraft: savedPlan\.draft[\s\S]*buildPlan:[\s\S]*buildSavedOnboardingWorkoutPlan[\s\S]*activate: \(planId\) => \(\{ activePlanId: planId \}\)[\s\S]*resetToRoute\(ROOT_ROUTES\.home\)/,
+      );
+      // And the four-call chain must not come back.
+      assert.doesNotMatch(appSource, /await upsertWorkoutTemplate\(savedPlan\.draft\)/);
 
       // The removed dark plan-ready must stay gone.
       assert.doesNotMatch(onboardingSource, /PLAN_READY_GYM_BACKDROP_SOURCE/);

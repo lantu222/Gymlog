@@ -90,8 +90,29 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
     };
   }, []);
 
+  /**
+   * The clock runs only while something needs one.
+   *
+   * The condition was `hydratedRef.current` — true from the first load until the
+   * app closes — so this dispatched a tick every second for the entire life of
+   * the process. With no session running the reducer's only answer is a new
+   * state object carrying a new `nowMs`, and a new state object re-renders every
+   * child of this provider: the whole app, once a second, on every screen,
+   * forever.
+   *
+   * It was invisible because nothing looked wrong — until a render counter put
+   * timestamps on it and they came out exactly one second apart. It is also the
+   * answer to the settings lag that survived three earlier fixes: theme and
+   * language were never slow, the app was simply always busy.
+   */
+  // Only a running rest timer and cardio need a clock shared across the app.
+  // The session's own elapsed seconds are derived where they are shown, so an
+  // unfinished workout no longer re-renders every screen once a second.
+  const needsClock =
+    state.activeSession?.restTimer.status === 'running' || Boolean(state.activeCardio);
+
   useEffect(() => {
-    if (!hydratedRef.current) {
+    if (!hydratedRef.current || !needsClock) {
       return;
     }
 
@@ -100,7 +121,7 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [state.hydrated]);
+  }, [state.hydrated, needsClock]);
 
   useEffect(() => {
     if (!state.hydrated) {

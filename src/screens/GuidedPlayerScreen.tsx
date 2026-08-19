@@ -889,6 +889,29 @@ export function GuidedPlayerScreen({
   const styles = useThemedStyles(makeStyles);
   const workout = useWorkoutContext();
   const session = workout.activeSession;
+
+  /**
+   * The session clock, derived here rather than ticked into global state.
+   *
+   * The provider used to dispatch a tick every second for any active session,
+   * and every tick made a new state object — so the whole app re-rendered once
+   * a second on every screen, including screens with no clock on them, for as
+   * long as a workout sat unfinished. The two other logging screens already
+   * derive this locally; this was the last consumer keeping the shared clock
+   * alive for a number only this screen shows.
+   */
+  const [clockNowMs, setClockNowMs] = useState(() => Date.now());
+  const sessionStartedAt = session?.startedAt ?? null;
+  useEffect(() => {
+    if (!sessionStartedAt) {
+      return undefined;
+    }
+    const timer = setInterval(() => setClockNowMs(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [sessionStartedAt]);
+  const derivedElapsedSeconds = sessionStartedAt
+    ? Math.max(0, Math.floor((clockNowMs - new Date(sessionStartedAt).getTime()) / 1000))
+    : 0;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
   // The catalog names sessions in English; the focus half of the name reads in
@@ -1678,7 +1701,7 @@ export function GuidedPlayerScreen({
               exercise={exerciseBySlot.get(step.slotId) ?? null}
               library={exerciseLibrary}
               language={language}
-              elapsedSeconds={session.elapsedSeconds}
+              elapsedSeconds={derivedElapsedSeconds}
               muted={muted}
               paused={paused}
               resolveTarget={resolveTarget}

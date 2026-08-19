@@ -155,7 +155,11 @@ import {
   resolveProgramTrainingDays,
   WEEKDAY_KEYS,
 } from './src/lib/programTrainingDays';
-import { planLabelsFromWeekdays, weekdaysFromPlanLabels } from './src/lib/trainingWeekSync';
+import {
+  planLabelsForProgramme,
+  planLabelsFromWeekdays,
+  weekdaysFromPlanLabels,
+} from './src/lib/trainingWeekSync';
 import { programCoverStyle } from './src/lib/programVisualIdentity';
 import {
   countPlanSessionsInRange,
@@ -824,6 +828,7 @@ function formatHomeSessionTitle(name: string, exercises: Array<{ name?: string; 
   return getExerciseFocusName(primaryName);
 }
 
+
 function VinhaApp() {
   const theme = useTheme();
   const {
@@ -846,6 +851,7 @@ function VinhaApp() {
     upsertWorkoutTemplate,
     programSlots,
     upsertWorkoutPlan,
+    saveOnboardingResult,
     deleteWorkoutTemplate,
     resetAllData,
     addBodyweightEntry,
@@ -1640,12 +1646,6 @@ function VinhaApp() {
     }
   }
 
-  function waitForPlanSaveFeedback() {
-    return new Promise<void>((resolve) => {
-      setTimeout(resolve, 3000);
-    });
-  }
-
 
   function handleOpenReadyProgramDetail(workoutTemplateId: string) {
     navigate({ tab: 'workout', screen: 'program', programType: 'ready', workoutTemplateId });
@@ -1853,9 +1853,14 @@ function VinhaApp() {
       return;
     }
 
-    const dayLabels = preferences.setupAvailableDays.length > 0
-      ? preferences.setupAvailableDays
-      : DEFAULT_RHYTHM_BY_DAYS[preferences.setupDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
+    // The programme's own week leads. This read availability alone and fell
+    // back to a three-day default, and the plan then dealt sessions round-robin
+    // across whatever labels it got — so a six-session programme ran on three
+    // days, twice over, and every programme became a three-day programme.
+    const dayLabels = planLabelsForProgramme(
+      template.sessions.length,
+      preferences.setupAvailableDays,
+    );
 
     const plan = buildReadyProgramWorkoutPlan({
       workoutTemplateId,
@@ -2497,22 +2502,45 @@ function VinhaApp() {
     selection: FirstRunSetupSelection,
     recommendedProgramId: string,
   ) {
-    await waitForPlanSaveFeedback();
-    await persistSetupSelection(selection, recommendedProgramId);
+    // Was three seconds of setTimeout before any of this ran, so finishing
+    // onboarding took the real work plus a flat 3s of nothing — reported from
+    // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
+    // The saving state is shown for as long as saving actually takes, which is
+    // the same rule the workout save already follows.
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
-    const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
-    const activePlan = buildSavedOnboardingWorkoutPlan(
-      selection,
-      savedTemplateId,
-      savedPlan.runtimeTemplate.sessions.map((session) => session.id),
-      preferences.appLanguage,
-    );
-    await upsertWorkoutPlan(activePlan);
-    await updatePreferences({ activePlanId: activePlan.id });
+    // One save, not four. Preferences, the template, its exercises and the plan
+    // used to be four awaited mutations in a row, each one serializing the whole
+    // database through the same queue — at the end of onboarding, where the wait
+    // is least affordable. The plan is built inside that single lock because it
+    // needs the id the template upsert generates.
+    await saveOnboardingResult({
+      preferences: {
+        onboardingCompleted: true,
+        ...buildSetupPreferencePatch(selection, recommendedProgramId),
+      },
+      templateDraft: savedPlan.draft,
+      // Session ids come from the template that was actually written, not from
+      // the in-memory draft it was built from.
+      buildPlan: (workoutTemplateId, sessionIds) =>
+        buildSavedOnboardingWorkoutPlan(
+          selection,
+          workoutTemplateId,
+          sessionIds,
+          preferences.appLanguage,
+        ),
+      activate: (planId) => ({ activePlanId: planId }),
+    });
+    if (
+      typeof selection.currentWeightKg === 'number' &&
+      selection.currentWeightKg > 0 &&
+      database.bodyweightEntries.length === 0
+    ) {
+      await addBodyweightEntry(selection.currentWeightKg);
+    }
     // This used to hop to the standalone pro_offer screen. The Pro sale now
     // happens INSIDE onboarding, as its last step, so keeping the hop would
     // put two paywalls back to back — the same duplication the plan-ready
@@ -2626,22 +2654,45 @@ function VinhaApp() {
   }
 
   async function handleSetupCompleteToTraining(selection: FirstRunSetupSelection, recommendedProgramId: string) {
-    await waitForPlanSaveFeedback();
-    await persistSetupSelection(selection, recommendedProgramId);
+    // Was three seconds of setTimeout before any of this ran, so finishing
+    // onboarding took the real work plus a flat 3s of nothing — reported from
+    // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
+    // The saving state is shown for as long as saving actually takes, which is
+    // the same rule the workout save already follows.
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
-    const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
-    const activePlan = buildSavedOnboardingWorkoutPlan(
-      selection,
-      savedTemplateId,
-      savedPlan.runtimeTemplate.sessions.map((session) => session.id),
-      preferences.appLanguage,
-    );
-    await upsertWorkoutPlan(activePlan);
-    await updatePreferences({ activePlanId: activePlan.id });
+    // One save, not four. Preferences, the template, its exercises and the plan
+    // used to be four awaited mutations in a row, each one serializing the whole
+    // database through the same queue — at the end of onboarding, where the wait
+    // is least affordable. The plan is built inside that single lock because it
+    // needs the id the template upsert generates.
+    await saveOnboardingResult({
+      preferences: {
+        onboardingCompleted: true,
+        ...buildSetupPreferencePatch(selection, recommendedProgramId),
+      },
+      templateDraft: savedPlan.draft,
+      // Session ids come from the template that was actually written, not from
+      // the in-memory draft it was built from.
+      buildPlan: (workoutTemplateId, sessionIds) =>
+        buildSavedOnboardingWorkoutPlan(
+          selection,
+          workoutTemplateId,
+          sessionIds,
+          preferences.appLanguage,
+        ),
+      activate: (planId) => ({ activePlanId: planId }),
+    });
+    if (
+      typeof selection.currentWeightKg === 'number' &&
+      selection.currentWeightKg > 0 &&
+      database.bodyweightEntries.length === 0
+    ) {
+      await addBodyweightEntry(selection.currentWeightKg);
+    }
     showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
     resetToRoute(ROOT_ROUTES.home);
   }
@@ -2899,8 +2950,31 @@ function VinhaApp() {
     }),
     [preferences.appLanguage, availableEquipmentForDrills],
   );
-  const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [preferences]);
-  const tailoringPreferences = useMemo(() => buildTailoringPreferences(preferences), [preferences]);
+  // Both used to depend on the whole preferences object, so a theme or sound
+  // toggle handed them a new object and they rebuilt — and everything
+  // downstream of the setup selection (the recommendation, the programme
+  // rankings, the goal-programme suggestions) rebuilt with them. Measured: that
+  // chain was the ~4.9s behind every settings switch. A key over the fields
+  // each one actually reads is what "changed" should have meant all along.
+  const setupSelectionKey = JSON.stringify([
+    preferences.automatedProgressionEnabled, preferences.bodyweightGoalKg, preferences.profileName,
+    preferences.setupAge, preferences.setupAgeRange, preferences.setupAvailableDays,
+    preferences.setupCautionFlags, preferences.setupCompleted, preferences.setupCurrentWeightKg,
+    preferences.setupDaysPerWeek, preferences.setupEquipment, preferences.setupEquipmentItems,
+    preferences.setupFocusAreas, preferences.setupGender, preferences.setupGoal, preferences.setupGoals,
+    preferences.setupGuidanceMode, preferences.setupHeightCm, preferences.setupLevel,
+    preferences.setupScheduleMode, preferences.setupSecondaryOutcomes, preferences.setupTrainingEnvironment,
+    preferences.setupWeeklyMinutes, preferences.unitPreference,
+  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const setupSelection = useMemo(() => buildSetupSelectionFromPreferences(preferences), [setupSelectionKey]);
+  const tailoringKey = JSON.stringify([
+    preferences.setupBodyweightPreference, preferences.setupElbowFriendlySwaps, preferences.setupEquipment,
+    preferences.setupFreeWeightsPreference, preferences.setupKneeFriendlySwaps, preferences.setupMachinesPreference,
+    preferences.setupShoulderFriendlySwaps,
+  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tailoringPreferences = useMemo(() => buildTailoringPreferences(preferences), [tailoringKey]);
   const setupRecommendation = useMemo(
     () => (setupSelection ? resolveFirstRunRecommendationWithTailoring(setupSelection, tailoringPreferences) : null),
     [setupSelection, tailoringPreferences],
@@ -3139,7 +3213,7 @@ function VinhaApp() {
     // happens on the Programs tab, which is the one place that can say what
     // adopting it means.
     return null;
-  }, [database, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
+  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const coachChatIntro = useMemo(
@@ -3193,7 +3267,7 @@ function VinhaApp() {
       }),
       weekStreak: homeSummary.streak.currentWeekStreak,
     };
-  }, [database, homeSummary.streak.currentWeekStreak]);
+  }, [database.workoutSessions, database.exerciseLogs, homeSummary.streak.currentWeekStreak]);
   // Same equipment truth the composer filters exercises with, for the default
   // warmup/cooldown drills: null = setup never said, [] = no equipment at all.
   // Week-strip training dots from the days the user actually picked
@@ -4323,8 +4397,10 @@ function VinhaApp() {
    * lift is there and then by the setup recommendation. No fit is invented:
    * a lift no ready programme trains says so and points at the editor.
    */
+  // One array per library, so the goal-programme resolver's cache can key on it
+  // instead of being defeated by a fresh `.map` every render.
+  const libraryNames = useMemo(() => exerciseLibrary.map((item) => item.name), [exerciseLibrary]);
   const goalProgrammeSuggestions = useMemo(() => {
-    const libraryNames = exerciseLibrary.map((item) => item.name);
     const activeCandidates = activeProgramTemplateIds
       .map((id) => getWorkoutTemplateById(id) ?? customWorkoutRuntimeMap[id] ?? null)
       .filter((template): template is NonNullable<typeof template> => Boolean(template));
@@ -4382,7 +4458,7 @@ function VinhaApp() {
   }, [
     activeProgramTemplateIds,
     customWorkoutRuntimeMap,
-    exerciseLibrary,
+    libraryNames,
     preferences.appLanguage,
     programsRecommendations,
   ]);
