@@ -73,6 +73,13 @@ interface AppContextValue {
   completeOnboarding: (patch?: Partial<AppPreferences>) => Promise<void>;
   upsertWorkoutTemplate: (draft: WorkoutTemplateDraft) => Promise<string>;
   upsertWorkoutPlan: (plan: WorkoutPlan) => Promise<void>;
+  /** Onboarding's whole result — preferences, template and plan — in one save. */
+  saveOnboardingResult: (input: {
+    preferences: Partial<AppPreferences>;
+    templateDraft: WorkoutTemplateDraft;
+    buildPlan: (workoutTemplateId: string, sessionIds: string[]) => WorkoutPlan;
+    activate: (planId: string) => Partial<AppPreferences>;
+  }) => Promise<{ workoutTemplateId: string; planId: string }>;
   renameWorkoutTemplate: (workoutTemplateId: string, nextName: string) => Promise<void>;
   deleteWorkoutTemplate: (workoutTemplateId: string) => Promise<void>;
   saveWorkoutSession: (
@@ -337,6 +344,16 @@ export function AppProvider({ children }: React.PropsWithChildren) {
   }
 
   async function upsertWorkoutTemplateExclusive(draft: WorkoutTemplateDraft) {
+    const built = buildTemplateUpsert(draft);
+    await commit(built.database);
+    return built.workoutTemplateId;
+  }
+
+  /**
+   * The template write with no commit of its own, so a caller writing more than
+   * one thing can carry the result forward and land it all in a single save.
+   */
+  function buildTemplateUpsert(draft: WorkoutTemplateDraft) {
     const trimmedName = draft.name.trim();
     const nextName = trimmedName || 'Untitled workout';
     const current = databaseRef.current;
@@ -415,8 +432,54 @@ export function AppProvider({ children }: React.PropsWithChildren) {
         trainingFirstRunDismissed: true,
       },
     };
-    await commit(nextDatabase);
-    return workoutTemplateId;
+    return { database: nextDatabase, workoutTemplateId, sessions };
+  }
+
+  /**
+   * Everything onboarding produces, written once.
+   *
+   * The finish used to be four awaited mutations in a row — preferences, the
+   * template, the plan, then preferences again for the active plan id — and
+   * each one is a read-modify-write of the whole database through the same
+   * serial queue. Four full serializations for one moment, at the end of the
+   * flow where a new reader is least willing to wait.
+   *
+   * The template id is why this cannot simply be reordered: the plan needs the
+   * id the template upsert generates. So the whole thing happens inside one
+   * lock, the plan is built from the id once it exists, and a single commit
+   * carries preferences, template, exercises and plan together.
+   */
+  function saveOnboardingResult(input: {
+    preferences: Partial<AppPreferences>;
+    templateDraft: WorkoutTemplateDraft;
+    buildPlan: (workoutTemplateId: string, sessionIds: string[]) => WorkoutPlan;
+    activate: (planId: string) => Partial<AppPreferences>;
+  }) {
+    return runExclusive(async () => {
+      const built = buildTemplateUpsert(input.templateDraft);
+      const plan = input.buildPlan(
+        built.workoutTemplateId,
+        built.sessions.map((session) => session.id),
+      );
+
+      const withPlan = workoutPlanRepository.upsert(
+        {
+          ...built.database,
+          workoutPlans: built.database.workoutPlans.map((item) => ({ ...item, isActive: false })),
+        },
+        { ...plan, isActive: true },
+      );
+
+      await commit({
+        ...withPlan,
+        preferences: {
+          ...withPlan.preferences,
+          ...input.preferences,
+          ...input.activate(plan.id),
+        },
+      });
+      return { workoutTemplateId: built.workoutTemplateId, planId: plan.id };
+    });
   }
 
   function upsertWorkoutPlan(plan: WorkoutPlan) {
@@ -665,6 +728,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       ),
       upsertWorkoutTemplate,
       upsertWorkoutPlan,
+      saveOnboardingResult,
       renameWorkoutTemplate,
       deleteWorkoutTemplate,
       saveWorkoutSession,

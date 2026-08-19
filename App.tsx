@@ -850,6 +850,7 @@ function VinhaApp() {
     upsertWorkoutTemplate,
     programSlots,
     upsertWorkoutPlan,
+    saveOnboardingResult,
     deleteWorkoutTemplate,
     resetAllData,
     addBodyweightEntry,
@@ -2505,21 +2506,40 @@ function VinhaApp() {
     // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
     // The saving state is shown for as long as saving actually takes, which is
     // the same rule the workout save already follows.
-    await persistSetupSelection(selection, recommendedProgramId);
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
-    const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
-    const activePlan = buildSavedOnboardingWorkoutPlan(
-      selection,
-      savedTemplateId,
-      savedPlan.runtimeTemplate.sessions.map((session) => session.id),
-      preferences.appLanguage,
-    );
-    await upsertWorkoutPlan(activePlan);
-    await updatePreferences({ activePlanId: activePlan.id });
+    // One save, not four. Preferences, the template, its exercises and the plan
+    // used to be four awaited mutations in a row, each one serializing the whole
+    // database through the same queue — at the end of onboarding, where the wait
+    // is least affordable. The plan is built inside that single lock because it
+    // needs the id the template upsert generates.
+    await saveOnboardingResult({
+      preferences: {
+        onboardingCompleted: true,
+        ...buildSetupPreferencePatch(selection, recommendedProgramId),
+      },
+      templateDraft: savedPlan.draft,
+      // Session ids come from the template that was actually written, not from
+      // the in-memory draft it was built from.
+      buildPlan: (workoutTemplateId, sessionIds) =>
+        buildSavedOnboardingWorkoutPlan(
+          selection,
+          workoutTemplateId,
+          sessionIds,
+          preferences.appLanguage,
+        ),
+      activate: (planId) => ({ activePlanId: planId }),
+    });
+    if (
+      typeof selection.currentWeightKg === 'number' &&
+      selection.currentWeightKg > 0 &&
+      database.bodyweightEntries.length === 0
+    ) {
+      await addBodyweightEntry(selection.currentWeightKg);
+    }
     // This used to hop to the standalone pro_offer screen. The Pro sale now
     // happens INSIDE onboarding, as its last step, so keeping the hop would
     // put two paywalls back to back — the same duplication the plan-ready
@@ -2638,21 +2658,40 @@ function VinhaApp() {
     // the phone as a five-second freeze on "Kysy myöhemmin" and "Hanki Pro".
     // The saving state is shown for as long as saving actually takes, which is
     // the same rule the workout save already follows.
-    await persistSetupSelection(selection, recommendedProgramId);
     const savedPlan = buildSavedOnboardingPlan(
       selection,
       recommendedProgramId,
       preferences.appLanguage,
     );
-    const savedTemplateId = await upsertWorkoutTemplate(savedPlan.draft);
-    const activePlan = buildSavedOnboardingWorkoutPlan(
-      selection,
-      savedTemplateId,
-      savedPlan.runtimeTemplate.sessions.map((session) => session.id),
-      preferences.appLanguage,
-    );
-    await upsertWorkoutPlan(activePlan);
-    await updatePreferences({ activePlanId: activePlan.id });
+    // One save, not four. Preferences, the template, its exercises and the plan
+    // used to be four awaited mutations in a row, each one serializing the whole
+    // database through the same queue — at the end of onboarding, where the wait
+    // is least affordable. The plan is built inside that single lock because it
+    // needs the id the template upsert generates.
+    await saveOnboardingResult({
+      preferences: {
+        onboardingCompleted: true,
+        ...buildSetupPreferencePatch(selection, recommendedProgramId),
+      },
+      templateDraft: savedPlan.draft,
+      // Session ids come from the template that was actually written, not from
+      // the in-memory draft it was built from.
+      buildPlan: (workoutTemplateId, sessionIds) =>
+        buildSavedOnboardingWorkoutPlan(
+          selection,
+          workoutTemplateId,
+          sessionIds,
+          preferences.appLanguage,
+        ),
+      activate: (planId) => ({ activePlanId: planId }),
+    });
+    if (
+      typeof selection.currentWeightKg === 'number' &&
+      selection.currentWeightKg > 0 &&
+      database.bodyweightEntries.length === 0
+    ) {
+      await addBodyweightEntry(selection.currentWeightKg);
+    }
     showToast(t(preferences.appLanguage, 'toast.setupUpdated'));
     resetToRoute(ROOT_ROUTES.home);
   }
