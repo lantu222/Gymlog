@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import Svg, { Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
+import { CoachReadoutTicker } from '../components/CoachReadoutTicker';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { requestAiCoachAdvice } from '../lib/aiCoachClient';
 import { buildAiCoachPreviewAnswer } from '../lib/aiCoachPreview';
@@ -28,7 +29,7 @@ import {
 import { I18nKey, t } from '../lib/i18n';
 import { PW } from '../lightTheme';
 import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
-import { layout } from '../theme';
+import { layout, spacing } from '../theme';
 import { AICoachTrainingContext } from '../types/aiCoach';
 import { AppLanguage } from '../types/models';
 
@@ -273,22 +274,10 @@ export function AICoachChatScreen({
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.thread, showReadout && styles.threadTop]}
+          contentContainerStyle={styles.thread}
           keyboardShouldPersistTaps="handled"
         >
-          {showReadout ? (
-            <View style={styles.readoutCard}>
-              <Text style={styles.readoutTitle}>{t(language, 'coachChat.readout.title')}</Text>
-              {readout.map((row) => (
-                <View key={row.key} style={styles.readoutRow}>
-                  <Text style={styles.readoutLabel}>{row.label}</Text>
-                  <Text style={styles.readoutValue} numberOfLines={1}>
-                    {row.value}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          ) : null}
+          {showReadout ? <CoachReadoutTicker rows={readout} /> : null}
 
           {/* Pro's real difference: the coach opens the conversation. */}
           {noticed.length > 0 ? (
@@ -514,48 +503,6 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingBottom: 14,
     gap: 20,
   },
-  threadTop: {
-    justifyContent: 'flex-start',
-  },
-  readoutCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  readoutTitle: {
-    color: theme.faint,
-    fontSize: 11.5,
-    lineHeight: 15,
-    fontWeight: '800',
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
-    marginBottom: 10,
-  },
-  readoutRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 6,
-  },
-  readoutLabel: {
-    color: theme.muted,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    flexShrink: 0,
-  },
-  readoutValue: {
-    color: theme.ink,
-    fontSize: 13.5,
-    lineHeight: 18,
-    fontWeight: '800',
-    flexShrink: 1,
-    textAlign: 'right',
-  },
   noticedCard: {
     backgroundColor: PW.sheetTop,
     borderRadius: 20,
@@ -735,7 +682,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   composerWrap: {
     paddingHorizontal: 20,
-    paddingBottom: layout.bottomTabBarReserve,
+    // The floating bar is 88 tall; the reserve added another 32 on top, which
+    // is why the field sat well above it with dead space underneath.
+    paddingBottom: layout.bottomTabBarHeight + spacing.sm,
   },
   composer: {
     height: 50,

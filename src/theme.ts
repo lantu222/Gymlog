@@ -41,6 +41,9 @@ export const radii = {
 };
 
 export const layout = {
+  /** The floating tab bar's own height: 16 above the pill, 64 pill, 8 below. */
+  bottomTabBarHeight: 88,
+  /** Scrolling content clears the bar with a section's air; a fixed foot does not. */
   bottomTabBarReserve: spacing.xxl + 88,
 };
 

@@ -82,6 +82,35 @@ export interface SessionAnalysis {
   nextActions: AnalysisText[];
 }
 
+export type VolumeChangeKind = 'up' | 'down' | 'flat';
+
+export interface VolumeChangeWording {
+  kind: VolumeChangeKind;
+  /** What to print. A percentage only when something actually changed. */
+  text: string;
+}
+
+/**
+ * How a volume change is written, in one place.
+ *
+ * Zero is never printed as a percentage. "Volyymi 0 %" next to a "0 %" badge
+ * reads as missing data — three zeros on a screen whose whole job is to prove
+ * the numbers are real. The percentage is reserved for change; no change is
+ * written as a word (design: "0 % ei ole tulos").
+ */
+export function describeVolumeChange(
+  percent: number | null,
+  language: AppLanguage,
+): VolumeChangeWording | null {
+  if (percent === null || !Number.isFinite(percent)) {
+    return null;
+  }
+  if (percent === 0) {
+    return { kind: 'flat', text: t(language, 'analysis.change.flat') };
+  }
+  return { kind: percent > 0 ? 'up' : 'down', text: `${percent > 0 ? '+' : ''}${percent}%` };
+}
+
 export interface SessionAnalysisInput {
   sessionId: string;
   sessions: WorkoutSession[];
@@ -152,7 +181,11 @@ export function buildSessionAnalysis({
     metaParts.push(`${session.durationMinutes} min`);
   }
   if (setCount > 0) {
-    metaParts.push(t(language, 'analysis.setCount', { count: setCount }));
+    metaParts.push(
+      setCount === 1
+        ? t(language, 'analysis.setCountOne')
+        : t(language, 'analysis.setCount', { count: setCount }),
+    );
   }
   if (volume !== null) {
     metaParts.push(`${Math.round(volume)} kg`);
@@ -191,6 +224,8 @@ export function buildSessionAnalysis({
       ? Math.round(((volume - previousVolume) / previousVolume) * 100)
       : null;
 
+  const volumeChange = describeVolumeChange(volumeChangePercent, language);
+
   // ── key numbers ─────────────────────────────────────────────────────────
   const keyNumbers: AnalysisMetric[] = [];
 
@@ -198,10 +233,7 @@ export function buildSessionAnalysis({
     keyNumbers.push({
       labelKey: 'analysis.key.volume',
       value: `${Math.round(volume)} kg`,
-      sub:
-        volumeChangePercent !== null
-          ? `${volumeChangePercent > 0 ? '+' : ''}${volumeChangePercent}%`
-          : null,
+      sub: volumeChange ? volumeChange.text : null,
     });
   }
 
@@ -268,14 +300,16 @@ export function buildSessionAnalysis({
   // ── observations ────────────────────────────────────────────────────────
   const observations: AnalysisObservation[] = [];
 
-  if (volumeChangePercent !== null) {
-    const changeText = `${volumeChangePercent > 0 ? '+' : ''}${volumeChangePercent}%`;
+  if (volumeChange) {
     observations.push({
-      trend: volumeChangePercent > 0 ? 'up' : volumeChangePercent < 0 ? 'down' : 'flat',
-      body: {
-        text: t(language, 'analysis.obs.volume', { change: changeText }),
-        highlights: [changeText],
-      },
+      trend: volumeChange.kind,
+      body:
+        volumeChange.kind === 'flat'
+          ? { text: t(language, 'analysis.obs.volumeFlat'), highlights: [] }
+          : {
+              text: t(language, 'analysis.obs.volume', { change: volumeChange.text }),
+              highlights: [volumeChange.text],
+            },
     });
   }
 
@@ -325,19 +359,27 @@ export function buildSessionAnalysis({
   let verdictTagKey: I18nKey = 'analysis.verdict.logged';
   let verdict: AnalysisText | null = null;
 
-  if (volumeChangePercent !== null && volume !== null) {
-    const changeText = `${volumeChangePercent > 0 ? '+' : ''}${volumeChangePercent}%`;
-    if (volumeChangePercent > 0) {
+  if (volumeChange && volume !== null) {
+    if (volumeChange.kind === 'up') {
       verdictTagKey = 'analysis.verdict.progress';
-    } else if (volumeChangePercent < 0) {
+    } else if (volumeChange.kind === 'down') {
       verdictTagKey = 'analysis.verdict.lighter';
     } else {
       verdictTagKey = 'analysis.verdict.steady';
     }
-    verdict = {
-      text: t(language, 'analysis.verdictBody', { change: changeText }),
-      highlights: [changeText],
-    };
+    const volumeText = `${Math.round(volume)} kg`;
+    verdict =
+      volumeChange.kind === 'flat'
+        ? {
+            // Not "volume unchanged against the previous session" — the number
+            // itself is the reassurance, so the sentence names it.
+            text: t(language, 'analysis.verdictBodyFlat', { volume: volumeText }),
+            highlights: [volumeText],
+          }
+        : {
+            text: t(language, 'analysis.verdictBody', { change: volumeChange.text }),
+            highlights: [volumeChange.text],
+          };
   } else if (volume !== null) {
     verdict = {
       text: t(language, 'analysis.verdictFirst', { volume: `${Math.round(volume)} kg` }),
