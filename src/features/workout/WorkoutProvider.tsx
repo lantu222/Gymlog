@@ -105,7 +105,11 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
    * answer to the settings lag that survived three earlier fixes: theme and
    * language were never slow, the app was simply always busy.
    */
-  const needsClock = state.activeSession?.status === 'active' || Boolean(state.activeCardio);
+  // Only a running rest timer and cardio need a clock shared across the app.
+  // The session's own elapsed seconds are derived where they are shown, so an
+  // unfinished workout no longer re-renders every screen once a second.
+  const needsClock =
+    state.activeSession?.restTimer.status === 'running' || Boolean(state.activeCardio);
 
   useEffect(() => {
     if (!hydratedRef.current || !needsClock) {
