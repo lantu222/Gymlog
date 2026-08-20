@@ -161,6 +161,7 @@ const suites = [
   ...require('./lib/programEquipment.test.cjs'),
   ...require('./lib/progressionRuleLabel.test.cjs'),
   ...require('./lib/programBrowse.test.cjs'),
+  ...require('./lib/readyProgramCards.test.cjs'),
   ...require('./lib/season.test.cjs'),
   ...require('./lib/programCategories.test.cjs'),
   ...require('./lib/programFingerprint.test.cjs'),

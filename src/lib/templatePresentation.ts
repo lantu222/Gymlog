@@ -173,6 +173,178 @@ const READY_TEMPLATE_PRESENTATION: Record<string, { title: string; tagKeys: I18n
     title: 'HUGE Advanced',
     tagKeys: ['prog.tag.hybrid', 'prog.tag.mass'],
   },
+  tpl_season_summer_v1: {
+    title: 'Summer Conditioning',
+    tagKeys: ['prog.tag.season', 'prog.tag.running'],
+  },
+  tpl_season_winter_v1: {
+    title: 'Winter Build',
+    tagKeys: ['prog.tag.season', 'prog.tag.strength'],
+  },
+  tpl_4_day_ppl_plus_v1: {
+    title: 'HUGE Pro+',
+    tagKeys: ['prog.tag.ppl', 'prog.tag.mass'],
+  },
+  tpl_5_day_ppl_v1: {
+    title: 'HUGE Volume',
+    tagKeys: ['prog.tag.ppl', 'prog.tag.mass'],
+  },
+  tpl_5_day_upper_lower_full_v1: {
+    title: 'HUGE Hybrid',
+    tagKeys: ['prog.tag.upperLower', 'prog.tag.mass'],
+  },
+  tpl_6_day_ppl_v1: {
+    title: 'HUGE Elite',
+    tagKeys: ['prog.tag.ppl', 'prog.tag.mass'],
+  },
+  tpl_6_day_arnold_v1: {
+    title: 'HUGE Classic',
+    tagKeys: ['prog.tag.mass', 'prog.tag.advanced'],
+  },
+  tpl_focus_chest_v1: {
+    title: 'Chest Day',
+    tagKeys: ['prog.tag.chest', 'prog.tag.singleSession'],
+  },
+  tpl_focus_back_v1: {
+    title: 'Back Day',
+    tagKeys: ['prog.tag.back', 'prog.tag.singleSession'],
+  },
+  tpl_focus_shoulders_v1: {
+    title: 'Shoulder Day',
+    tagKeys: ['prog.tag.shoulders', 'prog.tag.singleSession'],
+  },
+  tpl_focus_arms_v1: {
+    title: 'Arm Day',
+    tagKeys: ['prog.tag.arms', 'prog.tag.singleSession'],
+  },
+  tpl_focus_legs_v1: {
+    title: 'Leg Day',
+    tagKeys: ['prog.tag.legs', 'prog.tag.singleSession'],
+  },
+  tpl_focus_glutes_v1: {
+    title: 'Glute Day',
+    tagKeys: ['prog.tag.glutes', 'prog.tag.singleSession'],
+  },
+  tpl_shred_v1: {
+    title: 'SHRED',
+    tagKeys: ['prog.tag.fatLoss', 'prog.tag.conditioning'],
+  },
+  tpl_huge_starter_v1: {
+    title: 'HUGE Starter',
+    tagKeys: ['prog.tag.fullBody', 'prog.tag.beginner'],
+  },
+  tpl_focus_chest_program_v1: {
+    title: 'FOCUS Chest',
+    tagKeys: ['prog.tag.chest', 'prog.tag.specialisation'],
+  },
+  tpl_focus_back_program_v1: {
+    title: 'FOCUS Back',
+    tagKeys: ['prog.tag.back', 'prog.tag.specialisation'],
+  },
+  tpl_focus_arms_program_v1: {
+    title: 'FOCUS Arms',
+    tagKeys: ['prog.tag.arms', 'prog.tag.specialisation'],
+  },
+  tpl_focus_legs_program_v1: {
+    title: 'FOCUS Legs',
+    tagKeys: ['prog.tag.legs', 'prog.tag.specialisation'],
+  },
+  tpl_focus_glutes_program_v1: {
+    title: 'FOCUS Glutes',
+    tagKeys: ['prog.tag.glutes', 'prog.tag.specialisation'],
+  },
+  tpl_strong_elite_v1: {
+    title: 'STRONG Elite',
+    tagKeys: ['prog.tag.strength', 'prog.tag.twelveWeeks'],
+  },
+  tpl_fit_elite_v1: {
+    title: 'FIT Elite',
+    tagKeys: ['prog.tag.conditioning', 'prog.tag.twelveWeeks'],
+  },
+  tpl_shred_elite_v1: {
+    title: 'SHRED Elite',
+    tagKeys: ['prog.tag.fatLoss', 'prog.tag.hiit'],
+  },
+  tpl_gainer_dream_body_man_v1: {
+    title: 'Dream Body Man',
+    tagKeys: ['prog.tag.mass', 'prog.tag.size'],
+  },
+  tpl_gainer_beginner_bro_split_v1: {
+    title: 'Bro Split',
+    tagKeys: ['prog.tag.mass', 'prog.tag.beginner'],
+  },
+  tpl_gainer_advanced_ppl_v1: {
+    title: 'Advanced Push Pull Legs',
+    tagKeys: ['prog.tag.ppl', 'prog.tag.advanced'],
+  },
+  tpl_gainer_expert_powerbuilding_v1: {
+    title: 'Expert Powerbuilding',
+    tagKeys: ['prog.tag.strength', 'prog.tag.mass'],
+  },
+  tpl_gainer_lean_shred_v1: {
+    title: 'Lean Shred Cut',
+    tagKeys: ['prog.tag.fatLoss', 'prog.tag.hiit'],
+  },
+  tpl_gainer_dream_body_female_v1: {
+    title: 'Dream Body Female',
+    tagKeys: ['prog.tag.glutes', 'prog.tag.mass'],
+  },
+  tpl_gainer_glute_foundations_v1: {
+    title: 'Glute Foundations',
+    tagKeys: ['prog.tag.glutes', 'prog.tag.beginner'],
+  },
+  tpl_gainer_advanced_glutes_v1: {
+    title: 'Advanced Glutes',
+    tagKeys: ['prog.tag.glutes', 'prog.tag.advanced'],
+  },
+  tpl_gainer_hourglass_shape_v1: {
+    title: 'Hourglass Shape',
+    tagKeys: ['prog.tag.glutes', 'prog.tag.core'],
+  },
+  tpl_gainer_fat_burn_hiit_v1: {
+    title: 'Fat Burn HIIT',
+    tagKeys: ['prog.tag.hiit', 'prog.tag.fatLoss'],
+  },
+  tpl_gainer_mobility_flow_v1: {
+    title: 'Mobility Flow',
+    tagKeys: ['prog.tag.mobility', 'prog.tag.recovery'],
+  },
+  tpl_gainer_at_home_beginner_v1: {
+    title: 'At Home - No Equipment',
+    tagKeys: ['prog.tag.home', 'prog.tag.bodyweight'],
+  },
+  tpl_gainer_calisthenics_mastery_v1: {
+    title: 'Calisthenics Mastery',
+    tagKeys: ['prog.tag.bodyweight', 'prog.tag.advanced'],
+  },
+  tpl_gainer_strength_5x5_v1: {
+    title: 'Strength Foundations 5x5',
+    tagKeys: ['prog.tag.strength', 'prog.tag.heavy'],
+  },
+  tpl_gainer_athlete_conditioning_v1: {
+    title: 'Athlete Conditioning',
+    tagKeys: ['prog.tag.athletic', 'prog.tag.conditioning'],
+  },
+  tpl_gainer_strong_lean_female_v1: {
+    title: 'Strong & Lean Female',
+    tagKeys: ['prog.tag.strength', 'prog.tag.size'],
+  },
+  tpl_gainer_joint_friendly_v1: {
+    title: 'Joint-Friendly Strength',
+    tagKeys: ['prog.tag.jointFriendly', 'prog.tag.fullBody'],
+  },
+  tpl_gainer_prenatal_fitness_v1: {
+    title: 'Prenatal Fitness',
+    tagKeys: ['prog.tag.prenatal', 'prog.tag.mobility'],
+  },
+  tpl_gainer_postpartum_recovery_v1: {
+    title: 'Postpartum Recovery',
+    tagKeys: ['prog.tag.postpartum', 'prog.tag.core'],
+  },
+  tpl_gainer_runners_strength_v1: {
+    title: "Runner's Strength",
+    tagKeys: ['prog.tag.running', 'prog.tag.strength'],
+  },
 };
 
 /** Day counts on the curated cards, e.g. "3 Days" / "3 pv". */
@@ -192,6 +364,15 @@ const CURATED_DAYS: Record<string, number> = {
   tpl_4_day_strength_size_v1: 4,
   tpl_5_day_hybrid_v1: 5,
 };
+
+/**
+ * The day chip. English needs the singular: the one-session focus workouts read
+ * "1 Days" without it, and they are the only programs in the catalog that run
+ * for a single day.
+ */
+function daysTagKey(days: number): I18nKey {
+  return days === 1 ? 'prog.tag.day' : 'prog.tag.days';
+}
 
 function formatSplitTagKey(template: WorkoutTemplateV1): I18nKey {
   if (template.splitType === 'upper_lower') {
@@ -239,7 +420,7 @@ export function getReadyTemplatePresentation(
       subtitle: t(language, `prog.sub.${template.id}` as I18nKey),
       tags: dedupeTags([
         ...curated.tagKeys.map((key) => t(language, key)),
-        t(language, 'prog.tag.days', {
+        t(language, daysTagKey(daysPerWeekOverride ?? CURATED_DAYS[template.id] ?? template.daysPerWeek), {
           count: daysPerWeekOverride ?? CURATED_DAYS[template.id] ?? template.daysPerWeek,
         }),
       ]),
@@ -255,7 +436,7 @@ export function getReadyTemplatePresentation(
     tags: dedupeTags([
       t(language, formatSplitTagKey(template)),
       t(language, formatGoalTagKey(template)),
-      t(language, 'prog.tag.days', { count: days }),
+      t(language, daysTagKey(days), { count: days }),
     ]),
   };
 }
