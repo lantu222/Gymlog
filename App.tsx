@@ -21,7 +21,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
-import { getHomeSummary } from './src/lib/dashboard';
+import { getHomeSummary, getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import {
@@ -79,6 +79,7 @@ import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
   getCalendarDayStartTimestamp,
   getCanonicalCompletedSessions,
+  getCurrentWeekStreak,
   getRecentActivityStrip,
 } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
@@ -3503,29 +3504,29 @@ function VinhaApp() {
   };
 
   // The programme the widget offers when there is none running: the app's own
-  // recommendation, under its curated title, with one tag for what it costs.
+  // recommendation, under its curated title.
   const widgetSuggestion = useMemo(() => {
     if (!recommendedReadyTemplate) {
       return null;
     }
     const presentation = getReadyTemplatePresentation(recommendedReadyTemplate, preferences.appLanguage);
-    return {
-      title: presentation.title,
-      // What running it costs, not what it trains. The focus tag read "Full
-      // Body" next to a name that already says it, and the question a reader
-      // asks of an unfamiliar programme is how many days it wants.
-      meta: t(preferences.appLanguage, 'programs.card.days', {
-        count: recommendedReadyTemplate.daysPerWeek,
-      }),
-    };
+    return { title: presentation.title };
   }, [preferences.appLanguage, recommendedReadyTemplate]);
+  // The widget's calendar is a whole month, and a Monday-first grid drags in up
+  // to six days of the month before it — so 45 days back covers the longest
+  // grid whatever today's date is. (21 was right for the four-week strip this
+  // replaced, and would have left the first fortnight of every month blank.)
   const widgetCompletedDayStarts = useMemo(
     () =>
-      getRecentActivityStrip(database, new Date(), 21)
+      getRecentActivityStrip(database, new Date(), 45)
         .filter((day) => day.active)
         .map((day) => day.dayStart),
     [database],
   );
+  // This month's totals, for the three figures the 4x2 draws beside the
+  // calendar, and the streak the 2x1 counts.
+  const widgetMonthTotals = useMemo(() => getMonthTrainingTotals(database), [database]);
+  const widgetWeekStreak = useMemo(() => getCurrentWeekStreak(database), [database]);
   // The narrower set, for the one question the strip cannot answer: is today's
   // session behind you. The strip counts cardio, and a run leaves the planned
   // workout undone — fed to the skip, it would have the widget name tomorrow
@@ -3558,6 +3559,8 @@ function VinhaApp() {
         completedDayStarts: widgetCompletedDayStarts,
         completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
+        monthTotals: widgetMonthTotals,
+        weekStreak: widgetWeekStreak,
       }),
     );
 
@@ -3575,7 +3578,9 @@ function VinhaApp() {
     homeTrainingDayIndexes,
     widgetCompletedDayStarts,
     widgetCompletedWorkoutDayStarts,
+    widgetMonthTotals,
     widgetSuggestion,
+    widgetWeekStreak,
   ]);
 
   // ── Widget taps ──────────────────────────────────────────────────────────

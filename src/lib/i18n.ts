@@ -1512,26 +1512,27 @@ const EN = {
   'notif.footer': 'Vinha keeps notifications off until you turn them on. No streak pressure, no dark patterns.',
   // Home-screen widget. Rendered by the launcher, so every string is finished
   // here — the native side never formats or translates anything.
-  'widget.today': 'Today',
-  'widget.tomorrow': 'Tomorrow',
-  // Further out than tomorrow the widget names the weekday. Finnish needs the
-  // essive form ("keskiviikkona"), which no abbreviation can stand in for, so
-  // these are seven keys rather than a reused label list.
-  'widget.weekdayOn.0': 'Monday',
-  'widget.weekdayOn.1': 'Tuesday',
-  'widget.weekdayOn.2': 'Wednesday',
-  'widget.weekdayOn.3': 'Thursday',
-  'widget.weekdayOn.4': 'Friday',
-  'widget.weekdayOn.5': 'Saturday',
-  'widget.weekdayOn.6': 'Sunday',
+  // The routine widget names the weekday in the nominative — it is a heading
+  // over today's session, not a sentence about when something happens, and
+  // Finnish would read "maanantaina" as the latter.
+  'widget.weekday.0': 'Monday',
+  'widget.weekday.1': 'Tuesday',
+  'widget.weekday.2': 'Wednesday',
+  'widget.weekday.3': 'Thursday',
+  'widget.weekday.4': 'Friday',
+  'widget.weekday.5': 'Saturday',
+  'widget.weekday.6': 'Sunday',
+  'widget.restDay': 'Rest day',
+  // The three figures the 4x2 draws beside the month. The window is the month
+  // on the calendar next to them.
+  'widget.stat.workouts': 'Workouts',
+  'widget.stat.duration': 'Duration',
+  'widget.stat.volume': 'Volume',
   'widget.noPlan': 'No plan yet',
   'widget.pickPlan': 'Pick a program',
   // With no programme the widget used to say "no plan yet" and stop there. It
   // knows which programme the app would recommend, so it names it.
   'widget.suggested': 'Suggested for you',
-  // The label under the widget's one big number. Every widget on the phone has
-  // one element that is clearly the largest; ours had none.
-  'widget.thisWeek': 'This week',
   'widget.noDays': 'Pick your training days',
   'widget.noSessions': 'Open the app to start a plan',
   // The hand-off step: what onboarding offers before it lets go of the reader.
@@ -1543,7 +1544,7 @@ const EN = {
   'handoff.titleMany': 'Before you start',
   'handoff.bodyMany': 'Each takes one tap. You can change them later in Settings.',
   'handoff.bodyOne': 'It takes one tap. You can change it later in Settings.',
-  'handoff.widget.title': 'Your week on the home screen',
+  'handoff.widget.title': 'Your month on the home screen',
   'handoff.widget.body': 'The calendar, without opening the app.',
   'handoff.track.title': 'Follow your progress',
   'handoff.track.body': '{focus} · a card on Home',
@@ -1551,13 +1552,13 @@ const EN = {
   'handoff.weight.title': 'Track your weight',
   'handoff.done': 'Done',
   'handoff.skip': 'Not now',
-  'widget.prompt.title': 'Put your week on the home screen',
+  'widget.prompt.title': 'Put your month on the home screen',
   'widget.prompt.body':
-    'The widget shows this week’s training days and your next session, without opening the app.',
+    'The widget shows the month you have trained and the days still ahead, without opening the app.',
   'widget.prompt.add': 'Add widget',
   'widget.prompt.dismiss': 'Not now',
   'settings.widget': 'Home screen widget',
-  'settings.widget.sub': 'Your week and next session, on the home screen.',
+  'settings.widget.sub': 'Your training month, your streak and today, on the home screen.',
   'settings.widget.added': 'Already on your home screen.',
   // ── Training break, promo code, edit profile ──────────────────────────
   'break.title': 'Training break',
@@ -4728,19 +4729,20 @@ const FI: Record<I18nKey, string> = {
   'notif.msg.recordTitle': 'Uusi ennätys',
   'notif.msg.recordBody': 'Eilen teit liikkeessä {exercise} {weight} × {reps}.',
   'notif.footer': 'Vinha pitää ilmoitukset pois, kunnes laitat ne päälle. Ei putkipainetta, ei kyseenalaisia kikkoja.',
-  'widget.today': 'Tänään',
-  'widget.tomorrow': 'Huomenna',
-  'widget.weekdayOn.0': 'Maanantaina',
-  'widget.weekdayOn.1': 'Tiistaina',
-  'widget.weekdayOn.2': 'Keskiviikkona',
-  'widget.weekdayOn.3': 'Torstaina',
-  'widget.weekdayOn.4': 'Perjantaina',
-  'widget.weekdayOn.5': 'Lauantaina',
-  'widget.weekdayOn.6': 'Sunnuntaina',
+  'widget.weekday.0': 'Maanantai',
+  'widget.weekday.1': 'Tiistai',
+  'widget.weekday.2': 'Keskiviikko',
+  'widget.weekday.3': 'Torstai',
+  'widget.weekday.4': 'Perjantai',
+  'widget.weekday.5': 'Lauantai',
+  'widget.weekday.6': 'Sunnuntai',
+  'widget.restDay': 'Lepopäivä',
+  'widget.stat.workouts': 'Treenit',
+  'widget.stat.duration': 'Kesto',
+  'widget.stat.volume': 'Volyymi',
   'widget.noPlan': 'Ei ohjelmaa',
   'widget.pickPlan': 'Valitse ohjelma',
   'widget.suggested': 'Suositus sinulle',
-  'widget.thisWeek': 'Tällä viikolla',
   'widget.noDays': 'Valitse treenipäivät',
   'widget.noSessions': 'Avaa sovellus ja aloita ohjelma',
   'handoff.title': 'Kaksi asiaa ennen kuin aloitat',
@@ -4749,7 +4751,7 @@ const FI: Record<I18nKey, string> = {
   'handoff.titleMany': 'Ennen kuin aloitat',
   'handoff.bodyMany': 'Jokainen vie yhden napautuksen. Voit muuttaa ne myöhemmin asetuksista.',
   'handoff.bodyOne': 'Se vie yhden napautuksen. Voit muuttaa sen myöhemmin asetuksista.',
-  'handoff.widget.title': 'Viikkosi kotinäytölle',
+  'handoff.widget.title': 'Kuukautesi kotinäytölle',
   'handoff.widget.body': 'Kalenteri, ilman että avaat sovellusta.',
   'handoff.track.title': 'Seuraa kehitystäsi',
   'handoff.track.body': '{focus} · kortti Kotiin',
@@ -4757,13 +4759,13 @@ const FI: Record<I18nKey, string> = {
   'handoff.weight.title': 'Seuraa painoasi',
   'handoff.done': 'Valmis',
   'handoff.skip': 'Ei nyt',
-  'widget.prompt.title': 'Ota viikko kotinäytölle',
+  'widget.prompt.title': 'Ota kuukausi kotinäytölle',
   'widget.prompt.body':
-    'Widget näyttää tämän viikon treenipäivät ja seuraavan treenin avaamatta sovellusta.',
+    'Widget näyttää treenatun kuukauden ja edessä olevat päivät avaamatta sovellusta.',
   'widget.prompt.add': 'Lisää widget',
   'widget.prompt.dismiss': 'Ei nyt',
   'settings.widget': 'Kotinäytön widget',
-  'settings.widget.sub': 'Viikkosi ja seuraava treeni kotinäytöllä.',
+  'settings.widget.sub': 'Treenikuukausi, putki ja tämä päivä kotinäytöllä.',
   'settings.widget.added': 'Jo kotinäytölläsi.',
   // ── Training break, promo code, edit profile ──────────────────────────
   'break.title': 'Treenitauko',

@@ -30,11 +30,23 @@ class HomeWidgetModule : Module() {
     get() = componentFor("HomeWidgetProvider")
 
   /**
-   * Every receiver in the family. `isAdded` has to check both, or adding the
-   * 2×2 would leave the app still offering to add a widget.
+   * Every receiver in the family, and it has to be every one of them. `isAdded`
+   * asks whether the reader has any widget at all, so a name missing here would
+   * have the app still offering to add one; `refresh` asks each of them to
+   * redraw now, and a name missing there leaves that widget showing whatever it
+   * drew up to half an hour ago.
+   *
+   * Kept in step with PROVIDERS in plugins/withHomeWidget.js, which is where
+   * the receivers are actually declared. A test cross-checks the two lists,
+   * because nothing else can.
    */
   private val allProviders: List<ComponentName>
-    get() = listOf("HomeWidgetProvider", "WeekWidgetProvider").map(::componentFor)
+    get() = listOf(
+      "HomeWidgetProvider",
+      "WeekWidgetProvider",
+      "StreakWidgetProvider",
+      "RoutineWidgetProvider",
+    ).map(::componentFor)
 
   private fun componentFor(className: String): ComponentName {
     val packageName = appContext.reactContext!!.packageName

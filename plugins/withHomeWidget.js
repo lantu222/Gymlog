@@ -7,7 +7,7 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
  * `expo prebuild`.
  *
  * android/ is gitignored in this repo, so every file the widgets need is
- * written from here: two provider metadata files, four layouts, two picker
+ * written from here: four provider metadata files, four layouts, four picker
  * previews, the drawables, two string tables, the Kotlin providers and the
  * manifest receivers.
  *
@@ -27,28 +27,35 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
  * *resolved* theme name. The tables below name their source so the two can be
  * diffed by eye.
  *
- * THE FAMILY. Two receivers, because the widget picker lists receivers and a
+ * THE FAMILY. Four receivers, because the widget picker lists receivers and a
  * size nobody can find is a size nobody uses:
  *
- *   HomeWidgetProvider  4×2  "Day"   next session + this week
- *   WeekWidgetProvider  2×2  "Week"  two weeks of calendar, nothing else
+ *   WeekWidgetProvider     2×2  "Month"    the month, and nothing else
+ *   HomeWidgetProvider     4×2  "Month +"  the month, with this month's figures
+ *   StreakWidgetProvider   2×1  "Streak"   one number
+ *   RoutineWidgetProvider  2×1  "Today"    today's session, or the rest day
  *
- * There were three. The 4×4 four-week grid was its own row until it went on a
- * home screen and turned out to be a quarter of it — so the layout stayed and
- * the picker row went. Both receivers pick their layout from the size Android
- * reports, so stretching either one tall still lands on the four-week grid.
+ * `HomeWidgetProvider` and `WeekWidgetProvider` keep their class names on
+ * purpose: widgets already pinned to a home screen are bound to those
+ * components and would otherwise vanish. What they draw has changed; what
+ * Android calls them has not.
  *
- * `HomeWidgetProvider` keeps its class name on purpose: widgets already pinned
- * to a home screen are bound to that component and would otherwise vanish.
+ * THE CALENDAR. A real month — its name, the weekday letters, its own numbers.
+ * The four-week bar strip this replaced drew marks nobody could date. A month
+ * has four, five or six week rows depending on the weekday it starts on, and
+ * RemoteViews cannot add a row, so the layout always holds six and the provider
+ * hides the ones the month does not use.
  */
 
 const PACKAGE = 'app.vinha';
 const PAYLOAD_FILE = 'vinha-widget.json';
 /** Must match HOME_WIDGET_PAYLOAD_VERSION in src/lib/widgetPayload.ts. */
-const PAYLOAD_VERSION = 4;
-/** Must match HOME_WIDGET_CURRENT_WEEK_INDEX in src/lib/widgetPayload.ts. */
-const CURRENT_WEEK_INDEX = 2;
-const WEEK_COUNT = 4;
+const PAYLOAD_VERSION = 5;
+/** Must match HOME_WIDGET_MONTH_ROWS in src/lib/widgetPayload.ts. */
+const MONTH_ROWS = 6;
+const DAY_COUNT = 7;
+/** Workouts, duration, volume — the three the 4×2 draws. */
+const STAT_COUNT = 3;
 /** Must match WIDGET_LINK_SCHEME/HOST in src/lib/widgetDeepLink.ts. */
 const LINK_PREFIX = 'vinha://widget/';
 /** Android's own floor. Anything smaller is silently rounded up to this. */
@@ -59,11 +66,11 @@ const UPDATE_PERIOD_MS = 1800000;
  * them. If a token moves there, move it here too — nothing enforces it, because
  * nothing on this side of the process boundary can import TypeScript.
  *
- * Two values deliberately differ from the app's tokens, both because a 5dp bar
- * is not a card: `barOff` is darker than the app's neutral track (the old value
- * was the card fill's neighbour and vanished into it), and `barPlan` is the full
- * brand violet rather than the pale tint, because the difference between
- * planned and free has to survive at 5dp on an unknown wallpaper.
+ * `done` and `plan` are the two marks the calendar makes: trained is green in
+ * both themes (it is the one colour a fitness app may not reassign), planned is
+ * the brand violet. `onDone`/`onPlan` are what a date reads as once it sits on
+ * one of them — light text on the light theme's deep fills, dark text on the
+ * dark theme's bright ones, because a bright fill is where white text fails.
  */
 /**
  * The card fill is opaque, and it is opaque on evidence.
@@ -72,12 +79,9 @@ const UPDATE_PERIOD_MS = 1800000;
  * like part of the home screen rather than a box on top of it. Then the numbers
  * came in. A translucent card composites the wallpaper into itself, so the worst
  * case is a pale wallpaper under the dark palette, and there the faint label —
- * "SUGGESTED FOR YOU", the weekday letters — fell to a contrast ratio of 1.59.
+ * the weekday letters, the stat captions — fell to a contrast ratio of 1.59.
  * WCAG's floor for large text is 3.0. Opaque, the same pair is 3.59, which is
  * the app's own dark-theme floor and as low as this palette goes anywhere.
- *
- * The reason the system's translucent widgets get away with it: their smallest
- * type is a 12sp condition line, and ours has three 9sp all-caps labels.
  *
  * Keep the eight-digit form. `FF` states the intent, and the alpha channel is
  * where a future experiment would go.
@@ -90,9 +94,15 @@ const LIGHT = {
   ink: '#17131F',
   muted: '#5E5670',
   faint: '#8A82A0',
-  barOff: '#CFC7DE',
-  barPlan: '#6D28D9',
-  barDone: '#16A34A',
+  done: '#16A34A',
+  onDone: '#FFFFFF',
+  plan: '#6D28D9',
+  onPlan: '#FFFFFF',
+  brand: '#7C3AED',
+  texture: '#2E7C3AED',
+  glow: '#1F7C3AED',
+  washClear: '#00FFFFFF',
+  wash: '#D9FFFFFF',
 };
 
 const DARK = {
@@ -101,9 +111,15 @@ const DARK = {
   ink: '#F4F1FF',
   muted: '#A79FC4',
   faint: '#7C739E',
-  barOff: '#3A3363',
-  barPlan: '#9B6DFF',
-  barDone: '#FF8A4C',
+  done: '#22C55E',
+  onDone: '#0A1C10',
+  plan: '#9B6DFF',
+  onPlan: '#1B1233',
+  brand: '#A98BFF',
+  texture: '#3DA98BFF',
+  glow: '#33A98BFF',
+  washClear: '#00241D45',
+  wash: '#D9241D45',
 };
 
 const THEMES = [
@@ -114,41 +130,42 @@ const THEMES = [
 /**
  * Per-size geometry, in dp/sp.
  *
- * The design's table was drawn for a 155×140dp square. A real 2×2 cell is about
- * 205×205dp, so a single row of bars sat as a thin band in a mostly empty card —
- * visible only once it was on a home screen. The 2×2 now draws what the 4×4
- * draws, two weeks of it: the same cell (a date over a bar), scaled up. One
- * marking language across the family, and the only things that change with size
- * are how many weeks fit and how big the type is.
+ * The two calendars differ only in how much room they were given. The 2×2 gets
+ * a whole ~205dp square; the 4×2 shares its card with three figures and is the
+ * shorter of the two, which is why every number in `stats` is a step down. Six
+ * week rows in ~95dp is the tight case, and it is the one that decides the type
+ * size.
  */
 const SIZES = {
-  // 2×2 — this week and the next, with their dates. No session name: the tap
-  // answers "what", the bars answer "whether".
-  square: {
-    pad: 14,
-    box: 16,
-    bar: 8,
-    tall: 16,
-    gap: 5,
-    // The design asked for 11sp letters with 0.04 tracking. "WED" — the widest
-    // label this app draws — is 22dp at 11sp and clipped even at 9.5sp in the
-    // picker's narrow preview card, so this size drops a step and gives up its
-    // tracking. Finnish had room either way; English may not render as "MO".
-    label: 9,
-    labelSpacing: null,
-    axisGap: 12,
-    date: 11.5,
-    dateGap: 4,
-    rowGap: 20,
+  // 2×2 — the month alone.
+  calendar: {
+    pad: 12,
+    month: 13,
+    axis: 9,
+    date: 11,
+    pipPad: 3,
+    gap: 4,
+    axisGap: 8,
+    gridGap: 4,
+    logo: 15,
   },
-  // 4×1 — one row.
-  row: { pad: 12, box: 10, bar: 5, tall: 10, gap: 5, label: 9, labelGap: 5 },
-  // 4×2 — the default.
-  day: { pad: 16, box: 12, bar: 6, tall: 12, gap: 6, label: 9.5, labelGap: 8 },
-  // Four weeks. No longer its own entry in the widget picker — a 4×4 is a
-  // quarter of a home screen and nobody picks it — but the size ladder still
-  // lands here when either widget is stretched tall.
-  month: { pad: 16, box: 10, bar: 5, tall: 10, gap: 6, label: 9.5, date: 11, dateGap: 5 },
+  // 4×2 — the month, and this month's figures beside it.
+  stats: {
+    pad: 11,
+    month: 12,
+    axis: 8.5,
+    date: 9.5,
+    pipPad: 2,
+    gap: 3,
+    axisGap: 6,
+    gridGap: 3,
+    logo: 14,
+    statValue: 17,
+    statLabel: 8.5,
+    statGap: 8,
+  },
+  // 2×1 — one number, or one line.
+  small: { pad: 12, padHorizontal: 14, logo: 15, arrow: 24 },
 };
 
 // ── Provider metadata ──────────────────────────────────────────────────────
@@ -187,82 +204,303 @@ function providerInfo({ layout, preview, description, minWidth, minHeight, cells
 const PROVIDERS = [
   {
     // The original component. Renaming it would orphan every widget already on
-    // a home screen, so the 4×2 keeps the old name whatever its label says.
+    // a home screen, so the 4×2 keeps the old name whatever it draws.
     className: 'HomeWidgetProvider',
     infoFile: 'home_widget_info',
-    label: 'widget_day_name',
-    description: 'widget_day_description',
-    defaultLayout: 'home_widget_day',
+    label: 'widget_stats_name',
+    description: 'widget_stats_description',
+    defaultLayout: 'home_widget_stats',
     info: {
-      layout: 'home_widget_day',
-      preview: 'home_widget_day_preview',
-      description: 'widget_day_description',
+      layout: 'home_widget_stats',
+      preview: 'home_widget_stats_preview',
+      description: 'widget_stats_description',
       minWidth: 250,
       minHeight: 110,
       cells: [4, 2],
-      maxWidth: 400,
-      // Tall enough to reach the four-week grid, which is what the size ladder
-      // draws past 220dp. That is the only way to that layout now.
-      maxHeight: 460,
+      maxWidth: 500,
+      maxHeight: 320,
       resize: 'horizontal|vertical',
     },
   },
   {
+    // Also already pinned to home screens, so also keeps its name.
     className: 'WeekWidgetProvider',
     infoFile: 'week_widget_info',
-    label: 'widget_week_name',
-    description: 'widget_week_description',
-    defaultLayout: 'home_widget_square',
+    label: 'widget_calendar_name',
+    description: 'widget_calendar_description',
+    defaultLayout: 'home_widget_calendar',
     info: {
-      layout: 'home_widget_square',
-      preview: 'home_widget_square_preview',
-      description: 'widget_week_description',
+      layout: 'home_widget_calendar',
+      preview: 'home_widget_calendar_preview',
+      description: 'widget_calendar_description',
       minWidth: 140,
       minHeight: 110,
       cells: [2, 2],
-      maxWidth: 400,
-      maxHeight: 460,
+      maxWidth: 500,
+      maxHeight: 320,
       resize: 'horizontal|vertical',
+    },
+  },
+  {
+    className: 'StreakWidgetProvider',
+    infoFile: 'streak_widget_info',
+    label: 'widget_streak_name',
+    description: 'widget_streak_description',
+    defaultLayout: 'home_widget_streak',
+    // Content, not a size: stretching it must not turn it into a calendar.
+    pinned: true,
+    info: {
+      layout: 'home_widget_streak',
+      preview: 'home_widget_streak_preview',
+      description: 'widget_streak_description',
+      minWidth: 140,
+      minHeight: 40,
+      cells: [2, 1],
+      maxWidth: 400,
+      maxHeight: 140,
+      resize: 'horizontal',
+    },
+  },
+  {
+    className: 'RoutineWidgetProvider',
+    infoFile: 'routine_widget_info',
+    label: 'widget_routine_name',
+    description: 'widget_routine_description',
+    defaultLayout: 'home_widget_routine',
+    pinned: true,
+    info: {
+      layout: 'home_widget_routine',
+      preview: 'home_widget_routine_preview',
+      description: 'widget_routine_description',
+      // 140, not the 180 a session name would like: One UI sizes the picker row
+      // from minWidth rather than from targetCellWidth, and at 180 it offered
+      // this as a 3×1. The name ellipsizes on a narrow cell; being findable as
+      // the size it was designed for matters more.
+      minWidth: 140,
+      minHeight: 40,
+      cells: [2, 1],
+      maxWidth: 400,
+      maxHeight: 140,
+      resize: 'horizontal',
     },
   },
 ];
 
 // ── Drawables ──────────────────────────────────────────────────────────────
 
-/** The card: one opaque fill and a hairline. No gradient — the design cut it. */
-function cardDrawable(palette) {
+/**
+ * The card: an opaque fill, a contour texture, and a wash that fades the
+ * texture out across the diagonal.
+ *
+ * Three layers rather than one shape, because the texture cannot be a shape:
+ * contour lines are paths, and paths mean a vector. The order matters — the
+ * fill has to be under the lines, and the wash over them, or the fade fades
+ * nothing.
+ *
+ * The wash is where the colour is. It runs from a violet tint at the top-right
+ * corner to the card's own colour at the bottom-left, so the same drawable both
+ * tints the card and thins the texture out to nothing in the corner the eye
+ * reaches last. Its end colour is the card's own, never a grey: a wash in any
+ * other colour shifts the whole card's tone as it fades.
+ */
+function cardDrawable(palette, theme) {
+  return `<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="${palette.card}" />
+            <corners android:radius="20dp" />
+            <stroke android:width="1dp" android:color="${palette.border}" />
+        </shape>
+    </item>
+    <item android:drawable="@drawable/widget_texture_${theme}" />
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="linear"
+                android:angle="225"
+                android:startColor="${palette.glow}"
+                android:centerColor="${palette.washClear}"
+                android:endColor="${palette.wash}" />
+            <corners android:radius="20dp" />
+        </shape>
+    </item>
+</layer-list>
+`;
+}
+
+/**
+ * The contour texture: concentric lines around the top-right corner, the way a
+ * contour map draws a hill whose summit is just off the page.
+ *
+ * Generated rather than drawn, because the spacing has to survive being
+ * stretched from a 2×2 square to a 2×1 strip — the same drawable backs all four
+ * widgets, and a launcher scales it to whatever its grid hands out.
+ *
+ * The rings are clipped to a rounded rectangle. A vector stretched to a wide
+ * card stretches its corners with it, so the clip's radius is deliberately
+ * larger than the card's 20dp: it has to stay *inside* the card's own corner at
+ * every aspect ratio, and a texture that stops a hair early is invisible where
+ * one that bleeds past the corner is not.
+ */
+const TEXTURE_VIEWPORT = 200;
+
+function contourRings() {
+  // Just off the top-right corner, which is where the design puts the summit.
+  const centreX = TEXTURE_VIEWPORT * 0.98;
+  const centreY = TEXTURE_VIEWPORT * 0.02;
+  // Far enough to reach the opposite corner: that distance is ~277 units.
+  const OUTER = 290;
+  const STEP = 9;
+  const POINTS = 14;
+  const round = (value) => Math.round(value * 10) / 10;
+
+  const rings = [];
+  for (let index = 0, radius = 16; radius < OUTER; index += 1, radius += STEP) {
+    const points = Array.from({ length: POINTS }, (_, step) => {
+      const angle = (step / POINTS) * Math.PI * 2;
+      // Two out-of-phase waves per ring, drifting with the ring's index. One
+      // wave reads as a wobbly circle; two read as terrain.
+      const wobble =
+        1 + 0.028 * Math.sin(3 * angle + index * 0.7) + 0.016 * Math.sin(5 * angle - index * 1.1);
+      const distance = radius * wobble;
+      return [centreX + distance * Math.cos(angle), centreY + distance * Math.sin(angle)];
+    });
+
+    // Catmull-Rom through the points, converted to the cubics a path can hold,
+    // so a 14-point ring draws as a curve rather than as a polygon.
+    const segments = points.map((_, step) => {
+      const before = points[(step - 1 + POINTS) % POINTS];
+      const start = points[step];
+      const end = points[(step + 1) % POINTS];
+      const after = points[(step + 2) % POINTS];
+      const first = [start[0] + (end[0] - before[0]) / 6, start[1] + (end[1] - before[1]) / 6];
+      const second = [end[0] - (after[0] - start[0]) / 6, end[1] - (after[1] - start[1]) / 6];
+      return `C${round(first[0])},${round(first[1])} ${round(second[0])},${round(second[1])} ${round(end[0])},${round(end[1])}`;
+    });
+
+    rings.push(`M${round(points[0][0])},${round(points[0][1])} ${segments.join(' ')} Z`);
+  }
+
+  return rings;
+}
+
+function textureVector(palette) {
+  const size = TEXTURE_VIEWPORT;
+  const radius = 30;
+  const clip =
+    `M${radius},0 H${size - radius} A${radius},${radius} 0 0 1 ${size},${radius} ` +
+    `V${size - radius} A${radius},${radius} 0 0 1 ${size - radius},${size} ` +
+    `H${radius} A${radius},${radius} 0 0 1 0,${size - radius} ` +
+    `V${radius} A${radius},${radius} 0 0 1 ${radius},0 Z`;
+
+  const paths = contourRings()
+    .map(
+      (pathData) => `        <path
+            android:pathData="${pathData}"
+            android:strokeColor="${palette.texture}"
+            android:strokeWidth="0.8"
+            android:fillColor="#00000000" />`,
+    )
+    .join('\n');
+
+  return `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="${size}dp"
+    android:height="${size}dp"
+    android:viewportWidth="${size}"
+    android:viewportHeight="${size}">
+    <group>
+        <clip-path android:pathData="${clip}" />
+${paths}
+    </group>
+</vector>
+`;
+}
+
+/**
+ * A date's highlight.
+ *
+ * A pill rather than a circle, and that is a size decision rather than a taste
+ * one: a circle only stays round if the cell is square, and the cell is
+ * whatever a launcher's grid leaves after six rows. A 999dp corner clamps to a
+ * pill at any height, so one drawable serves both calendars.
+ *
+ * Today is the ring. It is drawn on its own axis so a day can be today *and*
+ * trained, which is the one thing a glance at a home screen is asking.
+ */
+function pipDrawable(fill, ring) {
   return `<?xml version="1.0" encoding="utf-8"?>
 <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="${palette.card}" />
-    <corners android:radius="20dp" />
-    <stroke android:width="1dp" android:color="${palette.border}" />
+    <solid android:color="${fill}" />
+    <corners android:radius="999dp" />${ring ? `\n    <stroke android:width="1.5dp" android:color="${ring}" />` : ''}
 </shape>
 `;
 }
 
-function barDrawable(color, radius) {
-  return `<?xml version="1.0" encoding="utf-8"?>
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <solid android:color="${color}" />
-    <corners android:radius="${radius}" />
-</shape>
+const PIP_STATES = ['done', 'plan', 'off'];
+
+function pipResourceName(state, today, theme) {
+  return `widget_pip_${state}${today ? '_today' : ''}_${theme}`;
+}
+
+/**
+ * The brand mark, as a path rather than a bitmap: it is drawn at 15dp beside a
+ * heading, and the adaptive launcher icon carries a third of its own width in
+ * safe-zone padding, which at this size is most of the glyph.
+ *
+ * One copy, not two — the provider tints it per theme with `setColorFilter`,
+ * the only recolouring RemoteViews can do to an image.
+ */
+const LOGO_VECTOR = `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+    <path
+        android:pathData="M18,15 L50,72 L82,15"
+        android:strokeColor="${LIGHT.brand}"
+        android:strokeWidth="22"
+        android:strokeLineJoin="miter"
+        android:fillColor="#00000000" />
+</vector>
 `;
-}
 
-const BAR_STATES = ['done', 'plan', 'off'];
-
-function barResourceName(state, theme) {
-  return `widget_bar_${state}_${theme}`;
-}
+/**
+ * The routine widget's affordance: a chevron in a ring. Two arcs rather than
+ * the almost-closed single arc, which leaves a visible notch at 24dp.
+ */
+const ARROW_VECTOR = `<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:pathData="M2,12 A10,10 0 1 1 22,12 A10,10 0 1 1 2,12"
+        android:strokeColor="${LIGHT.muted}"
+        android:strokeWidth="1.4"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M10.6,8.6 L14,12 L10.6,15.4"
+        android:strokeColor="${LIGHT.muted}"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+</vector>
+`;
 
 function drawables() {
-  const files = {};
+  const files = { 'widget_logo.xml': LOGO_VECTOR, 'widget_arrow.xml': ARROW_VECTOR };
   for (const [theme, palette] of THEMES) {
-    files[`widget_card_${theme}.xml`] = cardDrawable(palette);
-    for (const state of BAR_STATES) {
-      const color = state === 'done' ? palette.barDone : state === 'plan' ? palette.barPlan : palette.barOff;
-      // 999dp clamps to a pill at any height, so one drawable serves every size.
-      files[`${barResourceName(state, theme)}.xml`] = barDrawable(color, '999dp');
+    files[`widget_card_${theme}.xml`] = cardDrawable(palette, theme);
+    files[`widget_texture_${theme}.xml`] = textureVector(palette);
+    for (const state of PIP_STATES) {
+      const fill = state === 'done' ? palette.done : state === 'plan' ? palette.plan : '#00000000';
+      files[`${pipResourceName(state, false, theme)}.xml`] = pipDrawable(fill, null);
+      files[`${pipResourceName(state, true, theme)}.xml`] = pipDrawable(fill, palette.ink);
     }
   }
   return files;
@@ -271,108 +509,34 @@ function drawables() {
 // ── Layout building blocks ─────────────────────────────────────────────────
 
 /**
- * One bar. Two ImageViews, not one: "today" is drawn as a double-height bar,
- * and a view's height cannot be changed from RemoteViews before Android 12. So
- * both heights exist in the layout and the provider shows one of them. The
- * bars are ImageViews because RemoteViews accepts a fixed list of view classes
- * and a bare View is not on it.
+ * What a date reads as. On a fill it is the fill's own on-colour; off it, the
+ * quiet grey — except today, which is ink so the ring has something to hold.
  */
-function barStack(size, idPrefix, index, theme, { sidePadding = 0, marginTop = 0, tall = true } = {}) {
-  const off = barResourceName('off', theme);
-  const pad = sidePadding
-    ? `
-                    android:paddingStart="${sidePadding}dp"
-                    android:paddingEnd="${sidePadding}dp"`
-    : '';
-  const margin = marginTop ? `\n                    android:layout_marginTop="${marginTop}dp"` : '';
-  // A week with no "today" in it — next week, or a past one — needs no second
-  // bar, because nothing there can be double height.
-  const tallBar = tall
-    ? `
-                    <ImageView
-                        android:id="@+id/${idPrefix}_tall_${index}"
-                        android:layout_width="match_parent"
-                        android:layout_height="${size.tall}dp"
-                        android:layout_gravity="bottom"
-                        android:visibility="gone"
-                        android:contentDescription="@null"
-                        android:background="@drawable/${off}" />`
-    : '';
-  // The margin and the padding go inside the start tag. Emitted after the `>`
-  // they are character data, which aapt2 drops without a word: the bars run
-  // together and the date sits straight on top of them.
-  return `                <FrameLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="${size.box}dp"${margin}${pad}>
-                    <ImageView
-                        android:id="@+id/${idPrefix}_bar_${index}"
-                        android:layout_width="match_parent"
-                        android:layout_height="${size.bar}dp"
-                        android:layout_gravity="bottom"
-                        android:contentDescription="@null"
-                        android:background="@drawable/${off}" />${tallBar}
-                </FrameLayout>`;
+function dateColor(palette, state, today) {
+  if (state === 'done') {
+    return palette.onDone;
+  }
+  if (state === 'plan') {
+    return palette.onPlan;
+  }
+  return today ? palette.ink : palette.muted;
 }
 
-/**
- * One column of the week strip: a bar above its weekday letter.
- *
- * The column itself has no side padding and the letter spans its full width.
- * The gap between bars comes from the bar's own padding instead, because a
- * `wrap_content` letter inside a padded column had barely 13dp to sit in — and
- * Android's answer to a word that does not fit is to break it across lines, so
- * "MON" came out as three stacked letters on the 2×2. Found on a device; no
- * amount of reading the XML would have shown it.
- */
-function weekColumn(size, index, theme, { labelText = '' } = {}) {
-  const half = size.gap / 2;
-  return `            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical"
-                android:gravity="center_horizontal">
-${barStack(size, 'widget_day', index, theme, { sidePadding: half })}
-                <TextView
-                    android:id="@+id/widget_day_label_${index}"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="${size.labelGap}dp"
-                    android:maxLines="1"
-                    android:gravity="center_horizontal"
-                    android:textSize="${size.label}sp"
-                    android:textStyle="bold"${size.labelSpacing === null ? '' : '\n                    android:letterSpacing="0.04"'}
-                    android:textColor="${theme === 'light' ? LIGHT.faint : DARK.faint}"
-                    android:text="${labelText}" />
-            </LinearLayout>`;
-}
-
-function weekStrip(size, theme, { id = 'widget_week', width = 'match_parent', marginTop = 0, labels = null } = {}) {
-  const columns = [0, 1, 2, 3, 4, 5, 6]
-    .map((index) => weekColumn(size, index, theme, { labelText: labels ? labels[index] : '' }))
-    .join('\n');
-  return `        <LinearLayout
-            android:id="@+id/${id}"
-            android:layout_width="${width}"
-            android:layout_height="wrap_content"${marginTop ? `\n            android:layout_marginTop="${marginTop}dp"` : ''}
-            android:orientation="horizontal">
-${columns}
-        </LinearLayout>`;
-}
-
-function root(theme, { orientation = 'vertical', gravity = null, padding, paddingHorizontal = null, children }) {
-  const pad = paddingHorizontal
-    ? `android:paddingStart="${paddingHorizontal}dp"
+function root(theme, { padding, paddingHorizontal = null, children }) {
+  const pad =
+    paddingHorizontal !== null
+      ? `android:paddingStart="${paddingHorizontal}dp"
     android:paddingEnd="${paddingHorizontal}dp"
     android:paddingTop="${padding}dp"
     android:paddingBottom="${padding}dp"`
-    : `android:padding="${padding}dp"`;
+      : `android:padding="${padding}dp"`;
   return `<?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="${orientation}"${gravity ? `\n    android:gravity="${gravity}"` : ''}
+    android:orientation="vertical"
+    android:gravity="center_vertical"
     android:background="@drawable/widget_card_${theme}"
     ${pad}>
 
@@ -381,415 +545,350 @@ ${children}
 `;
 }
 
-function textView(id, { size, style = 'bold', color, marginTop = 0, maxLines = 1, allCaps = false, letterSpacing = null, text = '', visibility = null, weight = false, gravity = null }) {
+/**
+ * The one line the widget owns: what it says before the app has ever run.
+ *
+ * Every layout carries it, hidden, and hides its body to show it. That is the
+ * whole of the no-payload state — a widget added from the picker before first
+ * launch has no file to read, and an honest instruction beats a confident zero.
+ */
+function promptView(theme, { size = 14 }) {
   return `        <TextView
-            android:id="@+id/${id}"
+            android:id="@+id/widget_prompt"
             android:layout_width="match_parent"
-            android:layout_height="${weight ? '0dp' : 'wrap_content'}"${weight ? '\n            android:layout_weight="1"' : ''}${marginTop ? `\n            android:layout_marginTop="${marginTop}dp"` : ''}
-            android:maxLines="${maxLines}"
+            android:layout_height="wrap_content"
+            android:maxLines="3"
             android:ellipsize="end"
-            android:textSize="${size}sp"${style === 'normal' ? '' : `\n            android:textStyle="${style}"`}${allCaps ? '\n            android:textAllCaps="true"' : ''}${letterSpacing ? `\n            android:letterSpacing="${letterSpacing}"` : ''}${gravity ? `\n            android:gravity="${gravity}"` : ''}${visibility ? `\n            android:visibility="${visibility}"` : ''}
-            android:textColor="${color}"
-            android:text="${text}" />`;
+            android:textSize="${size}sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            android:textColor="${theme === 'light' ? LIGHT.ink : DARK.ink}"
+            android:text="" />`;
+}
+
+function logoView(size, { indent = '            ', gravity = null, marginEnd = 0 }) {
+  return `${indent}<ImageView
+${indent}    android:id="@+id/widget_logo"
+${indent}    android:layout_width="${size}dp"
+${indent}    android:layout_height="${size}dp"${gravity ? `\n${indent}    android:layout_gravity="${gravity}"` : ''}${marginEnd ? `\n${indent}    android:layout_marginEnd="${marginEnd}dp"` : ''}
+${indent}    android:contentDescription="@null"
+${indent}    android:src="@drawable/widget_logo" />`;
+}
+
+/**
+ * The month: its name, the weekday letters, and six rows of dates.
+ *
+ * Shared verbatim by the 2×2 and the 4×2 — same ids, same provider code, only
+ * the type sizes differ. Two layouts defining the same id is allowed and is
+ * what lets one `renderCalendar` fill either card.
+ *
+ * The rows are weighted so a launcher's leftover height spreads across them
+ * rather than pooling under the last one, and each date spans its whole column
+ * so the pill behind it lines up with its neighbours. The gap between pills is
+ * the column's padding, not the date's width: a `wrap_content` date inside a
+ * padded column had barely 13dp to sit in, and Android's answer to a number
+ * that does not fit is to break it across lines.
+ */
+function calendarParts(size, theme, { preview = null } = {}) {
+  const palette = theme === 'light' ? LIGHT : DARK;
+  const half = size.gap / 2;
+  const pad = (depth) => '    '.repeat(depth);
+
+  const axis = Array.from({ length: DAY_COUNT }, (_, index) => `${pad(1)}<TextView
+${pad(1)}    android:id="@+id/widget_axis_${index}"
+${pad(1)}    android:layout_width="0dp"
+${pad(1)}    android:layout_height="wrap_content"
+${pad(1)}    android:layout_weight="1"
+${pad(1)}    android:maxLines="1"
+${pad(1)}    android:gravity="center_horizontal"
+${pad(1)}    android:textSize="${size.axis}sp"
+${pad(1)}    android:textStyle="bold"
+${pad(1)}    android:textColor="${palette.faint}"
+${pad(1)}    android:text="${preview ? preview.axis[index] : ''}" />`).join('\n');
+
+  const rows = Array.from({ length: MONTH_ROWS }, (_, rowIndex) => {
+    const cells = Array.from({ length: DAY_COUNT }, (_, dayIndex) => {
+      const cellIndex = rowIndex * DAY_COUNT + dayIndex;
+      const cell = preview ? preview.cells[cellIndex] : null;
+      const state = cell ? cell.state : 'off';
+      const today = Boolean(cell && cell.today);
+      return `${pad(2)}<LinearLayout
+${pad(2)}    android:layout_width="0dp"
+${pad(2)}    android:layout_height="wrap_content"
+${pad(2)}    android:layout_weight="1"
+${pad(2)}    android:orientation="vertical"
+${pad(2)}    android:paddingStart="${half}dp"
+${pad(2)}    android:paddingEnd="${half}dp">
+${pad(2)}    <TextView
+${pad(2)}        android:id="@+id/widget_cell_${cellIndex}"
+${pad(2)}        android:layout_width="match_parent"
+${pad(2)}        android:layout_height="wrap_content"
+${pad(2)}        android:maxLines="1"
+${pad(2)}        android:gravity="center"
+${pad(2)}        android:paddingTop="${size.pipPad}dp"
+${pad(2)}        android:paddingBottom="${size.pipPad}dp"
+${pad(2)}        android:textSize="${size.date}sp"
+${pad(2)}        android:textColor="${dateColor(palette, state, today)}"
+${pad(2)}        android:background="@drawable/${pipResourceName(state, today, theme)}"
+${pad(2)}        android:text="${cell ? cell.date : ''}" />
+${pad(2)}</LinearLayout>`;
+    }).join('\n');
+
+    return `${pad(1)}<LinearLayout
+${pad(1)}    android:id="@+id/widget_row_${rowIndex}"
+${pad(1)}    android:layout_width="match_parent"
+${pad(1)}    android:layout_height="0dp"
+${pad(1)}    android:layout_weight="1"
+${pad(1)}    android:gravity="center_vertical"
+${pad(1)}    android:orientation="horizontal"${preview && preview.rows <= rowIndex ? `\n${pad(1)}    android:visibility="gone"` : ''}>
+${cells}
+${pad(1)}</LinearLayout>`;
+  }).join('\n');
+
+  return {
+    month: `<TextView
+    android:id="@+id/widget_month"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:textSize="${size.month}sp"
+    android:textStyle="bold"
+    android:textAllCaps="true"
+    android:letterSpacing="0.04"
+    android:textColor="${palette.ink}"
+    android:text="${preview ? preview.month : ''}" />`,
+    axis: `<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="${size.axisGap}dp"
+    android:orientation="horizontal">
+${axis}
+</LinearLayout>`,
+    grid: `<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_weight="1"
+    android:layout_marginTop="${size.gridGap}dp"
+    android:orientation="vertical">
+${rows}
+</LinearLayout>`,
+  };
+}
+
+/** Pushes a generated block to the depth its parent sits at. Cosmetic only. */
+function indentBlock(text, indent) {
+  return text
+    .split('\n')
+    .map((line) => (line.length > 0 ? indent + line : line))
+    .join('\n');
+}
+
+/** One figure and its caption. Three of them make the 4×2's right-hand column. */
+function statBlock(size, theme, index, { indent, preview = null }) {
+  const palette = theme === 'light' ? LIGHT : DARK;
+  return `${indent}<TextView
+${indent}    android:id="@+id/widget_stat_value_${index}"
+${indent}    android:layout_width="match_parent"
+${indent}    android:layout_height="wrap_content"${index > 0 ? `\n${indent}    android:layout_marginTop="${size.statGap}dp"` : ''}
+${indent}    android:maxLines="1"
+${indent}    android:ellipsize="end"
+${indent}    android:textSize="${size.statValue}sp"
+${indent}    android:textStyle="bold"
+${indent}    android:textColor="${palette.ink}"
+${indent}    android:text="${preview ? preview.stats[index].value : ''}" />
+${indent}<TextView
+${indent}    android:id="@+id/widget_stat_label_${index}"
+${indent}    android:layout_width="match_parent"
+${indent}    android:layout_height="wrap_content"
+${indent}    android:maxLines="1"
+${indent}    android:ellipsize="end"
+${indent}    android:textSize="${size.statLabel}sp"
+${indent}    android:textStyle="bold"
+${indent}    android:textAllCaps="true"
+${indent}    android:letterSpacing="0.08"
+${indent}    android:textColor="${palette.faint}"
+${indent}    android:text="${preview ? preview.stats[index].label : ''}" />`;
 }
 
 // ── The four layouts ───────────────────────────────────────────────────────
 
-/**
- * The one big number, and its label.
- *
- * Every widget the phone ships with anchors on one element that is clearly the
- * largest — 21°, 1h 45m, 92. Ours had four type sizes within 6sp of each other,
- * which is why a card full of accurate marks read as empty. This is that anchor:
- * sessions logged this week over the days planned for it.
- */
-function heroBlock(theme, { count, label, align = 'start', marginTop = 0, previewCount = null } = {}) {
-  const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
-  const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
-  const gravity = align === 'end' ? 'end' : 'start';
-  return `        <LinearLayout
-            android:id="@+id/widget_hero"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"${marginTop ? `\n            android:layout_marginTop="${marginTop}dp"` : ''}
-            android:orientation="vertical"
-            android:gravity="${gravity}">
-            <TextView
-                android:id="@+id/widget_count"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:maxLines="1"
-                android:textSize="${count}sp"
-                android:textStyle="bold"
-                android:textColor="${ink}"
-                android:text="${previewCount ? previewCount[0] : ''}" />
-            <TextView
-                android:id="@+id/widget_count_label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:maxLines="1"
-                android:ellipsize="end"
-                android:textSize="${label}sp"
-                android:textStyle="bold"
-                android:textAllCaps="true"
-                android:letterSpacing="0.08"
-                android:textColor="${faint}"
-                android:text="${previewCount ? previewCount[1] : ''}" />
-        </LinearLayout>`;
-}
-
-/**
- * One row of a dated calendar: a date over a bar, seven times. The same cell the
- * 4×4 draws, which is why the 2×2 reads as a calendar rather than as a row of
- * coloured marks.
- */
-function datedWeekRow(size, theme, { idPrefix, tall, marginTop = 0, dates = null, color }) {
-  const half = size.gap / 2;
-  const cells = [0, 1, 2, 3, 4, 5, 6]
-    .map(
-      (index) => `                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center_horizontal">
-                    <TextView
-                        android:id="@+id/${idPrefix}_date_${index}"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:maxLines="1"
-                        android:gravity="center_horizontal"
-                        android:textSize="${size.date}sp"
-                        android:textColor="${color}"
-                        android:text="${dates ? dates[index] : ''}" />
-${barStack(size, idPrefix, index, theme, { sidePadding: half, marginTop: size.dateGap, tall })}
-                </LinearLayout>`,
-    )
-    .join('\n');
-
-  return `            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"${marginTop ? `\n                android:layout_marginTop="${marginTop}dp"` : ''}
-                android:orientation="horizontal">
-${cells}
-            </LinearLayout>`;
-}
-
-/**
- * 2×2. The calendar and nothing else — but two weeks of it, with dates, because
- * a 2×2 cell is ~205dp square and a single row of bars left most of the card
- * empty.
- *
- * Last week on top, this week below it with today double-height. Chronological,
- * like the 4×4, and it means the card always has something green in it: a
- * forward-looking pair showed nothing but planned days every Monday, which is
- * true but says less than "you trained three times last week".
- *
- * The session's name is not in this size at all: the tap answers "what", the
- * bars answer "whether".
- */
-function squareLayout(theme, { previewLabels = null, previewPrompt = null, previewDates = null } = {}) {
-  const size = SIZES.square;
-  const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
-  const muted = theme === 'light' ? LIGHT.muted : DARK.muted;
-  const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
-
-  // The eyebrow only appears in the prompt states, where the calendar is hidden
-  // and there is room for it. It is not decoration: without it a named
-  // recommendation reads as the programme the reader is already running.
-  const prompt = `${textView('widget_when', {
-    size: 9,
-    color: faint,
-    allCaps: true,
-    letterSpacing: '0.1',
-    marginTop: 2,
-    visibility: 'gone',
-  })}
-${textView('widget_prompt', {
-    size: 14,
-    color: ink,
-    maxLines: 2,
-    text: previewPrompt ?? '',
-    visibility: previewPrompt ? null : 'gone',
-  })}
-${textView('widget_meta', { size: 11, style: 'normal', color: muted, marginTop: 3, visibility: 'gone' })}`;
-
-  const axis = [0, 1, 2, 3, 4, 5, 6]
-    .map(
-      (index) => `                <TextView
-                    android:id="@+id/widget_day_label_${index}"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:maxLines="1"
-                    android:gravity="center_horizontal"
-                    android:textSize="${size.label}sp"
-                    android:textStyle="bold"
-                    android:textColor="${faint}"
-                    android:text="${previewLabels ? previewLabels[index] : ''}" />`,
-    )
-    .join('\n');
-
-  const calendar = previewPrompt
-    ? ''
-    : `
-        <LinearLayout
-            android:id="@+id/widget_week"
+/** 2×2. The month, and nothing else. */
+function calendarLayout(theme, { preview = null } = {}) {
+  const size = SIZES.calendar;
+  const parts = calendarParts(size, theme, { preview });
+  // The mark shares the heading's line: it is the only row with slack in it,
+  // and a 2×2 has no corner to spare that is not already a date.
+  const body = `        <LinearLayout
+            android:id="@+id/widget_body"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:orientation="vertical">
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
-${axis}
-            </LinearLayout>
-${datedWeekRow(size, theme, {
-  idPrefix: 'widget_prev',
-  tall: false,
-  marginTop: size.axisGap,
-  dates: previewDates ? previewDates.slice(0, 7) : null,
-  color: muted,
-})}
-${datedWeekRow(size, theme, {
-  // `widget_day_*` is the current week in every layout, so it stays the name of
-  // the row that can contain today.
-  idPrefix: 'widget_day',
-  tall: true,
-  marginTop: size.rowGap,
-  dates: previewDates ? previewDates.slice(7, 14) : null,
-  color: muted,
-})}
-        </LinearLayout>`;
-
-  const hero = heroBlock(theme, {
-    count: 26,
-    label: 9,
-    previewCount: previewLabels ? ['2/3', '@string/widget_preview_week'] : null,
-  });
-
-  return root(theme, {
-    gravity: 'center_vertical',
-    padding: size.pad,
-    children: `${hero}\n${prompt}${calendar}`,
-  });
-}
-
-/** 4×1. When · what on the left, the week on the right. */
-function rowLayout(theme, { previewLabels = null, previewWhen = null, previewTitle = null } = {}) {
-  const size = SIZES.row;
-  const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
-  const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
-  return `<?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/widget_root"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="horizontal"
-    android:gravity="center_vertical"
-    android:background="@drawable/widget_card_${theme}"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp"
-    android:paddingTop="${size.pad}dp"
-    android:paddingBottom="${size.pad}dp">
-
-        <LinearLayout
-            android:id="@+id/widget_text"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:orientation="vertical">
-${textView('widget_when', { size: 9, color: faint, allCaps: true, letterSpacing: '0.12', text: previewWhen ?? '' })}
-${textView('widget_title', { size: 14.5, color: ink, text: previewTitle ?? '' })}
-        </LinearLayout>
-
-${weekStrip(size, theme, { width: '150dp', labels: previewLabels })}
-</LinearLayout>
-`;
-}
-
-/**
- * 4×2. Three texts: when, what, and the axis. The title takes the slack so the
- * week strip stays pinned to the bottom edge whether the name wraps or not —
- * RemoteViews has no spacer view to push it there.
- */
-function dayLayout(theme, { previewLabels = null, previewWhen = null, previewTitle = null } = {}) {
-  const size = SIZES.day;
-  const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
-  const muted = theme === 'light' ? LIGHT.muted : DARK.muted;
-  const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
-
-  // Words on the left, the number on the right, the calendar along the bottom.
-  // The row takes the slack, which is what closed the hole this layout used to
-  // leave down its middle whenever the text was short — and it was always short
-  // in the state with no programme, the one state a reader sees every day.
-  // `center_vertical` on the row, not top: the row owns all the slack, and with
-  // its content pinned to the top edge a short state — "Pick a program", the one
-  // a reader without a programme sees every day — left a band of nothing across
-  // the middle of the card. Centred, the same content reads as a laid-out card.
-  const topRow = `        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-${textView('widget_when', { size: 10, color: faint, allCaps: true, letterSpacing: '0.1', text: previewWhen ?? '' })}
-${textView('widget_title', { size: 20, color: ink, marginTop: 2, maxLines: 2, text: previewTitle ?? '' })}
-${textView('widget_prompt', { size: 17, color: ink, marginTop: 2, maxLines: 2, visibility: 'gone' })}
-${textView('widget_meta', { size: 11, style: 'normal', color: muted, marginTop: 3, visibility: 'gone' })}
-            </LinearLayout>
-${heroBlock(theme, {
-  count: 28,
-  label: 9,
-  align: 'end',
-  previewCount: previewLabels ? ['2/3', '@string/widget_preview_week'] : null,
-})}
-        </LinearLayout>`;
-
-  return root(theme, {
-    padding: size.pad,
-    children: `${topRow}\n${weekStrip(size, theme, { labels: previewLabels, marginTop: 10 })}`,
-  });
-}
-
-/**
- * 4×4. The same marking language as a four-week grid: two past weeks, this
- * week, next week. Only the current week's row carries a today bar, so only
- * those seven cells need the second ImageView.
- */
-function monthLayout(theme, { previewLabels = null, previewTitle = null, previewDates = null } = {}) {
-  const size = SIZES.month;
-  const ink = theme === 'light' ? LIGHT.ink : DARK.ink;
-  const muted = theme === 'light' ? LIGHT.muted : DARK.muted;
-  const faint = theme === 'light' ? LIGHT.faint : DARK.faint;
-  const half = size.gap / 2;
-
-  const axis = [0, 1, 2, 3, 4, 5, 6]
-    .map(
-      (index) => `            <TextView
-                android:id="@+id/widget_axis_${index}"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:maxLines="1"
-                android:gravity="center_horizontal"
-                android:textSize="${size.label}sp"
-                android:textStyle="bold"
-                android:letterSpacing="0.04"
-                android:textColor="${faint}"
-                android:text="${previewLabels ? previewLabels[index] : ''}" />`,
-    )
-    .join('\n');
-
-  const rows = Array.from({ length: WEEK_COUNT }, (_, weekIndex) => {
-    const cells = Array.from({ length: 7 }, (_, dayIndex) => {
-      const cellIndex = weekIndex * 7 + dayIndex;
-      const isCurrentWeek = weekIndex === CURRENT_WEEK_INDEX;
-      const off = barResourceName('off', theme);
-      const date = previewDates ? previewDates[cellIndex] : '';
-      const tall = isCurrentWeek
-        ? `
-                    <ImageView
-                        android:id="@+id/widget_cell_tall_${cellIndex}"
-                        android:layout_width="match_parent"
-                        android:layout_height="${size.tall}dp"
-                        android:layout_gravity="bottom"
-                        android:visibility="gone"
-                        android:contentDescription="@null"
-                        android:background="@drawable/${off}" />`
-        : '';
-      return `                <LinearLayout
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical"
-                    android:gravity="center_horizontal"
-                    android:paddingStart="${half}dp"
-                    android:paddingEnd="${half}dp">
-                    <TextView
-                        android:id="@+id/widget_cell_date_${cellIndex}"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:maxLines="1"
-                        android:gravity="center_horizontal"
-                        android:textSize="${size.date}sp"
-                        android:textColor="${muted}"
-                        android:text="${date}" />
-                    <FrameLayout
-                        android:layout_width="match_parent"
-                        android:layout_height="${size.box}dp"
-                        android:layout_marginTop="${size.dateGap}dp">
-                        <ImageView
-                            android:id="@+id/widget_cell_bar_${cellIndex}"
-                            android:layout_width="match_parent"
-                            android:layout_height="${size.bar}dp"
-                            android:layout_gravity="bottom"
-                            android:contentDescription="@null"
-                            android:background="@drawable/${off}" />${tall}
-                    </FrameLayout>
-                </LinearLayout>`;
-    }).join('\n');
-
-    // Weighted rather than a fixed 24dp gap: a launcher hands out whatever
-    // height its grid has, and on a tall screen a 4×4 cell is well over the
-    // design's 300dp. With fixed spacing the calendar sat in the top half and
-    // left the rest of the card empty. Spreading the rows keeps the design's
-    // rhythm at 300dp and fills anything larger.
-    return `            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="0dp"
-                android:layout_weight="1"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
-${cells}
-            </LinearLayout>`;
-  }).join('\n');
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+${indentBlock(parts.month, '                    ')}
+                </LinearLayout>
+${logoView(size.logo, { indent: '                ' })}
+            </LinearLayout>
+${indentBlock(parts.axis, '            ')}
+${indentBlock(parts.grid, '            ')}
+        </LinearLayout>`;
 
-  const children = `        <LinearLayout
+  return root(theme, { padding: size.pad, children: `${promptView(theme, { size: 14 })}\n${body}` });
+}
+
+/** 4×2. The same month, with this month's three figures beside it. */
+function statsLayout(theme, { preview = null } = {}) {
+  const size = SIZES.stats;
+  const parts = calendarParts(size, theme, { preview });
+  const stats = Array.from({ length: STAT_COUNT }, (_, index) =>
+    statBlock(size, theme, index, { indent: '                    ', preview }),
+  ).join('\n');
+
+  const body = `        <LinearLayout
+            android:id="@+id/widget_body"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="3"
+                android:orientation="vertical">
+${indentBlock(parts.month, '                ')}
+${indentBlock(parts.axis, '                ')}
+${indentBlock(parts.grid, '                ')}
+            </LinearLayout>
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="2"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+${logoView(size.logo, { indent: '                ', gravity: 'end' })}
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:gravity="center_vertical"
+                    android:orientation="vertical">
+${stats}
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>`;
+
+  return root(theme, { padding: size.pad, children: `${promptView(theme, { size: 14 })}\n${body}` });
+}
+
+/** 2×1. One number: the weeks in a row the app itself counts. */
+function streakLayout(theme, { preview = null } = {}) {
+  const size = SIZES.small;
+  const palette = theme === 'light' ? LIGHT : DARK;
+  const body = `        <LinearLayout
+            android:id="@+id/widget_body"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="bottom">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical">
-${textView('widget_title', { size: 18, color: ink, text: previewTitle ?? '' })}
-${textView('widget_prompt', { size: 17, color: ink, maxLines: 2, visibility: 'gone' })}
-${textView('widget_meta', { size: 11, style: 'normal', color: muted, marginTop: 3, visibility: 'gone' })}
+                <TextView
+                    android:id="@+id/widget_streak_value"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:textColor="${palette.ink}"
+                    android:text="${preview ? preview.streakValue : ''}" />
+                <TextView
+                    android:id="@+id/widget_streak_label"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.08"
+                    android:textColor="${palette.faint}"
+                    android:text="${preview ? preview.streakLabel : ''}" />
             </LinearLayout>
-${heroBlock(theme, {
-  count: 24,
-  label: 9,
-  align: 'end',
-  previewCount: previewLabels ? ['2/3', '@string/widget_preview_week'] : null,
-})}
-        </LinearLayout>
-        <LinearLayout
-            android:id="@+id/widget_axis"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:orientation="horizontal">
-${axis}
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/widget_grid"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:layout_marginTop="8dp"
-            android:orientation="vertical">
-${rows}
+${logoView(size.logo, { indent: '            ' })}
         </LinearLayout>`;
 
-  return root(theme, { padding: size.pad, children });
+  return root(theme, {
+    padding: size.pad,
+    paddingHorizontal: size.padHorizontal,
+    children: `${promptView(theme, { size: 13 })}\n${body}`,
+  });
+}
+
+/** 2×1. Today: the weekday, and what it is for. */
+function routineLayout(theme, { preview = null } = {}) {
+  const size = SIZES.small;
+  const palette = theme === 'light' ? LIGHT : DARK;
+  const body = `        <LinearLayout
+            android:id="@+id/widget_body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+${logoView(size.logo, { indent: '            ', marginEnd: 10 })}
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:id="@+id/widget_routine_when"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.1"
+                    android:textColor="${palette.faint}"
+                    android:text="${preview ? preview.routineWhen : ''}" />
+                <TextView
+                    android:id="@+id/widget_routine_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    android:textSize="14.5sp"
+                    android:textStyle="bold"
+                    android:textColor="${palette.ink}"
+                    android:text="${preview ? preview.routineTitle : ''}" />
+            </LinearLayout>
+            <ImageView
+                android:id="@+id/widget_arrow"
+                android:layout_width="${size.arrow}dp"
+                android:layout_height="${size.arrow}dp"
+                android:layout_marginStart="10dp"
+                android:contentDescription="@null"
+                android:src="@drawable/widget_arrow" />
+        </LinearLayout>`;
+
+  return root(theme, {
+    padding: size.pad,
+    paddingHorizontal: size.padHorizontal,
+    children: `${promptView(theme, { size: 13 })}\n${body}`,
+  });
 }
 
 // ── Picker previews ────────────────────────────────────────────────────────
@@ -799,114 +898,73 @@ ${rows}
  * preview is inflated with no provider running, so it cannot know which theme
  * the reader bought, and light is what a fresh install resolves.
  *
- * The example week is Thursday: two done, today planned, one more planned
- * later. It shows three of the four marks in one glance, which is the whole
- * point of a preview.
+ * The example month is a five-row one, half of it trained and the rest of the
+ * week ahead planned, with today in the middle. It shows all three marks in one
+ * glance, which is the whole point of a preview.
  */
-const PREVIEW_LABELS = Array.from({ length: 7 }, (_, index) => `@string/widget_preview_axis_${index}`);
-const PREVIEW_MONTH_STATES = [
-  'done', 'off', 'done', 'off', 'off', 'done', 'off',
-  'done', 'off', 'done', 'done', 'off', 'done', 'off',
-  'done', 'off', 'done', 'plan', 'off', 'plan', 'off',
-  'plan', 'off', 'plan', 'plan', 'off', 'plan', 'off',
-];
-const PREVIEW_MONTH_DATES = [
-  '3', '4', '5', '6', '7', '8', '9',
-  '10', '11', '12', '13', '14', '15', '16',
-  '17', '18', '19', '20', '21', '22', '23',
-  '24', '25', '26', '27', '28', '29', '30',
-];
-/** Which cell the preview calls today. Index 17 = Thursday of the third row. */
-const PREVIEW_TODAY_CELL = 17;
-const PREVIEW_TODAY_COLUMN = 3;
-/** The 2×2 previews the same two weeks the month preview shows above its middle. */
-const PREVIEW_PREV_STATES = PREVIEW_MONTH_STATES.slice(7, 14);
-const PREVIEW_WEEK_STATES = PREVIEW_MONTH_STATES.slice(14, 21);
-const PREVIEW_WEEK_DATES = PREVIEW_MONTH_DATES.slice(7, 21);
+const PREVIEW_AXIS = Array.from({ length: DAY_COUNT }, (_, index) => `@string/widget_preview_axis_${index}`);
+/** A month that starts on a Wednesday and runs 31 days: five rows, two blanks. */
+const PREVIEW_FIRST_COLUMN = 2;
+const PREVIEW_DAYS = 31;
+const PREVIEW_TODAY = 18;
+const PREVIEW_DONE = [2, 4, 7, 9, 11, 14, 16, 18];
+const PREVIEW_PLAN = [21, 23, 25, 28, 30];
 
-/**
- * Paints example states into a generated layout by rewriting the drawable each
- * bar defaults to, and swapping the two visibilities on today's column. Done
- * textually so the preview cannot drift from the layout it previews.
- *
- * `rows` is a list of `{ idPrefix, states, todayIndex }`; a row with no today in
- * it passes -1.
- */
-function paintPreview(xml, rows) {
-  let out = xml;
-
-  for (const { idPrefix, states, todayIndex } of rows) {
-    states.forEach((state, cellIndex) => {
-      const drawable = barResourceName(state, 'light');
-      for (const id of [`${idPrefix}_bar_${cellIndex}`, `${idPrefix}_tall_${cellIndex}`]) {
-        out = out.replace(
-          new RegExp(`(android:id="@\\+id/${id}"[\\s\\S]*?android:background="@drawable/)[a-z0-9_]+(")`),
-          `$1${drawable}$2`,
-        );
-      }
-    });
-
-    if (todayIndex < 0) {
-      continue;
+function previewCalendar() {
+  const cells = Array.from({ length: MONTH_ROWS * DAY_COUNT }, (_, index) => {
+    const dayOfMonth = index - PREVIEW_FIRST_COLUMN + 1;
+    if (dayOfMonth < 1 || dayOfMonth > PREVIEW_DAYS) {
+      return { date: '', state: 'off', today: false };
     }
-
-    // Today: hide the short bar and show the tall one.
-    out = out.replace(
-      new RegExp(`(android:id="@\\+id/${idPrefix}_bar_${todayIndex}"[\\s\\S]*?android:layout_gravity="bottom")`),
-      '$1\n                        android:visibility="gone"',
-    );
-    out = out.replace(
-      new RegExp(`(android:id="@\\+id/${idPrefix}_tall_${todayIndex}"[\\s\\S]*?)android:visibility="gone"\\s*\n`, 'm'),
-      '$1',
-    );
-  }
-
-  return out;
-}
-
-/**
- * Repaints one element's `textColor`. Rewriting the existing attribute rather
- * than adding one, because two `android:textColor` attributes on one element is
- * an aapt error, not a last-one-wins.
- */
-function recolor(xml, id, color) {
-  return xml.replace(
-    new RegExp(`(android:id="@\\+id/${id}"[\\s\\S]*?android:textColor=")#[0-9A-Fa-f]{6}(")`),
-    `$1${color}$2`,
-  );
-}
-
-function squarePreview() {
-  let xml = squareLayout('light', { previewLabels: PREVIEW_LABELS, previewDates: PREVIEW_WEEK_DATES });
-  xml = paintPreview(xml, [
-    { idPrefix: 'widget_prev', states: PREVIEW_PREV_STATES, todayIndex: -1 },
-    { idPrefix: 'widget_day', states: PREVIEW_WEEK_STATES, todayIndex: PREVIEW_TODAY_COLUMN },
-  ]);
-  xml = recolor(xml, `widget_day_label_${PREVIEW_TODAY_COLUMN}`, LIGHT.ink);
-  xml = recolor(xml, `widget_day_date_${PREVIEW_TODAY_COLUMN}`, LIGHT.ink);
-  return stripIds(xml);
-}
-
-function dayPreview() {
-  let xml = dayLayout('light', {
-    previewLabels: PREVIEW_LABELS,
-    previewWhen: '@string/widget_preview_when',
-    previewTitle: '@string/widget_preview_title',
+    const state = PREVIEW_DONE.includes(dayOfMonth) ? 'done' : PREVIEW_PLAN.includes(dayOfMonth) ? 'plan' : 'off';
+    return { date: `${dayOfMonth}`, state, today: dayOfMonth === PREVIEW_TODAY };
   });
-  xml = paintPreview(xml, [
-    { idPrefix: 'widget_day', states: PREVIEW_WEEK_STATES, todayIndex: PREVIEW_TODAY_COLUMN },
-  ]);
-  xml = recolor(xml, `widget_day_label_${PREVIEW_TODAY_COLUMN}`, LIGHT.ink);
-  return stripIds(xml);
+
+  return {
+    month: '@string/widget_preview_month',
+    axis: PREVIEW_AXIS,
+    cells,
+    rows: Math.ceil((PREVIEW_FIRST_COLUMN + PREVIEW_DAYS) / DAY_COUNT),
+  };
 }
+
+const PREVIEW_STATS = [
+  // Values that are not a bare number have to be strings, because the picker
+  // speaks the phone's language and a hardcoded "4 h 20 min" does not.
+  { value: '8', label: '@string/widget_label_workouts' },
+  { value: '@string/widget_preview_duration', label: '@string/widget_label_duration' },
+  { value: '@string/widget_preview_volume', label: '@string/widget_label_volume' },
+];
 
 /**
  * Previews reference the same ids as the real layouts, and two layouts may not
- * both *define* an id. `@+id/x` becomes `@id/x` so the previews reuse the
- * definitions instead of fighting over them.
+ * both *define* an id where the preview is one of them. `@+id/x` becomes
+ * `@id/x` so the previews reuse the definitions instead of fighting over them.
  */
 function stripIds(xml) {
   return xml.replace(/@\+id\//g, '@id/');
+}
+
+function calendarPreview() {
+  return stripIds(calendarLayout('light', { preview: previewCalendar() }));
+}
+
+function statsPreview() {
+  return stripIds(statsLayout('light', { preview: { ...previewCalendar(), stats: PREVIEW_STATS } }));
+}
+
+function streakPreview() {
+  return stripIds(
+    streakLayout('light', { preview: { streakValue: '6', streakLabel: '@string/widget_label_streak' } }),
+  );
+}
+
+function routinePreview() {
+  return stripIds(
+    routineLayout('light', {
+      preview: { routineWhen: '@string/widget_preview_weekday', routineTitle: '@string/widget_preview_title' },
+    }),
+  );
 }
 
 // ── Strings ────────────────────────────────────────────────────────────────
@@ -919,27 +977,47 @@ function stripIds(xml) {
  */
 const STRINGS = {
   en: {
-    widget_day_name: 'Vinha · Day',
-    widget_day_description: 'Your next session and the week around it.',
-    widget_week_name: 'Vinha · Week',
-    widget_week_description: 'Last week and this one, in one small square.',
+    widget_calendar_name: 'Vinha · Month',
+    widget_calendar_description: 'Your training month, one square.',
+    widget_stats_name: 'Vinha · Month & figures',
+    widget_stats_description: 'The month, with what you have put into it.',
+    widget_streak_name: 'Vinha · Streak',
+    widget_streak_description: 'The weeks you have kept going.',
+    widget_routine_name: 'Vinha · Today',
+    widget_routine_description: 'What today is for, and one tap to it.',
     widget_setup: 'Create your first program',
     widget_setup_short: 'Create a program',
-    widget_preview_when: 'Today',
+    widget_label_workouts: 'Workouts',
+    widget_label_duration: 'Duration',
+    widget_label_volume: 'Volume',
+    widget_label_streak: 'weeks in a row',
+    widget_preview_month: 'August',
+    widget_preview_weekday: 'Monday',
     widget_preview_title: 'Upper body A',
-    widget_preview_week: 'This week',
+    widget_preview_duration: '4 h 20 min',
+    widget_preview_volume: '12.4 t',
     widget_preview_axis: ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'],
   },
   fi: {
-    widget_day_name: 'Vinha · Päivä',
-    widget_day_description: 'Seuraava treeni ja sen ympärillä oleva viikko.',
-    widget_week_name: 'Vinha · Viikko',
-    widget_week_description: 'Viime viikko ja tämä yhdessä pienessä ruudussa.',
+    widget_calendar_name: 'Vinha · Kuukausi',
+    widget_calendar_description: 'Treenikuukausi yhdessä ruudussa.',
+    widget_stats_name: 'Vinha · Kuukausi ja luvut',
+    widget_stats_description: 'Kuukausi ja se, mitä olet siihen laittanut.',
+    widget_streak_name: 'Vinha · Putki',
+    widget_streak_description: 'Viikot, jotka olet pitänyt kasassa.',
+    widget_routine_name: 'Vinha · Tänään',
+    widget_routine_description: 'Mitä varten tämä päivä on, yhden napautuksen päässä.',
     widget_setup: 'Tee ensimmäinen ohjelma',
     widget_setup_short: 'Tee ohjelma',
-    widget_preview_when: 'Tänään',
+    widget_label_workouts: 'Treenit',
+    widget_label_duration: 'Kesto',
+    widget_label_volume: 'Volyymi',
+    widget_label_streak: 'viikkoa putkeen',
+    widget_preview_month: 'elokuu',
+    widget_preview_weekday: 'Maanantai',
     widget_preview_title: 'Ylävartalo A',
-    widget_preview_week: 'Tällä viikolla',
+    widget_preview_duration: '4 h 20 min',
+    widget_preview_volume: '12,4 t',
     widget_preview_axis: ['MA', 'TI', 'KE', 'TO', 'PE', 'LA', 'SU'],
   },
 };
@@ -968,16 +1046,21 @@ ${entries.join('\n')}
 // ── Kotlin ─────────────────────────────────────────────────────────────────
 
 function paletteLiteral(name, palette, theme) {
-  const bar = (state) => barResourceName(state, theme);
+  const pips = PIP_STATES.flatMap((state) => [
+    `            "${state}" to R.drawable.${pipResourceName(state, false, theme)},`,
+    `            "${state}_today" to R.drawable.${pipResourceName(state, true, theme)},`,
+  ]).join('\n');
+
   return `    private val ${name} = Palette(
         card = R.drawable.widget_card_${theme},
         ink = Color.parseColor("${palette.ink}"),
         muted = Color.parseColor("${palette.muted}"),
         faint = Color.parseColor("${palette.faint}"),
-        bars = mapOf(
-            "done" to R.drawable.${bar('done')},
-            "plan" to R.drawable.${bar('plan')},
-            "off" to R.drawable.${bar('off')},
+        brand = Color.parseColor("${palette.brand}"),
+        onDone = Color.parseColor("${palette.onDone}"),
+        onPlan = Color.parseColor("${palette.onPlan}"),
+        pips = mapOf(
+${pips}
         ),
     )`;
 }
@@ -1009,14 +1092,14 @@ import java.io.File
  * Draws the home-screen widget family from the JSON the app writes to filesDir.
  *
  * Deliberately dumb: it reads finished strings and puts them on TextViews, and
- * reads three state names and puts a drawable behind an ImageView. All dates,
+ * reads three state names and puts a drawable behind a date. All dates,
  * translation and pluralisation happened in JS (src/lib/widgetPayload.ts) where
  * they are covered by tests. Generated by plugins/withHomeWidget.js — edit it
  * there, not here, because android/ is regenerated by prebuild.
  *
  * Two decisions are made on this side, and neither is a judgement call:
  * which of the two palettes to paint (the payload says, Pro gate included) and
- * which of the four layouts fits the size Android reports.
+ * which layout fits the size Android reports.
  *
  * This class is also the 4×2 receiver. It keeps the name it shipped with,
  * because widgets already pinned to a home screen are bound to this component.
@@ -1029,10 +1112,23 @@ open class HomeWidgetProvider : AppWidgetProvider() {
         val ink: Int,
         val muted: Int,
         val faint: Int,
-        val bars: Map<String, Int>,
+        val brand: Int,
+        val onDone: Int,
+        val onPlan: Int,
+        val pips: Map<String, Int>,
     ) {
         /** Anything unrecognised draws as a free day rather than as nothing. */
-        fun bar(state: String?): Int = bars[state] ?: bars["off"] ?: 0
+        fun pip(state: String?, today: Boolean): Int {
+            val key = (state ?: "off") + if (today) "_today" else ""
+            return pips[key] ?: pips["off"] ?: 0
+        }
+
+        /** What a date reads as once its pill is behind it. */
+        fun dateInk(state: String?, today: Boolean): Int = when (state) {
+            "done" -> onDone
+            "plan" -> onPlan
+            else -> if (today) ink else muted
+        }
     }
 
 ${paletteLiteral('light', LIGHT, 'light')}
@@ -1040,24 +1136,17 @@ ${paletteLiteral('light', LIGHT, 'light')}
 ${paletteLiteral('dark', DARK, 'dark')}
 
     /** The layout this receiver draws before Android has reported a size. */
-    protected open fun defaultLayout(): Int = R.layout.home_widget_day
+    protected open fun defaultLayout(): Int = R.layout.home_widget_stats
 
     /**
-     * Which layout fits. One rule for all three receivers, so stretching any of
-     * them lands on the layout built for that shape rather than on a stretched
-     * version of the one it started as.
+     * Which layout fits. The two calendars are one widget at two widths, so
+     * either receiver lands on the shape it has room for — and the 2×1s pin
+     * their own layout, because a streak stretched wide is still a streak.
      */
     protected open fun layoutFor(width: Int, height: Int): Int = when {
-        width <= 0 || height <= 0 -> defaultLayout()
-        // Height decides first, and it has to: with the width test in front, a
-        // 2-cell-wide widget stretched tall stayed on the two-week layout and
-        // left two thirds of the card empty, and the four-week grid could only
-        // be reached from the wide one. Four weeks fit seven columns of dates in
-        // 205dp perfectly well.
-        height >= 220 -> R.layout.home_widget_month
-        height < 100 && width >= 220 -> R.layout.home_widget_row
-        width < 220 -> R.layout.home_widget_square
-        else -> R.layout.home_widget_day
+        width <= 0 -> defaultLayout()
+        width < 220 -> R.layout.home_widget_calendar
+        else -> R.layout.home_widget_stats
     }
 
     override fun onUpdate(context: Context, manager: AppWidgetManager, ids: IntArray) {
@@ -1101,6 +1190,9 @@ ${paletteLiteral('dark', DARK, 'dark')}
         val palette = if (payload?.optString("theme") == "dark") dark else light
 
         views.setInt(R.id.widget_root, "setBackgroundResource", palette.card)
+        // The mark is one drawable for both themes. A colour filter is the only
+        // recolouring RemoteViews can do to an image, and it is enough.
+        views.setInt(R.id.widget_logo, "setColorFilter", palette.brand)
 
         if (payload == null) {
             renderSetup(context, views, layoutId, palette)
@@ -1108,21 +1200,21 @@ ${paletteLiteral('dark', DARK, 'dark')}
             return views
         }
 
-        // The one big number. Every layout but the 4×1 row has room for it, and
-        // the row is the one size that does not.
-        if (layoutId != R.layout.home_widget_row) {
-            views.setViewVisibility(R.id.widget_hero, View.VISIBLE)
-            views.setTextViewText(R.id.widget_count, payload.optString("weekCount"))
-            views.setTextColor(R.id.widget_count, palette.ink)
-            views.setTextViewText(R.id.widget_count_label, payload.optString("weekCountLabel"))
-            views.setTextColor(R.id.widget_count_label, palette.faint)
-        }
+        views.setViewVisibility(R.id.widget_prompt, View.GONE)
+        views.setViewVisibility(R.id.widget_body, View.VISIBLE)
 
         when (layoutId) {
-            R.layout.home_widget_square -> renderSquare(context, views, payload, palette)
-            R.layout.home_widget_row -> renderRow(context, views, payload, palette)
-            R.layout.home_widget_month -> renderMonth(context, views, payload, palette)
-            else -> renderDay(context, views, payload, palette)
+            R.layout.home_widget_streak -> renderStreak(context, views, payload, palette)
+            R.layout.home_widget_routine -> renderRoutine(context, views, payload, palette)
+            R.layout.home_widget_stats -> {
+                renderCalendar(views, payload, palette)
+                renderStats(views, payload, palette)
+                views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, "calendar"))
+            }
+            else -> {
+                renderCalendar(views, payload, palette)
+                views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, "calendar"))
+            }
         }
 
         return views
@@ -1133,237 +1225,81 @@ ${paletteLiteral('dark', DARK, 'dark')}
      * it can use are its own, from the APK, in the system's language.
      */
     private fun renderSetup(context: Context, views: RemoteViews, layoutId: Int, palette: Palette) {
-        val squareLayout = layoutId == R.layout.home_widget_square
-        val text = context.getString(if (squareLayout) R.string.widget_setup_short else R.string.widget_setup)
+        val short = layoutId == R.layout.home_widget_calendar ||
+            layoutId == R.layout.home_widget_streak ||
+            layoutId == R.layout.home_widget_routine
+        val text = context.getString(if (short) R.string.widget_setup_short else R.string.widget_setup)
 
-        // Nothing has been logged because the app has never run, so there is no
-        // number to be the anchor. An honest blank beats a confident zero.
-        if (layoutId != R.layout.home_widget_row) {
-            views.setViewVisibility(R.id.widget_hero, View.GONE)
-        }
-
-        if (squareLayout) {
-            views.setViewVisibility(R.id.widget_week, View.GONE)
-            views.setViewVisibility(R.id.widget_when, View.GONE)
-            views.setViewVisibility(R.id.widget_meta, View.GONE)
-            views.setViewVisibility(R.id.widget_prompt, View.VISIBLE)
-            views.setTextViewText(R.id.widget_prompt, text)
-            views.setTextColor(R.id.widget_prompt, palette.ink)
-            return
-        }
-
-        if (layoutId == R.layout.home_widget_row) {
-            views.setViewVisibility(R.id.widget_week, View.GONE)
-            views.setTextViewText(R.id.widget_when, "")
-            views.setTextViewText(R.id.widget_title, text)
-            views.setTextColor(R.id.widget_title, palette.ink)
-            return
-        }
-
-        if (layoutId == R.layout.home_widget_month) {
-            views.setViewVisibility(R.id.widget_axis, View.GONE)
-            views.setViewVisibility(R.id.widget_grid, View.GONE)
-        } else {
-            views.setViewVisibility(R.id.widget_week, View.GONE)
-            views.setTextViewText(R.id.widget_when, "")
-        }
-        views.setViewVisibility(R.id.widget_title, View.GONE)
+        views.setViewVisibility(R.id.widget_body, View.GONE)
         views.setViewVisibility(R.id.widget_prompt, View.VISIBLE)
         views.setTextViewText(R.id.widget_prompt, text)
         views.setTextColor(R.id.widget_prompt, palette.ink)
     }
 
     /**
-     * The 2×2: the weekday axis, this week, and next week. Two weeks because one
-     * row of bars left most of a 205dp square empty, and dates because that is
-     * what makes it read as a calendar.
+     * The month. Six rows exist in the layout because a month can need six;
+     * the ones this month does not use are hidden rather than left blank, so
+     * the rows that remain spread across the whole card.
      */
-    private fun renderSquare(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
-        val prompt = payload.optBoolean("isPrompt")
-
-        // With no schedule there is no calendar to draw, so the card stops being
-        // a calendar and becomes the instruction instead.
-        views.setViewVisibility(R.id.widget_prompt, if (prompt) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.widget_when, if (prompt) View.VISIBLE else View.GONE)
-        views.setViewVisibility(R.id.widget_week, if (prompt) View.GONE else View.VISIBLE)
-
-        if (prompt) {
-            views.setTextViewText(R.id.widget_when, payload.optString("when"))
-            views.setTextColor(R.id.widget_when, palette.faint)
-            views.setTextViewText(R.id.widget_prompt, payload.optString("title"))
-            views.setTextColor(R.id.widget_prompt, palette.ink)
-            paintMeta(views, payload, palette)
-        } else {
-            val labels = payload.optJSONArray("weekdayLabels")
-            val week = currentWeek(payload)
-            val previous = payload.optJSONArray("weeks")?.optJSONArray(CURRENT_WEEK_INDEX - 1)
-
-            for (index in 0 until DAY_COUNT) {
-                val day = week?.optJSONObject(index)
-                val today = day?.optBoolean("isToday") == true
-                val drawable = palette.bar(day?.optString("state"))
-
-                views.setTextViewText(dayLabelIds[index], labels?.optString(index) ?: "")
-                views.setTextColor(dayLabelIds[index], if (today) palette.ink else palette.faint)
-                views.setTextViewText(dayDateIds[index], day?.optString("dateLabel") ?: "")
-                views.setTextColor(dayDateIds[index], if (today) palette.ink else palette.muted)
-                views.setInt(dayBarIds[index], "setBackgroundResource", drawable)
-                views.setInt(dayTallIds[index], "setBackgroundResource", drawable)
-                views.setViewVisibility(dayBarIds[index], if (today) View.GONE else View.VISIBLE)
-                views.setViewVisibility(dayTallIds[index], if (today) View.VISIBLE else View.GONE)
-
-                // Last week cannot contain today, so it has no tall bar either.
-                val before = previous?.optJSONObject(index)
-                views.setTextViewText(prevDateIds[index], before?.optString("dateLabel") ?: "")
-                views.setTextColor(prevDateIds[index], palette.muted)
-                views.setInt(prevBarIds[index], "setBackgroundResource", palette.bar(before?.optString("state")))
-            }
-        }
-
-        // One target only: a 155dp square with nothing visibly pressable is no
-        // place to hide two destinations.
-        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, payload.optString("cardTarget")))
-    }
-
-    private fun renderRow(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
-        views.setTextViewText(R.id.widget_when, payload.optString("when"))
-        views.setTextColor(R.id.widget_when, palette.faint)
-        views.setTextViewText(R.id.widget_title, payload.optString("title"))
-        views.setTextColor(R.id.widget_title, palette.ink)
-        views.setViewVisibility(R.id.widget_week, View.VISIBLE)
-        paintWeek(views, payload, palette)
-
-        views.setOnClickPendingIntent(R.id.widget_text, targetIntent(context, payload.optString("textTarget")))
-        views.setOnClickPendingIntent(R.id.widget_week, targetIntent(context, "calendar"))
-        // Whatever is left of the card. The two blocks above already offer the
-        // workout and the calendar, so the leftover strip goes Home.
-        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, "home"))
-    }
-
-    private fun renderDay(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
-        val prompt = payload.optBoolean("isPrompt")
-
-        views.setTextViewText(R.id.widget_when, payload.optString("when"))
-        views.setTextColor(R.id.widget_when, palette.faint)
-        views.setViewVisibility(R.id.widget_title, if (prompt) View.GONE else View.VISIBLE)
-        views.setViewVisibility(R.id.widget_prompt, if (prompt) View.VISIBLE else View.GONE)
-        views.setTextViewText(if (prompt) R.id.widget_prompt else R.id.widget_title, payload.optString("title"))
-        views.setTextColor(if (prompt) R.id.widget_prompt else R.id.widget_title, palette.ink)
-        paintMeta(views, payload, palette)
-
-        // The empty week is drawn rather than hidden: an honest empty row says
-        // more about a missing rhythm than a blank card does.
-        views.setViewVisibility(R.id.widget_week, View.VISIBLE)
-        paintWeek(views, payload, palette)
-
-        views.setOnClickPendingIntent(
-            R.id.widget_title,
-            targetIntent(context, payload.optString("textTarget")),
-        )
-        views.setOnClickPendingIntent(
-            R.id.widget_prompt,
-            targetIntent(context, payload.optString("textTarget")),
-        )
-        views.setOnClickPendingIntent(R.id.widget_when, targetIntent(context, payload.optString("textTarget")))
-        views.setOnClickPendingIntent(R.id.widget_week, targetIntent(context, "calendar"))
-        // Whatever is left of the card. The two blocks above already offer the
-        // workout and the calendar, so the leftover strip goes Home.
-        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, "home"))
-    }
-
-    private fun renderMonth(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
-        val prompt = payload.optBoolean("isPrompt")
-
-        views.setViewVisibility(R.id.widget_title, if (prompt) View.GONE else View.VISIBLE)
-        views.setViewVisibility(R.id.widget_prompt, if (prompt) View.VISIBLE else View.GONE)
-        views.setTextViewText(if (prompt) R.id.widget_prompt else R.id.widget_title, payload.optString("title"))
-        views.setTextColor(if (prompt) R.id.widget_prompt else R.id.widget_title, palette.ink)
-        paintMeta(views, payload, palette)
-        views.setViewVisibility(R.id.widget_axis, View.VISIBLE)
-        views.setViewVisibility(R.id.widget_grid, View.VISIBLE)
+    private fun renderCalendar(views: RemoteViews, payload: JSONObject, palette: Palette) {
+        views.setTextViewText(R.id.widget_month, payload.optString("monthLabel"))
+        views.setTextColor(R.id.widget_month, palette.ink)
 
         val labels = payload.optJSONArray("weekdayLabels")
-        val todayColumn = todayColumnOf(currentWeek(payload))
         for (index in 0 until DAY_COUNT) {
             views.setTextViewText(axisIds[index], labels?.optString(index) ?: "")
-            // Today's letter is the only one in the header that is not muted.
-            views.setTextColor(axisIds[index], if (index == todayColumn) palette.ink else palette.faint)
+            views.setTextColor(axisIds[index], palette.faint)
         }
 
-        val weeks = payload.optJSONArray("weeks")
-        for (weekIndex in 0 until WEEK_COUNT) {
-            val week = weeks?.optJSONArray(weekIndex)
+        val weeks = payload.optJSONArray("monthWeeks")
+        for (rowIndex in 0 until MONTH_ROWS) {
+            val week = weeks?.optJSONArray(rowIndex)
+            views.setViewVisibility(rowIds[rowIndex], if (week == null) View.GONE else View.VISIBLE)
+
             for (dayIndex in 0 until DAY_COUNT) {
-                val cellIndex = weekIndex * DAY_COUNT + dayIndex
+                val cellIndex = rowIndex * DAY_COUNT + dayIndex
                 val day = week?.optJSONObject(dayIndex)
-                val today = day?.optBoolean("isToday") == true
-                val drawable = palette.bar(day?.optString("state"))
+                // The days either side of the month keep their column and say
+                // nothing: they are there so the weekdays line up, not to be read.
+                val inMonth = day?.optBoolean("inMonth") == true
+                val state = if (inMonth) day?.optString("state") else "off"
+                val today = inMonth && day?.optBoolean("isToday") == true
 
-                views.setTextViewText(cellDateIds[cellIndex], day?.optString("dateLabel") ?: "")
-                // Today's number is the only one that gets the ink colour.
-                views.setTextColor(cellDateIds[cellIndex], if (today) palette.ink else palette.muted)
-                views.setInt(cellBarIds[cellIndex], "setBackgroundResource", drawable)
-
-                // Only the current week's row has a tall bar to reveal.
-                if (weekIndex == CURRENT_WEEK_INDEX) {
-                    val tallId = cellTallIds[dayIndex]
-                    views.setInt(tallId, "setBackgroundResource", drawable)
-                    views.setViewVisibility(tallId, if (today) View.VISIBLE else View.GONE)
-                    views.setViewVisibility(cellBarIds[cellIndex], if (today) View.GONE else View.VISIBLE)
-                }
+                views.setTextViewText(cellIds[cellIndex], if (inMonth) day?.optString("dateLabel") ?: "" else "")
+                views.setTextColor(cellIds[cellIndex], palette.dateInk(state, today))
+                views.setInt(cellIds[cellIndex], "setBackgroundResource", palette.pip(state, today))
             }
         }
-
-        views.setOnClickPendingIntent(R.id.widget_title, targetIntent(context, payload.optString("textTarget")))
-        views.setOnClickPendingIntent(R.id.widget_prompt, targetIntent(context, payload.optString("textTarget")))
-        views.setOnClickPendingIntent(R.id.widget_axis, targetIntent(context, "calendar"))
-        views.setOnClickPendingIntent(R.id.widget_grid, targetIntent(context, "calendar"))
-        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, "home"))
     }
 
-    /** The current week, for the three sizes that draw one row. */
-    private fun paintWeek(views: RemoteViews, payload: JSONObject, palette: Palette) {
-        val labels = payload.optJSONArray("weekdayLabels")
-        val week = currentWeek(payload)
-
-        for (index in 0 until DAY_COUNT) {
-            val day = week?.optJSONObject(index)
-            val today = day?.optBoolean("isToday") == true
-            val drawable = palette.bar(day?.optString("state"))
-
-            views.setTextViewText(dayLabelIds[index], labels?.optString(index) ?: "")
-            views.setTextColor(dayLabelIds[index], if (today) palette.ink else palette.faint)
-            views.setInt(dayBarIds[index], "setBackgroundResource", drawable)
-            views.setInt(dayTallIds[index], "setBackgroundResource", drawable)
-            views.setViewVisibility(dayBarIds[index], if (today) View.GONE else View.VISIBLE)
-            views.setViewVisibility(dayTallIds[index], if (today) View.VISIBLE else View.GONE)
+    /** The three figures beside the month, in the order the payload lists them. */
+    private fun renderStats(views: RemoteViews, payload: JSONObject, palette: Palette) {
+        val stats = payload.optJSONArray("stats")
+        for (index in 0 until STAT_COUNT) {
+            val stat = stats?.optJSONObject(index)
+            views.setTextViewText(statValueIds[index], stat?.optString("value") ?: "")
+            views.setTextColor(statValueIds[index], palette.ink)
+            views.setTextViewText(statLabelIds[index], stat?.optString("label") ?: "")
+            views.setTextColor(statLabelIds[index], palette.faint)
         }
     }
 
-    /**
-     * The quiet second line. It exists for one state — the recommended
-     * programme's cost, under its name — and stays out of the way in the rest.
-     */
-    private fun paintMeta(views: RemoteViews, payload: JSONObject, palette: Palette) {
-        val meta = payload.optString("meta")
-        views.setViewVisibility(R.id.widget_meta, if (meta.isEmpty()) View.GONE else View.VISIBLE)
-        if (meta.isNotEmpty()) {
-            views.setTextViewText(R.id.widget_meta, meta)
-            views.setTextColor(R.id.widget_meta, palette.muted)
-        }
+    private fun renderStreak(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
+        views.setTextViewText(R.id.widget_streak_value, payload.optString("streakValue"))
+        views.setTextColor(R.id.widget_streak_value, palette.ink)
+        views.setTextViewText(R.id.widget_streak_label, payload.optString("streakLabel"))
+        views.setTextColor(R.id.widget_streak_label, palette.faint)
+        // The streak is a calendar fact, so it opens the calendar.
+        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, "calendar"))
     }
 
-    private fun currentWeek(payload: JSONObject): JSONArray? =
-        payload.optJSONArray("weeks")?.optJSONArray(CURRENT_WEEK_INDEX)
-
-    /** Which column is today, or -1 when the week does not contain it. */
-    private fun todayColumnOf(week: JSONArray?): Int {
-        for (index in 0 until DAY_COUNT) {
-            if (week?.optJSONObject(index)?.optBoolean("isToday") == true) {
-                return index
-            }
-        }
-        return -1
+    private fun renderRoutine(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
+        views.setTextViewText(R.id.widget_routine_when, payload.optString("routineWhen"))
+        views.setTextColor(R.id.widget_routine_when, palette.faint)
+        views.setTextViewText(R.id.widget_routine_title, payload.optString("routineTitle"))
+        views.setTextColor(R.id.widget_routine_title, palette.ink)
+        views.setInt(R.id.widget_arrow, "setColorFilter", palette.muted)
+        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, payload.optString("routineTarget")))
     }
 
     /**
@@ -1423,39 +1359,35 @@ ${paletteLiteral('dark', DARK, 'dark')}
         private const val PAYLOAD_FILE = "${PAYLOAD_FILE}"
         private const val PAYLOAD_VERSION = ${PAYLOAD_VERSION}
         private const val LINK_PREFIX = "${LINK_PREFIX}"
-        private const val DAY_COUNT = 7
-        private const val WEEK_COUNT = ${WEEK_COUNT}
-        private const val CURRENT_WEEK_INDEX = ${CURRENT_WEEK_INDEX}
+        private const val DAY_COUNT = ${DAY_COUNT}
+        private const val MONTH_ROWS = ${MONTH_ROWS}
+        private const val STAT_COUNT = ${STAT_COUNT}
 
-${idArray('dayLabelIds', 7, (index) => `widget_day_label_${index}`)}
+${idArray('axisIds', DAY_COUNT, (index) => `widget_axis_${index}`)}
 
-${idArray('dayBarIds', 7, (index) => `widget_day_bar_${index}`)}
+${idArray('rowIds', MONTH_ROWS, (index) => `widget_row_${index}`)}
 
-${idArray('dayTallIds', 7, (index) => `widget_day_tall_${index}`)}
+${idArray('cellIds', MONTH_ROWS * DAY_COUNT, (index) => `widget_cell_${index}`)}
 
-${idArray('dayDateIds', 7, (index) => `widget_day_date_${index}`)}
+${idArray('statValueIds', STAT_COUNT, (index) => `widget_stat_value_${index}`)}
 
-${idArray('prevDateIds', 7, (index) => `widget_prev_date_${index}`)}
-
-${idArray('prevBarIds', 7, (index) => `widget_prev_bar_${index}`)}
-
-${idArray('axisIds', 7, (index) => `widget_axis_${index}`)}
-
-${idArray('cellDateIds', 28, (index) => `widget_cell_date_${index}`)}
-
-${idArray('cellBarIds', 28, (index) => `widget_cell_bar_${index}`)}
-
-${idArray('cellTallIds', 7, (index) => `widget_cell_tall_${CURRENT_WEEK_INDEX * 7 + index}`)}
+${idArray('statLabelIds', STAT_COUNT, (index) => `widget_stat_label_${index}`)}
     }
 }
 `;
 
 /**
- * The other two receivers. They exist to be two more rows in the widget picker
- * — one per question the family answers — and differ only in which layout they
- * start at.
+ * The other three receivers. They exist to be three more rows in the widget
+ * picker — one per question the family answers — and differ only in which
+ * layout they start at, and whether the size ladder may move them off it.
  */
-function subclassKt(className, defaultLayout, comment) {
+function subclassKt(className, defaultLayout, { pinned, comment }) {
+  const ladder = pinned
+    ? `
+
+    /** Content, not a size: stretched wide, this is still what it says it is. */
+    override fun layoutFor(width: Int, height: Int): Int = R.layout.${defaultLayout}`
+    : '';
   return `package ${PACKAGE}
 
 /**
@@ -1465,7 +1397,7 @@ function subclassKt(className, defaultLayout, comment) {
  * HomeWidgetProvider; this only says where the size ladder starts.
  */
 class ${className} : HomeWidgetProvider() {
-    override fun defaultLayout(): Int = R.layout.${defaultLayout}
+    override fun defaultLayout(): Int = R.layout.${defaultLayout}${ladder}
 }
 `;
 }
@@ -1479,21 +1411,31 @@ function writeFile(target, contents) {
 
 /** Every generated file, keyed by its path under app/src/main. Exported for tests. */
 function widgetResources() {
+  const javaDir = `java/${PACKAGE.split('.').join('/')}`;
   const files = {
-    'res/layout/home_widget_square.xml': squareLayout('light'),
-    'res/layout/home_widget_row.xml': rowLayout('light'),
-    'res/layout/home_widget_day.xml': dayLayout('light'),
-    'res/layout/home_widget_month.xml': monthLayout('light'),
-    'res/layout/home_widget_square_preview.xml': squarePreview(),
-    'res/layout/home_widget_day_preview.xml': dayPreview(),
+    'res/layout/home_widget_calendar.xml': calendarLayout('light'),
+    'res/layout/home_widget_stats.xml': statsLayout('light'),
+    'res/layout/home_widget_streak.xml': streakLayout('light'),
+    'res/layout/home_widget_routine.xml': routineLayout('light'),
+    'res/layout/home_widget_calendar_preview.xml': calendarPreview(),
+    'res/layout/home_widget_stats_preview.xml': statsPreview(),
+    'res/layout/home_widget_streak_preview.xml': streakPreview(),
+    'res/layout/home_widget_routine_preview.xml': routinePreview(),
     'res/values/widget_strings.xml': stringsXml(STRINGS.en),
     'res/values-fi/widget_strings.xml': stringsXml(STRINGS.fi),
-    [`java/${PACKAGE.split('.').join('/')}/HomeWidgetProvider.kt`]: BASE_PROVIDER_KT,
-    [`java/${PACKAGE.split('.').join('/')}/WeekWidgetProvider.kt`]: subclassKt(
-      'WeekWidgetProvider',
-      'home_widget_square',
-      'The 2×2: two weeks of calendar, and nothing else.',
-    ),
+    [`${javaDir}/HomeWidgetProvider.kt`]: BASE_PROVIDER_KT,
+    [`${javaDir}/WeekWidgetProvider.kt`]: subclassKt('WeekWidgetProvider', 'home_widget_calendar', {
+      pinned: false,
+      comment: 'The 2×2: the month, and nothing else.',
+    }),
+    [`${javaDir}/StreakWidgetProvider.kt`]: subclassKt('StreakWidgetProvider', 'home_widget_streak', {
+      pinned: true,
+      comment: 'The 2×1: how many weeks in a row have something in them.',
+    }),
+    [`${javaDir}/RoutineWidgetProvider.kt`]: subclassKt('RoutineWidgetProvider', 'home_widget_routine', {
+      pinned: true,
+      comment: 'The 2×1: what today is for, and one tap to it.',
+    }),
   };
 
   for (const provider of PROVIDERS) {

@@ -15,13 +15,14 @@ const assert = require('node:assert/strict');
 const { widgetResources, applyWidgetReceivers, PROVIDERS } = require('../../plugins/withHomeWidget.js');
 const {
   HOME_WIDGET_PAYLOAD_VERSION,
-  HOME_WIDGET_CURRENT_WEEK_INDEX,
-  HOME_WIDGET_WEEK_COUNT,
+  HOME_WIDGET_MONTH_ROWS,
 } = require('../../.test-dist/lib/widgetPayload.js');
 const { WIDGET_LINK_PREFIX } = require('../../.test-dist/lib/widgetDeepLink.js');
 
 const FILES = widgetResources();
 const paths = Object.keys(FILES);
+const DAY_COUNT = 7;
+const CELL_COUNT = HOME_WIDGET_MONTH_ROWS * DAY_COUNT;
 
 function pathsIn(prefix, suffix = '.xml') {
   return paths.filter((entry) => entry.startsWith(prefix) && entry.endsWith(suffix));
@@ -34,6 +35,7 @@ function basename(entry) {
 const layoutPaths = pathsIn('res/layout/');
 const realLayouts = layoutPaths.filter((entry) => !entry.includes('_preview'));
 const previewLayouts = layoutPaths.filter((entry) => entry.includes('_preview'));
+const calendarLayouts = ['res/layout/home_widget_calendar.xml', 'res/layout/home_widget_stats.xml'];
 const kotlinPaths = paths.filter((entry) => entry.endsWith('.kt'));
 const kotlin = kotlinPaths.map((entry) => FILES[entry]).join('\n');
 
@@ -112,62 +114,47 @@ module.exports = [
       // icon. A preview layout whose text is empty would be worse.
       for (const entry of previewLayouts) {
         // Only what the picker actually shows. A layout carries the slot for
-        // every state, and the ones this preview does not use are hidden.
+        // every state, and the ones this preview does not use are hidden — as
+        // are the days either side of the month, which have no number.
         const texts = FILES[entry]
           .split('<TextView')
           .slice(1)
           .filter((element) => !element.includes('android:visibility="gone"'))
           .map((element) => element.match(/android:text="([^"]*)"/)?.[1] ?? '');
-        assert.ok(texts.length > 0, `${entry} has no text at all`);
-        assert.ok(
-          texts.every((text) => text.length > 0),
-          `${entry} still has an empty android:text — the picker would show a blank card`,
-        );
+        const filled = texts.filter((text) => text.length > 0);
+        assert.ok(filled.length > 0, `${entry} has no text at all`);
         // Every visible word is a resource, so the picker speaks the phone's
         // language rather than whatever was hardcoded here. Date numbers are
         // the exception: they are the same in every language.
         assert.ok(
-          texts.every((text) => text.startsWith('@string/') || /^\d{1,2}(\/\d{1,2})?$/.test(text)),
+          filled.every((text) => text.startsWith('@string/') || /^\d{1,2}$/.test(text)),
           `${entry} hardcodes copy instead of using @string/`,
         );
       }
     },
   },
   {
-    name: 'widgetResources: a preview shows more than one state',
+    name: 'widgetResources: the calendar previews show more than one state',
     run() {
-      // A preview where every bar is the same colour teaches nothing about what
-      // the widget does.
-      for (const entry of previewLayouts) {
-        const bars = new Set(
-          [...FILES[entry].matchAll(/@drawable\/(widget_bar_[a-z0-9_]+)/g)].map((match) => match[1]),
-        );
-        assert.ok(bars.size >= 3, `${entry} previews only ${bars.size} bar state(s)`);
+      // A preview where every date is unmarked teaches nothing about what the
+      // widget does. Trained, planned and free, plus today.
+      for (const entry of previewLayouts.filter((name) => !name.includes('streak') && !name.includes('routine'))) {
+        const pips = new Set([...FILES[entry].matchAll(/@drawable\/(widget_pip_[a-z0-9_]+)/g)].map((m) => m[1]));
+        assert.ok(pips.size >= 4, `${entry} previews only ${pips.size} date state(s)`);
+        assert.ok([...pips].some((name) => name.includes('_today')), `${entry} never shows today`);
+        assert.ok([...pips].some((name) => name.startsWith('widget_pip_done')), `${entry} shows nothing trained`);
+        assert.ok([...pips].some((name) => name.startsWith('widget_pip_plan')), `${entry} shows nothing planned`);
       }
     },
   },
   {
-    name: 'widgetResources: four layouts, two receivers',
+    name: 'widgetResources: four layouts, four receivers, one preview each',
     run() {
       assert.deepEqual(
         realLayouts.map(basename).sort(),
-        ['home_widget_day', 'home_widget_month', 'home_widget_row', 'home_widget_square'],
+        ['home_widget_calendar', 'home_widget_routine', 'home_widget_stats', 'home_widget_streak'],
       );
-      // The four-week grid still exists, but it is not offered in the picker:
-      // a 4×4 is a quarter of a home screen. It is what the size ladder draws
-      // when either widget is stretched tall.
-      assert.equal(PROVIDERS.length, 2);
-      assert.ok(
-        !PROVIDERS.some((provider) => provider.info.layout === 'home_widget_month'),
-        'the four-week grid is back in the widget picker',
-      );
-      assert.ok(kotlin.includes('R.layout.home_widget_month'), 'nothing can reach the four-week grid');
-      for (const provider of PROVIDERS) {
-        assert.ok(
-          provider.info.maxHeight >= 220,
-          `${provider.className} cannot be stretched far enough to reach the four-week grid`,
-        );
-      }
+      assert.equal(PROVIDERS.length, 4);
 
       for (const provider of PROVIDERS) {
         const info = FILES[`res/xml/${provider.infoFile}.xml`];
@@ -176,63 +163,122 @@ module.exports = [
         assert.match(info, /android:previewLayout="@layout\/[a-z0-9_]+"/);
         assert.ok(enStrings.has(provider.label), `${provider.label} is missing from strings.xml`);
         assert.ok(enStrings.has(provider.description), `${provider.description} is missing from strings.xml`);
-        assert.ok(
-          kotlin.includes(`class ${provider.className}`),
-          `${provider.className} has no Kotlin class`,
-        );
+        assert.ok(kotlin.includes(`class ${provider.className}`), `${provider.className} has no Kotlin class`);
       }
 
       // Every receiver gets its own name and its own preview, or the rows in the
       // picker are indistinguishable.
       assert.equal(new Set(PROVIDERS.map((provider) => provider.label)).size, PROVIDERS.length);
       assert.equal(new Set(PROVIDERS.map((provider) => provider.info.preview)).size, PROVIDERS.length);
+      assert.equal(previewLayouts.length, PROVIDERS.length);
     },
   },
   {
-    name: 'widgetResources: the 4x2 keeps the class name already pinned to home screens',
+    name: 'widgetResources: the two widgets already on home screens keep their class names',
     run() {
-      // Renaming it would orphan every widget a user has already added.
+      // Renaming either would orphan every widget a user has already added —
+      // whatever it draws now.
       assert.ok(PROVIDERS.some((provider) => provider.className === 'HomeWidgetProvider'));
+      assert.ok(PROVIDERS.some((provider) => provider.className === 'WeekWidgetProvider'));
       assert.ok(kotlin.includes('open class HomeWidgetProvider : AppWidgetProvider()'));
     },
   },
   {
-    name: 'widgetResources: both palettes exist for every bar state',
+    name: 'widgetResources: both palettes exist for every date state, today included',
     run() {
       for (const theme of ['light', 'dark']) {
         assert.ok(drawableNames.has(`widget_card_${theme}`));
         for (const state of ['done', 'plan', 'off']) {
-          assert.ok(drawableNames.has(`widget_bar_${state}_${theme}`), `bar missing: ${state}/${theme}`);
+          assert.ok(drawableNames.has(`widget_pip_${state}_${theme}`), `pip missing: ${state}/${theme}`);
+          assert.ok(drawableNames.has(`widget_pip_${state}_today_${theme}`), `today pip missing: ${state}/${theme}`);
         }
       }
-      // One bar drawable per state per theme, and nothing else: a 999dp corner
-      // clamps to a pill at any height, so no size needs its own copy.
-      assert.equal(drawableNames.size, 8);
+      // Two cards, two textures, six pips per theme, and one copy each of the
+      // two marks: an image is tinted at runtime rather than written out twice.
+      assert.equal(drawableNames.size, 18);
+      assert.ok(drawableNames.has('widget_logo'));
+      assert.ok(drawableNames.has('widget_arrow'));
+      assert.ok(kotlin.includes('"setColorFilter"'), 'the marks are never tinted, so one theme draws the other’s');
     },
   },
   {
-    name: 'widgetResources: every size with room for it has the one big number',
+    name: 'widgetResources: a date is either today or it is not, and it shows',
     run() {
-      // The finding from a phone: every widget the system ships anchors on one
-      // clearly-largest element, and ours had four type sizes within 6sp of each
-      // other. The 4×1 row is the one size with nowhere to put it.
-      for (const entry of realLayouts) {
-        const hasHero = FILES[entry].includes('@+id/widget_count"');
-        assert.equal(
-          hasHero,
-          !entry.includes('home_widget_row'),
-          `${entry}: hero number ${hasHero ? 'should not be' : 'is not'} here`,
-        );
+      // Today is drawn on its own axis — a ring — so a day can be today *and*
+      // trained. That was the whole reason the state list is three long.
+      for (const theme of ['light', 'dark']) {
+        for (const state of ['done', 'plan', 'off']) {
+          const plain = FILES[`res/drawable/widget_pip_${state}_${theme}.xml`];
+          const today = FILES[`res/drawable/widget_pip_${state}_today_${theme}.xml`];
+          assert.ok(!plain.includes('<stroke'), `${state}/${theme} rings a day that is not today`);
+          assert.match(today, /<stroke android:width="[\d.]+dp"/, `${state}/${theme} does not mark today`);
+          // Same fill either way: the ring is added, it does not replace.
+          const fill = (xml) => xml.match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
+          assert.equal(fill(plain), fill(today));
+        }
       }
-      // And it is genuinely the largest thing on the card.
-      const day = FILES['res/layout/home_widget_day.xml'];
-      const sizeAfter = (id) =>
-        Number(day.slice(day.indexOf(`@+id/${id}"`)).match(/android:textSize="([\d.]+)sp"/)[1]);
-      assert.ok(
-        sizeAfter('widget_count') > sizeAfter('widget_title'),
-        'the workout name is still bigger than the number meant to anchor the card',
-      );
-      assert.ok(kotlin.includes('R.id.widget_hero'), 'the provider never fills or hides the hero');
+    },
+  },
+  {
+    name: 'widgetResources: trained, planned and free are three different colours',
+    run() {
+      // This is the failure that only showed up on a device last time: two pale
+      // purples two steps apart are one colour on a small mark.
+      for (const theme of ['light', 'dark']) {
+        // The card fill carries alpha; the pills do not. Compare the RGB only.
+        const rgb = (value) => `#${value.slice(-6).toUpperCase()}`;
+        const colorOf = (state) =>
+          FILES[`res/drawable/widget_pip_${state}_${theme}.xml`].match(/android:color="(#[0-9A-Fa-f]{6,8})"/)[1];
+        const card = rgb(FILES[`res/drawable/widget_card_${theme}.xml`].match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1]);
+        const [done, plan] = [rgb(colorOf('done')), rgb(colorOf('plan'))];
+        assert.equal(new Set([done, plan, card]).size, 3, `${theme}: a date state shares a colour`);
+        // A free day is the card, drawn as nothing rather than as grey: a month
+        // of grey pills reads as a month of marks.
+        assert.equal(colorOf('off').toUpperCase(), '#00000000', `${theme}: a free day is painted`);
+      }
+    },
+  },
+  {
+    name: 'widgetResources: the card is fill, texture, wash — in that order',
+    run() {
+      // The texture has to sit on the fill and under the wash, or the fade
+      // fades nothing and the contour lines run edge to edge.
+      for (const theme of ['light', 'dark']) {
+        const card = FILES[`res/drawable/widget_card_${theme}.xml`];
+        assert.match(card, /^<\?xml[^>]*\?>\s*<layer-list/, `${theme} card is not layered`);
+        const order = [...card.matchAll(/<(solid|item android:drawable|gradient)/g)].map((match) => match[1]);
+        assert.deepEqual(order, ['solid', 'item android:drawable', 'gradient'], `${theme}: wrong layer order`);
+        assert.ok(card.includes(`@drawable/widget_texture_${theme}`));
+
+        // The wash ends in the card's own colour. Anything else shifts the
+        // card's tone as it fades, which is a different bug every time.
+        const rgb = (value) => value.slice(-6).toUpperCase();
+        const fill = card.match(/<solid android:color="(#[0-9A-Fa-f]{8})"/)[1];
+        const end = card.match(/android:endColor="(#[0-9A-Fa-f]{8})"/)[1];
+        assert.equal(rgb(end), rgb(fill), `${theme}: the wash fades to a colour the card is not`);
+        // Violet at the top-right, the card at the bottom-left: 225° is the
+        // axis that runs between those two corners.
+        assert.equal(card.match(/android:angle="(\d+)"/)[1], '225');
+        assert.ok(parseInt(card.match(/android:startColor="#([0-9A-Fa-f]{2})/)[1], 16) < 0x40, `${theme}: the tint is not a tint`);
+      }
+    },
+  },
+  {
+    name: 'widgetResources: the texture is clipped inside the card it sits on',
+    run() {
+      // A vector stretched to a wide card stretches its corners with it, so the
+      // clip's radius is larger than the card's 20dp on purpose: it has to stay
+      // inside the card's own corner at every aspect ratio a launcher hands out.
+      for (const theme of ['light', 'dark']) {
+        const texture = FILES[`res/drawable/widget_texture_${theme}.xml`];
+        assert.match(texture, /<clip-path android:pathData="M30,0/, `${theme} texture is unclipped`);
+        const rings = (texture.match(/<path/g) ?? []).length;
+        assert.ok(rings > 20, `${theme} texture has only ${rings} contour lines`);
+        // Lines, not fills: a filled ring would be a disc over the whole card.
+        assert.equal((texture.match(/android:fillColor="#00000000"/g) ?? []).length, rings);
+        const alpha = parseInt(texture.match(/android:strokeColor="#([0-9A-Fa-f]{2})/)[1], 16);
+        assert.ok(alpha < 0x50, `${theme} contour lines are a pattern, not a texture (alpha ${alpha})`);
+      }
     },
   },
   {
@@ -254,105 +300,129 @@ module.exports = [
     },
   },
   {
-    name: 'widgetResources: the size ladder tests height before width',
+    name: 'widgetResources: the month is a whole month, in both sizes',
     run() {
-      // Found by stretching a widget on a home screen: with the width test
-      // first, a 2-cell-wide widget stretched tall stayed on the two-week
-      // layout and left most of the card empty, and the four-week grid was
-      // unreachable from anything but the wide widget.
-      const ladder = kotlin.slice(kotlin.indexOf('fun layoutFor'));
-      const body = ladder.slice(0, ladder.indexOf('}'));
-      assert.ok(
-        body.indexOf('home_widget_month') < body.indexOf('home_widget_square'),
-        'the width test runs before the height test, so a tall narrow widget never reaches the four-week grid',
-      );
-    },
-  },
-  {
-    name: 'widgetResources: the 2×2 draws last week and this one, with dates',
-    run() {
-      // One row of bars left most of a 205dp square empty — the fix that came
-      // out of putting it on a home screen.
-      const square = FILES['res/layout/home_widget_square.xml'];
-      for (const index of [0, 1, 2, 3, 4, 5, 6]) {
-        for (const id of [
-          `widget_day_label_${index}`,
-          `widget_day_date_${index}`,
-          `widget_day_bar_${index}`,
-          `widget_day_tall_${index}`,
-          `widget_prev_date_${index}`,
-          `widget_prev_bar_${index}`,
-        ]) {
-          assert.ok(square.includes(`@+id/${id}"`), `the 2×2 is missing ${id}`);
+      // Six rows because a month can need six, and RemoteViews cannot add one.
+      for (const entry of calendarLayouts) {
+        const xml = FILES[entry];
+        assert.ok(xml.includes('@+id/widget_month"'), `${entry} has no month heading`);
+        for (let index = 0; index < DAY_COUNT; index += 1) {
+          assert.ok(xml.includes(`@+id/widget_axis_${index}"`), `${entry} is missing widget_axis_${index}`);
         }
-        // Last week cannot contain today, so it gets no second bar to reveal.
-        assert.ok(!square.includes(`@+id/widget_prev_tall_${index}"`));
+        for (let row = 0; row < HOME_WIDGET_MONTH_ROWS; row += 1) {
+          assert.ok(xml.includes(`@+id/widget_row_${row}"`), `${entry} is missing widget_row_${row}`);
+        }
+        for (let cell = 0; cell < CELL_COUNT; cell += 1) {
+          assert.ok(xml.includes(`@+id/widget_cell_${cell}"`), `${entry} is missing widget_cell_${cell}`);
+        }
       }
-      assert.ok(kotlin.includes('prevDateIds'), 'the provider never fills last week');
-      // Chronological: last week is drawn above the row that can hold today.
-      assert.ok(
-        square.indexOf('widget_prev_date_0') < square.indexOf('widget_day_date_0'),
-        'this week is drawn above last week',
-      );
-      assert.ok(
-        kotlin.includes('CURRENT_WEEK_INDEX - 1'),
-        'the provider does not read the week before this one',
-      );
+      // And the provider can hide the rows a shorter month does not use.
+      assert.ok(kotlin.includes('rowIds'), 'the provider never touches the week rows');
+      assert.match(kotlin, /setViewVisibility\(rowIds\[rowIndex\]/);
     },
   },
   {
-    name: 'widgetResources: planned and free are not the same colour in either theme',
+    name: 'widgetResources: the figures live only where there is room for them',
     run() {
-      // This is the failure that only showed up on a device last time: two pale
-      // purples two steps apart are one colour on a 5dp bar.
-      for (const theme of ['light', 'dark']) {
-        // The card fill carries alpha; the bars do not. Compare the RGB only.
-        const rgb = (value) => `#${value.slice(-6).toUpperCase()}`;
-        const colorOf = (state) =>
-          rgb(FILES[`res/drawable/widget_bar_${state}_${theme}.xml`].match(/android:color="(#[0-9A-Fa-f]{6,8})"/)[1]);
-        const [plan, off, done, card] = [
-          colorOf('plan'),
-          colorOf('off'),
-          colorOf('done'),
-          rgb(FILES[`res/drawable/widget_card_${theme}.xml`].match(/<solid android:color="(#[0-9A-Fa-f]{6,8})"/)[1]),
-        ];
-        assert.equal(new Set([plan, off, done, card]).size, 4, `${theme}: a bar state shares a colour`);
+      // Three of them, and only on the 4×2 — the 2×2 is the month alone, which
+      // is the whole difference between the two calendars.
+      const stats = FILES['res/layout/home_widget_stats.xml'];
+      for (let index = 0; index < 3; index += 1) {
+        assert.ok(stats.includes(`@+id/widget_stat_value_${index}"`));
+        assert.ok(stats.includes(`@+id/widget_stat_label_${index}"`));
+      }
+      assert.ok(!FILES['res/layout/home_widget_calendar.xml'].includes('widget_stat_value_0'));
+      // A figure is bigger than its caption, or the caption is the anchor.
+      const sizeAfter = (id) =>
+        Number(stats.slice(stats.indexOf(`@+id/${id}"`)).match(/android:textSize="([\d.]+)sp"/)[1]);
+      assert.ok(sizeAfter('widget_stat_value_0') > sizeAfter('widget_stat_label_0'));
+    },
+  },
+  {
+    name: 'widgetResources: every layout carries the four ids the provider always touches',
+    run() {
+      // The background, the mark, the body and the line that replaces it before
+      // the app has ever run. A layout missing one of them draws a stale card.
+      for (const entry of realLayouts) {
+        for (const id of ['widget_root', 'widget_prompt', 'widget_body', 'widget_logo']) {
+          assert.ok(FILES[entry].includes(`@+id/${id}"`), `${entry} is missing ${id}`);
+        }
       }
     },
   },
   {
-    name: 'widgetResources: today has a second bar to reveal, since heights cannot be set',
+    name: 'widgetResources: the two small widgets keep what they are when stretched',
     run() {
-      // RemoteViews cannot change a view's height before Android 12, so the
-      // double-height "today" bar has to exist in the layout already.
-      for (const index of [0, 1, 2, 3, 4, 5, 6]) {
-        assert.ok(definedIds.has(`widget_day_bar_${index}`));
-        assert.ok(definedIds.has(`widget_day_tall_${index}`));
-        assert.ok(definedIds.has(`widget_axis_${index}`));
-      }
-      // The month grid only needs one, in the row that contains today.
-      for (let cell = 0; cell < HOME_WIDGET_WEEK_COUNT * 7; cell += 1) {
-        assert.ok(definedIds.has(`widget_cell_bar_${cell}`), `widget_cell_bar_${cell} missing`);
-        assert.ok(definedIds.has(`widget_cell_date_${cell}`), `widget_cell_date_${cell} missing`);
-        const inCurrentWeek = Math.floor(cell / 7) === HOME_WIDGET_CURRENT_WEEK_INDEX;
-        assert.equal(
-          definedIds.has(`widget_cell_tall_${cell}`),
-          inCurrentWeek,
-          `widget_cell_tall_${cell} should exist only in the current week's row`,
+      // The size ladder is for the calendars. A streak stretched across four
+      // cells is still a streak, and a reader who picked it did not ask for a
+      // month.
+      for (const className of ['StreakWidgetProvider', 'RoutineWidgetProvider']) {
+        const source = FILES[`java/app/vinha/${className}.kt`];
+        assert.ok(source, `${className} is not generated`);
+        assert.match(
+          source,
+          /override fun layoutFor\(width: Int, height: Int\): Int = R\.layout\.home_widget_(streak|routine)/,
+          `${className} can be resized into a calendar`,
         );
       }
+      // The calendars do use the ladder, and narrow means the month alone.
+      const ladder = kotlin.slice(kotlin.indexOf('protected open fun layoutFor'));
+      const body = ladder.slice(0, ladder.indexOf('}'));
+      assert.ok(body.includes('home_widget_calendar'));
+      assert.ok(body.includes('home_widget_stats'));
+    },
+  },
+  {
+    name: 'widgetResources: the app can reach every receiver it declares',
+    run() {
+      // The plugin declares the receivers; the native module is what asks them
+      // to redraw after a workout and what answers "do you already have one".
+      // A receiver missing from that list still works — it just shows whatever
+      // it drew up to half an hour ago, which is the bug that is hardest to see.
+      const fs = require('node:fs');
+      const path = require('node:path');
+      const source = fs.readFileSync(
+        path.join(__dirname, '../../modules/home-widget/android/src/main/java/expo/modules/homewidget/HomeWidgetModule.kt'),
+        'utf8',
+      );
+      const listed = [...source.matchAll(/"([A-Za-z]+WidgetProvider)"/g)].map((match) => match[1]);
+      assert.deepEqual(
+        [...new Set(listed)].sort(),
+        PROVIDERS.map((provider) => provider.className).sort(),
+        'the native module and the plugin disagree about which widgets exist',
+      );
     },
   },
   {
     name: 'widgetResources: the payload contract matches on both sides of the process boundary',
     run() {
-      // Nothing can import TypeScript into a launcher process, so these two
-      // numbers are copies. A mismatch means the widget silently ignores every
-      // payload the app writes.
+      // Nothing can import TypeScript into a launcher process, so these numbers
+      // are copies. A mismatch means the widget silently ignores every payload
+      // the app writes.
       assert.ok(kotlin.includes(`PAYLOAD_VERSION = ${HOME_WIDGET_PAYLOAD_VERSION}`));
-      assert.ok(kotlin.includes(`CURRENT_WEEK_INDEX = ${HOME_WIDGET_CURRENT_WEEK_INDEX}`));
-      assert.ok(kotlin.includes(`WEEK_COUNT = ${HOME_WIDGET_WEEK_COUNT}`));
+      assert.ok(kotlin.includes(`MONTH_ROWS = ${HOME_WIDGET_MONTH_ROWS}`));
+      assert.ok(kotlin.includes('DAY_COUNT = 7'));
       assert.ok(kotlin.includes('PAYLOAD_FILE = "vinha-widget.json"'));
+
+      // Every field the payload carries is read by name on the other side.
+      for (const field of [
+        'monthLabel',
+        'weekdayLabels',
+        'monthWeeks',
+        'stats',
+        'streakValue',
+        'streakLabel',
+        'routineWhen',
+        'routineTitle',
+        'routineTarget',
+        'dateLabel',
+        'inMonth',
+        'isToday',
+        'state',
+        'theme',
+      ]) {
+        assert.ok(kotlin.includes(`"${field}"`), `the provider never reads ${field}`);
+      }
 
       // And the link prefix the widget builds has to be the one the app parses.
       assert.ok(
@@ -365,25 +435,27 @@ module.exports = [
     name: 'widgetResources: every key is translated, and the copy the widget owns is small',
     run() {
       assert.deepEqual([...fiStrings].sort(), [...enStrings].sort());
-      // The widget owns copy only where no payload can reach it: the picker and
-      // a fresh install. Everything else arrives pre-translated.
+      // The widget owns copy only where no payload can reach it: the picker,
+      // a fresh install, and the four static previews. Everything else arrives
+      // pre-translated. Four widgets is four picker rows and four previews, so
+      // the cap is higher than the two-widget family's was — it is still a cap.
       assert.ok(enStrings.has('widget_setup'));
       assert.ok(enStrings.has('widget_setup_short'));
-      assert.ok(enStrings.size <= 20, `the widget owns ${enStrings.size} strings — that is a translation surface`);
+      assert.ok(enStrings.size <= 30, `the widget owns ${enStrings.size} strings — that is a translation surface`);
     },
   },
   {
     name: 'widgetResources: an axis letter or a date can never wrap',
     run() {
-      // Found on a device: a 2×2 column is about 18dp wide, and Android breaks
+      // Found on a device: a 2×2 column is about 25dp wide, and Android breaks
       // a word that does not fit across lines, so "MON" rendered as three
-      // stacked letters. Every label that lives in a seven-column row is now
-      // pinned to one line and given the whole column to sit in.
+      // stacked letters. Every label that lives in a seven-column row is pinned
+      // to one line and given the whole column to sit in.
       for (const entry of layoutPaths) {
         const elements = FILES[entry].split('<TextView').slice(1);
         for (const element of elements) {
           const id = element.match(/android:id="@\+?id\/([a-z0-9_]+)"/)?.[1];
-          if (!id || !/^widget_(day_label|axis|cell_date)_\d+$/.test(id)) {
+          if (!id || !/^widget_(axis|cell)_\d+$/.test(id)) {
             continue;
           }
           assert.match(element, /android:maxLines="1"/, `${entry} → ${id} may wrap`);
@@ -419,8 +491,8 @@ module.exports = [
     run() {
       // Well-formed is not the same as correct. `...dp">${margin}${pad}` parses
       // cleanly and reads right, but everything after the `>` is character
-      // data: aapt2 drops it without a word, and the bars lose the gap between
-      // them and the one under the date.
+      // data: aapt2 drops it without a word, and the dates lose the gap between
+      // them.
       for (const entry of layoutPaths) {
         assert.ok(
           !/>\s*android:/.test(FILES[entry]),
@@ -428,9 +500,9 @@ module.exports = [
         );
       }
       // And the spacing that goes through that path is really in the file.
-      const square = FILES['res/layout/home_widget_square.xml'];
-      assert.match(square, /android:paddingStart="[\d.]+dp"/);
-      assert.match(square, /android:layout_marginTop="[\d.]+dp"/);
+      const calendar = FILES['res/layout/home_widget_calendar.xml'];
+      assert.match(calendar, /android:paddingStart="[\d.]+dp"/);
+      assert.match(calendar, /android:layout_marginTop="[\d.]+dp"/);
     },
   },
   {
@@ -468,7 +540,24 @@ module.exports = [
     name: 'widgetResources: nothing the design cut has come back',
     run() {
       const everything = paths.join('\n') + kotlin + layoutPaths.map((entry) => FILES[entry]).join('\n');
-      for (const gone of ['widget_cta', 'widget_pill', 'widget_play', 'widget_mark', 'widget_next_meta', 'gradient']) {
+      // The bar strip and its one big number, which the month replaced, plus
+      // the elements cut before that.
+      // 'gradient' was on this list until the design asked for the contour
+      // card, whose whole colour is one — so the guard now names the ids the
+      // month replaced, and the elements cut before them.
+      for (const gone of [
+        'widget_bar',
+        'widget_tall',
+        'widget_day_label',
+        'widget_prev_',
+        'widget_hero',
+        'widget_count',
+        'widget_meta',
+        'widget_cta',
+        'widget_pill',
+        'widget_play',
+        'widget_mark',
+      ]) {
         assert.ok(!everything.includes(gone), `${gone} is still in the generated widget`);
       }
     },
