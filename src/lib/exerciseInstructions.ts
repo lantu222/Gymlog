@@ -820,6 +820,88 @@ const EXERCISE_INSTRUCTIONS_FI: Record<string, string[]> = {
     'Aseta seuraavaksi etujalan puoleinen käsi lattialle kyynärpää jalkaterän vierellä. Toinen käsi tukee lattiassa etujalan rinnalla.',
     'Aseta 10–20 sekunnin jälkeen kädet etujalan molemmin puolin. Nosta etujalan varpaat irti lattiasta ja ojenna jalka suoraksi. Voit joutua siirtämään takajalkaa. Pidä 10–20 sekuntia ja toista koko sarja toiselle puolelle.',
   ],
+  'Air Bike': [
+    'Asetu selinmakuulle alaselkä lattiaa vasten ja kädet pään vierellä. Varo, ettet vedä niskasta. Nosta hartiat irti lattiasta rutistusasentoon.',
+    'Nosta polvet niin, että reidet ovat kohtisuorassa lattiaan nähden ja sääret lattian suuntaisesti.',
+    'Aloita polkeva liike: ojenna oikea jalka eteen ja vedä vasen polvi lähemmäs. Vie samalla oikea kyynärpää kohti vasenta polvea kiertämällä ylävartaloa.',
+    'Palaa alkuasentoon.',
+    'Kierrä toiselle puolelle ja vie vasen kyynärpää kohti oikeaa polvea samalla kun jatkat polkemista.',
+    'Jatka vuorotellen, kunnes molemmille puolille on tehty suositeltu määrä toistoja.',
+  ],
+  'Band Pull Apart': [
+    'Aloita kädet suorina edessäsi kuminauha molemmissa käsissä.',
+    'Vie kädet sivuille kuin tekisit käänteisen vipunoston.',
+    'Pidä kyynärpäät suorina koko liikkeen ajan ja vie nauha rintaa vasten. Pidä hartiat taakse vedettyinä.',
+    'Pidä tauko ääriasennossa ja palaa hallitusti alkuasentoon.',
+  ],
+  'Bench Dips': [
+    'Aseta penkki selkäsi taakse poikittain. Ota penkin reunasta kiinni kädet suorina hartioiden leveydellä ja katse poispäin penkistä. Jalat ovat suorina edessä lantiosta taivutettuna.',
+    'Laskeudu hitaasti alas koukistamalla kyynärpäitä, kunnes olkavarren ja kyynärvarren väliin jää hieman alle 90 asteen kulma. Pidä kyynärpäät mahdollisimman lähellä toisiaan ja kyynärvarret pystysuunnassa.',
+    'Nosta itsesi takaisin ylös ojentajilla.',
+    'Toista suositeltu määrä toistoja.',
+  ],
+  'Bicycling, Stationary': [
+    'Istu pyörään ja säädä satula pituutesi mukaan.',
+    'Valitse haluamasi vaihtoehto valikosta. Laite voi käynnistyä vasta kun alat polkea. Voit käyttää manuaalista asetusta tai valmista ohjelmaa. Yleensä voit syöttää ikäsi ja painosi, jolloin laite arvioi kulutetut kalorit. Vastusta voi muuttaa treenin aikana, ja kahvoista voi seurata sykettä ja pitää tehon oikeana.',
+  ],
+  'Dumbbell Side Bend': [
+    'Seiso ryhdikkäästi käsipaino vasemmassa kädessä kämmen vartaloa kohti ja oikea käsi lantiolla. Jalat ovat hartioiden leveydellä.',
+    'Pidä selkä suorana ja katse eteenpäin ja taivuta vain vyötäröstä oikealle niin pitkälle kuin pystyt. Pidä sekunti ja palaa ylös alkuasentoon. Muu vartalo pysyy paikallaan.',
+    'Toista sama taivuttamalla vasemmalle. Pidä sekunti ja palaa alkuasentoon.',
+    'Toista suositeltu määrä toistoja ja vaihda sitten kättä.',
+  ],
+  'Kettlebell Pistol Squat': [
+    'Ota kahvakuula molempiin käsiin sarvista kiinni. Nosta toinen jalka irti lattiasta ja kyykkää toisen varassa.',
+    'Kyykkää alas koukistamalla polvea ja työntämällä lantiota taakse. Pidä kuulaa ylhäällä edessäsi.',
+    'Pidä ala-asento sekunnin ajan ja nouse ylös työntämällä kantapäällä. Pidä katse ja rinta ylhäällä.',
+    'Laskeudu uudelleen ja toista.',
+  ],
+  'Machine Shoulder (Military) Press': [
+    'Istu olkapääprässiin ja valitse vastus.',
+    'Ota kahvoista kiinni sivuilta kyynärpäät koukussa vartalon linjassa.',
+    'Työnnä kahvat ylös ja ojenna kädet suoriksi. Pidä supistus sekunnin ajan ylhäällä.',
+    'Laske kahvat hitaasti takaisin alkuasentoon.',
+    'Toista suositeltu määrä toistoja.',
+  ],
+  'Muscle Up': [
+    'Ota renkaista väärä ote niin, että kämmenten tyvi on renkaiden päällä. Aloita leuanveto vetämällä kyynärpäät alas kylkiin.',
+    'Kun saavutat leuanvedon yläasennon, vedä renkaat kainaloihin ja rullaa hartiat eteen niin, että kyynärpäät pääsevät suoraan taakse. Tästä asennosta jatkat dippiin.',
+    'Pidä liike hallittuna ja vakaana ja ojenna kyynärpäät suoriksi.',
+    'Laskeudu alas varovasti.',
+  ],
+  'Plie Dumbbell Squat': [
+    'Ota käsipainosta kiinni molemmin käsin sen alapäästä ja seiso suorana. Vie jalat hartioita leveämmälle polvet kevyesti koukussa.',
+    'Varpaat osoittavat ulospäin. Kädet pysyvät paikallaan koko liikkeen ajan.',
+    'Koukista polvia hitaasti ja laskeudu, kunnes reidet ovat lattian suuntaisesti.',
+    'Nouse takaisin ylös työntämällä pääosin kantapäillä.',
+    'Toista suositeltu määrä toistoja.',
+  ],
+  'Quad Stretch': [
+    'Asetu kyljellesi. Pujota vyö, naru tai kuminauha ylemmän jalan jalkaterän ympäri. Koukista polvea ja ojenna lonkkaa yrittäen koskettaa kantapäällä pakaraa, ja pidä nauhasta kiinni käsilläsi.',
+    'Pidä nauhaa olkapään yli tai pään yläpuolella ja vedä varovasti, jolloin etureiden venytys kasvaa. Pidä 10–20 sekuntia ja vaihda puolta.',
+  ],
+  'Rowing, Stationary': [
+    'Istu soutulaitteeseen. Varmista, että kantapäät ovat tukevasti poljinten pohjaa vasten ja hihnat kiristettyinä. Valitse haluamasi ohjelma, jos laitteessa on sellainen. Istu ryhdikkäästi ja taivuta lantiosta eteen.',
+    'Vedossa on kolme vaihetta. Ensimmäisessä olet edessä: polvet koukussa lähellä rintaa ja ylävartalo hieman eteen nojaten mutta ryhdikkäänä. Työnnä sitten poljinlevyjä ja ojenna jalat samalla kun vedät kädet ylävatsalle ja puristat lapoja yhteen. Anna jalkojen ja lantion tehdä työ, niin selkä säästyy.',
+    'Palautusvaiheessa ojennat kädet, koukistat polvet ja tuot vartalon takaisin eteen ensimmäiseen vaiheeseen.',
+  ],
+  'Standing Biceps Cable Curl': [
+    'Seiso ryhdikkäästi ja pidä alataljaan kiinnitetystä kaarretangosta kiinni hartioiden levyisellä alaotteella kämmenet ylöspäin. Kyynärpäät ovat lähellä vartaloa.',
+    'Pidä olkavarret paikallaan ja käännä tanko ylös hauiksilla. Vain kyynärvarret liikkuvat. Jatka, kunnes hauikset ovat täysin supistuneet ja tanko on hartioiden korkeudella. Purista sekunnin ajan.',
+    'Laske tanko hitaasti takaisin alkuasentoon.',
+    'Toista suositeltu määrä toistoja.',
+  ],
+  'Standing Dumbbell Press': [
+    'Seiso jalat hartioiden leveydellä käsipaino kummassakin kädessä. Nosta painot pään korkeudelle kyynärpäät sivuilla noin 90 asteen kulmassa.',
+    'Pidä tekniikka tiukkana ilman jalkojen vauhtia tai taaksepäin nojaamista ja työnnä painot ylös suoraan pään yläpuolelle.',
+    'Pidä tauko ja laske painot hitaasti takaisin alkuasentoon.',
+  ],
+  'Standing Long Jump': [
+    'Tee liike mieluiten hiekassa tai muulla pehmeällä alustalla ja varmista, että voit mitata matkan. Asetu puolikyykkyyn jalat hartioiden leveydellä.',
+    'Heilauta käsiä voimakkaasti ja tee jaloilla vastaliike. Hyppää eteenpäin niin pitkälle kuin pystyt.',
+    'Pyri laskeutumaan jalat edessäsi ja kurota jaloilla niin pitkälle kuin pystyt.',
+    'Mittaa matka lähtöpisteestä laskeutumiskohtaan ja kirjaa tulos ylös.',
+  ],
 };
 
 /**

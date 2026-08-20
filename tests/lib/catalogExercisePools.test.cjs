@@ -147,8 +147,17 @@ module.exports = [
       // prescription and the conditioning row gets a photo of a crunch — a
       // confidently wrong photo, which is worse than none.
       assert.equal(resolved('Air Bike (30s sprint)'), null);
-      assert.equal(resolved('Push-Up (20s on / 10s off)'), null);
-      assert.equal(resolved('Pistol Squat (each leg)'), null);
+      // Nor may the strip reach anything else by itself: the library has no
+      // burpee at all, and a stripped name that finds nothing must stay found
+      // nothing.
+      assert.equal(resolved('Burpee (20s on / 10s off)'), null);
+
+      // What the strip refuses, the alias table may still name by hand — which
+      // is what its own comment asks for. A push-up done in 20-second bursts is
+      // a push-up, and the photo and instructions are right; only the dosage
+      // lives in the bracket.
+      assert.equal(resolved('Push-Up (20s on / 10s off)'), 'Pushups');
+      assert.equal(resolved('Pistol Squat (each leg)'), 'Kettlebell Pistol Squat');
 
       // A stripped name gets exact and alias lookups only. Containment on a
       // shortened name is where it went wrong: "rows" sits inside "seated
@@ -193,6 +202,45 @@ module.exports = [
         'Summer Conditioning / Day 2: Strength and Tempo Run: Tempo Run Blocks',
         'Summer Conditioning / Day 3: Legs and Strides: Stride Finishers',
       ]);
+    },
+  },
+  {
+    name: 'the number of prescribed names that resolve to nothing does not grow',
+    run() {
+      const { GENERATED_EXERCISE_LIBRARY } = require('../../.test-dist/data/generatedExerciseLibrary.js');
+      const { findGuidedLibraryIndex } = require('../../.test-dist/lib/guidedPlayer.js');
+      const { WORKOUT_TEMPLATES_V1 } = require('../../.test-dist/features/workout/workoutCatalog.js');
+      const libraryNames = GENERATED_EXERCISE_LIBRARY.map((entry) => entry.name);
+
+      const prescribed = new Set();
+      for (const template of WORKOUT_TEMPLATES_V1) {
+        for (const session of template.sessions) {
+          for (const exercise of session.exercises) {
+            prescribed.add(exercise.exerciseName);
+          }
+        }
+      }
+
+      const unresolved = [...prescribed].filter((name) => {
+        const index = findGuidedLibraryIndex(name, libraryNames);
+        return index === null || index === undefined || index < 0;
+      });
+
+      // A name that resolves to nothing reaches the reader with no photo, no
+      // demo, no swap pool and no instructions in any language — and it does it
+      // silently. 113 of 274 did, until the alias table learned the catalogs'
+      // own spellings for lifts the library files differently.
+      //
+      // What is left is two kinds: cardio prescriptions with no library entry
+      // to point at ("Treadmill HIIT"), and movements the library genuinely
+      // lacks ("Burpee", "Bird Dog"). Both need content, not a mapping.
+      //
+      // Lower this number, never raise it. A program that adds an unresolvable
+      // name should have to argue for it here.
+      assert.ok(
+        unresolved.length <= 84,
+        `${unresolved.length} prescribed names resolve to nothing (was 84):\n  ${unresolved.sort().join('\n  ')}`,
+      );
     },
   },
   {

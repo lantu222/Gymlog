@@ -970,6 +970,53 @@ export const GUIDED_LIBRARY_ALIASES: Record<string, string> = {
   // "each side" is a prescription, so the qualifier strip refuses this one.
   // Same stand-in drillMedia already uses for the couch stretch.
   'couch stretch (each side)': 'intermediate hip flexor and quad stretch',
+  // ── The catalogs' own names for lifts the library files differently ────
+  //
+  // Found by walking every exercise the ready catalogs prescribe against the
+  // library: 113 of 274 names resolved to nothing, so they reached the reader
+  // with no photo, no demo and no instructions in any language. These are the
+  // ones the library does hold under another name. Each pair was checked by
+  // hand on the same rule as the block above — SAME MOVEMENT, gear may differ.
+  //
+  // What is deliberately not here: the cardio prescriptions (Treadmill HIIT,
+  // Easy Run Blocks), which are dosage rather than lifts and have no library
+  // entry to point at, and the movements the library genuinely lacks (Burpee,
+  // Bird Dog, Nordic Hamstring Curl). A near miss is worse than a blank.
+  'competition back squat': 'barbell full squat',
+  'pause squat': 'barbell full squat',
+  'competition deadlift': 'barbell deadlift',
+  'conventional deadlift': 'barbell deadlift',
+  'pendlay row': 'bent over barbell row',
+  'seated machine row': 'seated cable rows',
+  'machine shoulder press': 'machine shoulder (military) press',
+  'standing dumbbell shoulder press': 'standing dumbbell press',
+  'cable bicep curl': 'standing biceps cable curl',
+  'triceps kickback': 'tricep dumbbell kickback',
+  'triceps dip (chair)': 'bench dips',
+  'explosive pull-up': 'pullups',
+  'muscle-up progression (negative)': 'muscle up',
+  'band pull-apart': 'band pull apart',
+  'battle rope wave': 'battling ropes',
+  'standing side bend': 'dumbbell side bend',
+  'broad jump': 'standing long jump',
+  // A sumo squat is a wide-stance squat; the library files that movement as a
+  // plie, and holding a dumbbell is gear, not a different lift.
+  'sumo squat': 'plie dumbbell squat',
+  // The library's pistol is counterbalanced with a kettlebell. Same position.
+  'pistol squat (each leg)': 'kettlebell pistol squat',
+  // The library's "Air Bike" is the bicycle crunch, not the fan bike — which is
+  // exactly why the qualifier strip refuses "Air Bike (30s sprint)" above.
+  'bicycle crunch': 'air bike',
+  "child's pose with reach": "child's pose",
+  'lying quad stretch': 'quad stretch',
+  'hip flexor stretch': 'kneeling hip flexor',
+  // Prescriptions the strip refuses on purpose, named one by one instead.
+  'push-up (20s on / 10s off)': 'pushups',
+  'squat jump (20s on / 10s off)': 'freehand jump squat',
+  'mountain climber (20s on / 10s off)': 'mountain climbers',
+  'rowing machine hiit': 'rowing, stationary',
+  'rowing machine (500m intervals)': 'rowing, stationary',
+  'stationary bike (easy pace)': 'bicycling, stationary',
 };
 
 /**
