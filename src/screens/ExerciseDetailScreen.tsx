@@ -4,6 +4,7 @@ import Svg, { Path } from 'react-native-svg';
 
 import { SimpleLineChart } from '../components/SimpleLineChart';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
+import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { convertWeightFromKg, formatShortDate, removeTrailingZeros } from '../lib/format';
 import { I18nKey, t } from '../lib/i18n';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -258,7 +259,7 @@ export function ExerciseDetailScreen({
     ? primaryMuscles.map((muscle) => toLabel(muscle, language))
     : [bodyPartLabel];
 
-  const instructions = (item.instructions ?? []).filter(Boolean);
+  const instructions = getExerciseInstructions(item.name, item.instructions, language);
 
   const logs = history?.logs ?? [];
   const hasHistory = logs.length > 0;

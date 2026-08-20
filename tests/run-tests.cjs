@@ -162,6 +162,7 @@ const suites = [
   ...require('./lib/progressionRuleLabel.test.cjs'),
   ...require('./lib/programBrowse.test.cjs'),
   ...require('./lib/readyProgramCards.test.cjs'),
+  ...require('./lib/exerciseInstructionsFi.test.cjs'),
   ...require('./lib/season.test.cjs'),
   ...require('./lib/programCategories.test.cjs'),
   ...require('./lib/programFingerprint.test.cjs'),

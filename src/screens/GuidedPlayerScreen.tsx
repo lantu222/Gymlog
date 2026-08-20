@@ -65,6 +65,7 @@ import {
   resolveGuidedResumeIndex,
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
+import { getExerciseInstructions } from '../lib/exerciseInstructions';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -328,7 +329,7 @@ function MediaZone({
             name={name}
             muscle={muscle}
             language={language}
-            instructions={match?.instructions ?? undefined}
+            instructions={getExerciseInstructions(match?.name, match?.instructions, language)}
             visible={sheetOpen}
             onClose={() => setSheetOpen(false)}
           />
