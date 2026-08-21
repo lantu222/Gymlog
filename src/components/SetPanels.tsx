@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Image, NativeScrollEvent, NativeSyntheticEvent, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
 
@@ -89,14 +89,21 @@ export function SetPanels({ height, language, history, instructions, imageUrl, i
   // exercise rather than held in state, so moving to the next lift re-asks.
   const opening = history && history.sets.length > 0 ? 0 : Math.min(panels.indexOf('image'), panels.length - 1);
   const openedFor = useRef<string | null>(null);
+  // Whether the opening panel has been scrolled to yet.
+  const settled = useRef(false);
   const signature = `${initials}|${imageUrl ?? ''}|${history?.performedAt ?? ''}`;
   if (openedFor.current !== signature) {
     openedFor.current = signature;
+    settled.current = false;
     if (index !== Math.max(0, opening)) {
       setIndex(Math.max(0, opening));
     }
   }
 
+  // The opening panel has to be scrolled to, not just chosen. Width is 0 on
+  // the first render, so the choice landed in state and nowhere else — the dots
+  // said one thing, the deck showed another, and the first arrow tap jumped two
+  // panels because it counted from the state.
   const goTo = (next: number) => {
     const clamped = Math.max(0, Math.min(panels.length - 1, next));
     setIndex(clamped);
@@ -125,6 +132,19 @@ export function SetPanels({ height, language, history, instructions, imageUrl, i
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onMomentumEnd}
+        // Scrolled here rather than from an effect on width: an effect fires
+        // before the children have been laid out at that width, so the jump
+        // landed on a zero-width content box and did nothing — the dots said
+        // "photo" while the deck still showed "last time".
+        onContentSizeChange={(contentWidth) => {
+          if (settled.current || width <= 0 || contentWidth < width * panels.length) {
+            return;
+          }
+          settled.current = true;
+          if (index > 0) {
+            scroller.current?.scrollTo({ x: index * width, animated: false });
+          }
+        }}
         scrollEventThrottle={16}
       >
         {panels.map((kind) => (
@@ -633,7 +653,9 @@ const makeStyles = (theme: Theme) =>
       gap: 10,
       paddingHorizontal: 18,
       paddingTop: 10,
-      paddingBottom: 44,
+      // Clear of the chrome with room to spare: a line half-hidden behind the
+      // dots is a line you try to read and cannot.
+      paddingBottom: 72,
     },
     step: {
       flexDirection: 'row',
@@ -664,6 +686,6 @@ const makeStyles = (theme: Theme) =>
       left: 0,
       right: 0,
       bottom: 0,
-      height: 52,
+      height: 76,
     },
   });

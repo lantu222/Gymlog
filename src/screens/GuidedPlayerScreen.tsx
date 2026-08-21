@@ -207,6 +207,11 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
     edit: <Path d="M4 20h4l10.5-10.5a2.1 2.1 0 00-3-3L5 17v3zM13.5 6.5l3 3" />,
     arrowUp: <Path d="M12 19V5M6 11l6-6 6 6" />,
     list: <Path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
+    // Two arrows passing: swapping one lift for another.
+    swap: <Path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5" />,
+    // The actions menu. It shared the list glyph with the swap button, and two
+    // identical icons side by side is two buttons that look like one.
+    dots: <Path d="M5 12h.01M12 12h.01M19 12h.01" />,
     video: (
       <>
         <Rect x="3" y="6.5" width="12.5" height="11" rx="3" />
@@ -1401,8 +1406,18 @@ export function GuidedPlayerScreen({
   const swapLibrary = useMemo(() => {
     const query = swapQuery.trim();
     const suggested = new Set(swapOptions.map((option) => option.exerciseName));
+    // Matched on the displayed name as well as the stored one: the plan may
+    // hold "Barbell Squat" where the library holds "Back Squat", and both read
+    // "Takakyykky" — so the lift you are standing at was offered as something
+    // to swap it for.
     const current = actionExercise?.exerciseName;
-    const pool = exerciseLibrary.filter((item) => item.name !== current && !suggested.has(item.name));
+    const currentLabel = current ? exerciseNameLabel(language, current) : null;
+    const pool = exerciseLibrary.filter(
+      (item) =>
+        item.name !== current &&
+        exerciseNameLabel(language, item.name) !== currentLabel &&
+        !suggested.has(item.name),
+    );
     if (!query) {
       const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
       return [...pool]
@@ -1976,7 +1991,7 @@ export function GuidedPlayerScreen({
                     </View>
                   </View>
                   <GhostBtn
-                    icon="list"
+                    icon="swap"
                     label={t(language, 'guided.swap.action')}
                     onPress={() => setSwapOpen(true)}
                   />
@@ -2129,9 +2144,12 @@ export function GuidedPlayerScreen({
                   label={t(language, 'guided.action.addSet')}
                   onPress={handleAddSet}
                 />
-                {swapOptions.length ? (
+                {/* No longer gated on the substitution group: the sheet
+                    searches the whole library, so there is always something
+                    behind this row. */}
+                {actionExercise ? (
                   <GhostBtn
-                    icon="list"
+                    icon="swap"
                     label={t(language, 'guided.action.swap')}
                     onPress={() => {
                       setPauseSheetOpen(false);
@@ -2534,7 +2552,7 @@ function SetStepView({
             onPress={onOpenActions}
             style={styles.setRoundBtn}
           >
-            <GPIcon name="list" size={24} color={theme.ink} sw={2.2} />
+            <GPIcon name="dots" size={24} color={theme.ink} sw={2.2} />
           </Pressable>
           {/* Was "List" — the table logger is gone, and this slot now does the
               one thing people left the guided flow for. Same icon on purpose:
@@ -2547,7 +2565,7 @@ function SetStepView({
               onPress={onSwapExercise}
               style={styles.setListBtn}
             >
-              <GPIcon name="list" size={20} color={theme.ink} sw={2.2} />
+              <GPIcon name="swap" size={20} color={theme.ink} sw={2.2} />
               <Text style={styles.setListBtnText}>{t(language, 'guided.swapShort')}</Text>
             </Pressable>
           ) : null}

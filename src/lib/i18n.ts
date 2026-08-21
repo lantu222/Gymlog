@@ -1513,12 +1513,12 @@ const EN = {
   // footnote stayed, explaining a third option under two. What the sheet
   // actually needs to say is what ending costs — which is the one thing a
   // reader opening it wants to know.
-  'guided.exit.footnote': 'Ending discards the sets you have logged in this session.',
+  'guided.exit.footnote': 'Discarding throws away the sets you logged in this session.',
   // Shown once something is logged: the third way out. Same save as the
   // finish step, from wherever the session stands.
   'guided.exit.finishSave': "I'm done",
-  'guided.exit.footnoteSavedOne': 'Finish keeps your 1 logged set. Ending discards it.',
-  'guided.exit.footnoteSavedMany': 'Finish keeps your {count} logged sets. Ending discards them.',
+  'guided.exit.footnoteSavedOne': '“I’m done” keeps your 1 logged set. Discarding throws it away.',
+  'guided.exit.footnoteSavedMany': '“I’m done” keeps your {count} logged sets. Discarding throws them away.',
   'guided.pauseSheet.title': 'Paused',
   'guided.pauseSheet.backOne': 'Back one',
   'guided.pauseSheet.skipThis': 'Skip this',
@@ -4840,10 +4840,10 @@ const FI: Record<I18nKey, string> = {
   'guided.exit.title': 'Poistutaanko ohjatusta tilasta?',
   'guided.exit.keep': 'Jatka treeniä',
   'guided.exit.end': 'Hylkää treeni',
-  'guided.exit.footnote': 'Lopettaminen hylkää tässä treenissä kirjaamasi sarjat.',
+  'guided.exit.footnote': 'Hylkääminen heittää pois tässä treenissä kirjaamasi sarjat.',
   'guided.exit.finishSave': 'Olen valmis',
-  'guided.exit.footnoteSavedOne': 'Tallennus säilyttää 1 kirjatun sarjan. Lopettaminen hylkää sen.',
-  'guided.exit.footnoteSavedMany': 'Tallennus säilyttää {count} kirjattua sarjaa. Lopettaminen hylkää ne.',
+  'guided.exit.footnoteSavedOne': '”Olen valmis” säilyttää 1 kirjatun sarjan. Hylkääminen heittää sen pois.',
+  'guided.exit.footnoteSavedMany': '”Olen valmis” säilyttää {count} kirjattua sarjaa. Hylkääminen heittää ne pois.',
   'guided.pauseSheet.title': 'Tauolla',
   'guided.pauseSheet.backOne': 'Yksi taaksepäin',
   'guided.pauseSheet.skipThis': 'Ohita tämä',
