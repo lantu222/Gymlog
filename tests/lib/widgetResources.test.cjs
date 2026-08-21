@@ -54,6 +54,18 @@ function stringNames(xml) {
 const enStrings = stringNames(FILES['res/values/widget_strings.xml']);
 const fiStrings = stringNames(FILES['res/values-fi/widget_strings.xml']);
 
+/** name -> value, for the few strings the widget owns outright. */
+function stringValues(xml) {
+  return new Map(
+    [...xml.matchAll(/<string name="([a-z0-9_]+)">([\s\S]*?)<\/string>/g)].map((match) => [
+      match[1],
+      match[2],
+    ]),
+  );
+}
+const enText = stringValues(FILES['res/values/widget_strings.xml']);
+const fiText = stringValues(FILES['res/values-fi/widget_strings.xml']);
+
 module.exports = [
   {
     name: 'widgetResources: every R.* the Kotlin names exists as a resource',
@@ -465,6 +477,16 @@ module.exports = [
       // the cap is higher than the two-widget family's was — it is still a cap.
       assert.ok(enStrings.has('widget_setup'));
       assert.ok(enStrings.has('widget_setup_short'));
+      // And the one thing that copy must never do: claim a fact about the
+      // reader's data. A missing payload means the app has not run since it was
+      // installed or updated — after a version bump it told a reader with six
+      // programmes to go and make one. Opening the app is true either way.
+      for (const key of ['widget_setup', 'widget_setup_short']) {
+        for (const [language, strings] of [['en', enText], ['fi', fiText]]) {
+          const value = strings.get(key) ?? '';
+          assert.doesNotMatch(value, /program|ohjelma/i, `${key} (${language}) claims something it cannot know`);
+        }
+      }
       assert.ok(enStrings.size <= 30, `the widget owns ${enStrings.size} strings — that is a translation surface`);
     },
   },

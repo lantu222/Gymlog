@@ -993,8 +993,13 @@ const STRINGS = {
     widget_streak_description: 'Every workout you have logged.',
     widget_routine_name: 'Vinha · Today',
     widget_routine_description: 'What today is for, and one tap to it.',
-    widget_setup: 'Create your first program',
-    widget_setup_short: 'Create a program',
+    // Never "create a program": a missing payload means the app has not run
+    // since it was installed or updated, which is not the same as the reader
+    // having no programme — and after an update it told a reader with six
+    // programmes to go and make one. Opening the app is true in both cases,
+    // and is also the thing that fixes it.
+    widget_setup: 'Open Vinha Fitness to fill this in',
+    widget_setup_short: 'Open Vinha',
     widget_label_workouts: 'Workouts',
     widget_label_duration: 'Duration',
     widget_label_volume: 'Volume',
@@ -1015,8 +1020,8 @@ const STRINGS = {
     widget_streak_description: 'Kaikki kirjaamasi treenit.',
     widget_routine_name: 'Vinha · Tänään',
     widget_routine_description: 'Mitä varten tämä päivä on, yhden napautuksen päässä.',
-    widget_setup: 'Tee ensimmäinen ohjelma',
-    widget_setup_short: 'Tee ohjelma',
+    widget_setup: 'Avaa Vinha Fitness niin tämä täyttyy',
+    widget_setup_short: 'Avaa Vinha',
     widget_label_workouts: 'Treenit',
     widget_label_duration: 'Kesto',
     widget_label_volume: 'Volyymi',
