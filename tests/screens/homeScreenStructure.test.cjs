@@ -584,6 +584,44 @@ module.exports = [
     },
   },
   {
+    /**
+     * "Today is legs, not upper."
+     *
+     * The rotation decides what comes next in the programme and cannot know
+     * what happened to the reader's day. Before this, the only way to train
+     * something else was to leave Home for the programme screen and start a
+     * session from the list there.
+     */
+    name: "today's workout can be changed from the title, for one day only",
+    run() {
+      // The title is the switch: a reader looking at the wrong workout reaches
+      // for its name first.
+      assert.match(homeScreenSource, /onPress=\{\(\) => setTodaySheetVisible\(true\)\}/);
+      assert.match(homeScreenSource, /onPickTodaySession\?\.\(session\.id\)/);
+      // One session is not a choice.
+      assert.match(homeScreenSource, /planSessions\.length < 2/);
+
+      // Dated, not sticky. A pick that outlived its day would quietly replace
+      // the programme's rotation with one session forever.
+      const handlerStart = appSource.indexOf('async function handlePickTodaySession(');
+      assert.ok(handlerStart > 0, 'handlePickTodaySession not found');
+      const handler = appSource.slice(handlerStart, handlerStart + 800);
+      assert.match(handler, /todaySession: \{/);
+      assert.match(handler, /dayStart:/);
+
+      // And the card only honours it while that day IS today.
+      assert.match(appSource, /preferences\.todaySession\.dayStart === todayDayStart/);
+
+      // The pencil is offered only where a rename can actually land: the
+      // catalog's templates are immutable at runtime.
+      assert.match(
+        appSource,
+        /homeActivePlanCard\?\.programType === 'custom'\s*\r?\n\s*\? \(sessionId, name\) =>/,
+      );
+    },
+  },
+
+  {
     name: 'an unknown training week asks for the days instead of guessing them',
     run() {
       // setupAvailableDays is only written when the user explicitly picks

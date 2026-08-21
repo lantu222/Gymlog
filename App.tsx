@@ -2380,6 +2380,65 @@ function VinhaApp() {
    * `handleAdoptReadyProgram` with the template read from the reader's own
    * templates and the plan id from the custom namespace.
    */
+  /**
+   * "Today is legs, not upper."
+   *
+   * The rotation decides what comes next in the programme and is right nearly
+   * every day; what it cannot know is that the reader's day went differently.
+   * The pick is dated, so it answers for today and the rotation answers again
+   * tomorrow — nothing has to remember to clear it.
+   */
+  async function handlePickTodaySession(sessionId: string) {
+    const now = new Date();
+    await updatePreferences({
+      todaySession: {
+        dayStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
+        sessionId,
+      },
+    });
+  }
+
+  /**
+   * Renaming a session from Home.
+   *
+   * Only a program of the reader's own can be renamed: the catalog's templates
+   * are immutable at runtime, and a rename that silently did nothing would be
+   * worse than no button. The sheet asks whether this handler exists before it
+   * draws the pencil.
+   */
+  async function handleRenameActivePlanSession(sessionId: string, name: string) {
+    const trimmed = name.trim();
+    const templateId = homeActivePlanCard?.programId;
+    if (!trimmed || !templateId || homeActivePlanCard?.programType !== 'custom') {
+      return;
+    }
+    const template = workoutTemplates.find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    await upsertWorkoutTemplate({
+      id: template.id,
+      name: template.name,
+      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
+        id: session.id,
+        // Every other field is copied because upsert replaces the record; only
+        // the one session the reader named changes.
+        name: session.id === sessionId ? trimmed : session.name,
+        exercises: session.exercises.map((exercise) => ({
+          id: exercise.id,
+          name: exercise.name,
+          targetSets: exercise.targetSets,
+          repMin: exercise.repMin,
+          repMax: exercise.repMax,
+          restSeconds: exercise.restSeconds,
+          trackedDefault: exercise.trackedDefault,
+          libraryItemId: exercise.libraryItemId ?? null,
+        })),
+      })),
+    });
+  }
+
   async function handleAdoptCustomProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
     const template = customWorkoutRuntimeMap[workoutTemplateId];
     // An empty program is not a plan. Home would draw a card with no session
@@ -3184,6 +3243,11 @@ function VinhaApp() {
   );
   const homeActivePlanCard = useMemo(() => {
     const completedPlanSessions = getCanonicalCompletedSessions(database);
+    // Local midnight, to date the reader's hand-picked session against. Read
+    // once per rebuild rather than per session, and local rather than UTC —
+    // the same midnight the calendar and the widget mean.
+    const now = new Date();
+    const todayDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     // Both hero branches end in the same question — is this block finished,
     // and what may the card claim? The display name is resolved here because
     // Home has no catalog access, and the presentation title (not the raw
@@ -3317,7 +3381,15 @@ function VinhaApp() {
       // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
       // and the start button logged the wrong session against the plan.
       const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedPlanSessions);
-      const nextSession = homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
+      // The reader's own answer wins for the day they gave it. The rotation
+      // knows what comes next in the programme and cannot know that today is
+      // legs — but it is right again tomorrow, so the override is dated rather
+      // than sticky, and a stale one is ignored instead of cleared.
+      const pickedToday =
+        preferences.todaySession && preferences.todaySession.dayStart === todayDayStart
+          ? homeSessions.find((session) => session.id === preferences.todaySession?.sessionId) ?? null
+          : null;
+      const nextSession = pickedToday ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
@@ -3404,7 +3476,7 @@ function VinhaApp() {
     // happens on the Programs tab, which is the one place that can say what
     // adopting it means.
     return null;
-  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
+  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const coachChatIntro = useMemo(
@@ -6411,6 +6483,14 @@ function VinhaApp() {
         }}
         // Paused counts: it is still a session the button resumes.
         hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
+        onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}
+        // Ready programmes are immutable at runtime, so the pencil is simply
+        // not offered for them rather than offered and inert.
+        onRenameSession={
+          homeActivePlanCard?.programType === 'custom'
+            ? (sessionId, name) => void handleRenameActivePlanSession(sessionId, name)
+            : undefined
+        }
         onStartActivePlanSession={(sessionId) => {
           if (!homeActivePlanCard) {
             return;

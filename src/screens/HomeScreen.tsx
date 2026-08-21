@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -163,6 +164,20 @@ interface HomeScreenProps {
   onCompletionBrowse?: (planId: string) => void;
   /** Adapt sheet: answer the onboarding questions again. */
   onRedoOnboarding?: () => void;
+  /**
+   * The reader saying "today is legs, not upper".
+   *
+   * The rotation is right nearly every day and cannot be right about this one:
+   * what happened to the reader's day is not in the programme. Absent = the
+   * title is not offered as a choice at all.
+   */
+  onPickTodaySession?: (sessionId: string) => void;
+  /**
+   * Renaming a session in place. Present only for a program of the reader's
+   * own — the catalog's templates are immutable at runtime, and a pencil that
+   * silently did nothing would be worse than no pencil.
+   */
+  onRenameSession?: (sessionId: string, name: string) => void;
   onStartActivePlanSession?: (sessionId: string) => void;
   /**
    * True while a workout is in progress. The hero button already resumes it
@@ -274,6 +289,8 @@ export function HomeScreen({
   onCompletionDismiss,
   onCompletionBrowse,
   onRedoOnboarding,
+  onPickTodaySession,
+  onRenameSession,
   onStartActivePlanSession,
   hasActiveSession = false,
   onCreateWorkoutFromExercises,
@@ -316,6 +333,11 @@ export function HomeScreen({
   const insets = useSafeAreaInsets();
   const [confirmingRemovePlan, setConfirmingRemovePlan] = useState(false);
   const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
+  const [todaySheetVisible, setTodaySheetVisible] = useState(false);
+  // Which row is being renamed, and the text so far. Kept out of the row so a
+  // rename in progress survives the list re-ordering underneath it.
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
   /** Which row's swap sheet is open, by slot id. */
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
@@ -340,6 +362,9 @@ export function HomeScreen({
 
   // --- Session hero data (Home v4) ---------------------------------------
   const nextPlanSession = activePlan?.nextSession ?? null;
+  // Every session the programme holds, for the today-picker. One session
+  // is not a choice, so the title only becomes a button past that.
+  const planSessions = activePlan?.sessions ?? [];
   const focusTitle = getSessionFocusTitle(nextPlanSession?.title, activePlan?.title);
   const sessionsDone = activePlan?.sessionsDone ?? 0;
   const sessionsTotal = activePlan?.sessionsTotal ?? 0;
@@ -979,15 +1004,40 @@ export function HomeScreen({
               <View style={styles.heroTop}>
                 {/* 'line' mode: the anchor must stay on one line and shrink to
                     fit, which only works while it is a single Text node. */}
-                <AnimatedGreeting
-                  text={localizeWorkoutFocus(focusTitle, language)}
-                  style={styles.heroTitle}
-                  accentColor={theme.purpleBright}
-                  mode="line"
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.6}
-                />
+                {/* The title is the switch. A reader looking at the wrong
+                    workout reaches for its name first, and there was nothing
+                    under it — the only way to train something else was to walk
+                    back out to the program. */}
+                <Pressable
+                  accessibilityRole={onPickTodaySession ? 'button' : undefined}
+                  accessibilityLabel={
+                    onPickTodaySession ? t(language, 'home.a11y.pickTodaySession') : undefined
+                  }
+                  disabled={!onPickTodaySession || planSessions.length < 2}
+                  onPress={() => setTodaySheetVisible(true)}
+                  style={({ pressed }) => [styles.heroTitleRow, pressed && styles.pressed]}
+                >
+                  <AnimatedGreeting
+                    text={localizeWorkoutFocus(focusTitle, language)}
+                    style={styles.heroTitle}
+                    accentColor={theme.purpleBright}
+                    mode="line"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  />
+                  {onPickTodaySession && planSessions.length > 1 ? (
+                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M6 9l6 6 6-6"
+                        stroke={theme.faint}
+                        strokeWidth={2.4}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  ) : null}
+                </Pressable>
                 <View style={styles.heroProg}>
                   <Text style={styles.heroProgLabel}>
                     {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}
@@ -1427,6 +1477,127 @@ export function HomeScreen({
           onRemoveActivePlan?.();
         }}
       />
+
+      {/* Today's workout — the program's own sessions, and which one today is.
+
+          Dated rather than sticky: the pick answers for today and the rotation
+          answers again tomorrow, so nothing has to remember to undo it. The
+          rename lives here too because this is the list where a reader reads
+          the names side by side and notices that one of them is wrong. */}
+      <Modal
+        visible={todaySheetVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        onRequestClose={() => setTodaySheetVisible(false)}
+      >
+        <View style={styles.adaptOverlay}>
+          <Pressable style={styles.adaptScrim} onPress={() => setTodaySheetVisible(false)} />
+          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
+            <View style={styles.adaptGrip} />
+            <Text style={styles.adaptTitle}>{t(language, 'home.today.title')}</Text>
+            <Text style={styles.adaptSub}>{t(language, 'home.today.caption')}</Text>
+
+            <ScrollView style={styles.todayList} keyboardShouldPersistTaps="handled">
+              {planSessions.map((session) => {
+                const isToday = session.id === nextPlanSession?.id;
+                const renaming = renamingSessionId === session.id;
+
+                if (renaming) {
+                  return (
+                    <View key={session.id} style={[styles.adaptOpt, styles.todayRowEditing]}>
+                      <TextInput
+                        value={renameDraft}
+                        onChangeText={setRenameDraft}
+                        autoFocus
+                        selectTextOnFocus
+                        placeholderTextColor={theme.faint}
+                        style={styles.todayRenameInput}
+                        onSubmitEditing={() => {
+                          onRenameSession?.(session.id, renameDraft);
+                          setRenamingSessionId(null);
+                        }}
+                      />
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => setRenamingSessionId(null)}
+                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.todayRenameCancel}>
+                          {t(language, 'home.today.renameCancel')}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => {
+                          onRenameSession?.(session.id, renameDraft);
+                          setRenamingSessionId(null);
+                        }}
+                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.todayRenameSave}>{t(language, 'home.today.renameSave')}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                }
+
+                return (
+                  <Pressable
+                    key={session.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isToday }}
+                    onPress={() => {
+                      onPickTodaySession?.(session.id);
+                      setTodaySheetVisible(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.adaptOpt,
+                      isToday && styles.todayRowActive,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={styles.adaptOptCopy}>
+                      <Text numberOfLines={1} style={styles.adaptOptionTitle}>
+                        {localizeSessionName(session.title, language)}
+                      </Text>
+                      <Text style={styles.adaptOptionSub}>
+                        {t(language, 'home.today.meta', {
+                          exercises: session.exercises.length + (session.hiddenExerciseCount ?? 0),
+                          sets: session.totalSets ?? 0,
+                        })}
+                      </Text>
+                    </View>
+                    {isToday ? (
+                      <Text style={styles.todayBadge}>{t(language, 'home.today.picked')}</Text>
+                    ) : null}
+                    {onRenameSession ? (
+                      <Pressable
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={t(language, 'home.today.rename')}
+                        onPress={() => {
+                          setRenameDraft(localizeSessionName(session.title, language));
+                          setRenamingSessionId(session.id);
+                        }}
+                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                      >
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Path
+                            d="M4 20h4L20 8l-4-4L4 16v4z"
+                            stroke={theme.faint}
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                      </Pressable>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={adaptSheetVisible}
@@ -2442,6 +2613,50 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   adaptScrim: {
     ...StyleSheet.absoluteFillObject,
+  },
+  heroTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  todayList: {
+    marginTop: 18,
+    // Capped so a six-session program cannot push the list off the sheet and
+    // take the last row with it.
+    maxHeight: 380,
+  },
+  todayRowActive: {
+    borderColor: theme.purpleBright,
+    backgroundColor: theme.purpleLight,
+  },
+  todayRowEditing: {
+    gap: 8,
+  },
+  todayRenameInput: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    paddingVertical: 0,
+  },
+  todayRenameAction: {
+    paddingHorizontal: 4,
+  },
+  todayRenameSave: {
+    color: theme.purpleDark,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  todayRenameCancel: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  todayBadge: {
+    color: theme.purpleDark,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
   adaptOption: {
     borderWidth: 1.5,

@@ -404,6 +404,16 @@ export interface AppPreferences {
    * `[true, true, false]` is two on, one off. Null = plain weekdays.
    */
   trainingCycle: { pattern: boolean[]; anchorDayStart: number } | null;
+  /**
+   * Today's session, when the reader has picked one by hand.
+   *
+   * The rotation decides which session comes next, and it is right nearly
+   * always — but "today is legs, not upper" is a fact about the reader's day
+   * that no rotation can know. This overrides it for one day only: `dayStart`
+   * is a local midnight, and an override for a day that is no longer today is
+   * simply ignored rather than needing to be cleared.
+   */
+  todaySession: { dayStart: number; sessionId: string } | null;
   setupTrainingFeel: TrainingFeelPreference;
   setupWorkoutVariety: WorkoutVarietyPreference;
   setupFreeWeightsPreference: ExerciseModalityPreference;

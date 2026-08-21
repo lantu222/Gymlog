@@ -176,6 +176,25 @@ function mergeExerciseLibrary(
 }
 
 /**
+ * The reader's hand-picked session for one day.
+ *
+ * No fallback: this is deliberately not carried forward from defaults. It
+ * describes one calendar day, and a value that cannot be read is a value that
+ * has no day — so it becomes "no override" and the rotation answers, which is
+ * what it does on every other day anyway.
+ */
+function normalizeTodaySession(value: unknown): { dayStart: number; sessionId: string } | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const raw = value as { dayStart?: unknown; sessionId?: unknown };
+  if (typeof raw.dayStart !== 'number' || !Number.isFinite(raw.dayStart) || typeof raw.sessionId !== 'string') {
+    return null;
+  }
+  return raw.sessionId ? { dayStart: raw.dayStart, sessionId: raw.sessionId } : null;
+}
+
+/**
  * A stored training cycle, or the fallback when the stored value cannot be one.
  *
  * A cycle with no training day in it would stop the app dead — every day a rest
@@ -796,6 +815,7 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
             )
           : fallback.preferences.setupAvailableDays,
       trainingCycle: normalizeTrainingCycle(input?.preferences?.trainingCycle, fallback.preferences.trainingCycle),
+      todaySession: normalizeTodaySession(input?.preferences?.todaySession),
       setupTrainingFeel:
         input?.preferences?.setupTrainingFeel === 'easy' ||
         input?.preferences?.setupTrainingFeel === 'steady' ||
