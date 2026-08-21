@@ -14,6 +14,7 @@ const {
   parseSchemeLabelSeconds,
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
+  getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
   getGuidedPhaseLabel,
   getGuidedStepLabel,
@@ -86,6 +87,36 @@ module.exports = [
     },
   },
   {
+    name: 'skipping a block leaves the block, not the session',
+    run() {
+      const { steps } = buildPlan();
+      const phaseOf = (index) => ('phase' in steps[index] ? steps[index].phase : null);
+
+      // From the warmup splash, past every drill in it, to the first thing that
+      // is not warmup. Five drills used to be five taps to the bar.
+      const warmupStart = steps.findIndex((step) => 'phase' in step && step.phase === 'warmup');
+      const afterWarmup = getGuidedPhaseSkipTargetIndex(steps, warmupStart);
+      assert.notEqual(phaseOf(afterWarmup), 'warmup');
+      assert.equal(phaseOf(afterWarmup), 'work');
+
+      // Mid-block does the same thing: the escape is from the block.
+      const midWarmup = steps.findIndex((step) => step.type === 'drill' && step.phase === 'warmup');
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, midWarmup), afterWarmup);
+
+      // The cooldown lands on the finish card, which has no phase at all.
+      const cooldownStart = steps.findIndex((step) => 'phase' in step && step.phase === 'cooldown');
+      const afterCooldown = getGuidedPhaseSkipTargetIndex(steps, cooldownStart);
+      assert.equal(steps[afterCooldown].type, 'finish');
+
+      // The work block is the session. It does not answer to this.
+      const work = steps.findIndex((step) => step.type === 'set');
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, work), work);
+      // Nor does anything off the end of the plan.
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, steps.length - 1), steps.length - 1);
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, 999), 999);
+    },
+  },
+  {
     name: 'buildGuidedSteps produces splash/ready/drill/position/set/rest/finish in order',
     run() {
       const { steps, groups } = buildPlan();
@@ -103,7 +134,6 @@ module.exports = [
         'set',
         'rest',
         'set',
-        'rest',
         'position',
         'set',
         'rest',
@@ -113,11 +143,18 @@ module.exports = [
         'drill',
         'finish',
       ]);
-      // No rest after the final set of the final exercise (index 16 → cooldown splash).
-      assert.equal(steps[16].type, 'set');
-      assert.equal(steps[16].setIndex, 1);
-      assert.equal(steps[17].type, 'splash');
-      assert.equal(steps[17].doneLabel, 'Workout complete');
+      // No rest after an exercise's LAST set — what follows is the next
+      // exercise, and its own "get into position" step is the transition. A
+      // rest ring there counted down to a screen that was going to change
+      // anyway. Reported 2026-08-21.
+      assert.equal(steps[11].type, 'set');
+      assert.equal(steps[11].setIndex, 2);
+      assert.equal(steps[12].type, 'position');
+      // And none after the final set of the final exercise either.
+      assert.equal(steps[15].type, 'set');
+      assert.equal(steps[15].setIndex, 1);
+      assert.equal(steps[16].type, 'splash');
+      assert.equal(steps[16].doneLabel, 'Workout complete');
       // Groups: 2 warmup + 2 work (with set counts) + 1 cooldown.
       assert.equal(groups.length, 5);
       assert.deepEqual(groups[2], { phase: 'work', setCount: 3 });
@@ -198,8 +235,8 @@ module.exports = [
       assert.equal(getGuidedPhaseLabel(steps[2]), 'WARM-UP · 1 OF 2');
       assert.equal(getGuidedPhaseLabel(steps[6]), 'WORKOUT · EXERCISE 1 OF 2');
       assert.equal(getGuidedPhaseLabel(steps[8]), 'WORKOUT · REST');
-      assert.equal(getGuidedPhaseLabel(steps[19]), 'COOLDOWN · 1 OF 1');
-      assert.equal(getGuidedPhaseLabel(steps[20]), 'DONE');
+      assert.equal(getGuidedPhaseLabel(steps[18]), 'COOLDOWN · 1 OF 1');
+      assert.equal(getGuidedPhaseLabel(steps[19]), 'DONE');
       assert.equal(getGuidedStepLabel(steps[9]), 'Bench Press set 2');
       // Every label this module returns is localized, including the lift's
       // name. The resume chip used to offer "Front Squat sarja 3" for a screen
@@ -234,8 +271,8 @@ module.exports = [
         'Bench Press · 12 reps',
       );
       // Final drill previews the finish.
-      assert.equal(getGuidedNextPreview(steps, 19, resolve).line, 'Finish');
-      assert.equal(getGuidedNextPreview(steps, 20, resolve), null);
+      assert.equal(getGuidedNextPreview(steps, 18, resolve).line, 'Finish');
+      assert.equal(getGuidedNextPreview(steps, 19, resolve), null);
     },
   },
   {
@@ -248,8 +285,8 @@ module.exports = [
       // From a set's rest → the next set's exercise, with no target appended.
       assert.equal(getGuidedNextName(steps, 8), 'Bench Press');
       // Nothing but the finish step remains.
+      assert.equal(getGuidedNextName(steps, 18), null);
       assert.equal(getGuidedNextName(steps, 19), null);
-      assert.equal(getGuidedNextName(steps, 20), null);
     },
   },
   {
@@ -481,15 +518,17 @@ module.exports = [
       const { steps } = buildPlan();
       const none = () => false;
       assert.equal(resolveGuidedResumeIndex(steps, null, none), 0);
-      // First incomplete is b:0 → land on exercise b's position step (index 13).
+      // First incomplete is b:0 → land on exercise b's position step. One
+      // lower than it used to be: the rest that stood after exercise a's
+      // last set is gone.
       const aDone = (slotId) => slotId === 'a';
-      assert.equal(resolveGuidedResumeIndex(steps, null, aDone), 13);
-      assert.equal(steps[13].type, 'position');
+      assert.equal(resolveGuidedResumeIndex(steps, null, aDone), 12);
+      assert.equal(steps[12].type, 'position');
       // Everything logged → cooldown splash.
       const allDone = () => true;
-      assert.equal(resolveGuidedResumeIndex(steps, null, allDone), 17);
-      assert.equal(steps[17].type, 'splash');
-      assert.equal(findGuidedPhaseStart(steps, 'cooldown'), 17);
+      assert.equal(resolveGuidedResumeIndex(steps, null, allDone), 16);
+      assert.equal(steps[16].type, 'splash');
+      assert.equal(findGuidedPhaseStart(steps, 'cooldown'), 16);
     },
   },
   {

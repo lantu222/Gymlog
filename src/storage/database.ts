@@ -175,6 +175,54 @@ function mergeExerciseLibrary(
   return Array.from(merged.values());
 }
 
+/**
+ * The reader's hand-picked session for one day.
+ *
+ * No fallback: this is deliberately not carried forward from defaults. It
+ * describes one calendar day, and a value that cannot be read is a value that
+ * has no day — so it becomes "no override" and the rotation answers, which is
+ * what it does on every other day anyway.
+ */
+function normalizeTodaySession(value: unknown): { dayStart: number; sessionId: string } | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const raw = value as { dayStart?: unknown; sessionId?: unknown };
+  if (typeof raw.dayStart !== 'number' || !Number.isFinite(raw.dayStart) || typeof raw.sessionId !== 'string') {
+    return null;
+  }
+  return raw.sessionId ? { dayStart: raw.dayStart, sessionId: raw.sessionId } : null;
+}
+
+/**
+ * A stored training cycle, or the fallback when the stored value cannot be one.
+ *
+ * A cycle with no training day in it would stop the app dead — every day a rest
+ * day, forever — so an all-false pattern is read as "no cycle" rather than
+ * honoured. The length cap is a sanity bound, not a product rule: nothing can
+ * write a 400-day rhythm through the editor, but a corrupt file could.
+ */
+function normalizeTrainingCycle(
+  value: unknown,
+  fallbackValue: { pattern: boolean[]; anchorDayStart: number } | null,
+): { pattern: boolean[]; anchorDayStart: number } | null {
+  if (value === null) {
+    return null;
+  }
+  if (typeof value !== 'object' || value === undefined) {
+    return fallbackValue;
+  }
+  const raw = value as { pattern?: unknown; anchorDayStart?: unknown };
+  if (!Array.isArray(raw.pattern) || typeof raw.anchorDayStart !== 'number' || !Number.isFinite(raw.anchorDayStart)) {
+    return fallbackValue;
+  }
+  const pattern = raw.pattern.slice(0, 60).map((day) => day === true);
+  if (!pattern.some(Boolean)) {
+    return null;
+  }
+  return { pattern, anchorDayStart: raw.anchorDayStart };
+}
+
 function boolOr(value: unknown, fallbackValue: boolean): boolean {
   return typeof value === 'boolean' ? value : fallbackValue;
 }
@@ -766,6 +814,8 @@ function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppD
                 value === 'sun',
             )
           : fallback.preferences.setupAvailableDays,
+      trainingCycle: normalizeTrainingCycle(input?.preferences?.trainingCycle, fallback.preferences.trainingCycle),
+      todaySession: normalizeTodaySession(input?.preferences?.todaySession),
       setupTrainingFeel:
         input?.preferences?.setupTrainingFeel === 'easy' ||
         input?.preferences?.setupTrainingFeel === 'steady' ||

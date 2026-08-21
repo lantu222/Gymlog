@@ -2,7 +2,7 @@
  * The home-screen widget's contents, computed here and handed to Kotlin as
  * finished strings.
  *
- * The widget renders text and coloured bars, nothing else: no dates, no
+ * The widget renders text, coloured date pips and nothing else: no dates, no
  * pluralisation, no translation on the native side. Every one of those has
  * already gone wrong once in this app, and a widget is the worst place to find
  * out — it is drawn by the launcher, in a process with none of the app's
@@ -12,37 +12,47 @@
  * function Home renders, so the widget cannot claim a training day the app
  * would call a rest day.
  *
- * SHAPE (v3, "kalenteri" design). The calendar is the whole widget: four weeks
- * — two past, the current one, the next one — where every day is `done`, `plan`
- * or `off`, and today is marked on a second axis (a double-height bar) so it
- * can be today *and* done. Everything the old version drew around the calendar
- * (wordmark, plan pill, duration + exercise count, Start button) is gone.
+ * SHAPE (v5, "kuukausi" design). The calendar is a real month: the month's
+ * name, the weekday letters, and its own numbers — trained days marked green,
+ * days still ahead of the reader marked violet. Four widgets read this one
+ * payload:
+ *
+ *   2×2  the month, and nothing else
+ *   4×2  the month, with this month's workouts, duration and volume beside it
+ *   2×1  the streak
+ *   2×1  today's routine
+ *
+ * The four-week bar strip that came before it is gone: it drew two weeks of
+ * marks that nobody could date, and the one number it anchored on ("2/3") said
+ * less than a month of green does.
  */
-import { getCalendarWeekStartTimestamp } from './completedSessions';
-import { getHomeDayView, getMondayFirstWeekdayLabels, HomeDaySessionSummary } from './homeCalendar';
+import { formatCompactVolume, formatDurationMinutes } from './format';
+import { getHomeDayView, getHomeMonthCalendar, getMondayFirstWeekdayLabels, HomeDaySessionSummary } from './homeCalendar';
+import { localizeSessionName } from './sessionNameLabel';
+import { isScheduleKnown, TrainingSchedule, trainsOn } from './trainingSchedule';
 import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
 /** Bumped whenever the shape changes, so a stale file is ignored, not misread. */
-export const HOME_WIDGET_PAYLOAD_VERSION = 4;
-
-/** Two past weeks, this week, next week. */
-export const HOME_WIDGET_WEEK_COUNT = 4;
+export const HOME_WIDGET_PAYLOAD_VERSION = 9;
 
 /**
- * Which row of `weeks` is the current one. The small sizes draw only this row,
- * so the index is exported rather than spelled out again on the native side.
+ * How many week rows the native layout holds.
+ *
+ * A month needs four, five or six of them depending on which weekday it starts
+ * on, and RemoteViews cannot add a row — so the layout always has six and the
+ * provider hides the ones this month does not use.
  */
-export const HOME_WIDGET_CURRENT_WEEK_INDEX = 2;
+export const HOME_WIDGET_MONTH_ROWS = 6;
 
 /** How far ahead to look for the next training day before giving up. */
 const LOOKAHEAD_DAYS = 14;
 
 /**
- * What a bar says. Three states, not four: "today" used to be one of them,
+ * What a date pip says. Three states, not four: "today" used to be one of them,
  * which meant a day could not be today *and* done at once — and "you already
  * did it" is the one thing you glance at a home screen to find out. Today is
- * now a separate flag the native side draws as a taller bar.
+ * now a separate flag the native side draws as a ring around the number.
  */
 export type HomeWidgetDayState = 'done' | 'plan' | 'off';
 
@@ -54,10 +64,70 @@ export type HomeWidgetDayState = 'done' | 'plan' | 'off';
 export type HomeWidgetTarget = 'session' | 'suggestion' | 'calendar' | 'home' | 'programs' | 'schedule';
 
 export interface HomeWidgetDay {
-  /** Day of month, e.g. "30". */
+  /** Day of month, e.g. "30" — empty for the days either side of the month. */
   dateLabel: string;
-  isToday: boolean;
+  /**
+   * "2026-08-20". The native side compares this against the device's own date
+   * to find today.
+   *
+   * There used to be an `isToday` flag here instead, and it was wrong every
+   * morning: the app writes this file when it runs, the widget reads it for as
+   * long as it likes, and a flag that says "this day is today" becomes a lie at
+   * the next midnight. A date does not go stale — only the reader's idea of
+   * what day it is, and the reader has a clock.
+   */
+  dateKey: string;
+  /** False for the leading and trailing days a Monday-first grid drags in. */
+  inMonth: boolean;
   state: HomeWidgetDayState;
+}
+
+/**
+ * What one weekday is for, for each of the seven.
+ *
+ * The routine widget used to carry a single line computed for the day the file
+ * was written. Thursday's "Rest day" then sat on a Friday training day until
+ * something opened the app — which is exactly what it did. All seven travel
+ * now, and the native side picks the one the device's clock points at.
+ */
+/**
+ * What a routine day IS, as opposed to what it says.
+ *
+ * The card used to name the session — "Upper MA (raskas)" — and a 2x1 has no
+ * room for a name. Asked for 2026-08-21: one word and a colour, because the
+ * only question a home screen answers at a glance is whether today is a rest
+ * day. `prompt` is the states that have something to ask instead, and those
+ * keep their sentence.
+ */
+export type HomeWidgetRoutineKind = 'rest' | 'work' | 'done' | 'prompt';
+
+export interface HomeWidgetRoutineDay {
+  kind: HomeWidgetRoutineKind;
+  /**
+   * "2026-08-21". Which day this entry is for, matched against the device's
+   * clock by the native side.
+   *
+   * These used to be seven weekdays, Monday-first, and the native side indexed
+   * them by the weekday it was. A weekday is only an address for a rhythm with
+   * a period of seven, and a reader training two days on and one off does not
+   * have one — the same Tuesday trains on one turn and rests on the next. Dates
+   * are an address for any rhythm.
+   */
+  dateKey: string;
+  /** "Friday", already in the app's language. */
+  when: string;
+  /** The session's name, "Rest day", or what to go and do instead. */
+  title: string;
+  /** Where the arrow goes on that day. */
+  target: HomeWidgetTarget;
+}
+
+/** One of the three figures the 4×2 puts beside the calendar. */
+export interface HomeWidgetStat {
+  /** Pre-translated: "Workouts", "Duration", "Volume". */
+  label: string;
+  /** Already formatted: "6", "4 h 20 min", "12,4 t". */
+  value: string;
 }
 
 export interface HomeWidgetPayload {
@@ -69,44 +139,23 @@ export interface HomeWidgetPayload {
    * in the payload rather than being re-derived there.
    */
   theme: 'light' | 'dark';
-  /** "MA".."SU" — the calendar's axis, shared by all four rows. */
+  /** "August 2026" / "elokuu 2026" — the calendar's heading. */
+  monthLabel: string;
+  /** "MA".."SU" — the calendar's axis. */
   weekdayLabels: string[];
-  /** Four rows of seven. Index `HOME_WIDGET_CURRENT_WEEK_INDEX` is this week. */
-  weeks: HomeWidgetDay[][];
   /**
-   * The one element that is clearly the largest: "2/3" — sessions logged this
-   * week against the days planned for it. Every widget on the phone anchors on
-   * one big number and ours had none, which is what made a card full of small
-   * even marks read as empty.
-   *
-   * Just the count ("2") when no days are planned: with no rhythm there is no
-   * denominator, and "2/0" is not a fraction.
+   * The month, Monday-first, four to six rows of seven. Shorter than
+   * `HOME_WIDGET_MONTH_ROWS` for most months; the native side hides the rest.
    */
-  weekCount: string;
-  /** "This week" — the label under it, pre-translated like everything else. */
-  weekCountLabel: string;
-  /** "Today" / "Tomorrow" / "Wednesday", or the plan's name in the setup states. */
-  when: string;
-  /** The session's name — or, when `isPrompt`, what to go and do instead. */
-  title: string;
-  /**
-   * A second, quieter line under the title. Empty in every state but one: with
-   * no programme the widget names the one the app would recommend, and a
-   * programme's name alone does not say what running it costs.
-   */
-  meta: string;
-  /** True when `title` is an instruction rather than a workout. */
-  isPrompt: boolean;
-  /** Where tapping the named workout goes. */
-  textTarget: HomeWidgetTarget;
-  /**
-   * Where tapping the 2×2 goes — the one size with no words, and therefore one
-   * target rather than three. Differs from `textTarget` on a rest day and once
-   * today is logged: there is nothing to start, so it opens Home rather than a
-   * workout the reader is not doing today. The wider sizes name the workout in
-   * text, so their card tap is always Home.
-   */
-  cardTarget: HomeWidgetTarget;
+  monthWeeks: HomeWidgetDay[][];
+  /** Exactly three, in the order the 4×2 draws them. */
+  stats: HomeWidgetStat[];
+  /** Every workout ever logged, as the app's own lifetime summary counts them. */
+  totalValue: string;
+  /** "workouts", pre-translated. */
+  totalLabel: string;
+  /** Seven days from today onward. The native side reads the one its clock points at. */
+  routineDays: HomeWidgetRoutineDay[];
 }
 
 export interface HomeWidgetInput {
@@ -117,15 +166,18 @@ export interface HomeWidgetInput {
   planName: string | null;
   /**
    * The programme the app would recommend, already presented — the curated
-   * title and one tag, resolved by the caller because the catalog and its
-   * presentation dictionary are not this function's business.
+   * title, resolved by the caller because the catalog and its presentation
+   * dictionary are not this function's business.
    *
    * Null when onboarding never produced a recommendation, and the empty state
    * falls back to asking rather than naming something it does not have.
    */
-  suggestion?: { title: string; meta: string } | null;
-  /** Monday-first indexes from setupAvailableDays. Empty = unknown. */
-  trainingDayIndexes: number[];
+  suggestion?: { title: string } | null;
+  /**
+   * Which days train. Weekdays from setupAvailableDays, or a cycle when the
+   * reader keeps a rhythm that does not fit inside a week.
+   */
+  schedule: TrainingSchedule;
   /**
    * Day-start timestamps of every logged activity, workouts and cardio alike —
    * the same set the app's own activity strip counts, so the calendar cannot
@@ -134,7 +186,7 @@ export interface HomeWidgetInput {
   completedDayStarts?: number[];
   /**
    * Day-start timestamps of completed *workouts* only. Narrower than the set
-   * above on purpose: the bars answer "did anything happen that day", and a run
+   * above on purpose: the pips answer "did anything happen that day", and a run
    * is an answer to that. Whether today's session is behind you is a different
    * question, and a run is not an answer to it — counted there, a morning of
    * cardio would make the widget name tomorrow's workout while Home still
@@ -142,25 +194,96 @@ export interface HomeWidgetInput {
    */
   completedWorkoutDayStarts?: number[];
   sessions: HomeDaySessionSummary[];
+  /**
+   * This month's totals, from `getMonthTrainingTotals`. Absent means zeroes:
+   * the stats are drawn either way, because a month with nothing in it is a
+   * true answer and a blank column is not.
+   */
+  monthTotals?: { workouts: number; durationMinutes: number; volumeKg: number };
+  /**
+   * Every workout ever logged, from `getLifetimeTrainingSummary`. Absent
+   * counts as none.
+   */
+  totalWorkouts?: number;
+  /**
+   * The session the reader picked for today by hand, when they picked one.
+   *
+   * Home lets the title be tapped to say "today is legs, not upper", and that
+   * answer overrides the rotation. Without it here the widget went on naming
+   * what the rotation would have offered, so the home screen and the launcher
+   * disagreed about the same day — reported within the hour of the picker
+   * shipping.
+   */
+  todaySessionId?: string | null;
 }
 
 function toDayStartMs(date: Date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
+/**
+ * "2026-08-20", in the device's own timezone.
+ *
+ * Not `toISOString().slice(0, 10)`: that is UTC, and for a reader east of
+ * Greenwich the evening's date is already tomorrow's. The widget compares this
+ * against a date the launcher formats locally, so both sides have to mean the
+ * same midnight.
+ */
+function toDateKey(date: Date) {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+/**
+ * The seven days when they all say the same thing — every state where there is
+ * no rhythm to describe, only an instruction.
+ */
+function everyDay(nowMs: number, when: string, title: string, target: HomeWidgetTarget): HomeWidgetRoutineDay[] {
+  // Always a prompt: these are the states with something to ask, and a question
+  // does not fit in one word.
+  return nextSevenDays(nowMs).map((date) => ({
+    kind: 'prompt' as const,
+    dateKey: toDateKey(date),
+    when,
+    title,
+    target,
+  }));
+}
+
+/**
+ * Today and the six days after it.
+ *
+ * Seven is not a week here — it is how long the widget may go without the app
+ * running, which is the whole reason every day travels instead of one.
+ * Constructed by calendar arithmetic rather than by adding milliseconds, so the
+ * two days a year the clock changes do not lose or repeat a date.
+ */
+function nextSevenDays(nowMs: number): Date[] {
+  const now = new Date(nowMs);
+  return Array.from(
+    { length: 7 },
+    (_, offset) => new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset),
+  );
+}
+
+/**
+ * What the routine widget writes for a session.
+ *
+ * Two things happen here, and both were reported from a home screen. The name
+ * arrives as catalog data — English — and went to the widget raw while every
+ * screen in the app runs it through `localizeSessionName` first. And "Päivä 3:
+ * Kyykky & Soutu" does not fit a 2×1 card: it arrived as "Day 3: squ". The
+ * weekday is already the line above, so the day number is the half that can go.
+ */
+function routineTitleOf(title: string, language: AppLanguage) {
+  const localized = localizeSessionName(title, language);
+  return localized.replace(/^(päivä|day)\s*\d+\s*[:\-–]\s*/i, '').trim() || localized;
+}
+
 function weekdayIndexOf(date: Date) {
   // 0 = Monday, matching the rest of the app.
   return date.getDay() === 0 ? 6 : date.getDay() - 1;
-}
-
-function whenLabel(language: AppLanguage, offset: number, weekdayIndex: number) {
-  if (offset === 0) {
-    return t(language, 'widget.today');
-  }
-  if (offset === 1) {
-    return t(language, 'widget.tomorrow');
-  }
-  return t(language, `widget.weekdayOn.${weekdayIndex}` as 'widget.weekdayOn.0');
 }
 
 export interface HomeWidgetNextSession {
@@ -182,12 +305,12 @@ export interface HomeWidgetNextSession {
  */
 export function findHomeWidgetNextSession(input: {
   nowMs: number;
-  trainingDayIndexes: number[];
+  schedule: TrainingSchedule;
   sessions: HomeDaySessionSummary[];
   completedWorkoutDayStarts?: number[];
 }): HomeWidgetNextSession | null {
-  const { nowMs, trainingDayIndexes, sessions } = input;
-  if (trainingDayIndexes.length === 0 || sessions.length === 0) {
+  const { nowMs, schedule, sessions } = input;
+  if (!isScheduleKnown(schedule) || sessions.length === 0) {
     return null;
   }
 
@@ -198,7 +321,7 @@ export function findHomeWidgetNextSession(input: {
   for (let offset = 0; offset <= LOOKAHEAD_DAYS; offset += 1) {
     const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
     const weekdayIndex = weekdayIndexOf(date);
-    if (!trainingDayIndexes.includes(weekdayIndex)) {
+    if (!trainsOn(schedule, date)) {
       continue;
     }
     if (offset === 0 && doneDays.has(toDayStartMs(date))) {
@@ -207,13 +330,14 @@ export function findHomeWidgetNextSession(input: {
 
     const view = getHomeDayView(
       {
+        dayStart: toDayStartMs(date),
         weekdayIndex,
         weekdayLabel: labels[weekdayIndex] ?? '',
         dateLabel: '',
         label: '',
         isToday: offset === 0,
       },
-      trainingDayIndexes,
+      schedule,
       sessions,
     );
 
@@ -227,59 +351,105 @@ export function findHomeWidgetNextSession(input: {
   return null;
 }
 
+/**
+ * One date's session, or null when that date is a rest day. The same mapping
+ * Home draws, so the two cannot disagree about what a day is for.
+ */
+function sessionForDate(
+  date: Date,
+  schedule: TrainingSchedule,
+  sessions: HomeDaySessionSummary[],
+): HomeDaySessionSummary | null {
+  if (!isScheduleKnown(schedule) || sessions.length === 0) {
+    return null;
+  }
+
+  const weekdayIndex = weekdayIndexOf(date);
+  const view = getHomeDayView(
+    {
+      dayStart: toDayStartMs(date),
+      weekdayIndex,
+      weekdayLabel: getMondayFirstWeekdayLabels()[weekdayIndex] ?? '',
+      dateLabel: '',
+      label: '',
+      // Only the CTA copy reads this, and the widget draws none of it.
+      isToday: false,
+    },
+    schedule,
+    sessions,
+  );
+
+  return view.kind === 'training' ? view.session : null;
+}
+
+function buildStats(language: AppLanguage, totals: HomeWidgetInput['monthTotals']): HomeWidgetStat[] {
+  const workouts = totals?.workouts ?? 0;
+  const minutes = totals?.durationMinutes ?? 0;
+  const volume = totals?.volumeKg ?? 0;
+
+  return [
+    { label: t(language, 'widget.stat.workouts'), value: `${workouts}` },
+    { label: t(language, 'widget.stat.duration'), value: formatDurationMinutes(minutes) },
+    { label: t(language, 'widget.stat.volume'), value: formatCompactVolume(volume) },
+  ];
+}
+
 export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayload {
-  const { nowMs, language, theme, trainingDayIndexes, sessions } = input;
+  const { nowMs, language, theme, schedule, sessions } = input;
   const now = new Date(nowMs);
   const todayStart = toDayStartMs(now);
   const doneDays = new Set((input.completedDayStarts ?? []).map((ms) => toDayStartMs(new Date(ms))));
-
-  // A rhythm is only real when there is something to do on those days. Without
-  // sessions, a "planned" bar would promise a workout that does not exist.
-  const scheduleKnown = trainingDayIndexes.length > 0 && sessions.length > 0;
-
-  // The grid starts two Mondays before this week's Monday.
-  const weekStart = new Date(getCalendarWeekStartTimestamp(now));
-  const gridStart = new Date(
-    weekStart.getFullYear(),
-    weekStart.getMonth(),
-    weekStart.getDate() - 7 * HOME_WIDGET_CURRENT_WEEK_INDEX,
+  // Workouts only, like the next-session lookup: a morning run marks the
+  // calendar but does not finish what was planned for the day.
+  const workoutDoneDays = new Set(
+    (input.completedWorkoutDayStarts ?? []).map((ms) => toDayStartMs(new Date(ms))),
   );
 
-  const weeks: HomeWidgetDay[][] = Array.from({ length: HOME_WIDGET_WEEK_COUNT }, (_, weekIndex) =>
-    Array.from({ length: 7 }, (_, dayIndex) => {
-      // Calendar-arithmetic construction, so a DST boundary cannot shift a day.
-      const date = new Date(
-        gridStart.getFullYear(),
-        gridStart.getMonth(),
-        gridStart.getDate() + weekIndex * 7 + dayIndex,
-      );
-      const dayStart = date.getTime();
-      const isPast = dayStart < todayStart;
-      const isTraining = scheduleKnown && trainingDayIndexes.includes(dayIndex);
+  // A rhythm is only real when there is something to do on those days. Without
+  // sessions, a "planned" pip would promise a workout that does not exist.
+  const scheduleKnown = isScheduleKnown(schedule) && sessions.length > 0;
+
+  // The month the reader is in, built by the same function the app's own
+  // calendar screen uses — including which days belong to the neighbouring
+  // months, which a Monday-first grid always drags in.
+  const month = getHomeMonthCalendar(now, language);
+  const monthWeeks: HomeWidgetDay[][] = month.weeks.map((week) =>
+    week.map((day) => {
+      const isPast = day.dayStart < todayStart;
+      const isTraining = scheduleKnown && trainsOn(schedule, new Date(day.dayStart));
 
       // A past training day that was never logged draws as free. The history is
       // a record of what happened, and the home screen is no place to be
       // reminded of what did not.
-      const state: HomeWidgetDayState = doneDays.has(dayStart) ? 'done' : !isPast && isTraining ? 'plan' : 'off';
+      const state: HomeWidgetDayState = doneDays.has(day.dayStart)
+        ? 'done'
+        : !isPast && isTraining
+          ? 'plan'
+          : 'off';
 
-      return { dateLabel: String(date.getDate()), isToday: dayStart === todayStart, state };
+      // The days either side of the month are drawn as nothing at all. They are
+      // there to keep the columns honest, not to be read.
+      return {
+        dateLabel: day.inMonth ? `${day.dayOfMonth}` : '',
+        dateKey: toDateKey(new Date(day.dayStart)),
+        inMonth: day.inMonth,
+        state: day.inMonth ? state : 'off',
+      };
     }),
   );
 
-  // Counted off the row the widget draws, so the number and the bars can never
-  // disagree: whatever is green in this week's row is what the count counts.
-  const currentWeek = weeks[HOME_WIDGET_CURRENT_WEEK_INDEX] ?? [];
-  const doneThisWeek = currentWeek.filter((day) => day.state === 'done').length;
-  const plannedThisWeek = scheduleKnown ? trainingDayIndexes.length : 0;
+  const total = Math.max(0, Math.round(input.totalWorkouts ?? 0));
 
   const base = {
     version: HOME_WIDGET_PAYLOAD_VERSION,
     updatedAt: new Date(nowMs).toISOString(),
     theme,
-    weekdayLabels: [...getMondayFirstWeekdayLabels(language)],
-    weeks,
-    weekCount: plannedThisWeek > 0 ? `${doneThisWeek}/${plannedThisWeek}` : `${doneThisWeek}`,
-    weekCountLabel: t(language, 'widget.thisWeek'),
+    monthLabel: month.monthLabel,
+    weekdayLabels: [...month.weekdayLabels],
+    monthWeeks,
+    stats: buildStats(language, input.monthTotals),
+    totalValue: `${total}`,
+    totalLabel: t(language, 'aboutYou.stat.workouts'),
   };
   const planName = input.planName?.trim() ?? '';
 
@@ -291,23 +461,13 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
     if (suggestion) {
       return {
         ...base,
-        when: t(language, 'widget.suggested'),
-        title: suggestion.title,
-        meta: suggestion.meta,
-        isPrompt: true,
-        textTarget: 'suggestion',
-        cardTarget: 'suggestion',
+        routineDays: everyDay(nowMs, t(language, 'widget.suggested'), suggestion.title, 'suggestion'),
       };
     }
 
     return {
       ...base,
-      when: t(language, 'widget.noPlan'),
-      title: t(language, 'widget.pickPlan'),
-      meta: '',
-      isPrompt: true,
-      textTarget: 'programs',
-      cardTarget: 'programs',
+      routineDays: everyDay(nowMs, t(language, 'widget.noPlan'), t(language, 'widget.pickPlan'), 'programs'),
     };
   }
 
@@ -315,57 +475,47 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
   if (sessions.length === 0) {
     return {
       ...base,
-      when: planName,
-      title: t(language, 'widget.noSessions'),
-      meta: '',
-      isPrompt: true,
-      textTarget: 'programs',
-      cardTarget: 'programs',
+      routineDays: everyDay(nowMs, planName, t(language, 'widget.noSessions'), 'programs'),
     };
   }
 
-  // A program, but no days picked. The plan name borrows the "when" line — the
-  // only place in the family it appears — and the prompt points at the editor.
-  if (trainingDayIndexes.length === 0) {
+  // A program, but no days picked. The plan name borrows the eyebrow — the only
+  // place in the family it appears — and the prompt points at the editor.
+  if (!isScheduleKnown(schedule)) {
     return {
       ...base,
-      when: planName || t(language, 'widget.noPlan'),
-      title: t(language, 'widget.noDays'),
-      meta: '',
-      isPrompt: true,
-      textTarget: 'schedule',
-      cardTarget: 'schedule',
+      routineDays: everyDay(nowMs, planName || t(language, 'widget.noPlan'), t(language, 'widget.noDays'), 'schedule'),
     };
   }
 
-  const next = findHomeWidgetNextSession({
-    nowMs,
-    trainingDayIndexes,
-    sessions,
-    completedWorkoutDayStarts: input.completedWorkoutDayStarts,
-  });
-
-  if (!next) {
-    return {
-      ...base,
-      when: planName || t(language, 'widget.noPlan'),
-      title: t(language, 'widget.noSessions'),
-      meta: '',
-      isPrompt: true,
-      textTarget: 'programs',
-      cardTarget: 'programs',
-    };
-  }
-
+  // The ordinary rhythm. A week of days travels, because the native side is the
+  // only one of the two that knows what day it is when the card is drawn.
   return {
     ...base,
-    when: whenLabel(language, next.offset, next.weekdayIndex),
-    title: next.session.title,
-    meta: '',
-    isPrompt: false,
-    textTarget: 'session',
-    // The card has no words of its own, so it only offers a workout when the
-    // workout is today's. Otherwise it opens Home.
-    cardTarget: next.offset === 0 ? 'session' : 'home',
+    routineDays: nextSevenDays(nowMs).map((date, offset) => {
+      // Today only: the reader's own answer, exactly as Home reads it. Later
+      // days have no answer yet, and the rotation is the honest guess for them.
+      const picked =
+        offset === 0 && input.todaySessionId
+          ? sessions.find((entry) => entry.id === input.todaySessionId) ?? null
+          : null;
+      const session = picked ?? sessionForDate(date, schedule, sessions);
+      // "Is today a training day" stops being the question the moment the
+      // training is done. The card said "Treeni" on an afternoon when the
+      // calendar beside it had already gone green.
+      const done = session !== null && workoutDoneDays.has(toDayStartMs(date));
+      return {
+        kind: done ? ('done' as const) : session ? ('work' as const) : ('rest' as const),
+        dateKey: toDateKey(date),
+        // The weekday still travels for the accessibility label, but the card
+        // no longer draws it: one word is the whole point of this size.
+        when: t(language, `widget.weekday.${weekdayIndexOf(date)}` as 'widget.weekday.0'),
+        title: t(language, done ? 'widget.doneDay' : session ? 'widget.workoutDay' : 'widget.restDay'),
+        // Nothing to start on a rest day, and the next session is two days of
+        // rest away as often as not — so the arrow opens Home rather than a
+        // workout the reader is not doing today.
+        target: session ? ('session' as const) : ('home' as const),
+      };
+    }),
   };
 }

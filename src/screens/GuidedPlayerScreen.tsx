@@ -10,7 +10,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   AppState,
   BackHandler,
@@ -21,9 +20,11 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, {
   Circle,
   Defs,
@@ -44,7 +45,8 @@ import {
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
   getGuidedStepPlanKey,
-  findGuidedLibraryIndex,
+  findGuidedLibraryIndex,
+  getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
   findGuidedSessionPr,
   findGuidedTopSet,
@@ -65,6 +67,8 @@ import {
   resolveGuidedResumeIndex,
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
+import { getExerciseInstructions } from '../lib/exerciseInstructions';
+import { SetPanelHistory, SetPanels } from '../components/SetPanels';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -78,10 +82,14 @@ import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
 import { sound, type CueSound } from '../utils/sound';
-import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
+import { readableOn, Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
+import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
+import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
 import {
@@ -199,6 +207,11 @@ function GPIcon({ name, size = 22, color = '#fff', sw = 2.2 }: { name: string; s
     edit: <Path d="M4 20h4l10.5-10.5a2.1 2.1 0 00-3-3L5 17v3zM13.5 6.5l3 3" />,
     arrowUp: <Path d="M12 19V5M6 11l6-6 6 6" />,
     list: <Path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01" />,
+    // Two arrows passing: swapping one lift for another.
+    swap: <Path d="M4 8h13l-3.5-3.5M20 16H7l3.5 3.5" />,
+    // The actions menu. It shared the list glyph with the swap button, and two
+    // identical icons side by side is two buttons that look like one.
+    dots: <Path d="M5 12h.01M12 12h.01M19 12h.01" />,
     video: (
       <>
         <Rect x="3" y="6.5" width="12.5" height="11" rx="3" />
@@ -328,7 +341,7 @@ function MediaZone({
             name={name}
             muscle={muscle}
             language={language}
-            instructions={match?.instructions ?? undefined}
+            instructions={getExerciseInstructions(match?.name, match?.instructions, language)}
             visible={sheetOpen}
             onClose={() => setSheetOpen(false)}
           />
@@ -673,14 +686,18 @@ function BigBtn({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const color = colorProp ?? theme.green;
+  // Derived from the fill, not fixed: callers paint this button `theme.ink` to
+  // mean "the quiet one", and ink is near-white under the dark theme — so a
+  // hard-coded white label made the button read as blank.
+  const foreground = readableOn(color);
 
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
       style={[styles.bigBtn, { backgroundColor: color, opacity: disabled ? 0.6 : 1, shadowColor: color }]}
     >
-      <GPIcon name={icon} size={20} color="#fff" sw={2.6} />
-      <Text style={styles.bigBtnText}>{label}</Text>
+      <GPIcon name={icon} size={20} color={foreground} sw={2.6} />
+      <Text style={[styles.bigBtnText, { color: foreground }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -690,15 +707,19 @@ function GhostBtn({
   onPress,
   icon,
   dark,
+  danger,
 }: {
   label: string;
   onPress: () => void;
   icon?: string;
   dark?: boolean;
+  /** Throws work away. Named for what it does, not for the colour it takes. */
+  danger?: boolean;
 }) {
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
+  const tint = danger ? theme.danger : dark ? GPD.ink : theme.ink;
 
   return (
     <Pressable
@@ -706,10 +727,11 @@ function GhostBtn({
       style={[
         styles.ghostBtn,
         dark ? { borderColor: GPD.line, backgroundColor: 'rgba(255,255,255,0.06)' } : null,
+        danger ? { borderColor: theme.danger } : null,
       ]}
     >
-      {icon ? <GPIcon name={icon} size={17} color={dark ? GPD.ink : theme.ink} /> : null}
-      <Text style={[styles.ghostBtnText, dark ? { color: GPD.ink } : null]}>{label}</Text>
+      {icon ? <GPIcon name={icon} size={17} color={tint} /> : null}
+      <Text style={[styles.ghostBtnText, { color: tint }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -855,11 +877,15 @@ function DialCard({
 /* ── bottom sheet ── */
 function GPSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const styles = useThemedStyles(makeStyles);
+  // The sheet's own 30 was a guess at the phone's navigation bar, and on a
+  // three-button handset the last row and the footnote sat behind it. Measured
+  // rather than guessed — reported twice, on two different sheets.
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => undefined}>
+        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 30 }]} onPress={() => undefined}>
           <View style={styles.sheetHandle} />
           {children}
         </Pressable>
@@ -890,6 +916,9 @@ export function GuidedPlayerScreen({
 }: GuidedPlayerScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // The resolved theme, for the status bar: the player has its own dark
+  // gradient on the finish step and that is a different question.
+  const themeName = useThemeName();
   const workout = useWorkoutContext();
   const session = workout.activeSession;
 
@@ -912,9 +941,9 @@ export function GuidedPlayerScreen({
     const timer = setInterval(() => setClockNowMs(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [sessionStartedAt]);
-  const derivedElapsedSeconds = sessionStartedAt
-    ? Math.max(0, Math.floor((clockNowMs - new Date(sessionStartedAt).getTime()) / 1000))
-    : 0;
+  // The same function the saved duration uses, so the clock on screen and the
+  // number in history cannot disagree about how long the workout took.
+  const derivedElapsedSeconds = session ? elapsedSecondsOf(session, clockNowMs) : 0;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
   // The catalog names sessions in English; the focus half of the name reads in
@@ -1065,6 +1094,8 @@ export function GuidedPlayerScreen({
   const [exitOpen, setExitOpen] = useState(false);
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
+  const [swapQuery, setSwapQuery] = useState('');
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
   const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen;
 
   const stepSeconds = (target: GuidedStep): number => {
@@ -1274,14 +1305,76 @@ export function GuidedPlayerScreen({
     goTo(getGuidedSkipTargetIndex(steps, stepIndex));
   };
 
+  /**
+   * The whole warmup or cooldown, not one drill of it. Five drills is five taps
+   * to the bar, and the reader who wants to warm up their own way wants out of
+   * the block rather than out of the session.
+   */
+  const skipPhase = () => {
+    goTo(getGuidedPhaseSkipTargetIndex(steps, stepIndex));
+  };
+  const skippablePhase =
+    'phase' in step && (step.phase === 'warmup' || step.phase === 'cooldown') ? step.phase : null;
+
   /* ── exercise-level actions ──────────────────────────────────────────────
      Swap, skip and add-set used to live only in the list logger, so the only
      way to do any of them was to leave the guided flow entirely — and all
      three are things a gym makes you do (rack taken, shoulder complaining,
      one more set in you). They hang off the pause sheet because that is
      already the "I need to do something else" surface. */
-  const actionSlotId = step.type === 'set' || step.type === 'position' ? step.slotId : null;
+  // Rest counts too. A rest only ever falls BETWEEN sets of one exercise, so
+  // the lift it belongs to is unambiguous — and resting is exactly when you
+  // notice somebody has taken the machine you were going back to.
+  const actionSlotId =
+    step.type === 'set' || step.type === 'position' || step.type === 'rest' ? step.slotId : null;
   const actionExercise = actionSlotId ? exerciseBySlot.get(actionSlotId) ?? null : null;
+  /**
+   * What the panels above the set have to show for this lift.
+   *
+   * Resolved here rather than inside the panel because the library lookup is
+   * the player's own (a warm-up drill borrows the photo of the exercise that
+   * shows the same position), and because slot history is the workout store's,
+   * not a component's.
+   */
+  const setPanelSource = useMemo(() => {
+    if (step.type !== 'set') {
+      return null;
+    }
+    const { exerciseName: name, slotId } = step;
+    const lookupName = getDrillLibraryName(name) ?? name;
+    const index = findGuidedLibraryIndex(lookupName, exerciseLibrary.map((item) => item.name));
+    const match = index === null ? null : exerciseLibrary[index];
+    const entries = workout.history.slotHistory[slotId] ?? [];
+    // The most recent session that actually logged something. A skipped or
+    // empty entry is not a "last time" — it is a day this lift did not happen.
+    const last =
+      [...entries]
+        .filter((entry) => !entry.skipped && entry.sets.length > 0)
+        .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())[0] ?? null;
+    const heaviest = last ? Math.max(...last.sets.map((set) => set.loadKg)) : 0;
+
+    const history: SetPanelHistory | null = last
+      ? {
+          performedAt: last.performedAt,
+          sets: last.sets.map((set) => ({
+            setIndex: set.setIndex + 1,
+            loadKg: set.loadKg,
+            reps: set.reps,
+            // Marked only when it beats the others — every set at the same
+            // weight would otherwise light the whole panel up.
+            isRecord: heaviest > 0 && set.loadKg === heaviest && last.sets.some((other) => other.loadKg < heaviest),
+          })),
+        }
+      : null;
+
+    return {
+      history,
+      instructions: getExerciseInstructions(match?.name, match?.instructions, language),
+      imageUrl: match?.imageUrls?.[0] ?? null,
+      initials: exerciseNameLabel(language, name).slice(0, 2).toUpperCase(),
+    };
+  }, [exerciseLibrary, language, step, workout.history.slotHistory]);
+
   const swapOptions = useMemo(() => {
     if (!actionExercise) {
       return [];
@@ -1292,6 +1385,65 @@ export function GuidedPlayerScreen({
       tailoringPreferences,
     );
   }, [actionExercise, tailoringPreferences]);
+
+  /** The programme's own alternatives, which are better answers than a search. */
+  const swapSuggestions = useMemo(() => {
+    const query = swapQuery.trim();
+    const names = swapOptions.map((option) => option.exerciseName);
+    if (!query) {
+      return names;
+    }
+    return names.filter((name) =>
+      exerciseMatchesQuery(`${name} ${exerciseNameLabel(language, name)}`.toLowerCase(), query),
+    );
+  }, [language, swapOptions, swapQuery]);
+
+  /**
+   * Everything else the library holds.
+   *
+   * Capped while there is no query: 873 rows inside a sheet is a scroll, not a
+   * choice. Typing lifts the cap to something a reader can still read through.
+   */
+  const swapLibrary = useMemo(() => {
+    const query = swapQuery.trim();
+    const suggested = new Set(swapOptions.map((option) => option.exerciseName));
+    // Matched on the displayed name as well as the stored one: the plan may
+    // hold "Barbell Squat" where the library holds "Back Squat", and both read
+    // "Takakyykky" — so the lift you are standing at was offered as something
+    // to swap it for.
+    const current = actionExercise?.exerciseName;
+    const currentLabel = current ? exerciseNameLabel(language, current) : null;
+    const pool = exerciseLibrary.filter(
+      (item) =>
+        item.name !== current &&
+        exerciseNameLabel(language, item.name) !== currentLabel &&
+        !suggested.has(item.name),
+    );
+    if (!query) {
+      const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
+      return [...pool]
+        .sort((left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6))
+        .slice(0, 25);
+    }
+    return pool
+      .filter((item) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query))
+      .slice(0, 40);
+  }, [actionExercise, exerciseLibrary, language, swapOptions, swapQuery]);
+
+  const applySwap = (exerciseName: string) => {
+    if (!actionExercise) {
+      return;
+    }
+    workout.swapExercise(
+      actionExercise.slotId,
+      exerciseName,
+      actionExercise.substitutionGroup,
+      unitPreference,
+    );
+    setSwapOpen(false);
+    setSwapQuery('');
+    setPaused(false);
+  };
 
   // Skipping an exercise removes its steps from the list, so the index we are
   // sitting on stops meaning what it meant. Re-resolve once the rebuilt steps
@@ -1348,19 +1500,19 @@ export function GuidedPlayerScreen({
     goTo(target);
   };
 
+  /**
+   * Confirming that the logged sets may be thrown away.
+   *
+   * The app's own dialog, not `Alert.alert`. The platform one is a grey box
+   * with teal buttons dropped into the middle of a near-black screen — it reads
+   * as another app's, on the one screen where the reader is being asked to
+   * agree to losing work. The same question is asked with a themed dialog when
+   * a programme is removed, and that one looks like it belongs here.
+   */
   const handleEndSession = () => {
     setExitOpen(false);
     if (completedSetCount > 0) {
-      Alert.alert(
-        t(language, 'guided.endConfirm.title'),
-        t(language, completedSetCount === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany', {
-          count: completedSetCount,
-        }),
-        [
-          { text: t(language, 'guided.exit.keep'), style: 'cancel' },
-          { text: t(language, 'guided.exit.end'), style: 'destructive', onPress: onEndSession },
-        ],
-      );
+      setConfirmingEnd(true);
       return;
     }
     onEndSession();
@@ -1402,7 +1554,14 @@ export function GuidedPlayerScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: dark ? GPD.bg2 : theme.bg }}>
-      <StatusBar style={dark ? 'light' : 'dark'} backgroundColor={dark ? GPD.bg1 : theme.bg} />
+      {/* `dark` is the finish step's own gradient, not the theme. Read as the
+          status bar's answer it painted near-black icons on the dark theme's
+          near-black background, and the phone's own clock disappeared for the
+          length of a workout. Reported from a gym floor 2026-08-21. */}
+      <StatusBar
+        style={dark || themeName === 'dark' ? 'light' : 'dark'}
+        backgroundColor={dark ? GPD.bg1 : theme.bg}
+      />
       {dark ? (
         <View style={StyleSheet.absoluteFill}>
           <Svg width="100%" height="100%">
@@ -1602,6 +1761,21 @@ export function GuidedPlayerScreen({
                 </Text>
                 <Text style={styles.splashTitle}>{step.title}</Text>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                {/* The block is a suggestion, not a gate. Its own screen is
+                    where a reader decides to warm up their own way. */}
+                {skippablePhase ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={10}
+                    onPress={skipPhase}
+                    style={{ marginTop: 26, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                  >
+                    <GPIcon name="skip" size={15} color={theme.muted} sw={2.4} />
+                    <Text style={{ fontSize: 14.5, fontWeight: '700', color: theme.muted }}>
+                      {t(language, `guided.skipBlock.${skippablePhase}` as 'guided.skipBlock.warmup')}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </Pressable>
             </StepIn>
           )}
@@ -1756,11 +1930,21 @@ export function GuidedPlayerScreen({
               paused={paused}
               resolveTarget={resolveTarget}
               onToggleMute={() => onToggleSoundCues(!soundCuesEnabled)}
+              // Pause pauses, and nothing else. It used to open the actions
+              // sheet on the way, so the one control you reach for when the
+              // rack is taken put five decisions in front of you first.
               onPause={() => {
+                if (paused) {
+                  setPaused(false);
+                  workout.resumeWorkout();
+                  return;
+                }
                 setPaused(true);
-                setPauseSheetOpen(true);
+                workout.pauseWorkout();
               }}
-              onSwapExercise={swapOptions.length ? () => setSwapOpen(true) : null}
+              onOpenActions={() => setPauseSheetOpen(true)}
+              panels={setPanelSource}
+              onSwapExercise={() => setSwapOpen(true)}
               onConfirm={confirmSet}
             />
           )}
@@ -1772,20 +1956,32 @@ export function GuidedPlayerScreen({
                   <RestRing stepKey={stepIndex} leftSeconds={secondsLeft} plannedSeconds={step.seconds}>
                     <Text style={styles.restRingLabel}>{t(language, 'guided.rest')}</Text>
                     <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
-                    {paused ? (
-                      <Text style={{ fontSize: 13, fontWeight: '800', color: theme.muted, letterSpacing: 1.6 }}>
-                        {t(language, 'guided.paused')}
-                      </Text>
-                    ) : null}
+                    {/* No "PAUSED" caption: the button below it has already
+                        flipped to Jatka, and a ring frozen mid-sweep is not
+                        ambiguous. Asked for 2026-08-21. */}
                   </RestRing>
                 </View>
                 <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn label="−15s" onPress={() => adjustRemaining(-15000, 1000)} />
+                      <GhostBtn
+                        label="−15s"
+                        onPress={() => {
+                          // The rest ring is the one control you use without
+                          // looking at it.
+                          void haptics.select();
+                          adjustRemaining(-15000, 1000);
+                        }}
+                      />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn label="+15s" onPress={() => adjustRemaining(15000)} />
+                      <GhostBtn
+                        label="+15s"
+                        onPress={() => {
+                          void haptics.select();
+                          adjustRemaining(15000);
+                        }}
+                      />
                     </View>
                     <View style={{ flex: 1 }}>
                       <GhostBtn
@@ -1795,6 +1991,11 @@ export function GuidedPlayerScreen({
                       />
                     </View>
                   </View>
+                  <GhostBtn
+                    icon="swap"
+                    label={t(language, 'guided.swap.action')}
+                    onPress={() => setSwapOpen(true)}
+                  />
                   <Pressable style={styles.skipRestBtn} onPress={advance}>
                     <GPIcon name="skip" size={18} color="#fff" />
                     <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
@@ -1883,7 +2084,9 @@ export function GuidedPlayerScreen({
                 }}
               />
             ) : null}
-            <GhostBtn icon="x" label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
+            {/* Red, because this is the one that throws the sets away. It read
+                like the third of three equal choices. */}
+            <GhostBtn icon="x" danger label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
           </View>
           <Text style={styles.sheetFootnote}>
             {completedSetCount > 0
@@ -1920,6 +2123,18 @@ export function GuidedPlayerScreen({
                 <GhostBtn icon="skip" label={t(language, 'guided.pauseSheet.skipThis')} onPress={skipCurrent} />
               </View>
             </View>
+            {/* Mid-block, the same escape: this sheet is already the "I need to
+                do something else" surface. */}
+            {skippablePhase ? (
+              <GhostBtn
+                icon="skip"
+                label={t(language, `guided.skipBlock.${skippablePhase}` as 'guided.skipBlock.warmup')}
+                onPress={() => {
+                  setPauseSheetOpen(false);
+                  skipPhase();
+                }}
+              />
+            ) : null}
             {actionExercise ? (
               <>
                 <Text style={styles.sheetFootnote}>
@@ -1930,9 +2145,12 @@ export function GuidedPlayerScreen({
                   label={t(language, 'guided.action.addSet')}
                   onPress={handleAddSet}
                 />
-                {swapOptions.length ? (
+                {/* No longer gated on the substitution group: the sheet
+                    searches the whole library, so there is always something
+                    behind this row. */}
+                {actionExercise ? (
                   <GhostBtn
-                    icon="list"
+                    icon="swap"
                     label={t(language, 'guided.action.swap')}
                     onPress={() => {
                       setPauseSheetOpen(false);
@@ -1951,10 +2169,38 @@ export function GuidedPlayerScreen({
         </GPSheet>
       )}
 
+      {/* Swapping a lift.
+
+          This used to be the substitution group and nothing else, and the
+          button that opened it hid itself when that group was empty — which is
+          exactly the moment a reader wants it, standing at a machine somebody
+          else is using. The group is still the top of the list, because a
+          programme's own alternatives are better answers than a search. The
+          library is under it so there is always an answer at all. */}
+      <ConfirmDialog
+        language={language}
+        visible={confirmingEnd}
+        destructive
+        title={t(language, 'guided.endConfirm.title')}
+        message={t(
+          language,
+          completedSetCount === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany',
+          { count: completedSetCount },
+        )}
+        confirmLabel={t(language, 'guided.exit.end')}
+        cancelLabel={t(language, 'guided.exit.keep')}
+        onCancel={() => setConfirmingEnd(false)}
+        onConfirm={() => {
+          setConfirmingEnd(false);
+          onEndSession();
+        }}
+      />
+
       {swapOpen && actionExercise && (
         <GPSheet
           onClose={() => {
             setSwapOpen(false);
+            setSwapQuery('');
             setPaused(false);
           }}
         >
@@ -1963,25 +2209,50 @@ export function GuidedPlayerScreen({
               name: exerciseNameLabel(language, actionExercise.exerciseName),
             })}
           </Text>
-          <View style={{ gap: 10 }}>
-            {swapOptions.map((option) => (
-              <GhostBtn
-                key={option.exerciseName}
-                icon="check"
-                label={exerciseNameLabel(language, option.exerciseName)}
-                onPress={() => {
-                  workout.swapExercise(
-                    actionExercise.slotId,
-                    option.exerciseName,
-                    actionExercise.substitutionGroup,
-                    unitPreference,
-                  );
-                  setSwapOpen(false);
-                  setPaused(false);
-                }}
-              />
-            ))}
-          </View>
+
+          <TextInput
+            value={swapQuery}
+            onChangeText={setSwapQuery}
+            placeholder={t(language, 'guided.swap.search')}
+            placeholderTextColor={theme.faint}
+            style={styles.swapSearch}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+
+          <ScrollView style={styles.swapList} keyboardShouldPersistTaps="handled">
+            {swapSuggestions.length > 0 ? (
+              <>
+                <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.suggested')}</Text>
+                <View style={{ gap: 10 }}>
+                  {swapSuggestions.map((name) => (
+                    <GhostBtn
+                      key={`suggested-${name}`}
+                      icon="check"
+                      label={exerciseNameLabel(language, name)}
+                      onPress={() => applySwap(name)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.library')}</Text>
+            {swapLibrary.length > 0 ? (
+              <View style={{ gap: 10 }}>
+                {swapLibrary.map((item) => (
+                  <GhostBtn
+                    key={item.id}
+                    label={exerciseNameLabel(language, item.name)}
+                    onPress={() => applySwap(item.name)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.noMatch')}</Text>
+            )}
+          </ScrollView>
+
           <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.footnote')}</Text>
         </GPSheet>
       )}
@@ -2038,6 +2309,8 @@ function SetStepView({
   resolveTarget,
   onToggleMute,
   onPause,
+  onOpenActions,
+  panels,
   onSwapExercise,
   onConfirm,
 }: {
@@ -2052,8 +2325,16 @@ function SetStepView({
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
   onToggleMute: () => void;
   onPause: () => void;
+  onOpenActions: () => void;
+  /** Resolved by the player; null falls back to the plain photo. */
+  panels: {
+    history: SetPanelHistory | null;
+    instructions: string[];
+    imageUrl: string | null;
+    initials: string;
+  } | null;
   /** Null when this exercise has no catalog alternatives. */
-  onSwapExercise: (() => void) | null;
+  onSwapExercise: () => void;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
 }) {
   const theme = useTheme();
@@ -2119,7 +2400,21 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
-        <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" language={language} />
+        {/* Three panels where the photo was. A photo answers "what does this
+            look like", which is a question you have once; "what did I lift last
+            time" is the one you have standing at the rack. */}
+        {panels ? (
+          <SetPanels
+            height={236}
+            language={language}
+            history={panels.history}
+            instructions={panels.instructions}
+            imageUrl={panels.imageUrl}
+            initials={panels.initials}
+          />
+        ) : (
+          <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" language={language} />
+        )}
 
         {/* set counter + dots on the left, session clock on the right */}
         <View style={styles.setMetaRow}>
@@ -2269,6 +2564,16 @@ function SetStepView({
           >
             <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? theme.faint : theme.ink} sw={2.2} />
           </Pressable>
+          {/* Everything pause used to put in your way — go back one, skip this,
+              add a set, skip the exercise — lives behind its own button now. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'guided.a11y.actions')}
+            onPress={onOpenActions}
+            style={styles.setRoundBtn}
+          >
+            <GPIcon name="dots" size={24} color={theme.ink} sw={2.2} />
+          </Pressable>
           {/* Was "List" — the table logger is gone, and this slot now does the
               one thing people left the guided flow for. Same icon on purpose:
               the button did not move, only what it opens. Hidden when the
@@ -2280,7 +2585,7 @@ function SetStepView({
               onPress={onSwapExercise}
               style={styles.setListBtn}
             >
-              <GPIcon name="list" size={20} color={theme.ink} sw={2.2} />
+              <GPIcon name="swap" size={20} color={theme.ink} sw={2.2} />
               <Text style={styles.setListBtnText}>{t(language, 'guided.swapShort')}</Text>
             </Pressable>
           ) : null}
@@ -2802,6 +3107,32 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 30,
     maxHeight: '78%',
+  },
+  swapSearch: {
+    marginBottom: 14,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
+    paddingHorizontal: 14,
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  swapList: {
+    // Bounded so the footnote below it stays on screen; the sheet's own
+    // maxHeight cannot do this on its own with a list inside it.
+    maxHeight: 380,
+  },
+  swapSectionLabel: {
+    marginTop: 14,
+    marginBottom: 8,
+    color: theme.muted,
+    fontSize: 11.5,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },

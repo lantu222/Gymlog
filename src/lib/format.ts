@@ -1,4 +1,6 @@
 ﻿import { getComparableLogSets } from './exerciseLog';
+// i18n imports nothing from here, so this cannot close a cycle.
+import { t } from './i18n';
 import { isTimedTrackingMode, WorkoutTrackingMode } from '../features/workout/workoutTypes';
 import { AppLanguage, ExerciseLog, UnitPreference } from '../types/models';
 
@@ -155,16 +157,23 @@ export function formatLogSetSummary(
     .join(', ');
 }
 
+/**
+ * @param language the reader's. It was missing, so a saved workout read
+ *   "Skipped" in the middle of a Finnish list that already said "OHITETTU"
+ *   two lines below it — the English one being the line, the Finnish one the
+ *   chip.
+ */
 export function formatLogResult(
   log?: Pick<ExerciseLog, 'weight' | 'repsPerSet' | 'sets' | 'skipped'> | null,
   unitPreference: UnitPreference = 'kg',
+  language: AppLanguage = 'en',
 ) {
   if (!log) {
-    return 'No previous result';
+    return t(language, 'history.noPreviousResult');
   }
 
   if (log.skipped) {
-    return 'Skipped';
+    return t(language, 'history.badge.skipped');
   }
 
   return formatLogSetSummary(log, unitPreference);

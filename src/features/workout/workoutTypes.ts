@@ -228,6 +228,18 @@ export interface WorkoutSessionRuntime {
   updatedAt: string;
   completedAt?: string;
   elapsedSeconds: number;
+  /**
+   * How long this session has spent paused, in milliseconds.
+   *
+   * The workout clock used to be plain wall time from `startedAt`, so pausing
+   * froze the countdown on screen and the session clock kept running behind it
+   * — "eikö tauko tarkoita että tauko treenistä", reported 2026-08-21. Both the
+   * clock on screen and the duration written to history subtract this, so there
+   * is one answer to how long the workout took.
+   */
+  pausedMs: number;
+  /** When the current pause began, or null while running. */
+  pausedAt: string | null;
   activePlanMode: DefaultScheduleMode;
   exercises: WorkoutExerciseInstance[];
   restTimer: WorkoutRestTimerState;

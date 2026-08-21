@@ -1,4 +1,5 @@
 import { SessionFocusKind } from './homeSessionHero';
+import { sessionSlotOn, TrainingSchedule } from './trainingSchedule';
 import { AppLanguage } from '../types/models';
 
 // Sunday-first, matching Date#getDay().
@@ -224,13 +225,29 @@ export function getHomeMonthCalendar(
   };
 }
 
+/**
+ * What one day is for.
+ *
+ * The schedule decides whether the day trains and which slot of the programme
+ * it gets; this only turns that into copy. It takes a `TrainingSchedule` rather
+ * than a list of weekdays because a rhythm need not have a period of seven —
+ * two days on and one off is one the app could not previously express at all.
+ */
 export function getHomeDayView(
-  day: Pick<HomeMiniCalendarDay, 'weekdayIndex' | 'weekdayLabel' | 'dateLabel' | 'label' | 'isToday'>,
-  trainingDayIndexes: number[],
+  day: Pick<HomeMiniCalendarDay, 'dayStart' | 'weekdayIndex' | 'weekdayLabel' | 'dateLabel' | 'label' | 'isToday'>,
+  schedule: TrainingSchedule,
   sessions: HomeDaySessionSummary[],
 ): HomeDayView {
-  const trainingSlotIndex = trainingDayIndexes.indexOf(day.weekdayIndex);
-  const session = trainingSlotIndex >= 0 ? sessions[trainingSlotIndex % Math.max(sessions.length, 1)] ?? null : null;
+  const trainingSlotIndex = sessionSlotOn(schedule, new Date(day.dayStart));
+  // Modulo keeps a cycle longer than the programme walking round it: a
+  // three-session plan on a six-day rhythm returns to session 1, rather than
+  // running off the end of the list into a rest day it never meant. The count
+  // is checked first because a cycle can run backwards from its anchor, and
+  // `% 0` is NaN.
+  const session =
+    trainingSlotIndex === null || sessions.length === 0
+      ? null
+      : sessions[((trainingSlotIndex % sessions.length) + sessions.length) % sessions.length] ?? null;
 
   if (session) {
     return {

@@ -144,7 +144,10 @@ module.exports = [
       });
 
       assert.equal(detail.source, 'custom');
-      assert.equal(detail.primaryActionLabel, 'Start first session');
+      // Not "start the first session": a program the reader owns but is not
+      // running has to be adoptable, or the only way onto Home is the catalog
+      // and onboarding — neither of which knows about an imported program.
+      assert.equal(detail.primaryActionLabel, 'Start this programme');
       assert.equal(detail.sessionActionLabel, 'Start session');
       assert.equal(detail.sessions.length, 1);
       assert.equal(detail.sessions[0].guidance, null);
@@ -161,7 +164,26 @@ module.exports = [
       );
       assert.ok(fi.badges.includes('Oma ohjelma'));
       assert.match(fi.description, /omista treeneist/);
-      assert.equal(fi.primaryActionLabel, 'Aloita ensimmäinen treeni');
+      assert.equal(fi.primaryActionLabel, 'Ota ohjelma käyttöön');
+
+      // Already the plan Home reads: the button offers the next workout
+      // instead, the same answer a ready programme gives.
+      const running = buildCustomProgramDetail(
+        { id: 'tpl_custom', name: 'Rintavoima', sessions: [{ id: 's1', name: 'Day 1', orderIndex: 0, exercises: [{ id: 'e1', name: 'Bench', targetSets: 3, repMin: 5, repMax: 5, restSeconds: 120, trackedDefault: true }] }] },
+        undefined,
+        'fi',
+        true,
+      );
+      assert.equal(running.primaryActionLabel, 'Aloita seuraava treeni');
+
+      // An empty program is still sent to the editor — there is no plan to
+      // adopt, and Home would draw a card with no session behind it.
+      const empty = buildCustomProgramDetail(
+        { id: 'tpl_empty', name: 'Tyhjä', sessions: [{ id: 's1', name: 'Day 1', orderIndex: 0, exercises: [] }] },
+        undefined,
+        'fi',
+      );
+      assert.equal(empty.primaryActionLabel, 'Muokkaa pohjaa');
     },
   },
   {

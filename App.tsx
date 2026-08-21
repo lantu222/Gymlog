@@ -21,7 +21,7 @@ import * as SplashScreen from 'expo-splash-screen';
 
 import { AppShell } from './src/components/AppShell';
 import { BottomTabBar } from './src/components/BottomTabBar';
-import { getHomeSummary } from './src/lib/dashboard';
+import { getHomeSummary, getMonthTrainingTotals } from './src/lib/dashboard';
 import { formatDurationMinutes, formatRepRange, formatSetScheme, formatShortDate, formatTime, formatVolume, formatWeight, pluralize } from './src/lib/format';
 import { createId } from './src/lib/ids';
 import {
@@ -68,7 +68,8 @@ import {
 } from './src/lib/activeProgramSet';
 import {
   buildReadyProgramPlanId,
-  buildReadyProgramWorkoutPlan,
+  buildCustomProgramPlanId,
+  buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
 import { computePostSessionInsight, PostSessionInsight } from './src/lib/postSessionInsight';
@@ -164,6 +165,7 @@ import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { buildHomePromoSlides } from './src/lib/homePromoSlides';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
+import { cycleSchedule, weekdaySchedule } from './src/lib/trainingSchedule';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
@@ -872,6 +874,7 @@ function VinhaApp() {
     addMeasurementEntry,
     saveCompletedWorkoutSession,
     updateCompletedWorkoutSession,
+    deleteCompletedWorkoutSession,
     saveCardioSession,
   } = useAppContext();
   const workout = useWorkoutContext();
@@ -1940,8 +1943,14 @@ function VinhaApp() {
     }
 
     // Already running this programme under some other plan id (an onboarding
-    // pick, say) — joining again would spend a cap slot on a duplicate.
+    // pick, say) — joining again would spend a cap slot on a duplicate. But
+    // "already held" is not "already the one Home leads with", and this used to
+    // return on both: the only way to change the lead was to REMOVE the other
+    // programme, which is a destructive answer to a question about ordering.
     if (activeProgramTemplateIds.includes(workoutTemplateId)) {
+      if (options?.lead) {
+        await promoteHeldProgramToLead(workoutTemplateId);
+      }
       return;
     }
 
@@ -1976,7 +1985,8 @@ function VinhaApp() {
       preferences.setupAvailableDays,
     );
 
-    const plan = buildReadyProgramWorkoutPlan({
+    const plan = buildProgramWorkoutPlan({
+      planId,
       workoutTemplateId,
       programName: formatWorkoutDisplayLabel(template.name),
       sessionIds: template.sessions.map((session) => session.id),
@@ -2311,6 +2321,26 @@ function VinhaApp() {
   }
 
   /** The reader dropping a programme — the only path that removes one. */
+  /**
+   * Make a programme you already hold the one Home leads with.
+   *
+   * Matched on the template rather than the plan id, because the same programme
+   * can be held under a plan id minted by onboarding, by adoption, or by a
+   * season — and all three are equally "this programme".
+   */
+  async function promoteHeldProgramToLead(workoutTemplateId: string) {
+    const plan = database.workoutPlans.find(
+      (entry) =>
+        preferences.activePlanIds.includes(entry.id) &&
+        entry.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan || preferences.activePlanId === plan.id) {
+      return;
+    }
+    await updatePreferences({ activePlanId: plan.id });
+    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+  }
+
   async function handleRemoveActiveProgram(planId: string) {
     await updatePreferences({
       activePlanIds: removeActiveProgram(preferences.activePlanIds, planId),
@@ -2361,6 +2391,141 @@ function VinhaApp() {
       setSessionSwaps({});
       navigateToGuidedWorkout(workoutTemplateId);
     });
+  }
+
+  /**
+   * "Ota ohjelma käyttöön" on a program of the reader's own.
+   *
+   * The ready-program half of this was fixed and the custom half was not, which
+   * left a program the reader built or imported reachable only as a list of
+   * sessions to start one at a time. Reported by a reader who imported their own
+   * six-day program and could not get it onto the home screen by any route —
+   * Home offered the catalog and onboarding, and neither of those knows about a
+   * program that came from a spreadsheet.
+   *
+   * Adoption is the same act whatever the program's source, so this is
+   * `handleAdoptReadyProgram` with the template read from the reader's own
+   * templates and the plan id from the custom namespace.
+   */
+  /**
+   * "Today is legs, not upper."
+   *
+   * The rotation decides what comes next in the programme and is right nearly
+   * every day; what it cannot know is that the reader's day went differently.
+   * The pick is dated, so it answers for today and the rotation answers again
+   * tomorrow — nothing has to remember to clear it.
+   */
+  async function handlePickTodaySession(sessionId: string) {
+    const now = new Date();
+    await updatePreferences({
+      todaySession: {
+        dayStart: new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime(),
+        sessionId,
+      },
+    });
+  }
+
+  /**
+   * Renaming a session from Home.
+   *
+   * Only a program of the reader's own can be renamed: the catalog's templates
+   * are immutable at runtime, and a rename that silently did nothing would be
+   * worse than no button. The sheet asks whether this handler exists before it
+   * draws the pencil.
+   */
+  async function handleRenameActivePlanSession(sessionId: string, name: string) {
+    const trimmed = name.trim();
+    const templateId = homeActivePlanCard?.programId;
+    if (!trimmed || !templateId || homeActivePlanCard?.programType !== 'custom') {
+      return;
+    }
+    const template = workoutTemplates.find((item) => item.id === templateId);
+    if (!template) {
+      return;
+    }
+
+    await upsertWorkoutTemplate({
+      id: template.id,
+      name: template.name,
+      sessions: getWorkoutTemplateSessions(template.id).map((session) => ({
+        id: session.id,
+        // Every other field is copied because upsert replaces the record; only
+        // the one session the reader named changes.
+        name: session.id === sessionId ? trimmed : session.name,
+        exercises: session.exercises.map((exercise) => ({
+          id: exercise.id,
+          name: exercise.name,
+          targetSets: exercise.targetSets,
+          repMin: exercise.repMin,
+          repMax: exercise.repMax,
+          restSeconds: exercise.restSeconds,
+          trackedDefault: exercise.trackedDefault,
+          libraryItemId: exercise.libraryItemId ?? null,
+        })),
+      })),
+    });
+  }
+
+  async function handleAdoptCustomProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
+    const template = customWorkoutRuntimeMap[workoutTemplateId];
+    // An empty program is not a plan. Home would draw a card with no session
+    // behind it, so the editor is the honest destination.
+    const sessionIds = (template?.sessions ?? [])
+      .filter((session) => session.exercises.length > 0)
+      .map((session) => session.id);
+    if (sessionIds.length === 0) {
+      showToast(t(preferences.appLanguage, 'toast.addExercisesTemplate'));
+      navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
+      return;
+    }
+
+    if (activeProgramTemplateIds.includes(workoutTemplateId)) {
+      if (options?.lead) {
+        await promoteHeldProgramToLead(workoutTemplateId);
+      }
+      return;
+    }
+
+    const planId = buildCustomProgramPlanId(workoutTemplateId);
+    const decision = evaluateProgramAdoption({
+      activePlanIds: preferences.activePlanIds,
+      targetPlanId: planId,
+      proUnlocked: resolveProEntitlement(preferences).unlocked,
+    });
+
+    if (decision.kind === 'already_active') {
+      return;
+    }
+
+    if (decision.kind === 'blocked') {
+      if (decision.canUpgrade) {
+        navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
+        return;
+      }
+      showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
+      return;
+    }
+
+    // The program's own session count leads, exactly as it does for a ready
+    // programme: an imported six-day week dealt across three chosen weekdays
+    // would run every session twice and call itself a three-day programme.
+    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays);
+
+    const plan = buildProgramWorkoutPlan({
+      planId,
+      workoutTemplateId,
+      programName: formatWorkoutDisplayLabel(template?.name ?? ''),
+      sessionIds,
+      dayLabels,
+      now: new Date().toISOString(),
+    });
+
+    await upsertWorkoutPlan(plan);
+    await updatePreferences({
+      activePlanIds: addActiveProgram(preferences.activePlanIds, plan.id),
+      activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
+    });
+    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
   }
 
   function handleStartCustomProgram(workoutTemplateId: string) {
@@ -2505,7 +2670,8 @@ function VinhaApp() {
         // the thing the reader just picked, so the default rhythm for THAT
         // count beats a global fallback.
         const dayLabels = DEFAULT_RHYTHM_BY_DAYS[templateDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
-        const plan = buildReadyProgramWorkoutPlan({
+        const plan = buildProgramWorkoutPlan({
+          planId: buildReadyProgramPlanId(programId),
           workoutTemplateId: programId,
           programName: formatWorkoutDisplayLabel(template.name),
           sessionIds: template.sessions.map((session) => session.id),
@@ -3107,6 +3273,16 @@ function VinhaApp() {
   );
   const homeActivePlanCard = useMemo(() => {
     const completedPlanSessions = getCanonicalCompletedSessions(database);
+    // Local midnight, to date the reader's hand-picked session against. Read
+    // once per rebuild rather than per session, and local rather than UTC —
+    // the same midnight the calendar and the widget mean.
+    const now = new Date();
+    const todayDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    /** The local midnight an ISO timestamp falls in — not the UTC one. */
+    const toDayStartMs = (iso: string) => {
+      const date = new Date(iso);
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    };
     // Both hero branches end in the same question — is this block finished,
     // and what may the card claim? The display name is resolved here because
     // Home has no catalog access, and the presentation title (not the raw
@@ -3240,7 +3416,27 @@ function VinhaApp() {
       // Was `homeSessions[0]`, always. Finishing day 1 offered day 1 again,
       // and the start button logged the wrong session against the plan.
       const nextSessionIndex = resolveNextPlanEntryIndex(sortedEntries, completedPlanSessions);
-      const nextSession = homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
+      // The reader's own answer wins for the day they gave it. The rotation
+      // knows what comes next in the programme and cannot know that today is
+      // legs — but it is right again tomorrow, so the override is dated rather
+      // than sticky, and a stale one is ignored instead of cleared.
+      const pickedToday =
+        preferences.todaySession && preferences.todaySession.dayStart === todayDayStart
+          ? homeSessions.find((session) => session.id === preferences.todaySession?.sessionId) ?? null
+          : null;
+      // A pick answers "what am I doing today", and once it is done the question
+      // has changed. Left standing it offered the finished workout again —
+      // reported straight after the first real session run through the picker,
+      // with the counter already reading 1/48 behind it.
+      const pickedDone =
+        pickedToday !== null &&
+        completedPlanSessions.some(
+          (entry) =>
+            entry.workoutTemplateSessionId === pickedToday.id &&
+            toDayStartMs(entry.performedAt) === todayDayStart,
+        );
+      const nextSession =
+        (pickedDone ? null : pickedToday) ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));
@@ -3299,6 +3495,7 @@ function VinhaApp() {
             ...nextSession,
             label: 'Week 1 · Day 1',
           },
+
           // The catalog lookup, not the DB one: a custom template has no goal
           // or level for affinity to compare, so its card simply offers no
           // step up. Restart is real here — a plan record exists to reset.
@@ -3327,7 +3524,7 @@ function VinhaApp() {
     // happens on the Programs tab, which is the one place that can say what
     // adopting it means.
     return null;
-  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
+  }, [database.workoutPlans, database.workoutSessions, database.exerciseLogs, exerciseLibrary, getWorkoutTemplateSessions, preferences.activePlanId, preferences.aiPlannerGoal, preferences.dismissedCompletionPlanIds, preferences.recommendedProgramId, preferences.setupGoal, preferences.todaySession, recommendedReadyContent, recommendedReadyTemplate, setupSelection, workoutTemplates]);
   // The AI tab's opening state. Deterministic, so the most valuable-looking
   // part of the coach costs nothing to render and works offline.
   const coachChatIntro = useMemo(
@@ -3406,6 +3603,64 @@ function VinhaApp() {
       : open.length;
     return resolveProgramTrainingDays(open, sessionsPerWeek);
   }, [database.workoutPlans, homeActivePlanCard, preferences.activePlanId, preferences.setupAvailableDays]);
+  /**
+   * The rhythm every calendar in the app reads.
+   *
+   * A saved cycle wins outright over the weekday list. The two cannot be merged
+   * — one repeats every seven days and the other need not — and the plan's own
+   * entry labels are still weekdays after a switch, so anything deriving from
+   * them would quietly put the old week back.
+   */
+  /**
+   * Which of the programme's sessions have been trained since Monday.
+   *
+   * The week list used to carry two chips that predicted — TÄNÄÄN from the
+   * calendar, SEURAAVAKSI from the rotation — and on any day those two differ
+   * the reader has to work out which one the row's outline meant. A week list
+   * is for what happened, so it reports that instead.
+   */
+  const homeDoneThisWeekSessionIds = useMemo(() => {
+    const now = new Date();
+    const weekStart = getStartOfWeek(now).getTime();
+    const weekEnd = getEndOfWeek(now).getTime();
+    const ids = new Set<string>();
+    for (const session of workoutSessions) {
+      const stamp = Date.parse(session.performedAt);
+      if (!Number.isFinite(stamp) || stamp < weekStart || stamp >= weekEnd) {
+        continue;
+      }
+      if (session.workoutTemplateSessionId) {
+        ids.add(session.workoutTemplateSessionId);
+      }
+    }
+    return [...ids];
+  }, [workoutSessions]);
+
+  const homeTrainingSchedule = useMemo(() => {
+    const cycle = preferences.trainingCycle;
+    return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
+  }, [homeTrainingDayIndexes, preferences.trainingCycle]);
+  /**
+   * Home must never say "find a programme" while one is running.
+   *
+   * Removing the lead already promotes the next in line, but that is one path
+   * of several that can empty `activePlanId` — a season leaving, a plan record
+   * being rewritten, a stored value from an older build. Rather than chase each
+   * one, the invariant is repaired wherever it broke: a held programme with no
+   * lead becomes the lead.
+   */
+  useEffect(() => {
+    if (!appHydrated || preferences.activePlanId) {
+      return;
+    }
+    const held = preferences.activePlanIds.find((planId) =>
+      database.workoutPlans.some((plan) => plan.id === planId),
+    );
+    if (held) {
+      void updatePreferences({ activePlanId: held });
+    }
+  }, [appHydrated, database.workoutPlans, preferences.activePlanId, preferences.activePlanIds, updatePreferences]);
+
   // What Android says about pinning the widget. Re-asked on every foreground,
   // because the user may have added or removed it while we were away.
   useEffect(() => {
@@ -3503,29 +3758,29 @@ function VinhaApp() {
   };
 
   // The programme the widget offers when there is none running: the app's own
-  // recommendation, under its curated title, with one tag for what it costs.
+  // recommendation, under its curated title.
   const widgetSuggestion = useMemo(() => {
     if (!recommendedReadyTemplate) {
       return null;
     }
     const presentation = getReadyTemplatePresentation(recommendedReadyTemplate, preferences.appLanguage);
-    return {
-      title: presentation.title,
-      // What running it costs, not what it trains. The focus tag read "Full
-      // Body" next to a name that already says it, and the question a reader
-      // asks of an unfamiliar programme is how many days it wants.
-      meta: t(preferences.appLanguage, 'programs.card.days', {
-        count: recommendedReadyTemplate.daysPerWeek,
-      }),
-    };
+    return { title: presentation.title };
   }, [preferences.appLanguage, recommendedReadyTemplate]);
+  // The widget's calendar is a whole month, and a Monday-first grid drags in up
+  // to six days of the month before it — so 45 days back covers the longest
+  // grid whatever today's date is. (21 was right for the four-week strip this
+  // replaced, and would have left the first fortnight of every month blank.)
   const widgetCompletedDayStarts = useMemo(
     () =>
-      getRecentActivityStrip(database, new Date(), 21)
+      getRecentActivityStrip(database, new Date(), 45)
         .filter((day) => day.active)
         .map((day) => day.dayStart),
     [database],
   );
+  // This month's totals, for the three figures the 4x2 draws beside the
+  // calendar, and the streak the 2x1 counts.
+  const widgetMonthTotals = useMemo(() => getMonthTrainingTotals(database), [database]);
+
   // The narrower set, for the one question the strip cannot answer: is today's
   // session behind you. The strip counts cardio, and a run leaves the planned
   // workout undone — fed to the skip, it would have the widget name tomorrow
@@ -3554,10 +3809,17 @@ function VinhaApp() {
         // rather than asking an empty question. Presented here, because the
         // catalog's curated titles live on this side of the bridge.
         suggestion: widgetSuggestion,
-        trainingDayIndexes: homeTrainingDayIndexes,
+        schedule: homeTrainingSchedule,
+        // Home's own answer for today, so the launcher cannot name a different
+        // workout than the screen the reader just left.
+        todaySessionId: homeActivePlanCard?.nextSession.id ?? null,
         completedDayStarts: widgetCompletedDayStarts,
         completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
+        monthTotals: widgetMonthTotals,
+        // Every workout ever, not a week streak: the 2x1 counts what you have
+        // done, asked for on the home screen 2026-08-20.
+        totalWorkouts: lifetimeSummary.sessionCount,
       }),
     );
 
@@ -3572,10 +3834,12 @@ function VinhaApp() {
     appHydrated,
     preferences,
     homeActivePlanCard,
-    homeTrainingDayIndexes,
+    homeTrainingSchedule,
     widgetCompletedDayStarts,
     widgetCompletedWorkoutDayStarts,
+    widgetMonthTotals,
     widgetSuggestion,
+    lifetimeSummary,
   ]);
 
   // ── Widget taps ──────────────────────────────────────────────────────────
@@ -3642,7 +3906,7 @@ function VinhaApp() {
 
     const next = findHomeWidgetNextSession({
       nowMs: Date.now(),
-      trainingDayIndexes: homeTrainingDayIndexes,
+      schedule: homeTrainingSchedule,
       sessions: homeActivePlanCard?.sessions ?? [],
       completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
     });
@@ -3662,7 +3926,7 @@ function VinhaApp() {
   }, [
     appHydrated,
     homeActivePlanCard,
-    homeTrainingDayIndexes,
+    homeTrainingSchedule,
     pendingWidgetTarget,
     recommendedReadyTemplate,
     widgetCompletedWorkoutDayStarts,
@@ -4928,8 +5192,12 @@ function VinhaApp() {
       // Membership is asked of the template, not the plan id — a programme
       // joined during onboarding carries a different plan id for the same
       // programme, and it is no less the reader's own.
-      const readyProgramIsMine =
-        route.programType === 'ready' && activeProgramTemplateIds.includes(route.workoutTemplateId);
+      const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);
+      // Held is not the same as leading. A programme you hold but do not lead
+      // with has a third answer — put it on Home — and without it the only way
+      // there was to remove whatever was leading.
+      const programLeads = homeActivePlanCard?.programId === route.workoutTemplateId;
+      const readyProgramIsMine = route.programType === 'ready' && programLeads;
       const program = readyTemplate
         ? buildReadyProgramDetail(
             readyTemplate,
@@ -4943,12 +5211,15 @@ function VinhaApp() {
               : null,
             preferences.appLanguage,
             readyProgramIsMine,
+            programIsMine && !programLeads,
           )
       : customTemplate
         ? buildCustomProgramDetail(
             customTemplate,
             programInsightsByTemplateId[route.workoutTemplateId],
             preferences.appLanguage,
+            programIsMine && programLeads,
+            programIsMine && !programLeads,
           )
         : null;
 
@@ -5040,7 +5311,18 @@ function VinhaApp() {
             return;
           }
 
-          handleStartCustomProgram(route.workoutTemplateId);
+          // Already running it: start what the rotation offers next, the same
+          // answer a ready programme gives. Otherwise put it on Home, which is
+          // what the button now says and what it could not previously do.
+          if (programLeads) {
+            handleStartCustomProgram(route.workoutTemplateId);
+            return;
+          }
+
+          // Held but not leading, or not held at all — both are answered by
+          // adoption, which now promotes rather than returning early.
+          void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true });
+          navigate(ROOT_ROUTES.home);
         }}
         onStartSession={(sessionId) => {
           if (route.programType === 'ready') {
@@ -5512,6 +5794,7 @@ function VinhaApp() {
         selectedSessionId={route.screen === 'session' ? route.sessionId : undefined}
         getSessionLogs={getSessionLogs}
         onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
+        onDeleteSession={(sessionId) => void deleteCompletedWorkoutSession(sessionId)}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );
@@ -5689,10 +5972,12 @@ function VinhaApp() {
           isNext: session.id === homeActivePlanCard?.nextSession.id,
         }))}
         trainingDays={preferences.setupAvailableDays}
+        trainingCycle={preferences.trainingCycle}
         exerciseLibrary={exerciseBrowserItems}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onOpenPlanSettings={handleOpenPlanSettings}
         onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
+        onChangeTrainingCycle={(cycle) => void updatePreferences({ trainingCycle: cycle })}
         onEditCustomPlan={
           homeActivePlanCard?.programType === 'custom'
             ? () =>
@@ -6214,7 +6499,8 @@ function VinhaApp() {
               }
             : null
         }
-        trainingDayIndexes={homeTrainingDayIndexes}
+        trainingSchedule={homeTrainingSchedule}
+        doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
         promoSlides={homePromoSlides}
         onPressPromo={(slide) => {
           if (slide.kind === 'season' && slide.season) {
@@ -6304,6 +6590,14 @@ function VinhaApp() {
         }}
         // Paused counts: it is still a session the button resumes.
         hasActiveSession={workout.activeSession !== null && workout.activeSession.status !== 'completed'}
+        onPickTodaySession={(sessionId) => void handlePickTodaySession(sessionId)}
+        // Ready programmes are immutable at runtime, so the pencil is simply
+        // not offered for them rather than offered and inert.
+        onRenameSession={
+          homeActivePlanCard?.programType === 'custom'
+            ? (sessionId, name) => void handleRenameActivePlanSession(sessionId, name)
+            : undefined
+        }
         onStartActivePlanSession={(sessionId) => {
           if (!homeActivePlanCard) {
             return;
@@ -6438,27 +6732,37 @@ function VinhaApp() {
     <AppShell
       toastMessage={toastMessage}
       safeAreaEdges={
-        welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
-          ? ['left', 'right']
-          : onboardingActive
-            ? ['top', 'left', 'right']
-            : ['top', 'left', 'right', 'bottom']
+        // A saved workout drops the TOP edge so its gradient runs under the
+        // status bar — and used to drop the bottom one with it, which put the
+        // floating tab bar on top of the phone's own navigation buttons.
+        historySessionActive
+          ? ['left', 'right', 'bottom']
+          : welcomeActive || workoutSummaryActive || fullBleedReview !== null
+            ? ['left', 'right']
+            : onboardingActive
+              ? ['top', 'left', 'right']
+              : ['top', 'left', 'right', 'bottom']
       }
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
       statusBarStyleOverride={
-        fullBleedReview
-          ? fullBleedReview
-          : workoutSummaryActive || historySessionActive
-            ? 'light'
-            : undefined
+        // The workout summary is off this list since its hero turned gold: a
+        // pale gold bar needs dark icons, and the shell already derives that
+        // from the theme.
+        fullBleedReview ? fullBleedReview : historySessionActive ? 'light' : undefined
       }
       statusBarBackgroundColor={
-        workoutSummaryActive || historySessionActive || welcomeActive || fullBleedReview !== null
-          ? 'transparent'
-          : aiSetupActive
-            ? theme.surface
-            : undefined
+        // The saved workout's hero scrolls, and under a transparent bar its
+        // date ended up printed across the phone's clock. Painted with the
+        // hero's own top colour it is invisible at rest and a clean cap once
+        // the screen moves.
+        historySessionActive
+          ? '#8B5CF6'
+          : workoutSummaryActive || welcomeActive || fullBleedReview !== null
+            ? 'transparent'
+            : aiSetupActive
+              ? theme.surface
+              : undefined
       }
       statusBarTranslucent={
         welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null

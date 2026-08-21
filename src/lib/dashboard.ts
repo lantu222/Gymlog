@@ -287,6 +287,28 @@ function getSessionVolumeKg(session: AppDatabase['workoutSessions'][number]) {
   return 0;
 }
 
+/**
+ * Workouts, minutes and volume inside the calendar month `now` falls in.
+ *
+ * The home-screen widget's 4x2 draws these beside a calendar of that same
+ * month, so the window is the month rather than the rolling 30 days the rest
+ * of the app prefers: a figure next to a grid is read as belonging to it.
+ */
+export function getMonthTrainingTotals(database: AppDatabase, now = new Date()) {
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+  const sessions = getCanonicalCompletedSessions(database).filter((session) => {
+    const performedAt = new Date(session.performedAt).getTime();
+    return performedAt >= monthStart && performedAt < nextMonthStart;
+  });
+
+  return {
+    workouts: sessions.length,
+    durationMinutes: sessions.reduce((sum, session) => sum + getSessionDurationMinutes(session), 0),
+    volumeKg: sessions.reduce((sum, session) => sum + getSessionVolumeKg(session), 0),
+  };
+}
+
 function getHomeWeeklySnapshot(database: AppDatabase, now = new Date()) {
   const currentWeekStart = getCalendarWeekStartTimestamp(now);
   const previousWeekStart = currentWeekStart - 7 * 24 * 60 * 60 * 1000;

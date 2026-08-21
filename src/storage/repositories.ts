@@ -123,6 +123,22 @@ export const workoutSessionRepository = {
       ),
     };
   },
+  /**
+   * Removes a saved workout and the sets logged in it.
+   *
+   * The logs go with it, and that is not a detail: records, trends and the
+   * coach's read are all computed from those rows, so leaving them behind would
+   * have the app claim a personal best from a workout the reader had just
+   * deleted. "Take it off the list" can only mean this if the list and the
+   * numbers are to agree.
+   */
+  remove(database: AppDatabase, sessionId: string): AppDatabase {
+    return {
+      ...database,
+      workoutSessions: database.workoutSessions.filter((session) => session.id !== sessionId),
+      exerciseLogs: database.exerciseLogs.filter((log) => log.sessionId !== sessionId),
+    };
+  },
 };
 
 export const exerciseLogRepository = {

@@ -180,3 +180,30 @@ export function useThemedStyles<T>(factory: (theme: Theme) => T): T {
     return built;
   }, [factory, theme]);
 }
+
+/**
+ * A foreground that can be read on `background`.
+ *
+ * The guided player's primary button paints itself `theme.ink` to mean "the
+ * quiet one" and drew its label `#fff` regardless. Under the light theme ink is
+ * near-black and that works; under the dark theme ink is #F4F1FF, so "Pysäytä
+ * kello" was white on white and the button read as blank. Reported from a gym
+ * floor 2026-08-21.
+ *
+ * Derived rather than paired, so the next colour someone paints a button cannot
+ * reintroduce this: a fixed foreground is only ever right for one background.
+ */
+export function readableOn(background: string): string {
+  const hex = background.replace('#', '');
+  const full =
+    hex.length === 3
+      ? hex.split('').map((char) => char + char).join('')
+      : hex;
+  if (full.length < 6) {
+    return '#FFFFFF';
+  }
+  const channel = (offset: number) => Number.parseInt(full.slice(offset, offset + 2), 16) / 255;
+  // Rec. 601 luma: cheap, and the question here is only "light or dark".
+  const luma = 0.299 * channel(0) + 0.587 * channel(2) + 0.114 * channel(4);
+  return luma > 0.6 ? '#17131F' : '#FFFFFF';
+}

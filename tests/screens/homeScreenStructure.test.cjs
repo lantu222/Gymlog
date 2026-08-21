@@ -79,7 +79,9 @@ module.exports = [
       assert.match(homeScreenSource, /proPillActive:\s*\{[\s\S]{0,120}backgroundColor: theme\.surfaceSoft/);
       // The label is one word; what it means is in the accessibility label.
       assert.match(homeScreenSource, /proUnlocked \? 'home\.proPill\.manage' : 'home\.proPill\.get'/);
-      assert.match(homeScreenSource, /<VinhaWordmark size=\{34\}/);
+      // The full lockup: the app is called Vinha Fitness, and Home is where
+      // the reader looks to see whose app this is.
+      assert.match(homeScreenSource, /<VinhaWordmark size=\{30\} fitness \/>/);
       assert.match(homeScreenSource, /speedRule:\s*\{[\s\S]*skewX: '-18deg'/);
       // The date is stated once, on the greeting row — today's cell in the
       // week strip is told apart by its highlight, not by different content.
@@ -584,6 +586,65 @@ module.exports = [
     },
   },
   {
+    /**
+     * "Today is legs, not upper."
+     *
+     * The rotation decides what comes next in the programme and cannot know
+     * what happened to the reader's day. Before this, the only way to train
+     * something else was to leave Home for the programme screen and start a
+     * session from the list there.
+     */
+    name: "today's workout can be changed from the title, for one day only",
+    run() {
+      // The title is the switch: a reader looking at the wrong workout reaches
+      // for its name first.
+      assert.match(homeScreenSource, /onPress=\{\(\) => setTodaySheetVisible\(true\)\}/);
+      assert.match(homeScreenSource, /onPickTodaySession\?\.\(session\.id\)/);
+      // One session is not a choice.
+      assert.match(homeScreenSource, /planSessions\.length < 2/);
+
+      // Dated, not sticky. A pick that outlived its day would quietly replace
+      // the programme's rotation with one session forever.
+      const handlerStart = appSource.indexOf('async function handlePickTodaySession(');
+      assert.ok(handlerStart > 0, 'handlePickTodaySession not found');
+      const handler = appSource.slice(handlerStart, handlerStart + 800);
+      assert.match(handler, /todaySession: \{/);
+      assert.match(handler, /dayStart:/);
+
+      // And the card only honours it while that day IS today.
+      assert.match(appSource, /preferences\.todaySession\.dayStart === todayDayStart/);
+
+      // The pencil is offered only where a rename can actually land: the
+      // catalog's templates are immutable at runtime.
+      assert.match(
+        appSource,
+        /homeActivePlanCard\?\.programType === 'custom'\s*\r?\n\s*\? \(sessionId, name\) =>/,
+      );
+    },
+  },
+
+  {
+    /**
+     * The week list carried two chips that predicted — TÄNÄÄN from the
+     * calendar, SEURAAVAKSI from the rotation — and on any day those differ the
+     * reader has to work out which one the row's outline meant. Asked for
+     * 2026-08-21: show what was done instead.
+     */
+    name: 'the week list reports what happened rather than predicting',
+    run() {
+      assert.doesNotMatch(homeScreenSource, /'programs\.today'/);
+      assert.doesNotMatch(homeScreenSource, /t\(language, 'plan\.upNext'\)\s*\}/);
+      assert.match(homeScreenSource, /doneThisWeekSessionIds\.includes\(session\.id\)/);
+      assert.match(i18nSource, /'home\.plan\.doneThisWeek': 'Tehty'/);
+
+      // And the hero carries no label of its own: the answer to a name being
+      // misread turned out to be fewer words, not better ones.
+      assert.doesNotMatch(homeScreenSource, /'home\.hero\.nextUp'/);
+      assert.doesNotMatch(homeScreenSource, /'home\.hero\.loggedToday'/);
+    },
+  },
+
+  {
     name: 'an unknown training week asks for the days instead of guessing them',
     run() {
       // setupAvailableDays is only written when the user explicitly picks
@@ -610,7 +671,9 @@ module.exports = [
       assert.match(appSource, /startEditingSchedule=\{route\.editSchedule === true\}/);
 
       // The dots themselves stay gated on real data in both calendar views.
-      assert.match(homeScreenSource, /trainingDayIndexes\.length > 0/);
+      // The gate is a schedule now rather than a weekday count, because a
+      // rhythm need not repeat every seven days — but it is still a gate.
+      assert.match(homeScreenSource, /const scheduleKnown = isScheduleKnown\(trainingSchedule\)/);
       assert.match(homeScreenSource, /weekStripDotUnknown/);
     },
   },

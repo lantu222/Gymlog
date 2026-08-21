@@ -134,7 +134,7 @@ module.exports = [
         /async function handleOnboardingPickReadyProgram\(programId: string\)[\s\S]*?\r?\n {2}\}\r?\n/,
       );
       assert.ok(readyPick, 'handleOnboardingPickReadyProgram not found');
-      assert.match(readyPick[0], /buildReadyProgramWorkoutPlan\(/);
+      assert.match(readyPick[0], /buildProgramWorkoutPlan\(/);
       assert.match(readyPick[0], /await upsertWorkoutPlan\(plan\)/);
       assert.match(readyPick[0], /activePlanId: adoptedPlanId/);
       assert.match(readyPick[0], /activePlanIds: adoptedPlanId \? \[adoptedPlanId\] : \[\]/);

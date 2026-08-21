@@ -6,6 +6,7 @@ const {
   getHomeMiniCalendarDays,
   getHomeMonthCalendar,
 } = require('../../.test-dist/lib/homeCalendar.js');
+const { cycleSchedule, weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 
 module.exports = [
   {
@@ -103,13 +104,13 @@ module.exports = [
         { id: 'lower', title: 'Lower', duration: '~50 min', exercises: [], hiddenExerciseCount: 0 },
       ];
 
-      assert.equal(getHomeDayView(monday, [0, 2, 4], sessions).kind, 'training');
-      assert.equal(getHomeDayView(monday, [0, 2, 4], sessions).ctaEyebrow, 'NO EXCUSES');
-      assert.equal(getHomeDayView(monday, [0, 2, 4], sessions).ctaTitle, 'JUST RESULTS');
-      assert.equal(getHomeDayView(tuesday, [0, 2, 4], sessions).kind, 'recovery');
-      assert.equal(getHomeDayView(wednesday, [0, 2, 4], sessions).session?.id, 'lower');
-      assert.equal(getHomeDayView(wednesday, [0, 2, 4], sessions).ctaEyebrow, 'TRAINING');
-      assert.equal(getHomeDayView(wednesday, [0, 2, 4], sessions).ctaTitle, 'TODAY');
+      assert.equal(getHomeDayView(monday, weekdaySchedule([0, 2, 4]), sessions).kind, 'training');
+      assert.equal(getHomeDayView(monday, weekdaySchedule([0, 2, 4]), sessions).ctaEyebrow, 'NO EXCUSES');
+      assert.equal(getHomeDayView(monday, weekdaySchedule([0, 2, 4]), sessions).ctaTitle, 'JUST RESULTS');
+      assert.equal(getHomeDayView(tuesday, weekdaySchedule([0, 2, 4]), sessions).kind, 'recovery');
+      assert.equal(getHomeDayView(wednesday, weekdaySchedule([0, 2, 4]), sessions).session?.id, 'lower');
+      assert.equal(getHomeDayView(wednesday, weekdaySchedule([0, 2, 4]), sessions).ctaEyebrow, 'TRAINING');
+      assert.equal(getHomeDayView(wednesday, weekdaySchedule([0, 2, 4]), sessions).ctaTitle, 'TODAY');
     },
   },
   {
@@ -132,7 +133,7 @@ module.exports = [
           hiddenExerciseCount: 0,
         },
       ];
-      const view = getHomeDayView(tuesday, [0, 3], sessions);
+      const view = getHomeDayView(tuesday, weekdaySchedule([0, 3]), sessions);
 
       assert.equal(tuesday.weekdayLabel, 'TUE');
       assert.equal(view.kind, 'recovery');

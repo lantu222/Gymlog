@@ -39,6 +39,46 @@ module.exports = [
   },
 
   {
+    /**
+     * The same bug, on the other side of the catalog.
+     *
+     * The ready half of "Ota ohjelma käyttöön" was fixed above and the custom
+     * half was left starting a session, so a program the reader built or
+     * imported could be run one workout at a time but never became the plan
+     * Home reads. Reported by a reader who imported their own six-day program
+     * from a spreadsheet and found no route onto the home screen: Home offers
+     * the catalog and onboarding, and neither knows about it.
+     */
+    name: "a program of the reader's own can become the program on Home",
+    run() {
+      const branch = appSource.slice(
+        appSource.indexOf('onPrimaryAction={() => {'),
+        appSource.indexOf('onStartSession={(sessionId) => {'),
+      );
+      assert.ok(branch.length > 100, 'the primary action branch moved');
+      assert.match(branch, /handleAdoptCustomProgram\(route\.workoutTemplateId/);
+
+      // Adoption is what writes the plan Home reads. Starting a session is not
+      // adoption, and that distinction is the whole bug.
+      // Sliced rather than matched with a multi-line regex: App.tsx is CRLF on
+      // this checkout, and a line-terminator pattern is the one thing here that
+      // silently matches nothing instead of failing loudly.
+      const handlerStart = appSource.indexOf('async function handleAdoptCustomProgram(');
+      assert.ok(handlerStart > 0, 'handleAdoptCustomProgram not found');
+      const handler = appSource.slice(handlerStart, handlerStart + 3000);
+      assert.match(handler, /await upsertWorkoutPlan\(plan\)/);
+      assert.match(handler, /activePlanId:/);
+      assert.match(handler, /buildCustomProgramPlanId\(workoutTemplateId\)/);
+
+      // The button has to say what it does. "Start first session" on a program
+      // that is about to become your plan is the label half of the same bug.
+      assert.match(programDetailsSource, /isActivePlan\s*\?\s*'detail\.startNext'/);
+      assert.match(programDetailsSource, /:\s*'detail\.adopt'/);
+      assert.match(i18nSource, /'detail\.adopt': 'Ota ohjelma käyttöön'/);
+    },
+  },
+
+  {
     name: 'program detail screen renders the light plan overview instead of the old session-flow hero',
     run() {
       // Every module constant is gone: a constant is evaluated once at import
@@ -101,11 +141,13 @@ module.exports = [
       assert.match(i18nSource, /'detail\.adopt': 'Ota ohjelma käyttöön'/);
       // The label comes from the view model, so it is translated at the source
       // rather than hardcoded English that no screen ever showed — and it reads
-      // the state: adopting is only offered to a reader who does not already
-      // hold the programme, who gets the next session instead.
+      // the state. Three answers, not two: adopt it, put it on Home when you
+      // already hold it but something else is leading, or start the next
+      // workout when it is the one leading. Without the middle one, the only
+      // way to change which programme Home leads with was to remove the other.
       assert.match(
         programDetailsSource,
-        /primaryActionLabel: t\(language, isActivePlan \? 'detail\.startNext' : 'detail\.adopt'\)/,
+        /isActivePlan \? 'detail\.startNext' : isHeldNotLeading \? 'detail\.lead' : 'detail\.adopt'/,
       );
       assert.match(i18nSource, /'detail\.startNext': 'Aloita seuraava treeni'/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);

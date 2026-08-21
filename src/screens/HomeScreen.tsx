@@ -3,11 +3,13 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +23,7 @@ import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
+import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE } from '../lib/trainingSchedule';
 import {
   getDefaultCooldown,
   getDefaultWarmup,
@@ -115,6 +118,7 @@ interface HomePlanCard {
   nextSession: HomeDaySessionSummary & {
     label: string;
   };
+
   /**
    * Present only when the plan's block is finished and unanswered. The card
    * stays until one of its answers is taken — completion must not be missable
@@ -162,6 +166,20 @@ interface HomeScreenProps {
   onCompletionBrowse?: (planId: string) => void;
   /** Adapt sheet: answer the onboarding questions again. */
   onRedoOnboarding?: () => void;
+  /**
+   * The reader saying "today is legs, not upper".
+   *
+   * The rotation is right nearly every day and cannot be right about this one:
+   * what happened to the reader's day is not in the programme. Absent = the
+   * title is not offered as a choice at all.
+   */
+  onPickTodaySession?: (sessionId: string) => void;
+  /**
+   * Renaming a session in place. Present only for a program of the reader's
+   * own — the catalog's templates are immutable at runtime, and a pencil that
+   * silently did nothing would be worse than no pencil.
+   */
+  onRenameSession?: (sessionId: string, name: string) => void;
   onStartActivePlanSession?: (sessionId: string) => void;
   /**
    * True while a workout is in progress. The hero button already resumes it
@@ -212,11 +230,24 @@ interface HomeScreenProps {
   onChangePinnedStatCardKeys?: (next: string[]) => void;
   onOpenStatCard?: (key: string) => void;
   /**
-   * Monday-first weekday indexes (0 = Mon … 6 = Sun) of the user's training
-   * days, from setupAvailableDays. Empty = unknown → the strip shows no
-   * training dots rather than an invented rhythm.
+   * Which days train. Unknown → the strip shows no training dots rather than
+   * an invented rhythm.
+   *
+   * This used to be a list of weekdays. It is a schedule now because a rhythm
+   * need not repeat every seven days: two on, one off is one, and no weekday
+   * list can hold it.
    */
-  trainingDayIndexes?: number[];
+  trainingSchedule?: TrainingSchedule;
+  /**
+   * Session ids completed since Monday.
+   *
+   * The programme list used to carry two chips that argued with each other —
+   * TÄNÄÄN on the weekday's row, SEURAAVAKSI on the row the rotation offered —
+   * and on any day those differ the reader has to work out which one the
+   * outline meant. What a week list is for is what happened, so that is what it
+   * marks now. The hero above it already says what is next.
+   */
+  doneThisWeekSessionIds?: string[];
   language?: AppLanguage;
   /**
    * Equipment chips the user actually has; null when the setup never said.
@@ -270,6 +301,8 @@ export function HomeScreen({
   onCompletionDismiss,
   onCompletionBrowse,
   onRedoOnboarding,
+  onPickTodaySession,
+  onRenameSession,
   onStartActivePlanSession,
   hasActiveSession = false,
   onCreateWorkoutFromExercises,
@@ -293,7 +326,8 @@ export function HomeScreen({
   pinnedStatCardKeys = [],
   onChangePinnedStatCardKeys,
   onOpenStatCard,
-  trainingDayIndexes = [],
+  trainingSchedule = UNKNOWN_SCHEDULE,
+  doneThisWeekSessionIds = [],
   language = 'en',
   profileName = null,
   availableEquipment = null,
@@ -306,10 +340,26 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // No schedule = no dots. "Recovery" would be as invented as "training".
+  const scheduleKnown = isScheduleKnown(trainingSchedule);
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [confirmingRemovePlan, setConfirmingRemovePlan] = useState(false);
   const [adaptSheetVisible, setAdaptSheetVisible] = useState(false);
+  const [todaySheetVisible, setTodaySheetVisible] = useState(false);
+  // Which row is being renamed, and the text so far. Kept out of the row so a
+  // rename in progress survives the list re-ordering underneath it.
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  /**
+   * How much of the screen the keyboard is covering.
+   *
+   * A React Native Modal is its own window and Android's adjustResize does not
+   * reach inside it, so the sheet stays where it is and the row being renamed
+   * ends up underneath the keys. Measured rather than guessed: keyboard height
+   * varies with the language, the suggestion strip and the handset.
+   */
+  const [keyboardInset, setKeyboardInset] = useState(0);
   /** Which row's swap sheet is open, by slot id. */
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
@@ -334,6 +384,20 @@ export function HomeScreen({
 
   // --- Session hero data (Home v4) ---------------------------------------
   const nextPlanSession = activePlan?.nextSession ?? null;
+  // Every session the programme holds, for the today-picker. One session
+  // is not a choice, so the title only becomes a button past that.
+  const planSessions = activePlan?.sessions ?? [];
+  useEffect(() => {
+    const shown = Keyboard.addListener('keyboardDidShow', (event) =>
+      setKeyboardInset(event.endCoordinates.height),
+    );
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardInset(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+
   const focusTitle = getSessionFocusTitle(nextPlanSession?.title, activePlan?.title);
   const sessionsDone = activePlan?.sessionsDone ?? 0;
   const sessionsTotal = activePlan?.sessionsTotal ?? 0;
@@ -679,7 +743,9 @@ export function HomeScreen({
         */}
         <Animated.View style={rise(RISE_HEADER)}>
           <View style={styles.headerRow}>
-            <VinhaWordmark size={34} />
+            {/* The full lockup: the app is called Vinha Fitness, and Home is
+                where the reader looks to see whose app this is. */}
+            <VinhaWordmark size={30} fitness />
             <View style={styles.headerSpacer} />
             <Pressable
               accessibilityRole="button"
@@ -729,7 +795,7 @@ export function HomeScreen({
             style={({ pressed }) => [styles.weekStripRow, pressed && styles.pressed]}
           >
             {topCalendarDays.map((day) => {
-              const isTrainingDay = trainingDayIndexes.includes(day.weekdayIndex);
+              const isTrainingDay = trainsOn(trainingSchedule, new Date(day.dayStart));
               // The date appears once on this screen, up on the greeting row.
               // Today's cell is told apart by its highlight, not by holding
               // different content from its neighbours.
@@ -739,7 +805,7 @@ export function HomeScreen({
                 <View key={day.dayStart} style={[styles.weekStripItem, day.isToday && styles.weekStripItemToday]}>
                   {/* Dots only when training days are actually known — with no
                       schedule, "recovery" would be as invented as "training". */}
-                  {trainingDayIndexes.length > 0 ? (
+                  {scheduleKnown ? (
                     <View style={[styles.weekStripDot, isTrainingDay ? styles.weekStripDotTraining : styles.weekStripDotRecovery]} />
                   ) : (
                     <View style={[styles.weekStripDot, styles.weekStripDotUnknown]} />
@@ -805,7 +871,7 @@ export function HomeScreen({
             {monthCalendar.weeks.map((week) => (
               <View key={week[0].dayStart} style={styles.monthWeekRow}>
                 {week.map((day) => {
-                  const isTrainingDay = day.inMonth && trainingDayIndexes.includes(day.weekdayIndex);
+                  const isTrainingDay = day.inMonth && trainsOn(trainingSchedule, new Date(day.dayStart));
 
                   return (
                     <View key={day.dayStart} style={[styles.monthDayCell, day.isToday && styles.monthDayCellToday]}>
@@ -821,7 +887,7 @@ export function HomeScreen({
                       <View
                         style={[
                           styles.monthDayDot,
-                          trainingDayIndexes.length > 0
+                          scheduleKnown
                             ? isTrainingDay
                               ? styles.monthDayDotTraining
                               : day.inMonth
@@ -835,7 +901,7 @@ export function HomeScreen({
                 })}
               </View>
             ))}
-            {trainingDayIndexes.length > 0 ? (
+            {scheduleKnown ? (
               <View style={styles.monthLegendRow}>
                 <View style={styles.monthLegendItem}>
                   <View style={[styles.monthDayDot, styles.monthDayDotTraining]} />
@@ -973,15 +1039,42 @@ export function HomeScreen({
               <View style={styles.heroTop}>
                 {/* 'line' mode: the anchor must stay on one line and shrink to
                     fit, which only works while it is a single Text node. */}
-                <AnimatedGreeting
-                  text={localizeWorkoutFocus(focusTitle, language)}
-                  style={styles.heroTitle}
-                  accentColor={theme.purpleBright}
-                  mode="line"
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  minimumFontScale={0.6}
-                />
+                {/* The title is the switch. A reader looking at the wrong
+                    workout reaches for its name first, and there was nothing
+                    under it — the only way to train something else was to walk
+                    back out to the program. */}
+                <View style={styles.heroLead}>
+                <Pressable
+                  accessibilityRole={onPickTodaySession ? 'button' : undefined}
+                  accessibilityLabel={
+                    onPickTodaySession ? t(language, 'home.a11y.pickTodaySession') : undefined
+                  }
+                  disabled={!onPickTodaySession || planSessions.length < 2}
+                  onPress={() => setTodaySheetVisible(true)}
+                  style={({ pressed }) => [styles.heroTitleRow, pressed && styles.pressed]}
+                >
+                  <AnimatedGreeting
+                    text={localizeWorkoutFocus(focusTitle, language)}
+                    style={styles.heroTitle}
+                    accentColor={theme.purpleBright}
+                    mode="line"
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={0.6}
+                  />
+                  {onPickTodaySession && planSessions.length > 1 ? (
+                    <Svg width={20} height={20} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M6 9l6 6 6-6"
+                        stroke={theme.faint}
+                        strokeWidth={2.4}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </Svg>
+                  ) : null}
+                </Pressable>
+                </View>
                 <View style={styles.heroProg}>
                   <Text style={styles.heroProgLabel}>
                     {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}
@@ -1109,11 +1202,12 @@ export function HomeScreen({
               {activePlan.sessions.map((session, index, allSessions) => {
                 const anyFixed = hasFixedWeekdays(allSessions);
                 const weekday = resolveSessionWeekday(session.dayLabel, index, allSessions.length, anyFixed);
-                // Two facts, two flags. The badge answers the calendar; the
-                // outline answers the plan. Merged into one they made the badge
-                // read TODAY on Thursday's row on a Monday.
+                // The outline still answers the plan — it is the row the hero
+                // is offering, and it is quiet. The word on the row answers a
+                // different question: was this one done this week.
                 const isNext = activePlan.nextSession?.id === session.id;
                 const isToday = weekday !== null && weekday === todayWeekdayCode;
+                const doneThisWeek = doneThisWeekSessionIds.includes(session.id);
                 // The badge is the weekday, and only when the plan really has
                 // one. Without a schedule it repeated the session number that
                 // the title already states, and cost the title the width it
@@ -1125,7 +1219,7 @@ export function HomeScreen({
                     key={session.id}
                     accessibilityRole="button"
                     accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${
-                      isToday ? `, ${t(language, 'programs.todayA11y')}` : ''
+                      doneThisWeek ? `, ${t(language, 'home.plan.doneThisWeek').toLowerCase()}` : ''
                     }${isNext ? `, ${t(language, 'plan.upNext').toLowerCase()}` : ''}`}
                     onPress={onOpenActivePlan}
                     // A3: the row slides right under the thumb rather than
@@ -1161,20 +1255,14 @@ export function HomeScreen({
                         {sessionTitle}
                       </Text>
                       <View style={styles.dayMetaRow}>
-                        {/* TÄNÄÄN is the calendar's word and it may land on a
-                            row the plan is not offering — that is a true thing
-                            to say. SEURAAVAKSI names the row the plan does
-                            offer, so the two never leave the reader guessing
-                            which one the outline meant. */}
-                        {isToday ? (
-                          <CutSurface size="chip" fill={theme.purple} style={styles.todayPill}>
-                            <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
-                          </CutSurface>
-                        ) : null}
-                        {isNext && !isToday ? (
-                          <CutSurface size="chip" fill={theme.bg} style={styles.todayPill}>
-                            <Text style={[styles.todayPillText, styles.nextPillText]}>
-                              {t(language, 'plan.upNext')}
+                        {/* One word, and only when it is a fact. Two chips that
+                            predict — one from the calendar, one from the
+                            rotation — landed on different rows on most days and
+                            argued with each other. */}
+                        {doneThisWeek ? (
+                          <CutSurface size="chip" fill={theme.green} style={styles.todayPill}>
+                            <Text style={[styles.todayPillText, styles.donePillText]}>
+                              {t(language, 'home.plan.doneThisWeek')}
                             </Text>
                           </CutSurface>
                         ) : null}
@@ -1421,6 +1509,132 @@ export function HomeScreen({
           onRemoveActivePlan?.();
         }}
       />
+
+      {/* Today's workout — the program's own sessions, and which one today is.
+
+          Dated rather than sticky: the pick answers for today and the rotation
+          answers again tomorrow, so nothing has to remember to undo it. The
+          rename lives here too because this is the list where a reader reads
+          the names side by side and notices that one of them is wrong. */}
+      <Modal
+        visible={todaySheetVisible}
+        transparent
+        animationType={reduceMotion ? 'none' : 'slide'}
+        onRequestClose={() => setTodaySheetVisible(false)}
+      >
+        <View style={styles.adaptOverlay}>
+          <Pressable style={styles.adaptScrim} onPress={() => setTodaySheetVisible(false)} />
+          <View
+            style={[
+              styles.adaptSheet,
+              { paddingBottom: (keyboardInset > 0 ? keyboardInset : insets.bottom) + 26 },
+            ]}
+          >
+            <View style={styles.adaptGrip} />
+            <Text style={styles.adaptTitle}>{t(language, 'home.today.title')}</Text>
+            <Text style={styles.adaptSub}>{t(language, 'home.today.caption')}</Text>
+
+            <ScrollView style={styles.todayList} keyboardShouldPersistTaps="handled">
+              {planSessions.map((session) => {
+                const isToday = session.id === nextPlanSession?.id;
+                const renaming = renamingSessionId === session.id;
+
+                if (renaming) {
+                  return (
+                    <View key={session.id} style={[styles.adaptOpt, styles.todayRowEditing]}>
+                      <TextInput
+                        value={renameDraft}
+                        onChangeText={setRenameDraft}
+                        autoFocus
+                        selectTextOnFocus
+                        placeholderTextColor={theme.faint}
+                        style={styles.todayRenameInput}
+                        onSubmitEditing={() => {
+                          onRenameSession?.(session.id, renameDraft);
+                          setRenamingSessionId(null);
+                        }}
+                      />
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => setRenamingSessionId(null)}
+                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.todayRenameCancel}>
+                          {t(language, 'home.today.renameCancel')}
+                        </Text>
+                      </Pressable>
+                      <Pressable
+                        hitSlop={8}
+                        onPress={() => {
+                          onRenameSession?.(session.id, renameDraft);
+                          setRenamingSessionId(null);
+                        }}
+                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                      >
+                        <Text style={styles.todayRenameSave}>{t(language, 'home.today.renameSave')}</Text>
+                      </Pressable>
+                    </View>
+                  );
+                }
+
+                return (
+                  <Pressable
+                    key={session.id}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isToday }}
+                    onPress={() => {
+                      onPickTodaySession?.(session.id);
+                      setTodaySheetVisible(false);
+                    }}
+                    style={({ pressed }) => [
+                      styles.adaptOpt,
+                      isToday && styles.todayRowActive,
+                      pressed && styles.pressed,
+                    ]}
+                  >
+                    <View style={styles.adaptOptCopy}>
+                      <Text numberOfLines={1} style={styles.adaptOptionTitle}>
+                        {localizeSessionName(session.title, language)}
+                      </Text>
+                      <Text style={styles.adaptOptionSub}>
+                        {t(language, 'home.today.meta', {
+                          exercises: session.exercises.length + (session.hiddenExerciseCount ?? 0),
+                          sets: session.totalSets ?? 0,
+                        })}
+                      </Text>
+                    </View>
+                    {isToday ? (
+                      <Text style={styles.todayBadge}>{t(language, 'home.today.picked')}</Text>
+                    ) : null}
+                    {onRenameSession ? (
+                      <Pressable
+                        hitSlop={10}
+                        accessibilityRole="button"
+                        accessibilityLabel={t(language, 'home.today.rename')}
+                        onPress={() => {
+                          setRenameDraft(localizeSessionName(session.title, language));
+                          setRenamingSessionId(session.id);
+                        }}
+                        style={({ pressed }) => [styles.todayRenameAction, pressed && styles.pressed]}
+                      >
+                        <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                          <Path
+                            d="M4 20h4L20 8l-4-4L4 16v4z"
+                            stroke={theme.faint}
+                            strokeWidth={2}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </Svg>
+                      </Pressable>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={adaptSheetVisible}
@@ -1920,7 +2134,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 12,
   },
   heroTitle: {
-    flex: 1,
+    // Shrink, not grow: the chevron sits after it and a growing title would
+    // claim the whole row and push the chevron out the way the counter went.
+    flexShrink: 1,
     color: theme.ink,
     fontSize: 38,
     lineHeight: 43,
@@ -2437,6 +2653,61 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   adaptScrim: {
     ...StyleSheet.absoluteFillObject,
   },
+  donePillText: {
+    color: '#FFFFFF',
+  },
+  // The kicker and the title stack; that stack shares the row with the session
+  // counter. Put in the row directly, the kicker became a third column and
+  // squeezed the title down to one shrunken letter.
+  heroLead: {
+    flex: 1,
+  },
+  heroTitleRow: {
+    // No flex here any more. This sits in a COLUMN now, where flex:1 stretches
+    // vertically and flattens nothing — but claims height it does not need.
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  todayList: {
+    marginTop: 18,
+    // Capped so a six-session program cannot push the list off the sheet and
+    // take the last row with it.
+    maxHeight: 380,
+  },
+  todayRowActive: {
+    borderColor: theme.purpleBright,
+    backgroundColor: theme.purpleLight,
+  },
+  todayRowEditing: {
+    gap: 8,
+  },
+  todayRenameInput: {
+    flex: 1,
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '800',
+    paddingVertical: 0,
+  },
+  todayRenameAction: {
+    paddingHorizontal: 4,
+  },
+  todayRenameSave: {
+    color: theme.purpleDark,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  todayRenameCancel: {
+    color: theme.muted,
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  todayBadge: {
+    color: theme.purpleDark,
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
   adaptOption: {
     borderWidth: 1.5,
     borderColor: theme.border,
@@ -2446,12 +2717,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 10,
     gap: 3,
   },
+  // Was a fixed pink on a fixed cream — a white card sitting in a dark sheet.
+  // The same class as the button that drew white on white: a colour copied in
+  // rather than taken from the theme is only ever right for one of them.
   adaptOptionDanger: {
-    borderColor: '#F3C8C2',
-    backgroundColor: '#FDF4F3',
+    borderColor: theme.dangerBorder,
+    backgroundColor: theme.dangerSoft,
   },
   adaptOptionTitleDanger: {
-    color: '#B42318',
+    color: theme.danger,
   },
   adaptOptionTitle: {
     color: theme.ink,
