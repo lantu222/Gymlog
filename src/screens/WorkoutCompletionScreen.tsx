@@ -451,6 +451,7 @@ export function WorkoutCompletionScreen({
               style={[
                 styles.badge,
                 badgeStyle,
+                gold.sealFill === 'transparent' ? null : styles.badgeLift,
                 { backgroundColor: gold.sealFill, borderColor: gold.sealRing, borderWidth: gold.sealBorder },
               ]}
             >
@@ -743,6 +744,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  // The lift is applied only to a FILLED seal. Android draws an elevation
+  // shadow from the view's outline, and on a transparent circle it came out as
+  // a dark octagon sitting behind the ring — a shape nobody drew, visible on
+  // the phone and on nothing else.
+  badgeLift: {
     shadowColor: '#5A3C0A',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.32,
