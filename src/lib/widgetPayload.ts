@@ -34,7 +34,7 @@ import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
 /** Bumped whenever the shape changes, so a stale file is ignored, not misread. */
-export const HOME_WIDGET_PAYLOAD_VERSION = 7;
+export const HOME_WIDGET_PAYLOAD_VERSION = 8;
 
 /**
  * How many week rows the native layout holds.
@@ -90,7 +90,19 @@ export interface HomeWidgetDay {
  * something opened the app — which is exactly what it did. All seven travel
  * now, and the native side picks the one the device's clock points at.
  */
+/**
+ * What a routine day IS, as opposed to what it says.
+ *
+ * The card used to name the session — "Upper MA (raskas)" — and a 2x1 has no
+ * room for a name. Asked for 2026-08-21: one word and a colour, because the
+ * only question a home screen answers at a glance is whether today is a rest
+ * day. `prompt` is the states that have something to ask instead, and those
+ * keep their sentence.
+ */
+export type HomeWidgetRoutineKind = 'rest' | 'work' | 'prompt';
+
 export interface HomeWidgetRoutineDay {
+  kind: HomeWidgetRoutineKind;
   /**
    * "2026-08-21". Which day this entry is for, matched against the device's
    * clock by the native side.
@@ -228,7 +240,15 @@ function toDateKey(date: Date) {
  * no rhythm to describe, only an instruction.
  */
 function everyDay(nowMs: number, when: string, title: string, target: HomeWidgetTarget): HomeWidgetRoutineDay[] {
-  return nextSevenDays(nowMs).map((date) => ({ dateKey: toDateKey(date), when, title, target }));
+  // Always a prompt: these are the states with something to ask, and a question
+  // does not fit in one word.
+  return nextSevenDays(nowMs).map((date) => ({
+    kind: 'prompt' as const,
+    dateKey: toDateKey(date),
+    when,
+    title,
+    target,
+  }));
 }
 
 /**
@@ -476,12 +496,12 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
           : null;
       const session = picked ?? sessionForDate(date, schedule, sessions);
       return {
+        kind: session ? ('work' as const) : ('rest' as const),
         dateKey: toDateKey(date),
-        // The eyebrow names the weekday rather than saying "today": the widget
-        // sits on a home screen the reader is not reading closely, and the day
-        // it is is the fact that dates the rest of the card.
+        // The weekday still travels for the accessibility label, but the card
+        // no longer draws it: one word is the whole point of this size.
         when: t(language, `widget.weekday.${weekdayIndexOf(date)}` as 'widget.weekday.0'),
-        title: session ? routineTitleOf(session.title, language) : t(language, 'widget.restDay'),
+        title: t(language, session ? 'widget.workoutDay' : 'widget.restDay'),
         // Nothing to start on a rest day, and the next session is two days of
         // rest away as often as not — so the arrow opens Home rather than a
         // workout the reader is not doing today.

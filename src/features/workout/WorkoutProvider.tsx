@@ -31,6 +31,8 @@ interface WorkoutContextValue {
     unitPreference: UnitPreference,
     progression?: WorkoutProgressionOptions,
   ) => void;
+  /** Stop the workout clock. Its pauses come off the saved duration too. */
+  pauseWorkout: () => void;
   resumeWorkout: () => void;
   finishWorkout: (performedAt?: string) => void;
   discardWorkout: () => void;
@@ -184,6 +186,9 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
             progression,
           },
         });
+      },
+      pauseWorkout() {
+        dispatch({ type: 'session/pause' });
       },
       resumeWorkout() {
         if (!state.activeSession) {

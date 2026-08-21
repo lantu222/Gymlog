@@ -374,6 +374,8 @@ function materializeWorkoutSessionFromTemplate(
     startedAt,
     updatedAt: startedAt,
     elapsedSeconds: 0,
+    pausedMs: 0,
+    pausedAt: null,
     activePlanMode: template.defaultScheduleMode,
     exercises,
     restTimer: createInitialTimer(),
@@ -474,6 +476,32 @@ function updateSessionTimestamp(session: WorkoutSessionRuntime, nowIso = new Dat
   return session;
 }
 
+/**
+ * Closes any open pause and puts the session back to running.
+ *
+ * Called on resume and on finish, so a workout paused and then ended does not
+ * carry an open pause window that nothing ever closes.
+ */
+function closePause(session: WorkoutSessionRuntime): WorkoutSessionRuntime {
+  if (!session.pausedAt) {
+    return session.status === 'paused' ? { ...session, status: 'active' } : session;
+  }
+  const held = Math.max(0, Date.now() - new Date(session.pausedAt).getTime());
+  return {
+    ...session,
+    status: 'active',
+    pausedMs: (session.pausedMs ?? 0) + held,
+    pausedAt: null,
+  };
+}
+
+/** Wall time since the start, less every pause — including one still open. */
+export function elapsedSecondsOf(session: WorkoutSessionRuntime, nowMs: number): number {
+  const open = session.pausedAt ? Math.max(0, nowMs - new Date(session.pausedAt).getTime()) : 0;
+  const wall = nowMs - new Date(session.startedAt).getTime();
+  return Math.max(0, Math.floor((wall - (session.pausedMs ?? 0) - open) / 1000));
+}
+
 function buildSummary(session: WorkoutSessionRuntime): WorkoutSessionSummary {
   const completedSets = session.exercises.flatMap((exercise) => exercise.sets).filter((set) => set.status === 'completed');
   const performedAt = session.completedAt ?? new Date().toISOString();
@@ -483,7 +511,9 @@ function buildSummary(session: WorkoutSessionRuntime): WorkoutSessionSummary {
     templateSessionId: session.templateSessionId,
     templateName: session.templateName,
     performedAt,
-    durationMinutes: Math.max(1, Math.round((new Date(performedAt).getTime() - new Date(session.startedAt).getTime()) / 60000) || 1),
+    // Less the pauses, so the number written to history is the same one the
+    // player showed while the workout was running.
+    durationMinutes: Math.max(1, Math.round(elapsedSecondsOf(session, new Date(performedAt).getTime()) / 60) || 1),
     setsCompleted: completedSets.length,
     exercisesCompleted: session.exercises.filter((exercise) => exercise.status === 'completed').length,
     exercisesSkipped: session.exercises.filter((exercise) => exercise.status === 'skipped').length,
@@ -610,16 +640,31 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
     }
 
     case 'session/resume':
-      return { ...state, activeSession: action.payload.session, completionSummary: null };
-
-    case 'session/pause':
-      if (!state.activeSession) {
-        return state;
-      }
       return {
         ...state,
-        activeSession: { ...state.activeSession, status: 'paused', updatedAt: new Date().toISOString() },
+        // Status and the open pause window are closed here, not left to the
+        // caller: resume used to hand the session straight back with
+        // `status: 'paused'` still on it, so the tick stayed asleep and the
+        // clock never restarted.
+        activeSession: closePause(action.payload.session),
+        completionSummary: null,
       };
+
+    case 'session/pause': {
+      if (!state.activeSession || state.activeSession.pausedAt) {
+        return state;
+      }
+      const pausedAt = new Date().toISOString();
+      return {
+        ...state,
+        activeSession: {
+          ...state.activeSession,
+          status: 'paused',
+          pausedAt,
+          updatedAt: pausedAt,
+        },
+      };
+    }
 
     case 'session/tick':
       if (!state.activeSession) {
@@ -633,7 +678,7 @@ export function workoutReducer(state: WorkoutFeatureState, action: WorkoutAction
         nowMs: action.payload.nowMs,
         activeSession: {
           ...state.activeSession,
-          elapsedSeconds: Math.max(0, Math.floor((action.payload.nowMs - new Date(state.activeSession.startedAt).getTime()) / 1000)),
+          elapsedSeconds: elapsedSecondsOf(state.activeSession, action.payload.nowMs),
           restTimer:
             state.activeSession.restTimer.status === 'running' && state.activeSession.restTimer.endsAtMs
               ? action.payload.nowMs >= state.activeSession.restTimer.endsAtMs

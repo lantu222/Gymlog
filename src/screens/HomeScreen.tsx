@@ -731,7 +731,9 @@ export function HomeScreen({
         */}
         <Animated.View style={rise(RISE_HEADER)}>
           <View style={styles.headerRow}>
-            <VinhaWordmark size={34} />
+            {/* The full lockup: the app is called Vinha Fitness, and Home is
+                where the reader looks to see whose app this is. */}
+            <VinhaWordmark size={30} fitness />
             <View style={styles.headerSpacer} />
             <Pressable
               accessibilityRole="button"

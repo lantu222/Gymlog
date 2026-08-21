@@ -1479,6 +1479,7 @@ const EN = {
   'guided.a11y.tapToEdit': 'Tap to change; hold a button to run',
   'guided.logSet': 'Log set',
   'guided.a11y.watchHowTo': 'Watch how {name} is done',
+  'guided.a11y.actions': 'Workout actions',
   'guided.a11y.sound': 'Sound cues',
   // Native confirm before throwing logged sets away.
   'guided.endConfirm.title': 'End session?',
@@ -1598,6 +1599,7 @@ const EN = {
   'widget.weekday.5': 'Saturday',
   'widget.weekday.6': 'Sunday',
   'widget.restDay': 'Rest day',
+  'widget.workoutDay': 'Workout',
   // The three figures the 4x2 draws beside the month. The window is the month
   // on the calendar next to them.
   'widget.stat.workouts': 'Workouts',
@@ -4792,6 +4794,7 @@ const FI: Record<I18nKey, string> = {
   'guided.a11y.tapToEdit': 'Napauta muokataksesi; pidä nappia pohjassa juoksuttaaksesi',
   'guided.logSet': 'Kirjaa sarja',
   'guided.a11y.watchHowTo': 'Katso, miten {name} tehdään',
+  'guided.a11y.actions': 'Treenin toiminnot',
   'guided.a11y.sound': 'Äänivihjeet',
   'guided.endConfirm.title': 'Lopetetaanko treeni?',
   'guided.endConfirm.bodyOne': '1 kirjattu sarja hylätään.',
@@ -4897,6 +4900,7 @@ const FI: Record<I18nKey, string> = {
   'widget.weekday.5': 'Lauantai',
   'widget.weekday.6': 'Sunnuntai',
   'widget.restDay': 'Lepopäivä',
+  'widget.workoutDay': 'Treeni',
   'widget.stat.workouts': 'Treenit',
   'widget.stat.duration': 'Kesto',
   'widget.stat.volume': 'Volyymi',

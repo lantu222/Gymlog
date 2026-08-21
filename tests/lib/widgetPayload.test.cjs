@@ -262,36 +262,46 @@ module.exports = [
         payload.routineDays.map((day) => day.when),
         ['Thursday', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday'],
       );
-      // Tuesday, Wednesday and Thursday train — in the order Home maps them.
+      // One word, not a session name: a 2×1 has no room for "Upper MA
+      // (raskas)", and the only question a home screen answers at a glance is
+      // whether today is a rest day.
+      assert.deepEqual(
+        payload.routineDays.map((day) => day.kind),
+        ['work', 'rest', 'rest', 'rest', 'rest', 'work', 'work'],
+      );
       assert.deepEqual(
         payload.routineDays.map((day) => day.title),
-        [SESSIONS[2].title, 'Rest day', 'Rest day', 'Rest day', 'Rest day', SESSIONS[0].title, SESSIONS[1].title],
+        ['Workout', 'Rest day', 'Rest day', 'Rest day', 'Rest day', 'Workout', 'Workout'],
       );
       assert.deepEqual(
         payload.routineDays.map((day) => day.target),
         ['session', 'home', 'home', 'home', 'home', 'session', 'session'],
       );
       assert.equal(build({ language: 'fi' }).routineDays[0].when, 'Torstai');
+      assert.equal(build({ language: 'fi' }).routineDays[0].title, 'Treeni');
       assert.equal(build({ language: 'fi' }).routineDays[1].title, 'Lepopäivä');
     },
   },
   {
     name: 'widgetPayload: the session name is the one the app shows, not the catalog data',
     run() {
-      // Reported from a home screen: the app runs every session name through
-      // localizeSessionName and the widget did not, so a Finnish app drew
-      // "Day 3: Squat & Row". The day number goes too — the weekday is already
-      // the line above it, and "Day 3: squ" is what a 2×1 does with the rest.
+      // The card carried the catalog's raw English name past
+      // localizeSessionName, and a 2×1 cut "Päivä 3: Kyykky & Soutu" down to
+      // "Day 3: squ". Both are gone now for the simplest possible reason: the
+      // card no longer names the session at all.
       const named = [{ ...SESSIONS[0], title: 'Day 3: Squat & Row' }];
       const payload = build({ sessions: named, schedule: weekdaySchedule([3]), language: 'fi' });
-      assert.equal(payload.routineDays[0].title, 'Kyykky & Soutu');
+      assert.equal(payload.routineDays[0].title, 'Treeni');
+      assert.equal(payload.routineDays[0].kind, 'work');
 
-      // English keeps its own words and still loses the day number.
       const english = build({ sessions: named, schedule: weekdaySchedule([3]) });
-      assert.equal(english.routineDays[0].title, 'Squat & Row');
+      assert.equal(english.routineDays[0].title, 'Workout');
 
-      // A name with no day prefix is left alone.
-      assert.equal(build().routineDays[0].title, 'Upper Pull');
+      // No session name reaches the card in any state, so none of them can be
+      // cut, untranslated, or wrong.
+      assert.ok(
+        payload.routineDays.every((day) => !day.title.includes('Squat') && !day.title.includes('Kyykky')),
+      );
     },
   },
   {
@@ -303,20 +313,23 @@ module.exports = [
      */
     name: "widgetPayload: today's line follows the reader's own pick, for today only",
     run() {
-      const payload = build({ todaySessionId: SESSIONS[1].id });
+      // The card says one word now, so what the pick changes here is whether
+      // the day is a training day at all — and the arrow's destination.
+      const rest = build({ schedule: weekdaySchedule([0]) });
+      assert.equal(rest.routineDays[0].kind, 'rest');
+      assert.equal(rest.routineDays[0].target, 'home');
 
-      assert.equal(payload.routineDays[0].dateKey, '2026-07-30');
-      assert.equal(payload.routineDays[0].title, SESSIONS[1].title);
-      assert.equal(payload.routineDays[0].target, 'session');
+      const picked = build({ schedule: weekdaySchedule([0]), todaySessionId: SESSIONS[1].id });
+      assert.equal(picked.routineDays[0].dateKey, '2026-07-30');
+      assert.equal(picked.routineDays[0].kind, 'work');
+      assert.equal(picked.routineDays[0].target, 'session');
 
-      // Tomorrow has no answer yet, so the rotation still speaks for it — and
-      // Friday the 31st is a rest day under this week.
-      assert.equal(payload.routineDays[1].title, 'Rest day');
+      // Tomorrow has no answer yet, so the rotation still speaks for it.
+      assert.equal(picked.routineDays[1].kind, 'rest');
 
       // A pick that names nothing in the programme is ignored rather than
-      // blanking the line: the plan can change under a stored id.
-      assert.equal(build({ todaySessionId: 'gone' }).routineDays[0].title, SESSIONS[2].title);
-      assert.equal(build().routineDays[0].title, SESSIONS[2].title);
+      // inventing a training day: the plan can change under a stored id.
+      assert.equal(build({ schedule: weekdaySchedule([0]), todaySessionId: 'gone' }).routineDays[0].kind, 'rest');
     },
   },
 
@@ -453,10 +466,11 @@ module.exports = [
       assert.ok(next);
       assert.equal(next.offset, 0);
       assert.equal(next.weekdayIndex, THURSDAY);
-      assert.equal(
-        buildHomeWidgetPayload({ ...input, language: 'en', theme: 'light', planName: 'P' }).routineDays[0].title,
-        next.session.title,
-      );
+      // The card no longer prints the name, so what it must agree on is that
+      // today is a training day at all — and the arrow has a session to open.
+      const sameDay = buildHomeWidgetPayload({ ...input, language: 'en', theme: 'light', planName: 'P' });
+      assert.equal(sameDay.routineDays[0].kind, 'work');
+      assert.equal(sameDay.routineDays[0].target, 'session');
 
       // Logged: the same call now names the following one instead — Thursday
       // the 30th to Tuesday the 4th.

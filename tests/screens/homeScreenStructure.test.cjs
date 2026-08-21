@@ -79,7 +79,9 @@ module.exports = [
       assert.match(homeScreenSource, /proPillActive:\s*\{[\s\S]{0,120}backgroundColor: theme\.surfaceSoft/);
       // The label is one word; what it means is in the accessibility label.
       assert.match(homeScreenSource, /proUnlocked \? 'home\.proPill\.manage' : 'home\.proPill\.get'/);
-      assert.match(homeScreenSource, /<VinhaWordmark size=\{34\}/);
+      // The full lockup: the app is called Vinha Fitness, and Home is where
+      // the reader looks to see whose app this is.
+      assert.match(homeScreenSource, /<VinhaWordmark size=\{30\} fitness \/>/);
       assert.match(homeScreenSource, /speedRule:\s*\{[\s\S]*skewX: '-18deg'/);
       // The date is stated once, on the greeting row — today's cell in the
       // week strip is told apart by its highlight, not by different content.

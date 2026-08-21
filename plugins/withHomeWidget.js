@@ -50,7 +50,7 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
 const PACKAGE = 'app.vinha';
 const PAYLOAD_FILE = 'vinha-widget.json';
 /** Must match HOME_WIDGET_PAYLOAD_VERSION in src/lib/widgetPayload.ts. */
-const PAYLOAD_VERSION = 7;
+const PAYLOAD_VERSION = 8;
 /** Must match HOME_WIDGET_MONTH_ROWS in src/lib/widgetPayload.ts. */
 const MONTH_ROWS = 6;
 const DAY_COUNT = 7;
@@ -98,6 +98,9 @@ const LIGHT = {
   onDone: '#FFFFFF',
   plan: '#6D28D9',
   onPlan: '#FFFFFF',
+  // Warm, and deliberately not one of the calendar's three: a rest day is the
+  // one thing the 2x1 exists to say, and it should not read as a pip.
+  rest: '#C2410C',
   brand: '#7C3AED',
   texture: '#2E7C3AED',
   glow: '#1F7C3AED',
@@ -115,6 +118,7 @@ const DARK = {
   onDone: '#0A1C10',
   plan: '#9B6DFF',
   onPlan: '#1B1233',
+  rest: '#FB923C',
   brand: '#A98BFF',
   texture: '#3DA98BFF',
   glow: '#33A98BFF',
@@ -1060,6 +1064,7 @@ function paletteLiteral(name, palette, theme) {
         ink = Color.parseColor("${palette.ink}"),
         muted = Color.parseColor("${palette.muted}"),
         faint = Color.parseColor("${palette.faint}"),
+        rest = Color.parseColor("${palette.rest}"),
         brand = Color.parseColor("${palette.brand}"),
         onDone = Color.parseColor("${palette.onDone}"),
         onPlan = Color.parseColor("${palette.onPlan}"),
@@ -1086,6 +1091,7 @@ import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.util.TypedValue
 import android.view.View
 import android.widget.RemoteViews
 import org.json.JSONArray
@@ -1119,6 +1125,7 @@ open class HomeWidgetProvider : AppWidgetProvider() {
         val ink: Int,
         val muted: Int,
         val faint: Int,
+        val rest: Int,
         val brand: Int,
         val onDone: Int,
         val onPlan: Int,
@@ -1317,10 +1324,24 @@ ${paletteLiteral('dark', DARK, 'dark')}
         val days = payload.optJSONArray("routineDays")
         val today = findToday(days)
 
+        val kind = today?.optString("kind") ?: "prompt"
+        // A prompt has a sentence and needs its eyebrow; a rest or workout day
+        // is one coloured word, and the weekday above it would be the second
+        // thing on a card that exists to say exactly one.
+        val prompt = kind == "prompt"
+        views.setViewVisibility(R.id.widget_routine_when, if (prompt) View.VISIBLE else View.GONE)
         views.setTextViewText(R.id.widget_routine_when, today?.optString("when") ?: "")
         views.setTextColor(R.id.widget_routine_when, palette.faint)
         views.setTextViewText(R.id.widget_routine_title, today?.optString("title") ?: "")
-        views.setTextColor(R.id.widget_routine_title, palette.ink)
+        views.setTextColor(
+            R.id.widget_routine_title,
+            when (kind) {
+                "rest" -> palette.rest
+                "work" -> palette.brand
+                else -> palette.ink
+            },
+        )
+        views.setTextViewTextSize(R.id.widget_routine_title, TypedValue.COMPLEX_UNIT_SP, if (prompt) 13f else 22f)
         views.setInt(R.id.widget_arrow, "setColorFilter", palette.muted)
         views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, today?.optString("target")))
     }

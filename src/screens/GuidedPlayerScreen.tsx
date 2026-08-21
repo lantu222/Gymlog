@@ -83,6 +83,7 @@ import { sound, type CueSound } from '../utils/sound';
 import { readableOn, Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
+import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
@@ -896,6 +897,9 @@ export function GuidedPlayerScreen({
 }: GuidedPlayerScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // The resolved theme, for the status bar: the player has its own dark
+  // gradient on the finish step and that is a different question.
+  const themeName = useThemeName();
   const workout = useWorkoutContext();
   const session = workout.activeSession;
 
@@ -918,9 +922,9 @@ export function GuidedPlayerScreen({
     const timer = setInterval(() => setClockNowMs(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [sessionStartedAt]);
-  const derivedElapsedSeconds = sessionStartedAt
-    ? Math.max(0, Math.floor((clockNowMs - new Date(sessionStartedAt).getTime()) / 1000))
-    : 0;
+  // The same function the saved duration uses, so the clock on screen and the
+  // number in history cannot disagree about how long the workout took.
+  const derivedElapsedSeconds = session ? elapsedSecondsOf(session, clockNowMs) : 0;
   useKeepScreenAwake(keepScreenAwake, 'guided-player');
 
   // The catalog names sessions in English; the focus half of the name reads in
@@ -1419,7 +1423,14 @@ export function GuidedPlayerScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: dark ? GPD.bg2 : theme.bg }}>
-      <StatusBar style={dark ? 'light' : 'dark'} backgroundColor={dark ? GPD.bg1 : theme.bg} />
+      {/* `dark` is the finish step's own gradient, not the theme. Read as the
+          status bar's answer it painted near-black icons on the dark theme's
+          near-black background, and the phone's own clock disappeared for the
+          length of a workout. Reported from a gym floor 2026-08-21. */}
+      <StatusBar
+        style={dark || themeName === 'dark' ? 'light' : 'dark'}
+        backgroundColor={dark ? GPD.bg1 : theme.bg}
+      />
       {dark ? (
         <View style={StyleSheet.absoluteFill}>
           <Svg width="100%" height="100%">
@@ -1788,10 +1799,19 @@ export function GuidedPlayerScreen({
               paused={paused}
               resolveTarget={resolveTarget}
               onToggleMute={() => onToggleSoundCues(!soundCuesEnabled)}
+              // Pause pauses, and nothing else. It used to open the actions
+              // sheet on the way, so the one control you reach for when the
+              // rack is taken put five decisions in front of you first.
               onPause={() => {
+                if (paused) {
+                  setPaused(false);
+                  workout.resumeWorkout();
+                  return;
+                }
                 setPaused(true);
-                setPauseSheetOpen(true);
+                workout.pauseWorkout();
               }}
+              onOpenActions={() => setPauseSheetOpen(true)}
               onSwapExercise={swapOptions.length ? () => setSwapOpen(true) : null}
               onConfirm={confirmSet}
             />
@@ -2082,6 +2102,7 @@ function SetStepView({
   resolveTarget,
   onToggleMute,
   onPause,
+  onOpenActions,
   onSwapExercise,
   onConfirm,
 }: {
@@ -2096,6 +2117,7 @@ function SetStepView({
   resolveTarget: (slotId: string, setIndex: number) => GuidedSetTarget | null;
   onToggleMute: () => void;
   onPause: () => void;
+  onOpenActions: () => void;
   /** Null when this exercise has no catalog alternatives. */
   onSwapExercise: (() => void) | null;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
@@ -2312,6 +2334,16 @@ function SetStepView({
             style={styles.setRoundBtn}
           >
             <GPIcon name={muted ? 'mute' : 'sound'} size={24} color={muted ? theme.faint : theme.ink} sw={2.2} />
+          </Pressable>
+          {/* Everything pause used to put in your way — go back one, skip this,
+              add a set, skip the exercise — lives behind its own button now. */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'guided.a11y.actions')}
+            onPress={onOpenActions}
+            style={styles.setRoundBtn}
+          >
+            <GPIcon name="list" size={24} color={theme.ink} sw={2.2} />
           </Pressable>
           {/* Was "List" — the table logger is gone, and this slot now does the
               one thing people left the guided flow for. Same icon on purpose:

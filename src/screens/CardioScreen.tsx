@@ -40,7 +40,7 @@ import {
 import { I18nKey, t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, CardioActivityType, CardioFeel, CardioSession } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { useKeepScreenAwake } from '../utils/keepAwake';
@@ -85,6 +85,7 @@ export function CardioScreen({
 }: CardioScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  const themeName = useThemeName();
   const workout = useWorkoutContext();
   const activeCardio = workout.activeCardio;
   // Only hold the screen while a cardio session is actually running.
@@ -133,7 +134,9 @@ export function CardioScreen({
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.bg }}>
-      <StatusBar style="dark" backgroundColor={theme.bg} />
+      {/* Same trap as the guided player's: a fixed 'dark' is right only for
+          the light theme, and paints the phone's clock out on the other one. */}
+      <StatusBar style={themeName === 'dark' ? 'light' : 'dark'} backgroundColor={theme.bg} />
 
       {mode === 'list' && <CardioListView language={language} onLeave={onLeave} onStart={startActivity} />}
 
