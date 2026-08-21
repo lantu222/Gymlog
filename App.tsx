@@ -79,7 +79,6 @@ import { getReadyProgramContent } from './src/lib/readyProgramContent';
 import {
   getCalendarDayStartTimestamp,
   getCanonicalCompletedSessions,
-  getCurrentWeekStreak,
   getRecentActivityStrip,
 } from './src/lib/completedSessions';
 import { getLifetimeTrainingSummary } from './src/lib/lifetimeSummary';
@@ -165,6 +164,7 @@ import { suggestHomeStatCardKeys } from './src/lib/homeCardSuggestions';
 import { buildHomePromoSlides } from './src/lib/homePromoSlides';
 import { isMeasurementCardKey } from './src/lib/homeStatCards';
 import { resolveNextPlanEntryIndex } from './src/lib/planRotation';
+import { cycleSchedule, weekdaySchedule } from './src/lib/trainingSchedule';
 import {
   planWeekdayIndexes,
   resolveProgramTrainingDays,
@@ -3407,6 +3407,18 @@ function VinhaApp() {
       : open.length;
     return resolveProgramTrainingDays(open, sessionsPerWeek);
   }, [database.workoutPlans, homeActivePlanCard, preferences.activePlanId, preferences.setupAvailableDays]);
+  /**
+   * The rhythm every calendar in the app reads.
+   *
+   * A saved cycle wins outright over the weekday list. The two cannot be merged
+   * — one repeats every seven days and the other need not — and the plan's own
+   * entry labels are still weekdays after a switch, so anything deriving from
+   * them would quietly put the old week back.
+   */
+  const homeTrainingSchedule = useMemo(() => {
+    const cycle = preferences.trainingCycle;
+    return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
+  }, [homeTrainingDayIndexes, preferences.trainingCycle]);
   // What Android says about pinning the widget. Re-asked on every foreground,
   // because the user may have added or removed it while we were away.
   useEffect(() => {
@@ -3526,7 +3538,7 @@ function VinhaApp() {
   // This month's totals, for the three figures the 4x2 draws beside the
   // calendar, and the streak the 2x1 counts.
   const widgetMonthTotals = useMemo(() => getMonthTrainingTotals(database), [database]);
-  const widgetWeekStreak = useMemo(() => getCurrentWeekStreak(database), [database]);
+
   // The narrower set, for the one question the strip cannot answer: is today's
   // session behind you. The strip counts cardio, and a run leaves the planned
   // workout undone — fed to the skip, it would have the widget name tomorrow
@@ -3555,12 +3567,14 @@ function VinhaApp() {
         // rather than asking an empty question. Presented here, because the
         // catalog's curated titles live on this side of the bridge.
         suggestion: widgetSuggestion,
-        trainingDayIndexes: homeTrainingDayIndexes,
+        schedule: homeTrainingSchedule,
         completedDayStarts: widgetCompletedDayStarts,
         completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
         monthTotals: widgetMonthTotals,
-        weekStreak: widgetWeekStreak,
+        // Every workout ever, not a week streak: the 2x1 counts what you have
+        // done, asked for on the home screen 2026-08-20.
+        totalWorkouts: lifetimeSummary.sessionCount,
       }),
     );
 
@@ -3575,12 +3589,12 @@ function VinhaApp() {
     appHydrated,
     preferences,
     homeActivePlanCard,
-    homeTrainingDayIndexes,
+    homeTrainingSchedule,
     widgetCompletedDayStarts,
     widgetCompletedWorkoutDayStarts,
     widgetMonthTotals,
     widgetSuggestion,
-    widgetWeekStreak,
+    lifetimeSummary,
   ]);
 
   // ── Widget taps ──────────────────────────────────────────────────────────
@@ -3647,7 +3661,7 @@ function VinhaApp() {
 
     const next = findHomeWidgetNextSession({
       nowMs: Date.now(),
-      trainingDayIndexes: homeTrainingDayIndexes,
+      schedule: homeTrainingSchedule,
       sessions: homeActivePlanCard?.sessions ?? [],
       completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
     });
@@ -3667,7 +3681,7 @@ function VinhaApp() {
   }, [
     appHydrated,
     homeActivePlanCard,
-    homeTrainingDayIndexes,
+    homeTrainingSchedule,
     pendingWidgetTarget,
     recommendedReadyTemplate,
     widgetCompletedWorkoutDayStarts,
@@ -5694,10 +5708,12 @@ function VinhaApp() {
           isNext: session.id === homeActivePlanCard?.nextSession.id,
         }))}
         trainingDays={preferences.setupAvailableDays}
+        trainingCycle={preferences.trainingCycle}
         exerciseLibrary={exerciseBrowserItems}
         onBack={() => navigateBack(ROOT_ROUTES.profile)}
         onOpenPlanSettings={handleOpenPlanSettings}
         onChangeTrainingDays={(days) => void handleChangeTrainingDays(days)}
+        onChangeTrainingCycle={(cycle) => void updatePreferences({ trainingCycle: cycle })}
         onEditCustomPlan={
           homeActivePlanCard?.programType === 'custom'
             ? () =>
@@ -6219,7 +6235,7 @@ function VinhaApp() {
               }
             : null
         }
-        trainingDayIndexes={homeTrainingDayIndexes}
+        trainingSchedule={homeTrainingSchedule}
         promoSlides={homePromoSlides}
         onPressPromo={(slide) => {
           if (slide.kind === 'season' && slide.season) {

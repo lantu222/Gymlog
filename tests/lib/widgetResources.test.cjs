@@ -339,15 +339,28 @@ module.exports = [
     },
   },
   {
-    name: 'widgetResources: every layout carries the four ids the provider always touches',
+    name: 'widgetResources: every layout carries the ids the provider always touches',
     run() {
-      // The background, the mark, the body and the line that replaces it before
-      // the app has ever run. A layout missing one of them draws a stale card.
+      // The background, the body and the line that replaces it before the app
+      // has ever run. A layout missing one of them draws a stale card.
       for (const entry of realLayouts) {
-        for (const id of ['widget_root', 'widget_prompt', 'widget_body', 'widget_logo']) {
+        for (const id of ['widget_root', 'widget_prompt', 'widget_body']) {
           assert.ok(FILES[entry].includes(`@+id/${id}"`), `${entry} is missing ${id}`);
         }
       }
+
+      // The mark is on every card that has room for it. The 2×1 routine card
+      // does not: measured on a phone, it has about 127dp of usable width, the
+      // arrow takes 34, and the session name came out as "Kyykky & S…". The
+      // arrow is the affordance and the mark is decoration, so the mark went.
+      const marked = realLayouts.filter((entry) => FILES[entry].includes('@+id/widget_logo"'));
+      assert.deepEqual(
+        realLayouts.filter((entry) => !marked.includes(entry)),
+        ['res/layout/home_widget_routine.xml'],
+      );
+      // And the provider must not paint a mark that is not there. It tints by
+      // id, and an id no layout defines is a silently dropped action.
+      assert.ok(kotlin.includes('R.id.widget_logo'), 'nothing tints the mark any more');
     },
   },
   {
@@ -410,19 +423,30 @@ module.exports = [
         'weekdayLabels',
         'monthWeeks',
         'stats',
-        'streakValue',
-        'streakLabel',
-        'routineWhen',
-        'routineTitle',
-        'routineTarget',
+        'totalValue',
+        'totalLabel',
+        'routineDays',
+        'when',
+        'title',
+        'target',
         'dateLabel',
+        'dateKey',
         'inMonth',
-        'isToday',
         'state',
         'theme',
       ]) {
         assert.ok(kotlin.includes(`"${field}"`), `the provider never reads ${field}`);
       }
+
+      // And the two questions the payload is no longer allowed to answer. A
+      // file written yesterday cannot know what day it is being read on: the
+      // launcher has the clock, so the launcher decides.
+      assert.ok(!kotlin.includes('"isToday"'), 'the provider still trusts the payload about today');
+      assert.match(kotlin, /fun todayKey\(\)/, 'the provider never asks the device for the date');
+      // Matched by date, not by weekday. A weekday is only an address for a
+      // rhythm with a period of seven, and two-on-one-off does not have one.
+      assert.ok(!kotlin.includes('mondayFirstWeekday'), 'the provider still indexes the routine by weekday');
+      assert.match(kotlin, /fun findToday\(days: JSONArray\?\)/, 'the provider never looks today up by date');
 
       // And the link prefix the widget builds has to be the one the app parses.
       assert.ok(

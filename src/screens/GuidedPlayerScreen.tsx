@@ -44,7 +44,8 @@ import {
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
   getGuidedStepPlanKey,
-  findGuidedLibraryIndex,
+  findGuidedLibraryIndex,
+  getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
   findGuidedSessionPr,
   findGuidedTopSet,
@@ -1275,6 +1276,17 @@ export function GuidedPlayerScreen({
     goTo(getGuidedSkipTargetIndex(steps, stepIndex));
   };
 
+  /**
+   * The whole warmup or cooldown, not one drill of it. Five drills is five taps
+   * to the bar, and the reader who wants to warm up their own way wants out of
+   * the block rather than out of the session.
+   */
+  const skipPhase = () => {
+    goTo(getGuidedPhaseSkipTargetIndex(steps, stepIndex));
+  };
+  const skippablePhase =
+    'phase' in step && (step.phase === 'warmup' || step.phase === 'cooldown') ? step.phase : null;
+
   /* ── exercise-level actions ──────────────────────────────────────────────
      Swap, skip and add-set used to live only in the list logger, so the only
      way to do any of them was to leave the guided flow entirely — and all
@@ -1603,6 +1615,21 @@ export function GuidedPlayerScreen({
                 </Text>
                 <Text style={styles.splashTitle}>{step.title}</Text>
                 <Text style={{ fontSize: 15, fontWeight: '600', color: theme.muted }}>{step.sub}</Text>
+                {/* The block is a suggestion, not a gate. Its own screen is
+                    where a reader decides to warm up their own way. */}
+                {skippablePhase ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    hitSlop={10}
+                    onPress={skipPhase}
+                    style={{ marginTop: 26, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                  >
+                    <GPIcon name="skip" size={15} color={theme.muted} sw={2.4} />
+                    <Text style={{ fontSize: 14.5, fontWeight: '700', color: theme.muted }}>
+                      {t(language, `guided.skipBlock.${skippablePhase}` as 'guided.skipBlock.warmup')}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </Pressable>
             </StepIn>
           )}
@@ -1921,6 +1948,18 @@ export function GuidedPlayerScreen({
                 <GhostBtn icon="skip" label={t(language, 'guided.pauseSheet.skipThis')} onPress={skipCurrent} />
               </View>
             </View>
+            {/* Mid-block, the same escape: this sheet is already the "I need to
+                do something else" surface. */}
+            {skippablePhase ? (
+              <GhostBtn
+                icon="skip"
+                label={t(language, `guided.skipBlock.${skippablePhase}` as 'guided.skipBlock.warmup')}
+                onPress={() => {
+                  setPauseSheetOpen(false);
+                  skipPhase();
+                }}
+              />
+            ) : null}
             {actionExercise ? (
               <>
                 <Text style={styles.sheetFootnote}>

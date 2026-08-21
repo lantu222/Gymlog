@@ -733,6 +733,34 @@ export function getGuidedSkipTargetIndex(steps: GuidedStep[], index: number): nu
   return Math.min(target, lastIndex);
 }
 
+/**
+ * Where a reader lands when they skip a whole warmup or cooldown.
+ *
+ * Skipping drill by drill already worked, and on a five-drill warmup that is
+ * five taps to get to the bar. Asked for from a gym floor (user, 2026-08-20).
+ *
+ * The work block is not skippable and never will be: it is the session. Only
+ * the two blocks around it answer to this, and a step with no phase at all —
+ * the finish card — answers to nothing.
+ */
+export function getGuidedPhaseSkipTargetIndex(steps: GuidedStep[], index: number): number {
+  const current = steps[index];
+  const phase = current && 'phase' in current ? current.phase : null;
+  if (!phase || phase === 'work') {
+    return index;
+  }
+
+  for (let next = index + 1; next < steps.length; next += 1) {
+    const step = steps[next];
+    const nextPhase = 'phase' in step ? step.phase : null;
+    if (nextPhase !== phase) {
+      return next;
+    }
+  }
+
+  return Math.max(0, steps.length - 1);
+}
+
 /** Back target: previous drill/set/position/splash, skipping rest/ready steps. */
 export function getGuidedBackTargetIndex(steps: GuidedStep[], index: number): number {
   let cursor = index - 1;

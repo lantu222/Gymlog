@@ -81,6 +81,7 @@ const DEFAULT_PREFERENCES = {
   setupScheduleMode: null,
   setupWeeklyMinutes: null,
   setupAvailableDays: [],
+  trainingCycle: null,
   setupTrainingFeel: 'challenging' as const,
   setupWorkoutVariety: 'balanced' as const,
   setupFreeWeightsPreference: 'neutral' as const,

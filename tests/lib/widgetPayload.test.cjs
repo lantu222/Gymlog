@@ -7,6 +7,7 @@ const {
   HOME_WIDGET_MONTH_ROWS,
 } = require('../../.test-dist/lib/widgetPayload.js');
 const { WIDGET_LINK_PREFIX, parseWidgetDeepLink } = require('../../.test-dist/lib/widgetDeepLink.js');
+const { cycleSchedule, weekdaySchedule } = require('../../.test-dist/lib/trainingSchedule.js');
 
 // Local wall-clock, built the same way the payload builds it, so the suite
 // passes in any timezone.
@@ -46,7 +47,7 @@ function build(overrides = {}) {
     language: 'en',
     theme: 'dark',
     planName: 'Strong Chest',
-    trainingDayIndexes: [1, 2, 3], // tue, wed, thu (0 = Monday)
+    schedule: weekdaySchedule([1, 2, 3]), // tue, wed, thu (0 = Monday)
     sessions: SESSIONS,
     ...overrides,
   });
@@ -62,6 +63,8 @@ function states(payload, rowIndex) {
 
 /** The row today falls in — row 4 of July 2026, the week of the 27th. */
 const CURRENT_ROW = 4;
+/** Thursday, Monday-first. */
+const THURSDAY = 3;
 
 module.exports = [
   {
@@ -94,6 +97,30 @@ module.exports = [
     },
   },
   {
+    name: 'widgetPayload: every day carries its date, and none of them says "today"',
+    run() {
+      // The flag that used to be here was wrong every morning: the app writes
+      // this file when it runs, the widget reads it for as long as it likes,
+      // and "this day is today" becomes a lie at the next midnight. The native
+      // side compares these keys against the device's own clock instead.
+      const payload = build();
+      const flat = payload.monthWeeks.flat();
+
+      for (const day of flat) {
+        assert.match(day.dateKey, /^\d{4}-\d{2}-\d{2}$/, `${day.dateLabel} has no usable date`);
+        assert.ok(!('isToday' in day), 'the payload still decides what today is');
+      }
+      // Local dates, not UTC: an evening east of Greenwich is already tomorrow
+      // in UTC, and the two sides have to mean the same midnight.
+      assert.equal(payload.monthWeeks[CURRENT_ROW][THURSDAY].dateKey, '2026-07-30');
+      assert.equal(payload.monthWeeks[0][2].dateKey, '2026-07-01');
+      // Every key is distinct and in order — a grid is a calendar or it is noise.
+      const keys = flat.map((day) => day.dateKey);
+      assert.equal(new Set(keys).size, keys.length);
+      assert.deepEqual([...keys].sort(), keys);
+    },
+  },
+  {
     name: 'widgetPayload: the days either side of the month are drawn as nothing',
     run() {
       // They hold their column so the weekdays line up, and say nothing else —
@@ -105,19 +132,10 @@ module.exports = [
       for (const day of outside) {
         assert.equal(day.dateLabel, '');
         assert.equal(day.state, 'off');
-        assert.equal(day.isToday, false);
+        // The key is still there: the native side needs it to know the ring
+        // belongs to no cell at all on a day the grid does not contain.
+        assert.match(day.dateKey, /^\d{4}-\d{2}-\d{2}$/);
       }
-    },
-  },
-  {
-    name: 'widgetPayload: exactly one day in the whole grid is today',
-    run() {
-      const payload = build();
-      const todays = payload.monthWeeks.flat().filter((day) => day.isToday);
-
-      assert.equal(todays.length, 1);
-      assert.equal(todays[0].dateLabel, '30');
-      assert.equal(payload.monthWeeks[CURRENT_ROW][3].isToday, true);
     },
   },
   {
@@ -128,19 +146,19 @@ module.exports = [
     },
   },
   {
-    name: 'widgetPayload: three states, and today is not one of them',
+    name: 'widgetPayload: three states, and one of them is not today',
     run() {
       const payload = build();
       for (const day of payload.monthWeeks.flat()) {
         assert.ok(['done', 'plan', 'off'].includes(day.state), `${day.state} is not a state the widget can draw`);
       }
-      // Today is a training day that has not been logged: planned, and today.
-      assert.equal(states(payload, CURRENT_ROW)[3], 'plan');
-      assert.equal(payload.monthWeeks[CURRENT_ROW][3].isToday, true);
+      // Today is a training day that has not been logged: planned. Whether it
+      // is also today is the ring's business, drawn on its own axis.
+      assert.equal(states(payload, CURRENT_ROW)[THURSDAY], 'plan');
     },
   },
   {
-    name: 'widgetPayload: a logged day is done, and can still be today',
+    name: 'widgetPayload: a logged day is done, and the ring is free to sit on it',
     run() {
       const payload = build({ completedDayStarts: [at(2026, 7, 28, 19), at(2026, 7, 30, 7)] });
 
@@ -148,9 +166,9 @@ module.exports = [
       // logged, so it reads free — see the next case.
       assert.deepEqual(states(payload, CURRENT_ROW), ['off', 'done', 'off', 'done', 'off', 'off', 'off']);
       // The old shape had to choose between "done" and "today". This one does
-      // not, which is the whole reason today moved to its own flag.
-      assert.equal(payload.monthWeeks[CURRENT_ROW][3].isToday, true);
-      assert.equal(payload.monthWeeks[CURRENT_ROW][3].state, 'done');
+      // not: the state says trained, the date key lets the ring land on it too.
+      assert.equal(payload.monthWeeks[CURRENT_ROW][THURSDAY].dateKey, '2026-07-30');
+      assert.equal(payload.monthWeeks[CURRENT_ROW][THURSDAY].state, 'done');
     },
   },
   {
@@ -213,61 +231,79 @@ module.exports = [
     },
   },
   {
-    name: 'widgetPayload: the streak counts weeks, and knows when it is one',
+    name: 'widgetPayload: the small number counts every workout there has ever been',
     run() {
-      assert.equal(build({ weekStreak: 6 }).streakValue, '6');
-      assert.equal(build({ weekStreak: 6 }).streakLabel, 'weeks in a row');
-      assert.equal(build({ weekStreak: 1 }).streakLabel, 'week in a row');
-      assert.equal(build({ weekStreak: 6, language: 'fi' }).streakLabel, 'viikkoa putkeen');
-      assert.equal(build({ weekStreak: 1, language: 'fi' }).streakLabel, 'viikko putkeen');
+      // It counted a week streak until 2026-08-20, when the reader asked for the
+      // total instead: "X treeniä".
+      assert.equal(build({ totalWorkouts: 128 }).totalValue, '128');
+      assert.equal(build({ totalWorkouts: 128 }).totalLabel, 'workouts');
+      assert.equal(build({ totalWorkouts: 128, language: 'fi' }).totalLabel, 'treeniä');
       // Nothing logged, and nothing passed in: zero, not a blank.
-      assert.equal(build().streakValue, '0');
-      assert.equal(build({ weekStreak: -3 }).streakValue, '0');
+      assert.equal(build().totalValue, '0');
+      assert.equal(build({ totalWorkouts: -3 }).totalValue, '0');
     },
   },
   {
-    name: 'widgetPayload: today names the weekday and what the day is for',
+    name: 'widgetPayload: all seven days travel, so the widget can pick one itself',
     run() {
-      // Thursday is a training day here, so the routine widget names its
-      // session and its arrow opens it.
+      // The reason: on 2026-08-20 the card still said Thursday's rest day on a
+      // Friday training day, because the line was decided when the app last ran.
       const payload = build();
-      assert.equal(payload.routineWhen, 'Thursday');
-      assert.equal(payload.routineTitle, 'Upper Pull');
-      assert.equal(payload.routineTarget, 'session');
-      assert.equal(build({ language: 'fi' }).routineWhen, 'Torstai');
+
+      assert.equal(payload.routineDays.length, 7);
+      assert.ok(!('routineTitle' in payload), 'a single line is still being written');
+      // Today first, then the six days after it — not Monday first. The
+      // native side matches on the date, and a rhythm need not repeat weekly.
+      assert.deepEqual(
+        payload.routineDays.map((day) => day.dateKey),
+        ['2026-07-30', '2026-07-31', '2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05'],
+      );
+      assert.deepEqual(
+        payload.routineDays.map((day) => day.when),
+        ['Thursday', 'Friday', 'Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday'],
+      );
+      // Tuesday, Wednesday and Thursday train — in the order Home maps them.
+      assert.deepEqual(
+        payload.routineDays.map((day) => day.title),
+        [SESSIONS[2].title, 'Rest day', 'Rest day', 'Rest day', 'Rest day', SESSIONS[0].title, SESSIONS[1].title],
+      );
+      assert.deepEqual(
+        payload.routineDays.map((day) => day.target),
+        ['session', 'home', 'home', 'home', 'home', 'session', 'session'],
+      );
+      assert.equal(build({ language: 'fi' }).routineDays[0].when, 'Torstai');
+      assert.equal(build({ language: 'fi' }).routineDays[1].title, 'Lepopäivä');
     },
   },
   {
-    name: 'widgetPayload: a rest day says so, and does not offer a workout',
+    name: 'widgetPayload: the session name is the one the app shows, not the catalog data',
     run() {
-      // Monday 2026-07-27 — tue/wed/thu train, so Monday is a rest day. The
-      // card names it rather than reaching for the next session, and the arrow
-      // opens Home: there is nothing to start.
-      const payload = build({ nowMs: at(2026, 7, 27) });
-      assert.equal(payload.routineWhen, 'Monday');
-      assert.equal(payload.routineTitle, 'Rest day');
-      assert.equal(payload.routineTarget, 'home');
-      assert.equal(build({ nowMs: at(2026, 7, 27), language: 'fi' }).routineTitle, 'Lepopäivä');
+      // Reported from a home screen: the app runs every session name through
+      // localizeSessionName and the widget did not, so a Finnish app drew
+      // "Day 3: Squat & Row". The day number goes too — the weekday is already
+      // the line above it, and "Day 3: squ" is what a 2×1 does with the rest.
+      const named = [{ ...SESSIONS[0], title: 'Day 3: Squat & Row' }];
+      const payload = build({ sessions: named, schedule: weekdaySchedule([3]), language: 'fi' });
+      assert.equal(payload.routineDays[0].title, 'Kyykky & Soutu');
+
+      // English keeps its own words and still loses the day number.
+      const english = build({ sessions: named, schedule: weekdaySchedule([3]) });
+      assert.equal(english.routineDays[0].title, 'Squat & Row');
+
+      // A name with no day prefix is left alone.
+      assert.equal(build().routineDays[0].title, 'Upper Pull');
     },
   },
   {
-    name: 'widgetPayload: the session named is the one Home would run that day',
-    run() {
-      // Tuesday is the first training day of the week, so it is the first
-      // session — the same mapping getHomeDayView makes for Home.
-      assert.equal(build({ nowMs: at(2026, 7, 28) }).routineTitle, SESSIONS[0].title);
-      assert.equal(build({ nowMs: at(2026, 7, 29) }).routineTitle, SESSIONS[1].title);
-      assert.equal(build({ nowMs: at(2026, 7, 30) }).routineTitle, SESSIONS[2].title);
-    },
-  },
-  {
-    name: 'widgetPayload: no program at all asks for a program',
+    name: 'widgetPayload: no program at all asks for a program, on every day',
     run() {
       const payload = build({ sessions: [], planName: null });
 
-      assert.equal(payload.routineWhen, 'No plan yet');
-      assert.equal(payload.routineTitle, 'Pick a program');
-      assert.equal(payload.routineTarget, 'programs');
+      for (const day of payload.routineDays) {
+        assert.equal(day.when, 'No plan yet');
+        assert.equal(day.title, 'Pick a program');
+        assert.equal(day.target, 'programs');
+      }
     },
   },
   {
@@ -276,12 +312,12 @@ module.exports = [
       const payload = build({ sessions: [], planName: null, suggestion: { title: 'Strength · Base' } });
 
       // "Pick a program" asked a question the app could answer itself.
-      assert.equal(payload.routineWhen, 'Suggested for you');
-      assert.equal(payload.routineTitle, 'Strength · Base');
+      assert.equal(payload.routineDays[0].when, 'Suggested for you');
+      assert.equal(payload.routineDays[0].title, 'Strength · Base');
       // And the tap opens that programme, not the catalog it came from.
-      assert.equal(payload.routineTarget, 'suggestion');
+      assert.equal(payload.routineDays[0].target, 'suggestion');
       assert.equal(
-        build({ sessions: [], planName: null, suggestion: { title: 'X' }, language: 'fi' }).routineWhen,
+        build({ sessions: [], planName: null, suggestion: { title: 'X' }, language: 'fi' }).routineDays[0].when,
         'Suositus sinulle',
       );
     },
@@ -293,9 +329,9 @@ module.exports = [
       // programme it was not given is worse than one that asks.
       for (const suggestion of [null, undefined, { title: '   ' }]) {
         const payload = build({ sessions: [], planName: null, suggestion });
-        assert.equal(payload.routineTitle, 'Pick a program', `suggestion ${JSON.stringify(suggestion)}`);
-        assert.equal(payload.routineWhen, 'No plan yet');
-        assert.equal(payload.routineTarget, 'programs');
+        assert.equal(payload.routineDays[0].title, 'Pick a program', `suggestion ${JSON.stringify(suggestion)}`);
+        assert.equal(payload.routineDays[0].when, 'No plan yet');
+        assert.equal(payload.routineDays[0].target, 'programs');
       }
     },
   },
@@ -303,20 +339,20 @@ module.exports = [
     name: 'widgetPayload: a named plan with nothing in it keeps its name',
     run() {
       const payload = build({ sessions: [] });
-      assert.equal(payload.routineWhen, 'Strong Chest');
-      assert.equal(payload.routineTitle, 'Open the app to start a plan');
-      assert.equal(payload.routineTarget, 'programs');
+      assert.equal(payload.routineDays[0].when, 'Strong Chest');
+      assert.equal(payload.routineDays[0].title, 'Open the app to start a plan');
+      assert.equal(payload.routineDays[0].target, 'programs');
     },
   },
   {
     name: 'widgetPayload: no picked days points at the editor',
     run() {
-      const payload = build({ trainingDayIndexes: [] });
+      const payload = build({ schedule: weekdaySchedule([]) });
 
-      assert.equal(payload.routineWhen, 'Strong Chest');
-      assert.equal(payload.routineTitle, 'Pick your training days');
-      assert.equal(payload.routineTarget, 'schedule');
-      assert.equal(build({ trainingDayIndexes: [], language: 'fi' }).routineTitle, 'Valitse treenipäivät');
+      assert.equal(payload.routineDays[0].when, 'Strong Chest');
+      assert.equal(payload.routineDays[0].title, 'Pick your training days');
+      assert.equal(payload.routineDays[0].target, 'schedule');
+      assert.equal(build({ schedule: weekdaySchedule([]), language: 'fi' }).routineDays[0].title, 'Valitse treenipäivät');
       // The month still renders, honestly empty of plans.
       assert.equal(payload.monthWeeks.flat().filter((day) => day.state === 'plan').length, 0);
     },
@@ -329,7 +365,7 @@ module.exports = [
       for (const overrides of [
         { sessions: [], planName: null },
         { sessions: [] },
-        { trainingDayIndexes: [] },
+        { schedule: weekdaySchedule([]) },
       ]) {
         const payload = build({ ...overrides, completedDayStarts: [at(2026, 7, 14)] });
         assert.equal(payload.monthWeeks.length, 5);
@@ -351,28 +387,25 @@ module.exports = [
   {
     name: 'widgetPayload: every field the widget draws is a finished string',
     run() {
-      const payload = build({ weekStreak: 3, monthTotals: { workouts: 2, durationMinutes: 90, volumeKg: 400 } });
+      const payload = build({ totalWorkouts: 3, monthTotals: { workouts: 2, durationMinutes: 90, volumeKg: 400 } });
 
       assert.equal(payload.version, HOME_WIDGET_PAYLOAD_VERSION);
       assert.ok(!Number.isNaN(Date.parse(payload.updatedAt)), 'updatedAt is an ISO timestamp');
-      for (const key of [
-        'monthLabel',
-        'streakValue',
-        'streakLabel',
-        'routineWhen',
-        'routineTitle',
-        'routineTarget',
-        'theme',
-      ]) {
+      for (const key of ['monthLabel', 'totalValue', 'totalLabel', 'theme']) {
         assert.equal(typeof payload[key], 'string', `${key} must be a string the native side can draw`);
       }
       for (const stat of payload.stats) {
         assert.equal(typeof stat.label, 'string');
         assert.equal(typeof stat.value, 'string');
       }
+      for (const day of payload.routineDays) {
+        assert.equal(typeof day.when, 'string');
+        assert.equal(typeof day.title, 'string');
+        assert.equal(typeof day.target, 'string');
+      }
       for (const day of payload.monthWeeks.flat()) {
         assert.equal(typeof day.dateLabel, 'string');
-        assert.equal(typeof day.isToday, 'boolean');
+        assert.equal(typeof day.dateKey, 'string');
         assert.equal(typeof day.inMonth, 'boolean');
       }
       // Serialisable as-is: this is what gets written to disk for Kotlin.
@@ -386,16 +419,16 @@ module.exports = [
       // the app has to resolve the same session the payload titled.
       const input = {
         nowMs: at(2026, 7, 30),
-        trainingDayIndexes: [1, 2, 3],
+        schedule: weekdaySchedule([1, 2, 3]),
         sessions: SESSIONS,
       };
       const next = findHomeWidgetNextSession(input);
 
       assert.ok(next);
       assert.equal(next.offset, 0);
-      assert.equal(next.weekdayIndex, 3);
+      assert.equal(next.weekdayIndex, THURSDAY);
       assert.equal(
-        buildHomeWidgetPayload({ ...input, language: 'en', theme: 'light', planName: 'P' }).routineTitle,
+        buildHomeWidgetPayload({ ...input, language: 'en', theme: 'light', planName: 'P' }).routineDays[0].title,
         next.session.title,
       );
 
@@ -409,8 +442,8 @@ module.exports = [
   {
     name: 'widgetPayload: nothing to name returns nothing rather than a guess',
     run() {
-      assert.equal(findHomeWidgetNextSession({ nowMs: at(2026, 7, 30), trainingDayIndexes: [], sessions: SESSIONS }), null);
-      assert.equal(findHomeWidgetNextSession({ nowMs: at(2026, 7, 30), trainingDayIndexes: [1], sessions: [] }), null);
+      assert.equal(findHomeWidgetNextSession({ nowMs: at(2026, 7, 30), schedule: weekdaySchedule([]), sessions: SESSIONS }), null);
+      assert.equal(findHomeWidgetNextSession({ nowMs: at(2026, 7, 30), schedule: weekdaySchedule([1]), sessions: [] }), null);
     },
   },
   {

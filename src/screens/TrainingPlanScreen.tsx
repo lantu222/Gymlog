@@ -6,6 +6,7 @@ import { NewProgramSheet } from '../components/NewProgramSheet';
 import { ChevronIcon, SectionLabel, makeSettingsStyles } from '../components/SettingsUi';
 import { CsvLibraryEntry } from '../lib/csvProgramImport';
 import { I18nKey, t } from '../lib/i18n';
+import { cycleSchedule, patternFromOnOff, trainsOn } from '../lib/trainingSchedule';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import type { AppLanguage, SetupWeekday, WorkoutTemplateDraft } from '../types/models';
@@ -24,6 +25,39 @@ const WEEKDAY_CHIPS: Array<{ day: SetupWeekday; labelKey: I18nKey }> = [
 const MIN_TRAINING_DAYS = 2;
 const MAX_TRAINING_DAYS = 6;
 
+/**
+ * How long a cycle may get.
+ *
+ * Not a rule about training, a rule about the editor: a stepper is a poor way
+ * to reach twelve, and nobody keeping a rhythm that long is describing it as
+ * "days on, days off". Reported rhythms are two-on-one-off and three-on-one-off.
+ */
+const MAX_CYCLE_ON = 6;
+const MAX_CYCLE_OFF = 4;
+
+/** Today's cycle preview, and the six days that follow it. */
+const CYCLE_PREVIEW_DAYS = 7;
+
+export interface TrainingCycleValue {
+  pattern: boolean[];
+  anchorDayStart: number;
+}
+
+/** Local midnight, the anchor a cycle counts from. */
+function todayStart(): number {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+}
+
+/** Reads "two on, one off" back out of a stored pattern, for the steppers. */
+function onOffOf(cycle: TrainingCycleValue | null): { on: number; off: number } {
+  if (!cycle) {
+    return { on: 2, off: 1 };
+  }
+  const on = cycle.pattern.filter(Boolean).length;
+  return { on: Math.max(1, on), off: Math.max(0, cycle.pattern.length - on) };
+}
+
 export interface TrainingPlanSessionItem {
   id: string;
   title: string;
@@ -40,6 +74,11 @@ interface TrainingPlanScreenProps {
   planFocusCaption: string | null;
   sessions: TrainingPlanSessionItem[];
   trainingDays: SetupWeekday[];
+  /**
+   * A rhythm that does not fit inside a week, when the reader keeps one. Null =
+   * plain weekdays, and the weekday chips are the whole truth.
+   */
+  trainingCycle?: TrainingCycleValue | null;
   exerciseLibrary: CsvLibraryEntry[];
   language?: AppLanguage;
   onBack: () => void;
@@ -50,6 +89,8 @@ interface TrainingPlanScreenProps {
    */
   startEditingSchedule?: boolean;
   onChangeTrainingDays: (days: SetupWeekday[]) => void;
+  /** Null turns the cycle off and hands the week back to the weekday chips. */
+  onChangeTrainingCycle?: (cycle: TrainingCycleValue | null) => void;
   /** Present only for custom plans — ready programs are immutable. */
   onEditCustomPlan?: () => void;
   /**
@@ -93,11 +134,13 @@ export function TrainingPlanScreen({
   planFocusCaption,
   sessions,
   trainingDays,
+  trainingCycle = null,
   exerciseLibrary,
   language = 'en',
   onBack,
   startEditingSchedule = false,
   onChangeTrainingDays,
+  onChangeTrainingCycle,
   onEditCustomPlan,
   onCopyToCustomPlan,
   onOpenPlanSettings,
@@ -111,17 +154,40 @@ export function TrainingPlanScreen({
   const [editingSchedule, setEditingSchedule] = useState(startEditingSchedule);
   const [draftDays, setDraftDays] = useState<SetupWeekday[]>(trainingDays);
   const [createOpen, setCreateOpen] = useState(false);
+  // The rhythm editor's own draft. Kept apart from the weekday draft so that
+  // switching mode and back does not spend the days the reader had picked.
+  const [draftCycleOn, setDraftCycleOn] = useState(trainingCycle !== null);
+  const [draftOnOff, setDraftOnOff] = useState(() => onOffOf(trainingCycle));
 
+  // A cycle overrides the weekdays everywhere else in the app, so the chips are
+  // hidden rather than shown greyed: two rhythms on one card, one of them
+  // inert, is how a screen ends up disagreeing with itself.
+  const showCycle = editingSchedule ? draftCycleOn : trainingCycle !== null;
   const shownDays = editingSchedule ? draftDays : trainingDays;
   const draftValid = draftDays.length >= MIN_TRAINING_DAYS && draftDays.length <= MAX_TRAINING_DAYS;
   const draftDirty = [...draftDays].sort().join(',') !== [...trainingDays].sort().join(',');
+  const draftPattern = patternFromOnOff(draftOnOff.on, draftOnOff.off);
+  const cycleDirty =
+    draftCycleOn !== (trainingCycle !== null) ||
+    (draftCycleOn && draftPattern.join(',') !== (trainingCycle?.pattern ?? []).join(','));
 
   const beginEditingSchedule = () => {
     setDraftDays(trainingDays);
+    setDraftCycleOn(trainingCycle !== null);
+    setDraftOnOff(onOffOf(trainingCycle));
     setEditingSchedule(true);
   };
 
   const finishEditingSchedule = () => {
+    if (cycleDirty && onChangeTrainingCycle) {
+      // Today, not the day the plan was made: the reader is telling us where
+      // they are in their rhythm right now, and an older anchor would put them
+      // somewhere else in it.
+      onChangeTrainingCycle(draftCycleOn ? { pattern: draftPattern, anchorDayStart: todayStart() } : null);
+    }
+    // The weekday list stays written even while a cycle overrides it — it is
+    // what the reminders and the recommender read, and the cycle can be turned
+    // off again.
     if (draftDirty) {
       if (!draftValid) {
         return; // Done stays disabled — the caption explains the 2–6 rule.
@@ -129,6 +195,14 @@ export function TrainingPlanScreen({
       onChangeTrainingDays(draftDays);
     }
     setEditingSchedule(false);
+  };
+
+  const stepOnOff = (key: 'on' | 'off', delta: number) => {
+    setDraftOnOff((current) => {
+      const max = key === 'on' ? MAX_CYCLE_ON : MAX_CYCLE_OFF;
+      const min = key === 'on' ? 1 : 0;
+      return { ...current, [key]: Math.min(max, Math.max(min, current[key] + delta)) };
+    });
   };
 
   const toggleDraftDay = (day: SetupWeekday) => {
@@ -140,13 +214,50 @@ export function TrainingPlanScreen({
   const dayCountCaption = (count: number) =>
     t(language, 'plan.dayCount', { days: count, rest: 7 - count });
 
-  const scheduleCaption = editingSchedule
-    ? draftValid || draftDays.length === 0
-      ? dayCountCaption(draftDays.length)
-      : t(language, 'plan.pickDays', { min: MIN_TRAINING_DAYS, max: MAX_TRAINING_DAYS })
-    : trainingDays.length > 0
-      ? dayCountCaption(trainingDays.length)
-      : t(language, 'plan.noDays');
+  const cyclePattern = showCycle
+    ? editingSchedule
+      ? draftPattern
+      : trainingCycle?.pattern ?? draftPattern
+    : draftPattern;
+  const cycleOn = cyclePattern.filter(Boolean).length;
+
+  const scheduleCaption = showCycle
+    ? t(language, 'plan.rhythm.summary', {
+        on: cycleOn,
+        off: cyclePattern.length - cycleOn,
+        length: cyclePattern.length,
+      })
+    : editingSchedule
+      ? draftValid || draftDays.length === 0
+        ? dayCountCaption(draftDays.length)
+        : t(language, 'plan.pickDays', { min: MIN_TRAINING_DAYS, max: MAX_TRAINING_DAYS })
+      : trainingDays.length > 0
+        ? dayCountCaption(trainingDays.length)
+        : t(language, 'plan.noDays');
+
+  /**
+   * The next week under the rhythm as it currently stands.
+   *
+   * Days-on-days-off is easy to get wrong in the head and impossible to get
+   * wrong when you can see it: this is the only part of the editor that proves
+   * the setting means what the reader thinks it means.
+   */
+  const cyclePreview = (() => {
+    if (!showCycle) {
+      return [];
+    }
+    const anchor = editingSchedule || !trainingCycle ? todayStart() : trainingCycle.anchorDayStart;
+    const schedule = cycleSchedule(cyclePattern, anchor);
+    const now = new Date();
+    return Array.from({ length: CYCLE_PREVIEW_DAYS }, (_, offset) => {
+      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+      return {
+        key: date.getTime(),
+        label: t(language, WEEKDAY_CHIPS[date.getDay() === 0 ? 6 : date.getDay() - 1].labelKey),
+        training: trainsOn(schedule, date),
+      };
+    });
+  })();
 
   return (
     <View style={styles.screen}>
@@ -213,6 +324,87 @@ export function TrainingPlanScreen({
                 onAction={editingSchedule ? finishEditingSchedule : beginEditingSchedule}
               />
               <View style={[settingsStyles.card, styles.scheduleCard]}>
+                {/* RHYTHM SWITCH — only while editing. Read-only, the card says
+                    what the rhythm IS; a pair of tabs would invite a tap that
+                    changes nothing. */}
+                {editingSchedule && onChangeTrainingCycle ? (
+                  <View style={styles.rhythmTabs}>
+                    {([false, true] as const).map((cycle) => (
+                      <Pressable
+                        key={cycle ? 'cycle' : 'weekdays'}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: draftCycleOn === cycle }}
+                        onPress={() => setDraftCycleOn(cycle)}
+                        style={[styles.rhythmTab, draftCycleOn === cycle && styles.rhythmTabActive]}
+                      >
+                        <Text
+                          style={[styles.rhythmTabText, draftCycleOn === cycle && styles.rhythmTabTextActive]}
+                        >
+                          {t(language, cycle ? 'plan.rhythm.cycle' : 'plan.rhythm.weekdays')}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+
+                {showCycle ? (
+                  <>
+                    {editingSchedule ? (
+                      <View style={styles.stepperGroup}>
+                        {([
+                          { key: 'on' as const, labelKey: 'plan.rhythm.onDays' as const, a11y: 'plan.rhythm.a11yOn' as const },
+                          { key: 'off' as const, labelKey: 'plan.rhythm.offDays' as const, a11y: 'plan.rhythm.a11yOff' as const },
+                        ]).map((row) => (
+                          <View key={row.key} style={styles.stepperRow}>
+                            <Text style={styles.stepperLabel}>{t(language, row.labelKey)}</Text>
+                            <View
+                              accessibilityLabel={t(language, row.a11y, { count: draftOnOff[row.key] })}
+                              style={styles.stepper}
+                            >
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t(language, 'plan.rhythm.less')}
+                                onPress={() => stepOnOff(row.key, -1)}
+                                style={({ pressed }) => [styles.stepperButton, pressed && { opacity: 0.6 }]}
+                              >
+                                <Text style={styles.stepperButtonText}>-</Text>
+                              </Pressable>
+                              <Text style={styles.stepperValue}>{draftOnOff[row.key]}</Text>
+                              <Pressable
+                                accessibilityRole="button"
+                                accessibilityLabel={t(language, 'plan.rhythm.more')}
+                                onPress={() => stepOnOff(row.key, 1)}
+                                style={({ pressed }) => [styles.stepperButton, pressed && { opacity: 0.6 }]}
+                              >
+                                <Text style={styles.stepperButtonText}>+</Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+
+                    {/* The next seven days, drawn. A rhythm stated in numbers is
+                        easy to misread; the same rhythm laid on real weekdays is
+                        not. */}
+                    <View style={styles.weekdayRow}>
+                      {cyclePreview.map((day) => (
+                        <View key={day.key} style={styles.weekdayCell}>
+                          <View style={[styles.weekdayChip, day.training && styles.weekdayChipActive]}>
+                            <Text
+                              style={[styles.weekdayChipText, day.training && styles.weekdayChipTextActive]}
+                            >
+                              {day.label}
+                            </Text>
+                          </View>
+                        </View>
+                      ))}
+                    </View>
+                    {editingSchedule ? (
+                      <Text style={styles.scheduleCaption}>{t(language, 'plan.rhythm.startsToday')}</Text>
+                    ) : null}
+                  </>
+                ) : (
                 <View style={styles.weekdayRow}>
                   {WEEKDAY_CHIPS.map((chip) => {
                     const active = shownDays.includes(chip.day);
@@ -250,6 +442,7 @@ export function TrainingPlanScreen({
                     );
                   })}
                 </View>
+                )}
                 <Text style={styles.scheduleCaption}>{scheduleCaption}</Text>
               </View>
             </View>
@@ -485,6 +678,77 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   weekdayRow: {
     flexDirection: 'row',
     gap: 6,
+  },
+  rhythmTabs: {
+    flexDirection: 'row',
+    gap: 6,
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 12,
+    padding: 3,
+    marginBottom: 14,
+  },
+  rhythmTab: {
+    flex: 1,
+    height: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rhythmTabActive: {
+    backgroundColor: theme.surface,
+  },
+  rhythmTabText: {
+    color: theme.muted,
+    fontSize: 12.5,
+    fontWeight: '800',
+  },
+  rhythmTabTextActive: {
+    color: theme.ink,
+  },
+  stepperGroup: {
+    gap: 10,
+    marginBottom: 14,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  stepperLabel: {
+    // flexShrink, not flex:1 — a two-line Finnish label must be allowed to wrap
+    // rather than push the stepper off the card.
+    flexShrink: 1,
+    color: theme.ink,
+    fontSize: 13.5,
+    fontWeight: '700',
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: theme.surfaceSoft,
+    borderRadius: 12,
+  },
+  stepperButton: {
+    width: 38,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperButtonText: {
+    color: theme.ink,
+    fontSize: 18,
+    fontWeight: '800',
+    // The glyphs sit high in the line box at this weight; nudged so the row
+    // does not read as top-aligned against the number beside it.
+    marginTop: -2,
+  },
+  stepperValue: {
+    minWidth: 22,
+    textAlign: 'center',
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '800',
   },
   weekdayCell: {
     flex: 1,

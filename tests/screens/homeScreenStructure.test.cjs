@@ -610,7 +610,9 @@ module.exports = [
       assert.match(appSource, /startEditingSchedule=\{route\.editSchedule === true\}/);
 
       // The dots themselves stay gated on real data in both calendar views.
-      assert.match(homeScreenSource, /trainingDayIndexes\.length > 0/);
+      // The gate is a schedule now rather than a weekday count, because a
+      // rhythm need not repeat every seven days — but it is still a gate.
+      assert.match(homeScreenSource, /const scheduleKnown = isScheduleKnown\(trainingSchedule\)/);
       assert.match(homeScreenSource, /weekStripDotUnknown/);
     },
   },

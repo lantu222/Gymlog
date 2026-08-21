@@ -21,6 +21,7 @@ import { CardioIconKind } from '../lib/cardio';
 import { HomeStatCard } from '../lib/homeStatCards';
 import { VinhaIcon } from '../components/VinhaIcon';
 import { getHomeMiniCalendarDays, getHomeMonthCalendar, HomeDaySessionSummary } from '../lib/homeCalendar';
+import { isScheduleKnown, TrainingSchedule, trainsOn, UNKNOWN_SCHEDULE } from '../lib/trainingSchedule';
 import {
   getDefaultCooldown,
   getDefaultWarmup,
@@ -212,11 +213,14 @@ interface HomeScreenProps {
   onChangePinnedStatCardKeys?: (next: string[]) => void;
   onOpenStatCard?: (key: string) => void;
   /**
-   * Monday-first weekday indexes (0 = Mon … 6 = Sun) of the user's training
-   * days, from setupAvailableDays. Empty = unknown → the strip shows no
-   * training dots rather than an invented rhythm.
+   * Which days train. Unknown → the strip shows no training dots rather than
+   * an invented rhythm.
+   *
+   * This used to be a list of weekdays. It is a schedule now because a rhythm
+   * need not repeat every seven days: two on, one off is one, and no weekday
+   * list can hold it.
    */
-  trainingDayIndexes?: number[];
+  trainingSchedule?: TrainingSchedule;
   language?: AppLanguage;
   /**
    * Equipment chips the user actually has; null when the setup never said.
@@ -293,7 +297,7 @@ export function HomeScreen({
   pinnedStatCardKeys = [],
   onChangePinnedStatCardKeys,
   onOpenStatCard,
-  trainingDayIndexes = [],
+  trainingSchedule = UNKNOWN_SCHEDULE,
   language = 'en',
   profileName = null,
   availableEquipment = null,
@@ -306,6 +310,8 @@ export function HomeScreen({
 }: HomeScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
+  // No schedule = no dots. "Recovery" would be as invented as "training".
+  const scheduleKnown = isScheduleKnown(trainingSchedule);
   const [plateauSheetVisible, setPlateauSheetVisible] = useState(false);
   const insets = useSafeAreaInsets();
   const [confirmingRemovePlan, setConfirmingRemovePlan] = useState(false);
@@ -729,7 +735,7 @@ export function HomeScreen({
             style={({ pressed }) => [styles.weekStripRow, pressed && styles.pressed]}
           >
             {topCalendarDays.map((day) => {
-              const isTrainingDay = trainingDayIndexes.includes(day.weekdayIndex);
+              const isTrainingDay = trainsOn(trainingSchedule, new Date(day.dayStart));
               // The date appears once on this screen, up on the greeting row.
               // Today's cell is told apart by its highlight, not by holding
               // different content from its neighbours.
@@ -739,7 +745,7 @@ export function HomeScreen({
                 <View key={day.dayStart} style={[styles.weekStripItem, day.isToday && styles.weekStripItemToday]}>
                   {/* Dots only when training days are actually known — with no
                       schedule, "recovery" would be as invented as "training". */}
-                  {trainingDayIndexes.length > 0 ? (
+                  {scheduleKnown ? (
                     <View style={[styles.weekStripDot, isTrainingDay ? styles.weekStripDotTraining : styles.weekStripDotRecovery]} />
                   ) : (
                     <View style={[styles.weekStripDot, styles.weekStripDotUnknown]} />
@@ -805,7 +811,7 @@ export function HomeScreen({
             {monthCalendar.weeks.map((week) => (
               <View key={week[0].dayStart} style={styles.monthWeekRow}>
                 {week.map((day) => {
-                  const isTrainingDay = day.inMonth && trainingDayIndexes.includes(day.weekdayIndex);
+                  const isTrainingDay = day.inMonth && trainsOn(trainingSchedule, new Date(day.dayStart));
 
                   return (
                     <View key={day.dayStart} style={[styles.monthDayCell, day.isToday && styles.monthDayCellToday]}>
@@ -821,7 +827,7 @@ export function HomeScreen({
                       <View
                         style={[
                           styles.monthDayDot,
-                          trainingDayIndexes.length > 0
+                          scheduleKnown
                             ? isTrainingDay
                               ? styles.monthDayDotTraining
                               : day.inMonth
@@ -835,7 +841,7 @@ export function HomeScreen({
                 })}
               </View>
             ))}
-            {trainingDayIndexes.length > 0 ? (
+            {scheduleKnown ? (
               <View style={styles.monthLegendRow}>
                 <View style={styles.monthLegendItem}>
                   <View style={[styles.monthDayDot, styles.monthDayDotTraining]} />

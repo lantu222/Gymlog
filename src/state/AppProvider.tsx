@@ -198,6 +198,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       setupScheduleMode: null,
       setupWeeklyMinutes: null,
       setupAvailableDays: [],
+      trainingCycle: null,
       setupTrainingFeel: 'challenging',
       setupWorkoutVariety: 'balanced',
       setupFreeWeightsPreference: 'neutral',

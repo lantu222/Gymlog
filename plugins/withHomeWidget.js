@@ -32,7 +32,7 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
  *
  *   WeekWidgetProvider     2×2  "Month"    the month, and nothing else
  *   HomeWidgetProvider     4×2  "Month +"  the month, with this month's figures
- *   StreakWidgetProvider   2×1  "Streak"   one number
+ *   StreakWidgetProvider   2×1  "Workouts" one number: everything logged
  *   RoutineWidgetProvider  2×1  "Today"    today's session, or the rest day
  *
  * `HomeWidgetProvider` and `WeekWidgetProvider` keep their class names on
@@ -50,7 +50,7 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
 const PACKAGE = 'app.vinha';
 const PAYLOAD_FILE = 'vinha-widget.json';
 /** Must match HOME_WIDGET_PAYLOAD_VERSION in src/lib/widgetPayload.ts. */
-const PAYLOAD_VERSION = 5;
+const PAYLOAD_VERSION = 7;
 /** Must match HOME_WIDGET_MONTH_ROWS in src/lib/widgetPayload.ts. */
 const MONTH_ROWS = 6;
 const DAY_COUNT = 7;
@@ -165,7 +165,9 @@ const SIZES = {
     statGap: 8,
   },
   // 2×1 — one number, or one line.
-  small: { pad: 12, padHorizontal: 14, logo: 15, arrow: 24 },
+  // routinePad is tighter than the streak card's: that one draws one line,
+  // this one may draw two.
+  small: { pad: 12, padHorizontal: 14, logo: 15, arrow: 24, routinePad: 9 },
 };
 
 // ── Provider metadata ──────────────────────────────────────────────────────
@@ -845,7 +847,6 @@ function routineLayout(theme, { preview = null } = {}) {
             android:layout_height="wrap_content"
             android:gravity="center_vertical"
             android:orientation="horizontal">
-${logoView(size.logo, { indent: '            ', marginEnd: 10 })}
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
@@ -867,10 +868,11 @@ ${logoView(size.logo, { indent: '            ', marginEnd: 10 })}
                     android:id="@+id/widget_routine_title"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:maxLines="1"
+                    android:layout_marginTop="1dp"
+                    android:maxLines="2"
                     android:ellipsize="end"
-                    android:textSize="14.5sp"
+                    android:textSize="13sp"
+                    android:lineSpacingMultiplier="0.95"
                     android:textStyle="bold"
                     android:textColor="${palette.ink}"
                     android:text="${preview ? preview.routineTitle : ''}" />
@@ -885,7 +887,7 @@ ${logoView(size.logo, { indent: '            ', marginEnd: 10 })}
         </LinearLayout>`;
 
   return root(theme, {
-    padding: size.pad,
+    padding: size.routinePad,
     paddingHorizontal: size.padHorizontal,
     children: `${promptView(theme, { size: 13 })}\n${body}`,
   });
@@ -955,7 +957,7 @@ function statsPreview() {
 
 function streakPreview() {
   return stripIds(
-    streakLayout('light', { preview: { streakValue: '6', streakLabel: '@string/widget_label_streak' } }),
+    streakLayout('light', { preview: { streakValue: '48', streakLabel: '@string/widget_label_streak' } }),
   );
 }
 
@@ -981,8 +983,10 @@ const STRINGS = {
     widget_calendar_description: 'Your training month, one square.',
     widget_stats_name: 'Vinha · Month & figures',
     widget_stats_description: 'The month, with what you have put into it.',
-    widget_streak_name: 'Vinha · Streak',
-    widget_streak_description: 'The weeks you have kept going.',
+    // The ids keep the word 'streak': the receiver behind them is pinned to
+    // home screens by class name, and what it counts changed, not what it is.
+    widget_streak_name: 'Vinha · Workouts',
+    widget_streak_description: 'Every workout you have logged.',
     widget_routine_name: 'Vinha · Today',
     widget_routine_description: 'What today is for, and one tap to it.',
     widget_setup: 'Create your first program',
@@ -990,7 +994,7 @@ const STRINGS = {
     widget_label_workouts: 'Workouts',
     widget_label_duration: 'Duration',
     widget_label_volume: 'Volume',
-    widget_label_streak: 'weeks in a row',
+    widget_label_streak: 'workouts',
     widget_preview_month: 'August',
     widget_preview_weekday: 'Monday',
     widget_preview_title: 'Upper body A',
@@ -1003,8 +1007,8 @@ const STRINGS = {
     widget_calendar_description: 'Treenikuukausi yhdessä ruudussa.',
     widget_stats_name: 'Vinha · Kuukausi ja luvut',
     widget_stats_description: 'Kuukausi ja se, mitä olet siihen laittanut.',
-    widget_streak_name: 'Vinha · Putki',
-    widget_streak_description: 'Viikot, jotka olet pitänyt kasassa.',
+    widget_streak_name: 'Vinha · Treenit',
+    widget_streak_description: 'Kaikki kirjaamasi treenit.',
     widget_routine_name: 'Vinha · Tänään',
     widget_routine_description: 'Mitä varten tämä päivä on, yhden napautuksen päässä.',
     widget_setup: 'Tee ensimmäinen ohjelma',
@@ -1012,7 +1016,7 @@ const STRINGS = {
     widget_label_workouts: 'Treenit',
     widget_label_duration: 'Kesto',
     widget_label_volume: 'Volyymi',
-    widget_label_streak: 'viikkoa putkeen',
+    widget_label_streak: 'treeniä',
     widget_preview_month: 'elokuu',
     widget_preview_weekday: 'Maanantai',
     widget_preview_title: 'Ylävartalo A',
@@ -1087,6 +1091,9 @@ import android.widget.RemoteViews
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Draws the home-screen widget family from the JSON the app writes to filesDir.
@@ -1204,7 +1211,7 @@ ${paletteLiteral('dark', DARK, 'dark')}
         views.setViewVisibility(R.id.widget_body, View.VISIBLE)
 
         when (layoutId) {
-            R.layout.home_widget_streak -> renderStreak(context, views, payload, palette)
+            R.layout.home_widget_streak -> renderTotal(context, views, payload, palette)
             R.layout.home_widget_routine -> renderRoutine(context, views, payload, palette)
             R.layout.home_widget_stats -> {
                 renderCalendar(views, payload, palette)
@@ -1263,7 +1270,7 @@ ${paletteLiteral('dark', DARK, 'dark')}
                 // nothing: they are there so the weekdays line up, not to be read.
                 val inMonth = day?.optBoolean("inMonth") == true
                 val state = if (inMonth) day?.optString("state") else "off"
-                val today = inMonth && day?.optBoolean("isToday") == true
+                val today = inMonth && day?.optString("dateKey") == todayKey()
 
                 views.setTextViewText(cellIds[cellIndex], if (inMonth) day?.optString("dateLabel") ?: "" else "")
                 views.setTextColor(cellIds[cellIndex], palette.dateInk(state, today))
@@ -1284,22 +1291,63 @@ ${paletteLiteral('dark', DARK, 'dark')}
         }
     }
 
-    private fun renderStreak(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
-        views.setTextViewText(R.id.widget_streak_value, payload.optString("streakValue"))
+    /** How many workouts there have ever been. The ids keep the older name. */
+    private fun renderTotal(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
+        views.setTextViewText(R.id.widget_streak_value, payload.optString("totalValue"))
         views.setTextColor(R.id.widget_streak_value, palette.ink)
-        views.setTextViewText(R.id.widget_streak_label, payload.optString("streakLabel"))
+        views.setTextViewText(R.id.widget_streak_label, payload.optString("totalLabel"))
         views.setTextColor(R.id.widget_streak_label, palette.faint)
-        // The streak is a calendar fact, so it opens the calendar.
+        // A count of everything logged is a calendar fact, so it opens the calendar.
         views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, "calendar"))
     }
 
+    /**
+     * Today's line, chosen here rather than read.
+     *
+     * The payload carries seven dated days. It used to carry one line, decided
+     * when the app last ran, and a Thursday rest day then sat on a Friday
+     * training day until something opened the app. The launcher has a clock;
+     * this is the only place that knows what day the card is being drawn on.
+     *
+     * Matched by date rather than by weekday: a reader who trains two days on
+     * and one off has no fixed weekdays to index by, and the same Tuesday
+     * trains on one turn of their cycle and rests on the next.
+     */
     private fun renderRoutine(context: Context, views: RemoteViews, payload: JSONObject, palette: Palette) {
-        views.setTextViewText(R.id.widget_routine_when, payload.optString("routineWhen"))
+        val days = payload.optJSONArray("routineDays")
+        val today = findToday(days)
+
+        views.setTextViewText(R.id.widget_routine_when, today?.optString("when") ?: "")
         views.setTextColor(R.id.widget_routine_when, palette.faint)
-        views.setTextViewText(R.id.widget_routine_title, payload.optString("routineTitle"))
+        views.setTextViewText(R.id.widget_routine_title, today?.optString("title") ?: "")
         views.setTextColor(R.id.widget_routine_title, palette.ink)
         views.setInt(R.id.widget_arrow, "setColorFilter", palette.muted)
-        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, payload.optString("routineTarget")))
+        views.setOnClickPendingIntent(R.id.widget_root, targetIntent(context, today?.optString("target")))
+    }
+
+    /** "2026-08-20" in the device's own timezone, matching the payload's keys. */
+    private fun todayKey(): String =
+        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+
+    /**
+     * The dated entry for today, or nothing.
+     *
+     * Nothing, rather than the first entry: the seven days start at the day the
+     * app last ran, so a card drawn eight days later has no line that is true.
+     * A blank card says less than a wrong one, and asks to be tapped.
+     */
+    private fun findToday(days: JSONArray?): JSONObject? {
+        if (days == null) {
+            return null
+        }
+        val key = todayKey()
+        for (index in 0 until days.length()) {
+            val day = days.optJSONObject(index) ?: continue
+            if (day.optString("dateKey") == key) {
+                return day
+            }
+        }
+        return null
     }
 
     /**

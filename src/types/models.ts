@@ -391,6 +391,19 @@ export interface AppPreferences {
   setupScheduleMode: SetupScheduleMode | null;
   setupWeeklyMinutes: number | null;
   setupAvailableDays: SetupWeekday[];
+  /**
+   * A rhythm that does not fit inside a week, e.g. two days on and one off.
+   *
+   * When set, this OVERRIDES `setupAvailableDays` everywhere a calendar day is
+   * marked as training or rest: the weekday list cannot express a period other
+   * than seven, so the two would disagree on most days. Availability stays as
+   * written because the recommender and reminders still read it as "days I
+   * could train".
+   *
+   * `pattern` is read cyclically from `anchorDayStart` (a local midnight):
+   * `[true, true, false]` is two on, one off. Null = plain weekdays.
+   */
+  trainingCycle: { pattern: boolean[]; anchorDayStart: number } | null;
   setupTrainingFeel: TrainingFeelPreference;
   setupWorkoutVariety: WorkoutVarietyPreference;
   setupFreeWeightsPreference: ExerciseModalityPreference;

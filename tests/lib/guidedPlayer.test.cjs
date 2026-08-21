@@ -14,6 +14,7 @@ const {
   parseSchemeLabelSeconds,
   buildGuidedDrillsFromBlock,
   buildGuidedSteps,
+  getGuidedPhaseSkipTargetIndex,
   findGuidedPhaseStart,
   getGuidedPhaseLabel,
   getGuidedStepLabel,
@@ -83,6 +84,36 @@ module.exports = [
         { name: 'Rowing machine', seconds: 180 },
         { name: 'Hip openers', seconds: 50 },
       ]);
+    },
+  },
+  {
+    name: 'skipping a block leaves the block, not the session',
+    run() {
+      const { steps } = buildPlan();
+      const phaseOf = (index) => ('phase' in steps[index] ? steps[index].phase : null);
+
+      // From the warmup splash, past every drill in it, to the first thing that
+      // is not warmup. Five drills used to be five taps to the bar.
+      const warmupStart = steps.findIndex((step) => 'phase' in step && step.phase === 'warmup');
+      const afterWarmup = getGuidedPhaseSkipTargetIndex(steps, warmupStart);
+      assert.notEqual(phaseOf(afterWarmup), 'warmup');
+      assert.equal(phaseOf(afterWarmup), 'work');
+
+      // Mid-block does the same thing: the escape is from the block.
+      const midWarmup = steps.findIndex((step) => step.type === 'drill' && step.phase === 'warmup');
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, midWarmup), afterWarmup);
+
+      // The cooldown lands on the finish card, which has no phase at all.
+      const cooldownStart = steps.findIndex((step) => 'phase' in step && step.phase === 'cooldown');
+      const afterCooldown = getGuidedPhaseSkipTargetIndex(steps, cooldownStart);
+      assert.equal(steps[afterCooldown].type, 'finish');
+
+      // The work block is the session. It does not answer to this.
+      const work = steps.findIndex((step) => step.type === 'set');
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, work), work);
+      // Nor does anything off the end of the plan.
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, steps.length - 1), steps.length - 1);
+      assert.equal(getGuidedPhaseSkipTargetIndex(steps, 999), 999);
     },
   },
   {
