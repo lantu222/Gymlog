@@ -186,6 +186,7 @@ const suites = [
   ...require('./lib/trainingSchedule.test.cjs'),
   ...require('./lib/readableOn.test.cjs'),
   ...require('./lib/workoutPauseClock.test.cjs'),
+  ...require('./screens/guidedPlayerSwap.test.cjs'),
   ...require('./lib/homeVisuals.test.cjs'),
   ...require('./lib/aiTrainingContext.test.cjs'),
   ...require('./lib/aiCoachSystemContext.test.cjs'),

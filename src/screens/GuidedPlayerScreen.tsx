@@ -21,6 +21,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -86,6 +87,8 @@ import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/model
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
+import { buildExerciseSearchHaystack, exerciseMatchesQuery } from '../lib/exerciseSearch';
+import { getPopularExerciseLibraryOrder } from '../lib/exerciseSuggestions';
 import { useKeepScreenAwake } from '../utils/keepAwake';
 import { getHistoryEntriesForExercise } from '../features/workout/workoutState';
 import {
@@ -1085,6 +1088,7 @@ export function GuidedPlayerScreen({
   const [exitOpen, setExitOpen] = useState(false);
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
+  const [swapQuery, setSwapQuery] = useState('');
   const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen;
 
   const stepSeconds = (target: GuidedStep): number => {
@@ -1311,7 +1315,11 @@ export function GuidedPlayerScreen({
      three are things a gym makes you do (rack taken, shoulder complaining,
      one more set in you). They hang off the pause sheet because that is
      already the "I need to do something else" surface. */
-  const actionSlotId = step.type === 'set' || step.type === 'position' ? step.slotId : null;
+  // Rest counts too. A rest only ever falls BETWEEN sets of one exercise, so
+  // the lift it belongs to is unambiguous — and resting is exactly when you
+  // notice somebody has taken the machine you were going back to.
+  const actionSlotId =
+    step.type === 'set' || step.type === 'position' || step.type === 'rest' ? step.slotId : null;
   const actionExercise = actionSlotId ? exerciseBySlot.get(actionSlotId) ?? null : null;
   const swapOptions = useMemo(() => {
     if (!actionExercise) {
@@ -1323,6 +1331,55 @@ export function GuidedPlayerScreen({
       tailoringPreferences,
     );
   }, [actionExercise, tailoringPreferences]);
+
+  /** The programme's own alternatives, which are better answers than a search. */
+  const swapSuggestions = useMemo(() => {
+    const query = swapQuery.trim();
+    const names = swapOptions.map((option) => option.exerciseName);
+    if (!query) {
+      return names;
+    }
+    return names.filter((name) =>
+      exerciseMatchesQuery(`${name} ${exerciseNameLabel(language, name)}`.toLowerCase(), query),
+    );
+  }, [language, swapOptions, swapQuery]);
+
+  /**
+   * Everything else the library holds.
+   *
+   * Capped while there is no query: 873 rows inside a sheet is a scroll, not a
+   * choice. Typing lifts the cap to something a reader can still read through.
+   */
+  const swapLibrary = useMemo(() => {
+    const query = swapQuery.trim();
+    const suggested = new Set(swapOptions.map((option) => option.exerciseName));
+    const current = actionExercise?.exerciseName;
+    const pool = exerciseLibrary.filter((item) => item.name !== current && !suggested.has(item.name));
+    if (!query) {
+      const popular = getPopularExerciseLibraryOrder(exerciseLibrary);
+      return [...pool]
+        .sort((left, right) => (popular.get(left.id) ?? 1e6) - (popular.get(right.id) ?? 1e6))
+        .slice(0, 25);
+    }
+    return pool
+      .filter((item) => exerciseMatchesQuery(buildExerciseSearchHaystack(item, language), query))
+      .slice(0, 40);
+  }, [actionExercise, exerciseLibrary, language, swapOptions, swapQuery]);
+
+  const applySwap = (exerciseName: string) => {
+    if (!actionExercise) {
+      return;
+    }
+    workout.swapExercise(
+      actionExercise.slotId,
+      exerciseName,
+      actionExercise.substitutionGroup,
+      unitPreference,
+    );
+    setSwapOpen(false);
+    setSwapQuery('');
+    setPaused(false);
+  };
 
   // Skipping an exercise removes its steps from the list, so the index we are
   // sitting on stops meaning what it meant. Re-resolve once the rebuilt steps
@@ -1822,7 +1879,7 @@ export function GuidedPlayerScreen({
                 workout.pauseWorkout();
               }}
               onOpenActions={() => setPauseSheetOpen(true)}
-              onSwapExercise={swapOptions.length ? () => setSwapOpen(true) : null}
+              onSwapExercise={() => setSwapOpen(true)}
               onConfirm={confirmSet}
             />
           )}
@@ -1869,6 +1926,11 @@ export function GuidedPlayerScreen({
                       />
                     </View>
                   </View>
+                  <GhostBtn
+                    icon="list"
+                    label={t(language, 'guided.swap.action')}
+                    onPress={() => setSwapOpen(true)}
+                  />
                   <Pressable style={styles.skipRestBtn} onPress={advance}>
                     <GPIcon name="skip" size={18} color="#fff" />
                     <Text style={{ fontSize: 15.5, fontWeight: '800', color: '#fff' }}>{t(language, 'guided.skipRest')}</Text>
@@ -2039,10 +2101,19 @@ export function GuidedPlayerScreen({
         </GPSheet>
       )}
 
+      {/* Swapping a lift.
+
+          This used to be the substitution group and nothing else, and the
+          button that opened it hid itself when that group was empty — which is
+          exactly the moment a reader wants it, standing at a machine somebody
+          else is using. The group is still the top of the list, because a
+          programme's own alternatives are better answers than a search. The
+          library is under it so there is always an answer at all. */}
       {swapOpen && actionExercise && (
         <GPSheet
           onClose={() => {
             setSwapOpen(false);
+            setSwapQuery('');
             setPaused(false);
           }}
         >
@@ -2051,25 +2122,50 @@ export function GuidedPlayerScreen({
               name: exerciseNameLabel(language, actionExercise.exerciseName),
             })}
           </Text>
-          <View style={{ gap: 10 }}>
-            {swapOptions.map((option) => (
-              <GhostBtn
-                key={option.exerciseName}
-                icon="check"
-                label={exerciseNameLabel(language, option.exerciseName)}
-                onPress={() => {
-                  workout.swapExercise(
-                    actionExercise.slotId,
-                    option.exerciseName,
-                    actionExercise.substitutionGroup,
-                    unitPreference,
-                  );
-                  setSwapOpen(false);
-                  setPaused(false);
-                }}
-              />
-            ))}
-          </View>
+
+          <TextInput
+            value={swapQuery}
+            onChangeText={setSwapQuery}
+            placeholder={t(language, 'guided.swap.search')}
+            placeholderTextColor={theme.faint}
+            style={styles.swapSearch}
+            autoCorrect={false}
+            returnKeyType="search"
+          />
+
+          <ScrollView style={styles.swapList} keyboardShouldPersistTaps="handled">
+            {swapSuggestions.length > 0 ? (
+              <>
+                <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.suggested')}</Text>
+                <View style={{ gap: 10 }}>
+                  {swapSuggestions.map((name) => (
+                    <GhostBtn
+                      key={`suggested-${name}`}
+                      icon="check"
+                      label={exerciseNameLabel(language, name)}
+                      onPress={() => applySwap(name)}
+                    />
+                  ))}
+                </View>
+              </>
+            ) : null}
+
+            <Text style={styles.swapSectionLabel}>{t(language, 'guided.swap.library')}</Text>
+            {swapLibrary.length > 0 ? (
+              <View style={{ gap: 10 }}>
+                {swapLibrary.map((item) => (
+                  <GhostBtn
+                    key={item.id}
+                    label={exerciseNameLabel(language, item.name)}
+                    onPress={() => applySwap(item.name)}
+                  />
+                ))}
+              </View>
+            ) : (
+              <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.noMatch')}</Text>
+            )}
+          </ScrollView>
+
           <Text style={styles.sheetFootnote}>{t(language, 'guided.swap.footnote')}</Text>
         </GPSheet>
       )}
@@ -2143,7 +2239,7 @@ function SetStepView({
   onPause: () => void;
   onOpenActions: () => void;
   /** Null when this exercise has no catalog alternatives. */
-  onSwapExercise: (() => void) | null;
+  onSwapExercise: () => void;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
 }) {
   const theme = useTheme();
@@ -2902,6 +2998,32 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 22,
     paddingBottom: 30,
     maxHeight: '78%',
+  },
+  swapSearch: {
+    marginBottom: 14,
+    height: 46,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: theme.border,
+    backgroundColor: theme.bg,
+    paddingHorizontal: 14,
+    color: theme.ink,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  swapList: {
+    // Bounded so the footnote below it stays on screen; the sheet's own
+    // maxHeight cannot do this on its own with a list inside it.
+    maxHeight: 380,
+  },
+  swapSectionLabel: {
+    marginTop: 14,
+    marginBottom: 8,
+    color: theme.muted,
+    fontSize: 11.5,
+    fontWeight: '800',
+    letterSpacing: 1.1,
+    textTransform: 'uppercase',
   },
   sheetHandle: { width: 40, height: 5, borderRadius: 3, backgroundColor: '#E4DBF5', alignSelf: 'center', marginBottom: 16 },
   sheetTitle: { fontSize: 20, fontWeight: '800', color: theme.ink, marginBottom: 16 },
