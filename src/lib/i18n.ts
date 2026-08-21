@@ -1488,7 +1488,7 @@ const EN = {
   'guided.exit.title': 'Leave guided mode?',
   'guided.exit.keep': 'Keep training',
   // Same action as the exit sheet's, on a button with room for one word.
-  'guided.exit.end': 'End session',
+  'guided.exit.end': 'Discard workout',
   // Was: "List view keeps your progress — same session, table layout."
   // The list view is gone and so is the button that reached it, but the
   // footnote stayed, explaining a third option under two. What the sheet
@@ -1497,7 +1497,7 @@ const EN = {
   'guided.exit.footnote': 'Ending discards the sets you have logged in this session.',
   // Shown once something is logged: the third way out. Same save as the
   // finish step, from wherever the session stands.
-  'guided.exit.finishSave': 'Finish and save',
+  'guided.exit.finishSave': "I'm done",
   'guided.exit.footnoteSavedOne': 'Finish keeps your 1 logged set. Ending discards it.',
   'guided.exit.footnoteSavedMany': 'Finish keeps your {count} logged sets. Ending discards them.',
   'guided.pauseSheet.title': 'Paused',
@@ -4801,9 +4801,9 @@ const FI: Record<I18nKey, string> = {
   'guided.endConfirm.bodyMany': '{count} kirjattua sarjaa hylätään.',
   'guided.exit.title': 'Poistutaanko ohjatusta tilasta?',
   'guided.exit.keep': 'Jatka treeniä',
-  'guided.exit.end': 'Lopeta treeni',
+  'guided.exit.end': 'Hylkää treeni',
   'guided.exit.footnote': 'Lopettaminen hylkää tässä treenissä kirjaamasi sarjat.',
-  'guided.exit.finishSave': 'Lopeta ja tallenna',
+  'guided.exit.finishSave': 'Olen valmis',
   'guided.exit.footnoteSavedOne': 'Tallennus säilyttää 1 kirjatun sarjan. Lopettaminen hylkää sen.',
   'guided.exit.footnoteSavedMany': 'Tallennus säilyttää {count} kirjattua sarjaa. Lopettaminen hylkää ne.',
   'guided.pauseSheet.title': 'Tauolla',

@@ -24,6 +24,7 @@ import {
   View,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, {
   Circle,
   Defs,
@@ -697,15 +698,19 @@ function GhostBtn({
   onPress,
   icon,
   dark,
+  danger,
 }: {
   label: string;
   onPress: () => void;
   icon?: string;
   dark?: boolean;
+  /** Throws work away. Named for what it does, not for the colour it takes. */
+  danger?: boolean;
 }) {
   const theme = useTheme();
 
   const styles = useThemedStyles(makeStyles);
+  const tint = danger ? theme.danger : dark ? GPD.ink : theme.ink;
 
   return (
     <Pressable
@@ -713,10 +718,11 @@ function GhostBtn({
       style={[
         styles.ghostBtn,
         dark ? { borderColor: GPD.line, backgroundColor: 'rgba(255,255,255,0.06)' } : null,
+        danger ? { borderColor: theme.danger } : null,
       ]}
     >
-      {icon ? <GPIcon name={icon} size={17} color={dark ? GPD.ink : theme.ink} /> : null}
-      <Text style={[styles.ghostBtnText, dark ? { color: GPD.ink } : null]}>{label}</Text>
+      {icon ? <GPIcon name={icon} size={17} color={tint} /> : null}
+      <Text style={[styles.ghostBtnText, { color: tint }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -862,11 +868,15 @@ function DialCard({
 /* ── bottom sheet ── */
 function GPSheet({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
   const styles = useThemedStyles(makeStyles);
+  // The sheet's own 30 was a guess at the phone's navigation bar, and on a
+  // three-button handset the last row and the footnote sat behind it. Measured
+  // rather than guessed — reported twice, on two different sheets.
+  const insets = useSafeAreaInsets();
 
   return (
     <Modal transparent animationType="fade" onRequestClose={onClose}>
       <Pressable style={styles.sheetScrim} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => undefined}>
+        <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 30 }]} onPress={() => undefined}>
           <View style={styles.sheetHandle} />
           {children}
         </Pressable>
@@ -1824,20 +1834,32 @@ export function GuidedPlayerScreen({
                   <RestRing stepKey={stepIndex} leftSeconds={secondsLeft} plannedSeconds={step.seconds}>
                     <Text style={styles.restRingLabel}>{t(language, 'guided.rest')}</Text>
                     <Text style={styles.restCountdown}>{formatGuidedCountdown(secondsLeft)}</Text>
-                    {paused ? (
-                      <Text style={{ fontSize: 13, fontWeight: '800', color: theme.muted, letterSpacing: 1.6 }}>
-                        {t(language, 'guided.paused')}
-                      </Text>
-                    ) : null}
+                    {/* No "PAUSED" caption: the button below it has already
+                        flipped to Jatka, and a ring frozen mid-sweep is not
+                        ambiguous. Asked for 2026-08-21. */}
                   </RestRing>
                 </View>
                 <View style={{ paddingHorizontal: 24, paddingBottom: 10, gap: 12 }}>
                   <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn label="−15s" onPress={() => adjustRemaining(-15000, 1000)} />
+                      <GhostBtn
+                        label="−15s"
+                        onPress={() => {
+                          // The rest ring is the one control you use without
+                          // looking at it.
+                          void haptics.select();
+                          adjustRemaining(-15000, 1000);
+                        }}
+                      />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <GhostBtn label="+15s" onPress={() => adjustRemaining(15000)} />
+                      <GhostBtn
+                        label="+15s"
+                        onPress={() => {
+                          void haptics.select();
+                          adjustRemaining(15000);
+                        }}
+                      />
                     </View>
                     <View style={{ flex: 1 }}>
                       <GhostBtn
@@ -1935,7 +1957,9 @@ export function GuidedPlayerScreen({
                 }}
               />
             ) : null}
-            <GhostBtn icon="x" label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
+            {/* Red, because this is the one that throws the sets away. It read
+                like the third of three equal choices. */}
+            <GhostBtn icon="x" danger label={t(language, 'guided.exit.end')} onPress={handleEndSession} />
           </View>
           <Text style={styles.sheetFootnote}>
             {completedSetCount > 0

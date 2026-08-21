@@ -3248,6 +3248,11 @@ function VinhaApp() {
     // the same midnight the calendar and the widget mean.
     const now = new Date();
     const todayDayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    /** The local midnight an ISO timestamp falls in — not the UTC one. */
+    const toDayStartMs = (iso: string) => {
+      const date = new Date(iso);
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    };
     // Both hero branches end in the same question — is this block finished,
     // and what may the card claim? The display name is resolved here because
     // Home has no catalog access, and the presentation title (not the raw
@@ -3389,7 +3394,19 @@ function VinhaApp() {
         preferences.todaySession && preferences.todaySession.dayStart === todayDayStart
           ? homeSessions.find((session) => session.id === preferences.todaySession?.sessionId) ?? null
           : null;
-      const nextSession = pickedToday ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
+      // A pick answers "what am I doing today", and once it is done the question
+      // has changed. Left standing it offered the finished workout again —
+      // reported straight after the first real session run through the picker,
+      // with the counter already reading 1/48 behind it.
+      const pickedDone =
+        pickedToday !== null &&
+        completedPlanSessions.some(
+          (entry) =>
+            entry.workoutTemplateSessionId === pickedToday.id &&
+            toDayStartMs(entry.performedAt) === todayDayStart,
+        );
+      const nextSession =
+        (pickedDone ? null : pickedToday) ?? homeSessions[nextSessionIndex] ?? homeSessions[0] ?? null;
       if (activeTemplate && nextSession) {
         const estimatedDuration = Number.parseInt(nextSession.duration.replace(/\D/g, ''), 10) || 20;
         const planTemplateIds = new Set(sortedEntries.map((entry) => entry.workoutTemplateId));

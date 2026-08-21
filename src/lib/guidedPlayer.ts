@@ -277,8 +277,14 @@ export function buildGuidedSteps(
           exerciseIndex,
           exerciseCount: roster.length,
         });
-        const isFinalSetOfSession = activeIndex === exercises.length - 1 && setIndex === exercise.setCount - 1;
-        if (!isFinalSetOfSession) {
+        // No rest after an exercise's last set. What follows is the next
+        // exercise, and the player already gives that its own "get into
+        // position" countdown — so a rest ring here was a timer counting down
+        // to a screen that was going to change anyway. Reported 2026-08-21:
+        // "vikan sarjan jälkeen tulee rest vaikka pitäisi tulla siirtymä
+        // seuraavaan liikkeeseen".
+        const isFinalSetOfExercise = setIndex === exercise.setCount - 1;
+        if (!isFinalSetOfExercise) {
           steps.push({
             type: 'rest',
             phase: 'work',
