@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Dimensions, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient as SvgLinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Gradient is drawn at a fixed size and clipped by the hero (overflow hidden),
@@ -17,7 +17,7 @@ import { WorkoutCompletionExerciseCard, WorkoutCompletionPrCard } from '../lib/w
 import { ProMomentContent } from '../lib/proInsights';
 import { ProLockedCard } from '../components/ProLockedCard';
 import { ProMomentSheet } from '../components/ProMomentSheet';
-import { Theme, useTheme, useThemedStyles } from '../theming';
+import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage } from '../types/models';
 import { haptics } from '../utils/haptics';
 import { sound } from '../utils/sound';
@@ -57,6 +57,143 @@ const RISE_EASING = Easing.bezier(0.22, 1, 0.36, 1);
 const RISE_DELAYS_MS = [300, 380, 440, 520, 600, 680, 760] as const;
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+/**
+ * The hero's four faces: light and dark, with a record and without.
+ *
+ * Two strengths of the same colour rather than two colours. A record gets gold
+ * as a surface — a metal sweep, a filled seal, a warm glow; a session without
+ * one gets it as a hint, on cream or on the app's own dark. If every workout
+ * celebrated equally, a record would stop meaning anything, and the record card
+ * directly under this hero is the thing that would stop being seen.
+ */
+function goldHeroFace(dark: boolean, record: boolean) {
+  if (dark && record) {
+    return {
+      // SVG takes a vector where CSS takes an angle; 170deg is very nearly
+      // straight down, with the warm corner pulled to the left.
+      groundAngle: ['0.17', '0.99'] as const,
+      ground: [
+        { offset: '0', color: '#2B2113' },
+        { offset: '0.58', color: '#1D1633' },
+        { offset: '1', color: '#171130' },
+      ],
+      glow: {
+        cx: '50%',
+        cy: '16%',
+        rx: '78%',
+        ry: '62%',
+        stops: [
+          { offset: '0', color: '#E4B14C', opacity: 0.42 },
+          { offset: '0.62', color: '#E4B14C', opacity: 0.05 },
+          { offset: '1', color: '#E4B14C', opacity: 0 },
+        ],
+      },
+      sheenColor: '#FFEEC8',
+      sheenPeak: 0.1,
+      sealFill: '#EFC96F',
+      sealRing: 'rgba(255,236,190,0.35)',
+      sealBorder: 2,
+      check: '#2A1D06',
+      kicker: 'rgba(240,228,200,0.62)',
+      title: '#FFF6E2',
+      rule: 'rgba(228,177,76,0.34)',
+      meta: '#F0E4C8',
+      metaQuiet: 'rgba(240,228,200,0.62)',
+    };
+  }
+  if (dark) {
+    return {
+      groundAngle: ['0', '1'] as const,
+      ground: [
+        { offset: '0', color: '#1C1638' },
+        { offset: '1', color: '#171130' },
+      ],
+      glow: {
+        cx: '50%',
+        cy: '18%',
+        rx: '66%',
+        ry: '52%',
+        stops: [
+          { offset: '0', color: '#E4B14C', opacity: 0.14 },
+          { offset: '1', color: '#E4B14C', opacity: 0 },
+        ],
+      },
+      sheenColor: '#FFEEC8',
+      sheenPeak: 0,
+      // A ring and a mark, nothing filled: the quiet session's whole treatment.
+      sealFill: 'transparent',
+      sealRing: 'rgba(228,177,76,0.55)',
+      sealBorder: 1.5,
+      check: '#E4B14C',
+      kicker: 'rgba(228,177,76,0.75)',
+      title: '#F4F1FF',
+      rule: 'rgba(255,255,255,0.08)',
+      meta: '#DCD6F2',
+      metaQuiet: '#A79FC4',
+    };
+  }
+  if (record) {
+    return {
+      groundAngle: ['0.37', '0.93'] as const,
+      ground: [
+        { offset: '0', color: '#FFF6DC' },
+        { offset: '0.46', color: '#F3D68B' },
+        { offset: '1', color: '#E4B863' },
+      ],
+      glow: {
+        cx: '50%',
+        cy: '22%',
+        rx: '70%',
+        ry: '55%',
+        stops: [
+          { offset: '0', color: '#FFFFFF', opacity: 0.65 },
+          { offset: '1', color: '#FFFFFF', opacity: 0 },
+        ],
+      },
+      sheenColor: '#FFFFFF',
+      sheenPeak: 0.55,
+      sealFill: '#2E2107',
+      sealRing: 'rgba(255,255,255,0.55)',
+      sealBorder: 2,
+      check: '#F5D68A',
+      kicker: 'rgba(62,44,9,0.62)',
+      title: '#2E2007',
+      rule: 'rgba(138,90,18,0.30)',
+      meta: '#3E2C09',
+      metaQuiet: 'rgba(62,44,9,0.66)',
+    };
+  }
+  return {
+    groundAngle: ['0', '1'] as const,
+    ground: [
+      { offset: '0', color: '#FFFCF3' },
+      { offset: '1', color: '#FAF3E2' },
+    ],
+    glow: {
+      cx: '50%',
+      cy: '20%',
+      rx: '62%',
+      ry: '52%',
+      stops: [
+        { offset: '0', color: '#E8BE63', opacity: 0.2 },
+        { offset: '1', color: '#E8BE63', opacity: 0 },
+      ],
+    },
+    sheenColor: '#FFFFFF',
+    sheenPeak: 0,
+    sealFill: '#FFFFFF',
+    sealRing: 'rgba(183,121,31,0.45)',
+    sealBorder: 1.5,
+    check: GOLD,
+    kicker: 'rgba(183,121,31,0.85)',
+    title: '#17131F',
+    rule: '#EFE1C4',
+    meta: '#3B3550',
+    metaQuiet: '#5E5670',
+  };
+}
+
 
 interface WorkoutCompletionScreenProps {
   workoutName: string;
@@ -131,6 +268,7 @@ export function WorkoutCompletionScreen({
   onOpenPremium,
 }: WorkoutCompletionScreenProps) {
   const theme = useTheme();
+  const themeName = useThemeName();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
@@ -248,11 +386,20 @@ export function WorkoutCompletionScreen({
   }, [badgePop, barAnims, checkDraw, reduceMotion, ringAnim, riseValues]);
 
   const rise = (index: number) => riseStyles[index];
+  const gold = goldHeroFace(themeName === 'dark', pr !== null);
 
   return (
     <View style={styles.screenBackground}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 26 }]}>
-        {/* The hero runs under the status bar, so nothing dark caps the screen. */}
+        {/* The hero runs under the status bar, so nothing dark caps the screen.
+
+            Gold, and two strengths of it. Purple was the app's own colour on
+            every other screen, so the one screen that exists to say "you did
+            it" said it in the same voice as a settings row. Gold is already
+            what this app means by an achievement — the record card below uses
+            it — which is also why a session with no record gets it as a hint
+            rather than a surface: if every workout celebrates equally, the
+            record stops meaning anything. Design: "GAINER Treeni valmis". */}
         <View style={[styles.hero, { paddingTop: insets.top + 26 }]}>
           <Svg
             style={StyleSheet.absoluteFill}
@@ -261,23 +408,57 @@ export function WorkoutCompletionScreen({
             viewBox={`0 0 ${HERO_GRADIENT_WIDTH} ${HERO_GRADIENT_HEIGHT}`}
           >
             <Defs>
-              <SvgLinearGradient id="completeHeroGradient" x1="0" y1="0" x2="0.55" y2="1">
-                <Stop offset="0" stopColor={HERO_STOPS[0]} />
-                <Stop offset="0.46" stopColor={HERO_STOPS[1]} />
-                <Stop offset="1" stopColor={HERO_STOPS[2]} />
+              <SvgLinearGradient
+                id="completeHeroGround"
+                x1="0"
+                y1="0"
+                x2={gold.groundAngle[0]}
+                y2={gold.groundAngle[1]}
+              >
+                {gold.ground.map((stop) => (
+                  <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} />
+                ))}
+              </SvgLinearGradient>
+              <RadialGradient
+                id="completeHeroGlow"
+                cx={gold.glow.cx}
+                cy={gold.glow.cy}
+                rx={gold.glow.rx}
+                ry={gold.glow.ry}
+              >
+                {gold.glow.stops.map((stop) => (
+                  <Stop key={stop.offset} offset={stop.offset} stopColor={stop.color} stopOpacity={stop.opacity} />
+                ))}
+              </RadialGradient>
+              <SvgLinearGradient id="completeHeroSheen" x1="0" y1="0" x2="0.93" y2="0.38">
+                <Stop offset="0.26" stopColor={gold.sheenColor} stopOpacity={0} />
+                <Stop offset="0.44" stopColor={gold.sheenColor} stopOpacity={gold.sheenPeak} />
+                <Stop offset="0.6" stopColor={gold.sheenColor} stopOpacity={0} />
               </SvgLinearGradient>
             </Defs>
-            <Rect width={HERO_GRADIENT_WIDTH} height={HERO_GRADIENT_HEIGHT} fill="url(#completeHeroGradient)" />
+            <Rect width={HERO_GRADIENT_WIDTH} height={HERO_GRADIENT_HEIGHT} fill="url(#completeHeroGround)" />
+            <Rect width={HERO_GRADIENT_WIDTH} height={HERO_GRADIENT_HEIGHT} fill="url(#completeHeroGlow)" />
+            {/* The single sweep of light that makes gold read as metal rather
+                than as beige. A quiet session does not get it. */}
+            {gold.sheenPeak > 0 ? (
+              <Rect width={HERO_GRADIENT_WIDTH} height={HERO_GRADIENT_HEIGHT} fill="url(#completeHeroSheen)" />
+            ) : null}
           </Svg>
 
           <View style={styles.badgeWrap}>
-            <Animated.View style={[styles.badgeRing, ringStyle]} />
-            <Animated.View style={[styles.badge, badgeStyle]}>
-              <Svg width={38} height={38} viewBox="0 0 24 24" fill="none">
+            <Animated.View style={[styles.badgeRing, ringStyle, { backgroundColor: gold.sealRing }]} />
+            <Animated.View
+              style={[
+                styles.badge,
+                badgeStyle,
+                { backgroundColor: gold.sealFill, borderColor: gold.sealRing, borderWidth: gold.sealBorder },
+              ]}
+            >
+              <Svg width={40} height={40} viewBox="0 0 24 24" fill="none">
                 <AnimatedPath
                   d="M5 12.5l4.5 4.5L19 7"
-                  stroke={theme.purpleBright}
-                  strokeWidth={3}
+                  stroke={gold.check}
+                  strokeWidth={2.8}
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeDasharray={40}
@@ -287,11 +468,20 @@ export function WorkoutCompletionScreen({
             </Animated.View>
           </View>
 
-          <Animated.Text style={[styles.heroTitle, rise(0)]}>{t(language, 'complete.title')}</Animated.Text>
+          <Animated.Text style={[styles.heroKicker, { color: gold.kicker }, rise(0)]}>
+            {t(language, pr ? 'complete.kicker.record' : 'complete.kicker.done')}
+          </Animated.Text>
+          <Animated.Text style={[styles.heroTitle, { color: gold.title }, rise(0)]}>
+            {t(language, 'complete.title')}
+          </Animated.Text>
+          <Animated.View style={[styles.heroRule, { backgroundColor: gold.rule }, rise(1)]} />
           <Animated.View style={[styles.heroSubRow, rise(1)]}>
-            <Text style={styles.heroSubName}>{localizeSessionName(workoutName, language)}</Text>
-            <View style={styles.heroSubDot} />
-            <Text style={styles.heroSubWhen}>{formatWhenLabel(performedAt, language)}</Text>
+            <Text style={[styles.heroSubName, { color: gold.meta }]}>
+              {localizeSessionName(workoutName, language)}
+            </Text>
+            <Text style={[styles.heroSubWhen, { color: gold.metaQuiet }]}>
+              {formatWhenLabel(performedAt, language)}
+            </Text>
           </Animated.View>
         </View>
 
@@ -537,8 +727,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingHorizontal: 22,
   },
   badgeWrap: {
-    width: 76,
-    height: 76,
+    width: 86,
+    height: 86,
     marginTop: 6,
     alignItems: 'center',
     justifyContent: 'center',
@@ -546,56 +736,57 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   badgeRing: {
     ...StyleSheet.absoluteFillObject,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.5)',
   },
   badge: {
-    width: 76,
-    height: 76,
+    width: 86,
+    height: 86,
     borderRadius: 999,
-    backgroundColor: theme.surface,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#2E106E',
+    shadowColor: '#5A3C0A',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.32,
     shadowRadius: 26,
     elevation: 8,
   },
+  heroKicker: {
+    marginTop: 20,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 2.1,
+    textTransform: 'uppercase',
+  },
   heroTitle: {
-    marginTop: 18,
-    color: '#FFFFFF',
-    fontSize: 26,
+    marginTop: 7,
+    fontSize: 30,
     lineHeight: 32,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.9,
+  },
+  heroRule: {
+    width: 34,
+    height: 1,
+    marginTop: 16,
+    marginBottom: 14,
   },
   // A row with no give: a long program name ("Strong Chest Amateur — Päivä 1:
   // Kyykky & Penkki") pushed past both screen edges and the date went with it.
   // It wraps now, and the name can wrap inside itself, so nothing is ever cut.
+  // A column, not a row: the design stacks the name over the date, and a long
+  // programme name ("Strong Chest Amateur — Päivä 1: Kyykky & Penkki") used to
+  // push both past the screen edges when they shared a line.
   heroSubRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 7,
+    gap: 5,
   },
   heroSubName: {
-    flexShrink: 1,
     textAlign: 'center',
-    color: '#FFFFFF',
-    fontSize: 14,
-    lineHeight: 18,
+    fontSize: 14.5,
+    lineHeight: 19,
     fontWeight: '800',
   },
-  heroSubDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-  },
+
   heroSubWhen: {
-    color: 'rgba(255,255,255,0.82)',
     fontSize: 13,
     lineHeight: 17,
     fontWeight: '600',

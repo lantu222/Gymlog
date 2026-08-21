@@ -1301,6 +1301,8 @@ const EN = {
   'emptyWorkout.a11y.addSelected': 'Add selected exercises',
 
   // ── Workout complete ───────────────────────────────────────────────────
+  'complete.kicker.record': 'New record',
+  'complete.kicker.done': 'Completed',
   'complete.title': 'Workout complete',
   'complete.pr.eyebrow': 'NEW PERSONAL RECORD',
   'complete.pr.first': 'Your first logged best for this lift.',
@@ -4654,6 +4656,8 @@ const FI: Record<I18nKey, string> = {
   'emptyWorkout.a11y.addSelected': 'Lisää valitut liikkeet',
 
   // ── Workout complete ───────────────────────────────────────────────────
+  'complete.kicker.record': 'Uusi ennätys',
+  'complete.kicker.done': 'Suoritettu',
   'complete.title': 'Treeni valmis',
   'complete.pr.eyebrow': 'UUSI ENNÄTYS',
   'complete.pr.first': 'Ensimmäinen kirjattu ennätyksesi tässä liikkeessä.',

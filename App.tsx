@@ -6654,11 +6654,10 @@ function VinhaApp() {
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
       statusBarStyleOverride={
-        fullBleedReview
-          ? fullBleedReview
-          : workoutSummaryActive || historySessionActive
-            ? 'light'
-            : undefined
+        // The workout summary is off this list since its hero turned gold: a
+        // pale gold bar needs dark icons, and the shell already derives that
+        // from the theme.
+        fullBleedReview ? fullBleedReview : historySessionActive ? 'light' : undefined
       }
       statusBarBackgroundColor={
         workoutSummaryActive || historySessionActive || welcomeActive || fullBleedReview !== null
