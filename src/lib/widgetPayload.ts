@@ -193,6 +193,16 @@ export interface HomeWidgetInput {
    * counts as none.
    */
   totalWorkouts?: number;
+  /**
+   * The session the reader picked for today by hand, when they picked one.
+   *
+   * Home lets the title be tapped to say "today is legs, not upper", and that
+   * answer overrides the rotation. Without it here the widget went on naming
+   * what the rotation would have offered, so the home screen and the launcher
+   * disagreed about the same day — reported within the hour of the picker
+   * shipping.
+   */
+  todaySessionId?: string | null;
 }
 
 function toDayStartMs(date: Date) {
@@ -457,8 +467,14 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
   // only one of the two that knows what day it is when the card is drawn.
   return {
     ...base,
-    routineDays: nextSevenDays(nowMs).map((date) => {
-      const session = sessionForDate(date, schedule, sessions);
+    routineDays: nextSevenDays(nowMs).map((date, offset) => {
+      // Today only: the reader's own answer, exactly as Home reads it. Later
+      // days have no answer yet, and the rotation is the honest guess for them.
+      const picked =
+        offset === 0 && input.todaySessionId
+          ? sessions.find((entry) => entry.id === input.todaySessionId) ?? null
+          : null;
+      const session = picked ?? sessionForDate(date, schedule, sessions);
       return {
         dateKey: toDateKey(date),
         // The eyebrow names the weekday rather than saying "today": the widget

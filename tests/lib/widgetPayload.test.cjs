@@ -295,6 +295,32 @@ module.exports = [
     },
   },
   {
+    /**
+     * Home lets the reader tap the title and say "today is legs, not upper".
+     * The widget went on naming what the rotation would have offered, so the
+     * launcher and the screen the reader had just left disagreed about the same
+     * day. Reported within the hour of the picker shipping.
+     */
+    name: "widgetPayload: today's line follows the reader's own pick, for today only",
+    run() {
+      const payload = build({ todaySessionId: SESSIONS[1].id });
+
+      assert.equal(payload.routineDays[0].dateKey, '2026-07-30');
+      assert.equal(payload.routineDays[0].title, SESSIONS[1].title);
+      assert.equal(payload.routineDays[0].target, 'session');
+
+      // Tomorrow has no answer yet, so the rotation still speaks for it — and
+      // Friday the 31st is a rest day under this week.
+      assert.equal(payload.routineDays[1].title, 'Rest day');
+
+      // A pick that names nothing in the programme is ignored rather than
+      // blanking the line: the plan can change under a stored id.
+      assert.equal(build({ todaySessionId: 'gone' }).routineDays[0].title, SESSIONS[2].title);
+      assert.equal(build().routineDays[0].title, SESSIONS[2].title);
+    },
+  },
+
+  {
     name: 'widgetPayload: no program at all asks for a program, on every day',
     run() {
       const payload = build({ sessions: [], planName: null });

@@ -80,7 +80,7 @@ import { t } from '../lib/i18n';
 import { haptics } from '../utils/haptics';
 import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert';
 import { sound, type CueSound } from '../utils/sound';
-import { Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
+import { readableOn, Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -675,14 +675,18 @@ function BigBtn({
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const color = colorProp ?? theme.green;
+  // Derived from the fill, not fixed: callers paint this button `theme.ink` to
+  // mean "the quiet one", and ink is near-white under the dark theme — so a
+  // hard-coded white label made the button read as blank.
+  const foreground = readableOn(color);
 
   return (
     <Pressable
       onPress={disabled ? undefined : onPress}
       style={[styles.bigBtn, { backgroundColor: color, opacity: disabled ? 0.6 : 1, shadowColor: color }]}
     >
-      <GPIcon name={icon} size={20} color="#fff" sw={2.6} />
-      <Text style={styles.bigBtnText}>{label}</Text>
+      <GPIcon name={icon} size={20} color={foreground} sw={2.6} />
+      <Text style={[styles.bigBtnText, { color: foreground }]}>{label}</Text>
     </Pressable>
   );
 }

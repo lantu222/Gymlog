@@ -3716,6 +3716,9 @@ function VinhaApp() {
         // catalog's curated titles live on this side of the bridge.
         suggestion: widgetSuggestion,
         schedule: homeTrainingSchedule,
+        // Home's own answer for today, so the launcher cannot name a different
+        // workout than the screen the reader just left.
+        todaySessionId: homeActivePlanCard?.nextSession.id ?? null,
         completedDayStarts: widgetCompletedDayStarts,
         completedWorkoutDayStarts: widgetCompletedWorkoutDayStarts,
         sessions: homeActivePlanCard?.sessions ?? [],
