@@ -118,8 +118,7 @@ interface HomePlanCard {
   nextSession: HomeDaySessionSummary & {
     label: string;
   };
-  /** True when the session above is the reader's pick, not the rotation's. */
-  nextSessionIsPicked?: boolean;
+
   /**
    * Present only when the plan's block is finished and unanswered. The card
    * stays until one of its answers is taken — completion must not be missable
@@ -240,14 +239,15 @@ interface HomeScreenProps {
    */
   trainingSchedule?: TrainingSchedule;
   /**
-   * A workout already logged today, if there is one.
+   * Session ids completed since Monday.
    *
-   * Not a mode and not a gate — a line. The hero goes on offering the next
-   * session in the programme, because that is what the reader chose the app to
-   * lead with; this only answers "did the one I just did count", which the
-   * hero moving on silently does not.
+   * The programme list used to carry two chips that argued with each other —
+   * TÄNÄÄN on the weekday's row, SEURAAVAKSI on the row the rotation offered —
+   * and on any day those differ the reader has to work out which one the
+   * outline meant. What a week list is for is what happened, so that is what it
+   * marks now. The hero above it already says what is next.
    */
-  todayLogged?: { title: string } | null;
+  doneThisWeekSessionIds?: string[];
   language?: AppLanguage;
   /**
    * Equipment chips the user actually has; null when the setup never said.
@@ -327,7 +327,7 @@ export function HomeScreen({
   onChangePinnedStatCardKeys,
   onOpenStatCard,
   trainingSchedule = UNKNOWN_SCHEDULE,
-  todayLogged = null,
+  doneThisWeekSessionIds = [],
   language = 'en',
   profileName = null,
   availableEquipment = null,
@@ -1043,15 +1043,7 @@ export function HomeScreen({
                     workout reaches for its name first, and there was nothing
                     under it — the only way to train something else was to walk
                     back out to the program. */}
-                {/* What this session IS. The name stood alone under a weekday
-                    strip that highlights today, so a reader joined the two and
-                    read the programme's next session as today's — which it is
-                    only by coincidence. The programme leads here; the strip is
-                    the calendar, and they answer different questions. */}
                 <View style={styles.heroLead}>
-                <Text style={styles.heroKicker}>
-                  {t(language, activePlan.nextSessionIsPicked ? 'home.hero.yourPick' : 'home.hero.nextUp')}
-                </Text>
                 <Pressable
                   accessibilityRole={onPickTodaySession ? 'button' : undefined}
                   accessibilityLabel={
@@ -1093,11 +1085,6 @@ export function HomeScreen({
                 </View>
               </View>
 
-              {todayLogged ? (
-                <Text style={styles.heroLoggedToday} numberOfLines={1}>
-                  {t(language, 'home.hero.loggedToday', { name: todayLogged.title })}
-                </Text>
-              ) : null}
             </Animated.View>
 
             <View style={styles.secs}>
@@ -1215,11 +1202,12 @@ export function HomeScreen({
               {activePlan.sessions.map((session, index, allSessions) => {
                 const anyFixed = hasFixedWeekdays(allSessions);
                 const weekday = resolveSessionWeekday(session.dayLabel, index, allSessions.length, anyFixed);
-                // Two facts, two flags. The badge answers the calendar; the
-                // outline answers the plan. Merged into one they made the badge
-                // read TODAY on Thursday's row on a Monday.
+                // The outline still answers the plan — it is the row the hero
+                // is offering, and it is quiet. The word on the row answers a
+                // different question: was this one done this week.
                 const isNext = activePlan.nextSession?.id === session.id;
                 const isToday = weekday !== null && weekday === todayWeekdayCode;
+                const doneThisWeek = doneThisWeekSessionIds.includes(session.id);
                 // The badge is the weekday, and only when the plan really has
                 // one. Without a schedule it repeated the session number that
                 // the title already states, and cost the title the width it
@@ -1231,7 +1219,7 @@ export function HomeScreen({
                     key={session.id}
                     accessibilityRole="button"
                     accessibilityLabel={`${weekdayText ? `${weekdayText}: ` : ''}${sessionTitle}${
-                      isToday ? `, ${t(language, 'programs.todayA11y')}` : ''
+                      doneThisWeek ? `, ${t(language, 'home.plan.doneThisWeek').toLowerCase()}` : ''
                     }${isNext ? `, ${t(language, 'plan.upNext').toLowerCase()}` : ''}`}
                     onPress={onOpenActivePlan}
                     // A3: the row slides right under the thumb rather than
@@ -1267,20 +1255,14 @@ export function HomeScreen({
                         {sessionTitle}
                       </Text>
                       <View style={styles.dayMetaRow}>
-                        {/* TÄNÄÄN is the calendar's word and it may land on a
-                            row the plan is not offering — that is a true thing
-                            to say. SEURAAVAKSI names the row the plan does
-                            offer, so the two never leave the reader guessing
-                            which one the outline meant. */}
-                        {isToday ? (
-                          <CutSurface size="chip" fill={theme.purple} style={styles.todayPill}>
-                            <Text style={styles.todayPillText}>{t(language, 'programs.today')}</Text>
-                          </CutSurface>
-                        ) : null}
-                        {isNext && !isToday ? (
-                          <CutSurface size="chip" fill={theme.bg} style={styles.todayPill}>
-                            <Text style={[styles.todayPillText, styles.nextPillText]}>
-                              {t(language, 'plan.upNext')}
+                        {/* One word, and only when it is a fact. Two chips that
+                            predict — one from the calendar, one from the
+                            rotation — landed on different rows on most days and
+                            argued with each other. */}
+                        {doneThisWeek ? (
+                          <CutSurface size="chip" fill={theme.green} style={styles.todayPill}>
+                            <Text style={[styles.todayPillText, styles.donePillText]}>
+                              {t(language, 'home.plan.doneThisWeek')}
                             </Text>
                           </CutSurface>
                         ) : null}
@@ -2671,19 +2653,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   adaptScrim: {
     ...StyleSheet.absoluteFillObject,
   },
-  heroKicker: {
-    marginBottom: 4,
-    color: theme.muted,
-    fontSize: 10.5,
-    fontWeight: '800',
-    letterSpacing: 1.5,
-    textTransform: 'uppercase',
-  },
-  heroLoggedToday: {
-    marginTop: 10,
-    color: theme.faint,
-    fontSize: 12.5,
-    fontWeight: '700',
+  donePillText: {
+    color: '#FFFFFF',
   },
   // The kicker and the title stack; that stack shares the row with the session
   // counter. Put in the row directly, the kicker became a third column and

@@ -3495,11 +3495,7 @@ function VinhaApp() {
             ...nextSession,
             label: 'Week 1 · Day 1',
           },
-          // Whether the session above came from the reader tapping the title or
-          // from the rotation. The hero names what it is showing, and calling
-          // their own choice "next in your program" is the same kind of small
-          // lie the label was added to remove.
-          nextSessionIsPicked: !pickedDone && pickedToday !== null,
+
           // The catalog lookup, not the DB one: a custom template has no goal
           // or level for affinity to compare, so its card simply offers no
           // step up. Restart is real here — a plan record exists to reset.
@@ -3616,37 +3612,29 @@ function VinhaApp() {
    * them would quietly put the old week back.
    */
   /**
-   * The workout already logged today, if there is one.
+   * Which of the programme's sessions have been trained since Monday.
    *
-   * Every kind counts, not just the programme's own: the line answers "did the
-   * thing I just did register", and a free workout registers. Home goes on
-   * offering the next session in the programme either way.
+   * The week list used to carry two chips that predicted — TÄNÄÄN from the
+   * calendar, SEURAAVAKSI from the rotation — and on any day those two differ
+   * the reader has to work out which one the row's outline meant. A week list
+   * is for what happened, so it reports that instead.
    */
-  const homeTodayLogged = useMemo(() => {
+  const homeDoneThisWeekSessionIds = useMemo(() => {
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const logged = workoutSessions.find((session) => {
-      const performed = new Date(session.performedAt);
-      if (Number.isNaN(performed.getTime())) {
-        return false;
+    const weekStart = getStartOfWeek(now).getTime();
+    const weekEnd = getEndOfWeek(now).getTime();
+    const ids = new Set<string>();
+    for (const session of workoutSessions) {
+      const stamp = Date.parse(session.performedAt);
+      if (!Number.isFinite(stamp) || stamp < weekStart || stamp >= weekEnd) {
+        continue;
       }
-      return (
-        new Date(performed.getFullYear(), performed.getMonth(), performed.getDate()).getTime() ===
-        todayStart
-      );
-    });
-    return logged
-      ? {
-          title: localizeSessionName(
-            formatWorkoutDisplayLabel(
-              logged.workoutNameSnapshot,
-              t(preferences.appLanguage, 'history.workoutFallback'),
-            ),
-            preferences.appLanguage,
-          ),
-        }
-      : null;
-  }, [preferences.appLanguage, workoutSessions]);
+      if (session.workoutTemplateSessionId) {
+        ids.add(session.workoutTemplateSessionId);
+      }
+    }
+    return [...ids];
+  }, [workoutSessions]);
 
   const homeTrainingSchedule = useMemo(() => {
     const cycle = preferences.trainingCycle;
@@ -6512,7 +6500,7 @@ function VinhaApp() {
             : null
         }
         trainingSchedule={homeTrainingSchedule}
-        todayLogged={homeTodayLogged}
+        doneThisWeekSessionIds={homeDoneThisWeekSessionIds}
         promoSlides={homePromoSlides}
         onPressPromo={(slide) => {
           if (slide.kind === 'season' && slide.season) {
