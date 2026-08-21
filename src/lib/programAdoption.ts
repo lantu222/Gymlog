@@ -15,9 +15,18 @@ import { WorkoutPlan } from '../types/models';
  * This module is the missing step, kept pure so the rule is testable: it builds
  * the plan record that makes adoption true. Whether adoption is allowed at all
  * is activeProgramSet's question.
+ *
+ * The same gap existed on the other side and outlived the fix here: a program
+ * the reader had built or imported themselves could be opened and its sessions
+ * could be started, but nothing made it the plan Home reads. Reported by a
+ * reader who imported their own six-day program and could not get it onto the
+ * home screen by any route. Nothing here was ever ready-specific except the id,
+ * so both sources now build their plan the same way.
  */
 
-export interface ReadyProgramPlanInput {
+export interface ProgramPlanInput {
+  /** `buildReadyProgramPlanId` or `buildCustomProgramPlanId`. */
+  planId: string;
   workoutTemplateId: string;
   /** Shown on Home as the active plan's name. */
   programName: string;
@@ -41,8 +50,17 @@ export function buildReadyProgramPlanId(workoutTemplateId: string): string {
   return `ready_plan_${workoutTemplateId}`;
 }
 
-export function buildReadyProgramWorkoutPlan(input: ReadyProgramPlanInput): WorkoutPlan {
-  const planId = buildReadyProgramPlanId(input.workoutTemplateId);
+/**
+ * Kept apart from the ready ids, and not merged with them: these strings are
+ * already written into stored databases, and a program of the reader's own can
+ * share a template id with nothing.
+ */
+export function buildCustomProgramPlanId(workoutTemplateId: string): string {
+  return `custom_plan_${workoutTemplateId}`;
+}
+
+export function buildProgramWorkoutPlan(input: ProgramPlanInput): WorkoutPlan {
+  const planId = input.planId;
   const entryCount = Math.max(1, input.sessionIds.length);
 
   return {

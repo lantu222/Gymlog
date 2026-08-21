@@ -229,10 +229,18 @@ export function buildReadyProgramDetail(
  * detail screen — so a Finnish user's OWN program was introduced to them in
  * English, on the screen that exists to describe it.
  */
+/**
+ * @param isActivePlan whether this program is one of the plans Home reads. The
+ *   button used to say "start the first session" whatever the answer, because
+ *   adopting a program of your own was not a thing the app could do — so the
+ *   one route onto the home screen was the catalog or onboarding, neither of
+ *   which knows about a program the reader imported.
+ */
 export function buildCustomProgramDetail(
   template: WorkoutRuntimeTemplate,
   insights?: ProgramInsightSummary,
   language: AppLanguage = 'en',
+  isActivePlan = false,
 ): ProgramDetailViewModel {
   const sessionCount = template.sessions.length;
   const exerciseCount = template.sessions.reduce((sum, session) => sum + session.exercises.length, 0);
@@ -255,7 +263,14 @@ export function buildCustomProgramDetail(
     highlights: insights?.highlights ?? [],
     infoSections: [],
     progressionSummary: null,
-    primaryActionLabel: t(language, hasExercises ? 'prog.custom.detail.startFirst' : 'prog.custom.detail.editTemplate'),
+    primaryActionLabel: t(
+      language,
+      !hasExercises
+        ? 'prog.custom.detail.editTemplate'
+        : isActivePlan
+          ? 'detail.startNext'
+          : 'detail.adopt',
+    ),
     sessionActionLabel: t(language, hasExercises ? 'prog.custom.detail.startSession' : 'prog.custom.detail.openSession'),
     sessions: buildSessionItems(template.sessions, insights?.sessionStatusById),
   };

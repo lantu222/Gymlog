@@ -68,7 +68,8 @@ import {
 } from './src/lib/activeProgramSet';
 import {
   buildReadyProgramPlanId,
-  buildReadyProgramWorkoutPlan,
+  buildCustomProgramPlanId,
+  buildProgramWorkoutPlan,
 } from './src/lib/programAdoption';
 import { buildAiTrainingContext } from './src/lib/aiTrainingContext';
 import { computePostSessionInsight, PostSessionInsight } from './src/lib/postSessionInsight';
@@ -1977,7 +1978,8 @@ function VinhaApp() {
       preferences.setupAvailableDays,
     );
 
-    const plan = buildReadyProgramWorkoutPlan({
+    const plan = buildProgramWorkoutPlan({
+      planId,
       workoutTemplateId,
       programName: formatWorkoutDisplayLabel(template.name),
       sessionIds: template.sessions.map((session) => session.id),
@@ -2364,6 +2366,79 @@ function VinhaApp() {
     });
   }
 
+  /**
+   * "Ota ohjelma käyttöön" on a program of the reader's own.
+   *
+   * The ready-program half of this was fixed and the custom half was not, which
+   * left a program the reader built or imported reachable only as a list of
+   * sessions to start one at a time. Reported by a reader who imported their own
+   * six-day program and could not get it onto the home screen by any route —
+   * Home offered the catalog and onboarding, and neither of those knows about a
+   * program that came from a spreadsheet.
+   *
+   * Adoption is the same act whatever the program's source, so this is
+   * `handleAdoptReadyProgram` with the template read from the reader's own
+   * templates and the plan id from the custom namespace.
+   */
+  async function handleAdoptCustomProgram(workoutTemplateId: string, options?: { lead?: boolean }) {
+    const template = customWorkoutRuntimeMap[workoutTemplateId];
+    // An empty program is not a plan. Home would draw a card with no session
+    // behind it, so the editor is the honest destination.
+    const sessionIds = (template?.sessions ?? [])
+      .filter((session) => session.exercises.length > 0)
+      .map((session) => session.id);
+    if (sessionIds.length === 0) {
+      showToast(t(preferences.appLanguage, 'toast.addExercisesTemplate'));
+      navigate({ tab: 'workout', screen: 'template', workoutTemplateId });
+      return;
+    }
+
+    if (activeProgramTemplateIds.includes(workoutTemplateId)) {
+      return;
+    }
+
+    const planId = buildCustomProgramPlanId(workoutTemplateId);
+    const decision = evaluateProgramAdoption({
+      activePlanIds: preferences.activePlanIds,
+      targetPlanId: planId,
+      proUnlocked: resolveProEntitlement(preferences).unlocked,
+    });
+
+    if (decision.kind === 'already_active') {
+      return;
+    }
+
+    if (decision.kind === 'blocked') {
+      if (decision.canUpgrade) {
+        navigate({ tab: 'profile', screen: 'premium', reason: 'program_cap' });
+        return;
+      }
+      showToast(t(preferences.appLanguage, 'programs.cap.full', { cap: decision.cap }));
+      return;
+    }
+
+    // The program's own session count leads, exactly as it does for a ready
+    // programme: an imported six-day week dealt across three chosen weekdays
+    // would run every session twice and call itself a three-day programme.
+    const dayLabels = planLabelsForProgramme(sessionIds.length, preferences.setupAvailableDays);
+
+    const plan = buildProgramWorkoutPlan({
+      planId,
+      workoutTemplateId,
+      programName: formatWorkoutDisplayLabel(template?.name ?? ''),
+      sessionIds,
+      dayLabels,
+      now: new Date().toISOString(),
+    });
+
+    await upsertWorkoutPlan(plan);
+    await updatePreferences({
+      activePlanIds: addActiveProgram(preferences.activePlanIds, plan.id),
+      activePlanId: options?.lead ? plan.id : preferences.activePlanId ?? plan.id,
+    });
+    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+  }
+
   function handleStartCustomProgram(workoutTemplateId: string) {
     const customTemplate = customWorkoutRuntimeMap[workoutTemplateId];
     const firstSessionId = customTemplate?.sessions.find((session) => session.exercises.length > 0)?.id;
@@ -2506,7 +2581,8 @@ function VinhaApp() {
         // the thing the reader just picked, so the default rhythm for THAT
         // count beats a global fallback.
         const dayLabels = DEFAULT_RHYTHM_BY_DAYS[templateDaysPerWeek ?? 3] ?? DEFAULT_RHYTHM_BY_DAYS[3];
-        const plan = buildReadyProgramWorkoutPlan({
+        const plan = buildProgramWorkoutPlan({
+          planId: buildReadyProgramPlanId(programId),
           workoutTemplateId: programId,
           programName: formatWorkoutDisplayLabel(template.name),
           sessionIds: template.sessions.map((session) => session.id),
@@ -4947,8 +5023,8 @@ function VinhaApp() {
       // Membership is asked of the template, not the plan id — a programme
       // joined during onboarding carries a different plan id for the same
       // programme, and it is no less the reader's own.
-      const readyProgramIsMine =
-        route.programType === 'ready' && activeProgramTemplateIds.includes(route.workoutTemplateId);
+      const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);
+      const readyProgramIsMine = route.programType === 'ready' && programIsMine;
       const program = readyTemplate
         ? buildReadyProgramDetail(
             readyTemplate,
@@ -4968,6 +5044,7 @@ function VinhaApp() {
             customTemplate,
             programInsightsByTemplateId[route.workoutTemplateId],
             preferences.appLanguage,
+            programIsMine,
           )
         : null;
 
@@ -5059,7 +5136,16 @@ function VinhaApp() {
             return;
           }
 
-          handleStartCustomProgram(route.workoutTemplateId);
+          // Already running it: start what the rotation offers next, the same
+          // answer a ready programme gives. Otherwise put it on Home, which is
+          // what the button now says and what it could not previously do.
+          if (programIsMine) {
+            handleStartCustomProgram(route.workoutTemplateId);
+            return;
+          }
+
+          void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true });
+          navigate(ROOT_ROUTES.home);
         }}
         onStartSession={(sessionId) => {
           if (route.programType === 'ready') {

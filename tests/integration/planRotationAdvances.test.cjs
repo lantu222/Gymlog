@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 
 const { resolveNextPlanEntryIndex } = require('../../.test-dist/lib/planRotation.js');
-const { buildReadyProgramWorkoutPlan } = require('../../.test-dist/lib/programAdoption.js');
+const { buildProgramWorkoutPlan, buildReadyProgramPlanId } = require('../../.test-dist/lib/programAdoption.js');
 const { buildReadySessionRuntimeTemplate } = require('../../.test-dist/lib/programDetails.js');
 const { getWorkoutTemplateById } = require('../../.test-dist/features/workout/workoutCatalog.js');
 
@@ -31,7 +31,8 @@ module.exports = [
     name: 'a ready plan advances one day per logged session and wraps',
     run() {
       const template = getWorkoutTemplateById('tpl_3_day_full_body_v1');
-      const plan = buildReadyProgramWorkoutPlan({
+      const plan = buildProgramWorkoutPlan({
+        planId: buildReadyProgramPlanId(template.id),
         workoutTemplateId: template.id,
         programName: template.name,
         sessionIds: template.sessions.map((session) => session.id),
@@ -65,7 +66,8 @@ module.exports = [
     name: 'the ids a started session carries are the ids the plan recorded',
     run() {
       const template = getWorkoutTemplateById('tpl_4_day_upper_lower_v1');
-      const plan = buildReadyProgramWorkoutPlan({
+      const plan = buildProgramWorkoutPlan({
+        planId: buildReadyProgramPlanId(template.id),
         workoutTemplateId: template.id,
         programName: template.name,
         sessionIds: template.sessions.map((session) => session.id),
