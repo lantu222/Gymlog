@@ -69,6 +69,7 @@ import {
   resolveGuidedSetTarget,
 } from '../lib/guidedPlayer';
 import { getExerciseInstructions } from '../lib/exerciseInstructions';
+import { SetPanelHistory, SetPanels } from '../components/SetPanels';
 import { getDrillLibraryName } from '../lib/drillMedia';
 import { exerciseNameLabel } from '../lib/exerciseNameLabel';
 import { libraryLabel } from '../lib/libraryLabel';
@@ -1321,6 +1322,53 @@ export function GuidedPlayerScreen({
   const actionSlotId =
     step.type === 'set' || step.type === 'position' || step.type === 'rest' ? step.slotId : null;
   const actionExercise = actionSlotId ? exerciseBySlot.get(actionSlotId) ?? null : null;
+  /**
+   * What the panels above the set have to show for this lift.
+   *
+   * Resolved here rather than inside the panel because the library lookup is
+   * the player's own (a warm-up drill borrows the photo of the exercise that
+   * shows the same position), and because slot history is the workout store's,
+   * not a component's.
+   */
+  const setPanelSource = useMemo(() => {
+    if (step.type !== 'set') {
+      return null;
+    }
+    const { exerciseName: name, slotId } = step;
+    const lookupName = getDrillLibraryName(name) ?? name;
+    const index = findGuidedLibraryIndex(lookupName, exerciseLibrary.map((item) => item.name));
+    const match = index === null ? null : exerciseLibrary[index];
+    const entries = workout.history.slotHistory[slotId] ?? [];
+    // The most recent session that actually logged something. A skipped or
+    // empty entry is not a "last time" — it is a day this lift did not happen.
+    const last =
+      [...entries]
+        .filter((entry) => !entry.skipped && entry.sets.length > 0)
+        .sort((left, right) => new Date(right.performedAt).getTime() - new Date(left.performedAt).getTime())[0] ?? null;
+    const heaviest = last ? Math.max(...last.sets.map((set) => set.loadKg)) : 0;
+
+    const history: SetPanelHistory | null = last
+      ? {
+          performedAt: last.performedAt,
+          sets: last.sets.map((set) => ({
+            setIndex: set.setIndex + 1,
+            loadKg: set.loadKg,
+            reps: set.reps,
+            // Marked only when it beats the others — every set at the same
+            // weight would otherwise light the whole panel up.
+            isRecord: heaviest > 0 && set.loadKg === heaviest && last.sets.some((other) => other.loadKg < heaviest),
+          })),
+        }
+      : null;
+
+    return {
+      history,
+      instructions: getExerciseInstructions(match?.name, match?.instructions, language),
+      imageUrl: match?.imageUrls?.[0] ?? null,
+      initials: exerciseNameLabel(language, name).slice(0, 2).toUpperCase(),
+    };
+  }, [exerciseLibrary, language, step, workout.history.slotHistory]);
+
   const swapOptions = useMemo(() => {
     if (!actionExercise) {
       return [];
@@ -1879,6 +1927,7 @@ export function GuidedPlayerScreen({
                 workout.pauseWorkout();
               }}
               onOpenActions={() => setPauseSheetOpen(true)}
+              panels={setPanelSource}
               onSwapExercise={() => setSwapOpen(true)}
               onConfirm={confirmSet}
             />
@@ -2223,6 +2272,7 @@ function SetStepView({
   onToggleMute,
   onPause,
   onOpenActions,
+  panels,
   onSwapExercise,
   onConfirm,
 }: {
@@ -2238,6 +2288,13 @@ function SetStepView({
   onToggleMute: () => void;
   onPause: () => void;
   onOpenActions: () => void;
+  /** Resolved by the player; null falls back to the plain photo. */
+  panels: {
+    history: SetPanelHistory | null;
+    instructions: string[];
+    imageUrl: string | null;
+    initials: string;
+  } | null;
   /** Null when this exercise has no catalog alternatives. */
   onSwapExercise: () => void;
   onConfirm: (slotId: string, setIndex: number, reps: number, loadKg: number | null) => void;
@@ -2305,7 +2362,21 @@ function SetStepView({
         onPress={dial ? () => setDial(null) : undefined}
         accessible={false}
       >
-        <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" language={language} />
+        {/* Three panels where the photo was. A photo answers "what does this
+            look like", which is a question you have once; "what did I lift last
+            time" is the one you have standing at the rack. */}
+        {panels ? (
+          <SetPanels
+            height={236}
+            language={language}
+            history={panels.history}
+            instructions={panels.instructions}
+            imageUrl={panels.imageUrl}
+            initials={panels.initials}
+          />
+        ) : (
+          <MediaZone name={step.exerciseName} library={library} height={236} mode="set" showActions={false} fit="cover" language={language} />
+        )}
 
         {/* set counter + dots on the left, session clock on the right */}
         <View style={styles.setMetaRow}>
