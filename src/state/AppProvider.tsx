@@ -95,6 +95,8 @@ interface AppContextValue {
       sessionNotes?: string | null;
     },
   ) => Promise<void>;
+  /** Removes a saved workout and the sets logged in it. */
+  deleteCompletedWorkoutSession: (sessionId: string) => Promise<void>;
   saveCardioSession: (input: {
     activityType: CardioActivityType;
     startedAt: string;
@@ -575,6 +577,13 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  function deleteCompletedWorkoutSession(sessionId: string) {
+    return runExclusive(async () => {
+      const current = databaseRef.current;
+      await commit(workoutSessionRepository.remove(current, sessionId));
+    });
+  }
+
   async function saveWorkoutSession(
     workoutTemplateId: string,
     logs: ExerciseLogDraft[],
@@ -741,6 +750,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       saveWorkoutSession,
       saveCompletedWorkoutSession: persistCompletedWorkoutSession,
       updateCompletedWorkoutSession,
+      deleteCompletedWorkoutSession,
       saveCardioSession,
       addBodyweightEntry,
       addMeasurementEntry,

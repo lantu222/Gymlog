@@ -21,6 +21,7 @@ import {
   filterHistorySessionViewModels,
   HistorySessionViewModel,
 } from '../lib/historyView';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { I18nKey, t } from '../lib/i18n';
 import { localizeSessionName } from '../lib/sessionNameLabel';
 import { Theme, useTheme, useThemedStyles } from '../theming';
@@ -51,6 +52,8 @@ interface HistoryScreenProps {
   selectedSessionId?: string;
   getSessionLogs: (sessionId: string) => AppDatabase['exerciseLogs'];
   onSelectSession: (sessionId: string) => void;
+  /** Absent hides the delete affordance entirely rather than inerting it. */
+  onDeleteSession?: (sessionId: string) => void;
   onBack: () => void;
 }
 
@@ -124,13 +127,17 @@ function SessionRow({
   unitPreference,
   language,
   onPress,
+  onDelete,
 }: {
   session: HistorySessionViewModel;
   unitPreference: UnitPreference;
   language: AppLanguage;
   onPress: () => void;
+  /** Absent means this row cannot be deleted, rather than an inert button. */
+  onDelete?: () => void;
 }) {
   const styles = useThemedStyles(makeStyles);
+  const theme = useTheme();
 
   const topLift = formatTopLift(session, unitPreference, language);
   const meta = [
@@ -147,6 +154,24 @@ function SessionRow({
         <Text style={styles.sessionCardTitle} numberOfLines={1}>
           {sessionTitle(session.workoutName, language)}
         </Text>
+        {onDelete ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t(language, 'history.delete')}
+            hitSlop={12}
+            onPress={onDelete}
+            style={({ pressed }) => [styles.sessionDelete, pressed && styles.pressed]}
+          >
+            <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+              <Path
+                d="M6 6l12 12M18 6L6 18"
+                stroke={theme.danger}
+                strokeWidth={2.2}
+                strokeLinecap="round"
+              />
+            </Svg>
+          </Pressable>
+        ) : null}
       </View>
       <Text style={styles.sessionCardMeta}>{meta}</Text>
       <View style={styles.sessionCardFooter}>
@@ -169,12 +194,16 @@ export function HistoryScreen({
   selectedSessionId,
   getSessionLogs,
   onSelectSession,
+  onDeleteSession,
   onBack,
 }: HistoryScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
+  // Held as the whole row, not an id: the dialog names the workout it is
+  // about to delete, and an id cannot be read aloud.
+  const [pendingDelete, setPendingDelete] = useState<HistorySessionViewModel | null>(null);
   const selectedSession = sessions.find((session) => session.id === selectedSessionId);
 
   const sessionViewModels = useMemo(
@@ -321,7 +350,13 @@ export function HistoryScreen({
                         <Text style={styles.liftName} numberOfLines={1}>
                           {exerciseNameLabel(language, formatLiftDisplayLabel(log.exerciseNameSnapshot))}
                         </Text>
-                        {log.tracked ? <Badge label={t(language, 'history.badge.tracked')} tone="purple" /> : null}
+                        {/* Inverted: a chip that is on for nearly every row says
+                            nothing, and being on for every row is exactly what
+                            made a reader ask what it meant. It speaks only when
+                            a lift is OUT of the trend — the case worth knowing. */}
+                        {!log.tracked && !log.skipped ? (
+                          <Badge label={t(language, 'history.badge.untracked')} />
+                        ) : null}
                       </View>
                       <Text style={styles.liftResult}>{formatLogResult(log, unitPreference, language)}</Text>
                       {statusSummary ? <Text style={styles.liftMeta}>{statusSummary}</Text> : null}
@@ -393,6 +428,7 @@ export function HistoryScreen({
                     unitPreference={unitPreference}
                     language={language}
                     onPress={() => onSelectSession(session.sessionId)}
+                    onDelete={onDeleteSession ? () => setPendingDelete(session) : undefined}
                   />
                 ))}
               </View>
@@ -402,6 +438,23 @@ export function HistoryScreen({
                 body={t(language, 'history.emptyFiltered.body')}
               />
             )}
+
+            <ConfirmDialog
+              language={language}
+              visible={pendingDelete !== null}
+              destructive
+              title={t(language, 'history.delete.title')}
+              message={t(language, 'history.delete.body')}
+              confirmLabel={t(language, 'history.delete')}
+              onCancel={() => setPendingDelete(null)}
+              onConfirm={() => {
+                const target = pendingDelete;
+                setPendingDelete(null);
+                if (target) {
+                  onDeleteSession?.(target.sessionId);
+                }
+              }}
+            />
 
             {cardioSessions.length > 0 && !filtersActive ? (
               <>
@@ -510,6 +563,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 16,
     ...CARD_SHADOW,
+  },
+  sessionDelete: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sessionCardTop: {
     flexDirection: 'row',

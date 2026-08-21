@@ -874,6 +874,7 @@ function VinhaApp() {
     addMeasurementEntry,
     saveCompletedWorkoutSession,
     updateCompletedWorkoutSession,
+    deleteCompletedWorkoutSession,
     saveCardioSession,
   } = useAppContext();
   const workout = useWorkoutContext();
@@ -5767,6 +5768,7 @@ function VinhaApp() {
         selectedSessionId={route.screen === 'session' ? route.sessionId : undefined}
         getSessionLogs={getSessionLogs}
         onSelectSession={(sessionId) => navigate({ tab: 'home', screen: 'session', sessionId })}
+        onDeleteSession={(sessionId) => void deleteCompletedWorkoutSession(sessionId)}
         onBack={() => navigateBack(ROOT_ROUTES.home)}
       />
     );
