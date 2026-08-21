@@ -3495,6 +3495,11 @@ function VinhaApp() {
             ...nextSession,
             label: 'Week 1 · Day 1',
           },
+          // Whether the session above came from the reader tapping the title or
+          // from the rotation. The hero names what it is showing, and calling
+          // their own choice "next in your program" is the same kind of small
+          // lie the label was added to remove.
+          nextSessionIsPicked: !pickedDone && pickedToday !== null,
           // The catalog lookup, not the DB one: a custom template has no goal
           // or level for affinity to compare, so its card simply offers no
           // step up. Restart is real here — a plan record exists to reset.

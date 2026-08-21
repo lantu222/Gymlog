@@ -118,6 +118,8 @@ interface HomePlanCard {
   nextSession: HomeDaySessionSummary & {
     label: string;
   };
+  /** True when the session above is the reader's pick, not the rotation's. */
+  nextSessionIsPicked?: boolean;
   /**
    * Present only when the plan's block is finished and unanswered. The card
    * stays until one of its answers is taken — completion must not be missable
@@ -1047,7 +1049,9 @@ export function HomeScreen({
                     only by coincidence. The programme leads here; the strip is
                     the calendar, and they answer different questions. */}
                 <View style={styles.heroLead}>
-                <Text style={styles.heroKicker}>{t(language, 'home.hero.nextUp')}</Text>
+                <Text style={styles.heroKicker}>
+                  {t(language, activePlan.nextSessionIsPicked ? 'home.hero.yourPick' : 'home.hero.nextUp')}
+                </Text>
                 <Pressable
                   accessibilityRole={onPickTodaySession ? 'button' : undefined}
                   accessibilityLabel={
