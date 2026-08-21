@@ -3,6 +3,7 @@ import {
   AccessibilityInfo,
   Animated,
   Easing,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -338,6 +339,15 @@ export function HomeScreen({
   // rename in progress survives the list re-ordering underneath it.
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  /**
+   * How much of the screen the keyboard is covering.
+   *
+   * A React Native Modal is its own window and Android's adjustResize does not
+   * reach inside it, so the sheet stays where it is and the row being renamed
+   * ends up underneath the keys. Measured rather than guessed: keyboard height
+   * varies with the language, the suggestion strip and the handset.
+   */
+  const [keyboardInset, setKeyboardInset] = useState(0);
   /** Which row's swap sheet is open, by slot id. */
   const [swapSlotId, setSwapSlotId] = useState<string | null>(null);
   const [calendarExpanded, setCalendarExpanded] = useState(false);
@@ -365,6 +375,17 @@ export function HomeScreen({
   // Every session the programme holds, for the today-picker. One session
   // is not a choice, so the title only becomes a button past that.
   const planSessions = activePlan?.sessions ?? [];
+  useEffect(() => {
+    const shown = Keyboard.addListener('keyboardDidShow', (event) =>
+      setKeyboardInset(event.endCoordinates.height),
+    );
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setKeyboardInset(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+
   const focusTitle = getSessionFocusTitle(nextPlanSession?.title, activePlan?.title);
   const sessionsDone = activePlan?.sessionsDone ?? 0;
   const sessionsTotal = activePlan?.sessionsTotal ?? 0;
@@ -1492,7 +1513,12 @@ export function HomeScreen({
       >
         <View style={styles.adaptOverlay}>
           <Pressable style={styles.adaptScrim} onPress={() => setTodaySheetVisible(false)} />
-          <View style={[styles.adaptSheet, { paddingBottom: insets.bottom + 26 }]}>
+          <View
+            style={[
+              styles.adaptSheet,
+              { paddingBottom: (keyboardInset > 0 ? keyboardInset : insets.bottom) + 26 },
+            ]}
+          >
             <View style={styles.adaptGrip} />
             <Text style={styles.adaptTitle}>{t(language, 'home.today.title')}</Text>
             <Text style={styles.adaptSub}>{t(language, 'home.today.caption')}</Text>
@@ -2097,7 +2123,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     gap: 12,
   },
   heroTitle: {
-    flex: 1,
+    // Shrink, not grow: the chevron sits after it and a growing title would
+    // claim the whole row and push the chevron out the way the counter went.
+    flexShrink: 1,
     color: theme.ink,
     fontSize: 38,
     lineHeight: 43,
@@ -2615,6 +2643,10 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   heroTitleRow: {
+    // The title's own `flex: 1` used to do this sharing, back when the Text was
+    // a direct child of the row. Wrapping it in a Pressable put that flex one
+    // level too deep, and the session counter beside it was pushed off-screen.
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
