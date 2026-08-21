@@ -10,7 +10,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   AppState,
   BackHandler,
@@ -85,6 +84,7 @@ import { subscribeRestActions, useRestEndAlert } from '../hooks/useRestEndAlert'
 import { sound, type CueSound } from '../utils/sound';
 import { readableOn, Theme, useTheme, useThemeName, useThemedStyles } from '../theming';
 import { AppLanguage, ExerciseLibraryItem, UnitPreference } from '../types/models';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 import { useWorkoutContext } from '../features/workout/WorkoutProvider';
 import { elapsedSecondsOf } from '../features/workout/workoutState';
 import { buildSwapOptionsForSlot, TailoringPreferencesInput } from '../lib/tailoringFit';
@@ -1095,6 +1095,7 @@ export function GuidedPlayerScreen({
   const [pauseSheetOpen, setPauseSheetOpen] = useState(false);
   const [swapOpen, setSwapOpen] = useState(false);
   const [swapQuery, setSwapQuery] = useState('');
+  const [confirmingEnd, setConfirmingEnd] = useState(false);
   const frozen = paused || howtoOpen || exitOpen || pauseSheetOpen || swapOpen;
 
   const stepSeconds = (target: GuidedStep): number => {
@@ -1499,19 +1500,19 @@ export function GuidedPlayerScreen({
     goTo(target);
   };
 
+  /**
+   * Confirming that the logged sets may be thrown away.
+   *
+   * The app's own dialog, not `Alert.alert`. The platform one is a grey box
+   * with teal buttons dropped into the middle of a near-black screen — it reads
+   * as another app's, on the one screen where the reader is being asked to
+   * agree to losing work. The same question is asked with a themed dialog when
+   * a programme is removed, and that one looks like it belongs here.
+   */
   const handleEndSession = () => {
     setExitOpen(false);
     if (completedSetCount > 0) {
-      Alert.alert(
-        t(language, 'guided.endConfirm.title'),
-        t(language, completedSetCount === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany', {
-          count: completedSetCount,
-        }),
-        [
-          { text: t(language, 'guided.exit.keep'), style: 'cancel' },
-          { text: t(language, 'guided.exit.end'), style: 'destructive', onPress: onEndSession },
-        ],
-      );
+      setConfirmingEnd(true);
       return;
     }
     onEndSession();
@@ -2176,6 +2177,25 @@ export function GuidedPlayerScreen({
           else is using. The group is still the top of the list, because a
           programme's own alternatives are better answers than a search. The
           library is under it so there is always an answer at all. */}
+      <ConfirmDialog
+        language={language}
+        visible={confirmingEnd}
+        destructive
+        title={t(language, 'guided.endConfirm.title')}
+        message={t(
+          language,
+          completedSetCount === 1 ? 'guided.endConfirm.bodyOne' : 'guided.endConfirm.bodyMany',
+          { count: completedSetCount },
+        )}
+        confirmLabel={t(language, 'guided.exit.end')}
+        cancelLabel={t(language, 'guided.exit.keep')}
+        onCancel={() => setConfirmingEnd(false)}
+        onConfirm={() => {
+          setConfirmingEnd(false);
+          onEndSession();
+        }}
+      />
+
       {swapOpen && actionExercise && (
         <GPSheet
           onClose={() => {

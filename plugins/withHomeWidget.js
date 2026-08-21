@@ -50,7 +50,7 @@ const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins'
 const PACKAGE = 'app.vinha';
 const PAYLOAD_FILE = 'vinha-widget.json';
 /** Must match HOME_WIDGET_PAYLOAD_VERSION in src/lib/widgetPayload.ts. */
-const PAYLOAD_VERSION = 8;
+const PAYLOAD_VERSION = 9;
 /** Must match HOME_WIDGET_MONTH_ROWS in src/lib/widgetPayload.ts. */
 const MONTH_ROWS = 6;
 const DAY_COUNT = 7;
@@ -1065,6 +1065,7 @@ function paletteLiteral(name, palette, theme) {
         muted = Color.parseColor("${palette.muted}"),
         faint = Color.parseColor("${palette.faint}"),
         rest = Color.parseColor("${palette.rest}"),
+        done = Color.parseColor("${palette.done}"),
         brand = Color.parseColor("${palette.brand}"),
         onDone = Color.parseColor("${palette.onDone}"),
         onPlan = Color.parseColor("${palette.onPlan}"),
@@ -1126,6 +1127,7 @@ open class HomeWidgetProvider : AppWidgetProvider() {
         val muted: Int,
         val faint: Int,
         val rest: Int,
+        val done: Int,
         val brand: Int,
         val onDone: Int,
         val onPlan: Int,
@@ -1337,6 +1339,7 @@ ${paletteLiteral('dark', DARK, 'dark')}
             R.id.widget_routine_title,
             when (kind) {
                 "rest" -> palette.rest
+                "done" -> palette.done
                 "work" -> palette.brand
                 else -> palette.ink
             },

@@ -172,6 +172,8 @@ export function buildReadyProgramDetail(
    * does nothing but send you Home.
    */
   isActivePlan = false,
+  /** Held, but some other programme is the one Home leads with. */
+  isHeldNotLeading = false,
 ): ProgramDetailViewModel {
   const goal = titleCase(template.goalType);
   const level = titleCase(template.level);
@@ -217,7 +219,10 @@ export function buildReadyProgramDetail(
     progressionSummary: [programmeSummary, template.progressionRules.primary].filter(Boolean).join(' '),
     // Was the hardcoded English "Start first session" — and it never reached a
     // screen, so nothing showed it was untranslated.
-    primaryActionLabel: t(language, isActivePlan ? 'detail.startNext' : 'detail.adopt'),
+    primaryActionLabel: t(
+      language,
+      isActivePlan ? 'detail.startNext' : isHeldNotLeading ? 'detail.lead' : 'detail.adopt',
+    ),
     sessionActionLabel: 'Start session',
     sessions: buildSessionItems(detailSessions, insights?.sessionStatusById, template),
   };
@@ -241,6 +246,8 @@ export function buildCustomProgramDetail(
   insights?: ProgramInsightSummary,
   language: AppLanguage = 'en',
   isActivePlan = false,
+  /** Held, but some other programme is the one Home leads with. */
+  isHeldNotLeading = false,
 ): ProgramDetailViewModel {
   const sessionCount = template.sessions.length;
   const exerciseCount = template.sessions.reduce((sum, session) => sum + session.exercises.length, 0);
@@ -269,7 +276,9 @@ export function buildCustomProgramDetail(
         ? 'prog.custom.detail.editTemplate'
         : isActivePlan
           ? 'detail.startNext'
-          : 'detail.adopt',
+          : isHeldNotLeading
+            ? 'detail.lead'
+            : 'detail.adopt',
     ),
     sessionActionLabel: t(language, hasExercises ? 'prog.custom.detail.startSession' : 'prog.custom.detail.openSession'),
     sessions: buildSessionItems(template.sessions, insights?.sessionStatusById),

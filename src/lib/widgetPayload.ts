@@ -34,7 +34,7 @@ import { t } from './i18n';
 import { AppLanguage } from '../types/models';
 
 /** Bumped whenever the shape changes, so a stale file is ignored, not misread. */
-export const HOME_WIDGET_PAYLOAD_VERSION = 8;
+export const HOME_WIDGET_PAYLOAD_VERSION = 9;
 
 /**
  * How many week rows the native layout holds.
@@ -99,7 +99,7 @@ export interface HomeWidgetDay {
  * day. `prompt` is the states that have something to ask instead, and those
  * keep their sentence.
  */
-export type HomeWidgetRoutineKind = 'rest' | 'work' | 'prompt';
+export type HomeWidgetRoutineKind = 'rest' | 'work' | 'done' | 'prompt';
 
 export interface HomeWidgetRoutineDay {
   kind: HomeWidgetRoutineKind;
@@ -399,6 +399,11 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
   const now = new Date(nowMs);
   const todayStart = toDayStartMs(now);
   const doneDays = new Set((input.completedDayStarts ?? []).map((ms) => toDayStartMs(new Date(ms))));
+  // Workouts only, like the next-session lookup: a morning run marks the
+  // calendar but does not finish what was planned for the day.
+  const workoutDoneDays = new Set(
+    (input.completedWorkoutDayStarts ?? []).map((ms) => toDayStartMs(new Date(ms))),
+  );
 
   // A rhythm is only real when there is something to do on those days. Without
   // sessions, a "planned" pip would promise a workout that does not exist.
@@ -495,13 +500,17 @@ export function buildHomeWidgetPayload(input: HomeWidgetInput): HomeWidgetPayloa
           ? sessions.find((entry) => entry.id === input.todaySessionId) ?? null
           : null;
       const session = picked ?? sessionForDate(date, schedule, sessions);
+      // "Is today a training day" stops being the question the moment the
+      // training is done. The card said "Treeni" on an afternoon when the
+      // calendar beside it had already gone green.
+      const done = session !== null && workoutDoneDays.has(toDayStartMs(date));
       return {
-        kind: session ? ('work' as const) : ('rest' as const),
+        kind: done ? ('done' as const) : session ? ('work' as const) : ('rest' as const),
         dateKey: toDateKey(date),
         // The weekday still travels for the accessibility label, but the card
         // no longer draws it: one word is the whole point of this size.
         when: t(language, `widget.weekday.${weekdayIndexOf(date)}` as 'widget.weekday.0'),
-        title: t(language, session ? 'widget.workoutDay' : 'widget.restDay'),
+        title: t(language, done ? 'widget.doneDay' : session ? 'widget.workoutDay' : 'widget.restDay'),
         // Nothing to start on a rest day, and the next session is two days of
         // rest away as often as not — so the arrow opens Home rather than a
         // workout the reader is not doing today.

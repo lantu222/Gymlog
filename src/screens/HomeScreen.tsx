@@ -2701,12 +2701,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     marginTop: 10,
     gap: 3,
   },
+  // Was a fixed pink on a fixed cream — a white card sitting in a dark sheet.
+  // The same class as the button that drew white on white: a colour copied in
+  // rather than taken from the theme is only ever right for one of them.
   adaptOptionDanger: {
-    borderColor: '#F3C8C2',
-    backgroundColor: '#FDF4F3',
+    borderColor: theme.dangerBorder,
+    backgroundColor: theme.dangerSoft,
   },
   adaptOptionTitleDanger: {
-    color: '#B42318',
+    color: theme.danger,
   },
   adaptOptionTitle: {
     color: theme.ink,

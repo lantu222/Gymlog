@@ -1942,8 +1942,14 @@ function VinhaApp() {
     }
 
     // Already running this programme under some other plan id (an onboarding
-    // pick, say) — joining again would spend a cap slot on a duplicate.
+    // pick, say) — joining again would spend a cap slot on a duplicate. But
+    // "already held" is not "already the one Home leads with", and this used to
+    // return on both: the only way to change the lead was to REMOVE the other
+    // programme, which is a destructive answer to a question about ordering.
     if (activeProgramTemplateIds.includes(workoutTemplateId)) {
+      if (options?.lead) {
+        await promoteHeldProgramToLead(workoutTemplateId);
+      }
       return;
     }
 
@@ -2314,6 +2320,26 @@ function VinhaApp() {
   }
 
   /** The reader dropping a programme — the only path that removes one. */
+  /**
+   * Make a programme you already hold the one Home leads with.
+   *
+   * Matched on the template rather than the plan id, because the same programme
+   * can be held under a plan id minted by onboarding, by adoption, or by a
+   * season — and all three are equally "this programme".
+   */
+  async function promoteHeldProgramToLead(workoutTemplateId: string) {
+    const plan = database.workoutPlans.find(
+      (entry) =>
+        preferences.activePlanIds.includes(entry.id) &&
+        entry.entries[0]?.workoutTemplateId === workoutTemplateId,
+    );
+    if (!plan || preferences.activePlanId === plan.id) {
+      return;
+    }
+    await updatePreferences({ activePlanId: plan.id });
+    showToast(t(preferences.appLanguage, 'season.joined', { program: plan.name }));
+  }
+
   async function handleRemoveActiveProgram(planId: string) {
     await updatePreferences({
       activePlanIds: removeActiveProgram(preferences.activePlanIds, planId),
@@ -2453,6 +2479,9 @@ function VinhaApp() {
     }
 
     if (activeProgramTemplateIds.includes(workoutTemplateId)) {
+      if (options?.lead) {
+        await promoteHeldProgramToLead(workoutTemplateId);
+      }
       return;
     }
 
@@ -3584,6 +3613,27 @@ function VinhaApp() {
     const cycle = preferences.trainingCycle;
     return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
   }, [homeTrainingDayIndexes, preferences.trainingCycle]);
+  /**
+   * Home must never say "find a programme" while one is running.
+   *
+   * Removing the lead already promotes the next in line, but that is one path
+   * of several that can empty `activePlanId` — a season leaving, a plan record
+   * being rewritten, a stored value from an older build. Rather than chase each
+   * one, the invariant is repaired wherever it broke: a held programme with no
+   * lead becomes the lead.
+   */
+  useEffect(() => {
+    if (!appHydrated || preferences.activePlanId) {
+      return;
+    }
+    const held = preferences.activePlanIds.find((planId) =>
+      database.workoutPlans.some((plan) => plan.id === planId),
+    );
+    if (held) {
+      void updatePreferences({ activePlanId: held });
+    }
+  }, [appHydrated, database.workoutPlans, preferences.activePlanId, preferences.activePlanIds, updatePreferences]);
+
   // What Android says about pinning the widget. Re-asked on every foreground,
   // because the user may have added or removed it while we were away.
   useEffect(() => {
@@ -5116,7 +5166,11 @@ function VinhaApp() {
       // joined during onboarding carries a different plan id for the same
       // programme, and it is no less the reader's own.
       const programIsMine = activeProgramTemplateIds.includes(route.workoutTemplateId);
-      const readyProgramIsMine = route.programType === 'ready' && programIsMine;
+      // Held is not the same as leading. A programme you hold but do not lead
+      // with has a third answer — put it on Home — and without it the only way
+      // there was to remove whatever was leading.
+      const programLeads = homeActivePlanCard?.programId === route.workoutTemplateId;
+      const readyProgramIsMine = route.programType === 'ready' && programLeads;
       const program = readyTemplate
         ? buildReadyProgramDetail(
             readyTemplate,
@@ -5130,13 +5184,15 @@ function VinhaApp() {
               : null,
             preferences.appLanguage,
             readyProgramIsMine,
+            programIsMine && !programLeads,
           )
       : customTemplate
         ? buildCustomProgramDetail(
             customTemplate,
             programInsightsByTemplateId[route.workoutTemplateId],
             preferences.appLanguage,
-            programIsMine,
+            programIsMine && programLeads,
+            programIsMine && !programLeads,
           )
         : null;
 
@@ -5231,11 +5287,13 @@ function VinhaApp() {
           // Already running it: start what the rotation offers next, the same
           // answer a ready programme gives. Otherwise put it on Home, which is
           // what the button now says and what it could not previously do.
-          if (programIsMine) {
+          if (programLeads) {
             handleStartCustomProgram(route.workoutTemplateId);
             return;
           }
 
+          // Held but not leading, or not held at all — both are answered by
+          // adoption, which now promotes rather than returning early.
           void handleAdoptCustomProgram(route.workoutTemplateId, { lead: true });
           navigate(ROOT_ROUTES.home);
         }}

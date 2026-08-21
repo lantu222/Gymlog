@@ -141,11 +141,13 @@ module.exports = [
       assert.match(i18nSource, /'detail\.adopt': 'Ota ohjelma käyttöön'/);
       // The label comes from the view model, so it is translated at the source
       // rather than hardcoded English that no screen ever showed — and it reads
-      // the state: adopting is only offered to a reader who does not already
-      // hold the programme, who gets the next session instead.
+      // the state. Three answers, not two: adopt it, put it on Home when you
+      // already hold it but something else is leading, or start the next
+      // workout when it is the one leading. Without the middle one, the only
+      // way to change which programme Home leads with was to remove the other.
       assert.match(
         programDetailsSource,
-        /primaryActionLabel: t\(language, isActivePlan \? 'detail\.startNext' : 'detail\.adopt'\)/,
+        /isActivePlan \? 'detail\.startNext' : isHeldNotLeading \? 'detail\.lead' : 'detail\.adopt'/,
       );
       assert.match(i18nSource, /'detail\.startNext': 'Aloita seuraava treeni'/);
       assert.match(programDetailSource, /formatPlanSessionTitle/);

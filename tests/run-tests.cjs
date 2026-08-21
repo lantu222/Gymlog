@@ -189,6 +189,7 @@ const suites = [
   ...require('./screens/guidedPlayerSwap.test.cjs'),
   ...require('./screens/setPanels.test.cjs'),
   ...require('./screens/completionHero.test.cjs'),
+  ...require('./screens/leadProgram.test.cjs'),
   ...require('./lib/homeVisuals.test.cjs'),
   ...require('./lib/aiTrainingContext.test.cjs'),
   ...require('./lib/aiCoachSystemContext.test.cjs'),

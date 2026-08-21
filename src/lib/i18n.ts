@@ -1619,6 +1619,7 @@ const EN = {
   'widget.weekday.6': 'Sunday',
   'widget.restDay': 'Rest day',
   'widget.workoutDay': 'Workout',
+  'widget.doneDay': 'Done',
   // The three figures the 4x2 draws beside the month. The window is the month
   // on the calendar next to them.
   'widget.stat.workouts': 'Workouts',
@@ -3124,6 +3125,7 @@ const EN = {
   'detail.flexible': 'Flexible',
   'detail.start': 'Start',
   'detail.startNext': 'Start next workout',
+  'detail.lead': 'Show this on Home',
   'detail.adopt': 'Start this programme',
   'detail.defaultFocus': 'Structured strength session',
   'detail.warmup': 'Warmup',
@@ -4939,6 +4941,7 @@ const FI: Record<I18nKey, string> = {
   'widget.weekday.6': 'Sunnuntai',
   'widget.restDay': 'Lepopäivä',
   'widget.workoutDay': 'Treeni',
+  'widget.doneDay': 'Tehty',
   'widget.stat.workouts': 'Treenit',
   'widget.stat.duration': 'Kesto',
   'widget.stat.volume': 'Volyymi',
@@ -6356,6 +6359,7 @@ const FI: Record<I18nKey, string> = {
   'detail.flexible': 'Joustava',
   'detail.start': 'Aloita',
   'detail.startNext': 'Aloita seuraava treeni',
+  'detail.lead': 'Näytä tämä Kodissa',
   'detail.adopt': 'Ota ohjelma käyttöön',
   'detail.defaultFocus': 'Jäsennelty voimatreeni',
   'detail.warmup': 'Lämmittely',

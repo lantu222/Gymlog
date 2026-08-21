@@ -334,6 +334,31 @@ module.exports = [
   },
 
   {
+    /**
+     * "Is today a training day" stops being the question the moment the
+     * training is done. The card said "Treeni" on an afternoon when the
+     * calendar beside it had already gone green. Reported 2026-08-21.
+     */
+    name: "widgetPayload: today reads as done once its workout is logged",
+    run() {
+      const done = build({ completedWorkoutDayStarts: [at(2026, 7, 30, 8)] });
+
+      assert.equal(done.routineDays[0].kind, 'done');
+      assert.equal(done.routineDays[0].title, 'Done');
+      assert.equal(build({ completedWorkoutDayStarts: [at(2026, 7, 30, 8)], language: 'fi' }).routineDays[0].title, 'Tehty');
+
+      // Only today, and only a workout. Tomorrow is untouched, and a rest day
+      // cannot be "done" — there was nothing to do.
+      assert.equal(done.routineDays[1].kind, 'rest');
+      const restDay = build({
+        schedule: weekdaySchedule([1]),
+        completedWorkoutDayStarts: [at(2026, 7, 30, 8)],
+      });
+      assert.equal(restDay.routineDays[0].kind, 'rest');
+    },
+  },
+
+  {
     name: 'widgetPayload: no program at all asks for a program, on every day',
     run() {
       const payload = build({ sessions: [], planName: null });
