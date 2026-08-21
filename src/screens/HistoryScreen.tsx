@@ -323,7 +323,7 @@ export function HistoryScreen({
                         </Text>
                         {log.tracked ? <Badge label={t(language, 'history.badge.tracked')} tone="purple" /> : null}
                       </View>
-                      <Text style={styles.liftResult}>{formatLogResult(log, unitPreference)}</Text>
+                      <Text style={styles.liftResult}>{formatLogResult(log, unitPreference, language)}</Text>
                       {statusSummary ? <Text style={styles.liftMeta}>{statusSummary}</Text> : null}
                       {log.swappedFrom ? (
                         <Text style={styles.liftMeta}>

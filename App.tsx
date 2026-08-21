@@ -6703,11 +6703,16 @@ function VinhaApp() {
     <AppShell
       toastMessage={toastMessage}
       safeAreaEdges={
-        welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
-          ? ['left', 'right']
-          : onboardingActive
-            ? ['top', 'left', 'right']
-            : ['top', 'left', 'right', 'bottom']
+        // A saved workout drops the TOP edge so its gradient runs under the
+        // status bar — and used to drop the bottom one with it, which put the
+        // floating tab bar on top of the phone's own navigation buttons.
+        historySessionActive
+          ? ['left', 'right', 'bottom']
+          : welcomeActive || workoutSummaryActive || fullBleedReview !== null
+            ? ['left', 'right']
+            : onboardingActive
+              ? ['top', 'left', 'right']
+              : ['top', 'left', 'right', 'bottom']
       }
       // Only the gradient-hero screens want light icons; everything else takes
       // the shell's light default.
@@ -6718,11 +6723,17 @@ function VinhaApp() {
         fullBleedReview ? fullBleedReview : historySessionActive ? 'light' : undefined
       }
       statusBarBackgroundColor={
-        workoutSummaryActive || historySessionActive || welcomeActive || fullBleedReview !== null
-          ? 'transparent'
-          : aiSetupActive
-            ? theme.surface
-            : undefined
+        // The saved workout's hero scrolls, and under a transparent bar its
+        // date ended up printed across the phone's clock. Painted with the
+        // hero's own top colour it is invisible at rest and a clean cap once
+        // the screen moves.
+        historySessionActive
+          ? '#8B5CF6'
+          : workoutSummaryActive || welcomeActive || fullBleedReview !== null
+            ? 'transparent'
+            : aiSetupActive
+              ? theme.surface
+              : undefined
       }
       statusBarTranslucent={
         welcomeActive || workoutSummaryActive || historySessionActive || fullBleedReview !== null
