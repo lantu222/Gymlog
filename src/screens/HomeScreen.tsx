@@ -1046,6 +1046,7 @@ export function HomeScreen({
                     read the programme's next session as today's — which it is
                     only by coincidence. The programme leads here; the strip is
                     the calendar, and they answer different questions. */}
+                <View style={styles.heroLead}>
                 <Text style={styles.heroKicker}>{t(language, 'home.hero.nextUp')}</Text>
                 <Pressable
                   accessibilityRole={onPickTodaySession ? 'button' : undefined}
@@ -1077,6 +1078,7 @@ export function HomeScreen({
                     </Svg>
                   ) : null}
                 </Pressable>
+                </View>
                 <View style={styles.heroProg}>
                   <Text style={styles.heroProgLabel}>
                     {t(language, 'home.hero.sessionsProgress', { done: sessionsDone, total: sessionsTotal })}
@@ -2679,11 +2681,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '700',
   },
-  heroTitleRow: {
-    // The title's own `flex: 1` used to do this sharing, back when the Text was
-    // a direct child of the row. Wrapping it in a Pressable put that flex one
-    // level too deep, and the session counter beside it was pushed off-screen.
+  // The kicker and the title stack; that stack shares the row with the session
+  // counter. Put in the row directly, the kicker became a third column and
+  // squeezed the title down to one shrunken letter.
+  heroLead: {
     flex: 1,
+  },
+  heroTitleRow: {
+    // No flex here any more. This sits in a COLUMN now, where flex:1 stretches
+    // vertically and flattens nothing — but claims height it does not need.
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
