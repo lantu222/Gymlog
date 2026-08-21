@@ -624,6 +624,27 @@ module.exports = [
   },
 
   {
+    /**
+     * Home offers the next session in the programme's rotation — the reader's
+     * own choice, 2026-08-21: the programme leads and the calendar is
+     * background. The name stood alone under a weekday strip that highlights
+     * today, so the two read as one claim, and they agree only by coincidence.
+     */
+    name: 'the hero says what the session it offers actually is',
+    run() {
+      assert.match(homeScreenSource, /'home\.hero\.nextUp'/);
+      assert.match(i18nSource, /'home\.hero\.nextUp': 'Seuraavaksi ohjelmassa'/);
+
+      // A workout already logged today is a line, not a mode: the hero goes on
+      // offering the next session, because a reader who trains twice in a day
+      // must not be told the day is over.
+      assert.match(homeScreenSource, /todayLogged \? \(/);
+      assert.match(homeScreenSource, /'home\.hero\.loggedToday'/);
+      assert.doesNotMatch(homeScreenSource, /todayLogged \?[\s\S]{0,200}return null/);
+    },
+  },
+
+  {
     name: 'an unknown training week asks for the days instead of guessing them',
     run() {
       // setupAvailableDays is only written when the user explicitly picks

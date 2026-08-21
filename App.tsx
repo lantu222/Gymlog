@@ -3610,6 +3610,39 @@ function VinhaApp() {
    * entry labels are still weekdays after a switch, so anything deriving from
    * them would quietly put the old week back.
    */
+  /**
+   * The workout already logged today, if there is one.
+   *
+   * Every kind counts, not just the programme's own: the line answers "did the
+   * thing I just did register", and a free workout registers. Home goes on
+   * offering the next session in the programme either way.
+   */
+  const homeTodayLogged = useMemo(() => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const logged = workoutSessions.find((session) => {
+      const performed = new Date(session.performedAt);
+      if (Number.isNaN(performed.getTime())) {
+        return false;
+      }
+      return (
+        new Date(performed.getFullYear(), performed.getMonth(), performed.getDate()).getTime() ===
+        todayStart
+      );
+    });
+    return logged
+      ? {
+          title: localizeSessionName(
+            formatWorkoutDisplayLabel(
+              logged.workoutNameSnapshot,
+              t(preferences.appLanguage, 'history.workoutFallback'),
+            ),
+            preferences.appLanguage,
+          ),
+        }
+      : null;
+  }, [preferences.appLanguage, workoutSessions]);
+
   const homeTrainingSchedule = useMemo(() => {
     const cycle = preferences.trainingCycle;
     return cycle ? cycleSchedule(cycle.pattern, cycle.anchorDayStart) : weekdaySchedule(homeTrainingDayIndexes);
@@ -6474,6 +6507,7 @@ function VinhaApp() {
             : null
         }
         trainingSchedule={homeTrainingSchedule}
+        todayLogged={homeTodayLogged}
         promoSlides={homePromoSlides}
         onPressPromo={(slide) => {
           if (slide.kind === 'season' && slide.season) {

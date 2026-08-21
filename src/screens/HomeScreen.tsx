@@ -237,6 +237,15 @@ interface HomeScreenProps {
    * list can hold it.
    */
   trainingSchedule?: TrainingSchedule;
+  /**
+   * A workout already logged today, if there is one.
+   *
+   * Not a mode and not a gate — a line. The hero goes on offering the next
+   * session in the programme, because that is what the reader chose the app to
+   * lead with; this only answers "did the one I just did count", which the
+   * hero moving on silently does not.
+   */
+  todayLogged?: { title: string } | null;
   language?: AppLanguage;
   /**
    * Equipment chips the user actually has; null when the setup never said.
@@ -316,6 +325,7 @@ export function HomeScreen({
   onChangePinnedStatCardKeys,
   onOpenStatCard,
   trainingSchedule = UNKNOWN_SCHEDULE,
+  todayLogged = null,
   language = 'en',
   profileName = null,
   availableEquipment = null,
@@ -1031,6 +1041,12 @@ export function HomeScreen({
                     workout reaches for its name first, and there was nothing
                     under it — the only way to train something else was to walk
                     back out to the program. */}
+                {/* What this session IS. The name stood alone under a weekday
+                    strip that highlights today, so a reader joined the two and
+                    read the programme's next session as today's — which it is
+                    only by coincidence. The programme leads here; the strip is
+                    the calendar, and they answer different questions. */}
+                <Text style={styles.heroKicker}>{t(language, 'home.hero.nextUp')}</Text>
                 <Pressable
                   accessibilityRole={onPickTodaySession ? 'button' : undefined}
                   accessibilityLabel={
@@ -1071,6 +1087,11 @@ export function HomeScreen({
                 </View>
               </View>
 
+              {todayLogged ? (
+                <Text style={styles.heroLoggedToday} numberOfLines={1}>
+                  {t(language, 'home.hero.loggedToday', { name: todayLogged.title })}
+                </Text>
+              ) : null}
             </Animated.View>
 
             <View style={styles.secs}>
@@ -2643,6 +2664,20 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   },
   adaptScrim: {
     ...StyleSheet.absoluteFillObject,
+  },
+  heroKicker: {
+    marginBottom: 4,
+    color: theme.muted,
+    fontSize: 10.5,
+    fontWeight: '800',
+    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+  },
+  heroLoggedToday: {
+    marginTop: 10,
+    color: theme.faint,
+    fontSize: 12.5,
+    fontWeight: '700',
   },
   heroTitleRow: {
     // The title's own `flex: 1` used to do this sharing, back when the Text was
