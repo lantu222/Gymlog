@@ -1,11 +1,11 @@
-﻿import React, { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import React from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
 import { ScreenHeaderTitle } from '../components/ScreenHeaderTitle';
-import { CARD_SHADOW, SectionLabel } from '../components/SettingsUi';
+import { CARD_SHADOW, ToggleSwitch } from '../components/SettingsUi';
 import { formatDate } from '../lib/format';
-import { I18nKey, t } from '../lib/i18n';
+import { t } from '../lib/i18n';
 import { Theme, useTheme, useThemedStyles } from '../theming';
 import { layout } from '../theme';
 import { AppLanguage, TrainingBreak, TrainingBreakReason } from '../types/models';
@@ -18,21 +18,12 @@ interface TrainingBreakScreenProps {
   onEndBreak: () => void;
 }
 
-const REASONS: Array<{ key: TrainingBreakReason; labelKey: I18nKey }> = [
-  { key: 'injury', labelKey: 'break.reason.injury' },
-  { key: 'holiday', labelKey: 'break.reason.holiday' },
-  { key: 'other', labelKey: 'break.reason.other' },
-];
-
-function reasonLabel(reason: TrainingBreakReason, language: AppLanguage) {
-  const match = REASONS.find((item) => item.key === reason);
-  return match ? t(language, match.labelKey) : t(language, 'break.reason.fallback');
-}
-
 /**
- * Log an injury or holiday. The break is a stored state, not a punishment:
- * starting one records the date and reason, ending it clears the state. Plan
- * pausing logic can hook onto this later.
+ * One switch, one date. The reason chips, the note field and the reassurance
+ * prose were a form the reader had to fill to be left alone (user, 2026-08-22)
+ * — the break itself is just "silence everything until I flip this back".
+ * The stored model keeps its reason field for compatibility; the switch files
+ * every break under 'other'.
  */
 export function TrainingBreakScreen({
   trainingBreak,
@@ -43,8 +34,7 @@ export function TrainingBreakScreen({
 }: TrainingBreakScreenProps) {
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
-  const [reason, setReason] = useState<TrainingBreakReason | null>(null);
-  const [note, setNote] = useState('');
+  const onBreak = trainingBreak !== null;
 
   return (
     <View style={styles.screen}>
@@ -62,89 +52,30 @@ export function TrainingBreakScreen({
         <ScreenHeaderTitle title={t(language, 'break.title')} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
-        {trainingBreak ? (
-          <>
-            <View style={[styles.card, styles.statusCard]}>
-              <View style={styles.statusDotWrap}>
-                <View style={styles.statusDot} />
-                <Text style={styles.statusEyebrow}>{t(language, 'break.onBreak')}</Text>
-              </View>
-              <Text style={styles.statusTitle}>
-                {t(language, 'break.since', {
-                  reason: reasonLabel(trainingBreak.reason, language),
-                  date: formatDate(trainingBreak.startedAt, language),
-                })}
-              </Text>
-              {trainingBreak.note ? <Text style={styles.statusNote}>{trainingBreak.note}</Text> : null}
-              <Text style={styles.statusBody}>
-                {t(language, 'break.statusBody')}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.rowCopy}>
+              <Text style={styles.rowTitle}>{t(language, 'break.title')}</Text>
+              <Text style={styles.rowSub}>
+                {onBreak && trainingBreak
+                  ? t(language, 'break.sinceDate', { date: formatDate(trainingBreak.startedAt, language) })
+                  : t(language, 'break.switchSub')}
               </Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onEndBreak}
-              style={({ pressed }) => [styles.primaryButton, pressed && { opacity: 0.85 }]}
-            >
-              <Text style={styles.primaryButtonText}>{t(language, 'break.end')}</Text>
-            </Pressable>
-          </>
-        ) : (
-          <>
-            <View style={styles.section}>
-              <SectionLabel label={t(language, 'break.reasonLabel')} />
-              <View style={styles.reasonRow}>
-                {REASONS.map((item) => {
-                  const active = reason === item.key;
-                  return (
-                    <Pressable
-                      key={item.key}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      onPress={() => setReason(item.key)}
-                      style={[styles.reasonChip, active && styles.reasonChipActive]}
-                    >
-                      <Text style={[styles.reasonChipText, active && styles.reasonChipTextActive]}>{t(language, item.labelKey)}</Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <SectionLabel label={t(language, 'break.noteLabel')} />
-              <TextInput
-                value={note}
-                onChangeText={setNote}
-                placeholder={t(language, 'break.notePlaceholder')}
-                placeholderTextColor={theme.faint}
-                style={styles.noteInput}
-                multiline
-              />
-            </View>
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: reason === null }}
-              onPress={() => {
-                if (reason !== null) {
-                  onStartBreak(reason, note.trim().length > 0 ? note.trim() : null);
+            <ToggleSwitch
+              label={t(language, 'break.title')}
+              value={onBreak}
+              onChange={(next) => {
+                if (next) {
+                  onStartBreak('other', null);
+                } else {
+                  onEndBreak();
                 }
               }}
-              style={({ pressed }) => [
-                styles.primaryButton,
-                reason === null && styles.primaryButtonDisabled,
-                pressed && reason !== null && { opacity: 0.85 },
-              ]}
-            >
-              <Text style={styles.primaryButtonText}>{t(language, 'break.start')}</Text>
-            </Pressable>
-
-            <Text style={styles.footer}>
-              {t(language, 'break.footer')}
-            </Text>
-          </>
-        )}
+            />
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -172,7 +103,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     justifyContent: 'center',
   },
   body: {
-    paddingTop: 4,
+    paddingTop: 8,
     paddingHorizontal: 18,
     paddingBottom: layout.bottomTabBarReserve,
   },
@@ -183,111 +114,27 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     borderRadius: 18,
     ...CARD_SHADOW,
   },
-  statusCard: {
-    padding: 16,
-    marginTop: 4,
-  },
-  statusDotWrap: {
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#B45309',
-  },
-  statusEyebrow: {
-    color: '#B45309',
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  statusTitle: {
-    color: theme.ink,
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 10,
-  },
-  statusNote: {
-    color: theme.muted,
-    fontSize: 13.5,
-    fontWeight: '600',
-    marginTop: 6,
-  },
-  statusBody: {
-    color: theme.muted,
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 18,
-    marginTop: 12,
-  },
-  section: {
-    marginTop: 22,
-  },
-  reasonRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  reasonChip: {
-    flex: 1,
-    height: 44,
-    borderRadius: 13,
-    backgroundColor: theme.surface,
-    borderWidth: 1.5,
-    borderColor: theme.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  reasonChipActive: {
-    backgroundColor: theme.purpleLight,
-    borderColor: theme.purple,
-  },
-  reasonChipText: {
-    color: theme.muted,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  reasonChipTextActive: {
-    color: theme.purpleDark,
-  },
-  noteInput: {
-    minHeight: 84,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: theme.border,
-    backgroundColor: theme.surface,
+    gap: 13,
+    paddingVertical: 14,
     paddingHorizontal: 15,
-    paddingVertical: 12,
+  },
+  rowCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  rowTitle: {
     color: theme.ink,
-    fontSize: 14,
-    fontWeight: '600',
-    textAlignVertical: 'top',
-  },
-  primaryButton: {
-    height: 50,
-    borderRadius: 15,
-    backgroundColor: theme.purple,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 24,
-  },
-  primaryButtonDisabled: {
-    backgroundColor: '#D8D2E6',
-  },
-  primaryButtonText: {
-    color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '800',
   },
-  footer: {
-    color: theme.faint,
+  rowSub: {
+    color: theme.muted,
     fontSize: 12,
     fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 18,
-    marginTop: 14,
-    paddingHorizontal: 10,
+    marginTop: 2,
+    lineHeight: 17,
   },
 });

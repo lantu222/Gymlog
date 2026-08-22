@@ -84,6 +84,9 @@ export function NotificationsScreen({
   checkPermission,
   onOpenTrainingPlan,
 }: NotificationsScreenProps) {
+  // A training break silences everything until it ends, so the switches show
+  // exactly that instead of staying lit under a note (user, 2026-08-22).
+  const effectiveEnabled = prefs.pushEnabled && !onTrainingBreak;
   const theme = useTheme();
   const styles = useThemedStyles(makeStyles);
   const [systemBlocked, setSystemBlocked] = useState(false);
@@ -169,8 +172,8 @@ export function NotificationsScreen({
         {/* Everything below obeys the master switch — including the rest
             alerts, which used to sit outside the dimmed area and stay lit
             after the reader turned notifications off (user, 2026-08-22). */}
-        <View style={styles.dimmable} pointerEvents={prefs.pushEnabled ? 'auto' : 'none'}>
-          <View style={prefs.pushEnabled ? null : styles.dimmed}>
+        <View style={styles.dimmable} pointerEvents={effectiveEnabled ? 'auto' : 'none'}>
+          <View style={effectiveEnabled ? null : styles.dimmed}>
             <View style={styles.section}>
               <SectionLabel label={t(language, 'notif.rest.section')} />
               <View style={styles.card}>
@@ -182,7 +185,7 @@ export function NotificationsScreen({
                     </View>
                     <ToggleSwitch
                       label={t(language, item.titleKey)}
-                      value={prefs.pushEnabled && Boolean(prefs[item.key])}
+                      value={effectiveEnabled && Boolean(prefs[item.key])}
                       onChange={(next) => onChange({ [item.key]: next } as Partial<NotificationPrefs>)}
                     />
                   </View>
@@ -231,7 +234,7 @@ export function NotificationsScreen({
                     </View>
                     <ToggleSwitch
                       label={t(language, item.titleKey)}
-                      value={prefs.pushEnabled && Boolean(prefs[item.key])}
+                      value={effectiveEnabled && Boolean(prefs[item.key])}
                       onChange={(next) => onChange({ [item.key]: next } as Partial<NotificationPrefs>)}
                     />
                   </View>
