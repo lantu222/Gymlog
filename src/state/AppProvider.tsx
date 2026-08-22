@@ -19,7 +19,7 @@ import {
   getLatestLogForTemplateExercise,
   getTrackedExerciseProgress,
 } from '../lib/progression';
-import { loadDatabase, resetDatabase, saveDatabase, savePreferences } from '../storage/database';
+import { loadDatabase, normalizeDatabase, resetDatabase, saveDatabase, savePreferences } from '../storage/database';
 import {
   bodyweightRepository,
   exerciseLogRepository,
@@ -97,6 +97,12 @@ interface AppContextValue {
   ) => Promise<void>;
   /** Removes a saved workout and the sets logged in it. */
   deleteCompletedWorkoutSession: (sessionId: string) => Promise<void>;
+  /**
+   * Replaces local data with a cloud backup, through the same normalizer a
+   * stored database goes through on load — an old backup gets defaults, not a
+   * crash, and the exercise library is reseeded exactly like on load.
+   */
+  restoreDatabaseFromBackup: (input: Partial<AppDatabase>) => Promise<void>;
   saveCardioSession: (input: {
     activityType: CardioActivityType;
     startedAt: string;
@@ -698,6 +704,16 @@ export function AppProvider({ children }: React.PropsWithChildren) {
     });
   }
 
+  function restoreDatabaseFromBackup(input: Partial<AppDatabase>) {
+    return runExclusive(async () => {
+      const restored = normalizeDatabase(input);
+      await commit(restored);
+      // The preferences split-key would otherwise override the restored ones
+      // on the next load — the exact stale-copy bug the split invites.
+      await savePreferences(restored.preferences);
+    });
+  }
+
   const value = useMemo<AppContextValue>(
     () => ({
       database,
@@ -755,6 +771,7 @@ export function AppProvider({ children }: React.PropsWithChildren) {
       addBodyweightEntry,
       addMeasurementEntry,
       resetAllData,
+      restoreDatabaseFromBackup,
     }),
     [database, hydrated],
   );

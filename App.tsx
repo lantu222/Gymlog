@@ -58,6 +58,7 @@ import { buildHomeWidgetPayload, findHomeWidgetNextSession, HomeWidgetTarget } f
 import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
+import { useAccountBackup } from './src/features/account/useAccountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -876,8 +877,20 @@ function VinhaApp() {
     updateCompletedWorkoutSession,
     deleteCompletedWorkoutSession,
     saveCardioSession,
+    restoreDatabaseFromBackup,
   } = useAppContext();
   const workout = useWorkoutContext();
+
+  // Account & cloud backup: sign in with Google on the hand-off card or in
+  // Settings, and the data survives a new phone. Free and Pro alike (decision
+  // 2026-08-22). Absent entirely in builds without the OAuth client id.
+  const accountBackup = useAccountBackup({
+    hydrated,
+    database,
+    workoutHistory: workout.history,
+    restoreDatabase: restoreDatabaseFromBackup,
+    restoreWorkoutHistory: workout.restoreHistoryFromBackup,
+  });
 
   /**
    * Where "back to the programmes" lands.
@@ -3719,9 +3732,10 @@ function VinhaApp() {
             canOfferWidget: Boolean(homeWidgetState?.supported) && !homeWidgetState?.added,
             pinnedCardKeys: homePinnedStatCardKeys,
             focusAreas: preferences.setupFocusAreas,
+            canOfferAccountBackup: accountBackup.available && accountBackup.state.status === 'signed_out',
           })
         : null,
-    [homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
+    [accountBackup.available, accountBackup.state.status, homePinnedStatCardKeys, homeWidgetState, preferences.setupFocusAreas, setupHandoffReady],
   );
   const setupHandoffActive = setupHandoffPlan?.shouldShow ?? false;
 
@@ -3732,6 +3746,69 @@ function VinhaApp() {
       void updatePreferences({ setupHandoffCompleted: true });
     }
   }, [setupHandoffPlan, setupHandoffReady, updatePreferences]);
+
+  /**
+   * The whole sign-in conversation: outcome toasts, and the one dialog that
+   * appears when both the phone and the cloud hold data. Shared by the
+   * hand-off card and the Settings row so both tell the same story.
+   */
+  const handleAccountSignIn = useCallback(async () => {
+    const language = preferences.appLanguage;
+    const outcome = await accountBackup.signIn();
+    if (outcome.kind === 'backed_up') {
+      showToast(t(language, 'account.backupDone'));
+      return;
+    }
+    if (outcome.kind === 'restored') {
+      showToast(t(language, 'account.restore.restored'));
+      return;
+    }
+    if (outcome.kind === 'failed') {
+      showToast(t(language, 'account.signInFailed'));
+      return;
+    }
+    if (outcome.kind === 'unavailable') {
+      showToast(t(language, 'account.signInUnavailable'));
+      return;
+    }
+    if (outcome.kind !== 'choice') {
+      // Cancelled: the reader changed their mind, and that is not an error.
+      return;
+    }
+    const summary = outcome.summary;
+    Alert.alert(
+      t(language, 'account.restore.title'),
+      t(language, 'account.restore.body', {
+        date: new Date(summary.exportedAt).toLocaleDateString(),
+        workouts: String(summary.workoutCount),
+        programs: String(summary.customProgramCount),
+      }),
+      [
+        {
+          text: t(language, 'account.restore.keepLocal'),
+          onPress: () => {
+            void accountBackup.resolveRestoreChoice('keep_local').then((ok) => {
+              showToast(t(language, ok ? 'account.backupDone' : 'account.backupFailed'));
+            });
+          },
+        },
+        {
+          text: t(language, 'account.restore.useBackup'),
+          style: 'destructive',
+          onPress: () => {
+            void accountBackup.resolveRestoreChoice('restore').then((ok) => {
+              if (ok) {
+                showToast(t(language, 'account.restore.restored'));
+              }
+            });
+          },
+        },
+      ],
+      // Dismissing would leave the pending choice dangling with no way back.
+      { cancelable: false },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accountBackup, preferences.appLanguage]);
 
   const handleSetupHandoffDone = async (choices: SetupHandoffChoices) => {
     const patch: Partial<AppPreferences> = { setupHandoffCompleted: true };
@@ -3754,6 +3831,11 @@ function VinhaApp() {
     // The system dialog last, so it is not racing a state write.
     if (choices.addWidget) {
       await requestPinHomeWidget();
+    }
+    // And sign-in after that: it opens its own sheet, and the reader asked for
+    // it — a cancel there is a change of mind, not an error.
+    if (choices.signInForBackup) {
+      await handleAccountSignIn();
     }
   };
 
@@ -5153,7 +5235,7 @@ function VinhaApp() {
             : null
         }
         onDone={(choices) => void handleSetupHandoffDone(choices)}
-        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false, pinBodyweightCard: false })}
+        onSkip={() => void handleSetupHandoffDone({ addWidget: false, pinTrackingCard: false, pinBodyweightCard: false, signInForBackup: false })}
       />
     );
   } else if (route.tab === 'profile' && route.screen === 'setup') {
@@ -6197,6 +6279,43 @@ function VinhaApp() {
         onOpenFeatures={() => navigate({ tab: 'profile', screen: 'features' })}
         onOpenDesignDemo={() => navigate({ tab: 'profile', screen: 'design_demo' })}
         onOpenAiInfo={() => navigate({ tab: 'profile', screen: 'ai_transparency' })}
+        account={
+          accountBackup.available
+            ? {
+                signedIn: accountBackup.state.status === 'signed_in',
+                email: accountBackup.state.email,
+                lastBackupAt: accountBackup.state.lastBackupAt,
+                busy: accountBackup.phase !== 'idle',
+                onSignIn: () => void handleAccountSignIn(),
+                onBackupNow: () => {
+                  void accountBackup.backupNow().then((ok) => {
+                    showToast(t(preferences.appLanguage, ok ? 'account.backupDone' : 'account.backupFailed'));
+                  });
+                },
+                onSignOut: () => void accountBackup.signOut(),
+                onDeleteRemote: () => {
+                  Alert.alert(
+                    t(preferences.appLanguage, 'account.deleteRemote'),
+                    t(preferences.appLanguage, 'account.deleteRemote.sub'),
+                    [
+                      { text: t(preferences.appLanguage, 'common.cancel'), style: 'cancel' },
+                      {
+                        text: t(preferences.appLanguage, 'account.deleteRemote'),
+                        style: 'destructive',
+                        onPress: () => {
+                          void accountBackup.deleteRemoteBackup().then((ok) => {
+                            if (ok) {
+                              showToast(t(preferences.appLanguage, 'account.deleteRemote.done'));
+                            }
+                          });
+                        },
+                      },
+                    ],
+                  );
+                },
+              }
+            : null
+        }
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
         onResetAllData={async () => {
           await resetAllData();

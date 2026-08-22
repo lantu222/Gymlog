@@ -137,4 +137,39 @@ module.exports = [
       assert.match(i18n, /'handoff\.titleOne': 'Yksi asia ennen kuin aloitat'/);
     },
   },
+  {
+    name: 'the sign-in card is an offer beside the door, never in it',
+    run() {
+      // Decision 2026-08-22: real Google sign-in, offered on the hand-off
+      // screen for free and Pro alike — and only when this build can actually
+      // sign someone in. A build without the OAuth client shows nothing.
+      const offered = planSetupHandoff({
+        canOfferWidget: false,
+        pinnedCardKeys: ['bodyweight', 'hips'],
+        focusAreas: ['glutes'],
+        canOfferAccountBackup: true,
+      });
+      assert.equal(offered.offerAccountBackup, true);
+      // Even when every other offer is exhausted, the sign-in card alone
+      // keeps the step alive...
+      assert.equal(offered.shouldShow, true);
+      assert.equal(countSetupHandoffOffers(offered), 1);
+
+      // ...and without it, the same exhausted plan hides the step entirely —
+      // a signed-in reader re-running onboarding sees no dead card.
+      const hidden = planSetupHandoff({
+        canOfferWidget: false,
+        pinnedCardKeys: ['bodyweight', 'hips'],
+        focusAreas: ['glutes'],
+        canOfferAccountBackup: false,
+      });
+      assert.equal(hidden.offerAccountBackup, false);
+      assert.equal(hidden.shouldShow, false);
+
+      // The copy exists in both languages and says the word that matters.
+      const i18n = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'lib', 'i18n.ts'), 'utf8');
+      assert.match(i18n, /'handoff\.account\.body': '[^']*Optional/);
+      assert.match(i18n, /'handoff\.account\.body': '[^']*Vapaaehtoinen/);
+    },
+  },
 ];

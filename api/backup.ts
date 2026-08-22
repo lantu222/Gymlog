@@ -1,0 +1,178 @@
+/**
+ * Cloud backup endpoint: one JSON blob per Google account.
+ *
+ * Identity is a Google ID token, verified against Google's tokeninfo endpoint
+ * on every request — this function keeps no session state, exactly like the
+ * coach endpoint keeps none. The blob pathname is an HMAC of the Google
+ * subject with a server secret, so the storage URL is deterministic for the
+ * server and unguessable for anyone else; the URL itself never leaves this
+ * function.
+ *
+ * What this endpoint never does: log payloads, list users, or accept a write
+ * without a verified token. The payload cap is a spend and abuse control the
+ * same way the coach's request bounds are.
+ *
+ * Env (see docs/account-backup.md):
+ * - GOOGLE_WEB_CLIENT_ID   — the OAuth Web client id; token audience must match
+ * - BLOB_READ_WRITE_TOKEN  — provided by Vercel Blob automatically
+ * - BACKUP_PATH_SECRET     — any long random string; changing it orphans stored backups
+ * - BACKUP_MAX_BYTES       — optional payload cap, default 2 MB
+ */
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import { del, head, put } from '@vercel/blob';
+
+type ApiRequest = {
+  method?: string;
+  headers: Record<string, string | string[] | undefined>;
+  body?: unknown;
+};
+
+type ApiResponse = {
+  status: (code: number) => ApiResponse;
+  json: (body: unknown) => void;
+  setHeader: (name: string, value: string) => void;
+  end: (body?: string) => void;
+};
+
+const MAX_BYTES = (() => {
+  const parsed = Number(process.env.BACKUP_MAX_BYTES);
+  // A zero, negative or unparseable value falls back rather than opening the
+  // tap — same rule as the coach budget.
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 2 * 1024 * 1024;
+})();
+
+const TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
+
+interface VerifiedIdentity {
+  sub: string;
+}
+
+/**
+ * Verifies the Google ID token and returns the stable subject, or null.
+ * Audience must be OUR web client id: any Google-signed token for some other
+ * app is somebody else's identity, not a key to a backup here.
+ */
+async function verifyGoogleIdToken(idToken: string, clientId: string): Promise<VerifiedIdentity | null> {
+  const response = await fetch(`${TOKENINFO_URL}?id_token=${encodeURIComponent(idToken)}`);
+  if (!response.ok) {
+    return null;
+  }
+  const info = (await response.json()) as { aud?: string; sub?: string; exp?: string };
+  if (!info.aud || !info.sub) {
+    return null;
+  }
+  const expected = Buffer.from(clientId);
+  const actual = Buffer.from(info.aud);
+  if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+    return null;
+  }
+  if (!info.exp || Number(info.exp) * 1000 < Date.now()) {
+    return null;
+  }
+  return { sub: info.sub };
+}
+
+/** Deterministic, unguessable pathname for one account's backup. */
+function backupPathname(sub: string, secret: string): string {
+  return `backups/${createHmac('sha256', secret).update(sub).digest('hex')}.json`;
+}
+
+function bearerToken(req: ApiRequest): string | null {
+  const header = req.headers.authorization;
+  const value = Array.isArray(header) ? header[0] : header;
+  if (!value || !value.startsWith('Bearer ')) {
+    return null;
+  }
+  const token = value.slice('Bearer '.length).trim();
+  return token.length > 0 ? token : null;
+}
+
+export default async function handler(req: ApiRequest, res: ApiResponse) {
+  const clientId = process.env.GOOGLE_WEB_CLIENT_ID;
+  const pathSecret = process.env.BACKUP_PATH_SECRET;
+  if (!clientId || !pathSecret) {
+    res.status(500).json({ ok: false, error: 'MISSING_SERVER_CONFIG' });
+    return;
+  }
+
+  const token = bearerToken(req);
+  if (!token) {
+    res.status(401).json({ ok: false, error: 'MISSING_TOKEN' });
+    return;
+  }
+
+  let identity: VerifiedIdentity | null = null;
+  try {
+    identity = await verifyGoogleIdToken(token, clientId);
+  } catch {
+    identity = null;
+  }
+  if (!identity) {
+    res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
+    return;
+  }
+
+  const pathname = backupPathname(identity.sub, pathSecret);
+
+  try {
+    if (req.method === 'PUT' || req.method === 'POST') {
+      const body = typeof req.body === 'string' ? req.body : JSON.stringify(req.body ?? null);
+      if (!body || body === 'null') {
+        res.status(400).json({ ok: false, error: 'EMPTY_PAYLOAD' });
+        return;
+      }
+      if (Buffer.byteLength(body, 'utf8') > MAX_BYTES) {
+        res.status(413).json({ ok: false, error: 'PAYLOAD_TOO_LARGE', maxBytes: MAX_BYTES });
+        return;
+      }
+      await put(pathname, body, {
+        access: 'public',
+        contentType: 'application/json',
+        addRandomSuffix: false,
+        allowOverwrite: true,
+        cacheControlMaxAge: 0,
+      });
+      // Success is reported only after the store accepted the write — the
+      // same rule the app applies to saved workouts.
+      res.status(200).json({ ok: true, savedAt: new Date().toISOString() });
+      return;
+    }
+
+    if (req.method === 'GET') {
+      let blobUrl: string;
+      try {
+        const meta = await head(pathname);
+        blobUrl = meta.url;
+      } catch {
+        res.status(404).json({ ok: false, error: 'NO_BACKUP' });
+        return;
+      }
+      const stored = await fetch(blobUrl, { cache: 'no-store' });
+      if (!stored.ok) {
+        res.status(404).json({ ok: false, error: 'NO_BACKUP' });
+        return;
+      }
+      const payload = await stored.text();
+      res.setHeader('content-type', 'application/json');
+      res.status(200).end(JSON.stringify({ ok: true, payload: JSON.parse(payload) }));
+      return;
+    }
+
+    if (req.method === 'DELETE') {
+      try {
+        const meta = await head(pathname);
+        await del(meta.url);
+      } catch {
+        // Already gone is the outcome the caller asked for.
+      }
+      res.status(200).json({ ok: true });
+      return;
+    }
+
+    res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
+  } catch {
+    // No payloads, no token contents — a storage failure is reported as a
+    // plain code, and the app keeps its local copy either way.
+    res.status(502).json({ ok: false, error: 'STORAGE_FAILED' });
+  }
+}

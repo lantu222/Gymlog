@@ -8,7 +8,7 @@ Mitä Vinha tallentaa, missä se pysyy ja mikä ei koskaan lähde puhelimestasi.
 
 Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.
 
-Jos poistat sovelluksen, tiedot katoavat puhelimesta. Ainoa kopio, joka voi olla muualla, on oman Google-tilisi Android-varmuuskopio, jos se on käytössä — meillä ei ole mitään.
+Jos poistat sovelluksen, tiedot katoavat puhelimesta. Muualla voi olla kaksi kopiota: oman Google-tilisi Android-varmuuskopio, jos se on käytössä, ja alla kuvattu vapaaehtoinen pilvivarmuuskopio — joka on olemassa vain jos valitsit kirjautumisen, ja jonka voit poistaa asetuksista milloin tahansa.
 
 ## Kuka vastaa
 
@@ -28,13 +28,15 @@ Kaikki alla oleva on joko sinun syöttämääsi tai sovelluksen laskemaa sinun s
 
 ## Missä tiedot ovat
 
-Sovelluksen paikallisessa tallennustilassa laitteellasi, kolmen avaimen alla — yksi treenilokille, yksi kesken olevalle treenille ja yksi pieni asetuksille. Niitä ei synkronoida meidän palvelimellemme, eikä meillä ole mitään keinoa lukea niitä etänä.
+Sovelluksen paikallisessa tallennustilassa laitteellasi, kolmen avaimen alla — yksi treenilokille, yksi kesken olevalle treenille ja yksi pieni asetuksille. Jos kirjaudut pilvivarmuuskopioon, neljäs pieni avain säilyttää tilitietosi (Google-tunniste, sähköposti, viimeisin varmuuskopiohetki). Alla kuvattua vapaaehtoista pilvivarmuuskopiota lukuun ottamatta mitään ei synkronoida meidän palvelimellemme, eikä meillä ole keinoa lukea laitettasi etänä.
 
 Jos sovellus joskus toteaa tallennuksen lukukelvottomaksi, se siirtää vaurioituneen kopion sivuun kolmannen avaimen alle sen sijaan että poistaisi sen, ja aloittaa uuden — rikkoutunut tiedosto ei ole sama asia kuin menetetty treeniloki. Kopio pysyy laitteellasi kuten kaikki muukin, ja sovelluksen tietojen poistaminen poistaa myös sen.
 
-Androidin varmuuskopiointi on tälle sovellukselle päällä. Se tarkoittaa, että laitteesi voi kopioida Vinhan paikallisen datan — treenilokin, paino- ja mittamerkinnät, ohjelmat ja asetukset — oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Vinhalla ei ole palvelinta eikä synkronointia, joten tämä varmuuskopio on ainoa tapa jolla historiasi selviää laitteen vaihdosta.
+Androidin varmuuskopiointi on tälle sovellukselle päällä. Se tarkoittaa, että laitteesi voi kopioida Vinhan paikallisen datan — treenilokin, paino- ja mittamerkinnät, ohjelmat ja asetukset — oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Ellet kirjaudu alla kuvattuun vapaaehtoiseen pilvivarmuuskopioon, tämä on ainoa tapa jolla historiasi selviää laitteen vaihdosta.
 
 Se kopio on sinun ja Googlen välinen. Me emme näe sitä emmekä voi lukea sitä, eikä mitään lähetetä millekään meidän palvelimellemme. Google salaa sen, ja nykyisissä Android-versioissa avain on sidottu laitteesi PIN-koodiin. Voit kytkeä sen pois milloin tahansa Androidin asetuksista kohdasta Google → Varmuuskopiointi, ja Vinha toimii täsmälleen samalla tavalla.
+
+Pilvivarmuuskopio (vapaaehtoinen): jos sovellus tarjoaa kirjautumisen ja kirjaudut Googlella, sama treenidata lähetetään salattua yhteyttä pitkin varmuuskopiopalvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita — kaikki toimii ilman sitä. Google-tilistäsi saamme ja säilytämme vain sen tunnisteen ja sähköpostiosoitteen, joita käytetään ainoastaan siihen että tiedämme mikä varmuuskopio on sinun; varmuuskopiota ei käytetä mihinkään muuhun kuin sen palauttamiseen sinulle. Voit poistaa pilvikopion milloin tahansa asetuksista (”Poista pilvivarmuuskopio”).
 
 Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → nollaus, tai sovelluksen poistaminen.
 
@@ -67,7 +69,7 @@ Jos ostat Pron, maksun hoitaa kokonaan Google Play. Emme näe korttinumeroasi, l
 
 ## Oikeutesi
 
-GDPR antaa sinulle oikeuden nähdä tietosi, korjata ne, poistaa ne ja ottaa ne mukaasi. Koska tietosi ovat laitteellasi, käytät näitä oikeuksia suoraan ilman että kysyt meiltä:
+GDPR antaa sinulle oikeuden nähdä tietosi, korjata ne, poistaa ne ja ottaa ne mukaasi. Koska tietosi ovat laitteellasi, käytät näitä oikeuksia suoraan ilman että kysyt meiltä — ja jos kirjauduit pilvivarmuuskopioon, myös sen yhden palvelinkopion poistat itse: Asetukset → Poista pilvivarmuuskopio:
 
 - Näe ne: Asetukset → Omat tiedot näyttää mitä on tallennettu.
 - Korjaa ne: muokkaa profiiliasi tai mitä tahansa kirjattua treeniä.

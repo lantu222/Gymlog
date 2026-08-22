@@ -13,6 +13,8 @@ export interface SetupHandoffChoices {
   addWidget: boolean;
   pinTrackingCard: boolean;
   pinBodyweightCard: boolean;
+  /** Start Google sign-in after the other choices land. Free and Pro alike. */
+  signInForBackup: boolean;
 }
 
 interface SetupHandoffScreenProps {
@@ -52,6 +54,10 @@ export function SetupHandoffScreen({
   // Off by default: the focus card is the one the questionnaire earned; this
   // one is offered, not assumed.
   const [pinBodyweightCard, setPinBodyweightCard] = useState(false);
+  // Also off by default, and for a stronger reason: an account is a bigger
+  // ask than a widget, and the decision (2026-08-22) is that sign-in stands
+  // beside the door, never in it.
+  const [signInForBackup, setSignInForBackup] = useState(false);
 
   const trackingBody = useMemo(() => {
     if (!plan.tracking) {
@@ -105,6 +111,16 @@ export function SetupHandoffScreen({
         />
       ) : null}
 
+      {plan.offerAccountBackup ? (
+        <OfferRow
+          icon="profile"
+          title={t(language, 'handoff.account.title')}
+          body={t(language, 'handoff.account.body')}
+          selected={signInForBackup}
+          onToggle={() => setSignInForBackup((current) => !current)}
+        />
+      ) : null}
+
       {/* No "Not now" (user, 2026-08-19): every row is its own on/off, so
           Done with everything off already is "not now", and a second exit under
           the first was a choice that did not exist. */}
@@ -118,6 +134,7 @@ export function SetupHandoffScreen({
             addWidget: plan.offerWidget && addWidget,
             pinTrackingCard: plan.tracking !== null && pinTrackingCard,
             pinBodyweightCard: plan.offerBodyweight && pinBodyweightCard,
+            signInForBackup: plan.offerAccountBackup && signInForBackup,
           })
         }
       />
@@ -132,7 +149,7 @@ function OfferRow({
   selected,
   onToggle,
 }: {
-  icon: 'clock' | 'progress' | 'scale';
+  icon: 'clock' | 'progress' | 'scale' | 'profile';
   title: string;
   body: string;
   selected: boolean;

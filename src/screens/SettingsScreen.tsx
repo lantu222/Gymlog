@@ -49,6 +49,20 @@ interface SettingsScreenProps {
   onOpenAiInfo: () => void;
   onOpenLegal: (document: 'privacy' | 'terms') => void;
   onResetAllData: () => void;
+  /**
+   * Null in builds without a configured sign-in — the rows are hidden rather
+   * than shown as buttons that would do nothing. Free and Pro alike.
+   */
+  account?: {
+    signedIn: boolean;
+    email: string | null;
+    lastBackupAt: string | null;
+    busy: boolean;
+    onSignIn: () => void;
+    onBackupNow: () => void;
+    onSignOut: () => void;
+    onDeleteRemote: () => void;
+  } | null;
 }
 
 const RED = '#C0392B';
@@ -149,6 +163,23 @@ function Seg<T extends string>({
 }
 
 /** Prototype Row: 13px/15px padding, 36 tile r11, hairline divider inside a Card. */
+/**
+ * The backup row's one-line status: who is signed in, and when the cloud copy
+ * was last written — or that it never has been, which is the honest default.
+ */
+function accountStatusLabel(
+  account: { email: string | null; lastBackupAt: string | null },
+  language: AppLanguage,
+): string {
+  const identity = account.email
+    ? t(language, 'account.signedInAs', { email: account.email })
+    : null;
+  const backup = account.lastBackupAt
+    ? t(language, 'account.lastBackup', { time: new Date(account.lastBackupAt).toLocaleDateString() })
+    : t(language, 'account.noBackupYet');
+  return identity ? `${identity} · ${backup}` : backup;
+}
+
 function Row({
   icon,
   iconColor,
@@ -231,6 +262,7 @@ export function SettingsScreen({
   onOpenAiInfo,
   onOpenLegal,
   onResetAllData,
+  account,
   onCreateDemoProgram,
 }: SettingsScreenProps) {
   const theme = useTheme();
@@ -418,6 +450,42 @@ export function SettingsScreen({
         <View style={styles.section}>
           <SectionLabel label={t(language, 'settings.section.yourData')} />
           <View style={styles.card}>
+            {/* Sign in and the data survives a new phone. Hidden when the build
+                has no sign-in configured; free and Pro alike (2026-08-22). */}
+            {account && !account.signedIn ? (
+              <Row
+                icon="shield"
+                title={t(language, 'account.signIn')}
+                sub={t(language, 'account.signIn.sub')}
+                chevron
+                onPress={account.busy ? undefined : account.onSignIn}
+              />
+            ) : null}
+            {account && account.signedIn ? (
+              <>
+                <Row
+                  icon="shield"
+                  title={t(language, 'account.backupNow')}
+                  sub={accountStatusLabel(account, language)}
+                  chevron
+                  onPress={account.busy ? undefined : account.onBackupNow}
+                />
+                <Row
+                  icon="trash"
+                  title={t(language, 'account.deleteRemote')}
+                  sub={t(language, 'account.deleteRemote.sub')}
+                  chevron
+                  onPress={account.busy ? undefined : account.onDeleteRemote}
+                />
+                <Row
+                  icon="body"
+                  title={t(language, 'account.signOut')}
+                  sub={t(language, 'account.signOut.sub')}
+                  chevron
+                  onPress={account.busy ? undefined : account.onSignOut}
+                />
+              </>
+            ) : null}
             <Row
               icon="upload"
               title={t(language, 'settings.importCsv')}

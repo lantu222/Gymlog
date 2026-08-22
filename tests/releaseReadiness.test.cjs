@@ -328,6 +328,45 @@ module.exports = [
     },
   },
   {
+    name: 'release: the sign-in backup keeps the promises the privacy policy makes',
+    run() {
+      // The privacy policy spent a year saying "no backend, no sync". Cloud
+      // backup makes that conditional, and the policy has to say so in both
+      // languages BEFORE a build with sign-in reaches anyone — the app.json
+      // plugin is what makes such a build possible, so it is the trigger.
+      const plugins = JSON.stringify(readJson('app.json')?.expo?.plugins ?? []);
+      if (plugins.includes('@react-native-google-signin/google-signin')) {
+        const legal = read('src/lib/legalDocuments.ts');
+        assert.match(
+          legal,
+          /Cloud backup \(optional\)/,
+          'app.json ships Google sign-in but the English privacy policy does not describe the cloud backup',
+        );
+        assert.match(
+          legal,
+          /Pilvivarmuuskopio \(vapaaehtoinen\)/,
+          'app.json ships Google sign-in but the Finnish privacy policy does not describe the cloud backup',
+        );
+      }
+
+      // And the endpoint must never trust a token without checking WHOSE
+      // token it is: audience verification is what separates "a Google user"
+      // from "a Google user of this app".
+      const endpoint = read('api/backup.ts');
+      assert.match(endpoint, /tokeninfo/, 'api/backup.ts must verify tokens against Google tokeninfo');
+      assert.match(
+        endpoint,
+        /GOOGLE_WEB_CLIENT_ID/,
+        'api/backup.ts must compare the token audience to GOOGLE_WEB_CLIENT_ID',
+      );
+      assert.doesNotMatch(
+        endpoint,
+        /console\.log/,
+        'the backup endpoint must not log — payloads are training histories',
+      );
+    },
+  },
+  {
     name: 'release: live AI cannot ship before the spend cap is confirmed',
     run() {
       // The endpoint's request bounds and per-instance budget are brakes; the

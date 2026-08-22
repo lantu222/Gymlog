@@ -6,10 +6,12 @@ import { AppLanguage } from '../types/models';
  * Two rules govern this file:
  *
  * 1. Every factual claim here is checked against the code. The app has exactly
- *    one outbound request (src/lib/aiCoachClient.ts, and only when
- *    EXPO_PUBLIC_AI_COACH_API_URL is set), two AsyncStorage keys, no analytics,
- *    no accounts and no ad SDKs. If that ever changes, this file changes in the
- *    same commit — tests/lib/legalDocuments.test.cjs fails otherwise.
+ *    two outbound request sites (src/lib/aiCoachClient.ts when
+ *    EXPO_PUBLIC_AI_COACH_API_URL is set, and src/features/account/backupApi.ts
+ *    when the reader signs in for the optional cloud backup), no analytics and
+ *    no ad SDKs. The only account is the optional Google sign-in that keys the
+ *    backup. If any of that changes, this file changes in the same commit —
+ *    tests/lib/legalDocuments.test.cjs fails otherwise.
  *
  * 2. The prose lives here rather than in i18n.ts on purpose. These are ~120
  *    paragraph-length strings that are read as whole documents, never
@@ -74,7 +76,7 @@ const PRIVACY_EN: LegalSection[] = [
     heading: 'The short version',
     body: [
       'Vinha keeps your training data on your phone. There is no behavioural analytics and no tracking. We do not see your workouts, and we cannot — nothing is uploaded unless you turn on the AI coach in its online mode, and even then only training numbers are sent, never your identity.',
-      'If you uninstall the app, that data is gone from the phone. The only copy that can exist elsewhere is the one your own Google account keeps in Android backup, if you have that turned on — we hold none.',
+      'If you uninstall the app, that data is gone from the phone. The only copies that can exist elsewhere are the one your own Google account keeps in Android backup, if you have that turned on, and the optional cloud backup described below — which exists only if you chose to sign in, and which you can delete from Settings at any time.',
     ],
   },
   {
@@ -100,10 +102,11 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Where it is stored',
     body: [
-      'In the app’s local storage on your device, under three keys — one for your training log, one for the workout you have in progress, and one small one for your settings. It is not synced to a server we run, and we have no way to read it remotely.',
+      'In the app’s local storage on your device, under three keys — one for your training log, one for the workout you have in progress, and one small one for your settings. If you sign in for cloud backup, a fourth small key holds your account identity (Google id, email, last backup time). Apart from the optional cloud backup below, nothing is synced to a server we run, and we have no way to read your device remotely.',
       'If the app ever finds that storage unreadable, it moves the damaged copy aside under a third key instead of deleting it, and starts a fresh one — so a broken file is not the same thing as a lost training log. That copy stays on your device like everything else, and erasing the app’s data removes it too.',
-      'Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Vinha has no backend and no sync, so this backup is the only way your history survives changing devices.',
+      'Android backup is switched on for this app. That means your device can copy Vinha’s local data — your training log, bodyweight and measurement entries, programmes and settings — into the backup of your own Google account, so a new phone can restore it. Unless you sign in for the optional cloud backup below, this is the only way your history survives changing devices.',
       'That copy is between you and Google. We never see it, we cannot read it, and nothing is sent to any server we run. Google encrypts it, and on current Android versions the key is tied to your device PIN. You can switch it off at any time in Android settings under Google → Backup, and Vinha keeps working exactly the same.',
+      'Cloud backup (optional): if the app offers sign-in and you sign in with Google, a copy of the same training data is sent over an encrypted connection to our backup endpoint and stored there, so a new phone can restore it after you sign in again. Signing in is never required — every feature works without it. From your Google account we receive and keep only its identifier and email address, used solely to know which backup is yours; the backup is never used for anything except giving it back to you. Delete the cloud copy at any time in Settings (“Delete cloud backup”), or by signing out and asking us to remove it.',
       'Deleting the data is immediate and total: Settings → My data → reset, or uninstalling the app.',
     ],
   },
@@ -142,7 +145,7 @@ const PRIVACY_EN: LegalSection[] = [
   {
     heading: 'Your rights',
     body: [
-      'Under the GDPR you have the right to access your data, correct it, delete it, and take it with you. Because your data lives on your device, you exercise these rights directly and without asking us:',
+      'Under the GDPR you have the right to access your data, correct it, delete it, and take it with you. Because your data lives on your device, you exercise these rights directly and without asking us — and if you signed in for cloud backup, the one server copy is deleted by you too, from Settings → Delete cloud backup:',
     ],
     bullets: [
       'See it: Settings → My data shows what is stored.',
@@ -170,7 +173,7 @@ const PRIVACY_FI: LegalSection[] = [
     heading: 'Lyhyesti',
     body: [
       'Vinha pitää treenitietosi puhelimessasi. Ei käyttäytymisanalytiikkaa eikä seurantaa. Emme näe treenejäsi emmekä voi nähdä — mitään ei lähetetä mihinkään, ellet ota AI-valmentajaa käyttöön verkkotilassa, ja silloinkin lähtee vain treeninumeroita, ei henkilöllisyyttäsi.',
-      'Jos poistat sovelluksen, tiedot katoavat puhelimesta. Ainoa kopio, joka voi olla muualla, on oman Google-tilisi Android-varmuuskopio, jos se on käytössä — meillä ei ole mitään.',
+      'Jos poistat sovelluksen, tiedot katoavat puhelimesta. Muualla voi olla kaksi kopiota: oman Google-tilisi Android-varmuuskopio, jos se on käytössä, ja alla kuvattu vapaaehtoinen pilvivarmuuskopio — joka on olemassa vain jos valitsit kirjautumisen, ja jonka voit poistaa asetuksista milloin tahansa.',
     ],
   },
   {
@@ -196,10 +199,11 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Missä tiedot ovat',
     body: [
-      'Sovelluksen paikallisessa tallennustilassa laitteellasi, kolmen avaimen alla — yksi treenilokille, yksi kesken olevalle treenille ja yksi pieni asetuksille. Niitä ei synkronoida meidän palvelimellemme, eikä meillä ole mitään keinoa lukea niitä etänä.',
+      'Sovelluksen paikallisessa tallennustilassa laitteellasi, kolmen avaimen alla — yksi treenilokille, yksi kesken olevalle treenille ja yksi pieni asetuksille. Jos kirjaudut pilvivarmuuskopioon, neljäs pieni avain säilyttää tilitietosi (Google-tunniste, sähköposti, viimeisin varmuuskopiohetki). Alla kuvattua vapaaehtoista pilvivarmuuskopiota lukuun ottamatta mitään ei synkronoida meidän palvelimellemme, eikä meillä ole keinoa lukea laitettasi etänä.',
       'Jos sovellus joskus toteaa tallennuksen lukukelvottomaksi, se siirtää vaurioituneen kopion sivuun kolmannen avaimen alle sen sijaan että poistaisi sen, ja aloittaa uuden — rikkoutunut tiedosto ei ole sama asia kuin menetetty treeniloki. Kopio pysyy laitteellasi kuten kaikki muukin, ja sovelluksen tietojen poistaminen poistaa myös sen.',
-      'Androidin varmuuskopiointi on tälle sovellukselle päällä. Se tarkoittaa, että laitteesi voi kopioida Vinhan paikallisen datan — treenilokin, paino- ja mittamerkinnät, ohjelmat ja asetukset — oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Vinhalla ei ole palvelinta eikä synkronointia, joten tämä varmuuskopio on ainoa tapa jolla historiasi selviää laitteen vaihdosta.',
+      'Androidin varmuuskopiointi on tälle sovellukselle päällä. Se tarkoittaa, että laitteesi voi kopioida Vinhan paikallisen datan — treenilokin, paino- ja mittamerkinnät, ohjelmat ja asetukset — oman Google-tilisi varmuuskopioon, jotta uusi puhelin voi palauttaa ne. Ellet kirjaudu alla kuvattuun vapaaehtoiseen pilvivarmuuskopioon, tämä on ainoa tapa jolla historiasi selviää laitteen vaihdosta.',
       'Se kopio on sinun ja Googlen välinen. Me emme näe sitä emmekä voi lukea sitä, eikä mitään lähetetä millekään meidän palvelimellemme. Google salaa sen, ja nykyisissä Android-versioissa avain on sidottu laitteesi PIN-koodiin. Voit kytkeä sen pois milloin tahansa Androidin asetuksista kohdasta Google → Varmuuskopiointi, ja Vinha toimii täsmälleen samalla tavalla.',
+      'Pilvivarmuuskopio (vapaaehtoinen): jos sovellus tarjoaa kirjautumisen ja kirjaudut Googlella, sama treenidata lähetetään salattua yhteyttä pitkin varmuuskopiopalvelimellemme ja säilytetään siellä, jotta uusi puhelin voi palauttaa sen kun kirjaudut uudelleen. Kirjautumista ei koskaan vaadita — kaikki toimii ilman sitä. Google-tilistäsi saamme ja säilytämme vain sen tunnisteen ja sähköpostiosoitteen, joita käytetään ainoastaan siihen että tiedämme mikä varmuuskopio on sinun; varmuuskopiota ei käytetä mihinkään muuhun kuin sen palauttamiseen sinulle. Voit poistaa pilvikopion milloin tahansa asetuksista (”Poista pilvivarmuuskopio”).',
       'Tietojen poisto on välitön ja täydellinen: Asetukset → Omat tiedot → nollaus, tai sovelluksen poistaminen.',
     ],
   },
@@ -238,7 +242,7 @@ const PRIVACY_FI: LegalSection[] = [
   {
     heading: 'Oikeutesi',
     body: [
-      'GDPR antaa sinulle oikeuden nähdä tietosi, korjata ne, poistaa ne ja ottaa ne mukaasi. Koska tietosi ovat laitteellasi, käytät näitä oikeuksia suoraan ilman että kysyt meiltä:',
+      'GDPR antaa sinulle oikeuden nähdä tietosi, korjata ne, poistaa ne ja ottaa ne mukaasi. Koska tietosi ovat laitteellasi, käytät näitä oikeuksia suoraan ilman että kysyt meiltä — ja jos kirjauduit pilvivarmuuskopioon, myös sen yhden palvelinkopion poistat itse: Asetukset → Poista pilvivarmuuskopio:',
     ],
     bullets: [
       'Näe ne: Asetukset → Omat tiedot näyttää mitä on tallennettu.',

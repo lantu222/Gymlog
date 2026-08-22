@@ -3,7 +3,7 @@ import React, { createContext, useContext, useEffect, useMemo, useReducer, useRe
 import { CardioActivityType, UnitPreference } from '../../types/models';
 import { ActiveCardioSession } from '../../lib/cardio';
 import { CORE_WORKOUT_TEMPLATE_ID, WORKOUT_TEMPLATES_V1, getWorkoutTemplateById, getWorkoutTemplateSessions } from './workoutCatalog';
-import { loadWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
+import { loadWorkoutBundle, normalizeWorkoutBundle, saveWorkoutBundle } from './workoutPersistence';
 import { GuidedResumeAnchor, WorkoutExerciseInsertInput, WorkoutHistoryStore, WorkoutPersistenceBundle, WorkoutProgressionOptions, WorkoutRuntimeTemplate, WorkoutSessionRuntime, WorkoutSetEffort } from './workoutTypes';
 import {
   WorkoutFeatureState,
@@ -64,6 +64,13 @@ interface WorkoutContextValue {
   resumeCardio: () => void;
   clearCardio: () => void;
   tick: () => void;
+  /**
+   * Replaces the workout history with a cloud backup, through the same
+   * normalizer the stored bundle goes through on load. The active session is
+   * deliberately dropped: a backup restore is a new phone or an explicit
+   * replace, not a place to resurrect a workout from another device.
+   */
+  restoreHistoryFromBackup: (history: unknown) => void;
 }
 
 const WorkoutContext = createContext<WorkoutContextValue | null>(null);
@@ -268,6 +275,10 @@ export function WorkoutProvider({ children }: React.PropsWithChildren) {
       },
       tick() {
         dispatch({ type: 'session/tick', payload: { nowMs: Date.now() } });
+      },
+      restoreHistoryFromBackup(history) {
+        const bundle = normalizeWorkoutBundle({ activeSession: null, history, activeCardio: null });
+        dispatch({ type: 'session/hydrate', payload: bundle });
       },
     }),
     [completionSummary, state],

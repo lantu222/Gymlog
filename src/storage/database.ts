@@ -227,7 +227,7 @@ function boolOr(value: unknown, fallbackValue: boolean): boolean {
   return typeof value === 'boolean' ? value : fallbackValue;
 }
 
-function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppDatabase {
+export function normalizeDatabase(input: Partial<AppDatabase> | null | undefined): AppDatabase {
   // Defaults for missing fields only. The empty database is the right source:
   // the demo seed's fabricated plan id would otherwise become the fallback for
   // a stored database that had no activePlanId of its own.
