@@ -59,6 +59,7 @@ import { parseWidgetDeepLink } from './src/lib/widgetDeepLink';
 import { planSetupHandoff } from './src/lib/setupHandoff';
 import { SetupHandoffChoices, SetupHandoffScreen } from './src/screens/SetupHandoffScreen';
 import { useAccountBackup } from './src/features/account/useAccountBackup';
+import { hasLocalDataWorthKeeping } from './src/lib/accountBackup';
 import { selectHomeCustomProgram } from './src/lib/homeProgramSelection';
 import { selectHomePrimaryAction } from './src/lib/homePrimaryAction';
 import { getReadyTemplatePresentation } from './src/lib/templatePresentation';
@@ -3757,23 +3758,23 @@ function VinhaApp() {
     const outcome = await accountBackup.signIn();
     if (outcome.kind === 'backed_up') {
       showToast(t(language, 'account.backupDone'));
-      return;
+      return outcome.kind;
     }
     if (outcome.kind === 'restored') {
       showToast(t(language, 'account.restore.restored'));
-      return;
+      return outcome.kind;
     }
     if (outcome.kind === 'failed') {
       showToast(t(language, 'account.signInFailed'));
-      return;
+      return outcome.kind;
     }
     if (outcome.kind === 'unavailable') {
       showToast(t(language, 'account.signInUnavailable'));
-      return;
+      return outcome.kind;
     }
     if (outcome.kind !== 'choice') {
       // Cancelled: the reader changed their mind, and that is not an error.
-      return;
+      return outcome.kind;
     }
     const summary = outcome.summary;
     Alert.alert(
@@ -3807,6 +3808,7 @@ function VinhaApp() {
       // Dismissing would leave the pending choice dangling with no way back.
       { cancelable: false },
     );
+    return outcome.kind;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accountBackup, preferences.appLanguage]);
 
@@ -6621,6 +6623,28 @@ function VinhaApp() {
             ? {
                 onAdd: () => void handleAddHomeWidget(),
                 onDismiss: () => void updatePreferences({ homeWidgetPromptDismissed: true }),
+              }
+            : null
+        }
+        accountBackupPrompt={
+          // The one-time offer for installs that never see the hand-off card
+          // again. Signed out, never dismissed, and with logged work worth
+          // keeping — a fresh install gets the hand-off, not this.
+          accountBackup.available &&
+          accountBackup.state.status === 'signed_out' &&
+          !preferences.accountBackupPromptDismissed &&
+          hasLocalDataWorthKeeping(database)
+            ? {
+                onSignIn: () => {
+                  void handleAccountSignIn().then((kind) => {
+                    // An answered offer never returns; a cancelled sheet or a
+                    // failure leaves it up for another try or a real dismissal.
+                    if (kind === 'backed_up' || kind === 'restored' || kind === 'choice') {
+                      void updatePreferences({ accountBackupPromptDismissed: true });
+                    }
+                  });
+                },
+                onDismiss: () => void updatePreferences({ accountBackupPromptDismissed: true }),
               }
             : null
         }

@@ -1683,6 +1683,11 @@ const EN = {
   'account.restore.keepLocal': 'Keep this phone',
   'account.restore.keepLocal.sub': 'The cloud copy is replaced on the next backup',
   'account.restore.restored': 'Backup restored',
+  'account.prompt.title': 'Keep your training safe',
+  'account.prompt.body':
+    'Sign in with Google and your workouts survive a lost or new phone. Optional — everything works without it.',
+  'account.prompt.signIn': 'Sign in',
+  'account.prompt.dismiss': 'No thanks',
   'widget.prompt.title': 'Put your month on the home screen',
   'widget.prompt.body':
     'The widget shows the month you have trained and the days still ahead, without opening the app.',
@@ -5032,6 +5037,11 @@ const FI: Record<I18nKey, string> = {
   'account.restore.keepLocal': 'Pidä tämä puhelin',
   'account.restore.keepLocal.sub': 'Pilvikopio korvautuu seuraavassa varmuuskopiossa',
   'account.restore.restored': 'Varmuuskopio palautettu',
+  'account.prompt.title': 'Pidä treenisi tallessa',
+  'account.prompt.body':
+    'Kirjaudu Googlella, niin treenisi säilyvät vaikka puhelin katoaisi tai vaihtuisi. Vapaaehtoinen — kaikki toimii ilmankin.',
+  'account.prompt.signIn': 'Kirjaudu',
+  'account.prompt.dismiss': 'Ei kiitos',
   'widget.prompt.title': 'Ota kuukausi kotinäytölle',
   'widget.prompt.body':
     'Widget näyttää treenatun kuukauden ja edessä olevat päivät avaamatta sovellusta.',

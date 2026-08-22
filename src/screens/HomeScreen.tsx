@@ -269,6 +269,16 @@ interface HomeScreenProps {
    * pin one and the user has not answered yet — an offer that cannot be
    * fulfilled is worse than no offer.
    */
+  /**
+   * The one-time sign-in offer for installs that predate the hand-off card
+   * (decision 2026-08-22): shown to a signed-out reader with logged data,
+   * dismissed permanently by either button. Null once answered, signed in,
+   * or in builds without sign-in.
+   */
+  accountBackupPrompt?: {
+    onSignIn: () => void;
+    onDismiss: () => void;
+  } | null;
   widgetPrompt?: {
     onAdd: () => void;
     onDismiss: () => void;
@@ -332,6 +342,7 @@ export function HomeScreen({
   profileName = null,
   availableEquipment = null,
   greetingState = { totalSessions: 0, trainedToday: false, weekStreak: 0 },
+  accountBackupPrompt = null,
   widgetPrompt = null,
   sessionSwaps = {},
   onSwapSessionExercise,
@@ -1403,6 +1414,30 @@ export function HomeScreen({
                 style={({ pressed }) => [styles.widgetPromptCta, pressed && styles.pressed]}
               >
                 <Text style={styles.widgetPromptCtaText}>{t(language, 'widget.prompt.add')}</Text>
+              </Pressable>
+            </View>
+          </Animated.View>
+        ) : null}
+
+        {accountBackupPrompt ? (
+          <Animated.View style={[styles.widgetPromptCard, rise(RISE_EMPTY_ROW)]}>
+            <Text style={styles.widgetPromptTitle}>{t(language, 'account.prompt.title')}</Text>
+            <Text style={styles.widgetPromptBody}>{t(language, 'account.prompt.body')}</Text>
+            <View style={styles.widgetPromptActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={accountBackupPrompt.onDismiss}
+                hitSlop={8}
+                style={({ pressed }) => [styles.widgetPromptGhost, pressed && styles.pressed]}
+              >
+                <Text style={styles.widgetPromptGhostText}>{t(language, 'account.prompt.dismiss')}</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={accountBackupPrompt.onSignIn}
+                style={({ pressed }) => [styles.widgetPromptCta, pressed && styles.pressed]}
+              >
+                <Text style={styles.widgetPromptCtaText}>{t(language, 'account.prompt.signIn')}</Text>
               </Pressable>
             </View>
           </Animated.View>

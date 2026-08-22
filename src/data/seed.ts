@@ -53,6 +53,7 @@ const DEFAULT_PREFERENCES = {
   aiSetupCompleted: false,
   hasOpenedAppBefore: false,
   homeWidgetPromptDismissed: false,
+  accountBackupPromptDismissed: false,
   setupHandoffCompleted: false,
   entryFlowCompleted: false,
   trainingFirstRunDismissed: false,

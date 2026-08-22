@@ -358,6 +358,8 @@ export interface AppPreferences {
    * offer is shown once; Settings keeps a permanent entry for later.
    */
   homeWidgetPromptDismissed: boolean;
+  /** The Home sign-in offer asked once and was declined; it never returns. */
+  accountBackupPromptDismissed: boolean;
   /**
    * Whether the hand-off step after onboarding has had its turn. It offers the
    * widget and a tracking card once; a reader who ran onboarding again has

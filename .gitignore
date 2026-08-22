@@ -72,3 +72,5 @@ tmp-*
 
 # Local native modules: sources are tracked, Gradle output is not.
 modules/*/android/build/
+.vercel
+.env*
