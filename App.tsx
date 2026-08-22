@@ -6318,6 +6318,12 @@ function VinhaApp() {
         }
         onOpenLegal={(document) => navigate({ tab: 'profile', screen: 'legal', document })}
         onResetAllData={async () => {
+          // Sign out BEFORE wiping: reset while signed in would let the
+          // auto-backup push the freshly emptied database over the cloud
+          // copy — the reset would silently destroy the one safety net it
+          // is the safety net for. Signed out, the cloud copy survives and
+          // the next sign-in offers it back.
+          await accountBackup.signOut();
           await resetAllData();
           setCompletionSummary(null);
           setWorkoutCelebration(null);

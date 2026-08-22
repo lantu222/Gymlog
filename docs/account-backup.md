@@ -86,6 +86,8 @@ backed up.
 - Auto-backup after logged work changes (8 s debounce), only while signed in.
 - Backup success is only shown after the server accepted the write.
 - Sign-out keeps local data; "Delete cloud backup" removes the server copy.
+- "Reset all data" signs out FIRST, so the wipe cannot auto-backup an empty
+  database over the cloud copy — the reset stays recoverable by signing in.
 - The endpoint verifies the token audience on every request and never logs
   payloads (guarded in tests/releaseReadiness.test.cjs).
 - The privacy policy describes the feature in both languages; the release
