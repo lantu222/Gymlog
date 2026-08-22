@@ -5,8 +5,8 @@
  * on every request — this function keeps no session state, exactly like the
  * coach endpoint keeps none. The blob pathname is an HMAC of the Google
  * subject with a server secret, so the storage URL is deterministic for the
- * server and unguessable for anyone else; the URL itself never leaves this
- * function.
+ * server and unguessable for anyone else. The store is PRIVATE access: no
+ * blob URL is publicly fetchable, and nothing here returns one anyway.
  *
  * What this endpoint never does: log payloads, list users, or accept a write
  * without a verified token. The payload cap is a spend and abuse control the
@@ -20,7 +20,7 @@
  * - BACKUP_MAX_BYTES       — optional payload cap, default 2 MB
  */
 import { createHmac, timingSafeEqual } from 'node:crypto';
-import { del, head, put } from '@vercel/blob';
+import { del, get, put } from '@vercel/blob';
 
 type ApiRequest = {
   method?: string;
@@ -65,6 +65,9 @@ async function verifyGoogleIdToken(idToken: string, clientId: string): Promise<V
   const expected = Buffer.from(clientId);
   const actual = Buffer.from(info.aud);
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) {
+    // Client ids are public identifiers, so naming the prefixes is safe -
+    // it turns "sign-in silently fails" into "the env var has a typo".
+    console.error('backup aud mismatch:', info.aud.slice(0, 16), 'expected:', clientId.slice(0, 16));
     return null;
   }
   if (!info.exp || Number(info.exp) * 1000 < Date.now()) {
@@ -109,6 +112,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     identity = null;
   }
   if (!identity) {
+    console.error('backup INVALID_TOKEN');
     res.status(401).json({ ok: false, error: 'INVALID_TOKEN' });
     return;
   }
@@ -127,11 +131,10 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
         return;
       }
       await put(pathname, body, {
-        access: 'public',
+        access: 'private',
         contentType: 'application/json',
         addRandomSuffix: false,
         allowOverwrite: true,
-        cacheControlMaxAge: 0,
       });
       // Success is reported only after the store accepted the write — the
       // same rule the app applies to saved workouts.
@@ -140,20 +143,17 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
 
     if (req.method === 'GET') {
-      let blobUrl: string;
+      let stored;
       try {
-        const meta = await head(pathname);
-        blobUrl = meta.url;
+        stored = await get(pathname, { access: 'private', useCache: false });
       } catch {
+        stored = null;
+      }
+      if (!stored || stored.statusCode !== 200) {
         res.status(404).json({ ok: false, error: 'NO_BACKUP' });
         return;
       }
-      const stored = await fetch(blobUrl, { cache: 'no-store' });
-      if (!stored.ok) {
-        res.status(404).json({ ok: false, error: 'NO_BACKUP' });
-        return;
-      }
-      const payload = await stored.text();
+      const payload = await new Response(stored.stream).text();
       res.setHeader('content-type', 'application/json');
       res.status(200).end(JSON.stringify({ ok: true, payload: JSON.parse(payload) }));
       return;
@@ -161,8 +161,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
 
     if (req.method === 'DELETE') {
       try {
-        const meta = await head(pathname);
-        await del(meta.url);
+        await del(pathname);
       } catch {
         // Already gone is the outcome the caller asked for.
       }
@@ -171,9 +170,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
     }
 
     res.status(405).json({ ok: false, error: 'METHOD_NOT_ALLOWED' });
-  } catch {
+  } catch (error) {
     // No payloads, no token contents — a storage failure is reported as a
-    // plain code, and the app keeps its local copy either way.
+    // plain code plus the store's own message, which names auth and config
+    // problems without ever containing user data.
+    console.error('backup STORAGE_FAILED:', error instanceof Error ? error.message.slice(0, 200) : 'unknown');
     res.status(502).json({ ok: false, error: 'STORAGE_FAILED' });
   }
 }

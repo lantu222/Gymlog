@@ -51,7 +51,11 @@ export function AppShell({
         >
           <View style={styles.content}>{children}</View>
           {toastMessage ? (
-            <View style={styles.toast}>
+            // Above the tab bar, not behind it: the bar is an absolutely
+            // positioned floating pill, so a toast in normal flow rendered at
+            // the same bottom edge — the reader pressed "Back up now" and the
+            // confirmation landed underneath the pill, unreadable.
+            <View pointerEvents="none" style={[styles.toast, tabBar ? styles.toastAboveTabBar : null]}>
               <Text style={styles.toastText}>{toastMessage}</Text>
             </View>
           ) : null}
@@ -78,14 +82,22 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     flex: 1,
   },
   // A dark pill over light content, the ordinary snackbar shape — built from
-  // the palette rather than from the retired dark theme.
+  // the palette rather than from the retired dark theme. Absolutely positioned
+  // because the tab bar is too: flow order alone cannot keep it visible.
   toast: {
-    marginHorizontal: spacing.lg,
-    marginBottom: spacing.md,
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    bottom: spacing.md,
     borderRadius: radii.pill,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     backgroundColor: theme.ink,
+  },
+  // The floating pill is ~80px of bar plus its lift off the edge; the toast
+  // clears it with room for the shadow.
+  toastAboveTabBar: {
+    bottom: 108,
   },
   toastText: {
     color: '#FFFFFF',
