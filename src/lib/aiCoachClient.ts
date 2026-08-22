@@ -1,7 +1,13 @@
 import { buildAiCoachPreviewAnswer } from './aiCoachPreview';
+import { resolveLiveAiCoachUrl } from './aiCoachLiveGate';
 import { AICoachAdvice, AICoachAdviceError, AICoachAdviceRequest, AICoachAdviceSuccess } from '../types/aiCoach';
 
-const AI_COACH_API_URL = (process.env.EXPO_PUBLIC_AI_COACH_API_URL ?? '').trim();
+// Routed through the spend-cap gate: a release build only sees the URL after
+// a human has confirmed the Console usage limit (see aiCoachLiveGate.ts).
+const AI_COACH_API_URL = resolveLiveAiCoachUrl(
+  process.env.EXPO_PUBLIC_AI_COACH_API_URL,
+  process.env.NODE_ENV !== 'production',
+);
 const REQUEST_TIMEOUT_MS = 12000;
 
 export interface RequestAiCoachAdviceResult {

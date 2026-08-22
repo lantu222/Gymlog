@@ -171,6 +171,7 @@ const suites = [
   ...require('./lib/historyWindow.test.cjs'),
   ...require('./lib/workoutLogCsvExport.test.cjs'),
   ...require('./lib/aiCoachBudget.test.cjs'),
+  ...require('./lib/aiCoachLiveGate.test.cjs'),
   ...require('./lib/aiCoachEval.test.cjs'),
   ...require('./api/aiCoachEndpoint.test.cjs'),
   ...require('./lib/aiCoachModules.test.cjs'),

@@ -327,4 +327,53 @@ module.exports = [
       );
     },
   },
+  {
+    name: 'release: live AI cannot ship before the spend cap is confirmed',
+    run() {
+      // The endpoint's request bounds and per-instance budget are brakes; the
+      // only real ceiling on the bill is the usage limit set by hand in the
+      // Anthropic Console. No test can see the Console, so the repo carries a
+      // signature instead: AI_LIVE_SPEND_CAP_CONFIRMED in aiCoachLiveGate.ts.
+      // While it is false, a release build ignores the live URL entirely —
+      // which is only true as long as the client stays routed through the gate.
+      const gate = read('src/lib/aiCoachLiveGate.ts');
+      const flagMatch = gate.match(/export const AI_LIVE_SPEND_CAP_CONFIRMED = (true|false);/);
+      assert.ok(
+        flagMatch,
+        'aiCoachLiveGate.ts must declare AI_LIVE_SPEND_CAP_CONFIRMED as a literal boolean — '
+          + 'the constant is a human signature, not a computed value',
+      );
+
+      const client = read('src/lib/aiCoachClient.ts');
+      assert.match(
+        client,
+        /resolveLiveAiCoachUrl\(\s*process\.env\.EXPO_PUBLIC_AI_COACH_API_URL/,
+        'aiCoachClient must resolve its URL through resolveLiveAiCoachUrl; reading the env '
+          + 'variable directly would let a misconfigured release build open the tap',
+      );
+      assert.equal(
+        (client.match(/EXPO_PUBLIC_AI_COACH_API_URL/g) ?? []).length,
+        1,
+        'the env variable must be read exactly once, through the gate',
+      );
+
+      // A live URL committed to build config while the cap is unconfirmed is
+      // the exact accident the gate exists for — name it here rather than let
+      // the gate silently strip it in production.
+      if (flagMatch[1] === 'false') {
+        for (const candidate of ['.env', '.env.production', 'eas.json', 'app.json']) {
+          const filePath = path.join(root, candidate);
+          if (!fs.existsSync(filePath)) {
+            continue;
+          }
+          assert.ok(
+            !/EXPO_PUBLIC_AI_COACH_API_URL\s*[=:]\s*['"]?https?:\/\//.test(read(candidate)),
+            `${candidate} points releases at a live coach URL, but AI_LIVE_SPEND_CAP_CONFIRMED `
+              + 'is still false. Set the usage limit in the Anthropic Console first, then flip '
+              + 'the constant (docs/ai-coach-backend.md, runbook step 1).',
+          );
+        }
+      }
+    },
+  },
 ];
