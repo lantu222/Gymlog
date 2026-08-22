@@ -100,7 +100,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
     bottom: 108,
   },
   toastText: {
-    color: '#FFFFFF',
+    // ink/surface are the flipping pair: the pill is ink, so the text is
+    // surface. Hardcoded white read fine on light theme's dark ink and turned
+    // near-invisible on dark theme's light ink — the reader pressed "Back up
+    // now" and could not tell success from failure.
+    color: theme.surface,
     textAlign: 'center',
     fontSize: 13,
     fontWeight: '700',
