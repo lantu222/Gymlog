@@ -14,7 +14,8 @@
  *
  * Env (see docs/account-backup.md):
  * - GOOGLE_WEB_CLIENT_ID   — the OAuth Web client id; token audience must match
- * - BLOB_READ_WRITE_TOKEN  — provided by Vercel Blob automatically
+ * - Blob auth: connecting the store adds BLOB_STORE_ID and the SDK uses the
+ *   function's OIDC identity — there is no BLOB_READ_WRITE_TOKEN in this flow
  * - BACKUP_PATH_SECRET     — any long random string; changing it orphans stored backups
  * - BACKUP_MAX_BYTES       — optional payload cap, default 2 MB
  */

@@ -1,0 +1,9 @@
+# The deploy is two serverless functions and the src/ modules they import —
+# not the app. Without this the CLI uploaded the whole working tree, android
+# build outputs included: 1.4 GB, and the upload aborted.
+/*
+!/api
+!/src
+!/package.json
+!/package-lock.json
+!/tsconfig.json

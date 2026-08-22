@@ -2,6 +2,12 @@
 
 Last updated: 22 August 2026
 
+**Deployed state (2026-08-22):** project `vinha-fit/vinha`, production URL
+`https://vinha-azure.vercel.app/api/backup` (the bare `vinha.vercel.app` was
+taken by someone else). Server env complete, smoke-tested: a nonsense token
+answers `INVALID_TOKEN`. `.vercelignore` limits the upload to api/ + src/ —
+without it the CLI tried to push the whole 1.4 GB working tree.
+
 Optional Google sign-in that backs the training data up to a server, so a new
 phone restores it. Offered on the post-onboarding hand-off screen and in
 Settings → YOUR DATA. Free and Pro alike (decision 2026-08-22). Apple sign-in
@@ -47,22 +53,24 @@ backed up.
 
 ### 2. Vercel (storage + endpoint)
 
-1. In the Vercel project (same one as the AI coach): **Storage → Create → Blob**.
-   This injects `BLOB_READ_WRITE_TOKEN` automatically.
+1. In the Vercel project: **Storage → Create → Blob** (EU region). Creating it
+   from inside the project connects it automatically — `BLOB_STORE_ID` appears
+   in the env list, and the SDK authenticates via the function's OIDC identity.
+   There is no `BLOB_READ_WRITE_TOKEN` in this flow.
 2. Environment variables (production):
    - `GOOGLE_WEB_CLIENT_ID` — the web client id from step 1
    - `BACKUP_PATH_SECRET` — any long random string (e.g. `openssl rand -hex 32`).
      Changing it later orphans every stored backup.
    - `BACKUP_MAX_BYTES` — optional, default 2 MB
 3. Deploy (`npx vercel`). Smoke test:
-   `curl -X PUT https://<project>.vercel.app/api/backup -H 'authorization: Bearer nonsense' -d '{}'`
+   `curl -X PUT https://vinha-azure.vercel.app/api/backup -H 'authorization: Bearer nonsense' -d '{}'`
    must answer `401 INVALID_TOKEN` — not 500 (500 = missing env).
 
 ### 3. App build
 
 1. Build env:
    - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=<web client id>`
-   - `EXPO_PUBLIC_BACKUP_API_URL=https://<project>.vercel.app/api/backup`
+   - `EXPO_PUBLIC_BACKUP_API_URL=https://vinha-azure.vercel.app/api/backup`
 2. The native module needs a prebuild (`npx expo prebuild` — the config plugin
    `@react-native-google-signin/google-signin` is already in app.json).
    Remember the local.properties restore afterwards (see project notes).
