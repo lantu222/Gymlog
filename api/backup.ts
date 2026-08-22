@@ -26,6 +26,9 @@ type ApiRequest = {
   method?: string;
   headers: Record<string, string | string[] | undefined>;
   body?: unknown;
+  socket?: {
+    remoteAddress?: string;
+  };
 };
 
 type ApiResponse = {
@@ -41,6 +44,37 @@ const MAX_BYTES = (() => {
   // tap — same rule as the coach budget.
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 2 * 1024 * 1024;
 })();
+
+// Same per-IP speed bump as the coach endpoint, and with the same honesty
+// about what it is: per-instance, reset by a cold start, a brake on one
+// hammering client. It sits BEFORE token verification, because the cost it
+// bounds is the outbound tokeninfo call an unauthenticated spammer would
+// otherwise make this function pay for.
+const RATE_LIMIT_WINDOW_MS = Number(process.env.BACKUP_RATE_LIMIT_WINDOW_MS ?? 10 * 60 * 1000);
+const RATE_LIMIT_MAX = Number(process.env.BACKUP_RATE_LIMIT_MAX ?? 60);
+const rateLimitStore = new Map<string, { count: number; resetAt: number }>();
+
+function getIpAddress(req: ApiRequest) {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    return forwarded.split(',')[0]?.trim() ?? 'unknown';
+  }
+  return req.socket?.remoteAddress ?? 'unknown';
+}
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const existing = rateLimitStore.get(ip);
+  if (!existing || existing.resetAt <= now) {
+    rateLimitStore.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS });
+    return false;
+  }
+  if (existing.count >= RATE_LIMIT_MAX) {
+    return true;
+  }
+  existing.count += 1;
+  return false;
+}
 
 const TOKENINFO_URL = 'https://oauth2.googleapis.com/tokeninfo';
 
@@ -96,6 +130,11 @@ export default async function handler(req: ApiRequest, res: ApiResponse) {
   const pathSecret = process.env.BACKUP_PATH_SECRET;
   if (!clientId || !pathSecret) {
     res.status(500).json({ ok: false, error: 'MISSING_SERVER_CONFIG' });
+    return;
+  }
+
+  if (isRateLimited(getIpAddress(req))) {
+    res.status(429).json({ ok: false, error: 'RATE_LIMITED' });
     return;
   }
 
